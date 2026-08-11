@@ -16,6 +16,7 @@ from api.domain.polity.simple_rules import (
     assign_party_affiliation,
     attempt_rupture_candidacy,
     ballot_ranks_above_blank,
+    build_confidence_ballot,
     build_ranking,
     candidate_label,
     choose_party,
@@ -429,15 +430,102 @@ def test_mobilization_at_or_above_blank_threshold_mobilizes():
     assert deterministic_pressure_action(citizen, gap=0.9, menu=_MOBILIZATION_MENU) == PressureAct.MOBILIZE
 
 
-def test_petition_enabled_raises_not_implemented():
+_PETITION_ONLY_MENU = PressureMenuConfig(petition_enabled=True, mobilization_enabled=False, electoral_only=False)
+_BOTH_MENU = PressureMenuConfig(petition_enabled=True, mobilization_enabled=True, electoral_only=False)
+
+
+def test_petition_signs_an_open_petition_when_one_is_signable():
     citizen = _citizen(1, (0.5,), blank_threshold=0.3)
-    menu = PressureMenuConfig(petition_enabled=True, mobilization_enabled=False, electoral_only=False)
-    with pytest.raises(NotImplementedError, match="petition_enabled"):
-        deterministic_pressure_action(citizen, gap=0.9, menu=menu)
+    act = deterministic_pressure_action(citizen, gap=0.9, menu=_PETITION_ONLY_MENU, can_sign=True, can_launch=False)
+    assert act == PressureAct.SIGN_PETITION
+
+
+def test_petition_launches_when_none_is_open():
+    citizen = _citizen(1, (0.5,), blank_threshold=0.3)
+    act = deterministic_pressure_action(citizen, gap=0.9, menu=_PETITION_ONLY_MENU, can_sign=False, can_launch=True)
+    assert act == PressureAct.LAUNCH_PETITION
+
+
+def test_petition_below_blank_threshold_is_still_nothing():
+    citizen = _citizen(1, (0.5,), blank_threshold=0.3)
+    act = deterministic_pressure_action(citizen, gap=0.1, menu=_PETITION_ONLY_MENU, can_sign=True, can_launch=True)
+    assert act == PressureAct.NOTHING
+
+
+def test_petition_falls_back_to_mobilize_when_no_petition_action_is_available():
+    citizen = _citizen(1, (0.5,), blank_threshold=0.3)
+    act = deterministic_pressure_action(citizen, gap=0.9, menu=_BOTH_MENU, can_sign=False, can_launch=False)
+    assert act == PressureAct.MOBILIZE
+
+
+def test_petition_falls_back_to_wait_for_election_without_mobilization():
+    citizen = _citizen(1, (0.5,), blank_threshold=0.3)
+    act = deterministic_pressure_action(
+        citizen, gap=0.9, menu=_PETITION_ONLY_MENU, can_sign=False, can_launch=False
+    )
+    assert act == PressureAct.WAIT_FOR_ELECTION
+
+
+def test_both_levers_prefer_the_petition_over_mobilization():
+    citizen = _citizen(1, (0.5,), blank_threshold=0.3)
+    signable = deterministic_pressure_action(citizen, gap=0.9, menu=_BOTH_MENU, can_sign=True, can_launch=False)
+    launchable = deterministic_pressure_action(citizen, gap=0.9, menu=_BOTH_MENU, can_sign=False, can_launch=True)
+    assert signable == PressureAct.SIGN_PETITION
+    assert launchable == PressureAct.LAUNCH_PETITION
+
+
+def test_petition_facts_are_ignored_when_the_menu_disables_petitions():
+    citizen = _citizen(1, (0.5,), blank_threshold=0.3)
+    act = deterministic_pressure_action(
+        citizen, gap=0.9, menu=_MOBILIZATION_MENU, can_sign=True, can_launch=True
+    )
+    assert act == PressureAct.MOBILIZE
 
 
 def test_deterministic_pressure_action_mutates_nothing():
     citizen = _citizen(1, (0.5,), blank_threshold=0.3)
     before = (citizen.role, citizen.office, citizen.blank_threshold)
-    deterministic_pressure_action(citizen, gap=0.9, menu=_MOBILIZATION_MENU)
+    deterministic_pressure_action(citizen, gap=0.9, menu=_BOTH_MENU, can_sign=True, can_launch=True)
     assert (citizen.role, citizen.office, citizen.blank_threshold) == before
+
+
+# ── build_confidence_ballot (v4 Lot 5) ────────────────────────────────────
+
+def test_build_confidence_ballot_keeps_within_the_voters_own_blank_threshold():
+    voter = _citizen(1, (0.5,), priorities=(1.0,), blank_threshold=0.3)
+    holder = _citizen(2, (0.5,), priorities=(1.0,))
+    holder.revealed_position = (0.6,)  # distance 0.1 <= 0.3
+    assert build_confidence_ballot(voter, holder) is True
+
+
+def test_build_confidence_ballot_removes_beyond_it():
+    voter = _citizen(1, (0.5,), priorities=(1.0,), blank_threshold=0.1)
+    holder = _citizen(2, (0.5,), priorities=(1.0,))
+    holder.revealed_position = (0.9,)  # distance 0.4 > 0.1
+    assert build_confidence_ballot(voter, holder) is False
+
+
+def test_build_confidence_ballot_raises_without_a_revealed_position():
+    voter = _citizen(1, (0.5,), priorities=(1.0,))
+    holder = _citizen(2, (0.5,), priorities=(1.0,))
+    with pytest.raises(ValueError, match="revealed_position"):
+        build_confidence_ballot(voter, holder)
+
+
+def test_build_confidence_ballot_agrees_with_ballot_ranks_above_blank_on_the_deterministic_path():
+    rng = np.random.default_rng(7)
+    holder = _citizen(0, tuple(rng.uniform(0, 1, size=4)), priorities=tuple(rng.dirichlet(np.ones(4))))
+    holder.pledged_platform = holder.issue_positions
+    holder.revealed_position = holder.issue_positions
+    voters = [
+        _citizen(
+            i,
+            tuple(rng.uniform(0, 1, size=4)),
+            priorities=tuple(rng.dirichlet(np.ones(4))),
+            blank_threshold=float(rng.uniform(0, 1)),
+        )
+        for i in range(1, 21)
+    ]
+    for voter in voters:
+        ballot = build_ranking(voter, [holder])
+        assert build_confidence_ballot(voter, holder) == ballot_ranks_above_blank(ballot, candidate_label(holder))

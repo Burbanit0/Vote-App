@@ -1,10 +1,15 @@
-"""api.domain.polity.accountability — §7bis.5/§6bis.1/§7bis.9: mandate
-deviation, term limits, the awakening gate, and mobilization aggregation.
-Measurement/gating only, never a decision: `mandate_deviation` is
-information (§7bis.5), the awakening gate decides only WHO is consulted,
-never WHAT they decide (§7bis.9d) -- `deterministic_pressure_action`
-(simple_rules.py) and, from Lot 7, the LLM own that. Lot 6/7 add the LLM
-decisions that read `mandate_deviation`/`is_term_limited`.
+"""api.domain.polity.accountability — §7bis.5/§6bis.1/§7bis.9/§7bis.4a:
+mandate deviation, term limits, the awakening gate, mobilization
+aggregation, and (v4 Lot 5) the petition state machine. Measurement/gating
+only through Lot 4: `mandate_deviation` is information (§7bis.5), the
+awakening gate decides only WHO is consulted, never WHAT they decide
+(§7bis.9d) -- `deterministic_pressure_action` (simple_rules.py) and, from
+Lot 7, the LLM own that. Lot 5 adds this module's first *mutations*
+(launch/sign/resolve/reset a petition) -- kept here, next to the
+predicates that guard them, rather than inlined at the one call site, so
+each has exactly one implementation (the same reasoning that produced
+`vacate_office` in Lot 2). Lot 6/7 add the LLM decisions that read
+`mandate_deviation`/`is_term_limited`.
 """
 from __future__ import annotations
 
@@ -12,7 +17,8 @@ import math
 from collections.abc import Sequence
 
 from api.domain.polity.citizen import Citizen, Office
-from api.domain.polity.config import AwakeningConfig, MandateConfig, StreetPressureConfig
+from api.domain.polity.config import AwakeningConfig, MandateConfig, PetitionConfig, StreetPressureConfig
+from api.domain.polity.metrics import signed_ratio
 
 _SUPPORTED_DEVIATION_METRICS = {"weighted_euclidean"}
 
@@ -162,3 +168,105 @@ def update_street_pressure(previous: float, rate: float, config: StreetPressureC
     redundant. Its realized steady-state max exceeds 1.0 under the shipped
     distribution (see scripts/awakening_calibration_results.md)."""
     return config.decay * previous + rate
+
+
+# ── v4 Lot 5: petition state machine (§7bis.4a) ─────────────────────────
+#
+# At most one open petition per target (petition.concurrent_allowed is
+# TRANCHÉ false), so the three officeholder-scoped Citizen fields
+# (petition_open_since_tick/petition_signers/petition_cooldown_until_tick)
+# express the whole state. Every mutator below rebinds those fields on
+# `holder` rather than mutating in place -- frozenset has no in-place
+# mutator anyway, and the rebind keeps every write here symmetric with how
+# street_pressure/legitimacy_capital are already updated at the one call
+# site in run_polity_simulation.py.
+
+
+def petition_pressure(holder: Citizen, population_size: int) -> float:
+    """§7bis.6's petition_pressure(t) == §7bis.4a's signed_ratio(t): 0.0
+    with no open petition, else signatures / population_size. This is
+    écart(t)'s first term, computed fresh at step 4 (and again, unchanged,
+    at step 5's threshold check -- signatures only change at step 2)."""
+    if holder.petition_open_since_tick is None:
+        return 0.0
+    return signed_ratio(len(holder.petition_signers), population_size)
+
+
+def petition_accepts_signatures(holder: Citizen, tick: int, config: PetitionConfig) -> bool:
+    """Open AND still inside its petition_lifespan_ticks window, counting
+    the launch tick itself as the first collecting tick -- a petition
+    launched at t0 is signable at t0 .. t0+lifespan-1."""
+    if holder.petition_open_since_tick is None:
+        return False
+    return tick - holder.petition_open_since_tick < config.petition_lifespan_ticks
+
+
+def petition_has_expired(holder: Citizen, tick: int, config: PetitionConfig) -> bool:
+    """The complement of petition_accepts_signatures once a petition
+    exists: open AND its window has elapsed. Step 5 checks the threshold
+    before this, so an expiry is only ever recorded for a petition that
+    never crossed signature_threshold in its whole window."""
+    if holder.petition_open_since_tick is None:
+        return False
+    return tick - holder.petition_open_since_tick >= config.petition_lifespan_ticks
+
+
+def petition_is_launchable(holder: Citizen, tick: int) -> bool:
+    """No open petition AND not inside a post-resolution cooldown (strict
+    `<`, so the blackout is exactly cooldown_ticks ticks long). An active
+    cooldown and an open petition never coexist (resolve_petition only
+    ever sets the cooldown at the same moment it clears the petition), so
+    this reduces to just the cooldown check whenever a petition IS open."""
+    if holder.petition_open_since_tick is not None:
+        return False
+    return holder.petition_cooldown_until_tick is None or tick >= holder.petition_cooldown_until_tick
+
+
+def launch_petition(holder: Citizen, launcher: Citizen, tick: int) -> None:
+    """§7bis.4a act=2: opens a petition against `holder`, effective this
+    tick. The launcher's own dissatisfaction seeds the signature set --
+    a petition born at signed_ratio 0.0 despite having just been
+    deliberately created would make its own launcher's motive invisible
+    to signed_ratio, and it makes act=1 structurally unavailable to the
+    launcher afterwards (they are already a signer)."""
+    holder.petition_open_since_tick = tick
+    holder.petition_signers = frozenset({launcher.citizen_id})
+
+
+def sign_petition(holder: Citizen, signer: Citizen) -> None:
+    """§7bis.4a act=1: idempotent by construction -- signing twice adds
+    the same id to the set a second time, a no-op."""
+    holder.petition_signers = holder.petition_signers | {signer.citizen_id}
+
+
+def resolve_petition(holder: Citizen, tick: int, config: PetitionConfig) -> None:
+    """Clears the open petition and its signatures, and opens the
+    cooldown -- called by BOTH terminal branches (signature_threshold
+    crossed -> confidence vote, or lifespan expired). The design doc
+    attaches cooldown_ticks only to the successful branch; extending it to
+    expiry too is a documented extension (v4 Lot 5), not a literal
+    reading -- without it the same cohort relaunches an identical petition
+    the tick after expiry, forever, making petition_lifespan_ticks a
+    no-op and petition_expired a meaningless metric. Read as a rate limit
+    on petitions against a target, not a reward for succeeding."""
+    holder.petition_open_since_tick = None
+    holder.petition_signers = frozenset()
+    holder.petition_cooldown_until_tick = tick + config.cooldown_ticks
+
+
+def reset_petition_state(holder: Citizen) -> None:
+    """Election-time reset (called from _hold_presidential_election,
+    gated on config.petition.enabled), unlike resolve_petition also
+    CLEARS the cooldown -- a new mandate is a clean slate, including for
+    an incumbent recalled by a confidence vote in a previous term. Same
+    officeholder-scoped-field pattern as legitimacy_capital/
+    mandate_strength/street_pressure (Lots 3-4): a re-elected incumbent
+    must not inherit a previous term's open petition, signatures, or
+    cooldown, since those were cast against a mandate that no longer
+    exists. A DEFEATED incumbent's stale petition state is deliberately
+    NOT cleared here (Lot 3's precedent: current_office_holders filters by
+    office, so nothing reads it again; post-mortem journal legibility is a
+    feature, not an oversight)."""
+    holder.petition_open_since_tick = None
+    holder.petition_signers = frozenset()
+    holder.petition_cooldown_until_tick = None

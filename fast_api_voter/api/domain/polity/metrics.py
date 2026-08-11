@@ -1,15 +1,16 @@
 """
 api.domain.polity.metrics — the v0 subset of output metrics (Lot 9, design
-doc §10), plus two v4 Lot 4 ratio helpers.
+doc §10), plus three v4 (Lots 4-5) ratio helpers.
 
 Effective number of parties, cohabitation rate, coalition lifespans are
 computable without an LLM or legitimacy (both off in v0). Most other rows
 of §10's table (mean L trajectory, recall frequency, etc.) still need
 indexer.py, which doesn't exist yet -- deferred, same reasoning Lot 3 used
-to leave this module untouched. mobilization_rate/consultation_rate are the
-one exception: both run_polity_simulation.py (real-time, per tick) and
-scripts/calibrate_awakening.py (post-hoc, from a journal) need the exact
-same ratio, so it belongs here rather than being duplicated.
+to leave this module untouched. mobilization_rate/consultation_rate/
+signed_ratio are the one exception: both run_polity_simulation.py
+(real-time, per tick) and the calibration scripts (post-hoc, from a
+journal) need the exact same ratios, so they belong here rather than being
+duplicated.
 
 Pure functions over caller-assembled observations, not journal readers: an
 indexer that replays the raw journal into these shapes is indexer.py's job,
@@ -78,3 +79,14 @@ def consultation_rate(consulted: int, population_size: int) -> float:
     if population_size == 0:
         return 0.0
     return consulted / population_size
+
+
+def signed_ratio(signatures: int, population_size: int) -> float:
+    """§7bis.4a: signed_ratio(t) = signatures cumulées / population_size --
+    the petition analogue of mobilization_rate, same zero-population guard.
+    Two real consumers: run_polity_simulation.py in real time (via
+    accountability.petition_pressure) and scripts/calibrate_petition.py
+    post-hoc from journal counts (v4 Lot 5)."""
+    if population_size == 0:
+        return 0.0
+    return signatures / population_size

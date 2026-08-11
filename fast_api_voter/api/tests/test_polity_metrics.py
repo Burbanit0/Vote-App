@@ -10,6 +10,7 @@ from api.domain.polity.metrics import (
     effective_number_of_parties,
     is_cohabitation,
     mobilization_rate,
+    signed_ratio,
 )
 
 
@@ -113,3 +114,15 @@ def test_consultation_rate_with_zero_consulted_is_zero():
 
 def test_consultation_rate_with_zero_population_is_zero():
     assert consultation_rate(0, 0) == 0.0
+
+
+# ── signed_ratio (v4 Lot 5) ────────────────────────────────────────────────
+
+def test_signed_ratio_hand_cases():
+    assert signed_ratio(25, 100) == 0.25
+    assert signed_ratio(0, 100) == 0.0
+    assert signed_ratio(100, 100) == 1.0
+
+
+def test_signed_ratio_with_zero_population_is_zero():
+    assert signed_ratio(0, 0) == 0.0

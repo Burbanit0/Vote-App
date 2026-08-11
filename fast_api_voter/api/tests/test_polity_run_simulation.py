@@ -23,6 +23,11 @@ from api.domain.polity.run_polity_simulation import (
 )
 from api.domain.polity.simple_rules import assign_party_affiliation, declare_candidacy
 
+_PETITION_LIFECYCLE_EVENT_TYPES = {
+    "petition_launched", "petition_signed", "petition_expired",
+    "confidence_vote_triggered", "confidence_vote_result",
+}
+
 
 def _config_with_output_dir(output_dir) -> PolityConfig:
     config = load_config()
@@ -603,6 +608,410 @@ def test_reelected_president_street_pressure_resets_at_the_new_term(tmp_path):
 
     assert citizen_a.office == Office.PRESIDENT
     assert citizen_a.street_pressure == 0.0
+
+
+# ── petition + confidence vote (v4 Lot 5) ─────────────────────────────────
+
+def _config_with_petition_enabled(output_dir, base_threshold_dist=None, **petition_overrides) -> PolityConfig:
+    config = _config_with_awakening_enabled_and_guaranteed_winners(output_dir)
+    config = dataclasses.replace(
+        config,
+        pressure_menu=dataclasses.replace(config.pressure_menu, electoral_only=False, petition_enabled=True),
+        petition=dataclasses.replace(config.petition, enabled=True, **petition_overrides),
+    )
+    if base_threshold_dist is not None:
+        config = dataclasses.replace(config, citizens=dataclasses.replace(config.citizens, base_threshold_dist=base_threshold_dist))
+    return config
+
+
+def _config_with_full_menu_enabled(output_dir, base_threshold_dist=None) -> PolityConfig:
+    config = _config_with_petition_enabled(output_dir, base_threshold_dist=base_threshold_dist)
+    return dataclasses.replace(
+        config,
+        pressure_menu=dataclasses.replace(config.pressure_menu, mobilization_enabled=True),
+        street_pressure=dataclasses.replace(config.street_pressure, enabled=True),
+    )
+
+
+def test_default_config_run_emits_no_petition_events(tmp_path):
+    journal_path = run_simulation(_config_with_output_dir(tmp_path), run_id="baseline")
+    events = _events(journal_path)
+    assert not [e for e in events if e["event_type"] in _PETITION_LIFECYCLE_EVENT_TYPES]
+    # No recalled event carries a trigger key under the shipped default --
+    # legitimacy is disabled entirely, so no recalled event occurs at all.
+    assert not [e for e in events if e["event_type"] == "recalled"]
+
+
+def test_two_petition_enabled_runs_produce_byte_identical_journals(tmp_path):
+    path_a = run_simulation(_config_with_petition_enabled(tmp_path / "a"), run_id="same-run-id")
+    path_b = run_simulation(_config_with_petition_enabled(tmp_path / "b"), run_id="same-run-id")
+    assert path_a.read_bytes() == path_b.read_bytes()
+
+
+def test_two_full_menu_runs_produce_byte_identical_journals(tmp_path):
+    path_a = run_simulation(_config_with_full_menu_enabled(tmp_path / "a"), run_id="same-run-id")
+    path_b = run_simulation(_config_with_full_menu_enabled(tmp_path / "b"), run_id="same-run-id")
+    assert path_a.read_bytes() == path_b.read_bytes()
+
+
+def test_petition_only_run_journals_a_complete_petition_lifecycle(tmp_path):
+    # Headline DoD: the full §7bis.4a lifecycle actually occurs in a
+    # petition-only run, not just as unit-tested primitives.
+    config = _config_with_petition_enabled(tmp_path)
+    journal_path = run_simulation(config, run_id="petition-lifecycle")
+    events = _events(journal_path)
+
+    assert [e for e in events if e["event_type"] == "petition_launched"]
+    assert [e for e in events if e["event_type"] == "petition_signed"]
+    assert [e for e in events if e["event_type"] == "confidence_vote_triggered"]
+    assert [e for e in events if e["event_type"] == "confidence_vote_result"]
+
+    # Walk the journal reconstructing petition "epochs": launch resets the
+    # signature count to 1, each sign increments it by exactly 1, and a
+    # resolution (trigger, expiry, OR a floor recall that overtakes an
+    # unresolved petition -- Lot 4's own predicted dynamic: w_pet's
+    # amplification can cross the floor before a petition's own threshold
+    # or lifespan resolves it, orphaning it without a closing petition
+    # event of its own) clears it -- no two petitions ever overlap
+    # (concurrent_allowed is TRANCHÉ false).
+    current_signatures = None
+    for e in events:
+        t = e["event_type"]
+        if t == "petition_launched":
+            assert current_signatures is None
+            current_signatures = e["payload"]["signatures"]
+            assert current_signatures == 1
+        elif t == "petition_signed":
+            assert current_signatures is not None
+            assert e["payload"]["signatures"] == current_signatures + 1
+            current_signatures = e["payload"]["signatures"]
+        elif t in ("confidence_vote_triggered", "petition_expired", "recalled"):
+            current_signatures = None
+
+    # Every confidence_vote_triggered is immediately followed by its own
+    # confidence_vote_result -- never short-circuited, never deferred.
+    for i, e in enumerate(events):
+        if e["event_type"] == "confidence_vote_triggered":
+            assert events[i + 1]["event_type"] == "confidence_vote_result"
+
+
+def test_petition_expires_when_its_threshold_is_unreachable(tmp_path):
+    # signature_threshold > 1.0 is structurally unreachable (signed_ratio's
+    # numerator can never exceed its denominator) -- a tuned config, not a
+    # reading of the shipped default (Lot 4's own precedent). base_threshold_dist
+    # is ALSO tuned gentler (Lot 4's own beta(7,3), which avoids floor-crashing
+    # every term) so a petition survives long enough to actually reach its own
+    # lifespan instead of being orphaned by a floor recall first.
+    config = _config_with_petition_enabled(tmp_path, base_threshold_dist="beta(7,3)", signature_threshold=1.5)
+    journal_path = run_simulation(config, run_id="petition-expiry")
+    events = _events(journal_path)
+    assert not [e for e in events if e["event_type"] == "confidence_vote_triggered"]
+    launched = [e for e in events if e["event_type"] == "petition_launched"]
+    expired = [e for e in events if e["event_type"] == "petition_expired"]
+    assert launched
+    assert expired
+    for e in expired:
+        matching_launch = next(le for le in launched if le["payload"]["expires_at_tick"] == e["tick"])
+        assert e["payload"]["opened_at_tick"] == matching_launch["tick"]
+
+
+def test_petition_events_follow_their_own_pressure_action_within_a_tick(tmp_path):
+    config = _config_with_petition_enabled(tmp_path)
+    journal_path = run_simulation(config, run_id="petition-ordering")
+    events = _events(journal_path)
+    for tick in {e["tick"] for e in events}:
+        tick_events = [e for e in events if e["tick"] == tick]
+        for i, e in enumerate(tick_events):
+            if e["event_type"] in ("petition_launched", "petition_signed"):
+                assert i > 0
+                prev = tick_events[i - 1]
+                assert prev["event_type"] == "pressure_action"
+                assert prev["citizen_id"] == e["citizen_id"]
+
+
+def test_petition_threshold_uses_signatures_gathered_this_same_tick(tmp_path):
+    # Direct call: population_size=2 so the launcher's own seed signature
+    # alone already clears signature_threshold on the launch tick itself.
+    config = _config_with_legitimacy_enabled(tmp_path)
+    config = dataclasses.replace(
+        config,
+        run=dataclasses.replace(config.run, population_size=2),
+        awakening=dataclasses.replace(config.awakening, enabled=True, modulation_amplitude=0.0),
+        pressure_menu=dataclasses.replace(config.pressure_menu, electoral_only=False, petition_enabled=True),
+        petition=dataclasses.replace(config.petition, enabled=True, signature_threshold=0.4),
+    )
+    holder = _legitimacy_test_citizen(0, legitimacy_capital=0.5, mandate_strength_value=0.5)
+    holder.revealed_position = (0.5,)
+    launcher = Citizen(
+        citizen_id=1, issue_positions=(0.0,), issue_priorities=(1.0,), blank_threshold=0.0,
+        ambition_score=0.5, base_threshold=0.0,
+    )
+    journal_path = tmp_path / "same-tick.jsonl"
+    with Journal(journal_path, run_id="same-tick") as journal:
+        _run_accountability_phase([holder, launcher], config, journal, tick=0)
+    events = _events(journal_path)
+    launched = next(e for e in events if e["event_type"] == "petition_launched")
+    triggered = next(e for e in events if e["event_type"] == "confidence_vote_triggered")
+    assert launched["tick"] == triggered["tick"] == 0
+    assert triggered["payload"]["opened_at_tick"] == 0
+
+
+def test_petition_pressure_enters_ecart_on_the_same_tick_as_its_signatures(tmp_path):
+    config = _config_with_legitimacy_enabled(tmp_path)
+    config = dataclasses.replace(
+        config,
+        run=dataclasses.replace(config.run, population_size=2),
+        awakening=dataclasses.replace(config.awakening, enabled=True, modulation_amplitude=0.0),
+        pressure_menu=dataclasses.replace(config.pressure_menu, electoral_only=False, petition_enabled=True),
+        petition=dataclasses.replace(config.petition, enabled=True, signature_threshold=0.99),
+    )
+    holder = _legitimacy_test_citizen(0, legitimacy_capital=0.5, mandate_strength_value=0.5)
+    holder.revealed_position = (0.5,)
+    launcher = Citizen(
+        citizen_id=1, issue_positions=(0.0,), issue_priorities=(1.0,), blank_threshold=0.0,
+        ambition_score=0.5, base_threshold=0.0,
+    )
+    journal_path = tmp_path / "ecart.jsonl"
+    with Journal(journal_path, run_id="ecart") as journal:
+        _run_accountability_phase([holder, launcher], config, journal, tick=0)
+    events = _events(journal_path)
+    update = next(e for e in events if e["event_type"] == "legitimacy_updated")
+    expected = config.petition.weight_in_ecart * 0.5 + config.street_pressure.weight_in_ecart * 0.0
+    assert update["payload"]["ecart"] == pytest.approx(expected)
+
+
+def test_the_hard_floor_beats_the_petition_on_a_same_tick_collision(tmp_path):
+    config = _config_with_legitimacy_enabled(tmp_path)
+    config = dataclasses.replace(
+        config,
+        run=dataclasses.replace(config.run, population_size=4),
+        petition=dataclasses.replace(config.petition, enabled=True),
+    )
+    # Fixed point at m=0.1, below the shipped recall_floor -- the floor
+    # fires regardless of the petition's own ecart contribution.
+    holder = _legitimacy_test_citizen(0, legitimacy_capital=0.1, mandate_strength_value=0.1)
+    holder.revealed_position = (0.5,)
+    holder.petition_open_since_tick = 0
+    holder.petition_signers = frozenset({1, 2, 3})  # 3/4 = 0.75 >= signature_threshold (0.25)
+    voters = [
+        Citizen(citizen_id=i, issue_positions=(0.0,), issue_priorities=(1.0,), blank_threshold=0.0, ambition_score=0.5)
+        for i in (1, 2, 3)
+    ]  # each sits 0.5 away from holder.revealed_position, beyond their own 0.0 tolerance -> votes remove
+
+    journal_path = tmp_path / "collision.jsonl"
+    with Journal(journal_path, run_id="collision") as journal:
+        _run_accountability_phase([holder] + voters, config, journal, tick=5)
+
+    events = _events(journal_path)
+    assert [e["event_type"] for e in events] == [
+        "legitimacy_updated", "confidence_vote_triggered", "confidence_vote_result", "recalled",
+    ]
+    # Anti-short-circuit: the confidence vote still ran and journaled in
+    # full even though the floor is what ultimately wins the attribution.
+    assert events[2]["payload"]["retained"] is False
+    assert events[3]["payload"]["trigger"] == "legitimacy_floor"
+
+    assert holder.role == Role.ELECTOR
+    assert holder.office == Office.NONE
+    assert holder.petition_open_since_tick is None
+    assert holder.petition_cooldown_until_tick == 5 + config.petition.cooldown_ticks
+
+
+def test_a_lost_confidence_vote_recalls_and_vacates_the_office(tmp_path):
+    config = _config_with_legitimacy_enabled(tmp_path, recall_floor=0.0)
+    config = dataclasses.replace(
+        config,
+        run=dataclasses.replace(config.run, population_size=4),
+        petition=dataclasses.replace(config.petition, enabled=True),
+    )
+    holder = _legitimacy_test_citizen(0, legitimacy_capital=0.9, mandate_strength_value=0.9)
+    holder.revealed_position = (0.5,)
+    holder.petition_open_since_tick = 0
+    holder.petition_signers = frozenset({1, 2, 3})
+    voters = [
+        Citizen(citizen_id=i, issue_positions=(0.0,), issue_priorities=(1.0,), blank_threshold=0.0, ambition_score=0.5)
+        for i in (1, 2, 3)
+    ]
+
+    journal_path = tmp_path / "lost-confidence.jsonl"
+    with Journal(journal_path, run_id="lost-confidence") as journal:
+        _run_accountability_phase([holder] + voters, config, journal, tick=3)
+
+    events = _events(journal_path)
+    recalled = next(e for e in events if e["event_type"] == "recalled")
+    assert recalled["payload"]["trigger"] == "confidence_vote"
+
+    assert holder.role == Role.ELECTOR
+    assert holder.office == Office.NONE
+    assert holder.term_end_tick is None
+    update_event = next(e for e in events if e["event_type"] == "legitimacy_updated")
+    # Not reset by the recall -- same precedent as the floor-recall path.
+    assert holder.legitimacy_capital == pytest.approx(update_event["payload"]["legitimacy"])
+
+    # Office is now vacant: a second call is a no-op.
+    with Journal(tmp_path / "lost-confidence-2.jsonl", run_id="lost-confidence-2") as journal:
+        _run_accountability_phase([holder] + voters, config, journal, tick=4)
+    assert _events(tmp_path / "lost-confidence-2.jsonl") == []
+
+
+def test_a_survived_confidence_vote_leaves_legitimacy_untouched_and_opens_the_cooldown(tmp_path):
+    config = _config_with_legitimacy_enabled(tmp_path, recall_floor=0.0)
+    config = dataclasses.replace(
+        config,
+        run=dataclasses.replace(config.run, population_size=4),
+        petition=dataclasses.replace(config.petition, enabled=True),
+    )
+    holder = _legitimacy_test_citizen(0, legitimacy_capital=0.9, mandate_strength_value=0.9)
+    holder.revealed_position = (0.5,)
+    holder.petition_open_since_tick = 0
+    holder.petition_signers = frozenset({1, 2, 3})
+    voters = [
+        Citizen(citizen_id=i, issue_positions=(0.5,), issue_priorities=(1.0,), blank_threshold=0.5, ambition_score=0.5)
+        for i in (1, 2, 3)
+    ]  # each sits exactly on holder.revealed_position -> votes keep
+
+    journal_path = tmp_path / "survived.jsonl"
+    with Journal(journal_path, run_id="survived") as journal:
+        _run_accountability_phase([holder] + voters, config, journal, tick=7)
+
+    events = _events(journal_path)
+    assert not [e for e in events if e["event_type"] == "recalled"]
+    result = next(e for e in events if e["event_type"] == "confidence_vote_result")
+    assert result["payload"]["retained"] is True
+
+    update_event = next(e for e in events if e["event_type"] == "legitimacy_updated")
+    # No L change attributable to surviving -- legitimacy_updated (step 4)
+    # already ran before the vote resolved (step 5).
+    assert holder.legitimacy_capital == pytest.approx(update_event["payload"]["legitimacy"])
+    assert holder.petition_open_since_tick is None
+    assert holder.petition_cooldown_until_tick == 7 + config.petition.cooldown_ticks
+
+
+def test_a_second_petition_cannot_launch_during_the_cooldown(tmp_path):
+    config = _config_with_legitimacy_enabled(tmp_path, recall_floor=0.0)
+    config = dataclasses.replace(
+        config,
+        run=dataclasses.replace(config.run, population_size=2),
+        awakening=dataclasses.replace(config.awakening, enabled=True, modulation_amplitude=0.0),
+        pressure_menu=dataclasses.replace(config.pressure_menu, electoral_only=False, petition_enabled=True),
+        petition=dataclasses.replace(config.petition, enabled=True),
+    )
+    holder = _legitimacy_test_citizen(0, legitimacy_capital=0.9, mandate_strength_value=0.9)
+    holder.revealed_position = (0.5,)
+    holder.petition_cooldown_until_tick = 5
+    launcher = Citizen(
+        citizen_id=1, issue_positions=(0.0,), issue_priorities=(1.0,), blank_threshold=0.0,
+        ambition_score=0.5, base_threshold=0.0,
+    )
+
+    launched_ticks = []
+    for tick in range(1, 6):
+        journal_path = tmp_path / f"tick-{tick}.jsonl"
+        with Journal(journal_path, run_id=f"t{tick}") as journal:
+            _run_accountability_phase([holder, launcher], config, journal, tick=tick)
+        launched_ticks += [e["tick"] for e in _events(journal_path) if e["event_type"] == "petition_launched"]
+
+    assert launched_ticks == [5]
+
+
+def test_reelected_president_petition_state_resets_at_the_new_term(tmp_path):
+    config = load_config()
+    config = dataclasses.replace(config, petition=dataclasses.replace(config.petition, enabled=True))
+    term_ticks = config.institutions.president_term_years * config.run.ticks_per_year
+
+    citizen_a = _office_test_citizen(0, 0.1)
+    citizen_a.ambition_score = 1.0
+    citizen_a.party_affiliation = 0
+    party = Party(party_id=0, platform=(0.1,))
+    electors = [_office_test_citizen(i, 0.5) for i in range(1, 6)]
+
+    with Journal(tmp_path / "run.jsonl", run_id="r") as journal:
+        _hold_presidential_election([citizen_a] + electors, [party], config, journal, tick=0, llm_client=None)
+        citizen_a.petition_open_since_tick = 3
+        citizen_a.petition_signers = frozenset({1, 2})
+        citizen_a.petition_cooldown_until_tick = 10
+
+        _hold_presidential_election(
+            [citizen_a] + electors, [party], config, journal, tick=term_ticks, llm_client=None
+        )
+
+    assert citizen_a.office == Office.PRESIDENT
+    assert citizen_a.petition_open_since_tick is None
+    assert citizen_a.petition_signers == frozenset()
+    assert citizen_a.petition_cooldown_until_tick is None
+
+
+def test_a_defeated_incumbents_petition_state_is_deliberately_not_cleared(tmp_path):
+    config = dataclasses.replace(
+        load_config(), institutions=dataclasses.replace(load_config().institutions, president_term_limit=1)
+    )
+    config = dataclasses.replace(config, petition=dataclasses.replace(config.petition, enabled=True))
+    term_ticks = config.institutions.president_term_years * config.run.ticks_per_year
+
+    citizen_a = _office_test_citizen(0, 0.1)
+    citizen_a.ambition_score = 1.0
+    citizen_a.party_affiliation = 0
+    citizen_b = _office_test_citizen(1, 0.9)
+    citizen_b.ambition_score = 1.0
+    citizen_b.party_affiliation = 1
+    party_a = Party(party_id=0, platform=(0.1,))
+    party_b = Party(party_id=1, platform=(0.9,))
+    electors = [_office_test_citizen(i, 0.1) for i in range(2, 7)]
+
+    with Journal(tmp_path / "run.jsonl", run_id="r") as journal:
+        _hold_presidential_election(
+            [citizen_a, citizen_b] + electors, [party_a, party_b], config, journal, tick=0, llm_client=None
+        )
+        citizen_a.petition_open_since_tick = 3
+        citizen_a.petition_signers = frozenset({2})
+
+        _hold_presidential_election(
+            [citizen_a, citizen_b] + electors, [party_a, party_b], config, journal, tick=term_ticks, llm_client=None
+        )
+
+    assert citizen_a.office == Office.NONE
+    assert citizen_a.petition_open_since_tick == 3
+    assert citizen_a.petition_signers == frozenset({2})
+
+
+def test_no_petition_events_while_the_presidency_is_vacant(tmp_path):
+    config = _config_with_awakening_enabled(tmp_path)
+    config = dataclasses.replace(
+        config,
+        pressure_menu=dataclasses.replace(config.pressure_menu, electoral_only=False, petition_enabled=True),
+        petition=dataclasses.replace(config.petition, enabled=True),
+    )
+    journal_path = run_simulation(config, run_id="vacant-petition")
+    events = _events(journal_path)
+    assert not [e for e in events if e["event_type"] == "elected"]
+    assert not [e for e in events if e["event_type"] in _PETITION_LIFECYCLE_EVENT_TYPES]
+
+
+def test_full_menu_run_reaches_sign_launch_and_mobilize_acts(tmp_path):
+    config = _config_with_full_menu_enabled(tmp_path)
+    journal_path = run_simulation(config, run_id="full-menu")
+    events = _events(journal_path)
+    acts = {e["payload"]["act"] for e in events if e["event_type"] == "pressure_action"}
+    assert {0, 1, 2, 3}.issubset(acts)
+
+
+def test_confidence_vote_keep_ratio_equals_mandate_strength_on_the_deterministic_path(tmp_path):
+    # Lot 6 is what breaks this identity, on purpose (build_confidence_ballot's
+    # own docstring): once revealed_position can drift, the two decouple.
+    config = _config_with_petition_enabled(tmp_path)
+    journal_path = run_simulation(config, run_id="keep-ratio-identity")
+    events = _events(journal_path)
+    results = [e for e in events if e["event_type"] == "confidence_vote_result"]
+    assert results
+    for result in results:
+        same_tick_updates = [
+            e for e in events
+            if e["event_type"] == "legitimacy_updated"
+            and e["tick"] == result["tick"]
+            and e["citizen_id"] == result["citizen_id"]
+        ]
+        assert same_tick_updates
+        assert result["payload"]["keep_ratio"] == pytest.approx(same_tick_updates[-1]["payload"]["mandate_strength"])
 
 
 # ── LLM-enabled path (v2 increments 1-2) ─────────────────────────────────

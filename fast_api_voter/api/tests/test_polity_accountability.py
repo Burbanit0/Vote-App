@@ -1,8 +1,10 @@
-"""v4 Lots 2-4 — accountability.py: mandate_deviation, self_gap, term limits,
-current_office_holders, the awakening gate, mobilization. Measurement/gating
-only (§7bis.5/§6bis.1/§7bis.9) — none of this decides anything; Lots 6-7 are
-the first real callers of most of it, deterministic_pressure_action
-(simple_rules.py) is the first real caller of select_consulted's output.
+"""v4 Lots 2-5 — accountability.py: mandate_deviation, self_gap, term limits,
+current_office_holders, the awakening gate, mobilization, and (Lot 5) the
+petition state machine. Measurement/gating only through Lot 4 (§7bis.5/
+§6bis.1/§7bis.9) -- none of that decides anything; Lots 6-7 are the first
+real callers of most of it, deterministic_pressure_action (simple_rules.py)
+is the first real caller of select_consulted's output. Lot 5's petition
+functions are this module's first mutations.
 """
 import pytest
 
@@ -11,10 +13,18 @@ from api.domain.polity.accountability import (
     current_office_holders,
     election_proximity,
     is_term_limited,
+    launch_petition,
     mandate_deviation,
+    petition_accepts_signatures,
+    petition_has_expired,
+    petition_is_launchable,
+    petition_pressure,
     pledge_weights,
+    reset_petition_state,
+    resolve_petition,
     select_consulted,
     self_gap,
+    sign_petition,
     update_street_pressure,
     weighted_euclidean,
 )
@@ -23,6 +33,7 @@ from api.domain.polity.config import (
     AwakeningConfig,
     AwakeningContextModulation,
     MandateConfig,
+    PetitionConfig,
     StreetPressureConfig,
 )
 from api.domain.polity.simple_rules import _weighted_distance
@@ -386,3 +397,120 @@ def test_update_street_pressure_decays_toward_zero_with_no_rate():
     for _ in range(300):
         sp = update_street_pressure(sp, 0.0, _STREET_PRESSURE_CONFIG)
     assert sp == pytest.approx(0.0, abs=1e-3)
+
+
+# ── petition state machine (v4 Lot 5, §7bis.4a) ───────────────────────────
+
+_PETITION_CONFIG = PetitionConfig(
+    enabled=True,
+    signature_threshold=0.25,
+    cooldown_ticks=4,
+    petition_lifespan_ticks=4,
+    confidence_vote_format="binary",
+    concurrent_allowed=False,
+    weight_in_ecart=0.5,
+)
+
+
+def test_petition_pressure_is_zero_with_no_open_petition():
+    holder = _citizen(1, (0.5,))
+    assert petition_pressure(holder, population_size=100) == 0.0
+
+
+def test_petition_pressure_is_signatures_over_population_size():
+    holder = _citizen(1, (0.5,), petition_open_since_tick=0, petition_signers=frozenset({2, 3, 4}))
+    assert petition_pressure(holder, population_size=100) == pytest.approx(0.03)
+
+
+def test_launch_petition_records_the_launcher_as_its_first_signer():
+    holder = _citizen(1, (0.5,))
+    launcher = _citizen(2, (0.5,))
+    launch_petition(holder, launcher, tick=5)
+    assert holder.petition_open_since_tick == 5
+    assert holder.petition_signers == frozenset({2})
+
+
+def test_sign_petition_is_a_noop_for_an_existing_signer():
+    holder = _citizen(1, (0.5,), petition_open_since_tick=0, petition_signers=frozenset({2}))
+    signer = _citizen(2, (0.5,))
+    sign_petition(holder, signer)
+    assert holder.petition_signers == frozenset({2})
+
+
+def test_sign_petition_adds_a_new_signer():
+    holder = _citizen(1, (0.5,), petition_open_since_tick=0, petition_signers=frozenset({2}))
+    signer = _citizen(3, (0.5,))
+    sign_petition(holder, signer)
+    assert holder.petition_signers == frozenset({2, 3})
+
+
+def test_petition_accepts_signatures_on_its_launch_tick_and_through_its_window():
+    holder = _citizen(1, (0.5,), petition_open_since_tick=10)
+    for tick in (10, 11, 12, 13):
+        assert petition_accepts_signatures(holder, tick, _PETITION_CONFIG) is True
+
+
+def test_petition_stops_accepting_signatures_on_its_expiry_tick():
+    holder = _citizen(1, (0.5,), petition_open_since_tick=10)
+    assert petition_accepts_signatures(holder, 14, _PETITION_CONFIG) is False
+
+
+def test_petition_accepts_signatures_is_false_with_no_open_petition():
+    holder = _citizen(1, (0.5,))
+    assert petition_accepts_signatures(holder, 10, _PETITION_CONFIG) is False
+
+
+def test_petition_has_expired_exactly_at_lifespan_ticks():
+    holder = _citizen(1, (0.5,), petition_open_since_tick=10)
+    assert petition_has_expired(holder, 13, _PETITION_CONFIG) is False
+    assert petition_has_expired(holder, 14, _PETITION_CONFIG) is True
+
+
+def test_petition_has_expired_is_false_with_no_open_petition():
+    holder = _citizen(1, (0.5,))
+    assert petition_has_expired(holder, 10, _PETITION_CONFIG) is False
+
+
+def test_petition_is_launchable_only_with_no_open_petition_and_no_cooldown():
+    open_petition = _citizen(1, (0.5,), petition_open_since_tick=0)
+    in_cooldown = _citizen(2, (0.5,), petition_cooldown_until_tick=10)
+    clear = _citizen(3, (0.5,))
+    assert petition_is_launchable(open_petition, tick=5) is False
+    assert petition_is_launchable(in_cooldown, tick=5) is False
+    assert petition_is_launchable(clear, tick=5) is True
+
+
+def test_cooldown_blocks_launching_for_exactly_cooldown_ticks():
+    holder = _citizen(1, (0.5,))
+    resolve_petition(holder, tick=10, config=_PETITION_CONFIG)  # cooldown_until = 14
+    for tick in (10, 11, 12, 13):
+        assert petition_is_launchable(holder, tick) is False
+    assert petition_is_launchable(holder, 14) is True
+
+
+def test_an_active_cooldown_never_coexists_with_an_open_petition():
+    holder = _citizen(1, (0.5,))
+    resolve_petition(holder, tick=10, config=_PETITION_CONFIG)
+    assert holder.petition_cooldown_until_tick is not None
+    assert holder.petition_open_since_tick is None
+
+
+def test_resolve_petition_clears_the_signatures_and_opens_the_cooldown():
+    holder = _citizen(1, (0.5,), petition_open_since_tick=10, petition_signers=frozenset({2, 3}))
+    resolve_petition(holder, tick=14, config=_PETITION_CONFIG)
+    assert holder.petition_open_since_tick is None
+    assert holder.petition_signers == frozenset()
+    assert holder.petition_cooldown_until_tick == 18
+
+
+def test_reset_petition_state_also_clears_the_cooldown():
+    holder = _citizen(
+        1, (0.5,),
+        petition_open_since_tick=10,
+        petition_signers=frozenset({2}),
+        petition_cooldown_until_tick=20,
+    )
+    reset_petition_state(holder)
+    assert holder.petition_open_since_tick is None
+    assert holder.petition_signers == frozenset()
+    assert holder.petition_cooldown_until_tick is None
