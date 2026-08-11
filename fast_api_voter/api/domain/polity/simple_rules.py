@@ -16,10 +16,15 @@ DEMARRAGE-polity-v0.md §2 and audit-precision-plan.md A5:
    seats is reached, with every tiebreak explicit (DEMARRAGE §4) — a bare
    max()/min() on insertion order would make the byte-for-byte
    reproducibility test (Lot 8) depend on an implementation accident.
-4. Pressure action (v4 Lot 4): `deterministic_pressure_action` is dt=10's
+4. Pressure action (v4 Lot 4/5): `deterministic_pressure_action` is dt=10's
    §11.4 baseline, this module's first codebook.py consumer -- a simple,
    mechanical rule (like every rule above), not an attempt at realism;
-   Lot 7's LLM is what replaces it behind config.llm.enabled.
+   Lot 7's LLM is what replaces it behind config.llm.enabled. `v4 Lot 5`
+   adds `build_confidence_ballot`, the deterministic per-citizen rule
+   behind the binary confidence vote (§7bis.4a) -- deliberately NOT
+   replaced by the LLM even when config.llm.enabled is true (§7bis.4a
+   keeps it inside ballot_and_aggregation.py as bf=4 on vote_cast, never
+   its own decision type; the roadmap's own top-level resolution).
 
 This module is deliberately what llm_behavior_engine.py replaces in v2 — it
 also stays on afterwards as the baseline against which the LLM's effect is
@@ -325,27 +330,90 @@ def form_coalition(
 
 # ── 4. Pressure action rule ─────────────────────────────────────────────
 
-def deterministic_pressure_action(citizen: Citizen, gap: float, menu: PressureMenuConfig) -> PressureAct:
-    """v4 Lot 4, dt=10's §11.4 baseline for a citizen already past the
+def deterministic_pressure_action(
+    citizen: Citizen,
+    gap: float,
+    menu: PressureMenuConfig,
+    *,
+    can_sign: bool = False,
+    can_launch: bool = False,
+) -> PressureAct:
+    """v4 Lot 4/5, dt=10's §11.4 baseline for a citizen already past the
     awakening gate (accountability.select_consulted) -- this function never
-    decides WHO is consulted, only what a consulted citizen does.
+    decides WHO is consulted, only what a consulted citizen does. `gap` and
+    the two petition-availability facts are pre-computed by the caller and
+    passed in, not recomputed here, precisely so this module never imports
+    accountability.py -- the "who decides" module stays free of the "what
+    is the institutional state" module. `can_sign`/`can_launch` are ignored
+    entirely when `menu.petition_enabled` is false: `menu.petition_enabled`
+    is the single authoritative gate, so a caller that computes the facts
+    without consulting the menu still cannot produce an out-of-menu act.
 
-    Gates MOBILIZE on the citizen's own blank_threshold (already the
-    "unacceptable to me" bar on the same weighted-distance scale as
-    self_gap, per build_ranking) rather than mobilizing unconditionally:
-    verified numerically that a sustained mobilization rate amplifies into
-    an L drop by ~33x at the shipped decay/weight_in_ecart values, so an
-    unconditional rule would crash L to its floor on the first tick of
-    every term and make "L moves and recovers" untestable. This also keeps
-    act=0 genuinely reachable under electoral_only, not just theoretically
-    legal (§16.3: "y compris act=0").
+    Gates MOBILIZE (and, from Lot 5, the petition actions) on the citizen's
+    own blank_threshold (already the "unacceptable to me" bar on the same
+    weighted-distance scale as self_gap, per build_ranking) rather than
+    acting unconditionally: verified numerically that a sustained
+    mobilization rate amplifies into an L drop by ~33x at the shipped
+    decay/weight_in_ecart values, so an unconditional rule would crash L to
+    its floor on the first tick of every term and make "L moves and
+    recovers" untestable. This also keeps act=0 genuinely reachable under
+    electoral_only, not just theoretically legal (§16.3: "y compris
+    act=0").
 
-    petition_enabled must stay false until Lot 5 builds the petition state
-    machine this function has nothing to compute against yet."""
-    if menu.petition_enabled:
-        raise NotImplementedError("pressure_menu.petition_enabled is Lot 5 scope")
+    Priority chain when both petition_enabled and mobilization_enabled are
+    true (the "both" modality of §7bis.2's 4-way menu): sign an open,
+    unsigned petition; else launch one if none is open and the target
+    isn't in cooldown; else mobilize; else wait for the election. Petition
+    outranks mobilization because it is the only lever with an
+    institutional consequence (it can trigger a binding confidence vote),
+    while mobilization "ne déclenche rien automatiquement, il rend
+    visible" (§7bis.4b) -- and because the REVERSE order makes "both"
+    behaviorally identical to mobilization-only (a petition would never be
+    launched), collapsing one of the menu's four modalities before Lot 8
+    can compare them. This rigid preference is the §11.4 BASELINE ONLY --
+    Lot 7's LLM sees the whole menu and arbitrates freely; the contrast
+    between a rigid preference and a free arbitration is what the palier
+    exists to measure."""
     if gap < citizen.blank_threshold:
         return PressureAct.NOTHING
+    if menu.petition_enabled:
+        if can_sign:
+            return PressureAct.SIGN_PETITION
+        if can_launch:
+            return PressureAct.LAUNCH_PETITION
     if menu.mobilization_enabled:
         return PressureAct.MOBILIZE
     return PressureAct.WAIT_FOR_ELECTION
+
+
+# ── 5. Confidence-vote ballot rule (v4 Lot 5, §7bis.4a) ─────────────────
+
+def build_confidence_ballot(voter: Citizen, holder: Citizen) -> bool:
+    """True = keep. Reuses build_ranking/choose_party's acceptability bar:
+    keep iff _weighted_distance(voter, holder.revealed_position) is within
+    voter.blank_threshold -- identical math to accountability.self_gap,
+    kept local so this module's dependency set is unchanged (see
+    deterministic_pressure_action's own reasoning for the same choice).
+    Raises if the holder has no revealed_position (a contract violation:
+    every officeholder gets one at candidacy declaration).
+
+    Uses revealed_position, not pledged_platform: the referendum is on the
+    maintien of the representative AS THEY ACTUALLY ARE. Through Lot 5,
+    revealed_position == pledged_platform always (declare_candidacy pins
+    them equal, and nothing diverges them until Lot 6's
+    representative_response exists) -- so on the deterministic path,
+    build_confidence_ballot(voter, holder) is EXACTLY
+    ballot_ranks_above_blank(build_ranking(voter, [holder, ...]),
+    candidate_label(holder)): build_ranking's own "above blank" cutoff is
+    this same `<=` comparison, and because it is a strict partition (every
+    within-tolerance candidate sorts before every out-of-tolerance one), a
+    candidate's position relative to blank depends only on that
+    candidate's own distance, never on who else is in the field. This
+    makes keep_ratio (ballot_and_aggregation.confidence_keep_ratio) equal
+    to mandate_strength for the whole term on the deterministic path --
+    proven, not assumed, and pinned by test. Lot 6 is what breaks this,
+    deliberately: once revealed_position can drift, the confidence vote
+    decouples from the election and becomes a live sanction."""
+    if holder.revealed_position is None:
+        raise ValueError(f"citizen {holder.citizen_id} has no revealed_position")
+    return _weighted_distance(voter, holder.revealed_position) <= voter.blank_threshold

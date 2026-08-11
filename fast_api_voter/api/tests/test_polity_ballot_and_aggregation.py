@@ -13,7 +13,9 @@ from api.domain.polity.ballot_and_aggregation import (
     RANKED_METHODS,
     SCORE_METHODS,
     allocate_seats,
+    confidence_keep_ratio,
     get_presidential_winner,
+    resolve_confidence_vote,
 )
 
 # Mirrors config.py's _PRESIDENTIAL_METHODS — a config value with no dispatch
@@ -99,3 +101,41 @@ def test_sainte_lague_and_largest_remainder_allocate_all_seats():
 def test_unknown_seat_allocation_raises():
     with pytest.raises(ValueError, match="unknown seat_allocation"):
         allocate_seats({"A": 1.0}, total_seats=1, method="coin_flip", electoral_threshold=0.0)
+
+
+# ── confidence vote (v4 Lot 5, §7bis.4a) ──────────────────────────────────
+
+def test_confidence_keep_ratio_is_hand_computed():
+    assert confidence_keep_ratio([True, True, True, False]) == 0.75
+
+
+def test_confidence_keep_ratio_raises_on_empty_ballots():
+    with pytest.raises(ValueError, match="no ballots"):
+        confidence_keep_ratio([])
+
+
+def test_confidence_vote_retains_on_a_strict_majority():
+    assert resolve_confidence_vote([True, True, False]) is True
+
+
+def test_confidence_vote_removes_on_an_exact_tie():
+    assert resolve_confidence_vote([True, True, False, False]) is False
+
+
+def test_confidence_vote_removes_on_a_minority_keep():
+    assert resolve_confidence_vote([True, False, False]) is False
+
+
+def test_unanimous_confidence_ballots_resolve_both_ways():
+    assert resolve_confidence_vote([True, True, True]) is True
+    assert resolve_confidence_vote([False, False, False]) is False
+
+
+def test_confidence_vote_raises_on_empty_ballots():
+    with pytest.raises(ValueError, match="no ballots"):
+        resolve_confidence_vote([])
+
+
+def test_unsupported_confidence_vote_format_raises():
+    with pytest.raises(NotImplementedError, match="confidence_vote_format"):
+        resolve_confidence_vote([True, False], ballot_format="multi_candidate")

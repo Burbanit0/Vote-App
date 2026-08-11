@@ -81,6 +81,19 @@ class Citizen:
     # doesn't carry over a previous term's accumulated street pressure.
     # Never drawn by generate_population, deliberately unclamped.
     street_pressure: float = 0.0
+    # v4 Lot 5 (§7bis.4a): officeholder-scoped petition state -- at most one
+    # open petition per target (concurrent_allowed is TRANCHÉ false), so a
+    # single nullable "opened_since" tick plus a signer set express it
+    # exactly. Reset (including the cooldown) at election by
+    # reset_petition_state, never at vacate_office -- a defeated incumbent's
+    # stale petition state stays for post-mortem journal legibility, same
+    # precedent as pledged_platform/revealed_position not being cleared on a
+    # term-end vacate. frozenset() is a legal bare dataclass default (only
+    # list/dict/set are rejected); every mutation is a rebind, never
+    # in-place, so there is no aliasing hazard between citizens.
+    petition_open_since_tick: int | None = None
+    petition_signers: frozenset[int] = frozenset()
+    petition_cooldown_until_tick: int | None = None
 
 
 def generate_population(config: CitizensConfig, population_size: int, seed: int) -> list[Citizen]:

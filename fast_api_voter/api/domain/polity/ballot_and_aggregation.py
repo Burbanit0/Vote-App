@@ -7,11 +7,19 @@ ballots to the existing, golden-fixture-tested engine/utils algorithms and
 translates their result into a winner (presidential) or a seat allocation
 (legislative, party-list). It has no idea how a ballot got built — that is
 simple_rules.py's job (Lot 6) today, and llm_behavior_engine.py's from v2.
+
+v4 Lot 5 adds the binary confidence vote (§7bis.4a) here, per the design
+doc's own explicit placement instruction ("le vote de confiance reste dans
+ballot_and_aggregation.py -- format binaire, aucune nouvelle méthode
+d'agrégation"): still an adapter, it receives already-built ballots
+(simple_rules.build_confidence_ballot) and resolves them, it does not
+build them.
 """
 from __future__ import annotations
 
 from typing import Any, Callable, Optional
 
+from api.domain.polity.codebook import BallotFormat
 from api.engine.utils.simulation_multiwinner_utils import (
     get_dhondt_winners,
     get_largest_remainder_winners,
@@ -113,3 +121,39 @@ def allocate_seats(
 
     awarded = allocate(qualifying, total_seats)
     return {party: awarded.get(party, 0) for party in vote_shares}
+
+
+# Named _CONFIDENCE_VOTE_BALLOT_FORMATS, not _CONFIDENCE_VOTE_FORMATS, to
+# avoid shadowing config.py's identically-purposed but differently-shaped
+# module constant of that name -- different modules, no runtime collision,
+# but a repo-wide grep for the name should find two unrelated things as
+# rarely as possible.
+_CONFIDENCE_VOTE_BALLOT_FORMATS = {"binary": BallotFormat.BINARY}
+
+
+def confidence_keep_ratio(ballots: list[bool]) -> float:
+    """§7bis.4a: the fraction of cast confidence-vote ballots voting to
+    keep (True). Raises on an empty list, same style as
+    legitimacy.mandate_strength -- there is no meaningful ratio over zero
+    ballots, and a silent 0.0 would be indistinguishable from unanimous
+    removal."""
+    if not ballots:
+        raise ValueError("confidence_keep_ratio: no ballots cast")
+    return sum(ballots) / len(ballots)
+
+
+def resolve_confidence_vote(ballots: list[bool], ballot_format: str = "binary") -> bool:
+    """§7bis.4a's binary référendum sur le maintien: True = retained.
+    Re-checks ballot_format at the call site rather than trusting the
+    loader transitively -- same guard style as
+    generate_population's position_dist check and
+    accountability.mandate_deviation's deviation_metric check.
+
+    Retained iff confidence_keep_ratio(ballots) > 0.5, STRICTLY -- a tie
+    removes. The question put to the population is the maintien, so the
+    maintien is what must command a majority: "more than half of us want
+    you gone" is the externally legible sentence §7.2's fixed floor exists
+    to protect."""
+    if ballot_format not in _CONFIDENCE_VOTE_BALLOT_FORMATS:
+        raise NotImplementedError(f"petition.confidence_vote_format {ballot_format!r} not supported")
+    return confidence_keep_ratio(ballots) > 0.5

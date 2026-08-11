@@ -45,13 +45,27 @@ import numpy as np
 from api.domain.polity.accountability import (
     current_office_holders,
     is_term_limited,
+    launch_petition,
     mandate_deviation,
+    petition_accepts_signatures,
+    petition_has_expired,
+    petition_is_launchable,
+    petition_pressure,
+    reset_petition_state,
+    resolve_petition,
     select_consulted,
+    sign_petition,
     update_street_pressure,
 )
-from api.domain.polity.ballot_and_aggregation import RANKED_METHODS, allocate_seats, get_presidential_winner
+from api.domain.polity.ballot_and_aggregation import (
+    RANKED_METHODS,
+    allocate_seats,
+    confidence_keep_ratio,
+    get_presidential_winner,
+    resolve_confidence_vote,
+)
 from api.domain.polity.citizen import Citizen, Office, Role, generate_population
-from api.domain.polity.codebook import PressureAct
+from api.domain.polity.codebook import BallotFormat, PressureAct
 from api.domain.polity.config import PolityConfig
 from api.domain.polity.institutional_clock import ElectionType, InstitutionalClock
 from api.domain.polity.journal import Journal
@@ -77,6 +91,7 @@ from api.domain.polity.simple_rules import (
     BLANK_LABEL,
     assign_party_affiliation,
     attempt_rupture_candidacy,
+    build_confidence_ballot,
     build_ranking,
     choose_party,
     citizen_id_from_label,
@@ -385,6 +400,14 @@ def _hold_presidential_election(
                 # A re-elected incumbent must not carry over a previous
                 # term's accumulated street pressure (v4 Lot 4, §7bis.4b).
                 winner.street_pressure = 0.0
+            if config.petition.enabled:
+                # A re-elected incumbent must not inherit their previous
+                # term's open petition, signatures or cooldown -- the
+                # signatures were cast against a mandate that no longer
+                # exists (v4 Lot 5, §7bis.4a). A DEFEATED incumbent's stale
+                # petition state is deliberately not cleared here -- same
+                # precedent as pledged_platform/revealed_position above.
+                reset_petition_state(winner)
 
     for nominee in nominees:
         if nominee is not winner:
@@ -504,34 +527,52 @@ def _form_and_journal_coalition_llm(
 
 
 def _run_accountability_phase(citizens: list[Citizen], config: PolityConfig, journal: Journal, tick: int) -> None:
-    """v4 Lots 2-4 -- §7bis.7 steps 1, 2, 3, 4 and 6 (measure -> awaken ->
-    aggregate pressure -> update L(t) -> check the hard floor). Steps 5/7
-    (petition threshold, next-tick street_pressure context) land in Lots
-    5-6. Called last in the tick body, after both election blocks, so a
-    same-tick newly-elected president's mandate_pledge_declared/L0 are
+    """v4 Lots 2-5 -- §7bis.7 steps 1 through 6 (measure -> awaken ->
+    aggregate pressure -> update L(t) -> petition threshold -> hard floor).
+    Step 7 (next-tick street_pressure context for the representative) lands
+    in Lot 6. Called last in the tick body, after both election blocks, so
+    a same-tick newly-elected president's mandate_pledge_declared/L0 are
     already on record before this phase runs for them -- frozen journal-byte
-    ordering: mandate_deviation_recorded (if any) -> pressure_action x N
-    (ascending citizen_id) -> legitimacy_updated -> recalled (if any). Lot 5
-    inserts its petition check between the last two. street_pressure(t)
-    computed at step 3 feeds écart(t) at the SAME tick; only the
-    representative's own reading of it is deferred a tick (Lot 6's
-    ctx.street) -- the aggregate itself is not delayed.
+    ordering: mandate_deviation_recorded (if any) -> [pressure_action, then
+    petition_launched|petition_signed if that citizen's act produced one]
+    x N (ascending citizen_id) -> legitimacy_updated ->
+    [confidence_vote_triggered + confidence_vote_result] | petition_expired
+    (mutually exclusive) -> recalled (if any). The petition-lifecycle
+    events are interleaved immediately after their own citizen's
+    pressure_action -- they describe the same atomic act by the same
+    citizen, same adjacency _declare_nominees_llm already uses for
+    candidacy_considered -> candidacy_declared. street_pressure(t) and
+    petition_pressure(t), both computed at step 3, feed écart(t) at the
+    SAME tick; only the representative's own reading of street_pressure is
+    deferred a tick (Lot 6's ctx.street) -- the aggregates themselves are
+    not delayed.
 
     config.mandate.enabled, config.legitimacy.enabled and
     config.awakening.enabled are independent toggles (Lot 1's cross-field
     rules only require pressure levers to imply legitimacy.enabled AND, as
-    of this lot, awakening.enabled) -- gated separately below.
+    of Lot 4, awakening.enabled) -- gated separately below.
     mandate_deviation is measured whenever either mandate.enabled OR a
     nonzero passive_erosion_weight could consume it, even if mandate.enabled
     alone is false: only the mandate_deviation_recorded *journal write*
     stays gated on mandate.enabled, so a configured erosion term is never
     silently zeroed just because pledge/deviation tracking itself is off.
+    The `can_sign`/`can_launch` facts passed into deterministic_pressure_action
+    are computed unconditionally (they are False by construction on default
+    state) -- menu.petition_enabled inside that function is the single
+    authoritative gate, not a second one that could disagree.
 
-    recall_cooldown_ticks stays unconsumed this lot: after vacate_office,
-    current_office_holders returns nothing for that office, so a repeat
-    recall isn't representable until a new president exists at the next
-    scheduled election -- far longer than the cooldown, so it cannot bind
-    here regardless."""
+    Step 5/6 same-tick collision (§7bis.7: the floor wins on priority):
+    `floor_fires` is captured immediately after legitimacy_updated, BEFORE
+    step 5 runs -- step 5 then always runs in full (never short-circuited),
+    so confidence_vote_triggered/confidence_vote_result are never silently
+    dropped on the exact ticks where citizen pressure is most intense. The
+    priority is therefore about ATTRIBUTION (which trigger the recalled
+    event names), not about which mechanism physically fires -- the office
+    is vacated exactly once either way. recall_cooldown_ticks stays
+    unconsumed this lot: after vacate_office, current_office_holders
+    returns nothing for that office, so a repeat recall isn't representable
+    until a new president exists at the next scheduled election -- far
+    longer than the cooldown, so it cannot bind here regardless."""
     if not (config.mandate.enabled or config.legitimacy.enabled or config.awakening.enabled):
         return
     term_ticks = config.institutions.president_term_years * config.run.ticks_per_year
@@ -562,7 +603,14 @@ def _run_accountability_phase(citizens: list[Citizen], config: PolityConfig, jou
             )
             participants = 0
             for citizen, gap in consulted:
-                act = deterministic_pressure_action(citizen, gap, config.pressure_menu)
+                can_sign = (
+                    petition_accepts_signatures(holder, tick, config.petition)
+                    and citizen.citizen_id not in holder.petition_signers
+                )
+                can_launch = petition_is_launchable(holder, tick)
+                act = deterministic_pressure_action(
+                    citizen, gap, config.pressure_menu, can_sign=can_sign, can_launch=can_launch
+                )
                 if act is PressureAct.MOBILIZE:
                     participants += 1
                 journal.write(
@@ -571,6 +619,31 @@ def _run_accountability_phase(citizens: list[Citizen], config: PolityConfig, jou
                     payload={"target": holder.citizen_id, "act": int(act)},
                     citizen_id=citizen.citizen_id,
                 )
+                if act is PressureAct.LAUNCH_PETITION:
+                    launch_petition(holder, citizen, tick)
+                    journal.write(
+                        tick=tick,
+                        event_type="petition_launched",
+                        payload={
+                            "target": holder.citizen_id,
+                            "signatures": len(holder.petition_signers),
+                            "signed_ratio": petition_pressure(holder, config.run.population_size),
+                            "expires_at_tick": tick + config.petition.petition_lifespan_ticks,
+                        },
+                        citizen_id=citizen.citizen_id,
+                    )
+                elif act is PressureAct.SIGN_PETITION:
+                    sign_petition(holder, citizen)
+                    journal.write(
+                        tick=tick,
+                        event_type="petition_signed",
+                        payload={
+                            "target": holder.citizen_id,
+                            "signatures": len(holder.petition_signers),
+                            "signed_ratio": petition_pressure(holder, config.run.population_size),
+                        },
+                        citizen_id=citizen.citizen_id,
+                    )
             if config.street_pressure.enabled:
                 holder.street_pressure = update_street_pressure(
                     holder.street_pressure,
@@ -581,7 +654,7 @@ def _run_accountability_phase(citizens: list[Citizen], config: PolityConfig, jou
         if not config.legitimacy.enabled:
             continue
         ecart = compose_ecart(
-            0.0,  # petition_pressure -- Lot 5
+            petition_pressure(holder, config.run.population_size),
             holder.street_pressure,
             deviation or 0.0,
             petition_weight=config.petition.weight_in_ecart,
@@ -602,7 +675,56 @@ def _run_accountability_phase(citizens: list[Citizen], config: PolityConfig, jou
             },
             citizen_id=holder.citizen_id,
         )
-        if crosses_floor(holder.legitimacy_capital, config.legitimacy):
+        floor_fires = crosses_floor(holder.legitimacy_capital, config.legitimacy)
+
+        lost_confidence = False
+        if holder.petition_open_since_tick is not None:  # step 5
+            ratio = petition_pressure(holder, config.run.population_size)
+            if ratio >= config.petition.signature_threshold:
+                journal.write(
+                    tick=tick,
+                    event_type="confidence_vote_triggered",
+                    payload={
+                        "office": Office.PRESIDENT.value,
+                        "opened_at_tick": holder.petition_open_since_tick,
+                        "signatures": len(holder.petition_signers),
+                        "signed_ratio": ratio,
+                    },
+                    citizen_id=holder.citizen_id,
+                )
+                ballots = [build_confidence_ballot(c, holder) for c in citizens]
+                retained = resolve_confidence_vote(ballots, config.petition.confidence_vote_format)
+                journal.write(
+                    tick=tick,
+                    event_type="confidence_vote_result",
+                    payload={
+                        "office": Office.PRESIDENT.value,
+                        "bf": int(BallotFormat.BINARY),
+                        "ballots": len(ballots),
+                        "keep": sum(ballots),
+                        "keep_ratio": confidence_keep_ratio(ballots),
+                        "retained": retained,
+                    },
+                    citizen_id=holder.citizen_id,
+                )
+                resolve_petition(holder, tick, config.petition)
+                lost_confidence = not retained
+            elif petition_has_expired(holder, tick, config.petition):
+                journal.write(
+                    tick=tick,
+                    event_type="petition_expired",
+                    payload={
+                        "office": Office.PRESIDENT.value,
+                        "opened_at_tick": holder.petition_open_since_tick,
+                        "signatures": len(holder.petition_signers),
+                        "signed_ratio": ratio,
+                        "signature_threshold": config.petition.signature_threshold,
+                    },
+                    citizen_id=holder.citizen_id,
+                )
+                resolve_petition(holder, tick, config.petition)
+
+        if floor_fires:  # step 6, floor wins the attribution
             journal.write(
                 tick=tick,
                 event_type="recalled",
@@ -610,7 +732,22 @@ def _run_accountability_phase(citizens: list[Citizen], config: PolityConfig, jou
                     "office": Office.PRESIDENT.value,
                     "legitimacy": holder.legitimacy_capital,
                     "recall_floor": config.legitimacy.recall_floor,
+                    "trigger": "legitimacy_floor",
                 },
                 citizen_id=holder.citizen_id,
             )
+            vacate_office(holder)
+        elif lost_confidence:
+            journal.write(
+                tick=tick,
+                event_type="recalled",
+                payload={
+                    "office": Office.PRESIDENT.value,
+                    "legitimacy": holder.legitimacy_capital,
+                    "recall_floor": config.legitimacy.recall_floor,
+                    "trigger": "confidence_vote",
+                },
+                citizen_id=holder.citizen_id,
+            )
+            vacate_office(holder)
             vacate_office(holder)
