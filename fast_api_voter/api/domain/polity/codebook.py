@@ -237,6 +237,9 @@ class PressureAct(IntEnum):
     WAIT_FOR_ELECTION = 4
 
 
+PRESSURE_ACT_PROMPT_TABLE = "\n".join(f"{act.value} = {act.name}" for act in PressureAct)
+
+
 class ResponseMotif(IntEnum):
     """§3.7.2 motif range 300-399 (Pression) — representative_response's
     (dt=6) slice. 301/302/303 are the design doc's own codes, kept verbatim:

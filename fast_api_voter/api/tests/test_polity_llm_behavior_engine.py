@@ -10,9 +10,10 @@ import pytest
 from api.domain.polity.ballot_and_aggregation import get_presidential_winner
 from api.domain.polity.citizen import Citizen
 from api.domain.polity.codebook import VoteMotif
-from api.domain.polity.config import load_config
+from api.domain.polity.config import PressureMenuConfig, load_config
 from api.domain.polity.llm_behavior_engine import (
     MIN_SAFE_BATCH_SIZE,
+    PressureContext,
     ResponseContext,
     apply_shifts,
     assemble_coalition,
@@ -24,6 +25,8 @@ from api.domain.polity.llm_behavior_engine import (
     build_party_nomination_user_prompt,
     build_positioning_system_prompt,
     build_positioning_user_prompt,
+    build_pressure_system_prompt,
+    build_pressure_user_prompt,
     build_response_system_prompt,
     build_response_user_prompt,
     build_system_prompt,
@@ -35,12 +38,15 @@ from api.domain.polity.llm_behavior_engine import (
     decide_candidacies,
     decide_coalition,
     decide_party_nominations,
+    decide_pressure_actions,
     decide_representative_response,
+    menu_acts,
     resolve_party_nomination_cid,
     truncation_limit,
     validate_coalition_decision,
     validate_decision,
     validate_positioning_decision,
+    validate_pressure_decision,
     validate_response_decision,
 )
 from api.domain.polity.llm_client import LlmResponseError
@@ -49,6 +55,7 @@ from api.domain.polity.llm_schemas import (
     PartyNominationDecision,
     PositioningDecision,
     PositionShift,
+    PressureDecision,
     ResponseDecision,
     VoteCastDecision,
 )
@@ -101,8 +108,22 @@ def test_chunk_voters_boundary_at_exactly_min_safe_batch_size_is_allowed():
 
 def test_chunk_voters_below_min_safe_batch_size_raises():
     voters = _population(39)  # ceil(39/25)=2, base=19 < 20
-    with pytest.raises(NotImplementedError, match="MIN_SAFE_BATCH_SIZE"):
+    with pytest.raises(NotImplementedError, match="min_batch_size=20"):
         chunk_voters(voters, 25)
+
+
+# ── chunk_voters min_batch_size override (v4 Lot 7) ──────────────────────
+
+def test_chunk_voters_min_batch_size_defaults_to_min_safe_batch_size():
+    voters = _population(39)  # ceil(39/25)=2, base=19 < MIN_SAFE_BATCH_SIZE
+    with pytest.raises(NotImplementedError, match="min_batch_size=20"):
+        chunk_voters(voters, 25)
+
+
+def test_chunk_voters_honours_an_explicit_min_batch_size():
+    voters = _population(3)
+    chunks = chunk_voters(voters, 25, min_batch_size=1)
+    assert chunks == [voters]
 
 
 def test_chunk_voters_empty_population_returns_no_chunks():
@@ -1529,3 +1550,298 @@ def test_decide_coalition_propagates_llm_response_error_on_count_mismatch():
 
     with pytest.raises(LlmResponseError, match="misaligned"):
         decide_coalition(parties, seats, votes, config, ShortClient())
+
+
+# ── menu_acts (v4 Lot 7) ──────────────────────────────────────────────────
+
+def test_menu_acts_electoral_only_is_just_zero_and_four():
+    menu = PressureMenuConfig(petition_enabled=False, mobilization_enabled=False, electoral_only=True)
+    assert menu_acts(menu) == (0, 4)
+
+
+def test_menu_acts_petition_only_adds_sign_and_launch():
+    menu = PressureMenuConfig(petition_enabled=True, mobilization_enabled=False, electoral_only=False)
+    assert menu_acts(menu) == (0, 1, 2, 4)
+
+
+def test_menu_acts_mobilization_only_adds_mobilize():
+    menu = PressureMenuConfig(petition_enabled=False, mobilization_enabled=True, electoral_only=False)
+    assert menu_acts(menu) == (0, 3, 4)
+
+
+def test_menu_acts_both_levers_reaches_every_act():
+    menu = PressureMenuConfig(petition_enabled=True, mobilization_enabled=True, electoral_only=False)
+    assert menu_acts(menu) == (0, 1, 2, 3, 4)
+
+
+# ── validate_pressure_decision (v4 Lot 7) ────────────────────────────────
+
+def _pressure_decision(**overrides):
+    base = {"cid": 1, "target": 205, "act": 3, "motif": 301}
+    base.update(overrides)
+    return PressureDecision.model_validate(base)
+
+
+def _pressure_context(cid, **overrides):
+    base = {
+        "cid": cid, "target": 205, "self_gap": 0.5, "mandate_dev": 0.1, "ticks_to_election": 6,
+        "available": (0, 3, 4), "petition_open": False, "petition_expires_at_tick": None, "already_signed": False,
+    }
+    base.update(overrides)
+    return PressureContext(**base)
+
+
+def test_validate_pressure_decision_accepts_an_in_menu_act():
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(
+        config, pressure_menu=PressureMenuConfig(petition_enabled=False, mobilization_enabled=True, electoral_only=False)
+    )
+    context = _pressure_context(1)
+    validate_pressure_decision(_pressure_decision(act=3), context, config)  # must not raise
+
+
+def test_validate_pressure_decision_rejects_an_out_of_menu_act():
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(
+        config, pressure_menu=PressureMenuConfig(petition_enabled=False, mobilization_enabled=False, electoral_only=True)
+    )
+    context = _pressure_context(1)
+    with pytest.raises(LlmResponseError, match="outside the active"):
+        validate_pressure_decision(_pressure_decision(act=3), context, config)
+
+
+def test_validate_pressure_decision_always_accepts_act_0_and_4_under_every_menu():
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(
+        config, pressure_menu=PressureMenuConfig(petition_enabled=False, mobilization_enabled=False, electoral_only=True)
+    )
+    context = _pressure_context(1)
+    validate_pressure_decision(_pressure_decision(act=0, motif=304), context, config)
+    validate_pressure_decision(_pressure_decision(act=4, motif=305), context, config)
+
+
+def test_validate_pressure_decision_rejects_a_mismatched_target():
+    config = _config_with_llm_enabled()
+    context = _pressure_context(1, target=205)
+    with pytest.raises(LlmResponseError, match="targets"):
+        validate_pressure_decision(_pressure_decision(target=999), context, config)
+
+
+def test_validate_pressure_decision_does_not_reject_an_unavailable_but_in_menu_act():
+    # The two-tier split's central proof: `act` is legal under the menu but
+    # NOT in this citizen's frozen `available` list (e.g. no petition is
+    # open) -- validate_pressure_decision must not care. Live state is
+    # resolved later, at application time, via applicable_pressure_act.
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(
+        config, pressure_menu=PressureMenuConfig(petition_enabled=True, mobilization_enabled=False, electoral_only=False)
+    )
+    context = _pressure_context(1, available=(0, 4))  # petition not currently available to this citizen
+    validate_pressure_decision(_pressure_decision(act=1, motif=301), context, config)  # must not raise
+
+
+# ── build_pressure_system_prompt / build_pressure_user_prompt (v4 Lot 7) ─
+
+def _pressure_citizen(cid, positions=(0.5,)):
+    return _citizen(cid, positions)
+
+
+def test_pressure_system_prompt_enumerates_every_expected_cid():
+    consulted = [_pressure_citizen(0), _pressure_citizen(1), _pressure_citizen(2)]
+    config = _config_with_llm_enabled()
+    prompt = build_pressure_system_prompt(consulted, config)
+    assert "[0,1,2]" in prompt
+    assert "EXACTEMENT ces 3" in prompt
+
+
+def test_pressure_system_prompt_states_the_active_menu_only():
+    consulted = [_pressure_citizen(0)]
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(
+        config, pressure_menu=PressureMenuConfig(petition_enabled=False, mobilization_enabled=False, electoral_only=True)
+    )
+    prompt = build_pressure_system_prompt(consulted, config)
+    assert "[0, 4]" in prompt
+    assert "1 = SIGN_PETITION" not in prompt
+    assert "3 = MOBILIZE" not in prompt
+
+
+def test_pressure_system_prompt_carries_the_act_and_motif_tables():
+    consulted = [_pressure_citizen(0)]
+    config = _config_with_llm_enabled()  # shipped menu has both levers reachable enough to show every act
+    prompt = build_pressure_system_prompt(consulted, config)
+    assert "301 = MANDATE_DEVIATION_HIGH" in prompt
+
+
+def test_pressure_user_prompt_carries_ctx_available_and_petition_state():
+    citizen = _pressure_citizen(7)
+    context = _pressure_context(7, target=205, self_gap=0.61, mandate_dev=0.41, ticks_to_election=9,
+                                 available=(0, 1, 4), petition_open=True, petition_expires_at_tick=14, already_signed=False)
+    payload = json.loads(build_pressure_user_prompt([citizen], {7: context}))
+    block = payload["consulted"][0]
+    assert block["cid"] == 7
+    assert block["target"] == 205
+    assert block["available"] == [0, 1, 4]
+    assert block["petition"] == {"open": True, "expires_at_tick": 14, "already_signed": False}
+    assert block["ctx"] == {"self_gap": 0.61, "mandate_dev": 0.41, "neighbors_acting": None, "ticks_to_election": 9}
+
+
+def test_pressure_user_prompt_never_mentions_street_pressure_or_signature_counts():
+    citizen = _pressure_citizen(0)
+    context = _pressure_context(0, petition_open=True, petition_expires_at_tick=10)
+    prompt = build_pressure_user_prompt([citizen], {0: context})
+    for forbidden in ("street", "signed_ratio", "signatures", "mobilization_rate"):
+        assert forbidden not in prompt
+
+
+def test_pressure_user_prompt_emits_null_neighbors_acting_for_every_citizen():
+    citizens = [_pressure_citizen(0), _pressure_citizen(1)]
+    contexts = {0: _pressure_context(0), 1: _pressure_context(1)}
+    payload = json.loads(build_pressure_user_prompt(citizens, contexts))
+    for block in payload["consulted"]:
+        assert block["ctx"]["neighbors_acting"] is None
+
+
+def test_pressure_user_prompt_is_deterministic_for_the_same_inputs():
+    citizens = [_pressure_citizen(0), _pressure_citizen(1)]
+    contexts = {0: _pressure_context(0), 1: _pressure_context(1)}
+    assert build_pressure_user_prompt(citizens, contexts) == build_pressure_user_prompt(citizens, contexts)
+
+
+def test_pressure_user_prompt_ctx_matches_the_journalled_ctx_payload():
+    # One serialization, two consumers (the prompt and the journal write in
+    # run_polity_simulation.py) -- both must read from to_payload().
+    citizen = _pressure_citizen(0)
+    context = _pressure_context(0, self_gap=0.3, mandate_dev=0.2, ticks_to_election=5)
+    payload = json.loads(build_pressure_user_prompt([citizen], {0: context}))
+    assert payload["consulted"][0]["ctx"] == context.to_payload()
+
+
+# ── decide_pressure_actions (FakePressureLlmClient, v4 Lot 7) ───────────
+
+class FakePressureLlmClient:
+    """Always mobilizes (act=3, motif=301) -- lets tests assert on
+    chunking/order/resolution behavior without a live model."""
+
+    def __init__(self):
+        self.calls: list[list[int]] = []
+
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        payload = json.loads(user_prompt)
+        cids = [c["cid"] for c in payload["consulted"]]
+        self.calls.append(cids)
+        decisions = [{"cid": c["cid"], "target": c["target"], "act": 3, "motif": 301} for c in payload["consulted"]]
+        return json.dumps({"decisions": decisions})
+
+
+def _pressure_population(n, target=205):
+    return [_pressure_citizen(i) for i in range(n)]
+
+
+def _pressure_contexts(citizens, target=205):
+    return {c.citizen_id: _pressure_context(c.citizen_id, target=target) for c in citizens}
+
+
+def _config_with_pressure_llm_enabled(max_batch_size=25):
+    # act=3 (MOBILIZE), the fake client's fixed answer, needs mobilization_enabled.
+    config = _config_with_llm_enabled(max_batch_size=max_batch_size)
+    return dataclasses.replace(
+        config, pressure_menu=PressureMenuConfig(petition_enabled=False, mobilization_enabled=True, electoral_only=False)
+    )
+
+
+def test_decide_pressure_actions_returns_empty_and_skips_the_client_when_no_one_is_consulted():
+    config = _config_with_llm_enabled()
+    client = FakePressureLlmClient()
+
+    outcome = decide_pressure_actions([], {}, config, client)
+
+    assert outcome.decisions == []
+    assert client.calls == []
+
+
+def test_decide_pressure_actions_sorts_by_citizen_id_regardless_of_input_order():
+    citizens = [_pressure_citizen(3), _pressure_citizen(0), _pressure_citizen(4)]
+    contexts = _pressure_contexts(citizens)
+    config = _config_with_pressure_llm_enabled()
+    client = FakePressureLlmClient()
+
+    decide_pressure_actions(citizens, contexts, config, client)
+
+    assert client.calls == [[0, 3, 4]]
+
+
+def test_decide_pressure_actions_calls_once_for_a_cohort_of_three():
+    # The case MIN_SAFE_BATCH_SIZE's default floor would have aborted --
+    # the concrete reason decide_pressure_actions passes min_batch_size=1.
+    citizens = _pressure_population(3)
+    contexts = _pressure_contexts(citizens)
+    config = _config_with_pressure_llm_enabled()
+    client = FakePressureLlmClient()
+
+    outcome = decide_pressure_actions(citizens, contexts, config, client)
+
+    assert client.calls == [[0, 1, 2]]
+    assert [d.cid for d in outcome.decisions] == [0, 1, 2]
+
+
+def test_decide_pressure_actions_chunks_a_large_cohort_at_max_batch_size():
+    citizens = _pressure_population(60)
+    contexts = _pressure_contexts(citizens)
+    config = _config_with_pressure_llm_enabled(max_batch_size=25)
+    client = FakePressureLlmClient()
+
+    outcome = decide_pressure_actions(citizens, contexts, config, client)
+
+    assert len(client.calls) == 3
+    assert sorted(cid for call in client.calls for cid in call) == list(range(60))
+    assert [d.cid for d in outcome.decisions] == list(range(60))
+
+
+def test_decide_pressure_actions_raises_notimplementederror_for_unsupported_provider():
+    citizens = _pressure_population(3)
+    contexts = _pressure_contexts(citizens)
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, provider="vllm"))
+    with pytest.raises(NotImplementedError, match="provider"):
+        decide_pressure_actions(citizens, contexts, config, FakePressureLlmClient())
+
+
+def test_decide_pressure_actions_raises_for_dynamic_batch_sharding():
+    citizens = _pressure_population(3)
+    contexts = _pressure_contexts(citizens)
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, batch_sharding="dynamic"))
+    with pytest.raises(NotImplementedError, match="batch_sharding"):
+        decide_pressure_actions(citizens, contexts, config, FakePressureLlmClient())
+
+
+def test_decide_pressure_actions_raises_for_intra_run_workers_above_one():
+    citizens = _pressure_population(3)
+    contexts = _pressure_contexts(citizens)
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, parallel=dataclasses.replace(config.parallel, intra_run_workers=2))
+    with pytest.raises(NotImplementedError, match="intra_run_workers"):
+        decide_pressure_actions(citizens, contexts, config, FakePressureLlmClient())
+
+
+def test_decide_pressure_actions_raises_for_codebook_version_mismatch():
+    citizens = _pressure_population(3)
+    contexts = _pressure_contexts(citizens)
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, codebook_version="0.9"))
+    with pytest.raises(Exception, match="codebook_version"):
+        decide_pressure_actions(citizens, contexts, config, FakePressureLlmClient())
+
+
+def test_decide_pressure_actions_propagates_llm_response_error_on_count_mismatch():
+    citizens = _pressure_population(3)
+    contexts = _pressure_contexts(citizens)
+    config = _config_with_llm_enabled()
+
+    class ShortClient:
+        def complete_json(self, **kwargs):
+            return json.dumps({"decisions": [{"cid": 0, "target": 205, "act": 3, "motif": 301}]})
+
+    with pytest.raises(LlmResponseError, match="misaligned"):
+        decide_pressure_actions(citizens, contexts, config, ShortClient())

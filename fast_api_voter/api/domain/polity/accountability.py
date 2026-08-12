@@ -8,8 +8,12 @@ Lot 7, the LLM own that. Lot 5 adds this module's first *mutations*
 (launch/sign/resolve/reset a petition) -- kept here, next to the
 predicates that guard them, rather than inlined at the one call site, so
 each has exactly one implementation (the same reasoning that produced
-`vacate_office` in Lot 2). Lot 6/7 add the LLM decisions that read
-`mandate_deviation`/`is_term_limited`.
+`vacate_office` in Lot 2). Lot 6 adds the LLM decision that reads
+`mandate_deviation`/`is_term_limited`. Lot 7 adds this module's first
+`codebook` import: `applicable_pressure_act` reconciles a decided
+`PressureAct` (frozen pre-loop, from the LLM) with live petition state at
+application time -- see its own docstring for why this can never be a
+batch-rejecting check.
 """
 from __future__ import annotations
 
@@ -17,6 +21,7 @@ import math
 from collections.abc import Sequence
 
 from api.domain.polity.citizen import Citizen, Office
+from api.domain.polity.codebook import PressureAct
 from api.domain.polity.config import AwakeningConfig, MandateConfig, PetitionConfig, StreetPressureConfig
 from api.domain.polity.metrics import signed_ratio
 
@@ -281,3 +286,29 @@ def reset_petition_state(holder: Citizen) -> None:
     holder.petition_open_since_tick = None
     holder.petition_signers = frozenset()
     holder.petition_cooldown_until_tick = None
+
+
+def applicable_pressure_act(act: PressureAct, *, can_sign: bool, can_launch: bool) -> PressureAct:
+    """v4 Lot 7. Reconciles a DECIDED act (frozen pre-loop, from the LLM)
+    with LIVE petition state at the moment it is applied. Within one tick,
+    `tick` is constant, so the only reachable divergence is: a petition
+    was opened earlier in THIS tick's own consulted loop, so a later
+    citizen's LAUNCH is no longer possible (petition.concurrent_allowed is
+    TRANCHÉ false) but a SIGN now is. LAUNCH -> SIGN is exactly what
+    deterministic_pressure_action returns from the same live facts
+    (simple_rules.py), preserves the citizen's chosen LEVER, and keeps
+    signed_ratio an honest count. Never converts a petition act into
+    MOBILIZE or WAIT_FOR_ELECTION -- that would be the orchestrator
+    choosing a DIFFERENT lever on the citizen's behalf, the behavioral
+    prescription §3.3 refuses. 0/3/4 are always honored: they have no
+    institutional object to go stale against. The caller's JOURNAL records
+    the decided act (what the model chose); the adjacent petition event
+    (or its absence) records the effect (what actually happened) -- this
+    function only computes the latter, never journals anything itself."""
+    if act in (PressureAct.SIGN_PETITION, PressureAct.LAUNCH_PETITION):
+        if can_sign:
+            return PressureAct.SIGN_PETITION
+        if can_launch:
+            return PressureAct.LAUNCH_PETITION
+        return PressureAct.NOTHING
+    return act

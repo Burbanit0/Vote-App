@@ -56,6 +56,8 @@ from api.domain.polity.llm_schemas import (
     PartyNominationDecision,
     PositioningBatch,
     PositioningDecision,
+    PressureBatch,
+    PressureDecision,
     ResponseBatch,
     ResponseDecision,
     VoteCastBatch,
@@ -438,6 +440,39 @@ def decode_response_batch(raw: str, expected_cids: Sequence[int]) -> list[Respon
 
     try:
         batch = ResponseBatch.model_validate(parsed)
+    except ValidationError as exc:
+        raise LlmResponseError(f"batch failed schema validation: {exc}") from exc
+
+    got_cids = [decision.cid for decision in batch.decisions]
+    if got_cids != list(expected_cids):
+        raise LlmResponseError(
+            f"batch misaligned with the request: expected cids {list(expected_cids)}, got {got_cids}"
+        )
+
+    return batch.decisions
+
+
+def decode_pressure_batch(raw: str, expected_cids: Sequence[int]) -> list[PressureDecision]:
+    """Same contract as decode_vote_batch/decode_candidacy_batch/
+    decode_positioning_batch/decode_response_batch, specialized to
+    PressureBatch -- keyed on `cid` (the consulted citizen), v4 Lot 7
+    (dt=10). A seventh near-identical decode function, kept duplicated for
+    the same reason as the third through sixth: the prior generic `type[T]`
+    attempt concretely failed mypy-strict typing, and nothing about that
+    has changed.
+
+    Unlike every prior decode function, `expected_cids` here is a
+    variable-size, CHUNKED cohort (decide_pressure_actions calls this once
+    per chunk_voters chunk, not once per tick) -- a misalignment costs a
+    whole chunk, not a whole tick's consultation."""
+    stripped = _THINK_TAG_RE.sub("", raw).strip()
+    try:
+        parsed = json.loads(stripped)
+    except json.JSONDecodeError as exc:
+        raise LlmResponseError(f"response is not valid JSON after stripping reasoning tags: {exc}") from exc
+
+    try:
+        batch = PressureBatch.model_validate(parsed)
     except ValidationError as exc:
         raise LlmResponseError(f"batch failed schema validation: {exc}") from exc
 
