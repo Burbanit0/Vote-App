@@ -27,7 +27,18 @@ batches are the same small size (a handful of seated parties) -- its schema
 (a closed 2-value action enum with a CROSS-FIELD motif coherence rule) is
 also genuinely new; this file verifies the model actually respects that
 coherence rule live, not just that CoalitionDecision's own model_validator
-would catch a violation offline.
+would catch a violation offline. v4 Lot 6's representative_response batches
+are also small (0-or-1 officeholders in production; swept here at 1 and 3
+for the same reason the pre-flight batch-reliability spike did --
+scripts/lot6_batch_reliability_results.md) -- its schema has TWO cross-field
+rules at once (stance<->shifts, stance<->motif), and this is the first
+decision type verified against `think=False` on Ollama's NATIVE /api/chat
+endpoint rather than the /v1 structured-output surface (see
+decide_representative_response's own docstring for why -- the spike's own
+first smoke-test attempt at think=True on /v1 reliably burned the whole
+token budget on invisible reasoning for this exact schema). Runs every tick
+rather than once per election, so the short live run below adds
+proportionally more wall-clock time than any prior increment's addition did.
 """
 import dataclasses
 import json
@@ -35,10 +46,18 @@ import os
 
 import pytest
 
-from api.domain.polity.citizen import Citizen
-from api.domain.polity.codebook import CampaignMotif, CandidacyMotif, CoalitionMotif, PartyNominationMotif, VoteMotif
+from api.domain.polity.citizen import Citizen, Office, Role
+from api.domain.polity.codebook import (
+    CampaignMotif,
+    CandidacyMotif,
+    CoalitionMotif,
+    PartyNominationMotif,
+    ResponseMotif,
+    VoteMotif,
+)
 from api.domain.polity.config import load_config
 from api.domain.polity.llm_behavior_engine import (
+    ResponseContext,
     build_candidacy_system_prompt,
     build_candidacy_user_prompt,
     build_coalition_system_prompt,
@@ -47,6 +66,8 @@ from api.domain.polity.llm_behavior_engine import (
     build_party_nomination_user_prompt,
     build_positioning_system_prompt,
     build_positioning_user_prompt,
+    build_response_system_prompt,
+    build_response_user_prompt,
     build_system_prompt,
     build_user_prompt,
     cast_votes,
@@ -55,6 +76,7 @@ from api.domain.polity.llm_behavior_engine import (
     decide_candidacies,
     decide_coalition,
     decide_party_nominations,
+    decide_representative_response,
 )
 from api.domain.polity.llm_client import (
     OllamaJsonClient,
@@ -62,6 +84,7 @@ from api.domain.polity.llm_client import (
     decode_coalition_batch,
     decode_party_nomination_batch,
     decode_positioning_batch,
+    decode_response_batch,
     decode_vote_batch,
 )
 from api.domain.polity.llm_schemas import (
@@ -69,15 +92,18 @@ from api.domain.polity.llm_schemas import (
     COALITION_JSON_SCHEMA,
     PARTY_NOMINATION_JSON_SCHEMA,
     POSITIONING_JSON_SCHEMA,
+    RESPONSE_JSON_SCHEMA,
     VOTE_CAST_JSON_SCHEMA,
     CandidacyBatch,
     CoalitionBatch,
     PartyNominationBatch,
     PositioningBatch,
+    ResponseBatch,
     VoteCastBatch,
 )
+from api.domain.polity.journal import Journal
 from api.domain.polity.parties import Party
-from api.domain.polity.run_polity_simulation import run_simulation
+from api.domain.polity.run_polity_simulation import _run_accountability_phase, run_simulation
 from api.domain.polity.simple_rules import declare_candidacy, sympathizer_ratio
 
 pytestmark = pytest.mark.skipif(
@@ -516,6 +542,170 @@ def test_decide_coalition_against_the_real_client(client):
 
     assert outcome.initiator == 0
     assert outcome.coalition is None or (isinstance(outcome.coalition, list) and outcome.coalition[0] == 0)
+
+
+# ── representative_response (v4 Lot 6) ────────────────────────────────────
+
+def _response_holder(cid, dims):
+    c = _citizen(cid, dims)
+    c.pledged_platform = c.issue_positions
+    c.revealed_position = c.issue_positions
+    return c
+
+
+def _response_context(cid):
+    return ResponseContext(
+        cid=cid, legitimacy=0.4, mandate_dev=0.3, street=0.5, lame_duck=False, ticks_left=6
+    )
+
+
+@pytest.mark.parametrize("num_holders", [1, 3])
+def test_full_size_response_batch_produces_a_valid_reliable_response(client, num_holders):
+    """The representative_response analog of
+    test_full_size_positioning_batch_produces_a_valid_reliable_response --
+    swept at 1 (production's real batch size, president-only) and 3 (the
+    pre-flight spike's own sweep), the real prompt builders, the real
+    schema, think=False via the native /api/chat endpoint (see this file's
+    module docstring)."""
+    config = load_config()
+    dims = config.citizens.issue_count
+    holders = [_response_holder(2000 + i, dims) for i in range(num_holders)]
+    contexts = {h.citizen_id: _response_context(h.citizen_id) for h in holders}
+
+    raw = client.complete_json(
+        system_prompt=build_response_system_prompt(holders, config),
+        user_prompt=build_response_user_prompt(holders, contexts),
+        json_schema=RESPONSE_JSON_SCHEMA,
+        max_tokens=compute_max_tokens(len(holders)),
+        think=False,
+    )
+    batch = ResponseBatch.model_validate_json(raw)
+    assert [d.cid for d in batch.decisions] == [h.citizen_id for h in holders]
+    assert all(d.motif in {m.value for m in ResponseMotif} for d in batch.decisions)
+    for decision in batch.decisions:
+        # The schema itself only enforces a loose structural ceiling -- this
+        # checks the model actually respects the REAL bounds stated in the
+        # system prompt, not just the structural one, AND the stance<->shifts/
+        # stance<->motif coherence the prompt states explicitly (a cross-field
+        # rule constrained decoding cannot enforce on its own).
+        assert len(decision.shifts) <= config.mandate.max_response_shifts, (
+            f"decision for cid={decision.cid} used {len(decision.shifts)} shifts, "
+            f"exceeding the stated max_response_shifts={config.mandate.max_response_shifts}"
+        )
+        for shift in decision.shifts:
+            assert 0 <= shift.dimension < dims
+            assert abs(shift.delta) <= config.mandate.max_response_delta, (
+                f"decision for cid={decision.cid} shifted dimension {shift.dimension} by "
+                f"{shift.delta}, exceeding the stated max_response_delta="
+                f"{config.mandate.max_response_delta}"
+            )
+        # ResponseDecision's own model_validator already enforces this on
+        # ResponseBatch.model_validate_json above -- reaching this line at
+        # all is the live evidence that the model produced a coherent pair.
+
+
+def test_response_sequential_calls_each_produce_a_valid_response(client):
+    """The representative_response analog of
+    test_sequential_calls_each_produce_a_valid_response -- two textually
+    identical requests, checked independently rather than for byte-identity
+    (Finding D applies here too until proven otherwise)."""
+    config = load_config()
+    dims = config.citizens.issue_count
+    holders = [_response_holder(2100 + i, dims) for i in range(3)]
+    contexts = {h.citizen_id: _response_context(h.citizen_id) for h in holders}
+    kwargs = dict(
+        system_prompt=build_response_system_prompt(holders, config),
+        user_prompt=build_response_user_prompt(holders, contexts),
+        json_schema=RESPONSE_JSON_SCHEMA,
+        max_tokens=compute_max_tokens(len(holders)),
+        think=False,
+    )
+    expected_cids = [h.citizen_id for h in holders]
+    for raw in (client.complete_json(**kwargs), client.complete_json(**kwargs)):
+        decisions = decode_response_batch(raw, expected_cids)
+        assert [d.cid for d in decisions] == expected_cids
+
+
+def test_decide_representative_response_against_the_real_client(client):
+    config = load_config()
+    dims = config.citizens.issue_count
+    holders = [_response_holder(2200 + i, dims) for i in range(2)]
+    contexts = {h.citizen_id: _response_context(h.citizen_id) for h in holders}
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=True))
+
+    outcome = decide_representative_response(holders, contexts, config, client)
+
+    assert set(outcome.positions.keys()) == {h.citizen_id for h in holders}
+    for holder in holders:
+        assert len(outcome.positions[holder.citizen_id]) == dims
+        # decide_representative_response never resolves a pledge -- only
+        # decide_campaign_positioning does, at nomination time.
+        assert holder.pledged_platform == holder.issue_positions
+
+
+def test_representative_response_wiring_against_the_real_client_in_a_live_tick(client, tmp_path):
+    """Proves run_polity_simulation.py's OWN dt=6 wiring (the gate, the
+    frozen ResponseContext, the journal write) against a real client and a
+    real tick -- WITHOUT going through run_simulation's full pipeline.
+
+    A `run_simulation(..., duration_years=4)` variant of this test was
+    tried first and repeatedly failed for reasons that have nothing to do
+    with representative_response: a full run first needs a real president
+    ORGANICALLY elected through vote_cast (dt=1, think=True) and
+    decide_campaign_positioning (dt=5, think=False), and both of those
+    already-shipped v2 decision types turned out to be unreliable enough on
+    this model/hardware to make that path itself flaky -- one live run hit
+    campaign_positioning's own pre-existing batch-misalignment bug (a
+    citizen dropped/duplicated, confirmed 4 times independently, already
+    flagged in scripts/lot6_batch_reliability_results.md's Caveat section);
+    a follow-up run with a smaller nominee count avoided that bug but then
+    hit EVERY voter answering blank=1 on the real vote_cast call, producing
+    election_no_winner and therefore no officeholder for dt=6 to ever run
+    against. Neither failure involves representative_response's own code at
+    all -- both are pre-existing reliability properties of already-shipped
+    v2 decision types, out of this lot's scope to fix (see this file's
+    module docstring on v2's own precedent for "flagged for live
+    verification, not assumed").
+
+    This test sidesteps both by calling _run_accountability_phase directly
+    -- the exact function run_simulation's own tick loop calls -- against a
+    hand-built, already-elected holder, same "direct call, Lot 2-5 style"
+    precedent test_polity_run_simulation.py already uses for its own
+    offline accountability-phase tests. One real dt=6 call (batch of 1,
+    ~11.5s per the spike), not an organic multi-decision-type election."""
+    config = load_config()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=True))
+    config = dataclasses.replace(config, mandate=dataclasses.replace(config.mandate, enabled=True))
+    config = dataclasses.replace(config, legitimacy=dataclasses.replace(config.legitimacy, enabled=True))
+    dims = config.citizens.issue_count
+    holder = Citizen(
+        citizen_id=1,
+        issue_positions=tuple(0.5 for _ in range(dims)),
+        issue_priorities=tuple(1.0 / dims for _ in range(dims)),
+        blank_threshold=0.5,
+        ambition_score=0.5,
+        role=Role.ELECTED,
+        office=Office.PRESIDENT,
+        term_end_tick=16,
+        mandates_served=1,
+        legitimacy_capital=0.5,
+        mandate_strength=0.5,
+    )
+    holder.pledged_platform = holder.issue_positions
+    holder.revealed_position = holder.issue_positions
+
+    journal_path = tmp_path / "dt6-live.jsonl"
+    with Journal(journal_path, run_id="dt6-live") as journal:
+        _run_accountability_phase([holder], config, journal, tick=0, llm_client=client)
+
+    events = [json.loads(line) for line in journal_path.read_text(encoding="utf-8").splitlines()]
+    response_events = [e for e in events if e["event_type"] == "representative_response"]
+    assert len(response_events) == 1
+    e = response_events[0]
+    assert e["payload"]["office"] == Office.PRESIDENT.value
+    assert e["payload"]["stance"] in {1, 2, 3, 4}
+    assert e["motif"] in {str(m.value) for m in ResponseMotif}
+    assert e["codebook_version"] == config.llm.codebook_version
 
 
 def test_a_short_live_run_produces_a_valid_journal(tmp_path):

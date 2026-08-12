@@ -55,6 +55,7 @@ from api.domain.polity.accountability import (
     resolve_petition,
     select_consulted,
     sign_petition,
+    ticks_to_election,
     update_street_pressure,
 )
 from api.domain.polity.ballot_and_aggregation import (
@@ -77,11 +78,13 @@ from api.domain.polity.legitimacy import (
     update_legitimacy,
 )
 from api.domain.polity.llm_behavior_engine import (
+    ResponseContext,
     cast_votes,
     decide_campaign_positioning,
     decide_candidacies,
     decide_coalition,
     decide_party_nominations,
+    decide_representative_response,
     resolve_ranking_cids,
 )
 from api.domain.polity.llm_client import LlmClientProtocol, OllamaJsonClient
@@ -149,7 +152,7 @@ def run_simulation(
             if election in (ElectionType.LEGISLATIVE, ElectionType.BOTH):
                 seats, votes = _hold_legislative_election(citizens, parties, config, journal, tick)
                 _form_and_journal_coalition(parties, seats, votes, config, journal, tick, client)
-            _run_accountability_phase(citizens, config, journal, tick)
+            _run_accountability_phase(citizens, config, journal, tick, client)
 
     return Path(config.journal.output_dir) / run_id / "events.jsonl"
 
@@ -526,26 +529,132 @@ def _form_and_journal_coalition_llm(
     )
 
 
-def _run_accountability_phase(citizens: list[Citizen], config: PolityConfig, journal: Journal, tick: int) -> None:
-    """v4 Lots 2-5 -- §7bis.7 steps 1 through 6 (measure -> awaken ->
-    aggregate pressure -> update L(t) -> petition threshold -> hard floor).
-    Step 7 (next-tick street_pressure context for the representative) lands
-    in Lot 6. Called last in the tick body, after both election blocks, so
-    a same-tick newly-elected president's mandate_pledge_declared/L0 are
-    already on record before this phase runs for them -- frozen journal-byte
-    ordering: mandate_deviation_recorded (if any) -> [pressure_action, then
-    petition_launched|petition_signed if that citizen's act produced one]
-    x N (ascending citizen_id) -> legitimacy_updated ->
-    [confidence_vote_triggered + confidence_vote_result] | petition_expired
-    (mutually exclusive) -> recalled (if any). The petition-lifecycle
-    events are interleaved immediately after their own citizen's
-    pressure_action -- they describe the same atomic act by the same
-    citizen, same adjacency _declare_nominees_llm already uses for
+def _response_context(holder: Citizen, config: PolityConfig, tick: int) -> ResponseContext:
+    """v4 Lot 6: the single place the LAGGED street_pressure read happens
+    (holder.street_pressure still holds whatever update_street_pressure
+    wrote at step 3 of the PREVIOUS tick -- this function is always called
+    before this tick's own step 2/3 mutations run, see
+    _run_representative_responses), and the single place each ctx field's
+    own gate is applied: L only under legitimacy.enabled, street only under
+    street_pressure.enabled AND street_pressure.visible_to_representative
+    (Lot 1 reserved that key with the comment "signal injecté au prompt
+    (§3.6.5)"; this is its first reader -- turning it off is a real
+    experimental arm, a representative blind to the street). A disabled
+    quantity is None, never 0.0 -- see ResponseContext's own docstring."""
+    legitimacy = holder.legitimacy_capital if config.legitimacy.enabled else None
+    street = (
+        holder.street_pressure
+        if config.street_pressure.enabled and config.street_pressure.visible_to_representative
+        else None
+    )
+    mandate_dev = 0.0
+    if holder.pledged_platform is not None and holder.revealed_position is not None:
+        mandate_dev = mandate_deviation(holder, config.mandate)
+    return ResponseContext(
+        cid=holder.citizen_id,
+        legitimacy=legitimacy,
+        mandate_dev=mandate_dev,
+        street=street,
+        lame_duck=is_term_limited(holder, config.institutions.president_term_limit),
+        ticks_left=ticks_to_election(tick, holder.term_end_tick),
+    )
+
+
+def _run_representative_responses(
+    holders: list[Citizen],
+    config: PolityConfig,
+    journal: Journal,
+    tick: int,
+    llm_client: LlmClientProtocol | None,
+) -> None:
+    """§7bis.7 step 1 + step 7 (v4 Lot 6, dt=6): the sitting representative's
+    reaction to the pressure of the PREVIOUS tick, then this tick's update of
+    revealed_position.
+
+    THE ONE-TICK LAG LIVES HERE, AND IT LIVES IN THIS FUNCTION'S POSITION.
+    Every ctx value is read and frozen into a ResponseContext (via
+    _response_context) before the caller's per-holder loop runs, i.e.
+    before this tick's select_consulted/update_street_pressure/petition
+    mutations -- so holder.street_pressure still holds the value written at
+    step 3 of tick t-1. §7bis.7's Note d'ordonnancement: "le représentant
+    réagit donc toujours à une pression du tick précédent, jamais
+    simultanément -- ce décalage d'un tick évite une boucle de rétroaction
+    instantanée non résoluble". Moving this call below the per-holder loop
+    would silently break that.
+
+    ctx.mandate_dev is the PRE-decision deviation (what the representative
+    knows when deciding); the caller's own mandate_deviation call, later in
+    _run_accountability_phase's per-holder loop, measures the POST-decision
+    one and journals it -- two different numbers on purpose, and the pair
+    is §6bis.1's lame-duck experiment.
+
+    No deterministic fallback function exists for this gate being off: with
+    config.llm.enabled false, nothing in the codebase can ever diverge
+    revealed_position from pledged_platform (declare_candidacy pins them
+    equal, and only decide_representative_response/decide_campaign_positioning
+    ever touch either afterwards), so "no delta, stance=silence" is already
+    true by construction -- the absence of this call IS the fallback."""
+    assert llm_client is not None  # guaranteed by _llm_client_scope when llm.enabled
+    respondents = [h for h in holders if h.pledged_platform is not None and h.revealed_position is not None]
+    if not respondents:
+        return
+    contexts = {h.citizen_id: _response_context(h, config, tick) for h in respondents}
+    outcome = decide_representative_response(respondents, contexts, config, llm_client)
+    decisions = {d.cid: d for d in outcome.decisions}
+    for holder in respondents:
+        decision = decisions[holder.citizen_id]
+        holder.revealed_position = outcome.positions[holder.citizen_id]
+        journal.write(
+            tick=tick,
+            event_type="representative_response",
+            payload={
+                "office": Office.PRESIDENT.value,
+                "stance": decision.stance,
+                "shifts": [{"dimension": s.dimension, "delta": s.delta} for s in decision.shifts],
+                "ctx": contexts[holder.citizen_id].to_payload(),
+            },
+            citizen_id=holder.citizen_id,
+            motif=str(decision.motif),
+            codebook_version=config.llm.codebook_version,
+        )
+
+
+def _run_accountability_phase(
+    citizens: list[Citizen],
+    config: PolityConfig,
+    journal: Journal,
+    tick: int,
+    llm_client: LlmClientProtocol | None = None,
+) -> None:
+    """v4 Lots 2-6 -- §7bis.7's full per-tick sequence: step 1
+    (representative_response + mandate_deviation, measurement) -> step 2
+    (awaken -> pressure_action) -> step 3 (aggregate pressure) -> step 4
+    (update L(t)) -> step 5 (petition threshold) -> step 6 (hard floor).
+    Step 7 (the representative's own one-tick-delayed reading of
+    street_pressure) is what step 1's representative_response call
+    consumes on the FOLLOWING tick -- see _run_representative_responses's
+    own docstring for exactly how the lag is structural, not incidental.
+
+    Called last in the tick body, after both election blocks, so a
+    same-tick newly-elected president's mandate_pledge_declared/L0 are
+    already on record before this phase runs for them -- frozen
+    journal-byte ordering: representative_response (all holders, ascending
+    citizen_id) -> then, per holder: mandate_deviation_recorded (if any) ->
+    [pressure_action, then petition_launched|petition_signed if that
+    citizen's act produced one] x N (ascending citizen_id) ->
+    legitimacy_updated -> [confidence_vote_triggered +
+    confidence_vote_result] | petition_expired (mutually exclusive) ->
+    recalled (if any). representative_response events are PREPENDED to the
+    tick's block, never interleaved with the rest -- this is what keeps the
+    Lot 3/4/5 ordering contract intact byte-for-byte whenever this lot's
+    own gate (config.llm.enabled and config.mandate.enabled) is off. The
+    petition-lifecycle events are interleaved immediately after their own
+    citizen's pressure_action -- they describe the same atomic act by the
+    same citizen, same adjacency _declare_nominees_llm already uses for
     candidacy_considered -> candidacy_declared. street_pressure(t) and
     petition_pressure(t), both computed at step 3, feed écart(t) at the
     SAME tick; only the representative's own reading of street_pressure is
-    deferred a tick (Lot 6's ctx.street) -- the aggregates themselves are
-    not delayed.
+    deferred a tick.
 
     config.mandate.enabled, config.legitimacy.enabled and
     config.awakening.enabled are independent toggles (Lot 1's cross-field
@@ -576,7 +685,10 @@ def _run_accountability_phase(citizens: list[Citizen], config: PolityConfig, jou
     if not (config.mandate.enabled or config.legitimacy.enabled or config.awakening.enabled):
         return
     term_ticks = config.institutions.president_term_years * config.run.ticks_per_year
-    for holder in current_office_holders(citizens, Office.PRESIDENT):
+    holders = current_office_holders(citizens, Office.PRESIDENT)  # built once, as before
+    if config.llm.enabled and config.mandate.enabled:  # §7bis.7 step 1 (v4 Lot 6)
+        _run_representative_responses(holders, config, journal, tick, llm_client)
+    for holder in holders:
         deviation: float | None = None
         if (
             (config.mandate.enabled or config.legitimacy.passive_erosion_weight > 0.0)

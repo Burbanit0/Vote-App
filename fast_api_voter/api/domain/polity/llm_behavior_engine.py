@@ -49,6 +49,16 @@ Formation only: coalition maintenance/rupture across subsequent ticks
 (design doc §3.1's "maintien et rupture") is out of scope for this
 increment -- see decide_coalition's own docstring for why.
 
+decide_representative_response (v4 Lot 6, dt=6) is the first decision type
+in this module that runs EVERY tick, not just at an election, and the first
+one that mutates a sitting officeholder (revealed_position) rather than a
+candidate. It is handed an already-frozen `Mapping[int, ResponseContext]`
+built by its caller (run_polity_simulation._run_representative_responses)
+and must never read a Citizen's live `street_pressure` itself -- the
+one-tick lag §7bis.7 requires is a property of when that context was
+captured, not of anything this function does, and this function has no way
+to violate it by construction (it only sees the frozen snapshot).
+
 Deliberate simplifications versus the full design doc, documented rather
 than silently made:
 - No persona library (§9) yet: citizens are described to the LLM by their
@@ -70,7 +80,7 @@ from __future__ import annotations
 import json
 import math
 from dataclasses import dataclass
-from typing import Sequence
+from typing import Mapping, Sequence
 
 import numpy as np
 
@@ -81,6 +91,8 @@ from api.domain.polity.codebook import (
     COALITION_ACTION_PROMPT_TABLE,
     COALITION_MOTIF_PROMPT_TABLE,
     PARTY_NOMINATION_MOTIF_PROMPT_TABLE,
+    RESPONSE_MOTIF_PROMPT_TABLE,
+    STANCE_PROMPT_TABLE,
     VOTE_MOTIF_PROMPT_TABLE,
     CoalitionAction,
     check_codebook_version,
@@ -93,6 +105,7 @@ from api.domain.polity.llm_client import (
     decode_coalition_batch,
     decode_party_nomination_batch,
     decode_positioning_batch,
+    decode_response_batch,
     decode_vote_batch,
 )
 from api.domain.polity.llm_schemas import (
@@ -100,12 +113,14 @@ from api.domain.polity.llm_schemas import (
     COALITION_JSON_SCHEMA,
     PARTY_NOMINATION_JSON_SCHEMA,
     POSITIONING_JSON_SCHEMA,
+    RESPONSE_JSON_SCHEMA,
     VOTE_CAST_JSON_SCHEMA,
     CandidacyDecision,
     CoalitionDecision,
     PartyNominationDecision,
     PositioningDecision,
     PositionShift,
+    ResponseDecision,
     VoteCastDecision,
 )
 from api.domain.polity.parties import Party
@@ -770,6 +785,217 @@ def decide_campaign_positioning(
         platforms[decision.cid] = apply_shifts(nominees_by_id[decision.cid].issue_positions, decision.shifts)
 
     return PositioningBatchOutcome(decisions=decisions, platforms=platforms)
+
+
+@dataclass(frozen=True)
+class ResponseContext:
+    """§3.6.5's `ctx` block, frozen at the moment the caller reads it -- the
+    structural half of §7bis.7's one-tick lag (v4 Lot 6). `street` is
+    street_pressure as of the END of the previous tick; the caller
+    (run_polity_simulation._run_accountability_phase, via
+    _run_representative_responses) captures it before this tick's step-2/3
+    mutations, and this module never touches the live field -- it only ever
+    reads what it's handed here. A None field means "this polity does not
+    track that quantity" (legitimacy disabled, street pressure disabled or
+    invisible, no term end) -- never 0.0, which would be a false claim
+    about the polity's state (§3.6.6's own neighbors_acting=null
+    precedent)."""
+
+    cid: int
+    legitimacy: float | None
+    mandate_dev: float
+    street: float | None
+    lame_duck: bool
+    ticks_left: int | None
+
+    def to_payload(self) -> dict[str, float | int | None]:
+        """§3.6.5's exact key names, rounded like every other prompt
+        builder. Used by BOTH build_response_user_prompt and the journal
+        write (run_polity_simulation.py), so the ctx an analyst reads is
+        provably the ctx the model saw -- not a reconstruction that can
+        drift from it."""
+        return {
+            "L": round(self.legitimacy, 4) if self.legitimacy is not None else None,
+            "mandate_dev": round(self.mandate_dev, 4),
+            "street": round(self.street, 4) if self.street is not None else None,
+            "lame_duck": int(self.lame_duck),
+            "ticks_left": self.ticks_left,
+        }
+
+
+@dataclass(frozen=True)
+class ResponseBatchOutcome:
+    decisions: list[ResponseDecision]
+    positions: dict[int, tuple[float, ...]]
+    """cid -> resolved new revealed_position (the holder's CURRENT
+    revealed_position with validated shifts applied, so drift accumulates
+    across ticks -- see validate_response_decision/apply_shifts). Unlike
+    PositioningBatchOutcome's `platforms`, pledged_platform is never
+    resolved here: the promise is immutable for the term, which is the
+    only reason mandate_deviation means anything (§7bis.5)."""
+
+
+def validate_response_decision(decision: ResponseDecision, config: PolityConfig) -> None:
+    """Context-dependent checks llm_schemas.py's Pydantic validators can't
+    do without the caller's config: the real shift-count and per-shift
+    delta-magnitude caps -- mandate.max_response_shifts/max_response_delta
+    (v4 Lot 1), deliberately NOT campaign.max_positioning_shifts/
+    max_positioning_delta -- mid-term mandate drift and campaign-time
+    strategy must stay analytically separable (MandateConfig's own
+    docstring) -- and that a targeted dimension actually exists in this
+    run's issue space. Structurally identical to
+    validate_positioning_decision, reading a different config section."""
+    if len(decision.shifts) > config.mandate.max_response_shifts:
+        raise LlmResponseError(
+            f"decision for cid={decision.cid} shifts {len(decision.shifts)} dimension(s), "
+            f"exceeding mandate.max_response_shifts={config.mandate.max_response_shifts}"
+        )
+    issue_count = config.citizens.issue_count
+    for shift in decision.shifts:
+        if shift.dimension >= issue_count:
+            raise LlmResponseError(
+                f"decision for cid={decision.cid} targets dimension {shift.dimension}, "
+                f"out of range for issue_count={issue_count}"
+            )
+        if abs(shift.delta) > config.mandate.max_response_delta:
+            raise LlmResponseError(
+                f"decision for cid={decision.cid} shifts dimension {shift.dimension} by "
+                f"{shift.delta}, exceeding mandate.max_response_delta="
+                f"{config.mandate.max_response_delta}"
+            )
+
+
+def build_response_system_prompt(holders: Sequence[Citizen], config: PolityConfig) -> str:
+    """Same "enumerate the full expected cid list verbatim + self-check"
+    discipline as every prior decision type (Finding B precedent). States
+    the ACTUAL numeric bounds (mandate.max_response_shifts/
+    max_response_delta), not just the schema's loose structural ceiling --
+    same reasoning as build_positioning_system_prompt. Also states the
+    stance<->shifts and stance<->motif pairing rules explicitly: these are
+    cross-field rules constrained decoding cannot enforce on its own (the
+    prompt is the only prevention; llm_schemas.py's model validators are
+    the guardrail behind it), and explains ctx's scale for each field --
+    L in [0,1], mandate_dev a weighted distance from the pledge, street an
+    UNBOUNDED mobilization accumulator (0=none, >=1=sustained, deliberately
+    not normalized -- écart(t) consumes the same unnormalized number),
+    lame_duck 0/1, ticks_left ticks to the next presidential election, and
+    that a null ctx field means "not tracked in this polity", never
+    zero."""
+    cid_list = ",".join(str(h.citizen_id) for h in holders)
+    return (
+        "Tu es un moteur de simulation. Pour chaque elu recu "
+        "(representative_response), decide sa reaction a la pression "
+        "citoyenne et institutionnelle percue, a partir de sa promesse "
+        "electorale, de sa position actuelle, et du contexte ctx.\n"
+        "ctx.L : legitimite actuelle dans [0,1], null si non suivie.\n"
+        "ctx.mandate_dev : ecart pondere entre la promesse et la position "
+        "actuelle, deja accumule.\n"
+        "ctx.street : pression de rue, un accumulateur NON BORNE (0 = "
+        "aucune mobilisation, >=1 = mobilisation soutenue), null si non "
+        "suivie ou non visible.\n"
+        "ctx.lame_duck : 1 si l'elu a atteint la limite de mandats, "
+        "sinon 0.\nctx.ticks_left : nombre de ticks avant la prochaine "
+        "election presidentielle, null si aucune election prevue.\n"
+        "Un champ ctx a null signifie que cette grandeur n'est pas suivie "
+        "dans cette simulation, jamais qu'elle vaut zero.\n"
+        f"stance : {STANCE_PROMPT_TABLE}\n"
+        "shifts : au plus "
+        f"{config.mandate.max_response_shifts} ajustements de position, "
+        f"chaque delta strictement compris entre "
+        f"-{config.mandate.max_response_delta} et "
+        f"{config.mandate.max_response_delta} inclus. stance=1 "
+        "(concession) exige au moins un ajustement ; stance=3 (silence) "
+        "exige une liste vide.\n"
+        f"Motifs valides (code court obligatoire) :\n{RESPONSE_MOTIF_PROMPT_TABLE}\n"
+        "REGLE DE COHERENCE stance/motif obligatoire : stance=1 (concession) "
+        "exige motif 301, 302 ou 303 ; stance=2 (defiance) exige motif "
+        "307 ; stance=3 (silence) exige motif 308 ; stance=4 "
+        "(counter_mobilization) exige motif 309. Toute decision hors de "
+        "ces regles sera rejetee.\n"
+        f"IMPORTANT : la liste decisions doit contenir EXACTEMENT ces "
+        f"{len(holders)} cid, chacun une seule fois, dans cet ordre : "
+        f"[{cid_list}]. Verifie ta reponse avant de la finaliser : chaque "
+        "cid de cette liste doit apparaitre exactement une fois.\n"
+        "Reponds UNIQUEMENT avec un objet JSON conforme au schema fourni."
+    )
+
+
+def build_response_user_prompt(holders: Sequence[Citizen], contexts: Mapping[int, ResponseContext]) -> str:
+    """Canonical JSON (sort_keys, compact separators, rounded floats), same
+    reproducibility discipline as every prior prompt builder. `holders` is
+    expected to already be in the canonical order the caller (decide_
+    representative_response) enforces (sorted by citizen_id) -- this
+    function doesn't re-sort, since the system prompt's verbatim
+    expected-cid list must describe the exact same order shown here.
+    Top-level key "holders" -- a sixth decision type needs a sixth
+    unambiguous key so a fake/stub client can dispatch on it unambiguously
+    (see _FakeLlmClient, test_polity_run_simulation.py)."""
+    holder_blocks = []
+    for holder in holders:
+        assert holder.pledged_platform is not None and holder.revealed_position is not None
+        holder_blocks.append(
+            {
+                "cid": holder.citizen_id,
+                "office": 1,  # Office.PRESIDENT, §3.7.1
+                "pledged_platform": [round(x, 4) for x in holder.pledged_platform],
+                "revealed_position": [round(x, 4) for x in holder.revealed_position],
+                "priorities": [round(x, 4) for x in holder.issue_priorities],
+                "ctx": contexts[holder.citizen_id].to_payload(),
+            }
+        )
+    return json.dumps({"holders": holder_blocks}, sort_keys=True, separators=(",", ":"))
+
+
+def decide_representative_response(
+    holders: Sequence[Citizen],
+    contexts: Mapping[int, ResponseContext],
+    config: PolityConfig,
+    client: LlmClientProtocol,
+) -> ResponseBatchOutcome:
+    """v4 Lot 6's dt=6 replacement for the status-quo deterministic fallback
+    (see run_polity_simulation._run_representative_responses's own
+    docstring for why there is no simple_rules.py baseline function to
+    replace -- "no delta, stance=silence" is already true by construction
+    without this module ever running).
+
+    Deliberately does NOT use chunk_voters/MIN_SAFE_BATCH_SIZE, same
+    reasoning as decide_party_nominations/decide_campaign_positioning:
+    this batches this tick's sitting OFFICEHOLDERS (0-or-1 today, president
+    only -- Office.DEPUTY is never assigned), not citizens.
+
+    Calls the client with think=False -- no longer a guess for this
+    decision type: scripts/lot6_batch_reliability_results.md measured
+    16/16 clean responses for this exact schema at batch sizes 1/3/5/10
+    through Ollama's native /api/chat think=false path (with its own
+    documented caveat: not a guarantee, see that file)."""
+    _check_supported(config)
+
+    if not holders:
+        return ResponseBatchOutcome(decisions=[], positions={})
+
+    # Sorted once, here, so system prompt / user prompt / expected_cids all
+    # agree on the same order regardless of the caller's order -- never
+    # rely on an incidental insertion order (D-5 precedent).
+    holders = sorted(holders, key=lambda h: h.citizen_id)
+    expected_cids = [h.citizen_id for h in holders]
+    raw = client.complete_json(
+        system_prompt=build_response_system_prompt(holders, config),
+        user_prompt=build_response_user_prompt(holders, contexts),
+        json_schema=RESPONSE_JSON_SCHEMA,
+        max_tokens=compute_max_tokens(len(holders)),
+        think=False,
+    )
+    decisions = decode_response_batch(raw, expected_cids)
+
+    holders_by_id = {h.citizen_id: h for h in holders}
+    positions: dict[int, tuple[float, ...]] = {}
+    for decision in decisions:
+        validate_response_decision(decision, config)
+        holder = holders_by_id[decision.cid]
+        assert holder.revealed_position is not None  # guaranteed by the caller's own filter
+        positions[decision.cid] = apply_shifts(holder.revealed_position, decision.shifts)
+
+    return ResponseBatchOutcome(decisions=decisions, positions=positions)
 
 
 @dataclass(frozen=True)

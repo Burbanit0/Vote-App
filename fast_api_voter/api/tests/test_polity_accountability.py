@@ -25,6 +25,7 @@ from api.domain.polity.accountability import (
     select_consulted,
     self_gap,
     sign_petition,
+    ticks_to_election,
     update_street_pressure,
     weighted_euclidean,
 )
@@ -220,6 +221,20 @@ def test_current_office_holders_is_sorted_by_citizen_id():
     assert [c.citizen_id for c in result] == [2, 5]
 
 
+# ── ticks_to_election (v4 Lot 6) ─────────────────────────────────────────
+
+def test_ticks_to_election_is_none_with_no_office_holder():
+    assert ticks_to_election(tick=10, term_end_tick=None) is None
+
+
+def test_ticks_to_election_mid_term():
+    assert ticks_to_election(tick=4, term_end_tick=16) == 12
+
+
+def test_ticks_to_election_one_tick_before_the_next_election():
+    assert ticks_to_election(tick=15, term_end_tick=16) == 1
+
+
 # ── election_proximity ───────────────────────────────────────────────────
 
 def test_election_proximity_is_zero_with_no_office_holder():
@@ -237,6 +252,18 @@ def test_election_proximity_is_near_one_just_before_the_next_election():
 
 def test_election_proximity_clamps_to_one_when_ticks_to_election_is_negative():
     assert election_proximity(tick=20, term_end_tick=16, term_ticks=16) == 1.0
+
+
+@pytest.mark.parametrize(
+    "tick,term_end_tick,term_ticks",
+    [(0, 16, 16), (4, 16, 16), (15, 16, 16), (20, 16, 16), (10, None, 16)],
+)
+def test_election_proximity_is_unchanged_by_the_ticks_to_election_extraction(tick, term_end_tick, term_ticks):
+    # Behavior-preserving refactor pin: election_proximity now delegates to
+    # ticks_to_election, re-derived by hand here against the original formula.
+    remaining = ticks_to_election(tick, term_end_tick)
+    expected = 0.0 if remaining is None else max(0.0, min(1.0, 1.0 - remaining / term_ticks))
+    assert election_proximity(tick, term_end_tick, term_ticks) == expected
 
 
 # ── awakening_threshold ──────────────────────────────────────────────────

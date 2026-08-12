@@ -15,6 +15,7 @@ from api.domain.polity.codebook import (
     PARTY_NOMINATION_MOTIF_PROMPT_TABLE,
     PRESSURE_MOTIF_PROMPT_TABLE,
     RESPONSE_MOTIF_PROMPT_TABLE,
+    STANCE_PROMPT_TABLE,
     VOTE_MOTIF_PROMPT_TABLE,
     BallotFormat,
     CampaignMotif,
@@ -193,6 +194,12 @@ def test_stance_has_exactly_the_four_documented_codes():
 
 def test_pressure_act_has_exactly_the_five_documented_codes():
     assert {member.value for member in PressureAct} == {0, 1, 2, 3, 4}
+
+
+def test_stance_prompt_table_lists_every_stance():
+    for stance in Stance:
+        assert f"{stance.value} = {stance.name}" in STANCE_PROMPT_TABLE
+    assert STANCE_PROMPT_TABLE.count("\n") == len(Stance) - 1
 
 
 def test_response_motif_lives_entirely_inside_the_300s_range():

@@ -219,6 +219,9 @@ class Stance(IntEnum):
     COUNTER_MOBILIZATION = 4
 
 
+STANCE_PROMPT_TABLE = "\n".join(f"{stance.value} = {stance.name}" for stance in Stance)
+
+
 class PressureAct(IntEnum):
     """§3.6.6 / §3.7.1 `action` (pressure_action, dt=10). 0 and 4 are always
     legal regardless of the active pressure_menu (§3.6.6's hard constraint);

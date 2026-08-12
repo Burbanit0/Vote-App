@@ -11,6 +11,8 @@ from api.domain.polity.codebook import (
     CoalitionAction,
     CoalitionMotif,
     PartyNominationMotif,
+    ResponseMotif,
+    Stance,
     VoteMotif,
 )
 from api.domain.polity.llm_schemas import (
@@ -18,6 +20,7 @@ from api.domain.polity.llm_schemas import (
     COALITION_JSON_SCHEMA,
     PARTY_NOMINATION_JSON_SCHEMA,
     POSITIONING_JSON_SCHEMA,
+    RESPONSE_JSON_SCHEMA,
     VOTE_CAST_JSON_SCHEMA,
     CandidacyBatch,
     CandidacyDecision,
@@ -27,6 +30,8 @@ from api.domain.polity.llm_schemas import (
     PartyNominationDecision,
     PositioningBatch,
     PositioningDecision,
+    ResponseBatch,
+    ResponseDecision,
     VoteCastBatch,
     VoteCastDecision,
 )
@@ -385,3 +390,117 @@ def test_coalition_json_schema_marks_action_and_motif_as_required():
 
 def test_coalition_json_schema_batch_forbids_additional_properties():
     assert COALITION_JSON_SCHEMA.get("additionalProperties") is False
+
+
+def _response_decision(**overrides):
+    base = {"cid": 1, "shifts": [{"dimension": 0, "delta": 0.1}], "stance": 1, "motif": 301}
+    base.update(overrides)
+    return base
+
+
+def test_valid_response_decision_round_trips_a_concession():
+    decision = ResponseDecision.model_validate(_response_decision())
+    assert decision.cid == 1
+    assert decision.stance == 1
+    assert len(decision.shifts) == 1
+    assert decision.shifts[0].dimension == 0
+    assert decision.shifts[0].delta == 0.1
+
+
+def test_response_silence_with_shifts_raises():
+    with pytest.raises(ValidationError, match="stance=3"):
+        ResponseDecision.model_validate(_response_decision(stance=3, motif=308))
+
+
+def test_response_silence_with_no_shifts_is_accepted():
+    decision = ResponseDecision.model_validate(_response_decision(shifts=[], stance=3, motif=308))
+    assert decision.shifts == []
+
+
+def test_response_concession_with_no_shifts_raises():
+    with pytest.raises(ValidationError, match="stance=1"):
+        ResponseDecision.model_validate(_response_decision(shifts=[], stance=1, motif=301))
+
+
+def test_response_defiance_accepts_both_an_empty_and_a_non_empty_shift_list():
+    ResponseDecision.model_validate(_response_decision(shifts=[], stance=2, motif=307))
+    ResponseDecision.model_validate(_response_decision(stance=2, motif=307))
+
+
+def test_response_concession_with_a_defiance_motif_raises():
+    with pytest.raises(ValidationError, match="stance=1"):
+        ResponseDecision.model_validate(_response_decision(stance=1, motif=307))
+
+
+def test_response_defiance_with_a_concession_motif_raises():
+    with pytest.raises(ValidationError, match="stance=2"):
+        ResponseDecision.model_validate(_response_decision(stance=2, motif=301))
+
+
+def test_response_every_valid_stance_motif_pairing_is_accepted():
+    ResponseDecision.model_validate(_response_decision(stance=1, motif=301))
+    ResponseDecision.model_validate(_response_decision(stance=1, motif=302))
+    ResponseDecision.model_validate(_response_decision(stance=1, motif=303))
+    ResponseDecision.model_validate(_response_decision(shifts=[], stance=2, motif=307))
+    ResponseDecision.model_validate(_response_decision(shifts=[], stance=3, motif=308))
+    ResponseDecision.model_validate(_response_decision(shifts=[], stance=4, motif=309))
+
+
+def test_response_duplicate_dimension_raises():
+    with pytest.raises(ValidationError, match="same dimension"):
+        ResponseDecision.model_validate(
+            _response_decision(shifts=[{"dimension": 0, "delta": 0.1}, {"dimension": 0, "delta": -0.2}])
+        )
+
+
+def test_response_more_than_five_shifts_raises():
+    with pytest.raises(ValidationError):
+        ResponseDecision.model_validate(_response_decision(shifts=[{"dimension": i, "delta": 0.01} for i in range(6)]))
+
+
+def test_response_motif_304_305_306_are_rejected():
+    # Deliberately excluded from ResponseMotif (see codebook.py's own
+    # docstring): 304/305 describe a CITIZEN's inaction, not a sitting
+    # representative's; 306 needs the v6 social graph.
+    for motif in (304, 305, 306):
+        with pytest.raises(ValidationError):
+            ResponseDecision.model_validate(_response_decision(motif=motif))
+
+
+def test_response_unknown_extra_key_raises():
+    with pytest.raises(ValidationError):
+        ResponseDecision.model_validate({**_response_decision(), "extra_field": True})
+
+
+def test_response_empty_decisions_list_raises():
+    with pytest.raises(ValidationError):
+        ResponseBatch.model_validate({"decisions": []})
+
+
+def test_response_batch_round_trips_multiple_decisions():
+    batch = ResponseBatch.model_validate(
+        {"decisions": [_response_decision(cid=1), _response_decision(cid=2, shifts=[], stance=3, motif=308)]}
+    )
+    assert [d.cid for d in batch.decisions] == [1, 2]
+
+
+def test_response_stance_literal_matches_stance_enum_exactly():
+    literal_values = set(ResponseDecision.model_fields["stance"].annotation.__args__)  # type: ignore[union-attr]
+    assert literal_values == {member.value for member in Stance}
+
+
+def test_response_motif_literal_matches_response_motif_enum_exactly():
+    literal_values = set(ResponseDecision.model_fields["motif"].annotation.__args__)  # type: ignore[union-attr]
+    assert literal_values == {member.value for member in ResponseMotif}
+
+
+def test_response_json_schema_marks_shifts_stance_and_motif_as_required():
+    decision_schema = RESPONSE_JSON_SCHEMA["$defs"]["ResponseDecision"]
+    assert "shifts" in decision_schema["required"]
+    assert "stance" in decision_schema["required"]
+    assert "motif" in decision_schema["required"]
+    assert decision_schema.get("additionalProperties") is False
+
+
+def test_response_json_schema_batch_forbids_additional_properties():
+    assert RESPONSE_JSON_SCHEMA.get("additionalProperties") is False
