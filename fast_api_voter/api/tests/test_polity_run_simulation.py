@@ -1020,7 +1020,8 @@ class _FakeLlmClient:
     """Deterministic fake dispatching on user_prompt shape, since one client
     instance now serves decide_candidacies ("citizens" key),
     decide_party_nominations ("parties" key), decide_campaign_positioning
-    ("nominees" key), decide_coalition ("responders" key), and cast_votes
+    ("nominees" key), decide_coalition ("responders" key),
+    decide_representative_response ("holders" key), and cast_votes
     ("voters"/"candidates" keys) within the same run.
     Candidacy: declares (outcome=1) whenever ambition_score >= 0.1 --
     config.candidacy.ambition_threshold is NOT consulted by the LLM path at
@@ -1035,9 +1036,15 @@ class _FakeLlmClient:
     -- the assemble_coalition parity invariant (unanimous join ==
     form_coalition's own output) means this fake's coalitions match the
     deterministic baseline exactly, useful for the byte-identical
-    reproducibility test. Voting: every citizen votes blank -- enough to
-    exercise the integration plumbing (journal writes, reproducibility,
-    error propagation) without needing real vote-quality logic."""
+    reproducibility test. Representative response: every holder concedes,
+    shifting dimension 0 by +0.1 (stance=1, motif=301) -- within the
+    shipped mandate.max_response_delta=0.3/max_response_shifts=3 bounds and
+    coherent under ResponseDecision's own stance/motif validator; the
+    +0.1/tick drift saturates at apply_shifts's [0,1] clamp after ~10 ticks,
+    itself worth having show up in an integration run. Voting: every
+    citizen votes blank -- enough to exercise the integration plumbing
+    (journal writes, reproducibility, error propagation) without needing
+    real vote-quality logic."""
 
     def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
         payload = json.loads(user_prompt)
@@ -1068,8 +1075,31 @@ class _FakeLlmClient:
         if "responders" in payload:
             decisions = [{"party_id": r["party_id"], "action": 1, "motif": 501} for r in payload["responders"]]
             return json.dumps({"decisions": decisions})
-        decisions = [{"cid": v["cid"], "blank": 1, "ranking": [], "motif": 101} for v in payload["voters"]]
-        return json.dumps({"decisions": decisions})
+        if "holders" in payload:
+            decisions = [
+                {"cid": h["cid"], "shifts": [{"dimension": 0, "delta": 0.1}], "stance": 1, "motif": 301}
+                for h in payload["holders"]
+            ]
+            return json.dumps({"decisions": decisions})
+        return json.dumps({"decisions": self._vote_decisions(payload["voters"])})
+
+    def _vote_decisions(self, voters):
+        return [{"cid": v["cid"], "blank": 1, "ranking": [], "motif": 101} for v in voters]
+
+
+class _ElectingFakeLlmClient(_FakeLlmClient):
+    """Same as _FakeLlmClient in every other respect, but every voter ranks
+    the first candidate (by position) instead of voting blank -- unanimous
+    support, so a winner is elected every term under any ranked method.
+    _FakeLlmClient's own "everyone votes blank" behavior means NO
+    presidential election ever produces a winner (confirmed: every existing
+    LLM-path test either doesn't check `elected` at all, or explicitly
+    asserts its absence) -- harmless for candidacy/positioning/coalition
+    tests, but v4 Lot 6's representative_response needs a real, sitting
+    officeholder to exercise at all."""
+
+    def _vote_decisions(self, voters):
+        return [{"cid": v["cid"], "blank": 0, "ranking": [1], "motif": 104} for v in voters]
 
 
 def _config_with_llm_enabled(output_dir) -> PolityConfig:
@@ -1093,6 +1123,255 @@ def test_two_llm_runs_with_the_same_seed_produce_byte_identical_journals(tmp_pat
     path_a = run_simulation(config_a, run_id="same-run-id", llm_client=_FakeLlmClient())
     path_b = run_simulation(config_b, run_id="same-run-id", llm_client=_FakeLlmClient())
     assert path_a.read_bytes() == path_b.read_bytes()
+
+
+# ── representative_response (v4 Lot 6, dt=6) ─────────────────────────────
+
+def _config_with_mandate_llm_enabled(output_dir, **overrides) -> PolityConfig:
+    config = _config_with_llm_enabled(output_dir)
+    config = dataclasses.replace(config, legitimacy=dataclasses.replace(config.legitimacy, enabled=True))
+    return dataclasses.replace(config, mandate=dataclasses.replace(config.mandate, enabled=True, **overrides))
+
+
+def test_default_config_run_emits_no_representative_response_events(tmp_path):
+    journal_path = run_simulation(_config_with_output_dir(tmp_path), run_id="baseline")
+    events = _events(journal_path)
+    assert not [e for e in events if e["event_type"] == "representative_response"]
+
+
+def test_llm_enabled_without_mandate_tracking_emits_no_representative_response_events(tmp_path):
+    # mandate.enabled stays at its shipped False -- this is also why the two
+    # existing byte-identical LLM reproducibility tests need no edit.
+    config = _config_with_llm_enabled(tmp_path)
+    journal_path = run_simulation(config, run_id="llm-no-mandate", llm_client=_FakeLlmClient())
+    events = _events(journal_path)
+    assert not [e for e in events if e["event_type"] == "representative_response"]
+
+
+def test_mandate_tracking_without_the_llm_never_moves_revealed_position(tmp_path):
+    # §7bis.5 control case, re-asserted now that the gate exists: with
+    # llm.enabled False, nothing can diverge revealed_position from
+    # pledged_platform -- "no delta, stance=silence" by construction.
+    config = _config_with_mandate_enabled_and_guaranteed_winners(tmp_path)
+    journal_path = run_simulation(config, run_id="mandate-no-llm")
+    events = _events(journal_path)
+    assert not [e for e in events if e["event_type"] == "representative_response"]
+    assert not [e for e in events if e["event_type"] == "mandate_deviation_recorded"]
+
+
+def test_representative_response_is_journalled_once_per_presided_tick(tmp_path):
+    config = _config_with_mandate_llm_enabled(tmp_path)
+    journal_path = run_simulation(config, run_id="dt6", llm_client=_ElectingFakeLlmClient())
+    events = _events(journal_path)
+    response_events = [e for e in events if e["event_type"] == "representative_response"]
+    legitimacy_events = [e for e in events if e["event_type"] == "legitimacy_updated"]
+    assert response_events
+    # legitimacy_updated is already a proven once-per-presided-tick invariant
+    # (Lot 3) -- cross-checking against it avoids hardcoding a tick count.
+    assert {e["tick"] for e in response_events} == {e["tick"] for e in legitimacy_events}
+
+    for e in response_events:
+        assert e["payload"]["office"] == Office.PRESIDENT.value
+        assert set(e["payload"].keys()) == {"office", "stance", "shifts", "ctx"}
+        assert set(e["payload"]["ctx"].keys()) == {"L", "mandate_dev", "street", "lame_duck", "ticks_left"}
+        assert e["payload"]["ctx"]["lame_duck"] in (0, 1)
+        assert e["motif"] == "301"
+        assert e["codebook_version"] == config.llm.codebook_version
+
+
+def test_representative_response_sees_the_previous_ticks_street_pressure(tmp_path):
+    # DoD: the one-tick lag is an emergent property of step ordering, pinned
+    # here so a later refactor that silently breaks it fails loudly.
+    config = _config_with_llm_enabled(tmp_path)
+    config = dataclasses.replace(
+        config,
+        mandate=dataclasses.replace(config.mandate, enabled=True),
+        legitimacy=dataclasses.replace(config.legitimacy, enabled=True),
+        awakening=dataclasses.replace(config.awakening, enabled=True, modulation_amplitude=0.0),
+        pressure_menu=dataclasses.replace(config.pressure_menu, electoral_only=False, mobilization_enabled=True),
+        street_pressure=dataclasses.replace(config.street_pressure, enabled=True),
+        run=dataclasses.replace(config.run, population_size=2),
+    )
+    holder = _legitimacy_test_citizen(0, legitimacy_capital=0.9, mandate_strength_value=0.9)
+    holder.pledged_platform = (0.5,)
+    holder.revealed_position = (0.5,)
+    mobilizer = Citizen(
+        citizen_id=1, issue_positions=(0.0,), issue_priorities=(1.0,), blank_threshold=0.0,
+        ambition_score=0.5, base_threshold=0.0,
+    )
+
+    seen_street = []
+
+    class RecordingClient:
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+            payload = json.loads(user_prompt)
+            seen_street.append(payload["holders"][0]["ctx"]["street"])
+            decisions = [{"cid": h["cid"], "shifts": [], "stance": 3, "motif": 308} for h in payload["holders"]]
+            return json.dumps({"decisions": decisions})
+
+    client = RecordingClient()
+    with Journal(tmp_path / "tick0.jsonl", run_id="tick0") as journal:
+        _run_accountability_phase([holder, mobilizer], config, journal, tick=0, llm_client=client)
+    street_after_tick0 = holder.street_pressure
+
+    with Journal(tmp_path / "tick1.jsonl", run_id="tick1") as journal:
+        _run_accountability_phase([holder, mobilizer], config, journal, tick=1, llm_client=client)
+
+    assert seen_street[0] == 0.0  # tick 0: nothing has mobilized yet
+    assert street_after_tick0 > 0.0  # tick 0's OWN mobilization raised it
+    assert seen_street[1] == pytest.approx(street_after_tick0)  # tick 1 sees tick 0's write, not tick 1's
+
+
+def test_mandate_deviation_is_recorded_once_revealed_position_drifts(tmp_path):
+    # The first nonzero mandate_deviation_recorded in the project's history.
+    # pledge_scope=full_platform so dimension 0 (the only one
+    # _ElectingFakeLlmClient/_FakeLlmClient's holders branch ever shifts)
+    # always carries nonzero weight, regardless of whether it happens to
+    # land in the officeholder's own top-5 priority dimensions.
+    config = _config_with_mandate_llm_enabled(tmp_path, pledge_scope="full_platform")
+    journal_path = run_simulation(config, run_id="drift", llm_client=_ElectingFakeLlmClient())
+    events = _events(journal_path)
+    deviations = [e for e in events if e["event_type"] == "mandate_deviation_recorded"]
+    assert deviations
+    assert all(e["payload"]["deviation"] > config.mandate.deviation_log_threshold for e in deviations)
+    pledges = [e for e in events if e["event_type"] == "mandate_pledge_declared"]
+    assert pledges
+    # pledged_platform is never touched by representative_response -- every
+    # pledge event's platform is a fresh 20-dim vector from election time,
+    # never itself drifting across a term.
+    assert all(len(p["payload"]["pledged_platform"]) == config.citizens.issue_count for p in pledges)
+
+
+def test_representative_response_precedes_the_rest_of_the_tick(tmp_path):
+    config = _config_with_mandate_llm_enabled(tmp_path)
+    journal_path = run_simulation(config, run_id="ordering", llm_client=_ElectingFakeLlmClient())
+    events = _events(journal_path)
+    for tick in {e["tick"] for e in events}:
+        tick_events = [e for e in events if e["tick"] == tick]
+        types = [e["event_type"] for e in tick_events]
+        if "representative_response" in types and "legitimacy_updated" in types:
+            assert types.index("representative_response") < types.index("legitimacy_updated")
+
+
+def test_ctx_mandate_dev_is_the_pre_decision_deviation(tmp_path):
+    config = _config_with_legitimacy_enabled(tmp_path)
+    config = dataclasses.replace(
+        config,
+        llm=dataclasses.replace(config.llm, enabled=True),
+        mandate=dataclasses.replace(config.mandate, enabled=True),
+    )
+    holder = _legitimacy_test_citizen(0, legitimacy_capital=0.9, mandate_strength_value=0.9)
+    holder.pledged_platform = (0.5,)
+    holder.revealed_position = (0.5,)
+
+    seen_mandate_devs = []
+
+    class RecordingClient:
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+            payload = json.loads(user_prompt)
+            seen_mandate_devs.append(payload["holders"][0]["ctx"]["mandate_dev"])
+            decisions = [
+                {"cid": h["cid"], "shifts": [{"dimension": 0, "delta": 0.2}], "stance": 1, "motif": 301}
+                for h in payload["holders"]
+            ]
+            return json.dumps({"decisions": decisions})
+
+    client = RecordingClient()
+    with Journal(tmp_path / "t0.jsonl", run_id="t0") as journal:
+        _run_accountability_phase([holder], config, journal, tick=0, llm_client=client)
+    events_t0 = _events(tmp_path / "t0.jsonl")
+    deviation_t0 = next(e["payload"]["deviation"] for e in events_t0 if e["event_type"] == "mandate_deviation_recorded")
+
+    with Journal(tmp_path / "t1.jsonl", run_id="t1") as journal:
+        _run_accountability_phase([holder], config, journal, tick=1, llm_client=client)
+
+    assert seen_mandate_devs[0] == 0.0  # tick 0: no drift yet -- pre-decision
+    assert seen_mandate_devs[1] == pytest.approx(deviation_t0)  # tick 1 sees tick 0's post-decision deviation
+
+
+def test_no_representative_response_while_the_presidency_is_vacant(tmp_path):
+    config = _config_with_llm_enabled(tmp_path)
+    config = dataclasses.replace(config, mandate=dataclasses.replace(config.mandate, enabled=True))
+
+    class VacantClient:
+        """Declines every candidacy -- the presidency stays vacant the
+        entire run, and no vote_cast/holders call ever happens. Legislative
+        elections/coalitions are unaffected (choose_party is deterministic,
+        never LLM-gated) -- still need to answer "responders" so a
+        contested coalition round doesn't fail schema validation on an
+        empty decisions list."""
+
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+            payload = json.loads(user_prompt)
+            if "citizens" in payload:
+                decisions = [{"cid": c["cid"], "outcome": 0, "motif": 201} for c in payload["citizens"]]
+                return json.dumps({"decisions": decisions})
+            if "responders" in payload:
+                decisions = [{"party_id": r["party_id"], "action": 2, "motif": 504} for r in payload["responders"]]
+                return json.dumps({"decisions": decisions})
+            decisions = [{"cid": v["cid"], "blank": 1, "ranking": [], "motif": 101} for v in payload.get("voters", [])]
+            return json.dumps({"decisions": decisions})
+
+    journal_path = run_simulation(config, run_id="vacant-llm", llm_client=VacantClient())
+    events = _events(journal_path)
+    assert not [e for e in events if e["event_type"] == "elected"]
+    assert not [e for e in events if e["event_type"] == "representative_response"]
+
+
+def test_two_mandate_llm_runs_produce_byte_identical_journals(tmp_path):
+    path_a = run_simulation(
+        _config_with_mandate_llm_enabled(tmp_path / "a"), run_id="same-run-id", llm_client=_ElectingFakeLlmClient()
+    )
+    path_b = run_simulation(
+        _config_with_mandate_llm_enabled(tmp_path / "b"), run_id="same-run-id", llm_client=_ElectingFakeLlmClient()
+    )
+    assert path_a.read_bytes() == path_b.read_bytes()
+
+
+def test_ctx_omits_street_pressure_when_it_is_not_visible_to_the_representative(tmp_path):
+    config = _config_with_mandate_llm_enabled(tmp_path)
+    config = dataclasses.replace(
+        config,
+        awakening=dataclasses.replace(config.awakening, enabled=True),
+        pressure_menu=dataclasses.replace(config.pressure_menu, electoral_only=False, mobilization_enabled=True),
+        street_pressure=dataclasses.replace(config.street_pressure, enabled=True, visible_to_representative=False),
+    )
+    journal_path = run_simulation(config, run_id="street-invisible", llm_client=_ElectingFakeLlmClient())
+    events = _events(journal_path)
+    response_events = [e for e in events if e["event_type"] == "representative_response"]
+    assert response_events
+    assert all(e["payload"]["ctx"]["street"] is None for e in response_events)
+
+
+def test_confidence_vote_keep_ratio_decouples_from_mandate_strength_once_the_position_drifts(tmp_path):
+    # Lot 5's own test_confidence_vote_keep_ratio_equals_mandate_strength_on_the_deterministic_path
+    # stays green UNMODIFIED (it runs with llm.enabled=False) -- this is the
+    # LLM-path counterpart, deliberately breaking the identity dt=6 was
+    # named for breaking (build_confidence_ballot's own docstring).
+    config = _config_with_mandate_llm_enabled(tmp_path)
+    config = dataclasses.replace(
+        config,
+        awakening=dataclasses.replace(config.awakening, enabled=True),
+        pressure_menu=dataclasses.replace(config.pressure_menu, electoral_only=False, petition_enabled=True),
+        petition=dataclasses.replace(config.petition, enabled=True, signature_threshold=0.05),
+    )
+    journal_path = run_simulation(config, run_id="decouple", llm_client=_ElectingFakeLlmClient())
+    events = _events(journal_path)
+    results = [e for e in events if e["event_type"] == "confidence_vote_result"]
+    assert results
+
+    mismatches = 0
+    for result in results:
+        same_tick_updates = [
+            e for e in events
+            if e["event_type"] == "legitimacy_updated"
+            and e["tick"] == result["tick"]
+            and e["citizen_id"] == result["citizen_id"]
+        ]
+        assert same_tick_updates
+        if result["payload"]["keep_ratio"] != pytest.approx(same_tick_updates[-1]["payload"]["mandate_strength"]):
+            mismatches += 1
+    assert mismatches > 0  # the identity deliberately breaks once the position has drifted
 
 
 def test_llm_batch_misalignment_aborts_the_run_with_no_partial_journal(tmp_path):

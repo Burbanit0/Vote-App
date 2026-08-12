@@ -15,6 +15,7 @@ from api.domain.polity.llm_client import (
     decode_coalition_batch,
     decode_party_nomination_batch,
     decode_positioning_batch,
+    decode_response_batch,
     decode_vote_batch,
 )
 
@@ -320,6 +321,57 @@ def test_decode_positioning_batch_rejects_order_mismatch():
 def test_decode_positioning_batch_strips_think_tags():
     raw = "<think>reasoning here</think>" + json.dumps({"decisions": [_positioning_decision(cid=1)]})
     decisions = decode_positioning_batch(raw, expected_cids=[1])
+    assert decisions[0].cid == 1
+
+
+# ── decode_response_batch (v4 Lot 6) ─────────────────────────────────────
+
+def _response_decision(**overrides):
+    base = {"cid": 1, "shifts": [{"dimension": 0, "delta": 0.1}], "stance": 1, "motif": 301}
+    base.update(overrides)
+    return base
+
+
+def test_decode_response_batch_round_trips():
+    raw = json.dumps(
+        {"decisions": [_response_decision(cid=1), _response_decision(cid=2, shifts=[], stance=3, motif=308)]}
+    )
+    decisions = decode_response_batch(raw, expected_cids=[1, 2])
+    assert [d.cid for d in decisions] == [1, 2]
+
+
+def test_decode_response_batch_rejects_non_json():
+    with pytest.raises(LlmResponseError, match="not valid JSON"):
+        decode_response_batch("not json", expected_cids=[1])
+
+
+def test_decode_response_batch_rejects_schema_invalid_content():
+    raw = json.dumps({"decisions": [{"cid": 1, "shifts": [], "stance": 3, "motif": 301}]})  # silence w/ concession motif
+    with pytest.raises(LlmResponseError, match="schema validation"):
+        decode_response_batch(raw, expected_cids=[1])
+
+
+def test_decode_response_batch_rejects_count_mismatch():
+    raw = json.dumps({"decisions": [_response_decision(cid=1)]})
+    with pytest.raises(LlmResponseError, match="misaligned"):
+        decode_response_batch(raw, expected_cids=[1, 2])
+
+
+def test_decode_response_batch_rejects_order_mismatch():
+    raw = json.dumps({"decisions": [_response_decision(cid=2), _response_decision(cid=1)]})
+    with pytest.raises(LlmResponseError, match="misaligned"):
+        decode_response_batch(raw, expected_cids=[1, 2])
+
+
+def test_decode_response_batch_rejects_a_duplicated_cid():
+    raw = json.dumps({"decisions": [_response_decision(cid=1), _response_decision(cid=1)]})
+    with pytest.raises(LlmResponseError, match="misaligned"):
+        decode_response_batch(raw, expected_cids=[1, 2])
+
+
+def test_decode_response_batch_strips_think_tags():
+    raw = "<think>reasoning here</think>" + json.dumps({"decisions": [_response_decision(cid=1)]})
+    decisions = decode_response_batch(raw, expected_cids=[1])
     assert decisions[0].cid == 1
 
 

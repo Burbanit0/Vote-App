@@ -95,18 +95,29 @@ def is_term_limited(citizen: Citizen, term_limit: int | None) -> bool:
     return term_limit is not None and citizen.mandates_served >= term_limit
 
 
+def ticks_to_election(tick: int, term_end_tick: int | None) -> int | None:
+    """term_end_tick - tick, or None with no sitting officeholder. Two real
+    consumers (v4 Lot 6): election_proximity (which delegates here) and
+    dt=6's ResponseContext.ticks_left. No InstitutionalClock needed --
+    term_end_tick is only ever assigned at a presidential election tick, to
+    exactly tick_of_election + president_term_years*ticks_per_year, so it
+    already IS the next scheduled presidential election; a recall (Lot 3)
+    clears it via vacate_office, so a stale value is unreachable. Lot 4
+    already proved the range is [1, president_term_ticks] for a sitting
+    holder (the accountability phase runs after the election block, so 0 is
+    unreachable) -- never 0, never negative, in the caller's own tests."""
+    if term_end_tick is None:
+        return None
+    return term_end_tick - tick
+
+
 def election_proximity(tick: int, term_end_tick: int | None, term_ticks: int) -> float:
     """v4 Lot 4 (§7bis.9c): 1 - ticks_to_election/term_ticks, clamped [0,1].
-    0.0 with no sitting officeholder (term_end_tick is None). No
-    InstitutionalClock needed -- term_end_tick is only ever assigned at a
-    presidential election tick, to exactly tick_of_election +
-    president_term_years*ticks_per_year, so it already IS the next
-    scheduled presidential election; a recall (Lot 3) clears it via
-    vacate_office, so a stale value is unreachable."""
-    if term_end_tick is None:
+    0.0 with no sitting officeholder (term_end_tick is None)."""
+    remaining = ticks_to_election(tick, term_end_tick)
+    if remaining is None:
         return 0.0
-    ticks_to_election = term_end_tick - tick
-    return max(0.0, min(1.0, 1.0 - ticks_to_election / term_ticks))
+    return max(0.0, min(1.0, 1.0 - remaining / term_ticks))
 
 
 def awakening_threshold(citizen: Citizen, *, mandate_dev: float, proximity: float, config: AwakeningConfig) -> float:

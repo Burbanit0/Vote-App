@@ -2,8 +2,8 @@
 api.domain.polity.llm_schemas — Pydantic wire schemas for the LLM's
 `vote_cast` (design doc §3.6.1), `candidacy_considered` (§3.6.2),
 `party_nomination_choice` (§3.6.2->3.6.8, dt=4), `campaign_positioning`
-(§3.6.2->3.6.8, dt=5), and `coalition_decision` (§3.6.2->3.6.8, dt=9)
-decisions, v2 increments 1-5.
+(§3.6.2->3.6.8, dt=5), `coalition_decision` (§3.6.2->3.6.8, dt=9), v2
+increments 1-5, and `representative_response` (§3.6.5, dt=6), v4 Lot 6.
 
 Lives in api/domain/polity/, not api/schemas/ — that package is the public
 HTTP/OpenAPI surface (see voter-api skill); these are internal LLM wire
@@ -200,6 +200,93 @@ class PositioningBatch(BaseModel):
 
 
 POSITIONING_JSON_SCHEMA = PositioningBatch.model_json_schema()
+
+
+class ResponseDecision(BaseModel):
+    """One sitting officeholder's reaction to citizen pressure, design doc
+    §3.6.5 — the "schéma central de la révision 2". Reuses increment 4's
+    PositionShift verbatim: §3.6.5's own example expresses its delta the same
+    sparse way (`{"7": -0.15}`), and that dict form is impossible under
+    Ollama's strict structured output (see PositionShift). Field named
+    `shifts`, not the doc's `delta`, because `delta` is already the name of
+    the scalar *inside* PositionShift — `decision.delta[0].delta` would read
+    as nothing at all, and one name per concept across dt=5/dt=6 means an
+    analyst reads sparse position moves the same way regardless of decision
+    type. Documented wire-vs-doc divergence, same register as Lot 3's
+    `recalled`-not-`recall_triggered` call.
+
+    `shifts`'s max_length=5 is a loose STRUCTURAL ceiling, exactly like
+    PositioningDecision's — the real cap is `mandate.max_response_shifts` (3
+    shipped), enforced in `llm_behavior_engine.validate_response_decision`
+    together with `mandate.max_response_delta`. Deliberately the `mandate.*`
+    bounds and never `campaign.*`: mid-term mandate drift and campaign-time
+    strategy are different effects and must stay analytically separable
+    (`MandateConfig`'s own docstring, v4 Lot 1).
+
+    Two cross-field rules, both context-independent and therefore here
+    rather than in the engine:
+    - stance/shifts coherence, §3.6.5's own enum definitions: `3=silence`
+      means "aucun ajustement" (empty shifts required) and `1=concession`
+      means "ajuste sa position" (non-empty required); `2=defiance`
+      ("maintient OU accentue") and `4=counter_mobilization` accept both.
+      Same shape and same home as VoteCastDecision's blank/ranking rule.
+    - stance/motif coherence, per `ResponseMotif`'s own construction
+      (301/302/303 each ground a CONCESSION; 307/308/309 exist precisely
+      because defiance, silence and counter-mobilization each need their
+      own signal). Same reasoning as `CoalitionDecision`'s action/motif
+      rule below: the alternative pairing describes a different decision
+      than the one recorded, silently corrupting the motif distribution
+      §3.7 exists to produce.
+
+    What is deliberately NOT validated: whether a concession's shifts
+    actually move toward the perceived discontent. That is a behavioral
+    prescription (§3.3) and a Lot 8 measurement, not an invariant."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    cid: int = Field(..., ge=0, description="citizen_id of the officeholder this decision belongs to.")
+    shifts: list[PositionShift] = Field(..., max_length=5)
+    stance: Literal[1, 2, 3, 4] = Field(
+        ..., description="1=concession, 2=defiance, 3=silence, 4=counter_mobilization (§3.6.5) — voir Stance."
+    )
+    motif: Literal[301, 302, 303, 307, 308, 309] = Field(
+        ..., description="Code court obligatoire (§3.7.2) — voir ResponseMotif."
+    )
+
+    @model_validator(mode="after")
+    def _check_no_duplicate_dimensions(self) -> ResponseDecision:
+        dimensions = [shift.dimension for shift in self.shifts]
+        if len(set(dimensions)) != len(dimensions):
+            raise ValueError("shifts must not target the same dimension twice")
+        return self
+
+    @model_validator(mode="after")
+    def _check_stance_coherence(self) -> ResponseDecision:
+        if self.stance == 1 and self.motif not in (301, 302, 303):
+            raise ValueError("stance=1 (concession) requires motif 301, 302 or 303")
+        if self.stance == 2 and self.motif != 307:
+            raise ValueError("stance=2 (defiance) requires motif 307")
+        if self.stance == 3 and self.motif != 308:
+            raise ValueError("stance=3 (silence) requires motif 308")
+        if self.stance == 4 and self.motif != 309:
+            raise ValueError("stance=4 (counter_mobilization) requires motif 309")
+        if self.stance == 1 and not self.shifts:
+            raise ValueError("stance=1 (concession) requires at least one shift")
+        if self.stance == 3 and self.shifts:
+            raise ValueError("stance=3 (silence) requires an empty shifts list")
+        return self
+
+
+class ResponseBatch(BaseModel):
+    """§3.6.0's batch envelope, specialized to representative_response — one
+    decision per sitting officeholder (0-or-1 today: president only)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    decisions: list[ResponseDecision] = Field(..., min_length=1)
+
+
+RESPONSE_JSON_SCHEMA = ResponseBatch.model_json_schema()
 
 
 class CoalitionDecision(BaseModel):

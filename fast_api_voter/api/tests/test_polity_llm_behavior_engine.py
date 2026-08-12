@@ -13,6 +13,7 @@ from api.domain.polity.codebook import VoteMotif
 from api.domain.polity.config import load_config
 from api.domain.polity.llm_behavior_engine import (
     MIN_SAFE_BATCH_SIZE,
+    ResponseContext,
     apply_shifts,
     assemble_coalition,
     build_candidacy_system_prompt,
@@ -23,6 +24,8 @@ from api.domain.polity.llm_behavior_engine import (
     build_party_nomination_user_prompt,
     build_positioning_system_prompt,
     build_positioning_user_prompt,
+    build_response_system_prompt,
+    build_response_user_prompt,
     build_system_prompt,
     build_user_prompt,
     cast_votes,
@@ -32,11 +35,13 @@ from api.domain.polity.llm_behavior_engine import (
     decide_candidacies,
     decide_coalition,
     decide_party_nominations,
+    decide_representative_response,
     resolve_party_nomination_cid,
     truncation_limit,
     validate_coalition_decision,
     validate_decision,
     validate_positioning_decision,
+    validate_response_decision,
 )
 from api.domain.polity.llm_client import LlmResponseError
 from api.domain.polity.llm_schemas import (
@@ -44,6 +49,7 @@ from api.domain.polity.llm_schemas import (
     PartyNominationDecision,
     PositioningDecision,
     PositionShift,
+    ResponseDecision,
     VoteCastDecision,
 )
 from api.domain.polity.parties import Party
@@ -883,6 +889,277 @@ def test_decide_campaign_positioning_propagates_llm_response_error_on_count_mism
 
     with pytest.raises(LlmResponseError, match="misaligned"):
         decide_campaign_positioning(citizens, citizens, {}, config, ShortClient())
+
+
+# ── validate_response_decision (v4 Lot 6) ────────────────────────────────
+
+def _holder(cid, positions, revealed=None):
+    c = _citizen(cid, positions)
+    c.pledged_platform = c.issue_positions
+    c.revealed_position = revealed if revealed is not None else c.issue_positions
+    return c
+
+
+def _response_decision(**overrides):
+    base = {"cid": 1, "shifts": [{"dimension": 0, "delta": 0.1}], "stance": 1, "motif": 301}
+    base.update(overrides)
+    return ResponseDecision.model_validate(base)
+
+
+def _response_context(cid, **overrides):
+    base = {"cid": cid, "legitimacy": 0.5, "mandate_dev": 0.0, "street": 0.0, "lame_duck": False, "ticks_left": 6}
+    base.update(overrides)
+    return ResponseContext(**base)
+
+
+def test_validate_response_decision_accepts_within_bounds():
+    config = _config_with_llm_enabled()  # default mandate.max_response_shifts=3, max_response_delta=0.3
+    validate_response_decision(_response_decision(), config)  # must not raise
+
+
+def test_validate_response_decision_rejects_too_many_shifts():
+    config = _config_with_llm_enabled()
+    decision = _response_decision(shifts=[{"dimension": i, "delta": 0.1} for i in range(4)])
+    with pytest.raises(LlmResponseError, match="max_response_shifts"):
+        validate_response_decision(decision, config)
+
+
+def test_validate_response_decision_rejects_delta_exceeding_the_cap():
+    config = _config_with_llm_enabled()
+    decision = _response_decision(shifts=[{"dimension": 0, "delta": 0.9}])
+    with pytest.raises(LlmResponseError, match="max_response_delta"):
+        validate_response_decision(decision, config)
+
+
+def test_validate_response_decision_rejects_out_of_range_dimension():
+    config = _config_with_llm_enabled()  # default citizens.issue_count=20
+    decision = _response_decision(shifts=[{"dimension": 999, "delta": 0.1}])
+    with pytest.raises(LlmResponseError, match="out of range"):
+        validate_response_decision(decision, config)
+
+
+def test_validate_response_decision_uses_mandate_bounds_not_campaign_bounds():
+    # mandate.* and campaign.* must stay analytically separable -- a
+    # decision within the (loosened) campaign bounds but outside the
+    # shipped mandate bounds must still be rejected.
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(
+        config, campaign=dataclasses.replace(config.campaign, max_positioning_delta=1.0, max_positioning_shifts=5)
+    )
+    decision = _response_decision(shifts=[{"dimension": 0, "delta": 0.9}])  # exceeds mandate.max_response_delta=0.3
+    with pytest.raises(LlmResponseError, match="max_response_delta"):
+        validate_response_decision(decision, config)
+
+
+# ── build_response_system_prompt / build_response_user_prompt ───────────
+
+def test_response_system_prompt_enumerates_every_expected_cid():
+    holders = [_holder(0, (0.5,)), _holder(1, (0.5,)), _holder(2, (0.5,))]
+    config = _config_with_llm_enabled()
+    prompt = build_response_system_prompt(holders, config)
+    assert "[0,1,2]" in prompt
+    assert "EXACTEMENT ces 3" in prompt
+
+
+def test_response_system_prompt_states_the_actual_numeric_bounds():
+    holders = [_holder(0, (0.5,))]
+    config = _config_with_llm_enabled()  # default max_response_shifts=3, max_response_delta=0.3
+    prompt = build_response_system_prompt(holders, config)
+    assert "3 ajustements" in prompt
+    assert "0.3" in prompt
+
+
+def test_response_system_prompt_carries_the_stance_and_motif_tables():
+    holders = [_holder(0, (0.5,))]
+    config = _config_with_llm_enabled()
+    prompt = build_response_system_prompt(holders, config)
+    assert "1 = CONCESSION" in prompt
+    assert "301 = MANDATE_DEVIATION_HIGH" in prompt
+
+
+def test_response_system_prompt_states_the_stance_motif_pairing_rule():
+    holders = [_holder(0, (0.5,))]
+    config = _config_with_llm_enabled()
+    prompt = build_response_system_prompt(holders, config)
+    assert "stance=1" in prompt and "301" in prompt
+    assert "stance=3" in prompt and "308" in prompt
+
+
+def test_response_user_prompt_carries_pledged_revealed_and_ctx():
+    holder = _holder(0, (0.2, 0.4), revealed=(0.3, 0.4))
+    contexts = {0: _response_context(0, legitimacy=0.6, mandate_dev=0.1, street=0.2, lame_duck=True, ticks_left=3)}
+    payload = json.loads(build_response_user_prompt([holder], contexts))
+    block = payload["holders"][0]
+    assert block["cid"] == 0
+    assert block["pledged_platform"] == [0.2, 0.4]
+    assert block["revealed_position"] == [0.3, 0.4]
+    assert block["ctx"] == {"L": 0.6, "mandate_dev": 0.1, "street": 0.2, "lame_duck": 1, "ticks_left": 3}
+
+
+def test_response_user_prompt_emits_null_for_untracked_ctx_fields():
+    holder = _holder(0, (0.5,))
+    contexts = {0: _response_context(0, legitimacy=None, street=None, ticks_left=None)}
+    payload = json.loads(build_response_user_prompt([holder], contexts))
+    ctx = payload["holders"][0]["ctx"]
+    assert ctx["L"] is None
+    assert ctx["street"] is None
+    assert ctx["ticks_left"] is None
+    assert ctx["mandate_dev"] == 0.0  # never null -- always tracked whenever this function runs at all
+
+
+def test_response_user_prompt_is_deterministic_for_the_same_inputs():
+    holders = [_holder(0, (0.5,)), _holder(1, (0.5,))]
+    contexts = {0: _response_context(0), 1: _response_context(1)}
+    assert build_response_user_prompt(holders, contexts) == build_response_user_prompt(holders, contexts)
+
+
+def test_response_user_prompt_ctx_matches_the_journalled_ctx_payload():
+    # One serialization, two consumers (the prompt and the journal write in
+    # run_polity_simulation.py) -- both must read from to_payload().
+    holder = _holder(0, (0.5,))
+    context = _response_context(0, legitimacy=0.7, mandate_dev=0.2, street=1.5, lame_duck=False, ticks_left=9)
+    payload = json.loads(build_response_user_prompt([holder], {0: context}))
+    assert payload["holders"][0]["ctx"] == context.to_payload()
+
+
+# ── decide_representative_response (FakeResponseLlmClient, v4 Lot 6) ────
+
+class FakeResponseLlmClient:
+    """Always answers silence (empty shifts, motif=STRATEGIC_AMBIGUITY) --
+    lets tests assert on order/skip-when-empty/resolution behavior without
+    a live model asserting anything about actual shift content."""
+
+    def __init__(self):
+        self.calls: list[list[int]] = []
+
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        payload = json.loads(user_prompt)
+        cids = [h["cid"] for h in payload["holders"]]
+        self.calls.append(cids)
+        decisions = [{"cid": cid, "shifts": [], "stance": 3, "motif": 308} for cid in cids]
+        return json.dumps({"decisions": decisions})
+
+
+def test_decide_representative_response_returns_empty_and_skips_the_client_when_no_holders():
+    config = _config_with_llm_enabled()
+    client = FakeResponseLlmClient()
+
+    outcome = decide_representative_response([], {}, config, client)
+
+    assert outcome.decisions == []
+    assert outcome.positions == {}
+    assert client.calls == []
+
+
+def test_decide_representative_response_sorts_holders_by_citizen_id_regardless_of_input_order():
+    holders = [_holder(3, (0.5,)), _holder(0, (0.5,)), _holder(4, (0.5,))]
+    contexts = {h.citizen_id: _response_context(h.citizen_id) for h in holders}
+    config = _config_with_llm_enabled()
+    client = FakeResponseLlmClient()
+
+    decide_representative_response(holders, contexts, config, client)
+
+    assert client.calls == [[0, 3, 4]]
+
+
+def test_decide_representative_response_applies_shifts_on_top_of_revealed_position():
+    holder = _holder(0, (0.2, 0.2), revealed=(0.4, 0.2))  # already drifted from the pledge
+    contexts = {0: _response_context(0)}
+    config = _config_with_llm_enabled()
+
+    class ShiftingClient:
+        def complete_json(self, **kwargs):
+            payload = json.loads(kwargs["user_prompt"])
+            cid = payload["holders"][0]["cid"]
+            decision = {"cid": cid, "shifts": [{"dimension": 0, "delta": 0.1}], "stance": 1, "motif": 301}
+            return json.dumps({"decisions": [decision]})
+
+    outcome = decide_representative_response([holder], contexts, config, ShiftingClient())
+
+    # base is revealed_position (0.4), NOT pledged_platform (0.2) -- drift accumulates.
+    expected = apply_shifts((0.4, 0.2), [PositionShift(dimension=0, delta=0.1)])
+    assert outcome.positions[0] == expected
+
+
+def test_decide_representative_response_leaves_pledged_platform_untouched():
+    holder = _holder(0, (0.2,), revealed=(0.2,))
+    contexts = {0: _response_context(0)}
+    config = _config_with_llm_enabled()
+
+    class ShiftingClient:
+        def complete_json(self, **kwargs):
+            decision = {"cid": 0, "shifts": [{"dimension": 0, "delta": 0.1}], "stance": 1, "motif": 301}
+            return json.dumps({"decisions": [decision]})
+
+    decide_representative_response([holder], contexts, config, ShiftingClient())
+
+    assert holder.pledged_platform == (0.2,)  # decide_representative_response never resolves a pledge
+
+
+def test_decide_representative_response_raises_notimplementederror_for_unsupported_provider():
+    holder = _holder(0, (0.5,))
+    contexts = {0: _response_context(0)}
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, provider="vllm"))
+    with pytest.raises(NotImplementedError, match="provider"):
+        decide_representative_response([holder], contexts, config, FakeResponseLlmClient())
+
+
+def test_decide_representative_response_raises_for_dynamic_batch_sharding():
+    holder = _holder(0, (0.5,))
+    contexts = {0: _response_context(0)}
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, batch_sharding="dynamic"))
+    with pytest.raises(NotImplementedError, match="batch_sharding"):
+        decide_representative_response([holder], contexts, config, FakeResponseLlmClient())
+
+
+def test_decide_representative_response_raises_for_intra_run_workers_above_one():
+    holder = _holder(0, (0.5,))
+    contexts = {0: _response_context(0)}
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, parallel=dataclasses.replace(config.parallel, intra_run_workers=2))
+    with pytest.raises(NotImplementedError, match="intra_run_workers"):
+        decide_representative_response([holder], contexts, config, FakeResponseLlmClient())
+
+
+def test_decide_representative_response_raises_for_codebook_version_mismatch():
+    holder = _holder(0, (0.5,))
+    contexts = {0: _response_context(0)}
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, codebook_version="0.9"))
+    with pytest.raises(Exception, match="codebook_version"):
+        decide_representative_response([holder], contexts, config, FakeResponseLlmClient())
+
+
+def test_decide_representative_response_propagates_llm_response_error_on_count_mismatch():
+    holders = [_holder(0, (0.5,)), _holder(1, (0.5,))]
+    contexts = {h.citizen_id: _response_context(h.citizen_id) for h in holders}
+    config = _config_with_llm_enabled()
+
+    class ShortClient:
+        def complete_json(self, **kwargs):
+            return json.dumps({"decisions": [{"cid": 0, "shifts": [], "stance": 3, "motif": 308}]})
+
+    with pytest.raises(LlmResponseError, match="misaligned"):
+        decide_representative_response(holders, contexts, config, ShortClient())
+
+
+def test_decide_representative_response_ignores_a_later_street_pressure_mutation():
+    # The structural half of the one-tick lag: a ResponseContext is an
+    # already-frozen snapshot, so mutating holder.street_pressure AFTER
+    # contexts are built can never reach the user prompt -- pinned
+    # independently of call-site ordering (run_polity_simulation.py's own
+    # test pins the call-site half).
+    holder = _holder(0, (0.5,))
+    holder.street_pressure = 0.3
+    contexts = {0: _response_context(0, street=holder.street_pressure)}
+    before = build_response_user_prompt([holder], contexts)
+
+    holder.street_pressure = 99.0  # a later, unrelated mutation
+
+    after = build_response_user_prompt([holder], contexts)
+    assert before == after
 
 
 # ── assemble_coalition ────────────────────────────────────────────────────
