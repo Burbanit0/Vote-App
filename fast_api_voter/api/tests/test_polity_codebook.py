@@ -13,6 +13,7 @@ from api.domain.polity.codebook import (
     COALITION_MOTIF_PROMPT_TABLE,
     CODEBOOK_VERSION,
     PARTY_NOMINATION_MOTIF_PROMPT_TABLE,
+    PRESSURE_ACT_PROMPT_TABLE,
     PRESSURE_MOTIF_PROMPT_TABLE,
     RESPONSE_MOTIF_PROMPT_TABLE,
     STANCE_PROMPT_TABLE,
@@ -194,6 +195,12 @@ def test_stance_has_exactly_the_four_documented_codes():
 
 def test_pressure_act_has_exactly_the_five_documented_codes():
     assert {member.value for member in PressureAct} == {0, 1, 2, 3, 4}
+
+
+def test_pressure_act_prompt_table_lists_every_act():
+    for act in PressureAct:
+        assert f"{act.value} = {act.name}" in PRESSURE_ACT_PROMPT_TABLE
+    assert PRESSURE_ACT_PROMPT_TABLE.count("\n") == len(PressureAct) - 1
 
 
 def test_stance_prompt_table_lists_every_stance():

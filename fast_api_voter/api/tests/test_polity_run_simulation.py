@@ -11,10 +11,12 @@ import json
 
 import pytest
 
+from api.domain.polity.accountability import update_street_pressure
 from api.domain.polity.citizen import Citizen, Office, Role, generate_population
 from api.domain.polity.config import PolityConfig, load_config
 from api.domain.polity.journal import Journal
 from api.domain.polity.llm_client import LlmResponseError
+from api.domain.polity.metrics import mobilization_rate
 from api.domain.polity.parties import Party, initialize_parties
 from api.domain.polity.run_polity_simulation import (
     _hold_presidential_election,
@@ -1021,7 +1023,8 @@ class _FakeLlmClient:
     instance now serves decide_candidacies ("citizens" key),
     decide_party_nominations ("parties" key), decide_campaign_positioning
     ("nominees" key), decide_coalition ("responders" key),
-    decide_representative_response ("holders" key), and cast_votes
+    decide_representative_response ("holders" key),
+    decide_pressure_actions ("consulted" key), and cast_votes
     ("voters"/"candidates" keys) within the same run.
     Candidacy: declares (outcome=1) whenever ambition_score >= 0.1 --
     config.candidacy.ambition_threshold is NOT consulted by the LLM path at
@@ -1041,10 +1044,13 @@ class _FakeLlmClient:
     shipped mandate.max_response_delta=0.3/max_response_shifts=3 bounds and
     coherent under ResponseDecision's own stance/motif validator; the
     +0.1/tick drift saturates at apply_shifts's [0,1] clamp after ~10 ticks,
-    itself worth having show up in an integration run. Voting: every
-    citizen votes blank -- enough to exercise the integration plumbing
-    (journal writes, reproducibility, error propagation) without needing
-    real vote-quality logic."""
+    itself worth having show up in an integration run. Pressure action:
+    every consulted citizen mobilizes (act=3, motif=301) -- always
+    menu-legal whenever mobilization_enabled, and exercises
+    street_pressure/participants exactly like the deterministic baseline's
+    own MOBILIZE branch. Voting: every citizen votes blank -- enough to
+    exercise the integration plumbing (journal writes, reproducibility,
+    error propagation) without needing real vote-quality logic."""
 
     def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
         payload = json.loads(user_prompt)
@@ -1081,10 +1087,32 @@ class _FakeLlmClient:
                 for h in payload["holders"]
             ]
             return json.dumps({"decisions": decisions})
+        if "consulted" in payload:
+            return json.dumps({"decisions": self._pressure_decisions(payload["consulted"])})
         return json.dumps({"decisions": self._vote_decisions(payload["voters"])})
 
     def _vote_decisions(self, voters):
         return [{"cid": v["cid"], "blank": 1, "ranking": [], "motif": 101} for v in voters]
+
+    def _pressure_decisions(self, consulted):
+        # Same priority order as deterministic_pressure_action's own chain
+        # (sign > launch > mobilize > wait), restricted to each citizen's
+        # own frozen `available` list -- reading `available` from the
+        # payload itself, rather than hardcoding one act, is what keeps
+        # this fake menu-aware across every pressure_menu modality the
+        # test suite exercises without needing the config directly. A
+        # naive "prefer the largest available code" fallback was tried
+        # first and rejected: 4 (WAIT_FOR_ELECTION) is always legal, so it
+        # always wins under max(), starving the petition lever entirely
+        # and silently breaking every test that expects a petition to
+        # ever launch.
+        priority = (1, 2, 3, 4)
+        decisions = []
+        for c in consulted:
+            available = c["available"]
+            act = next((a for a in priority if a in available), 0)
+            decisions.append({"cid": c["cid"], "target": c["target"], "act": act, "motif": 301})
+        return decisions
 
 
 class _ElectingFakeLlmClient(_FakeLlmClient):
@@ -1100,6 +1128,21 @@ class _ElectingFakeLlmClient(_FakeLlmClient):
 
     def _vote_decisions(self, voters):
         return [{"cid": v["cid"], "blank": 0, "ranking": [1], "motif": 104} for v in voters]
+
+
+class _LaunchingFakeLlmClient(_ElectingFakeLlmClient):
+    """v4 Lot 7: every consulted citizen tries to LAUNCH a petition (act=2,
+    motif=301) -- the pathological input the central judgment call (a
+    frozen batch call vs. live, sequential petition state) exists to
+    resolve. Under concurrent_allowed=false, only the first (lowest
+    citizen_id) citizen's launch can actually succeed; every later
+    citizen's decided act=2 must be downgraded by
+    accountability.applicable_pressure_act to a signature (or, if petitions
+    are off/unavailable, to NOTHING) -- see
+    test_a_second_launch_in_the_same_tick_is_journaled_as_act_2_then_petition_signed."""
+
+    def _pressure_decisions(self, consulted):
+        return [{"cid": c["cid"], "target": c["target"], "act": 2, "motif": 301} for c in consulted]
 
 
 def _config_with_llm_enabled(output_dir) -> PolityConfig:
@@ -1205,6 +1248,15 @@ def test_representative_response_sees_the_previous_ticks_street_pressure(tmp_pat
     class RecordingClient:
         def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
             payload = json.loads(user_prompt)
+            if "consulted" in payload:
+                # dt=10 now also fires (llm.enabled + awakening.enabled): every
+                # consulted citizen mobilizes, preserving this test's own intent
+                # (the mobilizer raises street_pressure) now that the act comes
+                # from the LLM path instead of deterministic_pressure_action.
+                decisions = [
+                    {"cid": c["cid"], "target": c["target"], "act": 3, "motif": 301} for c in payload["consulted"]
+                ]
+                return json.dumps({"decisions": decisions})
             seen_street.append(payload["holders"][0]["ctx"]["street"])
             decisions = [{"cid": h["cid"], "shifts": [], "stance": 3, "motif": 308} for h in payload["holders"]]
             return json.dumps({"decisions": decisions})
@@ -1409,6 +1461,360 @@ def test_llm_batch_misalignment_aborts_the_run_with_no_partial_journal(tmp_path)
     config = _config_with_llm_enabled(tmp_path)
     with pytest.raises(LlmResponseError, match="misaligned"):
         run_simulation(config, run_id="r", llm_client=_ShortClient())
+
+
+# ── pressure_action (v4 Lot 7, dt=10) ────────────────────────────────────
+
+def _config_with_awakening_llm_enabled(output_dir, **overrides) -> PolityConfig:
+    config = _config_with_llm_enabled(output_dir)
+    config = dataclasses.replace(config, legitimacy=dataclasses.replace(config.legitimacy, enabled=True))
+    config = dataclasses.replace(config, candidacy=dataclasses.replace(config.candidacy, ambition_threshold=0.0))
+    return dataclasses.replace(config, awakening=dataclasses.replace(config.awakening, enabled=True, **overrides))
+
+
+def _config_with_full_menu_llm_enabled(output_dir) -> PolityConfig:
+    config = _config_with_awakening_llm_enabled(output_dir)
+    return dataclasses.replace(
+        config,
+        pressure_menu=dataclasses.replace(
+            config.pressure_menu, electoral_only=False, petition_enabled=True, mobilization_enabled=True
+        ),
+        petition=dataclasses.replace(config.petition, enabled=True),
+        street_pressure=dataclasses.replace(config.street_pressure, enabled=True),
+    )
+
+
+def _pressure_test_citizen(cid, base_threshold=0.0):
+    return Citizen(
+        citizen_id=cid, issue_positions=(0.0,), issue_priorities=(1.0,), blank_threshold=0.0,
+        ambition_score=0.5, base_threshold=base_threshold,
+    )
+
+
+def test_llm_enabled_without_awakening_emits_no_pressure_action_events(tmp_path):
+    # awakening.enabled stays at its shipped False -- this is also why the
+    # existing LLM byte-identical tests need no edit.
+    config = _config_with_llm_enabled(tmp_path)
+    journal_path = run_simulation(config, run_id="llm-no-awakening", llm_client=_FakeLlmClient())
+    events = _events(journal_path)
+    assert not [e for e in events if e["event_type"] == "pressure_action"]
+
+
+def test_awakening_without_the_llm_still_uses_the_deterministic_baseline(tmp_path):
+    config = _config_with_awakening_enabled_and_guaranteed_winners(tmp_path)
+    journal_path = run_simulation(config, run_id="awakening-no-llm")
+    events = _events(journal_path)
+    pressure_events = [e for e in events if e["event_type"] == "pressure_action"]
+    assert pressure_events
+    for e in pressure_events:
+        assert set(e["payload"].keys()) == {"target", "act"}  # byte-identical to Lot 4's shape, no ctx
+        assert e["motif"] is None
+        assert e["codebook_version"] == ""
+
+
+def test_pressure_action_is_journalled_once_per_consulted_citizen_with_its_ctx(tmp_path):
+    config = _config_with_awakening_llm_enabled(tmp_path)
+    config = dataclasses.replace(
+        config, pressure_menu=dataclasses.replace(config.pressure_menu, electoral_only=False, mobilization_enabled=True)
+    )
+    journal_path = run_simulation(config, run_id="dt10", llm_client=_ElectingFakeLlmClient())
+    events = _events(journal_path)
+    pressure_events = [e for e in events if e["event_type"] == "pressure_action"]
+    assert pressure_events
+    for e in pressure_events:
+        assert set(e["payload"].keys()) == {"target", "act", "ctx"}
+        assert set(e["payload"]["ctx"].keys()) == {"self_gap", "mandate_dev", "neighbors_acting", "ticks_to_election"}
+        assert e["payload"]["ctx"]["neighbors_acting"] is None
+        assert e["motif"] == "301"
+        assert e["codebook_version"] == config.llm.codebook_version
+    for tick in {e["tick"] for e in pressure_events}:
+        cids = [e["citizen_id"] for e in pressure_events if e["tick"] == tick]
+        assert cids == sorted(cids)
+
+
+def test_a_second_launch_in_the_same_tick_is_journaled_as_act_2_then_petition_signed(tmp_path):
+    # DoD, the central judgment call: a frozen batch call vs LIVE petition
+    # state. Every consulted citizen decides LAUNCH (act=2); under
+    # concurrent_allowed=false, only the lowest-cid citizen's launch can
+    # actually succeed -- every later citizen's decided act=2 must be
+    # downgraded by applicable_pressure_act to a signature.
+    config = _config_with_petition_enabled(tmp_path)
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=True))
+    holder = _legitimacy_test_citizen(0, legitimacy_capital=0.9, mandate_strength_value=0.9)
+    holder.revealed_position = (0.5,)
+    citizens = [holder] + [_pressure_test_citizen(i) for i in range(1, 4)]
+
+    class AllLaunchClient:
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+            payload = json.loads(user_prompt)
+            decisions = [
+                {"cid": c["cid"], "target": c["target"], "act": 2, "motif": 301} for c in payload["consulted"]
+            ]
+            return json.dumps({"decisions": decisions})
+
+    journal_path = tmp_path / "collision.jsonl"
+    with Journal(journal_path, run_id="collision") as journal:
+        _run_accountability_phase(citizens, config, journal, tick=0, llm_client=AllLaunchClient())
+    events = _events(journal_path)
+
+    launches = [e for e in events if e["event_type"] == "petition_launched"]
+    signs = [e for e in events if e["event_type"] == "petition_signed"]
+    assert len(launches) == 1
+    assert launches[0]["citizen_id"] == 1  # lowest consulted citizen_id
+    assert len(signs) == 2  # citizens 2 and 3, downgraded
+
+    pressure_events = [e for e in events if e["event_type"] == "pressure_action"]
+    assert all(e["payload"]["act"] == 2 for e in pressure_events)  # decided act, never rewritten
+    for i, e in enumerate(events):
+        if e["event_type"] == "pressure_action" and e["citizen_id"] != 1:
+            assert events[i + 1]["event_type"] == "petition_signed"
+            assert events[i + 1]["citizen_id"] == e["citizen_id"]
+
+    assert holder.petition_signers == {1, 2, 3}
+
+
+def test_an_out_of_menu_act_aborts_the_run_with_no_partial_journal(tmp_path):
+    config = _config_with_awakening_llm_enabled(tmp_path)  # shipped electoral_only menu, legal={0,4}
+
+    class OutOfMenuClient(_ElectingFakeLlmClient):
+        def _pressure_decisions(self, consulted):
+            return [{"cid": c["cid"], "target": c["target"], "act": 3, "motif": 301} for c in consulted]
+
+    with pytest.raises(LlmResponseError, match="outside the active"):
+        run_simulation(config, run_id="out-of-menu", llm_client=OutOfMenuClient())
+
+
+def test_a_stale_sign_does_not_abort_the_run(tmp_path):
+    # The two-tier split proven end to end: act=1 is menu-legal but
+    # unsatisfiable live (no petition open, target still in cooldown) --
+    # validate_pressure_decision does not reject it; applicable_pressure_act
+    # downgrades it to NOTHING instead of aborting the whole batch.
+    config = _config_with_petition_enabled(tmp_path)
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=True))
+    holder = _legitimacy_test_citizen(0, legitimacy_capital=0.9, mandate_strength_value=0.9)
+    holder.revealed_position = (0.5,)
+    holder.petition_cooldown_until_tick = 100  # still cooling down: can_launch is False
+    citizen = _pressure_test_citizen(1)
+
+    class AlwaysSignClient:
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+            payload = json.loads(user_prompt)
+            decisions = [
+                {"cid": c["cid"], "target": c["target"], "act": 1, "motif": 301} for c in payload["consulted"]
+            ]
+            return json.dumps({"decisions": decisions})
+
+    journal_path = tmp_path / "stale.jsonl"
+    with Journal(journal_path, run_id="stale") as journal:
+        _run_accountability_phase([holder, citizen], config, journal, tick=0, llm_client=AlwaysSignClient())
+    events = _events(journal_path)
+    pressure_events = [e for e in events if e["event_type"] == "pressure_action"]
+    assert pressure_events
+    assert pressure_events[0]["payload"]["act"] == 1  # decided act, unchanged in the journal
+    assert not [e for e in events if e["event_type"] in ("petition_launched", "petition_signed")]
+    assert holder.petition_open_since_tick is None
+
+
+def test_pressure_action_ctx_reflects_this_ticks_revealed_position(tmp_path):
+    # The no-lag pin, the symmetric twin of
+    # test_representative_response_sees_the_previous_ticks_street_pressure:
+    # dt=10 sees THIS tick's revealed_position, including a shift dt=6 just
+    # made earlier in the SAME tick.
+    config = _config_with_mandate_llm_enabled(tmp_path)
+    config = dataclasses.replace(
+        config,
+        awakening=dataclasses.replace(config.awakening, enabled=True, modulation_amplitude=0.0),
+        pressure_menu=dataclasses.replace(config.pressure_menu, electoral_only=False, mobilization_enabled=True),
+    )
+    holder = _legitimacy_test_citizen(0, legitimacy_capital=0.9, mandate_strength_value=0.9)
+    holder.pledged_platform = (0.5,)
+    holder.revealed_position = (0.5,)
+    citizen = _pressure_test_citizen(1)
+
+    seen_self_gap = []
+
+    class RecordingClient:
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+            payload = json.loads(user_prompt)
+            if "holders" in payload:
+                decisions = [
+                    {"cid": h["cid"], "shifts": [{"dimension": 0, "delta": 0.3}], "stance": 1, "motif": 301}
+                    for h in payload["holders"]
+                ]
+                return json.dumps({"decisions": decisions})
+            seen_self_gap.append(payload["consulted"][0]["ctx"]["self_gap"])
+            decisions = [
+                {"cid": c["cid"], "target": c["target"], "act": 3, "motif": 301} for c in payload["consulted"]
+            ]
+            return json.dumps({"decisions": decisions})
+
+    with Journal(tmp_path / "tick0.jsonl", run_id="t0") as journal:
+        _run_accountability_phase([holder, citizen], config, journal, tick=0, llm_client=RecordingClient())
+
+    # dt=6 shifted holder.revealed_position by +0.3 (0.5 -> 0.8) THIS tick,
+    # before dt=10 ran -- ctx.self_gap must reflect 0.8, not the stale 0.5.
+    assert holder.revealed_position[0] == pytest.approx(0.8)
+    expected_gap = abs(citizen.issue_positions[0] - holder.revealed_position[0])
+    assert seen_self_gap[0] == pytest.approx(expected_gap)
+
+
+def test_pressure_action_ctx_never_carries_street_pressure(tmp_path):
+    # The asymmetry with dt=6 asserted, not just implemented: the same run's
+    # representative_response.ctx.street is populated while
+    # pressure_action's ctx never contains a street-pressure key at all.
+    config = _config_with_mandate_llm_enabled(tmp_path)
+    config = dataclasses.replace(
+        config,
+        awakening=dataclasses.replace(config.awakening, enabled=True),
+        pressure_menu=dataclasses.replace(config.pressure_menu, electoral_only=False, mobilization_enabled=True),
+        street_pressure=dataclasses.replace(config.street_pressure, enabled=True, visible_to_representative=True),
+    )
+    journal_path = run_simulation(config, run_id="no-street-leak", llm_client=_ElectingFakeLlmClient())
+    events = _events(journal_path)
+    pressure_events = [e for e in events if e["event_type"] == "pressure_action"]
+    response_events = [e for e in events if e["event_type"] == "representative_response"]
+    assert pressure_events
+    assert response_events
+    assert any(e["payload"]["ctx"]["street"] is not None for e in response_events)
+    for e in pressure_events:
+        assert set(e["payload"]["ctx"].keys()) == {"self_gap", "mandate_dev", "neighbors_acting", "ticks_to_election"}
+
+
+def test_two_awakening_llm_runs_produce_byte_identical_journals(tmp_path):
+    path_a = run_simulation(
+        _config_with_awakening_llm_enabled(tmp_path / "a"), run_id="same-run-id", llm_client=_ElectingFakeLlmClient()
+    )
+    path_b = run_simulation(
+        _config_with_awakening_llm_enabled(tmp_path / "b"), run_id="same-run-id", llm_client=_ElectingFakeLlmClient()
+    )
+    assert path_a.read_bytes() == path_b.read_bytes()
+
+
+def test_two_full_menu_llm_runs_produce_byte_identical_journals(tmp_path):
+    path_a = run_simulation(
+        _config_with_full_menu_llm_enabled(tmp_path / "a"), run_id="same-run-id", llm_client=_ElectingFakeLlmClient()
+    )
+    path_b = run_simulation(
+        _config_with_full_menu_llm_enabled(tmp_path / "b"), run_id="same-run-id", llm_client=_ElectingFakeLlmClient()
+    )
+    assert path_a.read_bytes() == path_b.read_bytes()
+
+
+def test_llm_pressure_actions_reach_every_menu_modality(tmp_path):
+    # Unlike the shared _FakeLlmClient's fixed sign>launch>mobilize>wait
+    # priority order -- which under a full menu never lets act 0 or 4 win,
+    # since MOBILIZE is always reachable first -- this fake varies its
+    # preference by cid so a full-menu run exercises every PressureAct.
+    class AllActsClient(_ElectingFakeLlmClient):
+        def _pressure_decisions(self, consulted):
+            decisions = []
+            for c in consulted:
+                available = c["available"]
+                preferred = c["cid"] % 5
+                act = preferred if preferred in available else next(iter(available))
+                decisions.append({"cid": c["cid"], "target": c["target"], "act": act, "motif": 301})
+            return decisions
+
+    config = _config_with_full_menu_llm_enabled(tmp_path)
+    journal_path = run_simulation(config, run_id="full-menu-llm", llm_client=AllActsClient())
+    events = _events(journal_path)
+    pressure_events = [e for e in events if e["event_type"] == "pressure_action"]
+    assert pressure_events
+    acts = {e["payload"]["act"] for e in pressure_events}
+    assert acts == {0, 1, 2, 3, 4}
+
+
+def test_street_pressure_counts_llm_mobilize_decisions(tmp_path):
+    config = _config_with_legitimacy_enabled(tmp_path)
+    config = dataclasses.replace(
+        config,
+        llm=dataclasses.replace(config.llm, enabled=True),
+        awakening=dataclasses.replace(config.awakening, enabled=True, modulation_amplitude=0.0),
+        pressure_menu=dataclasses.replace(config.pressure_menu, electoral_only=False, mobilization_enabled=True),
+        street_pressure=dataclasses.replace(config.street_pressure, enabled=True),
+        run=dataclasses.replace(config.run, population_size=4),
+    )
+    holder = _legitimacy_test_citizen(0, legitimacy_capital=0.9, mandate_strength_value=0.9)
+    holder.revealed_position = (0.5,)
+    citizens = [holder] + [_pressure_test_citizen(i) for i in range(1, 4)]
+
+    class MobilizeClient:
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+            payload = json.loads(user_prompt)
+            decisions = [
+                {"cid": c["cid"], "target": c["target"], "act": 3, "motif": 301} for c in payload["consulted"]
+            ]
+            return json.dumps({"decisions": decisions})
+
+    journal_path = tmp_path / "mobilize.jsonl"
+    with Journal(journal_path, run_id="mobilize") as journal:
+        _run_accountability_phase(citizens, config, journal, tick=0, llm_client=MobilizeClient())
+
+    expected = update_street_pressure(0.0, mobilization_rate(3, 4), config.street_pressure)
+    assert holder.street_pressure == pytest.approx(expected)
+
+
+def test_no_pressure_action_llm_call_while_the_presidency_is_vacant(tmp_path):
+    # Shipped ambition_threshold never produces a winner -- the presidency
+    # stays vacant, so decide_pressure_actions must never even be called.
+    config = _config_with_llm_enabled(tmp_path)
+    config = dataclasses.replace(config, awakening=dataclasses.replace(config.awakening, enabled=True))
+
+    class RecordingVacantClient(_FakeLlmClient):
+        def __init__(self):
+            self.pressure_calls = 0
+
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+            payload = json.loads(user_prompt)
+            if "consulted" in payload:
+                self.pressure_calls += 1
+            return super().complete_json(
+                system_prompt=system_prompt, user_prompt=user_prompt, json_schema=json_schema,
+                max_tokens=max_tokens, think=think,
+            )
+
+    client = RecordingVacantClient()
+    journal_path = run_simulation(config, run_id="vacant-dt10", llm_client=client)
+    events = _events(journal_path)
+    assert not [e for e in events if e["event_type"] == "elected"]
+    assert not [e for e in events if e["event_type"] == "pressure_action"]
+    assert client.pressure_calls == 0
+
+
+def test_a_cohort_of_one_still_produces_a_single_call(tmp_path):
+    # The small-cohort path MIN_SAFE_BATCH_SIZE's default floor would have
+    # aborted -- exercised through the real wiring, not just chunk_voters
+    # directly.
+    config = _config_with_legitimacy_enabled(tmp_path)
+    config = dataclasses.replace(
+        config,
+        llm=dataclasses.replace(config.llm, enabled=True),
+        awakening=dataclasses.replace(config.awakening, enabled=True, modulation_amplitude=0.0),
+        pressure_menu=dataclasses.replace(config.pressure_menu, electoral_only=False, mobilization_enabled=True),
+    )
+    holder = _legitimacy_test_citizen(0, legitimacy_capital=0.9, mandate_strength_value=0.9)
+    holder.revealed_position = (0.5,)
+    citizen = _pressure_test_citizen(1)
+
+    class RecordingClient:
+        def __init__(self):
+            self.calls = 0
+
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+            self.calls += 1
+            payload = json.loads(user_prompt)
+            decisions = [
+                {"cid": c["cid"], "target": c["target"], "act": 3, "motif": 301} for c in payload["consulted"]
+            ]
+            return json.dumps({"decisions": decisions})
+
+    client = RecordingClient()
+    journal_path = tmp_path / "cohort_one.jsonl"
+    with Journal(journal_path, run_id="cohort-one") as journal:
+        _run_accountability_phase([holder, citizen], config, journal, tick=0, llm_client=client)
+    assert client.calls == 1
+    events = _events(journal_path)
+    assert [e for e in events if e["event_type"] == "pressure_action"]
 
 
 # ── LLM candidacy path (v2 increment 2) ──────────────────────────────────

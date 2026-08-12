@@ -15,6 +15,7 @@ from api.domain.polity.llm_client import (
     decode_coalition_batch,
     decode_party_nomination_batch,
     decode_positioning_batch,
+    decode_pressure_batch,
     decode_response_batch,
     decode_vote_batch,
 )
@@ -372,6 +373,55 @@ def test_decode_response_batch_rejects_a_duplicated_cid():
 def test_decode_response_batch_strips_think_tags():
     raw = "<think>reasoning here</think>" + json.dumps({"decisions": [_response_decision(cid=1)]})
     decisions = decode_response_batch(raw, expected_cids=[1])
+    assert decisions[0].cid == 1
+
+
+# ── decode_pressure_batch (v4 Lot 7) ──────────────────────────────────────
+
+def _pressure_decision(**overrides):
+    base = {"cid": 1, "target": 205, "act": 3, "motif": 301}
+    base.update(overrides)
+    return base
+
+
+def test_decode_pressure_batch_round_trips():
+    raw = json.dumps({"decisions": [_pressure_decision(cid=1), _pressure_decision(cid=2, act=0, motif=304)]})
+    decisions = decode_pressure_batch(raw, expected_cids=[1, 2])
+    assert [d.cid for d in decisions] == [1, 2]
+
+
+def test_decode_pressure_batch_rejects_non_json():
+    with pytest.raises(LlmResponseError, match="not valid JSON"):
+        decode_pressure_batch("not json", expected_cids=[1])
+
+
+def test_decode_pressure_batch_rejects_schema_invalid_content():
+    raw = json.dumps({"decisions": [{"cid": 1, "target": 205, "act": 3, "motif": 303}]})  # 303 is a ResponseMotif
+    with pytest.raises(LlmResponseError, match="schema validation"):
+        decode_pressure_batch(raw, expected_cids=[1])
+
+
+def test_decode_pressure_batch_rejects_count_mismatch():
+    raw = json.dumps({"decisions": [_pressure_decision(cid=1)]})
+    with pytest.raises(LlmResponseError, match="misaligned"):
+        decode_pressure_batch(raw, expected_cids=[1, 2])
+
+
+def test_decode_pressure_batch_rejects_order_mismatch():
+    raw = json.dumps({"decisions": [_pressure_decision(cid=2), _pressure_decision(cid=1)]})
+    with pytest.raises(LlmResponseError, match="misaligned"):
+        decode_pressure_batch(raw, expected_cids=[1, 2])
+
+
+def test_decode_pressure_batch_rejects_a_duplicated_cid():
+    raw = json.dumps({"decisions": [_pressure_decision(cid=1), _pressure_decision(cid=1)]})
+    with pytest.raises(LlmResponseError, match="misaligned"):
+        decode_pressure_batch(raw, expected_cids=[1, 2])
+
+
+def test_decode_pressure_batch_strips_think_tags():
+    raw = "<think>reasoning here</think>" + json.dumps({"decisions": [_pressure_decision(cid=1)]})
+    decisions = decode_pressure_batch(raw, expected_cids=[1])
     assert decisions[0].cid == 1
 
 

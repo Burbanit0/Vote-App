@@ -9,6 +9,7 @@ functions are this module's first mutations.
 import pytest
 
 from api.domain.polity.accountability import (
+    applicable_pressure_act,
     awakening_threshold,
     current_office_holders,
     election_proximity,
@@ -30,6 +31,7 @@ from api.domain.polity.accountability import (
     weighted_euclidean,
 )
 from api.domain.polity.citizen import Citizen, Office, Role
+from api.domain.polity.codebook import PressureAct
 from api.domain.polity.config import (
     AwakeningConfig,
     AwakeningContextModulation,
@@ -541,3 +543,77 @@ def test_reset_petition_state_also_clears_the_cooldown():
     assert holder.petition_open_since_tick is None
     assert holder.petition_signers == frozenset()
     assert holder.petition_cooldown_until_tick is None
+
+
+# ── applicable_pressure_act (v4 Lot 7) ────────────────────────────────────
+
+def test_a_launch_becomes_a_signature_once_a_petition_is_open():
+    result = applicable_pressure_act(PressureAct.LAUNCH_PETITION, can_sign=True, can_launch=False)
+    assert result == PressureAct.SIGN_PETITION
+
+
+def test_a_launch_is_honoured_when_still_launchable():
+    result = applicable_pressure_act(PressureAct.LAUNCH_PETITION, can_sign=False, can_launch=True)
+    assert result == PressureAct.LAUNCH_PETITION
+
+
+def test_a_sign_is_honoured_when_signable():
+    result = applicable_pressure_act(PressureAct.SIGN_PETITION, can_sign=True, can_launch=False)
+    assert result == PressureAct.SIGN_PETITION
+
+
+def test_a_sign_with_nothing_to_sign_becomes_nothing():
+    result = applicable_pressure_act(PressureAct.SIGN_PETITION, can_sign=False, can_launch=False)
+    assert result == PressureAct.NOTHING
+
+
+def test_a_launch_with_neither_available_becomes_nothing():
+    result = applicable_pressure_act(PressureAct.LAUNCH_PETITION, can_sign=False, can_launch=False)
+    assert result == PressureAct.NOTHING
+
+
+def test_a_sign_falls_back_to_a_launch_when_nothing_is_open_but_launchable():
+    # Reachable only if the model ignores its own frozen `available` hint
+    # (chose SIGN_PETITION with no open petition) -- the symmetric case of
+    # the LAUNCH->SIGN collision, resolved the same way: stay within the
+    # petition lever rather than falling through to NOTHING.
+    result = applicable_pressure_act(PressureAct.SIGN_PETITION, can_sign=False, can_launch=True)
+    assert result == PressureAct.LAUNCH_PETITION
+
+
+def test_acts_0_3_and_4_are_never_downgraded():
+    for act in (PressureAct.NOTHING, PressureAct.MOBILIZE, PressureAct.WAIT_FOR_ELECTION):
+        assert applicable_pressure_act(act, can_sign=False, can_launch=False) == act
+        assert applicable_pressure_act(act, can_sign=True, can_launch=True) == act
+
+
+def test_applicable_pressure_act_mutates_nothing():
+    # Pure function: no Citizen argument at all, so there is nothing it
+    # could mutate -- pinned anyway for symmetry with every other
+    # accountability.py predicate's own purity test.
+    before = (PressureAct.LAUNCH_PETITION, True, False)
+    applicable_pressure_act(PressureAct.LAUNCH_PETITION, can_sign=True, can_launch=False)
+    assert before == (PressureAct.LAUNCH_PETITION, True, False)
+
+
+def test_applicable_pressure_act_agrees_with_the_deterministic_chain_on_petition_acts():
+    # The whole justification for LAUNCH -> SIGN: it is exactly what
+    # deterministic_pressure_action's own priority chain would return from
+    # the same live facts, for a citizen whose gap already cleared the
+    # NOTHING bar and whose menu already allows petitions.
+    from api.domain.polity.config import PressureMenuConfig
+    from api.domain.polity.simple_rules import deterministic_pressure_action
+
+    # Only the two cases where the petition lever itself is still reachable:
+    # when neither can_sign nor can_launch holds, deterministic_pressure_action
+    # falls through to mobilize/wait, which applicable_pressure_act deliberately
+    # never does (it would be the orchestrator picking a DIFFERENT lever on the
+    # citizen's behalf) -- that divergence is intentional, not a disagreement.
+    citizen = _citizen(1, (0.5,))  # default blank_threshold=0.5
+    menu = PressureMenuConfig(petition_enabled=True, mobilization_enabled=False, electoral_only=False)
+    for can_sign, can_launch in [(True, False), (False, True)]:
+        deterministic_act = deterministic_pressure_action(
+            citizen, gap=0.9, menu=menu, can_sign=can_sign, can_launch=can_launch
+        )
+        llm_act = applicable_pressure_act(PressureAct.LAUNCH_PETITION, can_sign=can_sign, can_launch=can_launch)
+        assert llm_act == deterministic_act

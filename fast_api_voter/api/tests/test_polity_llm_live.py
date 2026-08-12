@@ -39,6 +39,13 @@ first smoke-test attempt at think=True on /v1 reliably burned the whole
 token budget on invisible reasoning for this exact schema). Runs every tick
 rather than once per election, so the short live run below adds
 proportionally more wall-clock time than any prior increment's addition did.
+v4 Lot 7's pressure_action batches are the largest and most frequent in the
+palier (measured mean 51.7 consulted citizens/tick under the shipped
+electoral_only arm) -- swept here at 1/5/20/25, the exact sizes the
+confirmatory reliability spike (scripts/lot6_batch_reliability_results.md's
+"Lot 7 confirmatory pass") already measured clean against the REAL schema
+and prompt builders; this file pins the same guarantee as a permanent
+regression check.
 """
 import dataclasses
 import json
@@ -52,11 +59,13 @@ from api.domain.polity.codebook import (
     CandidacyMotif,
     CoalitionMotif,
     PartyNominationMotif,
+    PressureMotif,
     ResponseMotif,
     VoteMotif,
 )
 from api.domain.polity.config import load_config
 from api.domain.polity.llm_behavior_engine import (
+    PressureContext,
     ResponseContext,
     build_candidacy_system_prompt,
     build_candidacy_user_prompt,
@@ -66,6 +75,8 @@ from api.domain.polity.llm_behavior_engine import (
     build_party_nomination_user_prompt,
     build_positioning_system_prompt,
     build_positioning_user_prompt,
+    build_pressure_system_prompt,
+    build_pressure_user_prompt,
     build_response_system_prompt,
     build_response_user_prompt,
     build_system_prompt,
@@ -76,7 +87,9 @@ from api.domain.polity.llm_behavior_engine import (
     decide_candidacies,
     decide_coalition,
     decide_party_nominations,
+    decide_pressure_actions,
     decide_representative_response,
+    menu_acts,
 )
 from api.domain.polity.llm_client import (
     OllamaJsonClient,
@@ -84,6 +97,7 @@ from api.domain.polity.llm_client import (
     decode_coalition_batch,
     decode_party_nomination_batch,
     decode_positioning_batch,
+    decode_pressure_batch,
     decode_response_batch,
     decode_vote_batch,
 )
@@ -92,12 +106,14 @@ from api.domain.polity.llm_schemas import (
     COALITION_JSON_SCHEMA,
     PARTY_NOMINATION_JSON_SCHEMA,
     POSITIONING_JSON_SCHEMA,
+    PRESSURE_JSON_SCHEMA,
     RESPONSE_JSON_SCHEMA,
     VOTE_CAST_JSON_SCHEMA,
     CandidacyBatch,
     CoalitionBatch,
     PartyNominationBatch,
     PositioningBatch,
+    PressureBatch,
     ResponseBatch,
     VoteCastBatch,
 )
@@ -706,6 +722,185 @@ def test_representative_response_wiring_against_the_real_client_in_a_live_tick(c
     assert e["payload"]["stance"] in {1, 2, 3, 4}
     assert e["motif"] in {str(m.value) for m in ResponseMotif}
     assert e["codebook_version"] == config.llm.codebook_version
+
+
+# ── pressure_action (v4 Lot 7) ─────────────────────────────────────────────
+
+def _pressure_context(cid, target, legal):
+    # Alternates availability by cid parity, mirroring the confirmatory
+    # spike's own "full_menu" modality: some citizens see an open petition
+    # they can sign, others see none and only the non-petition acts.
+    if cid % 2 == 0:
+        available = legal
+        petition_open = True
+        expires_at = 14
+    else:
+        available = tuple(a for a in legal if a not in (1, 2))
+        petition_open = False
+        expires_at = None
+    return PressureContext(
+        cid=cid, target=target, self_gap=0.6, mandate_dev=0.3, ticks_to_election=9,
+        available=available, petition_open=petition_open, petition_expires_at_tick=expires_at,
+        already_signed=False,
+    )
+
+
+@pytest.mark.parametrize("num_citizens", [1, 5, 20, 25])
+def test_full_size_pressure_batch_produces_a_valid_reliable_response(client, num_citizens):
+    """The pressure_action analog of
+    test_full_size_positioning_batch_produces_a_valid_reliable_response --
+    swept at the exact chunk sizes chunk_voters actually produces in
+    production (1 up to max_batch_size=25), the real prompt builders, the
+    real schema, think=False via the native /api/chat endpoint. Already
+    confirmed clean at these sizes by the confirmatory reliability spike
+    (scripts/lot6_batch_reliability_results.md's "Lot 7 confirmatory
+    pass") -- this test pins the same guarantee as a permanent regression
+    check, not a first discovery."""
+    config = load_config()
+    config = dataclasses.replace(
+        config,
+        pressure_menu=dataclasses.replace(
+            config.pressure_menu, electoral_only=False, petition_enabled=True, mobilization_enabled=True
+        ),
+    )
+    target = 9000
+    consulted = [_citizen(3000 + i, 1) for i in range(num_citizens)]
+    legal = menu_acts(config.pressure_menu)
+    contexts = {c.citizen_id: _pressure_context(c.citizen_id, target, legal) for c in consulted}
+
+    raw = client.complete_json(
+        system_prompt=build_pressure_system_prompt(consulted, config),
+        user_prompt=build_pressure_user_prompt(consulted, contexts),
+        json_schema=PRESSURE_JSON_SCHEMA,
+        max_tokens=compute_max_tokens(len(consulted)),
+        think=False,
+    )
+    batch = PressureBatch.model_validate_json(raw)
+    assert [d.cid for d in batch.decisions] == [c.citizen_id for c in consulted]
+    for decision in batch.decisions:
+        # act must be menu-legal -- the ONE batch-rejecting check this lot
+        # has (§3.6.6). act being IN this citizen's own `available` is NOT
+        # an invariant (the two-tier split), so it's reported below as a
+        # rate, never asserted at 100%.
+        assert decision.target == target
+        assert decision.act in legal, (
+            f"decision for cid={decision.cid} chose act={decision.act}, outside the "
+            f"stated menu {legal}"
+        )
+        assert decision.motif in {m.value for m in PressureMotif}
+
+    out_of_available = sum(1 for d in batch.decisions if d.act not in contexts[d.cid].available)
+    print(f"[size={num_citizens}] out_of_available_rate={out_of_available / len(batch.decisions):.2f}")
+
+
+def test_pressure_sequential_calls_each_produce_a_valid_response(client):
+    """The pressure_action analog of
+    test_sequential_calls_each_produce_a_valid_response -- two textually
+    identical requests, checked independently rather than for byte-identity
+    (Finding D applies here too until proven otherwise)."""
+    config = load_config()
+    config = dataclasses.replace(
+        config, pressure_menu=dataclasses.replace(config.pressure_menu, electoral_only=False, mobilization_enabled=True)
+    )
+    target = 9100
+    consulted = [_citizen(3100 + i, 1) for i in range(3)]
+    legal = menu_acts(config.pressure_menu)
+    contexts = {c.citizen_id: _pressure_context(c.citizen_id, target, legal) for c in consulted}
+    kwargs = dict(
+        system_prompt=build_pressure_system_prompt(consulted, config),
+        user_prompt=build_pressure_user_prompt(consulted, contexts),
+        json_schema=PRESSURE_JSON_SCHEMA,
+        max_tokens=compute_max_tokens(len(consulted)),
+        think=False,
+    )
+    expected_cids = [c.citizen_id for c in consulted]
+    for raw in (client.complete_json(**kwargs), client.complete_json(**kwargs)):
+        decisions = decode_pressure_batch(raw, expected_cids)
+        assert [d.cid for d in decisions] == expected_cids
+
+
+def test_decide_pressure_actions_against_the_real_client(client):
+    # A 30-citizen cohort at max_batch_size=25 -> two real chunked calls,
+    # decisions concatenated in cohort order.
+    config = load_config()
+    config = dataclasses.replace(
+        config,
+        llm=dataclasses.replace(config.llm, enabled=True),
+        pressure_menu=dataclasses.replace(config.pressure_menu, electoral_only=False, mobilization_enabled=True),
+    )
+    target = 9200
+    consulted = [_citizen(3200 + i, 1) for i in range(30)]
+    legal = menu_acts(config.pressure_menu)
+    contexts = {c.citizen_id: _pressure_context(c.citizen_id, target, legal) for c in consulted}
+
+    outcome = decide_pressure_actions(consulted, contexts, config, client)
+
+    assert [d.cid for d in outcome.decisions] == [c.citizen_id for c in consulted]
+    assert all(d.act in legal for d in outcome.decisions)
+
+
+def test_pressure_action_wiring_against_the_real_client_in_a_live_tick(client, tmp_path):
+    """Proves run_polity_simulation.py's OWN dt=10 wiring (the gate, the
+    frozen PressureContext, applicable_pressure_act, the journal write)
+    against a real client and a real tick -- WITHOUT going through
+    run_simulation's full pipeline, for the same reason dt=6's own wiring
+    test sidesteps it (see
+    test_representative_response_wiring_against_the_real_client_in_a_live_tick's
+    docstring): a hand-built, already-elected holder plus a hand-built
+    population with base_threshold=0.0 (guaranteed consultation), one real
+    dt=10 call (a batch of 3, well under max_batch_size)."""
+    config = load_config()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=True))
+    config = dataclasses.replace(config, legitimacy=dataclasses.replace(config.legitimacy, enabled=True))
+    config = dataclasses.replace(
+        config,
+        awakening=dataclasses.replace(config.awakening, enabled=True, modulation_amplitude=0.0),
+        pressure_menu=dataclasses.replace(
+            config.pressure_menu, electoral_only=False, petition_enabled=True, mobilization_enabled=True
+        ),
+        petition=dataclasses.replace(config.petition, enabled=True),
+    )
+    dims = config.citizens.issue_count
+    holder = Citizen(
+        citizen_id=1,
+        issue_positions=tuple(0.5 for _ in range(dims)),
+        issue_priorities=tuple(1.0 / dims for _ in range(dims)),
+        blank_threshold=0.5,
+        ambition_score=0.5,
+        role=Role.ELECTED,
+        office=Office.PRESIDENT,
+        term_end_tick=16,
+        mandates_served=1,
+        legitimacy_capital=0.5,
+        mandate_strength=0.5,
+    )
+    holder.pledged_platform = holder.issue_positions
+    holder.revealed_position = holder.issue_positions
+    consulted = [
+        Citizen(
+            citizen_id=100 + i,
+            issue_positions=tuple(0.0 for _ in range(dims)),
+            issue_priorities=tuple(1.0 / dims for _ in range(dims)),
+            blank_threshold=0.0,
+            ambition_score=0.5,
+            base_threshold=0.0,
+        )
+        for i in range(3)
+    ]
+
+    journal_path = tmp_path / "dt10-live.jsonl"
+    with Journal(journal_path, run_id="dt10-live") as journal:
+        _run_accountability_phase([holder] + consulted, config, journal, tick=0, llm_client=client)
+
+    events = [json.loads(line) for line in journal_path.read_text(encoding="utf-8").splitlines()]
+    pressure_events = [e for e in events if e["event_type"] == "pressure_action"]
+    assert len(pressure_events) == len(consulted)
+    legal = menu_acts(config.pressure_menu)
+    for e in pressure_events:
+        assert e["payload"]["target"] == holder.citizen_id
+        assert e["payload"]["act"] in legal
+        assert e["motif"] in {str(m.value) for m in PressureMotif}
+        assert e["codebook_version"] == config.llm.codebook_version
 
 
 def test_a_short_live_run_produces_a_valid_journal(tmp_path):

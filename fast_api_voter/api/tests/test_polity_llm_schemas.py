@@ -11,6 +11,8 @@ from api.domain.polity.codebook import (
     CoalitionAction,
     CoalitionMotif,
     PartyNominationMotif,
+    PressureAct,
+    PressureMotif,
     ResponseMotif,
     Stance,
     VoteMotif,
@@ -20,6 +22,7 @@ from api.domain.polity.llm_schemas import (
     COALITION_JSON_SCHEMA,
     PARTY_NOMINATION_JSON_SCHEMA,
     POSITIONING_JSON_SCHEMA,
+    PRESSURE_JSON_SCHEMA,
     RESPONSE_JSON_SCHEMA,
     VOTE_CAST_JSON_SCHEMA,
     CandidacyBatch,
@@ -30,6 +33,8 @@ from api.domain.polity.llm_schemas import (
     PartyNominationDecision,
     PositioningBatch,
     PositioningDecision,
+    PressureBatch,
+    PressureDecision,
     ResponseBatch,
     ResponseDecision,
     VoteCastBatch,
@@ -504,3 +509,78 @@ def test_response_json_schema_marks_shifts_stance_and_motif_as_required():
 
 def test_response_json_schema_batch_forbids_additional_properties():
     assert RESPONSE_JSON_SCHEMA.get("additionalProperties") is False
+
+
+def _pressure_decision(**overrides):
+    base = {"cid": 1, "target": 205, "act": 3, "motif": 301}
+    base.update(overrides)
+    return base
+
+
+def test_valid_pressure_decision_round_trips_each_act():
+    for act in (0, 1, 2, 3, 4):
+        decision = PressureDecision.model_validate(_pressure_decision(act=act))
+        assert decision.act == act
+
+
+def test_pressure_motif_literal_matches_pressure_motif_enum_exactly():
+    literal_values = set(PressureDecision.model_fields["motif"].annotation.__args__)  # type: ignore[union-attr]
+    assert literal_values == {member.value for member in PressureMotif}
+
+
+def test_pressure_act_literal_matches_pressure_act_enum_exactly():
+    literal_values = set(PressureDecision.model_fields["act"].annotation.__args__)  # type: ignore[union-attr]
+    assert literal_values == {member.value for member in PressureAct}
+
+
+def test_pressure_motif_302_303_306_are_rejected():
+    # Deliberately excluded from PressureMotif: 302/306 by §7bis.9f (the
+    # atomized regime), 303 because it is a ResponseMotif, not a
+    # PressureMotif.
+    for motif in (302, 303, 306):
+        with pytest.raises(ValidationError):
+            PressureDecision.model_validate(_pressure_decision(motif=motif))
+
+
+def test_pressure_decision_accepts_every_act_motif_pairing():
+    # Deliberate absence of a coherence rule (see PressureDecision's own
+    # docstring): PressureMotif has exactly 3 members and would make motif
+    # a strict function of act if coupled, carrying no information beyond
+    # what act already encodes.
+    for act in (0, 1, 2, 3, 4):
+        for motif in (301, 304, 305):
+            PressureDecision.model_validate(_pressure_decision(act=act, motif=motif))
+
+
+def test_pressure_unknown_extra_key_raises():
+    with pytest.raises(ValidationError):
+        PressureDecision.model_validate({**_pressure_decision(), "extra_field": True})
+
+
+def test_pressure_missing_target_raises():
+    decision = _pressure_decision()
+    del decision["target"]
+    with pytest.raises(ValidationError):
+        PressureDecision.model_validate(decision)
+
+
+def test_pressure_empty_decisions_list_raises():
+    with pytest.raises(ValidationError):
+        PressureBatch.model_validate({"decisions": []})
+
+
+def test_pressure_batch_round_trips_multiple_decisions():
+    batch = PressureBatch.model_validate(
+        {"decisions": [_pressure_decision(cid=1), _pressure_decision(cid=2, act=0, motif=304)]}
+    )
+    assert [d.cid for d in batch.decisions] == [1, 2]
+
+
+def test_pressure_json_schema_marks_cid_target_act_and_motif_as_required():
+    decision_schema = PRESSURE_JSON_SCHEMA["$defs"]["PressureDecision"]
+    assert set(decision_schema["required"]) == {"cid", "target", "act", "motif"}
+    assert decision_schema.get("additionalProperties") is False
+
+
+def test_pressure_json_schema_batch_forbids_additional_properties():
+    assert PRESSURE_JSON_SCHEMA.get("additionalProperties") is False

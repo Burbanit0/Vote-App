@@ -59,6 +59,18 @@ one-tick lag §7bis.7 requires is a property of when that context was
 captured, not of anything this function does, and this function has no way
 to violate it by construction (it only sees the frozen snapshot).
 
+decide_pressure_actions (v4 Lot 7, dt=10) is the second decision type that
+runs every tick and the first since vote_cast to batch CITIZENS (the
+consulted cohort, dozens strong on a busy tick) rather than a handful of
+officeholders/nominees/parties -- so it is the first to reuse chunk_voters
+since increment 1. It is handed an already-frozen
+`Mapping[int, PressureContext]`, one per consulted citizen, built by its
+caller; a decoded act that is menu-legal but stale against LIVE petition
+state (opened/signed by someone else earlier in the same tick) is NOT
+rejected here -- see accountability.applicable_pressure_act, which the
+caller applies after this function returns. This module never sees or
+mutates petition state; it only decides and validates against the menu.
+
 Deliberate simplifications versus the full design doc, documented rather
 than silently made:
 - No persona library (§9) yet: citizens are described to the LLM by their
@@ -91,13 +103,15 @@ from api.domain.polity.codebook import (
     COALITION_ACTION_PROMPT_TABLE,
     COALITION_MOTIF_PROMPT_TABLE,
     PARTY_NOMINATION_MOTIF_PROMPT_TABLE,
+    PRESSURE_ACT_PROMPT_TABLE,
+    PRESSURE_MOTIF_PROMPT_TABLE,
     RESPONSE_MOTIF_PROMPT_TABLE,
     STANCE_PROMPT_TABLE,
     VOTE_MOTIF_PROMPT_TABLE,
     CoalitionAction,
     check_codebook_version,
 )
-from api.domain.polity.config import PolityConfig
+from api.domain.polity.config import PolityConfig, PressureMenuConfig
 from api.domain.polity.llm_client import (
     LlmClientProtocol,
     LlmResponseError,
@@ -105,6 +119,7 @@ from api.domain.polity.llm_client import (
     decode_coalition_batch,
     decode_party_nomination_batch,
     decode_positioning_batch,
+    decode_pressure_batch,
     decode_response_batch,
     decode_vote_batch,
 )
@@ -113,6 +128,7 @@ from api.domain.polity.llm_schemas import (
     COALITION_JSON_SCHEMA,
     PARTY_NOMINATION_JSON_SCHEMA,
     POSITIONING_JSON_SCHEMA,
+    PRESSURE_JSON_SCHEMA,
     RESPONSE_JSON_SCHEMA,
     VOTE_CAST_JSON_SCHEMA,
     CandidacyDecision,
@@ -120,6 +136,7 @@ from api.domain.polity.llm_schemas import (
     PartyNominationDecision,
     PositioningDecision,
     PositionShift,
+    PressureDecision,
     ResponseDecision,
     VoteCastDecision,
 )
@@ -164,24 +181,37 @@ def _check_supported(config: PolityConfig) -> None:
     check_codebook_version(config.llm.codebook_version)
 
 
-def chunk_voters(voters: Sequence[Citizen], max_batch_size: int) -> list[list[Citizen]]:
+def chunk_voters(
+    voters: Sequence[Citizen], max_batch_size: int, *, min_batch_size: int = MIN_SAFE_BATCH_SIZE
+) -> list[list[Citizen]]:
     """Near-equal chunks by citizen_id, never a small fixed-size remainder.
     A pure function of (voter set, max_batch_size) -- independent of
     arrival order or timing, which is what config's `batch_sharding:
     static` actually needs to guarantee (§15bis.4a).
 
-    Raises if the population is too small to chunk safely (see
-    MIN_SAFE_BATCH_SIZE) rather than silently producing a chunk in
-    territory this project has observed the model fail on."""
+    Raises if the population is too small to chunk safely against
+    `min_batch_size` (default MIN_SAFE_BATCH_SIZE) rather than silently
+    producing a chunk in territory this project has observed the model
+    fail on. `min_batch_size` is a keyword-only override (v4 Lot 7,
+    dt=10): MIN_SAFE_BATCH_SIZE's boundary was measured on the vote_cast
+    prompt shape through the /v1 think=True path, and
+    scripts/lot6_batch_reliability_results.md measured a
+    pressure_action-shaped schema clean at sizes 1/3/5/10 through the
+    native think=False path -- direct counter-evidence in exactly the
+    region the default floor forbids. decide_pressure_actions passes
+    min_batch_size=1, since the consulted cohort is frequently below 20
+    late-term and this is not a consultation cap (§15bis.1): every
+    consulted citizen is still asked, chunking only changes the number of
+    HTTP requests, never the number of citizens."""
     n = len(voters)
     if n == 0:
         return []
     num_chunks = -(-n // max_batch_size)  # ceil division
     base_size, remainder = divmod(n, num_chunks)
-    if base_size < MIN_SAFE_BATCH_SIZE:
+    if base_size < min_batch_size:
         raise NotImplementedError(
             f"population_size={n} with llm.max_batch_size={max_batch_size} would produce a "
-            f"chunk of {base_size} citizens, below MIN_SAFE_BATCH_SIZE={MIN_SAFE_BATCH_SIZE} "
+            f"chunk of {base_size} citizens, below min_batch_size={min_batch_size} "
             "(ollama_structured_output_results.md: small batches reliably fail regardless of "
             "token budget) -- increase population_size or max_batch_size"
         )
@@ -996,6 +1026,243 @@ def decide_representative_response(
         positions[decision.cid] = apply_shifts(holder.revealed_position, decision.shifts)
 
     return ResponseBatchOutcome(decisions=decisions, positions=positions)
+
+
+@dataclass(frozen=True)
+class PressureContext:
+    """§3.6.6's `ctx` block plus the institutional facts §7bis.3 point 2/3
+    require, frozen before any of this tick's step-2 mutations run (v4
+    Lot 7).
+
+    `neighbors_acting` is not a field at all: it is structurally null in v4
+    (§7bis.9e/f, no social graph until v6) and to_payload emits None for it,
+    so no prompt builder can accidentally populate it. `street_pressure` is
+    likewise absent BY CONSTRUCTION and not by omission -- §7bis.9f's
+    atomized regime requires each citizen to decide alone; dt=6's
+    ResponseContext.street exists for the exact opposite reason (§7bis.4b's
+    "double rôle": the representative is meant to see the aggregate, the
+    citizen is not). `signed_ratio`/signature counts are excluded on the
+    same principle: an institutional object's existence is public record
+    (Lot 5), its level of support is an aggregate of what the crowd just
+    did."""
+
+    cid: int
+    target: int
+    self_gap: float
+    mandate_dev: float
+    ticks_to_election: int | None
+    available: tuple[int, ...]
+    petition_open: bool
+    petition_expires_at_tick: int | None
+    already_signed: bool
+
+    def to_payload(self) -> dict[str, float | int | None]:
+        """§3.6.6's exact four ctx keys, rounded like every other prompt
+        builder, with neighbors_acting hard-coded None. Used by BOTH
+        build_pressure_user_prompt and the journal write, so the ctx an
+        analyst reads is provably the ctx the model saw."""
+        return {
+            "self_gap": round(self.self_gap, 4),
+            "mandate_dev": round(self.mandate_dev, 4),
+            "neighbors_acting": None,
+            "ticks_to_election": self.ticks_to_election,
+        }
+
+
+@dataclass(frozen=True)
+class PressureBatchOutcome:
+    decisions: list[PressureDecision]
+    """Decisions only -- unlike PositioningBatchOutcome/ResponseBatchOutcome
+    there is nothing to resolve here (no shifts to apply to a position);
+    the CALLER resolves each act against LIVE petition state via
+    accountability.applicable_pressure_act, because only the caller owns
+    mutation. Same one-field shape as CandidacyBatchOutcome."""
+
+
+def menu_acts(menu: PressureMenuConfig) -> tuple[int, ...]:
+    """§3.6.6: {0,4} always legal regardless of menu; +{1,2} iff
+    petition_enabled; +{3} iff mobilization_enabled. The single source of
+    truth for both build_pressure_system_prompt and
+    validate_pressure_decision, so the stated menu and the enforced one can
+    never drift apart."""
+    acts = [0, 4]
+    if menu.petition_enabled:
+        acts += [1, 2]
+    if menu.mobilization_enabled:
+        acts.append(3)
+    return tuple(sorted(acts))
+
+
+def validate_pressure_decision(decision: PressureDecision, context: PressureContext, config: PolityConfig) -> None:
+    """Context-dependent checks llm_schemas.py's Pydantic validators can't
+    do without the caller's config: that the decision targets the
+    officeholder it was asked about, and §3.6.6's hard constraint --
+    `act` must be a member of the ACTIVE pressure_menu (menu_acts), the
+    ONLY batch-rejecting legality check this lot has. Deliberately does
+    NOT check `decision.act in context.available`: live petition state
+    (can this citizen actually sign/launch right now) is resolved by
+    accountability.applicable_pressure_act at application time, never
+    validated here -- see this lot's own judgment call on why a
+    state-stale act must not abort the whole batch."""
+    if decision.target != context.target:
+        raise LlmResponseError(
+            f"decision for cid={decision.cid} targets {decision.target}, expected {context.target}"
+        )
+    legal = menu_acts(config.pressure_menu)
+    if decision.act not in legal:
+        raise LlmResponseError(
+            f"decision for cid={decision.cid} chose act={decision.act}, outside the active "
+            f"pressure_menu {legal}"
+        )
+
+
+def build_pressure_system_prompt(consulted: Sequence[Citizen], config: PolityConfig) -> str:
+    """Same "enumerate the full expected cid list verbatim + self-check"
+    discipline as every prior decision type (Finding B precedent). States
+    the ACTIVE MENU as a hard constraint, twice (before and after the
+    reference table) and restricted to only the LEGAL entries -- an
+    earlier version of this prompt showed the full 5-member
+    PRESSURE_ACT_PROMPT_TABLE unconditionally next to the legal subset and
+    a live check found the model chose an out-of-menu act even for a
+    single-citizen batch under electoral_only (act=2 with only {0,4}
+    legal) -- see scripts/lot6_batch_reliability_results.md's "Lot 7
+    confirmatory pass". Filtering the table to only the legal rows and
+    restating the constraint removed the ambiguity of "here is the full
+    catalogue, but only some of it applies right now". Explains ctx:
+    self_gap is the citizen's own weighted distance to what the
+    officeholder currently delivers; mandate_dev is that officeholder's
+    OWN distance from their promise (information, not the citizen's own
+    state); neighbors_acting is always null, "cette simulation ne suit pas
+    ce que font les autres citoyens" (never "zero" -- §3.6.6's own
+    v6-only field); ticks_to_election is ticks to the next presidential
+    election. States explicitly that 0 (inaction) and 4 (deferred to the
+    ballot) are legitimate, journaled outcomes, not failures (§7bis.3)."""
+    cid_list = ",".join(str(c.citizen_id) for c in consulted)
+    legal = menu_acts(config.pressure_menu)
+    legal_table = "\n".join(
+        line for line in PRESSURE_ACT_PROMPT_TABLE.splitlines() if int(line.split(" = ")[0]) in legal
+    )
+    return (
+        "Tu es un moteur de simulation. Pour chaque citoyen mecontent recu "
+        "(pressure_action), decide son action envers l'elu cible, en te "
+        "basant sur son propre ecart de mecontentement (ctx) et le menu "
+        "constitutionnel actif.\n"
+        f"CONTRAINTE ABSOLUE : le champ act de CHAQUE decision doit valoir "
+        f"UN DES CODES SUIVANTS, et aucun autre : {list(legal)}. Tout autre "
+        "code invalide le batch entier.\n"
+        f"act (les seuls codes autorises ce tick) :\n{legal_table}\n"
+        "0 (ne rien faire) et 4 (attendre la prochaine election) sont des "
+        "resultats legitimes et journalises, jamais des echecs -- la part "
+        "des mecontents qui n'agissent pas est une mesure du modele, pas "
+        "une erreur a eviter.\n"
+        f"Motifs valides (code court obligatoire) :\n{PRESSURE_MOTIF_PROMPT_TABLE}\n"
+        "ctx.self_gap : ecart pondere entre mes propres positions et la "
+        "position actuelle de l'elu cible.\n"
+        "ctx.mandate_dev : ecart pondere entre la promesse de l'elu et sa "
+        "position actuelle -- une information sur l'elu, pas sur moi.\n"
+        "ctx.neighbors_acting : toujours null dans cette simulation (aucun "
+        "graphe social suivi), jamais zero.\n"
+        "ctx.ticks_to_election : nombre de ticks avant la prochaine "
+        "election presidentielle, null si aucune election prevue.\n"
+        f"IMPORTANT : la liste decisions doit contenir EXACTEMENT ces "
+        f"{len(consulted)} cid, chacun une seule fois, dans cet ordre : "
+        f"[{cid_list}]. Verifie ta reponse avant de la finaliser : chaque "
+        "cid de cette liste doit apparaitre exactement une fois, et chaque "
+        f"act doit appartenir a {list(legal)}.\n"
+        "Reponds UNIQUEMENT avec un objet JSON conforme au schema fourni."
+    )
+
+
+def build_pressure_user_prompt(consulted: Sequence[Citizen], contexts: Mapping[int, PressureContext]) -> str:
+    """Canonical JSON (sort_keys, compact separators, floats rounded to 4),
+    same reproducibility discipline as every prior prompt builder.
+    Top-level key "consulted" -- the seventh dispatch key
+    (citizens/parties/nominees/responders/holders/voters are taken; note
+    _FakeLlmClient tests `"citizens" in payload` FIRST, so reusing that key
+    would silently answer the candidacy schema instead). Per citizen: cid,
+    target, ctx=contexts[cid].to_payload(), the frozen `available` act
+    list, and the petition's institutional (never aggregate) state --
+    open/expires_at_tick/already_signed, but no signatures/signed_ratio
+    (§7bis.9f, see PressureContext). Deliberately NO 20-dim position
+    vectors per citizen -- at up to 25 citizens per chunk that would
+    multiply the prompt far beyond what self_gap/mandate_dev already
+    encode. Does not re-sort -- the caller owns the canonical order the
+    system prompt enumerates."""
+    citizen_blocks = []
+    for citizen in consulted:
+        context = contexts[citizen.citizen_id]
+        citizen_blocks.append(
+            {
+                "cid": citizen.citizen_id,
+                "target": context.target,
+                "ctx": context.to_payload(),
+                "available": list(context.available),
+                "petition": {
+                    "open": context.petition_open,
+                    "expires_at_tick": context.petition_expires_at_tick,
+                    "already_signed": context.already_signed,
+                },
+            }
+        )
+    return json.dumps({"consulted": citizen_blocks}, sort_keys=True, separators=(",", ":"))
+
+
+def decide_pressure_actions(
+    consulted: Sequence[Citizen],
+    contexts: Mapping[int, PressureContext],
+    config: PolityConfig,
+    client: LlmClientProtocol,
+) -> PressureBatchOutcome:
+    """v4 Lot 7's dt=10 replacement for deterministic_pressure_action
+    (simple_rules.py), which stays exactly as it is as the permanent
+    §11.4 baseline.
+
+    Unlike every other decide_* function, this one CHUNKS: it is the first
+    decision type since vote_cast to batch CITIZENS rather than a handful
+    of officeholders/nominees/parties, and the consulted cohort can be
+    dozens of citizens. Chunking is NOT a consultation cap (§15bis.1,
+    TRANCHÉ) -- every consulted citizen is still asked, every tick, without
+    exception; chunking only changes the number of HTTP requests. Every
+    chunk is decided here, in full, before the caller (run_polity_
+    simulation._run_accountability_phase) applies any effect -- so a chunk
+    boundary can never become a "wave" boundary that lets petition state
+    go stale mid-decision.
+
+    `min_batch_size=1` (not the MIN_SAFE_BATCH_SIZE default): justified by
+    scripts/lot6_batch_reliability_results.md's measured 1/3/5/10 clean
+    pass on this schema shape through the native think=False path --
+    direct evidence in the region MIN_SAFE_BATCH_SIZE (measured on
+    vote_cast's /v1 think=True shape) forbids.
+
+    Calls the client with think=False -- proven for this exact schema
+    shape twice now (the Lot 6 pre-flight spike and this lot's own
+    confirmatory pass against the real schema, scripts/
+    lot6_batch_reliability_results.md)."""
+    _check_supported(config)
+
+    if not consulted:
+        return PressureBatchOutcome(decisions=[])
+
+    # Sorted once, here, so system prompt / user prompt / expected_cids all
+    # agree on the same order regardless of the caller's order -- never
+    # rely on an incidental insertion order (D-5 precedent).
+    consulted = sorted(consulted, key=lambda c: c.citizen_id)
+    decisions: list[PressureDecision] = []
+    for chunk in chunk_voters(consulted, config.llm.max_batch_size, min_batch_size=1):
+        expected_cids = [c.citizen_id for c in chunk]
+        raw = client.complete_json(
+            system_prompt=build_pressure_system_prompt(chunk, config),
+            user_prompt=build_pressure_user_prompt(chunk, contexts),
+            json_schema=PRESSURE_JSON_SCHEMA,
+            max_tokens=compute_max_tokens(len(chunk)),
+            think=False,
+        )
+        chunk_decisions = decode_pressure_batch(raw, expected_cids)
+        for decision in chunk_decisions:
+            validate_pressure_decision(decision, contexts[decision.cid], config)
+        decisions.extend(chunk_decisions)
+
+    return PressureBatchOutcome(decisions=decisions)
 
 
 @dataclass(frozen=True)

@@ -3,7 +3,8 @@ api.domain.polity.llm_schemas — Pydantic wire schemas for the LLM's
 `vote_cast` (design doc §3.6.1), `candidacy_considered` (§3.6.2),
 `party_nomination_choice` (§3.6.2->3.6.8, dt=4), `campaign_positioning`
 (§3.6.2->3.6.8, dt=5), `coalition_decision` (§3.6.2->3.6.8, dt=9), v2
-increments 1-5, and `representative_response` (§3.6.5, dt=6), v4 Lot 6.
+increments 1-5, `representative_response` (§3.6.5, dt=6), v4 Lot 6, and
+`pressure_action` (§3.6.6, dt=10), v4 Lot 7.
 
 Lives in api/domain/polity/, not api/schemas/ — that package is the public
 HTTP/OpenAPI surface (see voter-api skill); these are internal LLM wire
@@ -287,6 +288,64 @@ class ResponseBatch(BaseModel):
 
 
 RESPONSE_JSON_SCHEMA = ResponseBatch.model_json_schema()
+
+
+class PressureDecision(BaseModel):
+    """One consulted citizen's pressure choice, design doc §3.6.6 — the
+    citizen-side symmetry of ResponseDecision. Wire shape is §3.6.6's own
+    worked example exactly: cid, target, act, motif.
+
+    `act` is Literal[0,1,2,3,4] — the FULL PressureAct enum, never a
+    narrowed one: which acts are legal depends on config.pressure_menu (and,
+    per citizen, on live petition state), neither of which a schema defined
+    at import time can see. §3.6.6's hard constraint ("un act hors menu
+    invalide le batch") is therefore enforced in
+    llm_behavior_engine.validate_pressure_decision, the same home as every
+    other context-dependent bound in this project.
+
+    No `petition_id`: Lot 1's single-open-petition-per-target simplification
+    (petition.concurrent_allowed is TRANCHÉ false) exists precisely so act=1
+    needs no such field on the wire.
+
+    NO cross-field model_validator, deliberately — a documented divergence
+    from ResponseDecision/CoalitionDecision above, not an oversight.
+    PressureMotif has exactly three members ({301, 304, 305}: 302/306 are
+    excluded by §7bis.9f, 303 belongs to ResponseMotif), and they partition
+    act perfectly (304 grounds act=0, 305 grounds act=4, 301 is the only
+    code left for act in {1,2,3}) — so an act<->motif coherence rule would
+    make motif a strict FUNCTION of act, carrying no information beyond
+    §10's pressure_lever_mix, which is computed from act anyway. Unlike
+    stance<->motif at dt=6, where 301/302/303 discriminated three genuinely
+    different causes of one stance, there is no distribution here to
+    corrupt. Against that zero benefit: a cross-field rule is the one
+    constraint constrained decoding cannot enforce, and dt=10 has the
+    largest batches and highest call count in the palier. The intended
+    pairing is stated in the system prompt as guidance; the realized
+    act x motif table is a Lot 8 measurement, not an invariant."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    cid: int = Field(..., ge=0, description="citizen_id of the consulted citizen this decision belongs to.")
+    target: int = Field(..., ge=0, description="citizen_id of the officeholder this action targets (§3.6.6).")
+    act: Literal[0, 1, 2, 3, 4] = Field(
+        ..., description="0=rien, 1=signer, 2=lancer, 3=mobiliser, 4=attendre (§3.7.1) — voir PressureAct."
+    )
+    motif: Literal[301, 304, 305] = Field(
+        ..., description="Code court obligatoire (§3.7.2) — voir PressureMotif."
+    )
+
+
+class PressureBatch(BaseModel):
+    """§3.6.0's batch envelope, specialized to pressure_action — one decision
+    per CONSULTED citizen (the awakening gate's cohort, §7bis.9d), never one
+    per citizen in the population."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    decisions: list[PressureDecision] = Field(..., min_length=1)
+
+
+PRESSURE_JSON_SCHEMA = PressureBatch.model_json_schema()
 
 
 class CoalitionDecision(BaseModel):

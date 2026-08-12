@@ -43,6 +43,7 @@ from typing import Iterator
 import numpy as np
 
 from api.domain.polity.accountability import (
+    applicable_pressure_act,
     current_office_holders,
     is_term_limited,
     launch_petition,
@@ -78,16 +79,20 @@ from api.domain.polity.legitimacy import (
     update_legitimacy,
 )
 from api.domain.polity.llm_behavior_engine import (
+    PressureContext,
     ResponseContext,
     cast_votes,
     decide_campaign_positioning,
     decide_candidacies,
     decide_coalition,
     decide_party_nominations,
+    decide_pressure_actions,
     decide_representative_response,
+    menu_acts,
     resolve_ranking_cids,
 )
 from api.domain.polity.llm_client import LlmClientProtocol, OllamaJsonClient
+from api.domain.polity.llm_schemas import PressureDecision
 from api.domain.polity.metrics import mobilization_rate
 from api.domain.polity.parties import Party, initialize_parties
 from api.domain.polity.simple_rules import (
@@ -560,6 +565,61 @@ def _response_context(holder: Citizen, config: PolityConfig, tick: int) -> Respo
     )
 
 
+def _can_sign(holder: Citizen, citizen: Citizen, tick: int, config: PolityConfig) -> bool:
+    """v4 Lot 7: the exact expression the per-tick consulted loop already
+    used inline since Lot 5, extracted purely so the frozen pre-loop read
+    (_pressure_context) and the live per-citizen read inside the loop are
+    provably the same expression rather than two copies that can drift --
+    behavior-preserving, pinned by the existing Lot 5 tests."""
+    return (
+        petition_accepts_signatures(holder, tick, config.petition)
+        and citizen.citizen_id not in holder.petition_signers
+    )
+
+
+def _pressure_context(
+    citizen: Citizen,
+    holder: Citizen,
+    gap: float,
+    *,
+    tick: int,
+    mandate_dev: float,
+    config: PolityConfig,
+    can_sign: bool,
+    can_launch: bool,
+) -> PressureContext:
+    """v4 Lot 7: the single place dt=10's ctx and its frozen menu
+    availability are built. `gap` is select_consulted's own returned
+    self_gap and `mandate_dev` the deviation already computed once for
+    this holder this tick -- neither is recomputed. `available` =
+    menu_acts(config.pressure_menu) intersected with this citizen's frozen
+    petition facts (can_sign/can_launch, themselves already live-read by
+    the caller before this tick's consulted loop runs, so they describe
+    the same instant every other citizen's ctx was frozen at). NO
+    street_pressure and NO signature count reach this object (§7bis.9f) --
+    see PressureContext's own docstring."""
+    available = set(menu_acts(config.pressure_menu))
+    if not can_sign:
+        available.discard(int(PressureAct.SIGN_PETITION))
+    if not can_launch:
+        available.discard(int(PressureAct.LAUNCH_PETITION))
+    return PressureContext(
+        cid=citizen.citizen_id,
+        target=holder.citizen_id,
+        self_gap=gap,
+        mandate_dev=mandate_dev,
+        ticks_to_election=ticks_to_election(tick, holder.term_end_tick),
+        available=tuple(sorted(available)),
+        petition_open=holder.petition_open_since_tick is not None,
+        petition_expires_at_tick=(
+            holder.petition_open_since_tick + config.petition.petition_lifespan_ticks
+            if holder.petition_open_since_tick is not None
+            else None
+        ),
+        already_signed=citizen.citizen_id in holder.petition_signers,
+    )
+
+
 def _run_representative_responses(
     holders: list[Citizen],
     config: PolityConfig,
@@ -713,23 +773,51 @@ def _run_accountability_phase(
                 mandate_dev=deviation or 0.0,
                 awakening=config.awakening,
             )
+            decisions: dict[int, PressureDecision] | None = None
+            contexts: dict[int, PressureContext] = {}
+            if config.llm.enabled and consulted:  # §7bis.7 step 2 (v4 Lot 7)
+                assert llm_client is not None  # guaranteed by _llm_client_scope when llm.enabled
+                contexts = {
+                    citizen.citizen_id: _pressure_context(
+                        citizen,
+                        holder,
+                        gap,
+                        tick=tick,
+                        mandate_dev=deviation or 0.0,
+                        config=config,
+                        can_sign=_can_sign(holder, citizen, tick, config),
+                        can_launch=petition_is_launchable(holder, tick),
+                    )
+                    for citizen, gap in consulted  # ALL frozen before any act applies
+                }
+                outcome = decide_pressure_actions([c for c, _ in consulted], contexts, config, llm_client)
+                decisions = {d.cid: d for d in outcome.decisions}
             participants = 0
             for citizen, gap in consulted:
-                can_sign = (
-                    petition_accepts_signatures(holder, tick, config.petition)
-                    and citizen.citizen_id not in holder.petition_signers
-                )
-                can_launch = petition_is_launchable(holder, tick)
-                act = deterministic_pressure_action(
-                    citizen, gap, config.pressure_menu, can_sign=can_sign, can_launch=can_launch
-                )
+                can_sign = _can_sign(holder, citizen, tick, config)  # LIVE, re-read per citizen
+                can_launch = petition_is_launchable(holder, tick)  # LIVE, re-read per citizen
+                motif: str | None = None
+                if decisions is None:
+                    decided = deterministic_pressure_action(
+                        citizen, gap, config.pressure_menu, can_sign=can_sign, can_launch=can_launch
+                    )
+                    act = decided
+                    payload_extra: dict[str, object] = {}
+                else:
+                    decision = decisions[citizen.citizen_id]
+                    decided = PressureAct(decision.act)
+                    act = applicable_pressure_act(decided, can_sign=can_sign, can_launch=can_launch)
+                    payload_extra = {"ctx": contexts[citizen.citizen_id].to_payload()}
+                    motif = str(decision.motif)
                 if act is PressureAct.MOBILIZE:
                     participants += 1
                 journal.write(
                     tick=tick,
                     event_type="pressure_action",
-                    payload={"target": holder.citizen_id, "act": int(act)},
+                    payload={"target": holder.citizen_id, "act": int(decided), **payload_extra},
                     citizen_id=citizen.citizen_id,
+                    motif=motif,
+                    codebook_version=config.llm.codebook_version if motif else "",
                 )
                 if act is PressureAct.LAUNCH_PETITION:
                     launch_petition(holder, citizen, tick)
@@ -861,5 +949,4 @@ def _run_accountability_phase(
                 },
                 citizen_id=holder.citizen_id,
             )
-            vacate_office(holder)
             vacate_office(holder)

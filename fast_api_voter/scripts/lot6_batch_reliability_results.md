@@ -47,3 +47,32 @@ types too. The existing "reject the whole batch, never partially correct" contra
 silencieuse") is what makes this survivable in production either way; Lot 6/7 should assume the
 same non-zero misalignment rate this project has already measured for a structurally identical
 call shape, not treat this spike's clean run as proof it will always hold.
+
+## Lot 7 confirmatory pass -- real pressure_action schema
+
+Real llm_schemas.PressureBatch / llm_behavior_engine.build_pressure_*_prompt, not the toy schema above (which had the wrong motif set -- 303 is a ResponseMotif -- and never carried a per-citizen `available` acts list). Sweeps the batch sizes chunk_voters actually produces (20-25), not just the pre-flight 1-10 range.
+
+| size | modality | rep | ok | elapsed(s) | out_of_available_rate | act x motif pairs | detail |
+|---|---|---|---|---|---|---|---|
+| 1 | electoral_only | 1 | True | 5.5 | 0.0 | [(4, 305)] |  |
+| 1 | electoral_only | 2 | True | 5.4 | 0.0 | [(4, 305)] |  |
+| 5 | electoral_only | 1 | True | 26.8 | 0.0 | [(4, 305)] |  |
+| 5 | electoral_only | 2 | True | 22.7 | 0.0 | [(4, 305)] |  |
+| 20 | electoral_only | 1 | True | 90.9 | 0.0 | [(4, 305)] |  |
+| 20 | electoral_only | 2 | True | 74.8 | 0.0 | [(4, 305)] |  |
+| 25 | electoral_only | 1 | True | 116.2 | 0.0 | [(4, 305)] |  |
+| 25 | electoral_only | 2 | True | 95.8 | 0.0 | [(4, 305)] |  |
+| 1 | full_menu | 1 | True | 6.0 | 0.0 | [(1, 301)] |  |
+| 1 | full_menu | 2 | True | 5.6 | 0.0 | [(1, 301)] |  |
+| 5 | full_menu | 1 | True | 27.7 | 0.0 | [(0, 304), (1, 301), (3, 301), (4, 305)] |  |
+| 5 | full_menu | 2 | True | 22.7 | 0.0 | [(0, 304), (1, 301), (3, 301), (4, 305)] |  |
+| 20 | full_menu | 1 | True | 93.1 | 0.0 | [(0, 304), (1, 301), (3, 301)] |  |
+| 20 | full_menu | 2 | True | 75.2 | 0.0 | [(0, 304), (1, 301), (3, 301)] |  |
+| 25 | full_menu | 1 | True | 117.0 | 0.0 | [(0, 304), (1, 301), (3, 301)] |  |
+| 25 | full_menu | 2 | True | 96.0 | 0.0 | [(0, 304), (1, 301), (3, 301)] |  |
+
+### Summary
+
+failures: 0/16
+
+**Overall: PASS**
