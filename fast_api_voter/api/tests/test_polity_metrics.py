@@ -3,14 +3,24 @@
 Contract (dev-plan-v0-worktree.md §3, Lot 9): Laakso-Taagepera verified by
 hand on a known case (2 parties at 50/50 seats => N = 2.0).
 """
+import pytest
+
 from api.domain.polity.metrics import (
+    blank_vote_rate,
     coalition_lifespans,
     cohabitation_rate,
     consultation_rate,
     effective_number_of_parties,
+    inaction_rate,
     is_cohabitation,
+    lame_duck_deviation_delta,
+    mean_legitimacy,
     mobilization_rate,
+    petition_success_rate,
+    pressure_lever_mix,
+    recall_frequency,
     signed_ratio,
+    stance_distribution,
 )
 
 
@@ -126,3 +136,98 @@ def test_signed_ratio_hand_cases():
 
 def test_signed_ratio_with_zero_population_is_zero():
     assert signed_ratio(0, 0) == 0.0
+
+
+# ── mean_legitimacy / recall_frequency (v4 Lot 8) ─────────────────────────
+
+def test_mean_legitimacy_hand_case():
+    assert mean_legitimacy([0.4, 0.6]) == 0.5
+
+
+def test_mean_legitimacy_of_empty_series_is_zero():
+    assert mean_legitimacy([]) == 0.0
+
+
+def test_recall_frequency_is_recalls_over_terms():
+    assert recall_frequency(1, 4) == 0.25
+
+
+def test_recall_frequency_with_zero_terms_is_zero():
+    assert recall_frequency(0, 0) == 0.0
+
+
+# ── inaction_rate (v4 Lot 8) ───────────────────────────────────────────────
+
+def test_inaction_rate_is_inactive_over_consulted():
+    assert inaction_rate(3, 12) == 0.25
+
+
+def test_inaction_rate_with_zero_consulted_is_zero():
+    assert inaction_rate(0, 0) == 0.0
+
+
+# ── pressure_lever_mix (v4 Lot 8) ─────────────────────────────────────────
+
+def test_pressure_lever_mix_hand_case():
+    assert pressure_lever_mix([0, 0, 3, 4]) == {0: 0.5, 1: 0.0, 2: 0.0, 3: 0.25, 4: 0.25}
+
+
+def test_pressure_lever_mix_always_has_all_five_keys():
+    assert set(pressure_lever_mix([0]).keys()) == {0, 1, 2, 3, 4}
+
+
+def test_pressure_lever_mix_of_empty_acts_is_all_zero():
+    assert pressure_lever_mix([]) == {0: 0.0, 1: 0.0, 2: 0.0, 3: 0.0, 4: 0.0}
+
+
+# ── petition_success_rate (v4 Lot 8) ──────────────────────────────────────
+
+def test_petition_success_rate_is_triggered_over_launched():
+    assert petition_success_rate(2, 8) == 0.25
+
+
+def test_petition_success_rate_with_no_launches_is_none():
+    assert petition_success_rate(0, 0) is None
+
+
+# ── stance_distribution (v4 Lot 8) ────────────────────────────────────────
+
+def test_stance_distribution_hand_case():
+    assert stance_distribution([1, 1, 2, 3]) == {1: 0.5, 2: 0.25, 3: 0.25, 4: 0.0}
+
+
+def test_stance_distribution_always_has_all_four_keys():
+    assert set(stance_distribution([1]).keys()) == {1, 2, 3, 4}
+
+
+def test_stance_distribution_of_empty_stances_is_all_zero():
+    assert stance_distribution([]) == {1: 0.0, 2: 0.0, 3: 0.0, 4: 0.0}
+
+
+# ── lame_duck_deviation_delta (v4 Lot 8) ──────────────────────────────────
+
+def test_lame_duck_deviation_delta_hand_case():
+    # lame-duck mean 0.6, re-eligible mean 0.2 -> delta 0.4
+    assert lame_duck_deviation_delta([0.5, 0.7], [0.1, 0.3]) == pytest.approx(0.4)
+
+
+def test_lame_duck_deviation_delta_is_none_with_no_lame_duck_term():
+    assert lame_duck_deviation_delta([], [0.1, 0.3]) is None
+
+
+def test_lame_duck_deviation_delta_is_none_with_no_eligible_term():
+    assert lame_duck_deviation_delta([0.5], []) is None
+
+
+def test_lame_duck_deviation_delta_is_none_with_neither():
+    assert lame_duck_deviation_delta([], []) is None
+
+
+# ── blank_vote_rate (v4 Lot 8) ─────────────────────────────────────────────
+
+def test_blank_vote_rate_hand_case():
+    assert blank_vote_rate(10, 100) == 0.1
+
+
+def test_blank_vote_rate_with_zero_ballots_is_zero():
+    assert blank_vote_rate(0, 0) == 0.0

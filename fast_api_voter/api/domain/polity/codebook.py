@@ -45,8 +45,13 @@ class PolityCodebookError(ValueError):
     one this code was written against — §3.7.0's frozen-artifact contract."""
 
 
-CODEBOOK_VERSION = "1.2"  # bumped from "1.1" — v4 Lot 1 reserves dt=6/dt=10,
-                           # BallotFormat.BINARY, and the 300-399 motif range.
+CODEBOOK_VERSION = "1.3"  # bumped from "1.2" — a v4 Lot 8 live acceptance-run
+                           # finding: VoteMotif had no code for a sincere vote
+                           # cast for an imperfect-but-tolerable candidate (every
+                           # existing code names either a blank-vote reason or a
+                           # strategic one), which measurably starved the model
+                           # of a "just vote for them, they clear my threshold"
+                           # option. See VoteMotif.ACCEPTABLE_MATCH.
 
 
 class DecisionType(IntEnum):
@@ -83,13 +88,24 @@ class VoteMotif(IntEnum):
     (RETROSPECTIVE_PUNISHMENT) require infrastructure this increment doesn't
     have yet (the social graph is v6; retrospective memory needs
     memory_window_terms, unused in v0/v1) — kept as valid codes per §3.7.2's
-    "liste non figée", but expect 101/104 to dominate in practice. Record
-    the observed distribution rather than pruning the enum."""
+    "liste non figée", but expect 101/104/105 to dominate in practice.
+    Record the observed distribution rather than pruning the enum.
+
+    105 (ACCEPTABLE_MATCH) added in v4 Lot 8, live: a real acceptance run
+    found every prior code named either a blank-vote reason (101) or a
+    strategic one (104, defecting from a sincere favorite) — none of them
+    covers the single most common real-world case, a voter whose favorite
+    candidate clears their own blank_threshold and who simply votes for
+    them, sincerely, without needing a special justification. Its absence
+    is suspected to have measurably biased cast_votes toward blank at
+    production scale -- see build_system_prompt's docstring in
+    llm_behavior_engine.py for the full finding."""
 
     NO_MATCHING_PRIORITY = 101
     SOCIAL_CONTAGION = 102
     RETROSPECTIVE_PUNISHMENT = 103
     STRATEGIC_DEFECTION = 104
+    ACCEPTABLE_MATCH = 105
 
 
 VOTE_MOTIF_PROMPT_TABLE = "\n".join(f"{motif.value} = {motif.name}" for motif in VoteMotif)

@@ -261,11 +261,13 @@ llm:
   rationale_mode: codes       # [v2] codes | free_text | hybrid (§16.5)
                               #      TRANCHÉ : codes partout + texte libre
                               #      borné aux événements pivots (§3.6.9)
-  codebook_version: "1.2"     # [v2/v4] artefact figé, archivé avec le run (§3.7)
+  codebook_version: "1.3"     # [v2/v4] artefact figé, archivé avec le run (§3.7)
                               #      bump 1.1->1.2 en v4 Lot 1 : réservation
                               #      de dt=6/dt=10, BallotFormat.BINARY, et
                               #      des motifs 300-399 (encore inactifs tant
                               #      que legitimacy.enabled=false)
+                              #      bump 1.2->1.3 en v4 Lot 8 : VoteMotif
+                              #      gagne 105 ACCEPTABLE_MATCH (voir codebook.py)
   personas_count: 30          # [v2] 20-50 archétypes (§9)
                               #      ⚠ PAS ENCORE IMPLÉMENTÉ (v2.1) — v2
                               #      incrément 1 décrit les citoyens par
@@ -273,6 +275,9 @@ llm:
                               #      le lotissement (§3.5) retombe sur des
                               #      lots contigus de max_batch_size, pas
                               #      un groupement par archetype_id
+  max_batch_replays: 0        # [v4] §3.6.10 — 0 = pas de rejeu (comportement
+                              #      historique) ; relevé pour le run
+                              #      d'acceptation (Lot 8), jamais en défaut
 
 # =============================================================================
 # JOURNAL ET DONNÉES (§16)
@@ -298,15 +303,15 @@ metrics:
   effective_parties: true     # [v0] Laakso & Taagepera (1979)
   cohabitation_rate: true     # [v0]
   coalition_lifespan: true    # [v0]
-  platform_convergence: false # [v2] nécessite les plateformes dynamiques
-  mandate_deviation: false    # [v4] §7bis.5
-  lame_duck_deviation_delta: false   # [v4] §6bis.1
-  inaction_rate: false        # [v4] part des mécontents avec act = 0
-  pressure_lever_mix: false   # [v4] répartition des leviers actionnés
-  petition_success_rate: false       # [v4]
-  stance_distribution: false  # [v4] §3.6.5
-  mobilization_nonlinearity: false   # [v6] détection de basculement (§7bis.9f)
-  polarization: false         # [v6] nécessite le graphe social
+  platform_convergence: false # [v2] nécessite les plateformes dynamiques — pas implémenté, refuse `true`
+  mandate_deviation: true     # [v4] §7bis.5 — indexer.py (Lot 8)
+  lame_duck_deviation_delta: true    # [v4] §6bis.1 — indexer.py (Lot 8)
+  inaction_rate: true         # [v4] part des mécontents avec act = 0 — indexer.py (Lot 8)
+  pressure_lever_mix: true    # [v4] répartition des leviers actionnés — indexer.py (Lot 8)
+  petition_success_rate: true # [v4] indexer.py (Lot 8)
+  stance_distribution: true   # [v4] §3.6.5 — indexer.py (Lot 8)
+  mobilization_nonlinearity: false   # [v6] détection de basculement (§7bis.9f) — pas implémenté, refuse `true`
+  polarization: false         # [v6] nécessite le graphe social — pas implémenté, refuse `true`
 
 # =============================================================================
 # PARALLÉLISATION (§15bis)

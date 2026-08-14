@@ -39,7 +39,7 @@ from api.domain.polity.config import (
     PetitionConfig,
     StreetPressureConfig,
 )
-from api.domain.polity.simple_rules import _weighted_distance
+from api.domain.polity.simple_rules import weighted_distance
 
 
 def _citizen(citizen_id, positions, priorities=None, **kwargs):
@@ -81,7 +81,7 @@ _TOP_K_CONFIG = MandateConfig(
 def test_weighted_euclidean_matches_simple_rules_weighted_distance():
     voter = _citizen(1, (0.2, 0.7), priorities=(0.6, 0.4))
     platform = (0.5, 0.1)
-    assert weighted_euclidean(voter.issue_positions, platform, voter.issue_priorities) == _weighted_distance(
+    assert weighted_euclidean(voter.issue_positions, platform, voter.issue_priorities) == weighted_distance(
         voter, platform
     )
 

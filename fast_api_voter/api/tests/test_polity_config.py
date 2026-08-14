@@ -28,6 +28,13 @@ def test_loads_the_real_polity_config_with_expected_v0_values():
     assert config.legitimacy.enabled is False
     assert config.journal.enabled is True
     assert config.metrics.effective_parties is True
+    assert config.metrics.mandate_deviation is True
+    assert config.metrics.lame_duck_deviation_delta is True
+    assert config.metrics.inaction_rate is True
+    assert config.metrics.pressure_lever_mix is True
+    assert config.metrics.petition_success_rate is True
+    assert config.metrics.stance_distribution is True
+    assert config.llm.max_batch_replays == 0
     assert config.llm.enabled is False
     assert config.llm.provider == "ollama"
     assert config.llm.base_url == "http://localhost:11434/v1"
@@ -35,7 +42,7 @@ def test_loads_the_real_polity_config_with_expected_v0_values():
     assert config.llm.temperature == 0.0
     assert config.llm.max_batch_size == 25
     assert config.llm.batch_sharding == "static"
-    assert config.llm.codebook_version == "1.2"
+    assert config.llm.codebook_version == "1.3"
     assert config.llm.personas_count == 30
     assert config.campaign.max_positioning_delta == 0.3
     assert config.campaign.max_positioning_shifts == 3
@@ -258,6 +265,44 @@ def test_petition_concurrent_allowed_true_raises(tmp_path):
     path = _write(tmp_path, lambda d: d["petition"].__setitem__("concurrent_allowed", True))
     with pytest.raises(PolityConfigError, match="concurrent_allowed"):
         load_config(path)
+
+
+# ── metrics.* [v2]/[v6] TRANCHÉ guards (v4 Lot 8: not implemented yet) ────
+
+def test_metrics_platform_convergence_true_raises(tmp_path):
+    path = _write(tmp_path, lambda d: d["metrics"].__setitem__("platform_convergence", True))
+    with pytest.raises(PolityConfigError, match="platform_convergence"):
+        load_config(path)
+
+
+def test_metrics_mobilization_nonlinearity_true_raises(tmp_path):
+    path = _write(tmp_path, lambda d: d["metrics"].__setitem__("mobilization_nonlinearity", True))
+    with pytest.raises(PolityConfigError, match="mobilization_nonlinearity"):
+        load_config(path)
+
+
+def test_metrics_polarization_true_raises(tmp_path):
+    path = _write(tmp_path, lambda d: d["metrics"].__setitem__("polarization", True))
+    with pytest.raises(PolityConfigError, match="polarization"):
+        load_config(path)
+
+
+# ── llm.max_batch_replays (v4 Lot 8) ──────────────────────────────────────
+
+def test_llm_max_batch_replays_negative_raises(tmp_path):
+    path = _write(tmp_path, lambda d: d["llm"].__setitem__("max_batch_replays", -1))
+    with pytest.raises(PolityConfigError, match="max_batch_replays"):
+        load_config(path)
+
+
+def test_llm_max_batch_replays_zero_is_legal(tmp_path):
+    path = _write(tmp_path, lambda d: d["llm"].__setitem__("max_batch_replays", 0))
+    assert load_config(path).llm.max_batch_replays == 0
+
+
+def test_llm_max_batch_replays_positive_is_legal(tmp_path):
+    path = _write(tmp_path, lambda d: d["llm"].__setitem__("max_batch_replays", 2))
+    assert load_config(path).llm.max_batch_replays == 2
 
 
 def test_mandate_unknown_pledge_scope_raises(tmp_path):

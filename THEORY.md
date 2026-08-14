@@ -4,7 +4,7 @@
 > mathématiques ou économie souhaitant comprendre les fondements formels
 > de chaque simulation proposée par Vote Lab.
 >
-> **Comment citer :** voir la bibliographie complète en [§10](#10-références).
+> **Comment citer :** voir la bibliographie complète en [§11](#11-références).
 
 ---
 
@@ -19,7 +19,8 @@
 7. [Systèmes alternatifs de gouvernance](#7-systèmes-alternatifs-de-gouvernance)
 8. [Solutions technologiques](#8-solutions-technologiques)
 9. [Limites des modèles](#9-limites-des-modèles)
-10. [Références](#10-références)
+10. [Le simulateur Polity](#10-le-simulateur-polity)
+11. [Références](#11-références)
 
 ---
 
@@ -1058,7 +1059,182 @@ du contraire — le harnais a effectivement débusqué des bugs des deux côtés
 
 ---
 
-## 10. Références
+## 10. Le simulateur Polity
+
+> **Ce chantier n'est pas Vote Lab.** Cette section documente un second
+> projet de recherche — un simulateur multi-agents de dynamique politique
+> ("La Fourmilière", `fast_api_voter/api/domain/polity/`) qui partage le
+> backend de Vote Lab mais aucun code, aucune configuration et aucun
+> journal avec lui. Contrairement aux sections 1 à 9, qui documentent des
+> résultats établis de la théorie du choix social, chaque formule ci-dessous
+> est un **choix de modélisation propre à ce projet** — pas un résultat
+> citable de la littérature. La spécification complète et versionnée vit
+> dans `polity-simulation-design-v2.md` (document de conception local, non
+> publié) ; cette section en est le résumé public.
+
+### 10.1 Légitimité — `L(t)`
+
+Le cœur du modèle est une légitimité `L(t) ∈ [0, 1]` par élu, mise à jour à
+chaque pas de temps :
+
+```
+L(t) = decay · L(t-1) + support(t) − écart(t)
+L(0) = support(0)
+```
+
+`decay` est un paramètre de configuration (`legitimacy.decay`, 0.9 par
+défaut). `support(t)` était un **point ouvert du plan de conception**
+(§7.1 : "reste à définir opérationnellement") — sa résolution, apportée par
+ce projet et non par la littérature, est :
+
+```
+support(t) = (1 − decay) · m
+```
+
+où `m` (force du mandat) est la fraction des bulletins **exprimés** classant
+le vainqueur au-dessus du blanc, calculée de façon **agnostique à la méthode
+électorale** — la même définition s'applique aux 13 méthodes de classement
+implémentées (§2.1), ce qui permet de comparer leur effet sur `L(t)` sans
+changer la métrique elle-même.
+
+Cette définition est **le seul choix** sous lequel `L(t)` converge vers un
+point fixe stable en l'absence de toute pression citoyenne : si `écart(t) ≡
+0`, alors `L(t) ≡ m` pour tout `t` — la légitimité reste plate à la force du
+mandat initial tant que rien ne s'y oppose. C'est la condition de contrôle
+attendue : *un élu qui trahit intégralement son mandat face à une population
+passive ne perd aucune légitimité* (§10.2) — et c'est ce point fixe qui a
+permis de clore le bloquant historique de l'audit de précision sur la
+formule de `L(t)` (référencé A6 dans `polity-simulation-design-v2.md`),
+ouvert depuis le début de l'audit.
+
+### 10.2 `écart(t)` — un modèle purement actionnel
+
+`écart(t)` agrège trois signaux, chacun borné par sa propre pondération
+(`w_pet + w_mob = 1`) :
+
+```
+écart(t) = w_pet · signed_ratio(t) + w_mob · street_pressure(t)
+           + passive_erosion_weight · mandate_deviation(t)
+```
+
+`signed_ratio(t)` et `street_pressure(t)` existent seulement quand les
+citoyens **agissent** (signature de pétition, mobilisation) — par défaut,
+`passive_erosion_weight = 0.0`, ce qui rend le modèle strictement
+*actionnel* : une dérive de mandat qui ne provoque aucune réaction
+citoyenne ne coûte rien à l'élu. C'est un choix de modélisation assumé, pas
+un oubli — il isole l'effet des leviers de pression (§10.5) de l'effet de
+la dérive elle-même, et rend observable la question centrale du projet :
+une population dotée de leviers de pression s'en saisit-elle réellement ?
+
+### 10.3 Le plancher dur et le rappel
+
+`L(t)` est comparé à chaque pas à un plancher fixe (`legitimacy.recall_floor`,
+0.2 par défaut) : si `L(t)` passe strictement en-dessous, l'élu est
+destitué. Le plancher est **volontairement fixe**, jamais indexé sur `L(0)`
+— un plancher mobile détruirait la lisibilité externe du seuil (un
+observateur ne pourrait plus dire, en lisant `L(t)` seul, si un rappel est
+imminent).
+
+Deux mécanismes distincts peuvent déclencher une destitution — le
+franchissement du plancher, ou un vote de confiance perdu après qu'une
+pétition a atteint son seuil de signatures — mais les deux sont journalisés
+sous le même type d'événement (`recalled`), distingué par un champ
+`trigger`. Un même tick peut voir les deux se produire simultanément
+(un plancher franchi le tick même de l'élection, par exemple) ; dans ce
+cas, le plancher a toujours priorité dans l'attribution — mais les deux
+mécanismes restent journalisés intégralement, jamais court-circuités.
+
+### 10.4 La déviation de mandat — une mesure, jamais un levier
+
+`mandate_deviation(t)` est la distance pondérée entre la plateforme promise
+à l'élection (`pledged_platform`, figée) et la position réellement défendue
+(`revealed_position`, qui peut dériver). C'est une **mesure**, jamais une
+décision — rien dans le modèle ne peut faire dériver `revealed_position` en
+l'absence d'un agent LLM actif (`llm.enabled: false`) : c'est le cas de
+contrôle du projet, vérifié par test, sous lequel la déviation de mandat
+est nulle par construction pour toute la durée d'une simulation. Toute
+déviation observée à partir de l'activation de l'agent est donc, par
+construction, entièrement attribuable à ce dernier — l'argument de
+comparaison le plus propre dont dispose le projet entre une base
+déterministe et un comportement généré.
+
+### 10.5 Le menu de pression — une variable expérimentale à quatre modalités
+
+Le concepteur fixe le **menu constitutionnel** des leviers disponibles
+(signer/lancer une pétition, participer à une mobilisation, ou attendre la
+prochaine élection) — les citoyens choisissent librement à l'intérieur de
+ce menu, jamais au-delà. Le menu n'est pas traité comme deux booléens
+indépendants mais comme **une seule variable à quatre modalités**
+(`electoral_only` / pétition seule / mobilisation seule / les deux), pour
+que le plan d'analyse reste un plan de sensibilité à un paramètre à la
+fois plutôt qu'un croisement combinatoire. `electoral_only` — aucun levier
+entre deux scrutins — sert de **groupe de contrôle** : sous cette
+modalité, `L(t)` doit rester plate à `m` pour toute la durée d'un mandat
+(§10.1), et c'est effectivement le cas testé.
+
+### 10.6 Le seuil d'éveil — une porte d'échantillonnage, jamais une décision
+
+Tous les citoyens ne sont pas consultés à chaque tick : un citoyen n'est
+sollicité que si son propre écart avec la position actuelle de l'élu
+dépasse un seuil individuel (`base_threshold`, tiré une fois par citoyen à
+la génération de la population), lui-même modulé par le contexte (la
+dérive de mandat observée, la proximité de la prochaine élection). Ce
+mécanisme est une **porte d'échantillonnage** — il détermine *qui* est
+interrogé, jamais *ce qu'il répond* — et n'impose aucun plafond sur le
+nombre de citoyens consultables à un tick donné.
+
+### 10.7 Limites connues du modèle v4
+
+- **`stance = 4` (contre-mobilisation) est observable mais mécaniquement
+  inerte** : aucun levier citoyen pro-sortant n'existe encore pour lui
+  répondre — un représentant peut choisir cette posture, mais rien dans le
+  modèle n'en tire de conséquence institutionnelle.
+- **Le vote de confiance reste déterministe même quand l'agent LLM pilote
+  les autres décisions** — son résultat n'est donc pas directement
+  comparable à celui de l'élection présidentielle *du même run*, qui, elle,
+  passe par l'agent.
+- **Régime de pression atomisée** : un citoyen ne voit ni le niveau de
+  mobilisation agrégé (`street_pressure`) ni le taux de signature d'une
+  pétition en cours (`signed_ratio`) — seulement le fait qu'une pétition
+  existe. Les effets de seuil, de cascade ou de passager clandestin restent
+  donc structurellement inobservables tant que le graphe social (palier v6)
+  n'existe pas.
+- **`m` porte un biais empirique à la baisse sur le chemin LLM** au-delà de
+  six candidats : le classement produit par l'agent est tronqué au top-5,
+  si bien qu'un vainqueur absent d'un bulletin tronqué compte comme
+  "non classé au-dessus du blanc" plutôt que d'être exclu du dénominateur.
+- **`lame_duck_deviation_delta` n'est pas mesurable à la configuration
+  livrée** (`president_term_limit: null` — aucune limitation de mandat) :
+  la métrique existe et est testée, mais elle n'a rien à comparer tant
+  qu'aucun mandat limité n'est configuré.
+
+### 10.8 Références
+
+Ce chantier n'introduit pas de nouvelle bibliographie académique propre —
+`support(t)` (§10.1) est une résolution de modélisation, pas un résultat
+publié, et c'est précisément ce que fermer le bloquant A6 signifie : aucune
+référence unique ne fait autorité sur cette formule. Deux publications déjà
+citées dans le plan de conception restent pertinentes pour situer le
+modèle dans la littérature :
+
+- **Shugart, M.S. & Carey, J.M.** (1992). *Presidents and Assemblies:
+  Constitutional Design and Electoral Dynamics*. Cambridge University
+  Press. — calendriers électoraux et interaction présidentielle/législative,
+  qui informe le séquencement des scrutins de Polity (§13 du plan de
+  conception).
+- **Superti, C.** (2020). Travaux sur le vote blanc/nul comme signal de
+  protestation — cité par le plan de conception pour le régime d'inaction
+  des mécontents (§10.4) ; référence bibliographique complète non encore
+  vérifiée dans ce document (à confirmer).
+
+Pour la spécification complète (formules, séquencement par tick, schémas
+de sortie de l'agent, journal d'événements), voir
+`polity-simulation-design-v2.md` — document de conception local à ce
+chantier, non publié dans ce dépôt.
+
+---
+
+## 11. Références
 
 ### Ouvrages fondamentaux
 

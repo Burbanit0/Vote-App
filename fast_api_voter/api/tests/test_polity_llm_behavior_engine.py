@@ -49,7 +49,7 @@ from api.domain.polity.llm_behavior_engine import (
     validate_pressure_decision,
     validate_response_decision,
 )
-from api.domain.polity.llm_client import LlmResponseError
+from api.domain.polity.llm_client import LlmResponseError, LlmTransportError
 from api.domain.polity.llm_schemas import (
     CoalitionDecision,
     PartyNominationDecision,
@@ -60,7 +60,14 @@ from api.domain.polity.llm_schemas import (
     VoteCastDecision,
 )
 from api.domain.polity.parties import Party
-from api.domain.polity.simple_rules import BLANK_LABEL, build_ranking, declare_candidacy, form_coalition, sympathizer_ratio
+from api.domain.polity.simple_rules import (
+    BLANK_LABEL,
+    build_ranking,
+    declare_candidacy,
+    form_coalition,
+    sympathizer_ratio,
+    weighted_distance,
+)
 
 
 def _citizen(cid, positions, priorities=None, blank_threshold=1.0):
@@ -205,6 +212,53 @@ def test_user_prompt_is_independent_of_candidate_iteration_order():
     assert build_user_prompt(voters, [a, b]) == build_user_prompt(voters, [b, a])
 
 
+def test_user_prompt_distances_match_weighted_distance_exactly():
+    # v4 Lot 8 fix: the model is handed a precomputed distance instead of
+    # deriving "is this candidate acceptable" from raw vectors itself --
+    # this pins that the precomputed value is provably the SAME quantity
+    # build_ranking already compares against blank_threshold on the
+    # deterministic path (Lot 2's own "pin the equivalence" precedent).
+    voters = [_citizen(0, (0.2, 0.7), priorities=(0.6, 0.4))]
+    a = _candidate(10, (0.5, 0.1))
+    b = _candidate(11, (0.0, 1.0))
+    payload = json.loads(build_user_prompt(voters, [a, b]))
+    got = payload["voters"][0]["distances"]
+    expected = [
+        round(weighted_distance(voters[0], (0.5, 0.1)), 4),
+        round(weighted_distance(voters[0], (0.0, 1.0)), 4),
+    ]
+    assert got == expected
+
+
+def test_user_prompt_distances_follow_the_same_position_order_as_candidates():
+    voters = [_citizen(0, (0.5,))]
+    a = _candidate(10, (0.9,))
+    b = _candidate(5, (0.1,))
+    payload = json.loads(build_user_prompt(voters, [a, b]))
+    # sorted_candidates orders by citizen_id: b (5) before a (10).
+    assert [c["cid"] for c in payload["candidates"]] == [5, 10]
+    assert payload["voters"][0]["distances"] == [
+        round(weighted_distance(voters[0], (0.1,)), 4),
+        round(weighted_distance(voters[0], (0.9,)), 4),
+    ]
+
+
+def test_system_prompt_explains_the_distance_precomputation_and_threshold_rule():
+    citizens = _population(2)
+    candidates = [_candidate(10, (0.1,)), _candidate(11, (0.9,))]
+    prompt = build_system_prompt(citizens, candidates)
+    assert "distances" in prompt
+    assert "blank_threshold" in prompt
+    assert "105" in prompt
+
+
+def test_system_prompt_tells_the_model_to_prefer_an_acceptable_candidate_over_blank():
+    citizens = _population(2)
+    candidates = [_candidate(10, (0.1,)), _candidate(11, (0.9,))]
+    prompt = build_system_prompt(citizens, candidates)
+    assert "DOIT etre prefere au vote" in prompt
+
+
 # ── validate_decision ─────────────────────────────────────────────────────
 
 def _decision(**overrides):
@@ -259,7 +313,7 @@ class FakeLlmClient:
             sum(w * (vx - px) ** 2 for vx, px, w in zip(voter.issue_positions, platform, voter.issue_priorities))
         )
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens):
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
         payload = json.loads(user_prompt)
         cids = [v["cid"] for v in payload["voters"]]
         self.calls.append(cids)
@@ -1845,3 +1899,156 @@ def test_decide_pressure_actions_propagates_llm_response_error_on_count_mismatch
 
     with pytest.raises(LlmResponseError, match="misaligned"):
         decide_pressure_actions(citizens, contexts, config, ShortClient())
+
+
+# ── _complete_and_decode_with_replay / llm.max_batch_replays (v4 Lot 8) ──
+
+class _FlakyClient:
+    """Answers malformed JSON (an LlmResponseError-raising decode) on its
+    first `fail_times` calls, then `good_raw` on every call after --
+    exercises _complete_and_decode_with_replay's retry loop without a live
+    model. Records every (system_prompt, user_prompt) pair, so a test can
+    assert the retried request is byte-identical to the original."""
+
+    def __init__(self, fail_times, good_raw):
+        self.fail_times = fail_times
+        self.good_raw = good_raw
+        self.calls = 0
+        self.prompts: list[tuple[str, str]] = []
+
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        self.calls += 1
+        self.prompts.append((system_prompt, user_prompt))
+        if self.calls <= self.fail_times:
+            return "not valid json"
+        return self.good_raw
+
+
+class _AlwaysTransportFailingClient:
+    def __init__(self):
+        self.calls = 0
+
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        self.calls += 1
+        raise LlmTransportError("connection refused")
+
+
+def _replay_cases():
+    """One (label, call) per decide_* entry point -- call(config, client) ->
+    the decide_* invocation itself, and the single-decision good_raw JSON
+    each one needs to succeed. vote_cast/candidacy_considered need >= 20
+    citizens (chunk_voters's own MIN_SAFE_BATCH_SIZE floor, not overridden
+    by either of those two callers); every other entry point batches a
+    handful of officeholders/nominees/parties/consulted citizens and needs
+    no such floor."""
+    voters = _population(20, dims=1)
+    vote_candidates = [_candidate(900, (0.5,))]
+    vote_good = json.dumps({"decisions": [{"cid": v.citizen_id, "blank": 1, "ranking": [], "motif": 101} for v in voters]})
+
+    candidacy_citizens = _population(20, dims=1)
+    candidacy_good = json.dumps(
+        {"decisions": [{"cid": c.citizen_id, "outcome": 0, "motif": 201} for c in candidacy_citizens]}
+    )
+
+    nomination_citizens = [_citizen_with_ambition(0, 0.9), _citizen_with_ambition(1, 0.1)]
+    for c in nomination_citizens:
+        c.party_affiliation = 0
+    nomination_parties = [_party(0, (0.5,))]
+    nomination_good = json.dumps({"decisions": [{"party_id": 0, "winner_position": 1, "motif": 206}]})
+
+    positioning_nominees = [_citizen(0, (0.5,))]
+    positioning_citizens = _population(3, dims=1)
+    positioning_good = json.dumps({"decisions": [{"cid": 0, "shifts": [], "motif": 601}]})
+
+    response_holder = _holder(0, (0.5,))
+    response_contexts = {0: _response_context(0)}
+    response_good = json.dumps({"decisions": [{"cid": 0, "shifts": [], "stance": 3, "motif": 308}]})
+
+    pressure_citizen = _pressure_citizen(0)
+    pressure_contexts = _pressure_contexts([pressure_citizen])
+    pressure_good = json.dumps({"decisions": [{"cid": 0, "target": 205, "act": 4, "motif": 305}]})
+
+    # party 0 (45 seats) does not clear the majority alone (threshold 50 of
+    # 100), so a real client call happens -- unlike a simpler {0: 30, 1: 25}
+    # fixture, where the initiator's own seats already exceed the majority
+    # of the two-party total and decide_coalition short-circuits with no
+    # client call at all.
+    coalition_seats = {0: 45, 1: 25, 2: 30}
+    coalition_votes = {0: 45.0, 1: 25.0, 2: 30.0}
+    coalition_parties = _parties_from_seats(coalition_seats)
+    coalition_good = json.dumps(
+        {"decisions": [{"party_id": 1, "action": 1, "motif": 501}, {"party_id": 2, "action": 1, "motif": 501}]}
+    )
+
+    return [
+        ("vote_cast", lambda config, client: cast_votes(voters, vote_candidates, config, client), vote_good),
+        ("candidacy_considered", lambda config, client: decide_candidacies(candidacy_citizens, config, client), candidacy_good),
+        (
+            "party_nomination_choice",
+            lambda config, client: decide_party_nominations(nomination_citizens, nomination_parties, {0, 1}, config, client),
+            nomination_good,
+        ),
+        (
+            "campaign_positioning",
+            lambda config, client: decide_campaign_positioning(positioning_nominees, positioning_citizens, {}, config, client),
+            positioning_good,
+        ),
+        (
+            "representative_response",
+            lambda config, client: decide_representative_response([response_holder], response_contexts, config, client),
+            response_good,
+        ),
+        (
+            "pressure_action",
+            lambda config, client: decide_pressure_actions([pressure_citizen], pressure_contexts, config, client),
+            pressure_good,
+        ),
+        (
+            "coalition_decision",
+            lambda config, client: decide_coalition(coalition_parties, coalition_seats, coalition_votes, config, client),
+            coalition_good,
+        ),
+    ]
+
+
+@pytest.mark.parametrize("label,call,good_raw", _replay_cases(), ids=[c[0] for c in _replay_cases()])
+def test_max_batch_replays_zero_propagates_on_the_first_failure(label, call, good_raw):
+    # Today's exact behavior, now explicitly pinned for every entry point --
+    # the shipped default (0) must never retry.
+    config = _config_with_llm_enabled()
+    assert config.llm.max_batch_replays == 0
+    client = _FlakyClient(fail_times=1, good_raw=good_raw)
+    with pytest.raises(LlmResponseError):
+        call(config, client)
+    assert client.calls == 1
+
+
+@pytest.mark.parametrize("label,call,good_raw", _replay_cases(), ids=[c[0] for c in _replay_cases()])
+def test_max_batch_replays_recovers_after_failures_within_the_budget(label, call, good_raw):
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, max_batch_replays=2))
+    client = _FlakyClient(fail_times=2, good_raw=good_raw)
+    call(config, client)  # must not raise
+    assert client.calls == 3
+    assert client.prompts[0] == client.prompts[1] == client.prompts[2]  # byte-identical retries
+
+
+@pytest.mark.parametrize("label,call,good_raw", _replay_cases(), ids=[c[0] for c in _replay_cases()])
+def test_max_batch_replays_still_raises_once_the_budget_is_exhausted(label, call, good_raw):
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, max_batch_replays=2))
+    client = _FlakyClient(fail_times=99, good_raw=good_raw)  # never recovers
+    with pytest.raises(LlmResponseError):
+        call(config, client)
+    assert client.calls == 3  # 1 original + 2 replays, then give up
+
+
+def test_max_batch_replays_never_catches_a_transport_error():
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, max_batch_replays=2))
+    citizen = _pressure_citizen(0)
+    contexts = _pressure_contexts([citizen])
+    client = _AlwaysTransportFailingClient()
+    with pytest.raises(LlmTransportError):
+        decide_pressure_actions([citizen], contexts, config, client)
+    assert client.calls == 1  # the client itself owns transport-level retries, not this layer

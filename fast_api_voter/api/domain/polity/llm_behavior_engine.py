@@ -90,9 +90,10 @@ than silently made:
 from __future__ import annotations
 
 import json
+import logging
 import math
 from dataclasses import dataclass
-from typing import Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence, TypeVar
 
 import numpy as np
 
@@ -141,7 +142,13 @@ from api.domain.polity.llm_schemas import (
     VoteCastDecision,
 )
 from api.domain.polity.parties import Party
-from api.domain.polity.simple_rules import BLANK_LABEL, candidate_label, sympathizer_ratio, tiebreak_key
+from api.domain.polity.simple_rules import (
+    BLANK_LABEL,
+    candidate_label,
+    sympathizer_ratio,
+    tiebreak_key,
+    weighted_distance,
+)
 
 # Empirical threshold from ollama_structured_output_results.md's root-cause
 # investigation: batches of <=12 citizens (holding dims/candidates fixed at
@@ -152,6 +159,10 @@ MIN_SAFE_BATCH_SIZE = 20
 
 _TRUNCATION_THRESHOLD = 6
 _TRUNCATE_TO = 5
+
+_logger = logging.getLogger(__name__)
+
+_BatchT = TypeVar("_BatchT")
 
 
 @dataclass(frozen=True)
@@ -179,6 +190,72 @@ def _check_supported(config: PolityConfig) -> None:
             "reproducibility (llm_batching_determinism_results.md)"
         )
     check_codebook_version(config.llm.codebook_version)
+
+
+def _complete_and_decode_with_replay(
+    client: LlmClientProtocol,
+    *,
+    system_prompt: str,
+    user_prompt: str,
+    json_schema: dict[str, Any],
+    max_tokens: int,
+    think: bool,
+    decode: Callable[[str], _BatchT],
+    replays: int,
+    decision_type: str,
+) -> _BatchT:
+    """§3.6.10's "un batch invalide est rejoue integralement, jamais
+    corrige partiellement" -- the half of that rule the codebase never
+    implemented (v4 Lot 8). `replays` is config.llm.max_batch_replays,
+    shipped 0 -- today's exact behavior: one call, LlmResponseError
+    propagates on the first bad decode, every existing test unmodified.
+
+    Retries the BYTE-IDENTICAL request on LlmResponseError only, up to
+    `replays` extra attempts, and logs every replay at WARNING with the
+    decision type, attempt number and the rejected error -- never journals
+    it (§16.3's canonical event list is about the polity, not the
+    inference host). LlmTransportError is NOT caught here: the client
+    already owns its own transport-level retries.
+
+    `decode` covers decoding/schema-alignment ONLY (decode_*_batch), never
+    the subsequent config-bound validate_*_decision calls each caller makes
+    afterwards -- those stay outside the retry loop, on purpose. This
+    project's one measured live misalignment (decide_campaign_positioning,
+    a dropped citizen -- lot6_batch_reliability_results.md's caveat) is a
+    decode-time cid-alignment failure, which is what a byte-identical retry
+    can plausibly recover from; a validate_* failure (an out-of-bounds
+    shift, an out-of-menu act) is the model's judgment being wrong in a way
+    an identical retry at temperature=0 is not expected to fix, and several
+    callers build side effects (ballots, resolved platforms) alongside
+    their own validate_* loop that would need unwinding to retry safely.
+
+    This softens, and deliberately does not overturn,
+    LlmResponseError's own "NOT retried" ruling (llm_client.py): that
+    ruling's operative objection is SILENT laundering of a real problem. A
+    logged, bounded, opt-in, off-by-default replay is neither silent nor
+    unbounded -- a replay makes the resulting journal depend on attempt
+    count, so an LLM run with replays > 0 is not byte-reproducible, a
+    property live LLM runs never had (§15bis.4) and the shipped default of
+    0 leaves untouched."""
+    attempt = 0
+    while True:
+        raw = client.complete_json(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            json_schema=json_schema,
+            max_tokens=max_tokens,
+            think=think,
+        )
+        try:
+            return decode(raw)
+        except LlmResponseError as exc:
+            if attempt >= replays:
+                raise
+            attempt += 1
+            _logger.warning(
+                "%s batch rejected on attempt %d/%d, replaying: %s",
+                decision_type, attempt, replays + 1, exc,
+            )
 
 
 def chunk_voters(
@@ -243,6 +320,30 @@ def compute_max_tokens(chunk_size: int) -> int:
     return max(chunk_size * 60 + 1536, 1536)
 
 
+_POSITIONING_THINK_TOKEN_ALLOWANCE = 4000
+"""Extra budget decide_campaign_positioning adds on top of compute_max_tokens
+once it moved to think=True (v4 Lot 8 live finding, see that function's
+docstring). Measured, not guessed: a 5-nominee batch under
+compute_max_tokens(5)+2000 (=3836) hit finish_reason='length' on one of three
+live attempts; +4000 (=5836) cleared 3/3 with no truncation. Kept as its own
+named constant rather than folded into compute_max_tokens itself, since that
+function's own 1536 addend was calibrated on vote_cast's think=True shape and
+positioning's per-candidate strategic reasoning measured hungrier -- a shared
+constant would either starve positioning or over-provision every other
+think=True caller.
+
+An earlier version of this fix also shortened decide_campaign_positioning's
+own HTTP timeout to 240s (below OllamaJsonClient's 600s instance default),
+reasoning that a live diagnostic had hit a request that never returned under
+think=True against a synthetic test fixture. That override was reverted:
+relaunching the real acceptance sweep at 240s made the SAME real nominee
+combination that succeeded 5/5 in isolated diagnostics (at the untouched
+600s default) fail consistently -- the shortened bound was cutting off
+legitimate, slower-but-correct generations, not just genuinely stuck ones.
+600s (unmodified, same as every other think=True caller in this codebase)
+is what the evidence actually supports."""
+
+
 def sorted_candidates(candidates: Sequence[Citizen]) -> list[Citizen]:
     """The single canonical candidate order every prompt/position-mapping
     must agree on (D-5): position N in build_user_prompt's candidate list
@@ -265,7 +366,20 @@ def build_system_prompt(citizens: Sequence[Citizen], candidates: Sequence[Citize
     and can collide (citizen 11 both votes and is a candidate). Telling
     the model to use positions instead removes the collision structurally
     rather than relying on wording alone to disambiguate two overlapping
-    lists of raw cids."""
+    lists of raw cids.
+
+    States the acceptability rule EXPLICITLY (distance <= blank_threshold,
+    prefer the closest acceptable candidate over blank) -- v4 Lot 8's own
+    live finding: a real acceptance run, at real population scale (100
+    voters x 5 candidates x 20 issue dimensions), produced 100% blank
+    ballots, reproduced with the RAW model response (not a decode bug).
+    The prior prompt asked the model to judge "acceptable" from raw
+    20-dimensional position/priority vectors with no worked definition --
+    the same weighted-euclidean-vs-threshold arithmetic build_ranking
+    computes exactly (simple_rules.weighted_distance), left for the model
+    to approximate from scratch, batched across 25 voters at once. See
+    build_user_prompt's own docstring for the fix (precomputed distances)
+    this system prompt now explains how to read."""
     candidate_count = len(candidates)
     truncate_at = truncation_limit(candidate_count)
     truncate_note = "" if truncate_at is None else f" (classer au plus les {truncate_at} meilleurs)"
@@ -275,9 +389,21 @@ def build_system_prompt(citizens: Sequence[Citizen], candidates: Sequence[Citize
         f"vote parmi les candidats.\nIl y a {candidate_count} candidats. "
         "Chaque candidat est identifie par son champ 'position' (1 a "
         f"{candidate_count}) dans la liste 'candidates' du message "
-        "utilisateur -- PAS par son cid.\nClasse les POSITIONS des "
-        f"candidats du meilleur au moins bon{truncate_note}, ou vote blanc "
-        "(blank=1, ranking vide) si aucun candidat n'est acceptable.\n"
+        "utilisateur -- PAS par son cid.\n"
+        "Chaque electeur porte un champ 'distances' : sa distance DEJA "
+        "CALCULEE (ponderee par ses propres priorites) vers chaque "
+        "candidat, dans le meme ordre que la liste 'candidates' (position "
+        "1 a N) -- tu n'as PAS a recalculer cette distance toi-meme. Un "
+        "candidat est ACCEPTABLE si et seulement si sa distance est "
+        "INFERIEURE OU EGALE au 'blank_threshold' de l'electeur.\n"
+        "REGLE : si au moins un candidat est acceptable pour cet electeur, "
+        "classe les POSITIONS des candidats acceptables du plus proche "
+        f"(distance la plus faible) au plus eloigne{truncate_note}, motif "
+        "105 (ACCEPTABLE_MATCH) pour le cas usuel d'un vote sincere -- un "
+        "candidat imparfait mais sous le seuil DOIT etre prefere au vote "
+        "blanc, ce n'est pas un pis-aller. Le vote blanc (blank=1, ranking "
+        "vide, motif 101) est reserve au cas ou AUCUN candidat ne passe ce "
+        "seuil pour cet electeur -- ce n'est pas une option par defaut.\n"
         f"Motifs valides (code court obligatoire) :\n{VOTE_MOTIF_PROMPT_TABLE}"
         "\nIMPORTANT : la liste decisions doit contenir EXACTEMENT ces "
         f"{len(citizens)} cid de CITOYENS-ELECTEURS (jamais un cid de "
@@ -304,15 +430,35 @@ def build_user_prompt(voters: Sequence[Citizen], candidates: Sequence[Citizen]) 
     Each candidate block carries its `position` (1-indexed, this sorted
     order) alongside its `cid` -- `ranking` in the response refers to
     `position`, `cid` here is informational context only (party/platform
-    are still meaningful to the model per-candidate)."""
+    are still meaningful to the model per-candidate).
+
+    Each voter block carries `distances`: that voter's own
+    simple_rules.weighted_distance to every candidate's platform, in the
+    SAME `position` order as `candidates` -- the exact quantity
+    build_ranking already compares against `blank_threshold` on the
+    deterministic path. v4 Lot 8 live finding: without this, the model was
+    asked to judge candidate "acceptability" from raw 20-dimensional
+    position/priority vectors alone, an arithmetic task it could not do
+    reliably at real batch scale (100 voters x 5 candidates), and it
+    collapsed to blank=1 for essentially the whole electorate -- confirmed
+    at the raw model-response level, not a decode/journal artifact.
+    Precomputing the distance turns "is this candidate acceptable" into a
+    single number-vs-number comparison the model only has to read, the
+    same pattern dt=10's PressureContext.self_gap already established
+    (compute the weighted-distance-derived quantity outside the model,
+    hand it a plain float) -- this is that same pattern applied to
+    cast_votes, which had never used it despite being the oldest
+    LLM-callable decision type in the codebase."""
+    sorted_c = sorted_candidates(candidates)
+    candidate_platforms = [_platform(c) for c in sorted_c]
     candidate_blocks = [
         {
             "position": i,
             "cid": c.citizen_id,
-            "platform": [round(x, 4) for x in _platform(c)],
+            "platform": [round(x, 4) for x in platform],
             "party": c.party_affiliation,
         }
-        for i, c in enumerate(sorted_candidates(candidates), start=1)
+        for i, (c, platform) in enumerate(zip(sorted_c, candidate_platforms), start=1)
     ]
     voter_blocks = [
         {
@@ -320,6 +466,7 @@ def build_user_prompt(voters: Sequence[Citizen], candidates: Sequence[Citizen]) 
             "positions": [round(x, 4) for x in v.issue_positions],
             "priorities": [round(x, 4) for x in v.issue_priorities],
             "blank_threshold": round(v.blank_threshold, 4),
+            "distances": [round(weighted_distance(v, platform), 4) for platform in candidate_platforms],
         }
         for v in voters
     ]
@@ -392,7 +539,18 @@ def cast_votes(
     """v2 increment 1's replacement for `[build_ranking(voter, candidates)
     for voter in voters]`. Pure aside from the injected client -- no
     journal writes here, matching this repo's pure-worker convention;
-    run_polity_simulation.py owns every journal write."""
+    run_polity_simulation.py owns every journal write.
+
+    v4 Lot 8 live finding, fixed here via build_system_prompt/
+    build_user_prompt rather than this function's own body: at real
+    population scale this decision type collapsed to blank=1 for the
+    entire electorate, reproduced at the raw model-response level. The fix
+    precomputes each voter's simple_rules.weighted_distance to every
+    candidate (the same quantity build_ranking already compares against
+    blank_threshold) and states the acceptability rule explicitly in the
+    system prompt, instead of asking the model to derive "is this
+    candidate acceptable" from raw 20-dimensional vectors. See VoteMotif.
+    ACCEPTABLE_MATCH (codebook.py) for the wire-level half of the fix."""
     _check_supported(config)
 
     candidate_count = len(candidates)
@@ -403,13 +561,17 @@ def cast_votes(
     decisions: list[VoteCastDecision] = []
     for chunk in chunk_voters(voters, config.llm.max_batch_size):
         expected_cids = [voter.citizen_id for voter in chunk]
-        raw = client.complete_json(
+        chunk_decisions = _complete_and_decode_with_replay(
+            client,
             system_prompt=build_system_prompt(chunk, candidates),
             user_prompt=build_user_prompt(chunk, candidates),
             json_schema=VOTE_CAST_JSON_SCHEMA,
             max_tokens=compute_max_tokens(len(chunk)),
+            think=True,
+            decode=lambda raw: decode_vote_batch(raw, expected_cids),
+            replays=config.llm.max_batch_replays,
+            decision_type="vote_cast",
         )
-        chunk_decisions = decode_vote_batch(raw, expected_cids)
         for decision in chunk_decisions:
             validate_decision(decision, candidate_count, truncate_at)
             ballots.append(ballot_from_decision(decision, position_to_candidate))
@@ -497,14 +659,19 @@ def decide_candidacies(
     decisions: list[CandidacyDecision] = []
     for chunk in chunk_voters(citizens, config.llm.max_batch_size):
         expected_cids = [c.citizen_id for c in chunk]
-        raw = client.complete_json(
-            system_prompt=build_candidacy_system_prompt(chunk),
-            user_prompt=build_candidacy_user_prompt(chunk, support),
-            json_schema=CANDIDACY_JSON_SCHEMA,
-            max_tokens=compute_max_tokens(len(chunk)),
-            think=False,
+        decisions.extend(
+            _complete_and_decode_with_replay(
+                client,
+                system_prompt=build_candidacy_system_prompt(chunk),
+                user_prompt=build_candidacy_user_prompt(chunk, support),
+                json_schema=CANDIDACY_JSON_SCHEMA,
+                max_tokens=compute_max_tokens(len(chunk)),
+                think=False,
+                decode=lambda raw: decode_candidacy_batch(raw, expected_cids),
+                replays=config.llm.max_batch_replays,
+                decision_type="candidacy_considered",
+            )
         )
-        decisions.extend(decode_candidacy_batch(raw, expected_cids))
 
     return CandidacyBatchOutcome(decisions=decisions)
 
@@ -553,7 +720,7 @@ def build_party_nomination_user_prompt(
     (decide_party_nominations), same discipline as decide_candidacies'
     `support` -- never recomputed here. `platform_distance` reuses
     assign_party_affiliation's unweighted math.dist convention (simple_rules.py),
-    not the voter-tolerance-specific _weighted_distance."""
+    not the voter-tolerance-specific weighted_distance."""
     party_blocks = [
         {
             "party_id": party_id,
@@ -627,14 +794,17 @@ def decide_party_nominations(
     support = {c.citizen_id: sympathizer_ratio(c, list(citizens)) for c in all_contenders}
 
     expected_party_ids = list(contested.keys())
-    raw = client.complete_json(
+    decisions = _complete_and_decode_with_replay(
+        client,
         system_prompt=build_party_nomination_system_prompt(contested),
         user_prompt=build_party_nomination_user_prompt(contested, parties_by_id, support),
         json_schema=PARTY_NOMINATION_JSON_SCHEMA,
         max_tokens=compute_max_tokens(len(contested)),
         think=False,
+        decode=lambda raw: decode_party_nomination_batch(raw, expected_party_ids),
+        replays=config.llm.max_batch_replays,
+        decision_type="party_nomination_choice",
     )
-    decisions = decode_party_nomination_batch(raw, expected_party_ids)
     winners = {decision.party_id: resolve_party_nomination_cid(decision, contested[decision.party_id])
                for decision in decisions}
 
@@ -783,11 +953,21 @@ def decide_campaign_positioning(
     *nominees* (a handful, `parties.initial_count` in the shipped config),
     not citizens.
 
-    Calls the client with think=False, same guess as decide_party_nominations
-    and the same reasoning: this is a comparative/strategic judgment against
-    rivals and the electorate, closer to that decision's failure-prone shape
-    than vote_cast's. Flagged for live verification, not assumed --
-    see test_polity_llm_live.py."""
+    Calls the client with think=True -- corrected from the original think=False
+    guess (v2 increment 4) during the v4 Lot 8 acceptance run's own live
+    verification, once that guess turned out wrong: think=False produced a
+    100% reproducible degenerate batch (one nominee duplicated, the rest
+    dropped, byte-identical across 9 attempts at temperature=0, including a
+    reworded system prompt) for a real acceptance-run electorate. think=True
+    resolved it cleanly (5/5 correct batches once given enough token budget --
+    see the +_POSITIONING_THINK_TOKEN_ALLOWANCE below). This is NOT the same
+    bug decide_party_nominations's docstring warns about (finish_reason='length'
+    regardless of batch size, a comparative-judgment shape that reasoning
+    cannot rescue) -- here the reasoning budget was simply too tight, and once
+    widened the reasoning content itself resolved the alignment failure. The
+    two decision types share a superficial "comparative/strategic judgment"
+    description but not the same failure mode; do not assume this result
+    transfers back to decide_party_nominations without its own live check."""
     _check_supported(config)
 
     if not nominees:
@@ -799,14 +979,17 @@ def decide_campaign_positioning(
     nominees = sorted(nominees, key=lambda n: n.citizen_id)
     electorate_mean = tuple(float(x) for x in np.mean([c.issue_positions for c in citizens], axis=0))
     expected_cids = [n.citizen_id for n in nominees]
-    raw = client.complete_json(
+    decisions = _complete_and_decode_with_replay(
+        client,
         system_prompt=build_positioning_system_prompt(nominees, config),
         user_prompt=build_positioning_user_prompt(nominees, parties_by_id, electorate_mean),
         json_schema=POSITIONING_JSON_SCHEMA,
-        max_tokens=compute_max_tokens(len(nominees)),
-        think=False,
+        max_tokens=compute_max_tokens(len(nominees)) + _POSITIONING_THINK_TOKEN_ALLOWANCE,
+        think=True,
+        decode=lambda raw: decode_positioning_batch(raw, expected_cids),
+        replays=config.llm.max_batch_replays,
+        decision_type="campaign_positioning",
     )
-    decisions = decode_positioning_batch(raw, expected_cids)
 
     nominees_by_id = {n.citizen_id: n for n in nominees}
     platforms: dict[int, tuple[float, ...]] = {}
@@ -1008,14 +1191,17 @@ def decide_representative_response(
     # rely on an incidental insertion order (D-5 precedent).
     holders = sorted(holders, key=lambda h: h.citizen_id)
     expected_cids = [h.citizen_id for h in holders]
-    raw = client.complete_json(
+    decisions = _complete_and_decode_with_replay(
+        client,
         system_prompt=build_response_system_prompt(holders, config),
         user_prompt=build_response_user_prompt(holders, contexts),
         json_schema=RESPONSE_JSON_SCHEMA,
         max_tokens=compute_max_tokens(len(holders)),
         think=False,
+        decode=lambda raw: decode_response_batch(raw, expected_cids),
+        replays=config.llm.max_batch_replays,
+        decision_type="representative_response",
     )
-    decisions = decode_response_batch(raw, expected_cids)
 
     holders_by_id = {h.citizen_id: h for h in holders}
     positions: dict[int, tuple[float, ...]] = {}
@@ -1250,14 +1436,17 @@ def decide_pressure_actions(
     decisions: list[PressureDecision] = []
     for chunk in chunk_voters(consulted, config.llm.max_batch_size, min_batch_size=1):
         expected_cids = [c.citizen_id for c in chunk]
-        raw = client.complete_json(
+        chunk_decisions = _complete_and_decode_with_replay(
+            client,
             system_prompt=build_pressure_system_prompt(chunk, config),
             user_prompt=build_pressure_user_prompt(chunk, contexts),
             json_schema=PRESSURE_JSON_SCHEMA,
             max_tokens=compute_max_tokens(len(chunk)),
             think=False,
+            decode=lambda raw: decode_pressure_batch(raw, expected_cids),
+            replays=config.llm.max_batch_replays,
+            decision_type="pressure_action",
         )
-        chunk_decisions = decode_pressure_batch(raw, expected_cids)
         for decision in chunk_decisions:
             validate_pressure_decision(decision, contexts[decision.cid], config)
         decisions.extend(chunk_decisions)
@@ -1337,7 +1526,7 @@ def build_coalition_user_prompt(
     verbatim id list and this user prompt describe one order, not two.
     `distance_to_initiator` reuses form_coalition's own unweighted
     math.dist convention, not the voter-tolerance-specific
-    _weighted_distance. Deliberately does NOT include a roster of the other
+    weighted_distance. Deliberately does NOT include a roster of the other
     responders' own context (§3.3 -- a single-shot call cannot express "I
     join iff party X joins"; that conditional-coalition reasoning is what
     the deferred v7 multi-turn negotiation palier, §3.4 Cas 2, exists
@@ -1489,7 +1678,8 @@ def decide_coalition(
     if not responders:
         return CoalitionBatchOutcome(decisions=[], initiator=initiator, coalition=None)
 
-    raw = client.complete_json(
+    decisions = _complete_and_decode_with_replay(
+        client,
         system_prompt=build_coalition_system_prompt(
             responders, initiator, seats[initiator], total_seats, threshold
         ),
@@ -1499,8 +1689,10 @@ def decide_coalition(
         json_schema=COALITION_JSON_SCHEMA,
         max_tokens=compute_max_tokens(len(responders)),
         think=False,
+        decode=lambda raw: decode_coalition_batch(raw, responders),
+        replays=config.llm.max_batch_replays,
+        decision_type="coalition_decision",
     )
-    decisions = decode_coalition_batch(raw, responders)
     for decision in decisions:
         validate_coalition_decision(decision, seats, initiator)
 
