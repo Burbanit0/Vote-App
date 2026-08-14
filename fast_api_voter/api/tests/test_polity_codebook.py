@@ -4,6 +4,8 @@ Contract: the codebook is a frozen, versioned artifact (§3.7.0) — a version
 mismatch must be a loud error, and decision_type 7 (retired) must never be
 reassigned.
 """
+import re
+
 import pytest
 
 from api.domain.polity.codebook import (
@@ -41,7 +43,7 @@ def test_check_codebook_version_accepts_the_matching_version():
 
 
 def test_check_codebook_version_rejects_a_mismatch():
-    with pytest.raises(PolityCodebookError, match="1.2"):
+    with pytest.raises(PolityCodebookError, match=re.escape(CODEBOOK_VERSION)):
         check_codebook_version("0.9")
 
 
@@ -65,8 +67,8 @@ def test_ranking_is_ballot_format_1():
     assert BallotFormat.RANKING == 1
 
 
-def test_vote_motif_has_exactly_the_four_documented_codes():
-    assert {member.value for member in VoteMotif} == {101, 102, 103, 104}
+def test_vote_motif_has_exactly_the_five_documented_codes():
+    assert {member.value for member in VoteMotif} == {101, 102, 103, 104, 105}
 
 
 def test_vote_motif_prompt_table_is_derived_from_the_enum_not_hand_typed():

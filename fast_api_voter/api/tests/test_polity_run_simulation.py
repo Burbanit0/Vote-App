@@ -1463,6 +1463,34 @@ def test_llm_batch_misalignment_aborts_the_run_with_no_partial_journal(tmp_path)
         run_simulation(config, run_id="r", llm_client=_ShortClient())
 
 
+# ── llm.max_batch_replays (v4 Lot 8) ─────────────────────────────────────
+
+class _RecoveringClient:
+    """Wraps another client but answers malformed JSON on its own very
+    first call, then delegates every call after -- proves
+    max_batch_replays lets a run recover from exactly one misaligned batch
+    instead of aborting it, without needing to know which decision type
+    happens to be the run's first LLM call."""
+
+    def __init__(self, inner):
+        self._inner = inner
+        self.calls = 0
+
+    def complete_json(self, **kwargs):
+        self.calls += 1
+        if self.calls == 1:
+            return "not valid json"
+        return self._inner.complete_json(**kwargs)
+
+
+def test_a_replayed_batch_lets_the_run_complete(tmp_path):
+    config = _config_with_llm_enabled(tmp_path)
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, max_batch_replays=2))
+    journal_path = run_simulation(config, run_id="replay-recovers", llm_client=_RecoveringClient(_FakeLlmClient()))
+    events = _events(journal_path)
+    assert events  # completed with a non-empty journal, not aborted
+
+
 # ── pressure_action (v4 Lot 7, dt=10) ────────────────────────────────────
 
 def _config_with_awakening_llm_enabled(output_dir, **overrides) -> PolityConfig:

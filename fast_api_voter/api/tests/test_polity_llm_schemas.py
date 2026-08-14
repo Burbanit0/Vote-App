@@ -76,8 +76,11 @@ def test_duplicate_cid_in_ranking_raises():
 
 
 def test_unknown_motif_raises():
+    # 105 (ACCEPTABLE_MATCH) was added in v4 Lot 8 -- 106 is the first
+    # still-unassigned code, kept as this test's unknown value so it stays
+    # meaningful as the codebook grows.
     with pytest.raises(ValidationError):
-        VoteCastDecision.model_validate(_decision(motif=105))
+        VoteCastDecision.model_validate(_decision(motif=106))
 
 
 def test_motif_as_string_is_rejected():

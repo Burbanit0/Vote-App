@@ -52,7 +52,7 @@ class VoteCastDecision(BaseModel):
         ...,
         description="Positions (1..N, PAS des cid) des candidats classés, meilleur d'abord. Vide si blank=1.",
     )
-    motif: Literal[101, 102, 103, 104] = Field(
+    motif: Literal[101, 102, 103, 104, 105] = Field(
         ..., description="Code court obligatoire (§3.6.9) — voir VoteMotif."
     )
 

@@ -29,7 +29,7 @@ _SUPPORTED_DEVIATION_METRICS = {"weighted_euclidean"}
 
 
 def weighted_euclidean(a: Sequence[float], b: Sequence[float], weights: Sequence[float]) -> float:
-    """sqrt(sum(w * (x-y)**2)) -- same math as simple_rules._weighted_distance,
+    """sqrt(sum(w * (x-y)**2)) -- same math as simple_rules.weighted_distance,
     generalized to two arbitrary points instead of a citizen's own position.
     Not a refactor of that function this lot; test_polity_accountability.py
     pins the two implementations equal instead."""

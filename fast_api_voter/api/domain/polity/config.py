@@ -97,6 +97,16 @@ def _get_positive_int(section: dict[str, Any], path: str, key: str) -> int:
     return value
 
 
+def _get_nonneg_int(section: dict[str, Any], path: str, key: str) -> int:
+    """Unlike _get_positive_int, 0 is legal -- for counts that can
+    legitimately be "none" (e.g. llm.max_batch_replays: 0 = no replay,
+    v4 Lot 8's shipped default)."""
+    value = int(_get(section, path, key, int))
+    if value < 0:
+        raise PolityConfigError(f"'{path}.{key}': must be a non-negative integer, got {value}")
+    return value
+
+
 @dataclass(frozen=True)
 class RunConfig:
     seed: int
@@ -288,10 +298,23 @@ class JournalConfig:
 
 @dataclass(frozen=True)
 class MetricsConfig:
+    """§10 — v0's four rows plus v4 Lot 8's six. `platform_convergence`
+    ([v2]), `mobilization_nonlinearity` and `polarization` ([v6]) are not
+    fields here: indexer.py doesn't implement them, so _parse_metrics
+    rejects `true` for any of the three (same TRANCHÉ-guard style as
+    legitimacy.recall_floor_indexed_on_L0) rather than silently accepting a
+    flag that would produce nothing."""
+
     compute_every_ticks: int
     effective_parties: bool
     cohabitation_rate: bool
     coalition_lifespan: bool
+    mandate_deviation: bool
+    lame_duck_deviation_delta: bool
+    inaction_rate: bool
+    pressure_lever_mix: bool
+    petition_success_rate: bool
+    stance_distribution: bool
 
 
 @dataclass(frozen=True)
@@ -299,7 +322,11 @@ class LlmConfig:
     """§3/§12 — inactive (enabled=false) until v2's vote_cast increment.
     Typed in full even though most fields are still unused (cache_backend,
     personas_count) — config.py's own contract is that a typo in a
-    not-yet-active section fails loudly now, not silently at activation."""
+    not-yet-active section fails loudly now, not silently at activation.
+
+    max_batch_replays (v4 Lot 8, §3.6.10): extra attempts on a batch
+    LlmResponseError, shipped 0 (today's exact behavior -- no replay).
+    See llm_behavior_engine._complete_and_decode_with_replay."""
 
     enabled: bool
     provider: str
@@ -313,6 +340,7 @@ class LlmConfig:
     rationale_mode: str
     codebook_version: str
     personas_count: int
+    max_batch_replays: int
 
 
 @dataclass(frozen=True)
@@ -557,11 +585,27 @@ def _parse_journal(raw: dict[str, Any]) -> JournalConfig:
 
 def _parse_metrics(raw: dict[str, Any]) -> MetricsConfig:
     s = _section(raw, "metrics")
+    for unimplemented_key, palier in (
+        ("platform_convergence", "v2"),
+        ("mobilization_nonlinearity", "v6"),
+        ("polarization", "v6"),
+    ):
+        if _get(s, "metrics", unimplemented_key, bool):
+            raise PolityConfigError(
+                f"'metrics.{unimplemented_key}': true is not supported -- indexer.py does not "
+                f"implement this [{palier}] metric yet"
+            )
     return MetricsConfig(
         compute_every_ticks=_get_positive_int(s, "metrics", "compute_every_ticks"),
         effective_parties=_get(s, "metrics", "effective_parties", bool),
         cohabitation_rate=_get(s, "metrics", "cohabitation_rate", bool),
         coalition_lifespan=_get(s, "metrics", "coalition_lifespan", bool),
+        mandate_deviation=_get(s, "metrics", "mandate_deviation", bool),
+        lame_duck_deviation_delta=_get(s, "metrics", "lame_duck_deviation_delta", bool),
+        inaction_rate=_get(s, "metrics", "inaction_rate", bool),
+        pressure_lever_mix=_get(s, "metrics", "pressure_lever_mix", bool),
+        petition_success_rate=_get(s, "metrics", "petition_success_rate", bool),
+        stance_distribution=_get(s, "metrics", "stance_distribution", bool),
     )
 
 
@@ -600,6 +644,7 @@ def _parse_llm(raw: dict[str, Any]) -> LlmConfig:
         rationale_mode=_get_enum(s, "llm", "rationale_mode", _LLM_RATIONALE_MODES),
         codebook_version=_get(s, "llm", "codebook_version", str),
         personas_count=_get_positive_int(s, "llm", "personas_count"),
+        max_batch_replays=_get_nonneg_int(s, "llm", "max_batch_replays"),
     )
 
 

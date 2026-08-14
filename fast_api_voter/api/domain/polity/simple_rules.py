@@ -57,10 +57,21 @@ def citizen_id_from_label(label: str) -> int:
 
 # ── 1. Vote rule ──────────────────────────────────────────────────────────
 
-def _weighted_distance(voter: Citizen, platform: tuple[float, ...]) -> float:
+def weighted_distance(voter: Citizen, platform: tuple[float, ...]) -> float:
     """Euclidean distance weighted by the voter's own issue_priorities —
     positions live in [0, 1] per dimension and priorities sum to 1, so the
-    result stays in [0, 1], comparable to blank_threshold."""
+    result stays in [0, 1], comparable to blank_threshold.
+
+    Public since v4 Lot 8, not just an internal build_ranking helper
+    anymore: cast_votes's own prompt builder (llm_behavior_engine.py)
+    precomputes this same per-voter-per-candidate distance and hands it to
+    the model, rather than asking the LLM to derive it from 20-dimensional
+    raw position/priority vectors -- a live acceptance run found the model
+    could not reliably do that arithmetic itself and collapsed to voting
+    blank for essentially the whole electorate. Importing this function
+    directly (instead of a second implementation) is what makes the LLM
+    path's notion of "acceptable" provably identical to the deterministic
+    path's."""
     return math.sqrt(
         sum(
             weight * (voter_x - platform_x) ** 2
@@ -91,11 +102,11 @@ def build_ranking(
     """
     ranked = sorted(
         candidates,
-        key=lambda c: (_weighted_distance(voter, _candidate_platform(c)), c.citizen_id),
+        key=lambda c: (weighted_distance(voter, _candidate_platform(c)), c.citizen_id),
     )
     names = [candidate_label(c) for c in ranked]
     within_tolerance = sum(
-        1 for c in ranked if _weighted_distance(voter, _candidate_platform(c)) <= voter.blank_threshold
+        1 for c in ranked if weighted_distance(voter, _candidate_platform(c)) <= voter.blank_threshold
     )
     return names[:within_tolerance] + [blank_label] + names[within_tolerance:]
 
@@ -140,9 +151,9 @@ def choose_party(voter: Citizen, parties: list[Party]) -> int | None:
     the nearest party is farther than the voter's own tolerance. Ties
     broken by the lowest party_id."""
     nearest = min(
-        parties, key=lambda p: (_weighted_distance(voter, p.platform), p.party_id)
+        parties, key=lambda p: (weighted_distance(voter, p.platform), p.party_id)
     )
-    if _weighted_distance(voter, nearest.platform) > voter.blank_threshold:
+    if weighted_distance(voter, nearest.platform) > voter.blank_threshold:
         return None
     return nearest.party_id
 
@@ -170,7 +181,7 @@ def sympathizer_ratio(citizen: Citizen, population: list[Citizen]) -> float:
     rupture path's signature-ratio gate below."""
     sympathizers = sum(
         1 for other in population
-        if _weighted_distance(other, citizen.issue_positions) <= other.blank_threshold
+        if weighted_distance(other, citizen.issue_positions) <= other.blank_threshold
     )
     return sympathizers / len(population)
 
@@ -390,7 +401,7 @@ def deterministic_pressure_action(
 
 def build_confidence_ballot(voter: Citizen, holder: Citizen) -> bool:
     """True = keep. Reuses build_ranking/choose_party's acceptability bar:
-    keep iff _weighted_distance(voter, holder.revealed_position) is within
+    keep iff weighted_distance(voter, holder.revealed_position) is within
     voter.blank_threshold -- identical math to accountability.self_gap,
     kept local so this module's dependency set is unchanged (see
     deterministic_pressure_action's own reasoning for the same choice).
@@ -416,4 +427,4 @@ def build_confidence_ballot(voter: Citizen, holder: Citizen) -> bool:
     decouples from the election and becomes a live sanction."""
     if holder.revealed_position is None:
         raise ValueError(f"citizen {holder.citizen_id} has no revealed_position")
-    return _weighted_distance(voter, holder.revealed_position) <= voter.blank_threshold
+    return weighted_distance(voter, holder.revealed_position) <= voter.blank_threshold
