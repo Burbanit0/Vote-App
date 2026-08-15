@@ -25,6 +25,7 @@ from api.domain.polity.run_polity_simulation import (
     _hold_presidential_election,
     _llm_client_scope,
     _run_accountability_phase,
+    _run_exogenous_events,
     run_simulation,
 )
 from api.domain.polity.simple_rules import assign_party_affiliation, declare_candidacy
@@ -2566,3 +2567,163 @@ def test_unsupported_presidential_method_raises_before_any_work(tmp_path):
     with pytest.raises(NotImplementedError, match="star"):
         run_simulation(config, run_id="r")
     assert not (tmp_path / "r").exists()
+
+
+# ── v5 Lot 2: shock.py -- Poisson scandal + AR(1) economic climate (§8) ────
+
+def _config_with_events_enabled(output_dir, **overrides) -> PolityConfig:
+    # awakening.enabled + context_modulation.event_salience are forced on by
+    # config.py's own cross-field rule whenever events.enabled is true --
+    # replicated here since dataclasses.replace bypasses load_config's own
+    # validation. candidacy.ambition_threshold is DELIBERATELY left
+    # untouched at its shipped value (0.7, never produces a winner at
+    # seed=42) in every test below that goes through the real tick loop --
+    # this is load-bearing, not incidental: it keeps current_office_holders
+    # empty for the whole run, so _run_accountability_phase's per-holder
+    # loop body (where select_consulted/awakening_threshold live) never
+    # executes, which is what keeps these tests clear of
+    # awakening_threshold's still-pending event_salience NotImplementedError
+    # guard (removed in v5 Lot 3). See the v5 Lot 2 plan's "Why now" section.
+    config = _config_with_output_dir(output_dir)
+    defaults = {"enabled": True, "scandal_enabled": True, "economic_shock_enabled": True}
+    events = dataclasses.replace(config.events, **{**defaults, **overrides})
+    return dataclasses.replace(
+        config,
+        awakening=dataclasses.replace(
+            config.awakening,
+            enabled=True,
+            context_modulation=dataclasses.replace(config.awakening.context_modulation, event_salience=True),
+        ),
+        events=events,
+    )
+
+
+def test_default_config_run_emits_no_shock_events(tmp_path):
+    journal_path = run_simulation(_config_with_output_dir(tmp_path), run_id="baseline")
+    events = _events(journal_path)
+    assert not [e for e in events if e["event_type"] in ("scandal_occurred", "economic_shock_tick")]
+
+
+def test_events_enabled_but_structurally_inert_matches_the_default_journal_byte_for_byte(tmp_path):
+    # scandal_rate_per_tick=0.0 and economy_ar1_sigma=0.0 both draw from the
+    # rng every tick (the sub-mechanisms are genuinely wired, not skipped)
+    # but can never produce a nonzero outcome -- an EXACT, not probabilistic,
+    # proof that turning events.enabled on is byte-identical to leaving it
+    # off, the same register as v4 Lot 9's own analogous test.
+    path_off = run_simulation(_config_with_output_dir(tmp_path / "off"), run_id="same-run-id")
+    path_on = run_simulation(
+        _config_with_events_enabled(tmp_path / "on", scandal_rate_per_tick=0.0, economy_ar1_sigma=0.0),
+        run_id="same-run-id",
+    )
+    events_on = _events(path_on)
+    assert not [e for e in events_on if e["event_type"] in ("scandal_occurred", "economic_shock_tick")]
+    assert path_off.read_bytes() == path_on.read_bytes()
+
+
+def test_two_runs_with_events_enabled_produce_byte_identical_journals(tmp_path):
+    config_kwargs = dict(scandal_rate_per_tick=1.0, economy_shock_threshold=0.0)
+    path_a = run_simulation(_config_with_events_enabled(tmp_path / "a", **config_kwargs), run_id="same-run-id")
+    path_b = run_simulation(_config_with_events_enabled(tmp_path / "b", **config_kwargs), run_id="same-run-id")
+    assert path_a.read_bytes() == path_b.read_bytes()
+
+
+def test_a_real_firing_events_run_produces_scandal_and_economic_shock_events(tmp_path):
+    config = _config_with_events_enabled(tmp_path, scandal_rate_per_tick=1.0, economy_shock_threshold=0.0)
+    journal_path = run_simulation(config, run_id="events-firing")
+    events = _events(journal_path)
+    scandals = [e for e in events if e["event_type"] == "scandal_occurred"]
+    shocks = [e for e in events if e["event_type"] == "economic_shock_tick"]
+    # scandal_rate_per_tick=1.0 -> exactly one scandal_occurred per tick.
+    assert len(scandals) == config.run.total_ticks + 1
+    assert all(e["payload"]["target"] is None for e in scandals)  # never a winner at shipped ambition_threshold
+    # economy_shock_threshold=0.0 -> abs(x) >= 0.0 is true for every x, so
+    # every tick's step crosses, including tick 0 (economy_x is stepped
+    # once, from its seeded 0.0, before tick 0's journal write happens).
+    assert len(shocks) == config.run.total_ticks + 1
+    for e in shocks:
+        assert abs(e["payload"]["x"]) >= 0.0
+        assert e["payload"]["threshold"] == 0.0
+
+
+def _shock_test_citizen(cid, office=Office.NONE, role=Role.ELECTOR):
+    return Citizen(
+        citizen_id=cid,
+        issue_positions=(0.5,),
+        issue_priorities=(1.0,),
+        blank_threshold=0.5,
+        ambition_score=0.5,
+        role=role,
+        office=office,
+    )
+
+
+def test_scandal_occurred_targets_the_sitting_president_and_is_null_on_vacancy(tmp_path):
+    # Direct call to _run_exogenous_events, not run_simulation -- this
+    # function is deliberately independent of _run_accountability_phase (it
+    # never calls select_consulted/awakening_threshold), so exercising it
+    # directly against a hand-built citizen list is both the simplest test
+    # AND the one that structurally cannot trip awakening_threshold's
+    # still-pending event_salience guard.
+    events_config = dataclasses.replace(
+        load_config().events, enabled=True, scandal_enabled=True, scandal_rate_per_tick=1.0,
+        economic_shock_enabled=False,
+    )
+    config = dataclasses.replace(load_config(), events=events_config)
+
+    vacant_citizens = [_shock_test_citizen(0)]
+    journal_path = tmp_path / "vacancy.jsonl"
+    with Journal(journal_path, run_id="vacancy") as journal:
+        _run_exogenous_events(vacant_citizens, config, journal, tick=0, rng=np.random.default_rng(0), economy_x=0.0)
+    events = _events(journal_path)
+    scandal_events = [e for e in events if e["event_type"] == "scandal_occurred"]
+    assert len(scandal_events) == 1
+    assert scandal_events[0]["payload"]["target"] is None
+    assert scandal_events[0]["citizen_id"] is None
+
+    president = _shock_test_citizen(7, office=Office.PRESIDENT, role=Role.ELECTED)
+    occupied_citizens = [_shock_test_citizen(0), president]
+    journal_path2 = tmp_path / "occupied.jsonl"
+    with Journal(journal_path2, run_id="occupied") as journal:
+        _run_exogenous_events(
+            occupied_citizens, config, journal, tick=0, rng=np.random.default_rng(0), economy_x=0.0
+        )
+    events2 = _events(journal_path2)
+    scandal_events2 = [e for e in events2 if e["event_type"] == "scandal_occurred"]
+    assert len(scandal_events2) == 1
+    assert scandal_events2[0]["payload"]["target"] == 7
+    assert scandal_events2[0]["citizen_id"] == 7
+
+
+def test_economic_shock_tick_only_journals_above_threshold(tmp_path):
+    # economy_ar1_sigma=0.3 against phi=0.8 gives a steady-state std of
+    # sigma/sqrt(1-phi^2)=0.5 -- right at the shipped threshold (0.5), so a
+    # 120-tick run reliably produces both crossing and non-crossing ticks at
+    # seed=42, proving the gate is neither vacuously always-true nor
+    # never-true.
+    config = _config_with_events_enabled(tmp_path, scandal_enabled=False, economy_ar1_sigma=0.3)
+    journal_path = run_simulation(config, run_id="threshold")
+    events = _events(journal_path)
+    shocks = [e for e in events if e["event_type"] == "economic_shock_tick"]
+    assert shocks
+    assert len(shocks) < config.run.total_ticks + 1
+    for e in shocks:
+        assert abs(e["payload"]["x"]) >= config.events.economy_shock_threshold
+
+
+def test_awakening_threshold_still_raises_for_event_salience_after_this_lot():
+    # Cheap regression insurance: this lot must not have accidentally
+    # neutralized Lot 3's still-pending guard as a side effect of anything
+    # it touched.
+    from api.domain.polity.accountability import awakening_threshold
+    from api.domain.polity.config import AwakeningConfig, AwakeningContextModulation
+
+    modulation = AwakeningContextModulation(
+        mandate_deviation=False, ticks_to_election=False, neighbors_acting=False, event_salience=True
+    )
+    config = AwakeningConfig(
+        enabled=True, source="persona_base_threshold", context_modulation=modulation,
+        modulation_amplitude=0.5, no_consultation_cap=True,
+    )
+    citizen = _shock_test_citizen(0)
+    with pytest.raises(NotImplementedError, match="event_salience"):
+        awakening_threshold(citizen, mandate_dev=0.0, proximity=0.0, config=config)
