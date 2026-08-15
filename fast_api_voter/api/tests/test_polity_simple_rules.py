@@ -8,8 +8,8 @@ import numpy as np
 import pytest
 
 from api.domain.polity.citizen import Citizen, Office, Role
-from api.domain.polity.codebook import PressureAct
-from api.domain.polity.config import CandidacyConfig, PressureMenuConfig
+from api.domain.polity.codebook import EventType, PressureAct
+from api.domain.polity.config import CandidacyConfig, EventsConfig, PressureMenuConfig
 from api.domain.polity.parties import Party
 from api.domain.polity.simple_rules import (
     BLANK_LABEL,
@@ -25,6 +25,7 @@ from api.domain.polity.simple_rules import (
     decide_candidacy,
     declare_candidacy,
     deterministic_pressure_action,
+    deterministic_reaction_to_event,
     form_coalition,
     select_party_nominee,
     select_party_nominee_from_declared,
@@ -569,3 +570,44 @@ def test_build_confidence_ballot_agrees_with_ballot_ranks_above_blank_on_the_det
     for voter in voters:
         ballot = build_ranking(voter, [holder])
         assert build_confidence_ballot(voter, holder) == ballot_ranks_above_blank(ballot, candidate_label(holder))
+
+
+# ── deterministic_reaction_to_event (v5 Lot 3, §8) ────────────────────────
+
+_EVENTS_CONFIG = EventsConfig(
+    enabled=True,
+    scandal_enabled=True,
+    scandal_rate_per_tick=0.05,
+    scandal_magnitude=0.3,
+    economic_shock_enabled=True,
+    economy_ar1_phi=0.8,
+    economy_ar1_sigma=0.1,
+    economy_shock_threshold=0.5,
+    salience_decay=0.85,
+    max_reaction_delta=0.3,
+)
+
+
+def test_deterministic_reaction_to_event_scandal_returns_scandal_magnitude_verbatim():
+    for magnitude in (0.0, 0.5, 99.0):  # magnitude is ignored entirely for SCANDAL
+        assert deterministic_reaction_to_event(EventType.SCANDAL, _EVENTS_CONFIG, magnitude=magnitude) == 0.3
+
+
+def test_deterministic_reaction_to_event_economic_shock_scales_by_magnitude():
+    result = deterministic_reaction_to_event(EventType.ECONOMIC_SHOCK, _EVENTS_CONFIG, magnitude=0.5)
+    assert result == pytest.approx(0.3 * 0.5)
+
+
+def test_deterministic_reaction_to_event_economic_shock_caps_at_max_reaction_delta():
+    result = deterministic_reaction_to_event(EventType.ECONOMIC_SHOCK, _EVENTS_CONFIG, magnitude=1.5)
+    assert result == pytest.approx(0.3)
+
+
+def test_deterministic_reaction_to_event_economic_shock_is_zero_with_zero_magnitude():
+    assert deterministic_reaction_to_event(EventType.ECONOMIC_SHOCK, _EVENTS_CONFIG, magnitude=0.0) == 0.0
+
+
+def test_deterministic_reaction_to_event_economic_shock_uses_absolute_magnitude():
+    positive = deterministic_reaction_to_event(EventType.ECONOMIC_SHOCK, _EVENTS_CONFIG, magnitude=0.5)
+    negative = deterministic_reaction_to_event(EventType.ECONOMIC_SHOCK, _EVENTS_CONFIG, magnitude=-0.5)
+    assert positive == pytest.approx(negative)

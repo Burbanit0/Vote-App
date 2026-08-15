@@ -58,6 +58,7 @@ from api.domain.polity.accountability import (
     select_consulted,
     sign_petition,
     ticks_to_election,
+    update_event_salience,
     update_street_pressure,
 )
 from api.domain.polity.ballot_and_aggregation import (
@@ -68,7 +69,7 @@ from api.domain.polity.ballot_and_aggregation import (
     resolve_confidence_vote,
 )
 from api.domain.polity.citizen import Citizen, Office, Role, generate_population
-from api.domain.polity.codebook import BallotFormat, PressureAct
+from api.domain.polity.codebook import BallotFormat, EventType, PressureAct, ReactionMotif
 from api.domain.polity.compaction import compact_run
 from api.domain.polity.config import PolityConfig
 from api.domain.polity.institutional_clock import ElectionType, InstitutionalClock
@@ -109,6 +110,7 @@ from api.domain.polity.simple_rules import (
     citizen_id_from_label,
     declare_candidacy,
     deterministic_pressure_action,
+    deterministic_reaction_to_event,
     form_coalition,
     select_party_nominee,
     select_party_nominee_from_declared,
@@ -230,7 +232,8 @@ def run_simulation(
         for tick in range(clock.total_ticks + 1):
             barred_ids = pending_rerun.barred_candidate_ids if pending_rerun is not None else frozenset()
             _attempt_rupture_candidacies(citizens, config, journal, tick, rupture_rng, barred_candidate_ids=barred_ids)
-            economy_x = _run_exogenous_events(citizens, config, journal, tick, events_rng, economy_x)
+            exogenous = _run_exogenous_events(citizens, config, journal, tick, events_rng, economy_x)
+            economy_x = exogenous.economy_x
             election = clock.election_at(tick)
             # While a rerun is pending, the fixed presidential calendar is
             # SUSPENDED, not OR'd with the rerun tick -- see PendingRerun's
@@ -250,7 +253,7 @@ def run_simulation(
             if election in (ElectionType.LEGISLATIVE, ElectionType.BOTH):
                 seats, votes = _hold_legislative_election(citizens, parties, config, journal, tick)
                 _form_and_journal_coalition(parties, seats, votes, config, journal, tick, client)
-            _run_accountability_phase(citizens, config, journal, tick, client)
+            _run_accountability_phase(citizens, config, journal, tick, client, exogenous=exogenous)
 
     journal_path = Path(config.journal.output_dir) / run_id / "events.jsonl"
     if config.journal.enabled and config.journal.index_after_run:
@@ -316,6 +319,27 @@ def _attempt_rupture_candidacies(
             )
 
 
+@dataclass(frozen=True)
+class ExogenousEventsOutcome:
+    """v5 Lot 3 (§8): the per-tick facts _run_accountability_phase's own
+    step 0 needs about the tick _run_exogenous_events just processed.
+    WITHIN-TICK only -- built fresh every tick and consumed a few
+    statements later in the SAME tick body, unlike PendingRerun/economy_x
+    which are genuinely threaded across tick boundaries (only this
+    struct's own economy_x field continues to be, via the same bare-float
+    local Lot 2 established). scandal_target is captured HERE, at draw
+    time -- never recomputed downstream from current_office_holders a
+    second time, which would silently disagree with scandal_occurred's own
+    already-journaled target on any tick where a same-tick presidential
+    election runs between this call and _run_accountability_phase's own
+    (later) holders lookup."""
+
+    economy_x: float
+    scandal_fired: bool
+    scandal_target: int | None
+    shock_crossed: bool
+
+
 def _run_exogenous_events(
     citizens: list[Citizen],
     config: PolityConfig,
@@ -323,14 +347,12 @@ def _run_exogenous_events(
     tick: int,
     rng: np.random.Generator,
     economy_x: float,
-) -> float:
+) -> ExogenousEventsOutcome:
     """v5 Lot 2 (§8): the two exogenous generators, evaluated every tick --
     unconditional, before any election dispatch, the same anchor point
     _attempt_rupture_candidacies already establishes. Deliberately outside
     _run_accountability_phase and independent of it: this function never
-    calls select_consulted/awakening_threshold, so it is unaffected by
-    (and cannot trip) awakening_threshold's still-pending event_salience
-    NotImplementedError guard (removed in v5 Lot 3).
+    calls select_consulted/awakening_threshold.
 
     A scandal is drawn from unconditionally whenever scandal_enabled is
     true, regardless of whether a president currently exists -- vacancy is
@@ -338,14 +360,16 @@ def _run_exogenous_events(
     a reason to skip the draw itself, matching v4's own "vacancy is a
     first-class state" precedent. `target` is null on a vacancy, mirroring
     election_invalidated's own explicit citizen_id=None precedent."""
-    if scandal_arrival(rng, config.events):
+    scandal_fired = scandal_arrival(rng, config.events)
+    scandal_target: int | None = None
+    if scandal_fired:
         holders = current_office_holders(citizens, Office.PRESIDENT)
-        target_id = holders[0].citizen_id if holders else None
+        scandal_target = holders[0].citizen_id if holders else None
         journal.write(
             tick=tick,
             event_type="scandal_occurred",
-            payload={"target": target_id},
-            citizen_id=target_id,
+            payload={"target": scandal_target},
+            citizen_id=scandal_target,
         )
 
     economy_x = economic_shock_step(economy_x, rng, config.events)
@@ -356,14 +380,19 @@ def _run_exogenous_events(
     # economy_shock_threshold=0.0 (legal -- _get_ratio allows the boundary)
     # would make abs(0.0) >= 0.0 true on EVERY tick without this guard,
     # silently resurrecting a "disabled" mechanism's journal footprint.
-    if config.events.economic_shock_enabled and abs(economy_x) >= config.events.economy_shock_threshold:
+    shock_crossed = (
+        config.events.economic_shock_enabled and abs(economy_x) >= config.events.economy_shock_threshold
+    )
+    if shock_crossed:
         journal.write(
             tick=tick,
             event_type="economic_shock_tick",
             payload={"x": economy_x, "threshold": config.events.economy_shock_threshold},
         )
 
-    return economy_x
+    return ExogenousEventsOutcome(
+        economy_x=economy_x, scandal_fired=scandal_fired, scandal_target=scandal_target, shock_crossed=shock_crossed
+    )
 
 
 def _declare_nominees(
@@ -930,21 +959,33 @@ def _run_accountability_phase(
     journal: Journal,
     tick: int,
     llm_client: LlmClientProtocol | None = None,
+    exogenous: ExogenousEventsOutcome | None = None,
 ) -> None:
-    """v4 Lots 2-6 -- §7bis.7's full per-tick sequence: step 1
-    (representative_response + mandate_deviation, measurement) -> step 2
-    (awaken -> pressure_action) -> step 3 (aggregate pressure) -> step 4
-    (update L(t)) -> step 5 (petition threshold) -> step 6 (hard floor).
-    Step 7 (the representative's own one-tick-delayed reading of
-    street_pressure) is what step 1's representative_response call
-    consumes on the FOLLOWING tick -- see _run_representative_responses's
-    own docstring for exactly how the lag is structural, not incidental.
+    """v4 Lots 2-6, v5 Lot 3 -- §7bis.7's full per-tick sequence: step 0
+    (v5 Lot 3, §8: population-wide reaction_to_event, before anything
+    officeholder-scoped) -> step 1 (representative_response +
+    mandate_deviation, measurement) -> step 2 (awaken -> pressure_action)
+    -> step 3 (aggregate pressure) -> step 4 (update L(t)) -> step 5
+    (petition threshold) -> step 6 (hard floor). Step 7 (the
+    representative's own one-tick-delayed reading of street_pressure) is
+    what step 1's representative_response call consumes on the FOLLOWING
+    tick -- see _run_representative_responses's own docstring for exactly
+    how the lag is structural, not incidental.
+
+    `exogenous` is additive (default None) so every pre-v5-Lot-3 direct
+    call to this function is unaffected -- None is silently equivalent to
+    "nothing fired this tick" (see step 0's own guard below). The real
+    tick loop always supplies a genuine ExogenousEventsOutcome, firing or
+    not; only direct-call unit tests that don't care about step 0 rely on
+    the default.
 
     Called last in the tick body, after both election blocks, so a
     same-tick newly-elected president's mandate_pledge_declared/L0 are
     already on record before this phase runs for them -- frozen
-    journal-byte ordering: representative_response (all holders, ascending
-    citizen_id) -> then, per holder: mandate_deviation_recorded (if any) ->
+    journal-byte ordering: reaction_to_event (v5 Lot 3, population-wide,
+    ascending citizen_id, scandal branch before economic-shock branch) ->
+    representative_response (all holders, ascending citizen_id) -> then,
+    per holder: mandate_deviation_recorded (if any) ->
     [pressure_action, then petition_launched|petition_signed if that
     citizen's act produced one] x N (ascending citizen_id) ->
     legitimacy_updated -> [confidence_vote_triggered +
@@ -991,6 +1032,55 @@ def _run_accountability_phase(
         return
     term_ticks = config.institutions.president_term_years * config.run.ticks_per_year
     holders = current_office_holders(citizens, Office.PRESIDENT)  # built once, as before
+    # v5 Lot 3 (§8) -- step 0, before step 1: population-wide, never
+    # officeholder-scoped (dt=8 is not select_consulted-gated), so this
+    # loops over `citizens`, not `holders`, and needs nothing `holders`
+    # produces. Fixed processing order -- scandal branch before
+    # economic-shock branch -- mirrors _run_exogenous_events's own fixed
+    # draw order, so a tick where both fire stays deterministic byte for
+    # byte. Payload shape is deliberately asymmetric per event_type,
+    # mirroring scandal_occurred/economic_shock_tick's own asymmetric raw
+    # payloads (Lot 2): SCANDAL carries `target`, no `magnitude`;
+    # ECONOMIC_SHOCK carries `magnitude`, target is always null (systemic,
+    # no single object). Both journal motif=401/402 unconditionally
+    # (deliberate divergence from pressure_action's own deterministic
+    # branch, which leaves motif=None): unlike an LLM's stated reason,
+    # these motifs encode WHICH generator fired, a fact already certain on
+    # the deterministic path too.
+    if exogenous is not None:
+        if exogenous.scandal_fired:
+            delta = deterministic_reaction_to_event(EventType.SCANDAL, config.events)
+            for citizen in citizens:
+                citizen.event_salience = update_event_salience(citizen.event_salience, delta, config.events)
+                journal.write(
+                    tick=tick,
+                    event_type="reaction_to_event",
+                    payload={
+                        "event_type": int(EventType.SCANDAL),
+                        "target": exogenous.scandal_target,
+                        "salience_delta": delta,
+                    },
+                    citizen_id=citizen.citizen_id,
+                    motif=str(ReactionMotif.SCANDAL_TRUST_EROSION),
+                    codebook_version=config.llm.codebook_version,
+                )
+        if exogenous.shock_crossed:
+            delta = deterministic_reaction_to_event(EventType.ECONOMIC_SHOCK, config.events, magnitude=exogenous.economy_x)
+            for citizen in citizens:
+                citizen.event_salience = update_event_salience(citizen.event_salience, delta, config.events)
+                journal.write(
+                    tick=tick,
+                    event_type="reaction_to_event",
+                    payload={
+                        "event_type": int(EventType.ECONOMIC_SHOCK),
+                        "target": None,
+                        "salience_delta": delta,
+                        "magnitude": exogenous.economy_x,
+                    },
+                    citizen_id=citizen.citizen_id,
+                    motif=str(ReactionMotif.ECONOMIC_SHOCK_REACTION),
+                    codebook_version=config.llm.codebook_version,
+                )
     if config.llm.enabled and config.mandate.enabled:  # §7bis.7 step 1 (v4 Lot 6)
         _run_representative_responses(holders, config, journal, tick, llm_client)
     for holder in holders:

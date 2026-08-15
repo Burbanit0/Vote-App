@@ -22,7 +22,13 @@ from collections.abc import Sequence
 
 from api.domain.polity.citizen import Citizen, Office
 from api.domain.polity.codebook import PressureAct
-from api.domain.polity.config import AwakeningConfig, MandateConfig, PetitionConfig, StreetPressureConfig
+from api.domain.polity.config import (
+    AwakeningConfig,
+    EventsConfig,
+    MandateConfig,
+    PetitionConfig,
+    StreetPressureConfig,
+)
 from api.domain.polity.metrics import signed_ratio
 
 _SUPPORTED_DEVIATION_METRICS = {"weighted_euclidean"}
@@ -133,20 +139,22 @@ def awakening_threshold(citizen: Citizen, *, mandate_dev: float, proximity: floa
     context_modulation flag is true. neighbors_acting is structurally
     absent in v4 (§7bis.9f, atomized regime, no social graph until v6) --
     raises if a config ever sets it true, since there is nothing to compute
-    it from. event_salience is reserved for v5 Lot 3 (§8) -- this function
-    has no event_salience parameter yet, so a config that sets the flag
-    true (required whenever events.enabled is true, config.py's own
-    cross-field rule) raises rather than silently ignoring the flag."""
+    it from. event_salience (v5 Lot 3, §8) lowers the threshold, symmetric
+    with mandate_deviation -- read directly off `citizen.event_salience`,
+    no new parameter needed: unlike mandate_dev/proximity (officeholder-
+    level facts with no natural per-citizen home, threaded in by the
+    caller), event_salience already lives on the citizen this function is
+    already given."""
     if config.context_modulation.neighbors_acting:
         raise NotImplementedError("awakening.context_modulation.neighbors_acting is v6 scope (§7bis.9f)")
-    if config.context_modulation.event_salience:
-        raise NotImplementedError("awakening.context_modulation.event_salience is v5 Lot 3 scope (§8)")
     amp = config.modulation_amplitude
     f = 1.0
     if config.context_modulation.mandate_deviation:
         f -= amp * mandate_dev
     if config.context_modulation.ticks_to_election:
         f += amp * proximity
+    if config.context_modulation.event_salience:
+        f -= amp * citizen.event_salience
     f = max(1.0 - amp, min(1.0 + amp, f))
     return citizen.base_threshold * f
 
@@ -189,6 +197,14 @@ def update_street_pressure(previous: float, rate: float, config: StreetPressureC
     redundant. Its realized steady-state max exceeds 1.0 under the shipped
     distribution (see scripts/awakening_calibration_results.md)."""
     return config.decay * previous + rate
+
+
+def update_event_salience(previous: float, delta: float, config: EventsConfig) -> float:
+    """v5 Lot 3 (§8): salience_decay * event_salience(t-1) + delta -- exact
+    same shape as update_street_pressure. Deliberately unclamped: the clamp
+    that matters lives on awakening_threshold's own f(context), not here
+    (same reasoning as street_pressure/shock.py's x(t))."""
+    return config.salience_decay * previous + delta
 
 
 # ── v4 Lot 5: petition state machine (§7bis.4a) ─────────────────────────
