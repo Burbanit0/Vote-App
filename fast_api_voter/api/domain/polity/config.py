@@ -270,6 +270,7 @@ class AwakeningContextModulation:
     mandate_deviation: bool
     ticks_to_election: bool
     neighbors_acting: bool
+    event_salience: bool
 
 
 @dataclass(frozen=True)
@@ -284,6 +285,42 @@ class AwakeningConfig:
     context_modulation: AwakeningContextModulation
     modulation_amplitude: float
     no_consultation_cap: bool
+
+
+@dataclass(frozen=True)
+class EventsConfig:
+    """§8 — exogenous events (v5). Two independently toggleable
+    sub-mechanisms under one master switch: scandal (a Poisson arrival
+    process targeting the sitting president) and economic shock (a light
+    AR(1) climate variable, population-wide). `enabled` is cross-validated
+    in load_config as `scandal_enabled or economic_shock_enabled` -- a
+    single derived fact, not a third independently-settable flag, so the
+    two sub-toggles can't silently drift from their own master switch the
+    way pressure_menu's two flags are guarded against drifting from
+    petition.enabled/street_pressure.enabled.
+
+    `scandal_magnitude`/`max_reaction_delta` are v5's own fields, deliberately
+    not reused from mandate.max_response_delta or campaign.max_positioning_delta
+    -- mid-term mandate drift, campaign-time strategy, and shock reaction are
+    three different effects that must stay analytically separable (v4 Lot 6's
+    own precedent), even where shipped defaults happen to match.
+
+    `economy_shock_threshold` is the anti-saturation gate (§16.3 style) for
+    journaling `economic_shock_tick`, and doubles as the first concrete
+    trigger definition for point ouvert n°5 (persona regeneration "après un
+    choc économique majeur") -- a partial resolution, not a full one; the
+    rest of the persona schema stays open (§9)."""
+
+    enabled: bool
+    scandal_enabled: bool
+    scandal_rate_per_tick: float
+    scandal_magnitude: float
+    economic_shock_enabled: bool
+    economy_ar1_phi: float
+    economy_ar1_sigma: float
+    economy_shock_threshold: float
+    salience_decay: float
+    max_reaction_delta: float
 
 
 @dataclass(frozen=True)
@@ -368,6 +405,7 @@ class PolityConfig:
     petition: PetitionConfig
     street_pressure: StreetPressureConfig
     awakening: AwakeningConfig
+    events: EventsConfig
     journal: JournalConfig
     metrics: MetricsConfig
     llm: LlmConfig
@@ -580,9 +618,34 @@ def _parse_awakening(raw: dict[str, Any]) -> AwakeningConfig:
             mandate_deviation=_get(modulation, "awakening.context_modulation", "mandate_deviation", bool),
             ticks_to_election=_get(modulation, "awakening.context_modulation", "ticks_to_election", bool),
             neighbors_acting=_get(modulation, "awakening.context_modulation", "neighbors_acting", bool),
+            event_salience=_get(modulation, "awakening.context_modulation", "event_salience", bool),
         ),
         modulation_amplitude=_get_ratio(s, "awakening", "modulation_amplitude"),
         no_consultation_cap=True,
+    )
+
+
+def _parse_events(raw: dict[str, Any]) -> EventsConfig:
+    s = _section(raw, "events")
+    scandal_enabled = _get(s, "events", "scandal_enabled", bool)
+    economic_shock_enabled = _get(s, "events", "economic_shock_enabled", bool)
+    enabled = _get(s, "events", "enabled", bool)
+    if enabled != (scandal_enabled or economic_shock_enabled):
+        raise PolityConfigError(
+            "'events.enabled' must equal 'events.scandal_enabled or events.economic_shock_enabled' "
+            "-- these describe the same fact (§8) and must not drift apart"
+        )
+    return EventsConfig(
+        enabled=enabled,
+        scandal_enabled=scandal_enabled,
+        scandal_rate_per_tick=_get_ratio(s, "events", "scandal_rate_per_tick"),
+        scandal_magnitude=_get_ratio(s, "events", "scandal_magnitude"),
+        economic_shock_enabled=economic_shock_enabled,
+        economy_ar1_phi=_get_ratio(s, "events", "economy_ar1_phi"),
+        economy_ar1_sigma=_get_ratio(s, "events", "economy_ar1_sigma"),
+        economy_shock_threshold=_get_ratio(s, "events", "economy_shock_threshold"),
+        salience_decay=_get_ratio(s, "events", "salience_decay"),
+        max_reaction_delta=_get_ratio(s, "events", "max_reaction_delta"),
     )
 
 
@@ -698,6 +761,7 @@ def load_config(path: Path | str | None = None) -> PolityConfig:
     petition = _parse_petition(raw)
     street_pressure = _parse_street_pressure(raw)
     awakening = _parse_awakening(raw)
+    events = _parse_events(raw)
 
     # Cross-section rules (§7bis.2/§7bis.6) -- each section parses in
     # isolation above; these are the invariants that only make sense once
@@ -730,6 +794,17 @@ def load_config(path: Path | str | None = None) -> PolityConfig:
             "is true -- a citizen lever with nobody ever consulted (§7bis.9d) is a silently dead "
             "experiment, indistinguishable from 'pressure_menu.electoral_only'"
         )
+    if events.enabled and not awakening.enabled:
+        raise PolityConfigError(
+            "'awakening.enabled' must be true when 'events.enabled' is true -- a shock with nobody "
+            "ever consulted (§7bis.9d) is a silently dead experiment (v5 §8)"
+        )
+    if events.enabled and not awakening.context_modulation.event_salience:
+        raise PolityConfigError(
+            "'awakening.context_modulation.event_salience' must be true when 'events.enabled' is "
+            "true -- a shock with nothing in the awakening gate to modulate is a silently dead "
+            "experiment (v5 §8)"
+        )
 
     return PolityConfig(
         run=_parse_run(raw),
@@ -744,6 +819,7 @@ def load_config(path: Path | str | None = None) -> PolityConfig:
         petition=petition,
         street_pressure=street_pressure,
         awakening=awakening,
+        events=events,
         journal=_parse_journal(raw),
         metrics=_parse_metrics(raw),
         llm=_parse_llm(raw),

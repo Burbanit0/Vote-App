@@ -44,7 +44,7 @@ def test_loads_the_real_polity_config_with_expected_v0_values():
     assert config.llm.temperature == 0.0
     assert config.llm.max_batch_size == 25
     assert config.llm.batch_sharding == "static"
-    assert config.llm.codebook_version == "1.3"
+    assert config.llm.codebook_version == "1.4"
     assert config.llm.personas_count == 30
     assert config.campaign.max_positioning_delta == 0.3
     assert config.campaign.max_positioning_shifts == 3
@@ -484,4 +484,80 @@ def test_petition_enabled_without_awakening_enabled_raises(tmp_path):
 def test_missing_decode_codebook_on_index_raises_and_names_it(tmp_path):
     path = _write(tmp_path, lambda d: d["journal"].pop("decode_codebook_on_index"))
     with pytest.raises(PolityConfigError, match="journal.decode_codebook_on_index"):
+        load_config(path)
+
+
+# ── events (v5 Lot 1, §8) ──────────────────────────────────────────────────
+
+def test_shipped_default_events_config_is_reachable_and_off():
+    config = load_config()
+    assert config.events.enabled is False
+    assert config.events.scandal_enabled is False
+    assert config.events.scandal_rate_per_tick == 0.05
+    assert config.events.scandal_magnitude == 0.3
+    assert config.events.economic_shock_enabled is False
+    assert config.events.economy_ar1_phi == 0.8
+    assert config.events.economy_ar1_sigma == 0.1
+    assert config.events.economy_shock_threshold == 0.5
+    assert config.events.salience_decay == 0.85
+    assert config.events.max_reaction_delta == 0.3
+    assert config.awakening.context_modulation.event_salience is False
+
+
+def test_events_enabled_disagreeing_with_both_subtoggles_raises(tmp_path):
+    # enabled=True but neither scandal_enabled nor economic_shock_enabled --
+    # the two must describe the same fact (§8), mirroring the
+    # pressure_menu/petition drift-prevention rule.
+    path = _write(tmp_path, lambda d: d["events"].__setitem__("enabled", True))
+    with pytest.raises(PolityConfigError, match="events.enabled"):
+        load_config(path)
+
+
+def test_events_enabled_false_with_a_subtoggle_true_raises(tmp_path):
+    path = _write(tmp_path, lambda d: d["events"].__setitem__("scandal_enabled", True))
+    with pytest.raises(PolityConfigError, match="events.enabled"):
+        load_config(path)
+
+
+def test_events_enabled_without_awakening_enabled_raises(tmp_path):
+    def mutate(d):
+        d["events"]["enabled"] = True
+        d["events"]["scandal_enabled"] = True
+        d["awakening"]["context_modulation"]["event_salience"] = True
+        # awakening.enabled deliberately left False.
+
+    path = _write(tmp_path, mutate)
+    with pytest.raises(PolityConfigError, match="awakening.enabled"):
+        load_config(path)
+
+
+def test_events_enabled_without_event_salience_modulation_raises(tmp_path):
+    def mutate(d):
+        d["events"]["enabled"] = True
+        d["events"]["scandal_enabled"] = True
+        d["awakening"]["enabled"] = True
+        # awakening.context_modulation.event_salience deliberately left False.
+
+    path = _write(tmp_path, mutate)
+    with pytest.raises(PolityConfigError, match="event_salience"):
+        load_config(path)
+
+
+def test_events_enabled_economic_shock_only_is_accepted(tmp_path):
+    def mutate(d):
+        d["events"]["enabled"] = True
+        d["events"]["economic_shock_enabled"] = True
+        d["awakening"]["enabled"] = True
+        d["awakening"]["context_modulation"]["event_salience"] = True
+
+    path = _write(tmp_path, mutate)
+    config = load_config(path)
+    assert config.events.enabled is True
+    assert config.events.scandal_enabled is False
+    assert config.events.economic_shock_enabled is True
+
+
+def test_missing_event_salience_modulation_flag_raises_and_names_it(tmp_path):
+    path = _write(tmp_path, lambda d: d["awakening"]["context_modulation"].pop("event_salience"))
+    with pytest.raises(PolityConfigError, match="event_salience"):
         load_config(path)
