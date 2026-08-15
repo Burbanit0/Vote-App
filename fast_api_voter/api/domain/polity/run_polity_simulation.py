@@ -68,6 +68,7 @@ from api.domain.polity.ballot_and_aggregation import (
 )
 from api.domain.polity.citizen import Citizen, Office, Role, generate_population
 from api.domain.polity.codebook import BallotFormat, PressureAct
+from api.domain.polity.compaction import compact_run
 from api.domain.polity.config import PolityConfig
 from api.domain.polity.institutional_clock import ElectionType, InstitutionalClock
 from api.domain.polity.journal import Journal
@@ -130,6 +131,14 @@ def run_simulation(
     vLLM switch, §15bis.6 — see llm_client.build_json_client) for the
     run's lifetime and closed here; an injected client (tests) is never
     closed — it belongs to the caller.
+
+    When `config.journal.index_after_run` is true (shipped default), the
+    finished journal is compacted into a `.duckdb` file beside it (v4
+    storage lot, §16.6 — see compaction.compact_run) after the journal is
+    closed, never before: §16.1's hard rule is that compaction is strictly
+    post-run, so the hot regime never reads, indexes, or queries the
+    journal, and an interrupted run still leaves an exploitable JSONL with
+    no half-written `.duckdb` beside it.
     """
     if config.institutions.presidential_method not in RANKED_METHODS:
         raise NotImplementedError(
@@ -160,7 +169,10 @@ def run_simulation(
                 _form_and_journal_coalition(parties, seats, votes, config, journal, tick, client)
             _run_accountability_phase(citizens, config, journal, tick, client)
 
-    return Path(config.journal.output_dir) / run_id / "events.jsonl"
+    journal_path = Path(config.journal.output_dir) / run_id / "events.jsonl"
+    if config.journal.enabled and config.journal.index_after_run:
+        compact_run(journal_path, config)
+    return journal_path
 
 
 @contextmanager

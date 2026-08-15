@@ -27,6 +27,8 @@ def test_loads_the_real_polity_config_with_expected_v0_values():
     assert config.citizens.issue_count == 20
     assert config.legitimacy.enabled is False
     assert config.journal.enabled is True
+    assert config.journal.index_after_run is True
+    assert config.journal.decode_codebook_on_index is True
     assert config.metrics.effective_parties is True
     assert config.metrics.mandate_deviation is True
     assert config.metrics.lame_duck_deviation_delta is True
@@ -456,4 +458,12 @@ def test_petition_enabled_without_awakening_enabled_raises(tmp_path):
 
     path = _write(tmp_path, mutate)
     with pytest.raises(PolityConfigError, match="awakening.enabled"):
+        load_config(path)
+
+
+# ── journal.decode_codebook_on_index (v4 storage lot, §16.6/§3.7.4) ───────
+
+def test_missing_decode_codebook_on_index_raises_and_names_it(tmp_path):
+    path = _write(tmp_path, lambda d: d["journal"].pop("decode_codebook_on_index"))
+    with pytest.raises(PolityConfigError, match="journal.decode_codebook_on_index"):
         load_config(path)
