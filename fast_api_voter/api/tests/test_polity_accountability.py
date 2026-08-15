@@ -271,7 +271,7 @@ def test_election_proximity_is_unchanged_by_the_ticks_to_election_extraction(tic
 # ── awakening_threshold ──────────────────────────────────────────────────
 
 _MODULATION_ALL_ON = AwakeningContextModulation(
-    mandate_deviation=True, ticks_to_election=True, neighbors_acting=False
+    mandate_deviation=True, ticks_to_election=True, neighbors_acting=False, event_salience=False
 )
 
 _AWAKENING_CONFIG = AwakeningConfig(
@@ -315,7 +315,9 @@ def test_awakening_threshold_higher_proximity_strictly_raises_it():
 
 
 def test_awakening_threshold_ignores_deviation_when_its_modulation_flag_is_off():
-    modulation = AwakeningContextModulation(mandate_deviation=False, ticks_to_election=True, neighbors_acting=False)
+    modulation = AwakeningContextModulation(
+        mandate_deviation=False, ticks_to_election=True, neighbors_acting=False, event_salience=False
+    )
     config = AwakeningConfig(**{**_AWAKENING_CONFIG.__dict__, "context_modulation": modulation})
     citizen = _citizen(1, (0.5,), base_threshold=0.4)
     low = awakening_threshold(citizen, mandate_dev=0.1, proximity=0.5, config=config)
@@ -324,7 +326,9 @@ def test_awakening_threshold_ignores_deviation_when_its_modulation_flag_is_off()
 
 
 def test_awakening_threshold_ignores_proximity_when_its_modulation_flag_is_off():
-    modulation = AwakeningContextModulation(mandate_deviation=True, ticks_to_election=False, neighbors_acting=False)
+    modulation = AwakeningContextModulation(
+        mandate_deviation=True, ticks_to_election=False, neighbors_acting=False, event_salience=False
+    )
     config = AwakeningConfig(**{**_AWAKENING_CONFIG.__dict__, "context_modulation": modulation})
     citizen = _citizen(1, (0.5,), base_threshold=0.4)
     far = awakening_threshold(citizen, mandate_dev=0.5, proximity=0.1, config=config)
@@ -333,7 +337,9 @@ def test_awakening_threshold_ignores_proximity_when_its_modulation_flag_is_off()
 
 
 def test_awakening_threshold_raises_when_neighbors_acting_is_enabled():
-    modulation = AwakeningContextModulation(mandate_deviation=True, ticks_to_election=True, neighbors_acting=True)
+    modulation = AwakeningContextModulation(
+        mandate_deviation=True, ticks_to_election=True, neighbors_acting=True, event_salience=False
+    )
     config = AwakeningConfig(**{**_AWAKENING_CONFIG.__dict__, "context_modulation": modulation})
     citizen = _citizen(1, (0.5,), base_threshold=0.4)
     with pytest.raises(NotImplementedError, match="neighbors_acting"):

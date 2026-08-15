@@ -133,9 +133,14 @@ def awakening_threshold(citizen: Citizen, *, mandate_dev: float, proximity: floa
     context_modulation flag is true. neighbors_acting is structurally
     absent in v4 (§7bis.9f, atomized regime, no social graph until v6) --
     raises if a config ever sets it true, since there is nothing to compute
-    it from."""
+    it from. event_salience is reserved for v5 Lot 3 (§8) -- this function
+    has no event_salience parameter yet, so a config that sets the flag
+    true (required whenever events.enabled is true, config.py's own
+    cross-field rule) raises rather than silently ignoring the flag."""
     if config.context_modulation.neighbors_acting:
         raise NotImplementedError("awakening.context_modulation.neighbors_acting is v6 scope (§7bis.9f)")
+    if config.context_modulation.event_salience:
+        raise NotImplementedError("awakening.context_modulation.event_salience is v5 Lot 3 scope (§8)")
     amp = config.modulation_amplitude
     f = 1.0
     if config.context_modulation.mandate_deviation:

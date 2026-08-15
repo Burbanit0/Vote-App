@@ -4,7 +4,7 @@ vote + candidacy-consideration + party-nomination + campaign-positioning +
 coalition-decision slices (v2 increments 1-5), plus v4 Lot 1's upfront
 reservation of the legitimacy/pressure palier's wire surface (representative
 _response dt=6, pressure_action dt=10, and the binary confidence-vote ballot
-format).
+format), plus v5 Lot 1's reservation of reaction_to_event (dt=8, §8).
 
 Single source of truth: the `Literal[...]` types used for wire validation
 (llm_schemas.py) and the human-readable table injected into the LLM's system
@@ -22,18 +22,19 @@ since a single `candidacy_considered` call's `outcome=1` case (or, when a
 party is contested, `party_nomination_choice`'s winner) is what produces it.
 Code 7 (`petition_signature_decision`) is retired and must never be
 reassigned — recorded here as a comment, not a member, so nothing can
-accidentally reuse it. Code 8 (`reaction_to_event`) remains reserved-but-
-undefined: v5 scope, no worked schema exists anywhere in the design doc yet.
+accidentally reuse it. Code 8 (`reaction_to_event`) is reserved by v5 Lot 1
+(§8) ahead of its own `decide_*` function (v5 Lot 4) — see below.
 
-6 and 10 are reserved here (v4 Lot 1) ahead of their actual `decide_*`
-functions (v4 Lots 6-7) — unlike every prior increment's "the code only gains
-a member when the code that writes it exists" discipline. This is a
-deliberate exception: Lot 1's whole purpose is standing up v4's full wire
-surface (motifs, action/stance enums, the codebook version) in one place
-before any of the palier's 7 subsequent lots build behavior on top of it. In
-practice neither code is ever written to a journal yet — `legitimacy.enabled`
-and every `pressure_menu` lever default to `false`, and no `decide_*`
-function exists until Lot 6/7 — so this is inert reservation, not activation.
+6, 8, and 10 are reserved here (v4 Lot 1 / v5 Lot 1) ahead of their actual
+`decide_*` functions (v4 Lots 6-7, v5 Lot 4) — unlike every prior
+increment's "the code only gains a member when the code that writes it
+exists" discipline. This is a deliberate exception: each palier's own Lot 1
+stands up its full wire surface (motifs, action/stance enums, the codebook
+version) in one place before any subsequent lot builds behavior on top of
+it. In practice none of these three codes is ever written to a journal
+yet — `legitimacy.enabled`, every `pressure_menu` lever, and `events.enabled`
+all default to `false`, and no `decide_*` function exists for any of them
+until their own later lot — so this is inert reservation, not activation.
 """
 from __future__ import annotations
 
@@ -45,9 +46,14 @@ class PolityCodebookError(ValueError):
     one this code was written against — §3.7.0's frozen-artifact contract."""
 
 
-CODEBOOK_VERSION = "1.3"  # bumped from "1.2" — a v4 Lot 8 live acceptance-run
-                           # finding: VoteMotif had no code for a sincere vote
-                           # cast for an imperfect-but-tolerable candidate (every
+CODEBOOK_VERSION = "1.4"  # bumped from "1.3" — v5 Lot 1 (§8): new decision
+                           # type (8=reaction_to_event) and new enum members
+                           # (EventType, ReactionMotif) change the wire
+                           # surface, the same bump trigger v4 Lot 1 used for
+                           # "1.1"->"1.2". Prior bump: "1.2"->"1.3" — a v4
+                           # Lot 8 live acceptance-run finding: VoteMotif had
+                           # no code for a sincere vote cast for an
+                           # imperfect-but-tolerable candidate (every
                            # existing code names either a blank-vote reason or a
                            # strategic one), which measurably starved the model
                            # of a "just vote for them, they clear my threshold"
@@ -55,18 +61,19 @@ CODEBOOK_VERSION = "1.3"  # bumped from "1.2" — a v4 Lot 8 live acceptance-run
 
 
 class DecisionType(IntEnum):
-    """§3.7.1 `decision_type` (`dt`). 8=reaction_to_event remains reserved
-    for v5 (no schema exists anywhere in the design doc yet). 7 is retired
-    (formerly petition_signature_decision) and must never be reused. 6 and
-    10 are reserved by v4 Lot 1 ahead of their own decide_* functions (Lots
-    6-7) — see this module's docstring for why that's a deliberate exception
-    to every prior code's "member only once the code exists" discipline."""
+    """§3.7.1 `decision_type` (`dt`). 7 is retired (formerly
+    petition_signature_decision) and must never be reused. 6, 8, and 10 are
+    reserved by v4 Lot 1 / v5 Lot 1 ahead of their own decide_* functions
+    (v4 Lots 6-7, v5 Lot 4) — see this module's docstring for why that's a
+    deliberate exception to every prior code's "member only once the code
+    exists" discipline."""
 
     VOTE_CAST = 1
     CANDIDACY_CONSIDERED = 2
     PARTY_NOMINATION_CHOICE = 4
     CAMPAIGN_POSITIONING = 5
     REPRESENTATIVE_RESPONSE = 6
+    REACTION_TO_EVENT = 8
     COALITION_DECISION = 9
     PRESSURE_ACTION = 10
 
@@ -81,6 +88,19 @@ class BallotFormat(IntEnum):
 
     RANKING = 1
     BINARY = 4
+
+
+class EventType(IntEnum):
+    """§3.7.1 `event_type` (reaction_to_event, dt=8, v5 §8). The two exogenous
+    generators §8 names: SCANDAL is a Poisson-arrival event targeting the
+    sitting president; ECONOMIC_SHOCK is a population-wide AR(1) climate
+    reading crossing `events.economy_shock_threshold` (§16.3-style
+    anti-saturation gate — not every tick's AR(1) value, only the ones that
+    count as "majeur"). Reserved by v5 Lot 1 ahead of shock.py (Lot 2) and
+    dt=8's own decide_* function (Lot 4)."""
+
+    SCANDAL = 1
+    ECONOMIC_SHOCK = 2
 
 
 class VoteMotif(IntEnum):
@@ -310,6 +330,30 @@ class PressureMotif(IntEnum):
 PRESSURE_MOTIF_PROMPT_TABLE = "\n".join(f"{motif.value} = {motif.name}" for motif in PressureMotif)
 
 
+class ReactionMotif(IntEnum):
+    """§3.7.2 motif range 400-499 (Événements exogènes) — reaction_to_event's
+    (dt=8, v5 §8) slice. 401 SCANDAL_TRUST_EROSION and 402
+    ECONOMIC_SHOCK_REACTION are the design doc's own two codes (§3.7.2's
+    table), kept verbatim, each grounding a `salience_delta > 0` reaction to
+    its own EventType. 403 EVENT_PERSONALLY_IRRELEVANT is a new code
+    (§3.7.2's list is explicitly "non figée") grounding the
+    `salience_delta == 0` branch -- a citizen who perceives the event but
+    judges it doesn't concern them, the same "every reachable branch needs a
+    code" discipline that produced ResponseMotif's 307-309. Only reachable
+    via the LLM path (v5 Lot 4): the deterministic baseline
+    (simple_rules.deterministic_reaction_to_event, v5 Lot 3) applies a flat,
+    uniform salience_delta to every citizen by construction, so judging an
+    event "irrelevant to me" requires citizen-level judgment 403 doesn't
+    exist to serve on that path."""
+
+    SCANDAL_TRUST_EROSION = 401
+    ECONOMIC_SHOCK_REACTION = 402
+    EVENT_PERSONALLY_IRRELEVANT = 403
+
+
+REACTION_MOTIF_PROMPT_TABLE = "\n".join(f"{motif.value} = {motif.name}" for motif in ReactionMotif)
+
+
 MOTIF_ENUMS: tuple[type[IntEnum], ...] = (
     VoteMotif,
     CandidacyMotif,
@@ -318,6 +362,7 @@ MOTIF_ENUMS: tuple[type[IntEnum], ...] = (
     CoalitionMotif,
     ResponseMotif,
     PressureMotif,
+    ReactionMotif,
 )
 
 

@@ -198,6 +198,8 @@ awakening:
                               #      false en v4 => pression atomisée,
                               #      cascade impossible par construction
                               #      (§7bis.9f)
+    event_salience: false     # [v5] un choc exogène abaisse le seuil —
+                              #      requis (true) si events.enabled (§8)
   modulation_amplitude: 0.5   # [v4] f(contexte) borné à [1-amp, 1+amp]
                               #      (§7bis.9c) — amp=0 réduit f à 1 (bras
                               #      de contrôle pour l'analyse de sensibilité)
@@ -225,10 +227,26 @@ sortition_chamber:
 # ÉVÉNEMENTS EXOGÈNES (§8)
 # =============================================================================
 events:
-  enabled: false              # [v5]
-  scandal_rate_per_tick: 0.05 # [v5] intensité du processus de Poisson
-  economy_ar1_phi: 0.8        # [v5] persistance du cycle économique
-  economy_ar1_sigma: 0.1      # [v5] amplitude du bruit
+  enabled: false               # [v5] == (scandal_enabled or economic_shock_enabled),
+                                #      cross-validated in load_config
+  scandal_enabled: false       # [v5] processus de Poisson (§8)
+  scandal_rate_per_tick: 0.05  # [v5] intensité du processus de Poisson
+  scandal_magnitude: 0.3       # [v5] amplitude de la bascule event_salience
+                                #      sur une élection de scandale (Lot 3)
+  economic_shock_enabled: false    # [v5] AR(1) léger (§8)
+  economy_ar1_phi: 0.8         # [v5] persistance du cycle économique
+  economy_ar1_sigma: 0.1       # [v5] amplitude du bruit
+  economy_shock_threshold: 0.5 # [v5] |x(t)| au-delà duquel un choc est
+                                #      "majeur" — journalisé (anti-saturation,
+                                #      §16.3) et le déclencheur du point
+                                #      ouvert n°5 (régénération des personas)
+  salience_decay: 0.85         # [v5] decroissance d'event_salience, miroir
+                                #      de street_pressure.decay (§7bis.4b)
+  max_reaction_delta: 0.3      # [v5] borne de salience_delta par réaction
+                                #      (dt=8, Lot 4) — mandate.max_response_delta
+                                #      / campaign.max_positioning_delta ne
+                                #      sont PAS réutilisés : séparabilité
+                                #      analytique (v4 Lot 6)
 
 # =============================================================================
 # RÉSEAU SOCIAL (§5)
@@ -297,7 +315,7 @@ llm:
   rationale_mode: codes       # [v2] codes | free_text | hybrid (§16.5)
                               #      TRANCHÉ : codes partout + texte libre
                               #      borné aux événements pivots (§3.6.9)
-  codebook_version: "1.3"     # [v2/v4] artefact figé, archivé avec le run (§3.7)
+  codebook_version: "1.4"     # [v2/v4/v5] artefact figé, archivé avec le run (§3.7)
                               #      bump 1.1->1.2 en v4 Lot 1 : réservation
                               #      de dt=6/dt=10, BallotFormat.BINARY, et
                               #      des motifs 300-399 (encore inactifs tant

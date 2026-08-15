@@ -17,6 +17,7 @@ from api.domain.polity.codebook import (
     PARTY_NOMINATION_MOTIF_PROMPT_TABLE,
     PRESSURE_ACT_PROMPT_TABLE,
     PRESSURE_MOTIF_PROMPT_TABLE,
+    REACTION_MOTIF_PROMPT_TABLE,
     RESPONSE_MOTIF_PROMPT_TABLE,
     STANCE_PROMPT_TABLE,
     VOTE_MOTIF_PROMPT_TABLE,
@@ -27,11 +28,13 @@ from api.domain.polity.codebook import (
     CoalitionAction,
     CoalitionMotif,
     DecisionType,
+    EventType,
     MOTIF_ENUMS,
     PartyNominationMotif,
     PolityCodebookError,
     PressureAct,
     PressureMotif,
+    ReactionMotif,
     ResponseMotif,
     Stance,
     VoteMotif,
@@ -185,10 +188,6 @@ def test_pressure_action_is_decision_type_10():
     assert DecisionType.PRESSURE_ACTION == 10
 
 
-def test_decision_type_does_not_yet_define_reaction_to_event_8():
-    assert 8 not in {member.value for member in DecisionType}
-
-
 def test_binary_is_ballot_format_4():
     assert BallotFormat.BINARY == 4
 
@@ -283,3 +282,36 @@ def test_motif_labels_contains_no_non_motif_enum_codes():
 def test_motif_labels_is_ordered_by_code():
     labels = motif_labels()
     assert list(labels.keys()) == sorted(labels.keys())
+
+
+# ── v5 Lot 1: dt=8 reservation, EventType, 400-range motifs ──────────────
+
+def test_reaction_to_event_is_decision_type_8():
+    assert DecisionType.REACTION_TO_EVENT == 8
+
+
+def test_event_type_has_exactly_scandal_and_economic_shock():
+    assert {member.value for member in EventType} == {1, 2}
+
+
+def test_reaction_motif_lives_entirely_inside_the_400s_range():
+    assert all(400 <= member.value <= 499 for member in ReactionMotif)
+
+
+def test_reaction_motif_has_exactly_the_three_documented_codes():
+    assert {member.value for member in ReactionMotif} == {401, 402, 403}
+
+
+def test_reaction_motif_keeps_the_design_docs_own_two_codes_verbatim():
+    assert ReactionMotif.SCANDAL_TRUST_EROSION == 401
+    assert ReactionMotif.ECONOMIC_SHOCK_REACTION == 402
+
+
+def test_reaction_motif_prompt_table_is_derived_from_the_enum_not_hand_typed():
+    for motif in ReactionMotif:
+        assert f"{motif.value} = {motif.name}" in REACTION_MOTIF_PROMPT_TABLE
+    assert REACTION_MOTIF_PROMPT_TABLE.count("\n") == len(ReactionMotif) - 1
+
+
+def test_reaction_motif_is_included_in_motif_enums():
+    assert ReactionMotif in MOTIF_ENUMS

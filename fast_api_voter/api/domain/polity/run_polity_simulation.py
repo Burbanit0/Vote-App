@@ -203,6 +203,19 @@ def run_simulation(
     # Lot 2/3): a fresh default_rng per concern, so enabling rupture draws
     # never perturbs the citizens/parties already generated above.
     rupture_rng = np.random.default_rng(config.run.seed)
+    # RESERVED (v5 Lot 1, not yet instantiated): a third named stream,
+    # `events_rng`, for v5 Lot 2's Poisson scandal arrival + AR(1) economic
+    # shock innovation draws (§8) -- same "fresh default_rng per concern"
+    # reasoning as rupture_rng above, never reusing it. rupture_rng already
+    # draws unconditionally every tick for every elector (before the
+    # is_term_limited/barred-set check, specifically so a gated citizen
+    # never shifts the stream); coupling v5's draws into that stream would
+    # either entangle two unrelated mechanisms' RNG consumption for no
+    # benefit, or -- if inserted only when events.enabled -- violate
+    # rupture_rng's own existing, tested draw-position contract for every
+    # run that doesn't enable events. See the v5 top-level plan's Judgment
+    # Call 5 for the fixed intra-stream draw order (scandal before AR(1))
+    # once Lot 2 instantiates this.
     # v4 Lot 9 (§6bis.2): None whenever blank_vote_competitive is off (the
     # shipped default) or no cycle is currently open -- see PendingRerun's
     # own docstring for why this is a plain local, not a Citizen field.
