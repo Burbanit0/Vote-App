@@ -119,6 +119,24 @@ def test_ratio_out_of_range_raises(tmp_path):
         load_config(path)
 
 
+def test_blank_vote_competitive_without_blank_vote_enabled_raises(tmp_path):
+    def mutate(d):
+        d["institutions"]["blank_vote_enabled"] = False
+        d["institutions"]["blank_vote_competitive"] = True
+
+    path = _write(tmp_path, mutate)
+    with pytest.raises(PolityConfigError, match="blank_vote_competitive"):
+        load_config(path)
+
+
+def test_reelection_delay_ticks_zero_raises(tmp_path):
+    path = _write(
+        tmp_path, lambda d: d["institutions"].__setitem__("reelection_delay_ticks", 0)
+    )
+    with pytest.raises(PolityConfigError, match="reelection_delay_ticks"):
+        load_config(path)
+
+
 def test_coalition_tiebreak_rejects_unknown_key(tmp_path):
     path = _write(
         tmp_path,

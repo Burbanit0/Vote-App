@@ -16,6 +16,7 @@ from api.domain.polity.simple_rules import (
     assign_party_affiliation,
     attempt_rupture_candidacy,
     ballot_ranks_above_blank,
+    blank_share,
     build_confidence_ballot,
     build_ranking,
     candidate_label,
@@ -342,6 +343,45 @@ def test_ballot_ranks_above_blank_is_false_when_the_label_is_absent_from_a_trunc
 def test_ballot_ranks_above_blank_raises_when_blank_label_is_missing():
     with pytest.raises(ValueError, match="does not contain blank_label"):
         ballot_ranks_above_blank(["citizen_1", "citizen_2"], "citizen_1")
+
+
+# ── blank_share (v4 Lot 9, §6bis.2) ──────────────────────────────────────
+
+def test_blank_share_all_top_preference_blank_is_one():
+    ballots = [[BLANK_LABEL, "citizen_10"], [BLANK_LABEL, "citizen_11"]]
+    assert blank_share(ballots) == 1.0
+
+
+def test_blank_share_no_blank_top_preference_is_zero():
+    ballots = [["citizen_10", BLANK_LABEL], ["citizen_11", BLANK_LABEL]]
+    assert blank_share(ballots) == 0.0
+
+
+def test_blank_share_mixed_ballots_computes_the_correct_fraction():
+    ballots = [
+        [BLANK_LABEL, "citizen_10"],
+        ["citizen_10", BLANK_LABEL],
+        ["citizen_11", BLANK_LABEL],
+        [BLANK_LABEL, "citizen_11"],
+    ]
+    assert blank_share(ballots) == 0.5
+
+
+def test_blank_share_raises_on_empty_ballots():
+    with pytest.raises(ValueError, match="no ballots cast"):
+        blank_share([])
+
+
+def test_blank_share_raises_when_a_ballot_is_missing_blank_label():
+    with pytest.raises(ValueError, match="does not contain blank_label"):
+        blank_share([["citizen_1", "citizen_2"]])
+
+
+def test_blank_share_matches_build_ranking_when_no_candidate_clears_tolerance():
+    voter = _citizen(1, (0.0,), priorities=(1.0,), blank_threshold=0.05)
+    candidate = _candidate(10, (0.5,))  # distance 0.5 > 0.05 tolerance
+    ranking = build_ranking(voter, [candidate])
+    assert blank_share([ranking]) == 1.0
 
 
 # ── form_coalition ────────────────────────────────────────────────────────
