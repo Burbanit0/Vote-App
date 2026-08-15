@@ -3,8 +3,9 @@ api.domain.polity.llm_schemas — Pydantic wire schemas for the LLM's
 `vote_cast` (design doc §3.6.1), `candidacy_considered` (§3.6.2),
 `party_nomination_choice` (§3.6.2->3.6.8, dt=4), `campaign_positioning`
 (§3.6.2->3.6.8, dt=5), `coalition_decision` (§3.6.2->3.6.8, dt=9), v2
-increments 1-5, `representative_response` (§3.6.5, dt=6), v4 Lot 6, and
-`pressure_action` (§3.6.6, dt=10), v4 Lot 7.
+increments 1-5, `representative_response` (§3.6.5, dt=6), v4 Lot 6,
+`pressure_action` (§3.6.6, dt=10), v4 Lot 7, and `reaction_to_event`
+(§8, dt=8), v5 Lot 4.
 
 Lives in api/domain/polity/, not api/schemas/ — that package is the public
 HTTP/OpenAPI surface (see voter-api skill); these are internal LLM wire
@@ -346,6 +347,78 @@ class PressureBatch(BaseModel):
 
 
 PRESSURE_JSON_SCHEMA = PressureBatch.model_json_schema()
+
+
+class ReactionDecision(BaseModel):
+    """One citizen's reaction to a single exogenous event (v5 Lot 4, dt=8,
+    §8) — scandal OR economic shock, never both in one call:
+    decide_reaction_to_event takes exactly ONE event_type per call, and a
+    tick where both fire makes two separate calls (run_polity_simulation.py
+    _run_reaction_to_event). No §3.6.7 subsection exists anywhere in the
+    design doc (the numbering jumps 3.6.6 -> 3.6.9), so this wire shape is
+    invented here — and deliberately narrower than an earlier roadmap-level
+    sketch ({cid, event_type, target, ctx:{magnitude, self_gap, mandate_dev},
+    salience_delta, motif}), corrected during this lot's own planning pass.
+
+    event_type/target are dropped: both are call-level constants, identical
+    for every citizen in one call (mirrors why ResponseDecision carries no
+    `dt` field) — simple_rules.deterministic_reaction_to_event already
+    treats event_type this way. ctx.self_gap/ctx.mandate_dev are dropped
+    too: both are officeholder-relative facts (accountability.self_gap/
+    mandate_deviation both raise ValueError against a vacancy, and
+    current_office_holders returns [] on one — there is no citizen to
+    compute either from), yet dt=8 must run population-wide regardless of
+    vacancy, and ECONOMIC_SHOCK's own target is ALWAYS null. See
+    llm_behavior_engine.ReactionContext for what replaces them
+    (event_salience, the one signal that needs no officeholder at all).
+
+    ONE cross-field rule, context-independent and therefore schema-level
+    (same home as ResponseDecision's stance/motif rule): salience_delta==0
+    iff motif==403 (EVENT_PERSONALLY_IRRELEVANT) — the direct wire analogue
+    of ReactionMotif's own construction (401/402 each ground a
+    salience_delta>0 reaction to their own EventType; 403 grounds the
+    salience_delta==0 branch). What this schema canNOT check (needs to know
+    which event_type this call was for): whether `motif` is the CORRECT
+    grounding code (401 during a SCANDAL call, 402 during an ECONOMIC_SHOCK
+    call) — llm_behavior_engine.validate_reaction_decision's job, the same
+    split PressureDecision's own menu-legality check already uses."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    cid: int = Field(..., ge=0, description="citizen_id of the reacting citizen.")
+    salience_delta: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Non-negative shift applied to event_salience (§8) — a loose structural "
+            "ceiling only; the real cap is events.max_reaction_delta."
+        ),
+    )
+    motif: Literal[401, 402, 403] = Field(
+        ..., description="Code court obligatoire (§3.7.2) — voir ReactionMotif."
+    )
+
+    @model_validator(mode="after")
+    def _check_irrelevance_coherence(self) -> ReactionDecision:
+        if (self.salience_delta == 0.0) != (self.motif == 403):
+            raise ValueError("salience_delta == 0 iff motif == 403 (EVENT_PERSONALLY_IRRELEVANT)")
+        return self
+
+
+class ReactionBatch(BaseModel):
+    """§3.6.0's batch envelope, specialized to reaction_to_event — one
+    decision per REACTING citizen, population-wide (§8): unlike
+    PressureBatch's awakening-gated `consulted` cohort,
+    decide_reaction_to_event is called once per firing event_type over the
+    WHOLE citizen list."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    decisions: list[ReactionDecision] = Field(..., min_length=1)
+
+
+REACTION_JSON_SCHEMA = ReactionBatch.model_json_schema()
 
 
 class CoalitionDecision(BaseModel):

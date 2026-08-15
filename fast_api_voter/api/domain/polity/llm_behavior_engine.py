@@ -71,6 +71,17 @@ rejected here -- see accountability.applicable_pressure_act, which the
 caller applies after this function returns. This module never sees or
 mutates petition state; it only decides and validates against the menu.
 
+decide_reaction_to_event (v5 Lot 4, dt=8) is the third population-wide-
+broadcast decision type after vote_cast/decide_pressure_actions, and the
+first to make TWO independent calls in one tick body (a tick where both a
+scandal and an economic shock fire calls this twice, once per event_type,
+never combined into one prompt). It has the smallest ctx of any decision
+type in this module -- one float, event_salience -- because dt=8 must run
+regardless of whether a president currently sits (self_gap/mandate_dev,
+both officeholder-relative, are structurally uncomputable on a vacancy
+tick and were dropped from the wire schema entirely, not merely made
+optional; see llm_schemas.ReactionDecision's own docstring).
+
 Deliberate simplifications versus the full design doc, documented rather
 than silently made:
 - No persona library (§9) yet: citizens are described to the LLM by their
@@ -106,10 +117,13 @@ from api.domain.polity.codebook import (
     PARTY_NOMINATION_MOTIF_PROMPT_TABLE,
     PRESSURE_ACT_PROMPT_TABLE,
     PRESSURE_MOTIF_PROMPT_TABLE,
+    REACTION_MOTIF_PROMPT_TABLE,
     RESPONSE_MOTIF_PROMPT_TABLE,
     STANCE_PROMPT_TABLE,
     VOTE_MOTIF_PROMPT_TABLE,
     CoalitionAction,
+    EventType,
+    ReactionMotif,
     check_codebook_version,
 )
 from api.domain.polity.config import PolityConfig, PressureMenuConfig
@@ -122,6 +136,7 @@ from api.domain.polity.llm_client import (
     decode_party_nomination_batch,
     decode_positioning_batch,
     decode_pressure_batch,
+    decode_reaction_batch,
     decode_response_batch,
     decode_vote_batch,
     unsupported_provider_error,
@@ -132,6 +147,7 @@ from api.domain.polity.llm_schemas import (
     PARTY_NOMINATION_JSON_SCHEMA,
     POSITIONING_JSON_SCHEMA,
     PRESSURE_JSON_SCHEMA,
+    REACTION_JSON_SCHEMA,
     RESPONSE_JSON_SCHEMA,
     VOTE_CAST_JSON_SCHEMA,
     CandidacyDecision,
@@ -140,6 +156,7 @@ from api.domain.polity.llm_schemas import (
     PositioningDecision,
     PositionShift,
     PressureDecision,
+    ReactionDecision,
     ResponseDecision,
     VoteCastDecision,
 )
@@ -1463,6 +1480,201 @@ def decide_pressure_actions(
         decisions.extend(chunk_decisions)
 
     return PressureBatchOutcome(decisions=decisions)
+
+
+@dataclass(frozen=True)
+class ReactionContext:
+    """dt=8's per-citizen ctx (v5 Lot 4, §8) -- deliberately ONE field, not
+    an earlier roadmap-level sketch's {magnitude, self_gap, mandate_dev}
+    shape (see ReactionDecision's own docstring for why that shape doesn't
+    survive contact with vacancy and with ECONOMIC_SHOCK's always-null
+    target). `event_salience` is the citizen's own CURRENT, PRE-UPDATE
+    residual awareness -- the exact quantity this decision revises --
+    frozen at the moment the caller reads it, before decide_reaction_to_event
+    runs and before the caller's own per-citizen loop starts mutating it.
+    Never None: every citizen carries event_salience unconditionally since
+    v5 Lot 3 (default 0.0), so unlike ResponseContext/PressureContext's
+    optional fields there is no "not tracked" case to represent here."""
+
+    cid: int
+    event_salience: float
+
+    def to_payload(self) -> dict[str, float]:
+        """Used by BOTH build_reaction_user_prompt and the journal write,
+        so the ctx an analyst reads is provably the ctx the model saw."""
+        return {"event_salience": round(self.event_salience, 4)}
+
+
+@dataclass(frozen=True)
+class ReactionBatchOutcome:
+    decisions: list[ReactionDecision]
+    """Decisions only -- same one-field shape as CandidacyBatchOutcome/
+    PressureBatchOutcome. The CALLER applies each salience_delta via
+    accountability.update_event_salience, exactly as it already applies
+    deterministic_reaction_to_event's own flat delta (v5 Lot 3) -- this
+    lot only changes WHO computes the delta, never how it's applied."""
+
+
+_EVENT_TYPE_GROUNDING_MOTIF: dict[EventType, ReactionMotif] = {
+    EventType.SCANDAL: ReactionMotif.SCANDAL_TRUST_EROSION,
+    EventType.ECONOMIC_SHOCK: ReactionMotif.ECONOMIC_SHOCK_REACTION,
+}
+
+
+def validate_reaction_decision(decision: ReactionDecision, event_type: EventType, config: PolityConfig) -> None:
+    """Context-dependent checks llm_schemas.py's Pydantic validators can't
+    do without knowing which event_type this call was for: the real
+    events.max_reaction_delta bound (the schema only enforces the loose
+    [0,1] structural ceiling), and that `motif` is either THIS call's own
+    grounding motif or 403 (EVENT_PERSONALLY_IRRELEVANT) -- never the
+    OTHER event_type's grounding code, which Literal[401,402,403] alone
+    can't rule out since one schema serves both calls."""
+    if decision.salience_delta > config.events.max_reaction_delta:
+        raise LlmResponseError(
+            f"decision for cid={decision.cid} salience_delta={decision.salience_delta} exceeds "
+            f"events.max_reaction_delta={config.events.max_reaction_delta}"
+        )
+    grounding_motif = _EVENT_TYPE_GROUNDING_MOTIF[event_type]
+    if decision.motif not in (int(grounding_motif), int(ReactionMotif.EVENT_PERSONALLY_IRRELEVANT)):
+        raise LlmResponseError(
+            f"decision for cid={decision.cid} motif={decision.motif} is not valid for "
+            f"event_type={event_type.name} (expected {int(grounding_motif)} or "
+            f"{int(ReactionMotif.EVENT_PERSONALLY_IRRELEVANT)})"
+        )
+
+
+def build_reaction_system_prompt(citizens: Sequence[Citizen], event_type: EventType, config: PolityConfig) -> str:
+    """Same "enumerate the full expected cid list verbatim + self-check"
+    discipline as every prior decision type (Finding B precedent). Filters
+    REACTION_MOTIF_PROMPT_TABLE to exactly {this call's grounding motif,
+    403} -- dt=10's own live-finding fix (build_pressure_system_prompt's
+    docstring), applied proactively rather than waiting for a live failure
+    to force it: showing the model a motif table containing the OTHER
+    event_type's own grounding code would invite exactly the kind of
+    out-of-menu-but-schema-legal confusion Lot 7 found live. States the
+    real events.max_reaction_delta bound explicitly (the schema's own
+    [0,1] ceiling is only structural) and the salience_delta==0<=>motif==403
+    rule. Explains ctx.event_salience: the citizen's own already-accumulated
+    awareness of past events, 0.0 if untouched so far."""
+    cid_list = ",".join(str(c.citizen_id) for c in citizens)
+    grounding_motif = _EVENT_TYPE_GROUNDING_MOTIF[event_type]
+    legal_motifs = (int(grounding_motif), int(ReactionMotif.EVENT_PERSONALLY_IRRELEVANT))
+    legal_table = "\n".join(
+        line for line in REACTION_MOTIF_PROMPT_TABLE.splitlines() if int(line.split(" = ")[0]) in legal_motifs
+    )
+    event_label = "un scandale" if event_type is EventType.SCANDAL else "un choc economique"
+    return (
+        "Tu es un moteur de simulation. Pour chaque citoyen recu (reaction_to_event), "
+        f"decide sa reaction a {event_label} qui vient de se produire, en te basant sur "
+        "son propre niveau d'attention deja accumule (ctx.event_salience).\n"
+        "CONTRAINTE ABSOLUE : salience_delta doit etre >= 0.0 et <= "
+        f"{config.events.max_reaction_delta} (events.max_reaction_delta). Tout depassement "
+        "invalide le batch entier.\n"
+        f"Motifs valides pour cet evenement (code court obligatoire) :\n{legal_table}\n"
+        "REGLE DE COHERENCE : salience_delta == 0 si et seulement si motif == "
+        f"{int(ReactionMotif.EVENT_PERSONALLY_IRRELEVANT)} "
+        "(EVENT_PERSONALLY_IRRELEVANT) -- un citoyen indifferent a l'evenement choisit "
+        "ce motif et une variation nulle ; toute autre reaction utilise "
+        f"{int(grounding_motif)} avec une variation strictement positive.\n"
+        "ctx.event_salience : le niveau d'attention DEJA accumule par ce citoyen envers "
+        "les evenements recents, avant sa reaction actuelle -- 0.0 s'il n'a encore ete "
+        "touche par rien.\n"
+        f"IMPORTANT : la liste decisions doit contenir EXACTEMENT ces {len(citizens)} cid, "
+        f"chacun une seule fois, dans cet ordre : [{cid_list}]. Verifie ta reponse avant de "
+        "la finaliser : chaque cid de cette liste doit apparaitre exactement une fois.\n"
+        "Reponds UNIQUEMENT avec un objet JSON conforme au schema fourni."
+    )
+
+
+def build_reaction_user_prompt(
+    citizens: Sequence[Citizen],
+    contexts: Mapping[int, ReactionContext],
+    *,
+    event_type: EventType,
+    target: int | None,
+    magnitude: float,
+) -> str:
+    """Canonical JSON (sort_keys, compact separators, floats rounded to 4).
+    Top-level keys {"event": {...}, "reactors": [...]} -- "reactors" is the
+    eighth dispatch key (citizens/parties/nominees/responders/holders/
+    consulted/voters are taken). "event" is stated ONCE, shared across the
+    whole batch -- never duplicated into each of up to 100 citizens' own
+    blocks -- and is deliberately asymmetric per event_type, mirroring
+    _run_exogenous_events's own scandal_occurred/economic_shock_tick
+    payloads (v5 Lot 2) and Lot 3's own deterministic reaction_to_event
+    payload: `magnitude` is present only for ECONOMIC_SHOCK (it is
+    meaningless for a SCANDAL, whose deterministic reaction uses a flat
+    config constant, not a magnitude). Does not re-sort -- the caller owns
+    the canonical order the system prompt enumerates."""
+    event: dict[str, object] = {"event_type": int(event_type), "target": target}
+    if event_type is EventType.ECONOMIC_SHOCK:
+        event["magnitude"] = round(magnitude, 4)
+    reactor_blocks = [
+        {"cid": citizen.citizen_id, "ctx": contexts[citizen.citizen_id].to_payload()} for citizen in citizens
+    ]
+    return json.dumps({"event": event, "reactors": reactor_blocks}, sort_keys=True, separators=(",", ":"))
+
+
+def decide_reaction_to_event(
+    citizens: Sequence[Citizen],
+    contexts: Mapping[int, ReactionContext],
+    event_type: EventType,
+    config: PolityConfig,
+    client: LlmClientProtocol,
+    *,
+    target: int | None,
+    magnitude: float = 0.0,
+) -> ReactionBatchOutcome:
+    """v5 Lot 4's dt=8 replacement for deterministic_reaction_to_event
+    (simple_rules.py), which stays exactly as it is as the permanent
+    §11.4 baseline. Mirrors that function's own signature -- ONE event_type
+    per call, never a combined scandal+shock request -- extended only by
+    what the LLM path additionally needs (citizens/contexts/config/client).
+
+    Population-wide, like decide_pressure_actions -- CHUNKS via
+    chunk_voters, but at the DEFAULT MIN_SAFE_BATCH_SIZE floor, not dt=10's
+    own min_batch_size=1 override: dt=8's cohort is the entire population
+    (a static, run-level quantity), not a variable, sometimes-shrinking
+    consulted cohort, so there is no production scenario this lot has
+    identified where the floor would legitimately block a real run. At
+    shipped population_size=100/llm.max_batch_size=25, chunk_voters
+    produces exactly 4 chunks of 25 -- comfortably clear of the floor with
+    no remainder.
+
+    Calls the client with think=False -- confirmed for this exact schema
+    shape by this lot's own pre-flight spike against the REAL ReactionMotif/
+    EventType enums (scripts/check_lot4_reaction_reliability.py,
+    scripts/lot4_reaction_reliability_results.md), unlike v4 Lot 6's own
+    spike which had to use toy schemas because the real ones didn't exist
+    yet."""
+    _check_supported(config)
+
+    if not citizens:
+        return ReactionBatchOutcome(decisions=[])
+
+    # Sorted once, here, so system prompt / user prompt / expected_cids all
+    # agree on the same order regardless of the caller's order -- never
+    # rely on an incidental insertion order (D-5 precedent).
+    citizens = sorted(citizens, key=lambda c: c.citizen_id)
+    decisions: list[ReactionDecision] = []
+    for chunk in chunk_voters(citizens, config.llm.max_batch_size):
+        expected_cids = [c.citizen_id for c in chunk]
+        chunk_decisions = _complete_and_decode_with_replay(
+            client,
+            system_prompt=build_reaction_system_prompt(chunk, event_type, config),
+            user_prompt=build_reaction_user_prompt(chunk, contexts, event_type=event_type, target=target, magnitude=magnitude),
+            json_schema=REACTION_JSON_SCHEMA,
+            max_tokens=compute_max_tokens(len(chunk)),
+            think=False,
+            decode=lambda raw: decode_reaction_batch(raw, expected_cids),
+            replays=config.llm.max_batch_replays,
+            decision_type="reaction_to_event",
+        )
+        for decision in chunk_decisions:
+            validate_reaction_decision(decision, event_type, config)
+        decisions.extend(chunk_decisions)
+
+    return ReactionBatchOutcome(decisions=decisions)
 
 
 @dataclass(frozen=True)

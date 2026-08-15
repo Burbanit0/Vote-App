@@ -70,6 +70,8 @@ from api.domain.polity.llm_schemas import (
     PositioningDecision,
     PressureBatch,
     PressureDecision,
+    ReactionBatch,
+    ReactionDecision,
     ResponseBatch,
     ResponseDecision,
     VoteCastBatch,
@@ -625,6 +627,37 @@ def decode_pressure_batch(raw: str, expected_cids: Sequence[int]) -> list[Pressu
 
     try:
         batch = PressureBatch.model_validate(parsed)
+    except ValidationError as exc:
+        raise LlmResponseError(f"batch failed schema validation: {exc}") from exc
+
+    got_cids = [decision.cid for decision in batch.decisions]
+    if got_cids != list(expected_cids):
+        raise LlmResponseError(
+            f"batch misaligned with the request: expected cids {list(expected_cids)}, got {got_cids}"
+        )
+
+    return batch.decisions
+
+
+def decode_reaction_batch(raw: str, expected_cids: Sequence[int]) -> list[ReactionDecision]:
+    """Same contract as decode_pressure_batch, specialized to ReactionBatch
+    -- keyed on `cid` (the reacting citizen), v5 Lot 4 (dt=8). An eighth
+    near-identical decode function, kept duplicated for the same reason as
+    the third through seventh.
+
+    Like decode_pressure_batch, `expected_cids` here is a variable-size,
+    CHUNKED cohort -- decide_reaction_to_event calls this once per
+    chunk_voters chunk (always exactly 4 chunks of 25 at shipped
+    population_size/max_batch_size, since dt=8 batches the WHOLE
+    population, not an awakening-gated subset)."""
+    stripped = _THINK_TAG_RE.sub("", raw).strip()
+    try:
+        parsed = json.loads(stripped)
+    except json.JSONDecodeError as exc:
+        raise LlmResponseError(f"response is not valid JSON after stripping reasoning tags: {exc}") from exc
+
+    try:
+        batch = ReactionBatch.model_validate(parsed)
     except ValidationError as exc:
         raise LlmResponseError(f"batch failed schema validation: {exc}") from exc
 

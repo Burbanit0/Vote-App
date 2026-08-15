@@ -13,6 +13,7 @@ from api.domain.polity.codebook import (
     PartyNominationMotif,
     PressureAct,
     PressureMotif,
+    ReactionMotif,
     ResponseMotif,
     Stance,
     VoteMotif,
@@ -23,6 +24,7 @@ from api.domain.polity.llm_schemas import (
     PARTY_NOMINATION_JSON_SCHEMA,
     POSITIONING_JSON_SCHEMA,
     PRESSURE_JSON_SCHEMA,
+    REACTION_JSON_SCHEMA,
     RESPONSE_JSON_SCHEMA,
     VOTE_CAST_JSON_SCHEMA,
     CandidacyBatch,
@@ -35,6 +37,8 @@ from api.domain.polity.llm_schemas import (
     PositioningDecision,
     PressureBatch,
     PressureDecision,
+    ReactionBatch,
+    ReactionDecision,
     ResponseBatch,
     ResponseDecision,
     VoteCastBatch,
@@ -587,3 +591,82 @@ def test_pressure_json_schema_marks_cid_target_act_and_motif_as_required():
 
 def test_pressure_json_schema_batch_forbids_additional_properties():
     assert PRESSURE_JSON_SCHEMA.get("additionalProperties") is False
+
+
+# ── ReactionDecision / ReactionBatch (v5 Lot 4, §8) ───────────────────────
+
+def _reaction_decision(**overrides):
+    base = {"cid": 1, "salience_delta": 0.15, "motif": 401}
+    base.update(overrides)
+    return base
+
+
+def test_valid_reaction_decision_round_trips_a_reaction():
+    decision = ReactionDecision.model_validate(_reaction_decision())
+    assert decision.cid == 1
+    assert decision.salience_delta == 0.15
+    assert decision.motif == 401
+
+
+def test_reaction_zero_delta_requires_motif_403():
+    with pytest.raises(ValidationError):
+        ReactionDecision.model_validate(_reaction_decision(salience_delta=0.0, motif=401))
+
+
+def test_reaction_nonzero_delta_with_motif_403_raises():
+    with pytest.raises(ValidationError):
+        ReactionDecision.model_validate(_reaction_decision(salience_delta=0.1, motif=403))
+
+
+def test_reaction_zero_delta_with_motif_403_is_accepted():
+    decision = ReactionDecision.model_validate(_reaction_decision(salience_delta=0.0, motif=403))
+    assert decision.salience_delta == 0.0
+    assert decision.motif == 403
+
+
+def test_reaction_nonzero_delta_with_a_grounding_motif_is_accepted():
+    for motif in (401, 402):
+        decision = ReactionDecision.model_validate(_reaction_decision(salience_delta=0.1, motif=motif))
+        assert decision.motif == motif
+
+
+def test_reaction_motif_literal_matches_reaction_motif_enum_exactly():
+    literal_values = set(ReactionDecision.model_fields["motif"].annotation.__args__)  # type: ignore[union-attr]
+    assert literal_values == {member.value for member in ReactionMotif}
+
+
+def test_reaction_salience_delta_above_one_raises():
+    with pytest.raises(ValidationError):
+        ReactionDecision.model_validate(_reaction_decision(salience_delta=1.5))
+
+
+def test_reaction_salience_delta_below_zero_raises():
+    with pytest.raises(ValidationError):
+        ReactionDecision.model_validate(_reaction_decision(salience_delta=-0.1))
+
+
+def test_reaction_unknown_extra_key_raises():
+    with pytest.raises(ValidationError):
+        ReactionDecision.model_validate({**_reaction_decision(), "extra_field": True})
+
+
+def test_reaction_empty_decisions_list_raises():
+    with pytest.raises(ValidationError):
+        ReactionBatch.model_validate({"decisions": []})
+
+
+def test_reaction_batch_round_trips_multiple_decisions():
+    batch = ReactionBatch.model_validate(
+        {"decisions": [_reaction_decision(cid=1), _reaction_decision(cid=2, salience_delta=0.0, motif=403)]}
+    )
+    assert [d.cid for d in batch.decisions] == [1, 2]
+
+
+def test_reaction_json_schema_marks_cid_salience_delta_and_motif_as_required():
+    decision_schema = REACTION_JSON_SCHEMA["$defs"]["ReactionDecision"]
+    assert set(decision_schema["required"]) == {"cid", "salience_delta", "motif"}
+    assert decision_schema.get("additionalProperties") is False
+
+
+def test_reaction_json_schema_batch_forbids_additional_properties():
+    assert REACTION_JSON_SCHEMA.get("additionalProperties") is False
