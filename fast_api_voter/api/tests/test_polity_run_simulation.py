@@ -9,6 +9,7 @@ Contracts (dev-plan-v0-worktree.md §3-4, Lot 8):
 import dataclasses
 import json
 
+import numpy as np
 import pytest
 
 from api.domain.polity.accountability import update_street_pressure
@@ -19,6 +20,8 @@ from api.domain.polity.llm_client import LlmResponseError, OllamaJsonClient, Vll
 from api.domain.polity.metrics import mobilization_rate
 from api.domain.polity.parties import Party, initialize_parties
 from api.domain.polity.run_polity_simulation import (
+    PendingRerun,
+    _attempt_rupture_candidacies,
     _hold_presidential_election,
     _llm_client_scope,
     _run_accountability_phase,
@@ -405,6 +408,421 @@ def test_term_limited_incumbent_is_not_re_nominated(tmp_path):
     assert citizen_a.office == Office.NONE
     assert citizen_a.role == Role.ELECTOR
     assert citizen_a.mandates_served == 1
+
+
+# ── competitive blank voting (v4 Lot 9, §6bis.2) ─────────────────────────
+
+def _blank_config(**institution_overrides) -> PolityConfig:
+    config = load_config()
+    return dataclasses.replace(
+        config,
+        institutions=dataclasses.replace(
+            config.institutions, blank_vote_competitive=True, **institution_overrides
+        ),
+    )
+
+
+def _blank_leaning_citizen(cid, position, blank_threshold=0.0, ambition=1.0, party=None):
+    return Citizen(
+        citizen_id=cid,
+        issue_positions=(position,),
+        issue_priorities=(1.0,),
+        blank_threshold=blank_threshold,
+        ambition_score=ambition,
+        party_affiliation=party,
+    )
+
+
+def _config_with_blank_vote_competitive_enabled(output_dir, **overrides) -> PolityConfig:
+    config = _config_with_output_dir(output_dir)
+    return dataclasses.replace(
+        config,
+        institutions=dataclasses.replace(config.institutions, blank_vote_competitive=True, **overrides),
+    )
+
+
+def test_default_config_run_emits_no_election_invalidated_events(tmp_path):
+    journal_path = run_simulation(_config_with_output_dir(tmp_path), run_id="baseline")
+    events = _events(journal_path)
+    assert not [e for e in events if e["event_type"] == "election_invalidated"]
+
+
+def test_two_runs_with_blank_vote_competitive_enabled_produce_byte_identical_journals(tmp_path):
+    path_a = run_simulation(_config_with_blank_vote_competitive_enabled(tmp_path / "a"), run_id="same-run-id")
+    path_b = run_simulation(_config_with_blank_vote_competitive_enabled(tmp_path / "b"), run_id="same-run-id")
+    assert path_a.read_bytes() == path_b.read_bytes()
+
+
+def test_blank_vote_competitive_enabled_but_never_triggered_matches_the_default_journal_byte_for_byte(tmp_path):
+    # The load-bearing off-vs-on proof: at the shipped default population/
+    # candidacy config, no citizen ever crosses ambition_threshold (0.7), so
+    # nominees is always [] and the invalidation check inside `if nominees:`
+    # never even runs -- turning the gate on is a true no-op here, not
+    # merely "happens not to trigger this seed".
+    path_off = run_simulation(_config_with_output_dir(tmp_path / "off"), run_id="same-run-id")
+    path_on = run_simulation(_config_with_blank_vote_competitive_enabled(tmp_path / "on"), run_id="same-run-id")
+    events_on = _events(path_on)
+    assert not [e for e in events_on if e["event_type"] == "election_invalidated"]
+    assert not any("attempt" in e["payload"] for e in events_on if e["event_type"] in ("elected", "election_no_winner"))
+    assert path_off.read_bytes() == path_on.read_bytes()
+
+
+def test_election_invalidated_when_blank_share_exceeds_threshold(tmp_path):
+    config = _blank_config()
+    candidate = _blank_leaning_citizen(0, 0.5, ambition=1.0, party=0)
+    party = Party(party_id=0, platform=(0.5,))
+    # blank_threshold=0.0, positioned far from the candidate: every elector
+    # rejects the candidate outright, so Blank is their top preference.
+    electors = [_blank_leaning_citizen(i, 0.0, ambition=0.0) for i in range(1, 8)]
+
+    with Journal(tmp_path / "run.jsonl", run_id="r") as journal:
+        result = _hold_presidential_election(
+            [candidate] + electors, [party], config, journal, tick=0, llm_client=None
+        )
+
+    events = _events(tmp_path / "run.jsonl")
+    invalidated = [e for e in events if e["event_type"] == "election_invalidated"]
+    assert len(invalidated) == 1
+    assert invalidated[0]["payload"]["blank_share"] == pytest.approx(7 / 8)
+    assert invalidated[0]["payload"]["threshold"] == 0.5
+    assert invalidated[0]["payload"]["attempt"] == 1
+    assert result == PendingRerun(attempt=1, next_tick=1, barred_candidate_ids=frozenset({0}))
+    assert not [e for e in events if e["event_type"] in ("elected", "election_no_winner")]
+
+
+def test_election_not_invalidated_when_blank_share_is_below_threshold(tmp_path):
+    config = _blank_config()
+    candidate = _blank_leaning_citizen(0, 0.5, ambition=1.0, party=0)
+    party = Party(party_id=0, platform=(0.5,))
+    # blank_threshold=1.0: every elector accepts the (only) candidate.
+    electors = [_blank_leaning_citizen(i, 0.0, blank_threshold=1.0, ambition=0.0) for i in range(1, 4)]
+
+    with Journal(tmp_path / "run.jsonl", run_id="r") as journal:
+        result = _hold_presidential_election(
+            [candidate] + electors, [party], config, journal, tick=0, llm_client=None
+        )
+
+    events = _events(tmp_path / "run.jsonl")
+    assert not [e for e in events if e["event_type"] == "election_invalidated"]
+    assert result is None
+
+
+def test_election_invalidated_uses_strict_comparison_at_the_exact_threshold(tmp_path):
+    config = _blank_config()
+    candidate = _blank_leaning_citizen(0, 0.5, ambition=1.0, party=0)
+    party = Party(party_id=0, platform=(0.5,))
+    # Exactly 2 of 4 cast ballots (candidate's own self-vote + 1 accepting
+    # elector are non-blank; 2 rejecting electors are blank) -- blank_share
+    # == 0.5 exactly, the shipped threshold. "dépasse" (exceeds) reads as
+    # strict >, not >=.
+    accepting = _blank_leaning_citizen(1, 0.0, blank_threshold=1.0, ambition=0.0)
+    rejecting = [_blank_leaning_citizen(i, 0.0, ambition=0.0) for i in (2, 3)]
+
+    with Journal(tmp_path / "run.jsonl", run_id="r") as journal:
+        result = _hold_presidential_election(
+            [candidate, accepting] + rejecting, [party], config, journal, tick=0, llm_client=None
+        )
+
+    events = _events(tmp_path / "run.jsonl")
+    assert not [e for e in events if e["event_type"] == "election_invalidated"]
+    assert [e for e in events if e["event_type"] in ("elected", "election_no_winner")]
+    assert result is None
+
+
+def test_forced_attempt_accepts_the_result_even_when_blank_share_still_exceeds_threshold(tmp_path):
+    config = _blank_config()  # shipped reelection_max_attempts == 2
+    candidate = _blank_leaning_citizen(0, 0.5, ambition=1.0, party=0)
+    party = Party(party_id=0, platform=(0.5,))
+    electors = [_blank_leaning_citizen(i, 0.0, ambition=0.0) for i in range(1, 8)]
+    forced_pending_rerun = PendingRerun(attempt=3, next_tick=5, barred_candidate_ids=frozenset())
+
+    with Journal(tmp_path / "run.jsonl", run_id="r") as journal:
+        result = _hold_presidential_election(
+            [candidate] + electors, [party], config, journal, tick=5, llm_client=None,
+            pending_rerun=forced_pending_rerun,
+        )
+
+    events = _events(tmp_path / "run.jsonl")
+    assert not [e for e in events if e["event_type"] == "election_invalidated"]
+    outcomes = [e for e in events if e["event_type"] in ("elected", "election_no_winner")]
+    assert len(outcomes) == 1
+    assert outcomes[0]["payload"]["attempt"] == 3
+    assert outcomes[0]["payload"]["forced"] == 1
+    assert result is None
+
+
+def test_non_forced_rerun_payload_carries_attempt_but_not_forced(tmp_path):
+    config = _blank_config()
+    candidate = _blank_leaning_citizen(0, 0.5, ambition=1.0, party=0)
+    party = Party(party_id=0, platform=(0.5,))
+    electors = [_blank_leaning_citizen(i, 0.0, blank_threshold=1.0, ambition=0.0) for i in range(1, 4)]
+    pending_rerun = PendingRerun(attempt=1, next_tick=1, barred_candidate_ids=frozenset())
+
+    with Journal(tmp_path / "run.jsonl", run_id="r") as journal:
+        result = _hold_presidential_election(
+            [candidate] + electors, [party], config, journal, tick=1, llm_client=None,
+            pending_rerun=pending_rerun,
+        )
+
+    events = _events(tmp_path / "run.jsonl")
+    outcomes = [e for e in events if e["event_type"] in ("elected", "election_no_winner")]
+    assert len(outcomes) == 1
+    assert outcomes[0]["payload"]["attempt"] == 1
+    assert outcomes[0]["payload"]["forced"] == 0
+    assert result is None
+
+
+def test_barred_candidates_are_excluded_from_the_next_partys_nomination(tmp_path):
+    config = _blank_config()
+    candidate = _blank_leaning_citizen(0, 0.5, ambition=1.0, party=0)
+    party = Party(party_id=0, platform=(0.5,))
+    electors = [_blank_leaning_citizen(i, 0.0, ambition=0.0) for i in range(1, 8)]
+
+    with Journal(tmp_path / "run.jsonl", run_id="r") as journal:
+        pending_rerun = _hold_presidential_election(
+            [candidate] + electors, [party], config, journal, tick=0, llm_client=None
+        )
+        assert pending_rerun is not None and 0 in pending_rerun.barred_candidate_ids
+
+        result = _hold_presidential_election(
+            [candidate] + electors, [party], config, journal, tick=1, llm_client=None,
+            pending_rerun=pending_rerun,
+        )
+
+    events = _events(tmp_path / "run.jsonl")
+    declared_at_tick_1 = [e for e in events if e["tick"] == 1 and e["event_type"] == "candidacy_declared"]
+    assert declared_at_tick_1 == []
+    outcomes_at_tick_1 = [e for e in events if e["tick"] == 1 and e["event_type"] in ("elected", "election_no_winner")]
+    assert len(outcomes_at_tick_1) == 1
+    assert outcomes_at_tick_1[0]["event_type"] == "election_no_winner"
+    assert result is None
+
+
+def test_barred_candidates_cannot_declare_a_rupture_candidacy(tmp_path):
+    # blank_vote_competitive itself is irrelevant to this call --
+    # _attempt_rupture_candidacies only reads config.candidacy and the
+    # barred_candidate_ids argument directly.
+    config = load_config()
+    config = dataclasses.replace(
+        config,
+        candidacy=dataclasses.replace(
+            config.candidacy,
+            rupture_path_enabled=True,
+            rupture_base_probability=1.0,
+            rupture_signature_ratio=0.0,
+        ),
+    )
+    citizen = _blank_leaning_citizen(0, 0.5, blank_threshold=1.0, ambition=0.0)
+    citizen.role = Role.ELECTOR
+    population = [citizen] + [_blank_leaning_citizen(i, 0.5, blank_threshold=1.0, ambition=0.0) for i in range(1, 4)]
+    rng = np.random.default_rng(0)
+
+    with Journal(tmp_path / "run.jsonl", run_id="r") as journal:
+        _attempt_rupture_candidacies(
+            population, config, journal, tick=0, rng=rng, barred_candidate_ids=frozenset({0})
+        )
+
+    events = _events(tmp_path / "run.jsonl")
+    assert not [e for e in events if e["citizen_id"] == 0]
+    assert citizen.role == Role.ELECTOR
+
+
+def test_barred_from_immediate_rerun_false_allows_the_same_candidates_to_restand(tmp_path):
+    config = _blank_config(barred_from_immediate_rerun=False)
+    candidate = _blank_leaning_citizen(0, 0.5, ambition=1.0, party=0)
+    party = Party(party_id=0, platform=(0.5,))
+    electors = [_blank_leaning_citizen(i, 0.0, ambition=0.0) for i in range(1, 8)]
+
+    with Journal(tmp_path / "run.jsonl", run_id="r") as journal:
+        result = _hold_presidential_election(
+            [candidate] + electors, [party], config, journal, tick=0, llm_client=None
+        )
+
+    events = _events(tmp_path / "run.jsonl")
+    invalidated = [e for e in events if e["event_type"] == "election_invalidated"]
+    assert len(invalidated) == 1
+    assert invalidated[0]["payload"]["candidate_ids"] == [0]
+    assert result == PendingRerun(attempt=1, next_tick=1, barred_candidate_ids=frozenset())
+
+
+def test_barred_candidate_ids_accumulate_across_repeated_invalidations(tmp_path):
+    config = _blank_config()
+    candidate_a = _blank_leaning_citizen(0, 0.5, ambition=1.0, party=0)
+    candidate_b = _blank_leaning_citizen(1, 0.5, ambition=1.0, party=1)
+    party_a = Party(party_id=0, platform=(0.5,))
+    party_b = Party(party_id=1, platform=(0.5,))
+    electors = [_blank_leaning_citizen(i, 0.0, ambition=0.0) for i in range(2, 9)]
+
+    with Journal(tmp_path / "run.jsonl", run_id="r") as journal:
+        first = _hold_presidential_election(
+            [candidate_a, candidate_b] + electors, [party_a], config, journal, tick=0, llm_client=None
+        )
+        assert first is not None and first.barred_candidate_ids == frozenset({0})
+
+        second = _hold_presidential_election(
+            [candidate_a, candidate_b] + electors, [party_b], config, journal, tick=1, llm_client=None,
+            pending_rerun=first,
+        )
+
+    assert second is not None
+    assert second.attempt == 2
+    assert second.barred_candidate_ids == frozenset({0, 1})
+
+
+def test_pending_rerun_resets_after_a_real_winner_is_elected(tmp_path):
+    config = _blank_config()
+    candidate_a = _blank_leaning_citizen(0, 0.5, ambition=1.0, party=0)
+    candidate_b = _blank_leaning_citizen(1, 0.0, ambition=1.0, party=1)
+    party_a = Party(party_id=0, platform=(0.5,))
+    party_b = Party(party_id=1, platform=(0.0,))
+    # blank_threshold=0.0, positioned at 0.0: reject A (distance 0.5), accept B (distance 0).
+    electors = [_blank_leaning_citizen(i, 0.0, ambition=0.0) for i in range(2, 9)]
+
+    with Journal(tmp_path / "run.jsonl", run_id="r") as journal:
+        first = _hold_presidential_election(
+            [candidate_a, candidate_b] + electors, [party_a], config, journal, tick=0, llm_client=None
+        )
+        assert first is not None
+
+        second = _hold_presidential_election(
+            [candidate_a, candidate_b] + electors, [party_b], config, journal, tick=1, llm_client=None,
+            pending_rerun=first,
+        )
+
+    assert second is None
+    assert candidate_b.office == Office.PRESIDENT
+
+
+def test_zero_nominees_after_barring_resolves_as_election_no_winner_and_clears_pending_rerun(tmp_path):
+    config = _blank_config()
+    candidate = _blank_leaning_citizen(0, 0.5, ambition=1.0, party=0)
+    party = Party(party_id=0, platform=(0.5,))
+    electors = [_blank_leaning_citizen(i, 0.0, ambition=0.0) for i in range(1, 8)]
+
+    with Journal(tmp_path / "run.jsonl", run_id="r") as journal:
+        first = _hold_presidential_election(
+            [candidate] + electors, [party], config, journal, tick=0, llm_client=None
+        )
+        assert first is not None
+
+        second = _hold_presidential_election(
+            [candidate] + electors, [party], config, journal, tick=1, llm_client=None,
+            pending_rerun=first,
+        )
+
+    events = _events(tmp_path / "run.jsonl")
+    outcomes_at_tick_1 = [e for e in events if e["tick"] == 1 and e["event_type"] in ("elected", "election_no_winner")]
+    assert len(outcomes_at_tick_1) == 1
+    assert outcomes_at_tick_1[0]["event_type"] == "election_no_winner"
+    assert second is None
+
+
+def test_election_invalidated_payload_shape(tmp_path):
+    config = _blank_config()
+    candidate = _blank_leaning_citizen(0, 0.5, ambition=1.0, party=0)
+    party = Party(party_id=0, platform=(0.5,))
+    electors = [_blank_leaning_citizen(i, 0.0, ambition=0.0) for i in range(1, 8)]
+
+    with Journal(tmp_path / "run.jsonl", run_id="r") as journal:
+        _hold_presidential_election([candidate] + electors, [party], config, journal, tick=0, llm_client=None)
+
+    events = _events(tmp_path / "run.jsonl")
+    invalidated = [e for e in events if e["event_type"] == "election_invalidated"]
+    assert len(invalidated) == 1
+    assert set(invalidated[0]["payload"].keys()) == {
+        "office", "blank_share", "threshold", "attempt", "candidate_ids", "barred_candidate_ids", "next_attempt_tick",
+    }
+    assert invalidated[0]["citizen_id"] is None
+
+
+def _config_with_blank_vote_competitive_lifecycle(output_dir) -> PolityConfig:
+    config = _config_with_output_dir(output_dir)
+    return dataclasses.replace(
+        config,
+        institutions=dataclasses.replace(
+            config.institutions, blank_vote_competitive=True, reelection_delay_ticks=1, reelection_max_attempts=2,
+        ),
+        citizens=dataclasses.replace(config.citizens, blank_threshold_dist="beta(1,50)"),
+        candidacy=dataclasses.replace(config.candidacy, ambition_threshold=0.0),
+        run=dataclasses.replace(config.run, duration_years=8),
+    )
+
+
+def test_full_invalidate_rerun_bar_eventually_resolve_lifecycle(tmp_path):
+    # Empirically confirmed (not just reasoned about) against this exact
+    # config: at seed=42, tick 0's presidential election invalidates twice
+    # (attempts 1, 2) then forces a result at attempt 3 -- reelection_delay_ticks=1
+    # means each rerun lands exactly one tick after the last, not at the
+    # next regular calendar slot (16 ticks away).
+    journal_path = run_simulation(_config_with_blank_vote_competitive_lifecycle(tmp_path), run_id="lifecycle")
+    events = _events(journal_path)
+    invalidated = [e for e in events if e["event_type"] == "election_invalidated" and e["tick"] < 16]
+    assert len(invalidated) >= 1
+    for e in invalidated:
+        assert e["payload"]["next_attempt_tick"] == e["tick"] + 1
+
+    forced = [
+        e for e in events
+        if e["event_type"] in ("elected", "election_no_winner") and e["tick"] < 16 and e["payload"].get("forced") == 1
+    ]
+    assert len(forced) == 1
+
+    # No barred candidate re-declares at the very next tick within this
+    # cycle -- the per-cycle non-reappearance property, checked end to end
+    # (the direct-call tests above pin the same property in isolation).
+    for e in invalidated:
+        barred_at_this_point = set(e["payload"]["barred_candidate_ids"])
+        redeclared = [
+            d for d in events
+            if d["event_type"] == "candidacy_declared"
+            and d["tick"] == e["tick"] + 1
+            and d["citizen_id"] in barred_at_this_point
+        ]
+        assert redeclared == []
+
+
+def test_legislative_elections_continue_on_schedule_while_a_presidential_rerun_is_pending(tmp_path):
+    config = _config_with_blank_vote_competitive_lifecycle(tmp_path)
+    journal_path = run_simulation(config, run_id="lifecycle-legislative")
+    events = _events(journal_path)
+    legislative = [e for e in events if e["event_type"] == "legislative_result"]
+    term_ticks = config.institutions.assembly_term_years * config.run.ticks_per_year
+    offset_ticks = config.institutions.assembly_offset_years * config.run.ticks_per_year
+    assert [e["tick"] for e in legislative] == [offset_ticks + term_ticks * i for i in range(len(legislative))]
+    assert len(legislative) > 0
+
+
+def test_barred_candidate_ids_do_not_leak_into_a_later_unrelated_cycle(tmp_path):
+    config = _blank_config()
+    candidate_a = _blank_leaning_citizen(0, 0.5, ambition=1.0, party=0)
+    party_a = Party(party_id=0, platform=(0.5,))
+    electors = [_blank_leaning_citizen(i, 0.0, ambition=0.0) for i in range(2, 9)]
+
+    with Journal(tmp_path / "run.jsonl", run_id="r") as journal:
+        first_cycle = _hold_presidential_election(
+            [candidate_a] + electors, [party_a], config, journal, tick=0, llm_client=None
+        )
+        assert first_cycle is not None and first_cycle.barred_candidate_ids == frozenset({0})
+
+        # Candidate B, unrelated to A's cycle, stands alone at a later tick
+        # (a fresh call with pending_rerun=None -- the first cycle already
+        # resolved to election_no_winner once A was barred and nobody else
+        # stood, so the SECOND election below starts a wholly new cycle).
+        resolved = _hold_presidential_election(
+            [candidate_a] + electors, [party_a], config, journal, tick=1, llm_client=None,
+            pending_rerun=first_cycle,
+        )
+        assert resolved is None
+
+        candidate_b = _blank_leaning_citizen(1, 0.5, ambition=1.0, party=1)
+        party_b = Party(party_id=1, platform=(0.5,))
+        second_cycle = _hold_presidential_election(
+            [candidate_a, candidate_b] + electors, [party_b], config, journal, tick=2, llm_client=None
+        )
+
+    assert second_cycle is not None
+    assert second_cycle.barred_candidate_ids == frozenset({1})
+    assert 0 not in second_cycle.barred_candidate_ids
 
 
 # ── legitimacy (v4 Lot 3) ─────────────────────────────────────────────────

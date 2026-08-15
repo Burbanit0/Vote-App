@@ -135,6 +135,34 @@ def ballot_ranks_above_blank(ballot: list[str], label: str, blank_label: str = B
     return ballot.index(label) < ballot.index(blank_label)
 
 
+def blank_share(ballots: list[list[str]], blank_label: str = BLANK_LABEL) -> float:
+    """v4 Lot 9 (§6bis.2): blank_share(t), the fraction of cast ballots whose
+    TOP preference is blank -- ballot[0] == blank_label. Uniform across both
+    ballot builders: build_ranking splices blank_label first iff zero
+    candidates clear the voter's own blank_threshold; ballot_from_decision's
+    blank=1 collapses the ballot to [blank_label] alone, trivially first.
+    Unlike ballot_ranks_above_blank, no LLM-truncation caveat applies here --
+    that one is about a specific candidate's position, not blank's, and
+    blank_label is always present by both builders' own contract.
+
+    "Suffrages exprimés" reads as every cast ballot: this simulation has no
+    abstention mechanic, every citizen votes in every election. Scoped to
+    list[list[str]] only -- run_simulation's own opening guard already makes
+    every score-format ballot (simple_score/star/median/majority_judgment)
+    unreachable, so no dict-ballot branch exists here.
+
+    Raises on an empty ballots list (no meaningful share over zero cast
+    ballots, mirroring ballot_and_aggregation.confidence_keep_ratio) and on
+    any ballot missing blank_label (a contract violation, mirroring
+    ballot_ranks_above_blank's own guard)."""
+    if not ballots:
+        raise ValueError("blank_share: no ballots cast")
+    for ballot in ballots:
+        if blank_label not in ballot:
+            raise ValueError(f"ballot {ballot!r} does not contain blank_label {blank_label!r}")
+    return sum(1 for ballot in ballots if ballot[0] == blank_label) / len(ballots)
+
+
 # ── Party affiliation (the natural complement to Lot 3's k-means platforms:
 #    a citizen's initial party is whichever platform sits closest to them) ──
 

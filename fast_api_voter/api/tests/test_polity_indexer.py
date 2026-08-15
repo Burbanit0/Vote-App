@@ -80,6 +80,33 @@ def test_segment_terms_a_vacancy_gap_produces_no_term():
     assert terms[0].start_tick == 16
 
 
+def test_segment_terms_election_invalidated_closes_an_open_term_without_reopening():
+    events = [
+        _e(0, "elected", {"office": 1}, citizen_id=1),
+        _e(16, "election_invalidated", {"office": 1, "blank_share": 0.6, "threshold": 0.5,
+                                        "attempt": 1, "candidate_ids": [1, 2],
+                                        "barred_candidate_ids": [1, 2], "next_attempt_tick": 17}),
+        _e(17, "elected", {"office": 1}, citizen_id=3),
+    ]
+    terms = segment_terms(events, total_ticks=32)
+    assert terms[0] == Term(holder_id=1, start_tick=0, end_tick=16, lame_duck=False, mandate_strength=None, ended_by="election")
+    assert terms[1].holder_id == 3
+    assert terms[1].start_tick == 17
+
+
+def test_segment_terms_election_invalidated_with_no_open_term_is_a_no_op():
+    events = [
+        _e(0, "election_invalidated", {"office": 1, "blank_share": 0.6, "threshold": 0.5,
+                                       "attempt": 1, "candidate_ids": [1, 2],
+                                       "barred_candidate_ids": [1, 2], "next_attempt_tick": 1}),
+        _e(1, "elected", {"office": 1}, citizen_id=3),
+    ]
+    terms = segment_terms(events, total_ticks=16)
+    assert len(terms) == 1
+    assert terms[0].holder_id == 3
+    assert terms[0].start_tick == 1
+
+
 def test_segment_terms_same_tick_election_recall_is_a_zero_length_term():
     events = [
         _e(0, "elected", {"office": 1}, citizen_id=1),

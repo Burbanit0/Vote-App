@@ -79,7 +79,7 @@ from api.domain.polity.metrics import (
     stance_distribution as _stance_distribution_fn,
 )
 
-_PRESIDENT_ELECTION_EVENTS = ("elected", "election_no_winner")
+_PRESIDENT_ELECTION_EVENTS = ("elected", "election_no_winner", "election_invalidated")
 
 
 @dataclass(frozen=True)

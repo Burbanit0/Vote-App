@@ -388,6 +388,14 @@ def _parse_run(raw: dict[str, Any]) -> RunConfig:
 
 def _parse_institutions(raw: dict[str, Any]) -> InstitutionsConfig:
     s = _section(raw, "institutions")
+    blank_vote_enabled = _get(s, "institutions", "blank_vote_enabled", bool)
+    blank_vote_competitive = _get(s, "institutions", "blank_vote_competitive", bool)
+    if blank_vote_competitive and not blank_vote_enabled:
+        raise PolityConfigError(
+            "'institutions.blank_vote_competitive': true requires 'institutions.blank_vote_enabled' "
+            "to also be true (v4 Lot 9, §6bis.2 -- nothing to be competitive about if blank isn't "
+            "itself a choice)"
+        )
     return InstitutionsConfig(
         president_term_years=_get_positive_int(s, "institutions", "president_term_years"),
         assembly_term_years=_get_positive_int(s, "institutions", "assembly_term_years"),
@@ -399,10 +407,16 @@ def _parse_institutions(raw: dict[str, Any]) -> InstitutionsConfig:
         assembly_mode=_get_enum(s, "institutions", "assembly_mode", _ASSEMBLY_MODES),
         seat_allocation=_get_enum(s, "institutions", "seat_allocation", _SEAT_ALLOCATIONS),
         electoral_threshold=_get_ratio(s, "institutions", "electoral_threshold"),
-        blank_vote_enabled=_get(s, "institutions", "blank_vote_enabled", bool),
-        blank_vote_competitive=_get(s, "institutions", "blank_vote_competitive", bool),
+        blank_vote_enabled=blank_vote_enabled,
+        blank_vote_competitive=blank_vote_competitive,
         blank_invalidation_threshold=_get_ratio(s, "institutions", "blank_invalidation_threshold"),
-        reelection_delay_ticks=_get(s, "institutions", "reelection_delay_ticks", int),
+        # v4 Lot 9: was plain _get(..., int) while the field was inert. Under
+        # the tick-loop's calendar-suspension design, a value of 0 (or
+        # negative) would compute next_tick <= tick, which can never be
+        # reached again -- the presidency deadlocks vacant for the rest of
+        # the run, silently. Now that this lot makes the field live, a
+        # positive value is enforced.
+        reelection_delay_ticks=_get_positive_int(s, "institutions", "reelection_delay_ticks"),
         reelection_max_attempts=_get_positive_int(s, "institutions", "reelection_max_attempts"),
         barred_from_immediate_rerun=_get(s, "institutions", "barred_from_immediate_rerun", bool),
     )

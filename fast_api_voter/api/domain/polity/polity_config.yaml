@@ -51,16 +51,24 @@ institutions:
   electoral_threshold: 0.05   # [v0] seuil d'accès aux sièges (0 = aucun seuil)
 
   # --- Vote blanc (§1.3 THEORY.md, §6bis.2) ---
+  # v4 Lot 9: ce mécanisme est désormais VIVANT (présidentielle uniquement --
+  # voir _hold_presidential_election). blank_share(t) = part des bulletins
+  # dont le PREMIER choix est Blanc (simple_rules.blank_share).
   blank_vote_enabled: true    # [v0] le blanc est-il un choix disponible ?
   blank_vote_competitive: false   # [v4] le blanc peut-il invalider le scrutin ?
+                                  #      (requiert blank_vote_enabled: true)
   blank_invalidation_threshold: 0.5   # [v4] part des exprimés déclenchant
-                                      #      l'invalidation
+                                      #      l'invalidation (comparaison
+                                      #      stricte, ">")
   reelection_delay_ticks: 1           # [v4] délai avant le nouveau scrutin
+                                      #      (doit être > 0)
   reelection_max_attempts: 2          # [v4] au-delà, un résultat est forcé
   barred_from_immediate_rerun: true   # [v4] les candidats de l'élection
                                       #      invalidée ne peuvent pas se
                                       #      représenter immédiatement — sans
-                                      #      ça le mécanisme n'a aucun effet
+                                      #      ça le mécanisme n'a aucun effet.
+                                      #      Bascule indépendante de
+                                      #      blank_vote_competitive.
 
 # =============================================================================
 # PARTIS (§A2 de l'audit)

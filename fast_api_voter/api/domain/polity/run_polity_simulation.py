@@ -37,6 +37,7 @@ if/else split.
 from __future__ import annotations
 
 from contextlib import contextmanager
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator
 
@@ -100,6 +101,7 @@ from api.domain.polity.simple_rules import (
     BLANK_LABEL,
     assign_party_affiliation,
     attempt_rupture_candidacy,
+    blank_share,
     build_confidence_ballot,
     build_ranking,
     choose_party,
@@ -111,6 +113,50 @@ from api.domain.polity.simple_rules import (
     select_party_nominee_from_declared,
     vacate_office,
 )
+
+
+@dataclass(frozen=True)
+class PendingRerun:
+    """v4 Lot 9 (§6bis.2): local, run-scoped state for the invalidate ->
+    rerun -> bar cycle, deliberately NOT a Citizen field: unlike every other
+    officeholder-scoped piece of state this project has added since Lot 3
+    (legitimacy_capital, street_pressure, petition state), an invalidated
+    election has no officeholder to attach state to by construction. Held as
+    a plain local in run_simulation's scope, threaded into and back out of
+    _hold_presidential_election and into _attempt_rupture_candidacies every
+    tick -- the same register as rupture_rng, the one other piece of
+    cross-tick local state this module already carries.
+
+    `attempt` is the rerun's own 1-indexed number: the ORIGINAL scheduled
+    election is never tracked as a PendingRerun at all (there is no pending
+    state until the first invalidation). attempt=1 is the first rerun,
+    attempt=2 the second. Attempts 1..reelection_max_attempts get the full
+    invalidation check; attempt reelection_max_attempts+1 is FORCED (see
+    _is_forced_attempt) -- §6bis.2's "au-delà, un résultat est forcé".
+
+    `barred_candidate_ids` unions the candidate set of every invalidated
+    election within this one cycle, but ONLY when
+    config.institutions.barred_from_immediate_rerun is true -- that key is
+    its own toggle, independent of blank_vote_competitive (shipped true,
+    the doc's own recommended default, but a real comparison arm). Cleared
+    (the whole PendingRerun discarded, back to None) the instant the cycle
+    resolves: a real winner elected, or the forced attempt's outcome
+    (winner or election_no_winner) accepted.
+
+    `next_tick` REPLACES the fixed calendar for the presidency while this is
+    active (see run_simulation's own tick loop), rather than being OR'd into
+    it -- OR-ing a rerun tick into the fixed calendar is reachable at
+    non-default reelection_delay_ticks/president_term_years combinations
+    and produces two independent elections for one vacancy, with no journal
+    event marking the discard."""
+
+    attempt: int
+    next_tick: int
+    barred_candidate_ids: frozenset[int]
+
+
+def _is_forced_attempt(pending_rerun: PendingRerun | None, config: PolityConfig) -> bool:
+    return pending_rerun is not None and pending_rerun.attempt > config.institutions.reelection_max_attempts
 
 
 def run_simulation(
@@ -157,13 +203,31 @@ def run_simulation(
     # Lot 2/3): a fresh default_rng per concern, so enabling rupture draws
     # never perturbs the citizens/parties already generated above.
     rupture_rng = np.random.default_rng(config.run.seed)
+    # v4 Lot 9 (§6bis.2): None whenever blank_vote_competitive is off (the
+    # shipped default) or no cycle is currently open -- see PendingRerun's
+    # own docstring for why this is a plain local, not a Citizen field.
+    pending_rerun: PendingRerun | None = None
 
     with Journal.from_config(config.journal, run_id) as journal, _llm_client_scope(config, llm_client) as client:
         for tick in range(clock.total_ticks + 1):
-            _attempt_rupture_candidacies(citizens, config, journal, tick, rupture_rng)
+            barred_ids = pending_rerun.barred_candidate_ids if pending_rerun is not None else frozenset()
+            _attempt_rupture_candidacies(citizens, config, journal, tick, rupture_rng, barred_candidate_ids=barred_ids)
             election = clock.election_at(tick)
-            if election in (ElectionType.PRESIDENTIAL, ElectionType.BOTH):
-                _hold_presidential_election(citizens, parties, config, journal, tick, client)
+            # While a rerun is pending, the fixed presidential calendar is
+            # SUSPENDED, not OR'd with the rerun tick -- see PendingRerun's
+            # own docstring for why a union reintroduces a double-election
+            # pathology. This reduces to today's exact
+            # `election in (PRESIDENTIAL, BOTH)` check whenever
+            # pending_rerun is None, which is always true when
+            # blank_vote_competitive is off.
+            if pending_rerun is not None:
+                hold_president = tick == pending_rerun.next_tick
+            else:
+                hold_president = election in (ElectionType.PRESIDENTIAL, ElectionType.BOTH)
+            if hold_president:
+                pending_rerun = _hold_presidential_election(
+                    citizens, parties, config, journal, tick, client, pending_rerun
+                )
             if election in (ElectionType.LEGISLATIVE, ElectionType.BOTH):
                 seats, votes = _hold_legislative_election(citizens, parties, config, journal, tick)
                 _form_and_journal_coalition(parties, seats, votes, config, journal, tick, client)
@@ -197,7 +261,12 @@ def _llm_client_scope(config: PolityConfig, llm_client: LlmClientProtocol | None
 
 
 def _attempt_rupture_candidacies(
-    citizens: list[Citizen], config: PolityConfig, journal: Journal, tick: int, rng: np.random.Generator
+    citizens: list[Citizen],
+    config: PolityConfig,
+    journal: Journal,
+    tick: int,
+    rng: np.random.Generator,
+    barred_candidate_ids: frozenset[int] = frozenset(),
 ) -> None:
     """Design doc §2.4 rare path: evaluated every tick (not just election
     ticks — rupture_base_probability is a per-tick draw), for every citizen
@@ -208,12 +277,17 @@ def _attempt_rupture_candidacies(
     for citizen in citizens:
         if citizen.role != Role.ELECTOR:
             continue
-        # is_term_limited is checked AFTER the draw, never before: skipping
-        # the call for term-limited citizens would shift the RNG stream and
-        # break byte-for-byte reproducibility for any non-null
-        # president_term_limit (v4 Lot 2, §6bis.1).
+        # is_term_limited (and, since v4 Lot 9, the §6bis.2 barred set) is
+        # checked AFTER the draw, never before: skipping the call for a
+        # gated citizen would shift the RNG stream and break byte-for-byte
+        # reproducibility for any non-null president_term_limit or any run
+        # where a rerun cycle is open (v4 Lot 2, §6bis.1 / Lot 9, §6bis.2).
         declared = attempt_rupture_candidacy(citizen, citizens, config.candidacy, rng)
-        if declared and not is_term_limited(citizen, config.institutions.president_term_limit):
+        if (
+            declared
+            and not is_term_limited(citizen, config.institutions.president_term_limit)
+            and citizen.citizen_id not in barred_candidate_ids
+        ):
             declare_candidacy(citizen)
             journal.write(
                 tick=tick,
@@ -230,17 +304,28 @@ def _declare_nominees(
     journal: Journal,
     tick: int,
     llm_client: LlmClientProtocol | None,
+    barred_candidate_ids: frozenset[int] = frozenset(),
 ) -> list[Citizen]:
     if config.llm.enabled:
+        # barred_candidate_ids intentionally NOT passed here, extending the
+        # same asymmetry term limits already have on this path (see below).
         return _declare_nominees_llm(citizens, parties, config, journal, tick, llm_client)
-    # Term limits (v4 Lot 2, §6bis.1) are enforced only on this deterministic
-    # branch. _declare_nominees_llm reuses `citizens` unfiltered to compute
+    # Term limits (v4 Lot 2, §6bis.1) and, since Lot 9, the §6bis.2 barred
+    # set are enforced only on this deterministic branch.
+    # _declare_nominees_llm reuses `citizens` unfiltered to compute
     # decide_campaign_positioning's electorate_mean over the FULL population
     # -- pre-filtering it here would silently change that already-shipped
-    # LLM path's context. Closed in Lot 6/7, when lame_duck enters dt=6's
-    # ctx and llm_behavior_engine.py is back in scope anyway.
+    # LLM path's context. Verified directly (Lot 9): this asymmetry was
+    # never actually closed by Lot 6/7 as originally anticipated -- Lot 6
+    # added lame_duck to dt=6's *response* context, not to nomination
+    # filtering -- so Lot 9 extends the same, still-open gap in the same
+    # direction rather than fixing it. Closing it (for both term limits and
+    # the barred set together) is a legitimate, separately-scoped follow-up.
     eligible = [
-        c for c in citizens if not is_term_limited(c, config.institutions.president_term_limit)
+        c
+        for c in citizens
+        if not is_term_limited(c, config.institutions.president_term_limit)
+        and c.citizen_id not in barred_candidate_ids
     ]
     nominees = []
     for party in parties:
@@ -367,7 +452,8 @@ def _hold_presidential_election(
     journal: Journal,
     tick: int,
     llm_client: LlmClientProtocol | None,
-) -> None:
+    pending_rerun: PendingRerun | None = None,
+) -> PendingRerun | None:
     # The outgoing president's term always ends exactly at this tick
     # (InstitutionalClock schedules the next presidential election at
     # term_end_tick by construction -- president_term_years*ticks_per_year
@@ -384,7 +470,8 @@ def _hold_presidential_election(
         if outgoing.office == Office.PRESIDENT:
             vacate_office(outgoing)
 
-    nominees = _declare_nominees(citizens, parties, config, journal, tick, llm_client)
+    barred_ids = pending_rerun.barred_candidate_ids if pending_rerun is not None else frozenset()
+    nominees = _declare_nominees(citizens, parties, config, journal, tick, llm_client, barred_candidate_ids=barred_ids)
     nominee_ids = {c.citizen_id for c in nominees}
     standing_rupture_candidates = sorted(
         (c for c in citizens if c.role == Role.CANDIDATE and c.citizen_id not in nominee_ids),
@@ -393,7 +480,11 @@ def _hold_presidential_election(
     nominees = nominees + standing_rupture_candidates
 
     winner: Citizen | None = None
+    invalidated = False
+    blank_share_value: float | None = None
+    all_candidate_ids: set[int] = set()
     if nominees:
+        all_candidate_ids = {c.citizen_id for c in nominees}
         if config.llm.enabled:
             assert llm_client is not None  # guaranteed by _llm_client_scope when llm.enabled
             outcome = cast_votes(citizens, nominees, config, llm_client)
@@ -409,46 +500,108 @@ def _hold_presidential_election(
                 )
         else:
             ballots = [build_ranking(voter, nominees) for voter in citizens]
-        winner_label = get_presidential_winner(ballots, config.institutions.presidential_method)
-        if winner_label is not None and winner_label != BLANK_LABEL:
-            winner_id = citizen_id_from_label(winner_label)
-            winner = next(c for c in nominees if c.citizen_id == winner_id)
-            winner.role = Role.ELECTED
-            winner.office = Office.PRESIDENT
-            term_ticks = config.institutions.president_term_years * config.run.ticks_per_year
-            winner.term_end_tick = tick + term_ticks
-            winner.mandates_served += 1
-            if config.legitimacy.enabled:
-                # Independent of config.mandate.enabled: m only needs
-                # ballots/winner_label, not pledge/deviation tracking. No
-                # new journal event here -- this same tick's
-                # legitimacy_updated (in _run_accountability_phase) records
-                # it, including mandate_strength in its own payload.
-                winner.mandate_strength = mandate_strength(ballots, winner_label)
-                winner.legitimacy_capital = initial_legitimacy(winner.mandate_strength)
-            if config.street_pressure.enabled:
-                # A re-elected incumbent must not carry over a previous
-                # term's accumulated street pressure (v4 Lot 4, §7bis.4b).
-                winner.street_pressure = 0.0
-            if config.petition.enabled:
-                # A re-elected incumbent must not inherit their previous
-                # term's open petition, signatures or cooldown -- the
-                # signatures were cast against a mandate that no longer
-                # exists (v4 Lot 5, §7bis.4a). A DEFEATED incumbent's stale
-                # petition state is deliberately not cleared here -- same
-                # precedent as pledged_platform/revealed_position above.
-                reset_petition_state(winner)
 
+        # v4 Lot 9 (§6bis.2): the deterministic-enclave threshold check --
+        # no LLM, no RNG, just the ballots already built above. A forced
+        # attempt (beyond reelection_max_attempts) skips the check entirely
+        # and accepts whatever get_presidential_winner returns, "pour éviter
+        # la boucle infinie".
+        if config.institutions.blank_vote_competitive and not _is_forced_attempt(pending_rerun, config):
+            blank_share_value = blank_share(ballots)
+            if blank_share_value > config.institutions.blank_invalidation_threshold:
+                invalidated = True
+
+        if not invalidated:
+            winner_label = get_presidential_winner(ballots, config.institutions.presidential_method)
+            if winner_label is not None and winner_label != BLANK_LABEL:
+                winner_id = citizen_id_from_label(winner_label)
+                winner = next(c for c in nominees if c.citizen_id == winner_id)
+                winner.role = Role.ELECTED
+                winner.office = Office.PRESIDENT
+                term_ticks = config.institutions.president_term_years * config.run.ticks_per_year
+                winner.term_end_tick = tick + term_ticks
+                winner.mandates_served += 1
+                if config.legitimacy.enabled:
+                    # Independent of config.mandate.enabled: m only needs
+                    # ballots/winner_label, not pledge/deviation tracking. No
+                    # new journal event here -- this same tick's
+                    # legitimacy_updated (in _run_accountability_phase) records
+                    # it, including mandate_strength in its own payload.
+                    winner.mandate_strength = mandate_strength(ballots, winner_label)
+                    winner.legitimacy_capital = initial_legitimacy(winner.mandate_strength)
+                if config.street_pressure.enabled:
+                    # A re-elected incumbent must not carry over a previous
+                    # term's accumulated street pressure (v4 Lot 4, §7bis.4b).
+                    winner.street_pressure = 0.0
+                if config.petition.enabled:
+                    # A re-elected incumbent must not inherit their previous
+                    # term's open petition, signatures or cooldown -- the
+                    # signatures were cast against a mandate that no longer
+                    # exists (v4 Lot 5, §7bis.4a). A DEFEATED incumbent's stale
+                    # petition state is deliberately not cleared here -- same
+                    # precedent as pledged_platform/revealed_position above.
+                    reset_petition_state(winner)
+
+    # Fires unconditionally whenever winner is None -- including the
+    # invalidated case, which is exactly what makes barred candidates
+    # already Role.ELECTOR again by the time the next tick's (now
+    # barred-aware) candidacy gates run, with no separate reset needed.
     for nominee in nominees:
         if nominee is not winner:
             nominee.role = Role.ELECTOR
             nominee.pledged_platform = None
             nominee.revealed_position = None
 
+    if invalidated:
+        new_attempt = (pending_rerun.attempt if pending_rerun is not None else 0) + 1
+        barred_next = (
+            (barred_ids | all_candidate_ids) if config.institutions.barred_from_immediate_rerun else frozenset()
+        )
+        new_pending_rerun = PendingRerun(
+            attempt=new_attempt,
+            next_tick=tick + config.institutions.reelection_delay_ticks,
+            barred_candidate_ids=barred_next,
+        )
+        journal.write(
+            tick=tick,
+            event_type="election_invalidated",
+            payload={
+                "office": Office.PRESIDENT.value,
+                "blank_share": blank_share_value,
+                "threshold": config.institutions.blank_invalidation_threshold,
+                "attempt": new_attempt,
+                "candidate_ids": sorted(all_candidate_ids),
+                "barred_candidate_ids": sorted(barred_next),
+                "next_attempt_tick": new_pending_rerun.next_tick,
+            },
+            citizen_id=None,
+        )
+        return new_pending_rerun
+
     journal.write(
         tick=tick,
         event_type="elected" if winner is not None else "election_no_winner",
-        payload={"office": Office.PRESIDENT.value},
+        payload={
+            "office": Office.PRESIDENT.value,
+            # §6bis.2: additive, always both-or-neither, and gated on
+            # `nominees` (not just blank_vote_competitive) -- these two keys
+            # describe the invalidation check's own bookkeeping, which is
+            # meaningless when there was no candidate field to measure
+            # blank_share against (nominees empty -> a PendingRerun could
+            # never have been created either, so attempt/forced would be a
+            # constant 0/0 carrying no information). This is what keeps a
+            # config where nominees never exist a true byte-for-byte no-op
+            # even with blank_vote_competitive=true, not merely a config
+            # where the mechanism happens not to trigger.
+            **(
+                {
+                    "attempt": pending_rerun.attempt if pending_rerun is not None else 0,
+                    "forced": int(_is_forced_attempt(pending_rerun, config)),
+                }
+                if config.institutions.blank_vote_competitive and nominees
+                else {}
+            ),
+        },
         citizen_id=winner.citizen_id if winner is not None else None,
     )
     if winner is not None and config.mandate.enabled:
@@ -469,6 +622,7 @@ def _hold_presidential_election(
             },
             citizen_id=winner.citizen_id,
         )
+    return None
 
 
 def _hold_legislative_election(
