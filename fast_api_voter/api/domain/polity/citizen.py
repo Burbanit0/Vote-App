@@ -94,6 +94,16 @@ class Citizen:
     petition_open_since_tick: int | None = None
     petition_signers: frozenset[int] = frozenset()
     petition_cooldown_until_tick: int | None = None
+    # v5 Lot 3 (§8): citizen-level, NOT officeholder-scoped -- unlike
+    # street_pressure/legitimacy_capital/petition state, a citizen's own
+    # residual awareness of a scandal or economic shock has no natural
+    # attachment to whichever officeholder happens to be sitting, so it is
+    # NEVER reset at _hold_presidential_election (contrast that function's
+    # winner-reset block). Decays purely on events.salience_decay's own
+    # schedule (accountability.update_event_salience). Never drawn by
+    # generate_population, deliberately unclamped (same reasoning as
+    # street_pressure/shock.py's x(t)).
+    event_salience: float = 0.0
 
 
 def generate_population(config: CitizensConfig, population_size: int, seed: int) -> list[Citizen]:

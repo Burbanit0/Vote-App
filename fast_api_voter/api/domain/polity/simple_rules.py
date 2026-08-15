@@ -39,8 +39,8 @@ import math
 import numpy as np
 
 from api.domain.polity.citizen import Citizen, Office, Role
-from api.domain.polity.codebook import PressureAct
-from api.domain.polity.config import CandidacyConfig, PressureMenuConfig
+from api.domain.polity.codebook import EventType, PressureAct
+from api.domain.polity.config import CandidacyConfig, EventsConfig, PressureMenuConfig
 from api.domain.polity.parties import Party
 
 CANDIDATE_LABEL_PREFIX = "citizen_"
@@ -456,3 +456,27 @@ def build_confidence_ballot(voter: Citizen, holder: Citizen) -> bool:
     if holder.revealed_position is None:
         raise ValueError(f"citizen {holder.citizen_id} has no revealed_position")
     return weighted_distance(voter, holder.revealed_position) <= voter.blank_threshold
+
+
+# ── 6. reaction_to_event baseline (v5 Lot 3, §8) ────────────────────────
+
+def deterministic_reaction_to_event(event_type: EventType, config: EventsConfig, *, magnitude: float = 0.0) -> float:
+    """v5 Lot 3, dt=8's §11.4 baseline: a flat, population-wide salience_delta,
+    applied identically to every citizen by the caller -- no Citizen
+    parameter here at all (stricter than deterministic_pressure_action's
+    per-citizen `gap`), because dt=8's own baseline makes no per-citizen
+    judgment by construction (this is also why ReactionMotif.
+    EVENT_PERSONALLY_IRRELEVANT=403 is structurally unreachable on this
+    path). SCANDAL returns config.scandal_magnitude verbatim -- deliberately
+    NOT additionally capped by max_reaction_delta (EventsConfig's own
+    docstring: the two fields must stay analytically separable, even where
+    shipped defaults happen to match). ECONOMIC_SHOCK scales by the realized
+    AR(1) magnitude, capped at max_reaction_delta -- NOT normalized by
+    economy_shock_threshold (that would saturate to the cap on every call,
+    since this branch only ever runs once the threshold is already
+    crossed)."""
+    if event_type is EventType.SCANDAL:
+        return config.scandal_magnitude
+    if event_type is EventType.ECONOMIC_SHOCK:
+        return config.max_reaction_delta * min(1.0, abs(magnitude))
+    raise ValueError(f"unhandled EventType: {event_type!r}")

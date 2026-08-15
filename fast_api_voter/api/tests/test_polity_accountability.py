@@ -27,6 +27,7 @@ from api.domain.polity.accountability import (
     self_gap,
     sign_petition,
     ticks_to_election,
+    update_event_salience,
     update_street_pressure,
     weighted_euclidean,
 )
@@ -35,6 +36,7 @@ from api.domain.polity.codebook import PressureAct
 from api.domain.polity.config import (
     AwakeningConfig,
     AwakeningContextModulation,
+    EventsConfig,
     MandateConfig,
     PetitionConfig,
     StreetPressureConfig,
@@ -346,6 +348,49 @@ def test_awakening_threshold_raises_when_neighbors_acting_is_enabled():
         awakening_threshold(citizen, mandate_dev=0.0, proximity=0.0, config=config)
 
 
+_MODULATION_WITH_SALIENCE = AwakeningContextModulation(
+    mandate_deviation=True, ticks_to_election=True, neighbors_acting=False, event_salience=True
+)
+_AWAKENING_CONFIG_WITH_SALIENCE = AwakeningConfig(**{**_AWAKENING_CONFIG.__dict__, "context_modulation": _MODULATION_WITH_SALIENCE})
+
+
+def test_awakening_threshold_higher_event_salience_strictly_lowers_it():
+    low = _citizen(1, (0.5,), base_threshold=0.4, event_salience=0.1)
+    high = _citizen(1, (0.5,), base_threshold=0.4, event_salience=0.9)
+    low_result = awakening_threshold(low, mandate_dev=0.5, proximity=0.5, config=_AWAKENING_CONFIG_WITH_SALIENCE)
+    high_result = awakening_threshold(high, mandate_dev=0.5, proximity=0.5, config=_AWAKENING_CONFIG_WITH_SALIENCE)
+    assert high_result < low_result
+
+
+def test_awakening_threshold_ignores_event_salience_when_its_modulation_flag_is_off():
+    modulation = AwakeningContextModulation(
+        mandate_deviation=True, ticks_to_election=True, neighbors_acting=False, event_salience=False
+    )
+    config = AwakeningConfig(**{**_AWAKENING_CONFIG.__dict__, "context_modulation": modulation})
+    low = _citizen(1, (0.5,), base_threshold=0.4, event_salience=0.1)
+    high = _citizen(1, (0.5,), base_threshold=0.4, event_salience=0.9)
+    low_result = awakening_threshold(low, mandate_dev=0.5, proximity=0.5, config=config)
+    high_result = awakening_threshold(high, mandate_dev=0.5, proximity=0.5, config=config)
+    assert low_result == pytest.approx(high_result)
+
+
+def test_awakening_threshold_stays_within_amplitude_bounds_with_all_four_terms_combined():
+    citizen = _citizen(1, (0.5,), base_threshold=0.4, event_salience=5.0)  # deliberately extreme
+    amp = _AWAKENING_CONFIG_WITH_SALIENCE.modulation_amplitude
+    lo = 0.4 * (1 - amp)
+    hi = 0.4 * (1 + amp)
+    for dev, prox in [(0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0)]:
+        result = awakening_threshold(citizen, mandate_dev=dev, proximity=prox, config=_AWAKENING_CONFIG_WITH_SALIENCE)
+        assert lo - 1e-9 <= result <= hi + 1e-9
+
+
+def test_awakening_threshold_no_longer_raises_for_event_salience():
+    # v5 Lot 3 (§8): the guard this used to trip is gone -- event_salience
+    # is a real, implemented term now, not reserved scope.
+    citizen = _citizen(1, (0.5,), base_threshold=0.4, event_salience=0.3)
+    awakening_threshold(citizen, mandate_dev=0.0, proximity=0.0, config=_AWAKENING_CONFIG_WITH_SALIENCE)
+
+
 # ── select_consulted ──────────────────────────────────────────────────────
 
 def test_select_consulted_returns_citizens_above_their_own_threshold_ascending():
@@ -432,6 +477,41 @@ def test_update_street_pressure_decays_toward_zero_with_no_rate():
     for _ in range(300):
         sp = update_street_pressure(sp, 0.0, _STREET_PRESSURE_CONFIG)
     assert sp == pytest.approx(0.0, abs=1e-3)
+
+
+# ── update_event_salience (v5 Lot 3, §8) ──────────────────────────────────
+
+_EVENTS_CONFIG = EventsConfig(
+    enabled=True,
+    scandal_enabled=True,
+    scandal_rate_per_tick=0.05,
+    scandal_magnitude=0.3,
+    economic_shock_enabled=True,
+    economy_ar1_phi=0.8,
+    economy_ar1_sigma=0.1,
+    economy_shock_threshold=0.5,
+    salience_decay=0.85,
+    max_reaction_delta=0.3,
+)
+
+
+def test_update_event_salience_hand_computed_one_step():
+    result = update_event_salience(0.2, 0.1, _EVENTS_CONFIG)
+    assert result == pytest.approx(0.85 * 0.2 + 0.1)
+
+
+def test_update_event_salience_converges_toward_delta_over_1_minus_decay():
+    es = 0.0
+    for _ in range(300):
+        es = update_event_salience(es, 0.05, _EVENTS_CONFIG)
+    assert es == pytest.approx(0.05 / (1 - 0.85), abs=1e-3)
+
+
+def test_update_event_salience_decays_toward_zero_with_no_delta():
+    es = 1.0
+    for _ in range(300):
+        es = update_event_salience(es, 0.0, _EVENTS_CONFIG)
+    assert es == pytest.approx(0.0, abs=1e-3)
 
 
 # ── petition state machine (v4 Lot 5, §7bis.4a) ───────────────────────────
