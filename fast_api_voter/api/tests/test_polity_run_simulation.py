@@ -1534,8 +1534,9 @@ class _FakeLlmClient:
     decide_party_nominations ("parties" key), decide_campaign_positioning
     ("nominees" key), decide_coalition ("responders" key),
     decide_representative_response ("holders" key),
-    decide_pressure_actions ("consulted" key), and cast_votes
-    ("voters"/"candidates" keys) within the same run.
+    decide_pressure_actions ("consulted" key), decide_reaction_to_event
+    ("reactors" key), and cast_votes ("voters"/"candidates" keys) within
+    the same run.
     Candidacy: declares (outcome=1) whenever ambition_score >= 0.1 --
     config.candidacy.ambition_threshold is NOT consulted by the LLM path at
     all (decide_candidacies never reads it; only the deterministic
@@ -1558,7 +1559,12 @@ class _FakeLlmClient:
     every consulted citizen mobilizes (act=3, motif=301) -- always
     menu-legal whenever mobilization_enabled, and exercises
     street_pressure/participants exactly like the deterministic baseline's
-    own MOBILIZE branch. Voting: every citizen votes blank -- enough to
+    own MOBILIZE branch. Reaction to event: every reactor gets
+    salience_delta=0.1 and the call's own grounding motif (401 for
+    SCANDAL, 402 for ECONOMIC_SHOCK), read off the shared "event" block --
+    within the shipped events.max_reaction_delta=0.3 bound and coherent
+    under ReactionDecision's own salience_delta/motif validator. Voting:
+    every citizen votes blank -- enough to
     exercise the integration plumbing (journal writes, reproducibility,
     error propagation) without needing real vote-quality logic."""
 
@@ -1599,6 +1605,10 @@ class _FakeLlmClient:
             return json.dumps({"decisions": decisions})
         if "consulted" in payload:
             return json.dumps({"decisions": self._pressure_decisions(payload["consulted"])})
+        if "reactors" in payload:
+            grounding = 401 if payload["event"]["event_type"] == 1 else 402
+            decisions = [{"cid": r["cid"], "salience_delta": 0.1, "motif": grounding} for r in payload["reactors"]]
+            return json.dumps({"decisions": decisions})
         return json.dumps({"decisions": self._vote_decisions(payload["voters"])})
 
     def _vote_decisions(self, voters):
@@ -2867,3 +2877,134 @@ def test_event_salience_never_writes_legitimacy_or_ecart_directly(tmp_path):
     events_on = [e for e in _events(path_on) if e["event_type"] == "legitimacy_updated"]
     assert events_off
     assert [e["payload"] for e in events_off] == [e["payload"] for e in events_on]
+
+
+# ── v5 Lot 4: reaction_to_event (dt=8), the LLM decision ──────────────────
+
+def _config_with_events_and_llm_enabled(output_dir, **overrides) -> PolityConfig:
+    config = _config_with_events_and_awakening_enabled(output_dir, **overrides)
+    return dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=True))
+
+
+def test_default_config_run_emits_no_reaction_to_event_events_from_the_llm_path(tmp_path):
+    # llm.enabled=True but events.enabled stays at its shipped default
+    # (False) -- exogenous.scandal_fired/shock_crossed are always False
+    # regardless of llm.enabled, so _run_reaction_to_event's LLM branch is
+    # unreached.
+    config = _config_with_llm_enabled(tmp_path)
+    journal_path = run_simulation(config, run_id="llm-no-events", llm_client=_FakeLlmClient())
+    events = _events(journal_path)
+    assert not [e for e in events if e["event_type"] == "reaction_to_event"]
+
+
+def test_events_enabled_without_the_llm_still_uses_the_deterministic_baseline(tmp_path):
+    config = _config_with_events_and_awakening_enabled(  # llm.enabled stays False
+        tmp_path, scandal_rate_per_tick=1.0, economic_shock_enabled=False
+    )
+    journal_path = run_simulation(config, run_id="events-no-llm")
+    events = _events(journal_path)
+    reactions = [e for e in events if e["event_type"] == "reaction_to_event"]
+    assert reactions
+    for e in reactions:
+        assert set(e["payload"]) == {"event_type", "target", "salience_delta"}  # no "ctx"
+        assert e["motif"] == str(ReactionMotif.SCANDAL_TRUST_EROSION)
+        assert e["payload"]["salience_delta"] == pytest.approx(config.events.scandal_magnitude)
+
+
+def test_reaction_to_event_is_journalled_once_per_citizen_per_firing_event_type_with_its_ctx(tmp_path):
+    config = _config_with_events_and_llm_enabled(tmp_path, scandal_rate_per_tick=1.0, economic_shock_enabled=False)
+    journal_path = run_simulation(config, run_id="reaction-llm", llm_client=_FakeLlmClient())
+    events = _events(journal_path)
+    scandal_tick = next(e["tick"] for e in events if e["event_type"] == "scandal_occurred")
+    reactions = [e for e in events if e["event_type"] == "reaction_to_event" and e["tick"] == scandal_tick]
+    assert len(reactions) == config.run.population_size
+    assert [e["citizen_id"] for e in reactions] == sorted(e["citizen_id"] for e in reactions)
+    for e in reactions:
+        assert set(e["payload"]) == {"event_type", "target", "salience_delta", "ctx"}
+        assert e["payload"]["event_type"] == int(EventType.SCANDAL)
+        assert set(e["payload"]["ctx"]) == {"event_salience"}
+        assert e["motif"] == str(ReactionMotif.SCANDAL_TRUST_EROSION)
+        assert e["codebook_version"] == config.llm.codebook_version
+
+
+def test_both_events_firing_same_tick_stays_deterministic_byte_for_byte_under_the_llm_path(tmp_path):
+    # >= MIN_SAFE_BATCH_SIZE citizens: dt=8 does not override chunk_voters's
+    # default floor (unlike decide_pressure_actions's min_batch_size=1).
+    config = _config_with_events_and_llm_enabled(tmp_path)
+    citizens = [_shock_test_citizen(i) for i in range(20)]
+    exogenous = ExogenousEventsOutcome(economy_x=0.7, scandal_fired=True, scandal_target=None, shock_crossed=True)
+    journal_path = tmp_path / "both-llm.jsonl"
+    with Journal(journal_path, run_id="both-llm") as journal:
+        _run_accountability_phase(citizens, config, journal, tick=0, llm_client=_FakeLlmClient(), exogenous=exogenous)
+    events = _events(journal_path)
+    reactions = [e for e in events if e["event_type"] == "reaction_to_event"]
+    assert len(reactions) == 2 * len(citizens)
+    assert [e["payload"]["event_type"] for e in reactions[:20]] == [int(EventType.SCANDAL)] * 20
+    assert [e["payload"]["event_type"] for e in reactions[20:]] == [int(EventType.ECONOMIC_SHOCK)] * 20
+    # The ECONOMIC_SHOCK call's ctx.event_salience must equal the value the
+    # SCANDAL call's own update_event_salience application just wrote --
+    # never the citizen's pre-tick starting value.
+    scandal_delta = 0.1  # _FakeLlmClient's fixed salience_delta
+    expected_after_scandal = config.events.salience_decay * 0.0 + scandal_delta
+    for e in reactions[20:]:
+        assert e["payload"]["ctx"]["event_salience"] == pytest.approx(expected_after_scandal)
+
+
+def test_no_reaction_to_event_llm_call_on_a_vacancy_tick(tmp_path):
+    config = _config_with_events_and_llm_enabled(tmp_path)
+    citizens = [_shock_test_citizen(i) for i in range(20)]  # nobody holds Office.PRESIDENT
+    exogenous = ExogenousEventsOutcome(economy_x=0.0, scandal_fired=True, scandal_target=None, shock_crossed=False)
+    journal_path = tmp_path / "vacancy-llm.jsonl"
+    with Journal(journal_path, run_id="vacancy-llm") as journal:
+        _run_accountability_phase(citizens, config, journal, tick=0, llm_client=_FakeLlmClient(), exogenous=exogenous)
+    events = _events(journal_path)
+    reactions = [e for e in events if e["event_type"] == "reaction_to_event"]
+    assert len(reactions) == len(citizens)
+    assert all(e["payload"]["target"] is None for e in reactions)
+
+
+def test_an_out_of_bound_salience_delta_aborts_the_run_with_no_partial_journal(tmp_path):
+    config = _config_with_events_and_llm_enabled(tmp_path, scandal_rate_per_tick=1.0, economic_shock_enabled=False)
+
+    class OverCapClient(_FakeLlmClient):
+        """Behaves exactly like _FakeLlmClient for every other decision
+        type (so candidacy/nomination/etc. still succeed), but returns an
+        out-of-bound salience_delta for reaction_to_event specifically --
+        isolates the abort to this lot's own validator."""
+
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+            payload = json.loads(user_prompt)
+            if "reactors" in payload:
+                decisions = [{"cid": r["cid"], "salience_delta": 1.0, "motif": 401} for r in payload["reactors"]]
+                return json.dumps({"decisions": decisions})
+            return super().complete_json(
+                system_prompt=system_prompt, user_prompt=user_prompt, json_schema=json_schema,
+                max_tokens=max_tokens, think=think,
+            )
+
+    with pytest.raises(LlmResponseError, match="max_reaction_delta"):
+        run_simulation(config, run_id="over-cap", llm_client=OverCapClient())
+
+
+def test_two_events_llm_runs_produce_byte_identical_journals(tmp_path):
+    config_kwargs = dict(scandal_rate_per_tick=1.0, economic_shock_enabled=False)
+    path_a = run_simulation(
+        _config_with_events_and_llm_enabled(tmp_path / "a", **config_kwargs), run_id="same-run-id",
+        llm_client=_FakeLlmClient(),
+    )
+    path_b = run_simulation(
+        _config_with_events_and_llm_enabled(tmp_path / "b", **config_kwargs), run_id="same-run-id",
+        llm_client=_FakeLlmClient(),
+    )
+    assert path_a.read_bytes() == path_b.read_bytes()
+
+
+def test_reaction_to_event_llm_never_reads_self_gap_or_mandate_dev(tmp_path):
+    config = _config_with_events_and_llm_enabled(tmp_path, scandal_rate_per_tick=1.0, economic_shock_enabled=False)
+    journal_path = run_simulation(config, run_id="no-self-gap", llm_client=_FakeLlmClient())
+    events = _events(journal_path)
+    reactions = [e for e in events if e["event_type"] == "reaction_to_event"]
+    assert reactions
+    for e in reactions:
+        assert "self_gap" not in e["payload"]["ctx"]
+        assert "mandate_dev" not in e["payload"]["ctx"]

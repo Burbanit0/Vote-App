@@ -9,11 +9,12 @@ import pytest
 
 from api.domain.polity.ballot_and_aggregation import get_presidential_winner
 from api.domain.polity.citizen import Citizen
-from api.domain.polity.codebook import VoteMotif
+from api.domain.polity.codebook import EventType, VoteMotif
 from api.domain.polity.config import PressureMenuConfig, load_config
 from api.domain.polity.llm_behavior_engine import (
     MIN_SAFE_BATCH_SIZE,
     PressureContext,
+    ReactionContext,
     ResponseContext,
     apply_shifts,
     assemble_coalition,
@@ -27,6 +28,8 @@ from api.domain.polity.llm_behavior_engine import (
     build_positioning_user_prompt,
     build_pressure_system_prompt,
     build_pressure_user_prompt,
+    build_reaction_system_prompt,
+    build_reaction_user_prompt,
     build_response_system_prompt,
     build_response_user_prompt,
     build_system_prompt,
@@ -39,6 +42,7 @@ from api.domain.polity.llm_behavior_engine import (
     decide_coalition,
     decide_party_nominations,
     decide_pressure_actions,
+    decide_reaction_to_event,
     decide_representative_response,
     menu_acts,
     resolve_party_nomination_cid,
@@ -47,6 +51,7 @@ from api.domain.polity.llm_behavior_engine import (
     validate_decision,
     validate_positioning_decision,
     validate_pressure_decision,
+    validate_reaction_decision,
     validate_response_decision,
 )
 from api.domain.polity.llm_client import LlmResponseError, LlmTransportError
@@ -56,6 +61,7 @@ from api.domain.polity.llm_schemas import (
     PositioningDecision,
     PositionShift,
     PressureDecision,
+    ReactionDecision,
     ResponseDecision,
     VoteCastDecision,
 )
@@ -1933,6 +1939,278 @@ def test_decide_pressure_actions_propagates_llm_response_error_on_count_mismatch
         decide_pressure_actions(citizens, contexts, config, ShortClient())
 
 
+# ── validate_reaction_decision (v5 Lot 4, §8) ────────────────────────────
+
+def _reaction_decision(**overrides):
+    base = {"cid": 1, "salience_delta": 0.1, "motif": 401}
+    base.update(overrides)
+    return ReactionDecision.model_validate(base)
+
+
+def test_validate_reaction_decision_accepts_the_grounding_motif_for_scandal():
+    config = _config_with_llm_enabled()
+    validate_reaction_decision(_reaction_decision(motif=401), EventType.SCANDAL, config)  # must not raise
+
+
+def test_validate_reaction_decision_accepts_the_grounding_motif_for_economic_shock():
+    config = _config_with_llm_enabled()
+    decision = _reaction_decision(motif=402)
+    validate_reaction_decision(decision, EventType.ECONOMIC_SHOCK, config)  # must not raise
+
+
+def test_validate_reaction_decision_rejects_the_other_events_grounding_motif():
+    config = _config_with_llm_enabled()
+    with pytest.raises(LlmResponseError, match="not valid for"):
+        validate_reaction_decision(_reaction_decision(motif=402), EventType.SCANDAL, config)
+    with pytest.raises(LlmResponseError, match="not valid for"):
+        validate_reaction_decision(_reaction_decision(salience_delta=0.1, motif=401), EventType.ECONOMIC_SHOCK, config)
+
+
+def test_validate_reaction_decision_accepts_403_regardless_of_event_type():
+    config = _config_with_llm_enabled()
+    decision = _reaction_decision(salience_delta=0.0, motif=403)
+    validate_reaction_decision(decision, EventType.SCANDAL, config)  # must not raise
+    validate_reaction_decision(decision, EventType.ECONOMIC_SHOCK, config)  # must not raise
+
+
+def test_validate_reaction_decision_rejects_a_delta_above_max_reaction_delta():
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, events=dataclasses.replace(config.events, max_reaction_delta=0.05))
+    with pytest.raises(LlmResponseError, match="max_reaction_delta"):
+        validate_reaction_decision(_reaction_decision(salience_delta=0.1, motif=401), EventType.SCANDAL, config)
+
+
+# ── build_reaction_system_prompt / build_reaction_user_prompt (v5 Lot 4) ─
+
+def _reaction_citizen(cid, event_salience=0.0):
+    c = _citizen(cid, (0.5,))
+    c.event_salience = event_salience
+    return c
+
+
+def _reaction_context(cid, event_salience=0.0):
+    return ReactionContext(cid=cid, event_salience=event_salience)
+
+
+def test_reaction_system_prompt_enumerates_every_expected_cid():
+    citizens = [_reaction_citizen(0), _reaction_citizen(1), _reaction_citizen(2)]
+    config = _config_with_llm_enabled()
+    prompt = build_reaction_system_prompt(citizens, EventType.SCANDAL, config)
+    assert "[0,1,2]" in prompt
+    assert "EXACTEMENT ces 3" in prompt
+
+
+def test_reaction_system_prompt_states_the_real_max_reaction_delta():
+    citizens = [_reaction_citizen(0)]
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, events=dataclasses.replace(config.events, max_reaction_delta=0.42))
+    prompt = build_reaction_system_prompt(citizens, EventType.SCANDAL, config)
+    assert "0.42" in prompt
+
+
+def test_reaction_system_prompt_shows_only_this_calls_legal_motifs():
+    citizens = [_reaction_citizen(0)]
+    config = _config_with_llm_enabled()
+    scandal_prompt = build_reaction_system_prompt(citizens, EventType.SCANDAL, config)
+    assert "401 = SCANDAL_TRUST_EROSION" in scandal_prompt
+    assert "402 = ECONOMIC_SHOCK_REACTION" not in scandal_prompt
+    shock_prompt = build_reaction_system_prompt(citizens, EventType.ECONOMIC_SHOCK, config)
+    assert "402 = ECONOMIC_SHOCK_REACTION" in shock_prompt
+    assert "401 = SCANDAL_TRUST_EROSION" not in shock_prompt
+
+
+def test_reaction_user_prompt_carries_a_single_shared_event_block_not_duplicated_per_citizen():
+    citizens = [_reaction_citizen(0), _reaction_citizen(1)]
+    contexts = {0: _reaction_context(0), 1: _reaction_context(1)}
+    payload = json.loads(
+        build_reaction_user_prompt(citizens, contexts, event_type=EventType.SCANDAL, target=205, magnitude=0.0)
+    )
+    assert payload["event"] == {"event_type": int(EventType.SCANDAL), "target": 205}
+    assert len(payload["reactors"]) == 2
+    for block in payload["reactors"]:
+        assert "event_type" not in block
+        assert "target" not in block
+
+
+def test_reaction_user_prompt_omits_magnitude_for_a_scandal_call():
+    citizen = _reaction_citizen(0)
+    contexts = {0: _reaction_context(0)}
+    payload = json.loads(
+        build_reaction_user_prompt([citizen], contexts, event_type=EventType.SCANDAL, target=205, magnitude=0.0)
+    )
+    assert "magnitude" not in payload["event"]
+
+
+def test_reaction_user_prompt_carries_magnitude_for_an_economic_shock_call():
+    citizen = _reaction_citizen(0)
+    contexts = {0: _reaction_context(0)}
+    payload = json.loads(
+        build_reaction_user_prompt([citizen], contexts, event_type=EventType.ECONOMIC_SHOCK, target=None, magnitude=0.73)
+    )
+    assert payload["event"]["target"] is None
+    assert payload["event"]["magnitude"] == 0.73
+
+
+def test_reaction_user_prompt_is_deterministic_for_the_same_inputs():
+    citizens = [_reaction_citizen(0), _reaction_citizen(1)]
+    contexts = {0: _reaction_context(0), 1: _reaction_context(1)}
+    args = (citizens, contexts)
+    kwargs = {"event_type": EventType.SCANDAL, "target": 205, "magnitude": 0.0}
+    assert build_reaction_user_prompt(*args, **kwargs) == build_reaction_user_prompt(*args, **kwargs)
+
+
+def test_reaction_user_prompt_ctx_matches_the_journalled_ctx_payload():
+    # One serialization, two consumers (the prompt and the journal write in
+    # run_polity_simulation.py) -- both must read from to_payload().
+    citizen = _reaction_citizen(7)
+    context = _reaction_context(7, event_salience=0.33)
+    payload = json.loads(
+        build_reaction_user_prompt([citizen], {7: context}, event_type=EventType.SCANDAL, target=205, magnitude=0.0)
+    )
+    assert payload["reactors"][0]["ctx"] == context.to_payload()
+    assert context.to_payload() == {"event_salience": 0.33}
+
+
+# ── decide_reaction_to_event (FakeReactionLlmClient, v5 Lot 4) ───────────
+
+class FakeReactionLlmClient:
+    """Always answers with a nonzero salience_delta and the call's own
+    grounding motif -- lets tests assert on chunking/order/resolution
+    behavior without a live model."""
+
+    def __init__(self):
+        self.calls: list[list[int]] = []
+
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        payload = json.loads(user_prompt)
+        cids = [r["cid"] for r in payload["reactors"]]
+        self.calls.append(cids)
+        grounding = 401 if payload["event"]["event_type"] == int(EventType.SCANDAL) else 402
+        decisions = [{"cid": cid, "salience_delta": 0.1, "motif": grounding} for cid in cids]
+        return json.dumps({"decisions": decisions})
+
+
+def _reaction_population(n):
+    return [_reaction_citizen(i) for i in range(n)]
+
+
+def _reaction_contexts(citizens):
+    return {c.citizen_id: _reaction_context(c.citizen_id, event_salience=c.event_salience) for c in citizens}
+
+
+def test_decide_reaction_to_event_returns_empty_and_skips_the_client_when_no_citizens():
+    config = _config_with_llm_enabled()
+    client = FakeReactionLlmClient()
+
+    outcome = decide_reaction_to_event(
+        [], {}, EventType.SCANDAL, config, client, target=None
+    )
+
+    assert outcome.decisions == []
+    assert client.calls == []
+
+
+def test_decide_reaction_to_event_sorts_by_citizen_id_regardless_of_input_order():
+    # >= MIN_SAFE_BATCH_SIZE citizens: dt=8 does not override the default
+    # floor (unlike decide_pressure_actions's min_batch_size=1).
+    citizens = _reaction_population(20)
+    citizens = [citizens[3], citizens[0]] + citizens[4:] + [citizens[1], citizens[2]]
+    contexts = _reaction_contexts(citizens)
+    config = _config_with_llm_enabled()
+    client = FakeReactionLlmClient()
+
+    decide_reaction_to_event(citizens, contexts, EventType.SCANDAL, config, client, target=205)
+
+    assert client.calls == [list(range(20))]
+
+
+def test_decide_reaction_to_event_uses_the_default_min_batch_size_floor():
+    # Unlike decide_pressure_actions (min_batch_size=1), dt=8 batches the
+    # WHOLE population -- a static, run-level quantity that never shrinks
+    # the way a consulted cohort does -- so a cohort below
+    # MIN_SAFE_BATCH_SIZE is deliberately still rejected by chunk_voters's
+    # own default floor.
+    citizens = _reaction_population(3)
+    contexts = _reaction_contexts(citizens)
+    config = _config_with_llm_enabled()
+    with pytest.raises(NotImplementedError, match="min_batch_size"):
+        decide_reaction_to_event(citizens, contexts, EventType.SCANDAL, config, FakeReactionLlmClient(), target=205)
+
+
+def test_decide_reaction_to_event_chunks_a_full_population_at_max_batch_size():
+    citizens = _reaction_population(100)
+    contexts = _reaction_contexts(citizens)
+    config = _config_with_llm_enabled(max_batch_size=25)
+    client = FakeReactionLlmClient()
+
+    outcome = decide_reaction_to_event(citizens, contexts, EventType.SCANDAL, config, client, target=205)
+
+    assert len(client.calls) == 4
+    assert [len(call) for call in client.calls] == [25, 25, 25, 25]
+    assert sorted(cid for call in client.calls for cid in call) == list(range(100))
+    assert [d.cid for d in outcome.decisions] == list(range(100))
+
+
+def test_decide_reaction_to_event_raises_notimplementederror_for_unsupported_provider():
+    citizens = _reaction_population(25)
+    contexts = _reaction_contexts(citizens)
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, provider="api"))
+    with pytest.raises(NotImplementedError, match="provider"):
+        decide_reaction_to_event(citizens, contexts, EventType.SCANDAL, config, FakeReactionLlmClient(), target=205)
+
+
+def test_decide_reaction_to_event_accepts_the_vllm_provider():
+    citizens = _reaction_population(25)
+    contexts = _reaction_contexts(citizens)
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, provider="vllm"))
+
+    outcome = decide_reaction_to_event(citizens, contexts, EventType.SCANDAL, config, FakeReactionLlmClient(), target=205)
+
+    assert [d.cid for d in outcome.decisions] == list(range(25))
+
+
+def test_decide_reaction_to_event_raises_for_dynamic_batch_sharding():
+    citizens = _reaction_population(25)
+    contexts = _reaction_contexts(citizens)
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, batch_sharding="dynamic"))
+    with pytest.raises(NotImplementedError, match="batch_sharding"):
+        decide_reaction_to_event(citizens, contexts, EventType.SCANDAL, config, FakeReactionLlmClient(), target=205)
+
+
+def test_decide_reaction_to_event_raises_for_intra_run_workers_above_one():
+    citizens = _reaction_population(25)
+    contexts = _reaction_contexts(citizens)
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, parallel=dataclasses.replace(config.parallel, intra_run_workers=2))
+    with pytest.raises(NotImplementedError, match="intra_run_workers"):
+        decide_reaction_to_event(citizens, contexts, EventType.SCANDAL, config, FakeReactionLlmClient(), target=205)
+
+
+def test_decide_reaction_to_event_raises_for_codebook_version_mismatch():
+    citizens = _reaction_population(25)
+    contexts = _reaction_contexts(citizens)
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, codebook_version="0.9"))
+    with pytest.raises(Exception, match="codebook_version"):
+        decide_reaction_to_event(citizens, contexts, EventType.SCANDAL, config, FakeReactionLlmClient(), target=205)
+
+
+def test_decide_reaction_to_event_propagates_llm_response_error_on_count_mismatch():
+    citizens = _reaction_population(25)
+    contexts = _reaction_contexts(citizens)
+    config = _config_with_llm_enabled()
+
+    class ShortClient:
+        def complete_json(self, **kwargs):
+            return json.dumps({"decisions": [{"cid": 0, "salience_delta": 0.1, "motif": 401}]})
+
+    with pytest.raises(LlmResponseError, match="misaligned"):
+        decide_reaction_to_event(citizens, contexts, EventType.SCANDAL, config, ShortClient(), target=205)
+
+
 # ── _complete_and_decode_with_replay / llm.max_batch_replays (v4 Lot 8) ──
 
 class _FlakyClient:
@@ -2012,6 +2290,17 @@ def _replay_cases():
         {"decisions": [{"party_id": 1, "action": 1, "motif": 501}, {"party_id": 2, "action": 1, "motif": 501}]}
     )
 
+    # dt=8 batches the WHOLE population like vote_cast/candidacy_considered
+    # (not a handful like pressure_action's consulted cohort), so it needs
+    # >= MIN_SAFE_BATCH_SIZE citizens too -- decide_reaction_to_event does
+    # not override chunk_voters's default floor (see this lot's own
+    # test_decide_reaction_to_event_uses_the_default_min_batch_size_floor).
+    reaction_citizens = _reaction_population(20)
+    reaction_contexts_ = _reaction_contexts(reaction_citizens)
+    reaction_good = json.dumps(
+        {"decisions": [{"cid": c.citizen_id, "salience_delta": 0.1, "motif": 401} for c in reaction_citizens]}
+    )
+
     return [
         ("vote_cast", lambda config, client: cast_votes(voters, vote_candidates, config, client), vote_good),
         ("candidacy_considered", lambda config, client: decide_candidacies(candidacy_citizens, config, client), candidacy_good),
@@ -2039,6 +2328,13 @@ def _replay_cases():
             "coalition_decision",
             lambda config, client: decide_coalition(coalition_parties, coalition_seats, coalition_votes, config, client),
             coalition_good,
+        ),
+        (
+            "reaction_to_event",
+            lambda config, client: decide_reaction_to_event(
+                reaction_citizens, reaction_contexts_, EventType.SCANDAL, config, client, target=205
+            ),
+            reaction_good,
         ),
     ]
 

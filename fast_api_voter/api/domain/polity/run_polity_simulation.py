@@ -83,6 +83,7 @@ from api.domain.polity.legitimacy import (
 )
 from api.domain.polity.llm_behavior_engine import (
     PressureContext,
+    ReactionContext,
     ResponseContext,
     cast_votes,
     decide_campaign_positioning,
@@ -90,12 +91,13 @@ from api.domain.polity.llm_behavior_engine import (
     decide_coalition,
     decide_party_nominations,
     decide_pressure_actions,
+    decide_reaction_to_event,
     decide_representative_response,
     menu_acts,
     resolve_ranking_cids,
 )
 from api.domain.polity.llm_client import LlmClientProtocol, build_json_client
-from api.domain.polity.llm_schemas import PressureDecision
+from api.domain.polity.llm_schemas import PressureDecision, ReactionDecision
 from api.domain.polity.metrics import mobilization_rate
 from api.domain.polity.parties import Party, initialize_parties
 from api.domain.polity.shock import economic_shock_step, scandal_arrival
@@ -894,6 +896,85 @@ def _pressure_context(
     )
 
 
+def _run_reaction_to_event(
+    citizens: list[Citizen],
+    event_type: EventType,
+    config: PolityConfig,
+    journal: Journal,
+    tick: int,
+    llm_client: LlmClientProtocol | None,
+    *,
+    target: int | None,
+    magnitude: float = 0.0,
+) -> None:
+    """v5 Lot 3's step-0 baseline, now with an LLM branch under
+    config.llm.enabled (v5 Lot 4, dt=8). Population-wide: loops over the
+    WHOLE `citizens` list, never `holders`. Called once per firing
+    event_type from _run_accountability_phase's step 0 -- a tick where
+    both scandal_fired and shock_crossed fire calls this twice, in the
+    fixed scandal-then-shock order Lot 3 established, so "a tick where
+    both fire stays deterministic byte for byte" continues to describe
+    the LLM path too.
+
+    No additional config.events.enabled gate (Lot 3's own precedent,
+    restated): this function only ever runs inside `if exogenous.
+    scandal_fired:`/`if exogenous.shock_crossed:`, both of which already
+    imply events.enabled=True (config.py's own cross-field rule) -- a
+    second explicit conjunct here could never disagree. Likewise no
+    second config.llm.enabled conjunct beyond the one below: unlike dt=6/
+    dt=10, this branch needs no section flag (mandate.enabled/
+    awakening.enabled) alongside it, since events.enabled is already
+    structurally guaranteed the moment this function is ever called.
+
+    `contexts` is built HERE, before decide_reaction_to_event runs, and
+    read again below AFTER it returns for the journal write -- never
+    rebuilt from a citizen's (by-then-mutated) event_salience. This is
+    why decide_reaction_to_event takes contexts as a caller-supplied
+    mapping rather than building it internally: the journal write must
+    record the SAME pre-update value the model saw, not a value re-read
+    after this loop has already mutated event_salience for earlier
+    citizens in citizen_id order."""
+    if event_type is EventType.SCANDAL:
+        grounding_motif = ReactionMotif.SCANDAL_TRUST_EROSION
+    elif event_type is EventType.ECONOMIC_SHOCK:
+        grounding_motif = ReactionMotif.ECONOMIC_SHOCK_REACTION
+    else:
+        raise ValueError(f"unhandled EventType: {event_type!r}")
+
+    reaction_decisions: dict[int, ReactionDecision] | None = None
+    contexts: dict[int, ReactionContext] = {}
+    if config.llm.enabled:
+        assert llm_client is not None  # guaranteed by _llm_client_scope when llm.enabled
+        contexts = {c.citizen_id: ReactionContext(cid=c.citizen_id, event_salience=c.event_salience) for c in citizens}
+        outcome = decide_reaction_to_event(
+            citizens, contexts, event_type, config, llm_client, target=target, magnitude=magnitude
+        )
+        reaction_decisions = {d.cid: d for d in outcome.decisions}
+
+    for citizen in citizens:
+        if reaction_decisions is None:
+            delta = deterministic_reaction_to_event(event_type, config.events, magnitude=magnitude)
+            motif = str(grounding_motif)
+            extra: dict[str, object] = {}
+        else:
+            decision = reaction_decisions[citizen.citizen_id]
+            delta = decision.salience_delta
+            motif = str(decision.motif)
+            extra = {"ctx": contexts[citizen.citizen_id].to_payload()}
+        citizen.event_salience = update_event_salience(citizen.event_salience, delta, config.events)
+        payload: dict[str, object] = {"event_type": int(event_type), "target": target, "salience_delta": delta, **extra}
+        if event_type is EventType.ECONOMIC_SHOCK:
+            payload["magnitude"] = magnitude
+        journal.write(
+            tick=tick,
+            event_type="reaction_to_event",
+            payload=payload,
+            citizen_id=citizen.citizen_id,
+            motif=motif,
+            codebook_version=config.llm.codebook_version,
+        )
+
+
 def _run_representative_responses(
     holders: list[Citizen],
     config: PolityConfig,
@@ -961,9 +1042,10 @@ def _run_accountability_phase(
     llm_client: LlmClientProtocol | None = None,
     exogenous: ExogenousEventsOutcome | None = None,
 ) -> None:
-    """v4 Lots 2-6, v5 Lot 3 -- §7bis.7's full per-tick sequence: step 0
-    (v5 Lot 3, §8: population-wide reaction_to_event, before anything
-    officeholder-scoped) -> step 1 (representative_response +
+    """v4 Lots 2-6, v5 Lots 3-4 -- §7bis.7's full per-tick sequence: step 0
+    (v5 Lot 3/4, §8: population-wide reaction_to_event, LLM-driven under
+    config.llm.enabled since Lot 4, deterministic otherwise, before
+    anything officeholder-scoped) -> step 1 (representative_response +
     mandate_deviation, measurement) -> step 2 (awaken -> pressure_action)
     -> step 3 (aggregate pressure) -> step 4 (update L(t)) -> step 5
     (petition threshold) -> step 6 (hard floor). Step 7 (the
@@ -1032,55 +1114,31 @@ def _run_accountability_phase(
         return
     term_ticks = config.institutions.president_term_years * config.run.ticks_per_year
     holders = current_office_holders(citizens, Office.PRESIDENT)  # built once, as before
-    # v5 Lot 3 (§8) -- step 0, before step 1: population-wide, never
-    # officeholder-scoped (dt=8 is not select_consulted-gated), so this
-    # loops over `citizens`, not `holders`, and needs nothing `holders`
-    # produces. Fixed processing order -- scandal branch before
-    # economic-shock branch -- mirrors _run_exogenous_events's own fixed
-    # draw order, so a tick where both fire stays deterministic byte for
-    # byte. Payload shape is deliberately asymmetric per event_type,
-    # mirroring scandal_occurred/economic_shock_tick's own asymmetric raw
-    # payloads (Lot 2): SCANDAL carries `target`, no `magnitude`;
-    # ECONOMIC_SHOCK carries `magnitude`, target is always null (systemic,
-    # no single object). Both journal motif=401/402 unconditionally
-    # (deliberate divergence from pressure_action's own deterministic
-    # branch, which leaves motif=None): unlike an LLM's stated reason,
-    # these motifs encode WHICH generator fired, a fact already certain on
-    # the deterministic path too.
+    # v5 Lot 3/4 (§8) -- step 0, before step 1: population-wide, never
+    # officeholder-scoped (dt=8 is not select_consulted-gated), so
+    # _run_reaction_to_event loops over `citizens`, not `holders`, and
+    # needs nothing `holders` produces. Fixed processing order -- scandal
+    # branch before economic-shock branch -- mirrors _run_exogenous_events's
+    # own fixed draw order, so a tick where both fire stays deterministic
+    # byte for byte (LLM-decided or not). Deterministic-path payload shape
+    # is asymmetric per event_type, mirroring scandal_occurred/
+    # economic_shock_tick's own asymmetric raw payloads (Lot 2): SCANDAL
+    # carries `target`, no `magnitude`; ECONOMIC_SHOCK carries `magnitude`,
+    # target is always null (systemic, no single object). Both journal
+    # motif=401/402 unconditionally even without an LLM (deliberate
+    # divergence from pressure_action's own deterministic branch, which
+    # leaves motif=None): unlike an LLM's stated reason, these motifs
+    # encode WHICH generator fired, a fact already certain either way.
     if exogenous is not None:
         if exogenous.scandal_fired:
-            delta = deterministic_reaction_to_event(EventType.SCANDAL, config.events)
-            for citizen in citizens:
-                citizen.event_salience = update_event_salience(citizen.event_salience, delta, config.events)
-                journal.write(
-                    tick=tick,
-                    event_type="reaction_to_event",
-                    payload={
-                        "event_type": int(EventType.SCANDAL),
-                        "target": exogenous.scandal_target,
-                        "salience_delta": delta,
-                    },
-                    citizen_id=citizen.citizen_id,
-                    motif=str(ReactionMotif.SCANDAL_TRUST_EROSION),
-                    codebook_version=config.llm.codebook_version,
-                )
+            _run_reaction_to_event(
+                citizens, EventType.SCANDAL, config, journal, tick, llm_client, target=exogenous.scandal_target
+            )
         if exogenous.shock_crossed:
-            delta = deterministic_reaction_to_event(EventType.ECONOMIC_SHOCK, config.events, magnitude=exogenous.economy_x)
-            for citizen in citizens:
-                citizen.event_salience = update_event_salience(citizen.event_salience, delta, config.events)
-                journal.write(
-                    tick=tick,
-                    event_type="reaction_to_event",
-                    payload={
-                        "event_type": int(EventType.ECONOMIC_SHOCK),
-                        "target": None,
-                        "salience_delta": delta,
-                        "magnitude": exogenous.economy_x,
-                    },
-                    citizen_id=citizen.citizen_id,
-                    motif=str(ReactionMotif.ECONOMIC_SHOCK_REACTION),
-                    codebook_version=config.llm.codebook_version,
-                )
+            _run_reaction_to_event(
+                citizens, EventType.ECONOMIC_SHOCK, config, journal, tick, llm_client,
+                target=None, magnitude=exogenous.economy_x,
+            )
     if config.llm.enabled and config.mandate.enabled:  # §7bis.7 step 1 (v4 Lot 6)
         _run_representative_responses(holders, config, journal, tick, llm_client)
     for holder in holders:
