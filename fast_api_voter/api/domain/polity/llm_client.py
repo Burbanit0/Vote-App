@@ -1,6 +1,18 @@
 """
-api.domain.polity.llm_client — sync HTTP transport to a local Ollama
-instance, v2 increment 1.
+api.domain.polity.llm_client — sync HTTP transport to a local Ollama or
+vLLM instance, v2 increment 1 (Ollama); v4 vLLM switch (§15bis.6) adds
+VllmJsonClient.
+
+vLLM status: VllmJsonClient below is implemented against vLLM's documented
+OpenAI-compatible surface and Qwen3's documented `enable_thinking` chat-
+template flag -- it has never been executed against a live vLLM server (no
+GPU has been available in this project). Every claim in OllamaJsonClient's
+own docstring is backed by a committed live results doc; no claim in
+VllmJsonClient's docstring is. §15bis.5's determinism-under-batching
+protocol has been run against Ollama only (llm_batching_determinism_results.md)
+and has never been run against vLLM. `polity_config.yaml` ships
+`provider: ollama` as the default for exactly this reason -- see that
+file's own comment block for the switch procedure and its caveats.
 
 Sync httpx.Client only, never async. A batch call is a single request/
 response; there is no intra-batch concurrency to justify async, and the
@@ -102,6 +114,27 @@ class LlmClientProtocol(Protocol):
     ) -> str: ...
 
 
+SUPPORTED_PROVIDERS = frozenset({"ollama", "vllm"})
+"""Providers with an actual client in this module. config._LLM_PROVIDERS is
+deliberately wider ({"ollama", "vllm", "api"}): that set says which values
+are spellable in llm.provider, this one says which are implemented. "api"
+(hosted inference) is out of scope by decision (§12: local self-hosting),
+not merely unbuilt yet."""
+
+
+def unsupported_provider_error(provider: str) -> NotImplementedError:
+    """Single message, two raise sites (llm_behavior_engine._check_supported
+    at first-decision time, build_json_client at run start) -- keeping the
+    text in one place means the two can't drift apart. Must keep the
+    substring "provider": every _check_supported test asserts
+    pytest.raises(NotImplementedError, match="provider")."""
+    return NotImplementedError(
+        f"llm.provider {provider!r} has no client in this codebase -- implemented: "
+        f"{', '.join(sorted(SUPPORTED_PROVIDERS))} ('vllm' added in v4, §15bis.6). "
+        "'api' is out of scope by design (§12), not merely unbuilt."
+    )
+
+
 def _inline_refs(schema: dict[str, Any]) -> dict[str, Any]:
     """See module docstring / ollama_structured_output_results.md Finding A.
     One-level-deep $ref substitution -- adequate for this project's
@@ -120,6 +153,30 @@ def _inline_refs(schema: dict[str, Any]) -> dict[str, Any]:
         return node
 
     return dict(resolve(schema))
+
+
+def _post_with_transport_retry(client: httpx.Client, url: str, payload: str) -> httpx.Response:
+    """Shared by every complete_json path (Ollama's two, vLLM's one):
+    retries only a transport failure (network error / non-200), up to
+    _TRANSPORT_RETRY_ATTEMPTS total attempts, no backoff -- see the module
+    docstring on why there's no concurrency to jitter against. A
+    response-level failure (bad schema, truncated generation) is the
+    caller's problem via the returned Response; this function never raises
+    LlmResponseError."""
+    last_transport_error: LlmTransportError | None = None
+    for _ in range(_TRANSPORT_RETRY_ATTEMPTS):
+        try:
+            response = client.post(url, content=payload, headers={"Content-Type": "application/json"})
+        except httpx.HTTPError as exc:
+            last_transport_error = LlmTransportError(f"request to {url} failed: {exc}")
+            continue
+        if response.status_code != 200:
+            last_transport_error = LlmTransportError(f"HTTP {response.status_code} from {url}: {response.text[:500]}")
+            continue
+        return response
+
+    assert last_transport_error is not None  # loop runs at least once
+    raise last_transport_error
 
 
 class OllamaJsonClient:
@@ -212,27 +269,8 @@ class OllamaJsonClient:
             },
         }
         payload = json.dumps(body, sort_keys=True, separators=(",", ":"))
-
-        last_transport_error: LlmTransportError | None = None
-        for _ in range(_TRANSPORT_RETRY_ATTEMPTS):
-            try:
-                response = self._client.post(
-                    f"{self._base_url}/chat/completions",
-                    content=payload,
-                    headers={"Content-Type": "application/json"},
-                )
-            except httpx.HTTPError as exc:
-                last_transport_error = LlmTransportError(f"request to {self._base_url} failed: {exc}")
-                continue
-            if response.status_code != 200:
-                last_transport_error = LlmTransportError(
-                    f"HTTP {response.status_code} from {self._base_url}: {response.text[:500]}"
-                )
-                continue
-            return _extract_content(response)
-
-        assert last_transport_error is not None  # loop runs at least once
-        raise last_transport_error
+        response = _post_with_transport_retry(self._client, f"{self._base_url}/chat/completions", payload)
+        return _extract_content(response)
 
     def _complete_json_native_no_think(
         self, system_prompt: str, user_prompt: str, json_schema: dict[str, Any], max_tokens: int
@@ -253,27 +291,8 @@ class OllamaJsonClient:
             "options": {"temperature": self._temperature, "seed": self._seed, "num_predict": max_tokens},
         }
         payload = json.dumps(body, sort_keys=True, separators=(",", ":"))
-
-        last_transport_error: LlmTransportError | None = None
-        for _ in range(_TRANSPORT_RETRY_ATTEMPTS):
-            try:
-                response = self._client.post(
-                    f"{native_base}/api/chat",
-                    content=payload,
-                    headers={"Content-Type": "application/json"},
-                )
-            except httpx.HTTPError as exc:
-                last_transport_error = LlmTransportError(f"request to {native_base} failed: {exc}")
-                continue
-            if response.status_code != 200:
-                last_transport_error = LlmTransportError(
-                    f"HTTP {response.status_code} from {native_base}: {response.text[:500]}"
-                )
-                continue
-            return _extract_native_content(response)
-
-        assert last_transport_error is not None  # loop runs at least once
-        raise last_transport_error
+        response = _post_with_transport_retry(self._client, f"{native_base}/api/chat", payload)
+        return _extract_native_content(response)
 
     def close(self) -> None:
         self._client.close()
@@ -285,6 +304,139 @@ class OllamaJsonClient:
         self, exc_type: type[BaseException] | None, exc: BaseException | None, tb: TracebackType | None
     ) -> None:
         self.close()
+
+
+class VllmJsonClient:
+    """vLLM's OpenAI-compatible endpoint (`llm.base_url`, ending in `/v1`,
+    e.g. `http://localhost:8000/v1`). One instance per run, reused across
+    every batch call -- same lifecycle contract as OllamaJsonClient.
+
+    UNVERIFIED (v4 vLLM switch, §15bis.6): everything below is written
+    against vLLM's documented request surface and Qwen3's documented chat
+    template, not against a live vLLM response. No GPU has been available
+    in this project. `polity_config.yaml` ships `provider: ollama` as the
+    default for exactly this reason.
+
+    Single endpoint for both think modes, unlike OllamaJsonClient. Ollama's
+    `/api/chat` detour exists to route around a *measured Ollama bug*:
+    `think: false` combined with `response_format` on `/v1/chat/completions`
+    is silently ignored there, burning the whole token budget on invisible
+    reasoning (ollama_structured_output_results.md, Finding E). vLLM has no
+    equivalent native endpoint and no such bug on record -- Qwen3's
+    thinking mode is controlled by a chat-template argument,
+    `chat_template_kwargs: {"enable_thinking": ...}`, sent as part of the
+    normal OpenAI-compatible request body (per vLLM's documented
+    extra_body/chat_template_kwargs support and Qwen3's own
+    `enable_thinking` template flag). Sent unconditionally for both
+    think=True and think=False, so the request body is a total function of
+    the call arguments rather than depending on a hidden server-side
+    default.
+
+    Structural risk, not yet resolvable without a live server: with
+    `response_format` active, vLLM's structured-output backend constrains
+    generation from the first token. If the server is not launched with
+    `--reasoning-parser qwen3` (see docker-compose.llm.yml), that grammar
+    constraint may make `enable_thinking: true` a SILENT no-op -- no
+    `<think>` content, no error, just an immediate, unreasoned JSON answer.
+    That would matter here: decide_campaign_positioning's own docstring
+    records that `think=False` produced a 100%-reproducible degenerate
+    batch on real production data, which is exactly the failure mode this
+    risk could reintroduce under a different name. A live test
+    (test_polity_vllm_live.py::test_think_true_actually_produces_reasoning)
+    is written to detect this once a GPU host exists; nothing in this
+    codebase can detect it today.
+
+    `_inline_refs` is applied here too even though vLLM's guided-decoding
+    backends (e.g. xgrammar) may handle nested $defs/$ref natively --
+    keeping the dereferencing is semantics-preserving and removes any
+    dependence on an unverified claim. `seed` is sent for parity with
+    OllamaJsonClient, but at temperature=0 sampling is already argmax; it
+    does nothing about §15bis.4c's batch-composition nondeterminism, which
+    is a kernel floating-point reduction order property, not a sampling
+    one -- see check_vllm_batching_determinism.py, never yet run."""
+
+    def __init__(
+        self,
+        base_url: str,
+        model: str,
+        temperature: float,
+        seed: int,
+        timeout: float,
+        transport: httpx.BaseTransport | None = None,
+    ) -> None:
+        self._base_url = base_url
+        self._model = model
+        self._temperature = temperature
+        self._seed = seed
+        self._client = httpx.Client(timeout=timeout, transport=transport)
+
+    @classmethod
+    def from_config(cls, llm: LlmConfig, *, seed: int, timeout: float = 600.0) -> VllmJsonClient:
+        """Same 600s default as OllamaJsonClient.from_config -- no live
+        vLLM measurement exists yet to justify a different one; re-measure
+        once a GPU host is available (see the vLLM switch plan)."""
+        return cls(llm.base_url, llm.model, llm.temperature, seed, timeout)
+
+    def complete_json(
+        self,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        json_schema: dict[str, Any],
+        max_tokens: int,
+        think: bool = True,
+    ) -> str:
+        """Retries only a transport failure, exactly like OllamaJsonClient
+        -- see _post_with_transport_retry. A response-level failure
+        propagates immediately, unretried -- see LlmResponseError."""
+        body = {
+            "model": self._model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "temperature": self._temperature,
+            "seed": self._seed,
+            "max_tokens": max_tokens,
+            "stream": False,
+            "chat_template_kwargs": {"enable_thinking": think},
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {"name": "polity_decision_batch", "strict": True, "schema": _inline_refs(json_schema)},
+            },
+        }
+        payload = json.dumps(body, sort_keys=True, separators=(",", ":"))
+        response = _post_with_transport_retry(self._client, f"{self._base_url}/chat/completions", payload)
+        return _extract_content(response)
+
+    def close(self) -> None:
+        self._client.close()
+
+    def __enter__(self) -> VllmJsonClient:
+        return self
+
+    def __exit__(
+        self, exc_type: type[BaseException] | None, exc: BaseException | None, tb: TracebackType | None
+    ) -> None:
+        self.close()
+
+
+def build_json_client(
+    llm: LlmConfig, *, seed: int, timeout: float = 600.0
+) -> OllamaJsonClient | VllmJsonClient:
+    """The single seam that turns `llm.provider` into a concrete client --
+    used by run_polity_simulation._llm_client_scope (the only production
+    caller) and by any test that wants the real dispatch behavior. Raises
+    unsupported_provider_error for anything not in SUPPORTED_PROVIDERS,
+    the same error (same message) llm_behavior_engine._check_supported
+    raises at first-decision time -- this is the earlier, cheaper failure
+    point: a run with `provider: api` now fails at run start rather than at
+    the first LLM call."""
+    if llm.provider == "ollama":
+        return OllamaJsonClient.from_config(llm, seed=seed, timeout=timeout)
+    if llm.provider == "vllm":
+        return VllmJsonClient.from_config(llm, seed=seed, timeout=timeout)
+    raise unsupported_provider_error(llm.provider)
 
 
 def _extract_content(response: httpx.Response) -> str:

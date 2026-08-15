@@ -161,6 +161,28 @@ def test_llm_provider_unknown_raises(tmp_path):
         load_config(path)
 
 
+def test_llm_provider_vllm_is_accepted(tmp_path):
+    # v4 vLLM switch (§15bis.6): "vllm" is a legal config.py value even
+    # though the shipped default stays "ollama" -- nothing pinned this
+    # loading successfully before this lot.
+    path = _write(tmp_path, lambda d: d["llm"].__setitem__("provider", "vllm"))
+    config = load_config(path)
+    assert config.llm.provider == "vllm"
+
+
+def test_llm_model_bare_hf_repo_id_is_rejected(tmp_path):
+    # Pins a genuine v4 vLLM-switch blocker, not just the pre-existing
+    # pinning rule: vLLM's natural model id (e.g. "Qwen/Qwen3-8B") has no
+    # colon, so it fails llm.model's pinning check exactly like an
+    # unpinned Ollama tag would. This is why the vLLM deployment plan
+    # requires launching the server with `--served-model-name qwen3:8b`
+    # rather than relaxing this rule -- llm.model, and every prompt/journal
+    # byte downstream of it, stays identical across providers.
+    path = _write(tmp_path, lambda d: d["llm"].__setitem__("model", "Qwen/Qwen3-8B"))
+    with pytest.raises(PolityConfigError, match="llm.model"):
+        load_config(path)
+
+
 def test_llm_batch_sharding_unknown_raises(tmp_path):
     path = _write(tmp_path, lambda d: d["llm"].__setitem__("batch_sharding", "round_robin"))
     with pytest.raises(PolityConfigError, match="batch_sharding"):

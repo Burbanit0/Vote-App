@@ -91,7 +91,7 @@ from api.domain.polity.llm_behavior_engine import (
     menu_acts,
     resolve_ranking_cids,
 )
-from api.domain.polity.llm_client import LlmClientProtocol, OllamaJsonClient
+from api.domain.polity.llm_client import LlmClientProtocol, build_json_client
 from api.domain.polity.llm_schemas import PressureDecision
 from api.domain.polity.metrics import mobilization_rate
 from api.domain.polity.parties import Party, initialize_parties
@@ -126,9 +126,10 @@ def run_simulation(
 
     `llm_client` is additive (default None) so every pre-v2 caller and test
     is unaffected. When `config.llm.enabled` is true and no client was
-    injected, a real OllamaJsonClient is constructed for the run's
-    lifetime and closed here; an injected client (tests) is never closed —
-    it belongs to the caller.
+    injected, a real client for `config.llm.provider` is constructed (v4
+    vLLM switch, §15bis.6 — see llm_client.build_json_client) for the
+    run's lifetime and closed here; an injected client (tests) is never
+    closed — it belongs to the caller.
     """
     if config.institutions.presidential_method not in RANKED_METHODS:
         raise NotImplementedError(
@@ -164,13 +165,22 @@ def run_simulation(
 
 @contextmanager
 def _llm_client_scope(config: PolityConfig, llm_client: LlmClientProtocol | None) -> Iterator[LlmClientProtocol | None]:
+    """v4 vLLM switch (§15bis.6): dispatch on config.llm.provider via
+    llm_client.build_json_client, rather than always constructing an
+    OllamaJsonClient. Ordering unchanged and still load-bearing: an
+    injected client always short-circuits first (tests), then a disabled
+    LLM path yields None regardless of provider (so `provider: api` +
+    `enabled: false` still loads and runs), and only then does dispatch
+    happen — so an unsupported/unimplemented provider (currently only
+    "api") now fails HERE, at run start, rather than at the first decision
+    inside llm_behavior_engine._check_supported. Earlier and cheaper."""
     if llm_client is not None:
         yield llm_client
         return
     if not config.llm.enabled:
         yield None
         return
-    with OllamaJsonClient.from_config(config.llm, seed=config.run.seed) as owned_client:
+    with build_json_client(config.llm, seed=config.run.seed) as owned_client:
         yield owned_client
 
 

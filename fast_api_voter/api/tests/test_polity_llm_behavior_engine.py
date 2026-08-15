@@ -392,9 +392,26 @@ def test_cast_votes_raises_notimplementederror_for_unsupported_provider():
     voters = _population(20)
     candidates = [_candidate(100, (0.5,))]
     config = _config_with_llm_enabled()
-    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, provider="vllm"))
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, provider="api"))
     with pytest.raises(NotImplementedError, match="provider"):
         cast_votes(voters, candidates, config, FakeLlmClient({}, candidates))
+
+
+def test_cast_votes_accepts_the_vllm_provider_with_identical_output():
+    # v4 vLLM switch (§15bis.6): the engine never touches the concrete
+    # client class, only LlmClientProtocol -- provider is a pure config
+    # value from _check_supported's perspective, so the SAME FakeLlmClient
+    # against the SAME inputs must produce identical output regardless of
+    # which supported provider the config names.
+    voters = _population(20, dims=1)
+    candidates = [_candidate(100, (0.1,)), _candidate(101, (0.9,))]
+    ollama_config = _config_with_llm_enabled()
+    vllm_config = dataclasses.replace(ollama_config, llm=dataclasses.replace(ollama_config.llm, provider="vllm"))
+
+    ollama_outcome = cast_votes(voters, candidates, ollama_config, FakeLlmClient({v.citizen_id: v for v in voters}, candidates))
+    vllm_outcome = cast_votes(voters, candidates, vllm_config, FakeLlmClient({v.citizen_id: v for v in voters}, candidates))
+
+    assert vllm_outcome.ballots == ollama_outcome.ballots
 
 
 def test_cast_votes_raises_for_dynamic_batch_sharding():
@@ -527,7 +544,7 @@ def test_decide_candidacies_support_signal_is_population_wide_not_chunk_scoped()
 def test_decide_candidacies_raises_notimplementederror_for_unsupported_provider():
     citizens = _population(20)
     config = _config_with_llm_enabled()
-    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, provider="vllm"))
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, provider="api"))
     with pytest.raises(NotImplementedError, match="provider"):
         decide_candidacies(citizens, config, FakeCandidacyLlmClient())
 
@@ -710,7 +727,7 @@ def test_decide_party_nominations_resolves_winner_position_back_to_the_right_cid
 def test_decide_party_nominations_raises_notimplementederror_for_unsupported_provider():
     citizens = _population(2)
     config = _config_with_llm_enabled()
-    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, provider="vllm"))
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, provider="api"))
     with pytest.raises(NotImplementedError, match="provider"):
         decide_party_nominations(citizens, [], set(), config, FakePartyNominationLlmClient())
 
@@ -925,7 +942,7 @@ def test_decide_campaign_positioning_resolves_platforms_from_shifts():
 def test_decide_campaign_positioning_raises_notimplementederror_for_unsupported_provider():
     citizens = _population(2)
     config = _config_with_llm_enabled()
-    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, provider="vllm"))
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, provider="api"))
     with pytest.raises(NotImplementedError, match="provider"):
         decide_campaign_positioning(citizens, citizens, {}, config, FakePositioningLlmClient())
 
@@ -1175,7 +1192,7 @@ def test_decide_representative_response_raises_notimplementederror_for_unsupport
     holder = _holder(0, (0.5,))
     contexts = {0: _response_context(0)}
     config = _config_with_llm_enabled()
-    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, provider="vllm"))
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, provider="api"))
     with pytest.raises(NotImplementedError, match="provider"):
         decide_representative_response([holder], contexts, config, FakeResponseLlmClient())
 
@@ -1560,7 +1577,7 @@ def test_decide_coalition_raises_notimplementederror_for_unsupported_provider():
     seats = {0: 30, 1: 25}
     votes = {0: 30.0, 1: 25.0}
     config = _config_with_llm_enabled()
-    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, provider="vllm"))
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, provider="api"))
     with pytest.raises(NotImplementedError, match="provider"):
         decide_coalition(_parties_from_seats(seats), seats, votes, config, FakeCoalitionLlmClient())
 
@@ -1856,9 +1873,24 @@ def test_decide_pressure_actions_raises_notimplementederror_for_unsupported_prov
     citizens = _pressure_population(3)
     contexts = _pressure_contexts(citizens)
     config = _config_with_llm_enabled()
-    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, provider="vllm"))
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, provider="api"))
     with pytest.raises(NotImplementedError, match="provider"):
         decide_pressure_actions(citizens, contexts, config, FakePressureLlmClient())
+
+
+def test_decide_pressure_actions_accepts_the_vllm_provider():
+    # The think=False side of the provider-acceptance pin above --
+    # decide_pressure_actions is one of the six decision types that never
+    # switch endpoints on Ollama (think=False throughout); vLLM has no
+    # endpoint switch at all, so this just needs to not raise.
+    citizens = _pressure_population(3)
+    contexts = _pressure_contexts(citizens)
+    config = _config_with_pressure_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, provider="vllm"))
+
+    outcome = decide_pressure_actions(citizens, contexts, config, FakePressureLlmClient())
+
+    assert [d.cid for d in outcome.decisions] == [0, 1, 2]
 
 
 def test_decide_pressure_actions_raises_for_dynamic_batch_sharding():

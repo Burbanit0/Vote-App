@@ -237,12 +237,40 @@ social_graph:
 # =============================================================================
 llm:
   enabled: false              # [v2] false => simple_rules.py (baseline v0/v1)
-  provider: ollama            # [v2] ollama | vllm | api
+  provider: ollama            # [v2] ollama | vllm | api ("api" épelable,
+                              #      non implémenté — hors périmètre §12)
                               #      BASCULE vers vllm dès v4 (§15bis.6) :
                               #      le facteur de charge est le nombre de
                               #      décisions PAR TICK, pas la population
+                              #      v4 (vLLM switch) : VllmJsonClient est
+                              #      écrit et testé hors-ligne (llm_client.py),
+                              #      mais "ollama" reste le défaut — aucune
+                              #      vérification live n'a pu être faite
+                              #      (pas de GPU dans cet environnement),
+                              #      §15bis.5 n'a jamais tourné contre vLLM
+                              # pour basculer :
+                              #   1. base_url: "http://localhost:8000/v1"
+                              #   2. docker compose -f docker-compose.llm.yml up
+                              #   3. le serveur vLLM DOIT être lancé avec
+                              #      --served-model-name qwen3:8b (sinon le
+                              #      pinning de llm.model échoue, cf. plus bas)
+                              #      et --reasoning-parser qwen3 (sinon
+                              #      think=True devient un no-op silencieux)
+                              # ⚠ poids différents : qwen3:8b sur Ollama est
+                              #   un GGUF quantisé, Qwen/Qwen3-8B sur vLLM
+                              #   serait en bf16 — les résultats live commités
+                              #   (ollama_structured_output_results.md, etc.)
+                              #   décrivent Ollama et ne se transposent pas
+  # base_url: "http://localhost:8000/v1"  # vllm
   base_url: "http://localhost:11434/v1"
   model: "qwen3:8b"           # [v2] version ÉPINGLÉE (jamais 'latest', cf. B2)
+                              #      identique pour vllm : lancer le serveur
+                              #      avec --served-model-name qwen3:8b
+                              #      plutôt que d'assouplir ce pinning — un
+                              #      id HF nu ("Qwen/Qwen3-8B") est rejeté
+                              #      (pas de ':', cf. config.py) et un id
+                              #      sans révision épinglée équivaut à
+                              #      'latest' par un autre nom
   temperature: 0.0            # [v2] OBLIGATOIRE pour le déterminisme (B2)
                               #      ⚠ POTENTIELLEMENT INSUFFISANT — cf.
                               #      protocole §15bis.5 à exécuter avant v2
