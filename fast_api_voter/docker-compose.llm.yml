@@ -1,0 +1,91 @@
+# docker-compose.llm.yml — vLLM inference server (v4 vLLM switch, §15bis.6)
+#
+# ⚠ UNVERIFIED — never executed. No GPU has been available in this project's
+# environment; every prior LLM finding here (batching determinism, structured-
+# output quirks, think=False bugs) was measured against Ollama, not vLLM.
+# The design doc (§15) names this file; this is its first materialization.
+#
+# Kept separate from docker-compose.yml (api + redis) so the api+redis stack
+# is unaffected on machines without a GPU — this file is opt-in.
+#
+# Usage:
+#   docker compose -f docker-compose.llm.yml up -d
+#   # then in polity_config.yaml: llm.provider: vllm, llm.base_url:
+#   # "http://localhost:8000/v1" (see that file's own comment block)
+#
+# Two flags are load-bearing, not cosmetic — see VllmJsonClient's docstring
+# (api/domain/polity/llm_client.py) for the full reasoning:
+#   --served-model-name qwen3:8b   llm.model's pinning rule (config.py)
+#                                   rejects a bare HF repo id like
+#                                   "Qwen/Qwen3-8B" (no ':') — this keeps
+#                                   llm.model, and every prompt/journal byte
+#                                   downstream of it, identical across
+#                                   providers.
+#   --reasoning-parser qwen3       without it, vLLM's structured-output
+#                                   grammar may make `enable_thinking: true`
+#                                   a SILENT no-op (residual risk R1) — the
+#                                   same failure mode that already produced
+#                                   a 100%-reproducible degenerate batch on
+#                                   Ollama under decide_campaign_positioning
+#                                   (see that function's own docstring).
+#
+# ⚠ Different weights from the Ollama default: qwen3:8b on Ollama is a
+# quantized GGUF; Qwen/Qwen3-8B here would be served in bf16. Every
+# committed live results doc (ollama_structured_output_results.md,
+# batch_size_boundary_results.md, lot6_batch_reliability_results.md,
+# acceptance_v4_results.md) describes the Ollama/GGUF configuration only —
+# none of those numbers are assumed to transfer here.
+#
+# §15's own vigilance note: beyond ~4 concurrent requests per GPU, time-to-
+# first-token tends to double. Doesn't bind THIS client, which never issues
+# concurrent requests itself (llm_client.py's module docstring) — it's a
+# property of the fleet if multiple runs share a GPU, not of a single run.
+#
+# No redis service here: §4.2's response cache is not implemented (see
+# polity_config.yaml's llm.cache_backend comment) and this lot does not
+# build it.
+
+services:
+  vllm:
+    # PLACEHOLDER — never a guessed version, never `latest` (same rule this
+    # project enforces on llm.model, config.py). Fill in the real pinned
+    # tag at first deployment and commit it.
+    image: vllm/vllm-openai:<PINNED_TAG>
+    container_name: vllm-polity
+    command:
+      - "--model"
+      - "Qwen/Qwen3-8B"
+      - "--revision"
+      - "<HF_COMMIT_SHA>"          # pin the weights, not just the repo id
+      - "--served-model-name"
+      - "qwen3:8b"                 # must match polity_config.yaml's llm.model
+      - "--reasoning-parser"
+      - "qwen3"
+      - "--max-model-len"
+      - "8192"                     # re-measure live against compute_max_tokens(25)
+                                    # plus a 25x20-dim prompt before trusting this
+      - "--port"
+      - "8000"
+      - "--seed"
+      - "42"
+    ports:
+      - "8000:8000"
+    ipc: host                      # vLLM's own recommendation, for its shared-memory tensor cache
+    volumes:
+      - huggingface_cache:/root/.cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s           # model load time, unmeasured here
+
+volumes:
+  huggingface_cache:

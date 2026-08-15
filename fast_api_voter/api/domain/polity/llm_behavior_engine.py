@@ -114,6 +114,7 @@ from api.domain.polity.codebook import (
 )
 from api.domain.polity.config import PolityConfig, PressureMenuConfig
 from api.domain.polity.llm_client import (
+    SUPPORTED_PROVIDERS,
     LlmClientProtocol,
     LlmResponseError,
     decode_candidacy_batch,
@@ -123,6 +124,7 @@ from api.domain.polity.llm_client import (
     decode_pressure_batch,
     decode_response_batch,
     decode_vote_batch,
+    unsupported_provider_error,
 )
 from api.domain.polity.llm_schemas import (
     CANDIDACY_JSON_SCHEMA,
@@ -174,9 +176,18 @@ class VoteBatchOutcome:
 def _check_supported(config: PolityConfig) -> None:
     """Fail before any network call, mirroring run_simulation's existing
     top-of-function guard style -- never do partial work on a config this
-    module can't actually honor."""
-    if config.llm.provider != "ollama":
-        raise NotImplementedError(f"llm.provider {config.llm.provider!r} is not supported before v4 (§15bis.6)")
+    module can't actually honor.
+
+    As of v4 (§15bis.6, vLLM switch), the provider check no longer gates an
+    ERA -- it gates which providers actually have a client
+    (llm_client.SUPPORTED_PROVIDERS). "ollama" and "vllm" both pass;
+    "api" (hosted inference) is out of scope by design (§12), not merely
+    unbuilt. Kept as the single source of truth shared with
+    llm_client.build_json_client, the run-start dispatch point -- same
+    error, same message, different time (this fires at the first decision,
+    build_json_client fires earlier, at run start)."""
+    if config.llm.provider not in SUPPORTED_PROVIDERS:
+        raise unsupported_provider_error(config.llm.provider)
     if config.llm.batch_sharding != "static":
         raise NotImplementedError(
             f"llm.batch_sharding {config.llm.batch_sharding!r} is not supported -- "

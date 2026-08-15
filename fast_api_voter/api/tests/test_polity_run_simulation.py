@@ -15,11 +15,12 @@ from api.domain.polity.accountability import update_street_pressure
 from api.domain.polity.citizen import Citizen, Office, Role, generate_population
 from api.domain.polity.config import PolityConfig, load_config
 from api.domain.polity.journal import Journal
-from api.domain.polity.llm_client import LlmResponseError
+from api.domain.polity.llm_client import LlmResponseError, OllamaJsonClient, VllmJsonClient
 from api.domain.polity.metrics import mobilization_rate
 from api.domain.polity.parties import Party, initialize_parties
 from api.domain.polity.run_polity_simulation import (
     _hold_presidential_election,
+    _llm_client_scope,
     _run_accountability_phase,
     run_simulation,
 )
@@ -38,6 +39,46 @@ def _config_with_output_dir(output_dir) -> PolityConfig:
 
 def _events(journal_path):
     return [json.loads(line) for line in journal_path.read_text(encoding="utf-8").splitlines()]
+
+
+# ── _llm_client_scope (v4 vLLM switch, §15bis.6 — dispatch on provider) ──
+# Constructing OllamaJsonClient/VllmJsonClient opens no socket (httpx.Client
+# doesn't connect until a request is sent), so these stay fully offline.
+
+def test_llm_client_scope_yields_the_injected_client_untouched():
+    config = load_config()
+    sentinel = object()
+    with _llm_client_scope(config, sentinel) as client:  # type: ignore[arg-type]
+        assert client is sentinel
+
+
+def test_llm_client_scope_yields_none_when_llm_is_disabled():
+    config = load_config()
+    assert config.llm.enabled is False  # shipped default
+    with _llm_client_scope(config, None) as client:
+        assert client is None
+
+
+def test_llm_client_scope_builds_an_ollama_client_for_the_ollama_provider():
+    config = load_config()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=True, provider="ollama"))
+    with _llm_client_scope(config, None) as client:
+        assert isinstance(client, OllamaJsonClient)
+
+
+def test_llm_client_scope_builds_a_vllm_client_for_the_vllm_provider():
+    config = load_config()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=True, provider="vllm"))
+    with _llm_client_scope(config, None) as client:
+        assert isinstance(client, VllmJsonClient)
+
+
+def test_llm_client_scope_rejects_the_api_provider_at_run_start():
+    config = load_config()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=True, provider="api"))
+    with pytest.raises(NotImplementedError, match="provider"):
+        with _llm_client_scope(config, None):
+            pass
 
 
 def test_full_run_completes_and_produces_a_non_empty_journal(tmp_path):

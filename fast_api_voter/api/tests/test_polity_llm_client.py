@@ -2,6 +2,7 @@
 No real network: httpx.MockTransport exercises the actual request/response
 handling (URL, headers, body shape, retry policy) without a live model.
 """
+import dataclasses
 import json
 
 import httpx
@@ -11,6 +12,8 @@ from api.domain.polity.llm_client import (
     LlmResponseError,
     LlmTransportError,
     OllamaJsonClient,
+    VllmJsonClient,
+    build_json_client,
     decode_candidacy_batch,
     decode_coalition_batch,
     decode_party_nomination_batch,
@@ -19,13 +22,20 @@ from api.domain.polity.llm_client import (
     decode_response_batch,
     decode_vote_batch,
 )
+from api.domain.polity.config import load_config
 
 BASE_URL = "http://localhost:11434/v1"
+VLLM_BASE_URL = "http://localhost:8000/v1"
 
 
 def _client(handler, **kwargs):
     transport = httpx.MockTransport(handler)
     return OllamaJsonClient(BASE_URL, "qwen3:8b", 0.0, seed=42, timeout=5.0, transport=transport, **kwargs)
+
+
+def _vllm_client(handler, **kwargs):
+    transport = httpx.MockTransport(handler)
+    return VllmJsonClient(VLLM_BASE_URL, "qwen3:8b", 0.0, seed=42, timeout=5.0, transport=transport, **kwargs)
 
 
 def _ok_response(content: str) -> httpx.Response:
@@ -149,6 +159,313 @@ def test_missing_choices_raises_response_error():
     client = _client(lambda request: httpx.Response(200, json={}))
     with pytest.raises(LlmResponseError, match="choices"):
         client.complete_json(system_prompt="s", user_prompt="u", json_schema={}, max_tokens=64)
+
+
+# ── OllamaJsonClient, think=False (native /api/chat path) ────────────────
+# No prior offline coverage of this path existed (only the think=True
+# OpenAI-compat path above was tested without a live server) -- these
+# characterize the shipped behavior before llm_client.py's shared retry
+# loop is extracted, so the extraction is provably behavior-preserving.
+
+def _ok_native_response(content: str) -> httpx.Response:
+    return httpx.Response(200, json={"done_reason": "stop", "message": {"content": content}})
+
+
+def test_native_endpoint_is_used_when_think_is_false():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["url"] = str(request.url)
+        return _ok_native_response('{"decisions": []}')
+
+    client = _client(handler)
+    client.complete_json(
+        system_prompt="sys", user_prompt="usr", json_schema={"type": "object"}, max_tokens=64, think=False
+    )
+
+    assert captured["url"] == "http://localhost:11434/api/chat"
+
+
+def test_native_request_shape_is_correct():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return _ok_native_response('{"decisions": []}')
+
+    client = _client(handler)
+    client.complete_json(system_prompt="sys", user_prompt="usr", json_schema={"type": "object"}, max_tokens=64, think=False)
+
+    body = captured["body"]
+    assert body["model"] == "qwen3:8b"
+    assert body["stream"] is False
+    assert body["think"] is False
+    assert body["messages"] == [{"role": "system", "content": "sys"}, {"role": "user", "content": "usr"}]
+    assert body["format"] == {"type": "object"}
+    assert body["options"] == {"temperature": 0.0, "seed": 42, "num_predict": 64}
+    # No response_format/chat_template_kwargs on the native path -- that
+    # shape belongs to the OpenAI-compat (think=True) request only.
+    assert "response_format" not in body
+    assert "chat_template_kwargs" not in body
+
+
+def test_native_done_reason_not_stop_raises_without_retry():
+    calls = {"count": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["count"] += 1
+        return httpx.Response(200, json={"done_reason": "length", "message": {"content": ""}})
+
+    client = _client(handler)
+    with pytest.raises(LlmResponseError, match="done_reason"):
+        client.complete_json(system_prompt="s", user_prompt="u", json_schema={}, max_tokens=64, think=False)
+    assert calls["count"] == 1
+
+
+def test_native_http_500_retries_then_raises_transport_error():
+    calls = {"count": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["count"] += 1
+        return httpx.Response(500, text="server error")
+
+    client = _client(handler)
+    with pytest.raises(LlmTransportError):
+        client.complete_json(system_prompt="s", user_prompt="u", json_schema={}, max_tokens=64, think=False)
+    assert calls["count"] == 3
+
+
+# ── VllmJsonClient (v4 vLLM switch, §15bis.6) ─────────────────────────────
+# UNVERIFIED against a live server -- see VllmJsonClient's own docstring.
+# These pin the request/response SHAPE this codebase sends and expects;
+# they cannot confirm vLLM actually behaves this way.
+
+def test_vllm_request_shape_is_correct():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["url"] = str(request.url)
+        captured["body"] = json.loads(request.content)
+        return _ok_response('{"decisions": []}')
+
+    client = _vllm_client(handler)
+    client.complete_json(system_prompt="sys", user_prompt="usr", json_schema={"type": "object"}, max_tokens=64)
+
+    assert captured["url"] == f"{VLLM_BASE_URL}/chat/completions"
+    body = captured["body"]
+    assert body["model"] == "qwen3:8b"
+    assert body["temperature"] == 0.0
+    assert body["seed"] == 42
+    assert body["stream"] is False
+    assert body["messages"] == [{"role": "system", "content": "sys"}, {"role": "user", "content": "usr"}]
+    assert body["response_format"]["json_schema"]["strict"] is True
+    assert body["response_format"]["json_schema"]["schema"] == {"type": "object"}
+
+
+def test_vllm_think_true_sets_enable_thinking_true():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return _ok_response('{"decisions": []}')
+
+    client = _vllm_client(handler)
+    client.complete_json(system_prompt="s", user_prompt="u", json_schema={}, max_tokens=64, think=True)
+
+    assert captured["body"]["chat_template_kwargs"] == {"enable_thinking": True}
+
+
+def test_vllm_think_false_keeps_the_same_endpoint_and_sets_enable_thinking_false():
+    """The executable pin for the design's central claim: unlike Ollama,
+    vLLM does NOT switch endpoints for think=False -- see
+    test_native_endpoint_is_used_when_think_is_false above for the contrast."""
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["url"] = str(request.url)
+        captured["body"] = json.loads(request.content)
+        return _ok_response('{"decisions": []}')
+
+    client = _vllm_client(handler)
+    client.complete_json(system_prompt="s", user_prompt="u", json_schema={}, max_tokens=64, think=False)
+
+    assert captured["url"] == f"{VLLM_BASE_URL}/chat/completions"
+    assert captured["body"]["chat_template_kwargs"] == {"enable_thinking": False}
+
+
+def test_vllm_nested_ref_schema_is_dereferenced_before_sending():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["schema"] = json.loads(request.content)["response_format"]["json_schema"]["schema"]
+        return _ok_response('{"decisions": []}')
+
+    schema = {
+        "$defs": {"Inner": {"type": "object", "properties": {"x": {"type": "integer"}}}},
+        "type": "object",
+        "properties": {"item": {"$ref": "#/$defs/Inner"}},
+    }
+    client = _vllm_client(handler)
+    client.complete_json(system_prompt="s", user_prompt="u", json_schema=schema, max_tokens=64)
+
+    sent = captured["schema"]
+    assert "$defs" not in sent
+    assert sent["properties"]["item"] == {"type": "object", "properties": {"x": {"type": "integer"}}}
+
+
+def test_vllm_sends_the_same_schema_as_the_ollama_client():
+    schema = {
+        "$defs": {"Inner": {"type": "object"}},
+        "type": "object",
+        "properties": {"item": {"$ref": "#/$defs/Inner"}},
+    }
+    captured = {}
+
+    def ollama_handler(request: httpx.Request) -> httpx.Response:
+        captured["ollama"] = json.loads(request.content)["response_format"]["json_schema"]["schema"]
+        return _ok_response('{"decisions": []}')
+
+    def vllm_handler(request: httpx.Request) -> httpx.Response:
+        captured["vllm"] = json.loads(request.content)["response_format"]["json_schema"]["schema"]
+        return _ok_response('{"decisions": []}')
+
+    _client(ollama_handler).complete_json(system_prompt="s", user_prompt="u", json_schema=schema, max_tokens=64)
+    _vllm_client(vllm_handler).complete_json(system_prompt="s", user_prompt="u", json_schema=schema, max_tokens=64)
+
+    assert captured["ollama"] == captured["vllm"]
+
+
+def test_vllm_payload_is_canonical_sorted_and_compact():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["raw"] = request.content
+        return _ok_response('{"decisions": []}')
+
+    client = _vllm_client(handler)
+    client.complete_json(system_prompt="s", user_prompt="u", json_schema={"b": 1, "a": 2}, max_tokens=64)
+
+    raw = captured["raw"]
+    assert b", " not in raw and b": " not in raw  # compact separators
+    reparsed = json.loads(raw)
+    assert json.dumps(reparsed, sort_keys=True, separators=(",", ":")).encode() == raw  # already sorted
+
+
+def test_vllm_successful_response_returns_content():
+    client = _vllm_client(lambda request: _ok_response('{"decisions": [{"cid": 1}]}'))
+    content = client.complete_json(system_prompt="s", user_prompt="u", json_schema={}, max_tokens=64)
+    assert content == '{"decisions": [{"cid": 1}]}'
+
+
+def test_vllm_returns_content_when_reasoning_content_is_also_present():
+    """The shape vLLM's --reasoning-parser produces: reasoning moved to its
+    own field, message.content left as pure JSON. _extract_content only
+    ever reads .content, so this should already work unmodified."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "message": {"content": '{"decisions": []}', "reasoning_content": "because..."},
+                    }
+                ]
+            },
+        )
+
+    client = _vllm_client(handler)
+    content = client.complete_json(system_prompt="s", user_prompt="u", json_schema={}, max_tokens=64)
+    assert content == '{"decisions": []}'
+
+
+def test_vllm_http_500_retries_then_raises_transport_error():
+    calls = {"count": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["count"] += 1
+        return httpx.Response(500, text="server error")
+
+    client = _vllm_client(handler)
+    with pytest.raises(LlmTransportError):
+        client.complete_json(system_prompt="s", user_prompt="u", json_schema={}, max_tokens=64)
+    assert calls["count"] == 3
+
+
+def test_vllm_connect_error_retries_then_raises_transport_error():
+    calls = {"count": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["count"] += 1
+        raise httpx.ConnectError("refused")
+
+    client = _vllm_client(handler)
+    with pytest.raises(LlmTransportError):
+        client.complete_json(system_prompt="s", user_prompt="u", json_schema={}, max_tokens=64)
+    assert calls["count"] == 3
+
+
+def test_vllm_transport_error_recovers_if_a_later_attempt_succeeds():
+    calls = {"count": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["count"] += 1
+        if calls["count"] < 2:
+            return httpx.Response(500, text="transient")
+        return _ok_response('{"decisions": []}')
+
+    client = _vllm_client(handler)
+    content = client.complete_json(system_prompt="s", user_prompt="u", json_schema={}, max_tokens=64)
+    assert content == '{"decisions": []}'
+    assert calls["count"] == 2
+
+
+def test_vllm_truncated_generation_raises_response_error_without_retry():
+    calls = {"count": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["count"] += 1
+        return httpx.Response(200, json={"choices": [{"finish_reason": "length", "message": {"content": ""}}]})
+
+    client = _vllm_client(handler)
+    with pytest.raises(LlmResponseError, match="finish_reason"):
+        client.complete_json(system_prompt="s", user_prompt="u", json_schema={}, max_tokens=64)
+    assert calls["count"] == 1
+
+
+def test_vllm_non_json_response_body_raises_response_error():
+    client = _vllm_client(lambda request: httpx.Response(200, text="not json"))
+    with pytest.raises(LlmResponseError):
+        client.complete_json(system_prompt="s", user_prompt="u", json_schema={}, max_tokens=64)
+
+
+def test_vllm_missing_choices_raises_response_error():
+    client = _vllm_client(lambda request: httpx.Response(200, json={}))
+    with pytest.raises(LlmResponseError, match="choices"):
+        client.complete_json(system_prompt="s", user_prompt="u", json_schema={}, max_tokens=64)
+
+
+# ── build_json_client (provider dispatch) ─────────────────────────────────
+
+def test_build_json_client_returns_an_ollama_client_for_the_ollama_provider():
+    config = load_config()
+    with build_json_client(config.llm, seed=42) as client:
+        assert isinstance(client, OllamaJsonClient)
+
+
+def test_build_json_client_returns_a_vllm_client_for_the_vllm_provider():
+    config = load_config()
+    llm = dataclasses.replace(config.llm, provider="vllm")
+    with build_json_client(llm, seed=42) as client:
+        assert isinstance(client, VllmJsonClient)
+
+
+def test_build_json_client_rejects_the_api_provider():
+    config = load_config()
+    llm = dataclasses.replace(config.llm, provider="api")
+    with pytest.raises(NotImplementedError, match="provider"):
+        build_json_client(llm, seed=42)
 
 
 # ── decode_vote_batch ─────────────────────────────────────────────────────
