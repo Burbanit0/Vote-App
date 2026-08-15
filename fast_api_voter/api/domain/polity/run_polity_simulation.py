@@ -97,6 +97,7 @@ from api.domain.polity.llm_client import LlmClientProtocol, build_json_client
 from api.domain.polity.llm_schemas import PressureDecision
 from api.domain.polity.metrics import mobilization_rate
 from api.domain.polity.parties import Party, initialize_parties
+from api.domain.polity.shock import economic_shock_step, scandal_arrival
 from api.domain.polity.simple_rules import (
     BLANK_LABEL,
     assign_party_affiliation,
@@ -203,28 +204,33 @@ def run_simulation(
     # Lot 2/3): a fresh default_rng per concern, so enabling rupture draws
     # never perturbs the citizens/parties already generated above.
     rupture_rng = np.random.default_rng(config.run.seed)
-    # RESERVED (v5 Lot 1, not yet instantiated): a third named stream,
-    # `events_rng`, for v5 Lot 2's Poisson scandal arrival + AR(1) economic
-    # shock innovation draws (§8) -- same "fresh default_rng per concern"
-    # reasoning as rupture_rng above, never reusing it. rupture_rng already
-    # draws unconditionally every tick for every elector (before the
+    # v5 Lot 2 (§8): a third independent stream, never reusing rupture_rng --
+    # same "fresh default_rng per concern" reasoning as above. rupture_rng
+    # already draws unconditionally every tick for every elector (before the
     # is_term_limited/barred-set check, specifically so a gated citizen
     # never shifts the stream); coupling v5's draws into that stream would
     # either entangle two unrelated mechanisms' RNG consumption for no
     # benefit, or -- if inserted only when events.enabled -- violate
     # rupture_rng's own existing, tested draw-position contract for every
-    # run that doesn't enable events. See the v5 top-level plan's Judgment
-    # Call 5 for the fixed intra-stream draw order (scandal before AR(1))
-    # once Lot 2 instantiates this.
+    # run that doesn't enable events. Fixed intra-stream draw order inside
+    # _run_exogenous_events: scandal arrival before the AR(1) innovation.
+    events_rng = np.random.default_rng(config.run.seed)
     # v4 Lot 9 (§6bis.2): None whenever blank_vote_competitive is off (the
     # shipped default) or no cycle is currently open -- see PendingRerun's
     # own docstring for why this is a plain local, not a Citizen field.
     pending_rerun: PendingRerun | None = None
+    # v5 Lot 2 (§8): the AR(1) economic-climate variable, x(t) -- population-
+    # wide, no natural Citizen owner, so a bare local in the same register as
+    # rupture_rng/pending_rerun rather than a Citizen field. Reassigned from
+    # _run_exogenous_events's return value every tick. Deliberately
+    # unclamped -- see shock.economic_shock_step's own docstring.
+    economy_x: float = 0.0
 
     with Journal.from_config(config.journal, run_id) as journal, _llm_client_scope(config, llm_client) as client:
         for tick in range(clock.total_ticks + 1):
             barred_ids = pending_rerun.barred_candidate_ids if pending_rerun is not None else frozenset()
             _attempt_rupture_candidacies(citizens, config, journal, tick, rupture_rng, barred_candidate_ids=barred_ids)
+            economy_x = _run_exogenous_events(citizens, config, journal, tick, events_rng, economy_x)
             election = clock.election_at(tick)
             # While a rerun is pending, the fixed presidential calendar is
             # SUSPENDED, not OR'd with the rerun tick -- see PendingRerun's
@@ -308,6 +314,56 @@ def _attempt_rupture_candidacies(
                 payload={"path": "rupture"},
                 citizen_id=citizen.citizen_id,
             )
+
+
+def _run_exogenous_events(
+    citizens: list[Citizen],
+    config: PolityConfig,
+    journal: Journal,
+    tick: int,
+    rng: np.random.Generator,
+    economy_x: float,
+) -> float:
+    """v5 Lot 2 (§8): the two exogenous generators, evaluated every tick --
+    unconditional, before any election dispatch, the same anchor point
+    _attempt_rupture_candidacies already establishes. Deliberately outside
+    _run_accountability_phase and independent of it: this function never
+    calls select_consulted/awakening_threshold, so it is unaffected by
+    (and cannot trip) awakening_threshold's still-pending event_salience
+    NotImplementedError guard (removed in v5 Lot 3).
+
+    A scandal is drawn from unconditionally whenever scandal_enabled is
+    true, regardless of whether a president currently exists -- vacancy is
+    a TARGET-RESOLUTION fact (current_office_holders may return []), never
+    a reason to skip the draw itself, matching v4's own "vacancy is a
+    first-class state" precedent. `target` is null on a vacancy, mirroring
+    election_invalidated's own explicit citizen_id=None precedent."""
+    if scandal_arrival(rng, config.events):
+        holders = current_office_holders(citizens, Office.PRESIDENT)
+        target_id = holders[0].citizen_id if holders else None
+        journal.write(
+            tick=tick,
+            event_type="scandal_occurred",
+            payload={"target": target_id},
+            citizen_id=target_id,
+        )
+
+    economy_x = economic_shock_step(economy_x, rng, config.events)
+    # Explicit re-check of economic_shock_enabled, not just the value
+    # comparison (mirrors mandate_deviation_recorded's own redundant
+    # config.mandate.enabled check): with economic_shock_enabled=False,
+    # economy_x is frozen at its seeded 0.0 forever, but a config with
+    # economy_shock_threshold=0.0 (legal -- _get_ratio allows the boundary)
+    # would make abs(0.0) >= 0.0 true on EVERY tick without this guard,
+    # silently resurrecting a "disabled" mechanism's journal footprint.
+    if config.events.economic_shock_enabled and abs(economy_x) >= config.events.economy_shock_threshold:
+        journal.write(
+            tick=tick,
+            event_type="economic_shock_tick",
+            payload={"x": economy_x, "threshold": config.events.economy_shock_threshold},
+        )
+
+    return economy_x
 
 
 def _declare_nominees(
