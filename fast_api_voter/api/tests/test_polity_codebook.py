@@ -27,6 +27,7 @@ from api.domain.polity.codebook import (
     CoalitionAction,
     CoalitionMotif,
     DecisionType,
+    MOTIF_ENUMS,
     PartyNominationMotif,
     PolityCodebookError,
     PressureAct,
@@ -35,6 +36,7 @@ from api.domain.polity.codebook import (
     Stance,
     VoteMotif,
     check_codebook_version,
+    motif_labels,
 )
 
 
@@ -251,3 +253,33 @@ def test_response_and_pressure_motif_share_the_mandate_deviation_code():
     # legitimately distinct readings, not a collision -- two separate enum
     # classes, so there's no value conflict either.
     assert ResponseMotif.MANDATE_DEVIATION_HIGH.value == PressureMotif.MANDATE_DEVIATION_HIGH.value == 301
+
+
+# ── motif_labels (v4 storage lot, §16.6 / §3.7.4) ─────────────────────────
+
+def test_motif_labels_covers_every_member_of_every_motif_enum():
+    labels = motif_labels()
+    for enum_cls in MOTIF_ENUMS:
+        for member in enum_cls:
+            assert labels[member.value] == member.name
+
+
+def test_motif_labels_collapses_the_shared_301_to_one_entry():
+    labels = motif_labels()
+    assert labels[301] == "MANDATE_DEVIATION_HIGH"
+    all_codes = [code for enum_cls in MOTIF_ENUMS for code in enum_cls]
+    assert all_codes.count(301) == 2  # present in both enums...
+    assert len(labels) == len(set(all_codes))  # ...but exactly one row here
+
+
+def test_motif_labels_contains_no_non_motif_enum_codes():
+    # Pins the deliberate motif-only decode boundary (v4 storage lot): these
+    # enums live inside `payload`, not the top-level `motif` field, and
+    # decoding them is explicitly deferred to a future §16.7 lot.
+    non_motif_names = {member.name for member in Stance} | {member.name for member in PressureAct}
+    assert non_motif_names.isdisjoint(motif_labels().values())
+
+
+def test_motif_labels_is_ordered_by_code():
+    labels = motif_labels()
+    assert list(labels.keys()) == sorted(labels.keys())

@@ -310,6 +310,56 @@ class PressureMotif(IntEnum):
 PRESSURE_MOTIF_PROMPT_TABLE = "\n".join(f"{motif.value} = {motif.name}" for motif in PressureMotif)
 
 
+MOTIF_ENUMS: tuple[type[IntEnum], ...] = (
+    VoteMotif,
+    CandidacyMotif,
+    PartyNominationMotif,
+    CampaignMotif,
+    CoalitionMotif,
+    ResponseMotif,
+    PressureMotif,
+)
+
+
+def motif_labels() -> dict[int, str]:
+    """§3.7.2's motif code -> label table, flattened across every motif
+    enum, for compaction.py's codebook JOIN (§3.7.4, v4 storage lot). Same
+    iteration the *_PROMPT_TABLE constants above already use for each enum
+    individually -- this module stays the single source of truth for what
+    a code means; compaction.py never hand-copies a mapping.
+
+    Flat and global because §3.7.2's "prefixe de categorie x 100"
+    convention makes motif codes globally unique BY DESIGN -- unlike
+    §3.7.1's per-field codes (role/office/act/stance/...), which are
+    small, per-field code spaces and are deliberately NOT decoded here
+    (see compaction.py's own docstring for that scope boundary).
+
+    ResponseMotif and PressureMotif both define 301 = MANDATE_DEVIATION_HIGH,
+    intentionally and with the same meaning (see PressureMotif's own
+    docstring) -- that is a duplicate, not a collision, and collapses to
+    one row here. A genuine collision (one code, two DIFFERENT labels)
+    would silently mislabel events and, because compaction.py's codebook
+    table is keyed on `code` alone, would fan out its decode JOIN into
+    duplicate rows -- so it raises here, at the source, rather than being
+    discovered as a wrong number in a distribution downstream.
+
+    Returned sorted by code: compaction.py inserts this verbatim, and a
+    deterministic order keeps two compactions of one journal
+    query-comparable."""
+    labels: dict[int, str] = {}
+    for enum_cls in MOTIF_ENUMS:
+        for member in enum_cls:
+            existing = labels.get(int(member))
+            if existing is not None and existing != member.name:
+                raise PolityCodebookError(
+                    f"motif code {int(member)} maps to both {existing!r} and "
+                    f"{member.name!r} ({enum_cls.__name__}) — §3.7.2 codes are "
+                    f"globally unique; a code is never reassigned"
+                )
+            labels[int(member)] = member.name
+    return dict(sorted(labels.items()))
+
+
 def check_codebook_version(config_version: str) -> None:
     if config_version != CODEBOOK_VERSION:
         raise PolityCodebookError(

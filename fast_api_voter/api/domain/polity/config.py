@@ -294,6 +294,7 @@ class JournalConfig:
     snapshot_every_ticks: int
     log_non_events: bool
     index_after_run: bool
+    decode_codebook_on_index: bool
 
 
 @dataclass(frozen=True)
@@ -580,6 +581,7 @@ def _parse_journal(raw: dict[str, Any]) -> JournalConfig:
         snapshot_every_ticks=_get_positive_int(s, "journal", "snapshot_every_ticks"),
         log_non_events=_get(s, "journal", "log_non_events", bool),
         index_after_run=_get(s, "journal", "index_after_run", bool),
+        decode_codebook_on_index=_get(s, "journal", "decode_codebook_on_index", bool),
     )
 
 

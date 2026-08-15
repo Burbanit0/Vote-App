@@ -20,6 +20,9 @@ PyYAML==6.0.3                  # domain/polity/config.py — polity_config.yaml 
 # ── Data / science (the simulation engine) ───────────────────────────────────
 numpy==2.2.6
 scipy==1.15.3
+duckdb==1.5.5                  # §16.6 — compaction post-run du journal JSONL en base
+                                # analytique (domain/polity/compaction.py). Embarqué,
+                                # sans serveur : un fichier .duckdb par run.
 
 # ── Dev / test ───────────────────────────────────────────────────────────────
 flake8==7.2.0

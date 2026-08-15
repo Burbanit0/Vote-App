@@ -12,8 +12,8 @@ computation (a mean, a ratio, a distribution) lives in metrics.py, exactly
 as that module's own docstring already specified; this module's only job is
 event-type knowledge, tick/term bookkeeping, and calling into metrics.py
 with the right slice of the journal. It is NOT §16.6's DuckDB compaction or
-codebook decoding -- both remain unbuilt; this is a metrics reducer over a
-JSONL file, nothing more.
+codebook decoding -- both live in compaction.py (v4 storage lot); this is a
+metrics reducer over a JSONL file, nothing more.
 
 `index_events` (an Iterable of already-parsed event dicts) is the real
 function; `index_run` (a Path) is four lines that stream a JSONL file into

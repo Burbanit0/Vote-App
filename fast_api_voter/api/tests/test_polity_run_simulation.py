@@ -34,7 +34,19 @@ _PETITION_LIFECYCLE_EVENT_TYPES = {
 
 def _config_with_output_dir(output_dir) -> PolityConfig:
     config = load_config()
-    return dataclasses.replace(config, journal=dataclasses.replace(config.journal, output_dir=str(output_dir)))
+    return dataclasses.replace(
+        config,
+        # index_after_run=False here (every other _config_with_* helper
+        # chains through this one, and dataclasses.replace only touches
+        # the field it's given -- so this propagates everywhere): compaction
+        # is real DuckDB work (v4 storage lot, §16.6) and this suite builds
+        # journals with thousands of events under awakening/mobilization/
+        # petition, which measurably dominates wall-clock (~190s across
+        # this file alone). The shipped YAML default (true) is untouched --
+        # tests that specifically exercise compaction turn it back on
+        # explicitly. See test_polity_compaction.py for offline coverage.
+        journal=dataclasses.replace(config.journal, output_dir=str(output_dir), index_after_run=False),
+    )
 
 
 def _events(journal_path):
@@ -79,6 +91,42 @@ def test_llm_client_scope_rejects_the_api_provider_at_run_start():
     with pytest.raises(NotImplementedError, match="provider"):
         with _llm_client_scope(config, None):
             pass
+
+
+# ── compaction wiring (v4 storage lot, §16.6) ─────────────────────────────
+# _config_with_output_dir sets index_after_run=False for this whole suite's
+# wall-clock (see its own docstring) -- every test below that actually
+# exercises compaction re-enables it explicitly. The shipped YAML default
+# is true; test_loads_the_real_polity_config_with_expected_v0_values
+# (test_polity_config.py) is what pins that.
+
+def test_run_simulation_writes_a_duckdb_beside_the_journal_when_index_after_run(tmp_path):
+    config = _config_with_output_dir(tmp_path)
+    config = dataclasses.replace(config, journal=dataclasses.replace(config.journal, index_after_run=True))
+    journal_path = run_simulation(config, run_id="compaction-on")
+    assert journal_path.with_name("events.duckdb").is_file()
+
+
+def test_run_simulation_writes_no_duckdb_when_index_after_run_is_false(tmp_path):
+    config = _config_with_output_dir(tmp_path)
+    assert config.journal.index_after_run is False
+    journal_path = run_simulation(config, run_id="compaction-off")
+    assert journal_path.is_file()
+    assert not journal_path.with_name("events.duckdb").exists()
+
+
+def test_compaction_does_not_change_a_single_journal_byte(tmp_path):
+    # The non-negotiable check: compacting must never perturb journal.py's
+    # writer behavior or any existing journal byte.
+    config_on = _config_with_output_dir(tmp_path / "on")
+    config_on = dataclasses.replace(config_on, journal=dataclasses.replace(config_on.journal, index_after_run=True))
+    config_off = _config_with_output_dir(tmp_path / "off")
+    assert config_off.journal.index_after_run is False
+
+    path_on = run_simulation(config_on, run_id="same-run-id")
+    path_off = run_simulation(config_off, run_id="same-run-id")
+
+    assert path_on.read_bytes() == path_off.read_bytes()
 
 
 def test_full_run_completes_and_produces_a_non_empty_journal(tmp_path):
