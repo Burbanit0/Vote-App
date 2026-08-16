@@ -27,6 +27,7 @@ from api.domain.polity.run_polity_simulation import (
     _hold_presidential_election,
     _llm_client_scope,
     _run_accountability_phase,
+    _run_chamber_deliberation,
     _run_exogenous_events,
     _run_sortition_rotation,
     run_simulation,
@@ -1537,8 +1538,8 @@ class _FakeLlmClient:
     ("nominees" key), decide_coalition ("responders" key),
     decide_representative_response ("holders" key),
     decide_pressure_actions ("consulted" key), decide_reaction_to_event
-    ("reactors" key), and cast_votes ("voters"/"candidates" keys) within
-    the same run.
+    ("reactors" key), decide_chamber_deliberation ("members" key), and
+    cast_votes ("voters"/"candidates" keys) within the same run.
     Candidacy: declares (outcome=1) whenever ambition_score >= 0.1 --
     config.candidacy.ambition_threshold is NOT consulted by the LLM path at
     all (decide_candidacies never reads it; only the deterministic
@@ -1610,6 +1611,12 @@ class _FakeLlmClient:
         if "reactors" in payload:
             grounding = 401 if payload["event"]["event_type"] == 1 else 402
             decisions = [{"cid": r["cid"], "salience_delta": 0.1, "motif": grounding} for r in payload["reactors"]]
+            return json.dumps({"decisions": decisions})
+        if "members" in payload:
+            decisions = [
+                {"cid": m["cid"], "shifts": [{"dimension": 0, "delta": 0.1}], "motif": 702}
+                for m in payload["members"]
+            ]
             return json.dumps({"decisions": decisions})
         return json.dumps({"decisions": self._vote_decisions(payload["voters"])})
 
@@ -2643,6 +2650,124 @@ def test_two_sortition_enabled_runs_produce_byte_identical_journals(tmp_path):
     path_a = run_simulation(config_a, run_id="same-run-id")
     path_b = run_simulation(config_b, run_id="same-run-id")
     assert path_a.read_bytes() == path_b.read_bytes()
+
+
+# ── v6b Lot 3: chamber_deliberation (dt=11, §6bis.3) ─────────────────────
+
+def _config_with_sortition_llm_enabled(output_dir, seats=3) -> PolityConfig:
+    config = _config_with_output_dir(output_dir)
+    return dataclasses.replace(
+        config,
+        sortition_chamber=dataclasses.replace(config.sortition_chamber, enabled=True, seats=seats),
+        llm=dataclasses.replace(config.llm, enabled=True),
+    )
+
+
+def test_default_config_run_emits_no_chamber_deliberation_events(tmp_path):
+    journal_path = run_simulation(_config_with_output_dir(tmp_path), run_id="baseline")
+    events = _events(journal_path)
+    assert not [e for e in events if e["event_type"] == "chamber_deliberation"]
+
+
+def test_sortition_chamber_enabled_without_the_llm_never_moves_chamber_position(tmp_path):
+    config = _config_with_output_dir(tmp_path)
+    config = dataclasses.replace(
+        config, sortition_chamber=dataclasses.replace(config.sortition_chamber, enabled=True, seats=3)
+    )
+    journal_path = run_simulation(config, run_id="deterministic-sortition")
+    events = _events(journal_path)
+    # The absence of this call IS the fallback (see _run_chamber_deliberation's
+    # own docstring): with llm.enabled=False, chamber_position stays pinned
+    # to issue_positions forever, zero code, zero events.
+    assert not [e for e in events if e["event_type"] == "chamber_deliberation"]
+    assert [e for e in events if e["event_type"] == "sortition_rotation"]  # the chamber IS seated
+
+
+def test_chamber_deliberation_is_journalled_once_per_seated_member_per_tick(tmp_path):
+    config = _config_with_sortition_llm_enabled(tmp_path, seats=3)
+    journal_path = run_simulation(config, run_id="chamber-deliberation", llm_client=_FakeLlmClient())
+    events = _events(journal_path)
+    tick0_events = [e for e in events if e["event_type"] == "chamber_deliberation" and e["tick"] == 0]
+    assert [e["citizen_id"] for e in tick0_events] == sorted(e["citizen_id"] for e in tick0_events)
+    assert len(tick0_events) == 3  # seats
+    for e in tick0_events:
+        assert set(e["payload"].keys()) == {"shifts", "ctx"}
+        assert set(e["payload"]["ctx"].keys()) == {"ticks_left"}
+        assert e["motif"] in ("701", "702")
+        assert e["codebook_version"] == config.llm.codebook_version
+
+
+def test_chamber_deliberation_never_fires_while_the_accountability_gate_is_entirely_off(tmp_path):
+    # sortition_chamber.enabled + llm.enabled alone, with mandate/legitimacy/
+    # awakening all at their shipped-off default -- chamber_deliberation is
+    # dispatched directly from the tick loop, never nested inside
+    # _run_accountability_phase, so it must fire regardless.
+    config = _config_with_sortition_llm_enabled(tmp_path, seats=3)
+    assert config.mandate.enabled is False
+    assert config.legitimacy.enabled is False
+    assert config.awakening.enabled is False
+    journal_path = run_simulation(config, run_id="chamber-only", llm_client=_FakeLlmClient())
+    events = _events(journal_path)
+    assert [e for e in events if e["event_type"] == "chamber_deliberation"]
+    assert not [e for e in events if e["event_type"] in ("pressure_action", "legitimacy_updated", "representative_response")]
+
+
+def test_chamber_position_resets_to_the_sincere_position_at_each_new_seating(tmp_path):
+    config = _config_with_output_dir(tmp_path)
+    config = dataclasses.replace(
+        config, sortition_chamber=dataclasses.replace(config.sortition_chamber, enabled=True, seats=3)
+    )
+    citizens = [_sortition_test_citizen(i) for i in range(4)]
+    rng = np.random.default_rng(0)
+    journal_path = tmp_path / "reseat.jsonl"
+    with Journal(journal_path, run_id="reseat") as journal:
+        _run_sortition_rotation(citizens, config, journal, tick=0, rng=rng)
+        seated_first = [c for c in citizens if c.sortition_seat_until_tick is not None]
+        for member in seated_first:
+            member.chamber_position = tuple(x + 0.3 for x in member.chamber_position)  # simulate drift
+        _run_sortition_rotation(citizens, config, journal, tick=4, rng=rng)
+    for citizen in citizens:
+        if citizen.sortition_seat_until_tick is not None:
+            assert citizen.chamber_position == citizen.issue_positions
+
+
+def test_chamber_deliberation_runs_on_every_tick_not_just_rotation_ticks(tmp_path):
+    config = _config_with_sortition_llm_enabled(tmp_path, seats=3)
+    journal_path = run_simulation(config, run_id="every-tick", llm_client=_FakeLlmClient())
+    events = _events(journal_path)
+    rotation_ticks = {e["tick"] for e in events if e["event_type"] == "sortition_rotation"}
+    chamber_ticks = {e["tick"] for e in events if e["event_type"] == "chamber_deliberation"}
+    # Between two rotation ticks the roster is unchanged, but chamber_deliberation
+    # still fires every intermediate tick.
+    assert any(tick not in rotation_ticks for tick in chamber_ticks)
+
+
+def test_two_chamber_deliberation_llm_runs_produce_byte_identical_journals(tmp_path):
+    config_a = _config_with_sortition_llm_enabled(tmp_path / "a", seats=3)
+    config_b = _config_with_sortition_llm_enabled(tmp_path / "b", seats=3)
+    path_a = run_simulation(config_a, run_id="same-run-id", llm_client=_FakeLlmClient())
+    path_b = run_simulation(config_b, run_id="same-run-id", llm_client=_FakeLlmClient())
+    assert path_a.read_bytes() == path_b.read_bytes()
+
+
+def test_no_chamber_deliberation_llm_call_with_an_empty_chamber(tmp_path):
+    config = _config_with_output_dir(tmp_path)
+    config = dataclasses.replace(
+        config,
+        sortition_chamber=dataclasses.replace(config.sortition_chamber, enabled=True, seats=3),
+        llm=dataclasses.replace(config.llm, enabled=True),
+    )
+    citizens: list[Citizen] = []  # deliberately drained -- no eligible pool at all
+
+    class _RaisingClient:
+        def complete_json(self, **kwargs):
+            raise AssertionError("no client call expected for an empty chamber")
+
+    journal_path = tmp_path / "empty.jsonl"
+    with Journal(journal_path, run_id="empty") as journal:
+        _run_chamber_deliberation(citizens, config, journal, tick=0, llm_client=_RaisingClient())
+    events = _events(journal_path)
+    assert not [e for e in events if e["event_type"] == "chamber_deliberation"]
 
 
 # ── LLM candidacy path (v2 increment 2) ──────────────────────────────────

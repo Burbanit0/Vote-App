@@ -19,6 +19,8 @@ _CONFIG = SortitionChamberConfig(
     overlaps_with_assembly=False,
     veto_power="suspensive_limited",
     veto_delay_ticks=2,
+    max_deliberation_delta=0.3,
+    max_deliberation_shifts=3,
 )
 
 

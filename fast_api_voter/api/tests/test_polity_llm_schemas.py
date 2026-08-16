@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from api.domain.polity.codebook import (
     CampaignMotif,
     CandidacyMotif,
+    ChamberMotif,
     CoalitionAction,
     CoalitionMotif,
     PartyNominationMotif,
@@ -20,6 +21,7 @@ from api.domain.polity.codebook import (
 )
 from api.domain.polity.llm_schemas import (
     CANDIDACY_JSON_SCHEMA,
+    CHAMBER_JSON_SCHEMA,
     COALITION_JSON_SCHEMA,
     PARTY_NOMINATION_JSON_SCHEMA,
     POSITIONING_JSON_SCHEMA,
@@ -29,6 +31,8 @@ from api.domain.polity.llm_schemas import (
     VOTE_CAST_JSON_SCHEMA,
     CandidacyBatch,
     CandidacyDecision,
+    ChamberBatch,
+    ChamberDecision,
     CoalitionBatch,
     CoalitionDecision,
     PartyNominationBatch,
@@ -678,3 +682,88 @@ def test_reaction_json_schema_marks_cid_salience_delta_and_motif_as_required():
 
 def test_reaction_json_schema_batch_forbids_additional_properties():
     assert REACTION_JSON_SCHEMA.get("additionalProperties") is False
+
+
+# ── ChamberDecision / ChamberBatch (v6b Lot 3, §6bis.3) ───────────────────
+
+def _chamber_decision(**overrides):
+    base = {"cid": 1, "shifts": [], "motif": 701}
+    base.update(overrides)
+    return base
+
+
+def test_valid_chamber_decision_round_trips_a_sincere_decision():
+    decision = ChamberDecision.model_validate(_chamber_decision())
+    assert decision.cid == 1
+    assert decision.shifts == []
+    assert decision.motif == 701
+
+
+def test_valid_chamber_decision_round_trips_a_shifted_decision():
+    decision = ChamberDecision.model_validate(
+        _chamber_decision(shifts=[{"dimension": 3, "delta": 0.1}], motif=702)
+    )
+    assert decision.shifts[0].dimension == 3
+    assert decision.motif == 702
+
+
+def test_chamber_decision_accepts_every_shifts_motif_pairing():
+    # Deliberate absence of a coherence rule (see ChamberDecision's own
+    # docstring): this lot's own pre-flight spike measured the real model
+    # frequently pairing a non-empty shift with motif=701 ("sincere") --
+    # 9/10 and 6/6 decisions rejected the whole batch under the strict
+    # rule that used to live here (scripts/lot3_chamber_reliability_
+    # results.md). Both pairings, in both directions, are legal on the
+    # wire; the intended pairing is prompt guidance only.
+    empty: list[dict] = []
+    non_empty = [{"dimension": 0, "delta": 0.1}]
+    for shifts in (empty, non_empty):
+        for motif in (701, 702):
+            ChamberDecision.model_validate(_chamber_decision(shifts=shifts, motif=motif))
+
+
+def test_chamber_duplicate_dimension_raises():
+    with pytest.raises(ValidationError):
+        ChamberDecision.model_validate(
+            _chamber_decision(
+                shifts=[{"dimension": 2, "delta": 0.1}, {"dimension": 2, "delta": -0.1}], motif=702
+            )
+        )
+
+
+def test_chamber_more_than_five_shifts_raises():
+    shifts = [{"dimension": i, "delta": 0.05} for i in range(6)]
+    with pytest.raises(ValidationError):
+        ChamberDecision.model_validate(_chamber_decision(shifts=shifts, motif=702))
+
+
+def test_chamber_motif_literal_matches_chamber_motif_enum_exactly():
+    literal_values = set(ChamberDecision.model_fields["motif"].annotation.__args__)  # type: ignore[union-attr]
+    assert literal_values == {member.value for member in ChamberMotif}
+
+
+def test_chamber_unknown_extra_key_raises():
+    with pytest.raises(ValidationError):
+        ChamberDecision.model_validate({**_chamber_decision(), "extra_field": True})
+
+
+def test_chamber_empty_decisions_list_raises():
+    with pytest.raises(ValidationError):
+        ChamberBatch.model_validate({"decisions": []})
+
+
+def test_chamber_batch_round_trips_multiple_decisions():
+    batch = ChamberBatch.model_validate(
+        {"decisions": [_chamber_decision(cid=1), _chamber_decision(cid=2, shifts=[{"dimension": 4, "delta": -0.2}], motif=702)]}
+    )
+    assert [d.cid for d in batch.decisions] == [1, 2]
+
+
+def test_chamber_json_schema_marks_cid_shifts_and_motif_as_required():
+    decision_schema = CHAMBER_JSON_SCHEMA["$defs"]["ChamberDecision"]
+    assert set(decision_schema["required"]) == {"cid", "shifts", "motif"}
+    assert decision_schema.get("additionalProperties") is False
+
+
+def test_chamber_json_schema_batch_forbids_additional_properties():
+    assert CHAMBER_JSON_SCHEMA.get("additionalProperties") is False

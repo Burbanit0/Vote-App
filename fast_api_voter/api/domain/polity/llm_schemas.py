@@ -4,8 +4,9 @@ api.domain.polity.llm_schemas — Pydantic wire schemas for the LLM's
 `party_nomination_choice` (§3.6.2->3.6.8, dt=4), `campaign_positioning`
 (§3.6.2->3.6.8, dt=5), `coalition_decision` (§3.6.2->3.6.8, dt=9), v2
 increments 1-5, `representative_response` (§3.6.5, dt=6), v4 Lot 6,
-`pressure_action` (§3.6.6, dt=10), v4 Lot 7, and `reaction_to_event`
-(§8, dt=8), v5 Lot 4.
+`pressure_action` (§3.6.6, dt=10), v4 Lot 7, `reaction_to_event`
+(§8, dt=8), v5 Lot 4, and `chamber_deliberation` (§6bis.3, dt=11), v6b
+Lot 3.
 
 Lives in api/domain/polity/, not api/schemas/ — that package is the public
 HTTP/OpenAPI surface (see voter-api skill); these are internal LLM wire
@@ -423,6 +424,75 @@ class ReactionBatch(BaseModel):
 
 
 REACTION_JSON_SCHEMA = ReactionBatch.model_json_schema()
+
+
+class ChamberDecision(BaseModel):
+    """One sortition-chamber member's deliberation, §6bis.3 (v6b Lot 3,
+    dt=11) — invented here, no §3.6.x subsection exists for it (the design
+    doc names chamber_deliberation once, in a scope table, with no wire
+    example). Reuses PositionShift verbatim (same sparse-delta pattern as
+    dt=5/dt=6).
+
+    No separate `stance` field, unlike ResponseDecision: ChamberMotif
+    carries the sincere/shifted distinction (701 SINCERE_POSITION / 702
+    DELIBERATIVE_SHIFT).
+
+    NO cross-field model_validator on shifts<->motif, deliberately, and
+    unlike ResponseDecision's own stance<->shifts/motif rules — this
+    started out enforced (shifts empty iff motif==701) and was REMOVED
+    after this lot's own pre-flight reliability spike measured it failing
+    at a high rate against the real model: at cohort sizes 10 and 30, qwen3
+    frequently emits a small non-empty shift (e.g. one dimension moved by
+    0.05) while still labeling the decision motif=701 (sincere) --
+    9/10 and 6/6 decisions respectively rejected the whole batch under the
+    strict rule (scripts/lot3_chamber_reliability_results.md). Read
+    generously, a small perturbation still reads as "sincere" to the model
+    in a way this project's own binary empty/non-empty split does not
+    capture. Rather than invent an arbitrary epsilon threshold with no
+    doc grounding to paper over that mismatch, this follows the exact
+    precedent PressureDecision already set for act<->motif (v6 Lot 3's own
+    docstring): the intended pairing is stated in the system prompt as
+    guidance only, `motif` is a stated-but-unverified label, and
+    Lot 4's own chamber_deviation metric reads shifts/chamber_position
+    directly, never motif -- so an incoherent label costs nothing
+    downstream. The realized shifts x motif pairing is a Lot 4
+    measurement, not an invariant.
+
+    `shifts`'s max_length=5 is a loose STRUCTURAL ceiling, exactly like
+    every prior PositionShift-bearing decision — the real cap is
+    sortition_chamber.max_deliberation_delta/max_deliberation_shifts,
+    enforced in llm_behavior_engine.validate_chamber_decision, shipped at
+    the same magnitude as mandate.max_response_delta/max_response_shifts
+    so Lot 4's own elected-vs-sortition comparison isolates the effect of
+    pressure-insulation, not a different drift ceiling."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    cid: int = Field(..., ge=0, description="citizen_id of the seated sortition member this decision belongs to.")
+    shifts: list[PositionShift] = Field(..., max_length=5)
+    motif: Literal[701, 702] = Field(..., description="Code court obligatoire (§3.7.2) — voir ChamberMotif.")
+
+    @model_validator(mode="after")
+    def _check_no_duplicate_dimensions(self) -> ChamberDecision:
+        dimensions = [shift.dimension for shift in self.shifts]
+        if len(set(dimensions)) != len(dimensions):
+            raise ValueError("shifts must not target the same dimension twice")
+        return self
+
+
+class ChamberBatch(BaseModel):
+    """§3.6.0's batch envelope, specialized to chamber_deliberation — one
+    decision per CHUNK of currently seated sortition members
+    (llm_behavior_engine._CHAMBER_MAX_CHUNK_SIZE=10 per call, not the full
+    sortition_chamber.seats cohort at once — see decide_chamber_
+    deliberation's own docstring for the measured reason)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    decisions: list[ChamberDecision] = Field(..., min_length=1)
+
+
+CHAMBER_JSON_SCHEMA = ChamberBatch.model_json_schema()
 
 
 class CoalitionDecision(BaseModel):

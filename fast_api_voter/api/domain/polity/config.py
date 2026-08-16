@@ -384,6 +384,13 @@ class SortitionChamberConfig:
     overlaps_with_assembly: bool
     veto_power: str
     veto_delay_ticks: int
+    # v6b Lot 3 (§6bis.3, dt=11): the deliberation-shift bound Lot 1 missed reserving --
+    # every other position-shift-bearing decision type has one (mandate.max_response_delta/
+    # max_response_shifts for dt=6, campaign.max_positioning_delta/max_positioning_shifts for
+    # dt=5). Shipped at the same magnitude as mandate.*'s own values so Lot 4's own comparison
+    # isolates the effect of pressure-insulation, not a different drift ceiling.
+    max_deliberation_delta: float
+    max_deliberation_shifts: int
 
 
 @dataclass(frozen=True)
@@ -761,6 +768,8 @@ def _parse_sortition_chamber(raw: dict[str, Any]) -> SortitionChamberConfig:
         overlaps_with_assembly=False,
         veto_power=_get_enum(s, "sortition_chamber", "veto_power", _SORTITION_VETO_POWERS),
         veto_delay_ticks=_get_positive_int(s, "sortition_chamber", "veto_delay_ticks"),
+        max_deliberation_delta=_get_ratio(s, "sortition_chamber", "max_deliberation_delta"),
+        max_deliberation_shifts=_get_positive_int(s, "sortition_chamber", "max_deliberation_shifts"),
     )
 
 

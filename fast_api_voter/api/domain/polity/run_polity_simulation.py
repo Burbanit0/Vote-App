@@ -47,6 +47,7 @@ import numpy as np
 from api.domain.polity.accountability import (
     applicable_pressure_act,
     current_office_holders,
+    current_sortition_members,
     is_term_limited,
     launch_petition,
     mandate_deviation,
@@ -84,12 +85,14 @@ from api.domain.polity.legitimacy import (
     update_legitimacy,
 )
 from api.domain.polity.llm_behavior_engine import (
+    ChamberContext,
     PressureContext,
     ReactionContext,
     ResponseContext,
     cast_votes,
     decide_campaign_positioning,
     decide_candidacies,
+    decide_chamber_deliberation,
     decide_coalition,
     decide_party_nominations,
     decide_pressure_actions,
@@ -286,6 +289,8 @@ def run_simulation(
                 _form_and_journal_coalition(parties, seats, votes, config, journal, tick, client)
             if config.sortition_chamber.enabled and clock.is_sortition_rotation(tick):
                 _run_sortition_rotation(citizens, config, journal, tick, sortition_rng)
+            if config.sortition_chamber.enabled:
+                _run_chamber_deliberation(citizens, config, journal, tick, client)
             mobilized_last_tick = _run_accountability_phase(
                 citizens, config, journal, tick, client,
                 exogenous=exogenous, graph=graph, mobilized_last_tick=mobilized_last_tick,
@@ -1111,12 +1116,66 @@ def _run_sortition_rotation(
         member = by_id[cid]
         member.sortition_seat_until_tick = tick + config.sortition_chamber.term_years * config.run.ticks_per_year
         member.sortition_terms_served += 1
+        # v6b Lot 3 (§6bis.3): fresh start each term -- a redrawn member
+        # (Lot 2's relaxed-pool fallback) must not inherit a previous,
+        # unrelated term's own drift.
+        member.chamber_position = member.issue_positions
 
     journal.write(
         tick=tick,
         event_type="sortition_rotation",
         payload={"seated": drawn, "vacated": vacated, "pool_relaxed": int(relaxed)},
     )
+
+
+def _run_chamber_deliberation(
+    citizens: list[Citizen], config: PolityConfig, journal: Journal, tick: int,
+    llm_client: LlmClientProtocol | None,
+) -> None:
+    """v6b Lot 3 (§6bis.3, dt=11): dispatched directly from the tick loop,
+    NEVER nested inside _run_accountability_phase. That function's own
+    early-return guard (`if not (mandate.enabled or legitimacy.enabled or
+    awakening.enabled): return {}`) has no sortition_chamber.enabled
+    disjunct and was never going to get one -- the chamber is
+    architecturally independent of the presidency's own accountability
+    loop (no officeholder, no écart(t), no legitimacy reaches it, per
+    §6bis.3's own insulation requirement). Runs every tick the chamber is
+    enabled, not just rotation ticks -- mirrors dt=6's own "every tick, not
+    just an election tick" cadence, the cleanest comparison against the
+    president's own per-tick representative_response.
+
+    No deterministic fallback function exists for llm.enabled=False:
+    chamber_position is pinned to issue_positions at seating time
+    (_run_sortition_rotation) and nothing else in the codebase ever
+    touches it without this call, so "no delta" is already true by
+    construction -- the absence of this call IS the fallback, exactly
+    _run_representative_responses's own precedent for dt=6."""
+    if not config.llm.enabled:
+        return
+    members = current_sortition_members(citizens)
+    if not members:
+        return
+    assert llm_client is not None  # guaranteed by _llm_client_scope when llm.enabled
+    contexts: dict[int, ChamberContext] = {}
+    for m in members:
+        assert m.sortition_seat_until_tick is not None  # guaranteed by current_sortition_members's own filter
+        contexts[m.citizen_id] = ChamberContext(cid=m.citizen_id, ticks_left=m.sortition_seat_until_tick - tick)
+    outcome = decide_chamber_deliberation(members, contexts, config, llm_client)
+    decisions = {d.cid: d for d in outcome.decisions}
+    for member in members:
+        decision = decisions[member.citizen_id]
+        member.chamber_position = outcome.positions[member.citizen_id]
+        journal.write(
+            tick=tick,
+            event_type="chamber_deliberation",
+            payload={
+                "shifts": [{"dimension": s.dimension, "delta": s.delta} for s in decision.shifts],
+                "ctx": contexts[member.citizen_id].to_payload(),
+            },
+            citizen_id=member.citizen_id,
+            motif=str(decision.motif),
+            codebook_version=config.llm.codebook_version,
+        )
 
 
 def _run_accountability_phase(

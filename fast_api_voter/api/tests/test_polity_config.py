@@ -53,6 +53,8 @@ def test_loads_the_real_polity_config_with_expected_v0_values():
     assert config.sortition_chamber.overlaps_with_assembly is False
     assert config.sortition_chamber.veto_power == "suspensive_limited"
     assert config.sortition_chamber.veto_delay_ticks == 2
+    assert config.sortition_chamber.max_deliberation_delta == 0.3
+    assert config.sortition_chamber.max_deliberation_shifts == 3
     assert config.llm.personas_count == 30
     assert config.campaign.max_positioning_delta == 0.3
     assert config.campaign.max_positioning_shifts == 3
@@ -688,4 +690,30 @@ def test_sortition_enabled_with_seats_equal_to_population_size_is_accepted(tmp_p
 def test_missing_sortition_seats_raises_and_names_it(tmp_path):
     path = _write(tmp_path, lambda d: d["sortition_chamber"].pop("seats"))
     with pytest.raises(PolityConfigError, match="sortition_chamber.seats"):
+        load_config(path)
+
+
+# ── v6b Lot 3: max_deliberation_delta/max_deliberation_shifts (§6bis.3, dt=11) ──
+
+def test_sortition_max_deliberation_delta_out_of_range_raises(tmp_path):
+    path = _write(tmp_path, lambda d: d["sortition_chamber"].__setitem__("max_deliberation_delta", 1.5))
+    with pytest.raises(PolityConfigError, match="sortition_chamber.max_deliberation_delta"):
+        load_config(path)
+
+
+def test_missing_sortition_max_deliberation_delta_raises_and_names_it(tmp_path):
+    path = _write(tmp_path, lambda d: d["sortition_chamber"].pop("max_deliberation_delta"))
+    with pytest.raises(PolityConfigError, match="sortition_chamber.max_deliberation_delta"):
+        load_config(path)
+
+
+def test_sortition_max_deliberation_shifts_zero_raises(tmp_path):
+    path = _write(tmp_path, lambda d: d["sortition_chamber"].__setitem__("max_deliberation_shifts", 0))
+    with pytest.raises(PolityConfigError, match="sortition_chamber.max_deliberation_shifts"):
+        load_config(path)
+
+
+def test_missing_sortition_max_deliberation_shifts_raises_and_names_it(tmp_path):
+    path = _write(tmp_path, lambda d: d["sortition_chamber"].pop("max_deliberation_shifts"))
+    with pytest.raises(PolityConfigError, match="sortition_chamber.max_deliberation_shifts"):
         load_config(path)
