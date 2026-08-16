@@ -233,11 +233,17 @@ def test_pressure_motif_lives_entirely_inside_the_300s_range():
     assert all(300 <= member.value <= 399 for member in PressureMotif)
 
 
-def test_pressure_motif_never_reuses_the_representative_only_or_v6_codes():
+def test_pressure_motif_never_reuses_the_street_pressure_code():
     # 302 (street pressure) would leak the aggregate mobilization signal into
-    # a citizen's own decision, breaking §7bis.9f's atomized regime; 306
-    # needs the v6 social graph.
-    assert {302, 306}.isdisjoint({member.value for member in PressureMotif})
+    # a citizen's own decision, breaking §7bis.9f's atomized regime -- a
+    # permanent exclusion, unrelated to v6.
+    assert 302 not in {member.value for member in PressureMotif}
+
+
+def test_pressure_motif_includes_the_v6_neighbors_code():
+    # v6 Lot 1 (§5): promoted from a docstring-only reservation to a real
+    # member -- not yet consumed by the engine (a later v6 lot's job).
+    assert PressureMotif.FOLLOWING_NEIGHBORS.value == 306
 
 
 def test_pressure_motif_prompt_table_is_derived_from_the_enum_not_hand_typed():

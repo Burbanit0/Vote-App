@@ -46,7 +46,11 @@ class PolityCodebookError(ValueError):
     one this code was written against — §3.7.0's frozen-artifact contract."""
 
 
-CODEBOOK_VERSION = "1.4"  # bumped from "1.3" — v5 Lot 1 (§8): new decision
+CODEBOOK_VERSION = "1.5"  # bumped from "1.4" — v6 Lot 1 (§5): a new
+                           # PressureMotif member (306 FOLLOWING_NEIGHBORS)
+                           # changes the wire surface, the same bump trigger
+                           # every prior palier's own Lot 1 used. Prior bump:
+                           # "1.3"->"1.4" — v5 Lot 1 (§8): new decision
                            # type (8=reaction_to_event) and new enum members
                            # (EventType, ReactionMotif) change the wire
                            # surface, the same bump trigger v4 Lot 1 used for
@@ -311,20 +315,26 @@ class PressureMotif(IntEnum):
     self-awareness of their own deviation and a citizen's perception of that
     same deviation are two legitimately distinct readings of one underlying
     fact, not a collision (two separate enum classes, so there is no value
-    conflict). 302 STREET_PRESSURE_RESPONSE and 306 FOLLOWING_NEIGHBORS are
-    deliberately NOT members: dt=10's own ctx (§3.6.6's worked example)
-    never includes the street_pressure aggregate at all -- §7bis.9f requires
-    each citizen to decide alone, without seeing what others are doing, and
-    leaking that aggregate into a citizen's own motif choice would
-    contradict the atomized-regime baseline v4 exists partly to establish
-    (v6's contagion regime is the comparison point). neighbors_acting is
-    null before v6 for the same reason. 304/305 are the design doc's own
-    codes, grounding act=0 (no leverage) and act=4 (deferred to election)
-    respectively."""
+    conflict). 302 STREET_PRESSURE_RESPONSE is deliberately NOT a member:
+    dt=10's own ctx (§3.6.6's worked example) never includes the
+    street_pressure aggregate at all -- §7bis.9f requires each citizen to
+    decide alone, without seeing the aggregate level of mobilization, and
+    leaking it into a citizen's own motif choice would contradict the
+    atomized-regime baseline v4 exists partly to establish. This exclusion
+    is permanent and unrelated to v6: v6's contagion regime feeds
+    neighbors_acting (a per-citizen neighborhood signal), never the
+    population-wide street_pressure aggregate itself. 306 FOLLOWING_NEIGHBORS
+    is, by contrast, v6's own reservation (§5) -- promoted from a docstring-
+    only mention to a real member here (v6 Lot 1), still not yet consumed by
+    the engine (wired in a later v6 lot, same "reserve now, wire later"
+    split every prior palier's own Lot 1 used). 304/305 are the design doc's
+    own codes, grounding act=0 (no leverage) and act=4 (deferred to
+    election) respectively."""
 
     MANDATE_DEVIATION_HIGH = 301
     RESIGNATION_NO_LEVERAGE = 304
     DEFERRED_TO_ELECTION = 305
+    FOLLOWING_NEIGHBORS = 306
 
 
 PRESSURE_MOTIF_PROMPT_TABLE = "\n".join(f"{motif.value} = {motif.name}" for motif in PressureMotif)

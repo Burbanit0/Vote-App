@@ -44,7 +44,7 @@ def test_loads_the_real_polity_config_with_expected_v0_values():
     assert config.llm.temperature == 0.0
     assert config.llm.max_batch_size == 25
     assert config.llm.batch_sharding == "static"
-    assert config.llm.codebook_version == "1.4"
+    assert config.llm.codebook_version == "1.5"
     assert config.llm.personas_count == 30
     assert config.campaign.max_positioning_delta == 0.3
     assert config.campaign.max_positioning_shifts == 3
@@ -560,4 +560,63 @@ def test_events_enabled_economic_shock_only_is_accepted(tmp_path):
 def test_missing_event_salience_modulation_flag_raises_and_names_it(tmp_path):
     path = _write(tmp_path, lambda d: d["awakening"]["context_modulation"].pop("event_salience"))
     with pytest.raises(PolityConfigError, match="event_salience"):
+        load_config(path)
+
+
+# ── social_graph (v6 Lot 1, §5) ────────────────────────────────────────────
+
+def test_shipped_default_social_graph_config_is_reachable_and_off():
+    config = load_config()
+    assert config.social_graph.enabled is False
+    assert config.social_graph.topology == "watts_strogatz"
+    assert config.social_graph.mean_degree == 8
+    assert config.social_graph.rewiring_prob == 0.1
+    assert config.social_graph.evolving is False
+    assert config.awakening.context_modulation.neighbors_acting is False
+
+
+def test_social_graph_unknown_topology_raises(tmp_path):
+    path = _write(tmp_path, lambda d: d["social_graph"].__setitem__("topology", "random_forest"))
+    with pytest.raises(PolityConfigError, match="social_graph.topology"):
+        load_config(path)
+
+
+def test_social_graph_evolving_true_raises(tmp_path):
+    path = _write(tmp_path, lambda d: d["social_graph"].__setitem__("evolving", True))
+    with pytest.raises(PolityConfigError, match="social_graph.evolving"):
+        load_config(path)
+
+
+def test_social_graph_mean_degree_zero_raises(tmp_path):
+    path = _write(tmp_path, lambda d: d["social_graph"].__setitem__("mean_degree", 0))
+    with pytest.raises(PolityConfigError, match="social_graph.mean_degree"):
+        load_config(path)
+
+
+def test_social_graph_rewiring_prob_out_of_range_raises(tmp_path):
+    path = _write(tmp_path, lambda d: d["social_graph"].__setitem__("rewiring_prob", 1.5))
+    with pytest.raises(PolityConfigError, match="social_graph.rewiring_prob"):
+        load_config(path)
+
+
+def test_neighbors_acting_modulation_without_social_graph_enabled_raises(tmp_path):
+    path = _write(tmp_path, lambda d: d["awakening"]["context_modulation"].__setitem__("neighbors_acting", True))
+    with pytest.raises(PolityConfigError, match="social_graph.enabled"):
+        load_config(path)
+
+
+def test_social_graph_enabled_without_neighbors_acting_modulation_is_accepted(tmp_path):
+    # The deliberately-not-enforced reverse direction: the graph can be
+    # enabled (feeding pressure_action's ctx.neighbors_acting, once wired)
+    # without also modulating the awakening gate -- a real experimental arm,
+    # not a degenerate one, so this must NOT raise.
+    path = _write(tmp_path, lambda d: d["social_graph"].__setitem__("enabled", True))
+    config = load_config(path)
+    assert config.social_graph.enabled is True
+    assert config.awakening.context_modulation.neighbors_acting is False
+
+
+def test_missing_social_graph_topology_raises_and_names_it(tmp_path):
+    path = _write(tmp_path, lambda d: d["social_graph"].pop("topology"))
+    with pytest.raises(PolityConfigError, match="social_graph.topology"):
         load_config(path)

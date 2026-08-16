@@ -531,8 +531,16 @@ def test_valid_pressure_decision_round_trips_each_act():
 
 
 def test_pressure_motif_literal_matches_pressure_motif_enum_exactly():
+    # NOT a strict equality since v6 Lot 1 (§5): PressureMotif.FOLLOWING_
+    # NEIGHBORS (306) is reserved in the codebook ahead of its own wire-schema
+    # consumption -- the same "reserve now, wire later" split v4 Lot 1/v5
+    # Lot 1 used for their own new motif codes. The wire schema's Literal is
+    # therefore a proper SUBSET of the enum until a later v6 lot wires it in,
+    # not yet an exact match.
     literal_values = set(PressureDecision.model_fields["motif"].annotation.__args__)  # type: ignore[union-attr]
-    assert literal_values == {member.value for member in PressureMotif}
+    enum_values = {member.value for member in PressureMotif}
+    assert literal_values <= enum_values
+    assert enum_values - literal_values == {306}
 
 
 def test_pressure_act_literal_matches_pressure_act_enum_exactly():
