@@ -18,7 +18,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
-from api.domain.polity.config import InstitutionsConfig, RunConfig
+from api.domain.polity.config import InstitutionsConfig, RunConfig, SortitionChamberConfig
 
 
 class ElectionType(str, Enum):
@@ -34,14 +34,23 @@ class InstitutionalClock:
     assembly_term_ticks: int
     assembly_offset_ticks: int
     total_ticks: int
+    # v6b Lot 2 (§6bis.3): always computed, regardless of whether
+    # sortition_chamber.enabled is true -- cheap (one multiplication), and
+    # gating happens at the call site, the same pattern president_term_ticks
+    # etc. already use regardless of whether their own election mechanic is
+    # itself enabled.
+    sortition_term_ticks: int
 
     @classmethod
-    def from_config(cls, institutions: InstitutionsConfig, run: RunConfig) -> InstitutionalClock:
+    def from_config(
+        cls, institutions: InstitutionsConfig, run: RunConfig, sortition_chamber: SortitionChamberConfig,
+    ) -> InstitutionalClock:
         return cls(
             president_term_ticks=institutions.president_term_years * run.ticks_per_year,
             assembly_term_ticks=institutions.assembly_term_years * run.ticks_per_year,
             assembly_offset_ticks=institutions.assembly_offset_years * run.ticks_per_year,
             total_ticks=run.total_ticks,
+            sortition_term_ticks=sortition_chamber.term_years * run.ticks_per_year,
         )
 
     def is_presidential_election(self, tick: int) -> bool:
@@ -49,6 +58,9 @@ class InstitutionalClock:
 
     def is_legislative_election(self, tick: int) -> bool:
         return (tick - self.assembly_offset_ticks) % self.assembly_term_ticks == 0
+
+    def is_sortition_rotation(self, tick: int) -> bool:
+        return tick % self.sortition_term_ticks == 0
 
     def election_at(self, tick: int) -> ElectionType:
         presidential = self.is_presidential_election(tick)

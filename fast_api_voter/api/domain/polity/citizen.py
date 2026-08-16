@@ -104,6 +104,15 @@ class Citizen:
     # generate_population, deliberately unclamped (same reasoning as
     # street_pressure/shock.py's x(t)).
     event_salience: float = 0.0
+    # v6b Lot 2 (§6bis.3): sortition-chamber state -- deliberately NOT
+    # Office/Role fields (a drawn citizen never holds an elected mandate;
+    # see sortition_chamber.py's own docstring). sortition_seat_until_tick
+    # is None when not currently seated; sortition_terms_served counts
+    # PAST terms (incremented at seating time, not vacate time, mirroring
+    # mandates_served's own "count at the start of the term" precedent).
+    # Never drawn by generate_population.
+    sortition_seat_until_tick: int | None = None
+    sortition_terms_served: int = 0
 
 
 def generate_population(config: CitizensConfig, population_size: int, seed: int) -> list[Citizen]:
