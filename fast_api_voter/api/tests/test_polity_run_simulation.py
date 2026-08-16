@@ -28,6 +28,7 @@ from api.domain.polity.run_polity_simulation import (
     _llm_client_scope,
     _run_accountability_phase,
     _run_exogenous_events,
+    _run_sortition_rotation,
     run_simulation,
 )
 from api.domain.polity.simple_rules import assign_party_affiliation, declare_candidacy
@@ -2521,6 +2522,127 @@ def test_an_isolated_citizens_neighbors_acting_is_zero_not_a_crash(tmp_path):
     ]
     assert isolated_events
     assert all(e["payload"]["ctx"]["neighbors_acting"] == 0.0 for e in isolated_events)
+
+
+# ── v6b Lot 2: sortition_chamber.py, whole-chamber rotation (§6bis.3) ────
+
+def _sortition_test_citizen(citizen_id: int, **kwargs) -> Citizen:
+    return Citizen(
+        citizen_id=citizen_id, issue_positions=(0.5,), issue_priorities=(1.0,),
+        blank_threshold=0.5, ambition_score=0.5, **kwargs,
+    )
+
+
+def test_default_config_run_emits_no_sortition_rotation_events(tmp_path):
+    journal_path = run_simulation(_config_with_output_dir(tmp_path), run_id="baseline")
+    events = _events(journal_path)
+    assert not [e for e in events if e["event_type"] == "sortition_rotation"]
+
+
+def test_sortition_rotation_seats_exactly_seats_members_on_the_first_rotation(tmp_path):
+    config = _config_with_output_dir(tmp_path)
+    config = dataclasses.replace(
+        config, sortition_chamber=dataclasses.replace(config.sortition_chamber, enabled=True, seats=3)
+    )
+    citizens = [_sortition_test_citizen(i) for i in range(10)]
+    journal_path = tmp_path / "rotation.jsonl"
+    with Journal(journal_path, run_id="rotation") as journal:
+        _run_sortition_rotation(citizens, config, journal, tick=0, rng=np.random.default_rng(0))
+    events = _events(journal_path)
+    rotations = [e for e in events if e["event_type"] == "sortition_rotation"]
+    assert len(rotations) == 1
+    payload = rotations[0]["payload"]
+    assert payload["vacated"] == []
+    assert len(payload["seated"]) == 3
+    assert payload["pool_relaxed"] == 0
+    seated_ids = set(payload["seated"])
+    for citizen in citizens:
+        if citizen.citizen_id in seated_ids:
+            assert citizen.sortition_seat_until_tick == 4
+            assert citizen.sortition_terms_served == 1
+        else:
+            assert citizen.sortition_seat_until_tick is None
+            assert citizen.sortition_terms_served == 0
+
+
+def test_a_second_rotation_vacates_the_first_cohort_and_seats_a_disjoint_one(tmp_path):
+    config = _config_with_output_dir(tmp_path)
+    config = dataclasses.replace(
+        config, sortition_chamber=dataclasses.replace(config.sortition_chamber, enabled=True, seats=3)
+    )
+    citizens = [_sortition_test_citizen(i) for i in range(10)]
+    rng = np.random.default_rng(0)
+    journal_path = tmp_path / "rotation.jsonl"
+    with Journal(journal_path, run_id="rotation") as journal:
+        _run_sortition_rotation(citizens, config, journal, tick=0, rng=rng)
+        _run_sortition_rotation(citizens, config, journal, tick=4, rng=rng)
+    events = _events(journal_path)
+    rotations = [e for e in events if e["event_type"] == "sortition_rotation"]
+    assert len(rotations) == 2
+    first_seated = set(rotations[0]["payload"]["seated"])
+    second_vacated = set(rotations[1]["payload"]["vacated"])
+    second_seated = set(rotations[1]["payload"]["seated"])
+    assert second_vacated == first_seated
+    assert second_seated.isdisjoint(first_seated)  # strict pool not yet exhausted at 10 citizens/3 seats
+
+
+def test_pool_exhaustion_relaxes_eligibility_without_undersizing_the_chamber(tmp_path):
+    # v6b Lot 2's own measured finding, reproduced at a small scale: once
+    # the strict never-served pool can't fill `seats`, eligibility relaxes
+    # BEFORE it would ever undersize the chamber (not after) -- 10
+    # citizens, 3 seats/rotation: exhausts by the 4th rotation (9 served).
+    config = _config_with_output_dir(tmp_path)
+    config = dataclasses.replace(
+        config, sortition_chamber=dataclasses.replace(config.sortition_chamber, enabled=True, seats=3)
+    )
+    citizens = [_sortition_test_citizen(i) for i in range(10)]
+    rng = np.random.default_rng(0)
+    journal_path = tmp_path / "rotation.jsonl"
+    relaxed_flags = []
+    seated_sizes = []
+    with Journal(journal_path, run_id="rotation") as journal:
+        for i in range(5):
+            _run_sortition_rotation(citizens, config, journal, tick=i * 4, rng=rng)
+    events = _events(journal_path)
+    for e in events:
+        if e["event_type"] == "sortition_rotation":
+            relaxed_flags.append(bool(e["payload"]["pool_relaxed"]))
+            seated_sizes.append(len(e["payload"]["seated"]))
+    assert seated_sizes == [3, 3, 3, 3, 3]  # never undersized -- relaxation is proactive
+    assert relaxed_flags == [False, False, False, True, True]
+
+
+def test_sortition_rotation_excludes_a_citizen_at_the_sitting_president(tmp_path):
+    config = _config_with_output_dir(tmp_path)
+    config = dataclasses.replace(
+        config,
+        candidacy=dataclasses.replace(config.candidacy, ambition_threshold=0.0),
+        sortition_chamber=dataclasses.replace(config.sortition_chamber, enabled=True),
+    )
+    journal_path = run_simulation(config, run_id="president-excluded")
+    events = _events(journal_path)
+    elected = next(e for e in events if e["event_type"] == "elected")
+    president_id = elected["citizen_id"]
+    rotation_at_0 = next(
+        e for e in events if e["event_type"] == "sortition_rotation" and e["tick"] == 0
+    )
+    assert president_id not in rotation_at_0["payload"]["seated"]
+    # Ordering pin: rotation runs AFTER the same-tick election, not before.
+    assert rotation_at_0["event_id"] > elected["event_id"]
+
+
+def test_two_sortition_enabled_runs_produce_byte_identical_journals(tmp_path):
+    config_a = _config_with_output_dir(tmp_path / "a")
+    config_a = dataclasses.replace(
+        config_a, sortition_chamber=dataclasses.replace(config_a.sortition_chamber, enabled=True)
+    )
+    config_b = _config_with_output_dir(tmp_path / "b")
+    config_b = dataclasses.replace(
+        config_b, sortition_chamber=dataclasses.replace(config_b.sortition_chamber, enabled=True)
+    )
+    path_a = run_simulation(config_a, run_id="same-run-id")
+    path_b = run_simulation(config_b, run_id="same-run-id")
+    assert path_a.read_bytes() == path_b.read_bytes()
 
 
 # ── LLM candidacy path (v2 increment 2) ──────────────────────────────────

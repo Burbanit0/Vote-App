@@ -103,6 +103,7 @@ from api.domain.polity.llm_schemas import PressureDecision, ReactionDecision
 from api.domain.polity.metrics import mobilization_rate
 from api.domain.polity.parties import Party, initialize_parties
 from api.domain.polity.shock import economic_shock_step, scandal_arrival
+from api.domain.polity.sortition_chamber import select_sortition_chamber
 from api.domain.polity.simple_rules import (
     BLANK_LABEL,
     assign_party_affiliation,
@@ -206,7 +207,7 @@ def run_simulation(
     for citizen in citizens:
         citizen.party_affiliation = assign_party_affiliation(citizen, parties)
 
-    clock = InstitutionalClock.from_config(config.institutions, config.run)
+    clock = InstitutionalClock.from_config(config.institutions, config.run, config.sortition_chamber)
     # Independent stream from population/party generation (same pattern as
     # Lot 2/3): a fresh default_rng per concern, so enabling rupture draws
     # never perturbs the citizens/parties already generated above.
@@ -222,6 +223,13 @@ def run_simulation(
     # run that doesn't enable events. Fixed intra-stream draw order inside
     # _run_exogenous_events: scandal arrival before the AR(1) innovation.
     events_rng = np.random.default_rng(config.run.seed)
+    # v6b Lot 2 (§6bis.3): a fourth independent stream -- unlike `graph`
+    # below (generated once, no persistent stream name needed), sortition
+    # selection draws repeatedly, every rotation tick, so it needs the
+    # rupture_rng/events_rng-style persistent stream. Drawn from only
+    # inside select_sortition_chamber, only on a rotation tick, only when
+    # sortition_chamber.enabled -- undrawn otherwise.
+    sortition_rng = np.random.default_rng(config.run.seed)
     # v4 Lot 9 (§6bis.2): None whenever blank_vote_competitive is off (the
     # shipped default) or no cycle is currently open -- see PendingRerun's
     # own docstring for why this is a plain local, not a Citizen field.
@@ -276,6 +284,8 @@ def run_simulation(
             if election in (ElectionType.LEGISLATIVE, ElectionType.BOTH):
                 seats, votes = _hold_legislative_election(citizens, parties, config, journal, tick)
                 _form_and_journal_coalition(parties, seats, votes, config, journal, tick, client)
+            if config.sortition_chamber.enabled and clock.is_sortition_rotation(tick):
+                _run_sortition_rotation(citizens, config, journal, tick, sortition_rng)
             mobilized_last_tick = _run_accountability_phase(
                 citizens, config, journal, tick, client,
                 exogenous=exogenous, graph=graph, mobilized_last_tick=mobilized_last_tick,
@@ -1069,6 +1079,44 @@ def _run_representative_responses(
             motif=str(decision.motif),
             codebook_version=config.llm.codebook_version,
         )
+
+
+def _run_sortition_rotation(
+    citizens: list[Citizen], config: PolityConfig, journal: Journal, tick: int, rng: np.random.Generator,
+) -> None:
+    """v6b Lot 2 (§6bis.3): whole-chamber rotation. Called from the tick
+    loop AFTER both election blocks -- at the shipped defaults,
+    sortition_term_ticks=4 divides evenly into president_term_ticks=16,
+    assembly_term_ticks=16 and assembly_offset_ticks=8, so every
+    presidential AND legislative election tick is ALSO a rotation tick
+    (confirmed by direct calculation, not an edge case). Running this after
+    both election blocks means the eligible pool reflects that SAME tick's
+    own finalized office holder -- a newly-elected president is correctly
+    excluded from the same-tick sortition draw, mirroring why
+    _run_accountability_phase itself already runs last.
+
+    Vacates every currently-seated member BEFORE drawing (select_sortition_
+    chamber's own pool computation assumes nobody is currently seated).
+    `vacated` in the journal payload is the pre-vacate roster, so one event
+    carries the full transition (mirrors recalled/election_invalidated's
+    own "one event, full transition" register)."""
+    vacated = sorted(c.citizen_id for c in citizens if c.sortition_seat_until_tick is not None)
+    for citizen in citizens:
+        if citizen.sortition_seat_until_tick is not None:
+            citizen.sortition_seat_until_tick = None
+
+    drawn, relaxed = select_sortition_chamber(citizens, config.sortition_chamber, rng)
+    by_id = {c.citizen_id: c for c in citizens}
+    for cid in drawn:
+        member = by_id[cid]
+        member.sortition_seat_until_tick = tick + config.sortition_chamber.term_years * config.run.ticks_per_year
+        member.sortition_terms_served += 1
+
+    journal.write(
+        tick=tick,
+        event_type="sortition_rotation",
+        payload={"seated": drawn, "vacated": vacated, "pool_relaxed": int(relaxed)},
+    )
 
 
 def _run_accountability_phase(
