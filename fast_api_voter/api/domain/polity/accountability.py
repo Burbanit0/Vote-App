@@ -13,12 +13,16 @@ each has exactly one implementation (the same reasoning that produced
 `codebook` import: `applicable_pressure_act` reconciles a decided
 `PressureAct` (frozen pre-loop, from the LLM) with live petition state at
 application time -- see its own docstring for why this can never be a
-batch-rejecting check.
+batch-rejecting check. v6 Lot 3 adds this module's first `social_graph`
+import: `neighbors_acting` aggregates the per-citizen Granovetter-style
+contagion signal (§5), read by `awakening_threshold`'s own new fourth term
+and by `pressure_action`'s (dt=10) `ctx` -- still a sampling-gate input
+only, never a decision, same §7bis.9d discipline as every other term here.
 """
 from __future__ import annotations
 
 import math
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 
 from api.domain.polity.citizen import Citizen, Office
 from api.domain.polity.codebook import PressureAct
@@ -29,6 +33,7 @@ from api.domain.polity.config import (
     PetitionConfig,
     StreetPressureConfig,
 )
+from api.domain.polity.social_graph import SocialGraph
 from api.domain.polity.metrics import signed_ratio
 
 _SUPPORTED_DEVIATION_METRICS = {"weighted_euclidean"}
@@ -131,22 +136,35 @@ def election_proximity(tick: int, term_end_tick: int | None, term_ticks: int) ->
     return max(0.0, min(1.0, 1.0 - remaining / term_ticks))
 
 
-def awakening_threshold(citizen: Citizen, *, mandate_dev: float, proximity: float, config: AwakeningConfig) -> float:
+def awakening_threshold(
+    citizen: Citizen,
+    *,
+    mandate_dev: float,
+    proximity: float,
+    neighbors_acting: float = 0.0,
+    config: AwakeningConfig,
+) -> float:
     """§7bis.9c: base_threshold * f(context), f bounded to [1-amp, 1+amp].
     Visible mandate deviation LOWERS the threshold (easier to trigger);
     proximity to the next election RAISES it (less reason to act outside
     the ballot). Each term is included only when its own
-    context_modulation flag is true. neighbors_acting is structurally
-    absent in v4 (§7bis.9f, atomized regime, no social graph until v6) --
-    raises if a config ever sets it true, since there is nothing to compute
-    it from. event_salience (v5 Lot 3, §8) lowers the threshold, symmetric
-    with mandate_deviation -- read directly off `citizen.event_salience`,
-    no new parameter needed: unlike mandate_dev/proximity (officeholder-
-    level facts with no natural per-citizen home, threaded in by the
-    caller), event_salience already lives on the citizen this function is
-    already given."""
-    if config.context_modulation.neighbors_acting:
-        raise NotImplementedError("awakening.context_modulation.neighbors_acting is v6 scope (§7bis.9f)")
+    context_modulation flag is true. event_salience (v5 Lot 3, §8) lowers
+    the threshold, symmetric with mandate_deviation -- read directly off
+    `citizen.event_salience`, no new parameter needed: unlike mandate_dev/
+    proximity (officeholder-level facts with no natural per-citizen home,
+    threaded in by the caller), event_salience already lives on the
+    citizen this function is already given.
+
+    neighbors_acting (v6 Lot 3, §5/§7bis.9c) LOWERS the threshold too --
+    Granovetter-style threshold diffusion read as another continuous
+    modulation of the same gate, never a hard rule (§3.3/§7bis.9d: the gate
+    decides who is ASKED, never what they decide). Unlike mandate_dev/
+    event_salience, this one genuinely has no natural per-citizen home --
+    it depends on the TARGET (which officeholder) as well as the citizen,
+    so the caller (accountability.neighbors_acting, computed once per
+    holder over the whole population) threads it in exactly like
+    mandate_dev/proximity. Defaults to 0.0 so every pre-v6-Lot-3 caller
+    keeps compiling and behaving identically."""
     amp = config.modulation_amplitude
     f = 1.0
     if config.context_modulation.mandate_deviation:
@@ -155,8 +173,48 @@ def awakening_threshold(citizen: Citizen, *, mandate_dev: float, proximity: floa
         f += amp * proximity
     if config.context_modulation.event_salience:
         f -= amp * citizen.event_salience
+    if config.context_modulation.neighbors_acting:
+        f -= amp * neighbors_acting
     f = max(1.0 - amp, min(1.0 + amp, f))
     return citizen.base_threshold * f
+
+
+def neighbors_acting(
+    citizens: Sequence[Citizen],
+    target: int,
+    graph: SocialGraph,
+    mobilized_last_tick: Mapping[int, int],
+) -> dict[int, float]:
+    """§5/§7bis.9c (v6 Lot 3): for every citizen, the fraction of their OWN
+    social-graph neighbors whose most recently APPLIED pressure_action was
+    MOBILIZE, specifically against `target` -- the same officeholder this
+    citizen is currently being asked about, not "against anyone" (§7bis.4a's
+    petition lever is the institutional, consequential channel; §7bis.4b's
+    mobilization is the expressive, visibility-only one the design doc's own
+    "déjà mobilisée" wording names specifically -- sign/launch don't count).
+
+    One tick of lag by construction: `mobilized_last_tick` is built by the
+    CALLER from the PREVIOUS tick's own applied acts (decide_pressure_actions
+    batches an entire cohort's decisions in one frozen call, so a neighbor's
+    SAME-tick decision cannot be seen yet) -- the same structural lag
+    dt=6's own street_pressure reading uses (v4 Lot 6).
+
+    An isolated citizen (graph.neighbors[cid] == frozenset()) gets 0.0,
+    never a divide-by-zero or None -- a real, documented SocialGraph state
+    (social_graph.py's own docstring), a legitimate "no visible pressure"
+    fact. Computed for EVERY citizen, not just an already-consulted cohort,
+    because select_consulted itself needs each candidate's own fraction
+    before it knows who will be consulted."""
+    result: dict[int, float] = {}
+    for citizen in citizens:
+        cid = citizen.citizen_id
+        neighbor_ids = graph.neighbors.get(cid, frozenset())
+        if not neighbor_ids:
+            result[cid] = 0.0
+            continue
+        acting = sum(1 for neighbor_id in neighbor_ids if mobilized_last_tick.get(neighbor_id) == target)
+        result[cid] = acting / len(neighbor_ids)
+    return result
 
 
 def select_consulted(
@@ -167,6 +225,7 @@ def select_consulted(
     term_ticks: int,
     mandate_dev: float,
     awakening: AwakeningConfig,
+    neighbors_acting: Mapping[int, float] | None = None,
 ) -> list[tuple[Citizen, float]]:
     """§7bis.9d: the awakening gate -- a sampling GATE, never a decision. A
     citizen is consulted iff self_gap > their own awakening_threshold
@@ -175,7 +234,12 @@ def select_consulted(
     be 0 -- campaign_positioning's LLM path can diverge a nominee's
     revealed_position before they win, giving a president a nonzero
     self-gap against their own current revealed position). No RNG, no cap
-    (no_consultation_cap is TRANCHÉ true), ascending citizen_id."""
+    (no_consultation_cap is TRANCHÉ true), ascending citizen_id.
+
+    `neighbors_acting` (v6 Lot 3) is the per-citizen fraction the module-
+    level function of the same name already computed once for this holder
+    -- None (the default) behaves exactly like "no social graph", 0.0 for
+    every citizen, preserving every pre-v6-Lot-3 call site unmodified."""
     if holder.revealed_position is None:
         return []
     proximity = election_proximity(tick, holder.term_end_tick, term_ticks)
@@ -184,7 +248,10 @@ def select_consulted(
         if citizen.citizen_id == holder.citizen_id:
             continue
         gap = self_gap(citizen, holder)
-        threshold = awakening_threshold(citizen, mandate_dev=mandate_dev, proximity=proximity, config=awakening)
+        frac = neighbors_acting.get(citizen.citizen_id, 0.0) if neighbors_acting else 0.0
+        threshold = awakening_threshold(
+            citizen, mandate_dev=mandate_dev, proximity=proximity, neighbors_acting=frac, config=awakening
+        )
         if gap > threshold:
             consulted.append((citizen, gap))
     return sorted(consulted, key=lambda pair: pair[0].citizen_id)

@@ -531,16 +531,13 @@ def test_valid_pressure_decision_round_trips_each_act():
 
 
 def test_pressure_motif_literal_matches_pressure_motif_enum_exactly():
-    # NOT a strict equality since v6 Lot 1 (§5): PressureMotif.FOLLOWING_
-    # NEIGHBORS (306) is reserved in the codebook ahead of its own wire-schema
-    # consumption -- the same "reserve now, wire later" split v4 Lot 1/v5
-    # Lot 1 used for their own new motif codes. The wire schema's Literal is
-    # therefore a proper SUBSET of the enum until a later v6 lot wires it in,
-    # not yet an exact match.
+    # Exact match again as of v6 Lot 3: PressureMotif.FOLLOWING_NEIGHBORS
+    # (306), reserved by v6 Lot 1 ahead of its own wire-schema consumption,
+    # is now wired into the Literal -- the "reserve now, wire later" split's
+    # second half.
     literal_values = set(PressureDecision.model_fields["motif"].annotation.__args__)  # type: ignore[union-attr]
     enum_values = {member.value for member in PressureMotif}
-    assert literal_values <= enum_values
-    assert enum_values - literal_values == {306}
+    assert literal_values == enum_values
 
 
 def test_pressure_act_literal_matches_pressure_act_enum_exactly():
@@ -548,22 +545,25 @@ def test_pressure_act_literal_matches_pressure_act_enum_exactly():
     assert literal_values == {member.value for member in PressureAct}
 
 
-def test_pressure_motif_302_303_306_are_rejected():
-    # Deliberately excluded from PressureMotif: 302/306 by §7bis.9f (the
-    # atomized regime), 303 because it is a ResponseMotif, not a
-    # PressureMotif.
-    for motif in (302, 303, 306):
+def test_pressure_motif_302_303_are_rejected():
+    # Deliberately excluded from PressureMotif: 302 by §7bis.9f (the
+    # atomized regime, permanent), 303 because it is a ResponseMotif, not a
+    # PressureMotif. 306 is no longer rejected -- wired in by v6 Lot 3.
+    for motif in (302, 303):
         with pytest.raises(ValidationError):
             PressureDecision.model_validate(_pressure_decision(motif=motif))
 
 
 def test_pressure_decision_accepts_every_act_motif_pairing():
     # Deliberate absence of a coherence rule (see PressureDecision's own
-    # docstring): PressureMotif has exactly 3 members and would make motif
-    # a strict function of act if coupled, carrying no information beyond
-    # what act already encodes.
+    # docstring): through v6 Lot 1, PressureMotif had exactly 3 members and
+    # would make motif a strict function of act if coupled. v6 Lot 3 wires
+    # in 306 FOLLOWING_NEIGHBORS -- deliberately NOT partition-preserving
+    # (a second, genuine code for act in {1,2,3}) -- and the conclusion
+    # (no model_validator) is unchanged, so every act still accepts every
+    # motif, including 306 against act=0/4 (unenforced, guidance-only).
     for act in (0, 1, 2, 3, 4):
-        for motif in (301, 304, 305):
+        for motif in (301, 304, 305, 306):
             PressureDecision.model_validate(_pressure_decision(act=act, motif=motif))
 
 

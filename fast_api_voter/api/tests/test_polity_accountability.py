@@ -16,6 +16,7 @@ from api.domain.polity.accountability import (
     is_term_limited,
     launch_petition,
     mandate_deviation,
+    neighbors_acting,
     petition_accepts_signatures,
     petition_has_expired,
     petition_is_launchable,
@@ -42,6 +43,7 @@ from api.domain.polity.config import (
     StreetPressureConfig,
 )
 from api.domain.polity.simple_rules import weighted_distance
+from api.domain.polity.social_graph import SocialGraph
 
 
 def _citizen(citizen_id, positions, priorities=None, **kwargs):
@@ -338,14 +340,52 @@ def test_awakening_threshold_ignores_proximity_when_its_modulation_flag_is_off()
     assert far == pytest.approx(near)
 
 
-def test_awakening_threshold_raises_when_neighbors_acting_is_enabled():
-    modulation = AwakeningContextModulation(
-        mandate_deviation=True, ticks_to_election=True, neighbors_acting=True, event_salience=False
-    )
-    config = AwakeningConfig(**{**_AWAKENING_CONFIG.__dict__, "context_modulation": modulation})
+_MODULATION_WITH_NEIGHBORS = AwakeningContextModulation(
+    mandate_deviation=True, ticks_to_election=True, neighbors_acting=True, event_salience=False
+)
+_AWAKENING_CONFIG_WITH_NEIGHBORS = AwakeningConfig(
+    **{**_AWAKENING_CONFIG.__dict__, "context_modulation": _MODULATION_WITH_NEIGHBORS}
+)
+
+
+def test_awakening_threshold_no_longer_raises_for_neighbors_acting():
+    # v6 Lot 3 (§5): the guard this used to trip is gone -- neighbors_acting
+    # is a real, implemented term now, not reserved scope.
     citizen = _citizen(1, (0.5,), base_threshold=0.4)
-    with pytest.raises(NotImplementedError, match="neighbors_acting"):
-        awakening_threshold(citizen, mandate_dev=0.0, proximity=0.0, config=config)
+    awakening_threshold(
+        citizen, mandate_dev=0.0, proximity=0.0, neighbors_acting=0.3, config=_AWAKENING_CONFIG_WITH_NEIGHBORS
+    )
+
+
+def test_awakening_threshold_higher_neighbors_acting_strictly_lowers_it():
+    citizen = _citizen(1, (0.5,), base_threshold=0.4)
+    low = awakening_threshold(
+        citizen, mandate_dev=0.5, proximity=0.5, neighbors_acting=0.1, config=_AWAKENING_CONFIG_WITH_NEIGHBORS
+    )
+    high = awakening_threshold(
+        citizen, mandate_dev=0.5, proximity=0.5, neighbors_acting=0.9, config=_AWAKENING_CONFIG_WITH_NEIGHBORS
+    )
+    assert high < low
+
+
+def test_awakening_threshold_ignores_neighbors_acting_when_its_modulation_flag_is_off():
+    citizen = _citizen(1, (0.5,), base_threshold=0.4)
+    low = awakening_threshold(citizen, mandate_dev=0.5, proximity=0.5, neighbors_acting=0.1, config=_AWAKENING_CONFIG)
+    high = awakening_threshold(citizen, mandate_dev=0.5, proximity=0.5, neighbors_acting=0.9, config=_AWAKENING_CONFIG)
+    assert low == pytest.approx(high)
+
+
+def test_awakening_threshold_stays_within_amplitude_bounds_with_neighbors_acting_combined():
+    citizen = _citizen(1, (0.5,), base_threshold=0.4)
+    amp = _AWAKENING_CONFIG_WITH_NEIGHBORS.modulation_amplitude
+    lo = 0.4 * (1 - amp)
+    hi = 0.4 * (1 + amp)
+    for dev, prox, neighbors in [(0.0, 0.0, 0.0), (1.0, 0.0, 1.0), (0.0, 1.0, 0.0), (1.0, 1.0, 1.0)]:
+        result = awakening_threshold(
+            citizen, mandate_dev=dev, proximity=prox, neighbors_acting=neighbors,
+            config=_AWAKENING_CONFIG_WITH_NEIGHBORS,
+        )
+        assert lo - 1e-9 <= result <= hi + 1e-9
 
 
 _MODULATION_WITH_SALIENCE = AwakeningContextModulation(
@@ -451,6 +491,89 @@ def test_select_consulted_returns_empty_without_a_revealed_position():
     assert select_consulted(
         [holder, citizen], holder, tick=0, term_ticks=16, mandate_dev=0.0, awakening=_AWAKENING_CONFIG
     ) == []
+
+
+def test_select_consulted_neighbors_acting_none_behaves_like_omitting_it():
+    # v6 Lot 3 regression pin: the default (no dict passed at all) and an
+    # explicit None must be indistinguishable from every pre-v6-Lot-3 call.
+    holder = _citizen(0, (0.5,), role=Role.ELECTED, office=Office.PRESIDENT, revealed_position=(0.5,))
+    far = _citizen(9, (0.0,), base_threshold=0.1)
+    without_kwarg = select_consulted(
+        [holder, far], holder, tick=0, term_ticks=16, mandate_dev=0.0, awakening=_AWAKENING_CONFIG
+    )
+    with_none = select_consulted(
+        [holder, far], holder, tick=0, term_ticks=16, mandate_dev=0.0, awakening=_AWAKENING_CONFIG,
+        neighbors_acting=None,
+    )
+    assert [c.citizen_id for c, _ in without_kwarg] == [c.citizen_id for c, _ in with_none] == [9]
+
+
+def test_select_consulted_a_high_neighbors_acting_fraction_can_trigger_consultation():
+    # Isolates the new term's effect from mandate_dev/proximity: self_gap
+    # sits just below base_threshold at neighbors_acting=0.0, but a fully
+    # mobilized neighborhood lowers the threshold enough to cross it.
+    holder = _citizen(0, (0.5,), role=Role.ELECTED, office=Office.PRESIDENT, revealed_position=(0.5,))
+    citizen = _citizen(9, (0.05,), base_threshold=0.46)  # self_gap == 0.45, just under 0.46
+    without_neighbors = select_consulted(
+        [holder, citizen], holder, tick=0, term_ticks=16, mandate_dev=0.0,
+        awakening=_AWAKENING_CONFIG_WITH_NEIGHBORS, neighbors_acting={9: 0.0},
+    )
+    with_neighbors = select_consulted(
+        [holder, citizen], holder, tick=0, term_ticks=16, mandate_dev=0.0,
+        awakening=_AWAKENING_CONFIG_WITH_NEIGHBORS, neighbors_acting={9: 1.0},
+    )
+    assert without_neighbors == []
+    assert [c.citizen_id for c, _ in with_neighbors] == [9]
+
+
+# ── neighbors_acting (v6 Lot 3, §5) ──────────────────────────────────────
+
+def _graph(neighbors: dict[int, frozenset[int]]) -> SocialGraph:
+    return SocialGraph(neighbors=neighbors)
+
+
+def test_neighbors_acting_isolated_citizen_gets_zero():
+    citizens = [_citizen(1, (0.0,)), _citizen(2, (0.0,))]
+    graph = _graph({1: frozenset(), 2: frozenset({1})})
+    result = neighbors_acting(citizens, target=100, graph=graph, mobilized_last_tick={})
+    assert result[1] == 0.0
+
+
+def test_neighbors_acting_all_neighbors_mobilized_against_target_gives_one():
+    citizens = [_citizen(1, (0.0,)), _citizen(2, (0.0,)), _citizen(3, (0.0,))]
+    graph = _graph({1: frozenset({2, 3}), 2: frozenset({1}), 3: frozenset({1})})
+    result = neighbors_acting(citizens, target=100, graph=graph, mobilized_last_tick={2: 100, 3: 100})
+    assert result[1] == 1.0
+
+
+def test_neighbors_acting_mixed_case_is_hand_computed():
+    citizens = [_citizen(1, (0.0,)), _citizen(2, (0.0,)), _citizen(3, (0.0,)), _citizen(4, (0.0,))]
+    graph = _graph({1: frozenset({2, 3, 4}), 2: frozenset({1}), 3: frozenset({1}), 4: frozenset({1})})
+    # Only citizen 2 mobilized against target=100; 3 mobilized against a
+    # DIFFERENT target; 4 didn't mobilize at all.
+    result = neighbors_acting(citizens, target=100, graph=graph, mobilized_last_tick={2: 100, 3: 200})
+    assert result[1] == pytest.approx(1 / 3)
+
+
+def test_neighbors_acting_excludes_a_neighbor_who_mobilized_against_a_different_target():
+    citizens = [_citizen(1, (0.0,)), _citizen(2, (0.0,))]
+    graph = _graph({1: frozenset({2}), 2: frozenset({1})})
+    result = neighbors_acting(citizens, target=100, graph=graph, mobilized_last_tick={2: 200})
+    assert result[1] == 0.0
+
+
+def test_neighbors_acting_empty_mobilized_last_tick_gives_zero_for_everyone():
+    citizens = [_citizen(1, (0.0,)), _citizen(2, (0.0,))]
+    graph = _graph({1: frozenset({2}), 2: frozenset({1})})
+    result = neighbors_acting(citizens, target=100, graph=graph, mobilized_last_tick={})
+    assert result == {1: 0.0, 2: 0.0}
+
+
+def test_neighbors_acting_covers_every_citizen_not_just_a_consulted_subset():
+    citizens = [_citizen(i, (0.0,)) for i in range(1, 5)]
+    graph = _graph({i: frozenset() for i in range(1, 5)})
+    result = neighbors_acting(citizens, target=100, graph=graph, mobilized_last_tick={})
+    assert set(result.keys()) == {1, 2, 3, 4}
 
 
 # ── update_street_pressure ───────────────────────────────────────────────

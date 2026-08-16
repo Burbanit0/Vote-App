@@ -36,6 +36,7 @@ if/else split.
 """
 from __future__ import annotations
 
+from collections.abc import Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -49,6 +50,7 @@ from api.domain.polity.accountability import (
     is_term_limited,
     launch_petition,
     mandate_deviation,
+    neighbors_acting as compute_neighbors_acting,
     petition_accepts_signatures,
     petition_has_expired,
     petition_is_launchable,
@@ -118,6 +120,7 @@ from api.domain.polity.simple_rules import (
     select_party_nominee_from_declared,
     vacate_office,
 )
+from api.domain.polity.social_graph import SocialGraph, generate_social_graph
 
 
 @dataclass(frozen=True)
@@ -229,6 +232,24 @@ def run_simulation(
     # _run_exogenous_events's return value every tick. Deliberately
     # unclamped -- see shock.economic_shock_step's own docstring.
     economy_x: float = 0.0
+    # v6 Lot 2/3 (§5): generated once, population-structural (evolving is
+    # TRANCHÉ rejected at config-parse time, so this never changes mid-run).
+    # None whenever social_graph.enabled is off (the shipped default) --
+    # every reader below treats None as "no graph" and behaves identically
+    # to pre-v6-Lot-3 code.
+    graph: SocialGraph | None = None
+    if config.social_graph.enabled:
+        graph = generate_social_graph(config.social_graph, config.run.population_size, config.run.seed)
+    # v6 Lot 3 (§5/§7bis.9c): citizen_id -> target citizen_id, for every
+    # citizen whose APPLIED pressure_action was MOBILIZE on the most
+    # recently completed tick -- a bare local in the same register as
+    # economy_x, fully REPLACED (never accumulated) every tick by
+    # _run_accountability_phase's own return value, so it always reflects
+    # exactly one completed tick. The one-tick lag mirrors dt=6's own
+    # street_pressure lag (v4 Lot 6): decide_pressure_actions batches an
+    # entire cohort's decisions in one frozen call, so a neighbor's SAME-
+    # tick decision cannot be seen by construction.
+    mobilized_last_tick: Mapping[int, int] = {}
 
     with Journal.from_config(config.journal, run_id) as journal, _llm_client_scope(config, llm_client) as client:
         for tick in range(clock.total_ticks + 1):
@@ -255,7 +276,10 @@ def run_simulation(
             if election in (ElectionType.LEGISLATIVE, ElectionType.BOTH):
                 seats, votes = _hold_legislative_election(citizens, parties, config, journal, tick)
                 _form_and_journal_coalition(parties, seats, votes, config, journal, tick, client)
-            _run_accountability_phase(citizens, config, journal, tick, client, exogenous=exogenous)
+            mobilized_last_tick = _run_accountability_phase(
+                citizens, config, journal, tick, client,
+                exogenous=exogenous, graph=graph, mobilized_last_tick=mobilized_last_tick,
+            )
 
     journal_path = Path(config.journal.output_dir) / run_id / "events.jsonl"
     if config.journal.enabled and config.journal.index_after_run:
@@ -863,6 +887,7 @@ def _pressure_context(
     config: PolityConfig,
     can_sign: bool,
     can_launch: bool,
+    neighbors_acting_by_cid: Mapping[int, float] | None = None,
 ) -> PressureContext:
     """v4 Lot 7: the single place dt=10's ctx and its frozen menu
     availability are built. `gap` is select_consulted's own returned
@@ -873,7 +898,16 @@ def _pressure_context(
     the caller before this tick's consulted loop runs, so they describe
     the same instant every other citizen's ctx was frozen at). NO
     street_pressure and NO signature count reach this object (§7bis.9f) --
-    see PressureContext's own docstring."""
+    see PressureContext's own docstring.
+
+    `neighbors_acting_by_cid` (v6 Lot 3) is the SAME dict select_consulted's
+    own caller already computed once per holder via
+    accountability.neighbors_acting -- reused here, never recomputed,
+    exactly the "compute once, thread the value" precedent mandate_dev/
+    deviation already established. None (the default, when the graph is
+    off) means the caller passes no dict at all -- PressureContext.
+    neighbors_acting then stays None, never 0.0 (null means "not tracked",
+    per this project's own established rule)."""
     available = set(menu_acts(config.pressure_menu))
     if not can_sign:
         available.discard(int(PressureAct.SIGN_PETITION))
@@ -893,6 +927,9 @@ def _pressure_context(
             else None
         ),
         already_signed=citizen.citizen_id in holder.petition_signers,
+        neighbors_acting=(
+            neighbors_acting_by_cid.get(citizen.citizen_id) if neighbors_acting_by_cid is not None else None
+        ),
     )
 
 
@@ -1041,7 +1078,9 @@ def _run_accountability_phase(
     tick: int,
     llm_client: LlmClientProtocol | None = None,
     exogenous: ExogenousEventsOutcome | None = None,
-) -> None:
+    graph: SocialGraph | None = None,
+    mobilized_last_tick: Mapping[int, int] | None = None,
+) -> Mapping[int, int]:
     """v4 Lots 2-6, v5 Lots 3-4 -- §7bis.7's full per-tick sequence: step 0
     (v5 Lot 3/4, §8: population-wide reaction_to_event, LLM-driven under
     config.llm.enabled since Lot 4, deterministic otherwise, before
@@ -1109,11 +1148,24 @@ def _run_accountability_phase(
     unconsumed this lot: after vacate_office, current_office_holders
     returns nothing for that office, so a repeat recall isn't representable
     until a new president exists at the next scheduled election -- far
-    longer than the cooldown, so it cannot bind here regardless."""
+    longer than the cooldown, so it cannot bind here regardless.
+
+    `graph`/`mobilized_last_tick` are v6 Lot 3 additions (§5/§7bis.9c),
+    both additive with None-safe defaults so every pre-v6-Lot-3 direct call
+    keeps compiling and behaving identically. Returns a FRESH
+    `Mapping[int, int]` (citizen_id -> target citizen_id) built from this
+    tick's own APPLIED MOBILIZE decisions -- a full replace, never merged
+    with the incoming `mobilized_last_tick`, so it always reflects exactly
+    one completed tick for the caller to thread into the next tick's own
+    call (the same one-tick-lag contract accountability.neighbors_acting's
+    own docstring describes). The early-return path returns `{}`: when
+    every accountability mechanic is off, nothing this tick could have
+    mobilized either."""
     if not (config.mandate.enabled or config.legitimacy.enabled or config.awakening.enabled):
-        return
+        return {}
     term_ticks = config.institutions.president_term_years * config.run.ticks_per_year
     holders = current_office_holders(citizens, Office.PRESIDENT)  # built once, as before
+    new_mobilized: dict[int, int] = {}  # v6 Lot 3: this tick's own applied MOBILIZE decisions
     # v5 Lot 3/4 (§8) -- step 0, before step 1: population-wide, never
     # officeholder-scoped (dt=8 is not select_consulted-gated), so
     # _run_reaction_to_event loops over `citizens`, not `holders`, and
@@ -1158,6 +1210,17 @@ def _run_accountability_phase(
             )
 
         if config.awakening.enabled:
+            # v6 Lot 3 (§5): computed once per holder, over the WHOLE
+            # population -- select_consulted needs every candidate
+            # citizen's own fraction, not just the eventually-consulted
+            # cohort's. {} whenever graph is None (no social graph), which
+            # neighbors_acting_by_cid.get(..., 0.0) below treats identically
+            # to "no contagion signal".
+            neighbors_acting_by_cid: dict[int, float] = (
+                compute_neighbors_acting(citizens, holder.citizen_id, graph, mobilized_last_tick or {})
+                if graph is not None
+                else {}
+            )
             consulted = select_consulted(
                 citizens,
                 holder,
@@ -1165,6 +1228,7 @@ def _run_accountability_phase(
                 term_ticks=term_ticks,
                 mandate_dev=deviation or 0.0,
                 awakening=config.awakening,
+                neighbors_acting=neighbors_acting_by_cid,
             )
             decisions: dict[int, PressureDecision] | None = None
             contexts: dict[int, PressureContext] = {}
@@ -1180,6 +1244,7 @@ def _run_accountability_phase(
                         config=config,
                         can_sign=_can_sign(holder, citizen, tick, config),
                         can_launch=petition_is_launchable(holder, tick),
+                        neighbors_acting_by_cid=neighbors_acting_by_cid if graph is not None else None,
                     )
                     for citizen, gap in consulted  # ALL frozen before any act applies
                 }
@@ -1204,6 +1269,7 @@ def _run_accountability_phase(
                     motif = str(decision.motif)
                 if act is PressureAct.MOBILIZE:
                     participants += 1
+                    new_mobilized[citizen.citizen_id] = holder.citizen_id  # v6 Lot 3: for NEXT tick's own read
                 journal.write(
                     tick=tick,
                     event_type="pressure_action",
@@ -1343,3 +1409,5 @@ def _run_accountability_phase(
                 citizen_id=holder.citizen_id,
             )
             vacate_office(holder)
+
+    return new_mobilized

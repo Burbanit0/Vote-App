@@ -310,19 +310,23 @@ class PressureDecision(BaseModel):
 
     NO cross-field model_validator, deliberately — a documented divergence
     from ResponseDecision/CoalitionDecision above, not an oversight.
-    PressureMotif has exactly three members ({301, 304, 305}: 302/306 are
-    excluded by §7bis.9f, 303 belongs to ResponseMotif), and they partition
-    act perfectly (304 grounds act=0, 305 grounds act=4, 301 is the only
-    code left for act in {1,2,3}) — so an act<->motif coherence rule would
-    make motif a strict FUNCTION of act, carrying no information beyond
-    §10's pressure_lever_mix, which is computed from act anyway. Unlike
-    stance<->motif at dt=6, where 301/302/303 discriminated three genuinely
-    different causes of one stance, there is no distribution here to
-    corrupt. Against that zero benefit: a cross-field rule is the one
+    Through v6 Lot 1, PressureMotif had exactly three members ({301, 304,
+    305}: 302 excluded permanently by §7bis.9f, 303 belongs to
+    ResponseMotif), and they partitioned act perfectly (304 grounds act=0,
+    305 grounds act=4, 301 the only code left for act in {1,2,3}). v6 Lot 3
+    wires in the fourth, 306 FOLLOWING_NEIGHBORS (reserved by v6 Lot 1,
+    §5) — deliberately NOT partition-preserving: it is a second, genuinely
+    informative code available for act in {1,2,3} alongside 301 (was this
+    citizen driven by their own perceived mandate deviation, or by seeing
+    their neighbors already act?), so motif is no longer a strict function
+    of act. The conclusion is unchanged anyway: still no model_validator.
+    The rejection-surface argument (a cross-field rule is the one
     constraint constrained decoding cannot enforce, and dt=10 has the
-    largest batches and highest call count in the palier. The intended
-    pairing is stated in the system prompt as guidance; the realized
-    act x motif table is a Lot 8 measurement, not an invariant."""
+    largest batches and highest call count in the whole project, now with
+    v6's own volume added on top) is, if anything, stronger. The intended
+    pairing (306 should ground act in {1,2,3}, never 0 or 4) is stated in
+    the system prompt as guidance only; the realized act x motif table
+    stays a §10 measurement, not an invariant."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -331,7 +335,7 @@ class PressureDecision(BaseModel):
     act: Literal[0, 1, 2, 3, 4] = Field(
         ..., description="0=rien, 1=signer, 2=lancer, 3=mobiliser, 4=attendre (§3.7.1) — voir PressureAct."
     )
-    motif: Literal[301, 304, 305] = Field(
+    motif: Literal[301, 304, 305, 306] = Field(
         ..., description="Code court obligatoire (§3.7.2) — voir PressureMotif."
     )
 

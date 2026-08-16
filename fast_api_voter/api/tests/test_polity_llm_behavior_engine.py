@@ -1750,6 +1750,29 @@ def test_pressure_system_prompt_carries_the_act_and_motif_tables():
     assert "301 = MANDATE_DEVIATION_HIGH" in prompt
 
 
+def test_pressure_system_prompt_states_toujours_null_when_the_graph_is_off():
+    # v6 Lot 3 regression pin: the shipped default (social_graph.enabled
+    # false, v4/v5's own atomized regime) must keep the exact pre-Lot-3
+    # sentence. Note PRESSURE_MOTIF_PROMPT_TABLE always lists 306 (it
+    # renders the full enum unconditionally) -- the pairing GUIDANCE
+    # sentence is what's conditional, not the table itself.
+    consulted = [_pressure_citizen(0)]
+    config = _config_with_llm_enabled()
+    assert config.social_graph.enabled is False
+    prompt = build_pressure_system_prompt(consulted, config)
+    assert "toujours null" in prompt
+    assert "voisinage social qui a deja mobilise" not in prompt
+
+
+def test_pressure_system_prompt_explains_the_real_fraction_when_the_graph_is_on():
+    consulted = [_pressure_citizen(0)]
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, social_graph=dataclasses.replace(config.social_graph, enabled=True))
+    prompt = build_pressure_system_prompt(consulted, config)
+    assert "toujours null" not in prompt
+    assert "voisinage social qui a deja mobilise" in prompt
+
+
 def test_pressure_user_prompt_carries_ctx_available_and_petition_state():
     citizen = _pressure_citizen(7)
     context = _pressure_context(7, target=205, self_gap=0.61, mandate_dev=0.41, ticks_to_election=9,
@@ -1792,6 +1815,16 @@ def test_pressure_user_prompt_ctx_matches_the_journalled_ctx_payload():
     context = _pressure_context(0, self_gap=0.3, mandate_dev=0.2, ticks_to_election=5)
     payload = json.loads(build_pressure_user_prompt([citizen], {0: context}))
     assert payload["consulted"][0]["ctx"] == context.to_payload()
+
+
+def test_pressure_context_to_payload_rounds_a_real_neighbors_acting_fraction():
+    context = _pressure_context(0, neighbors_acting=0.33333333)
+    assert context.to_payload()["neighbors_acting"] == 0.3333
+
+
+def test_pressure_context_to_payload_keeps_neighbors_acting_none():
+    context = _pressure_context(0, neighbors_acting=None)
+    assert context.to_payload()["neighbors_acting"] is None
 
 
 # ── decide_pressure_actions (FakePressureLlmClient, v4 Lot 7) ───────────
