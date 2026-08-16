@@ -11,7 +11,9 @@ import pytest
 from api.domain.polity.accountability import (
     applicable_pressure_act,
     awakening_threshold,
+    chamber_deviation,
     current_office_holders,
+    current_sortition_members,
     election_proximity,
     is_term_limited,
     launch_petition,
@@ -191,6 +193,24 @@ def test_self_gap_raises_without_a_revealed_position():
         self_gap(citizen, officeholder)
 
 
+# ── chamber_deviation (v6b Lot 3, §6bis.3) ───────────────────────────────
+
+def test_chamber_deviation_is_zero_when_chamber_position_matches_issue_positions():
+    member = _citizen(1, (0.5, 0.5), chamber_position=(0.5, 0.5))
+    assert chamber_deviation(member) == 0.0
+
+
+def test_chamber_deviation_hand_computed():
+    member = _citizen(1, (0.5, 0.0), priorities=(0.6, 0.4), chamber_position=(0.0, 0.0))
+    assert chamber_deviation(member) == pytest.approx((0.6 * 0.25) ** 0.5)
+
+
+def test_chamber_deviation_raises_without_a_chamber_position():
+    member = _citizen(1, (0.5, 0.5))
+    with pytest.raises(ValueError, match="chamber_position"):
+        chamber_deviation(member)
+
+
 # ── is_term_limited ──────────────────────────────────────────────────────
 
 def test_is_term_limited_truth_table():
@@ -224,6 +244,26 @@ def test_current_office_holders_is_sorted_by_citizen_id():
     higher = _citizen(5, (0.5,), role=Role.ELECTED, office=Office.PRESIDENT)
     lower = _citizen(2, (0.5,), role=Role.ELECTED, office=Office.PRESIDENT)
     result = current_office_holders([higher, lower], Office.PRESIDENT)
+    assert [c.citizen_id for c in result] == [2, 5]
+
+
+# ── current_sortition_members (v6b Lot 3, §6bis.3) ───────────────────────
+
+def test_current_sortition_members_is_empty_with_no_seated_chamber():
+    citizens = [_citizen(1, (0.5,)), _citizen(2, (0.5,))]
+    assert current_sortition_members(citizens) == []
+
+
+def test_current_sortition_members_returns_seated_members():
+    seated = _citizen(1, (0.5,), sortition_seat_until_tick=16)
+    not_seated = _citizen(2, (0.5,))
+    assert current_sortition_members([not_seated, seated]) == [seated]
+
+
+def test_current_sortition_members_is_sorted_by_citizen_id():
+    higher = _citizen(5, (0.5,), sortition_seat_until_tick=16)
+    lower = _citizen(2, (0.5,), sortition_seat_until_tick=16)
+    result = current_sortition_members([higher, lower])
     assert [c.citizen_id for c in result] == [2, 5]
 
 

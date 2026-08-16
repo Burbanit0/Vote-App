@@ -13,6 +13,7 @@ from api.domain.polity.codebook import EventType, VoteMotif
 from api.domain.polity.config import PressureMenuConfig, load_config
 from api.domain.polity.llm_behavior_engine import (
     MIN_SAFE_BATCH_SIZE,
+    ChamberContext,
     PressureContext,
     ReactionContext,
     ResponseContext,
@@ -20,6 +21,8 @@ from api.domain.polity.llm_behavior_engine import (
     assemble_coalition,
     build_candidacy_system_prompt,
     build_candidacy_user_prompt,
+    build_chamber_system_prompt,
+    build_chamber_user_prompt,
     build_coalition_system_prompt,
     build_coalition_user_prompt,
     build_party_nomination_system_prompt,
@@ -39,6 +42,7 @@ from api.domain.polity.llm_behavior_engine import (
     compute_max_tokens,
     decide_campaign_positioning,
     decide_candidacies,
+    decide_chamber_deliberation,
     decide_coalition,
     decide_party_nominations,
     decide_pressure_actions,
@@ -47,6 +51,7 @@ from api.domain.polity.llm_behavior_engine import (
     menu_acts,
     resolve_party_nomination_cid,
     truncation_limit,
+    validate_chamber_decision,
     validate_coalition_decision,
     validate_decision,
     validate_positioning_decision,
@@ -56,6 +61,7 @@ from api.domain.polity.llm_behavior_engine import (
 )
 from api.domain.polity.llm_client import LlmResponseError, LlmTransportError
 from api.domain.polity.llm_schemas import (
+    ChamberDecision,
     CoalitionDecision,
     PartyNominationDecision,
     PositioningDecision,
@@ -1258,6 +1264,283 @@ def test_decide_representative_response_ignores_a_later_street_pressure_mutation
 
     after = build_response_user_prompt([holder], contexts)
     assert before == after
+
+
+# ── validate_chamber_decision (v6b Lot 3, §6bis.3) ───────────────────────
+
+def _member(cid, positions, chamber=None, seat_until=16):
+    c = _citizen(cid, positions)
+    c.sortition_seat_until_tick = seat_until
+    c.sortition_terms_served = 1
+    c.chamber_position = chamber if chamber is not None else c.issue_positions
+    return c
+
+
+def _chamber_decision(**overrides):
+    base = {"cid": 1, "shifts": [{"dimension": 0, "delta": 0.1}], "motif": 702}
+    base.update(overrides)
+    return ChamberDecision.model_validate(base)
+
+
+def _chamber_context(cid, **overrides):
+    base = {"cid": cid, "ticks_left": 12}
+    base.update(overrides)
+    return ChamberContext(**base)
+
+
+def test_validate_chamber_decision_accepts_within_bounds():
+    config = _config_with_llm_enabled()  # default max_deliberation_shifts=3, max_deliberation_delta=0.3
+    validate_chamber_decision(_chamber_decision(), config)  # must not raise
+
+
+def test_validate_chamber_decision_rejects_too_many_shifts():
+    config = _config_with_llm_enabled()
+    decision = _chamber_decision(shifts=[{"dimension": i, "delta": 0.1} for i in range(4)])
+    with pytest.raises(LlmResponseError, match="max_deliberation_shifts"):
+        validate_chamber_decision(decision, config)
+
+
+def test_validate_chamber_decision_rejects_delta_exceeding_the_cap():
+    config = _config_with_llm_enabled()
+    decision = _chamber_decision(shifts=[{"dimension": 0, "delta": 0.9}])
+    with pytest.raises(LlmResponseError, match="max_deliberation_delta"):
+        validate_chamber_decision(decision, config)
+
+
+def test_validate_chamber_decision_rejects_out_of_range_dimension():
+    config = _config_with_llm_enabled()  # default citizens.issue_count=20
+    decision = _chamber_decision(shifts=[{"dimension": 999, "delta": 0.1}])
+    with pytest.raises(LlmResponseError, match="out of range"):
+        validate_chamber_decision(decision, config)
+
+
+def test_validate_chamber_decision_uses_sortition_bounds_not_mandate_bounds():
+    # sortition_chamber.* and mandate.* must stay analytically separable --
+    # a decision within the (loosened) mandate bounds but outside the
+    # shipped sortition_chamber bounds must still be rejected.
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(
+        config, mandate=dataclasses.replace(config.mandate, max_response_delta=1.0, max_response_shifts=5)
+    )
+    decision = _chamber_decision(shifts=[{"dimension": 0, "delta": 0.9}])  # exceeds sortition_chamber.max_deliberation_delta=0.3
+    with pytest.raises(LlmResponseError, match="max_deliberation_delta"):
+        validate_chamber_decision(decision, config)
+
+
+# ── build_chamber_system_prompt / build_chamber_user_prompt ─────────────
+
+def test_chamber_system_prompt_enumerates_every_expected_cid():
+    members = [_member(0, (0.5,)), _member(1, (0.5,)), _member(2, (0.5,))]
+    config = _config_with_llm_enabled()
+    prompt = build_chamber_system_prompt(members, config)
+    assert "[0,1,2]" in prompt
+    assert "EXACTEMENT ces 3" in prompt
+
+
+def test_chamber_system_prompt_states_the_actual_numeric_bounds():
+    members = [_member(0, (0.5,))]
+    config = _config_with_llm_enabled()  # default max_deliberation_shifts=3, max_deliberation_delta=0.3
+    prompt = build_chamber_system_prompt(members, config)
+    assert "3 ajustements" in prompt
+    assert "0.3" in prompt
+
+
+def test_chamber_system_prompt_carries_the_motif_table():
+    members = [_member(0, (0.5,))]
+    config = _config_with_llm_enabled()
+    prompt = build_chamber_system_prompt(members, config)
+    assert "701 = SINCERE_POSITION" in prompt
+    assert "702 = DELIBERATIVE_SHIFT" in prompt
+
+
+def test_chamber_user_prompt_carries_sincere_and_chamber_positions_and_ctx():
+    member = _member(0, (0.2, 0.4), chamber=(0.3, 0.4))
+    contexts = {0: _chamber_context(0, ticks_left=3)}
+    payload = json.loads(build_chamber_user_prompt([member], contexts))
+    block = payload["members"][0]
+    assert block["cid"] == 0
+    assert block["sincere_position"] == [0.2, 0.4]
+    assert block["chamber_position"] == [0.3, 0.4]
+    assert block["ctx"] == {"ticks_left": 3}
+
+
+def test_chamber_user_prompt_is_deterministic_for_the_same_inputs():
+    members = [_member(0, (0.5,)), _member(1, (0.5,))]
+    contexts = {0: _chamber_context(0), 1: _chamber_context(1)}
+    assert build_chamber_user_prompt(members, contexts) == build_chamber_user_prompt(members, contexts)
+
+
+def test_chamber_user_prompt_ctx_matches_the_journalled_ctx_payload():
+    # One serialization, two consumers (the prompt and the journal write in
+    # run_polity_simulation.py) -- both must read from to_payload().
+    member = _member(0, (0.5,))
+    context = _chamber_context(0, ticks_left=9)
+    payload = json.loads(build_chamber_user_prompt([member], {0: context}))
+    assert payload["members"][0]["ctx"] == context.to_payload()
+
+
+# ── decide_chamber_deliberation (FakeChamberLlmClient, v6b Lot 3) ───────
+
+class FakeChamberLlmClient:
+    """Always answers sincere (empty shifts, motif=SINCERE_POSITION) --
+    lets tests assert on order/skip-when-empty/resolution behavior without
+    a live model asserting anything about actual shift content."""
+
+    def __init__(self):
+        self.calls: list[list[int]] = []
+
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        payload = json.loads(user_prompt)
+        cids = [m["cid"] for m in payload["members"]]
+        self.calls.append(cids)
+        decisions = [{"cid": cid, "shifts": [], "motif": 701} for cid in cids]
+        return json.dumps({"decisions": decisions})
+
+
+def test_decide_chamber_deliberation_returns_empty_and_skips_the_client_when_no_members():
+    config = _config_with_llm_enabled()
+    client = FakeChamberLlmClient()
+
+    outcome = decide_chamber_deliberation([], {}, config, client)
+
+    assert outcome.decisions == []
+    assert outcome.positions == {}
+    assert client.calls == []
+
+
+def test_decide_chamber_deliberation_sorts_members_by_citizen_id_regardless_of_input_order():
+    members = [_member(3, (0.5,)), _member(0, (0.5,)), _member(4, (0.5,))]
+    contexts = {m.citizen_id: _chamber_context(m.citizen_id) for m in members}
+    config = _config_with_llm_enabled()
+    client = FakeChamberLlmClient()
+
+    decide_chamber_deliberation(members, contexts, config, client)
+
+    assert client.calls == [[0, 3, 4]]
+
+
+def test_decide_chamber_deliberation_chunks_a_full_seats_sized_cohort_at_ten():
+    # A 30-member cohort (sortition_chamber.seats shipped) must reach the
+    # client as THREE calls of 10 -- a real, measured correction: this lot's
+    # own pre-flight spike found one call of 30 (and even a chunk of 15)
+    # silently drops all but the last 6 decisions, so decide_chamber_
+    # deliberation chunks at its own measured ceiling
+    # (_CHAMBER_MAX_CHUNK_SIZE=10), not config.llm.max_batch_size (25).
+    members = [_member(i, (0.5,)) for i in range(30)]
+    contexts = {m.citizen_id: _chamber_context(m.citizen_id) for m in members}
+    config = _config_with_llm_enabled()
+    client = FakeChamberLlmClient()
+
+    decide_chamber_deliberation(members, contexts, config, client)
+
+    assert len(client.calls) == 3
+    assert [len(c) for c in client.calls] == [10, 10, 10]
+    assert sorted(cid for call in client.calls for cid in call) == list(range(30))
+
+
+def test_decide_chamber_deliberation_applies_shifts_on_top_of_chamber_position():
+    member = _member(0, (0.2, 0.2), chamber=(0.4, 0.2))  # already drifted from the sincere position
+    contexts = {0: _chamber_context(0)}
+    config = _config_with_llm_enabled()
+
+    class ShiftingClient:
+        def complete_json(self, **kwargs):
+            payload = json.loads(kwargs["user_prompt"])
+            cid = payload["members"][0]["cid"]
+            decision = {"cid": cid, "shifts": [{"dimension": 0, "delta": 0.1}], "motif": 702}
+            return json.dumps({"decisions": [decision]})
+
+    outcome = decide_chamber_deliberation([member], contexts, config, ShiftingClient())
+
+    # base is chamber_position (0.4), NOT issue_positions (0.2) -- drift accumulates.
+    expected = apply_shifts((0.4, 0.2), [PositionShift(dimension=0, delta=0.1)])
+    assert outcome.positions[0] == expected
+
+
+def test_decide_chamber_deliberation_leaves_issue_positions_untouched():
+    member = _member(0, (0.2,), chamber=(0.2,))
+    contexts = {0: _chamber_context(0)}
+    config = _config_with_llm_enabled()
+
+    class ShiftingClient:
+        def complete_json(self, **kwargs):
+            decision = {"cid": 0, "shifts": [{"dimension": 0, "delta": 0.1}], "motif": 702}
+            return json.dumps({"decisions": [decision]})
+
+    decide_chamber_deliberation([member], contexts, config, ShiftingClient())
+
+    assert member.issue_positions == (0.2,)  # decide_chamber_deliberation never resolves the sincere anchor
+
+
+def test_decide_chamber_deliberation_raises_notimplementederror_for_unsupported_provider():
+    member = _member(0, (0.5,))
+    contexts = {0: _chamber_context(0)}
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, provider="api"))
+    with pytest.raises(NotImplementedError, match="provider"):
+        decide_chamber_deliberation([member], contexts, config, FakeChamberLlmClient())
+
+
+def test_decide_chamber_deliberation_raises_for_dynamic_batch_sharding():
+    member = _member(0, (0.5,))
+    contexts = {0: _chamber_context(0)}
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, batch_sharding="dynamic"))
+    with pytest.raises(NotImplementedError, match="batch_sharding"):
+        decide_chamber_deliberation([member], contexts, config, FakeChamberLlmClient())
+
+
+def test_decide_chamber_deliberation_raises_for_intra_run_workers_above_one():
+    member = _member(0, (0.5,))
+    contexts = {0: _chamber_context(0)}
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, parallel=dataclasses.replace(config.parallel, intra_run_workers=2))
+    with pytest.raises(NotImplementedError, match="intra_run_workers"):
+        decide_chamber_deliberation([member], contexts, config, FakeChamberLlmClient())
+
+
+def test_decide_chamber_deliberation_raises_for_codebook_version_mismatch():
+    member = _member(0, (0.5,))
+    contexts = {0: _chamber_context(0)}
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, codebook_version="0.9"))
+    with pytest.raises(Exception, match="codebook_version"):
+        decide_chamber_deliberation([member], contexts, config, FakeChamberLlmClient())
+
+
+def test_decide_chamber_deliberation_propagates_llm_response_error_on_count_mismatch():
+    members = [_member(0, (0.5,)), _member(1, (0.5,))]
+    contexts = {m.citizen_id: _chamber_context(m.citizen_id) for m in members}
+    config = _config_with_llm_enabled()
+
+    class ShortClient:
+        def complete_json(self, **kwargs):
+            return json.dumps({"decisions": [{"cid": 0, "shifts": [], "motif": 701}]})
+
+    with pytest.raises(LlmResponseError, match="misaligned"):
+        decide_chamber_deliberation(members, contexts, config, ShortClient())
+
+
+def test_decide_chamber_deliberation_uses_replay():
+    member = _member(0, (0.5,))
+    contexts = {0: _chamber_context(0)}
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, max_batch_replays=1))
+
+    class FlakyThenGoodClient:
+        def __init__(self):
+            self.attempts = 0
+
+        def complete_json(self, **kwargs):
+            self.attempts += 1
+            if self.attempts == 1:
+                return json.dumps({"decisions": [{"cid": 999, "shifts": [], "motif": 701}]})  # wrong cid
+            return json.dumps({"decisions": [{"cid": 0, "shifts": [], "motif": 701}]})
+
+    client = FlakyThenGoodClient()
+    outcome = decide_chamber_deliberation([member], contexts, config, client)
+    assert client.attempts == 2
+    assert outcome.decisions[0].cid == 0
 
 
 # ── assemble_coalition ────────────────────────────────────────────────────

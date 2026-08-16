@@ -57,6 +57,7 @@ from api.domain.polity.citizen import Citizen, Office, Role
 from api.domain.polity.codebook import (
     CampaignMotif,
     CandidacyMotif,
+    ChamberMotif,
     CoalitionMotif,
     PartyNominationMotif,
     PressureMotif,
@@ -65,10 +66,13 @@ from api.domain.polity.codebook import (
 )
 from api.domain.polity.config import load_config
 from api.domain.polity.llm_behavior_engine import (
+    ChamberContext,
     PressureContext,
     ResponseContext,
     build_candidacy_system_prompt,
     build_candidacy_user_prompt,
+    build_chamber_system_prompt,
+    build_chamber_user_prompt,
     build_coalition_system_prompt,
     build_coalition_user_prompt,
     build_party_nomination_system_prompt,
@@ -85,6 +89,7 @@ from api.domain.polity.llm_behavior_engine import (
     compute_max_tokens,
     decide_campaign_positioning,
     decide_candidacies,
+    decide_chamber_deliberation,
     decide_coalition,
     decide_party_nominations,
     decide_pressure_actions,
@@ -94,6 +99,7 @@ from api.domain.polity.llm_behavior_engine import (
 from api.domain.polity.llm_client import (
     OllamaJsonClient,
     decode_candidacy_batch,
+    decode_chamber_batch,
     decode_coalition_batch,
     decode_party_nomination_batch,
     decode_positioning_batch,
@@ -103,6 +109,7 @@ from api.domain.polity.llm_client import (
 )
 from api.domain.polity.llm_schemas import (
     CANDIDACY_JSON_SCHEMA,
+    CHAMBER_JSON_SCHEMA,
     COALITION_JSON_SCHEMA,
     PARTY_NOMINATION_JSON_SCHEMA,
     POSITIONING_JSON_SCHEMA,
@@ -110,6 +117,7 @@ from api.domain.polity.llm_schemas import (
     RESPONSE_JSON_SCHEMA,
     VOTE_CAST_JSON_SCHEMA,
     CandidacyBatch,
+    ChamberBatch,
     CoalitionBatch,
     PartyNominationBatch,
     PositioningBatch,
@@ -119,7 +127,7 @@ from api.domain.polity.llm_schemas import (
 )
 from api.domain.polity.journal import Journal
 from api.domain.polity.parties import Party
-from api.domain.polity.run_polity_simulation import _run_accountability_phase, run_simulation
+from api.domain.polity.run_polity_simulation import _run_accountability_phase, _run_chamber_deliberation, run_simulation
 from api.domain.polity.simple_rules import declare_candidacy, sympathizer_ratio
 
 pytestmark = pytest.mark.skipif(
@@ -901,6 +909,131 @@ def test_pressure_action_wiring_against_the_real_client_in_a_live_tick(client, t
         assert e["payload"]["act"] in legal
         assert e["motif"] in {str(m.value) for m in PressureMotif}
         assert e["codebook_version"] == config.llm.codebook_version
+
+
+# ── chamber_deliberation (v6b Lot 3, §6bis.3) ─────────────────────────────
+
+def _chamber_member(cid, dims, seat_until=16):
+    c = _citizen(cid, dims)
+    c.sortition_seat_until_tick = seat_until
+    c.sortition_terms_served = 1
+    c.chamber_position = c.issue_positions
+    return c
+
+
+def _chamber_context(cid, ticks_left=8):
+    return ChamberContext(cid=cid, ticks_left=ticks_left)
+
+
+@pytest.mark.parametrize("num_members", [1, 10])
+def test_full_size_chamber_batch_produces_a_valid_reliable_response(client, num_members):
+    """The chamber_deliberation analog of
+    test_full_size_response_batch_produces_a_valid_reliable_response --
+    swept at 1 and 10 (this lot's own measured reliable ceiling,
+    _CHAMBER_MAX_CHUNK_SIZE, scripts/lot3_chamber_reliability_results.md).
+    Deliberately does NOT sweep 30 here in one raw call -- that's a known,
+    measured, DESIGNED failure at this schema's weight; the chunked path is
+    what test_decide_chamber_deliberation_against_the_real_client below
+    exercises instead."""
+    config = load_config()
+    dims = config.citizens.issue_count
+    members = [_chamber_member(3000 + i, dims) for i in range(num_members)]
+    contexts = {m.citizen_id: _chamber_context(m.citizen_id) for m in members}
+
+    raw = client.complete_json(
+        system_prompt=build_chamber_system_prompt(members, config),
+        user_prompt=build_chamber_user_prompt(members, contexts),
+        json_schema=CHAMBER_JSON_SCHEMA,
+        max_tokens=compute_max_tokens(len(members)),
+        think=False,
+    )
+    batch = ChamberBatch.model_validate_json(raw)
+    assert [d.cid for d in batch.decisions] == [m.citizen_id for m in members]
+    assert all(d.motif in {m.value for m in ChamberMotif} for d in batch.decisions)
+    for decision in batch.decisions:
+        # ChamberDecision deliberately has NO shifts<->motif coherence
+        # validator (removed after this lot's own spike measured it
+        # failing at a high rate) -- only the real numeric bounds are
+        # checked here.
+        assert len(decision.shifts) <= config.sortition_chamber.max_deliberation_shifts, (
+            f"decision for cid={decision.cid} used {len(decision.shifts)} shifts, exceeding the "
+            f"stated max_deliberation_shifts={config.sortition_chamber.max_deliberation_shifts}"
+        )
+        for shift in decision.shifts:
+            assert 0 <= shift.dimension < dims
+            assert abs(shift.delta) <= config.sortition_chamber.max_deliberation_delta, (
+                f"decision for cid={decision.cid} shifted dimension {shift.dimension} by "
+                f"{shift.delta}, exceeding the stated max_deliberation_delta="
+                f"{config.sortition_chamber.max_deliberation_delta}"
+            )
+
+
+def test_chamber_sequential_calls_each_produce_a_valid_response(client):
+    """The chamber_deliberation analog of
+    test_response_sequential_calls_each_produce_a_valid_response -- two
+    textually identical requests, checked independently."""
+    config = load_config()
+    dims = config.citizens.issue_count
+    members = [_chamber_member(3100 + i, dims) for i in range(3)]
+    contexts = {m.citizen_id: _chamber_context(m.citizen_id) for m in members}
+    kwargs = dict(
+        system_prompt=build_chamber_system_prompt(members, config),
+        user_prompt=build_chamber_user_prompt(members, contexts),
+        json_schema=CHAMBER_JSON_SCHEMA,
+        max_tokens=compute_max_tokens(len(members)),
+        think=False,
+    )
+    expected_cids = [m.citizen_id for m in members]
+    for raw in (client.complete_json(**kwargs), client.complete_json(**kwargs)):
+        decisions = decode_chamber_batch(raw, expected_cids)
+        assert [d.cid for d in decisions] == expected_cids
+
+
+def test_decide_chamber_deliberation_against_the_real_client(client):
+    """The real-scale confirmation: a 30-member cohort (sortition_chamber.
+    seats shipped) through decide_chamber_deliberation's own chunking
+    (_CHAMBER_MAX_CHUNK_SIZE=10, three real chunked calls) -- the exact
+    failure mode this lot's own spike measured (one call of 30 silently
+    drops all but the last 6 decisions) must not reappear here."""
+    config = load_config()
+    dims = config.citizens.issue_count
+    members = [_chamber_member(3200 + i, dims) for i in range(30)]
+    contexts = {m.citizen_id: _chamber_context(m.citizen_id) for m in members}
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=True))
+
+    outcome = decide_chamber_deliberation(members, contexts, config, client)
+
+    assert set(outcome.positions.keys()) == {m.citizen_id for m in members}
+    for member in members:
+        assert len(outcome.positions[member.citizen_id]) == dims
+
+
+def test_chamber_deliberation_wiring_against_the_real_client_in_a_live_tick(client, tmp_path):
+    """Proves run_polity_simulation.py's OWN dt=11 wiring (the gate, the
+    ChamberContext, the journal write) against a real client and a real
+    tick -- calling _run_chamber_deliberation directly (the exact function
+    the tick loop calls, dispatched independently of
+    _run_accountability_phase, never nested inside it -- see that
+    function's own docstring)."""
+    config = load_config()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=True))
+    config = dataclasses.replace(
+        config, sortition_chamber=dataclasses.replace(config.sortition_chamber, enabled=True, seats=1)
+    )
+    dims = config.citizens.issue_count
+    member = _chamber_member(1, dims)
+
+    journal_path = tmp_path / "dt11-live.jsonl"
+    with Journal(journal_path, run_id="dt11-live") as journal:
+        _run_chamber_deliberation([member], config, journal, tick=0, llm_client=client)
+
+    events = [json.loads(line) for line in journal_path.read_text(encoding="utf-8").splitlines()]
+    chamber_events = [e for e in events if e["event_type"] == "chamber_deliberation"]
+    assert len(chamber_events) == 1
+    e = chamber_events[0]
+    assert set(e["payload"]["ctx"].keys()) == {"ticks_left"}
+    assert e["motif"] in {str(m.value) for m in ChamberMotif}
+    assert e["codebook_version"] == config.llm.codebook_version
 
 
 def test_a_short_live_run_produces_a_valid_journal(tmp_path):

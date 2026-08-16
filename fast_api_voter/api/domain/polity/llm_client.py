@@ -62,6 +62,8 @@ from api.domain.polity.config import LlmConfig
 from api.domain.polity.llm_schemas import (
     CandidacyBatch,
     CandidacyDecision,
+    ChamberBatch,
+    ChamberDecision,
     CoalitionBatch,
     CoalitionDecision,
     PartyNominationBatch,
@@ -658,6 +660,39 @@ def decode_reaction_batch(raw: str, expected_cids: Sequence[int]) -> list[Reacti
 
     try:
         batch = ReactionBatch.model_validate(parsed)
+    except ValidationError as exc:
+        raise LlmResponseError(f"batch failed schema validation: {exc}") from exc
+
+    got_cids = [decision.cid for decision in batch.decisions]
+    if got_cids != list(expected_cids):
+        raise LlmResponseError(
+            f"batch misaligned with the request: expected cids {list(expected_cids)}, got {got_cids}"
+        )
+
+    return batch.decisions
+
+
+def decode_chamber_batch(raw: str, expected_cids: Sequence[int]) -> list[ChamberDecision]:
+    """Same contract as decode_response_batch, specialized to ChamberBatch
+    -- keyed on `cid` (the seated sortition member), v6b Lot 3 (dt=11). A
+    ninth near-identical decode function, kept duplicated for the same
+    reason as the third through eighth.
+
+    Like decode_pressure_batch/decode_reaction_batch, `expected_cids` here
+    is a CHUNKED cohort -- decide_chamber_deliberation calls this once per
+    chunk_voters chunk, at its own measured ceiling of 10 members per call
+    (llm_behavior_engine._CHAMBER_MAX_CHUNK_SIZE), not
+    config.llm.max_batch_size: a real, measured correction after this
+    lot's own pre-flight spike found one call of 30 (and even a chunk of
+    15) silently drops all but the last 6 decisions."""
+    stripped = _THINK_TAG_RE.sub("", raw).strip()
+    try:
+        parsed = json.loads(stripped)
+    except json.JSONDecodeError as exc:
+        raise LlmResponseError(f"response is not valid JSON after stripping reasoning tags: {exc}") from exc
+
+    try:
+        batch = ChamberBatch.model_validate(parsed)
     except ValidationError as exc:
         raise LlmResponseError(f"batch failed schema validation: {exc}") from exc
 

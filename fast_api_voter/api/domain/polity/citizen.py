@@ -113,6 +113,16 @@ class Citizen:
     # Never drawn by generate_population.
     sortition_seat_until_tick: int | None = None
     sortition_terms_served: int = 0
+    # v6b Lot 3 (§6bis.3, dt=11): a seated member's own currently-stated position,
+    # distinct from issue_positions (the sincere anchor a sortition member never
+    # campaigns to diverge from -- there is no pledged_platform to keep or break).
+    # Set to issue_positions at each new seating (_run_sortition_rotation) -- a
+    # fresh start every term, so a redrawn member (Lot 2's relaxed-pool fallback)
+    # never inherits a previous, unrelated term's own drift. Never reset at vacate
+    # (stale value has no live reader once sortition_seat_until_tick clears -- same
+    # post-mortem-legibility precedent as pledged_platform/revealed_position).
+    # Never drawn by generate_population.
+    chamber_position: tuple[float, ...] | None = None
 
 
 def generate_population(config: CitizensConfig, population_size: int, seed: int) -> list[Citizen]:

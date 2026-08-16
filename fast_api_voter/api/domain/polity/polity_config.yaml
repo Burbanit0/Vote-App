@@ -239,6 +239,13 @@ sortition_chamber:
                                     #       code ; différé à un palier futur
                                     #       distinct, non encore autorisé
   veto_delay_ticks: 2         # [v6b] (point ouvert n°11, différé — voir ci-dessus)
+  max_deliberation_delta: 0.3 # [v6b] borne dt=11 (§6bis.3, Lot 3) — même valeur que
+                              #      mandate.max_response_delta, DÉLIBÉRÉMENT : la
+                              #      comparaison élu/tiré-au-sort du Lot 4 isole ainsi
+                              #      l'effet de l'isolement aux canaux de pression, pas
+                              #      un plafond de dérive différent
+  max_deliberation_shifts: 3  # [v6b] idem, nombre de dimensions déplacées par tick
+                              #      (== mandate.max_response_shifts)
 
 # =============================================================================
 # ÉVÉNEMENTS EXOGÈNES (§8)

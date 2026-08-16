@@ -82,6 +82,32 @@ both officeholder-relative, are structurally uncomputable on a vacancy
 tick and were dropped from the wire schema entirely, not merely made
 optional; see llm_schemas.ReactionDecision's own docstring).
 
+decide_chamber_deliberation (v6b Lot 3, dt=11) is the fourth 5-file LLM
+decision type built from scratch this project's session, and the first
+with no §3.6.x textual anchor at all -- §6bis.3 names chamber_deliberation
+once, with no worked JSON example, so its wire shape is this lot's own
+invention rather than a reading. Runs every tick the sortition chamber is
+seated (not just rotation ticks), gated ONLY on config.llm.enabled --
+unlike dt=6/dt=10, no section flag needs to accompany it, since the
+chamber's own enablement (config.sortition_chamber.enabled) is checked by
+the CALLER before this module is ever reached (run_polity_simulation's
+_run_chamber_deliberation is dispatched directly from the tick loop, never
+nested inside _run_accountability_phase -- see that function's own
+docstring for why). Chunks via chunk_voters, but at its OWN measured
+ceiling (_CHAMBER_MAX_CHUNK_SIZE=10), not config.llm.max_batch_size --
+originally designed to never chunk at all (the cohort is capped at
+sortition_chamber.seats, shipped 30, "a handful", the same category as
+dt=5/dt=6), but this lot's own pre-flight spike measured that assumption
+wrong: one call of 30 (and even a chunk of 15) silently drops all but the
+last 6 decisions, a lower reliability ceiling than every other decision
+type in this module, attributable to this prompt's own heavier per-member
+payload (two 20-dim position arrays per member, unlike dt=10's scalar-only
+ctx). See decide_chamber_deliberation's own docstring for the measured
+numbers. No lag either, unlike dt=6: §6bis.3 requires a seated
+member be insulated from every §7bis pressure channel, so there is no
+same-tick external mutation for a lag to protect against -- ChamberContext
+carries a single, already-stable field (ticks_left).
+
 Deliberate simplifications versus the full design doc, documented rather
 than silently made:
 - No persona library (§9) yet: citizens are described to the LLM by their
@@ -112,6 +138,7 @@ from api.domain.polity.citizen import Citizen
 from api.domain.polity.codebook import (
     CAMPAIGN_MOTIF_PROMPT_TABLE,
     CANDIDACY_MOTIF_PROMPT_TABLE,
+    CHAMBER_MOTIF_PROMPT_TABLE,
     COALITION_ACTION_PROMPT_TABLE,
     COALITION_MOTIF_PROMPT_TABLE,
     PARTY_NOMINATION_MOTIF_PROMPT_TABLE,
@@ -132,6 +159,7 @@ from api.domain.polity.llm_client import (
     LlmClientProtocol,
     LlmResponseError,
     decode_candidacy_batch,
+    decode_chamber_batch,
     decode_coalition_batch,
     decode_party_nomination_batch,
     decode_positioning_batch,
@@ -143,6 +171,7 @@ from api.domain.polity.llm_client import (
 )
 from api.domain.polity.llm_schemas import (
     CANDIDACY_JSON_SCHEMA,
+    CHAMBER_JSON_SCHEMA,
     COALITION_JSON_SCHEMA,
     PARTY_NOMINATION_JSON_SCHEMA,
     POSITIONING_JSON_SCHEMA,
@@ -151,6 +180,7 @@ from api.domain.polity.llm_schemas import (
     RESPONSE_JSON_SCHEMA,
     VOTE_CAST_JSON_SCHEMA,
     CandidacyDecision,
+    ChamberDecision,
     CoalitionDecision,
     PartyNominationDecision,
     PositioningDecision,
@@ -175,6 +205,17 @@ from api.domain.polity.simple_rules import (
 # of token budget; 15 worked reliably. This is a safety margin above that
 # boundary, not the boundary itself -- real citizen data may shift it.
 MIN_SAFE_BATCH_SIZE = 20
+
+# v6b Lot 3's own measured ceiling for chamber_deliberation, DISTINCT from
+# MIN_SAFE_BATCH_SIZE/config.llm.max_batch_size -- this lot's own pre-flight
+# spike (scripts/lot3_chamber_reliability_results.md) found the real model
+# reliably answers a batch of 10 chamber members but SILENTLY DROPS all but
+# the last 6 decisions at 15 or 30, in one call OR chunked at 15 -- a lower
+# ceiling than every other decision type, attributable to this prompt's own
+# heavier per-member payload (sincere_position + chamber_position, two
+# 20-dim float arrays per member, unlike dt=10's own scalar-only ctx).
+# Confirmed reliable at exactly 10 (3/3 chunks on the real 30-member cohort).
+_CHAMBER_MAX_CHUNK_SIZE = 10
 
 _TRUNCATION_THRESHOLD = 6
 _TRUNCATE_TO = 5
@@ -1701,6 +1742,211 @@ def decide_reaction_to_event(
         decisions.extend(chunk_decisions)
 
     return ReactionBatchOutcome(decisions=decisions)
+
+
+@dataclass(frozen=True)
+class ChamberContext:
+    """dt=11's ctx (v6b Lot 3, §6bis.3) -- deliberately ONE field.
+    Every other candidate ctx signal (legitimacy, mandate_dev, street
+    pressure, neighbors_acting) is one of the three §7bis pressure
+    channels or their downstream effects, explicitly excluded by §6bis.3's
+    own insulation requirement -- a seated member sees none of them.
+    ticks_left = member.sortition_seat_until_tick - tick, computed by the
+    caller (run_polity_simulation._run_chamber_deliberation); always a
+    plain int, never None, since a citizen only ever appears in this
+    cohort while seated (sortition_seat_until_tick is guaranteed set)."""
+
+    cid: int
+    ticks_left: int
+
+    def to_payload(self) -> dict[str, int]:
+        """Used by BOTH build_chamber_user_prompt and the journal write, so
+        the ctx an analyst reads is provably the ctx the model saw -- same
+        "one serialization, two consumers" precedent every other Context in
+        this module already follows."""
+        return {"ticks_left": self.ticks_left}
+
+
+@dataclass(frozen=True)
+class ChamberBatchOutcome:
+    decisions: list[ChamberDecision]
+    positions: dict[int, tuple[float, ...]]
+    """cid -> resolved new chamber_position (the member's CURRENT
+    chamber_position with validated shifts applied, so drift accumulates
+    across ticks -- never re-based on issue_positions each tick, same
+    reasoning as dt=6's own `positions` dict). issue_positions itself is
+    never resolved here -- it is the member's own sincere anchor, never
+    mutated by any decision."""
+
+
+def validate_chamber_decision(decision: ChamberDecision, config: PolityConfig) -> None:
+    """Context-dependent checks llm_schemas.py's Pydantic validators can't
+    do without the caller's config: the real shift-count and per-shift
+    delta-magnitude caps -- sortition_chamber.max_deliberation_shifts/
+    max_deliberation_delta (v6b Lot 3), deliberately NOT mandate.*/
+    campaign.*: a sortition member's own deliberation is a distinct effect
+    from an elected officeholder's mandate drift or a candidate's campaign
+    strategy, and must stay analytically separable, even though the
+    shipped magnitudes happen to match mandate.*'s own (see
+    SortitionChamberConfig's own docstring). Structurally identical to
+    validate_response_decision, reading a different config section."""
+    if len(decision.shifts) > config.sortition_chamber.max_deliberation_shifts:
+        raise LlmResponseError(
+            f"decision for cid={decision.cid} shifts {len(decision.shifts)} dimension(s), "
+            f"exceeding sortition_chamber.max_deliberation_shifts={config.sortition_chamber.max_deliberation_shifts}"
+        )
+    issue_count = config.citizens.issue_count
+    for shift in decision.shifts:
+        if shift.dimension >= issue_count:
+            raise LlmResponseError(
+                f"decision for cid={decision.cid} targets dimension {shift.dimension}, "
+                f"out of range for issue_count={issue_count}"
+            )
+        if abs(shift.delta) > config.sortition_chamber.max_deliberation_delta:
+            raise LlmResponseError(
+                f"decision for cid={decision.cid} shifts dimension {shift.dimension} by "
+                f"{shift.delta}, exceeding sortition_chamber.max_deliberation_delta="
+                f"{config.sortition_chamber.max_deliberation_delta}"
+            )
+
+
+def build_chamber_system_prompt(members: Sequence[Citizen], config: PolityConfig) -> str:
+    """Finding B discipline: verbatim expected-cid list + self-check. States
+    the ACTUAL numeric bounds (sortition_chamber.max_deliberation_shifts/
+    max_deliberation_delta), not just the schema's loose structural ceiling.
+    States the intended shifts<->motif pairing as GUIDANCE only, not a hard
+    rule -- llm_schemas.ChamberDecision deliberately dropped its own
+    enforcing model_validator after this lot's own pre-flight spike measured
+    it failing at a high rate (9/10, 6/6 decisions rejected at real cohort
+    sizes) against the real model's tendency to label a small shift
+    "sincere" anyway; see that model's own docstring. Explains that this
+    body is INSULATED: no election, no citizen pressure, no legitimacy
+    floor reaches it -- purely a personal reflection on one's own stated
+    position over time. Explains ctx.ticks_left's meaning."""
+    cid_list = ",".join(str(m.citizen_id) for m in members)
+    return (
+        "Tu es un moteur de simulation. Pour chaque membre tire au sort de "
+        "la chambre de sortition recu (chamber_deliberation), decide s'il "
+        "maintient sa position sincere ou s'il l'ajuste, a partir de sa "
+        "position sincere, de sa position actuellement exprimee, et du "
+        "contexte ctx. Ce membre n'a ete elu par personne, n'a fait aucune "
+        "promesse, et n'est expose a AUCUNE pression citoyenne, aucune "
+        "mobilisation, aucune petition, aucun seuil de legitimite -- sa "
+        "seule matiere est sa propre reflexion au fil du temps.\n"
+        "ctx.ticks_left : nombre de ticks avant la fin de son propre "
+        "mandat (non renouvelable).\n"
+        "shifts : au plus "
+        f"{config.sortition_chamber.max_deliberation_shifts} ajustements de "
+        f"position, chaque delta strictement compris entre "
+        f"-{config.sortition_chamber.max_deliberation_delta} et "
+        f"{config.sortition_chamber.max_deliberation_delta} inclus.\n"
+        f"Motifs valides (code court obligatoire) :\n{CHAMBER_MOTIF_PROMPT_TABLE}\n"
+        "En principe, motif=701 (SINCERE_POSITION) correspond a une liste "
+        "shifts vide, et motif=702 (DELIBERATIVE_SHIFT) a au moins un "
+        "ajustement -- choisis le motif qui decrit le mieux ta decision.\n"
+        f"IMPORTANT : la liste decisions doit contenir EXACTEMENT ces "
+        f"{len(members)} cid, chacun une seule fois, dans cet ordre : "
+        f"[{cid_list}]. Verifie ta reponse avant de la finaliser : chaque "
+        "cid de cette liste doit apparaitre exactement une fois.\n"
+        "Reponds UNIQUEMENT avec un objet JSON conforme au schema fourni."
+    )
+
+
+def build_chamber_user_prompt(members: Sequence[Citizen], contexts: Mapping[int, ChamberContext]) -> str:
+    """Canonical JSON (sort_keys, compact separators, rounded floats), same
+    reproducibility discipline as every prior prompt builder. `members` is
+    expected to already be in the canonical order the caller (decide_
+    chamber_deliberation) enforces (sorted by citizen_id) -- this function
+    doesn't re-sort. Top-level key "members" -- the ninth unambiguous
+    dispatch key (citizens/parties/nominees/responders/holders/consulted/
+    reactors already taken; see _FakeLlmClient, test_polity_run_simulation.py).
+    Shows BOTH sincere_position (= issue_positions, immutable) and
+    chamber_position (mutable, accumulates shifts) -- mirrors dt=6 showing
+    both pledged_platform and revealed_position, so the model can see
+    exactly how far it has already drifted from its own stated
+    convictions."""
+    member_blocks = []
+    for member in members:
+        assert member.chamber_position is not None
+        member_blocks.append(
+            {
+                "cid": member.citizen_id,
+                "sincere_position": [round(x, 4) for x in member.issue_positions],
+                "chamber_position": [round(x, 4) for x in member.chamber_position],
+                "priorities": [round(x, 4) for x in member.issue_priorities],
+                "ctx": contexts[member.citizen_id].to_payload(),
+            }
+        )
+    return json.dumps({"members": member_blocks}, sort_keys=True, separators=(",", ":"))
+
+
+def decide_chamber_deliberation(
+    members: Sequence[Citizen],
+    contexts: Mapping[int, ChamberContext],
+    config: PolityConfig,
+    client: LlmClientProtocol,
+) -> ChamberBatchOutcome:
+    """v6b Lot 3's dt=11 replacement for the status-quo deterministic
+    fallback (see run_polity_simulation._run_chamber_deliberation's own
+    docstring for why there is no simple_rules.py baseline function to
+    replace -- chamber_position is pinned to issue_positions at seating
+    time and nothing else ever touches it, so "no delta" is already true by
+    construction without this module ever running).
+
+    Chunks via chunk_voters, but at _CHAMBER_MAX_CHUNK_SIZE (10), NOT
+    config.llm.max_batch_size (25) -- a real, measured correction to this
+    lot's own original design, which assumed a small, un-chunked cohort
+    (sortition_chamber.seats capped at 30, "a handful", the same category
+    as dt=5/dt=6). This lot's own pre-flight spike found that assumption
+    wrong: at the real 30-member cohort, in ONE call, the model silently
+    dropped 24 of 30 decisions (only the last 6 came back); re-chunking at
+    15 (config.llm.max_batch_size-shaped) reproduced the exact same
+    failure on EACH chunk. Only at 10 did every chunk return complete and
+    aligned (confirmed 3/3 on the real 30-member cohort). `min_batch_size=1`
+    is passed because sortition_chamber.seats can be configured below 10,
+    and chunk_voters's own default floor (MIN_SAFE_BATCH_SIZE=20) was
+    calibrated on a lighter prompt shape (vote_cast) that doesn't apply
+    here either way -- see scripts/lot3_chamber_reliability_results.md for
+    the measured evidence behind both the batch ceiling and this floor
+    override.
+
+    Calls the client with think=False, per this lot's own pre-flight spike
+    against the REAL ChamberDecision/ChamberBatch schema
+    (scripts/check_lot3_chamber_reliability.py)."""
+    _check_supported(config)
+
+    if not members:
+        return ChamberBatchOutcome(decisions=[], positions={})
+
+    # Sorted once, here, so system prompt / user prompt / expected_cids all
+    # agree on the same order regardless of the caller's order -- never
+    # rely on an incidental insertion order (D-5 precedent).
+    members = sorted(members, key=lambda m: m.citizen_id)
+    members_by_id = {m.citizen_id: m for m in members}
+    decisions: list[ChamberDecision] = []
+    for chunk in chunk_voters(members, _CHAMBER_MAX_CHUNK_SIZE, min_batch_size=1):
+        expected_cids = [m.citizen_id for m in chunk]
+        chunk_decisions = _complete_and_decode_with_replay(
+            client,
+            system_prompt=build_chamber_system_prompt(chunk, config),
+            user_prompt=build_chamber_user_prompt(chunk, contexts),
+            json_schema=CHAMBER_JSON_SCHEMA,
+            max_tokens=compute_max_tokens(len(chunk)),
+            think=False,
+            decode=lambda raw: decode_chamber_batch(raw, expected_cids),
+            replays=config.llm.max_batch_replays,
+            decision_type="chamber_deliberation",
+        )
+        decisions.extend(chunk_decisions)
+
+    positions: dict[int, tuple[float, ...]] = {}
+    for decision in decisions:
+        validate_chamber_decision(decision, config)
+        member = members_by_id[decision.cid]
+        assert member.chamber_position is not None  # guaranteed by the caller's own filter
+        positions[decision.cid] = apply_shifts(member.chamber_position, decision.shifts)
+
+    return ChamberBatchOutcome(decisions=decisions, positions=positions)
 
 
 @dataclass(frozen=True)

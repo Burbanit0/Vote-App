@@ -18,6 +18,9 @@ import: `neighbors_acting` aggregates the per-citizen Granovetter-style
 contagion signal (§5), read by `awakening_threshold`'s own new fourth term
 and by `pressure_action`'s (dt=10) `ctx` -- still a sampling-gate input
 only, never a decision, same §7bis.9d discipline as every other term here.
+v6b Lot 3 adds this module's first `Citizen.chamber_position` reader:
+`chamber_deviation` is dt=11's own comparable quantity to `mandate_deviation`,
+for a citizen who never pledged anything.
 """
 from __future__ import annotations
 
@@ -51,6 +54,29 @@ def current_office_holders(citizens: list[Citizen], office: Office) -> list[Citi
     """Presidency returns 0-or-1 citizens today (Office.DEPUTY is never
     assigned) -- generalizes later without touching call sites."""
     return sorted((c for c in citizens if c.office is office), key=lambda c: c.citizen_id)
+
+
+def current_sortition_members(citizens: list[Citizen]) -> list[Citizen]:
+    """v6b Lot 3 (§6bis.3): the sortition-chamber analogue of
+    current_office_holders -- a seated member is never an Office/Role
+    concept (see sortition_chamber.py's own docstring), so this filters on
+    sortition_seat_until_tick instead of office. Ascending citizen_id, same
+    ordering convention as every cohort-builder in this module."""
+    return sorted((c for c in citizens if c.sortition_seat_until_tick is not None), key=lambda c: c.citizen_id)
+
+
+def chamber_deviation(member: Citizen) -> float:
+    """v6b Lot 3 (§6bis.3): the sortition-chamber analogue of
+    mandate_deviation -- a drawn citizen never campaigns, so there is no
+    pledged_platform to diverge from; the comparable quantity is the
+    member's own currently-stated chamber_position against their own
+    sincere issue_positions, weighted by their own issue_priorities (same
+    weighted_euclidean primitive mandate_deviation/self_gap already use).
+    Raises if chamber_position is None (never seated), mirroring self_gap's
+    own raise-on-missing-position guard."""
+    if member.chamber_position is None:
+        raise ValueError(f"citizen {member.citizen_id} has no chamber_position")
+    return weighted_euclidean(member.issue_positions, member.chamber_position, member.issue_priorities)
 
 
 def pledge_weights(priorities: Sequence[float], config: MandateConfig) -> tuple[float, ...]:
