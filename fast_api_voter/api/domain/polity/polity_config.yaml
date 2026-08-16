@@ -256,7 +256,9 @@ social_graph:
   topology: watts_strogatz    # [v6] watts_strogatz | erdos_renyi | barabasi_albert
   mean_degree: 8              # [v6]
   rewiring_prob: 0.1          # [v6]
-  evolving: false             # [v6] homophilie évolutive (point ouvert)
+  evolving: false             # [v6] homophilie évolutive — parsé et REJETÉ
+                               #      si true (Lot 1) ; le point ouvert lui-
+                               #      même reste ouvert (§5)
 
 # =============================================================================
 # COUCHE LLM (§3, §12) — inactive avant v2
@@ -315,7 +317,7 @@ llm:
   rationale_mode: codes       # [v2] codes | free_text | hybrid (§16.5)
                               #      TRANCHÉ : codes partout + texte libre
                               #      borné aux événements pivots (§3.6.9)
-  codebook_version: "1.4"     # [v2/v4/v5] artefact figé, archivé avec le run (§3.7)
+  codebook_version: "1.5"     # [v2/v4/v5/v6] artefact figé, archivé avec le run (§3.7)
                               #      bump 1.1->1.2 en v4 Lot 1 : réservation
                               #      de dt=6/dt=10, BallotFormat.BINARY, et
                               #      des motifs 300-399 (encore inactifs tant

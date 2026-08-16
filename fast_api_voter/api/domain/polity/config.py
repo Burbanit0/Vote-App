@@ -324,6 +324,28 @@ class EventsConfig:
 
 
 @dataclass(frozen=True)
+class SocialGraphConfig:
+    """§5 — social graph (v6). Feeds `pressure_action`'s (dt=10)
+    `neighbors_acting` field and, once
+    `awakening.context_modulation.neighbors_acting` is also true (cross-
+    validated in load_config), a fourth term in `awakening_threshold`'s
+    `f(context)` -- Granovetter-style threshold diffusion read as another
+    continuous modulation of the same gate, never a hard rule (§3.3).
+
+    `evolving` (homophily-driven graph rewiring) is parsed so a typo fails
+    loudly, but `_parse_social_graph` rejects `true` outright -- the design
+    doc's own 🔴 "static or evolving?" point (§5) stays genuinely open;
+    this is a TRANCHÉ parse-time guard, not a resolution, the same
+    precedent as `recall_floor_indexed_on_l0`/`petition.concurrent_allowed`."""
+
+    enabled: bool
+    topology: str
+    mean_degree: int
+    rewiring_prob: float
+    evolving: bool
+
+
+@dataclass(frozen=True)
 class JournalConfig:
     enabled: bool
     format: str
@@ -406,6 +428,7 @@ class PolityConfig:
     street_pressure: StreetPressureConfig
     awakening: AwakeningConfig
     events: EventsConfig
+    social_graph: SocialGraphConfig
     journal: JournalConfig
     metrics: MetricsConfig
     llm: LlmConfig
@@ -601,6 +624,7 @@ def _parse_street_pressure(raw: dict[str, Any]) -> StreetPressureConfig:
 
 
 _AWAKENING_SOURCES = {"persona_base_threshold"}
+_SOCIAL_GRAPH_TOPOLOGIES = {"watts_strogatz", "erdos_renyi", "barabasi_albert"}
 
 
 def _parse_awakening(raw: dict[str, Any]) -> AwakeningConfig:
@@ -646,6 +670,22 @@ def _parse_events(raw: dict[str, Any]) -> EventsConfig:
         economy_shock_threshold=_get_ratio(s, "events", "economy_shock_threshold"),
         salience_decay=_get_ratio(s, "events", "salience_decay"),
         max_reaction_delta=_get_ratio(s, "events", "max_reaction_delta"),
+    )
+
+
+def _parse_social_graph(raw: dict[str, Any]) -> SocialGraphConfig:
+    s = _section(raw, "social_graph")
+    if _get(s, "social_graph", "evolving", bool):
+        raise PolityConfigError(
+            "'social_graph.evolving': true is not supported -- homophily-driven graph evolution is "
+            "an open design point (§5), not yet implemented"
+        )
+    return SocialGraphConfig(
+        enabled=_get(s, "social_graph", "enabled", bool),
+        topology=_get_enum(s, "social_graph", "topology", _SOCIAL_GRAPH_TOPOLOGIES),
+        mean_degree=_get_positive_int(s, "social_graph", "mean_degree"),
+        rewiring_prob=_get_ratio(s, "social_graph", "rewiring_prob"),
+        evolving=False,
     )
 
 
@@ -762,6 +802,7 @@ def load_config(path: Path | str | None = None) -> PolityConfig:
     street_pressure = _parse_street_pressure(raw)
     awakening = _parse_awakening(raw)
     events = _parse_events(raw)
+    social_graph = _parse_social_graph(raw)
 
     # Cross-section rules (§7bis.2/§7bis.6) -- each section parses in
     # isolation above; these are the invariants that only make sense once
@@ -805,6 +846,15 @@ def load_config(path: Path | str | None = None) -> PolityConfig:
             "true -- a shock with nothing in the awakening gate to modulate is a silently dead "
             "experiment (v5 §8)"
         )
+    if awakening.context_modulation.neighbors_acting and not social_graph.enabled:
+        raise PolityConfigError(
+            "'social_graph.enabled' must be true when "
+            "'awakening.context_modulation.neighbors_acting' is true -- there is no graph to "
+            "compute the term from otherwise (§5/§7bis.9f). The reverse is not required: "
+            "'social_graph.enabled' alone (without this flag) is a real arm -- the graph still "
+            "feeds pressure_action's ctx.neighbors_acting without also modulating who gets "
+            "consulted"
+        )
 
     return PolityConfig(
         run=_parse_run(raw),
@@ -820,6 +870,7 @@ def load_config(path: Path | str | None = None) -> PolityConfig:
         street_pressure=street_pressure,
         awakening=awakening,
         events=events,
+        social_graph=social_graph,
         journal=_parse_journal(raw),
         metrics=_parse_metrics(raw),
         llm=_parse_llm(raw),
