@@ -31,6 +31,7 @@ from api.domain.polity.run_polity_simulation import (
     run_simulation,
 )
 from api.domain.polity.simple_rules import assign_party_affiliation, declare_candidacy
+from api.domain.polity.social_graph import SocialGraph
 
 _PETITION_LIFECYCLE_EVENT_TYPES = {
     "petition_launched", "petition_signed", "petition_expired",
@@ -2363,6 +2364,163 @@ def test_a_cohort_of_one_still_produces_a_single_call(tmp_path):
     assert client.calls == 1
     events = _events(journal_path)
     assert [e for e in events if e["event_type"] == "pressure_action"]
+
+
+# ── neighbors_acting (v6 Lot 3, §5) ──────────────────────────────────────
+
+def test_neighbors_acting_is_present_in_pressure_action_ctx_when_the_graph_is_enabled(tmp_path):
+    config = _config_with_full_menu_llm_enabled(tmp_path)
+    config = dataclasses.replace(config, social_graph=dataclasses.replace(config.social_graph, enabled=True))
+    journal_path = run_simulation(config, run_id="graph-ctx", llm_client=_ElectingFakeLlmClient())
+    events = _events(journal_path)
+    pressure_events = [e for e in events if e["event_type"] == "pressure_action"]
+    assert pressure_events
+    for event in pressure_events:
+        neighbors_acting_value = event["payload"]["ctx"]["neighbors_acting"]
+        assert neighbors_acting_value is not None
+        assert 0.0 <= neighbors_acting_value <= 1.0
+
+
+def test_pressure_action_ctx_reflects_the_previous_ticks_mobilization(tmp_path):
+    # v6 Lot 3, the one-tick-lag DoD -- mirrors dt=6's own
+    # test_representative_response_sees_the_previous_ticks_street_pressure.
+    # decide_pressure_actions batches an entire cohort's decisions in one
+    # frozen call, so a neighbor's SAME-tick decision cannot be seen by
+    # construction -- only a neighbor's prior, already-APPLIED action feeds
+    # this tick's ctx. citizen_b's own base_threshold=0.0 keeps it
+    # consulted every tick regardless of the (here, off) modulation flag,
+    # isolating "what ctx value does B see" from "does the graph gate B's
+    # own consultation" (the latter is its own test below).
+    config = _config_with_awakening_llm_enabled(tmp_path)
+    config = dataclasses.replace(
+        config,
+        social_graph=dataclasses.replace(config.social_graph, enabled=True),
+        pressure_menu=dataclasses.replace(config.pressure_menu, electoral_only=False, mobilization_enabled=True),
+    )
+    holder = _legitimacy_test_citizen(0, legitimacy_capital=0.9, mandate_strength_value=0.9)
+    holder.revealed_position = (0.5,)
+    citizen_a = _pressure_test_citizen(1)
+    citizen_b = _pressure_test_citizen(2)
+    graph = SocialGraph(neighbors={0: frozenset(), 1: frozenset({2}), 2: frozenset({1})})
+    citizens = [holder, citizen_a, citizen_b]
+
+    seen_neighbors_acting = []
+
+    class RecordingClient:
+        def __init__(self):
+            self.call_index = 0
+
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+            decisions = []
+            for c in json.loads(user_prompt)["consulted"]:
+                if c["cid"] == citizen_b.citizen_id:
+                    seen_neighbors_acting.append(c["ctx"]["neighbors_acting"])
+                # citizen_a mobilizes only on the very first call, so tick
+                # 1's mobilization is empty and tick 2 must see a reset.
+                act = 3 if c["cid"] == citizen_a.citizen_id and self.call_index == 0 else 4
+                decisions.append({"cid": c["cid"], "target": c["target"], "act": act, "motif": 301})
+            self.call_index += 1
+            return json.dumps({"decisions": decisions})
+
+    client = RecordingClient()
+    mobilized: dict = {}
+    for tick in range(3):
+        journal_path = tmp_path / f"lag-tick{tick}.jsonl"
+        with Journal(journal_path, run_id=f"lag-tick{tick}") as journal:
+            mobilized = _run_accountability_phase(
+                citizens, config, journal, tick=tick, llm_client=client,
+                graph=graph, mobilized_last_tick=mobilized,
+            )
+
+    assert seen_neighbors_acting == [0.0, 1.0, 0.0]
+
+
+def test_neighbors_acting_can_bring_a_marginal_citizen_above_their_own_threshold(tmp_path):
+    # v6 Lot 3: isolates the new awakening-gate term's real behavioral
+    # effect end to end -- the closest this lot gets to demonstrating
+    # Granovetter-style threshold diffusion without v6a Lot 4's own
+    # acceptance run. self_gap=0.45 sits just under base_threshold=0.46 at
+    # neighbors_acting=0.0 (0.46*(1-0.5*0)=0.46); once the mobilizer's own
+    # tick-0 mobilization becomes visible to `marginal` (its only graph
+    # neighbor), the modulated threshold drops to 0.23
+    # (0.46*(1-0.5*1.0)), crossing self_gap.
+    def marginal_is_ever_consulted(neighbors_acting_flag):
+        config = _config_with_awakening_llm_enabled(tmp_path)
+        config = dataclasses.replace(
+            config,
+            social_graph=dataclasses.replace(config.social_graph, enabled=True),
+            pressure_menu=dataclasses.replace(config.pressure_menu, electoral_only=False, mobilization_enabled=True),
+            awakening=dataclasses.replace(
+                config.awakening,
+                modulation_amplitude=0.5,
+                context_modulation=dataclasses.replace(
+                    config.awakening.context_modulation, neighbors_acting=neighbors_acting_flag
+                ),
+            ),
+        )
+        holder = _legitimacy_test_citizen(0, legitimacy_capital=0.9, mandate_strength_value=0.9)
+        holder.revealed_position = (0.5,)
+        mobilizer = _pressure_test_citizen(1, base_threshold=0.0)
+        marginal = Citizen(
+            citizen_id=2, issue_positions=(0.05,), issue_priorities=(1.0,), blank_threshold=0.0,
+            ambition_score=0.5, base_threshold=0.46,
+        )
+        graph = SocialGraph(neighbors={0: frozenset(), 1: frozenset({2}), 2: frozenset({1})})
+        citizens = [holder, mobilizer, marginal]
+
+        class RecordingClient:
+            def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+                decisions = [
+                    {"cid": c["cid"], "target": c["target"], "act": 3 if c["cid"] == 1 else 4, "motif": 301}
+                    for c in json.loads(user_prompt)["consulted"]
+                ]
+                return json.dumps({"decisions": decisions})
+
+        client = RecordingClient()
+        mobilized: dict = {}
+        marginal_consulted = False
+        for tick in range(2):
+            journal_path = tmp_path / f"marginal-{neighbors_acting_flag}-{tick}.jsonl"
+            with Journal(journal_path, run_id=f"marginal-{neighbors_acting_flag}-{tick}") as journal:
+                mobilized = _run_accountability_phase(
+                    citizens, config, journal, tick=tick, llm_client=client,
+                    graph=graph, mobilized_last_tick=mobilized,
+                )
+            events = _events(journal_path)
+            if any(e["event_type"] == "pressure_action" and e["citizen_id"] == 2 for e in events):
+                marginal_consulted = True
+        return marginal_consulted
+
+    assert marginal_is_ever_consulted(True) is True
+    assert marginal_is_ever_consulted(False) is False
+
+
+def test_two_social_graph_llm_runs_produce_byte_identical_journals(tmp_path):
+    config_a = _config_with_full_menu_llm_enabled(tmp_path / "a")
+    config_a = dataclasses.replace(config_a, social_graph=dataclasses.replace(config_a.social_graph, enabled=True))
+    config_b = _config_with_full_menu_llm_enabled(tmp_path / "b")
+    config_b = dataclasses.replace(config_b, social_graph=dataclasses.replace(config_b.social_graph, enabled=True))
+    path_a = run_simulation(config_a, run_id="same-run-id", llm_client=_ElectingFakeLlmClient())
+    path_b = run_simulation(config_b, run_id="same-run-id", llm_client=_ElectingFakeLlmClient())
+    assert path_a.read_bytes() == path_b.read_bytes()
+
+
+def test_an_isolated_citizens_neighbors_acting_is_zero_not_a_crash(tmp_path):
+    # Lot 2's own measured property: erdos_renyi at the shipped scale
+    # (n=100, seed=42) isolates citizen_id=3 -- confirmed directly. No
+    # crash, and every one of its own pressure_action events reads
+    # neighbors_acting == 0.0, never a divide-by-zero.
+    config = _config_with_full_menu_llm_enabled(tmp_path)
+    config = dataclasses.replace(
+        config, social_graph=dataclasses.replace(config.social_graph, enabled=True, topology="erdos_renyi")
+    )
+    journal_path = run_simulation(config, run_id="isolated-node", llm_client=_ElectingFakeLlmClient())
+    events = _events(journal_path)
+    isolated_events = [
+        e for e in events if e["event_type"] == "pressure_action" and e["citizen_id"] == 3
+    ]
+    assert isolated_events
+    assert all(e["payload"]["ctx"]["neighbors_acting"] == 0.0 for e in isolated_events)
 
 
 # ── LLM candidacy path (v2 increment 2) ──────────────────────────────────

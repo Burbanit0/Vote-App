@@ -1248,17 +1248,23 @@ class PressureContext:
     require, frozen before any of this tick's step-2 mutations run (v4
     Lot 7).
 
-    `neighbors_acting` is not a field at all: it is structurally null in v4
-    (§7bis.9e/f, no social graph until v6) and to_payload emits None for it,
-    so no prompt builder can accidentally populate it. `street_pressure` is
-    likewise absent BY CONSTRUCTION and not by omission -- §7bis.9f's
-    atomized regime requires each citizen to decide alone; dt=6's
-    ResponseContext.street exists for the exact opposite reason (§7bis.4b's
-    "double rôle": the representative is meant to see the aggregate, the
-    citizen is not). `signed_ratio`/signature counts are excluded on the
-    same principle: an institutional object's existence is public record
-    (Lot 5), its level of support is an aggregate of what the crowd just
-    did."""
+    `neighbors_acting` is `None` whenever `social_graph.enabled` is false
+    (v4/v5's own atomized regime, §7bis.9e/f, still the shipped default) --
+    the same "null means not tracked, never zero" rule every other optional
+    ctx field in this project follows. From v6 Lot 3, when the graph is on,
+    it carries a real `[0,1]` fraction (accountability.neighbors_acting,
+    computed once per holder and threaded straight through by the caller)
+    regardless of whether `awakening.context_modulation.neighbors_acting`
+    additionally gates the awakening threshold itself -- v6 Lot 1's own
+    cross-field rule keeps that a real, separate arm (the graph can feed
+    this ctx without also modulating who gets consulted). `street_pressure`
+    is absent BY CONSTRUCTION and not by omission -- §7bis.9f's atomized
+    regime requires each citizen to decide alone; dt=6's ResponseContext.
+    street exists for the exact opposite reason (§7bis.4b's "double rôle":
+    the representative is meant to see the aggregate, the citizen is not).
+    `signed_ratio`/signature counts are excluded on the same principle: an
+    institutional object's existence is public record (Lot 5), its level of
+    support is an aggregate of what the crowd just did."""
 
     cid: int
     target: int
@@ -1269,16 +1275,17 @@ class PressureContext:
     petition_open: bool
     petition_expires_at_tick: int | None
     already_signed: bool
+    neighbors_acting: float | None = None
 
     def to_payload(self) -> dict[str, float | int | None]:
         """§3.6.6's exact four ctx keys, rounded like every other prompt
-        builder, with neighbors_acting hard-coded None. Used by BOTH
-        build_pressure_user_prompt and the journal write, so the ctx an
-        analyst reads is provably the ctx the model saw."""
+        builder. Used by BOTH build_pressure_user_prompt and the journal
+        write, so the ctx an analyst reads is provably the ctx the model
+        saw."""
         return {
             "self_gap": round(self.self_gap, 4),
             "mandate_dev": round(self.mandate_dev, 4),
-            "neighbors_acting": None,
+            "neighbors_acting": round(self.neighbors_acting, 4) if self.neighbors_acting is not None else None,
             "ticks_to_election": self.ticks_to_election,
         }
 
@@ -1346,16 +1353,36 @@ def build_pressure_system_prompt(consulted: Sequence[Citizen], config: PolityCon
     self_gap is the citizen's own weighted distance to what the
     officeholder currently delivers; mandate_dev is that officeholder's
     OWN distance from their promise (information, not the citizen's own
-    state); neighbors_acting is always null, "cette simulation ne suit pas
-    ce que font les autres citoyens" (never "zero" -- §3.6.6's own
-    v6-only field); ticks_to_election is ticks to the next presidential
-    election. States explicitly that 0 (inaction) and 4 (deferred to the
-    ballot) are legitimate, journaled outcomes, not failures (§7bis.3)."""
+    state); ticks_to_election is ticks to the next presidential election.
+    States explicitly that 0 (inaction) and 4 (deferred to the ballot) are
+    legitimate, journaled outcomes, not failures (§7bis.3).
+
+    ctx.neighbors_acting's own explanation branches on
+    config.social_graph.enabled (v6 Lot 3): when the graph is off (v4/v5's
+    own atomized regime, still the shipped default), the sentence stays
+    exactly what it always was -- "toujours null... jamais zero" -- so this
+    is a REGRESSION PIN, not just documentation. When the graph is on, a
+    second sentence explains the real [0,1] fraction and appends one line
+    of act<->motif pairing guidance for 306 FOLLOWING_NEIGHBORS
+    (unenforced -- see PressureDecision's own docstring for why)."""
     cid_list = ",".join(str(c.citizen_id) for c in consulted)
     legal = menu_acts(config.pressure_menu)
     legal_table = "\n".join(
         line for line in PRESSURE_ACT_PROMPT_TABLE.splitlines() if int(line.split(" = ")[0]) in legal
     )
+    if config.social_graph.enabled:
+        neighbors_acting_line = (
+            "ctx.neighbors_acting : proportion (0 a 1) de mon voisinage "
+            "social qui a deja mobilise contre cette meme cible, au tick "
+            "precedent. Le motif 306 (FOLLOWING_NEIGHBORS) est approprie "
+            "pour un act 1, 2 ou 3 motive par ce signal -- jamais pour "
+            "act 0 ou 4.\n"
+        )
+    else:
+        neighbors_acting_line = (
+            "ctx.neighbors_acting : toujours null dans cette simulation (aucun "
+            "graphe social suivi), jamais zero.\n"
+        )
     return (
         "Tu es un moteur de simulation. Pour chaque citoyen mecontent recu "
         "(pressure_action), decide son action envers l'elu cible, en te "
@@ -1374,8 +1401,7 @@ def build_pressure_system_prompt(consulted: Sequence[Citizen], config: PolityCon
         "position actuelle de l'elu cible.\n"
         "ctx.mandate_dev : ecart pondere entre la promesse de l'elu et sa "
         "position actuelle -- une information sur l'elu, pas sur moi.\n"
-        "ctx.neighbors_acting : toujours null dans cette simulation (aucun "
-        "graphe social suivi), jamais zero.\n"
+        f"{neighbors_acting_line}"
         "ctx.ticks_to_election : nombre de ticks avant la prochaine "
         "election presidentielle, null si aucune election prevue.\n"
         f"IMPORTANT : la liste decisions doit contenir EXACTEMENT ces "
