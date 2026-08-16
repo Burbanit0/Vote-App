@@ -1211,11 +1211,14 @@ gouverne la *pression*, pas la *perception* d'un événement.
 **L'étincelle, pas encore la cascade.** Un run dédié (`scripts/acceptance_v5_results.md`)
 vérifie qu'un tick de choc produit un pic ponctuel et visible du taux de
 consultation, distinct de l'érosion graduelle de la déviation de mandat déjà
-documentée en §10.4 — dans le même run. Ce n'est **pas** une cascade : le
-graphe social (`neighbors_acting`) reste structurellement `null` jusqu'à v6,
-et §7bis.9e du plan de conception est explicite — un basculement de type
-Gilets jaunes « n'est pas atteignable avant v6 », qui requiert simultanément
-le graphe social, les chocs exogènes et les leviers de pression.
+documentée en §10.4 — dans le même run. Ce n'est **pas** une cascade : ce run
+tourne sans graphe social (`neighbors_acting` y reste `null`, régime
+atomisé), et §7bis.9e du plan de conception est explicite — un basculement de
+type Gilets jaunes « n'est pas atteignable avant v6 », qui requiert
+simultanément le graphe social, les chocs exogènes et les leviers de
+pression. Le graphe social lui-même existe depuis le palier v6a (§10.8) ; la
+combinaison des trois ingrédients simultanément n'a, elle, jamais été
+exécutée (§10.8 sa propre limite).
 
 Ce palier apporte enfin une réponse partielle au point ouvert n°5
 (régénération des personas) : `economy_shock_threshold` définit désormais
@@ -1223,7 +1226,90 @@ concrètement ce qu'est « un choc économique majeur » — sans pour autant
 clore le point, la bibliothèque de personas elle-même (§9) restant à
 construire.
 
-### 10.8 Limites connues du modèle v4 et v5
+### 10.8 Le graphe social et la contagion
+
+Le palier v6a (§5) construit un graphe social déterministe, propre au
+projet (`SocialGraph`, jamais un `networkx.Graph` brut hors de
+`social_graph.py`) — trois topologies possibles (`watts_strogatz`,
+`erdos_renyi`, `barabasi_albert`), statique pour l'instant : le point ouvert
+du plan de conception sur un graphe évolutif (homophilie) reste
+volontairement non résolu (`evolving: true` est analysé puis rejeté au
+chargement de la configuration, le même garde-fou TRANCHÉ que
+`recall_floor_indexed_on_l0`).
+
+**`neighbors_acting(citoyen, cible)` — la définition retenue.** Le plan de
+conception emploie deux fois le même verbe, « déjà **mobilisée** », jamais
+« déjà agi » : la fraction est donc calculée **uniquement** sur les voisins
+dont la dernière décision `pressure_action` **appliquée** était `MOBILIZE`
+(§7bis.4b) — jamais une signature ou un lancement de pétition (§7bis.4a,
+un levier institutionnel distinct, aux conséquences propres). La fraction
+est aussi bornée à la **même cible** : un voisin ayant mobilisé contre un
+élu depuis remplacé ne compte pas. Un citoyen isolé (aucun voisin dans le
+graphe) obtient `0.0`, jamais une division par zéro — un état réel et
+documenté, pas une approximation.
+
+Comme `street_pressure` pour dt=6 (§10.4), ce terme porte **un tick de
+retard structurel** : `decide_pressure_actions` regroupe toute une cohorte
+en un seul appel gelé avant qu'aucune décision n'aboutisse, donc la
+décision d'un voisin au *même* tick est par construction invisible.
+
+**Le canal, jamais une règle imposée.** `neighbors_acting` alimente deux
+choses, séparément :
+- un quatrième terme dans `f(contexte)` du seuil d'éveil (§10.6),
+  symétrique à `mandate_deviation`/`event_salience` — abaisse le seuil,
+  ne décide jamais : la porte reste une porte (§7bis.9d).
+- le champ `ctx.neighbors_acting` de `pressure_action` (dt=10), une
+  fraction réelle dès que `social_graph.enabled` est vrai, **indépendamment**
+  de la modulation du seuil elle-même — un choix délibéré du palier v6a
+  Lot 1 : le graphe peut informer le LLM sans mécaniquement filtrer qui
+  est consulté, un bras expérimental à part entière.
+
+**Le tableau du §7bis.9f, tel quel :**
+
+| Régime | Palier | `f(contexte)` inclut le voisinage ? | Cascade possible ? |
+|---|---|---|---|
+| Pression atomisée | v4/v5 | Non | Non, par construction |
+| Pression avec contagion | v6a | Oui | Oui, jamais imposée |
+
+**Le run d'acceptation** (`scripts/run_v6a_acceptance.py`, résultats dans
+`scripts/acceptance_v6a_results.md`) compare les deux régimes sur une
+configuration par ailleurs strictement identique (`mobilization_only`, seed
+42, `population_size=100`, 8 ans) — la seule variable qui change est
+`social_graph.enabled`/`awakening.context_modulation.neighbors_acting`, à
+l'image exact du tableau ci-dessus. Le bras atomisé est cité verbatim
+depuis `scripts/acceptance_v4_results.md` (palier v4 Lot 8), jamais
+ré-exécuté.
+
+**Ce que le run mesure, honnêtement (n=1, une seule graine).** Sur
+l'agrégat cumulé du terme, la contagion n'amplifie pas mécaniquement la
+mobilisation : la part `MOBILIZE` du `lever mix` est légèrement **plus
+basse** sous contagion (0,629 contre 0,699 en régime atomisé) et la
+légitimité moyenne en fin de run est plus **haute** (0,475 contre 0,370) —
+même nombre de rappels dans les deux bras (2, tous par plancher de
+légitimité). Le canal n'agit donc pas comme un simple multiplicateur
+d'ampleur. Ce qu'il produit, en revanche, c'est un **pic de synchronisation
+au tick** que rien dans le régime atomisé ne peut produire par
+construction : jusqu'à 85 citoyens sur ~100 consultés mobilisent au même
+tick sous contagion+LLM, contre un maximum de 39 sur le bras déterministe
+équivalent (`neighbors_acting` réalisé : moyenne 0,184, maximum 1,000 —
+le canal est réellement actif, pas seulement câblé). C'est la signature
+d'un moment de bandwagon ponctuel, pas d'une dérive cumulative — cohérent
+avec « l'étincelle, pas encore la cascade » : la contagion change la
+*forme* temporelle de la mobilisation (des pics synchrones) sans changer
+son volume agrégé sur ce seed précis. Chiffres complets dans
+`scripts/acceptance_v6a_results.md`.
+
+**Limite assumée, énoncée sans détour : ce n'est toujours pas la cascade
+complète.** §7bis.9e du plan de conception est explicite — un basculement
+de type Gilets jaunes exige **simultanément** le graphe social (v6a), les
+chocs exogènes (v5) et les leviers de pression (v4). Ce run isole
+délibérément l'effet marginal du seul canal de contagion, sur une
+population déjà capable de se mobiliser (`events.enabled` reste `false`
+partout) — v5 Lot 5 a déjà, séparément et honnêtement, démontré la moitié
+« étincelle » de cette même conclusion à trois ingrédients (§10.7). Les
+deux n'ont jamais été exécutés ensemble.
+
+### 10.9 Limites connues du modèle v4, v5 et v6a
 
 - **`stance = 4` (contre-mobilisation) est observable mais mécaniquement
   inerte** : aucun levier citoyen pro-sortant n'existe encore pour lui
@@ -1233,12 +1319,12 @@ construire.
   les autres décisions** — son résultat n'est donc pas directement
   comparable à celui de l'élection présidentielle *du même run*, qui, elle,
   passe par l'agent.
-- **Régime de pression atomisée** : un citoyen ne voit ni le niveau de
+- **Régime de pression atomisée par défaut** : la configuration livrée garde
+  `social_graph.enabled: false` — un citoyen ne voit ni le niveau de
   mobilisation agrégé (`street_pressure`) ni le taux de signature d'une
-  pétition en cours (`signed_ratio`) — seulement le fait qu'une pétition
-  existe. Les effets de seuil, de cascade ou de passager clandestin restent
-  donc structurellement inobservables tant que le graphe social (palier v6)
-  n'existe pas.
+  pétition en cours (`signed_ratio`), seulement le fait qu'une pétition
+  existe. Le canal de contagion (§10.8) existe depuis v6a mais reste un
+  bras expérimental, jamais le régime par défaut.
 - **`m` porte un biais empirique à la baisse sur le chemin LLM** au-delà de
   six candidats : le classement produit par l'agent est tronqué au top-5,
   si bien qu'un vainqueur absent d'un bulletin tronqué compte comme
@@ -1247,9 +1333,15 @@ construire.
   livrée** (`president_term_limit: null` — aucune limitation de mandat) :
   la métrique existe et est testée, mais elle n'a rien à comparer tant
   qu'aucun mandat limité n'est configuré.
-- **La cascade n'est pas encore atteignable** : v5 fournit l'étincelle (§10.7)
-  mais pas le graphe social qui la propagerait — `neighbors_acting` reste
-  `null` jusqu'à v6.
+- **Le basculement complet à trois ingrédients n'est toujours pas
+  démontré** : v5 fournit l'étincelle (§10.7) et v6a le graphe social
+  (§10.8), chacun mesuré séparément — jamais ensemble dans un même run.
+- **`social_graph.evolving` (homophilie) reste non implémenté** : le point
+  ouvert du plan de conception (§5, « graphe social statique ou évolutif ? »)
+  reste ouvert ; seul un graphe statique existe.
+- **`sortition_chamber` (chambre de tirage au sort, §6bis.3, v6b) reste
+  entièrement non implémentée** — nommée et réservée dans la configuration,
+  aucun code ne la consomme.
 - **La configuration livrée des événements exogènes ne se déclenche presque
   jamais sur un run court** : à `(phi=0.8, sigma=0.1, seuil=0.5)`, le choc
   économique est un événement à ~3 écarts-types, jamais observé sur un run
@@ -1258,7 +1350,7 @@ construire.
   recalibrée, documentée dans `scripts/acceptance_v5_results.md`, jamais la
   configuration livrée par défaut.
 
-### 10.9 Références
+### 10.10 Références
 
 Ce chantier n'introduit pas de nouvelle bibliographie académique propre —
 `support(t)` (§10.1) est une résolution de modélisation, pas un résultat
