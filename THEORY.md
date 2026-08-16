@@ -1183,7 +1183,47 @@ mécanisme est une **porte d'échantillonnage** — il détermine *qui* est
 interrogé, jamais *ce qu'il répond* — et n'impose aucun plafond sur le
 nombre de citoyens consultables à un tick donné.
 
-### 10.7 Limites connues du modèle v4
+### 10.7 Les événements exogènes — l'étincelle
+
+Le palier v5 ajoute deux générateurs indépendants, chacun activable séparément
+sous un même interrupteur maître (`events.enabled`) : un **scandale**
+(arrivée Bernoulli par tick — la discrétisation standard d'un processus de
+Poisson à résolution temporelle unitaire — ciblant l'élu en poste s'il en
+existe un) et un **choc économique** (un climat AR(1) léger,
+`x(t) = phi·x(t-1) + sigma·ε(t)`, à l'échelle de la population entière et
+volontairement non borné — le même choix que pour `street_pressure`, dont la
+borne utile vit chez le consommateur, pas chez le générateur).
+
+**Aucun quatrième terme dans `écart(t)`.** Dans le droit fil de §10.2 : un
+événement ne touche jamais `L(t)` directement — §8 rejette explicitement
+« une formule d'impact directe sur `legitimacy_perceived` ». Il relève à la
+place `event_salience`, un état décroissant propre à chaque citoyen, qui
+abaisse le seuil d'éveil (§10.6) — un citoyen légèrement plus susceptible
+d'être consulté, jamais un citoyen dont l'avis est présumé. Tout effet
+ultérieur sur `L(t)` passe entièrement par le même canal citoyen que §10.5
+documente déjà (`pressure_action`) : jamais une écriture directe.
+
+`reaction_to_event` (dt=8) diffère aussi de §10.6 par sa forme : c'est une
+consultation **de masse**, posée à chaque citoyen dès qu'un événement se
+produit, et non filtrée par le seuil d'éveil — la porte d'échantillonnage
+gouverne la *pression*, pas la *perception* d'un événement.
+
+**L'étincelle, pas encore la cascade.** Un run dédié (`scripts/acceptance_v5_results.md`)
+vérifie qu'un tick de choc produit un pic ponctuel et visible du taux de
+consultation, distinct de l'érosion graduelle de la déviation de mandat déjà
+documentée en §10.4 — dans le même run. Ce n'est **pas** une cascade : le
+graphe social (`neighbors_acting`) reste structurellement `null` jusqu'à v6,
+et §7bis.9e du plan de conception est explicite — un basculement de type
+Gilets jaunes « n'est pas atteignable avant v6 », qui requiert simultanément
+le graphe social, les chocs exogènes et les leviers de pression.
+
+Ce palier apporte enfin une réponse partielle au point ouvert n°5
+(régénération des personas) : `economy_shock_threshold` définit désormais
+concrètement ce qu'est « un choc économique majeur » — sans pour autant
+clore le point, la bibliothèque de personas elle-même (§9) restant à
+construire.
+
+### 10.8 Limites connues du modèle v4 et v5
 
 - **`stance = 4` (contre-mobilisation) est observable mais mécaniquement
   inerte** : aucun levier citoyen pro-sortant n'existe encore pour lui
@@ -1207,8 +1247,18 @@ nombre de citoyens consultables à un tick donné.
   livrée** (`president_term_limit: null` — aucune limitation de mandat) :
   la métrique existe et est testée, mais elle n'a rien à comparer tant
   qu'aucun mandat limité n'est configuré.
+- **La cascade n'est pas encore atteignable** : v5 fournit l'étincelle (§10.7)
+  mais pas le graphe social qui la propagerait — `neighbors_acting` reste
+  `null` jusqu'à v6.
+- **La configuration livrée des événements exogènes ne se déclenche presque
+  jamais sur un run court** : à `(phi=0.8, sigma=0.1, seuil=0.5)`, le choc
+  économique est un événement à ~3 écarts-types, jamais observé sur un run
+  de 121 ticks dans le sweep de calibration (`scripts/events_calibration_results.md`).
+  Le run d'acceptation de §10.7 utilise donc une configuration délibérément
+  recalibrée, documentée dans `scripts/acceptance_v5_results.md`, jamais la
+  configuration livrée par défaut.
 
-### 10.8 Références
+### 10.9 Références
 
 Ce chantier n'introduit pas de nouvelle bibliographie académique propre —
 `support(t)` (§10.1) est une résolution de modélisation, pas un résultat
