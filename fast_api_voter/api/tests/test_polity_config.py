@@ -44,7 +44,15 @@ def test_loads_the_real_polity_config_with_expected_v0_values():
     assert config.llm.temperature == 0.0
     assert config.llm.max_batch_size == 25
     assert config.llm.batch_sharding == "static"
-    assert config.llm.codebook_version == "1.5"
+    assert config.llm.codebook_version == "1.6"
+    assert config.sortition_chamber.enabled is False
+    assert config.sortition_chamber.seats == 30
+    assert config.sortition_chamber.term_years == 1
+    assert config.sortition_chamber.renewable is False
+    assert config.sortition_chamber.selection == "uniform_random"
+    assert config.sortition_chamber.overlaps_with_assembly is False
+    assert config.sortition_chamber.veto_power == "suspensive_limited"
+    assert config.sortition_chamber.veto_delay_ticks == 2
     assert config.llm.personas_count == 30
     assert config.campaign.max_positioning_delta == 0.3
     assert config.campaign.max_positioning_shifts == 3
@@ -619,4 +627,65 @@ def test_social_graph_enabled_without_neighbors_acting_modulation_is_accepted(tm
 def test_missing_social_graph_topology_raises_and_names_it(tmp_path):
     path = _write(tmp_path, lambda d: d["social_graph"].pop("topology"))
     with pytest.raises(PolityConfigError, match="social_graph.topology"):
+        load_config(path)
+
+
+# ── v6b Lot 1: sortition_chamber (§6bis.3) ────────────────────────────────
+
+def test_sortition_selection_stratified_demographic_raises(tmp_path):
+    path = _write(tmp_path, lambda d: d["sortition_chamber"].__setitem__("selection", "stratified_demographic"))
+    with pytest.raises(PolityConfigError, match="sortition_chamber.selection"):
+        load_config(path)
+
+
+def test_sortition_overlaps_with_assembly_true_raises(tmp_path):
+    path = _write(tmp_path, lambda d: d["sortition_chamber"].__setitem__("overlaps_with_assembly", True))
+    with pytest.raises(PolityConfigError, match="sortition_chamber.overlaps_with_assembly"):
+        load_config(path)
+
+
+def test_sortition_renewable_true_raises(tmp_path):
+    path = _write(tmp_path, lambda d: d["sortition_chamber"].__setitem__("renewable", True))
+    with pytest.raises(PolityConfigError, match="sortition_chamber.renewable"):
+        load_config(path)
+
+
+def test_sortition_unknown_veto_power_raises(tmp_path):
+    path = _write(tmp_path, lambda d: d["sortition_chamber"].__setitem__("veto_power", "absolute"))
+    with pytest.raises(PolityConfigError, match="sortition_chamber.veto_power"):
+        load_config(path)
+
+
+def test_sortition_seats_zero_raises(tmp_path):
+    path = _write(tmp_path, lambda d: d["sortition_chamber"].__setitem__("seats", 0))
+    with pytest.raises(PolityConfigError, match="sortition_chamber.seats"):
+        load_config(path)
+
+
+def test_sortition_enabled_with_seats_exceeding_population_size_raises(tmp_path):
+    def mutate(d: dict) -> None:
+        d["sortition_chamber"]["enabled"] = True
+        d["sortition_chamber"]["seats"] = d["run"]["population_size"] + 1
+
+    path = _write(tmp_path, mutate)
+    with pytest.raises(PolityConfigError, match="sortition_chamber.seats"):
+        load_config(path)
+
+
+def test_sortition_enabled_with_seats_equal_to_population_size_is_accepted(tmp_path):
+    # Boundary case: seats == population_size seats exactly one full chamber
+    # from the whole population -- legal, not a degenerate arm.
+    def mutate(d: dict) -> None:
+        d["sortition_chamber"]["enabled"] = True
+        d["sortition_chamber"]["seats"] = d["run"]["population_size"]
+
+    path = _write(tmp_path, mutate)
+    config = load_config(path)
+    assert config.sortition_chamber.enabled is True
+    assert config.sortition_chamber.seats == config.run.population_size
+
+
+def test_missing_sortition_seats_raises_and_names_it(tmp_path):
+    path = _write(tmp_path, lambda d: d["sortition_chamber"].pop("seats"))
+    with pytest.raises(PolityConfigError, match="sortition_chamber.seats"):
         load_config(path)

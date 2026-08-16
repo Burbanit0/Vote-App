@@ -11,6 +11,7 @@ import pytest
 from api.domain.polity.codebook import (
     CAMPAIGN_MOTIF_PROMPT_TABLE,
     CANDIDACY_MOTIF_PROMPT_TABLE,
+    CHAMBER_MOTIF_PROMPT_TABLE,
     COALITION_ACTION_PROMPT_TABLE,
     COALITION_MOTIF_PROMPT_TABLE,
     CODEBOOK_VERSION,
@@ -25,6 +26,7 @@ from api.domain.polity.codebook import (
     CampaignMotif,
     CandidacyMotif,
     CandidacyOutcome,
+    ChamberMotif,
     CoalitionAction,
     CoalitionMotif,
     DecisionType,
@@ -321,3 +323,40 @@ def test_reaction_motif_prompt_table_is_derived_from_the_enum_not_hand_typed():
 
 def test_reaction_motif_is_included_in_motif_enums():
     assert ReactionMotif in MOTIF_ENUMS
+
+
+# ── v6b Lot 1: dt=11 reservation, ChamberMotif, 700-range motifs ─────────
+
+def test_chamber_deliberation_is_decision_type_11():
+    assert DecisionType.CHAMBER_DELIBERATION == 11
+
+
+def test_decision_type_3_stays_unallocated():
+    # Confirmed by direct inspection (v6b Lot 1's own planning pass): no
+    # DecisionType member uses 3. Pinned so a future palier can't silently
+    # assume it was reserved for something without re-checking.
+    assert 3 not in {member.value for member in DecisionType}
+
+
+def test_chamber_motif_lives_entirely_inside_the_700s_range():
+    assert all(700 <= member.value <= 799 for member in ChamberMotif)
+
+
+def test_chamber_motif_does_not_collide_with_coalition_motifs_500_range():
+    # ChamberMotif deliberately did NOT reuse 500-599 (CoalitionMotif's own
+    # range) -- 501/502 are already IDEOLOGICAL_PROXIMITY/OFFICE_SEEKING.
+    assert not ({m.value for m in ChamberMotif} & {m.value for m in CoalitionMotif})
+
+
+def test_chamber_motif_has_exactly_the_two_documented_codes():
+    assert {member.value for member in ChamberMotif} == {701, 702}
+
+
+def test_chamber_motif_prompt_table_is_derived_from_the_enum_not_hand_typed():
+    for motif in ChamberMotif:
+        assert f"{motif.value} = {motif.name}" in CHAMBER_MOTIF_PROMPT_TABLE
+    assert CHAMBER_MOTIF_PROMPT_TABLE.count("\n") == len(ChamberMotif) - 1
+
+
+def test_chamber_motif_is_included_in_motif_enums():
+    assert ChamberMotif in MOTIF_ENUMS

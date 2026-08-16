@@ -159,7 +159,7 @@ def test_codebook_motifs_has_one_row_per_distinct_motif_code_stamped_with_the_ve
     con = _con()
     compact_events([], con)
     rows = con.execute("SELECT count(*), count(DISTINCT codebook_version) FROM codebook_motifs").fetchone()
-    assert rows == (33, 1)  # v6 Lot 1 added PressureMotif's 306 to the 32 prior (v5 Lot 1: +3 ReactionMotif)
+    assert rows == (35, 1)  # v6b Lot 1 added ChamberMotif's 2 codes to the 33 prior (v6 Lot 1: +1 PressureMotif 306)
     version = con.execute("SELECT DISTINCT codebook_version FROM codebook_motifs").fetchone()[0]
     assert version == CODEBOOK_VERSION
 
