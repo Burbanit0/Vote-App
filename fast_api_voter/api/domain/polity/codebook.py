@@ -4,7 +4,8 @@ vote + candidacy-consideration + party-nomination + campaign-positioning +
 coalition-decision slices (v2 increments 1-5), plus v4 Lot 1's upfront
 reservation of the legitimacy/pressure palier's wire surface (representative
 _response dt=6, pressure_action dt=10, and the binary confidence-vote ballot
-format), plus v5 Lot 1's reservation of reaction_to_event (dt=8, §8).
+format), plus v5 Lot 1's reservation of reaction_to_event (dt=8, §8), plus
+v6b Lot 1's reservation of chamber_deliberation (dt=11, §6bis.3).
 
 Single source of truth: the `Literal[...]` types used for wire validation
 (llm_schemas.py) and the human-readable table injected into the LLM's system
@@ -46,7 +47,13 @@ class PolityCodebookError(ValueError):
     one this code was written against — §3.7.0's frozen-artifact contract."""
 
 
-CODEBOOK_VERSION = "1.5"  # bumped from "1.4" — v6 Lot 1 (§5): a new
+CODEBOOK_VERSION = "1.6"  # bumped from "1.5" — v6b Lot 1 (§6bis.3): a new
+                           # decision type (11=chamber_deliberation) and a
+                           # new motif enum (ChamberMotif) change the wire
+                           # surface. Unlike v4/v5/v6a Lot 1, v6b had no
+                           # prior reservation lot to bump at, so the bump
+                           # happens in the same lot that adds the surface.
+                           # Prior bump: "1.4"->"1.5" — v6 Lot 1 (§5): a new
                            # PressureMotif member (306 FOLLOWING_NEIGHBORS)
                            # changes the wire surface, the same bump trigger
                            # every prior palier's own Lot 1 used. Prior bump:
@@ -66,11 +73,20 @@ CODEBOOK_VERSION = "1.5"  # bumped from "1.4" — v6 Lot 1 (§5): a new
 
 class DecisionType(IntEnum):
     """§3.7.1 `decision_type` (`dt`). 7 is retired (formerly
-    petition_signature_decision) and must never be reused. 6, 8, and 10 are
-    reserved by v4 Lot 1 / v5 Lot 1 ahead of their own decide_* functions
-    (v4 Lots 6-7, v5 Lot 4) — see this module's docstring for why that's a
-    deliberate exception to every prior code's "member only once the code
-    exists" discipline."""
+    petition_signature_decision) and must never be reused. 3 is
+    unallocated -- confirmed by direct inspection (no docstring, no test,
+    no reference anywhere) rather than assumed reserved for anything; v6b
+    Lot 1 deliberately does NOT reuse it for CHAMBER_DELIBERATION, since
+    reusing an unexplained gap without evidence it was meant for this
+    feature would be a guess, not a finding. 6, 8, and 10 are reserved by
+    v4 Lot 1 / v5 Lot 1 ahead of their own decide_* functions (v4 Lots 6-7,
+    v5 Lot 4) — see this module's docstring for why that's a deliberate
+    exception to every prior code's "member only once the code exists"
+    discipline. 11 (CHAMBER_DELIBERATION) is v6b Lot 1's own reservation
+    (§6bis.3), consumed by v6b Lot 3's own decide_* function -- the first
+    decision type this project has both reserved AND bumped
+    CODEBOOK_VERSION for in the same lot, since v6b had no prior
+    reservation lot to bump at."""
 
     VOTE_CAST = 1
     CANDIDACY_CONSIDERED = 2
@@ -80,6 +96,7 @@ class DecisionType(IntEnum):
     REACTION_TO_EVENT = 8
     COALITION_DECISION = 9
     PRESSURE_ACTION = 10
+    CHAMBER_DELIBERATION = 11
 
 
 class BallotFormat(IntEnum):
@@ -364,6 +381,34 @@ class ReactionMotif(IntEnum):
 REACTION_MOTIF_PROMPT_TABLE = "\n".join(f"{motif.value} = {motif.name}" for motif in ReactionMotif)
 
 
+class ChamberMotif(IntEnum):
+    """§3.7.2 motif range 700-799 (Chambre de sortition) — a NEW range,
+    v6b Lot 1's own reservation (§6bis.3). NOT 500-599: that range already
+    belongs to CoalitionMotif (§3.7.2), confirmed by direct inspection
+    before choosing this one — reusing it would have collided
+    (`motif_labels()`'s own collision check would have caught a genuine
+    two-different-labels conflict at 501/502, since CoalitionMotif already
+    defines IDEOLOGICAL_PROXIMITY=501/OFFICE_SEEKING=502).
+
+    chamber_deliberation (dt=11, v6b Lot 3) has no `pledged_platform` to
+    diverge from -- a sortition member never campaigns, so there is no
+    promise to keep or break the way mandate_deviation measures for an
+    elected officeholder. The comparable quantity is chamber_deviation:
+    the member's own currently-stated `chamber_position` against their own
+    sincere `issue_positions` (the same weighted_euclidean primitive
+    mandate_deviation/self_gap already use, applied to a different pair).
+    SINCERE_POSITION grounds a `chamber_deviation` at or near zero;
+    DELIBERATIVE_SHIFT grounds a real, chosen departure from it -- the
+    direct operationalization of §6bis.3's own stated hypothesis (does an
+    insulated cohort stay sincere, or does deliberation alone move it?)."""
+
+    SINCERE_POSITION = 701
+    DELIBERATIVE_SHIFT = 702
+
+
+CHAMBER_MOTIF_PROMPT_TABLE = "\n".join(f"{motif.value} = {motif.name}" for motif in ChamberMotif)
+
+
 MOTIF_ENUMS: tuple[type[IntEnum], ...] = (
     VoteMotif,
     CandidacyMotif,
@@ -373,6 +418,7 @@ MOTIF_ENUMS: tuple[type[IntEnum], ...] = (
     ResponseMotif,
     PressureMotif,
     ReactionMotif,
+    ChamberMotif,
 )
 
 

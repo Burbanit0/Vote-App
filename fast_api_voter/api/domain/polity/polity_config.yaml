@@ -209,19 +209,36 @@ awakening:
                               #      temps, pas de l'argent
 
 # =============================================================================
-# CHAMBRE DE TIRAGE AU SORT (§6bis.3) — réservé v6+
+# CHAMBRE DE TIRAGE AU SORT (§6bis.3) — v6b, MVP groupe de contrôle
 # =============================================================================
 sortition_chamber:
-  enabled: false              # [v6]
-  seats: 30                   # [v6]
-  term_years: 1               # [v6]
-  renewable: false            # [v6] par construction : pas de réélection,
+  enabled: false              # [v6b]
+  seats: 30                   # [v6b]
+  term_years: 1               # [v6b]
+  renewable: false            # [v6b] par construction : pas de réélection,
                               #      donc insensible à toute pression
-                              #      électorale => groupe de contrôle
-  selection: uniform_random   # [v6] uniform_random | stratified_demographic
-  overlaps_with_assembly: false    # [v6] chambre séparée
-  veto_power: suspensive_limited   # [v6] suspensive_limited | consultative_only
-  veto_delay_ticks: 2         # [v6] (point ouvert n°11)
+                              #      électorale => groupe de contrôle.
+                              #      TRANCHÉ (v6b Lot 1) : true rejeté au
+                              #      chargement, la sélection est conçue
+                              #      pour une éligibilité stricte à usage
+                              #      unique
+  selection: uniform_random   # [v6b] uniform_random | stratified_demographic
+                              #      (stratified_demographic rejeté au
+                              #      chargement — non implémenté)
+  overlaps_with_assembly: false    # [v6b] chambre séparée — TRANCHÉ (v6b
+                                    #       Lot 1) : true rejeté au
+                                    #       chargement, aucun député
+                                    #       individuel n'est suivi dans ce
+                                    #       code (Office.DEPUTY réservé,
+                                    #       jamais assigné)
+  veto_power: suspensive_limited   # [v6b] suspensive_limited | consultative_only
+                                    #       ANALYSÉ, NON CONSOMMÉ en v6b —
+                                    #       le pouvoir de veto (point ouvert
+                                    #       n°11) exige un mécanisme de loi
+                                    #       qui n'existe nulle part dans ce
+                                    #       code ; différé à un palier futur
+                                    #       distinct, non encore autorisé
+  veto_delay_ticks: 2         # [v6b] (point ouvert n°11, différé — voir ci-dessus)
 
 # =============================================================================
 # ÉVÉNEMENTS EXOGÈNES (§8)
@@ -317,7 +334,7 @@ llm:
   rationale_mode: codes       # [v2] codes | free_text | hybrid (§16.5)
                               #      TRANCHÉ : codes partout + texte libre
                               #      borné aux événements pivots (§3.6.9)
-  codebook_version: "1.5"     # [v2/v4/v5/v6] artefact figé, archivé avec le run (§3.7)
+  codebook_version: "1.6"     # [v2/v4/v5/v6/v6b] artefact figé, archivé avec le run (§3.7)
                               #      bump 1.1->1.2 en v4 Lot 1 : réservation
                               #      de dt=6/dt=10, BallotFormat.BINARY, et
                               #      des motifs 300-399 (encore inactifs tant

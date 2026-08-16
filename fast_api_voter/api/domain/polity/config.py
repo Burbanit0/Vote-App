@@ -346,6 +346,47 @@ class SocialGraphConfig:
 
 
 @dataclass(frozen=True)
+class SortitionChamberConfig:
+    """§6bis.3 — the sortition chamber (v6b), the only 🔴-marked ("most
+    open") section in the whole design doc. v6b's own scope is a genuine
+    control-group cohort: uniform-random selection, non-renewable short
+    terms, structurally immune to every §7bis pressure channel -- compared
+    against the elected president's own dt=6 mandate_deviation trajectory
+    (§6bis.5's own "groupe de contrôle élu vs tiré-au-sort" framing).
+
+    `veto_power`/`veto_delay_ticks` are parsed here (so a typo fails
+    loudly) but consumed by NOTHING in v6b -- point ouvert n°11 (veto
+    power) needs a lawmaking concept this codebase has never built, and is
+    deferred to its own, separately-authorized future palier.
+
+    `selection`/`overlaps_with_assembly`/`renewable` are all TRANCHÉ
+    parse-time guards, the same precedent as
+    `recall_floor_indexed_on_l0`/`social_graph.evolving`:
+    - `selection: stratified_demographic` -- not yet implemented.
+    - `overlaps_with_assembly: true` -- legislative "seats" in this
+      codebase are a party-level vote-allocation abstraction
+      (`legislative_result.payload.seats`); no individual deputy
+      `Citizen` is ever tracked (`Office.DEPUTY` is reserved, never
+      assigned), so there is no individual legislative membership for a
+      sortition seat to overlap with -- `false` is already true by
+      construction, and `true` asks for per-deputy tracking that doesn't
+      exist.
+    - `renewable: true` -- v6b's own selection design is built around
+      strict one-shot-ever eligibility (a `Citizen.sortition_terms_served`
+      counter, `> 0` meaning permanently ineligible); a `true` value asks
+      for a re-eligibility rule this MVP never designs."""
+
+    enabled: bool
+    seats: int
+    term_years: int
+    renewable: bool
+    selection: str
+    overlaps_with_assembly: bool
+    veto_power: str
+    veto_delay_ticks: int
+
+
+@dataclass(frozen=True)
 class JournalConfig:
     enabled: bool
     format: str
@@ -429,6 +470,7 @@ class PolityConfig:
     awakening: AwakeningConfig
     events: EventsConfig
     social_graph: SocialGraphConfig
+    sortition_chamber: SortitionChamberConfig
     journal: JournalConfig
     metrics: MetricsConfig
     llm: LlmConfig
@@ -625,6 +667,8 @@ def _parse_street_pressure(raw: dict[str, Any]) -> StreetPressureConfig:
 
 _AWAKENING_SOURCES = {"persona_base_threshold"}
 _SOCIAL_GRAPH_TOPOLOGIES = {"watts_strogatz", "erdos_renyi", "barabasi_albert"}
+_SORTITION_SELECTION_MODES = {"uniform_random", "stratified_demographic"}
+_SORTITION_VETO_POWERS = {"suspensive_limited", "consultative_only"}
 
 
 def _parse_awakening(raw: dict[str, Any]) -> AwakeningConfig:
@@ -686,6 +730,37 @@ def _parse_social_graph(raw: dict[str, Any]) -> SocialGraphConfig:
         mean_degree=_get_positive_int(s, "social_graph", "mean_degree"),
         rewiring_prob=_get_ratio(s, "social_graph", "rewiring_prob"),
         evolving=False,
+    )
+
+
+def _parse_sortition_chamber(raw: dict[str, Any]) -> SortitionChamberConfig:
+    s = _section(raw, "sortition_chamber")
+    selection = _get_enum(s, "sortition_chamber", "selection", _SORTITION_SELECTION_MODES)
+    if selection != "uniform_random":
+        raise PolityConfigError(
+            "'sortition_chamber.selection': 'stratified_demographic' is not supported -- v6b's MVP "
+            "only implements uniform_random (§6bis.3)"
+        )
+    if _get(s, "sortition_chamber", "overlaps_with_assembly", bool):
+        raise PolityConfigError(
+            "'sortition_chamber.overlaps_with_assembly': true is not supported -- no individual "
+            "deputy Citizen is tracked in this codebase (Office.DEPUTY is reserved, never assigned), "
+            "so there is no legislative membership to overlap with"
+        )
+    if _get(s, "sortition_chamber", "renewable", bool):
+        raise PolityConfigError(
+            "'sortition_chamber.renewable': true is not supported -- v6b's selection design assumes "
+            "strict one-shot-ever eligibility (§6bis.3)"
+        )
+    return SortitionChamberConfig(
+        enabled=_get(s, "sortition_chamber", "enabled", bool),
+        seats=_get_positive_int(s, "sortition_chamber", "seats"),
+        term_years=_get_positive_int(s, "sortition_chamber", "term_years"),
+        renewable=False,
+        selection="uniform_random",
+        overlaps_with_assembly=False,
+        veto_power=_get_enum(s, "sortition_chamber", "veto_power", _SORTITION_VETO_POWERS),
+        veto_delay_ticks=_get_positive_int(s, "sortition_chamber", "veto_delay_ticks"),
     )
 
 
@@ -796,6 +871,7 @@ def load_config(path: Path | str | None = None) -> PolityConfig:
     if not isinstance(raw, dict):
         raise PolityConfigError(f"{config_path}: top level must be a mapping, got {type(raw).__name__}")
 
+    run = _parse_run(raw)
     legitimacy = _parse_legitimacy(raw)
     pressure_menu = _parse_pressure_menu(raw)
     petition = _parse_petition(raw)
@@ -803,6 +879,7 @@ def load_config(path: Path | str | None = None) -> PolityConfig:
     awakening = _parse_awakening(raw)
     events = _parse_events(raw)
     social_graph = _parse_social_graph(raw)
+    sortition_chamber = _parse_sortition_chamber(raw)
 
     # Cross-section rules (§7bis.2/§7bis.6) -- each section parses in
     # isolation above; these are the invariants that only make sense once
@@ -855,9 +932,15 @@ def load_config(path: Path | str | None = None) -> PolityConfig:
             "feeds pressure_action's ctx.neighbors_acting without also modulating who gets "
             "consulted"
         )
+    if sortition_chamber.enabled and run.population_size < sortition_chamber.seats:
+        raise PolityConfigError(
+            "'sortition_chamber.seats' cannot exceed 'run.population_size' when "
+            "'sortition_chamber.enabled' is true -- a config that can't seat even one full chamber "
+            "is a degenerate arm (§6bis.3)"
+        )
 
     return PolityConfig(
-        run=_parse_run(raw),
+        run=run,
         institutions=_parse_institutions(raw),
         parties=_parse_parties(raw),
         citizens=_parse_citizens(raw),
@@ -871,6 +954,7 @@ def load_config(path: Path | str | None = None) -> PolityConfig:
         awakening=awakening,
         events=events,
         social_graph=social_graph,
+        sortition_chamber=sortition_chamber,
         journal=_parse_journal(raw),
         metrics=_parse_metrics(raw),
         llm=_parse_llm(raw),
