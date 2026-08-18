@@ -12,6 +12,7 @@ import json
 import numpy as np
 import pytest
 
+import api.domain.polity.run_polity_simulation as run_polity_simulation_module
 from api.domain.polity.accountability import update_street_pressure
 from api.domain.polity.citizen import Citizen, Office, Role, generate_population
 from api.domain.polity.codebook import EventType, ReactionMotif
@@ -30,6 +31,7 @@ from api.domain.polity.run_polity_simulation import (
     _run_chamber_deliberation,
     _run_exogenous_events,
     _run_sortition_rotation,
+    _warm_up_llm_client,
     run_simulation,
 )
 from api.domain.polity.simple_rules import assign_party_affiliation, declare_candidacy
@@ -65,6 +67,16 @@ def _events(journal_path):
 # ── _llm_client_scope (v4 vLLM switch, §15bis.6 — dispatch on provider) ──
 # Constructing OllamaJsonClient/VllmJsonClient opens no socket (httpx.Client
 # doesn't connect until a request is sent), so these stay fully offline.
+# The two provider-dispatch tests below patch _warm_up_llm_client to a
+# no-op: entering _llm_client_scope's `with` block now runs one real,
+# best-effort warm-up call on an owned (non-injected) client (GPU
+# reliability fix, see that function's own docstring) -- without patching
+# it here these tests would attempt real network I/O against a real
+# client just to check its TYPE, breaking the "fully offline" contract
+# above. The two tests that already inject a client (sentinel / None-when-
+# disabled) never reach _warm_up_llm_client at all -- it's called only
+# inside the `with build_json_client(...) as owned_client:` branch -- so
+# they need no patch.
 
 def test_llm_client_scope_yields_the_injected_client_untouched():
     config = load_config()
@@ -80,18 +92,40 @@ def test_llm_client_scope_yields_none_when_llm_is_disabled():
         assert client is None
 
 
-def test_llm_client_scope_builds_an_ollama_client_for_the_ollama_provider():
+def test_llm_client_scope_builds_an_ollama_client_for_the_ollama_provider(monkeypatch):
+    monkeypatch.setattr(run_polity_simulation_module, "_warm_up_llm_client", lambda client: None)
     config = load_config()
     config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=True, provider="ollama"))
     with _llm_client_scope(config, None) as client:
         assert isinstance(client, OllamaJsonClient)
 
 
-def test_llm_client_scope_builds_a_vllm_client_for_the_vllm_provider():
+def test_llm_client_scope_builds_a_vllm_client_for_the_vllm_provider(monkeypatch):
+    monkeypatch.setattr(run_polity_simulation_module, "_warm_up_llm_client", lambda client: None)
     config = load_config()
     config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=True, provider="vllm"))
     with _llm_client_scope(config, None) as client:
         assert isinstance(client, VllmJsonClient)
+
+
+def test_llm_client_scope_calls_warm_up_exactly_once_for_an_owned_client(monkeypatch):
+    calls = []
+    monkeypatch.setattr(run_polity_simulation_module, "_warm_up_llm_client", lambda client: calls.append(client))
+    config = load_config()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=True, provider="ollama"))
+    with _llm_client_scope(config, None) as client:
+        assert calls == [client]
+
+
+def test_llm_client_scope_never_warms_up_an_injected_client(monkeypatch):
+    calls = []
+    monkeypatch.setattr(run_polity_simulation_module, "_warm_up_llm_client", lambda client: calls.append(client))
+    config = load_config()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=True, provider="ollama"))
+    sentinel = object()
+    with _llm_client_scope(config, sentinel):  # type: ignore[arg-type]
+        pass
+    assert calls == []
 
 
 def test_llm_client_scope_rejects_the_api_provider_at_run_start():
@@ -100,6 +134,45 @@ def test_llm_client_scope_rejects_the_api_provider_at_run_start():
     with pytest.raises(NotImplementedError, match="provider"):
         with _llm_client_scope(config, None):
             pass
+
+
+# ── _warm_up_llm_client (GPU cold-start reliability fix) ──────────────────
+# scripts/llm_batching_determinism_results_gpu.md, "cold start vs warm"
+# section: a freshly loaded Ollama model's first inference pass is
+# measurably non-deterministic; every subsequent call with the same input
+# is not. This exercises one call through each endpoint shape before any
+# real decision runs.
+
+class _RecordingClient:
+    def __init__(self, *, fail_think: bool = False) -> None:
+        self.calls: list[bool] = []
+        self._fail_think = fail_think
+
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        self.calls.append(think)
+        if think is self._fail_think:
+            raise RuntimeError("simulated warm-up failure")
+        return '{"ok": true}'
+
+
+def test_warm_up_llm_client_calls_both_endpoint_shapes_once_each():
+    client = _RecordingClient()
+    _warm_up_llm_client(client)
+    assert client.calls == [True, False]
+
+
+def test_warm_up_llm_client_swallows_a_failure_on_one_endpoint_and_still_tries_the_other():
+    client = _RecordingClient(fail_think=True)
+    _warm_up_llm_client(client)  # must not raise
+    assert client.calls == [True, False]
+
+
+def test_warm_up_llm_client_never_raises_even_when_both_endpoints_fail():
+    class _AlwaysFailingClient:
+        def complete_json(self, **kwargs):
+            raise RuntimeError("simulated warm-up failure")
+
+    _warm_up_llm_client(_AlwaysFailingClient())  # must not raise
 
 
 # ── compaction wiring (v4 storage lot, §16.6) ─────────────────────────────

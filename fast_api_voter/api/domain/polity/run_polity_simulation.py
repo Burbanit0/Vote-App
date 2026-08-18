@@ -36,6 +36,7 @@ if/else split.
 """
 from __future__ import annotations
 
+import logging
 from collections.abc import Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -125,6 +126,74 @@ from api.domain.polity.simple_rules import (
     vacate_office,
 )
 from api.domain.polity.social_graph import SocialGraph, generate_social_graph
+
+_logger = logging.getLogger(__name__)
+
+_WARM_UP_SCHEMA = {
+    "type": "object",
+    "properties": {"ok": {"type": "boolean"}},
+    "required": ["ok"],
+    "additionalProperties": False,
+}
+"""Deliberately NOT one of llm_schemas.py's real decision schemas: the
+warm-up call below exists purely to exercise a GPU inference pass through
+each endpoint shape before any real decision runs, never to decode a
+meaningful answer. A trivial, domain-independent schema keeps that
+separation obvious -- reusing e.g. PRESSURE_JSON_SCHEMA would require
+fabricating a fake citizen/target/act just to satisfy validation, and would
+blur an infra warm-up with an actual polity decision."""
+
+
+def _warm_up_llm_client(client: LlmClientProtocol) -> None:
+    """Reliability fix, GPU inference: a freshly loaded Ollama model's
+    FIRST inference pass is measurably non-deterministic -- confirmed
+    empirically (scripts/llm_batching_determinism_results_gpu.md, "cold
+    start vs warm" section): the same prompt, same seed, temperature=0,
+    issued right after a cold model load, produces a different raw
+    completion than every subsequent call with that same prompt, which are
+    then perfectly reproducible among themselves. Since every real
+    acceptance run's very first LLM call is a real, journaled decision
+    (typically candidacy_considered), that one-time coin flip would
+    otherwise land on something that matters and cascades downstream (a
+    different nominee count observed directly in this project's own
+    investigation).
+
+    Issues one throwaway call through EACH endpoint shape --
+    think=True (/v1/chat/completions) and think=False (native /api/chat,
+    see llm_client.py's own module docstring for why these are two
+    genuinely different request paths) -- so whichever one the pipeline's
+    real first call happens to use, it is already warm. Confirmed
+    empirically that a fixed warm-up call, applied after a forced-cold
+    state, makes the subsequent real call deterministic and repeatable
+    across independent cold-start cycles (same results doc) -- "warm" is
+    path-dependent, not one universal state, but a CONSISTENT procedure is
+    what §4 reproducibility actually needs, not literal agreement with an
+    arbitrary prior warm history.
+
+    Does not, on its own, protect a call in the middle of a multi-hour run
+    from a cold-start reintroduced by Ollama's idle keep_alive timeout --
+    confirmed empirically that keep_alive is silently ignored when sent on
+    the OpenAI-compat endpoint (same failure mode as num_ctx, see
+    ollama_context_window_results.md), so that half of the fix is the
+    container-level OLLAMA_KEEP_ALIVE env var documented in
+    polity_config.yaml's llm.base_url comment, not application code.
+
+    Best-effort and deliberately never fatal: a warm-up call failing (for
+    any reason) is logged and swallowed, not allowed to abort a run over
+    what is not itself part of the simulation -- and never journaled, for
+    the same reason LLM replay attempts aren't (v4 Lot 8): this is about
+    the inference host, not the polity."""
+    for think in (True, False):
+        try:
+            client.complete_json(
+                system_prompt="Reply with the required JSON object.",
+                user_prompt="{}",
+                json_schema=_WARM_UP_SCHEMA,
+                max_tokens=32,
+                think=think,
+            )
+        except Exception as exc:  # noqa: BLE001
+            _logger.warning("LLM warm-up call (think=%s) failed, continuing anyway: %s", think, exc)
 
 
 @dataclass(frozen=True)
@@ -312,7 +381,14 @@ def _llm_client_scope(config: PolityConfig, llm_client: LlmClientProtocol | None
     `enabled: false` still loads and runs), and only then does dispatch
     happen — so an unsupported/unimplemented provider (currently only
     "api") now fails HERE, at run start, rather than at the first decision
-    inside llm_behavior_engine._check_supported. Earlier and cheaper."""
+    inside llm_behavior_engine._check_supported. Earlier and cheaper.
+
+    GPU reliability fix: _warm_up_llm_client runs exactly once, only on a
+    real, owned client -- never on an injected one (tests always inject a
+    fake client, which must never make a real HTTP call) -- and always
+    before the caller's first real decision, so a cold-model non-
+    determinism (see that function's own docstring) never lands on
+    something journaled."""
     if llm_client is not None:
         yield llm_client
         return
@@ -320,6 +396,7 @@ def _llm_client_scope(config: PolityConfig, llm_client: LlmClientProtocol | None
         yield None
         return
     with build_json_client(config.llm, seed=config.run.seed) as owned_client:
+        _warm_up_llm_client(owned_client)
         yield owned_client
 
 
