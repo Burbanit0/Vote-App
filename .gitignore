@@ -241,7 +241,16 @@ graphify-out/
 
 # ── Process / planning / design docs (kept local, not in the repo) ──────────
 # App stays: README*, THEORY.md, GUIDE_UTILISATEUR.md, CONTRIBUTING.md, research/, .github/
-/docs/
+# NOTE: excludes docs/ CONTENTS (/docs/*), not the directory itself — git cannot
+# re-include anything under a directory that is itself excluded, so `/docs/` would
+# make the `!` negation below silently inert.
+/docs/*
+# Architecture Decision Records are versioned on purpose: an ADR that only exists
+# on one machine cannot do its job (record a structural decision for everyone, in
+# history). Same failure mode as the untracked-source bug ci-local/run-ci.sh's own
+# preflight guard exists to catch — that guard only scopes to source extensions
+# under voter-app/src and fast_api_voter/api, so it would not have caught this.
+!/docs/adr/
 /CLAUDE.md
 /AGENTS.md
 /STRATEGIC_REFACTOR_PLAN.md
