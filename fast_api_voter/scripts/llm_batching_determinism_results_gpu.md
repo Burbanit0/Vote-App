@@ -238,3 +238,85 @@ generation.
   signature. Those allowance increases are not wrong (a real generation
   running long is still worth budgeting for), but the warm-up fix should
   be evaluated on its own before recalibrating any allowance further.
+
+## A third mechanism, found live: cross-request prompt-cache reuse (2026-08-18)
+
+With both fixes above in place, a fresh dump attempt of the v6b acceptance
+config still failed — `decide_campaign_positioning` hit
+`finish_reason='length'` 3/3 times in a row on the same prompt shape
+already fixed once (task tokens=3989, decoding to 9775/9836, right at the
+already-raised ceiling), exhausting `max_batch_replays`. The model was
+confirmed warm throughout (`ollama ps`), so this is not the cold-start case
+above. Docker logs showed the failing attempts preceded by
+`srv load: - looking for better prompt, base f_keep = 0.290, sim = 1.000` —
+a low-confidence partial match against Ollama's cross-request prompt cache
+(a pool of recently-run, *unrelated* prompts, logged elsewhere as
+`cache state: 11 prompts`). Every subsequent clean/fast rep of the exact
+same prompt showed a high `f_keep` (0.7-1.0). Replaying the same known
+prompt immediately after: rep 1 reproduced the failure, reps 2-8 all
+converged to one stable, fast, clean output — `vote_chunk0` was 8/8 stable
+throughout. This raised the hypothesis that a low-quality cache match
+corrupts the generation into a long, non-terminating trajectory.
+
+**Two follow-ups, before spending more GPU cycles chasing this:**
+
+1. **Source-checked, not speculated**: does Ollama expose any per-request
+   way to control prompt-cache reuse? No. `api/types.go`'s `Options`
+   struct has no `cache_prompt`/`no_cache`/`cache_reuse`-shaped field
+   anywhere. More decisively, `llm/llama_server.go` — Ollama's own internal
+   call to the underlying llama.cpp server — sets `CachePrompt: true`
+   (completion) and `"cache_prompt": true` (chat) **hardcoded**, with no
+   configuration path from the public API. There is no flag to test or
+   use; the mechanism is unconditionally on for every request, by design,
+   with no override available short of bypassing Ollama's own wrapper
+   entirely.
+2. **Causality test, not just correlation, at near-zero GPU cost**: since
+   `cache_prompt` can't be disabled, tested instead whether a deliberately
+   *low* `f_keep` alone is sufficient to corrupt a generation, using cheap
+   `think=False`, `max_tokens=50` calls (3 independent trials, each priming
+   the cache with a distinct real long prompt, then immediately sending a
+   never-before-seen short call: one sharing the prime's exact system-
+   prompt text as a genuine prefix — mirroring production's real shape,
+   where successive calls share large common system-prompt boilerplate —
+   and one an unrelated control). **Result: all 6 trials (3 shared-prefix,
+   3 control) finished cleanly at `done_reason='stop'` in 1.3-1.7s, with no
+   distinguishable difference between the shared-prefix and control arms.**
+   A low `f_keep` alone does **not** reproduce the failure on a cheap,
+   short, `think=False` call. The trigger requires an interaction with long
+   `think=True` reasoning generation — `f_keep` is a correlated symptom
+   (both track "how novel is this exact token sequence"), not, on its own,
+   the causal mechanism. The precise condition under which a long-reasoning
+   generation fails to terminate naturally remains unisolated after this
+   round; further narrowing would need controlled think=True trials, which
+   are the expensive kind this test was designed to avoid pending a
+   decision on whether that investment is worth it.
+
+**Pragmatic mitigation, applied now, documented explicitly as mitigation,
+not a fix**: the next relaunch uses `--max-batch-replays 5` (6 total
+attempts per batch) rather than the `2` used in the run that failed.
+Reasoning: the worst streak actually observed in production was 3
+consecutive failures on one chunk; the settling behavior observed above
+(a bad attempt is very often followed immediately by a stable, clean one)
+suggests recovery typically happens within 1-2 extra tries once triggered
+at all. `5` extra replays is roughly double the worst observed streak —
+deliberately generous margin, not a guess at the minimum, and still
+strictly bounded per `LlmResponseError`'s own design philosophy (a
+malformed/misaligned response is never silently retried forever; every
+replay is logged to `replays.log`, never journaled). This absorbs the
+known risk while the root mechanism stays open — it does not claim the
+problem is resolved.
+
+**Open, unresolved question this round surfaces rather than answers**:
+this is the third distinct Ollama/GPU-level reliability issue found in one
+investigation (context-shift from a silently-dropped `num_ctx`, cold-start
+non-determinism, and now this cache-interaction effect) — each traced to a
+different mechanism, two of them (context-shift, cache reuse) specific to
+behavior inside Ollama's own wrapper layer around llama.cpp, not the model
+or GPU themselves. Whether Ollama, as currently configured, remains the
+right serving layer for this specific workload (`think=True`, long
+reasoning, prompts that are never exactly repeated within a run) — versus
+a native `llama-server` (which exposes `cache_prompt` as a genuine,
+documented per-request option) or the vLLM switch already scoped in this
+project's own roadmap (§15bis.6) — is a real question this investigation
+raises but does not settle, and is a call for the project owner to make,
+not an engineering conclusion to smuggle into a bug-fix commit.
