@@ -320,3 +320,112 @@ documented per-request option) or the vLLM switch already scoped in this
 project's own roadmap (§15bis.6) — is a real question this investigation
 raises but does not settle, and is a call for the project owner to make,
 not an engineering conclusion to smuggle into a bug-fix commit.
+
+## Correction (2026-08-18, later same day): the "settling" claim above is demonstrated false
+
+**The section above's own reasoning for `--max-batch-replays 5`
+("a bad attempt is very often followed immediately by a stable, clean
+one" / "recovery typically happens within 1-2 extra tries once triggered
+at all") is empirically wrong, not just unconfirmed.** Left in place above,
+struck through nowhere, exactly as written — this note corrects it rather
+than silently rewriting the history of what was believed at the time.
+
+**What actually happened**: the `--max-batch-replays 5` relaunch (real
+acceptance run, `sortition-llm-8y`, 2026-08-18 ~20:25) failed 6/6 on
+`campaign_positioning` — every one of the 5 replays hit the identical
+`finish_reason='length'` error, never once recovering. Root-caused
+directly, not inferred: `_complete_and_decode_with_replay` retries the
+**byte-identical** request. A controlled, isolated replay of the exact
+failing prompt (reconstructed from the failed run's own journal —
+`test_4_vs_5_nominees.py`, then `test_prompt_variation_mitigation.py`,
+both under this repo's scratchpad discipline) shows the real pattern:
+
+```
+call 1: prompt A (fresh)               -> OK
+call 2: prompt A (identical repeat)    -> FAIL, finish_reason='length'
+call 3: prompt A (identical repeat)    -> FAIL, finish_reason='length'
+call 4: prompt B (fresh, different)    -> OK
+call 5: prompt B (identical repeat)    -> FAIL, finish_reason='length'
+call 6: prompt B (identical repeat)    -> FAIL, finish_reason='length'
+```
+
+Two independently-content-different prompts (4-nominee and 5-nominee
+positioning batches) show the **identical** OK/FAIL/FAIL shape. The
+variable is not prompt content, not nominee count, not the warm-up (a
+dedicated causality test — restart the container, vary only whether a
+truncated `think=True` warm-up call precedes the positioning call —
+found the positioning call succeeds 3/3 regardless of warm-up state,
+exonerating it). The variable is **repetition of byte-identical input
+within one session**: a fresh prompt succeeds; the same prompt resubmitted
+right after does not recover, it degenerates further and stays degenerate.
+
+**Direct consequence for the shipped mitigation**: a bounded replay of the
+*exact same request* is not a bet on independent-trial recovery — for
+this specific failure class, it is a near-certain repeat of the same
+degenerate cache-match condition. `--max-batch-replays N` does not
+meaningfully improve the odds for this bug once triggered, regardless of
+`N`. This does not retract the replay mechanism itself (it remains sound,
+bounded, and logged — and it does help for genuinely stochastic
+misalignment failures, a different, real failure class this project has
+also observed) — it retracts the *specific justification* given above for
+why it should work against this one.
+
+**Tested as a live mitigation, same investigation — result: inconclusive,
+and the reason why is itself informative.** `test_prompt_variation_mitigation.py`
+restarted the Ollama container fresh, then ran 5 calls: prompt A (fresh),
+prompt A (identical repeat, meant as the control reproducing the bug),
+prompt A + a trivial inert marker, the same marker repeated, then a fresh
+second marker. **All 5 succeeded, including the identical-repeat control**
+— so the test never reproduced the failure it was meant to test a fix
+against, and nothing can be concluded about whether the marker helped.
+
+This failure to reproduce, on a freshly restarted container with only 5
+calls total, contrasts with the run above that DID reproduce OK/FAIL/FAIL
+twice in a row — which ran immediately after ~9 other calls on the same
+still-warm container (the warm-up causality test's own 3 arms). This
+suggests, as an untested hypothesis and nothing more, that the trigger
+may depend on **how many distinct prompts are already sitting in
+llama.cpp's own prompt-cache pool** (more entries -> higher chance of a
+partial-match collision against one of them) rather than purely on
+"is this call byte-identical to the immediately preceding one." A clean
+test of the trivial-variation mitigation needs a reliable way to first
+put the server into the degenerate state, then test whether variation
+recovers it — which this attempt did not achieve. Not yet re-attempted;
+per the project owner's own standing instruction, no further acceptance
+relaunch happens until either this mitigation is actually confirmed
+working (which it isn't yet) or the llama-server spike is conclusive.
+
+**Spike outcome and the decision it fed (2026-08-19)**: the timeboxed
+`llama-server` spike ran (3h budget, concluded in 14 min) and came back
+**inconclusive on its own central question** — it never reproduced this
+bug at all, under two separate loaded-cache protocols (4 prompts light,
+then 10 prompts heavy with substantial per-prompt generation), using the
+exact same GGUF weights copied out of Ollama's own blob store and the
+exact real failing prompt rebuilt from the failed run's own journal.
+6/6 identical submissions succeeded cleanly on `llama-server` where the
+same prompt reproducibly fails on Ollama. Because the bug never
+manifested, `cache_prompt: false` — the whole reason to look at
+`llama-server` — was never actually tested as a fix. What the spike does
+weakly suggest, without proving: the failure may be specific to Ollama's
+own orchestration layer around llama.cpp (its own prompt-cache pool
+management, batching internals) rather than a property of llama.cpp or
+Qwen3 generically — consistent with the fact that two of the three bugs
+found in this whole investigation were already traced to that same
+wrapper layer. **Decision: stay on Ollama with the shipped mitigations,
+do not switch serving layer** — recorded, with the full reasoning and the
+alternatives rejected, in `docs/adr/ADR-001-serving-layer-ollama-vs-llama-server.md`.
+The spike's own protocol, logs and script live on branch
+`spike/llama-server-cache-prompt` (`fast_api_voter/scripts/llama_server_spike/`),
+deliberately not merged into the main line.
+
+**This document remains the full source of truth for the problem itself;
+the ADR above records only the architecture decision that followed from
+it.** The operational gap this section leaves open, stated plainly so the
+next person does not rediscover it the expensive way: **there is
+currently no mitigation that protects against this specific failure
+mode.** A bounded `--max-batch-replays` resubmits byte-identical bytes,
+which is precisely the condition under which the degenerate pattern was
+observed; the trivial-variation idea is untested; and the serving-layer
+switch that would have provided a real per-request lever is not being
+taken. Any further acceptance relaunch has to say what it is doing about
+that, rather than assume a larger replay count covers it.
