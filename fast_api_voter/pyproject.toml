@@ -6,7 +6,7 @@ build-backend = "setuptools.backends._legacy:_Backend"
 minversion = "7.0"
 testpaths = ["api/tests"]
 asyncio_mode = "strict"
-addopts = "--cov=api --cov-report=term --cov-report=html --cov-fail-under=30 -v"
+addopts = "--cov=api --cov-report=term --cov-report=html --cov-fail-under=85 -v"
 
 [tool.coverage.run]
 source = ["api"]
@@ -16,4 +16,4 @@ omit = ["api/tests/*"]
 show_missing = true
 skip_covered = true
 precision = 0
-fail_under = 30
+fail_under = 85

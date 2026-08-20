@@ -37,5 +37,5 @@ echo '=== Bandit (gating) ===';         bandit -r fast_api_voter/api -ll --skip 
 echo '=== pip-audit (non-blocking) ==='; pip-audit --requirement fast_api_voter/requirements.txt || echo '(pip-audit failed — non-blocking)'; \
 cd fast_api_voter; \
 echo '=== Mypy (gating) ===';           python -m mypy api/ --config-file mypy.ini; \
-echo '=== Pytest + coverage (gating) ==='; python -m pytest api/tests -v --cov=api --cov-report=term-missing --cov-report=xml --cov-fail-under=30; \
+echo '=== Pytest + coverage (gating) ==='; python -m pytest api/tests -v --cov=api --cov-report=term-missing --cov-report=xml --cov-fail-under=85; \
 echo '=== Backend CI: PASS ==='"]
