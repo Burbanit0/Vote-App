@@ -216,6 +216,11 @@ voter-app/coverage/
 
 # ── Build artifacts (regeneratable) ─────────────────────────────────────────
 voter-app/build/
+
+# ── llm_test_harness runtime database (local experiment state, not source;
+#    generated markdown reports get committed instead, same registry as
+#    acceptance_*_runs/ vs acceptance_*_results.md) ─────────────────────────
+fast_api_voter/scripts/llm_test_harness/data/
 voter-app/dist/
 
 # ── OS junk ──────────────────────────────────────────────────────────────────
