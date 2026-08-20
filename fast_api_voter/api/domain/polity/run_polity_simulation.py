@@ -36,6 +36,7 @@ if/else split.
 """
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import Mapping
 from contextlib import contextmanager
@@ -47,6 +48,7 @@ import numpy as np
 
 from api.domain.polity.accountability import (
     applicable_pressure_act,
+    chamber_deviation,
     current_office_holders,
     current_sortition_members,
     is_term_limited,
@@ -240,6 +242,37 @@ def _is_forced_attempt(pending_rerun: PendingRerun | None, config: PolityConfig)
     return pending_rerun is not None and pending_rerun.attempt > config.institutions.reelection_max_attempts
 
 
+def _write_run_metadata(run_dir: Path, config: PolityConfig, run_id: str) -> None:
+    """Records what's cheaply knowable about this run's LLM target -- NOT
+    a journal event (would prepend a byte to every run and break every
+    byte-for-byte reproducibility test); a sibling file instead, so
+    events.jsonl's own contract is untouched.
+
+    Does NOT record CPU vs GPU or driver/CUDA version: the Ollama client
+    has no HTTP-visible way to know that today (Ollama's own `ollama ps`
+    CLI gets it by querying the server directly; the closest HTTP
+    equivalent, /api/ps's `size_vram` field, isn't wired up anywhere in
+    this codebase yet). Recording provider/base_url/model is the minimal
+    version that at least prevents comparing two Monte Carlo runs against
+    different LLM backends without knowing it -- full backend
+    fingerprinting is a real, larger follow-up, not done here."""
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "run_metadata.json").write_text(
+        json.dumps(
+            {
+                "run_id": run_id,
+                "llm_enabled": config.llm.enabled,
+                "llm_provider": config.llm.provider if config.llm.enabled else None,
+                "llm_base_url": config.llm.base_url if config.llm.enabled else None,
+                "llm_model": config.llm.model if config.llm.enabled else None,
+            },
+            sort_keys=True,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+
 def run_simulation(
     config: PolityConfig, run_id: str | None = None, llm_client: LlmClientProtocol | None = None
 ) -> Path:
@@ -274,6 +307,7 @@ def run_simulation(
         )
 
     run_id = run_id or config.run.run_label
+    _write_run_metadata(Path(config.journal.output_dir) / run_id, config, run_id)
     citizens = generate_population(config.citizens, config.run.population_size, config.run.seed)
     parties = initialize_parties(citizens, config.parties.initial_count, config.run.seed)
     for citizen in citizens:
@@ -1226,7 +1260,17 @@ def _run_chamber_deliberation(
     (_run_sortition_rotation) and nothing else in the codebase ever
     touches it without this call, so "no delta" is already true by
     construction -- the absence of this call IS the fallback, exactly
-    _run_representative_responses's own precedent for dt=6."""
+    _run_representative_responses's own precedent for dt=6.
+
+    v6b Lot 4: the journal payload's own "chamber_deviation" key is the
+    POST-decision value (accountability.chamber_deviation, computed AFTER
+    chamber_position is updated below) -- the direct structural analogue
+    of mandate_deviation_recorded, added for Lot 4's own elected-vs-
+    sortition acceptance comparison. Never shown to the model itself:
+    ChamberContext stays exactly as minimal as Lot 3 shipped it (one
+    field, ticks_left) -- this is a post-hoc analysis value only, unlike
+    dt=6's own ctx.mandate_dev, which is genuinely pre-decision
+    information the model sees."""
     if not config.llm.enabled:
         return
     members = current_sortition_members(citizens)
@@ -1248,6 +1292,7 @@ def _run_chamber_deliberation(
             payload={
                 "shifts": [{"dimension": s.dimension, "delta": s.delta} for s in decision.shifts],
                 "ctx": contexts[member.citizen_id].to_payload(),
+                "chamber_deviation": chamber_deviation(member),
             },
             citizen_id=member.citizen_id,
             motif=str(decision.motif),

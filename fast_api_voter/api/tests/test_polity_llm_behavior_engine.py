@@ -372,15 +372,20 @@ def test_cast_votes_matches_build_ranking_when_nobody_votes_blank():
 
 
 def test_cast_votes_preserves_voter_order_across_chunk_boundaries():
-    voters = _population(50, dims=1)
+    # cast_votes chunks at its own dedicated _VOTE_CAST_MAX_CHUNK_SIZE (3),
+    # never config.llm.max_batch_size (a real v6b acceptance run found
+    # multi-voter batches collapse the model's per-voter distance reasoning
+    # -- see cast_votes's own docstring). 7 voters at chunk size 3:
+    # ceil(7/3)=3 chunks, divmod(7,3)=(2,1) -> sizes [3,2,2].
+    voters = _population(7, dims=1)
     candidates = [_candidate(100, (0.5,))]
     config = _config_with_llm_enabled(max_batch_size=25)
     client = FakeLlmClient({v.citizen_id: v for v in voters}, candidates)
 
     outcome = cast_votes(voters, candidates, config, client)
 
-    assert client.calls == [list(range(25)), list(range(25, 50))]
-    assert len(outcome.ballots) == 50
+    assert client.calls == [[0, 1, 2], [3, 4], [5, 6]]
+    assert len(outcome.ballots) == 7
     for ballot in outcome.ballots:
         assert BLANK_LABEL in ballot
 
@@ -391,10 +396,16 @@ def test_cast_votes_ballot_from_decision_blank_is_always_just_blank():
     config = _config_with_llm_enabled()
     # blank_threshold=1.0 on every voter means nobody actually goes blank
     # in this fixture; force it via a client that always answers blank.
+    # cast_votes now chunks at its own _VOTE_CAST_MAX_CHUNK_SIZE (3), so
+    # the fake must answer only the cids in each chunk's own user_prompt,
+    # not the whole population every time.
     client = FakeLlmClient({v.citizen_id: v for v in voters}, candidates)
-    client.complete_json = lambda **kwargs: json.dumps(  # type: ignore[method-assign]
-        {"decisions": [{"cid": v.citizen_id, "blank": 1, "ranking": [], "motif": 101} for v in voters]}
-    )
+
+    def _always_blank(*, user_prompt, **kwargs):  # type: ignore[no-untyped-def]
+        cids = [v["cid"] for v in json.loads(user_prompt)["voters"]]
+        return json.dumps({"decisions": [{"cid": cid, "blank": 1, "ranking": [], "motif": 101} for cid in cids]})
+
+    client.complete_json = _always_blank  # type: ignore[method-assign]
 
     outcome = cast_votes(voters, candidates, config, client)
     assert all(ballot == [BLANK_LABEL] for ballot in outcome.ballots)
@@ -1388,11 +1399,15 @@ class FakeChamberLlmClient:
 
     def __init__(self):
         self.calls: list[list[int]] = []
+        self.think_values: list[bool] = []
+        self.max_tokens_values: list[int] = []
 
     def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
         payload = json.loads(user_prompt)
         cids = [m["cid"] for m in payload["members"]]
         self.calls.append(cids)
+        self.think_values.append(think)
+        self.max_tokens_values.append(max_tokens)
         decisions = [{"cid": cid, "shifts": [], "motif": 701} for cid in cids]
         return json.dumps({"decisions": decisions})
 
@@ -1436,6 +1451,25 @@ def test_decide_chamber_deliberation_chunks_a_full_seats_sized_cohort_at_ten():
     assert len(client.calls) == 3
     assert [len(c) for c in client.calls] == [10, 10, 10]
     assert sorted(cid for call in client.calls for cid in call) == list(range(30))
+
+
+def test_decide_chamber_deliberation_uses_think_true_and_the_reasoning_token_allowance():
+    # v6b Lot 4 correction: a real acceptance run (2026-08-17, GPU) found a
+    # specific 10-cid chunk that think=False reproducibly (8/8) dropped to
+    # 4/10, well-formed JSON, not a truncation; think=True fixed that exact
+    # chunk 6/6 direct against the real content. Mirrors decide_campaign_
+    # positioning's own already-shipped think=False->True fix for an
+    # analogous duplicate/drop failure. 4000 here mirrors the module's own
+    # _CHAMBER_THINK_TOKEN_ALLOWANCE constant (llm_behavior_engine.py).
+    members = [_member(i, (0.5,)) for i in range(10)]
+    contexts = {m.citizen_id: _chamber_context(m.citizen_id) for m in members}
+    config = _config_with_llm_enabled()
+    client = FakeChamberLlmClient()
+
+    decide_chamber_deliberation(members, contexts, config, client)
+
+    assert client.think_values == [True]
+    assert client.max_tokens_values == [compute_max_tokens(10) + 4000]
 
 
 def test_decide_chamber_deliberation_applies_shifts_on_top_of_chamber_position():
@@ -2550,6 +2584,30 @@ class _FlakyClient:
         return self.good_raw
 
 
+class _FlakyResponseClient:
+    """Raises LlmResponseError directly from complete_json itself (never
+    returns malformed content for decode() to reject) on its first
+    `fail_times` calls, then `good_raw` after -- the branch _FlakyClient
+    above never exercises. This is the real shape of a truncated
+    generation (done_reason != "stop", raised by llm_client.py's own
+    _extract_content/_extract_native_content): the caller never sees a raw
+    string to decode at all. Pins the fix for the bug this exact gap left
+    uncovered until a live v6b Lot 4 acceptance run hit it."""
+
+    def __init__(self, fail_times, good_raw):
+        self.fail_times = fail_times
+        self.good_raw = good_raw
+        self.calls = 0
+        self.prompts: list[tuple[str, str]] = []
+
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        self.calls += 1
+        self.prompts.append((system_prompt, user_prompt))
+        if self.calls <= self.fail_times:
+            raise LlmResponseError("generation did not finish cleanly: done_reason='length'")
+        return self.good_raw
+
+
 class _AlwaysTransportFailingClient:
     def __init__(self):
         self.calls = 0
@@ -2562,12 +2620,15 @@ class _AlwaysTransportFailingClient:
 def _replay_cases():
     """One (label, call) per decide_* entry point -- call(config, client) ->
     the decide_* invocation itself, and the single-decision good_raw JSON
-    each one needs to succeed. vote_cast/candidacy_considered need >= 20
-    citizens (chunk_voters's own MIN_SAFE_BATCH_SIZE floor, not overridden
-    by either of those two callers); every other entry point batches a
-    handful of officeholders/nominees/parties/consulted citizens and needs
-    no such floor."""
-    voters = _population(20, dims=1)
+    each one needs to succeed. candidacy_considered needs >= 20 citizens
+    (chunk_voters's own MIN_SAFE_BATCH_SIZE floor, not overridden by that
+    caller); every other entry point batches a handful of
+    officeholders/nominees/parties/consulted citizens and needs no such
+    floor. vote_cast now chunks at its own dedicated
+    _VOTE_CAST_MAX_CHUNK_SIZE=3 (min_batch_size=1) -- exactly 3 voters here
+    so this fixture produces exactly one chunk/one client call, matching
+    every other single-call good_raw fixture below."""
+    voters = _population(3, dims=1)
     vote_candidates = [_candidate(900, (0.5,))]
     vote_good = json.dumps({"decisions": [{"cid": v.citizen_id, "blank": 1, "ranking": [], "motif": 101} for v in voters]})
 
@@ -2685,6 +2746,32 @@ def test_max_batch_replays_still_raises_once_the_budget_is_exhausted(label, call
     with pytest.raises(LlmResponseError):
         call(config, client)
     assert client.calls == 3  # 1 original + 2 replays, then give up
+
+
+@pytest.mark.parametrize("label,call,good_raw", _replay_cases(), ids=[c[0] for c in _replay_cases()])
+def test_max_batch_replays_recovers_from_a_complete_json_raised_error(label, call, good_raw):
+    # Pins the actual bug: an LlmResponseError raised by complete_json
+    # itself (truncated generation) must be retried exactly like a
+    # decode-time one -- the branch _FlakyClient never covers.
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, max_batch_replays=2))
+    client = _FlakyResponseClient(fail_times=2, good_raw=good_raw)
+    call(config, client)  # must not raise
+    assert client.calls == 3
+    assert client.prompts[0] == client.prompts[1] == client.prompts[2]  # byte-identical retries
+
+
+@pytest.mark.parametrize("label,call,good_raw", _replay_cases(), ids=[c[0] for c in _replay_cases()])
+def test_max_batch_replays_zero_propagates_a_complete_json_raised_error_on_the_first_attempt(label, call, good_raw):
+    # Before the fix, this error skipped the retry loop entirely and
+    # propagated silently (no WARNING logged) regardless of `replays` --
+    # this pins the shipped default's own behavior post-fix.
+    config = _config_with_llm_enabled()
+    assert config.llm.max_batch_replays == 0
+    client = _FlakyResponseClient(fail_times=1, good_raw=good_raw)
+    with pytest.raises(LlmResponseError):
+        call(config, client)
+    assert client.calls == 1
 
 
 def test_max_batch_replays_never_catches_a_transport_error():

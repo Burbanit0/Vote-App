@@ -217,6 +217,46 @@ MIN_SAFE_BATCH_SIZE = 20
 # Confirmed reliable at exactly 10 (3/3 chunks on the real 30-member cohort).
 _CHAMBER_MAX_CHUNK_SIZE = 10
 
+# A real v6b acceptance run (2026-08-17, GPU) found cast_votes's own
+# per-voter distance-threshold arithmetic -- correct at batch size 1 (5/5
+# hand-verified against the real precomputed distances) -- collapses the
+# instant multiple voters share one call: batches of 3 stayed 9/9 correct
+# across three independent voter groups, batches of 4 dropped to 5/8, and
+# the shipped chunk size (25, via config.llm.max_batch_size) reproduced the
+# exact production failure -- 24/25 voters returned the literal identity
+# ranking [1,2,3,4,5] (position order, not distance order), regardless of
+# chunk size 25/20/15/13/12 or extra max_tokens. Not a truncation artifact:
+# a batch of 5 given a full 12000-token budget still finished cleanly at
+# only 2/5 correct. This supersedes MIN_SAFE_BATCH_SIZE's own historical
+# note that vote_cast's prompt shape needs >=20 -- that CPU-era finding
+# ("zero visible output regardless of token budget") was measured without
+# the extra reasoning allowance below; with it, batches of 1-3 complete
+# cleanly and correctly. See _VOTE_THINK_TOKEN_ALLOWANCE and cast_votes's
+# own docstring for the full picture.
+_VOTE_CAST_MAX_CHUNK_SIZE = 3
+
+# Mirrors _POSITIONING_THINK_TOKEN_ALLOWANCE's own reasoning: a shared
+# constant would either starve one caller or over-provision another, since
+# each think=True prompt's reasoning-token appetite is measured
+# independently. A batch of 5 at compute_max_tokens(5)+4000=5836 still hit
+# finish_reason='length'; 4000 is what the reliable size<=3 range above was
+# actually measured against.
+_VOTE_THINK_TOKEN_ALLOWANCE = 4000
+
+# think=False's own "3/3 on the real 30-member cohort" finding above did NOT
+# generalize to every 10-member chunk: a real v6b acceptance run (2026-08-17,
+# GPU) hit a specific 10-cid chunk that think=False dropped to 4/10 --
+# reproduced 8/8 identical (same 4 survivors, byte-for-byte) direct against
+# the real prompt, a fully deterministic degenerate mode, not sampling
+# variance. Not a token-budget truncation (the JSON for the 4 returned
+# entries was complete and well-formed, not cut off). Switching that exact
+# chunk to think=True fixed it 6/6 -- the same think=False->True fix
+# decide_campaign_positioning's own docstring already documents for an
+# analogous duplicate/drop failure. See
+# scripts/lot3_chamber_reliability_results.md's "Lot 4 correction" section
+# for the measured evidence.
+_CHAMBER_THINK_TOKEN_ALLOWANCE = 4000
+
 _TRUNCATION_THRESHOLD = 6
 _TRUNCATE_TO = 5
 
@@ -286,17 +326,29 @@ def _complete_and_decode_with_replay(
     inference host). LlmTransportError is NOT caught here: the client
     already owns its own transport-level retries.
 
-    `decode` covers decoding/schema-alignment ONLY (decode_*_batch), never
-    the subsequent config-bound validate_*_decision calls each caller makes
-    afterwards -- those stay outside the retry loop, on purpose. This
-    project's one measured live misalignment (decide_campaign_positioning,
-    a dropped citizen -- lot6_batch_reliability_results.md's caveat) is a
-    decode-time cid-alignment failure, which is what a byte-identical retry
-    can plausibly recover from; a validate_* failure (an out-of-bounds
-    shift, an out-of-menu act) is the model's judgment being wrong in a way
-    an identical retry at temperature=0 is not expected to fix, and several
-    callers build side effects (ballots, resolved platforms) alongside
-    their own validate_* loop that would need unwinding to retry safely.
+    Covers LlmResponseError from BOTH sources: `client.complete_json`
+    itself (e.g. a truncated/incomplete generation -- done_reason != "stop"
+    -- raised by llm_client.py's own _extract_content/_extract_native_content)
+    and `decode` (decoding/schema-alignment, decode_*_batch). Both calls
+    therefore sit inside the same try block -- NOT `complete_json` outside
+    it, `decode` inside, which was this function's own shipped shape from
+    v4 Lot 8 until a real v6b Lot 4 acceptance run caught it: a truncated
+    chamber_deliberation generation raised LlmResponseError from
+    complete_json itself, propagated on the very first attempt with no
+    retry and no WARNING logged, silently defeating the whole replay
+    feature for that entire failure class. The bug had zero test coverage
+    because the test suite's own `_FlakyClient` fixture only ever fails
+    by returning malformed JSON (a decode-time failure) -- it never raises
+    from complete_json, so the untested branch was also the broken one.
+
+    The subsequent config-bound validate_*_decision calls each caller makes
+    stay outside the retry loop, on purpose. A validate_* failure (an
+    out-of-bounds shift, an out-of-menu act) is the model's judgment being
+    wrong in a way an identical retry at temperature=0 is not expected to
+    fix, and several callers build side effects (ballots, resolved
+    platforms) alongside their own validate_* loop that would need
+    unwinding to retry safely -- unlike a truncated/misaligned response,
+    which produces no such side effect to unwind.
 
     This softens, and deliberately does not overturn,
     LlmResponseError's own "NOT retried" ruling (llm_client.py): that
@@ -308,14 +360,14 @@ def _complete_and_decode_with_replay(
     0 leaves untouched."""
     attempt = 0
     while True:
-        raw = client.complete_json(
-            system_prompt=system_prompt,
-            user_prompt=user_prompt,
-            json_schema=json_schema,
-            max_tokens=max_tokens,
-            think=think,
-        )
         try:
+            raw = client.complete_json(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                json_schema=json_schema,
+                max_tokens=max_tokens,
+                think=think,
+            )
             return decode(raw)
         except LlmResponseError as exc:
             if attempt >= replays:
@@ -389,12 +441,22 @@ def compute_max_tokens(chunk_size: int) -> int:
     return max(chunk_size * 60 + 1536, 1536)
 
 
-_POSITIONING_THINK_TOKEN_ALLOWANCE = 4000
+_POSITIONING_THINK_TOKEN_ALLOWANCE = 8000
 """Extra budget decide_campaign_positioning adds on top of compute_max_tokens
 once it moved to think=True (v4 Lot 8 live finding, see that function's
 docstring). Measured, not guessed: a 5-nominee batch under
 compute_max_tokens(5)+2000 (=3836) hit finish_reason='length' on one of three
-live attempts; +4000 (=5836) cleared 3/3 with no truncation. Kept as its own
+live attempts; +4000 (=5836) cleared 3/3 at the time -- but a real v6b
+acceptance run (2026-08-17/18, GPU) hit finish_reason='length' on the exact
+same 5-nominee shape at +4000, 1/3 direct-replay attempts, confirming +4000
+was never a hard floor, just a smaller live sample that happened not to hit
+the tail. Root-caused alongside that same run: Ollama's OpenAI-compat
+endpoint had been silently capped at a 4096-token context window this whole
+project's history (see scripts/ollama_context_window_results.md) -- fixed at
+the container level (OLLAMA_CONTEXT_LENGTH=16384), which is what makes a
+larger allowance here safe rather than merely optimistic. Re-measured
+directly against the real failing prompt: +8000 (=9836) cleared 5/5, each
+completing in ~23s, well under budget -- not a near-miss. Kept as its own
 named constant rather than folded into compute_max_tokens itself, since that
 function's own 1536 addend was calibrated on vote_cast's think=True shape and
 positioning's per-candidate strategic reasoning measured hungrier -- a shared
@@ -619,7 +681,23 @@ def cast_votes(
     blank_threshold) and states the acceptability rule explicitly in the
     system prompt, instead of asking the model to derive "is this
     candidate acceptable" from raw 20-dimensional vectors. See VoteMotif.
-    ACCEPTABLE_MATCH (codebook.py) for the wire-level half of the fix."""
+    ACCEPTABLE_MATCH (codebook.py) for the wire-level half of the fix.
+
+    Correction (2026-08-17, GPU): that fix stopped the 100%-blank collapse
+    but not a second, subtler one -- batching multiple voters into one call
+    makes the model stop actually reading each voter's own `distances`
+    field at all. Verified directly against the real precomputed distances,
+    not just "did it produce valid JSON": a batch of 1 is 100% correct
+    (5/5), a batch of 3 stayed 100% correct across three independent voter
+    groups (9/9), and batches of 4+ degrade sharply (5/8 at 4, 0-2/5 at 5,
+    a near-uniform identity-permutation collapse at the shipped chunk size
+    of 25). Chunks at the dedicated _VOTE_CAST_MAX_CHUNK_SIZE, not
+    config.llm.max_batch_size -- deliberately overriding chunk_voters's own
+    min_batch_size floor down to 1, the same override dt=10/dt=11 already
+    use for their own measured ceilings, and for the same reason: the
+    shipped MIN_SAFE_BATCH_SIZE=20 floor was itself calibrated on this
+    exact prompt shape, but without the extra reasoning budget below --
+    with it, small batches don't truncate, they're just correct."""
     _check_supported(config)
 
     candidate_count = len(candidates)
@@ -628,14 +706,14 @@ def cast_votes(
 
     ballots: list[list[str]] = []
     decisions: list[VoteCastDecision] = []
-    for chunk in chunk_voters(voters, config.llm.max_batch_size):
+    for chunk in chunk_voters(voters, _VOTE_CAST_MAX_CHUNK_SIZE, min_batch_size=1):
         expected_cids = [voter.citizen_id for voter in chunk]
         chunk_decisions = _complete_and_decode_with_replay(
             client,
             system_prompt=build_system_prompt(chunk, candidates),
             user_prompt=build_user_prompt(chunk, candidates),
             json_schema=VOTE_CAST_JSON_SCHEMA,
-            max_tokens=compute_max_tokens(len(chunk)),
+            max_tokens=compute_max_tokens(len(chunk)) + _VOTE_THINK_TOKEN_ALLOWANCE,
             think=True,
             decode=lambda raw: decode_vote_batch(raw, expected_cids),
             replays=config.llm.max_batch_replays,
@@ -1910,9 +1988,16 @@ def decide_chamber_deliberation(
     the measured evidence behind both the batch ceiling and this floor
     override.
 
-    Calls the client with think=False, per this lot's own pre-flight spike
-    against the REAL ChamberDecision/ChamberBatch schema
-    (scripts/check_lot3_chamber_reliability.py)."""
+    Calls the client with think=True (corrected from think=False, which
+    this lot's own pre-flight spike originally chose): a real v6b
+    acceptance run found a specific 10-cid chunk that think=False
+    reproducibly (8/8) dropped to 4/10, well-formed JSON, not a
+    truncation -- switching to think=True fixed that exact chunk 6/6, and
+    costs the same _CHAMBER_THINK_TOKEN_ALLOWANCE budget
+    decide_campaign_positioning already pays for the identical reason. See
+    _CHAMBER_THINK_TOKEN_ALLOWANCE's own comment and
+    scripts/lot3_chamber_reliability_results.md for the measured
+    evidence."""
     _check_supported(config)
 
     if not members:
@@ -1931,8 +2016,8 @@ def decide_chamber_deliberation(
             system_prompt=build_chamber_system_prompt(chunk, config),
             user_prompt=build_chamber_user_prompt(chunk, contexts),
             json_schema=CHAMBER_JSON_SCHEMA,
-            max_tokens=compute_max_tokens(len(chunk)),
-            think=False,
+            max_tokens=compute_max_tokens(len(chunk)) + _CHAMBER_THINK_TOKEN_ALLOWANCE,
+            think=True,
             decode=lambda raw: decode_chamber_batch(raw, expected_cids),
             replays=config.llm.max_batch_replays,
             decision_type="chamber_deliberation",

@@ -13,7 +13,7 @@ import numpy as np
 import pytest
 
 import api.domain.polity.run_polity_simulation as run_polity_simulation_module
-from api.domain.polity.accountability import update_street_pressure
+from api.domain.polity.accountability import chamber_deviation, update_street_pressure
 from api.domain.polity.citizen import Citizen, Office, Role, generate_population
 from api.domain.polity.codebook import EventType, ReactionMotif
 from api.domain.polity.config import PolityConfig, load_config
@@ -250,6 +250,45 @@ def test_different_seed_produces_a_different_journal(tmp_path):
     path_a = run_simulation(config_a, run_id="r")
     path_b = run_simulation(config_b, run_id="r")
     assert path_a.read_bytes() != path_b.read_bytes()
+
+
+# ── run_metadata.json (backend-traceability gap, prompt-verification-gpu-
+# determinisme.md's step 3) -- a sibling of events.jsonl, NOT a journal
+# event, so the journal's own byte-identical contract is untouched.
+
+def test_run_metadata_json_is_written_beside_the_journal(tmp_path):
+    journal_path = run_simulation(_config_with_output_dir(tmp_path), run_id="r")
+    metadata_path = journal_path.parent / "run_metadata.json"
+    assert metadata_path.exists()
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    assert metadata["run_id"] == "r"
+
+
+def test_run_metadata_records_none_for_llm_fields_when_the_llm_is_disabled(tmp_path):
+    journal_path = run_simulation(_config_with_output_dir(tmp_path), run_id="r")
+    metadata = json.loads((journal_path.parent / "run_metadata.json").read_text(encoding="utf-8"))
+    assert metadata["llm_enabled"] is False
+    assert metadata["llm_provider"] is None
+    assert metadata["llm_base_url"] is None
+    assert metadata["llm_model"] is None
+
+
+def test_run_metadata_records_the_llm_provider_base_url_and_model_when_enabled(tmp_path):
+    config = _config_with_llm_enabled(tmp_path)
+    journal_path = run_simulation(config, run_id="r", llm_client=_FakeLlmClient())
+    metadata = json.loads((journal_path.parent / "run_metadata.json").read_text(encoding="utf-8"))
+    assert metadata["llm_enabled"] is True
+    assert metadata["llm_provider"] == config.llm.provider
+    assert metadata["llm_base_url"] == config.llm.base_url
+    assert metadata["llm_model"] == config.llm.model
+
+
+def test_run_metadata_does_not_perturb_the_journals_own_byte_identical_reproducibility(tmp_path):
+    path_a = run_simulation(_config_with_output_dir(tmp_path / "a"), run_id="same-run-id")
+    path_b = run_simulation(_config_with_output_dir(tmp_path / "b"), run_id="same-run-id")
+    assert path_a.read_bytes() == path_b.read_bytes()
+    assert (path_a.parent / "run_metadata.json").exists()
+    assert (path_b.parent / "run_metadata.json").exists()
 
 
 # ── outgoing president's stale office/role reset ─────────────────────────
@@ -2764,10 +2803,80 @@ def test_chamber_deliberation_is_journalled_once_per_seated_member_per_tick(tmp_
     assert [e["citizen_id"] for e in tick0_events] == sorted(e["citizen_id"] for e in tick0_events)
     assert len(tick0_events) == 3  # seats
     for e in tick0_events:
-        assert set(e["payload"].keys()) == {"shifts", "ctx"}
+        assert set(e["payload"].keys()) == {"shifts", "ctx", "chamber_deviation"}
         assert set(e["payload"]["ctx"].keys()) == {"ticks_left"}
         assert e["motif"] in ("701", "702")
         assert e["codebook_version"] == config.llm.codebook_version
+
+
+def test_chamber_deliberation_journals_chamber_deviation_after_the_shift_lands(tmp_path):
+    # v6b Lot 4: chamber_deviation is the POST-decision value -- computed
+    # AFTER member.chamber_position is updated, never a stale pre-shift
+    # reading. Direct _run_chamber_deliberation call (not a full run) with a
+    # fake client returning a fixed, hand-verifiable +0.1 shift on the
+    # single-dimension _sortition_test_citizen fixture: issue_positions
+    # (0.5,) -> chamber_position (0.6,), so
+    # weighted_euclidean((0.5,), (0.6,), (1.0,)) == 0.1 exactly.
+    config = _config_with_output_dir(tmp_path)
+    config = dataclasses.replace(
+        config,
+        sortition_chamber=dataclasses.replace(config.sortition_chamber, enabled=True, seats=3),
+        llm=dataclasses.replace(config.llm, enabled=True),
+    )
+    citizens = [
+        _sortition_test_citizen(i, sortition_seat_until_tick=4, chamber_position=(0.5,)) for i in range(3)
+    ]
+
+    class _ShiftingClient:
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+            payload = json.loads(user_prompt)
+            decisions = [
+                {"cid": m["cid"], "shifts": [{"dimension": 0, "delta": 0.1}], "motif": 702}
+                for m in payload["members"]
+            ]
+            return json.dumps({"decisions": decisions})
+
+    journal_path = tmp_path / "deviation.jsonl"
+    with Journal(journal_path, run_id="deviation") as journal:
+        _run_chamber_deliberation(citizens, config, journal, tick=0, llm_client=_ShiftingClient())
+    events = _events(journal_path)
+    chamber_events = sorted(
+        (e for e in events if e["event_type"] == "chamber_deliberation"), key=lambda e: e["citizen_id"]
+    )
+    assert len(chamber_events) == 3
+    for e, citizen in zip(chamber_events, citizens):
+        assert citizen.chamber_position == pytest.approx((0.6,))
+        expected = chamber_deviation(citizen)
+        assert expected == pytest.approx(0.1)
+        assert e["payload"]["chamber_deviation"] == pytest.approx(expected)
+
+
+def test_chamber_deviation_is_zero_when_the_model_returns_a_sincere_decision(tmp_path):
+    config = _config_with_output_dir(tmp_path)
+    config = dataclasses.replace(
+        config,
+        sortition_chamber=dataclasses.replace(config.sortition_chamber, enabled=True, seats=3),
+        llm=dataclasses.replace(config.llm, enabled=True),
+    )
+    citizens = [
+        _sortition_test_citizen(i, sortition_seat_until_tick=4, chamber_position=(0.5,)) for i in range(3)
+    ]
+
+    class _SincereClient:
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+            payload = json.loads(user_prompt)
+            decisions = [{"cid": m["cid"], "shifts": [], "motif": 701} for m in payload["members"]]
+            return json.dumps({"decisions": decisions})
+
+    journal_path = tmp_path / "sincere.jsonl"
+    with Journal(journal_path, run_id="sincere") as journal:
+        _run_chamber_deliberation(citizens, config, journal, tick=0, llm_client=_SincereClient())
+    events = _events(journal_path)
+    chamber_events = [e for e in events if e["event_type"] == "chamber_deliberation"]
+    assert len(chamber_events) == 3
+    for e in chamber_events:
+        assert e["payload"]["chamber_deviation"] == 0.0
+        assert e["motif"] == "701"
 
 
 def test_chamber_deliberation_never_fires_while_the_accountability_gate_is_entirely_off(tmp_path):
