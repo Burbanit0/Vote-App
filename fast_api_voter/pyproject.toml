@@ -17,3 +17,18 @@ show_missing = true
 skip_covered = true
 precision = 0
 fail_under = 85
+
+# Dead-code detection (informational only — see CODE_AUDIT.md for the
+# rationale and how this feeds scripts/audit.sh / CI). min_confidence=80 keeps
+# the signal-to-noise ratio usable: below that threshold Enum members and
+# FastAPI/pydantic decorated handlers dominate the output as false positives.
+# The whitelist (.vulture_whitelist.py) is passed as an extra PATH argument
+# on the command line, e.g. `vulture api/ .vulture_whitelist.py --config ...`
+# — vulture has no config key for it.
+[tool.vulture]
+min_confidence = 80
+ignore_decorators = [
+  "@*.get", "@*.post", "@*.put", "@*.patch", "@*.delete", "@*.websocket",
+  "@field_validator", "@model_validator", "@validator",
+]
+exclude = ["api/tests/"]

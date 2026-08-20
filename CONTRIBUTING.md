@@ -134,6 +134,39 @@ Types valides : `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `ci`, `secur
 
 ---
 
+## Code mort, duplication & conventions "vibe coding"
+
+Une grande partie de ce repo est écrite avec l'aide de LLM (Claude Code &
+autres). Trois outils tournent en informationnel (jamais bloquant pour
+l'instant, voir [`CODE_AUDIT.md`](CODE_AUDIT.md) pour l'état des
+lieux et le plan de passage en mode bloquant) :
+
+| Outil | Détecte | Lancer en local |
+|---|---|---|
+| `vulture` | Code mort backend (fonctions, variables, imports jamais utilisés) | `cd fast_api_voter && python -m vulture api/ .vulture_whitelist.py --config pyproject.toml` |
+| `knip` | Fichiers/exports/dépendances inutilisés côté frontend | `cd voter-app && npm run knip` |
+| `jscpd` | Duplication de code cross-langage (Python + TS) | `npx jscpd --config .jscpd.json fast_api_voter/api voter-app/src` |
+
+Les trois tournent aussi dans `scripts/audit.sh` (mode `--quality` ou complet)
+et dans le job CI non-bloquant *Code Quality* de `audit.yml`.
+
+**Règles de processus pour limiter la dérive à l'usage d'un LLM :**
+
+- Avant de créer un nouveau fichier du type `xxx_v2.py`, `workers_yyy.py` ou
+  un nouveau composant dans `components/shared/`, chercher s'il existe déjà
+  un module ou composant à étendre plutôt qu'à dupliquer (`grep`/recherche
+  par domaine avant de générer du code neuf).
+- Un fichier qui dépasse ~500 lignes est un signal pour se demander s'il faut
+  le découper, pas une fatalité à laisser grossir PR après PR.
+- `except Exception` (ou `except:`) nu est à éviter : capturer l'exception
+  précise, ou documenter pourquoi le catch-all est nécessaire (voir
+  `# noqa: BLE001` dans `api/sockets/__init__.py` comme modèle).
+- Avant une PR volumineuse générée avec assistance LLM, lancer
+  `./scripts/audit.sh --quality` et relire au moins les sections vulture /
+  knip / jscpd du résumé.
+
+---
+
 ## Commandes utiles
 
 ```bash

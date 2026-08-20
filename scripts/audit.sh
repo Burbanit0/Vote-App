@@ -170,6 +170,46 @@ if [ "$MODE" != "security" ]; then
   else
     note "⚠️ No package.json in $TS_DIR/."
   fi
+
+  # =====================================================================
+  # DEAD CODE & DUPLICATION — informational only (see CODE_AUDIT.md).
+  # None of these three gate the script or CI: they're new (added alongside
+  # the audit) and the repo hasn't done its first cleanup pass yet. Once
+  # findings settle near zero, promote them to blocking gates like the
+  # linters above.
+  # =====================================================================
+
+  # --- Python dead code: vulture ---
+  section "Python dead code (vulture, informational)"
+  if have_py vulture; then
+    ( cd "$PY_DIRS" && python -m vulture api/ .vulture_whitelist.py --config pyproject.toml ) \
+      > "$REPORT_DIR/vulture.txt" 2>&1
+    note "Findings: $(grep -c ':' "$REPORT_DIR/vulture.txt" 2>/dev/null || echo 0). See \`$REPORT_DIR/vulture.txt\`. Not gated — see CODE_AUDIT.md."
+  else
+    note "⚠️ vulture not installed — \`pip install vulture\` (in requirements-dev.txt)."
+  fi
+
+  # --- TS/React dead code + unused exports + unused deps: knip ---
+  if [ -f "$TS_DIR/package.json" ]; then
+    section "TypeScript dead code & unused deps (knip, informational)"
+    if ( cd "$TS_DIR" && npx --no-install knip --version >/dev/null 2>&1 ); then
+      ( cd "$TS_DIR" && npx --no-install knip --no-progress --reporter json > "../$REPORT_DIR/knip.json" 2>/dev/null )
+      note "Unused files: $(count '[.issues[]|select(.files|length>0)]|length' "$REPORT_DIR/knip.json"). See \`$REPORT_DIR/knip.json\`. Not gated — see CODE_AUDIT.md."
+    else
+      note "⚠️ knip not found in $TS_DIR/node_modules (run \`npm install\` there)."
+    fi
+  fi
+
+  # --- Cross-language duplication: jscpd ---
+  section "Code duplication (jscpd, informational)"
+  if have npx; then
+    npx --yes jscpd --config .jscpd.json "$PY_PKG" "$TS_DIR/src" \
+      --reporters json --output "$REPORT_DIR/jscpd" > "$REPORT_DIR/jscpd.txt" 2>&1
+    JSCPD_STATS="$REPORT_DIR/jscpd/jscpd-report.json"
+    note "$(count '.statistics.total|"\(.clones) clone(s), \(.duplicatedLines) duplicated line(s) (\((.percentage*100|round)/100)%)"' "$JSCPD_STATS"). Full report: \`$JSCPD_STATS\`. Not gated — see CODE_AUDIT.md."
+  else
+    note "⚠️ npx not available — can't run jscpd."
+  fi
 fi
 
 # =====================================================================
