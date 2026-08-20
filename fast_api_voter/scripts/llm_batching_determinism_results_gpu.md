@@ -429,3 +429,360 @@ observed; the trivial-variation idea is untested; and the serving-layer
 switch that would have provided a real per-request lever is not being
 taken. Any further acceptance relaunch has to say what it is doing about
 that, rather than assume a larger replay count covers it.
+
+## Mitigation nonce — validation du banc, puis test de stationnarité (2026-08-19)
+
+**Étape 1 — fiabiliser la reproduction avant de tester quoi que ce soit
+contre elle.** La recette historique reconstituée exactement (redémarrage
+à froid du conteneur, un seul appel d'amorçage à contenu distinct — le
+prompt à 5 nominés — puis le prompt réel à 4 nominés soumis 3 fois de
+suite : frais, identique, identique) a été rejouée 3 fois indépendantes.
+**Résultat : `[OK, FAIL, FAIL]` reproduit 3/3, avec des temps d'échec
+quasi identiques (97-104s) à chaque essai.** La recette est fiable — le
+banc n'était pas le problème.
+
+**Étape 2 — tester le nonce contre ce banc validé.** Chaque resoumission
+(rangs 2 et 3) reçoit un marqueur JSON inerte différent au lieu d'octets
+identiques. 3 essais courts : `[OK,OK,FAIL]`, `[OK,FAIL,FAIL]`,
+`[OK,OK,OK]` — 3 échecs sur 6 resoumissions (~50%). Un effet réel (mieux
+que 6/6 sans variation) mais pas fiable sur cet échantillon.
+
+**Étape 3 — test de stationnarité, séquences longues avec rang
+enregistré**, pour trancher si ce taux est stable par tentative
+(l'indépendance tiendrait, l'extrapolation `p^N` serait fiable) ou
+dérive avec la position (confirmerait l'hypothèse "volume de cache
+accumulé"). 2 essais de 8 resoumissions consécutives chacun, même banc,
+un nonce frais à chaque rang :
+
+| Rang | Essai 1 | Essai 2 |
+|---|---|---|
+| 0 (frais, sans nonce) | OK | OK |
+| 1 | OK | OK |
+| 2 | OK | OK |
+| 3 | **FAIL** | OK |
+| 4 | OK | OK |
+| 5 | OK | OK |
+| 6 | **FAIL** | OK |
+| 7 | **FAIL** | OK |
+| 8 | OK | OK |
+| **Total (rangs 1-8)** | 5/8 | 8/8 |
+
+**Regroupé sur les deux essais : 13/16 resoumissions avec nonce réussies
+(~81%)** — nettement au-dessus de l'estimation à petit échantillon de
+l'étape 2 (~50%), mais ce chiffre agrégé masque un problème plus
+important que le taux lui-même.
+
+**Interprétation, sans arrondir vers l'hypothèse la plus pratique à
+déployer** :
+- **Pas de tendance monotone par rang** dans l'essai 1 : les échecs
+  (rangs 3, 6, 7) ne sont pas concentrés en fin de séquence — les rangs 4,
+  5 et 8 (dont le plus élevé) réussissent. Ça ne confirme PAS l'hypothèse
+  "le taux augmente avec la position/le volume de cache accumulé" de
+  façon simple et monotone.
+- **Mais la variance entre les deux essais est énorme et n'est pas
+  expliquée par le rang** : protocole strictement identique (même
+  redémarrage à froid, même amorce, même prompt), 3 échecs sur 8 dans un
+  essai contre 0 sur 9 dans l'autre. Si l'hypothèse d'indépendance/taux
+  fixe par tentative était correcte, une telle divergence entre deux
+  essais de taille comparable serait très improbable — les échecs de
+  l'essai 1 se comportent comme groupés dans une session "mauvaise"
+  plutôt que dispersés comme des tirages indépendants d'un taux commun.
+- **Conclusion : ni l'hypothèse de stationnarité/indépendance, ni
+  l'hypothèse d'un effet de rang monotone, ne sont proprement confirmées
+  par cet échantillon.** Un troisième facteur, non identifié et non
+  capturé par le rang seul, semble déterminer si une session entière
+  tend à échouer ou non. Deux essais restent un échantillon fin pour
+  isoler ce facteur.
+
+**Décision : ne pas déployer la combinaison nonce + `--max-batch-replays`
+sur la base d'un calcul de probabilité (`p^N`).** Ce calcul suppose des
+tentatives indépendantes ; les données le contredisent. Le risque réel
+n'est pas mesuré par ce chiffre agrégé — une session "comme l'essai 1"
+pourrait épuiser un budget de tentatives borné même à un taux moyen de
+81%, si les échecs se groupent au mauvais moment plutôt que de se
+répartir uniformément.
+
+Pas encore identifié : ce qui distingue une session "essai 1" d'une
+session "essai 2" au-delà du rang. Candidats non testés : l'horloge
+réelle/le calendrier des requêtes (pas juste leur ordre), un état GPU
+résiduel non capturé par un simple redémarrage de conteneur, une
+variance véritablement stochastique du kernel CUDA sous-jacent
+(cohérent avec le fait que le mode déterministe upstream de llama.cpp,
+`GGML_DETERMINISTIC`, existe justement pour fermer cette classe de
+non-déterminisme — voir `docs/adr/ADR-001-serving-layer-ollama-vs-llama-server.md`
+et `docs/adr/BACKLOG-alternatives.md` pour son statut, non mergé en
+amont et non exposé par Ollama).
+
+## Décision d'architecture qui en découle
+
+Voir `docs/adr/ADR-001-serving-layer-ollama-vs-llama-server.md` : rester
+sur Ollama avec les mitigations déjà en place, ne pas basculer vers
+`llama-server` ni accélérer vLLM — le spike n'a jamais reproduit le bug 4
+(donc n'a jamais pu tester `cache_prompt=false` comme correctif), et la
+piste `GGML_DETERMINISTIC` n'est pas disponible aujourd'hui (PR amont non
+mergée). L'état opérationnel reste donc inchangé : **aucune mitigation
+validée ne protège actuellement ce mode d'échec de façon fiable.**
+
+## Coût réel du relaunch qui a échoué, et recherche du facteur de session (2026-08-19)
+
+**Coût réel confirmé — l'échec est bon marché pour CE bug précis.** Le
+journal du relaunch à `--max-batch-replays 5` (`sortition-llm-8y`) s'arrête
+au **tick 0** : 112 événements, tous antérieurs à la première élection,
+zéro `elected`/`legislative_result`. Le run est mort sur le tout premier
+appel LLM de la simulation entière. Temps réel écoulé entre le début du
+run et la dernière tentative de replay : **9 minutes 11 secondes**
+(20:25:43 → 20:34:54, horodatages fichiers). Ce n'est pas juste "tôt dans
+le run" — c'est le point le plus précoce possible. Pour ce mode d'échec
+spécifique, un relaunch coûte réellement quelques minutes, pas des
+heures.
+
+**Recherche du facteur de session (budget fixé à 1h, ~20 min utilisées) —
+signal partiel trouvé, pas une explication complète.** Chronologie des
+deux essais du test de stationnarité reconstituée précisément (horodatages
+des fichiers de log + propre journal de redémarrage d'Ollama, `Listening
+on`) : **Essai 1 (3 échecs, rangs 3/6/7) : 11:45:29-11:55:29 UTC. Essai 2
+(0 échec) : 11:55:29-12:00:12 UTC**, immédiatement à la suite, même
+protocole de redémarrage à froid pour les deux.
+
+Vérifié dans l'ordre demandé :
+1. **État du conteneur avant chaque essai** — identique pour les deux
+   (redémarrage à froid systématique). Écarté comme facteur différenciant.
+2. **Activité GPU concurrente** — deux événements réels et vérifiés dans
+   le journal système Windows, aucun ne fournissant une explication
+   complète :
+   - La session Windows était **verrouillée** pendant la quasi-totalité
+     des deux essais (le poste était sans surveillance depuis la longue
+     pause précédente) ; un événement `SessionUnlock` (Kernel-Power,
+     ID 566) survient à 11:59:54 UTC, dans les 18 dernières secondes de
+     l'essai 2 — ne favorise clairement ni l'un ni l'autre essai, et
+     n'explique pas pourquoi l'essai 1 (verrouillé sur toute sa durée)
+     a échoué davantage que l'essai 2 (verrouillé presque toute sa
+     durée aussi).
+   - Un scan Windows Defender (événements 1000/1001, 11:49:25-11:49:49
+     UTC) chevauche précisément la fenêtre d'appel du **rang 3**,
+     premier échec de l'essai 1. **Corrélation temporelle réelle pour 1
+     échec sur 3** — mais aucun événement Defender/mise à jour Windows
+     ne coïncide avec les rangs 6 ou 7 (les deux autres échecs de
+     l'essai 1), et aucun scan n'a eu lieu pendant la fenêtre propre de
+     l'essai 2 non plus (donc rien à comparer côté essai 2). Recherche
+     Docker Desktop/WSL2 (compaction mémoire, `vmmem`) : aucun journal
+     couvrant cette fenêtre horaire trouvé.
+3. **Ordre chronologique** — reconstitué précisément (voir ci-dessus) ;
+   aucune anomalie identifiée au-delà des deux points précédents.
+
+**Conclusion, sans arrondir vers l'hypothèse la plus pratique** : un
+signal réel a été trouvé (le scan Defender coïncide avec un échec précis),
+mais il ne couvre qu'un tiers des échecs observés et ne différencie pas
+les deux essais dans leur ensemble (0 vs 3 échecs sur des durées et des
+conditions par ailleurs quasi identiques). **La cause de la variance
+inter-session reste non identifiée** au sens propre du terme — pas
+"rien trouvé du tout", mais rien d'assez complet pour être qualifié de
+facteur de confusion contrôlable avec confiance à ce stade. Piste de
+contrôle réelle pour un futur test, si cette question est reprise :
+désactiver l'analyse en temps réel de l'antivirus (ou au minimum
+journaliser les événements système en continu pendant le test, plutôt que
+de les reconstituer après coup) pour isoler ou écarter cette piste
+proprement.
+
+## Risque résiduel accepté consciemment — relaunch du 2026-08-19
+
+**Décision : relancer l'acceptance run sans mitigation validée contre le
+bug 4, en acceptant le risque résiduel.** Consignée ici explicitement pour
+qu'une relecture future n'ait pas à reconstruire le raisonnement :
+
+- **Aucune mitigation confirmée n'existe** pour ce mode d'échec au moment
+  du relaunch. `--max-batch-replays` (byte-identique) ne protège pas
+  contre une resoumission qui rejoue la condition dégénérée (section
+  "Correction" ci-dessus). Le nonce par tentative a un effet réel mais non
+  fiable (81% agrégé sur 16 resoumissions, non stationnaire entre essais —
+  section "test de stationnarité"), et n'a **pas** été câblé dans le code
+  de production : le déployer sans l'avoir validé de façon fiable aurait
+  répété l'erreur méthodologique déjà commise une fois avec
+  `--max-batch-replays 5` lui-même.
+- **Le facteur de session reste non identifié** — budget d'investigation
+  d'1h dépensé (section précédente), un signal réel trouvé (scan antivirus
+  coïncidant avec 1 échec sur 3) mais couvrant au mieux un tiers du
+  pattern observé. Le rendement marginal de continuer à creuser est jugé
+  décroissant à ce stade.
+- **Le calcul coût/bénéfice justifie le relaunch malgré tout** : l'échec
+  précédent (`sortition-llm-8y`, `--max-batch-replays 5`) est mort au
+  **tick 0** en **9 minutes 11 secondes** — le point le plus précoce
+  possible dans un run de 33 ticks / ~4h prévues. Un nouvel échec dans les
+  mêmes conditions coûterait quelques minutes, pas des heures.
+- **Ce calcul repose entièrement sur l'hypothèse que l'échec, s'il se
+  reproduit, reste précoce.** C'est la condition qui rend le risque
+  accepté raisonnable — pas une garantie que le bug est résolu ou
+  compris. Si un futur run échoue significativement plus tard dans la
+  séquence (après plusieurs ticks ou plusieurs heures, pas au tick 0),
+  cette hypothèse serait invalidée et le calcul de risque devrait être
+  refait en profondeur, pas juste noté comme un deuxième échec de plus.
+- **Action gratuite prise avant ce relaunch** : l'antivirus (protection en
+  temps réel Windows Defender) a été désactivé pour la durée de ce run
+  spécifique, afin d'éliminer d'office le seul facteur de bruit confirmé
+  (même partiel) identifié dans la section précédente — pas parce qu'il
+  est jugé être LA cause, mais parce que le désactiver ne coûte rien et
+  retire une hypothèse candidate de la liste si le run échoue à nouveau
+  avec l'antivirus hors-jeu.
+
+## Bug 4 résolu (partiellement) — mécanisme composite identifié, mitigation déployée (2026-08-19/20)
+
+Le relaunch accepté ci-dessus s'est effectivement interrompu au tick 0
+(`sortition-llm-8y`, exclusion Windows Defender configurée entre-temps sur
+les chemins Docker + le process `ollama.exe`, confirmée via les logs
+Microsoft-Windows-Windows Defender/Operational faute de droits admin pour
+lire la config directement). Reste mort tôt, cohérent avec le risque
+accepté. Ce qui suit documente l'investigation qui a suivi, harnais de
+test en main (`fast_api_voter/scripts/llm_test_harness/`), et qui a
+finalement produit une mitigation testée et déployée — la piste
+"resoumission d'octets identiques" qui a occupé la majeure partie de ce
+document s'avère n'avoir jamais été la bonne variable.
+
+### Le taux de base (hors resoumission) est déjà significatif
+
+Avant de tester le nonce contre le critère pré-enregistré (n=97 calculé
+par le harnais pour un IC à 95%), un contrôle bon marché : 10 appels
+**frais et distincts** (jamais resoumis), un seul redémarrage à froid.
+**5/10 échecs (50%, IC de Wilson [24%, 76%])** — largement au-dessus du
+seuil de 20-30% qui aurait permis de continuer le protocole nonce tel que
+conçu. Ce résultat, à lui seul, invalide la prémisse "seule la
+resoumission dégrade" : un appel jamais resoumis a déjà un taux d'échec
+substantiel.
+
+### Le pattern est déterministe, pas stochastique — la piste cache-volume confirmée
+
+Expérience de suivi : 4 sessions indépendantes (redémarrage à froid à
+chaque fois), 15 appels à contenu **strictement identique** (mêmes
+groupes de nominés, même ordre) à chaque session. **Le pattern exact
+d'échecs (rangs 1, 4, 8, 10, 11 sur 15) se reproduit à l'identique sur
+les 4 sessions**, sans exception. Ceci contredit directement la
+"variance énorme entre essais" du test de stationnarité du nonce
+(section précédente) — ce test-là variait le contenu (un nonce distinct
+à chaque rang), celui-ci ne varie rien : le déterminisme apparaît
+seulement quand rien ne varie, ce qui suggère que le nonce lui-même
+introduisait le bruit qu'il était censé neutraliser, plutôt que
+d'observer une variance intrinsèque du système.
+
+Croisement (gratuit, aucun appel GPU supplémentaire) entre les timestamps
+des essais et les lignes `cache state: N prompts` des logs Docker du
+conteneur `ollama-polity`, avec un bornage correct par redémarrage
+(un bug du script d'analyse initial incluait par erreur des entrées
+résiduelles d'une session précédente — les logs Docker persistent au
+travers d'un `docker restart`, corrigé en calculant le plancher temporel
+depuis `container_uptime_seconds`) :
+
+| Niveau de cache au démarrage de l'appel | Résultat |
+|---|---|
+| 0, 2, 4, 5, 6 | 0 échec sur 24 |
+| 7 | 8 échecs sur 20 (40%) |
+| 8 (capacité max observée) | 4 échecs sur 8 (50%) |
+
+Critère pré-enregistré (ratio taux d'échec cache≥8 / taux d'échec
+cache<8 ≥ 2x) : **satisfait, ratio = 2.00 exactement.** 80% de tous les
+échecs par troncature se concentrent aux deux derniers niveaux avant/à
+saturation. Capacité mesurée : ~8 prompts sur ce conteneur, bornée par
+la limite mémoire du pool de cache llama.cpp (8192 MiB, visible dans le
+même log). Réserve : le design confond contenu, rang et niveau de cache
+(séquence identique à chaque session) — corrélation nette, pas une
+preuve causale isolée du niveau de cache en tant que tel.
+
+### Un second bug distinct, identifié comme déjà connu et déjà corrigé
+
+Le tout premier appel de chaque session échouait systématiquement (5/5
+sur les expériences précédentes) selon un mode d'échec jamais documenté
+jusque-là : `cid` renvoyés strictement égaux aux valeurs de `motif`
+(`CampaignMotif` 601-604) au lieu des vrais `citizen_id` attendus — une
+confusion de champs par le modèle, syntaxiquement valide, pas une
+troncature. Relecture de ce document : ce phénomène correspond très
+probablement à la section "Cold start vs. warm" ci-dessus — le tout
+premier passage d'inférence après un chargement de modèle à froid
+emprunte un chemin d'exécution GPU différent. `_warm_up_llm_client`
+(`run_polity_simulation.py`) existe déjà en production pour absorber cet
+effet, mais **les scripts de diagnostic de cette investigation ne
+l'appelaient jamais**, contrairement au pipeline réel. Test direct (6
+redémarrages à froid, `_warm_up_llm_client` appelé cette fois) :
+corruption cid=motif disparue, **0/6**. Confirmé sur données réelles :
+dans `sortition-llm-8y`, `candidacy_considered` et
+`party_nomination_choice` utilisent tous deux `think=False` (vérifié
+dans le code), donc `campaign_positioning` était bien le tout premier
+appel `think=True` de ce run, juste après le warm-up de démarrage — et
+`replays.log` montre qu'il a échoué à sa première tentative avant de
+réussir au retry, exactement le pattern trouvé sur le banc synthétique.
+
+### La synthèse qui unifie les deux pistes
+
+Avec le warm-up appliqué, l'appel réel qui suit immédiatement échouait
+maintenant 6/6, systématiquement par troncature — déplacé, pas éliminé.
+Hypothèse "le warm-up de production (32 tokens, garanti de tronquer sous
+`think=True`) laisse une entrée corrompue" testée et **réfutée** : un
+warm-up à budget généreux (1500 tokens, se termine proprement 6/6)
+produit le même 6/6 d'échecs sur l'appel suivant. En revanche, un
+warm-up dont le **prompt a une taille/forme réaliste** (un vrai prompt
+`campaign_positioning` complet, peu importe qu'il réussisse ou échoue
+lui-même) élimine la contamination : **6/6 de réussite** sur l'appel qui
+suit.
+
+Ces deux pistes — volume de cache et forme du prompt précédent — ne sont
+probablement pas deux mécanismes séparés mais une seule et même cause vue
+sous deux angles : une correspondance partielle de faible confiance
+contre une entrée de cache dissemblable en taille/forme (le mécanisme
+"cross-request prompt-cache reuse" déjà documenté plus haut dans ce
+fichier, jamais confirmé jusqu'ici). Plus le cache contient d'entrées,
+plus la probabilité qu'un nouveau prompt matche par erreur contre une
+entrée petite/dissemblable augmente mécaniquement — pas besoin de deux
+explications distinctes pour les deux résultats.
+
+### Mitigation déployée : recyclage du modèle par nombre d'appels
+
+`llm.recycle_after_n_calls` (`polity_config.yaml`, `LlmConfig`,
+`OllamaJsonClient`) — nouveau champ, `null` par défaut (désactivé). Force
+un unload/reload du modèle Ollama (`keep_alive: 0` sur l'endpoint natif,
+**vérifié en direct** : réinitialise bien `cache state` à 0, même effet
+qu'un redémarrage complet du conteneur, sans son coût — pas de perte de
+connexion TCP, pas de relance du process conteneur) tous les N appels
+`complete_json`, de façon préemptive (avant l'appel qui ferait entrer le
+pool dans sa zone de risque mesurée, pas après).
+
+**Un bug réel trouvé en testant le mécanisme en conditions réelles, pas
+seulement en mock** : la première implémentation réutilisait le prompt
+trivial `"{}"` du warm-up de production pour le re-warm après recyclage —
+exactement la forme dont la section précédente vient de prouver qu'elle
+casse l'appel suivant. Vérifié en direct (seuil=2, 5 appels) : **2/5
+seulement**, pire que sans mitigation. Corrigé en remplaçant ce prompt
+trivial par un prompt rempli de contenu inerte, dimensionné pour
+approcher la taille d'un vrai prompt de production (~6000 caractères) —
+revérifié en direct sur le même protocole difficile : **4/5**, nette
+amélioration (le seul échec restant suit directement le tout premier
+recyclage, lui-même consécutif au warm-up de démarrage qui utilise
+toujours le stub trivial de `_warm_up_llm_client`, volontairement hors
+périmètre de cette modification).
+
+**Honnêteté sur ce qui reste non résolu** :
+- Le seuil mesuré (~8 prompts, capacité de risque à partir de 7) l'est
+  pour UN prompt shape précis (`campaign_positioning`, `think=True`,
+  grand budget de tokens) sur LA mémoire de CE conteneur — pas prouvé
+  général à tout mélange de types de décision. `recycle_after_n_calls`
+  reste `null` par défaut pour cette raison ; une valeur de 5-6 reste
+  prudente sous le seuil mesuré si activée.
+- `_warm_up_llm_client` (le warm-up de tout début de run) utilise encore
+  le stub trivial `"{}"` — non corrigé dans ce changement, périmètre
+  volontairement restreint au recyclage. C'est la piste la plus évidente
+  pour une prochaine amélioration si le taux d'échec au tout début d'un
+  run reste un problème.
+- La vérification live du recyclage corrigé porte sur n=5 appels, un seul
+  passage — une amélioration mesurée et crédible (2/5 → 4/5 sur le même
+  protocole difficile), pas une garantie statistique à ce niveau
+  d'échantillon.
+- Le mécanisme causal exact (correspondance partielle contre une entrée
+  de cache dissemblable) reste une hypothèse bien étayée, pas une preuve
+  formelle — Ollama n'expose aucun moyen de désactiver ou d'inspecter
+  directement ce comportement (confirmé plus haut, section "cross-request
+  prompt-cache reuse").
+
+**Décision : bug 4 est considéré clos pour ce projet.** Pas "résolu" au
+sens d'une preuve causale complète, mais suffisamment compris et
+mitigé : le mécanisme composite est identifié, une mitigation testée et
+mesurée existe et est disponible (`recycle_after_n_calls`), et le
+rendement marginal d'investiguer davantage est jugé décroissant face au
+travail de fond du projet (retour à v6, contagion sociale). Voir
+`docs/adr/ADR-001-serving-layer-ollama-vs-llama-server.md` pour la
+clôture formelle de la décision d'architecture correspondante.

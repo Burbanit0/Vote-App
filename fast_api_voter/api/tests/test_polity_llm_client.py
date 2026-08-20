@@ -237,6 +237,86 @@ def test_native_http_500_retries_then_raises_transport_error():
     assert calls["count"] == 3
 
 
+# ── OllamaJsonClient.recycle_after_n_calls (bug 4 investigation) ──────────
+# A recorded-request handler that answers BOTH endpoint shapes generically
+# (real decision calls and _recycle's own force-unload/re-warm calls all
+# share the same two endpoints), so these tests can assert on the request
+# SEQUENCE rather than juggling two separate handlers.
+
+def _recording_handler(requests: list[dict]):
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        requests.append({"url": str(request.url), "body": body})
+        if body.get("keep_alive") == 0:
+            return httpx.Response(200, json={"model": "qwen3:8b", "done": True, "done_reason": "unload"})
+        if str(request.url).endswith("/api/chat"):
+            return _ok_native_response('{"decisions": []}')
+        return _ok_response('{"decisions": []}')
+
+    return handler
+
+
+def test_recycle_disabled_by_default_never_unloads():
+    requests: list[dict] = []
+    client = _client(_recording_handler(requests))
+    for _ in range(10):
+        client.complete_json(system_prompt="s", user_prompt="u", json_schema={}, max_tokens=64)
+    assert len(requests) == 10
+    assert not any(r["body"].get("keep_alive") == 0 for r in requests)
+
+
+def test_recycle_triggers_before_the_call_that_reaches_the_threshold():
+    requests: list[dict] = []
+    client = _client(_recording_handler(requests), recycle_after_n_calls=2)
+
+    client.complete_json(system_prompt="s", user_prompt="u", json_schema={}, max_tokens=64)
+    client.complete_json(system_prompt="s", user_prompt="u", json_schema={}, max_tokens=64)
+    assert len(requests) == 2  # no recycle yet -- threshold not reached
+
+    client.complete_json(system_prompt="s", user_prompt="u", json_schema={}, max_tokens=64)
+    # call 3 = 1 unload + 2 re-warm (think=True, think=False) + the real call itself
+    assert len(requests) == 6
+    assert requests[2]["body"].get("keep_alive") == 0
+    assert requests[3]["url"] == "http://localhost:11434/v1/chat/completions"  # re-warm, think=True
+    # Padded, not the tiny "{}" stub -- see _RECYCLE_WARM_UP_USER_PROMPT's
+    # own docstring for why (a live regression: the trivial stub made the
+    # NEXT real call reliably fail).
+    assert len(requests[3]["body"]["messages"][1]["content"]) > 1000
+    assert requests[4]["url"] == "http://localhost:11434/api/chat"  # re-warm, think=False
+    assert requests[5]["url"] == "http://localhost:11434/v1/chat/completions"  # the real call
+
+
+def test_recycle_counter_resets_and_fires_again_after_the_next_threshold():
+    requests: list[dict] = []
+    client = _client(_recording_handler(requests), recycle_after_n_calls=2)
+    for _ in range(5):
+        client.complete_json(system_prompt="s", user_prompt="u", json_schema={}, max_tokens=64)
+    unload_count = sum(1 for r in requests if r["body"].get("keep_alive") == 0)
+    # calls 1,2 clean (counter 0->1->2); call 3 recycles (counter was >=2,
+    # resets to 0, then becomes 1); call 4 clean (counter becomes 2);
+    # call 5 recycles again (counter was >=2) -- the counter is cyclic,
+    # so threshold=2 recycles every 2 calls after the first 2, not once.
+    assert unload_count == 2
+
+
+def test_recycle_failure_does_not_abort_the_real_call():
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        if body.get("keep_alive") == 0:
+            raise httpx.ConnectError("refused")  # _force_unload has no retry loop -- fire-and-forget
+        if str(request.url).endswith("/api/chat"):
+            return _ok_native_response('{"decisions": []}')
+        return _ok_response('{"decisions": []}')
+
+    client = _client(handler, recycle_after_n_calls=1)
+    client.complete_json(system_prompt="s", user_prompt="u", json_schema={}, max_tokens=64)
+    # The second call triggers a recycle whose own unload leg raises a
+    # genuine transport error -- best-effort: logged and swallowed (the
+    # re-warm calls still run, and the real call still succeeds).
+    content = client.complete_json(system_prompt="s", user_prompt="u", json_schema={}, max_tokens=64)
+    assert content == '{"decisions": []}'
+
+
 # ── VllmJsonClient (v4 vLLM switch, §15bis.6) ─────────────────────────────
 # UNVERIFIED against a live server -- see VllmJsonClient's own docstring.
 # These pin the request/response SHAPE this codebase sends and expects;

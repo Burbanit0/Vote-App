@@ -1,8 +1,12 @@
 # docker-compose.llm.yml — vLLM inference server (v4 vLLM switch, §15bis.6)
 #
-# ⚠ UNVERIFIED — never executed. No GPU has been available in this project's
-# environment; every prior LLM finding here (batching determinism, structured-
-# output quirks, think=False bugs) was measured against Ollama, not vLLM.
+# ⚠ UNVERIFIED — never executed. A GPU (RTX 5070 Ti) became available in
+# this project's environment on 2026-08-17 and has been used to validate
+# Ollama on GPU (llm_batching_determinism_results_gpu.md) -- but no vLLM
+# server has ever been stood up on it, so this file remains untested for
+# that reason specifically. Every prior LLM finding here (batching
+# determinism, structured-output quirks, think=False bugs) was measured
+# against Ollama, not vLLM.
 # The design doc (§15) names this file; this is its first materialization.
 #
 # Kept separate from docker-compose.yml (api + redis) so the api+redis stack

@@ -5,12 +5,19 @@ VllmJsonClient.
 
 vLLM status: VllmJsonClient below is implemented against vLLM's documented
 OpenAI-compatible surface and Qwen3's documented `enable_thinking` chat-
-template flag -- it has never been executed against a live vLLM server (no
-GPU has been available in this project). Every claim in OllamaJsonClient's
-own docstring is backed by a committed live results doc; no claim in
-VllmJsonClient's docstring is. §15bis.5's determinism-under-batching
-protocol has been run against Ollama only (llm_batching_determinism_results.md)
-and has never been run against vLLM. `polity_config.yaml` ships
+template flag -- it has never been executed against a live vLLM server. A
+GPU (RTX 5070 Ti) became available in this project's environment on
+2026-08-17 and has since been used to validate OllamaJsonClient on real
+GPU inference (llm_batching_determinism_results_gpu.md) -- but no vLLM
+server has ever been stood up on it, so every claim in VllmJsonClient's
+docstring remains unverified for that reason specifically, not for lack
+of a GPU. Every claim in OllamaJsonClient's own docstring is backed by a
+committed live results doc; no claim in VllmJsonClient's docstring is.
+§15bis.5's determinism-under-batching protocol has been run against
+Ollama on both CPU (llm_batching_determinism_results.md, 2026-07-31) and
+GPU (llm_batching_determinism_results_gpu.md, 2026-08-17) -- both FAIL the
+same way (batched calls diverge, sequential calls don't) on either
+backend. It has never been run against vLLM. `polity_config.yaml` ships
 `provider: ollama` as the default for exactly this reason -- see that
 file's own comment block for the switch procedure and its caveats.
 
@@ -51,6 +58,7 @@ from __future__ import annotations
 
 import copy
 import json
+import logging
 import re
 from types import TracebackType
 from typing import Any, Protocol, Sequence
@@ -80,8 +88,42 @@ from api.domain.polity.llm_schemas import (
     VoteCastDecision,
 )
 
+_logger = logging.getLogger(__name__)
+
 _THINK_TAG_RE = re.compile(r"<think>.*?</think>", re.DOTALL)
 _TRANSPORT_RETRY_ATTEMPTS = 3  # 1 initial + 2 retries -- see module docstring on why
+
+_RECYCLE_WARM_UP_SCHEMA = {
+    "type": "object",
+    "properties": {"ok": {"type": "boolean"}},
+    "required": ["ok"],
+    "additionalProperties": False,
+}
+"""Deliberately a near-duplicate of run_polity_simulation._WARM_UP_SCHEMA,
+not an import of it -- llm_client.py has no dependency on
+run_polity_simulation.py, and this trivial throwaway shape is not worth
+introducing one for. Used only by OllamaJsonClient._recycle's own re-warm
+calls, never to decode a real decision. The OUTPUT stays trivial on
+purpose -- see _RECYCLE_WARM_UP_USER_PROMPT for why the INPUT does not."""
+
+_RECYCLE_WARM_UP_USER_PROMPT = json.dumps(
+    {"padding": [round(i * 0.0001, 4) for i in range(1400)]}, separators=(",", ":")
+)
+"""Inert filler, sized to approximate a real production prompt's rough
+character count (~6000, measured against a real campaign_positioning
+user_prompt) -- NOT a semantically real prompt, just large. Verified live
+(bug 4 investigation, 2026-08-20) that this specific size/shape avoids the
+failure _RECYCLE_WARM_UP_SCHEMA's own docstring describes; a first
+implementation used a tiny `"{}"` stub here and made a live 5-call
+sequence WORSE (2/5 vs the normal baseline), not better."""
+
+_RECYCLE_WARM_UP_MAX_TOKENS = 1500
+"""Generous relative to the trivial `{"ok": bool}` output this schema
+asks for -- large budget alone was already tested and found insufficient
+on its own (a warm-up that finishes cleanly at this same budget still
+broke the next call, when its prompt was still the tiny stub); kept
+generous here anyway so a real `<think>` pass over the padding above
+never gets starved for an unrelated reason."""
 
 
 class LlmError(RuntimeError):
@@ -207,7 +249,42 @@ class OllamaJsonClient:
     that: think=True hit the identical finish_reason='length' failure
     regardless of batch size (ollama_structured_output_results.md Finding
     E). The bug tracks the *prompt's* subjective/comparative framing, not
-    batch size -- party_nomination_choice now also uses think=False."""
+    batch size -- party_nomination_choice now also uses think=False.
+
+    `recycle_after_n_calls` (bug 4 investigation, 2026-08-19/20): llama.cpp's
+    own prompt-cache pool has a measured, finite capacity on this project's
+    container (~8 prompts under a large think=True budget, bounded by the
+    server's own 8192 MiB cache memory limit). A batched harness experiment
+    (4 independent cold-restart sessions, identical content/order each time)
+    found the SAME rank-by-rank failure pattern reproduced exactly across
+    all 4 -- deterministic, not stochastic -- and a direct correlation
+    between the cache's own reported occupancy and finish_reason='length'
+    truncation: 0 failures across 24 calls at cache<7, versus a 40-50%
+    failure rate once the pool is at or near its observed capacity (ratio
+    >=2x, the pre-registered decision criterion). A separate, complementary
+    finding narrows the likely mechanism: the specific PROMPT immediately
+    preceding a call matters, not just how many prior calls happened -- a
+    tiny, structurally dissimilar prompt (this project's own warm-up
+    stub) reliably breaks the very next real call (12/12 across two
+    independent tests, one with a generously-budgeted, cleanly-finishing
+    warm-up), while a realistically-sized prior prompt does not (6/6
+    clean). Both readings point the same way: a poor-quality partial
+    match against a dissimilar cache entry is the likely proximate cause,
+    and a bigger/more-crowded pool raises the odds of hitting one.
+
+    This field forces a Ollama model unload+reload -- via `keep_alive: 0`
+    on the native endpoint, confirmed directly to reset "cache state" to 0
+    prompts exactly like a full container restart, without the container-
+    restart's own cost (no lost TCP connection, no container process
+    respawn) -- every `recycle_after_n_calls` complete_json calls,
+    preemptively (before the call that would push the pool near its
+    observed risk zone, not after). Shipped null (disabled): the measured
+    capacity/threshold above is calibrated for ONE prompt shape
+    (campaign_positioning, think=True, large token budget) against ONE
+    container's own memory configuration -- not proven to generalize to
+    every decision type's own prompt size, so this stays an opt-in,
+    explicitly-enabled mitigation, not a new default. See
+    llm_batching_determinism_results_gpu.md for the full investigation."""
 
     def __init__(
         self,
@@ -217,12 +294,15 @@ class OllamaJsonClient:
         seed: int,
         timeout: float,
         transport: httpx.BaseTransport | None = None,
+        recycle_after_n_calls: int | None = None,
     ) -> None:
         self._base_url = base_url
         self._model = model
         self._temperature = temperature
         self._seed = seed
         self._client = httpx.Client(timeout=timeout, transport=transport)
+        self._recycle_after_n_calls = recycle_after_n_calls
+        self._calls_since_recycle = 0
 
     @classmethod
     def from_config(cls, llm: LlmConfig, *, seed: int, timeout: float = 600.0) -> OllamaJsonClient:
@@ -231,7 +311,10 @@ class OllamaJsonClient:
         of the previous 300s default, with no margin for Qwen3's variable
         <think> reasoning length. 600s gives real headroom without masking
         a genuinely hung request."""
-        return cls(llm.base_url, llm.model, llm.temperature, seed, timeout)
+        return cls(
+            llm.base_url, llm.model, llm.temperature, seed, timeout,
+            recycle_after_n_calls=llm.recycle_after_n_calls,
+        )
 
     def complete_json(
         self,
@@ -249,10 +332,23 @@ class OllamaJsonClient:
 
         `think` defaults to True (vote_cast's existing, unchanged behavior)
         -- see the class docstring for why `think=False` needs an entirely
-        different endpoint/request shape, not just one extra body field."""
-        if think:
-            return self._complete_json_openai_compat(system_prompt, user_prompt, json_schema, max_tokens)
-        return self._complete_json_native_no_think(system_prompt, user_prompt, json_schema, max_tokens)
+        different endpoint/request shape, not just one extra body field.
+
+        Recycles BEFORE this call, not after, when `recycle_after_n_calls`
+        is set and the counter has reached it -- preemptive, so the cache
+        pool never actually enters the observed risk zone (see class
+        docstring); a reactive recycle-after would let exactly the call
+        this mitigation exists to protect run against an already-crowded
+        pool. The counter resets on recycle and is never incremented by
+        the recycle's own internal calls (see _recycle)."""
+        if self._recycle_after_n_calls is not None and self._calls_since_recycle >= self._recycle_after_n_calls:
+            self._recycle()
+        try:
+            if think:
+                return self._complete_json_openai_compat(system_prompt, user_prompt, json_schema, max_tokens)
+            return self._complete_json_native_no_think(system_prompt, user_prompt, json_schema, max_tokens)
+        finally:
+            self._calls_since_recycle += 1
 
     def _complete_json_openai_compat(
         self, system_prompt: str, user_prompt: str, json_schema: dict[str, Any], max_tokens: int
@@ -298,6 +394,78 @@ class OllamaJsonClient:
         response = _post_with_transport_retry(self._client, f"{native_base}/api/chat", payload)
         return _extract_native_content(response)
 
+    def _recycle(self) -> None:
+        """Forces a model unload (`keep_alive: 0` on the native endpoint,
+        verified directly against a live container to reset "cache state"
+        to 0 prompts, the same effect as a full container restart) then
+        re-warms both endpoint shapes with one throwaway call each.
+
+        The re-warm prompt is deliberately NOT the tiny `"{}"` stub
+        _warm_up_llm_client uses (run_polity_simulation.py) -- a first
+        implementation reused that exact shape and, verified live, made
+        things WORSE: recycling every 2 calls dropped a 5-call sequence
+        from its normal reliability to 2/5 successes, because the call
+        immediately following a trivial warm-up prompt is itself the
+        already-documented failure mode this investigation found (12/12
+        across two independent tests: a tiny, structurally dissimilar
+        prior prompt reliably breaks the next real call, regardless of
+        whether the tiny prompt's own generation succeeded or failed).
+        _RECYCLE_WARM_UP_USER_PROMPT pads the input to a size closer to a
+        real production prompt (verified live: 6/6 clean when the prior
+        prompt was actually production-sized) while keeping a trivial
+        output schema -- the model never has to reason hard about the
+        padding, only acknowledge it. This is a SIZE-only approximation
+        of "realistic shape", not a full reproduction of a real decision
+        prompt's structure; whether size alone is sufficient or the
+        output schema's own complexity also matters was not separately
+        isolated and remains open.
+
+        Calls the private _complete_json_* methods directly, never
+        self.complete_json -- going through the public entry point would
+        re-check _calls_since_recycle against the call this method is
+        itself issuing, before the counter below has been reset, which
+        would recurse.
+
+        Best-effort throughout, matching _warm_up_llm_client's own
+        contract: every step is logged and swallowed, never allowed to
+        raise out of the real call it exists to protect. The counter
+        resets unconditionally at the end, even if every step above
+        failed -- the unload attempt is what actually matters for the
+        cache pool, and a failed re-warm just means the next real call
+        pays bug 2's cold-start cost instead of a clean one, not that the
+        recycle itself didn't happen."""
+        try:
+            self._force_unload()
+        except Exception as exc:  # noqa: BLE001
+            _logger.warning("LLM recycle: force-unload failed, continuing anyway: %s", exc)
+        for think in (True, False):
+            try:
+                if think:
+                    self._complete_json_openai_compat(
+                        "Reply with the required JSON object.", _RECYCLE_WARM_UP_USER_PROMPT,
+                        _RECYCLE_WARM_UP_SCHEMA, _RECYCLE_WARM_UP_MAX_TOKENS,
+                    )
+                else:
+                    self._complete_json_native_no_think(
+                        "Reply with the required JSON object.", _RECYCLE_WARM_UP_USER_PROMPT,
+                        _RECYCLE_WARM_UP_SCHEMA, _RECYCLE_WARM_UP_MAX_TOKENS,
+                    )
+            except Exception as exc:  # noqa: BLE001
+                _logger.warning("LLM recycle: re-warm call (think=%s) failed, continuing anyway: %s", think, exc)
+        self._calls_since_recycle = 0
+
+    def _force_unload(self) -> None:
+        """POSTs `keep_alive: 0` to the native endpoint -- confirmed live
+        (bug 4 investigation) to return `done_reason: "unload"` and make
+        `ollama ps` report no running model, with the very next real
+        call's own "cache state" log line starting back at 0 prompts."""
+        native_base = self._base_url.removesuffix("/v1")
+        body = {"model": self._model, "keep_alive": 0}
+        payload = json.dumps(body, sort_keys=True, separators=(",", ":"))
+        self._client.post(
+            f"{native_base}/api/chat", content=payload, headers={"Content-Type": "application/json"}
+        )
+
     def close(self) -> None:
         self._client.close()
 
@@ -317,9 +485,12 @@ class VllmJsonClient:
 
     UNVERIFIED (v4 vLLM switch, §15bis.6): everything below is written
     against vLLM's documented request surface and Qwen3's documented chat
-    template, not against a live vLLM response. No GPU has been available
-    in this project. `polity_config.yaml` ships `provider: ollama` as the
-    default for exactly this reason.
+    template, not against a live vLLM response. A GPU has been available
+    in this project's environment since 2026-08-17 and has been used with
+    Ollama (see the module docstring above), but no vLLM server has ever
+    been stood up on it -- the claims below remain unverified for that
+    reason, not for lack of a GPU. `polity_config.yaml` ships
+    `provider: ollama` as the default for exactly this reason.
 
     Single endpoint for both think modes, unlike OllamaJsonClient. Ollama's
     `/api/chat` detour exists to route around a *measured Ollama bug*:

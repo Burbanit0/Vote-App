@@ -142,6 +142,20 @@ own `VllmJsonClient` status already established for vLLM, now extended to
   spike's partial live evidence.
 - **Do nothing beyond the shipped mitigations, revisit if the bug recurs
   at real cost.** **Accepted** — this is the decision above.
+- **Enable llama.cpp's `--deterministic` / `GGML_DETERMINISTIC=1` mode.**
+  Researched (2026-08-19), not attempted: this is an **unmerged draft PR**
+  upstream ([ggml-org/llama.cpp#16016](https://github.com/ggml-org/llama.cpp/pull/16016)),
+  targeting CUDA (BF16/FP16) only, requiring a from-source rebuild
+  (`-DGGML_DETERMINISTIC=ON`) with an acknowledged throughput cost, no
+  stated applicability to `llama-server` specifically, and — notably — one
+  llama.cpp maintainer's own stated preference for solving this class of
+  problem via **prompt-cache management** instead, which is exactly the
+  lever this project's own spike already tested (inconclusively). Not
+  exposed by Ollama today (absent from `envconfig/config.go`), consistent
+  with the upstream PR being unmerged. Rejected as a current option because
+  there is nothing to enable — this is not a config flag away, it is an
+  unmerged, GPU-family-scoped patch. Full record in
+  `docs/adr/BACKLOG-alternatives.md`.
 
 ## Consequences
 
@@ -152,6 +166,14 @@ own `VllmJsonClient` status already established for vLLM, now extended to
   `llm_batching_determinism_results_gpu.md`'s own correction section) when
   deciding how to proceed, rather than assume `--max-batch-replays` alone
   resolves it.
+- **2026-08-19**: relaunched anyway, with the residual risk consciously
+  accepted rather than resolved — no confirmed mitigation exists, but the
+  prior failure died at tick 0 in ~9 minutes, making the cost of a repeat
+  low. Full reasoning, including the explicit condition that would
+  invalidate this acceptance (a failure that lands meaningfully later in
+  the run, not at tick 0), is in `llm_batching_determinism_results_gpu.md`'s
+  own "Risque résiduel accepté consciemment" section — this is a pointer,
+  not a duplicate.
 - This decision should be revisited if: (a) this bug class (or a
   variant of it) causes another real acceptance-run failure, at which point
   a longer, better-resourced `llama-server` spike (or a first real vLLM
@@ -164,3 +186,21 @@ own `VllmJsonClient` status already established for vLLM, now extended to
   (`spike/llama-server-cache-prompt`), not merged into the main pipeline —
   per the instruction that produced this spike, it was never meant to touch
   `develop` regardless of outcome.
+- **2026-08-20: bug 4 closed, staying on Ollama.** The 2026-08-19 relaunch
+  died at tick 0 again (consistent with the accepted risk), but the
+  follow-up investigation — the harness-driven work this ADR's own
+  "revisit if" condition anticipated — found a composite, well-evidenced
+  mechanism (a partial-match collision against a dissimilar/undersized
+  llama.cpp cache entry, growing more likely as the cache pool fills) and
+  a tested, deployed mitigation (`llm.recycle_after_n_calls`, an Ollama
+  model unload/reload every N calls, verified live to both reset the
+  cache and measurably improve reliability). Full account:
+  `llm_batching_determinism_results_gpu.md`'s own "Bug 4 résolu
+  (partiellement)" section. This closes the ADR's own revisit condition
+  (a) without it being triggered by a NEW failure — the mitigation was
+  found and shipped before another acceptance-run failure occurred, not
+  in response to one. The decision to stay on Ollama stands, now on
+  firmer ground: the mechanism the `llama-server` spike could never
+  actually test (`cache_prompt=false`, since the spike never reproduced
+  the bug) turned out not to be the point — a same-provider mitigation
+  addresses the same failure class without a serving-layer switch.
