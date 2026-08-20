@@ -13,6 +13,8 @@ pytest-asyncio==1.3.0
 aiohttp==3.14.3   # 3.14.3: GHSA-cq5v-8q36-5273 (chunked-response parser OOB read),
                   #         GHSA-mfx4-hv73-q22v (ws upgrade smuggling),
                   #         GHSA-mq44-7p77-q5h7 (ws permessage-deflate)
+hypothesis==6.165.10  # Property-based testing for the theoretical invariants
+                      # (Condorcet, monotonicity, legitimacy bounds)
 
 # Security
 bandit==1.8.3        # Python SAST (static analysis)
