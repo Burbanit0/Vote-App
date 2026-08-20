@@ -56,7 +56,7 @@ jobs:
           python -m mypy api/ --config-file mypy.ini
 
       # ── Tests + Coverage ───────────────────────────────────────────────────
-      - name: Tests with coverage (30% minimum)
+      - name: Tests with coverage (85% minimum)
         env:
           FLASK_ENV: testing
           JWT_SECRET_KEY: ci-test-secret
@@ -66,4 +66,4 @@ jobs:
             --cov=api \
             --cov-report=term-missing \
             --cov-report=xml \
-            --cov-fail-under=30
+            --cov-fail-under=85
