@@ -137,17 +137,18 @@ Types valides : `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `ci`, `secur
 ## Code mort, duplication & conventions "vibe coding"
 
 Une grande partie de ce repo est écrite avec l'aide de LLM (Claude Code &
-autres). Trois outils tournent en informationnel (jamais bloquant pour
+autres). Ces outils tournent en informationnel (jamais bloquant pour
 l'instant, voir [`CODE_AUDIT.md`](CODE_AUDIT.md) pour l'état des
 lieux et le plan de passage en mode bloquant) :
 
 | Outil | Détecte | Lancer en local |
 |---|---|---|
 | `vulture` | Code mort backend (fonctions, variables, imports jamais utilisés) | `cd fast_api_voter && python -m vulture api/ .vulture_whitelist.py --config pyproject.toml` |
+| `radon`/`xenon` | Complexité cyclomatique backend (fonctions trop ramifiées) | `cd fast_api_voter && python -m radon cc api/ -e "api/tests/*" -n C -s` |
 | `knip` | Fichiers/exports/dépendances inutilisés côté frontend | `cd voter-app && npm run knip` |
 | `jscpd` | Duplication de code cross-langage (Python + TS) | `npx jscpd --config .jscpd.json fast_api_voter/api voter-app/src` |
 
-Les trois tournent aussi dans `scripts/audit.sh` (mode `--quality` ou complet)
+Tous tournent aussi dans `scripts/audit.sh` (mode `--quality` ou complet)
 et dans le job CI non-bloquant *Code Quality* de `audit.yml`.
 
 **Règles de processus pour limiter la dérive à l'usage d'un LLM :**
@@ -163,7 +164,7 @@ et dans le job CI non-bloquant *Code Quality* de `audit.yml`.
   `# noqa: BLE001` dans `api/sockets/__init__.py` comme modèle).
 - Avant une PR volumineuse générée avec assistance LLM, lancer
   `./scripts/audit.sh --quality` et relire au moins les sections vulture /
-  knip / jscpd du résumé.
+  radon / knip / jscpd du résumé.
 
 ---
 

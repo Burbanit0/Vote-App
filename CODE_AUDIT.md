@@ -1,7 +1,8 @@
 # Audit code — code mort, duplication & garde-fous "vibe coding"
 
-*Première édition : 2026-08-20. À relancer et mettre à jour après chaque
-passe de nettoyage significative (voir "Prochaines étapes" en bas de page).*
+*Première édition : 2026-08-20. Section complexité cyclomatique (radon/xenon)
+ajoutée le 2026-08-21. À relancer et mettre à jour après chaque passe de
+nettoyage significative (voir "Prochaines étapes" en bas de page).*
 
 ## Résumé exécutif
 
@@ -15,6 +16,12 @@ petites itérations. Cet audit comble ces trois lacunes avec `vulture`
 (Python), `knip` (TS) et `jscpd` (cross-langage), livre les résultats
 curatés ci-dessous, et câble les trois outils en **mode informationnel
 uniquement** dans `scripts/audit.sh` et une nouvelle CI job non-bloquante.
+Une mise à jour du 2026-08-21 ajoute un quatrième outil dans le même job,
+`radon`/`xenon`, pour la **complexité cyclomatique** — un angle mort
+supplémentaire (flake8 est volontairement scopé à `E9,F`, sans règle de
+complexité) qui confirme et affine le diagnostic de fragmentation
+architecturale posé par jscpd (§4) : la même famille de fichiers
+`workers*.py` concentre aussi les fonctions les plus complexes du repo.
 
 **Verdict global : plutôt sain.** La duplication littérale est faible
 (0,81 % des lignes scannées), le code mort détecté à haute confiance est
@@ -57,6 +64,7 @@ trop complexe" côté backend non plus.
 | `vulture` 2.16 | Code mort backend | `fast_api_voter/pyproject.toml` `[tool.vulture]` + `.vulture_whitelist.py` | `cd fast_api_voter && python -m vulture api/ .vulture_whitelist.py --config pyproject.toml` |
 | `knip` 6.x | Fichiers/exports/types/dépendances inutilisés frontend | `voter-app/knip.json` | `cd voter-app && npm run knip` |
 | `jscpd` 5.x | Duplication cross-langage (Python + TS) | `.jscpd.json` (racine) | `npx jscpd --config .jscpd.json fast_api_voter/api voter-app/src` |
+| `radon` 6.0.1 / `xenon` 0.9.3 | Complexité cyclomatique backend | flags CLI (pas de fichier dédié) | `cd fast_api_voter && python -m radon cc api/ -e "api/tests/*" -n C -s` |
 
 **Câblage :**
 - `scripts/audit.sh` (mode `--quality` ou complet) exécute les trois outils
@@ -176,7 +184,54 @@ documentée plutôt que dupliquée en silence.
 
 ---
 
-## 5. Autres odeurs "vibe coding"
+## 5. Complexité cyclomatique (radon/xenon)
+
+**Moyenne globale saine : A (4.89) sur 1119 blocs analysés** (`radon cc
+api/ -a`, tests exclus) — la complexité n'est pas un problème généralisé.
+Mais comme pour la duplication (§4), les cas extrêmes ne sont pas dispersés
+au hasard : ils confirment et affinent le même diagnostic de fragmentation
+architecturale.
+
+**Les 9 fonctions les plus complexes du repo (rang F, la pire note radon) :**
+
+| Fichier | Fonction | Rang (score) |
+|---|---|---|
+| `api/domain/polity/indexer.py:232` | `index_events` | F (70) — la plus complexe de tout le repo |
+| `api/domain/election/workers_advanced.py:1120` | `_power_indices_worker` | F (59) |
+| `api/domain/election/workers_advanced.py:34` | `_demographic_turnout_worker` | F (53) |
+| `api/domain/theory/workers.py:1478` | `_democratic_backsliding_worker` | F (45) |
+| `api/domain/polity/run_polity_simulation.py:1181` | `_run_accountability_phase` | F (44) |
+| `api/domain/election/workers.py:557` | `_interpret_worker` | F (44) |
+| `api/domain/election/workers_behavioral.py:335` | `_liquid_democracy_worker` | F (44) |
+| `api/domain/theory/workers.py:2159` | `_identity_voting_worker` | F (44) |
+| `api/sockets/__init__.py:88` | `start_monte_carlo` | F (41) |
+
+7 des 9 fonctions rang F appartiennent à la même famille déjà pointée en
+§4/§6 : les fichiers `workers*.py` (`workers.py`, `workers_advanced.py`,
+`workers_behavioral.py`) et `domain/theory/workers.py` /
+`domain/polity/run_polity_simulation.py`. Ce n'est pas une coïncidence : ce
+sont les fichiers qui ont le plus grossi par ajouts successifs sans passe de
+consolidation (voir aussi la taille en §6). La duplication et la complexité
+sont deux symptômes du même mécanisme.
+
+Au rang C (seuil d'attention, ~50 fonctions) domine un autre pattern, plus
+bénin : les fonctions `get_*_winner` de
+`api/engine/utils/simulation_ranked_utils.py` (17 fonctions rang C-D,
+ex. `get_schulze_winner` D-29, `get_split_cycle_winner` D-27,
+`get_nanson_winner` D-22). Complexité attendue pour des algorithmes de
+dépouillement (Schulze, Split Cycle...) intrinsèquement branchus — pas un
+signal de code à refactorer en priorité. Point notable : c'est exactement le
+fichier ciblé par la baseline mutation-testing de la PR #157 (score ≈62 %),
+et 9 de ces fonctions `get_*_winner` n'ont pas de test dédié — la complexité
+mesurée ici recoupe indépendamment ce gap de test déjà identifié.
+
+`xenon` tourne en parallèle avec des seuils volontairement permissifs
+(`-b F -m F -a F`, jamais d'échec) : à ce stade c'est un rapport, pas une
+porte — voir §8 pour les seuils envisagés une fois le backlog résorbé.
+
+---
+
+## 6. Autres odeurs "vibe coding"
 
 - **Fichiers massifs** (candidats à un découpage) :
   - Backend : `domain/polity/llm_behavior_engine.py` (2195 lignes),
@@ -215,7 +270,7 @@ documentée plutôt que dupliquée en silence.
 
 ---
 
-## 6. Plan d'action priorisé
+## 7. Plan d'action priorisé
 
 **Non exécuté dans cet audit** (scope = analyse + garde-fous, pas
 refactor) — à traiter dans une passe de nettoyage dédiée.
@@ -238,7 +293,9 @@ refactor) — à traiter dans une passe de nettoyage dédiée.
    `workers*.py` et entre `election_service.py`/`workers.py`.
 2. Évaluer une consolidation architecturale de `domain/election/workers*.py`
    (6 fichiers, 7 250 lignes) — probablement vers un découpage par
-   responsabilité plutôt que par ordre chronologique d'ajout.
+   responsabilité plutôt que par ordre chronologique d'ajout. Les 9 rangs F
+   de §5 (dont 5 dans cette même famille de fichiers) sont un bon point de
+   départ concret pour prioriser quelles fonctions découper en premier.
 3. Réorganiser `components/shared/` (123 fichiers) en sous-dossiers
    thématiques.
 4. Reprendre `polity_v2_consolidation_handoff.md` comme point de départ pour
@@ -246,14 +303,18 @@ refactor) — à traiter dans une passe de nettoyage dédiée.
 5. Centraliser la gestion d'erreurs pour réduire les 39 `except Exception`
    nus (backend) — probablement via un décorateur ou un context manager
    partagé plutôt qu'un correctif fichier par fichier.
+6. Ajouter les tests manquants pour les 9 fonctions `get_*_winner` de
+   `simulation_ranked_utils.py` sans couverture dédiée (recoupement §5 /
+   PR #157) avant de refactorer ce fichier — éviter de casser une méthode de
+   vote silencieusement pendant le découpage.
 
 ---
 
-## 7. Critères de passage en mode bloquant
+## 8. Critères de passage en mode bloquant
 
-Décision déjà actée : ne pas rendre `vulture`/`knip`/`jscpd` bloquants tant
-que le backlog actuel n'est pas résorbé. Suggestion de seuils pour franchir
-cette étape (à ajuster selon rythme de nettoyage réel) :
+Décision déjà actée : ne pas rendre `vulture`/`knip`/`jscpd`/`radon`/`xenon`
+bloquants tant que le backlog actuel n'est pas résorbé. Suggestion de seuils
+pour franchir cette étape (à ajuster selon rythme de nettoyage réel) :
 
 - **vulture** : 0 finding restant à `--min-confidence 80` → ajouter comme
   hook pre-commit bloquant (même modèle que `flake8`/`mypy` existants).
@@ -265,14 +326,24 @@ cette étape (à ajuster selon rythme de nettoyage réel) :
   déjà bas) — plutôt un `--ignore-pattern` ciblé une fois les clones de §4
   résorbés, pour empêcher toute nouvelle duplication du même style dans
   `workers*.py`.
+- **radon/xenon** : une fois les 9 fonctions rang F de §5 découpées sous D,
+  passer `xenon` en bloquant avec des seuils lâches
+  (`-b D -m D -a B` : aucun bloc pire que D, moyenne de module pire que D,
+  moyenne globale pire que B) plutôt qu'un seuil strict d'emblée — la
+  moyenne globale actuelle (A, 4.89) laisse de la marge sans pénaliser les
+  algorithmes de vote intrinsèquement branchus (`simulation_ranked_utils.py`).
 
 ---
 
 ## Reproduire cet audit
 
 ```bash
-# Backend
+# Backend — code mort
 cd fast_api_voter && python -m vulture api/ .vulture_whitelist.py --config pyproject.toml
+
+# Backend — complexité cyclomatique
+cd fast_api_voter && python -m radon cc api/ -e "api/tests/*" -n C -s
+cd fast_api_voter && python -m radon cc api/ -e "api/tests/*" -a   # moyenne globale
 
 # Frontend
 cd voter-app && npm run knip

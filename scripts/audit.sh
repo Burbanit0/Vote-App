@@ -172,10 +172,10 @@ if [ "$MODE" != "security" ]; then
   fi
 
   # =====================================================================
-  # DEAD CODE & DUPLICATION — informational only (see CODE_AUDIT.md).
-  # None of these three gate the script or CI: they're new (added alongside
-  # the audit) and the repo hasn't done its first cleanup pass yet. Once
-  # findings settle near zero, promote them to blocking gates like the
+  # DEAD CODE, DUPLICATION & COMPLEXITY — informational only (see
+  # CODE_AUDIT.md). None of these gate the script or CI: they're new (added
+  # alongside the audit) and the repo hasn't done its first cleanup pass yet.
+  # Once findings settle near zero, promote them to blocking gates like the
   # linters above.
   # =====================================================================
 
@@ -209,6 +209,25 @@ if [ "$MODE" != "security" ]; then
     note "$(count '.statistics.total|"\(.clones) clone(s), \(.duplicatedLines) duplicated line(s) (\((.percentage*100|round)/100)%)"' "$JSCPD_STATS"). Full report: \`$JSCPD_STATS\`. Not gated — see CODE_AUDIT.md."
   else
     note "⚠️ npx not available — can't run jscpd."
+  fi
+
+  # --- Python cyclomatic complexity: radon/xenon ---
+  section "Python cyclomatic complexity (radon/xenon, informational)"
+  if have_py radon; then
+    ( cd "$PY_DIRS" && python -m radon cc api/ -e "api/tests/*" -n C -s ) \
+      > "$REPORT_DIR/radon.txt" 2>&1
+    note "Blocks ranked C or worse: $(grep -c '^\s*[A-Z] ' "$REPORT_DIR/radon.txt" 2>/dev/null || echo 0). See \`$REPORT_DIR/radon.txt\`. Not gated — see CODE_AUDIT.md."
+  else
+    note "⚠️ radon not installed — \`pip install radon\` (in requirements-dev.txt)."
+  fi
+  if have_py xenon; then
+    # Lenient thresholds (F = worst rank = never fails): this is a report,
+    # not a gate, until the backlog in CODE_AUDIT.md is resorbed.
+    ( cd "$PY_DIRS" && python -m xenon api/ -e "api/tests/*" -b F -m F -a F ) \
+      > "$REPORT_DIR/xenon.txt" 2>&1
+    note "See \`$REPORT_DIR/xenon.txt\`. Not gated — see CODE_AUDIT.md."
+  else
+    note "⚠️ xenon not installed — \`pip install xenon\` (in requirements-dev.txt)."
   fi
 fi
 
