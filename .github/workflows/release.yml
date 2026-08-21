@@ -54,10 +54,18 @@ jobs:
           FLASK_ENV: testing
           JWT_SECRET_KEY: ci-test-secret
 
-  # ── 2. Release — only if both CI jobs pass ─────────────────────────────────
+  # E2E (Playwright) was previously wired to nothing (workflow_dispatch only)
+  # despite being the repo's one exhaustive, end-to-end check. It's too slow
+  # to run on every develop PR, but a release is exactly the infrequent,
+  # can-afford-to-be-slow moment it belongs at — see e2e.yml's own comment.
+  e2e:
+    name: E2E (Playwright)
+    uses: ./.github/workflows/e2e.yml
+
+  # ── 2. Release — only if CI + E2E all pass ─────────────────────────────────
   release:
     name: Créer la release
-    needs: [ci-frontend, ci-backend]
+    needs: [ci-frontend, ci-backend, e2e]
     runs-on: ubuntu-latest
     permissions:
       contents: write   # needed to push tags and create releases

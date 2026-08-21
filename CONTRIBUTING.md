@@ -77,6 +77,11 @@ Uniquement via le workflow **Release Vote Lab** :
 - GitHub → Actions → "Release Vote Lab" → Run workflow
 - Choisir `patch`, `minor` ou `major`
 
+Le workflow exige `ci-frontend`, `ci-backend` **et `e2e` (Playwright)** verts
+avant de taguer/pousser sur `main` — c'est le seul endroit où la suite E2E
+tourne automatiquement (trop lente pour chaque PR `develop`, mais une release
+est justement le moment peu fréquent où elle a sa place).
+
 Aucune PR vers `main` n'est acceptée depuis une branche autre que `develop`.
 
 ---
