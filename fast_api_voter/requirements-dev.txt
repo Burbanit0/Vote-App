@@ -18,6 +18,12 @@ aiohttp==3.14.3   # 3.14.3: GHSA-cq5v-8q36-5273 (chunked-response parser OOB rea
 bandit==1.8.3        # Python SAST (static analysis)
 pip-audit==2.9.0     # Dependency CVE scan
 
+# Mutation testing (weekly CI job, non-blocking — scope limited to the
+# file(s) in [tool.mutmut] below). Native Windows isn't supported upstream
+# (mutmut/__main__.py exits on platform.system() == "Windows"); run via WSL
+# or Docker locally.
+mutmut==3.7.0
+
 # Code quality
 flake8==7.2.0
 mypy==1.16.0         # Static type checking
