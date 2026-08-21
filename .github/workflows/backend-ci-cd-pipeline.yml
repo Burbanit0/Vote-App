@@ -56,13 +56,18 @@ jobs:
           python -m mypy api/ --config-file mypy.ini
 
       # ── Tests + Coverage ───────────────────────────────────────────────────
+      # -n auto (pytest-xdist): measured 1508 passed/41 skipped, 89.63%
+      # coverage, identical to sequential — ~14min -> ~8min on this same
+      # 4-vCPU runner class. Coverage combines fine across workers (pytest-cov
+      # handles this automatically); test_sockets.py already uses a random
+      # free port per test (_free_port()), so no cross-worker port collision.
       - name: Tests with coverage (85% minimum)
         env:
           FLASK_ENV: testing
           JWT_SECRET_KEY: ci-test-secret
         run: |
           cd fast_api_voter
-          python -m pytest api/tests -v \
+          python -m pytest api/tests -v -n auto \
             --cov=api \
             --cov-report=term-missing \
             --cov-report=xml \
