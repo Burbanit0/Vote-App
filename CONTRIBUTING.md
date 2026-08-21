@@ -69,6 +69,7 @@ git push origin feature/ma-feature
 | Frontend CI | Tests échouent ou coverage < 30% |
 | Backend CI | Tests échouent ou coverage < 30% |
 | npm audit | CVE haute détectée |
+| OpenAPI Contract | `openapi.gen.json` / `types.gen.ts` désynchronisés du code (route/schéma modifié sans régénération — voir `scripts/check_openapi_drift.sh`) |
 
 ### 4. Release : develop → main
 
@@ -142,4 +143,5 @@ detect-secrets scan --update .secrets.baseline         # mettre a jour la baseli
 cd voter-app && npm test -- --coverage                 # coverage frontend
 cd fast_api_voter && python -m pytest tests --cov=app  # coverage backend
 pip-audit --requirement fast_api_voter/requirements.txt # CVE Python
+./scripts/check_openapi_drift.sh                        # contrat API à jour ?
 ```
