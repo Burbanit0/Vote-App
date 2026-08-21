@@ -592,20 +592,3 @@ def get_evaluative_winner(
 
     winner = min(candidates, key=lambda c: (-net[c], c))  # alpha tie-break
     return {"winner": winner, "scores": net, "distribution": dist}
-
-
-def run_all_score_voting_methods(all_scores: Any) -> Dict[str, Any]:
-    """
-    Run all score voting methods and return the results.
-    """
-    results = {
-        "simple_score": get_simple_score_winner(all_scores),
-        "star_voting": get_star_voting_winner(all_scores),
-        "median_voting": get_median_voting_winner(all_scores),
-        "mean_median_hybrid": get_mean_median_hybrid_winner(all_scores),
-        "variance_based": get_variance_based_winner(all_scores),
-        "score_distribution": get_score_distribution_analysis(all_scores),
-        "bayesian_regret": calculate_bayesian_regret(all_scores),
-    }
-
-    return results
