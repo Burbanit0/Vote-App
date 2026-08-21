@@ -13,4 +13,5 @@ exclude =
     *.min.py,
     *.config.py,
     tests,
-    venv
+    venv,
+    .vulture_whitelist.py
