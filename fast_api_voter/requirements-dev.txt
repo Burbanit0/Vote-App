@@ -20,6 +20,12 @@ hypothesis==6.165.10  # Property-based testing for the theoretical invariants
 bandit==1.8.3        # Python SAST (static analysis)
 pip-audit==2.9.0     # Dependency CVE scan
 
+# Mutation testing (weekly CI job, non-blocking — scope limited to the
+# file(s) in [tool.mutmut] below). Native Windows isn't supported upstream
+# (mutmut/__main__.py exits on platform.system() == "Windows"); run via WSL
+# or Docker locally.
+mutmut==3.7.0
+
 # Code quality
 flake8==7.2.0
 mypy==1.16.0         # Static type checking
