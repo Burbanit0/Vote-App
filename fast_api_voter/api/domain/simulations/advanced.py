@@ -296,10 +296,6 @@ def _real_election_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
 
 # ── /simulations/constitutional-scenario ──────────────────────────────────
 
-def _blank_wins_any(result: Dict[str, Any]) -> bool:
-    return any(d.get("winner") == "Blank" for d in result.get("methods", {}).values())
-
-
 def _conclude_new_election(r1: Dict[str, Any], r2: Dict[str, Any], n_round2: int) -> str:
     blank_pct = round(r1.get("blank_pct", 0) * 100)
     r2_winners = [d["winner"] for d in r2["methods"].values() if d.get("winner") and d["winner"] != "Blank"]
