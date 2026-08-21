@@ -4,6 +4,7 @@
 # Tests
 pytest==9.0.3
 pytest-cov==6.1.0
+pytest-xdist==3.8.0   # -n auto: ~14min sequential -> ~8min in CI, measured (see backend-ci-cd-pipeline.yml)
 # Phase 4.4 — async tests for the v2 Socket.IO server. Drives the FastAPI
 # ASGI app via a uvicorn-on-a-thread fixture (see api/tests/test_sockets.py).
 pytest-asyncio==1.3.0
