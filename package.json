@@ -9,5 +9,8 @@
     "dev:backend": "python -m uvicorn api.main:app --port 4434 --reload --app-dir fast_api_voter --reload-dir fast_api_voter",
     "dev:frontend": "npm --prefix voter-app start",
     "setup": "npm --prefix voter-app install && python -m pip install -r fast_api_voter/requirements.txt"
+  },
+  "devDependencies": {
+    "jscpd": "^5.0.16"
   }
 }
