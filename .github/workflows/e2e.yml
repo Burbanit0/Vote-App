@@ -2,6 +2,11 @@ name: E2E Tests
 
 on:
   workflow_dispatch:
+  # Called from release.yml as the release gate: e2e is the one exhaustive,
+  # slow check deliberately NOT run on every develop PR (see CODE_AUDIT.md /
+  # the CI-organization discussion) — it belongs at the infrequent, can-
+  # afford-to-be-slow main/release step instead.
+  workflow_call:
 
 jobs:
   e2e:
