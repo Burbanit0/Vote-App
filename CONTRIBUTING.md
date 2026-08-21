@@ -69,12 +69,18 @@ git push origin feature/ma-feature
 | Frontend CI | Tests échouent ou coverage < 30% |
 | Backend CI | Tests échouent ou coverage < 30% |
 | npm audit | CVE haute détectée |
+| OpenAPI Contract | `openapi.gen.json` / `types.gen.ts` désynchronisés du code (route/schéma modifié sans régénération — voir `scripts/check_openapi_drift.sh`) |
 
 ### 4. Release : develop → main
 
 Uniquement via le workflow **Release Vote Lab** :
 - GitHub → Actions → "Release Vote Lab" → Run workflow
 - Choisir `patch`, `minor` ou `major`
+
+Le workflow exige `ci-frontend`, `ci-backend` **et `e2e` (Playwright)** verts
+avant de taguer/pousser sur `main` — c'est le seul endroit où la suite E2E
+tourne automatiquement (trop lente pour chaque PR `develop`, mais une release
+est justement le moment peu fréquent où elle a sa place).
 
 Aucune PR vers `main` n'est acceptée depuis une branche autre que `develop`.
 
@@ -176,4 +182,5 @@ detect-secrets scan --update .secrets.baseline         # mettre a jour la baseli
 cd voter-app && npm test -- --coverage                 # coverage frontend
 cd fast_api_voter && python -m pytest tests --cov=app  # coverage backend
 pip-audit --requirement fast_api_voter/requirements.txt # CVE Python
+./scripts/check_openapi_drift.sh                        # contrat API à jour ?
 ```

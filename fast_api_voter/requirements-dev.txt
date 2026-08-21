@@ -4,6 +4,7 @@
 # Tests
 pytest==9.0.3
 pytest-cov==6.1.0
+pytest-xdist==3.8.0   # -n auto: ~14min sequential -> ~8min in CI, measured (see backend-ci-cd-pipeline.yml)
 # Phase 4.4 — async tests for the v2 Socket.IO server. Drives the FastAPI
 # ASGI app via a uvicorn-on-a-thread fixture (see api/tests/test_sockets.py).
 pytest-asyncio==1.3.0
@@ -19,6 +20,12 @@ hypothesis==6.165.10  # Property-based testing for the theoretical invariants
 # Security
 bandit==1.8.3        # Python SAST (static analysis)
 pip-audit==2.9.0     # Dependency CVE scan
+
+# Mutation testing (weekly CI job, non-blocking — scope limited to the
+# file(s) in [tool.mutmut] below). Native Windows isn't supported upstream
+# (mutmut/__main__.py exits on platform.system() == "Windows"); run via WSL
+# or Docker locally.
+mutmut==3.7.0
 
 # Code quality
 flake8==7.2.0

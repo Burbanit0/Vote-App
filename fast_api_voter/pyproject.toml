@@ -32,3 +32,67 @@ ignore_decorators = [
   "@field_validator", "@model_validator", "@validator",
 ]
 exclude = ["api/tests/"]
+
+[tool.mutmut]
+# First pass, scoped deliberately (see prompt-mutation-testing.md). The doc's
+# §1 scope named two files; this pass covers only one of them —
+# api/domain/theory/workers.py is EXCLUDED here, not by the doc's choice but
+# by a tooling incompatibility discovered while setting this up (see
+# prompt-mutation-testing.md's companion note / PR description): its only
+# test coverage runs through FastAPI's TestClient (test_theory_batch1-4.py),
+# and mutmut 3.7.0 runs pytest in-process, repeatedly, inside the same
+# interpreter — every attempt to include any TestClient-based test in the
+# selection reproducibly broke with "NumPy module reloaded" + asyncio
+# "cancelled via cancel scope" / "invalid state" errors during mutmut's own
+# stats-gathering pass (reproduced 3x; the exact same pytest invocation and
+# flags run clean outside mutmut, isolating this to mutmut's in-process
+# re-exec model, not a bug in the test suite itself). Flagged for a decision
+# rather than worked around silently — see the PR description.
+source_paths = [
+    "api/engine/utils/simulation_ranked_utils.py",
+]
+# mutmut's mutants/ working copy only contains source_paths + also_copy —
+# our tests live at api/tests/ (not the top-level tests/ mutmut assumes by
+# default), and pytest needs the rest of the api/ package (schemas, routes,
+# __init__.py chain) importable too. also_copy runs before mutation
+# application, so re-copying the source_paths file here is harmless.
+also_copy = ["api/"]
+# Skip lines the coverage report already shows as unexercised — mutants there
+# are guaranteed, uninteresting survivors (we already know from --cov-report
+# that nothing asserts on them); this keeps the baseline focused on "did a
+# covered line's mutation actually get caught".
+mutate_only_covered_lines = true
+# -o addopts= strips pyproject's `--cov-fail-under=85` (and -v) for mutmut's
+# own pytest runs: mutmut selects a small per-mutant test subset via
+# dependency tracking, so that subset's coverage is always far below the
+# repo-wide 85% floor — without this override, every mutant run would exit
+# non-zero on the coverage gate regardless of whether the mutant was
+# actually caught, corrupting the kill/survive signal (same footgun as the
+# quick local `-o addopts=""` pattern documented in CLAUDE.md).
+pytest_add_cli_args = ["-o", "addopts="]
+# Explicit file list (not "api/tests" + ignores): these are exactly the
+# tests that import simulation_ranked_utils.py directly, none of them touch
+# FastAPI/TestClient/numpy (verified), which keeps this pass clear of the
+# in-process re-exec issue above.
+pytest_add_cli_args_test_selection = [
+    "api/tests/test_anti_plurality.py",
+    "api/tests/test_benham.py",
+    "api/tests/test_black.py",
+    "api/tests/test_bucklin_cumulative.py",
+    "api/tests/test_dowdall.py",
+    "api/tests/test_irv_coombs_elimination.py",
+    "api/tests/test_ranked_pairs_random_ballot.py",
+    "api/tests/test_raynaud.py",
+    "api/tests/test_river.py",
+    "api/tests/test_schulze_beatpath.py",
+    "api/tests/test_smith_irv.py",
+    "api/tests/test_split_cycle.py",
+]
+# KNOWN CAVEAT (signalled, not acted on — see baseline report in the PR):
+# get_condorcet_winner, get_two_round_winner, get_plurality_winner,
+# get_approval_winner, get_minimax_winner, get_copeland_winner,
+# get_nanson_winner, get_baldwin_winner, and get_kemeny_young_winner have no
+# dedicated test file in the list above — they're exercised only indirectly
+# (e.g. get_black_winner calls get_condorcet_winner internally). Their high
+# survival rate in this baseline may reflect a real gap or may just be an
+# artifact of this narrow selection; not reliable enough to act on yet.
