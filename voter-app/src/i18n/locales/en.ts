@@ -614,6 +614,8 @@ const en: TranslationKeys = {
     realSimulation: '(simulation)',
     realLegend:
       '\uD83D\uDD34 Red background = Blank Vote elected (crisis) \u00B7 \uD83D\uDFE1 Yellow background = winner changed',
+    realUnderSymbolicRule: 'Under current law (symbolic)',
+    realBlankInvalidatedLabel: 'Blank invalidated',
     realNoWinner_alt: 'No winner',
     realSummaryDiff:
       '<strong>{{count}} method{{plural}} out of {{total}}</strong> would have elected a different winner than plurality ({{pluralityWinner}}).',

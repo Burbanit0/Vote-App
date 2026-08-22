@@ -40,6 +40,30 @@ const mockResult = {
   blank_vote_analysis: null,
 };
 
+const mockResultWithBlank = {
+  ...mockResult,
+  methods_with_blank: {
+    plurality: 'Blank',
+    irv: 'Alice',
+  },
+  methods_with_blank_rule: {
+    plurality: {
+      winner: null,
+      blank_triggered: true,
+      consequence: 'Election invalidated: the blank cannot be elected under current law.',
+      blank_pct: 0.31,
+      rule: 'symbolic',
+    },
+    irv: {
+      winner: 'Alice',
+      blank_triggered: false,
+      consequence: 'Blank was counted symbolically but did not change the outcome.',
+      blank_pct: 0.31,
+      rule: 'symbolic',
+    },
+  },
+};
+
 describe('RealElectionAnalysis', () => {
   const onToggle = vi.fn();
 
@@ -68,5 +92,31 @@ describe('RealElectionAnalysis', () => {
     const checkbox = screen.getByRole('checkbox');
     fireEvent.click(checkbox);
     expect(onToggle).toHaveBeenCalledWith(true);
+  });
+
+  it('renders the symbolic-rule column when methods_with_blank_rule is present', () => {
+    render(
+      <RealElectionAnalysis
+        result={mockResultWithBlank as any}
+        blankVoteEnabled={true}
+        blankLoading={false}
+        onToggleBlankVote={onToggle}
+      />
+    );
+    expect(screen.getByText('Under current law (symbolic)')).toBeInTheDocument();
+    expect(screen.getByText('Blank invalidated')).toBeInTheDocument();
+  });
+
+  it('does not crash when methods_with_blank_rule is absent (older backend response)', () => {
+    const legacyResult = { ...mockResultWithBlank, methods_with_blank_rule: undefined };
+    render(
+      <RealElectionAnalysis
+        result={legacyResult as any}
+        blankVoteEnabled={true}
+        blankLoading={false}
+        onToggleBlankVote={onToggle}
+      />
+    );
+    expect(screen.queryByText('Under current law (symbolic)')).not.toBeInTheDocument();
   });
 });

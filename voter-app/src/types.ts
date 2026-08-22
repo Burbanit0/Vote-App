@@ -200,6 +200,14 @@ export interface BlankVoteAnalysis {
   threshold_30: BlankVoteRuleOutcome;
 }
 
+export interface MethodBlankRuleOutcome {
+  winner: string | null;
+  blank_triggered: boolean;
+  consequence: string;
+  blank_pct: number;
+  rule: string;
+}
+
 export interface RealElectionResult {
   election: {
     key: string;
@@ -215,6 +223,7 @@ export interface RealElectionResult {
   first_round_results: Record<string, number>;
   methods: Record<string, string | null>;
   methods_with_blank?: Record<string, string | null>;
+  methods_with_blank_rule?: Record<string, MethodBlankRuleOutcome>;
   divergences: RealElectionDivergence[];
   summary: {
     methods_with_different_winner: number;
