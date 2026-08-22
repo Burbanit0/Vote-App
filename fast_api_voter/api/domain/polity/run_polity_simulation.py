@@ -743,7 +743,18 @@ def _hold_presidential_election(
                 journal.write(
                     tick=tick,
                     event_type="vote_cast",
-                    payload={"blank": decision.blank, "ranking": resolve_ranking_cids(decision, nominees)},
+                    payload={
+                        "blank": decision.blank,
+                        "ranking": resolve_ranking_cids(decision, nominees),
+                        # §3.7.1 booleans-as-0/1: a deliberate, LOCAL exception
+                        # to temperature=0 determinism (llm_behavior_engine's
+                        # own _VOTE_CAST_RETRY_TEMPERATURE) -- marks a decision
+                        # that came from a temperature-varied RETRY, never the
+                        # first attempt, so a future analysis of this journal
+                        # cannot mistake a varied-sampling retry's decision for
+                        # an ordinary, deterministic first-attempt one.
+                        "retry_sampling_varied": int(outcome.retry_sampling_varied.get(decision.cid, False)),
+                    },
                     citizen_id=decision.cid,
                     motif=str(decision.motif),
                     codebook_version=config.llm.codebook_version,

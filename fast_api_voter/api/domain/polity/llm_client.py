@@ -157,6 +157,7 @@ class LlmClientProtocol(Protocol):
         json_schema: dict[str, Any],
         max_tokens: int,
         think: bool = True,
+        temperature: float | None = None,
     ) -> str: ...
 
 
@@ -324,6 +325,7 @@ class OllamaJsonClient:
         json_schema: dict[str, Any],
         max_tokens: int,
         think: bool = True,
+        temperature: float | None = None,
     ) -> str:
         """Retries only a transport failure, up to _TRANSPORT_RETRY_ATTEMPTS
         total attempts, no backoff (no concurrency to jitter against -- see
@@ -334,6 +336,23 @@ class OllamaJsonClient:
         -- see the class docstring for why `think=False` needs an entirely
         different endpoint/request shape, not just one extra body field.
 
+        `temperature`, when given, overrides `self._temperature` (the
+        client's own, config-derived, always-0.0-when-llm.enabled value) for
+        THIS call only -- every other call on this same client instance is
+        unaffected. `None` (the default, and every call site's own default)
+        preserves this client's configured temperature exactly, unchanged
+        behavior. This exists for exactly one, deliberate, documented
+        exception to the project's own determinism requirement
+        (config._parse_llm's "temperature=0 is a hard determinism
+        requirement" rule, which governs the CONFIGURED value only, not a
+        per-call override this narrow) -- see
+        llm_behavior_engine._complete_and_decode_with_replay's own
+        `retry_temperature` parameter and cache_recycle_chunk_size_tension_
+        findings.md for the one call site that uses it. This mechanism
+        itself is general (any caller could pass a temperature override);
+        the fact that only one call site does is a policy choice made at
+        that call site, not something enforced here.
+
         Recycles BEFORE this call, not after, when `recycle_after_n_calls`
         is set and the counter has reached it -- preemptive, so the cache
         pool never actually enters the observed risk zone (see class
@@ -341,17 +360,22 @@ class OllamaJsonClient:
         this mitigation exists to protect run against an already-crowded
         pool. The counter resets on recycle and is never incremented by
         the recycle's own internal calls (see _recycle)."""
+        effective_temperature = temperature if temperature is not None else self._temperature
         if self._recycle_after_n_calls is not None and self._calls_since_recycle >= self._recycle_after_n_calls:
             self._recycle()
         try:
             if think:
-                return self._complete_json_openai_compat(system_prompt, user_prompt, json_schema, max_tokens)
-            return self._complete_json_native_no_think(system_prompt, user_prompt, json_schema, max_tokens)
+                return self._complete_json_openai_compat(
+                    system_prompt, user_prompt, json_schema, max_tokens, effective_temperature
+                )
+            return self._complete_json_native_no_think(
+                system_prompt, user_prompt, json_schema, max_tokens, effective_temperature
+            )
         finally:
             self._calls_since_recycle += 1
 
     def _complete_json_openai_compat(
-        self, system_prompt: str, user_prompt: str, json_schema: dict[str, Any], max_tokens: int
+        self, system_prompt: str, user_prompt: str, json_schema: dict[str, Any], max_tokens: int, temperature: float
     ) -> str:
         body = {
             "model": self._model,
@@ -359,7 +383,7 @@ class OllamaJsonClient:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            "temperature": self._temperature,
+            "temperature": temperature,
             "seed": self._seed,
             "max_tokens": max_tokens,
             "stream": False,
@@ -373,7 +397,7 @@ class OllamaJsonClient:
         return _extract_content(response)
 
     def _complete_json_native_no_think(
-        self, system_prompt: str, user_prompt: str, json_schema: dict[str, Any], max_tokens: int
+        self, system_prompt: str, user_prompt: str, json_schema: dict[str, Any], max_tokens: int, temperature: float
     ) -> str:
         # `self._base_url` is documented as ending in `/v1` (the
         # OpenAI-compat convention) -- the native endpoint lives one level
@@ -388,7 +412,7 @@ class OllamaJsonClient:
             "stream": False,
             "think": False,
             "format": _inline_refs(json_schema),
-            "options": {"temperature": self._temperature, "seed": self._seed, "num_predict": max_tokens},
+            "options": {"temperature": temperature, "seed": self._seed, "num_predict": max_tokens},
         }
         payload = json.dumps(body, sort_keys=True, separators=(",", ":"))
         response = _post_with_transport_retry(self._client, f"{native_base}/api/chat", payload)
@@ -443,12 +467,12 @@ class OllamaJsonClient:
                 if think:
                     self._complete_json_openai_compat(
                         "Reply with the required JSON object.", _RECYCLE_WARM_UP_USER_PROMPT,
-                        _RECYCLE_WARM_UP_SCHEMA, _RECYCLE_WARM_UP_MAX_TOKENS,
+                        _RECYCLE_WARM_UP_SCHEMA, _RECYCLE_WARM_UP_MAX_TOKENS, self._temperature,
                     )
                 else:
                     self._complete_json_native_no_think(
                         "Reply with the required JSON object.", _RECYCLE_WARM_UP_USER_PROMPT,
-                        _RECYCLE_WARM_UP_SCHEMA, _RECYCLE_WARM_UP_MAX_TOKENS,
+                        _RECYCLE_WARM_UP_SCHEMA, _RECYCLE_WARM_UP_MAX_TOKENS, self._temperature,
                     )
             except Exception as exc:  # noqa: BLE001
                 _logger.warning("LLM recycle: re-warm call (think=%s) failed, continuing anyway: %s", think, exc)
@@ -560,17 +584,25 @@ class VllmJsonClient:
         json_schema: dict[str, Any],
         max_tokens: int,
         think: bool = True,
+        temperature: float | None = None,
     ) -> str:
         """Retries only a transport failure, exactly like OllamaJsonClient
         -- see _post_with_transport_retry. A response-level failure
-        propagates immediately, unretried -- see LlmResponseError."""
+        propagates immediately, unretried -- see LlmResponseError.
+
+        `temperature` mirrors OllamaJsonClient's own per-call override
+        (None preserves this client's configured value) -- kept here only
+        for LlmClientProtocol parity; no vLLM call site uses a non-None
+        value as of this change, and this path remains unverified against
+        a live vLLM server regardless (see class docstring)."""
+        effective_temperature = temperature if temperature is not None else self._temperature
         body = {
             "model": self._model,
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            "temperature": self._temperature,
+            "temperature": effective_temperature,
             "seed": self._seed,
             "max_tokens": max_tokens,
             "stream": False,

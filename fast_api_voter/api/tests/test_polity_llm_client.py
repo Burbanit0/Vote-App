@@ -69,6 +69,27 @@ def test_request_shape_is_correct():
     assert body["response_format"]["json_schema"]["schema"] == {"type": "object"}
 
 
+def test_temperature_override_replaces_the_configured_value_for_that_call_only():
+    # llm_behavior_engine.py's own local, deliberate exception to
+    # temperature=0 determinism (cast_votes's retry_temperature) -- the
+    # override must reach the request body, and only for the call it was
+    # passed to.
+    captured = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.append(json.loads(request.content))
+        return _ok_response('{"decisions": []}')
+
+    client = _client(handler)
+    client.complete_json(system_prompt="sys", user_prompt="usr", json_schema={"type": "object"}, max_tokens=64)
+    client.complete_json(
+        system_prompt="sys", user_prompt="usr", json_schema={"type": "object"}, max_tokens=64, temperature=0.3
+    )
+    client.complete_json(system_prompt="sys", user_prompt="usr", json_schema={"type": "object"}, max_tokens=64)
+
+    assert [c["temperature"] for c in captured] == [0.0, 0.3, 0.0]
+
+
 def test_nested_ref_schema_is_dereferenced_before_sending():
     captured = {}
 
@@ -211,6 +232,22 @@ def test_native_request_shape_is_correct():
     assert "chat_template_kwargs" not in body
 
 
+def test_temperature_override_reaches_the_native_path_too():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return _ok_native_response('{"decisions": []}')
+
+    client = _client(handler)
+    client.complete_json(
+        system_prompt="sys", user_prompt="usr", json_schema={"type": "object"}, max_tokens=64,
+        think=False, temperature=0.3,
+    )
+
+    assert captured["body"]["options"] == {"temperature": 0.3, "seed": 42, "num_predict": 64}
+
+
 def test_native_done_reason_not_stop_raises_without_retry():
     calls = {"count": 0}
 
@@ -342,6 +379,24 @@ def test_vllm_request_shape_is_correct():
     assert body["messages"] == [{"role": "system", "content": "sys"}, {"role": "user", "content": "usr"}]
     assert body["response_format"]["json_schema"]["strict"] is True
     assert body["response_format"]["json_schema"]["schema"] == {"type": "object"}
+
+
+def test_vllm_temperature_override_replaces_the_configured_value():
+    # Protocol parity with OllamaJsonClient's own override -- unverified
+    # against a live vLLM server like every other claim in this class, see
+    # its own docstring.
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return _ok_response('{"decisions": []}')
+
+    client = _vllm_client(handler)
+    client.complete_json(
+        system_prompt="sys", user_prompt="usr", json_schema={"type": "object"}, max_tokens=64, temperature=0.3
+    )
+
+    assert captured["body"]["temperature"] == 0.3
 
 
 def test_vllm_think_true_sets_enable_thinking_true():

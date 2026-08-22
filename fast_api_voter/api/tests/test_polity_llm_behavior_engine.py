@@ -13,10 +13,12 @@ from api.domain.polity.codebook import EventType, VoteMotif
 from api.domain.polity.config import PressureMenuConfig, load_config
 from api.domain.polity.llm_behavior_engine import (
     MIN_SAFE_BATCH_SIZE,
+    _VOTE_CAST_RETRY_TEMPERATURE,
     ChamberContext,
     PressureContext,
     ReactionContext,
     ResponseContext,
+    VoteBatchOutcome,
     apply_shifts,
     assemble_coalition,
     build_candidacy_system_prompt,
@@ -372,11 +374,13 @@ def test_cast_votes_matches_build_ranking_when_nobody_votes_blank():
 
 
 def test_cast_votes_preserves_voter_order_across_chunk_boundaries():
-    # cast_votes chunks at its own dedicated _VOTE_CAST_MAX_CHUNK_SIZE (3),
+    # cast_votes chunks at its own dedicated _VOTE_CAST_MAX_CHUNK_SIZE (1),
     # never config.llm.max_batch_size (a real v6b acceptance run found
-    # multi-voter batches collapse the model's per-voter distance reasoning
-    # -- see cast_votes's own docstring). 7 voters at chunk size 3:
-    # ceil(7/3)=3 chunks, divmod(7,3)=(2,1) -> sizes [3,2,2].
+    # multi-voter batches collapse the model's per-voter distance reasoning,
+    # and even chunk_size=3 kept hitting finish_reason='length' under a
+    # widened token budget -- see cast_votes's own docstring). 7 voters at
+    # chunk size 1: 7 chunks of exactly 1 voter each, one client call per
+    # voter, in order.
     voters = _population(7, dims=1)
     candidates = [_candidate(100, (0.5,))]
     config = _config_with_llm_enabled(max_batch_size=25)
@@ -384,7 +388,7 @@ def test_cast_votes_preserves_voter_order_across_chunk_boundaries():
 
     outcome = cast_votes(voters, candidates, config, client)
 
-    assert client.calls == [[0, 1, 2], [3, 4], [5, 6]]
+    assert client.calls == [[0], [1], [2], [3], [4], [5], [6]]
     assert len(outcome.ballots) == 7
     for ballot in outcome.ballots:
         assert BLANK_LABEL in ballot
@@ -396,7 +400,7 @@ def test_cast_votes_ballot_from_decision_blank_is_always_just_blank():
     config = _config_with_llm_enabled()
     # blank_threshold=1.0 on every voter means nobody actually goes blank
     # in this fixture; force it via a client that always answers blank.
-    # cast_votes now chunks at its own _VOTE_CAST_MAX_CHUNK_SIZE (3), so
+    # cast_votes now chunks at its own _VOTE_CAST_MAX_CHUNK_SIZE (1), so
     # the fake must answer only the cids in each chunk's own user_prompt,
     # not the whole population every time.
     client = FakeLlmClient({v.citizen_id: v for v in voters}, candidates)
@@ -1424,6 +1428,9 @@ def test_decide_chamber_deliberation_returns_empty_and_skips_the_client_when_no_
 
 
 def test_decide_chamber_deliberation_sorts_members_by_citizen_id_regardless_of_input_order():
+    # _CHAMBER_MAX_CHUNK_SIZE=1 means each member reaches the client as its
+    # own call -- the ordering guarantee (D-5) is now about CALL ORDER, not
+    # grouping within one call.
     members = [_member(3, (0.5,)), _member(0, (0.5,)), _member(4, (0.5,))]
     contexts = {m.citizen_id: _chamber_context(m.citizen_id) for m in members}
     config = _config_with_llm_enabled()
@@ -1431,16 +1438,27 @@ def test_decide_chamber_deliberation_sorts_members_by_citizen_id_regardless_of_i
 
     decide_chamber_deliberation(members, contexts, config, client)
 
-    assert client.calls == [[0, 3, 4]]
+    assert client.calls == [[0], [3], [4]]
 
 
-def test_decide_chamber_deliberation_chunks_a_full_seats_sized_cohort_at_ten():
+def test_decide_chamber_deliberation_chunks_a_full_seats_sized_cohort_at_one():
     # A 30-member cohort (sortition_chamber.seats shipped) must reach the
-    # client as THREE calls of 10 -- a real, measured correction: this lot's
-    # own pre-flight spike found one call of 30 (and even a chunk of 15)
-    # silently drops all but the last 6 decisions, so decide_chamber_
-    # deliberation chunks at its own measured ceiling
-    # (_CHAMBER_MAX_CHUNK_SIZE=10), not config.llm.max_batch_size (25).
+    # client as THIRTY calls of 1 -- this lot's own pre-flight spike found
+    # one call of 30 (and even a chunk of 15) silently drops all but the
+    # last 6 decisions, so decide_chamber_deliberation chunks at its own
+    # measured ceiling (_CHAMBER_MAX_CHUNK_SIZE), not config.llm.max_batch_
+    # size (25). Cut from an original 10 -- via a tried-and-DISPROVEN
+    # intermediate of 5 -- to 1 (vote_cast's own endpoint) after a real v6b
+    # acceptance run (2026-08-21/22, GPU) hit finish_reason='length' on a
+    # chunk_size=10 call, 3/3 attempts, all landing exactly on
+    # n_decoded=10136 -- the deterministic "hits the configured ceiling"
+    # signature (Mode B), not unbounded reasoning collapse (Mode A) --
+    # fixed the same way _VOTE_CAST_MAX_CHUNK_SIZE's own history fixed an
+    # analogous overflow: cut the chunk size, not the budget. Halving to 5
+    # was tried first and reproduced the identical overflow on a different
+    # sub-chunk with zero margin; chunk_size=1 was validated directly
+    # against that same failing group before shipping -- see this
+    # constant's own docstring / scripts/lot3_chamber_reliability_results.md.
     members = [_member(i, (0.5,)) for i in range(30)]
     contexts = {m.citizen_id: _chamber_context(m.citizen_id) for m in members}
     config = _config_with_llm_enabled()
@@ -1448,8 +1466,8 @@ def test_decide_chamber_deliberation_chunks_a_full_seats_sized_cohort_at_ten():
 
     decide_chamber_deliberation(members, contexts, config, client)
 
-    assert len(client.calls) == 3
-    assert [len(c) for c in client.calls] == [10, 10, 10]
+    assert len(client.calls) == 30
+    assert [len(c) for c in client.calls] == [1] * 30
     assert sorted(cid for call in client.calls for cid in call) == list(range(30))
 
 
@@ -1459,9 +1477,15 @@ def test_decide_chamber_deliberation_uses_think_true_and_the_reasoning_token_all
     # 4/10, well-formed JSON, not a truncation; think=True fixed that exact
     # chunk 6/6 direct against the real content. Mirrors decide_campaign_
     # positioning's own already-shipped think=False->True fix for an
-    # analogous duplicate/drop failure. 4000 here mirrors the module's own
-    # _CHAMBER_THINK_TOKEN_ALLOWANCE constant (llm_behavior_engine.py).
-    members = [_member(i, (0.5,)) for i in range(10)]
+    # analogous duplicate/drop failure. 8000 here mirrors the module's own
+    # _CHAMBER_THINK_TOKEN_ALLOWANCE constant (llm_behavior_engine.py) --
+    # corrected from an original 4000 after a real v6b acceptance run
+    # (2026-08-20) hit finish_reason='length' on a chunk_size=10 call, 3/3,
+    # deterministic budget exhaustion (not context truncation). 1 member
+    # (not 10) since _CHAMBER_MAX_CHUNK_SIZE was itself later cut to 1
+    # (via a disproven intermediate of 5) for the identical reason, two
+    # calls up.
+    members = [_member(0, (0.5,))]
     contexts = {m.citizen_id: _chamber_context(m.citizen_id) for m in members}
     config = _config_with_llm_enabled()
     client = FakeChamberLlmClient()
@@ -1469,7 +1493,7 @@ def test_decide_chamber_deliberation_uses_think_true_and_the_reasoning_token_all
     decide_chamber_deliberation(members, contexts, config, client)
 
     assert client.think_values == [True]
-    assert client.max_tokens_values == [compute_max_tokens(10) + 4000]
+    assert client.max_tokens_values == [compute_max_tokens(1) + 8000]
 
 
 def test_decide_chamber_deliberation_applies_shifts_on_top_of_chamber_position():
@@ -2568,17 +2592,26 @@ class _FlakyClient:
     first `fail_times` calls, then `good_raw` on every call after --
     exercises _complete_and_decode_with_replay's retry loop without a live
     model. Records every (system_prompt, user_prompt) pair, so a test can
-    assert the retried request is byte-identical to the original."""
+    assert the retried request is byte-identical to the original --
+    "byte-identical" refers to the PROMPTS specifically; cast_votes's own
+    retry_temperature (a local, deliberate exception, see llm_behavior_
+    engine._VOTE_CAST_RETRY_TEMPERATURE) means the full request is not
+    byte-identical for that one entry point, covered by its own dedicated
+    test below. Also accepts and records `temperature` (defaulting like
+    the real client's own `complete_json`) so a caller opting into
+    retry_temperature doesn't raise a TypeError against this fake."""
 
     def __init__(self, fail_times, good_raw):
         self.fail_times = fail_times
         self.good_raw = good_raw
         self.calls = 0
         self.prompts: list[tuple[str, str]] = []
+        self.temperatures: list[float | None] = []
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None):
         self.calls += 1
         self.prompts.append((system_prompt, user_prompt))
+        self.temperatures.append(temperature)
         if self.calls <= self.fail_times:
             return "not valid json"
         return self.good_raw
@@ -2599,10 +2632,12 @@ class _FlakyResponseClient:
         self.good_raw = good_raw
         self.calls = 0
         self.prompts: list[tuple[str, str]] = []
+        self.temperatures: list[float | None] = []
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None):
         self.calls += 1
         self.prompts.append((system_prompt, user_prompt))
+        self.temperatures.append(temperature)
         if self.calls <= self.fail_times:
             raise LlmResponseError("generation did not finish cleanly: done_reason='length'")
         return self.good_raw
@@ -2612,7 +2647,7 @@ class _AlwaysTransportFailingClient:
     def __init__(self):
         self.calls = 0
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None):
         self.calls += 1
         raise LlmTransportError("connection refused")
 
@@ -2625,10 +2660,10 @@ def _replay_cases():
     caller); every other entry point batches a handful of
     officeholders/nominees/parties/consulted citizens and needs no such
     floor. vote_cast now chunks at its own dedicated
-    _VOTE_CAST_MAX_CHUNK_SIZE=3 (min_batch_size=1) -- exactly 3 voters here
+    _VOTE_CAST_MAX_CHUNK_SIZE=1 (min_batch_size=1) -- exactly 1 voter here
     so this fixture produces exactly one chunk/one client call, matching
     every other single-call good_raw fixture below."""
-    voters = _population(3, dims=1)
+    voters = _population(1, dims=1)
     vote_candidates = [_candidate(900, (0.5,))]
     vote_good = json.dumps({"decisions": [{"cid": v.citizen_id, "blank": 1, "ranking": [], "motif": 101} for v in voters]})
 
@@ -2735,7 +2770,12 @@ def test_max_batch_replays_recovers_after_failures_within_the_budget(label, call
     client = _FlakyClient(fail_times=2, good_raw=good_raw)
     call(config, client)  # must not raise
     assert client.calls == 3
-    assert client.prompts[0] == client.prompts[1] == client.prompts[2]  # byte-identical retries
+    # Byte-identical PROMPTS on every retry, for every entry point including
+    # vote_cast -- retry_temperature (cast_votes's own local exception, see
+    # test_cast_votes_retries_at_a_varied_temperature_and_marks_it below)
+    # changes what temperature accompanies the prompt, never the prompt
+    # itself.
+    assert client.prompts[0] == client.prompts[1] == client.prompts[2]
 
 
 @pytest.mark.parametrize("label,call,good_raw", _replay_cases(), ids=[c[0] for c in _replay_cases()])
@@ -2758,7 +2798,12 @@ def test_max_batch_replays_recovers_from_a_complete_json_raised_error(label, cal
     client = _FlakyResponseClient(fail_times=2, good_raw=good_raw)
     call(config, client)  # must not raise
     assert client.calls == 3
-    assert client.prompts[0] == client.prompts[1] == client.prompts[2]  # byte-identical retries
+    # Byte-identical PROMPTS on every retry, for every entry point including
+    # vote_cast -- retry_temperature (cast_votes's own local exception, see
+    # test_cast_votes_retries_at_a_varied_temperature_and_marks_it below)
+    # changes what temperature accompanies the prompt, never the prompt
+    # itself.
+    assert client.prompts[0] == client.prompts[1] == client.prompts[2]
 
 
 @pytest.mark.parametrize("label,call,good_raw", _replay_cases(), ids=[c[0] for c in _replay_cases()])
@@ -2783,3 +2828,81 @@ def test_max_batch_replays_never_catches_a_transport_error():
     with pytest.raises(LlmTransportError):
         decide_pressure_actions([citizen], contexts, config, client)
     assert client.calls == 1  # the client itself owns transport-level retries, not this layer
+
+
+# ── retry_temperature / retry_sampling_varied -- cast_votes's own local,
+# deliberate exception to temperature=0 determinism (see
+# cache_recycle_chunk_size_tension_findings.md and _VOTE_CAST_RETRY_
+# TEMPERATURE's own comment). No other decide_* entry point opts into this.
+
+def test_cast_votes_first_attempt_never_overrides_temperature():
+    # The common, successful-first-try path: no retry ever happens, so no
+    # temperature override is ever sent, regardless of max_batch_replays.
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, max_batch_replays=2))
+    voters = _population(1, dims=1)
+    candidates = [_candidate(900, (0.5,))]
+    good_raw = json.dumps({"decisions": [{"cid": 0, "blank": 1, "ranking": [], "motif": 101}]})
+    client = _FlakyClient(fail_times=0, good_raw=good_raw)
+
+    cast_votes(voters, candidates, config, client)
+
+    assert client.calls == 1
+    assert client.temperatures == [None]
+
+
+def test_cast_votes_retries_at_a_varied_temperature_and_marks_it():
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, max_batch_replays=1))
+    voters = _population(1, dims=1)
+    candidates = [_candidate(900, (0.5,))]
+    good_raw = json.dumps({"decisions": [{"cid": 0, "blank": 1, "ranking": [], "motif": 101}]})
+    client = _FlakyClient(fail_times=1, good_raw=good_raw)
+
+    outcome = cast_votes(voters, candidates, config, client)
+
+    assert client.calls == 2
+    # First attempt: no override (preserves determinism). Retry: the local
+    # exception's own temperature, never None.
+    assert client.temperatures == [None, _VOTE_CAST_RETRY_TEMPERATURE]
+    assert outcome.retry_sampling_varied == {0: True}
+
+
+def test_cast_votes_retry_sampling_varied_is_false_when_the_first_attempt_succeeds():
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, max_batch_replays=2))
+    voters = _population(1, dims=1)
+    candidates = [_candidate(900, (0.5,))]
+    good_raw = json.dumps({"decisions": [{"cid": 0, "blank": 1, "ranking": [], "motif": 101}]})
+    client = _FlakyClient(fail_times=0, good_raw=good_raw)
+
+    outcome = cast_votes(voters, candidates, config, client)
+
+    assert outcome.retry_sampling_varied == {0: False}
+
+
+def test_cast_votes_retry_sampling_varied_defaults_to_an_empty_dict_when_unset():
+    # A plain VoteBatchOutcome(ballots=..., decisions=...) construction --
+    # every pre-existing call site in this codebase's own tests -- still
+    # compiles, and reading a missing cid reads as False, not a KeyError.
+    outcome = VoteBatchOutcome(ballots=[], decisions=[])
+    assert outcome.retry_sampling_varied == {}
+    assert outcome.retry_sampling_varied.get(999, False) is False
+
+
+def test_other_decide_entry_points_never_send_a_temperature_override_even_when_replayed():
+    # The negative case for every OTHER decision type: retry_temperature
+    # defaults to None at every call site except cast_votes's own, so a
+    # replay never sends a temperature override for them -- byte-identical
+    # retries, unchanged since v4 Lot 8.
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, max_batch_replays=1))
+    citizen = _pressure_citizen(0)
+    contexts = _pressure_contexts([citizen])
+    good_raw = json.dumps({"decisions": [{"cid": 0, "target": 205, "act": 4, "motif": 305}]})
+    client = _FlakyClient(fail_times=1, good_raw=good_raw)
+
+    decide_pressure_actions([citizen], contexts, config, client)
+
+    assert client.calls == 2
+    assert client.temperatures == [None, None]

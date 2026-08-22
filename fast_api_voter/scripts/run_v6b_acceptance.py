@@ -116,7 +116,16 @@ def _config_for_v6b_run(
     )
     if engine == "llm":
         config = dataclasses.replace(
-            config, llm=dataclasses.replace(config.llm, enabled=True, max_batch_replays=max_batch_replays)
+            config,
+            llm=dataclasses.replace(
+                config.llm, enabled=True, max_batch_replays=max_batch_replays,
+                # bug 4 mitigation (llm_batching_determinism_results_gpu.md,
+                # 2026-08-20): recycle the Ollama model every 6 calls, safely
+                # under the measured risk zone (cache>=7). Not wiring this in
+                # is exactly what let the first real-run attempt of this lot
+                # die on campaign_positioning's very first think=True call.
+                recycle_after_n_calls=6,
+            ),
         )
     return config
 

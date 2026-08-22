@@ -94,7 +94,9 @@ the CALLER before this module is ever reached (run_polity_simulation's
 _run_chamber_deliberation is dispatched directly from the tick loop, never
 nested inside _run_accountability_phase -- see that function's own
 docstring for why). Chunks via chunk_voters, but at its OWN measured
-ceiling (_CHAMBER_MAX_CHUNK_SIZE=10), not config.llm.max_batch_size --
+ceiling (_CHAMBER_MAX_CHUNK_SIZE=1, cut down from an original 10 -- via a
+tried-and-failed intermediate of 5 -- after repeated token-budget overflows;
+see that constant's own docstring), not config.llm.max_batch_size --
 originally designed to never chunk at all (the cohort is capped at
 sortition_chamber.seats, shipped 30, "a handful", the same category as
 dt=5/dt=6), but this lot's own pre-flight spike measured that assumption
@@ -129,7 +131,7 @@ from __future__ import annotations
 import json
 import logging
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping, Sequence, TypeVar
 
 import numpy as np
@@ -214,8 +216,54 @@ MIN_SAFE_BATCH_SIZE = 20
 # ceiling than every other decision type, attributable to this prompt's own
 # heavier per-member payload (sincere_position + chamber_position, two
 # 20-dim float arrays per member, unlike dt=10's own scalar-only ctx).
-# Confirmed reliable at exactly 10 (3/3 chunks on the real 30-member cohort).
-_CHAMBER_MAX_CHUNK_SIZE = 10
+# Originally shipped at 10 (3/3 chunks clean on the real 30-member cohort at
+# the time).
+#
+# 10 turned out not to be a stable ceiling either, by direct analogy with
+# _VOTE_CAST_MAX_CHUNK_SIZE's own history below: a real v6b acceptance run
+# (2026-08-21/22, GPU) hit finish_reason='length' on a chunk_size=10 call,
+# 3/3 (original + 2 replays), all landing EXACTLY on n_decoded=10136 --
+# byte-for-byte identical across all three attempts, confirmed via docker
+# logs (n_ctx_slot=16384, truncated=0, no context-shift; prompt=4754 tokens,
+# 11630 tokens of real headroom to the actual context ceiling). This is
+# compute_max_tokens(10) + _CHAMBER_THINK_TOKEN_ALLOWANCE = 2136 + 8000 =
+# 10136 exactly -- the deterministic "hits the configured ceiling on the
+# nose" signature (Mode B: budget too tight), not the "reasoning collapses
+# and never converges regardless of budget" signature (Mode A) cast_votes's
+# own per-voter arithmetic showed at increasing chunk sizes.
+#
+# Widening the budget again was rejected in favor of cutting the chunk size,
+# for the same reason _VOTE_CAST_MAX_CHUNK_SIZE's own history already
+# establishes: reasoning-token appetite scales with content, not a fixed
+# ceiling -- vote_cast tried three successive widenings (4000/8000/12000)
+# and never converged, while cutting chunk size did.
+#
+# Tried 5 first (halving, not vote_cast's own chunk_size=1 endpoint outright)
+# on the reasoning that this was one exhaustion in 1258 journaled events, not
+# a repeated failure to converge, and chamber_deliberation already runs every
+# tick (chunk_size=1 would 10x its call count, 30/tick instead of 3, against
+# a decision type already flagged as this run's own dominant cost driver).
+# Validated directly against the real failing chunk before shipping
+# (2026-08-22, GPU) -- and 5 did NOT hold: all three original chunk-of-10
+# groups happened to complete cleanly on that pass (this backend's own
+# already-documented temperature=0 non-determinism -- the exact overflow
+# from the live run did not reproduce identically), but splitting each into
+# chunk-of-5 halves for margin evidence reproduced the IDENTICAL failure on
+# a different half (cids=[59,61,65,75,90]), 99.1s to fail, n_decoded landing
+# at EXACTLY compute_max_tokens(5) + _CHAMBER_THINK_TOKEN_ALLOWANCE =
+# 1836 + 8000 = 9836 -- the same "hits the ceiling on the nose" signature,
+# just relocated, zero margin, not merely close to it. Exactly the vote_cast
+# precedent this comment already cites: an intermediate chunk size (there,
+# 3 and then 2) can still occasionally overflow.
+#
+# Cut to 1 (vote_cast's own endpoint) and re-validated against the SAME
+# failing 5-citizen group, individually (2026-08-22, GPU): all 5 completed
+# cleanly, 4.3-11.7s each -- an order of magnitude faster than the 99-108s
+# overflow calls, real margin, not a near-miss. See
+# scripts/lot3_chamber_reliability_results.md's "Lot 4 chunk_size=1
+# validation" section for the full evidence chain (chunk=10 crash,
+# chunk=5 re-failure, chunk=1 convergence).
+_CHAMBER_MAX_CHUNK_SIZE = 1
 
 # A real v6b acceptance run (2026-08-17, GPU) found cast_votes's own
 # per-voter distance-threshold arithmetic -- correct at batch size 1 (5/5
@@ -233,7 +281,72 @@ _CHAMBER_MAX_CHUNK_SIZE = 10
 # the extra reasoning allowance below; with it, batches of 1-3 complete
 # cleanly and correctly. See _VOTE_THINK_TOKEN_ALLOWANCE and cast_votes's
 # own docstring for the full picture.
-_VOTE_CAST_MAX_CHUNK_SIZE = 3
+#
+# 3 turned out not to be a hard floor either. Three consecutive live
+# escalations of _VOTE_THINK_TOKEN_ALLOWANCE (4000 -> 8000 -> 12000, see
+# that constant's own history) each hit finish_reason='length' again on a
+# DIFFERENT chunk_size=3 batch -- no convergence, and 12000 already sits
+# within ~500 tokens of the real OLLAMA_CONTEXT_LENGTH=16384 ceiling given
+# the observed ~2100-token prompt, so raising it further risked resurrecting
+# the already-fixed context-shift bug (ollama_context_window_results.md)
+# instead of fixing this one. think=False was tested directly as an
+# alternative to widening the budget further and rejected on its own
+# quality grounds -- a live spike against real weighted_distance ground
+# truth (2026-08-21) scored 1/15 correct, mostly a fixed-looking
+# non-distance permutation, i.e. silent ballot corruption, worse than the
+# current loud failure.
+#
+# Reducing chunk size was tested empirically instead (2026-08-21, GPU,
+# think=True, the same 12000-token allowance, real production
+# population/prompts, 8 chunks per size): chunk_size=2 still failed 1/8
+# (finish_reason='length', 143.3s to get there -- a real, expensive budget
+# exhaustion, not a fluke); chunk_size=1 was clean 8/8. The reasoning-token
+# appetite scales with content, just not primarily via the flat
+# 60-token/voter addend compute_max_tokens adds -- fewer voters per call
+# measurably reduces how much the model has to reason about, unlike the
+# flat _VOTE_THINK_TOKEN_ALLOWANCE budget on its own. Costs roughly 3x the
+# number of cast_votes calls (95 voters/election at 1-per-call vs
+# ceil(95/3)=32 at 3-per-call), forecast at ~+29 min added to a 3-election,
+# 8-year acceptance run (~4h baseline) -- not the dominant cost driver
+# (chamber_deliberation/pressure_action's own per-tick call volume is), and
+# likely an overestimate since it assumes chunk_size=3 would have completed
+# cleanly instead of repeatedly failing and burning replay attempts.
+_VOTE_CAST_MAX_CHUNK_SIZE = 1
+
+# cache_recycle_chunk_size_tension_findings.md's own 3-condition harness
+# experiment (2026-08-22, GPU) found the chunk_size=1 fix above still
+# fails at a real, deterministic ~6.7% rate (2/30 across A_none/B_six/
+# C_three alike) -- always the SAME error (blank=1 + non-empty ranking,
+# §3.6.1), never a truncation, and identically reproducible per-voter
+# regardless of recycle_after_n_calls, which the experiment's own
+# decision criteria conclusively ruled out as the operative variable (see
+# that doc's own "Conclusion"). Since the failure is deterministic at
+# temperature=0, an identical byte-for-byte retry (_complete_and_decode_
+# with_replay's own shipped default) reproduces the identical wrong
+# output rather than resampling past it -- exactly what the crashed
+# acceptance run's own 2 failed replay attempts already demonstrated.
+# Validated directly (2026-08-22) against the real production cast_votes
+# path, using the same two known-reproducible cases (cid=7, cid=28) from
+# that experiment: cid=7's first attempt failed with the IDENTICAL error
+# text as every prior observation (same deterministic reproduction), and
+# the retry at this temperature succeeded (blank=0, ranking=[2]) --
+# retry_sampling_varied=True, a clean before/after confirmation. cid=28,
+# by contrast, did NOT reproduce its earlier failure across 3 fresh calls
+# in this validation (succeeded on the first, temperature=0 attempt every
+# time) -- consistent with this module's own already-documented finding
+# that temperature=0 + a pinned seed is NOT a reproducibility guarantee on
+# this inference backend (llm_client.py's own module docstring,
+# ollama_structured_output_results.md), not evidence against the
+# mitigation, but honestly inconclusive as a second data point. One clean
+# confirmatory case, one inconclusive case -- not an exhaustive sweep,
+# per the deliberately quick validation this was scoped to. This is a
+# deliberate, LOCAL, one-call-site exception to the project's own
+# temperature=0 determinism requirement -- see _complete_and_decode_
+# with_replay's own retry_temperature/retry_info docstring for why it
+# does not change that requirement's own scope (config._parse_llm's rule
+# governs the CONFIGURED value; this overrides only a retry attempt, on
+# this one call site, never the first attempt).
+_VOTE_CAST_RETRY_TEMPERATURE = 0.3
 
 # Mirrors _POSITIONING_THINK_TOKEN_ALLOWANCE's own reasoning: a shared
 # constant would either starve one caller or over-provision another, since
@@ -241,7 +354,31 @@ _VOTE_CAST_MAX_CHUNK_SIZE = 3
 # independently. A batch of 5 at compute_max_tokens(5)+4000=5836 still hit
 # finish_reason='length'; 4000 is what the reliable size<=3 range above was
 # actually measured against.
-_VOTE_THINK_TOKEN_ALLOWANCE = 4000
+#
+# That "reliable" range turned out not to be a hard floor either: a real
+# v6b acceptance run (2026-08-20, GPU, OLLAMA_CONTEXT_LENGTH=16384 already
+# in effect) hit finish_reason='length' on a chunk_size=3 batch, deterministic
+# at temp=0 (the replay hit the identical n_decoded=5716/5717 ceiling both
+# times). Confirmed via docker logs this was NOT the context-window bug
+# (ollama_context_window_results.md) -- n_ctx_slot=16384 throughout, no
+# context-shift event, prompt ~2097 tokens, truncated=0. Simple budget
+# exhaustion: the model's own reasoning ran past the allotted 4000-token
+# ceiling before emitting a stop token. Same fix as
+# _POSITIONING_THINK_TOKEN_ALLOWANCE's own identical live finding: doubled.
+#
+# Doubling to 8000 was ALSO not a hard floor: the very next relaunch of that
+# same run (still 2026-08-20, GPU) hit finish_reason='length' again, on a
+# different chunk_size=3 batch, 2/2 replay attempts, n_decoded landing right
+# at the new 9716 ceiling both times -- same signature (n_ctx_slot=16384,
+# no context-shift, truncated=0), just a batch whose reasoning ran even
+# longer. Reasoning-token appetite for this decision type is evidently
+# unbounded-in-practice, not just underestimated once. Rather than keep
+# doubling reactively, sized directly against the actual constraint:
+# OLLAMA_CONTEXT_LENGTH=16384 minus the observed ~2100-token prompt leaves
+# roughly 14000 tokens of real headroom, so 12000 leaves a genuine margin
+# (~2600 tokens) for prompt-size variance rather than sitting right at the
+# ceiling like 4000/8000 both did.
+_VOTE_THINK_TOKEN_ALLOWANCE = 12000
 
 # think=False's own "3/3 on the real 30-member cohort" finding above did NOT
 # generalize to every 10-member chunk: a real v6b acceptance run (2026-08-17,
@@ -255,7 +392,19 @@ _VOTE_THINK_TOKEN_ALLOWANCE = 4000
 # analogous duplicate/drop failure. See
 # scripts/lot3_chamber_reliability_results.md's "Lot 4 correction" section
 # for the measured evidence.
-_CHAMBER_THINK_TOKEN_ALLOWANCE = 4000
+#
+# That 4000 figure was itself wrong on its own stated terms: this constant's
+# own docstring claims it "costs the same _CHAMBER_THINK_TOKEN_ALLOWANCE
+# budget decide_campaign_positioning already pays" -- but
+# _POSITIONING_THINK_TOKEN_ALLOWANCE is 8000, not 4000; the think=False->True
+# switch above copied the pattern without copying the actual value. Confirmed
+# live (2026-08-20, GPU, same run as _VOTE_THINK_TOKEN_ALLOWANCE's own fix
+# above): a chunk_size=10 chamber_deliberation call hit finish_reason='length'
+# 3/3 (original + 2 replays, all near-identical n_decoded), n_ctx_slot=16384
+# throughout, no context-shift, prompt ~4771 tokens -- the same deterministic
+# budget-exhaustion signature, not context corruption. Corrected to actually
+# match the value the docstring already claimed.
+_CHAMBER_THINK_TOKEN_ALLOWANCE = 8000
 
 _TRUNCATION_THRESHOLD = 6
 _TRUNCATE_TO = 5
@@ -269,6 +418,14 @@ _BatchT = TypeVar("_BatchT")
 class VoteBatchOutcome:
     ballots: list[list[str]]
     decisions: list[VoteCastDecision]
+    retry_sampling_varied: dict[int, bool] = field(default_factory=dict)
+    """cid -> whether that voter's decision came from a temperature-varied
+    RETRY (never the first attempt -- see _VOTE_CAST_RETRY_TEMPERATURE),
+    per _complete_and_decode_with_replay's own retry_info contract. Since
+    _VOTE_CAST_MAX_CHUNK_SIZE=1, one chunk == one voter == one completion,
+    so this is unambiguous per cid. Defaults to an empty dict (every key
+    absent means False) so every pre-existing VoteBatchOutcome(...)
+    construction in this codebase's own tests keeps compiling unchanged."""
 
 
 def _check_supported(config: PolityConfig) -> None:
@@ -312,6 +469,8 @@ def _complete_and_decode_with_replay(
     decode: Callable[[str], _BatchT],
     replays: int,
     decision_type: str,
+    retry_temperature: float | None = None,
+    retry_info: dict[str, Any] | None = None,
 ) -> _BatchT:
     """§3.6.10's "un batch invalide est rejoue integralement, jamais
     corrige partiellement" -- the half of that rule the codebase never
@@ -357,9 +516,48 @@ def _complete_and_decode_with_replay(
     unbounded -- a replay makes the resulting journal depend on attempt
     count, so an LLM run with replays > 0 is not byte-reproducible, a
     property live LLM runs never had (§15bis.4) and the shipped default of
-    0 leaves untouched."""
+    0 leaves untouched.
+
+    `retry_temperature` (default None, i.e. every existing call site's
+    behavior: byte-identical retries at the client's own configured
+    temperature=0) is a DELIBERATE, LOCAL exception to this project's own
+    determinism requirement, not a general policy change -- see
+    cache_recycle_chunk_size_tension_findings.md's own harness experiment,
+    which found a real, reproducible cast_votes failure mode (a
+    deterministic, per-voter-prompt blank/ranking schema incoherence,
+    identical across recycle_after_n_calls settings, meaning an identical
+    byte-for-byte retry at temperature=0 reproduces the identical wrong
+    output rather than resampling past it). The FIRST attempt (attempt==0)
+    always uses `temperature=None` (the client's own configured value) --
+    this is unconditional and does not depend on `retry_temperature` being
+    set, so a caller opting into this parameter never loses determinism on
+    the common, successful-first-try path. Only a genuine retry (attempt
+    >= 1) uses `retry_temperature`, when given.
+
+    `retry_info` (default None) is an optional, caller-owned mutable dict
+    this function writes into on success: `{"attempts": int, "sampling_
+    varied": bool}`. `sampling_varied` is true iff the successful attempt
+    was itself a retry AND `retry_temperature` was set for it -- the
+    caller's own signal for whether to journal a `retry_sampling_varied`
+    marker, so a future analysis of the journal cannot mistake a
+    varied-sampling retry's decision for an ordinary, deterministic
+    first-attempt one. Every existing call site passes neither parameter
+    and is completely unaffected -- this dict is populated, never read, by
+    this function.
+
+    The `temperature` kwarg is passed to `client.complete_json` only when
+    actually overriding (attempt >= 1 and `retry_temperature is not None`)
+    -- never as an explicit `temperature=None` on every call. This keeps
+    every fake/test client across this codebase's own test suite (whose
+    `complete_json` signatures predate this parameter and don't accept it)
+    working completely unchanged; only a caller that actually sets
+    `retry_temperature` and actually reaches a retry needs its own fake
+    client to accept the kwarg."""
     attempt = 0
     while True:
+        call_kwargs: dict[str, Any] = {}
+        if attempt > 0 and retry_temperature is not None:
+            call_kwargs["temperature"] = retry_temperature
         try:
             raw = client.complete_json(
                 system_prompt=system_prompt,
@@ -367,15 +565,22 @@ def _complete_and_decode_with_replay(
                 json_schema=json_schema,
                 max_tokens=max_tokens,
                 think=think,
+                **call_kwargs,
             )
-            return decode(raw)
+            result = decode(raw)
+            if retry_info is not None:
+                retry_info["attempts"] = attempt
+                retry_info["sampling_varied"] = attempt > 0 and retry_temperature is not None
+            return result
         except LlmResponseError as exc:
             if attempt >= replays:
                 raise
             attempt += 1
             _logger.warning(
-                "%s batch rejected on attempt %d/%d, replaying: %s",
-                decision_type, attempt, replays + 1, exc,
+                "%s batch rejected on attempt %d/%d, replaying%s: %s",
+                decision_type, attempt, replays + 1,
+                f" at temperature={retry_temperature}" if retry_temperature is not None else "",
+                exc,
             )
 
 
@@ -706,8 +911,10 @@ def cast_votes(
 
     ballots: list[list[str]] = []
     decisions: list[VoteCastDecision] = []
+    retry_sampling_varied: dict[int, bool] = {}
     for chunk in chunk_voters(voters, _VOTE_CAST_MAX_CHUNK_SIZE, min_batch_size=1):
         expected_cids = [voter.citizen_id for voter in chunk]
+        retry_info: dict[str, Any] = {}
         chunk_decisions = _complete_and_decode_with_replay(
             client,
             system_prompt=build_system_prompt(chunk, candidates),
@@ -718,13 +925,20 @@ def cast_votes(
             decode=lambda raw: decode_vote_batch(raw, expected_cids),
             replays=config.llm.max_batch_replays,
             decision_type="vote_cast",
+            # A deliberate, local exception to temperature=0 determinism --
+            # see _VOTE_CAST_RETRY_TEMPERATURE's own comment. Only ever
+            # applies to a genuine retry (never the first attempt).
+            retry_temperature=_VOTE_CAST_RETRY_TEMPERATURE,
+            retry_info=retry_info,
         )
+        sampling_varied = bool(retry_info.get("sampling_varied", False))
         for decision in chunk_decisions:
             validate_decision(decision, candidate_count, truncate_at)
             ballots.append(ballot_from_decision(decision, position_to_candidate))
+            retry_sampling_varied[decision.cid] = sampling_varied
         decisions.extend(chunk_decisions)
 
-    return VoteBatchOutcome(ballots=ballots, decisions=decisions)
+    return VoteBatchOutcome(ballots=ballots, decisions=decisions, retry_sampling_varied=retry_sampling_varied)
 
 
 @dataclass(frozen=True)
@@ -1971,7 +2185,7 @@ def decide_chamber_deliberation(
     time and nothing else ever touches it, so "no delta" is already true by
     construction without this module ever running).
 
-    Chunks via chunk_voters, but at _CHAMBER_MAX_CHUNK_SIZE (10), NOT
+    Chunks via chunk_voters, but at _CHAMBER_MAX_CHUNK_SIZE (1), NOT
     config.llm.max_batch_size (25) -- a real, measured correction to this
     lot's own original design, which assumed a small, un-chunked cohort
     (sortition_chamber.seats capped at 30, "a handful", the same category
@@ -1979,14 +2193,23 @@ def decide_chamber_deliberation(
     wrong: at the real 30-member cohort, in ONE call, the model silently
     dropped 24 of 30 decisions (only the last 6 came back); re-chunking at
     15 (config.llm.max_batch_size-shaped) reproduced the exact same
-    failure on EACH chunk. Only at 10 did every chunk return complete and
-    aligned (confirmed 3/3 on the real 30-member cohort). `min_batch_size=1`
-    is passed because sortition_chamber.seats can be configured below 10,
-    and chunk_voters's own default floor (MIN_SAFE_BATCH_SIZE=20) was
-    calibrated on a lighter prompt shape (vote_cast) that doesn't apply
-    here either way -- see scripts/lot3_chamber_reliability_results.md for
-    the measured evidence behind both the batch ceiling and this floor
-    override.
+    failure on EACH chunk. Shipped at 10 first (confirmed 3/3 on the real
+    30-member cohort at the time); a later v6b Lot 4 acceptance run hit a
+    genuine token-budget overflow at chunk_size=10 (3/3 attempts, exact
+    ceiling); halving to 5 was tried and validated-then-DISPROVEN against
+    the real failing chunk (a different 5-member sub-chunk overflowed too,
+    zero margin); cut to 1 -- vote_cast's own endpoint, same reasoning --
+    and that held, with real margin, against the same failing citizens.
+    See _CHAMBER_MAX_CHUNK_SIZE's own docstring for the full diagnostic.
+    `min_batch_size=1` is now a no-op (chunk_voters always produces chunks
+    of exactly 1 at this chunk size) but is left in place -- harmless, and
+    it was the right override even when the ceiling was higher, since
+    sortition_chamber.seats can be configured below whatever
+    _CHAMBER_MAX_CHUNK_SIZE happens to be, and chunk_voters's own default
+    floor (MIN_SAFE_BATCH_SIZE=20) was calibrated on a lighter prompt shape
+    (vote_cast) that doesn't apply here either way -- see
+    scripts/lot3_chamber_reliability_results.md for the measured evidence
+    behind both the original batch ceiling and this floor override.
 
     Calls the client with think=True (corrected from think=False, which
     this lot's own pre-flight spike originally chose): a real v6b

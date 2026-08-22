@@ -18,6 +18,7 @@ from api.domain.polity.citizen import Citizen, Office, Role, generate_population
 from api.domain.polity.codebook import EventType, ReactionMotif
 from api.domain.polity.config import PolityConfig, load_config
 from api.domain.polity.journal import Journal
+from api.domain.polity.llm_behavior_engine import _VOTE_CAST_RETRY_TEMPERATURE
 from api.domain.polity.llm_client import LlmResponseError, OllamaJsonClient, VllmJsonClient
 from api.domain.polity.metrics import consultation_rate, mobilization_rate
 from api.domain.polity.parties import Party, initialize_parties
@@ -1799,6 +1800,9 @@ def test_llm_path_completes_and_journals_vote_cast_events(tmp_path):
     assert len(vote_events) == config.run.population_size * 8
     assert all(e["motif"] == "101" for e in vote_events)
     assert all(e["codebook_version"] == config.llm.codebook_version for e in vote_events)
+    # A clean run never retries, so the local sampling-variation exception
+    # (cache_recycle_chunk_size_tension_findings.md) never engages.
+    assert all(e["payload"]["retry_sampling_varied"] == 0 for e in vote_events)
 
 
 def test_two_llm_runs_with_the_same_seed_produce_byte_identical_journals(tmp_path):
@@ -2070,8 +2074,16 @@ def test_confidence_vote_keep_ratio_decouples_from_mandate_strength_once_the_pos
 def test_llm_batch_misalignment_aborts_the_run_with_no_partial_journal(tmp_path):
     class _ShortClient:
         """Answers candidacy calls in full (so nominees exist to vote on),
-        but drops every decision but the first on a vote call -- isolates
-        the misalignment failure to cast_votes specifically."""
+        but answers every vote call with a decision for a cid that was
+        never asked -- isolates the misalignment failure to cast_votes
+        specifically. A wrong cid, not "drop all but the first" or an
+        empty decisions list: cast_votes now chunks at
+        _VOTE_CAST_MAX_CHUNK_SIZE=1, so a chunk's own expected_cids is
+        already length 1 -- "first decision only" would no longer be a
+        mismatch at that chunk size, it would coincidentally match; and
+        VoteCastBatch's own min_length=1 would turn an empty list into a
+        schema-validation LlmResponseError, not the "misaligned" one this
+        test asserts on."""
 
         def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
             payload = json.loads(user_prompt)
@@ -2096,8 +2108,7 @@ def test_llm_batch_misalignment_aborts_the_run_with_no_partial_journal(tmp_path)
             if "nominees" in payload:
                 decisions = [{"cid": n["cid"], "shifts": [], "motif": 601} for n in payload["nominees"]]
                 return json.dumps({"decisions": decisions})
-            first = payload["voters"][0]
-            return json.dumps({"decisions": [{"cid": first["cid"], "blank": 1, "ranking": [], "motif": 101}]})
+            return json.dumps({"decisions": [{"cid": 999999, "blank": 1, "ranking": [], "motif": 101}]})
 
     config = _config_with_llm_enabled(tmp_path)
     with pytest.raises(LlmResponseError, match="misaligned"):
@@ -2130,6 +2141,52 @@ def test_a_replayed_batch_lets_the_run_complete(tmp_path):
     journal_path = run_simulation(config, run_id="replay-recovers", llm_client=_RecoveringClient(_FakeLlmClient()))
     events = _events(journal_path)
     assert events  # completed with a non-empty journal, not aborted
+
+
+class _FlakyVoteClient:
+    """Wraps _FakeLlmClient but fails the FIRST vote_cast call only
+    (detected by the "voters" fallback key -- see _FakeLlmClient's own
+    dispatch), recording the temperature kwarg each call receives.
+    Exercises cast_votes's own local, deliberate retry_temperature
+    exception (llm_behavior_engine._VOTE_CAST_RETRY_TEMPERATURE) at the
+    full run_simulation level, including the journal's own
+    retry_sampling_varied marker."""
+
+    def __init__(self, inner):
+        self._inner = inner
+        self._vote_calls = 0
+        self.temperatures: list[float | None] = []
+
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None):
+        self.temperatures.append(temperature)
+        payload = json.loads(user_prompt)
+        is_vote_call = not any(k in payload for k in ("citizens", "parties", "nominees", "responders", "holders", "consulted", "reactors", "members"))
+        if is_vote_call:
+            self._vote_calls += 1
+            if self._vote_calls == 1:
+                return "not valid json"
+        return self._inner.complete_json(
+            system_prompt=system_prompt, user_prompt=user_prompt, json_schema=json_schema,
+            max_tokens=max_tokens, think=think,
+        )
+
+
+def test_vote_cast_retries_at_a_varied_temperature_and_journals_the_marker(tmp_path):
+    config = _config_with_llm_enabled(tmp_path)
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, max_batch_replays=1))
+    client = _FlakyVoteClient(_FakeLlmClient())
+    journal_path = run_simulation(config, run_id="vote-retry", llm_client=client)
+    events = _events(journal_path)
+    vote_events = [e for e in events if e["event_type"] == "vote_cast"]
+    assert vote_events  # the run completed, the retry recovered it
+    # Exactly one voter's decision came from a retry -- the one whose
+    # first attempt this fake deliberately broke.
+    varied = [e for e in vote_events if e["payload"]["retry_sampling_varied"] == 1]
+    assert len(varied) == 1
+    # First attempt (the failure): no override. The recovering retry: the
+    # local exception's own temperature.
+    assert client.temperatures[0] is None
+    assert _VOTE_CAST_RETRY_TEMPERATURE in client.temperatures
 
 
 # ── pressure_action (v4 Lot 7, dt=10) ────────────────────────────────────
