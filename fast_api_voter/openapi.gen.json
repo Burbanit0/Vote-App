@@ -10351,6 +10351,18 @@
             ],
             "title": "Methods With Blank"
           },
+          "methods_with_blank_rule": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Methods With Blank Rule"
+          },
           "plurality_winner": {
             "anyOf": [
               {

@@ -27,6 +27,7 @@ from .simulation_score_utils import (
     get_mean_median_hybrid_winner,
     get_variance_based_winner,
 )
+from .blank_vote_rules import apply_blank_rule, BlankVoteRule
 
 # ── Candidate ideological positions [0 = far-left, 1 = far-right] ─────────
 
@@ -351,7 +352,10 @@ def _run_methods(
     all_scores = [_ranking_to_score_dict(r) for r in rankings]
     winners: Dict[str, Optional[str]] = {}
     for name, fn in ranked_methods.items():
-        winners[name] = fn(rankings, blank_candidate_name=blank_candidate_name) if blank_candidate_name else fn(rankings)
+        # Ranked methods compute directly on the rankings; blank (when
+        # active) is just another candidate name in that list — no method
+        # reads blank_candidate_name itself, it's inert on these functions.
+        winners[name] = fn(rankings)
     for name, fn in score_methods.items():
         # Score methods run on real candidates only (blank is rank-based by nature).
         # Rebuild scores excluding blank from the mapping to avoid division artefacts.
@@ -469,6 +473,18 @@ def analyze_real_election(
             blank_candidate_name=blank_name,
         )
 
+    # ── Blank under current French law (SYMBOLIC) ──────────────────────────
+    # methods_with_blank shows the raw, COMPETITIVE-style outcome (blank can
+    # win outright). methods_with_blank_rule layers the SYMBOLIC constitution
+    # (blank counted but cannot be elected) on top of that, per method.
+    methods_with_blank_rule: Optional[Dict[str, Dict[str, Any]]] = None
+    if blank_vote and winners_with_blank is not None:
+        blank_pct = election_data.get("estimated_blank_pct", 0.0)
+        methods_with_blank_rule = {
+            method: apply_blank_rule(winner=winner, blank_pct=blank_pct, rule=BlankVoteRule.SYMBOLIC)
+            for method, winner in winners_with_blank.items()
+        }
+
     # First-round percentages for display
     total_votes = sum(first_round.values())
     first_round_pct = {
@@ -527,6 +543,7 @@ def analyze_real_election(
         "first_round_results": first_round_pct,
         "methods":             winners,
         "methods_with_blank":  winners_with_blank,   # None when blank_vote=False
+        "methods_with_blank_rule": methods_with_blank_rule,  # SYMBOLIC (fr. law); None when blank_vote=False
         "divergences":         divergences,
         "summary": {
             "methods_with_different_winner": n_different,

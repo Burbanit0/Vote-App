@@ -7083,6 +7083,10 @@ export interface components {
             methods_with_blank?: {
                 [key: string]: unknown;
             } | null;
+            /** Methods With Blank Rule */
+            methods_with_blank_rule?: {
+                [key: string]: unknown;
+            } | null;
             /** Plurality Winner */
             plurality_winner?: string | null;
             /** Summary */
