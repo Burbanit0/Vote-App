@@ -244,6 +244,7 @@ class RealElectionRequest(BaseModel):
     election_name: str = ""
     num_voters:    int = 1000
     blank_vote:    bool = False
+    blank_rule:    str = "symbolic"
 
 
 class ConstitutionalScenarioRequest(BaseModel):

@@ -372,6 +372,7 @@ def analyze_real_election(
     election_name: str,
     num_voters: int = 1000,
     blank_vote: bool = False,
+    blank_rule: BlankVoteRule = BlankVoteRule.SYMBOLIC,
 ) -> Dict[str, Any]:
     """
     Run every available voting method on a synthetic population derived
@@ -473,15 +474,15 @@ def analyze_real_election(
             blank_candidate_name=blank_name,
         )
 
-    # ── Blank under current French law (SYMBOLIC) ──────────────────────────
+    # ── Blank under the chosen constitutional rule (default: SYMBOLIC) ─────
     # methods_with_blank shows the raw, COMPETITIVE-style outcome (blank can
-    # win outright). methods_with_blank_rule layers the SYMBOLIC constitution
-    # (blank counted but cannot be elected) on top of that, per method.
+    # win outright). methods_with_blank_rule layers the caller-selected
+    # constitutional rule on top of that, per method.
     methods_with_blank_rule: Optional[Dict[str, Dict[str, Any]]] = None
     if blank_vote and winners_with_blank is not None:
         blank_pct = election_data.get("estimated_blank_pct", 0.0)
         methods_with_blank_rule = {
-            method: apply_blank_rule(winner=winner, blank_pct=blank_pct, rule=BlankVoteRule.SYMBOLIC)
+            method: apply_blank_rule(winner=winner, blank_pct=blank_pct, rule=blank_rule)
             for method, winner in winners_with_blank.items()
         }
 
