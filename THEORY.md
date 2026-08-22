@@ -1309,7 +1309,83 @@ partout) — v5 Lot 5 a déjà, séparément et honnêtement, démontré la moit
 « étincelle » de cette même conclusion à trois ingrédients (§10.7). Les
 deux n'ont jamais été exécutés ensemble.
 
-### 10.9 Limites connues du modèle v4, v5 et v6a
+### 10.9 La chambre de sortition — sincère ou erratique ?
+
+Le palier v6b (§6bis.3) construit un second corps délibératif, tiré au sort
+plutôt qu'élu — explicitement conçu comme **groupe de contrôle** : « aucun
+mandat électoral à trahir », insensible par construction aux trois canaux de
+pression du §7bis (pas de pétition, pas de mobilisation, pas de plancher de
+légitimité — rien de tout cela ne peut atteindre un citoyen tiré au sort).
+Le plan de conception pose l'hypothèse directement : « l'absence de pression
+électorale produit-elle des décisions plus **sincères** (alignées sur ses
+propres `issue_positions`) ou plus **erratiques** (aucun garde-fou de
+responsabilité) ? »
+
+**Sélection et rotation.** 30 sièges (configuration livrée), mandat d'un an,
+non renouvelable — au sens strict : un citoyen déjà tiré une fois est exclu
+du bassin tant qu'il reste des citoyens jamais tirés. À l'échelle livrée
+(`population_size=100`, `seats=30`), ce bassin strict s'épuise mesurablement
+tôt dans un run (autour du tick 12-16, `scripts/sortition_calibration_results.md`) —
+assoupli ensuite en « jamais deux mandats qui se chevauchent », sans quoi la
+chambre se viderait pour le reste du run. Assumé et documenté, pas découvert
+en production : le run d'acceptation ci-dessous confirme que le bassin
+assoupli maintient bien 30 sièges occupés à chacune des 9 rotations du run.
+
+**`chamber_deliberation` (dt=11) — la décision LLM.** Chaque membre siégeant
+révise, chaque tick, sa `chamber_position` par rapport à sa propre
+`issue_positions` sincère (jamais de `pledged_platform` — un tiré au sort n'a
+rien promis). Le contexte transmis au modèle ne porte qu'un seul champ,
+`ticks_left` : aucune légitimité, aucune déviation de mandat, aucune pression
+de rue, aucun voisin — l'isolement du plan de conception est une propriété
+structurelle du schéma, pas une consigne de prompt. `chamber_deviation`
+(`weighted_euclidean(issue_positions, chamber_position, issue_priorities)`)
+est l'analogue direct de `mandate_deviation` (§10.4), appliqué à un citoyen
+qui n'a rien promis.
+
+**Le run d'acceptation** (`scripts/run_v6b_acceptance.py`, résultats dans
+`scripts/acceptance_v6b_results.md`) compare, sur un même run et un même
+seed (42, 8 ans), le président élu soumis aux trois canaux du §7bis (menu
+`both` — pétition et mobilisation actives, §6bis.3 demande explicitement la
+comparaison contre l'apparat complet, pas un levier isolé) et la chambre
+tirée au sort. `social_graph.enabled`/`events.enabled` restent `false`
+partout, le même choix d'évitement de confusion que v5 Lot 5 et v6a Lot 4.
+
+**Ce que le run mesure, honnêtement — et ce n'est pas la comparaison
+attendue.** `chamber_deviation` reste quasi nul (moyenne 0,0001, maximum
+0,035 — 99,3 % des décisions étiquetées `SINCERE_POSITION` par le modèle
+lui-même) : la chambre insulée reste effectivement sincère. Mais
+`mandate_deviation` reste, elle, **exactement à zéro** sur toute la durée du
+run — pas parce que le président élu serait resté fidèle à son mandat, mais
+parce qu'il n'a presque jamais eu l'occasion de dériver : sous le menu
+`both`, la légitimité s'effondre en un seul tick après **chacune** des deux
+élections (`L` chute de 0,43 à 0,12, puis de 0,44 à 0,11), déclenchant un
+rappel par plancher de légitimité (`legitimacy_floor`) dans les deux cas.
+Le poste reste vacant l'essentiel des 33 ticks du run — `representative_response`
+(dt=6) n'a presque jamais de titulaire à qui s'adresser. La comparaison
+« sincère contre erratique » que ce run devait trancher est donc **confondue**
+par un phénomène distinct et lui-même intéressant : le menu de pression
+complet, combiné à l'apparat de responsabilité, produit un rappel quasi
+immédiat plutôt qu'une dérive mesurable à comparer. Chiffres complets et
+trajectoire de légitimité dans `scripts/acceptance_v6b_results.md`.
+
+**Ce que cela signifie pour l'hypothèse elle-même** : elle reste, à ce
+stade, non tranchée par ce run précis — pas parce que le mécanisme est
+absent (`chamber_deviation` existe, se calcule, se journalise), mais parce
+que le bras de comparaison (`mandate_deviation`) n'a pas eu assez
+d'exposition pour produire un signal. Une configuration où le président élu
+survit plus longtemps (menu `electoral_only`, ou `recall_floor` relâché)
+donnerait la comparaison réellement voulue par §6bis.3 — non exécutée ici,
+n=1, une seule graine.
+
+**Limite assumée, énoncée sans détour : ce n'est ni un test institutionnel,
+ni une comparaison encore décisive.** Le point ouvert n°11 du plan de
+conception (droit de veto de la chambre) reste entièrement hors périmètre —
+`veto_power`/`veto_delay_ticks` sont analysés et conservés en configuration
+depuis v6 Lot 1 mais ne sont consommés par aucun code : ce MVP est une
+comparaison de trajectoires, sans aucune conséquence institutionnelle
+propre à la chambre.
+
+### 10.10 Limites connues du modèle v4, v5, v6a et v6b
 
 - **`stance = 4` (contre-mobilisation) est observable mais mécaniquement
   inerte** : aucun levier citoyen pro-sortant n'existe encore pour lui
@@ -1339,9 +1415,14 @@ deux n'ont jamais été exécutés ensemble.
 - **`social_graph.evolving` (homophilie) reste non implémenté** : le point
   ouvert du plan de conception (§5, « graphe social statique ou évolutif ? »)
   reste ouvert ; seul un graphe statique existe.
-- **`sortition_chamber` (chambre de tirage au sort, §6bis.3, v6b) reste
-  entièrement non implémentée** — nommée et réservée dans la configuration,
-  aucun code ne la consomme.
+- **La chambre de sortition (§10.9) reste un dispositif de comparaison
+  sans conséquence institutionnelle** : aucun droit de veto (point ouvert
+  n°11 du plan de conception, `veto_power`/`veto_delay_ticks` analysés et
+  conservés en configuration mais consommés par aucun code), et son propre
+  run d'acceptation n'a pas pu trancher « sincère contre erratique » — le
+  président élu a passé l'essentiel du run vacant sous le menu `both`,
+  confondant la comparaison prévue (n=1, une seule graine, aucune bande de
+  Monte-Carlo).
 - **La configuration livrée des événements exogènes ne se déclenche presque
   jamais sur un run court** : à `(phi=0.8, sigma=0.1, seuil=0.5)`, le choc
   économique est un événement à ~3 écarts-types, jamais observé sur un run
@@ -1350,7 +1431,7 @@ deux n'ont jamais été exécutés ensemble.
   recalibrée, documentée dans `scripts/acceptance_v5_results.md`, jamais la
   configuration livrée par défaut.
 
-### 10.10 Références
+### 10.11 Références
 
 Ce chantier n'introduit pas de nouvelle bibliographie académique propre —
 `support(t)` (§10.1) est une résolution de modélisation, pas un résultat
