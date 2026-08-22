@@ -1099,11 +1099,14 @@ def _run_district_fptp(
 
     voters = [create_voter(issues, i, ideology_distribution="random") for i in range(num_voters)]
 
-    # Shift every voter's economy position by ideology_center (clamped to [0,1])
-    shift = ideology_center * 0.3          # max shift ≈ 0.3 to keep results legible
+    # Shift every voter's economy position by ideology_center, plus per-voter
+    # noise scaled by ideology_variance (intra-district spread around that
+    # center — same 0.3 scale already used for the center shift itself).
+    base_shift = ideology_center * 0.3     # max shift ≈ 0.3 to keep results legible
     for v in voters:
+        voter_shift = base_shift + _np.random.normal(0, ideology_variance) * 0.3
         old_econ = v["issue_positions"].get("economy", 0.5)
-        v["issue_positions"]["economy"] = max(0.0, min(1.0, old_econ + shift))
+        v["issue_positions"]["economy"] = max(0.0, min(1.0, old_econ + voter_shift))
 
     utilities: Dict[Any, Dict[str, float]] = {
         v["id"]: {c["name"]: calculate_utility(v, c, issues)["utility"] for c in candidates}
