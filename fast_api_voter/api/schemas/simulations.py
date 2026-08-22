@@ -466,6 +466,7 @@ class RealElectionResponse(BaseModel):
     first_round_results: Any = None
     methods:             Dict[str, Any]
     methods_with_blank:  Optional[Dict[str, Any]] = None
+    methods_with_blank_rule: Optional[Dict[str, Any]] = None
     divergences:         Any = None
     summary:             Any = None
     blank_vote_analysis: Any = None

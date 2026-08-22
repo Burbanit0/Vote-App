@@ -88,6 +88,39 @@ class TestRealElection:
                         json={"election_name": "no_such_election", "num_voters": 200})
         assert r.status_code == 404, r.text
 
+    def test_blank_vote_adds_symbolic_rule_interpretation(self, client):
+        key = client.get("/api/v2/simulations/real-elections").json()[0]["key"]
+        r = client.post("/api/v2/simulations/real-election",
+                        json={"election_name": key, "num_voters": 200, "blank_vote": True})
+        assert r.status_code == 200, r.text
+        body = r.json()
+
+        methods_with_blank = body["methods_with_blank"]
+        methods_with_blank_rule = body["methods_with_blank_rule"]
+        assert methods_with_blank is not None
+        assert methods_with_blank_rule is not None
+        assert set(methods_with_blank_rule) == set(methods_with_blank)
+
+        for method, raw_winner in methods_with_blank.items():
+            entry = methods_with_blank_rule[method]
+            assert entry["rule"] == "symbolic"
+            if raw_winner == "Blank":
+                # SYMBOLIC: blank cannot be elected, regardless of raw winner.
+                assert entry["winner"] is None
+                assert entry["blank_triggered"] is True
+            else:
+                assert entry["winner"] == raw_winner
+                assert entry["blank_triggered"] is False
+
+    def test_no_blank_vote_leaves_blank_fields_none(self, client):
+        key = client.get("/api/v2/simulations/real-elections").json()[0]["key"]
+        r = client.post("/api/v2/simulations/real-election",
+                        json={"election_name": key, "num_voters": 200})
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["methods_with_blank"] is None
+        assert body["methods_with_blank_rule"] is None
+
 
 class TestConstitutionalScenario:
     initial = {
