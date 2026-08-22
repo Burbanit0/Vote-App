@@ -7050,6 +7050,11 @@ export interface components {
          */
         RealElectionRequest: {
             /**
+             * Blank Rule
+             * @default symbolic
+             */
+            blank_rule: string;
+            /**
              * Blank Vote
              * @default false
              */

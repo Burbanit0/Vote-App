@@ -10300,6 +10300,11 @@
       "RealElectionRequest": {
         "description": "POST /simulations/real-election.",
         "properties": {
+          "blank_rule": {
+            "default": "symbolic",
+            "title": "Blank Rule",
+            "type": "string"
+          },
           "blank_vote": {
             "default": false,
             "title": "Blank Vote",

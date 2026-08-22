@@ -121,6 +121,24 @@ class TestRealElection:
         assert body["methods_with_blank"] is None
         assert body["methods_with_blank_rule"] is None
 
+    def test_blank_rule_is_caller_selectable(self, client):
+        key = client.get("/api/v2/simulations/real-elections").json()[0]["key"]
+        r = client.post("/api/v2/simulations/real-election",
+                        json={"election_name": key, "num_voters": 200,
+                              "blank_vote": True, "blank_rule": "competitive"})
+        assert r.status_code == 200, r.text
+        body = r.json()
+
+        methods_with_blank = body["methods_with_blank"]
+        methods_with_blank_rule = body["methods_with_blank_rule"]
+
+        for method, raw_winner in methods_with_blank.items():
+            entry = methods_with_blank_rule[method]
+            assert entry["rule"] == "competitive"
+            # COMPETITIVE never overrides the raw winner (blank may win outright).
+            assert entry["winner"] == raw_winner
+            assert entry["blank_triggered"] == (raw_winner == "Blank")
+
 
 class TestConstitutionalScenario:
     initial = {
