@@ -1226,6 +1226,26 @@ concrètement ce qu'est « un choc économique majeur » — sans pour autant
 clore le point, la bibliothèque de personas elle-même (§9) restant à
 construire.
 
+**Avertissement daté sur ce run (ajouté 2026-08-22, non intégré au texte
+ci-dessus).** Le run cité (`electoral_only-llm-8y-events-r0.15-s0.25`,
+2026-08-15) est **antérieur** à l'ensemble des correctifs de fiabilité
+LLM produits par l'investigation « bug 4 » de cette même session
+(2026-08-17 → 2026-08-22) : la correction du non-déterminisme au
+démarrage GPU (2026-08-18), la mitigation cache-recycling (2026-08-20), et
+la découverte d'un taux d'incohérence `blank`/`ranking` déterministe sur
+`vote_cast` mesuré à **~6,7 %** des appels (`cache_recycle_chunk_size_tension_findings.md`,
+2026-08-22) — un mode d'échec où une relance identique à température=0 ne
+fait que reproduire la même décision fautive plutôt que de s'en écarter.
+Un audit a posteriori de ce run précis (relecture des 300 événements
+`vote_cast` journalisés, ticks 0/16/32, contre la règle §3.6.1 exacte)
+n'y a trouvé **aucune** incohérence `blank`/`ranking` — cohérent avec le
+`replays.log` vide du run lui-même. Ce n'est pas une preuve que rien
+d'autre n'a pu y être affecté (l'audit ne couvre que cette règle précise,
+pas les autres modes de défaillance identifiés la même semaine), mais
+rien dans les données journalisées de ce run ne contredit sa propre
+conclusion. **Le résultat n'est donc pas invalidé — il reste non
+re-vérifié sous le code corrigé**, et cette distinction est délibérée.
+
 ### 10.8 Le graphe social et la contagion
 
 Le palier v6a (§5) construit un graphe social déterministe, propre au
@@ -1308,6 +1328,21 @@ population déjà capable de se mobiliser (`events.enabled` reste `false`
 partout) — v5 Lot 5 a déjà, séparément et honnêtement, démontré la moitié
 « étincelle » de cette même conclusion à trois ingrédients (§10.7). Les
 deux n'ont jamais été exécutés ensemble.
+
+**Avertissement daté sur ce run (ajouté 2026-08-22, non intégré au texte
+ci-dessus).** Le run cité (`contagion-llm-8y`, 2026-08-16) est, comme
+celui de §10.7, **antérieur** à l'ensemble des correctifs de fiabilité
+LLM de l'investigation « bug 4 » (2026-08-17 → 2026-08-22) — même
+chronologie, mêmes correctifs concernés (non-déterminisme au démarrage
+GPU, mitigation cache-recycling, taux d'incohérence `blank`/`ranking`
+sur `vote_cast` mesuré à ~6,7 % des appels). Un audit a posteriori des
+300 événements `vote_cast` journalisés de ce run précis (ticks 0/16/32,
+règle §3.6.1 exacte) n'y a trouvé **aucune** incohérence — cohérent avec
+son propre `replays.log` vide. Comme pour §10.7 : ceci ne couvre que
+cette règle précise, pas les autres modes de défaillance identifiés la
+même semaine, mais rien dans les données journalisées de ce run ne
+contredit sa propre conclusion. **Le résultat n'est donc pas invalidé —
+il reste non re-vérifié sous le code corrigé.**
 
 ### 10.9 La chambre de sortition — sincère ou erratique ?
 
