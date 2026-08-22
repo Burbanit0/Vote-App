@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import json
 import logging
+import subprocess
 from collections.abc import Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -242,21 +243,71 @@ def _is_forced_attempt(pending_rerun: PendingRerun | None, config: PolityConfig)
     return pending_rerun is not None and pending_rerun.attempt > config.institutions.reelection_max_attempts
 
 
+def _capture_gpu_driver_info() -> tuple[str | None, str | None]:
+    """Best-effort (driver_version, cuda_version) via a local `nvidia-smi`
+    subprocess call -- never fatal, degrades to (None, None) on any
+    failure (no NVIDIA GPU, nvidia-smi not on PATH, timeout), mirroring
+    llm_test_harness/environment.py's own `_real_runner` "never allowed to
+    abort what it's describing" discipline, which this reuses the query
+    shape from without adopting the harness itself.
+
+    driver_version comes straight from `--query-gpu=driver_version` (a
+    real, stable CSV field). cuda_version has NO equivalent --query-gpu
+    field on this nvidia-smi version (confirmed directly: querying it
+    exits 2, "not a valid field to query") -- it only appears in the
+    plain-text header ("... Driver Version: 591.86  CUDA Version: 13.1
+    ..."), so it is parsed from that line instead, and stays None if the
+    marker string is ever absent (a different nvidia-smi version, a
+    different locale) rather than raising."""
+    try:
+        driver = subprocess.run(
+            ["nvidia-smi", "--query-gpu=driver_version", "--format=csv,noheader"],
+            capture_output=True, text=True, timeout=10.0, check=False,
+        ).stdout.strip().splitlines()
+        driver_version = driver[0].strip() if driver and driver[0].strip() else None
+
+        header = subprocess.run(
+            ["nvidia-smi"], capture_output=True, text=True, timeout=10.0, check=False,
+        ).stdout
+        cuda_version = None
+        for line in header.splitlines():
+            if "CUDA Version:" in line:
+                cuda_version = line.split("CUDA Version:")[1].strip().split()[0].rstrip("|").strip()
+                break
+        return driver_version, cuda_version
+    except (OSError, subprocess.SubprocessError):
+        return None, None
+
+
 def _write_run_metadata(run_dir: Path, config: PolityConfig, run_id: str) -> None:
     """Records what's cheaply knowable about this run's LLM target -- NOT
     a journal event (would prepend a byte to every run and break every
     byte-for-byte reproducibility test); a sibling file instead, so
     events.jsonl's own contract is untouched.
 
-    Does NOT record CPU vs GPU or driver/CUDA version: the Ollama client
-    has no HTTP-visible way to know that today (Ollama's own `ollama ps`
-    CLI gets it by querying the server directly; the closest HTTP
-    equivalent, /api/ps's `size_vram` field, isn't wired up anywhere in
-    this codebase yet). Recording provider/base_url/model is the minimal
-    version that at least prevents comparing two Monte Carlo runs against
-    different LLM backends without knowing it -- full backend
-    fingerprinting is a real, larger follow-up, not done here."""
+    gpu_driver_version/gpu_cuda_version (v6b post-acceptance cleanup,
+    prompt-sequencement-post-harnais.md's own étape 3.1, named repeatedly
+    during the bug 4 investigation and never done until now) are captured
+    via `_capture_gpu_driver_info` ONLY when `config.llm.enabled` -- GPU
+    identity is only relevant when an LLM call could actually happen, and
+    gating this way keeps the ~100+ deterministic-only test invocations of
+    `run_simulation` from paying a subprocess call for information they
+    have no use for. Both fields are best-effort and describe the HOST
+    machine's GPU, not proof that inference actually ran on it (a
+    CPU-only Ollama build on a GPU-equipped host would still report a
+    driver version here) -- this is provider/base_url/model's own
+    "prevents comparing two Monte Carlo runs against different backends
+    without knowing it" bar, not full backend fingerprinting, which
+    remains a real, larger follow-up (still no HTTP-visible way for the
+    Ollama client itself to confirm which device served a given call --
+    Ollama's own `ollama ps` CLI queries the server directly for that,
+    and the closest HTTP equivalent, `/api/ps`'s `size_vram` field, isn't
+    wired up anywhere in this codebase)."""
     run_dir.mkdir(parents=True, exist_ok=True)
+    gpu_driver_version: str | None = None
+    gpu_cuda_version: str | None = None
+    if config.llm.enabled:
+        gpu_driver_version, gpu_cuda_version = _capture_gpu_driver_info()
     (run_dir / "run_metadata.json").write_text(
         json.dumps(
             {
@@ -265,6 +316,8 @@ def _write_run_metadata(run_dir: Path, config: PolityConfig, run_id: str) -> Non
                 "llm_provider": config.llm.provider if config.llm.enabled else None,
                 "llm_base_url": config.llm.base_url if config.llm.enabled else None,
                 "llm_model": config.llm.model if config.llm.enabled else None,
+                "gpu_driver_version": gpu_driver_version,
+                "gpu_cuda_version": gpu_cuda_version,
             },
             sort_keys=True,
             indent=2,

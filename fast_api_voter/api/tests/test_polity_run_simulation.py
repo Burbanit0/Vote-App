@@ -265,16 +265,29 @@ def test_run_metadata_json_is_written_beside_the_journal(tmp_path):
     assert metadata["run_id"] == "r"
 
 
-def test_run_metadata_records_none_for_llm_fields_when_the_llm_is_disabled(tmp_path):
+def test_run_metadata_records_none_for_llm_fields_when_the_llm_is_disabled(tmp_path, monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        run_polity_simulation_module, "_capture_gpu_driver_info", lambda: calls.append(1) or ("999.99", "13.1")
+    )
     journal_path = run_simulation(_config_with_output_dir(tmp_path), run_id="r")
     metadata = json.loads((journal_path.parent / "run_metadata.json").read_text(encoding="utf-8"))
     assert metadata["llm_enabled"] is False
     assert metadata["llm_provider"] is None
     assert metadata["llm_base_url"] is None
     assert metadata["llm_model"] is None
+    # gpu_driver_version/gpu_cuda_version stay None when llm.enabled=False -- the capture
+    # helper is never even called, not just discarded (a subprocess call has no use for a
+    # deterministic-only run, and >100 test invocations of run_simulation share this path).
+    assert calls == []
+    assert metadata["gpu_driver_version"] is None
+    assert metadata["gpu_cuda_version"] is None
 
 
-def test_run_metadata_records_the_llm_provider_base_url_and_model_when_enabled(tmp_path):
+def test_run_metadata_records_the_llm_provider_base_url_and_model_when_enabled(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        run_polity_simulation_module, "_capture_gpu_driver_info", lambda: ("591.86", "13.1")
+    )
     config = _config_with_llm_enabled(tmp_path)
     journal_path = run_simulation(config, run_id="r", llm_client=_FakeLlmClient())
     metadata = json.loads((journal_path.parent / "run_metadata.json").read_text(encoding="utf-8"))
@@ -282,6 +295,62 @@ def test_run_metadata_records_the_llm_provider_base_url_and_model_when_enabled(t
     assert metadata["llm_provider"] == config.llm.provider
     assert metadata["llm_base_url"] == config.llm.base_url
     assert metadata["llm_model"] == config.llm.model
+    assert metadata["gpu_driver_version"] == "591.86"
+    assert metadata["gpu_cuda_version"] == "13.1"
+
+
+def test_run_metadata_gpu_fields_fall_back_to_none_when_the_capture_helper_finds_nothing(tmp_path, monkeypatch):
+    monkeypatch.setattr(run_polity_simulation_module, "_capture_gpu_driver_info", lambda: (None, None))
+    config = _config_with_llm_enabled(tmp_path)
+    journal_path = run_simulation(config, run_id="r", llm_client=_FakeLlmClient())
+    metadata = json.loads((journal_path.parent / "run_metadata.json").read_text(encoding="utf-8"))
+    assert metadata["gpu_driver_version"] is None
+    assert metadata["gpu_cuda_version"] is None
+
+
+class _FakeCompletedProcess:
+    def __init__(self, stdout: str) -> None:
+        self.stdout = stdout
+
+
+def test_capture_gpu_driver_info_parses_driver_and_cuda_version(monkeypatch):
+    responses = iter([
+        _FakeCompletedProcess("591.86\n"),
+        _FakeCompletedProcess(
+            "Sat Aug 22 13:30:00 2026       \n"
+            "+-----------------------------------------------------------------------------------------+\n"
+            "| NVIDIA-SMI 591.86                 Driver Version: 591.86         CUDA Version: 13.1     |\n"
+        ),
+    ])
+    monkeypatch.setattr(
+        run_polity_simulation_module.subprocess, "run", lambda *a, **kw: next(responses)
+    )
+    driver_version, cuda_version = run_polity_simulation_module._capture_gpu_driver_info()
+    assert driver_version == "591.86"
+    assert cuda_version == "13.1"
+
+
+def test_capture_gpu_driver_info_degrades_to_none_on_subprocess_failure(monkeypatch):
+    def _raise(*args, **kwargs):
+        raise FileNotFoundError("nvidia-smi not found")
+
+    monkeypatch.setattr(run_polity_simulation_module.subprocess, "run", _raise)
+    driver_version, cuda_version = run_polity_simulation_module._capture_gpu_driver_info()
+    assert driver_version is None
+    assert cuda_version is None
+
+
+def test_capture_gpu_driver_info_degrades_to_none_when_cuda_version_marker_is_absent(monkeypatch):
+    responses = iter([
+        _FakeCompletedProcess("591.86\n"),
+        _FakeCompletedProcess("no CUDA marker in this output\n"),
+    ])
+    monkeypatch.setattr(
+        run_polity_simulation_module.subprocess, "run", lambda *a, **kw: next(responses)
+    )
+    driver_version, cuda_version = run_polity_simulation_module._capture_gpu_driver_info()
+    assert driver_version == "591.86"
+    assert cuda_version is None
 
 
 def test_run_metadata_does_not_perturb_the_journals_own_byte_identical_reproducibility(tmp_path):
