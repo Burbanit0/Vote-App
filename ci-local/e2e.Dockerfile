@@ -49,9 +49,7 @@ WORKDIR /app
 COPY fast_api_voter/ fast_api_voter/
 COPY voter-app/ voter-app/
 
-# FLASK_ENV is still read (config.py accepts APP_ENV or FLASK_ENV). No
-# JWT_SECRET_KEY: nothing in api/ has read it since auth was removed, and a
-# secret-shaped ENV only earns a scanner suppression for a variable nobody uses.
+# config.py accepts APP_ENV or FLASK_ENV.
 ENV FLASK_ENV=testing
 
 # Same sequence as the workflow: boot the backend, wait for /api/v2/health, run

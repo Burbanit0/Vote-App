@@ -89,9 +89,8 @@ repos:
       - id: backend-tests-coverage
         name: Backend tests + coverage
         language: system
-        entry: bash -c 'cd fast_api_voter && python -m pytest tests -v --cov=app --cov-fail-under=30'
+        entry: bash -c 'cd fast_api_voter && python -m pytest api/tests -v --cov=api --cov-fail-under=85'
         pass_filenames: false
         stages: [pre-push]
         env:
           FLASK_ENV: testing
-          JWT_SECRET_KEY: pre-push-test-secret
