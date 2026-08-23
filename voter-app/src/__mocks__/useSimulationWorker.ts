@@ -14,11 +14,10 @@
  */
 
 import { vi } from 'vitest';
-// Pure compute helpers, exported alongside their components for this mock.
-// (Static imports under Vitest ESM — the original lazy `require()` calls don't
-// resolve in the ESM test runtime.)
-import { computeGrid } from '../components/Simulation/IdeologyHeatmap';
-import { partialResultsToMatrix } from '../components/Simulation/MethodSimilarityGraph';
+// The same pure kernels the real worker runs. Imported from lib/ rather than
+// from the components that re-export them: those components import this very
+// mock, and the cycle used to leave the helpers undefined at module init.
+import { computeGrid, partialResultsToMatrix } from '../lib/simulationKernels';
 
 // The payload shapes come over the (mocked) worker boundary as unknown; cast the
 // pure helpers to unknown-accepting signatures so the mock stays type-loose.

@@ -47,26 +47,12 @@ function candidateColor(name: string, allCandidates: string[]): string {
   return idx >= 0 ? CAND_COLORS[idx % CAND_COLORS.length] : '#6c757d';
 }
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// ── Types + pure sort live in lib/simulationKernels (imported by the Web
+//    Worker, which cannot load React). Re-exported for existing importers. ────
 
-export interface MethodRow {
-  method: string;
-  winner: string | null;
-  stability: number; // [0, 1]
-  rank: number; // 0 = most stable
-}
+import { sortMethods, type MethodRow } from '../../lib/simulationKernels';
 
-/** Pure sort function — exported for testing. */
-export function sortMethods(partialResults: Record<string, MethodStreamStats>): MethodRow[] {
-  return Object.entries(partialResults)
-    .map(([method, stats]) => {
-      const winner = stats.most_common_winner;
-      const stability = winner ? (stats.winner_distribution[winner] ?? 0) : 0;
-      return { method, winner, stability, rank: 0 };
-    })
-    .sort((a, b) => b.stability - a.stability)
-    .map((row, i) => ({ ...row, rank: i }));
-}
+export { sortMethods, type MethodRow };
 
 // ── Component ─────────────────────────────────────────────────────────────────
 

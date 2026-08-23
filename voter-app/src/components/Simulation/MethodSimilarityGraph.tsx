@@ -86,29 +86,8 @@ export function flatToMatrix(flat: Record<string, number>): Record<string, Recor
   return matrix;
 }
 
-/** Derive a pairwise agreement matrix from streaming winner distributions. */
-export function partialResultsToMatrix(
-  pr: Record<string, { winner_distribution: Record<string, number> }>
-): Record<string, Record<string, number>> {
-  const methods = Object.keys(pr);
-  const matrix: Record<string, Record<string, number>> = {};
-  for (const a of methods) {
-    matrix[a] = {};
-    for (const b of methods) {
-      if (a === b) {
-        matrix[a][b] = 1.0;
-        continue;
-      }
-      const da = pr[a].winner_distribution;
-      const db = pr[b].winner_distribution;
-      const cands = new Set([...Object.keys(da), ...Object.keys(db)]);
-      let agreement = 0;
-      for (const c of cands) agreement += Math.min(da[c] ?? 0, db[c] ?? 0);
-      matrix[a][b] = Math.round(agreement * 100) / 100;
-    }
-  }
-  return matrix;
-}
+// Pure kernel — shared with the Web Worker (see lib/simulationKernels).
+export { partialResultsToMatrix } from '../../lib/simulationKernels';
 
 // ── Main component ────────────────────────────────────────────────────────────
 

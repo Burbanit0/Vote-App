@@ -11,17 +11,19 @@
  * so the hook can resolve the matching Promise.
  */
 
-import { computeGrid } from '../components/Simulation/IdeologyHeatmap';
-import { partialResultsToMatrix } from '../components/Simulation/MethodSimilarityGraph';
-import { sortMethods } from '../components/Simulation/MethodRaceBar';
-import type {
-  HeatmapVoter,
-  HeatmapCandidate,
-  GridCell,
-  HeatmapMetrics,
-} from '../components/Simulation/IdeologyHeatmap';
-import type { MethodStreamStats } from '../hooks/useMonteCarloStream';
-import type { MethodRow } from '../components/Simulation/MethodRaceBar';
+// Kernels only — importing the components that display these results would drag
+// React/i18n into the worker, where `window` does not exist.
+import {
+  computeGrid,
+  partialResultsToMatrix,
+  sortMethods,
+  type HeatmapVoter,
+  type HeatmapCandidate,
+  type GridCell,
+  type HeatmapMetrics,
+  type MethodStreamStats,
+  type MethodRow,
+} from '../lib/simulationKernels';
 
 // ── Message types ─────────────────────────────────────────────────────────────
 
