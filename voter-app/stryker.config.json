@@ -1,0 +1,14 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "_comment": "Mutation testing for the client voting engine — the frontend half of what mutmut does for fast_api_voter (.github/workflows/mutation-testing.yml runs both). Scoped to src/lib/playgroundVoting.ts: it carries the project's thesis (the rule decides the winner) and is one of the two files locked by the engine-parity harness. Non-blocking until two real runs give us a defensible thresholds.break — see the plan's chantier 4b.",
+  "packageManager": "npm",
+  "testRunner": "vitest",
+  "vitest": { "configFile": "vitest.stryker.config.ts" },
+  "mutate": ["src/lib/playgroundVoting.ts"],
+  "coverageAnalysis": "perTest",
+  "reporters": ["html", "clear-text", "progress"],
+  "htmlReporter": { "fileName": "reports/mutation/index.html" },
+  "thresholds": { "high": 80, "low": 60, "break": null },
+  "timeoutMS": 60000,
+  "tempDirName": ".stryker-tmp"
+}

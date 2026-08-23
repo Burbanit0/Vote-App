@@ -48,6 +48,7 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:a11y": "playwright test tests/e2e/accessibility.spec.ts",
+    "test:mutation": "stryker run",
     "gen:api": "openapi-typescript ../fast_api_voter/openapi.gen.json -o src/api/types.gen.ts"
   },
   "browserslist": {
@@ -69,6 +70,8 @@
     "@babel/preset-react": "^7.27.1",
     "@babel/preset-typescript": "^7.27.1",
     "@playwright/test": "^1.60.0",
+    "@stryker-mutator/core": "10.0.0",
+    "@stryker-mutator/vitest-runner": "10.0.0",
     "@tailwindcss/vite": "^4.3.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
@@ -98,7 +101,8 @@
   "overrides": {
     "typescript": "^5.8.3",
     "ws": "^8.21.0",
-    "js-yaml": "^4.2.0"
+    "js-yaml": "^4.2.0",
+    "qs": "^6.15.2"
   },
   "license": "MIT"
 }

@@ -261,3 +261,7 @@ graphify-out/
 
 # Personal interview prep (not part of the project)
 INTERVIEW_PREP.md
+
+# mutmut working copy + cache (fast_api_voter/, created by `mutmut run`)
+/fast_api_voter/mutants/
+/fast_api_voter/.mutmut-cache
