@@ -1187,7 +1187,25 @@ def apply_shifts(sincere: tuple[float, ...], shifts: Sequence[PositionShift]) ->
     """Applies a sparse set of validated shifts to a sincere position,
     clamping each shifted dimension to [0, 1] (positions must stay valid);
     dimensions with no shift are untouched. Pure -- bounds are already
-    enforced by validate_positioning_decision before this is called."""
+    enforced by validate_positioning_decision before this is called.
+
+    KNOWN OBSERVABILITY GAP (found 2026-08-22, v6b Lot 4's acceptance
+    investigation): the clamp is silent. A shift whose target falls outside
+    [0,1] is absorbed with no signal anywhere -- no return value, no log, no
+    journal event -- so a caller downstream of many accumulated shifts (dt=5
+    campaign_positioning, dt=6 representative_response, dt=11
+    chamber_deliberation) cannot tell "the model stopped pushing" from "the
+    model kept pushing but the position had already saturated" without
+    replaying the full shift history and reconstructing the unclamped
+    trajectory by hand -- exactly what v6b Lot 4 had to do to confirm a
+    two-tick plateau in mandate_deviation was saturation, not a real drop in
+    pressure (the unclamped reconstruction ran x2.8-x3.6 higher than the
+    reported, clamped value at the same ticks). Not fixed here: a
+    caller-facing signal -- e.g. a `clamped_at_bound` event journaled per
+    occurrence, or a count/bool returned alongside the clamped position --
+    would make this detectable directly from run data instead of by manual
+    reconstruction. This is a gap in apply_shifts itself, not specific to
+    mandate_deviation or to any one caller."""
     positions = list(sincere)
     for shift in shifts:
         positions[shift.dimension] = min(1.0, max(0.0, positions[shift.dimension] + shift.delta))

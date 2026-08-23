@@ -1346,6 +1346,10 @@ il reste non re-vérifié sous le code corrigé.**
 
 ### 10.9 La chambre de sortition — sincère ou erratique ?
 
+**n=1, une seule graine (seed=42) : ce qui suit est un point de mesure, pas
+une moyenne statistique — et il a fallu deux runs et un bug de métrique
+corrigé pour l'obtenir.**
+
 Le palier v6b (§6bis.3) construit un second corps délibératif, tiré au sort
 plutôt qu'élu — explicitement conçu comme **groupe de contrôle** : « aucun
 mandat électoral à trahir », insensible par construction aux trois canaux de
@@ -1362,9 +1366,7 @@ du bassin tant qu'il reste des citoyens jamais tirés. À l'échelle livrée
 (`population_size=100`, `seats=30`), ce bassin strict s'épuise mesurablement
 tôt dans un run (autour du tick 12-16, `scripts/sortition_calibration_results.md`) —
 assoupli ensuite en « jamais deux mandats qui se chevauchent », sans quoi la
-chambre se viderait pour le reste du run. Assumé et documenté, pas découvert
-en production : le run d'acceptation ci-dessous confirme que le bassin
-assoupli maintient bien 30 sièges occupés à chacune des 9 rotations du run.
+chambre se viderait pour le reste du run.
 
 **`chamber_deliberation` (dt=11) — la décision LLM.** Chaque membre siégeant
 révise, chaque tick, sa `chamber_position` par rapport à sa propre
@@ -1377,48 +1379,91 @@ structurelle du schéma, pas une consigne de prompt. `chamber_deviation`
 est l'analogue direct de `mandate_deviation` (§10.4), appliqué à un citoyen
 qui n'a rien promis.
 
-**Le run d'acceptation** (`scripts/run_v6b_acceptance.py`, résultats dans
-`scripts/acceptance_v6b_results.md`) compare, sur un même run et un même
-seed (42, 8 ans), le président élu soumis aux trois canaux du §7bis (menu
-`both` — pétition et mobilisation actives, §6bis.3 demande explicitement la
-comparaison contre l'apparat complet, pas un levier isolé) et la chambre
-tirée au sort. `social_graph.enabled`/`events.enabled` restent `false`
-partout, le même choix d'évitement de confusion que v5 Lot 5 et v6a Lot 4.
+**Deux runs, un bug de métrique découvert entre les deux.** Un premier run
+d'acceptation (`recall_floor` par défaut, menu `both`) a révélé un confond
+de calendrier : sous le menu complet, la légitimité du président élu
+s'effondre en un tick après quasi chaque élection (`L` 0,43→0,12, puis
+0,44→0,11), déclenchant un rappel par plancher dans les deux cas — le poste
+reste vacant l'essentiel des 33 ticks, et `mandate_deviation` lu à zéro tout
+du long ne reflétait donc rien : le président n'avait presque jamais
+l'occasion de dériver. Un second run, identique à l'exception de
+`legitimacy.recall_floor=0.0`, élimine ce confond par construction
+(`office_occupancy=1.0`, zéro rappel sur tout le run) — mais y révèle un
+second problème, de nature différente : `mandate_deviation` restait
+*encore* à zéro, alors même que le président siégeait sans interruption.
+Investigation : `pledge_scope: top_k_priorities` (le mode livré) ne
+pondère que les 5 dimensions de priorité les plus élevées du titulaire,
+remises à zéro puis renormalisées — un bug de conception de métrique, pas
+un artefact de ce run précis (documenté dans les docstrings de
+`accountability.py` et dans `traceability.md`). Sur ce run, les trois
+dimensions sur lesquelles le président dérivait réellement (poids 0,0745 /
+0,0395 / 0,0205) ne faisaient simplement pas partie de son propre top-5 —
+la métrique était structurellement aveugle à la dérive, pas simplement
+sous-pondérée.
 
-**Ce que le run mesure, honnêtement — et ce n'est pas la comparaison
-attendue.** `chamber_deviation` reste quasi nul (moyenne 0,0001, maximum
-0,035 — 99,3 % des décisions étiquetées `SINCERE_POSITION` par le modèle
-lui-même) : la chambre insulée reste effectivement sincère. Mais
-`mandate_deviation` reste, elle, **exactement à zéro** sur toute la durée du
-run — pas parce que le président élu serait resté fidèle à son mandat, mais
-parce qu'il n'a presque jamais eu l'occasion de dériver : sous le menu
-`both`, la légitimité s'effondre en un seul tick après **chacune** des deux
-élections (`L` chute de 0,43 à 0,12, puis de 0,44 à 0,11), déclenchant un
-rappel par plancher de légitimité (`legitimacy_floor`) dans les deux cas.
-Le poste reste vacant l'essentiel des 33 ticks du run — `representative_response`
-(dt=6) n'a presque jamais de titulaire à qui s'adresser. La comparaison
-« sincère contre erratique » que ce run devait trancher est donc **confondue**
-par un phénomène distinct et lui-même intéressant : le menu de pression
-complet, combiné à l'apparat de responsabilité, produit un rappel quasi
-immédiat plutôt qu'une dérive mesurable à comparer. Chiffres complets et
-trajectoire de légitimité dans `scripts/acceptance_v6b_results.md`.
+**La mesure corrigée — deux chiffres, deux significations.** Recalculée
+avec la même méthode déjà utilisée par `chamber_deviation`
+(`weighted_euclidean` sur le vecteur de priorités complet, sans troncature),
+la déviation *officielle* du président élu — celle que le modèle mesure et
+sur laquelle repose toute décision en aval, puisque `écart(t)`, le vote de
+confiance et le seuil d'éveil lisent tous `revealed_position`, donc sa
+version clampée — s'établit à une moyenne de 0,1496 sur les 33 ticks
+(maximum 0,2312), contre une chambre tirée au sort quasi inerte (moyenne
+0,000036, maximum 0,0353 — 99,70 % des décisions étiquetées
+`SINCERE_POSITION` par le modèle lui-même). C'est déjà, sur cette seule
+base, la première mesure qui distingue réellement les deux trajectoires.
 
-**Ce que cela signifie pour l'hypothèse elle-même** : elle reste, à ce
-stade, non tranchée par ce run précis — pas parce que le mécanisme est
-absent (`chamber_deviation` existe, se calcule, se journalise), mais parce
-que le bras de comparaison (`mandate_deviation`) n'a pas eu assez
-d'exposition pour produire un signal. Une configuration où le président élu
-survit plus longtemps (menu `electoral_only`, ou `recall_floor` relâché)
-donnerait la comparaison réellement voulue par §6bis.3 — non exécutée ici,
-n=1, une seule graine.
+**Mais la série côté président n'est pas monotone continue : elle plafonne,
+et ce plafonnement n'est pas un arrêt de la pression.** Elle s'immobilise
+exactement à deux reprises (0,194070 du tick 10 au tick 15 ; 0,231248 du
+tick 27 au tick 31), à chaque fois en seconde moitié de mandat. Vérifié
+directement contre le journal : à chacun de ces ticks,
+`representative_response` continue d'émettre, sans exception, un `shifts`
+non vide (motif `302 STREET_PRESSURE_RESPONSE`, `stance=1` concession) sur
+les mêmes trois dimensions, avec un delta positif — la pression ne s'arrête
+jamais. Ce qui plafonne, c'est `apply_shifts` : les trois dimensions ont
+déjà atteint 1,0, et chaque delta suivant vise une cible non bornée
+supérieure à 1,0 (1,15 / 1,10 / 1,05 typiquement), silencieusement absorbée
+par le clamp. Lu seul, un tel plateau se prête à une lecture ambiguë — un
+ralentissement réel de la pression de rue, ou une saturation de l'espace
+des positions — d'où la reconstruction qui suit.
+
+Une seconde reconstruction, purement diagnostique, tranche cette ambiguïté.
+Méthode : rejouer les mêmes `shifts` que le journal officiel, tick par
+tick, à partir de la même `pledged_platform` de départ — mais sans jamais
+appliquer le clamp `[0,1]` d'`apply_shifts` ; chaque delta s'accumule tel
+quel, dimension par dimension. Sous cette reconstruction, la déviation
+« fantôme » non bornée du président grimpe à 0,701 en fin de premier
+mandat (contre 0,194 côté clampé — facteur **×3,6**) et 0,642 en fin de
+second mandat (contre 0,231 — facteur **×2,8**) : elle continue de croître
+linéairement pendant tout le plateau, confirmant que la pression ne s'est
+jamais arrêtée. Cette seconde valeur ne remplace pas la première : les
+deux répondent à des questions différentes. La déviation clampée est ce
+que le système *mesure et sur quoi il agit* — la seule quantité qui existe
+dans une structure de données du modèle. La reconstruction non clampée
+n'existe nulle part dans le modèle ; elle répond à « quelle est l'ampleur
+réelle de la pression que le président a encaissée », indépendamment de ce
+que sa position peut encore exprimer une fois les bornes atteintes.
+
+**Ce que cela signifie pour l'hypothèse** : sur ce run précis, la réponse
+penche nettement vers « sincère pour la chambre, erratique — au sens d'une
+dérive continue et substantielle sous pression de rue — pour le président
+élu ». Le plafonnement ne nuance pas ce résultat, il le renforce : le
+chiffre officiellement rapporté (0,1496 de moyenne) est lui-même une
+sous-estimation de l'écart entre les deux trajectoires, d'un facteur ×2,8 à
+×3,6 sur la seule portion mesurable. Ce n'est pas encore une conclusion
+générale : n=1, une seule graine, aucune bande de Monte-Carlo, et le
+premier run (confondu par le calendrier de rappel) reste une donnée
+distincte et informative sur la dynamique du menu `both`, pas une mesure à
+écarter.
 
 **Limite assumée, énoncée sans détour : ce n'est ni un test institutionnel,
-ni une comparaison encore décisive.** Le point ouvert n°11 du plan de
-conception (droit de veto de la chambre) reste entièrement hors périmètre —
-`veto_power`/`veto_delay_ticks` sont analysés et conservés en configuration
-depuis v6 Lot 1 mais ne sont consommés par aucun code : ce MVP est une
-comparaison de trajectoires, sans aucune conséquence institutionnelle
-propre à la chambre.
+ni une comparaison statistiquement établie.** Le point ouvert n°11 du plan
+de conception (droit de veto de la chambre) reste entièrement hors
+périmètre — `veto_power`/`veto_delay_ticks` sont analysés et conservés en
+configuration depuis v6 Lot 1 mais ne sont consommés par aucun code : ce
+MVP est une comparaison de trajectoires, sans aucune conséquence
+institutionnelle propre à la chambre.
 
 ### 10.10 Limites connues du modèle v4, v5, v6a et v6b
 
@@ -1453,11 +1498,13 @@ propre à la chambre.
 - **La chambre de sortition (§10.9) reste un dispositif de comparaison
   sans conséquence institutionnelle** : aucun droit de veto (point ouvert
   n°11 du plan de conception, `veto_power`/`veto_delay_ticks` analysés et
-  conservés en configuration mais consommés par aucun code), et son propre
-  run d'acceptation n'a pas pu trancher « sincère contre erratique » — le
-  président élu a passé l'essentiel du run vacant sous le menu `both`,
-  confondant la comparaison prévue (n=1, une seule graine, aucune bande de
-  Monte-Carlo).
+  conservés en configuration mais consommés par aucun code). Le chiffre qui
+  distingue les deux trajectoires (`mandate_deviation` du président vs
+  `chamber_deviation` de la chambre) est un plancher, pas une mesure
+  exacte : le clamp `[0,1]` d'`apply_shifts` sature sur les dimensions sous
+  pression continue et absorbe silencieusement toute dérive au-delà
+  (facteur ×2,8 à ×3,6 mesuré sur ce run). n=1, une seule graine, aucune
+  bande de Monte-Carlo.
 - **La configuration livrée des événements exogènes ne se déclenche presque
   jamais sur un run court** : à `(phi=0.8, sigma=0.1, seuil=0.5)`, le choc
   économique est un événement à ~3 écarts-types, jamais observé sur un run

@@ -87,7 +87,31 @@ def pledge_weights(priorities: Sequence[float], config: MandateConfig) -> tuple[
     survivors to sum to 1 -- without this, pledge_scope would silently
     become a scale change (a top-5 subset of dirichlet weights sums to
     ~0.25-0.3) rather than a scope change, and deviation_log_threshold
-    would mean two different things depending on scope."""
+    would mean two different things depending on scope.
+
+    KNOWN METRIC DESIGN BUG (found 2026-08-22, v6b Lot 4's second acceptance
+    run, shipped default pledge_scope=top_k_priorities): a dimension outside
+    the officeholder's own top-k priority set gets weight exactly 0.0 here,
+    which means mandate_deviation is STRUCTURALLY BLIND to drift on that
+    dimension -- not merely under-weighted, invisible. Live-verified: a
+    presided term drifted revealed_position on 3 dimensions from ~0.1-0.8 to
+    the [0,1] clamp ceiling (raw unweighted distance ~1.0 across the
+    platform), while mandate_deviation read exactly 0.0 for the entire term,
+    because those 3 dimensions never fell in that officeholder's own top-5.
+    This was never a bug in what top_k_priorities computes -- it is doing
+    exactly what its own docstring says -- but nothing here ever warned a
+    caller that "did they keep their stated top-priority promises" and "how
+    much did their overall position move" are DIFFERENT questions, and that
+    mandate_deviation only answers the first one. Comparing mandate_deviation
+    against a full-priority-weighted quantity computed elsewhere (e.g.
+    chamber_deviation, which weights by the FULL issue_priorities vector,
+    never top-k) is therefore not apples-to-apples, and a caller that treats
+    a flat mandate_deviation series as "no real drift happened" can be
+    completely wrong. Not fixed here -- pledge_scope=top_k_priorities is
+    still the shipped default and this function's own behavior is
+    unchanged -- flagged so the next comparison against this metric doesn't
+    silently repeat the same misread. See traceability.md's own polity row
+    for the cross-reference."""
     if config.pledge_scope == "full_platform":
         return tuple(priorities)
     if config.pledge_scope != "top_k_priorities":
@@ -109,7 +133,15 @@ def mandate_deviation(officeholder: Citizen, config: MandateConfig) -> float:
     """§7bis.5: distance(pledged_platform, revealed_position(t)), weighted by
     the officeholder's own issue_priorities per pledge_weights. Provably 0
     throughout Lots 2-5: nothing sets revealed_position independently from
-    pledged_platform until Lot 6's representative_response exists."""
+    pledged_platform until Lot 6's representative_response exists.
+
+    KNOWN METRIC DESIGN BUG under the shipped pledge_scope=top_k_priorities:
+    can read exactly 0.0 even with large, real, saturating drift, if that
+    drift lands entirely outside the officeholder's own top-5 priority
+    dimensions -- see pledge_weights's own docstring for the live-verified
+    case and why this is not comparable to a full-priority-weighted metric
+    (e.g. chamber_deviation) without recomputing both on the same weighting
+    basis."""
     if config.deviation_metric not in _SUPPORTED_DEVIATION_METRICS:
         raise NotImplementedError(f"mandate.deviation_metric {config.deviation_metric!r} not supported")
     if officeholder.pledged_platform is None or officeholder.revealed_position is None:
