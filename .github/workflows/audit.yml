@@ -135,10 +135,11 @@ jobs:
   # ---------------------------------------------------------------
   # Code Quality — dead code, unused deps, cross-language duplication,
   # cyclomatic complexity.
-  # NON-GATING: these tools were only just added (see CODE_AUDIT.md) and the
-  # repo hasn't done its first cleanup pass yet. Findings are published to
-  # the run's job summary so they stay visible without failing anyone's
-  # build; promote to a gating step once the backlog is near zero.
+  # The tools themselves stay NON-GATING (the repo never did a full cleanup
+  # pass, and failing on the existing backlog would just get the job disabled).
+  # What gates is the RATCHET at the end: scripts/check_quality_ratchet.sh reads
+  # the .txt files tee'd below and fails if any count grew. Debt may shrink,
+  # never grow — a signal that can never fail is a signal nobody reads.
   code-quality:
     name: Code Quality (dead code, duplication & complexity)
     runs-on: ubuntu-latest
@@ -185,11 +186,20 @@ jobs:
         continue-on-error: true
         run: npx --yes jscpd --config .jscpd.json fast_api_voter/api voter-app/src | tee jscpd.txt
 
+      # THE gating step of this job. Every tool above stays non-blocking; this
+      # compares their counts to .github/quality-baseline.json and fails only on
+      # an INCREASE. Existing debt is grandfathered, new debt is not — see the
+      # header of the script. `if: always()` so it still runs when a tool step
+      # above exited non-zero (they all do, that's what continue-on-error means).
+      - name: Quality ratchet (debt may shrink, never grow)
+        if: always()
+        run: ./scripts/check_quality_ratchet.sh
+
       - name: Publish summary
         if: always()
         run: |
           {
-            echo "### Code Quality (informational — never fails this job)"
+            echo "### Code Quality (raw tool output — the ratchet step is what gates)"
             echo
             echo "<details><summary>vulture (Python dead code)</summary>"
             echo; echo '```'; cat fast_api_voter/vulture.txt 2>/dev/null || echo "(no output)"; echo '```'
