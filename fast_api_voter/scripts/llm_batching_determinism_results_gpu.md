@@ -786,3 +786,97 @@ rendement marginal d'investiguer davantage est jugé décroissant face au
 travail de fond du projet (retour à v6, contagion sociale). Voir
 `docs/adr/ADR-001-serving-layer-ollama-vs-llama-server.md` pour la
 clôture formelle de la décision d'architecture correspondante.
+
+## Un septième mode de défaillance, distinct de bug 4 — le conteneur meurt sans laisser de trace (2026-08-22)
+
+Le second run d'acceptance v6b (`recall_floor=0.0`, cf. le plan de session) a
+crashé au tick 32/32 — la toute dernière élection présidentielle du run,
+après ~4h16 d'exécution — avec une `LlmTransportError` (`WinError 10054`,
+connexion fermée par l'hôte distant), pas une erreur de schéma/décodage. Ce
+mode est **distinct des six déjà documentés dans ce fichier** (B2 batching,
+l'écart cold-start, la réutilisation cross-request du prompt-cache, bug 4
+lui-même, l'incohérence déterministe `blank`/`ranking` de `cast_votes`
+consignée dans `cache_recycle_chunk_size_tension_findings.md`, et le
+chunk_size de `chamber_deliberation` v6b Lot 3) : ici, le **conteneur
+`ollama-polity` lui-même est mort** (`docker inspect` : `exitCode=255`,
+`OOMKilled=false`), pas une réponse du modèle qui échoue une validation.
+
+**Preuve directement lue dans les logs du conteneur** (préservés à travers
+le restart — même `container Id`, seul le process a été redémarré, pas
+recréé) : deux rechargements successifs de `llama-server` à 70s d'intervalle
+(22:20:03 puis 22:21:13 UTC — vraisemblablement `recycle_after_n_calls`
+faisant son travail normal pendant les batches denses de la dernière
+élection), puis **plus aucune ligne de log pendant 68 secondes**, jusqu'à la
+mort du process à 22:21:54 (horodatage `docker inspect` lui-même) — ni panic,
+ni erreur, ni message OOM. GPU sain au moment du diagnostic (1.5/16 GiB
+utilisés, 46°C), 385 GiB de disque libre.
+
+**Cause confirmée, pas seulement plausible** : l'utilisateur a exécuté
+`wsl --shutdown` dans l'autre worktree (`Vote-App`) pendant que ce run
+tournait. `wsl --list --verbose` montre la distro `docker-desktop` (celle
+qui héberge TOUS les conteneurs Docker Desktop de la machine, quel que soit
+le worktree/dépôt depuis lequel `docker` est invoqué) à seulement 10 minutes
+d'uptime au moment du diagnostic — cohérent avec un redémarrage de la VM
+vers 22:22, exactement la fenêtre du crash puis de mon propre `docker start`
+de récupération. `wsl --shutdown` coupe la VM légère sous-jacente
+brutalement, depuis l'extérieur de Docker — ce qui explique exactement le
+silence total dans les logs (le process n'a pas eu l'occasion d'écrire quoi
+que ce soit avant de mourir, contrairement à un OOM-kill du noyau qui
+laisserait au moins une trace côté hôte) et le `WinError 10054` côté client
+(la connexion TCP a été coupée sous ses pieds, pas refusée).
+
+**Conséquence pour l'hypothèse "instabilité liée à la durée d'uptime"** :
+elle est **révisée à la baisse, pas retenue comme l'explication de cet
+incident précis**. Les deux rechargements `llama-server` juste avant le
+crash sont vraisemblablement une coïncidence de timing (le run traitait
+justement les batches les plus denses de tout le run, la dernière
+élection), pas un facteur causal — `wsl --shutdown` explique le crash
+entièrement, indépendamment de la durée pendant laquelle le conteneur avait
+tourné (26h ici, mais ç'aurait été identique à 2h). La mitigation de
+redémarrage préventif toutes les 12h (`ollama_uptime_guard.py`, déployée le
+même jour) reste déployée — elle répond à un risque réel et indépendamment
+documenté (instabilité WSL2/Docker Desktop après une longue durée,
+cf. recherche bornée ci-dessous) — mais **elle n'aurait pas empêché cet
+incident précis**, puisque son déclencheur n'a rien à voir avec l'uptime du
+conteneur.
+
+**Recherche bornée (pas une investigation complète), pour situer le
+contexte général sans lui faire porter la responsabilité de cet incident** :
+- Plusieurs issues GitHub documentées et actives sur `docker/for-win` et
+  `microsoft/WSL` décrivent une dégradation de la connectivité
+  conteneur↔hôte après une durée d'exécution prolongée sous le backend
+  WSL2 de Docker Desktop (ex. `docker/for-win#10745` : timeout après ~1h
+  environ ; `docker/for-win#12105` : perte de connexion après un certain
+  temps, résolue seulement par une réinitialisation de Docker Desktop ;
+  `microsoft/WSL#13124` : crashs aléatoires de la VM WSL en usage prolongé
+  avec Docker Desktop). Ces symptômes (perte de connexion réseau, VM WSL
+  instable) sont dans la même famille que le `WinError 10054` observé ici,
+  mais **aucune de ces issues ne correspond exactement** à ce cas précis
+  (déclenchement confirmé par `wsl --shutdown`, pas une dégradation
+  spontanée).
+- Un pattern bien documenté côté Ollama (ex. `ollama/ollama#6682`, cité
+  dans plusieurs sources secondaires) lie des crashs de conteneur à un
+  parallélisme de requêtes non contraint (`OLLAMA_NUM_PARALLEL` par défaut)
+  épuisant la VRAM sur des GPU grand public — **non applicable ici** :
+  `OLLAMA_NUM_PARALLEL` est resté à sa valeur par défaut tout du long sans
+  incident jusqu'à ce jour, et le GPU était sain (1.5/16 GiB) au diagnostic.
+  Mentionné pour mémoire, pas retenu comme piste.
+
+**Conclusion, honnête sur ce qui reste incertain** : la cause immédiate de
+*cet* incident est confirmée (`wsl --shutdown` externe) — pas un mode de
+défaillance à investiguer davantage pour lui-même. Ce qui reste ouvert,
+plus large que cet incident : ce projet n'a pas de mécanisme de
+checkpoint/reprise (rejeté explicitement lors de la planification v4 Lot 8,
+pour ne pas réintroduire de non-déterminisme) — donc n'importe quelle
+coupure externe de la VM WSL2/Docker Desktop, quelle qu'en soit la cause
+future, coûte l'intégralité d'un run multi-heures en cours. C'est un risque
+opérationnel du poste de travail, pas un bug du code applicatif de ce
+projet — noté ici pour que la prochaine session qui voit un run planté sans
+message d'erreur applicatif pense à vérifier `wsl --list --verbose` et
+`docker inspect --format '{{.State}}'` avant de suspecter le modèle ou le
+code.
+
+Sources (recherche bornée, 2026-08-22) :
+- [Docker Windows and WSL2 timeout · Issue #10745 · docker/for-win](https://github.com/docker/for-win/issues/10745)
+- [Unable to connect to WSL2 from a docker container after some time · Issue #12105 · docker/for-win](https://github.com/docker/for-win/issues/12105)
+- [WSL randomly crashes and won't restart easily when using it with Docker Desktop · Issue #13124 · microsoft/WSL](https://github.com/microsoft/WSL/issues/13124)

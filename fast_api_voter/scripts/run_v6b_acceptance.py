@@ -74,6 +74,34 @@ Usage:
     # render the committed results doc from both arms' metrics.json/chamber.json
     python fast_api_voter/scripts/run_v6b_acceptance.py \\
         --summarize scripts/acceptance_v6b_runs --results scripts/acceptance_v6b_results.md
+
+--recall-floor (added 2026-08-22, second targeted run) -- the first run's own "both" arm confounded
+§6bis.3's comparison: legitimacy.recall_floor's shipped value (0.2) combined with the "both" menu's
+simultaneous petition+mobilization pressure crashed L below the floor within 1-2 ticks of BOTH
+elections (the awakening gate's own post-election `proximity` term maximizes consultation at
+exactly the worst moment for two independently-weighted, simultaneous levers to compound) --
+office-occupancy ~6-9% of the run, nowhere near enough for representative_response/dt=6 to
+accumulate a comparable mandate_deviation series. Pre-registered hypothesis: with recall_floor=0.0
+and everything else about the "both" arm unchanged (same seed, same duration, same pressure menu),
+office-occupancy rises enough for the comparison to actually run. Decision criterion, fixed before
+launch: office-occupancy (fraction of ticks with a representative_response event) >= 70% -- met,
+report mandate_deviation vs chamber_deviation directly; not met, report honestly and stop rather
+than force a conclusion. recall_floor=0.0 is not a guess: crosses_floor's own docstring
+(legitimacy.py) already proves, given update_legitimacy's [0,1] clamp, that the legitimacy-floor
+recall provably never fires at this value -- a guarantee, not an empirical hope. The confidence-vote
+recall path is deliberately left untouched (drift-linked, a genuine part of "l'apparat complet", not
+the pathology being routed around). Runs into a SEPARATE --output-dir from the first arm (different
+pre-registered question, not a rejoue -- mixing the two into one --summarize table would misleadingly
+imply they answer the same question):
+
+    python fast_api_voter/scripts/run_v6b_acceptance.py \\
+        --engine deterministic --recall-floor 0.0 --output-dir scripts/acceptance_v6b_runs_recallfloor0
+    python fast_api_voter/scripts/run_v6b_acceptance.py \\
+        --engine llm --recall-floor 0.0 --max-batch-replays 2 \\
+        --output-dir scripts/acceptance_v6b_runs_recallfloor0
+    python fast_api_voter/scripts/run_v6b_acceptance.py \\
+        --summarize scripts/acceptance_v6b_runs_recallfloor0 \\
+        --results scripts/acceptance_v6b_recallfloor0_results.md
 """
 from __future__ import annotations
 
@@ -91,10 +119,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from api.domain.polity.config import PolityConfig, load_config  # noqa: E402
 from api.domain.polity.indexer import RunMetrics, index_run, read_journal  # noqa: E402
 from api.domain.polity.run_polity_simulation import run_simulation  # noqa: E402
+from ollama_uptime_guard import ensure_fresh_container  # noqa: E402
 
 
 def _config_for_v6b_run(
     engine: str, *, duration_years: int, output_dir: Path, max_batch_replays: int,
+    recall_floor: float = 0.2,
 ) -> PolityConfig:
     config = load_config()
     config = dataclasses.replace(
@@ -102,7 +132,10 @@ def _config_for_v6b_run(
         journal=dataclasses.replace(config.journal, output_dir=str(output_dir)),
         candidacy=dataclasses.replace(config.candidacy, ambition_threshold=0.0),
         run=dataclasses.replace(config.run, duration_years=duration_years),
-        legitimacy=dataclasses.replace(config.legitimacy, enabled=True),
+        # recall_floor defaults to the shipped value (0.2) -- the original arm's own
+        # behavior, unchanged. See this module's own --recall-floor docstring section
+        # for why 0.0 is the second, targeted run's own single changed variable.
+        legitimacy=dataclasses.replace(config.legitimacy, enabled=True, recall_floor=recall_floor),
         mandate=dataclasses.replace(config.mandate, enabled=True),
         awakening=dataclasses.replace(config.awakening, enabled=True),
         pressure_menu=dataclasses.replace(
@@ -211,7 +244,9 @@ def _compute_chamber_metrics(journal_path: Path, total_ticks: int) -> dict[str, 
     }
 
 
-def run_arm(engine: str, *, duration_years: int, output_dir: Path, max_batch_replays: int) -> Path:
+def run_arm(
+    engine: str, *, duration_years: int, output_dir: Path, max_batch_replays: int, recall_floor: float = 0.2,
+) -> Path:
     # Journal opens its file in append mode (journal.py, §16.1's deliberate
     # append-only contract) -- a pre-existing run_dir must fail loudly rather
     # than silently concatenate two runs into one journal (run_v5_acceptance.py's
@@ -220,8 +255,19 @@ def run_arm(engine: str, *, duration_years: int, output_dir: Path, max_batch_rep
     if run_dir.exists():
         raise FileExistsError(f"{run_dir} already exists -- remove it before re-running this arm.")
     run_dir.mkdir(parents=True)
+
+    # 2026-08-22 (post-crash): a pragmatic mitigation, not a response to this run's own prior
+    # crash specifically -- that crash's cause is confirmed (an external `wsl --shutdown` in a
+    # sibling worktree, unrelated to container uptime; see llm_batching_determinism_results_gpu.md's
+    # dated section), so a restart schedule would not have prevented it. This hedges against a
+    # separate, independently-documented risk (WSL2/Docker Desktop connectivity degrading over
+    # long container uptime, see ollama_uptime_guard.py's own docstring) before committing to an
+    # hours-long --engine llm run. Cheap and safe for --engine deterministic too, so it is not
+    # gated on engine == "llm".
+    ensure_fresh_container()
     config = _config_for_v6b_run(
-        engine, duration_years=duration_years, output_dir=run_dir / "run", max_batch_replays=max_batch_replays
+        engine, duration_years=duration_years, output_dir=run_dir / "run", max_batch_replays=max_batch_replays,
+        recall_floor=recall_floor,
     )
     (run_dir / "config.json").write_text(json.dumps(dataclasses.asdict(config), indent=2, default=str), encoding="utf-8")
 
@@ -252,9 +298,9 @@ def run_arm(engine: str, *, duration_years: int, output_dir: Path, max_batch_rep
     payload["_meta"] = {
         "engine": engine, "duration_years": duration_years,
         "elapsed_seconds": round(elapsed, 1), "replay_count": replay_count,
+        "recall_floor": recall_floor,
     }
     metrics_path = run_dir / "metrics.json"
-    metrics_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
     chamber = _compute_chamber_metrics(journal_path, config.run.total_ticks)
     chamber_path = run_dir / "chamber.json"
@@ -262,14 +308,34 @@ def run_arm(engine: str, *, duration_years: int, output_dir: Path, max_batch_rep
 
     recalls = metrics.recalls_by_trigger or {}
     total_recalls = sum(recalls.values())
+    # Office-occupancy (this second run's own pre-registered PRIMARY decision
+    # criterion, >= 0.70): len(mandate_deviation) when source=="ctx" is exactly
+    # the count of presided ticks with a representative_response event -- the
+    # ctx series IS "every presided tick's own dt=6 reading" (indexer.py), so
+    # its length over total_ticks+1 is office-occupancy directly, no new
+    # indexer.py row needed (ad hoc here, single consumer, same precedent as
+    # _compute_chamber_metrics).
+    occupancy = None
+    if metrics.mandate_deviation_source == "ctx" and metrics.mandate_deviation:
+        occupancy = len(metrics.mandate_deviation) / (config.run.total_ticks + 1)
+    payload["_meta"]["office_occupancy"] = occupancy
+    metrics_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     print(
         f"sortition/{engine}/{duration_years}y: {elapsed:.1f}s, {replay_count} replays, "
         f"recalls={total_recalls}, mean_legitimacy(last)={(metrics.mean_legitimacy or [(0, None)])[-1][1]}, "
         f"mandate_deviation(last)={(metrics.mandate_deviation or [(0, None)])[-1][1]}, "
+        f"office_occupancy={occupancy}, "
         f"chamber_deviation(mean)={chamber['chamber_deviation_mean']:.4f}, "
         f"last_seated_size={chamber['last_seated_size']} "
         f"-- metrics={metrics_path}, chamber={chamber_path}"
     )
+    if engine == "llm" and occupancy is not None and occupancy < 0.70:
+        print(
+            f"WARNING: office_occupancy={occupancy:.3f} is below this run's own pre-registered "
+            "0.70 decision criterion -- the mandate_deviation/chamber_deviation comparison is NOT "
+            "valid per that criterion. Report honestly, do not force a conclusion.",
+            file=sys.stderr,
+        )
     if engine == "deterministic" and total_recalls > 6:
         print(
             "WARNING: this arm recalled more than 3x both/deterministic/8y's own committed anchor "
@@ -382,6 +448,11 @@ def main() -> int:
     parser.add_argument("--engine", choices=["llm", "deterministic"])
     parser.add_argument("--duration-years", type=int, default=8)
     parser.add_argument("--max-batch-replays", type=int, default=2)
+    parser.add_argument(
+        "--recall-floor", type=float, default=0.2,
+        help="legitimacy.recall_floor override (shipped default 0.2). See this module's own "
+        "--recall-floor docstring section for the pre-registered 0.0 experiment.",
+    )
     parser.add_argument("--output-dir", type=Path, default=Path("scripts/acceptance_v6b_runs"))
     parser.add_argument("--summarize", type=Path, help="render the results doc from every metrics.json under this dir")
     parser.add_argument("--results", type=Path, help="where --summarize writes the rendered markdown")
@@ -397,6 +468,7 @@ def main() -> int:
     run_arm(
         args.engine, duration_years=args.duration_years,
         output_dir=args.output_dir, max_batch_replays=args.max_batch_replays,
+        recall_floor=args.recall_floor,
     )
     return 0
 
