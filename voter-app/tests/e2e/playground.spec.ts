@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 // The playground is a single instrument: a Dirigeant/Assemblée switch above a
 // rail of five moments (Électorat → Méthode → Stratégie → Campagne → Bilan).
@@ -65,30 +65,37 @@ test.describe('Playground — the instrument', () => {
     await expect(page.locator('[data-testid^="winner-group-"]').first()).toBeVisible();
   });
 
+  // GuidedFooter sits BELOW the moment panel (PlaygroundPage.tsx), so every moment
+  // change re-flows the panel above it and moves the footer vertically. Playwright's
+  // stability check can pass and the click still land at the old coordinates when the
+  // new panel settles its height in a second render pass — observed on firefox in CI,
+  // where the walk stalled on `strategy` with aria-checked=false for the full 5s.
+  //
+  // Re-click until the rail actually advances. The aria-checked guard makes a repeat
+  // click impossible once the move has landed, so this can never overshoot a moment:
+  // it only recovers a click that was swallowed.
+  const clickUntilMoment = async (page: Page, control: string, moment: string) => {
+    const target = page.locator(`[data-testid="moment-${moment}"]`);
+    await expect(async () => {
+      if ((await target.getAttribute('aria-checked')) !== 'true') {
+        await page.locator(`[data-testid="${control}"]`).click();
+      }
+      await expect(target).toHaveAttribute('aria-checked', 'true', { timeout: 1_500 });
+    }).toPass({ timeout: 15_000 });
+  };
+
   test('the guided footer walks the five moments in order', async ({ page }) => {
     const order = ['electorate', 'method', 'strategy', 'campaign', 'bilan'];
 
     for (let i = 1; i < order.length; i++) {
-      await page.locator('[data-testid="guided-next"]').click();
-      await expect(page.locator(`[data-testid="moment-${order[i]}"]`)).toHaveAttribute(
-        'aria-checked',
-        'true'
-      );
+      await clickUntilMoment(page, 'guided-next', order[i]);
     }
     // At the end the same control loops back to moment 1 rather than dead-ending.
-    await page.locator('[data-testid="guided-next"]').click();
-    await expect(page.locator('[data-testid="moment-electorate"]')).toHaveAttribute(
-      'aria-checked',
-      'true'
-    );
+    await clickUntilMoment(page, 'guided-next', 'electorate');
     await expect(page.locator('[data-testid="guided-prev"]')).toBeDisabled();
 
-    await page.locator('[data-testid="moment-bilan"]').click();
-    await page.locator('[data-testid="guided-prev"]').click();
-    await expect(page.locator('[data-testid="moment-campaign"]')).toHaveAttribute(
-      'aria-checked',
-      'true'
-    );
+    await clickUntilMoment(page, 'moment-bilan', 'bilan');
+    await clickUntilMoment(page, 'guided-prev', 'campaign');
   });
 
   test('a story runs on the instrument, step by step, and can be quit', async ({ page }) => {
