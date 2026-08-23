@@ -89,6 +89,13 @@ jobs:
         env:
           CI: 'true'
 
+      # A test that only passes on its retry is reported green by Playwright.
+      # Runs even when the suite failed: the flaky list is useful either way.
+      - name: Fail on flaky tests
+        if: always()
+        run: node scripts/check-flaky.mjs
+        working-directory: ./voter-app
+
       # ── Artifacts ─────────────────────────────────────────────────────────────
       - name: Upload Playwright report
         if: always()

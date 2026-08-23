@@ -10,7 +10,9 @@ export default defineConfig({
   // minute — the old suite hid its rot behind 60s timeouts until the whole job
   // was killed at the 25-minute mark with no report.
   timeout: 30_000,
-  reporter: [['html'], ['list']],
+  // json feeds scripts/check-flaky.mjs: with retries on, a test that only passes
+  // on the second attempt is reported green and its rot stays invisible.
+  reporter: [['html'], ['list'], ['json', { outputFile: 'playwright-report/results.json' }]],
 
   use: {
     baseURL: 'http://localhost:3000',

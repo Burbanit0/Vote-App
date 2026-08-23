@@ -275,6 +275,7 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
             </Col>
             <Col md={2}>
               <Button
+                data-testid="mc-run"
                 variant="primary"
                 size="sm"
                 className="w-full"
@@ -352,7 +353,7 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
 
       {/* Similarity graph — shown once streaming has partial results */}
       {Object.keys(stream.partialResults).length > 1 && (
-        <Card className="mb-4">
+        <Card className="mb-4" data-testid="mc-stream-graph">
           <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
             <strong>{t('graph.title')}</strong>
             <span className="text-muted-foreground ms-2" style={{ fontSize: '0.85rem' }}>
@@ -375,7 +376,7 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
       )}
 
       {result && (
-        <>
+        <div data-testid="mc-results">
           <Alert variant="secondary" className="py-2 mb-4">
             <Trans
               i18nKey="simulation.monteCarloSummary"
@@ -605,7 +606,7 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
               </Table>
             </CardBody>
           </Card>
-        </>
+        </div>
       )}
     </div>
   );

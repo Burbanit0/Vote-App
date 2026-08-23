@@ -62,4 +62,6 @@ for _ in $(seq 30); do curl -sf http://localhost:4434/api/v2/health >/dev/null &
 echo 'Backend is ready'; \
 echo '=== Playwright E2E (chromium + firefox) ==='; \
 cd /app/voter-app && npm run test:e2e; \
+echo '=== Flaky check (a retry-only pass is a broken test) ==='; \
+node scripts/check-flaky.mjs; \
 echo '=== E2E: PASS ==='"]
