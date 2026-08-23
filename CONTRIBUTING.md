@@ -69,6 +69,7 @@ git push origin feature/ma-feature
 | Frontend CI | Tests échouent ou coverage < 30% |
 | Backend CI | Tests échouent ou coverage < 30% |
 | npm audit | CVE haute détectée |
+| E2E (Playwright) | Un parcours utilisateur casse sur Chromium ou Firefox (déclenché par tout changement dans `voter-app/` ou `fast_api_voter/`) |
 | OpenAPI Contract | `openapi.gen.json` / `types.gen.ts` désynchronisés du code (route/schéma modifié sans régénération — voir `scripts/check_openapi_drift.sh`) |
 
 ### 4. Release : develop → main
@@ -78,9 +79,9 @@ Uniquement via le workflow **Release Vote Lab** :
 - Choisir `patch`, `minor` ou `major`
 
 Le workflow exige `ci-frontend`, `ci-backend` **et `e2e` (Playwright)** verts
-avant de taguer/pousser sur `main` — c'est le seul endroit où la suite E2E
-tourne automatiquement (trop lente pour chaque PR `develop`, mais une release
-est justement le moment peu fréquent où elle a sa place).
+avant de taguer/pousser sur `main`. La suite E2E tourne aussi sur chaque PR
+`develop` : la réserver à la release avait laissé les specs pourrir deux mois
+face à une UI qui avait bougé.
 
 Aucune PR vers `main` n'est acceptée depuis une branche autre que `develop`.
 
@@ -137,6 +138,35 @@ Types valides : `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `ci`, `secur
 | Coverage backend | 30% | `backend-ci-cd-pipeline.yml` |
 | npm audit severity | high | `npm audit --audit-level=high` |
 | Bandit severity | medium+ | `-ll` dans args bandit |
+
+---
+
+## Tests E2E (Playwright) — et comment ils restent à jour
+
+```bash
+cd fast_api_voter && uvicorn api.main:app --port 4434   # Assemblée + 2 fiches du Lab en ont besoin
+cd voter-app && npm run test:e2e                        # chromium + firefox, ~1,5 min
+```
+
+La suite a déjà pourri une fois : 5 specs figées sur une UI qui avait bougé
+pendant deux mois, chaque test brûlant son timeout de 60 s jusqu'à ce que le job
+soit tué à 25 min sans rapport. Trois garde-fous, dans l'ordre d'efficacité :
+
+1. **Elle tourne sur chaque PR** (`e2e.yml`, déclenché par tout changement dans
+   `voter-app/` ou `fast_api_voter/`). Une dérive se voit en une PR, pas en deux
+   mois. C'est 90 % du sujet.
+2. **Les routes sont des données.** `voter-app/src/routes.ts` liste les surfaces
+   et les redirections ; `App.tsx` en dérive ses `<Route>` et
+   `tests/e2e/routes.ts` importe la même table. Ajouter une route la fait
+   couvrir ; une surface sans ancre de test fait échouer le run.
+3. **On s'accroche aux `data-testid`**, jamais aux classes CSS ni aux chaînes
+   traduites — les deux bougent (la migration Tailwind avait invalidé tous les
+   sélecteurs `.card`/`.badge` de l'ancienne suite). Les tests tournent en
+   `fr-FR` mais assertent sur des testids.
+
+Corollaire : **si vous supprimez un `data-testid` ou une route, la PR devient
+rouge** — c'est voulu, c'est le seul moment où mettre le test à jour coûte
+presque rien.
 
 ---
 

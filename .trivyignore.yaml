@@ -4,6 +4,7 @@ misconfigurations:
     paths:
       - "ci-local/audit.Dockerfile"
       - "ci-local/backend.Dockerfile"
+      - "ci-local/e2e.Dockerfile"
       - "ci-local/frontend.Dockerfile"
     statement: >-
       Local-only CI/scanner images — built and run as throwaway containers, never
@@ -15,6 +16,7 @@ misconfigurations:
     paths:
       - "ci-local/audit.Dockerfile"
       - "ci-local/backend.Dockerfile"
+      - "ci-local/e2e.Dockerfile"
       - "ci-local/frontend.Dockerfile"
     statement: >-
       Local-only CI/scanner images — throwaway build/test containers, never

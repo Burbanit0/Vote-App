@@ -12,10 +12,17 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/badge';
 import { useSimulationWorker } from '../../hooks/useSimulationWorker';
+import {
+  GRID_N,
+  computeGrid,
+  type HeatmapVoter,
+  type HeatmapCandidate,
+  type GridCell,
+  type HeatmapMetrics,
+} from '../../lib/simulationKernels';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-export const GRID_N = 30;
 const SVG_W = 480;
 const SVG_H = 480;
 const MARGIN = 40;
@@ -26,115 +33,18 @@ const CELL_H = PLOT_H / GRID_N;
 
 const CANDIDATE_COLORS = ['#005CAB', '#C8590A', '#007A33', '#6c757d', '#9b59b6', '#e67e22'];
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// ── Types + pure grid computation live in lib/simulationKernels (the Web Worker
+//    imports them, and a worker cannot pull in React/i18n). Re-exported here so
+//    existing importers of this module are unaffected. ─────────────────────────
 
-export interface HeatmapVoter {
-  id: number;
-  x: number;
-  y: number;
-}
-export interface HeatmapCandidate {
-  name: string;
-  x: number;
-  y: number;
-}
-
-export interface GridCell {
-  i: number; // column  [0, N)
-  j: number; // row     [0, N), j=0 → domain y=-1 (bottom)
-  density: number; // voter count
-  winnerIdx: number; // index into candidates array (-1 = no winner)
-  distRatio: number; // 1st_dist / 2nd_dist — low = contested
-  cx: number; // domain x of cell center
-  cy: number; // domain y of cell center
-}
-
-export interface HeatmapMetrics {
-  maxContestedCell: GridCell | null;
-  fortressCell: GridCell | null;
-  fortressCandidate: string | null;
-  maxDensity: number;
-}
-
-// ── Pure grid computation (exported for tests) ────────────────────────────────
-
-export function computeGrid(
-  voters: HeatmapVoter[],
-  candidates: HeatmapCandidate[],
-  N = GRID_N
-): { cells: GridCell[]; metrics: HeatmapMetrics } {
-  // Bucket voters into cells
-  const counts = new Int32Array(N * N);
-  for (const v of voters) {
-    const i = Math.max(0, Math.min(N - 1, Math.floor(((v.x + 1) / 2) * N)));
-    const j = Math.max(0, Math.min(N - 1, Math.floor(((v.y + 1) / 2) * N)));
-    counts[j * N + i]++;
-  }
-
-  const maxDensity = Math.max(1, ...counts);
-
-  const cells: GridCell[] = [];
-
-  for (let j = 0; j < N; j++) {
-    for (let i = 0; i < N; i++) {
-      const cx = -1 + ((i + 0.5) * 2) / N;
-      const cy = -1 + ((j + 0.5) * 2) / N;
-
-      // Nearest-candidate (Voronoi) winner
-      let d1 = Infinity,
-        d2 = Infinity,
-        winnerIdx = -1;
-      for (let k = 0; k < candidates.length; k++) {
-        const dx = cx - candidates[k].x;
-        const dy = cy - candidates[k].y;
-        const d = dx * dx + dy * dy;
-        if (d < d1) {
-          d2 = d1;
-          d1 = d;
-          winnerIdx = k;
-        } else if (d < d2) {
-          d2 = d;
-        }
-      }
-
-      const distRatio = d2 === Infinity ? 1 : Math.sqrt(d1) / Math.sqrt(d2);
-
-      cells.push({
-        i,
-        j,
-        density: counts[j * N + i],
-        winnerIdx,
-        distRatio,
-        cx,
-        cy,
-      });
-    }
-  }
-
-  // Metrics — only count populated cells
-  const populated = cells.filter((c) => c.density > 0);
-
-  const maxContestedCell =
-    populated.length > 0
-      ? populated.reduce((best, c) => (c.distRatio < best.distRatio ? c : best))
-      : null;
-
-  // Fortress: populated cell with highest density AND largest advantage (distRatio near 0 = dominance)
-  const fortressCell =
-    populated.length > 0
-      ? populated.reduce(
-          (best, c) => (c.density > best.density && c.distRatio < 0.5 ? c : best),
-          populated[0]
-        )
-      : null;
-
-  const fortressCandidate =
-    fortressCell && fortressCell.winnerIdx >= 0
-      ? (candidates[fortressCell.winnerIdx]?.name ?? null)
-      : null;
-
-  return { cells, metrics: { maxContestedCell, fortressCell, fortressCandidate, maxDensity } };
-}
+export {
+  GRID_N,
+  computeGrid,
+  type HeatmapVoter,
+  type HeatmapCandidate,
+  type GridCell,
+  type HeatmapMetrics,
+};
 
 // ── SVG coordinate helpers ────────────────────────────────────────────────────
 

@@ -5,7 +5,11 @@ export default defineConfig({
   fullyParallel: false, // simulations are CPU-heavy
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  timeout: 60_000,
+  // Fail fast: no test here legitimately needs 30s (the slowest, the Laboratoire
+  // sweeps, raise it themselves). A stale selector should cost seconds, not a
+  // minute — the old suite hid its rot behind 60s timeouts until the whole job
+  // was killed at the 25-minute mark with no report.
+  timeout: 30_000,
   reporter: [['html'], ['list']],
 
   use: {

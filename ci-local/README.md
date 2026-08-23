@@ -7,10 +7,18 @@ here instead of on the PR. It mirrors the two gating jobs:
 |---|---|---|
 | `frontend` | `.github/workflows/frontend-ci-cd-pipeline.yml` | **Ubuntu 24.04** (= `ubuntu-latest`), **Node 20** |
 | `backend`  | `.github/workflows/backend-ci-cd-pipeline.yml`  | **Python 3.11** |
+| `e2e`      | `.github/workflows/e2e.yml`                     | **Python 3.11** + **Node 20** + Playwright (chromium + firefox) |
 | `audit`    | `.github/workflows/audit.yml`                   | **Python 3.11** + Semgrep / Gitleaks / Trivy |
 
-Targets: `all` (default) = frontend + backend + audit (**run before each push**) ·
-`code` = frontend + backend only (quick iteration) · plus the individual names.
+Targets: `all` (default) = frontend + backend + e2e + audit (**run before each push**) ·
+`code` = frontend + backend only (quick iteration, skips the ~6 min e2e) · plus the
+individual names.
+
+`e2e` runs both sides in one container, like the workflow does on one runner: it
+boots uvicorn on `:4434` as a fixture (Assemblée mode and two Laboratoire fiches
+call it), then Playwright starts the vite server itself. It has been gating on
+every PR since #170 — before that it ran only at release, which is how the suite
+managed to rot against a UI that had moved on for two months.
 
 ## Why Docker and not just `npm`/`pytest` on Windows
 
@@ -78,6 +86,7 @@ validate, or it can't help.)
 
 - Backend base is Debian-slim (for the exact 3.11.x interpreter); the runner is
   Ubuntu. Irrelevant for pure-Python + manylinux wheels.
-- E2E (`e2e.yml`, Playwright) is **not** mirrored here — it needs both servers and
-  browser downloads. Run it directly with `npm run test:e2e` when needed.
+- E2E downloads ~400 MB of browsers on the first build (cached with the lockfile
+  layer afterwards) and takes ~6 min to run — hence `code` for quick iteration.
+  Its Python 3.11 backend is a fixture, not the job under test.
 - Networked steps (`npm audit`, `pip-audit`) need internet, same as CI.

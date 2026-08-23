@@ -4,6 +4,7 @@ import { Spinner } from '@/components/ui/spinner';
 
 import Navbar from './components/Navbar';
 import ErrorBoundary from './components/Route/ErrorBoundary';
+import { LEGACY_REDIRECTS } from './routes';
 
 // ── Eager imports — small, on the critical first-paint path ─────────────────
 import HomePage from './pages/HomePage';
@@ -48,34 +49,11 @@ const AppContent: React.FC = () => {
             <Route path="/playground" element={<PlaygroundPage />} />
             <Route path="/laboratoire" element={<LaboratoirePage />} />
 
-            {/* Retired routes — content folded into the playground (do) or the
-                laboratoire (go deeper). Redirect old/bookmarked links, no 404. */}
-            <Route path="/what-if" element={<Navigate to="/playground" replace />} />
-            <Route path="/campagne" element={<Navigate to="/playground" replace />} />
-            <Route path="/election-lab" element={<Navigate to="/playground" replace />} />
-            <Route path="/sortition" element={<Navigate to="/playground" replace />} />
-            <Route path="/party-dynamics" element={<Navigate to="/playground" replace />} />
-            <Route path="/scenario-builder" element={<Navigate to="/playground" replace />} />
-            <Route path="/simulation/compare" element={<Navigate to="/playground" replace />} />
-            <Route path="/simulation" element={<Navigate to="/playground" replace />} />
-            <Route path="/theory" element={<Navigate to="/laboratoire" replace />} />
-            <Route path="/quiz" element={<Navigate to="/laboratoire" replace />} />
-            <Route
-              path="/regimes-internationaux"
-              element={<Navigate to="/laboratoire" replace />}
-            />
-            <Route path="/quadratic-funding" element={<Navigate to="/laboratoire" replace />} />
-            <Route path="/tech-democracy" element={<Navigate to="/laboratoire" replace />} />
-            <Route path="/api-docs" element={<Navigate to="/laboratoire" replace />} />
-            <Route path="/galerie" element={<Navigate to="/laboratoire" replace />} />
-
-            {/* Auth removed — the app is fully anonymous now. Redirect old
-                account/community routes to home instead of 404-ing. */}
-            <Route path="/login" element={<Navigate to="/" replace />} />
-            <Route path="/register" element={<Navigate to="/" replace />} />
-            <Route path="/oauth/callback" element={<Navigate to="/" replace />} />
-            <Route path="/profile" element={<Navigate to="/" replace />} />
-            <Route path="/users/:id" element={<Navigate to="/" replace />} />
+            {/* Retired routes — the table lives in routes.ts, which the e2e
+                suite reads too, so a redirect can never go untested. */}
+            {Object.entries(LEGACY_REDIRECTS).map(([from, to]) => (
+              <Route key={from} path={from} element={<Navigate to={to} replace />} />
+            ))}
 
             {/* Catch-all 404 — unknown / removed routes */}
             <Route path="*" element={<NotFoundPage />} />

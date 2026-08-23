@@ -59,11 +59,26 @@ const initPromise = i18n
     interpolation: { escapeValue: true },
   });
 
-// Resolves once the detected language's bundle is present. `main.tsx` awaits
-// this before the first render so an `en`-preferring visitor never sees the
-// French fallback flash.
+// Resolves once the detected language's bundle is present AND active. `main.tsx`
+// awaits this before the first render so an `en`-preferring visitor never sees
+// the French fallback flash.
+//
+// `resolvedLanguage` is not usable here: `en` is code-split, so at the end of
+// init() it has no bundle and i18next resolves to the `fr` fallback — asking it
+// what language won would pin every visitor (and everyone who picked English) to
+// French for good. Ask the detector what it actually found, load that bundle,
+// then switch to it.
+const detectedLanguage = (): string => {
+  const detector = i18n.services.languageDetector as
+    | { detect?: () => string | string[] }
+    | undefined;
+  const found = detector?.detect?.();
+  const lng = Array.isArray(found) ? found[0] : found;
+  return lng || i18n.resolvedLanguage || i18n.language || 'fr';
+};
+
 export const i18nReady: Promise<unknown> = initPromise.then(() =>
-  loadLanguage(i18n.resolvedLanguage || i18n.language || 'fr')
+  switchLanguage(detectedLanguage())
 );
 
 export default i18n;
