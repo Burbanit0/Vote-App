@@ -1347,8 +1347,8 @@ il reste non re-vérifié sous le code corrigé.**
 ### 10.9 La chambre de sortition — sincère ou erratique ?
 
 **n=1, une seule graine (seed=42) : ce qui suit est un point de mesure, pas
-une moyenne statistique — et il a fallu deux runs et un bug de métrique
-corrigé pour l'obtenir.**
+une moyenne statistique — et il a fallu trois runs, un bug de métrique
+corrigé et un second confond de calendrier résolu pour l'obtenir.**
 
 Le palier v6b (§6bis.3) construit un second corps délibératif, tiré au sort
 plutôt qu'élu — explicitement conçu comme **groupe de contrôle** : « aucun
@@ -1445,14 +1445,76 @@ n'existe nulle part dans le modèle ; elle répond à « quelle est l'ampleur
 réelle de la pression que le président a encaissée », indépendamment de ce
 que sa position peut encore exprimer une fois les bornes atteintes.
 
-**Ce que cela signifie pour l'hypothèse** : sur ce run précis, la réponse
-penche nettement vers « sincère pour la chambre, erratique — au sens d'une
-dérive continue et substantielle sous pression de rue — pour le président
-élu ». Le plafonnement ne nuance pas ce résultat, il le renforce : le
-chiffre officiellement rapporté (0,1496 de moyenne) est lui-même une
-sous-estimation de l'écart entre les deux trajectoires, d'un facteur ×2,8 à
-×3,6 sur la seule portion mesurable. Ce n'est pas encore une conclusion
-générale : n=1, une seule graine, aucune bande de Monte-Carlo, et le
+**Troisième run — résoudre le confond de vacance autrement que par un
+plancher nul.** Le deuxième run élimine le confond de calendrier avec
+`legitimacy.recall_floor=0.0`, mais au prix d'un choix scientifiquement peu
+satisfaisant : un plancher nul ne teste pas la responsabilité, il l'éteint.
+Une alternative plus fidèle existe dans les mécanismes déjà livrés : sous
+`pressure_menu.electoral_only=True`, `petition_pressure` et `street_pressure`
+sont structurellement nuls (la configuration interdit la pétition et la
+mobilisation sous ce menu), et `passive_erosion_weight` livré vaut déjà 0,0
+— donc `écart(t) ≡ 0` quel que soit `mandate.enabled`, `L(t)` converge vers
+son point fixe `m`, et `crosses_floor` ne peut jamais se déclencher tant que
+`m > recall_floor` — corroboré empiriquement par les trois lignes
+`electoral_only` déjà commitées de `acceptance_v4_results.md` (zéro rappel
+sur les trois). `representative_response` (dt=6), lui, n'est jamais gaté sur
+`pressure_menu` — seulement sur `llm.enabled and mandate.enabled` — donc le
+président reste exposé exactement comme sous `both`, à un détail près :
+`ctx.street` devient `None` plutôt qu'une vraie valeur (« un représentant
+aveugle à la rue »).
+
+Un troisième run (`--menu electoral_only`, plancher de rappel inchangé à
+0,2, mêmes 8 ans / 33 ticks) a été pré-enregistré avant lancement :
+falsifiables déclarés à l'avance (`recalls_by_trigger == {}`,
+`office_occupancy == 1.0`, série `mandate_dev` sourcée `"ctx"`), et trois
+branches nommées pour la seule question réellement ouverte — la moyenne de
+déviation unifiée pourrait rester comparable au second run (la dérive n'est
+pas pilotée par la rue), matériellement plus basse mais non nulle (la rue
+est un contributeur, pas la seule cause), ou quasi nulle (sans aucun canal
+de pression, rien ne pousse le président à bouger). Aucune valeur n'a été
+pariée à l'avance ; le critère de succès était de rapporter le chiffre réel,
+quelle que soit la branche.
+
+Résultat : tous les falsifiables structurels tiennent (`recalls_by_trigger={}`,
+`office_occupancy=1,0`, 990 `chamber_deliberation` et 9 `sortition_rotation`
+— identiques au second run événement pour événement, confirmant que la
+chambre reste insulée du menu de pression). Les élections elles-mêmes sont
+byte-identiques entre le deuxième et le troisième run (même titulaire,
+mêmes `pledged_platform`, aux trois tours) : ni la génération de population
+ni les décisions de candidature/nomination/vote ne lisent quoi que ce soit
+dépendant de `pressure_menu` — les deux runs comparent donc réellement le
+même président sous deux régimes de pression, pas deux présidents
+différents. La déviation unifiée s'établit à une moyenne de 0,1017
+(maximum 0,2312) sur ce run, contre 0,1496 (maximum 0,2312) sur le second —
+**branche intermédiaire** : retirer la rue du contexte du président fait
+baisser la dérive moyenne d'environ un tiers, mais ne l'annule pas. Le
+maximum, lui, est identique au bit près entre les deux runs — pas une
+coïncidence suspecte : reconstruction faite depuis les deux journaux bruts,
+les deux trajectoires convergent indépendamment vers la saturation des
+**trois mêmes dimensions** au clamp `[0,1]` (le reste du vecteur reste
+exactement égal à `pledged_platform` dans les deux cas), atteinte au tick
+27 sous pression complète et seulement au tick 30 sous `electoral_only` —
+même plafond, franchi plus tard sans la rue, ce qui est précisément ce qui
+tire la moyenne du troisième run vers le bas sans toucher son maximum.
+Côté chambre, rien ne bouge : déviation moyenne 0,0000357 (maximum 0,0353),
+99,70 % des décisions étiquetées `SINCERE_POSITION` — quasi identique au
+second run.
+
+**Ce que cela signifie pour l'hypothèse** : sur les trois runs menés, la
+réponse penche nettement vers « sincère pour la chambre, erratique pour le
+président élu » — y compris quand on retire délibérément la rue de son
+contexte. Le second run isole la dérive sous pression complète (moyenne
+0,1496, elle-même plafonnée par le clamp à un facteur ×2,8-×3,6 en dessous
+de la pression réellement encaissée) ; le troisième montre que retirer la
+pétition et la mobilisation ne fait baisser cette dérive que d'un tiers
+environ (0,1017), jamais à zéro — la chambre, elle, reste inerte dans les
+trois configurations testées. Ce qui reste ouvert : *pourquoi* un président
+continue de dériver même sans aucun canal de pression citoyenne actif — le
+simple fait d'avoir un mandat, une promesse à laquelle on peut être
+comparé, et une échéance électorale à venir semble suffire à produire une
+dérive substantielle, mais rien dans ces trois runs n'isole laquelle de ces
+composantes en est la cause. Ce n'est toujours pas une conclusion générale :
+n=1, une seule graine sur les trois runs, aucune bande de Monte-Carlo, et le
 premier run (confondu par le calendrier de rappel) reste une donnée
 distincte et informative sur la dynamique du menu `both`, pas une mesure à
 écarter.
@@ -1499,12 +1561,14 @@ institutionnelle propre à la chambre.
   sans conséquence institutionnelle** : aucun droit de veto (point ouvert
   n°11 du plan de conception, `veto_power`/`veto_delay_ticks` analysés et
   conservés en configuration mais consommés par aucun code). Le chiffre qui
-  distingue les deux trajectoires (`mandate_deviation` du président vs
-  `chamber_deviation` de la chambre) est un plancher, pas une mesure
+  distingue les deux trajectoires (`mandate_deviation` unifiée du président
+  vs `chamber_deviation` de la chambre) est un plancher, pas une mesure
   exacte : le clamp `[0,1]` d'`apply_shifts` sature sur les dimensions sous
-  pression continue et absorbe silencieusement toute dérive au-delà
-  (facteur ×2,8 à ×3,6 mesuré sur ce run). n=1, une seule graine, aucune
-  bande de Monte-Carlo.
+  pression continue et absorbe silencieusement toute dérive au-delà —
+  mesuré une première fois sous pression complète (facteur ×2,8 à ×3,6),
+  corroboré une seconde fois de façon indépendante sous `electoral_only`
+  (mêmes trois dimensions saturées, même plafond, atteint plus tard). n=3
+  runs, une seule graine, aucune bande de Monte-Carlo.
 - **La configuration livrée des événements exogènes ne se déclenche presque
   jamais sur un run court** : à `(phi=0.8, sigma=0.1, seuil=0.5)`, le choc
   économique est un événement à ~3 écarts-types, jamais observé sur un run
