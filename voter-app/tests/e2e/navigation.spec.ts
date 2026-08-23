@@ -68,7 +68,11 @@ test.describe('Navigation — the five real surfaces', () => {
   for (const [from, to] of Object.entries(LEGACY_REDIRECTS)) {
     test(`${from} redirects to ${to}`, async ({ page }) => {
       await page.goto(concreteUrl(from));
-      await expect(page).toHaveURL(new RegExp(`${to.replace(/\//g, '\\/')}$`));
+      // Compare pathnames rather than building a regex out of the target: exact
+      // equality is what we mean (a suffix match would let "/" pass for any
+      // route), and escaping a path into a pattern is a trap CodeQL is right
+      // to flag.
+      await expect.poll(() => new URL(page.url()).pathname).toBe(to);
     });
   }
 
