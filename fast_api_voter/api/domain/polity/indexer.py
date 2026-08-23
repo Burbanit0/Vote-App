@@ -38,7 +38,31 @@ produces a WRONG number for both:
   indexer prefers it whenever it exists and only falls back to the censored
   series when dt=6 never ran (config.llm.enabled=False), flagging which one
   it used (`mandate_deviation_source`) plus a coverage ratio so a reader
-  never mistakes a partial series for a complete one.
+  never mistakes a partial series for a complete one. Both `deviation` and
+  `ctx.mandate_dev` are TOP-K-scoped (accountability.mandate_deviation's own
+  KNOWN METRIC DESIGN BUG: structurally blind to drift outside an
+  officeholder's own top-5 priority dimensions, found v6b Lot 4). Since v6b's
+  production-wiring lot, `mandate_deviation_unified` carries the full-priority
+  comparator (accountability.unified_mandate_deviation, the same basis
+  `chamber_deviation` uses) alongside it, indexed from `"unified_deviation"`
+  on the same two event types -- but that key is ABSENT on any journal
+  produced before this lot landed, so `mandate_deviation_unified` is `None`
+  on such journals even though `mandate_deviation` is populated: the two
+  series are extracted from a `.get()`, all-or-nothing (never a partial
+  tuple, which would silently splice two journal generations into one line
+  chart), sharing `mandate_deviation_source`/`_coverage` rather than
+  duplicating that pair for a fact both series already share.
+- chamber_deviation: one entry per (tick, seated member), so its length is
+  `seats × presided_ticks`, not `ticks` -- unlike every other series in this
+  module. Gated on `config.sortition_chamber.enabled` alone (no dedicated
+  `metrics.chamber_deviation` flag, same "implied by its own section's
+  enabled flag" pattern `mean_legitimacy`/`recalls_by_trigger` already use).
+  With the chamber enabled but `llm.enabled=False`, zero `chamber_deliberation`
+  events exist and this is `()` -- "tracked, zero observations", never
+  `None` ("not tracked") and never a synthesized series of 0.0 rows; a
+  caller MAY read an empty tuple under those conditions as 0.0 by
+  construction, but this module will not assert that interpretation for
+  them.
 - petition_success_rate: §7bis.4a's "aboutie" means the petition reached
   its threshold and forced a confidence vote (`confidence_vote_triggered ÷
   petition_launched`) -- NOT the fraction of triggered votes that actually
@@ -134,6 +158,16 @@ class RunMetrics:
     petition_success_rate: float | None
     petition_removal_rate: float | None
     stance_distribution: dict[int, float] | None
+
+    # v6b, production-wiring lot: mandate_deviation's full-priority twin --
+    # same events, same branch as mandate_deviation above, so it shares that
+    # field's own _source/_coverage rather than duplicating them (see this
+    # module's own docstring for why the sharing is deliberate).
+    mandate_deviation_unified: tuple[tuple[int, float], ...] | None
+
+    # v6b: the sortition side of §6bis.3's own comparison. One entry per
+    # (tick, seated member), gated on sortition_chamber.enabled.
+    chamber_deviation: tuple[tuple[int, float], ...] | None
 
 
 def read_journal(path: Path) -> Iterator[dict[str, Any]]:
@@ -312,6 +346,7 @@ def index_events(events: Iterable[Mapping[str, Any]], config: PolityConfig, *, r
     # same-tick-recall case needs that), so tick range alone is ambiguous
     # exactly at that boundary.
     deviation_by_holder: list[tuple[int, int, float]] = []
+    mandate_deviation_unified = None
     if config.metrics.mandate_deviation:
         ctx_series = [
             (event["tick"], event["citizen_id"], event["payload"]["ctx"]["mandate_dev"])
@@ -324,6 +359,16 @@ def index_events(events: Iterable[Mapping[str, Any]], config: PolityConfig, *, r
             mandate_deviation_source = "ctx"
             mandate_deviation_coverage = recorded_count / len(ctx_series)
             deviation_by_holder = ctx_series
+            # v6b, production-wiring lot: "unified_deviation" is absent on
+            # any journal produced before this lot landed -- .get() plus the
+            # all-or-nothing length check below is what keeps a pre-lot
+            # journal indexing to None rather than a partial series.
+            unified_ctx = [
+                (event["tick"], event["payload"]["unified_deviation"])
+                for event in events
+                if event["event_type"] == "representative_response" and "unified_deviation" in event["payload"]
+            ]
+            mandate_deviation_unified = tuple(unified_ctx) if len(unified_ctx) == len(ctx_series) else None
         else:
             recorded_series = [
                 (event["tick"], event["citizen_id"], event["payload"]["deviation"])
@@ -338,6 +383,22 @@ def index_events(events: Iterable[Mapping[str, Any]], config: PolityConfig, *, r
             presided_estimate = sum(term.end_tick - term.start_tick for term in terms)
             mandate_deviation_coverage = recorded_count / presided_estimate if presided_estimate > 0 else None
             deviation_by_holder = recorded_series
+            unified_recorded = [
+                (event["tick"], event["payload"]["unified_deviation"])
+                for event in events
+                if event["event_type"] == "mandate_deviation_recorded" and "unified_deviation" in event["payload"]
+            ]
+            mandate_deviation_unified = (
+                tuple(unified_recorded) if len(unified_recorded) == len(recorded_series) else None
+            )
+
+    chamber_deviation_series = None
+    if config.sortition_chamber.enabled:
+        chamber_deviation_series = tuple(
+            (event["tick"], event["payload"]["chamber_deviation"])
+            for event in events
+            if event["event_type"] == "chamber_deliberation"
+        )
 
     lame_duck_delta = None
     if config.metrics.lame_duck_deviation_delta and mandate_deviation is not None:
@@ -427,6 +488,8 @@ def index_events(events: Iterable[Mapping[str, Any]], config: PolityConfig, *, r
         petition_success_rate=petition_success,
         petition_removal_rate=petition_removal,
         stance_distribution=stance_dist,
+        mandate_deviation_unified=mandate_deviation_unified,
+        chamber_deviation=chamber_deviation_series,
     )
 
 

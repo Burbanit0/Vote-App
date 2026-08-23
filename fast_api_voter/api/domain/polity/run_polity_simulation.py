@@ -65,6 +65,7 @@ from api.domain.polity.accountability import (
     select_consulted,
     sign_petition,
     ticks_to_election,
+    unified_mandate_deviation,
     update_event_salience,
     update_street_pressure,
 )
@@ -1235,12 +1236,28 @@ def _run_representative_responses(
     revealed_position from pledged_platform (declare_candidacy pins them
     equal, and only decide_representative_response/decide_campaign_positioning
     ever touch either afterwards), so "no delta, stance=silence" is already
-    true by construction -- the absence of this call IS the fallback."""
+    true by construction -- the absence of this call IS the fallback.
+
+    payload["unified_deviation"] (v6b, production-wiring lot) is
+    unified_mandate_deviation computed at the SAME instant as ctx.mandate_dev
+    -- same pre-decision pass, before decide_representative_response runs and
+    before revealed_position is overwritten -- differing from ctx.mandate_dev
+    only in weighting basis (full issue_priorities vs top-k). Deliberately
+    NOT placed post-decision like chamber_deviation's own payload key:
+    representative_response already has a pre-decision comparator
+    (ctx.mandate_dev) to stay paired with, and pairing a post-decision
+    unified figure next to a pre-decision top-k one would silently introduce
+    a one-tick lag between the two series -- the exact class of misread this
+    key exists to prevent. Deliberately NOT inside ctx either: ctx is shared
+    verbatim by the user-prompt builder and this journal write so "the ctx
+    an analyst reads is provably the ctx the model saw" stays true --
+    unified_deviation is never shown to the model."""
     assert llm_client is not None  # guaranteed by _llm_client_scope when llm.enabled
     respondents = [h for h in holders if h.pledged_platform is not None and h.revealed_position is not None]
     if not respondents:
         return
     contexts = {h.citizen_id: _response_context(h, config, tick) for h in respondents}
+    unified = {h.citizen_id: unified_mandate_deviation(h) for h in respondents}
     outcome = decide_representative_response(respondents, contexts, config, llm_client)
     decisions = {d.cid: d for d in outcome.decisions}
     for holder in respondents:
@@ -1254,6 +1271,7 @@ def _run_representative_responses(
                 "stance": decision.stance,
                 "shifts": [{"dimension": s.dimension, "delta": s.delta} for s in decision.shifts],
                 "ctx": contexts[holder.citizen_id].to_payload(),
+                "unified_deviation": unified[holder.citizen_id],
             },
             citizen_id=holder.citizen_id,
             motif=str(decision.motif),
@@ -1425,6 +1443,17 @@ def _run_accountability_phase(
     alone is false: only the mandate_deviation_recorded *journal write*
     stays gated on mandate.enabled, so a configured erosion term is never
     silently zeroed just because pledge/deviation tracking itself is off.
+    mandate_deviation_recorded's own "unified_deviation" key (v6b,
+    production-wiring lot) is a SECOND-ORDER-CENSORED view of
+    unified_mandate_deviation: the write itself is still gated on the
+    TOP-K-scoped `deviation` crossing deviation_log_threshold, not on the
+    unified value's own magnitude -- on a term where top-k reads 0.0
+    throughout (the exact case that motivated this lot), this event never
+    fires and the unified series has no representation here either.
+    representative_response's own uncensored "unified_deviation" (every
+    presided tick) is therefore the primary series; this one is a
+    symmetric secondary, kept structurally consistent with `deviation`'s
+    own censoring rather than given a threshold of its own.
     The `can_sign`/`can_launch` facts passed into deterministic_pressure_action
     are computed unconditionally (they are False by construction on default
     state) -- menu.petition_enabled inside that function is the single
@@ -1488,17 +1517,25 @@ def _run_accountability_phase(
         _run_representative_responses(holders, config, journal, tick, llm_client)
     for holder in holders:
         deviation: float | None = None
+        unified: float | None = None
         if (
             (config.mandate.enabled or config.legitimacy.passive_erosion_weight > 0.0)
             and holder.pledged_platform is not None
             and holder.revealed_position is not None
         ):
             deviation = mandate_deviation(holder, config.mandate)
+            unified = unified_mandate_deviation(holder)
         if config.mandate.enabled and deviation is not None and deviation > config.mandate.deviation_log_threshold:
             journal.write(
                 tick=tick,
                 event_type="mandate_deviation_recorded",
-                payload={"office": Office.PRESIDENT.value, "deviation": deviation},
+                payload={
+                    "office": Office.PRESIDENT.value,
+                    "deviation": deviation,
+                    # provably non-None wherever this write runs: assigned in
+                    # the same guarded block as `deviation`, immediately above
+                    "unified_deviation": unified,
+                },
                 citizen_id=holder.citizen_id,
             )
 

@@ -13,7 +13,7 @@ import numpy as np
 import pytest
 
 import api.domain.polity.run_polity_simulation as run_polity_simulation_module
-from api.domain.polity.accountability import chamber_deviation, update_street_pressure
+from api.domain.polity.accountability import chamber_deviation, unified_mandate_deviation, update_street_pressure
 from api.domain.polity.citizen import Citizen, Office, Role, generate_population
 from api.domain.polity.codebook import EventType, ReactionMotif
 from api.domain.polity.config import PolityConfig, load_config
@@ -556,6 +556,8 @@ def test_accountability_phase_records_deviation_only_above_the_threshold(tmp_pat
     assert above_events[0]["event_type"] == "mandate_deviation_recorded"
     assert above_events[0]["citizen_id"] == 0
     assert above_events[0]["payload"]["deviation"] > config.mandate.deviation_log_threshold
+    # v6b, production-wiring lot: both scopes carried on the same event.
+    assert above_events[0]["payload"]["unified_deviation"] > 0.0
 
 
 # ── term limits (v4 Lot 2, §6bis.1) ──────────────────────────────────────
@@ -1896,6 +1898,16 @@ def test_default_config_run_emits_no_representative_response_events(tmp_path):
     assert not [e for e in events if e["event_type"] == "representative_response"]
 
 
+def test_default_config_run_emits_no_unified_deviation_anywhere(tmp_path):
+    # v6b, production-wiring lot: the byte-identity claim, as a direct test
+    # rather than only an argument -- the shipped default writes zero
+    # representative_response/mandate_deviation_recorded events at all, so
+    # "unified_deviation" cannot appear in any payload.
+    journal_path = run_simulation(_config_with_output_dir(tmp_path), run_id="baseline")
+    events = _events(journal_path)
+    assert not any("unified_deviation" in e["payload"] for e in events)
+
+
 def test_llm_enabled_without_mandate_tracking_emits_no_representative_response_events(tmp_path):
     # mandate.enabled stays at its shipped False -- this is also why the two
     # existing byte-identical LLM reproducibility tests need no edit.
@@ -1929,7 +1941,7 @@ def test_representative_response_is_journalled_once_per_presided_tick(tmp_path):
 
     for e in response_events:
         assert e["payload"]["office"] == Office.PRESIDENT.value
-        assert set(e["payload"].keys()) == {"office", "stance", "shifts", "ctx"}
+        assert set(e["payload"].keys()) == {"office", "stance", "shifts", "ctx", "unified_deviation"}
         assert set(e["payload"]["ctx"].keys()) == {"L", "mandate_dev", "street", "lame_duck", "ticks_left"}
         assert e["payload"]["ctx"]["lame_duck"] in (0, 1)
         assert e["motif"] == "301"
@@ -2053,6 +2065,81 @@ def test_ctx_mandate_dev_is_the_pre_decision_deviation(tmp_path):
 
     assert seen_mandate_devs[0] == 0.0  # tick 0: no drift yet -- pre-decision
     assert seen_mandate_devs[1] == pytest.approx(deviation_t0)  # tick 1 sees tick 0's post-decision deviation
+
+
+def test_unified_deviation_is_the_pre_decision_value_like_ctx_mandate_dev(tmp_path):
+    # v6b, production-wiring lot: unified_deviation is computed at the SAME
+    # instant as ctx.mandate_dev -- same lag, same pairing.
+    config = _config_with_legitimacy_enabled(tmp_path)
+    config = dataclasses.replace(
+        config,
+        llm=dataclasses.replace(config.llm, enabled=True),
+        mandate=dataclasses.replace(config.mandate, enabled=True),
+    )
+    holder = _legitimacy_test_citizen(0, legitimacy_capital=0.9, mandate_strength_value=0.9)
+    holder.pledged_platform = (0.5,)
+    holder.revealed_position = (0.5,)
+
+    class RecordingClient:
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+            payload = json.loads(user_prompt)
+            decisions = [
+                {"cid": h["cid"], "shifts": [{"dimension": 0, "delta": 0.2}], "stance": 1, "motif": 301}
+                for h in payload["holders"]
+            ]
+            return json.dumps({"decisions": decisions})
+
+    client = RecordingClient()
+    with Journal(tmp_path / "t0.jsonl", run_id="t0") as journal:
+        _run_accountability_phase([holder], config, journal, tick=0, llm_client=client)
+    events_t0 = _events(tmp_path / "t0.jsonl")
+    response_t0 = next(e for e in events_t0 if e["event_type"] == "representative_response")
+    assert response_t0["payload"]["unified_deviation"] == 0.0  # tick 0: no drift yet -- pre-decision
+    expected_t1 = unified_mandate_deviation(holder)  # holder mutated in place by tick 0's own shift
+
+    with Journal(tmp_path / "t1.jsonl", run_id="t1") as journal:
+        _run_accountability_phase([holder], config, journal, tick=1, llm_client=client)
+    events_t1 = _events(tmp_path / "t1.jsonl")
+    response_t1 = next(e for e in events_t1 if e["event_type"] == "representative_response")
+    assert response_t1["payload"]["unified_deviation"] == pytest.approx(expected_t1)
+
+
+def test_unified_deviation_is_nonzero_where_the_top_k_scoped_ctx_reads_zero(tmp_path):
+    # dim 0 (priority 0.1) sits outside the shipped top-2 -- ctx.mandate_dev
+    # stays blind to a drift there while unified_deviation, on the SAME
+    # event, sees it (both pre-decision, at the start of tick 1, reflecting
+    # the shift tick 0 already applied).
+    config = _config_with_mandate_llm_enabled(tmp_path, pledge_top_k=2)
+    holder = Citizen(
+        citizen_id=0, issue_positions=(0.5, 0.5, 0.5), issue_priorities=(0.1, 0.6, 0.3),
+        blank_threshold=0.5, ambition_score=0.5, role=Role.ELECTED, office=Office.PRESIDENT,
+        # legitimacy.enabled is also on (_config_with_mandate_llm_enabled's own
+        # shape) -- comfortably above recall_floor so the office survives to
+        # tick 1; a floor-crossing recall is not what this test is about.
+        legitimacy_capital=0.9, mandate_strength=0.9,
+    )
+    holder.pledged_platform = (0.5, 0.5, 0.5)
+    holder.revealed_position = (0.5, 0.5, 0.5)
+
+    class ShiftDim0Client:
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+            payload = json.loads(user_prompt)
+            decisions = [
+                {"cid": h["cid"], "shifts": [{"dimension": 0, "delta": 0.3}], "stance": 1, "motif": 301}
+                for h in payload["holders"]
+            ]
+            return json.dumps({"decisions": decisions})
+
+    client = ShiftDim0Client()
+    with Journal(tmp_path / "t0.jsonl", run_id="t0") as journal:
+        _run_accountability_phase([holder], config, journal, tick=0, llm_client=client)
+    with Journal(tmp_path / "t1.jsonl", run_id="t1") as journal:
+        _run_accountability_phase([holder], config, journal, tick=1, llm_client=client)
+
+    events_t1 = _events(tmp_path / "t1.jsonl")
+    response_t1 = next(e for e in events_t1 if e["event_type"] == "representative_response")
+    assert response_t1["payload"]["ctx"]["mandate_dev"] == 0.0
+    assert response_t1["payload"]["unified_deviation"] > 0.0
 
 
 def test_no_representative_response_while_the_presidency_is_vacant(tmp_path):
