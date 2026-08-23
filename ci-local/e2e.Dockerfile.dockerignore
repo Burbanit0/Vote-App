@@ -1,0 +1,26 @@
+# BuildKit reads this (<dockerfile>.dockerignore) for the e2e build.
+# Patterns are relative to the build context root (the repo root).
+# This job needs BOTH sides (frontend under test + backend fixture), so it is the
+# union of the frontend and backend ignore lists.
+.git
+ci-local
+analytics
+docs
+graphify-out
+htmlcov
+**/node_modules
+voter-app/build
+voter-app/coverage
+voter-app/playwright-report
+voter-app/test-results
+voter-app/.vite
+**/__pycache__
+**/*.pyc
+fast_api_voter/.pytest_cache
+fast_api_voter/.mypy_cache
+fast_api_voter/.hypothesis
+fast_api_voter/htmlcov
+fast_api_voter/coverage.xml
+fast_api_voter/.coverage
+**/*.db
+**/*.sqlite3

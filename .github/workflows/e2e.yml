@@ -46,11 +46,12 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r fast_api_voter/requirements.txt
 
-      - name: Start FastAPI backend (testing mode — SQLite, no Redis)
+      # The backend is a fixture here (Assemblée mode and two Laboratoire fiches
+      # call /api/v2/*); it is stateless — no DB, no JWT since auth was removed.
+      - name: Start FastAPI backend (testing mode)
         run: |
           cd fast_api_voter
           FLASK_ENV=testing \
-          JWT_SECRET_KEY=ci-e2e-secret-key \
           uvicorn api.main:app --host 0.0.0.0 --port 4434 &
           # Poll until the backend responds (max 30s)
           python - <<'EOF'
