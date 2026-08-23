@@ -215,11 +215,18 @@ Si votre PR fait *baisser* un compte, le cliquet échoue aussi — c'est voulu, 
 baseline que seul un humain pense à resserrer ne se resserre jamais :
 
 ```bash
+git rebase develop                            # ← indispensable, voir ci-dessous
 ./scripts/check_quality_ratchet.sh --update   # puis committez .github/quality-baseline.json
 ```
 
+**Mesurez toujours sur une branche à jour.** La CI lance ces outils sur le
+résultat de merge de la PR : une branche coupée avant le merge de quelqu'un
+d'autre produit des comptes que la CI ne reproduira pas.
+
 Un faux positif se réduit au silence à la source (`.vulture_whitelist.py`,
-`voter-app/knip.json`, `.jscpd.json`), pas en remontant la baseline.
+`voter-app/knip.json`, `.jscpd.json`), pas en remontant la baseline. Un script
+lancé par la CI mais importé par personne — `voter-app/scripts/check-flaky.mjs`
+en est un — est un faux positif knip : il s'ajoute à `ignore`.
 
 ### Score de mutation (informationnel)
 

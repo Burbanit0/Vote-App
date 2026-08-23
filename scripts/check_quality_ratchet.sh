@@ -21,6 +21,12 @@
 #   ./scripts/check_quality_ratchet.sh            # check (CI)
 #   ./scripts/check_quality_ratchet.sh --update   # accept current counts as the new baseline
 #
+# MEASURE THE BASELINE ON AN UP-TO-DATE BRANCH. CI runs these tools on the
+# PR's merge result, so a branch cut before someone else's merge produces
+# counts CI will not reproduce. The first version of this file was measured on a
+# branch one merge behind and disagreed with CI by exactly one finding — the new
+# file the missing merge had added. Rebase on develop before --update.
+#
 # Expects, relative to the repo root (produced by the code-quality job):
 #   fast_api_voter/vulture.txt  fast_api_voter/radon.txt
 #   voter-app/knip.txt          jscpd.txt
