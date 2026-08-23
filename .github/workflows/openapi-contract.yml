@@ -1,12 +1,17 @@
-name: OpenAPI Contract
+name: Generated Artifacts Contract
 
-# Blocking: fails if fast_api_voter/openapi.gen.json (dumped from the live
-# FastAPI app) or voter-app/src/api/types.gen.ts (generated from that JSON
-# via openapi-typescript) are out of sync with the code that produces them.
-# See scripts/check_openapi_drift.sh and fast_api_voter/scripts/gen_openapi.py
-# for the full explanation. Unlike the informational tools in audit.yml's
-# code-quality job, this one gates immediately: there's no backlog to work
-# down, it's a binary "does the committed file match what regenerates" check.
+# Blocking: every generated-and-committed artifact must match what regenerates
+# it. Unlike the informational tools in audit.yml's code-quality job, these gate
+# immediately — there's no backlog to work down, it's a binary check.
+#
+#  1. API contract — fast_api_voter/openapi.gen.json (dumped from the live
+#     FastAPI app) and voter-app/src/api/types.gen.ts (generated from that JSON
+#     via openapi-typescript). See scripts/check_openapi_drift.sh.
+#  2. Engine parity fixture — voter-app/src/lib/__fixtures__/engineParity.json,
+#     the golden winners the client engine is asserted against. Nothing enforced
+#     this before: a backend rule could change while the fixture kept the old
+#     winners, leaving the parity test green against a frozen snapshot while the
+#     two engines diverged. See scripts/check_engine_parity_drift.sh.
 
 on:
   push:
@@ -14,23 +19,31 @@ on:
     paths:
       - "fast_api_voter/api/**"
       - "fast_api_voter/scripts/gen_openapi.py"
+      - "fast_api_voter/scripts/gen_engine_parity.py"
       - "fast_api_voter/openapi.gen.json"
       - "voter-app/src/api/types.gen.ts"
+      - "voter-app/src/lib/__fixtures__/**"
       - "voter-app/package.json"
       - "voter-app/package-lock.json"
+      - ".github/workflows/openapi-contract.yml"
+      - "scripts/check_*_drift.sh"
   pull_request:
     branches: [main, develop]
     paths:
       - "fast_api_voter/api/**"
       - "fast_api_voter/scripts/gen_openapi.py"
+      - "fast_api_voter/scripts/gen_engine_parity.py"
       - "fast_api_voter/openapi.gen.json"
       - "voter-app/src/api/types.gen.ts"
+      - "voter-app/src/lib/__fixtures__/**"
       - "voter-app/package.json"
       - "voter-app/package-lock.json"
+      - ".github/workflows/openapi-contract.yml"
+      - "scripts/check_*_drift.sh"
 
 jobs:
   drift-check:
-    name: Generated API contract in sync
+    name: Generated artifacts in sync
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -54,5 +67,11 @@ jobs:
         working-directory: voter-app
         run: npm ci --no-audit --no-fund
 
-      - name: Check for drift
+      - name: API contract drift
         run: ./scripts/check_openapi_drift.sh
+
+      # Runs even if the contract check failed: two independent artifacts, and
+      # seeing both verdicts in one run beats fixing them one push at a time.
+      - name: Engine parity fixture drift
+        if: always()
+        run: ./scripts/check_engine_parity_drift.sh
