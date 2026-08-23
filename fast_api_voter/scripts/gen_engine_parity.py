@@ -5,8 +5,9 @@ this repo's authoritative engine is the (tested) Python backend. To guarantee th
 two agree, we run the backend rules on a set of seeded ranking profiles and dump
 the winners; a Vitest test then asserts the TS client returns the same winner.
 
-Run from anywhere:  python fast_api_voter/scripts/gen_engine_parity.py
-Re-run whenever a ranked rule changes on either side.
+Run from anywhere:  PYTHONHASHSEED=0 python fast_api_voter/scripts/gen_engine_parity.py
+Re-run whenever a ranked rule changes on either side — CI enforces it
+(scripts/check_engine_parity_drift.sh regenerates and fails on any diff).
 
 Voter counts are ODD so every pairwise majority is strict — that removes the
 tie-break ambiguity that would otherwise make Condorcet methods diverge for
@@ -19,6 +20,21 @@ import json
 import os
 import random
 import sys
+
+# Reproducibility: `random.Random(SEED)` alone is NOT enough. The engine iterates
+# sets/dicts of candidate names, so Python's per-process string-hash randomisation
+# changes tie-detection order, which changes how many times strict_winner() re-rolls,
+# which shifts the whole RNG stream — three runs used to give three different
+# fixtures. That made "just re-run the generator" produce a 200 kB spurious diff,
+# so nobody re-ran it, so the parity test drifted against a frozen snapshot.
+# PYTHONHASHSEED is read at interpreter start-up, so it cannot be set from here —
+# refuse to run rather than silently emit a fixture nobody else can reproduce.
+if os.environ.get("PYTHONHASHSEED") != "0":
+    sys.exit(
+        "PYTHONHASHSEED=0 is required for a reproducible fixture. Run:"
+        "\n  PYTHONHASHSEED=0 python fast_api_voter/scripts/gen_engine_parity.py"
+        "\nor just ./scripts/check_engine_parity_drift.sh, which sets it for you."
+    )
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, ROOT)
