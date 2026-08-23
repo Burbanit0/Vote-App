@@ -141,6 +141,35 @@ Types valides : `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `ci`, `secur
 
 ---
 
+## Tests E2E (Playwright) — et comment ils restent à jour
+
+```bash
+cd fast_api_voter && uvicorn api.main:app --port 4434   # Assemblée + 2 fiches du Lab en ont besoin
+cd voter-app && npm run test:e2e                        # chromium + firefox, ~1,5 min
+```
+
+La suite a déjà pourri une fois : 5 specs figées sur une UI qui avait bougé
+pendant deux mois, chaque test brûlant son timeout de 60 s jusqu'à ce que le job
+soit tué à 25 min sans rapport. Trois garde-fous, dans l'ordre d'efficacité :
+
+1. **Elle tourne sur chaque PR** (`e2e.yml`, déclenché par tout changement dans
+   `voter-app/` ou `fast_api_voter/`). Une dérive se voit en une PR, pas en deux
+   mois. C'est 90 % du sujet.
+2. **Les routes sont des données.** `voter-app/src/routes.ts` liste les surfaces
+   et les redirections ; `App.tsx` en dérive ses `<Route>` et
+   `tests/e2e/routes.ts` importe la même table. Ajouter une route la fait
+   couvrir ; une surface sans ancre de test fait échouer le run.
+3. **On s'accroche aux `data-testid`**, jamais aux classes CSS ni aux chaînes
+   traduites — les deux bougent (la migration Tailwind avait invalidé tous les
+   sélecteurs `.card`/`.badge` de l'ancienne suite). Les tests tournent en
+   `fr-FR` mais assertent sur des testids.
+
+Corollaire : **si vous supprimez un `data-testid` ou une route, la PR devient
+rouge** — c'est voulu, c'est le seul moment où mettre le test à jour coûte
+presque rien.
+
+---
+
 ## Code mort, duplication & conventions "vibe coding"
 
 Une grande partie de ce repo est écrite avec l'aide de LLM (Claude Code &

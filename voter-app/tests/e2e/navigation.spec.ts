@@ -1,45 +1,36 @@
 import { test, expect } from '@playwright/test';
+import {
+  SURFACES,
+  LEGACY_REDIRECTS,
+  ANCHORS,
+  concreteUrl,
+  assertEverySurfaceAnchored,
+} from './routes';
 
-// The app is anonymous and has exactly five surfaces (see App.tsx). Everything
-// else is a redirect kept alive for old links. Anchors are data-testids owned by
-// the pages themselves, so a route that renders an empty shell fails here.
-const ROUTES = [
-  { path: '/', name: 'HomePage', anchor: '[data-tour="hero"]' },
-  { path: '/playground', name: 'PlaygroundPage', anchor: '[data-testid="playground-page"]' },
-  { path: '/laboratoire', name: 'LaboratoirePage', anchor: '[data-testid="lab-family-rail"]' },
-  { path: '/decouvrir', name: 'DecouvrirPage', anchor: '[data-testid="discover-winner"]' },
-  { path: '/a-vous-de-jouer', name: 'AVousDeJouerPage', anchor: '[data-testid="play-vote-open"]' },
-];
-
-// Redirects declared in App.tsx — the retired surfaces. Kept as a test because
-// these URLs are in the wild (shared links, search engines).
-const REDIRECTS: [from: string, to: string][] = [
-  ['/simulation/compare', '/playground'],
-  ['/scenario-builder', '/playground'],
-  ['/campagne', '/playground'],
-  ['/election-lab', '/playground'],
-  ['/theory', '/laboratoire'],
-  ['/quiz', '/laboratoire'],
-  ['/login', '/'],
-  ['/profile', '/'],
-];
+// The route lists come from src/routes.ts — the same table App.tsx renders. A
+// route added or retired there changes this suite in the same commit; that is
+// the mechanism that keeps these tests honest.
 
 test.describe('Navigation — the five real surfaces', () => {
-  for (const { path, name, anchor } of ROUTES) {
-    test(`${name} (${path}) renders its own screen without a JS crash`, async ({ page }) => {
+  test('every surface in src/routes.ts is covered here', () => {
+    assertEverySurfaceAnchored();
+  });
+
+  for (const path of SURFACES) {
+    test(`${path} renders its own screen without a JS crash`, async ({ page }) => {
       // Uncaught exceptions only. console.error is dev-build noise (React warnings,
       // aborted fetches) and made the old suite red for unrelated reasons.
       const crashes: string[] = [];
       page.on('pageerror', (err) => crashes.push(err.message));
 
       await page.goto(path);
-      await expect(page.locator(anchor)).toBeVisible();
+      await expect(page.locator(ANCHORS[path])).toBeVisible();
       expect(crashes).toEqual([]);
     });
   }
 
   test('navbar is visible on every surface', async ({ page }) => {
-    for (const { path } of ROUTES) {
+    for (const path of SURFACES) {
       await page.goto(path);
       await expect(page.locator('[data-tour="navbar"]')).toBeVisible();
     }
@@ -74,9 +65,9 @@ test.describe('Navigation — the five real surfaces', () => {
     await expect(page).toHaveURL(/\/$/);
   });
 
-  for (const [from, to] of REDIRECTS) {
+  for (const [from, to] of Object.entries(LEGACY_REDIRECTS)) {
     test(`${from} redirects to ${to}`, async ({ page }) => {
-      await page.goto(from);
+      await page.goto(concreteUrl(from));
       await expect(page).toHaveURL(new RegExp(`${to.replace(/\//g, '\\/')}$`));
     });
   }

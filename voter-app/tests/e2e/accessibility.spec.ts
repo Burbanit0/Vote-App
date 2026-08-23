@@ -1,15 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { AxeBuilder } from '@axe-core/playwright';
+import { SURFACES, ANCHORS, assertEverySurfaceAnchored } from './routes';
 
-// The five real surfaces (App.tsx). Same list as navigation.spec.ts — if a route
-// is added or retired, both files move together.
-const PAGES = [
-  { path: '/', name: 'HomePage', anchor: '[data-tour="hero"]' },
-  { path: '/playground', name: 'PlaygroundPage', anchor: '[data-testid="playground-page"]' },
-  { path: '/laboratoire', name: 'LaboratoirePage', anchor: '[data-testid="lab-family-rail"]' },
-  { path: '/decouvrir', name: 'DecouvrirPage', anchor: '[data-testid="discover-winner"]' },
-  { path: '/a-vous-de-jouer', name: 'AVousDeJouerPage', anchor: '[data-testid="play-vote-open"]' },
-];
+// Surfaces come from src/routes.ts via ./surfaces — one list, no drift.
 
 // Axe rules disabled globally:
 //   color-contrast — the maps and charts are SVG with theme-aware colours axe
@@ -52,11 +45,15 @@ async function audit(page: import('@playwright/test').Page, name: string) {
 }
 
 test.describe('WCAG 2.1 AA — axe-core audit', () => {
-  for (const { path, name, anchor } of PAGES) {
-    test(`${name} (${path}) has no critical/serious violations`, async ({ page }) => {
+  test('every surface in src/routes.ts is audited here', () => {
+    assertEverySurfaceAnchored();
+  });
+
+  for (const path of SURFACES) {
+    test(`${path} has no critical/serious violations`, async ({ page }) => {
       await page.goto(path);
-      await expect(page.locator(anchor)).toBeVisible();
-      await audit(page, name);
+      await expect(page.locator(ANCHORS[path])).toBeVisible();
+      await audit(page, path);
     });
   }
 

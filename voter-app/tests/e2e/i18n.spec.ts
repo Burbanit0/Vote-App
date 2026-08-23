@@ -1,17 +1,10 @@
 import { test, expect, type Page } from '@playwright/test';
+import { SURFACES, ANCHORS } from './routes';
 
 // The app ships FR (source of truth) and EN, and i18next renders a missing key
 // as the key itself. These tests walk both languages over every surface and fail
 // on any leaked key — the failure mode unit tests cannot see, because they only
 // assert the keys they already know about.
-
-const ROUTES = [
-  { path: '/', anchor: '[data-tour="hero"]' },
-  { path: '/playground', anchor: '[data-testid="playground-page"]' },
-  { path: '/laboratoire', anchor: '[data-testid="lab-family-rail"]' },
-  { path: '/decouvrir', anchor: '[data-testid="discover-winner"]' },
-  { path: '/a-vous-de-jouer', anchor: '[data-testid="play-vote-open"]' },
-];
 
 // The namespaces actually used in the UI. A visible "moments.method.label" means
 // the key is missing from the active language.
@@ -64,20 +57,20 @@ test.describe('i18n', () => {
     await expect(nav.getByRole('link', { name: /your turn/i })).toBeVisible();
   });
 
-  for (const { path, anchor } of ROUTES) {
+  for (const path of SURFACES) {
     test(`${path} shows no untranslated key in French`, async ({ page }) => {
       await page.goto(path);
-      await expect(page.locator(anchor)).toBeVisible();
+      await expect(page.locator(ANCHORS[path])).toBeVisible();
       expect(await leakedKeys(page), `raw i18n keys visible on ${path} (fr)`).toEqual([]);
     });
   }
 
-  for (const { path, anchor } of ROUTES) {
+  for (const path of SURFACES) {
     test(`${path} shows no untranslated key in English`, async ({ page }) => {
       await page.goto('/');
       await switchToEnglish(page);
       await page.goto(path);
-      await expect(page.locator(anchor)).toBeVisible();
+      await expect(page.locator(ANCHORS[path])).toBeVisible();
       expect(await leakedKeys(page), `raw i18n keys visible on ${path} (en)`).toEqual([]);
     });
   }
