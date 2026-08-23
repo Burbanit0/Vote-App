@@ -69,6 +69,7 @@ git push origin feature/ma-feature
 | Frontend CI | Tests échouent ou coverage < 30% |
 | Backend CI | Tests échouent ou coverage < 30% |
 | npm audit | CVE haute détectée |
+| E2E (Playwright) | Un parcours utilisateur casse sur Chromium ou Firefox (déclenché par tout changement dans `voter-app/` ou `fast_api_voter/`) |
 | OpenAPI Contract | `openapi.gen.json` / `types.gen.ts` désynchronisés du code (route/schéma modifié sans régénération — voir `scripts/check_openapi_drift.sh`) |
 
 ### 4. Release : develop → main
@@ -78,9 +79,9 @@ Uniquement via le workflow **Release Vote Lab** :
 - Choisir `patch`, `minor` ou `major`
 
 Le workflow exige `ci-frontend`, `ci-backend` **et `e2e` (Playwright)** verts
-avant de taguer/pousser sur `main` — c'est le seul endroit où la suite E2E
-tourne automatiquement (trop lente pour chaque PR `develop`, mais une release
-est justement le moment peu fréquent où elle a sa place).
+avant de taguer/pousser sur `main`. La suite E2E tourne aussi sur chaque PR
+`develop` : la réserver à la release avait laissé les specs pourrir deux mois
+face à une UI qui avait bougé.
 
 Aucune PR vers `main` n'est acceptée depuis une branche autre que `develop`.
 

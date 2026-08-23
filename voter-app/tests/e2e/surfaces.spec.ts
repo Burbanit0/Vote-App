@@ -1,55 +1,40 @@
 import { test, expect } from '@playwright/test';
 
-// The two surfaces that flank the playground: the Laboratoire (a rail of
-// families → a catalogue of fiches → one full-width bench) and À vous de jouer
-// (cast one ballot yourself, then read what it was worth).
+// The two entry surfaces around the instrument: Découvrir (the guided demo of
+// the thesis) and À vous de jouer (cast one ballot yourself, then read what it
+// was worth). Both run entirely client-side on the same voting engine.
 
-test.describe('Laboratoire — rail, catalogue, bench', () => {
+test.describe('Découvrir — the thesis, one step at a time', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/laboratoire');
-    await expect(page.locator('[data-testid="lab-family-rail"]')).toBeVisible();
+    await page.goto('/decouvrir');
+    await expect(page.locator('[data-testid="discover-winner"]')).toBeVisible();
   });
 
-  test('picking a family swaps the catalogue and keeps a bench mounted', async ({ page }) => {
-    await expect(page.locator('[data-testid="lab-bench"]')).toBeVisible();
+  test('the four demo rules do not all elect the same candidate', async ({ page }) => {
+    const winner = page.locator('[data-testid="discover-winner"]');
+    const tabs = page.getByRole('tab');
+    const count = await tabs.count();
+    expect(count).toBe(4);
 
-    for (const family of ['rules', 'systems', 'blank']) {
-      await page.locator(`[data-testid="lab-family-${family}"]`).click();
-      await expect(page.locator(`[data-testid="lab-family-${family}"]`)).toHaveAttribute(
-        'aria-checked',
-        'true'
-      );
-      await expect(page.locator('[data-testid="lab-catalogue"]')).toBeVisible();
+    const seen = new Set<string>();
+    for (let i = 0; i < count; i++) {
+      await tabs.nth(i).click();
+      await expect(tabs.nth(i)).toHaveAttribute('aria-selected', 'true');
+      await expect(winner).not.toBeEmpty();
+      seen.add(((await winner.textContent()) ?? '').trim());
     }
-  });
-
-  test('picking a fiche in the catalogue loads it on the bench', async ({ page }) => {
-    const chips = page.locator('[data-testid^="chip-"]');
-    const target = chips.nth(1);
-    const label = ((await target.textContent()) ?? '').trim();
-
-    await target.click();
-    await expect(target).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.locator('[data-testid="lab-bench"]')).toContainText(label);
-  });
-
-  test('Comparer opens a second bench on another electorate', async ({ page }) => {
-    await page.locator('[data-testid="lab-compare"]').click();
-    const picker = page.locator('[data-testid="lab-elec-picker"]');
-    await expect(picker).toBeVisible();
-
-    await picker.locator('[data-testid^="lab-elec-"]').first().click();
-    await expect(page.locator('[data-testid="lab-bench-vs"]')).toBeVisible();
-
-    await page.locator('[data-testid="lab-compare-close"]').click();
-    await expect(page.locator('[data-testid="lab-bench-vs"]')).toHaveCount(0);
+    // Same ballots, four counting rules: the page exists because they disagree.
+    expect(seen.size).toBeGreaterThan(1);
   });
 });
 
 test.describe('À vous de jouer — one ballot, sealed', () => {
-  test('casting a ballot seals it and produces a verdict', async ({ page }) => {
+  test.beforeEach(async ({ page }) => {
     await page.goto('/a-vous-de-jouer');
+    await expect(page.locator('[data-testid="play-vote-open"]')).toBeVisible();
+  });
 
+  test('casting a ballot seals it and produces a verdict', async ({ page }) => {
     await page.locator('[data-testid="play-vote-open"]').click();
     await expect(page.locator('[data-testid="play-booth"]')).toBeVisible();
 
@@ -63,8 +48,41 @@ test.describe('À vous de jouer — one ballot, sealed', () => {
     await expect(page.locator('[data-testid="play-winner"]')).not.toBeEmpty();
   });
 
+  test('every ballot language can be cast and is counted', async ({ page }) => {
+    const crashes: string[] = [];
+    page.on('pageerror', (err) => crashes.push(err.message));
+
+    for (const lang of ['one', 'rank', 'approve', 'score', 'points']) {
+      await page.goto('/a-vous-de-jouer');
+      await page.locator('[data-testid="play-vote-open"]').click();
+      await page.locator(`[data-testid="play-lang-${lang}"]`).click();
+      await expect(page.locator(`[data-testid="play-lang-${lang}"]`)).toHaveAttribute(
+        'aria-checked',
+        'true'
+      );
+      await page.locator('[data-testid="play-cast"]').click();
+
+      await expect(page.locator('[data-testid="play-verdict"]'), lang).not.toBeEmpty();
+      // A ballot language only unlocks the methods it can actually feed.
+      const methods = page.locator('[data-testid="play-methods"] [data-testid^="play-rule-"]');
+      expect(await methods.count(), `no method for ballot language ${lang}`).toBeGreaterThan(0);
+    }
+    expect(crashes).toEqual([]);
+  });
+
+  test('each posture is analysed on its own terms', async ({ page }) => {
+    for (const posture of ['sincere', 'strategic', 'abstain']) {
+      await page.goto('/a-vous-de-jouer');
+      await page.locator('[data-testid="play-vote-open"]').click();
+      await page.locator(`[data-testid="play-posture-${posture}"]`).click();
+      await page.locator('[data-testid="play-cast"]').click();
+
+      await expect(page.locator('[data-testid="play-verdict"]'), posture).not.toBeEmpty();
+      await expect(page.locator('[data-testid="play-verdict"]'), posture).not.toContainText('NaN');
+    }
+  });
+
   test('moving the bloc slider re-reads the same sealed ballot', async ({ page }) => {
-    await page.goto('/a-vous-de-jouer');
     await page.locator('[data-testid="play-vote-open"]').click();
     await page.locator('[data-testid="play-cast"]').click();
 

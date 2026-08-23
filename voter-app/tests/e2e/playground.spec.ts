@@ -65,6 +65,68 @@ test.describe('Playground — the instrument', () => {
     await expect(page.locator('[data-testid^="winner-group-"]').first()).toBeVisible();
   });
 
+  test('the guided footer walks the five moments in order', async ({ page }) => {
+    const order = ['electorate', 'method', 'strategy', 'campaign', 'bilan'];
+
+    for (let i = 1; i < order.length; i++) {
+      await page.locator('[data-testid="guided-next"]').click();
+      await expect(page.locator(`[data-testid="moment-${order[i]}"]`)).toHaveAttribute(
+        'aria-checked',
+        'true'
+      );
+    }
+    // At the end the same control loops back to moment 1 rather than dead-ending.
+    await page.locator('[data-testid="guided-next"]').click();
+    await expect(page.locator('[data-testid="moment-electorate"]')).toHaveAttribute(
+      'aria-checked',
+      'true'
+    );
+    await expect(page.locator('[data-testid="guided-prev"]')).toBeDisabled();
+
+    await page.locator('[data-testid="moment-bilan"]').click();
+    await page.locator('[data-testid="guided-prev"]').click();
+    await expect(page.locator('[data-testid="moment-campaign"]')).toHaveAttribute(
+      'aria-checked',
+      'true'
+    );
+  });
+
+  test('a story runs on the instrument, step by step, and can be quit', async ({ page }) => {
+    const crashes: string[] = [];
+    page.on('pageerror', (err) => crashes.push(err.message));
+
+    await page.locator('[data-testid="story-launch"]').click();
+    await expect(page.locator('[data-testid="story-picker"]')).toBeVisible();
+    await page.locator('[data-testid="story-pick-spoiler"]').click();
+
+    const beat = page.locator('[data-testid="story-beat"]');
+    await expect(page.locator('[data-testid="story-bar"]')).toBeVisible();
+    await expect(beat).not.toBeEmpty();
+
+    // Each step must actually say something new about the same instrument.
+    const first = (await beat.textContent()) ?? '';
+    await page.locator('[data-testid="story-next"]').click();
+    await expect(beat).not.toHaveText(first);
+
+    // Walk to the end — "restart" only exists on the last step.
+    const next = page.locator('[data-testid="story-next"]');
+    for (let i = 0; (await next.count()) > 0 && i < 20; i++) await next.click();
+    await expect(page.locator('[data-testid="story-restart"]')).toBeVisible();
+
+    await page.locator('[data-testid="story-restart"]').click();
+    await expect(beat).toHaveText(first);
+
+    await page.locator('[data-testid="story-quit"]').click();
+    await expect(page.locator('[data-testid="story-bar"]')).toHaveCount(0);
+    expect(crashes).toEqual([]);
+  });
+
+  test('a story can be deep-linked from the URL', async ({ page }) => {
+    await page.goto('/playground?story=squeeze');
+    await expect(page.locator('[data-testid="story-bar"]')).toBeVisible();
+    await expect(page.locator('[data-testid="story-beat"]')).not.toBeEmpty();
+  });
+
   test('the Dirigeant/Assemblée switch swaps the instrument (backend-backed)', async ({ page }) => {
     await expect(page.locator('[data-testid="leader-canvas"]')).toBeVisible();
 

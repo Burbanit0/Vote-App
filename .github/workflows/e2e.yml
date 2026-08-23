@@ -2,17 +2,35 @@ name: E2E Tests
 
 on:
   workflow_dispatch:
-  # Called from release.yml as the release gate: e2e is the one exhaustive,
-  # slow check deliberately NOT run on every develop PR (see CODE_AUDIT.md /
-  # the CI-organization discussion) — it belongs at the infrequent, can-
-  # afford-to-be-slow main/release step instead.
+  # Called from release.yml as the release gate.
   workflow_call:
+  # …and on every PR touching either side of the app. It used to be release-only
+  # ("exhaustive and slow"), which let the specs rot against a UI that had moved
+  # on for two months without anyone noticing. The suite now runs in ~1 min, so
+  # it belongs where the drift happens.
+  pull_request:
+    branches: [develop, main]
+    paths:
+      - 'voter-app/**'
+      - 'fast_api_voter/**'
+      - '.github/workflows/e2e.yml'
+  push:
+    branches: [develop]
+    paths:
+      - 'voter-app/**'
+      - 'fast_api_voter/**'
+      - '.github/workflows/e2e.yml'
+
+# A newer push to the same branch cancels the previous e2e run.
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   e2e:
     name: Playwright E2E
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 20
 
     steps:
       # ── Checkout ──────────────────────────────────────────────────────────────
