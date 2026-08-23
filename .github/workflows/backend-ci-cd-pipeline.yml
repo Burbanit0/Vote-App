@@ -5,10 +5,14 @@ on:
     branches: [develop, main]
     paths:
       - 'fast_api_voter/**'
+      # …and the pipeline definition itself: editing it must run it.
+      - '.github/workflows/backend-ci-cd-pipeline.yml'
   pull_request:
     branches: [develop, main]
     paths:
       - 'fast_api_voter/**'
+      # …and the pipeline definition itself: editing it must run it.
+      - '.github/workflows/backend-ci-cd-pipeline.yml'
 
 jobs:
   test:
@@ -64,7 +68,6 @@ jobs:
       - name: Tests with coverage (85% minimum)
         env:
           FLASK_ENV: testing
-          JWT_SECRET_KEY: ci-test-secret
         run: |
           cd fast_api_voter
           python -m pytest api/tests -v -n auto \

@@ -52,7 +52,6 @@ jobs:
       - run: python -m pytest fast_api_voter/api/tests -v
         env:
           FLASK_ENV: testing
-          JWT_SECRET_KEY: ci-test-secret
 
   # E2E (Playwright) was previously wired to nothing (workflow_dispatch only)
   # despite being the repo's one exhaustive, end-to-end check. It's too slow
