@@ -5,10 +5,14 @@ on:
     branches: [develop, main]
     paths:
       - 'fast_api_voter/**'
+      # …and the pipeline definition itself: editing it must run it.
+      - '.github/workflows/backend-ci-cd-pipeline.yml'
   pull_request:
     branches: [develop, main]
     paths:
       - 'fast_api_voter/**'
+      # …and the pipeline definition itself: editing it must run it.
+      - '.github/workflows/backend-ci-cd-pipeline.yml'
 
 jobs:
   test:

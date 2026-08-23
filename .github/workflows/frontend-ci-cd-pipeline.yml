@@ -5,10 +5,14 @@ on:
     branches: [develop, main]
     paths:
       - 'voter-app/**'
+      # …and the pipeline definition itself: editing it must run it.
+      - '.github/workflows/frontend-ci-cd-pipeline.yml'
   pull_request:
     branches: [develop, main]
     paths:
       - 'voter-app/**'
+      # …and the pipeline definition itself: editing it must run it.
+      - '.github/workflows/frontend-ci-cd-pipeline.yml'
 
 jobs:
   test:
