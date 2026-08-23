@@ -50,6 +50,11 @@ exclude = ["api/tests/"]
 # rather than worked around silently — see the PR description.
 source_paths = [
     "api/engine/utils/simulation_ranked_utils.py",
+    # The cardinal half of the engine-parity harness. Both files are locked
+    # against the TS client by voter-app's playgroundVoting.parity.test.ts, so
+    # both deserve the same "do the tests actually assert, or just execute?"
+    # check — mutating only the ordinal half left half the invariant unmeasured.
+    "api/engine/utils/simulation_score_utils.py",
 ]
 # mutmut's mutants/ working copy only contains source_paths + also_copy —
 # our tests live at api/tests/ (not the top-level tests/ mutmut assumes by
@@ -71,9 +76,9 @@ mutate_only_covered_lines = true
 # quick local `-o addopts=""` pattern documented in CLAUDE.md).
 pytest_add_cli_args = ["-o", "addopts="]
 # Explicit file list (not "api/tests" + ignores): these are exactly the
-# tests that import simulation_ranked_utils.py directly, none of them touch
-# FastAPI/TestClient/numpy (verified), which keeps this pass clear of the
-# in-process re-exec issue above.
+# tests that import simulation_ranked_utils.py or simulation_score_utils.py
+# directly, none of them touch FastAPI/TestClient/numpy (verified), which keeps
+# this pass clear of the in-process re-exec issue above.
 pytest_add_cli_args_test_selection = [
     "api/tests/test_anti_plurality.py",
     "api/tests/test_benham.py",
@@ -87,6 +92,9 @@ pytest_add_cli_args_test_selection = [
     "api/tests/test_schulze_beatpath.py",
     "api/tests/test_smith_irv.py",
     "api/tests/test_split_cycle.py",
+    # …and the two that cover simulation_score_utils.py.
+    "api/tests/test_cardinal_batch.py",
+    "api/tests/test_star_runoff_tie.py",
 ]
 # KNOWN CAVEAT (signalled, not acted on — see baseline report in the PR):
 # get_condorcet_winner, get_two_round_winner, get_plurality_winner,

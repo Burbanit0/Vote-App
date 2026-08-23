@@ -1,8 +1,14 @@
-name: Mutation Testing (mutmut)
+name: Mutation Testing
 
 # Separate from Backend CI on purpose (see prompt-mutation-testing.md §3):
-# manual + weekly only, never on push/PR, and never blocking — this job
-# reports a score, it does not gate merges.
+# manual + weekly only, never on push/PR, and never blocking — these jobs
+# report a score, they do not gate merges.
+#
+# Two jobs, one per engine, because the project keeps TWO implementations of the
+# voting rules in sync (CLAUDE.md, "the dual voting engine"): mutmut mutates the
+# Python side, Stryker the TypeScript side. Measuring only one half would leave
+# the other free to accumulate tests that execute without asserting — the exact
+# blind spot line coverage already has.
 on:
   workflow_dispatch: {}
   schedule:
@@ -10,7 +16,7 @@ on:
 
 jobs:
   mutmut:
-    name: Mutation score (scoped, non-blocking)
+    name: Backend mutation score (mutmut, non-blocking)
     runs-on: ubuntu-latest
 
     steps:
@@ -56,4 +62,39 @@ jobs:
         with:
           name: mutmut-cache
           path: fast_api_voter/.mutmut-cache
+          retention-days: 30
+
+  stryker:
+    name: Frontend mutation score (Stryker, non-blocking)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: voter-app/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ./voter-app
+
+      # Scope (which file gets mutated, which tests run) lives entirely in
+      # voter-app/stryker.config.json + vitest.stryker.config.ts — this step
+      # just runs it. continue-on-error for the same reason as mutmut above:
+      # `thresholds.break` is null until two real runs give us a defensible
+      # number, so today this job reports, it does not gate.
+      - name: Run Stryker
+        continue-on-error: true
+        run: npx stryker run
+        working-directory: ./voter-app
+
+      - name: Upload HTML mutation report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: stryker-report
+          path: voter-app/reports/mutation
           retention-days: 30
