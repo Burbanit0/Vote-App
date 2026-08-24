@@ -1190,26 +1190,52 @@ def apply_shifts(sincere: tuple[float, ...], shifts: Sequence[PositionShift]) ->
     enforced by validate_positioning_decision before this is called.
 
     KNOWN OBSERVABILITY GAP (found 2026-08-22, v6b Lot 4's acceptance
-    investigation): the clamp is silent. A shift whose target falls outside
-    [0,1] is absorbed with no signal anywhere -- no return value, no log, no
-    journal event -- so a caller downstream of many accumulated shifts (dt=5
-    campaign_positioning, dt=6 representative_response, dt=11
-    chamber_deliberation) cannot tell "the model stopped pushing" from "the
-    model kept pushing but the position had already saturated" without
-    replaying the full shift history and reconstructing the unclamped
-    trajectory by hand -- exactly what v6b Lot 4 had to do to confirm a
-    two-tick plateau in mandate_deviation was saturation, not a real drop in
-    pressure (the unclamped reconstruction ran x2.8-x3.6 higher than the
-    reported, clamped value at the same ticks). Not fixed here: a
-    caller-facing signal -- e.g. a `clamped_at_bound` event journaled per
-    occurrence, or a count/bool returned alongside the clamped position --
-    would make this detectable directly from run data instead of by manual
-    reconstruction. This is a gap in apply_shifts itself, not specific to
-    mandate_deviation or to any one caller."""
+    investigation) -- RESOLVED one level up, not here: the clamp is still
+    silent AT THIS FUNCTION (no return value, no log, no journal event when
+    a shift's target falls outside [0,1]) -- that stays true by design, see
+    clamped_dimensions immediately below. What changed: every caller of
+    apply_shifts (dt=5 campaign_positioning, dt=6 representative_response,
+    dt=11 chamber_deliberation, all in run_polity_simulation.py) now also
+    calls clamped_dimensions(base, shifts, result) right after, and journals
+    a clamped_at_bound event whenever it's non-empty -- so a caller
+    downstream of many accumulated shifts can now tell "the model stopped
+    pushing" from "the model kept pushing but the position had already
+    saturated" directly from run data, without replaying the full shift
+    history by hand the way v6b Lot 4 had to (that manual, unclamped
+    reconstruction ran x2.8-x3.6 higher than the reported, clamped value at
+    the same ticks -- THEORY.md §10.9-§10.10). apply_shifts itself is
+    unchanged: it was never the right place to journal from (pure, no
+    Journal import in this module) -- the signal lives in the sibling
+    function below and its three callers, not in a changed return value
+    here."""
     positions = list(sincere)
     for shift in shifts:
         positions[shift.dimension] = min(1.0, max(0.0, positions[shift.dimension] + shift.delta))
     return tuple(positions)
+
+
+def clamped_dimensions(
+    base: tuple[float, ...], shifts: Sequence[PositionShift], result: tuple[float, ...],
+) -> frozenset[int]:
+    """Which dimensions apply_shifts's own [0,1] clamp actually altered from
+    a naive base+delta target -- the fix for apply_shifts's own KNOWN
+    OBSERVABILITY GAP docstring note. Deliberately takes `result` as a
+    parameter rather than calling apply_shifts(base, shifts) itself: every
+    caller already has the exact resolved position apply_shifts produced
+    (PositioningBatchOutcome.platforms / Response.../ChamberBatchOutcome.
+    positions), so comparing against THAT value is the single source of
+    truth -- recomputing independently would risk this function's own
+    [0,1] bounds silently drifting from apply_shifts's real ones, and costs
+    a second full pass for nothing this function needs. Never itself calls
+    apply_shifts; apply_shifts itself is completely unchanged by this
+    function's existence. A shift landing EXACTLY on a bound (raw target
+    == 0.0 or == 1.0) is NOT clamped -- only a target that would have
+    exceeded [0,1] counts, i.e. result != base + delta, never result == 0.0
+    or result == 1.0 alone."""
+    return frozenset(
+        shift.dimension for shift in shifts
+        if result[shift.dimension] != base[shift.dimension] + shift.delta
+    )
 
 
 def validate_positioning_decision(decision: PositioningDecision, config: PolityConfig) -> None:

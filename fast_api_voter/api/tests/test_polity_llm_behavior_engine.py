@@ -41,6 +41,7 @@ from api.domain.polity.llm_behavior_engine import (
     build_user_prompt,
     cast_votes,
     chunk_voters,
+    clamped_dimensions,
     compute_max_tokens,
     decide_campaign_positioning,
     decide_candidacies,
@@ -827,6 +828,59 @@ def test_apply_shifts_clamps_at_the_lower_bound():
 def test_apply_shifts_with_no_shifts_returns_the_sincere_position_unchanged():
     sincere = (0.3, 0.7)
     assert apply_shifts(sincere, []) == sincere
+
+
+# ── clamped_dimensions ───────────────────────────────────────────────────────
+
+def test_clamped_dimensions_detects_the_upper_bound():
+    base = (0.9,)
+    shifts = [PositionShift(dimension=0, delta=0.5)]
+    result = apply_shifts(base, shifts)
+    assert clamped_dimensions(base, shifts, result) == frozenset({0})
+
+
+def test_clamped_dimensions_detects_the_lower_bound():
+    base = (0.1,)
+    shifts = [PositionShift(dimension=0, delta=-0.5)]
+    result = apply_shifts(base, shifts)
+    assert clamped_dimensions(base, shifts, result) == frozenset({0})
+
+
+def test_clamped_dimensions_detects_multiple_dimensions_independently():
+    base = (0.9, 0.5, 0.1)
+    shifts = [
+        PositionShift(dimension=0, delta=0.5),   # clamps (upper)
+        PositionShift(dimension=1, delta=0.2),   # does not clamp
+        PositionShift(dimension=2, delta=-0.5),  # clamps (lower)
+    ]
+    result = apply_shifts(base, shifts)
+    assert clamped_dimensions(base, shifts, result) == frozenset({0, 2})
+
+
+def test_clamped_dimensions_is_empty_when_nothing_clamps():
+    base = (0.5, 0.5)
+    shifts = [PositionShift(dimension=0, delta=0.2), PositionShift(dimension=1, delta=-0.2)]
+    result = apply_shifts(base, shifts)
+    assert clamped_dimensions(base, shifts, result) == frozenset()
+
+
+def test_clamped_dimensions_is_empty_with_no_shifts():
+    base = (0.5,)
+    result = apply_shifts(base, [])
+    assert clamped_dimensions(base, [], result) == frozenset()
+
+
+def test_clamped_dimensions_landing_exactly_on_a_bound_is_not_clamped():
+    # A shift whose raw target lands EXACTLY on 0.0 or 1.0 -- not beyond it --
+    # is not a clamp: apply_shifts's own min/max is a no-op at the boundary,
+    # so result == base + delta exactly, and clamped_dimensions must not
+    # count it. This is the one case worth pinning explicitly, since a
+    # naive "result == 0.0 or result == 1.0" check would get this backwards.
+    base = (0.5,)
+    shifts = [PositionShift(dimension=0, delta=0.5)]
+    result = apply_shifts(base, shifts)
+    assert result == (1.0,)
+    assert clamped_dimensions(base, shifts, result) == frozenset()
 
 
 # ── validate_positioning_decision ────────────────────────────────────────

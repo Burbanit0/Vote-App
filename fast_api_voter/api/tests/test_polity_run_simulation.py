@@ -26,6 +26,7 @@ from api.domain.polity.run_polity_simulation import (
     ExogenousEventsOutcome,
     PendingRerun,
     _attempt_rupture_candidacies,
+    _declare_nominees_llm,
     _hold_presidential_election,
     _llm_client_scope,
     _run_accountability_phase,
@@ -3163,6 +3164,160 @@ def test_no_chamber_deliberation_llm_call_with_an_empty_chamber(tmp_path):
         _run_chamber_deliberation(citizens, config, journal, tick=0, llm_client=_RaisingClient())
     events = _events(journal_path)
     assert not [e for e in events if e["event_type"] == "chamber_deliberation"]
+
+
+# ── clamped_at_bound (apply_shifts's own observability gap, resolved) ────
+# clamped_dimensions itself is unit-tested in test_polity_llm_behavior_engine.py;
+# these confirm the three run_polity_simulation.py call sites (dt=5/6/11)
+# actually journal the resulting event, adjacent to the decision it
+# describes, only when a dimension genuinely saturates.
+
+def test_default_config_run_emits_no_clamped_at_bound_events(tmp_path):
+    journal_path = run_simulation(_config_with_output_dir(tmp_path), run_id="baseline")
+    events = _events(journal_path)
+    assert not [e for e in events if e["event_type"] == "clamped_at_bound"]
+
+
+def test_chamber_deliberation_clamp_journals_clamped_at_bound_adjacent_to_the_decision(tmp_path):
+    config = _config_with_output_dir(tmp_path)
+    config = dataclasses.replace(
+        config,
+        sortition_chamber=dataclasses.replace(config.sortition_chamber, enabled=True, seats=1),
+        llm=dataclasses.replace(config.llm, enabled=True),
+    )
+    citizens = [_sortition_test_citizen(0, sortition_seat_until_tick=4, chamber_position=(0.9,))]
+
+    class _BigShiftClient:
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+            payload = json.loads(user_prompt)
+            decisions = [
+                {"cid": m["cid"], "shifts": [{"dimension": 0, "delta": 0.3}], "motif": 702}
+                for m in payload["members"]
+            ]
+            return json.dumps({"decisions": decisions})
+
+    journal_path = tmp_path / "chamber-clamp.jsonl"
+    with Journal(journal_path, run_id="chamber-clamp") as journal:
+        _run_chamber_deliberation(citizens, config, journal, tick=0, llm_client=_BigShiftClient())
+    events = _events(journal_path)
+    decision_event = next(e for e in events if e["event_type"] == "chamber_deliberation")
+    clamp_event = next(e for e in events if e["event_type"] == "clamped_at_bound")
+    assert clamp_event["tick"] == 0
+    assert clamp_event["citizen_id"] == 0
+    assert clamp_event["motif"] is None
+    assert clamp_event["codebook_version"] == ""
+    assert clamp_event["payload"] == {"decision_event": "chamber_deliberation", "dimensions": [0]}
+    # adjacent: the very next event, immediately after the decision it describes.
+    assert events.index(clamp_event) == events.index(decision_event) + 1
+
+
+def test_chamber_deliberation_without_a_clamp_emits_no_clamped_at_bound_event(tmp_path):
+    config = _config_with_output_dir(tmp_path)
+    config = dataclasses.replace(
+        config,
+        sortition_chamber=dataclasses.replace(config.sortition_chamber, enabled=True, seats=1),
+        llm=dataclasses.replace(config.llm, enabled=True),
+    )
+    citizens = [_sortition_test_citizen(0, sortition_seat_until_tick=4, chamber_position=(0.5,))]
+
+    class _SmallShiftClient:
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+            payload = json.loads(user_prompt)
+            decisions = [
+                {"cid": m["cid"], "shifts": [{"dimension": 0, "delta": 0.1}], "motif": 702}
+                for m in payload["members"]
+            ]
+            return json.dumps({"decisions": decisions})
+
+    journal_path = tmp_path / "chamber-no-clamp.jsonl"
+    with Journal(journal_path, run_id="chamber-no-clamp") as journal:
+        _run_chamber_deliberation(citizens, config, journal, tick=0, llm_client=_SmallShiftClient())
+    events = _events(journal_path)
+    assert [e for e in events if e["event_type"] == "chamber_deliberation"]  # the decision itself fired
+    assert not [e for e in events if e["event_type"] == "clamped_at_bound"]
+
+
+def test_representative_response_clamp_journals_clamped_at_bound(tmp_path):
+    config = _config_with_mandate_llm_enabled(tmp_path)
+    holder = Citizen(
+        citizen_id=0, issue_positions=(0.9,), issue_priorities=(1.0,),
+        blank_threshold=0.5, ambition_score=0.5, role=Role.ELECTED, office=Office.PRESIDENT,
+        legitimacy_capital=0.9, mandate_strength=0.9,  # comfortably above recall_floor
+    )
+    holder.pledged_platform = (0.9,)
+    holder.revealed_position = (0.9,)
+
+    class _BigShiftClient:
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+            payload = json.loads(user_prompt)
+            decisions = [
+                {"cid": h["cid"], "shifts": [{"dimension": 0, "delta": 0.3}], "stance": 1, "motif": 301}
+                for h in payload["holders"]
+            ]
+            return json.dumps({"decisions": decisions})
+
+    journal_path = tmp_path / "response-clamp.jsonl"
+    with Journal(journal_path, run_id="response-clamp") as journal:
+        _run_accountability_phase([holder], config, journal, tick=0, llm_client=_BigShiftClient())
+    events = _events(journal_path)
+    decision_event = next(e for e in events if e["event_type"] == "representative_response")
+    clamp_event = next(e for e in events if e["event_type"] == "clamped_at_bound")
+    assert clamp_event["citizen_id"] == 0
+    assert clamp_event["motif"] is None
+    assert clamp_event["payload"] == {"decision_event": "representative_response", "dimensions": [0]}
+    assert events.index(clamp_event) == events.index(decision_event) + 1
+    assert holder.revealed_position == pytest.approx((1.0,))
+
+
+def test_campaign_positioning_clamp_journals_clamped_at_bound(tmp_path):
+    # decide_candidacies (the "citizens" branch) batches population-scale via
+    # chunk_voters, which floors at MIN_SAFE_BATCH_SIZE=20 -- a 1-citizen
+    # population would raise NotImplementedError before ever reaching
+    # positioning. 19 filler electors (never declare, party_affiliation
+    # irrelevant) get the count above that floor; only cid=0 (party 1)
+    # actually declares, so party 1 stays uncontested (no
+    # party_nomination_choice/"parties" call expected).
+    config = _config_with_llm_enabled(tmp_path)
+    nominee = Citizen(
+        citizen_id=0, issue_positions=(0.9,), issue_priorities=(1.0,),
+        blank_threshold=0.5, ambition_score=0.5, party_affiliation=1,
+    )
+    fillers = [
+        Citizen(citizen_id=i, issue_positions=(0.5,), issue_priorities=(1.0,), blank_threshold=0.5, ambition_score=0.0)
+        for i in range(1, 20)
+    ]
+    citizens = [nominee, *fillers]
+    parties = [Party(party_id=1, platform=(0.5,))]
+
+    class _BigShiftClient:
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+            payload = json.loads(user_prompt)
+            if "citizens" in payload:
+                decisions = [
+                    {"cid": c["cid"], "outcome": 1 if c["cid"] == 0 else 0, "motif": 203 if c["cid"] == 0 else 201}
+                    for c in payload["citizens"]
+                ]
+                return json.dumps({"decisions": decisions})
+            if "nominees" in payload:
+                decisions = [
+                    {"cid": n["cid"], "shifts": [{"dimension": 0, "delta": 0.3}], "motif": 602}
+                    for n in payload["nominees"]
+                ]
+                return json.dumps({"decisions": decisions})
+            raise AssertionError(f"unexpected payload shape (single-candidate party should be uncontested, "
+                                  f"no party_nomination_choice call expected): {sorted(payload.keys())}")
+
+    journal_path = tmp_path / "positioning-clamp.jsonl"
+    with Journal(journal_path, run_id="positioning-clamp") as journal:
+        _declare_nominees_llm(citizens, parties, config, journal, tick=0, llm_client=_BigShiftClient())
+    events = _events(journal_path)
+    decision_event = next(e for e in events if e["event_type"] == "campaign_positioning")
+    clamp_event = next(e for e in events if e["event_type"] == "clamped_at_bound")
+    assert clamp_event["citizen_id"] == 0
+    assert clamp_event["motif"] is None
+    assert clamp_event["payload"] == {"decision_event": "campaign_positioning", "dimensions": [0]}
+    assert events.index(clamp_event) == events.index(decision_event) + 1
+    assert nominee.pledged_platform == pytest.approx((1.0,))
 
 
 # ── LLM candidacy path (v2 increment 2) ──────────────────────────────────

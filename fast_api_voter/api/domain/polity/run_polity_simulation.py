@@ -95,6 +95,7 @@ from api.domain.polity.llm_behavior_engine import (
     ReactionContext,
     ResponseContext,
     cast_votes,
+    clamped_dimensions,
     decide_campaign_positioning,
     decide_candidacies,
     decide_chamber_deliberation,
@@ -746,6 +747,19 @@ def _declare_nominees_llm(
             motif=str(positioning_decision.motif),
             codebook_version=config.llm.codebook_version,
         )
+        # apply_shifts's own KNOWN OBSERVABILITY GAP, resolved here (see its own
+        # docstring): a clamp fires silently -- journal it separately, adjacent to
+        # the decision it describes, only when it actually occurred. issue_positions
+        # is the correct base: this loop never mutates it, only pledged_platform/
+        # revealed_position.
+        clamped = clamped_dimensions(nominee.issue_positions, positioning_decision.shifts, new_platform)
+        if clamped:
+            journal.write(
+                tick=tick,
+                event_type="clamped_at_bound",
+                payload={"decision_event": "campaign_positioning", "dimensions": sorted(clamped)},
+                citizen_id=nominee.citizen_id,
+            )
     return nominees
 
 
@@ -1262,6 +1276,8 @@ def _run_representative_responses(
     decisions = {d.cid: d for d in outcome.decisions}
     for holder in respondents:
         decision = decisions[holder.citizen_id]
+        base = holder.revealed_position
+        assert base is not None  # guaranteed by the respondents filter above
         holder.revealed_position = outcome.positions[holder.citizen_id]
         journal.write(
             tick=tick,
@@ -1277,6 +1293,17 @@ def _run_representative_responses(
             motif=str(decision.motif),
             codebook_version=config.llm.codebook_version,
         )
+        # apply_shifts's own KNOWN OBSERVABILITY GAP, resolved here (see its own
+        # docstring) -- adjacent, self-gating, only when a dimension actually
+        # saturated this tick.
+        clamped = clamped_dimensions(base, decision.shifts, holder.revealed_position)
+        if clamped:
+            journal.write(
+                tick=tick,
+                event_type="clamped_at_bound",
+                payload={"decision_event": "representative_response", "dimensions": sorted(clamped)},
+                citizen_id=holder.citizen_id,
+            )
 
 
 def _run_sortition_rotation(
@@ -1367,6 +1394,8 @@ def _run_chamber_deliberation(
     decisions = {d.cid: d for d in outcome.decisions}
     for member in members:
         decision = decisions[member.citizen_id]
+        base = member.chamber_position
+        assert base is not None  # guaranteed by _run_sortition_rotation's own seating loop
         member.chamber_position = outcome.positions[member.citizen_id]
         journal.write(
             tick=tick,
@@ -1380,6 +1409,17 @@ def _run_chamber_deliberation(
             motif=str(decision.motif),
             codebook_version=config.llm.codebook_version,
         )
+        # apply_shifts's own KNOWN OBSERVABILITY GAP, resolved here (see its own
+        # docstring) -- adjacent, self-gating, only when a dimension actually
+        # saturated this tick.
+        clamped = clamped_dimensions(base, decision.shifts, member.chamber_position)
+        if clamped:
+            journal.write(
+                tick=tick,
+                event_type="clamped_at_bound",
+                payload={"decision_event": "chamber_deliberation", "dimensions": sorted(clamped)},
+                citizen_id=member.citizen_id,
+            )
 
 
 def _run_accountability_phase(
