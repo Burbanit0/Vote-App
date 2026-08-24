@@ -493,8 +493,21 @@ function winAntiPlurality(ranks: number[][], m: number): number {
 
 /** Dowdall (Nauru): harmonic positional weights — rank k scores 1/(k+1). */
 function winDowdall(ranks: number[][], m: number): number {
+  // Dowdall gives 1/(rank+1) per ballot. Summed as floats that is not
+  // associative, so two candidates who tie EXACTLY can end up ~1e-16 apart
+  // depending on the order the ballots were counted — and argmax then picks a
+  // winner by ballot order. Scale every share by lcm(1..m) so the whole sum is
+  // integer and exact, which keeps genuine ties genuinely tied and leaves
+  // argmax's lowest-index convention to settle them.
+  let lcm = 1;
+  for (let k = 2; k <= m; k++) {
+    let a = lcm;
+    let b = k;
+    while (b) [a, b] = [b, a % b];
+    lcm = (lcm / a) * k;
+  }
   const s = new Array(m).fill(0);
-  for (const r of ranks) r.forEach((c, rank) => (s[c] += 1 / (rank + 1)));
+  for (const r of ranks) r.forEach((c, rank) => (s[c] += lcm / (rank + 1)));
   return argmax(s);
 }
 

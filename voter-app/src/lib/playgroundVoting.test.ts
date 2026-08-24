@@ -803,3 +803,85 @@ describe('degenerate cases — no winner, empty field, unknown rule', () => {
     expect(fallback).toBe(0); // A, on 3 of 5 first preferences
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Anonymity: shuffling the ballots must never change the winner.
+//
+// The result must depend on WHICH ballots were cast, never on the ORDER they
+// were counted in. The backend engine failed this on 13 of its 26 rules (see
+// fast_api_voter/api/tests/test_anonymity.py); the client failed it on one —
+// winDowdall, where summing 1/(rank+1) as floats is not associative, so two
+// candidates who tie exactly could land ~1e-16 apart and argmax would pick by
+// ballot order.
+//
+// The parity harness cannot catch this: strict_winner() detects the instability
+// and DISCARDS the scenario rather than reporting it.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('anonymity — ballot order must not decide', () => {
+  const ALL_RULES: Rule[] = [
+    'plurality',
+    'two_round',
+    'borda',
+    'irv',
+    'coombs',
+    'condorcet',
+    'minimax',
+    'schulze',
+    'bucklin',
+    'nanson',
+    'baldwin',
+    'ranked_pairs',
+    'kemeny',
+    'black',
+    'anti_plurality',
+    'dowdall',
+    'raynaud',
+    'benham',
+    'river',
+    'smith_irv',
+    'split_cycle',
+  ];
+
+  /** Deterministic PRNG so a failure is reproducible from the seed alone. */
+  function lcg(seed: number): () => number {
+    let s = seed;
+    return () => {
+      s = (s * 1103515245 + 12345) & 0x7fffffff;
+      return s / 0x7fffffff;
+    };
+  }
+
+  it.each(ALL_RULES)('%s elects the same winner whatever the ballot order', (rule) => {
+    const rnd = lcg(20260824);
+    const shuffle = <T>(a: T[]): T[] => {
+      const out = a.slice();
+      for (let i = out.length - 1; i > 0; i--) {
+        const j = Math.floor(rnd() * (i + 1));
+        [out[i], out[j]] = [out[j], out[i]];
+      }
+      return out;
+    };
+
+    // Small electorates, where exact ties are common enough to hit.
+    for (let trial = 0; trial < 60; trial++) {
+      const ranks = Array.from({ length: 3 + Math.floor(rnd() * 4) }, () => shuffle([0, 1, 2]));
+      const expected = ruleWinnerFromRanks(ranks, 3, rule);
+      for (let s = 0; s < 15; s++) {
+        expect(ruleWinnerFromRanks(shuffle(ranks), 3, rule)).toBe(expected);
+      }
+    }
+  });
+
+  it('dowdall keeps an exact tie exactly tied', () => {
+    // A and B swap the top two seats once each: their Dowdall totals are equal
+    // to the last bit only if the 1/(rank+1) shares are summed exactly. As
+    // floats the two orders differ by ~1e-16 and argmax follows the noise.
+    const tied = ranksOf([
+      [1, [0, 1, 2]],
+      [1, [1, 0, 2]],
+    ]);
+
+    expect(ruleWinnerFromRanks(tied, 3, 'dowdall')).toBe(0);
+    expect(ruleWinnerFromRanks(tied.slice().reverse(), 3, 'dowdall')).toBe(0);
+  });
+});

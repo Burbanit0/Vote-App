@@ -1,6 +1,6 @@
 {
   "vulture": 0,
-  "radon_c_plus": 140,
+  "radon_c_plus": 139,
   "knip": 87,
   "jscpd_clones": 49
 }
