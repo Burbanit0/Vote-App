@@ -6,7 +6,7 @@ build-backend = "setuptools.backends._legacy:_Backend"
 minversion = "7.0"
 testpaths = ["api/tests"]
 asyncio_mode = "strict"
-addopts = "--cov=api --cov-report=term --cov-report=html --cov-fail-under=85 -v"
+addopts = "--cov=api --cov-report=term --cov-report=html --cov-fail-under=90 -v"
 
 [tool.coverage.run]
 source = ["api"]
@@ -16,7 +16,7 @@ omit = ["api/tests/*"]
 show_missing = true
 skip_covered = true
 precision = 0
-fail_under = 85
+fail_under = 90
 
 # Dead-code detection (informational only — see CODE_AUDIT.md for the
 # rationale and how this feeds scripts/audit.sh / CI). min_confidence=80 keeps
@@ -67,7 +67,7 @@ also_copy = ["api/"]
 # that nothing asserts on them); this keeps the baseline focused on "did a
 # covered line's mutation actually get caught".
 mutate_only_covered_lines = true
-# -o addopts= strips pyproject's `--cov-fail-under=85` (and -v) for mutmut's
+# -o addopts= strips pyproject's `--cov-fail-under=90` (and -v) for mutmut's
 # own pytest runs: mutmut selects a small per-mutant test subset via
 # dependency tracking, so that subset's coverage is always far below the
 # repo-wide 85% floor — without this override, every mutant run would exit

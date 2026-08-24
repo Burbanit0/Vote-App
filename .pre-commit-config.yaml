@@ -89,7 +89,7 @@ repos:
       - id: backend-tests-coverage
         name: Backend tests + coverage
         language: system
-        entry: bash -c 'cd fast_api_voter && python -m pytest api/tests -v --cov=api --cov-fail-under=85'
+        entry: bash -c 'cd fast_api_voter && python -m pytest api/tests -v --cov=api --cov-fail-under=90'
         pass_filenames: false
         stages: [pre-push]
         env:

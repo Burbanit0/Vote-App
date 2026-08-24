@@ -1,8 +1,9 @@
 name: Mutation Testing
 
-# Separate from Backend CI on purpose (see prompt-mutation-testing.md §3):
-# manual + weekly only, never on push/PR, and never blocking — these jobs
-# report a score, they do not gate merges.
+# Separate from Backend CI on purpose (see prompt-mutation-testing.md §3): this
+# does not run on pull requests, so it never gates a merge. It DOES gate itself —
+# each job now fails when its score drops below a floor set just under the last
+# measurement. A score nobody can fail is a score nobody reads.
 #
 # Two jobs, one per engine, because the project keeps TWO implementations of the
 # voting rules in sync (CLAUDE.md, "the dual voting engine"): mutmut mutates the
@@ -46,7 +47,7 @@ concurrency:
 
 jobs:
   mutmut:
-    name: Backend mutation score (mutmut, non-blocking)
+    name: Backend mutation score (mutmut, floor 62%)
     runs-on: ubuntu-latest
 
     steps:
@@ -65,14 +66,27 @@ jobs:
 
       # Scope (which files get mutated, which tests run) lives entirely in
       # fast_api_voter/pyproject.toml's [tool.mutmut] — this step just runs it.
-      # continue-on-error: the whole point of this job is to report a score
-      # as a summary/artifact, never to fail the build.
+      # continue-on-error: mutmut exits non-zero whenever any mutant survives,
+      # which is always. The score is what matters, and the floor below is what
+      # judges it — so the run reports, and the next step decides.
+      # The log is tee'd because the score is not recoverable from
+      # `mutmut results`, which lists only the survivors.
       - name: Run mutmut
         id: mutmut
         continue-on-error: true
         run: |
           cd fast_api_voter
-          python -m mutmut run --max-children 4
+          python -m mutmut run --max-children 4 2>&1 | tee mutmut-run.log
+
+      # Floor set just UNDER the measured score, to lock in what exists rather
+      # than to aspire. Measured 2026-08-24: 1130/1761 killed = 64.2%, after the
+      # test selection was widened from 14 to 25 files (+5.3 pts, no test
+      # written). Raise it as the cardinal-rule and tie-break work lands — the
+      # route to 80% is +166 mutants from the cardinal module and +161 from tie
+      # fixtures, both of which are planned chantiers.
+      - name: Mutation score floor (62%)
+        if: always()
+        run: ./scripts/check_mutation_score.sh fast_api_voter/mutmut-run.log 62
 
       - name: Mutation results (survivors + score)
         if: always()
@@ -95,7 +109,7 @@ jobs:
           retention-days: 30
 
   stryker:
-    name: Frontend mutation score (Stryker, non-blocking)
+    name: Frontend mutation score (Stryker, floor 76%)
     runs-on: ubuntu-latest
 
     steps:
@@ -113,11 +127,12 @@ jobs:
 
       # Scope (which file gets mutated, which tests run) lives entirely in
       # voter-app/stryker.config.json + vitest.stryker.config.ts — this step
-      # just runs it. continue-on-error for the same reason as mutmut above:
-      # `thresholds.break` is null until two real runs give us a defensible
-      # number, so today this job reports, it does not gate.
-      - name: Run Stryker
-        continue-on-error: true
+      # just runs it — including `thresholds.break`, which Stryker enforces
+      # natively (no continue-on-error, so a drop below the floor fails the job).
+      # Set to 76 against a measured 80.82%: under the measure, to lock in what
+      # exists rather than to aspire. Target 85 once the spatial-helper and
+      # tie-break chantiers land.
+      - name: Run Stryker (fails under thresholds.break)
         run: npx stryker run
         working-directory: ./voter-app
 

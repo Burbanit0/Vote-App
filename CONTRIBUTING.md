@@ -52,7 +52,7 @@ Les hooks pre-commit vérifient à chaque `git commit` :
 
 Et à chaque `git push` :
 - Tests frontend + coverage (seuils de `vitest.config.ts`)
-- Tests backend + coverage >= 85 %
+- Tests backend + coverage >= 90 %
 
 ### 3. Ouvrir une PR vers develop
 
@@ -67,7 +67,7 @@ git push origin feature/ma-feature
 |---|---|
 | Branch Policy | Branche source sans préfixe valide |
 | Frontend CI | Tests échouent, coverage sous les seuils, ou eslint rapporte une erreur |
-| Backend CI | Tests échouent, coverage < 85 %, mypy ou flake8 en erreur |
+| Backend CI | Tests échouent, coverage < 90 %, mypy ou flake8 en erreur |
 | npm audit | CVE haute détectée |
 | E2E (Playwright) | Un parcours utilisateur casse sur Chromium ou Firefox — **ou passe seulement au second essai** (voir « Tests E2E » plus bas) |
 | Generated Artifacts Contract | `openapi.gen.json` / `types.gen.ts` **ou** `engineParity.json` désynchronisés du code (voir `scripts/check_openapi_drift.sh` et `scripts/check_engine_parity_drift.sh`) |

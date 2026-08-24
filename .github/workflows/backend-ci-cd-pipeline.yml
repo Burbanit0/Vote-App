@@ -74,4 +74,4 @@ jobs:
             --cov=api \
             --cov-report=term-missing \
             --cov-report=xml \
-            --cov-fail-under=85
+            --cov-fail-under=90

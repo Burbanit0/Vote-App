@@ -8,7 +8,8 @@
   "coverageAnalysis": "perTest",
   "reporters": ["html", "clear-text", "progress"],
   "htmlReporter": { "fileName": "reports/mutation/index.html" },
-  "thresholds": { "high": 80, "low": 60, "break": null },
+  "_thresholds_comment": "break is set just UNDER the measured score, to lock in what exists rather than to aspire. Measured 2026-08-24: 80.82% total (1092 killed, 113 timeout, 277 survived, 9 uncovered) over a 38-minute run. The 4-point gap absorbs timeout variance, which is the only non-deterministic part of a Stryker pass. Target 85 once the spatial-helper and tie-break chantiers land.",
+  "thresholds": { "high": 85, "low": 70, "break": 76 },
   "timeoutMS": 60000,
   "tempDirName": ".stryker-tmp"
 }
