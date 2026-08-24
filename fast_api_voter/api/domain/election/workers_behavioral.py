@@ -603,106 +603,108 @@ def _liquid_democracy_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
 _CV_LOCK_OPTIONS: list[int]    = [0, 7, 14, 28, 56, 112, 224]
 _CV_MULTIPLIERS:  Dict[int, float] = {0: 0.1, 7: 1.0, 14: 2.0, 28: 3.0,
                                        56: 4.0, 112: 5.0, 224: 6.0}
+_CV_DEFAULT_PROPOSALS = [
+    {"name": "Proposition A", "x": -0.5},
+    {"name": "Proposition B", "x":  0.5},
+    {"name": "Proposition C", "x":  0.0},
+]
 
 
-def _conviction_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /conviction-voting — extracted for FastAPI v2."""
-    num_voters     = max(20, min(500, int(data.get("num_voters",   200))))
-    ideology       = str(data.get("ideology",       "random"))
-    seed           = int(data.get("seed",            42))
-    cv_dist        = str(data.get("conviction_distribution", "uniform"))
-    whale_pct      = max(0.05, min(0.5, float(data.get("whale_pct",       0.10))))
-    small_lock_d   = int(data.get("small_lock_days", 224))
-    small_lock_d   = small_lock_d if small_lock_d in _CV_LOCK_OPTIONS else 224
-    proposals_in   = data.get("proposals", [
-        {"name": "Proposition A", "x": -0.5},
-        {"name": "Proposition B", "x":  0.5},
-        {"name": "Proposition C", "x":  0.0},
-    ])[:8]
-
-    if len(proposals_in) < 2:
-        return {"error": "At least 2 proposals required"}, 400
-
-    _random.seed(seed)
-    _np.random.seed(seed)
-    issues = DEFAULT_ISSUES
-
-    # ── Electorate ────────────────────────────────────────────────────────
-    voters = [
-        create_voter(issues, i, ideology_distribution=ideology)
-        for i in range(num_voters)
-    ]
-    all_ids: list[int] = [v["id"] for v in voters]
-
-    # ── Token distribution (Pareto a=1.16 — realistic crypto inequality) ──
-    raw_tokens = _np.random.pareto(1.16, num_voters) + 1.0
+def _cv_tokens_and_locks(
+    voters: List[Dict[str, Any]],
+    all_ids: List[int],
+    cv_dist: str,
+    whale_pct: float,
+    small_lock_d: int,
+    seed: int,
+) -> tuple[Dict[int, float], Dict[int, int], Dict[int, float], Dict[int, float]]:
+    """Token holdings (Pareto — realistic crypto inequality), each voter's lock
+    duration under the chosen distribution, the multiplier that duration buys,
+    and the resulting conviction weight (tokens × multiplier)."""
+    raw_tokens = _np.random.pareto(1.16, len(voters)) + 1.0
     tokens_arr = raw_tokens / raw_tokens.mean() * 1000.0          # mean ≈ 1000
     voter_tokens: Dict[int, float] = {
         v["id"]: float(tokens_arr[i]) for i, v in enumerate(voters)
     }
 
-    # ── Token rank (0 = smallest holder) ──────────────────────────────────
-    tok_vals     = _np.array([voter_tokens[vid] for vid in all_ids])
-    rank_arr     = _np.argsort(_np.argsort(tok_vals)) / max(1, len(all_ids) - 1)
-    token_ranks: Dict[int, float] = {all_ids[i]: float(rank_arr[i]) for i in range(len(all_ids))}
+    tok_vals = _np.array([voter_tokens[vid] for vid in all_ids])
+    rank_arr = _np.argsort(_np.argsort(tok_vals)) / max(1, len(all_ids) - 1)
+    token_ranks: Dict[int, float] = {
+        all_ids[i]: float(rank_arr[i]) for i in range(len(all_ids))
+    }
 
     rng = _random.Random(seed + 1)
 
-    # ── Assign conviction lock ────────────────────────────────────────────
-    def _assign_lock(voter_id: int) -> int:
+    def assign_lock(voter_id: int) -> int:
         rank = token_ranks[voter_id]
-        if cv_dist == "uniform":
-            return rng.choice(_CV_LOCK_OPTIONS)
         if cv_dist == "skewed":
-            # Smaller holders lock longer (inverse relationship with token rank)
-            lock_idx = min(6, round((1.0 - rank) * 6.0))
-            return _CV_LOCK_OPTIONS[lock_idx]
+            # Smaller holders lock longer (inverse relationship with token rank).
+            return _CV_LOCK_OPTIONS[min(6, round((1.0 - rank) * 6.0))]
         if cv_dist == "whale":
-            # Top whale_pct% by tokens → no lock; rest → small_lock_d
+            # Top whale_pct% by tokens -> no lock; rest -> small_lock_d.
             return 0 if rank >= (1.0 - whale_pct) else small_lock_d
         if cv_dist == "zero_lock":
             return 0
-        return rng.choice(_CV_LOCK_OPTIONS)
+        return rng.choice(_CV_LOCK_OPTIONS)  # "uniform" and any unknown value
 
-    voter_lock:    Dict[int, int]   = {vid: _assign_lock(vid) for vid in all_ids}
-    voter_mult:    Dict[int, float] = {vid: _CV_MULTIPLIERS[voter_lock[vid]] for vid in all_ids}
-    voter_cv_w:    Dict[int, float] = {vid: voter_tokens[vid] * voter_mult[vid] for vid in all_ids}
+    voter_lock = {vid: assign_lock(vid) for vid in all_ids}
+    voter_mult = {vid: _CV_MULTIPLIERS[voter_lock[vid]] for vid in all_ids}
+    voter_cv_w = {vid: voter_tokens[vid] * voter_mult[vid] for vid in all_ids}
+    return voter_tokens, voter_lock, voter_mult, voter_cv_w
 
-    # ── Voter ideology → proposal choice ─────────────────────────────────
-    prop_names: list[str]   = [p["name"] for p in proposals_in]
-    prop_x:     Dict[str, float] = {p["name"]: float(p.get("x", 0.0)) for p in proposals_in}
 
-    voter_ide: Dict[int, float] = {
+def _cv_voter_choice(
+    voters: List[Dict[str, Any]],
+    all_ids: List[int],
+    proposals_in: List[Dict[str, Any]],
+) -> Dict[int, str]:
+    """Which proposal each voter is nearest to on the economy axis."""
+    prop_x = {p["name"]: float(p.get("x", 0.0)) for p in proposals_in}
+    prop_names = list(prop_x.keys())
+    voter_ide = {
         v["id"]: 2.0 * v["issue_positions"].get("economy", 0.5) - 1.0
         for v in voters
     }
-    voter_choice: Dict[int, str] = {
+    return {
         vid: min(prop_names, key=lambda pn: abs(voter_ide[vid] - prop_x[pn]))
         for vid in all_ids
     }
 
-    # ── Tally ─────────────────────────────────────────────────────────────
-    cv_tally:  Dict[str, float] = {p: 0.0 for p in prop_names}
-    tok_tally: Dict[str, float] = {p: 0.0 for p in prop_names}
 
+def _cv_tally(
+    all_ids: List[int],
+    prop_names: List[str],
+    voter_choice: Dict[int, str],
+    voter_cv_w: Dict[int, float],
+    voter_tokens: Dict[int, float],
+) -> tuple[Dict[str, float], Dict[str, float]]:
+    """Each proposal's total conviction weight and its total raw tokens."""
+    cv_tally: Dict[str, float] = {p: 0.0 for p in prop_names}
+    tok_tally: Dict[str, float] = {p: 0.0 for p in prop_names}
     for vid in all_ids:
         ch = voter_choice[vid]
-        cv_tally[ch]  += voter_cv_w[vid]
+        cv_tally[ch] += voter_cv_w[vid]
         tok_tally[ch] += voter_tokens[vid]
+    return cv_tally, tok_tally
 
-    conviction_winner: str = max(cv_tally,  key=cv_tally.__getitem__)
-    token_winner:      str = max(tok_tally, key=tok_tally.__getitem__)
-    winner_changed         = conviction_winner != token_winner
 
-    # ── Per-proposal stats ────────────────────────────────────────────────
-    proposal_stats: list[Dict[str, Any]] = []
+def _cv_proposal_stats(
+    proposals_in: List[Dict[str, Any]],
+    all_ids: List[int],
+    voter_choice: Dict[int, str],
+    cv_tally: Dict[str, float],
+    tok_tally: Dict[str, float],
+    voter_mult: Dict[int, float],
+    voter_tokens: Dict[int, float],
+) -> List[Dict[str, Any]]:
+    stats = []
     for p in proposals_in:
-        pn   = p["name"]
+        pn = p["name"]
         supp = [vid for vid in all_ids if voter_choice[vid] == pn]
-        proposal_stats.append({
-            "name":                        pn,
-            "conviction_score":            round(cv_tally[pn],  2),
-            "token_score":                 round(tok_tally[pn], 2),
+        stats.append({
+            "name":             pn,
+            "conviction_score": round(cv_tally[pn], 2),
+            "token_score":      round(tok_tally[pn], 2),
             "avg_conviction_of_supporters": round(
                 sum(voter_mult[vid] for vid in supp) / len(supp), 3
             ) if supp else 0.0,
@@ -710,50 +712,39 @@ def _conviction_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
                 sum(voter_tokens[vid] for vid in supp) / len(supp), 2
             ) if supp else 0.0,
         })
+    return stats
 
-    # ── Gini + whale stats ────────────────────────────────────────────────
-    def _gini(vals: List[Any]) -> float:
-        n = len(vals)
-        if n == 0:
-            return 0.0
-        s     = sorted(float(v) for v in vals)
-        total = sum(s)
-        if total == 0.0:
-            return 0.0
-        cumsum = sum((i + 1) * v for i, v in enumerate(s))
-        return round(abs(2.0 * cumsum / (n * total) - (n + 1) / n), 4)
 
+def _cv_voter_stats(
+    all_ids: List[int],
+    voter_tokens: Dict[int, float],
+    voter_cv_w: Dict[int, float],
+    whale_pct: float,
+    num_voters: int,
+) -> Dict[str, float]:
+    """Inequality of raw tokens vs. conviction-weighted power, and how much of
+    each the top whale_pct share of voters commands."""
     all_tok = [voter_tokens[vid] for vid in all_ids]
-    all_cvw = [voter_cv_w[vid]   for vid in all_ids]
-
-    top_n          = max(1, round(whale_pct * num_voters))
-    top_tok        = sorted(all_tok, reverse=True)[:top_n]
-    top_cvw        = sorted(all_cvw, reverse=True)[:top_n]
-    sum_tok        = sum(all_tok) or 1.0
-    sum_cvw        = sum(all_cvw) or 1.0
-
-    voter_stats: Dict[str, float] = {
-        "gini_tokens":          _gini(all_tok),
-        "gini_conviction":      _gini(all_cvw),
-        "whale_pct_tokens":     round(sum(top_tok) / sum_tok, 4),
-        "whale_pct_conviction": round(sum(top_cvw) / sum_cvw, 4),
+    all_cvw = [voter_cv_w[vid] for vid in all_ids]
+    top_n = max(1, round(whale_pct * num_voters))
+    sum_tok = sum(all_tok) or 1.0
+    sum_cvw = sum(all_cvw) or 1.0
+    return {
+        "gini_tokens":          _ld_gini(all_tok),
+        "gini_conviction":      _ld_gini(all_cvw),
+        "whale_pct_tokens":     round(sum(sorted(all_tok, reverse=True)[:top_n]) / sum_tok, 4),
+        "whale_pct_conviction": round(sum(sorted(all_cvw, reverse=True)[:top_n]) / sum_cvw, 4),
     }
 
-    # ── Voter scatter sample (max 300) ────────────────────────────────────
-    voter_scatter: list[Dict[str, Any]] = [
-        {
-            "id":               vid,
-            "tokens":           round(voter_tokens[vid], 1),
-            "lock_days":        voter_lock[vid],
-            "conviction_mult":  voter_mult[vid],
-            "conviction_weight": round(voter_cv_w[vid], 1),
-            "choice":           voter_choice[vid],
-        }
-        for vid in all_ids[:300]
-    ]
 
-    # ── Pedagogical note ──────────────────────────────────────────────────
-    max_cv_vid  = max(all_ids, key=lambda v: voter_cv_w[v])
+def _cv_note(
+    all_ids: List[int],
+    voter_tokens: Dict[int, float],
+    voter_lock: Dict[int, int],
+    voter_cv_w: Dict[int, float],
+    voter_stats: Dict[str, float],
+) -> str:
+    max_cv_vid = max(all_ids, key=lambda v: voter_cv_w[v])
     max_tok_vid = max(all_ids, key=lambda v: voter_tokens[v])
     note = (
         f"Un votant avec {round(voter_tokens[max_cv_vid])} tokens "
@@ -764,28 +755,79 @@ def _conviction_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
         f"{round(voter_cv_w[max_tok_vid])} points. "
     )
     if voter_stats["gini_conviction"] < voter_stats["gini_tokens"]:
-        note += (
+        return note + (
             f"La conviction réduit l'inégalité effective "
             f"(Gini tokens={voter_stats['gini_tokens']} → "
             f"conviction={voter_stats['gini_conviction']})."
         )
-    else:
-        note += (
-            f"Dans ce scénario, la conviction n'atténue pas l'inégalité "
-            f"(Gini tokens={voter_stats['gini_tokens']}, "
-            f"conviction={voter_stats['gini_conviction']})."
-        )
+    return note + (
+        f"Dans ce scénario, la conviction n'atténue pas l'inégalité "
+        f"(Gini tokens={voter_stats['gini_tokens']}, "
+        f"conviction={voter_stats['gini_conviction']})."
+    )
+
+
+def _conviction_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /conviction-voting — extracted for FastAPI v2."""
+    num_voters   = max(20, min(500, int(data.get("num_voters", 200))))
+    ideology     = str(data.get("ideology", "random"))
+    seed         = int(data.get("seed", 42))
+    cv_dist      = str(data.get("conviction_distribution", "uniform"))
+    whale_pct    = max(0.05, min(0.5, float(data.get("whale_pct", 0.10))))
+    small_lock_d = int(data.get("small_lock_days", 224))
+    small_lock_d = small_lock_d if small_lock_d in _CV_LOCK_OPTIONS else 224
+    proposals_in = data.get("proposals", _CV_DEFAULT_PROPOSALS)[:8]
+
+    if len(proposals_in) < 2:
+        return {"error": "At least 2 proposals required"}, 400
+
+    _random.seed(seed)
+    _np.random.seed(seed)
+    issues = DEFAULT_ISSUES
+
+    voters = [
+        create_voter(issues, i, ideology_distribution=ideology)
+        for i in range(num_voters)
+    ]
+    all_ids: list[int] = [v["id"] for v in voters]
+
+    voter_tokens, voter_lock, voter_mult, voter_cv_w = _cv_tokens_and_locks(
+        voters, all_ids, cv_dist, whale_pct, small_lock_d, seed,
+    )
+    voter_choice = _cv_voter_choice(voters, all_ids, proposals_in)
+    prop_names = [p["name"] for p in proposals_in]
+    cv_tally, tok_tally = _cv_tally(
+        all_ids, prop_names, voter_choice, voter_cv_w, voter_tokens,
+    )
+
+    conviction_winner: str = max(cv_tally, key=cv_tally.__getitem__)
+    token_winner: str = max(tok_tally, key=tok_tally.__getitem__)
+
+    voter_stats = _cv_voter_stats(all_ids, voter_tokens, voter_cv_w, whale_pct, num_voters)
 
     return {
         "conviction_winner": conviction_winner,
         "token_winner":      token_winner,
-        "winner_changed":    winner_changed,
-        "proposals":         proposal_stats,
-        "voter_scatter":     voter_scatter,
-        "voter_stats":       voter_stats,
-        "pedagogical_note":  note,
-        "lock_options":      _CV_LOCK_OPTIONS,
-        "multipliers":       {str(k): v for k, v in _CV_MULTIPLIERS.items()},
+        "winner_changed":    conviction_winner != token_winner,
+        "proposals": _cv_proposal_stats(
+            proposals_in, all_ids, voter_choice, cv_tally, tok_tally,
+            voter_mult, voter_tokens,
+        ),
+        "voter_scatter": [
+            {
+                "id":                vid,
+                "tokens":            round(voter_tokens[vid], 1),
+                "lock_days":         voter_lock[vid],
+                "conviction_mult":   voter_mult[vid],
+                "conviction_weight": round(voter_cv_w[vid], 1),
+                "choice":            voter_choice[vid],
+            }
+            for vid in all_ids[:300]
+        ],
+        "voter_stats":      voter_stats,
+        "pedagogical_note": _cv_note(all_ids, voter_tokens, voter_lock, voter_cv_w, voter_stats),
+        "lock_options":     _CV_LOCK_OPTIONS,
+        "multipliers":      {str(k): v for k, v in _CV_MULTIPLIERS.items()},
     }, 200
 
 
