@@ -16,4 +16,3 @@ export { default as PluralityVisualization } from './PluralityVisualization';
 export { default as BordaVisualization } from './BordaVisualization';
 export { default as IRVVisualization } from './IRVVisualization';
 export type { VotingMethodVisualizationProps } from './types';
-export { VIZ_COLORS } from './types';

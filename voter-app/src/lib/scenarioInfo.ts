@@ -18,7 +18,7 @@ export interface ScenarioEntry {
   en: ScenarioCopy;
 }
 
-export const SCENARIO_INFO: Record<string, ScenarioEntry> = {
+const SCENARIO_INFO: Record<string, ScenarioEntry> = {
   two_party: {
     fr: {
       name: 'Bipartisme',
@@ -124,7 +124,7 @@ export const SCENARIO_INFO: Record<string, ScenarioEntry> = {
 // Electorate-mixture presets (the "Modèles" in the Electorate Composer). Keyed
 // by ELECTORATE_PRESETS id — a separate map because the ids overlap with the
 // field presets above (e.g. `fragmented` means a different thing here).
-export const ELECTORATE_INFO: Record<string, ScenarioEntry> = {
+const ELECTORATE_INFO: Record<string, ScenarioEntry> = {
   two_blocs: {
     fr: {
       name: 'Bipolaire',

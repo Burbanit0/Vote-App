@@ -76,7 +76,7 @@ export interface AssemblyResult {
 }
 
 /** Build the `extra="forbid"` request body from shared electorate + assembly knobs. */
-export function toAssemblyPayload(config: ElectionConfig, pg: PlaygroundState) {
+function toAssemblyPayload(config: ElectionConfig, pg: PlaygroundState) {
   return {
     parties: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
     num_voters: config.num_voters,
@@ -114,7 +114,7 @@ export interface AssemblyScorecardResult {
 }
 
 /** All three structures are scored at once, so `structure` is not sent. */
-export function toScorecardPayload(config: ElectionConfig, pg: PlaygroundState) {
+function toScorecardPayload(config: ElectionConfig, pg: PlaygroundState) {
   return {
     parties: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
     num_voters: config.num_voters,

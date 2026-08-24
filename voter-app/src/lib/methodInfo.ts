@@ -38,7 +38,7 @@ export interface MethodEntry {
 }
 
 // Result-table / backend ids → canonical registry key.
-export const METHOD_ALIASES: Record<string, string> = {
+const METHOD_ALIASES: Record<string, string> = {
   copeland: 'condorcet',
   star_voting: 'star',
   simple_score: 'score',

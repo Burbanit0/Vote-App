@@ -11,16 +11,16 @@ import { useTranslation } from 'react-i18next';
 
 // ── Mirror of IdeologyMapChart SVG constants (shared coordinate system) ───────
 
-export const SVG_W = 480;
-export const SVG_H = 480;
-export const MARGIN = 40;
+const SVG_W = 480;
+const SVG_H = 480;
+const MARGIN = 40;
 const PLOT_W = SVG_W - 2 * MARGIN;
 const PLOT_H = SVG_H - 2 * MARGIN;
 
-export function domainToSvgX(v: number): number {
+function domainToSvgX(v: number): number {
   return MARGIN + ((v + 1) / 2) * PLOT_W;
 }
-export function domainToSvgY(v: number): number {
+function domainToSvgY(v: number): number {
   return MARGIN + ((1 - v) / 2) * PLOT_H;
 }
 

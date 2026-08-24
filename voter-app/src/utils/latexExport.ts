@@ -380,15 +380,3 @@ export function generateFullBibtex(methodKeys: string[], params: SimulationExpor
 
   return [header, ...usedRefs.map(toBibtex), simEntry].join('\n\n');
 }
-
-// ── Download helper ───────────────────────────────────────────────────────────
-
-export function downloadText(content: string, filename: string, mimeType = 'text/plain'): void {
-  const blob = new Blob([content], { type: `${mimeType};charset=utf-8` });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
