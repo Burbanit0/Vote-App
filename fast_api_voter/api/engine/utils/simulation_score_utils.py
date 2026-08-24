@@ -294,11 +294,19 @@ def get_score_distribution_analysis(all_scores: Any) -> Dict[str, Any]:
         lambda: [0] * (len(bins) - 1)
     )
 
+    last = len(bins) - 2  # index of the final bin, 4.5 → 5.0
     for vote in all_scores:
         for candidate, score in vote.items():
-            # Find the appropriate bin
+            # Find the appropriate bin. The final bin is closed on the right:
+            # every other bin is [lo, hi), so a score of exactly 5.0 — the top of
+            # the scale, and a perfectly ordinary ballot — matched no bin at all
+            # and was silently dropped from the distribution it is supposed to
+            # describe. Half-open everywhere except the last edge.
             for i in range(len(bins) - 1):
-                if bins[i] <= score < bins[i + 1]:
+                hit = bins[i] <= score < bins[i + 1] or (
+                    i == last and score == bins[i + 1]
+                )
+                if hit:
                     candidate_distributions[candidate][i] += 1
                     break
 
