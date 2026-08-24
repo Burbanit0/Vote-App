@@ -232,13 +232,24 @@ en est un — est un faux positif knip : il s'ajoute à `ignore`.
 
 La couverture mesure les lignes *exécutées*, pas les lignes *assertées* — un
 test sans `expect` la fait monter autant qu'un vrai. Le workflow
-`mutation-testing.yml` (hebdomadaire + `workflow_dispatch`, jamais bloquant)
-mesure la différence sur les deux moitiés du moteur de vote :
+`mutation-testing.yml` (jamais bloquant) mesure la différence sur les deux
+moitiés du moteur de vote :
 
 ```bash
 cd fast_api_voter && python -m mutmut run   # backend  (Linux/WSL uniquement)
 cd voter-app && npm run test:mutation       # frontend (Stryker)
 ```
+
+Il se déclenche sur **push vers `develop` touchant un fichier moteur** — un score
+de mutation ne peut bouger que si le code muté bouge.
+
+> **Piège GitHub Actions à connaître.** `schedule` et `workflow_dispatch` sont
+> résolus contre la **branche par défaut**, pas contre celle où vit le fichier.
+> Ce workflow n'existait que sur `develop` : son cron « hebdomadaire » n'a donc
+> **jamais tourné une seule fois**, et `gh workflow run` répondait 404. `push` et
+> `pull_request`, eux, utilisent le fichier de la branche poussée. Un nouveau
+> workflow qui ne serait déclenché que par `schedule`/`workflow_dispatch` sera
+> inerte tant que `main` n'aura pas rattrapé `develop`.
 
 **Règles de processus pour limiter la dérive à l'usage d'un LLM :**
 
