@@ -18,8 +18,10 @@ import numpy as _np
 from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.simulation_voting_utils import calculate_utility, create_voter
 from api.engine.utils.simulation_ranked_utils import (
-    get_plurality_winner, get_condorcet_winner,
+    get_borda_winner, get_condorcet_winner, get_irv_winner, get_plurality_winner,
+    get_schulze_winner,
 )
+from api.engine.utils.simulation_score_utils import get_majority_judgment_winner
 from ._electorate import _build_base_electorate
 from ._helpers import build_candidate_from_xy as _build_candidate_from_xy
 
@@ -1460,38 +1462,304 @@ def _electoral_fatigue_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
 
 # ── Choice Overload ───────────────────────────────────────────────────────────
 
+_CO_DEFAULT_METHODS = ["plurality", "approval", "borda", "majority_judgment"]
+_CO_DEFAULT_COUNTS  = [2, 3, 5, 7, 10]
+_CO_RANKED_RULES = {
+    "borda":   get_borda_winner,
+    "irv":     get_irv_winner,
+    "schulze": get_schulze_winner,
+}
+
+
+def _co_approval_tally(
+    v_list: List[Dict[str, Any]],
+    utils: Dict[Any, Dict[str, float]],
+    voted: Dict[int, str],
+    is_h: Dict[int, bool],
+) -> Counter[Any]:
+    """Approval ballots. A voter running on a heuristic approves only the one
+    candidate the heuristic picked; a sincere voter approves everyone above
+    their own mean utility."""
+    tally: Counter[Any] = Counter()
+    for v in v_list:
+        vid = v["id"]
+        if is_h[vid]:
+            tally[voted[vid]] += 1
+            continue
+        u = utils[vid]
+        threshold = sum(u.values()) / len(u) if u else 0.5
+        for cn, val in u.items():
+            if val > threshold:
+                tally[cn] += 1
+    return tally
+
+
+def _co_majority_judgment(
+    v_list: List[Dict[str, Any]],
+    utils: Dict[Any, Dict[str, float]],
+    rnk: List[List[str]],
+    cnames: List[str],
+) -> Optional[str]:
+    """Majority judgment over the utility grades, falling back to plurality when
+    the grade profile is one the MJ implementation cannot resolve."""
+    try:
+        r = get_majority_judgment_winner([dict(utils[v["id"]]) for v in v_list])
+    except Exception:  # pylint: disable=broad-except
+        return get_plurality_winner(rnk)
+    return str(r["winner"]) if r.get("winner") else cnames[0]
+
+
+def _co_winner(
+    method: str,
+    v_list: List[Dict[str, Any]],
+    rnk: List[List[str]],
+    utils: Dict[Any, Dict[str, float]],
+    voted: Dict[int, str],
+    is_h: Dict[int, bool],
+    cnames: List[str],
+) -> Optional[str]:
+    """Winner under one method, for one candidate count."""
+    if not v_list:
+        return cnames[0] if cnames else None
+    if method == "plurality":
+        t: Counter[Any] = Counter(voted[v["id"]] for v in v_list)
+        return max(t, key=t.__getitem__) if t else cnames[0]
+    if method == "approval":
+        t2 = _co_approval_tally(v_list, utils, voted, is_h)
+        return max(t2, key=t2.__getitem__) if t2 else cnames[0]
+    if method == "majority_judgment":
+        return _co_majority_judgment(v_list, utils, rnk, cnames)
+    return _CO_RANKED_RULES.get(method, get_plurality_winner)(rnk)
+
+
+def _co_candidates(
+    n: int, seed: int, issues: Any,
+) -> tuple[List[Dict[str, Any]], List[str], Dict[str, float]]:
+    """n candidates placed deterministically for this candidate count, with
+    their names and their positions on the [-1, 1] ideology axis."""
+    c_rng = _random.Random(seed + n * 1000)
+    specs = [
+        {
+            "name": chr(65 + i) if i < 26 else f"C{i}",
+            "x":    c_rng.uniform(-1, 1),
+            "y":    c_rng.uniform(-1, 1),
+        }
+        for i in range(n)
+    ]
+    cands = [
+        _build_candidate_from_xy(
+            i, str(specs[i]["name"]),
+            max(-1.0, min(1.0, float(str(specs[i]["x"])))),
+            max(-1.0, min(1.0, float(str(specs[i]["y"])))),
+            issues,
+        )
+        for i in range(n)
+    ]
+    cnames = [c["name"] for c in cands]
+    cideo = {
+        c["name"]: round(2.0 * float(c["ideology_position"]) - 1.0, 3) for c in cands
+    }
+    return cands, cnames, cideo
+
+
+def _co_heuristic_votes(
+    voters: List[Dict[str, Any]],
+    voter_ideo: Dict[int, float],
+    cnames_n: List[str],
+    cideo_n: Dict[str, float],
+    sinc_vote: Dict[int, str],
+    overloaded: bool,
+    weights: Dict[str, float],
+    seed: int,
+    n: int,
+) -> tuple[Dict[int, str], Dict[int, bool]]:
+    """Who each voter actually votes for, and whether a shortcut decided it.
+    Below the overload threshold everyone votes sincerely; above it, a share of
+    voters falls back to notoriety, ballot position, or nearest-party.
+
+    Notoriety and primacy both land on the first candidate here — this electorate
+    has no notoriety attribute, so being first on the ballot is the only proxy
+    available. They are kept as separate draws because the response reports their
+    weights separately.
+    """
+    h_rng = _random.Random(seed + n * 5000 + 777)
+    voted: Dict[int, str] = {}
+    is_h: Dict[int, bool] = {}
+
+    for v in voters:
+        vid = v["id"]
+        if not overloaded:
+            voted[vid], is_h[vid] = sinc_vote[vid], False
+            continue
+        r = h_rng.random()
+        if r < weights["notoriety"] + weights["primacy"]:
+            voted[vid], is_h[vid] = cnames_n[0], True
+        elif r < weights["total"]:
+            voted[vid], is_h[vid] = min(
+                cnames_n, key=lambda c: abs(voter_ideo[vid] - cideo_n[c]),
+            ), True
+        else:
+            voted[vid], is_h[vid] = sinc_vote[vid], False
+    return voted, is_h
+
+
+def _co_rankings(
+    voters: List[Dict[str, Any]],
+    utils_n: Dict[Any, Dict[str, float]],
+    voted: Dict[int, str],
+) -> tuple[List[List[str]], List[List[str]]]:
+    """Two ballot sets over the same utilities: the heuristic one, where the
+    shortcut's pick is promoted to the top, and the sincere baseline."""
+    h_rnk: List[List[str]] = []
+    s_rnk: List[List[str]] = []
+    for v in voters:
+        vid = v["id"]
+        sorder = sorted(utils_n[vid].keys(), key=lambda k: -utils_n[vid][k])
+        s_rnk.append(sorder)
+        choice = voted[vid]
+        if choice != sorder[0]:
+            h_rnk.append([choice] + [c for c in sorder if c != choice])
+        else:
+            h_rnk.append(sorder)
+    return h_rnk, s_rnk
+
+
+def _co_method_comparison(
+    methods_req: List[str],
+    voters: List[Dict[str, Any]],
+    utils_n: Dict[Any, Dict[str, float]],
+    cnames_n: List[str],
+    voted: Dict[int, str],
+    is_h: Dict[int, bool],
+    h_rnk: List[List[str]],
+    sinc_vote: Dict[int, str],
+    s_rnk: List[List[str]],
+    overloaded: bool,
+) -> tuple[Dict[str, Optional[str]], Dict[str, int]]:
+    """Each method's winner on the heuristic ballots, plus whether that matches
+    what the same method would have elected had every voter gone sincere."""
+    s_voted = {v["id"]: sinc_vote[v["id"]] for v in voters}
+    s_is_h = {v["id"]: False for v in voters}
+    winner_by_method: Dict[str, Optional[str]] = {}
+    matches: Dict[str, int] = {}
+    for meth in methods_req:
+        winner_by_method[meth] = _co_winner(
+            meth, voters, h_rnk, utils_n, voted, is_h, cnames_n,
+        )
+        sincere_winner = _co_winner(
+            meth, voters, s_rnk, utils_n, s_voted, s_is_h, cnames_n,
+        )
+        matches[meth] = int(overloaded and winner_by_method[meth] == sincere_winner)
+    return winner_by_method, matches
+
+
+def _co_round(
+    n: int,
+    voters: List[Dict[str, Any]],
+    voter_ideo: Dict[int, float],
+    issues: Any,
+    seed: int,
+    overloaded: bool,
+    weights: Dict[str, float],
+    methods_req: List[str],
+) -> tuple[Dict[str, Any], Dict[str, int]]:
+    """One point on the curve: run every method at this candidate count, both on
+    heuristic ballots and on sincere ones. Returns the row and, per method,
+    whether the two agreed."""
+    cands_n, cnames_n, cideo_n = _co_candidates(n, seed, issues)
+
+    utils_n: Dict[Any, Dict[str, float]] = {
+        v["id"]: {c["name"]: calculate_utility(v, c, issues)["utility"] for c in cands_n}
+        for v in voters
+    }
+    sinc_vote: Dict[int, str] = {
+        v["id"]: max(utils_n[v["id"]], key=lambda k: utils_n[v["id"]][k])
+        for v in voters
+    }
+    voted, is_h = _co_heuristic_votes(
+        voters, voter_ideo, cnames_n, cideo_n, sinc_vote, overloaded, weights, seed, n,
+    )
+    h_rnk, s_rnk = _co_rankings(voters, utils_n, voted)
+
+    regrets_n = [
+        max(utils_n[v["id"]].values()) - utils_n[v["id"]].get(voted[v["id"]], 0)
+        for v in voters
+    ]
+    mean_regret = round(sum(regrets_n) / len(regrets_n), 6) if regrets_n else 0.0
+
+    winner_by_method, matches = _co_method_comparison(
+        methods_req, voters, utils_n, cnames_n, voted, is_h, h_rnk,
+        sinc_vote, s_rnk, overloaded,
+    )
+    condorcet_w = get_condorcet_winner(s_rnk)
+    return {
+        "num_candidates":      n,
+        "mean_voter_regret":   mean_regret,
+        "heuristic_voters":    round(sum(is_h.values()) / len(voters), 4),
+        "winner_by_method":    winner_by_method,
+        "condorcet_winner":    condorcet_w,
+        "methods_elect_condorcet": {
+            m: winner_by_method[m] == condorcet_w for m in methods_req
+        },
+    }, matches
+
+
+def _co_note(
+    overload_threshold: int,
+    total_h: float,
+    regret_curve: List[Dict[str, Any]],
+    most_robust: str,
+) -> str:
+    over_regrets = [
+        r["regret"] for r in regret_curve if r["n_candidates"] > overload_threshold
+    ]
+    avg = round(sum(over_regrets) / len(over_regrets), 4) if over_regrets else 0.0
+    return (
+        f"Au-delà de {overload_threshold} candidats, "
+        f"{round(total_h * 100)}% des électeurs utilisent une heuristique "
+        f"(notoriété, primauté ou partisane). "
+        f"Le regret moyen de vote est de {round(avg * 100, 1)} points d'utilité. "
+        f"'{most_robust}' est la méthode la plus robuste à la surcharge cognitive."
+    )
+
+
+def _co_parse(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Clamp and default every request field."""
+    hw = data.get("heuristic_weights", {})
+    h_not = max(0.0, min(1.0, float(hw.get("notoriety", 0.20))))
+    h_pri = max(0.0, min(1.0, float(hw.get("primacy", 0.10))))
+    h_par = max(0.0, min(1.0, float(hw.get("partisan", 0.20))))
+    return {
+        "num_voters":         max(50, min(300, int(data.get("num_voters", 150)))),
+        "ideology":           str(data.get("ideology", "random")),
+        "seed":               int(data.get("seed", 42)),
+        "cand_counts":        sorted({
+            max(2, min(15, n)) for n in data.get("candidate_counts", _CO_DEFAULT_COUNTS)
+        })[:8],
+        "overload_threshold": max(2, min(12, int(data.get("overload_threshold", 5)))),
+        "h_not": h_not, "h_pri": h_pri, "h_par": h_par,
+        "total_h": min(1.0, h_not + h_pri + h_par),
+        # Pydantic Optional[List[str]] may pass null — fall back to the default.
+        "methods_req": (data.get("methods") or _CO_DEFAULT_METHODS)[:5],
+    }
+
+
 def _choice_overload_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     """Pure worker for /choice-overload — extracted for FastAPI v2 reuse."""
-    num_voters         = max(50,  min(300, int(data.get("num_voters",         150))))
-    ideology           = str(data.get("ideology",         "random"))
-    seed               = int(data.get("seed",              42))
-    cand_counts        = sorted({max(2, min(15, n)) for n in
-                                 data.get("candidate_counts", [2, 3, 5, 7, 10])})[:8]
-    overload_threshold = max(2,   min(12, int(data.get("overload_threshold",    5))))
-    hw                 = data.get("heuristic_weights", {})
-    h_not              = max(0.0, min(1.0, float(hw.get("notoriety",  0.20))))
-    h_pri              = max(0.0, min(1.0, float(hw.get("primacy",    0.10))))
-    h_par              = max(0.0, min(1.0, float(hw.get("partisan",   0.20))))
-    total_h            = min(1.0, h_not + h_pri + h_par)
-    # Pydantic Optional[List[str]] may pass null — fall back to the default.
-    methods_req        = (data.get("methods") or ["plurality", "approval",
-                                                   "borda", "majority_judgment"])[:5]
+    p = _co_parse(data)
+    num_voters, ideology, seed = p["num_voters"], p["ideology"], p["seed"]
+    cand_counts, overload_threshold = p["cand_counts"], p["overload_threshold"]
+    h_not, h_pri, h_par, total_h = p["h_not"], p["h_pri"], p["h_par"], p["total_h"]
+    methods_req = p["methods_req"]
 
     if not cand_counts:
         return {"error": "candidate_counts must be non-empty"}, 400
-
-    from api.engine.utils.simulation_score_utils import get_majority_judgment_winner as _mj_co
-    from api.engine.utils.simulation_ranked_utils import (
-        get_borda_winner   as _bw_co,
-        get_irv_winner     as _iw_co,
-        get_schulze_winner as _sw_co,
-    )
 
     _random.seed(seed)
     _np.random.seed(seed)
     issues = DEFAULT_ISSUES
 
-    # ── Fixed electorate (voters same across all N) ───────────────────────
+    # Fixed electorate — the same voters are reused at every candidate count.
     voters = [
         create_voter(issues, i, ideology_distribution=ideology)
         for i in range(num_voters)
@@ -1500,186 +1768,32 @@ def _choice_overload_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         v["id"]: 2.0 * v["issue_positions"].get("economy", 0.5) - 1.0
         for v in voters
     }
+    weights = {"notoriety": h_not, "primacy": h_pri, "partisan": h_par, "total": total_h}
 
-    def _quick_winner_co(
-        method: str,
-        v_list: list[Dict[str, Any]],
-        rnk:    list[list[str]],
-        utils:  Dict[Any, Dict[str, float]],
-        voted:  Dict[int, str],
-        is_h:   Dict[int, bool],
-        cnames: list[str],
-    ) -> Optional[str]:
-        if not v_list:
-            return cnames[0] if cnames else None
-        if method == "plurality":
-            t: Counter[Any] = Counter(voted[v["id"]] for v in v_list)
-            return max(t, key=t.__getitem__) if t else cnames[0]
-        if method == "borda":
-            return _bw_co(rnk)
-        if method == "irv":
-            return _iw_co(rnk)
-        if method == "schulze":
-            return _sw_co(rnk)
-        if method == "approval":
-            t2: Counter[Any] = Counter()
-            for v in v_list:
-                vid = v["id"]
-                if is_h[vid]:
-                    t2[voted[vid]] += 1
-                else:
-                    u   = utils[vid]
-                    th2 = sum(u.values()) / len(u) if u else 0.5
-                    for cn, val in u.items():
-                        if val > th2:
-                            t2[cn] += 1
-            return max(t2, key=t2.__getitem__) if t2 else cnames[0]
-        if method == "majority_judgment":
-            mj_u = [dict(utils[v["id"]]) for v in v_list]
-            try:
-                r = _mj_co(mj_u)
-                return str(r["winner"]) if r.get("winner") else cnames[0]
-            except Exception:
-                return get_plurality_winner(rnk)
-        return get_plurality_winner(rnk)
-
-    # ── Main loop across N ────────────────────────────────────────────────
     results_by_n: list[Dict[str, Any]] = []
     regret_curve: list[Dict[str, Any]] = []
     sincere_match: Dict[str, int] = {m: 0 for m in methods_req}
     n_overload_cases = 0
 
     for n in cand_counts:
-        # Deterministic candidates for this n
-        c_rng   = _random.Random(seed + n * 1000)
-        c_specs = [
-            {
-                "name": chr(65 + i) if i < 26 else f"C{i}",
-                "x":    c_rng.uniform(-1, 1),
-                "y":    c_rng.uniform(-1, 1),
-            }
-            for i in range(n)
-        ]
-        cands_n  = [
-            _build_candidate_from_xy(
-                i, str(c_specs[i]["name"]),
-                max(-1.0, min(1.0, float(str(c_specs[i]["x"])))),
-                max(-1.0, min(1.0, float(str(c_specs[i]["y"])))),
-                issues,
-            )
-            for i in range(n)
-        ]
-        cnames_n = [c["name"] for c in cands_n]
-        cideo_n  = {c["name"]: round(2.0 * float(c["ideology_position"]) - 1.0, 3)
-                    for c in cands_n}
-
-        # Utilities (deterministic)
-        utils_n: Dict[Any, Dict[str, float]] = {
-            v["id"]: {c["name"]: calculate_utility(v, c, issues)["utility"]
-                      for c in cands_n}
-            for v in voters
-        }
-
-        # Sincere votes (argmax utility)
-        sinc_vote: Dict[int, str] = {
-            v["id"]: max(utils_n[v["id"]], key=lambda k: utils_n[v["id"]][k])
-            for v in voters
-        }
-
-        # Heuristic assignment
-        h_rng  = _random.Random(seed + n * 5000 + 777)
-        voted:  Dict[int, str]  = {}
-        is_h:   Dict[int, bool] = {}
-
-        for v in voters:
-            vid = v["id"]
-            if n > overload_threshold:
-                r = h_rng.random()
-                if r < h_not:
-                    voted[vid], is_h[vid] = cnames_n[0], True
-                elif r < h_not + h_pri:
-                    voted[vid], is_h[vid] = cnames_n[0], True
-                elif r < total_h:
-                    partisan_cand = min(cnames_n,
-                                       key=lambda c: abs(voter_ideo[vid] - cideo_n[c]))
-                    voted[vid], is_h[vid] = partisan_cand, True
-                else:
-                    voted[vid], is_h[vid] = sinc_vote[vid], False
-            else:
-                voted[vid], is_h[vid] = sinc_vote[vid], False
-
-        heuristic_pct = round(sum(is_h.values()) / num_voters, 4)
-
-        # Voter regret
-        regrets_n = [
-            max(utils_n[v["id"]].values()) - utils_n[v["id"]].get(voted[v["id"]], 0)
-            for v in voters
-        ]
-        mean_regret = round(sum(regrets_n) / len(regrets_n), 6) if regrets_n else 0.0
-
-        # Rankings (heuristic choice first, rest sincere)
-        h_rnk: list[list[str]] = []
-        s_rnk: list[list[str]] = []
-        for v in voters:
-            vid      = v["id"]
-            sorder   = sorted(utils_n[vid].keys(), key=lambda k: -utils_n[vid][k])
-            hchoice  = voted[vid]
-            s_rnk.append(sorder)
-            if hchoice != sorder[0]:
-                h_rnk.append([hchoice] + [c for c in sorder if c != hchoice])
-            else:
-                h_rnk.append(sorder)
-
-        # Run methods (heuristic vs. sincere)
-        winner_by_method:      Dict[str, Optional[str]] = {}
-        sinc_winner_by_method: Dict[str, Optional[str]] = {}
-        s_voted = {v["id"]: sinc_vote[v["id"]] for v in voters}
-        s_is_h  = {v["id"]: False for v in voters}
-
-        for meth in methods_req:
-            winner_by_method[meth]      = _quick_winner_co(meth, voters, h_rnk, utils_n, voted,   is_h,   cnames_n)
-            sinc_winner_by_method[meth] = _quick_winner_co(meth, voters, s_rnk, utils_n, s_voted, s_is_h, cnames_n)
-            if n > overload_threshold:
-                if winner_by_method[meth] == sinc_winner_by_method[meth]:
-                    sincere_match[meth] += 1
-
-        if n > overload_threshold:
+        overloaded = n > overload_threshold
+        row, matches = _co_round(
+            n, voters, voter_ideo, issues, seed, overloaded, weights, methods_req,
+        )
+        results_by_n.append(row)
+        regret_curve.append({"n_candidates": n, "regret": row["mean_voter_regret"]})
+        if overloaded:
             n_overload_cases += 1
+            for meth, hit in matches.items():
+                sincere_match[meth] += hit
 
-        condorcet_w = get_condorcet_winner(s_rnk)
-
-        results_by_n.append({
-            "num_candidates":        n,
-            "mean_voter_regret":     mean_regret,
-            "heuristic_voters":      heuristic_pct,
-            "winner_by_method":      winner_by_method,
-            "condorcet_winner":      condorcet_w,
-            "methods_elect_condorcet": {
-                m: winner_by_method[m] == condorcet_w for m in methods_req
-            },
-        })
-        regret_curve.append({"n_candidates": n, "regret": mean_regret})
-
-    # ── Robustness ranking ────────────────────────────────────────────────
-    if n_overload_cases > 0:
-        match_rates = {m: sincere_match[m] / n_overload_cases for m in methods_req}
-    else:
-        match_rates = {m: 1.0 for m in methods_req}
-
+    match_rates = (
+        {m: sincere_match[m] / n_overload_cases for m in methods_req}
+        if n_overload_cases > 0
+        else {m: 1.0 for m in methods_req}
+    )
     most_robust  = max(match_rates, key=match_rates.__getitem__)
     least_robust = min(match_rates, key=match_rates.__getitem__)
-
-    # ── Pedagogical note ──────────────────────────────────────────────────
-    over_regrets = [r["regret"] for r in regret_curve
-                    if r["n_candidates"] > overload_threshold]
-    avg_over_regret = round(sum(over_regrets) / len(over_regrets), 4) if over_regrets else 0.0
-    note = (
-        f"Au-delà de {overload_threshold} candidats, "
-        f"{round(total_h * 100)}% des électeurs utilisent une heuristique "
-        f"(notoriété, primauté ou partisane). "
-        f"Le regret moyen de vote est de {round(avg_over_regret * 100, 1)} points d'utilité. "
-        f"'{most_robust}' est la méthode la plus robuste à la surcharge cognitive."
-    )
 
     return {
         "results_by_n":         results_by_n,
@@ -1688,6 +1802,6 @@ def _choice_overload_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         "least_robust_method":  least_robust,
         "overload_threshold":   overload_threshold,
         "heuristic_weights":    {"notoriety": h_not, "primacy": h_pri, "partisan": h_par},
-        "pedagogical_note":     note,
+        "pedagogical_note":     _co_note(overload_threshold, total_h, regret_curve, most_robust),
     }, 200
 
