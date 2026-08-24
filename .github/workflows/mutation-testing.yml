@@ -10,9 +10,39 @@ name: Mutation Testing
 # the other free to accumulate tests that execute without asserting — the exact
 # blind spot line coverage already has.
 on:
+  # THIS WORKFLOW HAD NEVER RUN. Not once, since it was added.
+  #
+  # GitHub resolves `schedule` and `workflow_dispatch` against the DEFAULT branch
+  # only. This file lives on develop; the default branch is main, and main is 215
+  # commits behind — so the file does not exist where GitHub looks for it. The
+  # weekly cron never fired and `gh workflow run` answers 404. A workflow can be
+  # configured, plausible and completely inert, which is the same failure mode as
+  # the dead simulation worker: the config looked right, nothing ran.
+  #
+  # `push` and `pull_request`, unlike the two above, use the workflow file from the
+  # ref being pushed. So this trigger works today, without waiting for a release.
+  # Scoped by `paths` to the two engines: a mutation score can only move when the
+  # mutated code moves, so this runs exactly when it has something new to say —
+  # which is a better rule than "every Monday" anyway.
+  push:
+    branches: [develop]
+    paths:
+      - 'fast_api_voter/api/engine/utils/simulation_ranked_utils.py'
+      - 'fast_api_voter/api/engine/utils/simulation_score_utils.py'
+      - 'voter-app/src/lib/playgroundVoting.ts'
+      - 'fast_api_voter/pyproject.toml'        # [tool.mutmut] scope + test selection
+      - 'voter-app/stryker.config.json'
+      - 'voter-app/vitest.stryker.config.ts'
+      - '.github/workflows/mutation-testing.yml'
   workflow_dispatch: {}
   schedule:
     - cron: '17 4 * * 1'  # Monday 04:17 UTC — off-peak, arbitrary offset to avoid the shared :00 rush
+
+# A full pass is ~40 min per engine. Two engine merges in quick succession would
+# otherwise queue two runs whose only difference is the older one being obsolete.
+concurrency:
+  group: mutation-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   mutmut:
