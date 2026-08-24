@@ -697,6 +697,10 @@ describe('turnout and blank vote — exact thresholds', () => {
 
     expect(out.expressed).toBe(nearAndFar);
     expect(out.blankCount).toBe(0);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
 // The branches no test reached.
 //
 // Stryker reported nine mutants with NO covering test at all, in a file whose
