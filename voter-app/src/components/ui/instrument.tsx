@@ -101,5 +101,3 @@ export const Instrument = React.forwardRef<HTMLDivElement, InstrumentProps>(
   }
 );
 Instrument.displayName = 'Instrument';
-
-export default Instrument;

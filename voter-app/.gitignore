@@ -25,5 +25,10 @@ yarn-error.log*
 # PWA — generated at build time
 /public/manifest.webmanifest
 
-# Playwright test reports
+# Playwright test reports + per-failure artifacts (traces, screenshots)
 /playwright-report
+/test-results
+
+# Stryker mutation testing (working copy + HTML report)
+/.stryker-tmp
+/reports

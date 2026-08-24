@@ -5,7 +5,7 @@ import { SimulationCompareResult } from '../../types';
 export const CANDIDATE_PALETTE = ['#1a56cc', '#b35c00', '#b71c1c', '#006957', '#1b5e20', '#544200'];
 
 // Static keys — used as fallback IDs and in non-React contexts (report generation, CSV export)
-export const METHOD_KEYS = [
+const METHOD_KEYS = [
   'plurality',
   'two_round',
   'borda',
@@ -66,11 +66,6 @@ export const METHOD_LINE_COLORS: Record<string, string> = {
   variance_based: '#d37295',
   quadratic: '#7c3aed',
 };
-
-export const STRATEGIC_PERCENTAGES = [0, 10, 20, 30, 40, 50];
-
-// ── Translated method metadata hook ───────────────────────────────────────────
-// Use this inside React components instead of the static constants below.
 
 export function useMethodLabels(): Record<string, string> {
   const { t } = useTranslation();

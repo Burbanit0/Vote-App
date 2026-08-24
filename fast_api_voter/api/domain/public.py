@@ -12,8 +12,6 @@ All other endpoints are unlimited.
 """
 from __future__ import annotations
 
-import json
-import os
 from typing import Any
 
 
@@ -362,12 +360,3 @@ OPENAPI_SPEC: dict[str, Any] = {
         {"name": "Data",       "description": "Historical election data"},
     ],
 }
-
-
-
-
-def write_openapi_json(filepath: str) -> None:
-    """Write the OpenAPI spec to disk (called from create_app)."""
-    os.makedirs(os.path.dirname(filepath), exist_ok=True) if os.path.dirname(filepath) else None
-    with open(filepath, "w", encoding="utf-8") as f:
-        json.dump(OPENAPI_SPEC, f, ensure_ascii=False, indent=2)

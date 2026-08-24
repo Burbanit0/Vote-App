@@ -619,6 +619,8 @@ const fr = {
     realOfficialResult: '(résultat officiel)',
     realSimulation: '(simulation)',
     realLegend: '🔴 Fond rouge = Vote Blanc élu (crise) · 🟡 Fond jaune = vainqueur modifié',
+    realUnderSymbolicRule: 'Sous la loi actuelle (symbolique)',
+    realBlankInvalidatedLabel: 'Blanc invalidé',
     realNoWinner_alt: 'Aucun vainqueur',
     realSummaryDiff:
       '<strong>{{count}} méthode{{plural}} sur {{total}}</strong> auraient élu un vainqueur différent de la pluralité ({{pluralityWinner}}).',

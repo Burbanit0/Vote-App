@@ -68,7 +68,10 @@ export default defineConfig(({ mode }) => {
         // The backend is FastAPI-only (Flask retired in Phase 4.5.b). Everything
         // under /api/* (the /api/v1/* public API + /api/v2/* app surface) and the
         // Socket.IO stream is served by uvicorn on :4434.
-        '/api': {
+        // Anchored on the segment, not the prefix: a plain '/api' key also
+        // swallows sibling paths like the legacy '/api-docs' route, which must
+        // reach the SPA (nginx serves it from index.html in production).
+        '^/api/': {
           target: 'http://localhost:4434',
           changeOrigin: true,
         },

@@ -27,15 +27,12 @@ COPY fast_api_voter/ fast_api_voter/
 
 # Mirror the workflow steps in order (matches GitHub CI gating).
 # flake8 + bandit = GATING. pip-audit = informational (continue-on-error upstream).
-# JWT_SECRET_KEY here is a documented TEST DUMMY (matches the CI env), baked only
-# into this local-only test image; it grants no real access.
-#trivy:ignore:AVD-DS-0031
-ENV FLASK_ENV=testing JWT_SECRET_KEY=ci-test-secret
+ENV FLASK_ENV=testing
 CMD ["bash","-euo","pipefail","-c","\
 echo '=== Flake8 (gating) ===';         flake8 --config=fast_api_voter/.flake8 fast_api_voter; \
 echo '=== Bandit (gating) ===';         bandit -r fast_api_voter/api -ll --skip B104,B311; \
 echo '=== pip-audit (non-blocking) ==='; pip-audit --requirement fast_api_voter/requirements.txt || echo '(pip-audit failed — non-blocking)'; \
 cd fast_api_voter; \
 echo '=== Mypy (gating) ===';           python -m mypy api/ --config-file mypy.ini; \
-echo '=== Pytest + coverage (gating) ==='; python -m pytest api/tests -v --cov=api --cov-report=term-missing --cov-report=xml --cov-fail-under=30; \
+echo '=== Pytest + coverage (gating) ==='; python -m pytest api/tests -v --cov=api --cov-report=term-missing --cov-report=xml --cov-fail-under=85; \
 echo '=== Backend CI: PASS ==='"]

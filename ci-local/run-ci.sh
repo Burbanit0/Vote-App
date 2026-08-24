@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Portable runner for the local CI mirror (same Docker images as run-ci.ps1).
-# Usage: ci-local/run-ci.sh [frontend|backend|audit|code|all] [--no-cache]
-#   all   = frontend + backend + audit (run before each push)
-#   code  = frontend + backend (quick iteration, skips the security audit)
+# Usage: ci-local/run-ci.sh [frontend|backend|e2e|audit|code|all] [--no-cache]
+#   all   = frontend + backend + e2e + audit (run before each push)
+#   code  = frontend + backend (quick iteration, skips e2e and the audit)
+#   e2e   = Playwright suite, backend fixture included (~6 min, gating since PR #170)
 #   audit = security scanners only (Semgrep · Gitleaks · Trivy)
 set -uo pipefail
 
@@ -47,6 +48,7 @@ run_job() {
 
 [[ "$TARGET" == "frontend" || "$TARGET" == "all" || "$TARGET" == "code" ]] && run_job "Frontend CI" "ci-local/frontend.Dockerfile" "vote-ci-frontend"
 [[ "$TARGET" == "backend"  || "$TARGET" == "all" || "$TARGET" == "code" ]] && run_job "Backend CI"  "ci-local/backend.Dockerfile"  "vote-ci-backend"
+[[ "$TARGET" == "e2e"      || "$TARGET" == "all" ]] && run_job "Playwright E2E" "ci-local/e2e.Dockerfile" "vote-ci-e2e"
 [[ "$TARGET" == "audit"    || "$TARGET" == "all" ]] && run_job "Security Audit" "ci-local/audit.Dockerfile" "vote-ci-audit"
 
 echo -e "\n==================== SUMMARY ===================="

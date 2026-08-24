@@ -7,7 +7,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Table } from '@/components/ui/table';
 import { Trans, useTranslation } from 'react-i18next';
 import MethodTooltip from '../shared/MethodTooltip';
-import { RealElectionResult } from '../../types';
+import { MethodBlankRuleOutcome, RealElectionResult } from '../../types';
 
 interface Props {
   result: RealElectionResult;
@@ -21,8 +21,9 @@ interface Props {
 const BlankComparisonTable: React.FC<{
   methods: Record<string, string | null>;
   methodsWithBlank: Record<string, string | null>;
+  methodsWithBlankRule?: Record<string, MethodBlankRuleOutcome>;
   pluralityWinner: string;
-}> = ({ methods, methodsWithBlank, pluralityWinner }) => {
+}> = ({ methods, methodsWithBlank, methodsWithBlankRule, pluralityWinner }) => {
   const { t } = useTranslation();
   const methodNames = Object.keys(methods);
   const crisisCount = methodNames.filter((m) => methodsWithBlank[m] === 'Blank').length;
@@ -72,6 +73,11 @@ const BlankComparisonTable: React.FC<{
               <th className="text-center" style={{ minWidth: 100 }}>
                 {t('simulation.changed')}
               </th>
+              {methodsWithBlankRule && (
+                <th className="text-center" style={{ minWidth: 150 }}>
+                  {t('simulation.realUnderSymbolicRule')}
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -80,6 +86,7 @@ const BlankComparisonTable: React.FC<{
               const w2 = methodsWithBlank[method] ?? null;
               const changed = w1 !== w2;
               const isCrisis = w2 === 'Blank';
+              const ruleOutcome = methodsWithBlankRule?.[method];
               return (
                 <tr
                   key={method}
@@ -119,6 +126,17 @@ const BlankComparisonTable: React.FC<{
                       <span style={{ color: '#198754' }}>✓</span>
                     )}
                   </td>
+                  {methodsWithBlankRule && (
+                    <td className="text-center">
+                      {ruleOutcome?.winner ? (
+                        <Badge variant="secondary">{ruleOutcome.winner}</Badge>
+                      ) : ruleOutcome ? (
+                        <Badge variant="dark">{t('simulation.realBlankInvalidatedLabel')}</Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">—</span>
+                      )}
+                    </td>
+                  )}
                 </tr>
               );
             })}
@@ -375,6 +393,7 @@ const RealElectionAnalysis: React.FC<Props> = ({
             <BlankComparisonTable
               methods={result.methods}
               methodsWithBlank={result.methods_with_blank}
+              methodsWithBlankRule={result.methods_with_blank_rule}
               pluralityWinner={plurality_winner}
             />
           ) : blankLoading ? (

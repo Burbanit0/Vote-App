@@ -249,17 +249,3 @@ const regimes: BlankVoteRegime[] = [
 ];
 
 export default regimes;
-
-// ── Derived helpers ────────────────────────────────────────────────────────────
-
-export function sortByBlankRate(data: BlankVoteRegime[], ascending = false): BlankVoteRegime[] {
-  return [...data].sort((a, b) =>
-    ascending
-      ? a.blank_rate_typical - b.blank_rate_typical
-      : b.blank_rate_typical - a.blank_rate_typical
-  );
-}
-
-export function filterByImpact(data: BlankVoteRegime[]): BlankVoteRegime[] {
-  return data.filter((r) => r.impact_on_result);
-}

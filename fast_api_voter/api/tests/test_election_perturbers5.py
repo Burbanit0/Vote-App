@@ -82,6 +82,38 @@ class TestDistricts:
         assert client.post("/api/v2/election/districts",
                            json=bad).status_code == 422
 
+    def test_ideology_variance_is_wired_into_the_district_simulation(self):
+        """ideology_variance must actually perturb intra-district voter
+        positions, not just be silently dropped (regression for a dead
+        parameter found by the code audit)."""
+        from api.domain.election.workers import _run_district_fptp
+        from api.engine.constants import DEFAULT_ISSUES
+        from api.domain.election._helpers import build_candidate_from_xy
+
+        issues = DEFAULT_ISSUES
+        candidates = [
+            build_candidate_from_xy(0, "Alice", -0.5, -0.2, issues),
+            build_candidate_from_xy(1, "Bob",    0.5,  0.2, issues),
+        ]
+        args = (["Alice", "Bob"], candidates, 200, 0.1)
+
+        # variance=0 must reduce to the old deterministic (noise-free) shift,
+        # so repeating it with the same seed is exactly reproducible.
+        no_variance_a = _run_district_fptp(*args, 0.0, issues, seed=7)
+        no_variance_b = _run_district_fptp(*args, 0.0, issues, seed=7)
+        assert no_variance_a == no_variance_b
+
+        # A nonzero variance must, for at least some seeds, actually move the
+        # outcome relative to the noise-free run — otherwise the parameter is
+        # still being ignored. Checked over several seeds since any single
+        # seed's per-voter noise can coincidentally net out to the same shares.
+        differs = any(
+            _run_district_fptp(*args, 1.0, issues, seed=s)["vote_shares"]
+            != _run_district_fptp(*args, 0.0, issues, seed=s)["vote_shares"]
+            for s in range(1, 6)
+        )
+        assert differs
+
 
 # ── /primary ────────────────────────────────────────────────────────────────
 

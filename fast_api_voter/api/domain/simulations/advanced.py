@@ -279,12 +279,16 @@ def _real_election_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
     election_name = data.get("election_name", "")
     num_voters    = int(data.get("num_voters", 1000))
     blank_vote    = bool(data.get("blank_vote", False))
+    try:
+        blank_rule = BlankVoteRule(data.get("blank_rule", "symbolic"))
+    except ValueError:
+        blank_rule = BlankVoteRule.SYMBOLIC
 
     if not election_name:
         return {"error": "election_name is required"}, 400
 
     try:
-        result = analyze_real_election(election_name, num_voters, blank_vote=blank_vote)
+        result = analyze_real_election(election_name, num_voters, blank_vote=blank_vote, blank_rule=blank_rule)
         return result, 200
     except ValueError as e:
         return {"error": str(e)}, 404
@@ -295,10 +299,6 @@ def _real_election_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
 
 
 # ── /simulations/constitutional-scenario ──────────────────────────────────
-
-def _blank_wins_any(result: Dict[str, Any]) -> bool:
-    return any(d.get("winner") == "Blank" for d in result.get("methods", {}).values())
-
 
 def _conclude_new_election(r1: Dict[str, Any], r2: Dict[str, Any], n_round2: int) -> str:
     blank_pct = round(r1.get("blank_pct", 0) * 100)

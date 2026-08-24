@@ -133,6 +133,121 @@ jobs:
           trivyignores: .trivyignore.yaml
 
   # ---------------------------------------------------------------
+  # Code Quality — dead code, unused deps, cross-language duplication,
+  # cyclomatic complexity.
+  # The tools themselves stay NON-GATING (the repo never did a full cleanup
+  # pass, and failing on the existing backlog would just get the job disabled).
+  # What gates is the RATCHET at the end: scripts/check_quality_ratchet.sh reads
+  # the .txt files tee'd below and fails if any count grew. Debt may shrink,
+  # never grow — a signal that can never fail is a signal nobody reads.
+  code-quality:
+    name: Code Quality (dead code, duplication & complexity)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with: { python-version: "3.11" }
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: voter-app/package-lock.json
+
+      - name: Install vulture, radon, xenon
+        run: pip install vulture==2.16 radon==6.0.1 xenon==0.9.3
+
+      - name: Python dead code (vulture)
+        working-directory: fast_api_voter
+        continue-on-error: true
+        run: python -m vulture api/ .vulture_whitelist.py --config pyproject.toml | tee vulture.txt
+
+      - name: Python cyclomatic complexity (radon)
+        working-directory: fast_api_voter
+        continue-on-error: true
+        run: python -m radon cc api/ -e "api/tests/*" -n C -s | tee radon.txt
+
+      - name: Python cyclomatic complexity (xenon)
+        working-directory: fast_api_voter
+        continue-on-error: true
+        # Reporting only, and it must stay non-blocking: the knip and jscpd steps
+        # below have no `if: always()`, so a hard failure here would skip them and
+        # leave the ratchet with missing input files. The gate lives at the end of
+        # the job instead.
+        run: python -m xenon api/ -e "api/tests/*" -b F -m F -a F | tee xenon.txt
+
+      - name: Install frontend deps
+        working-directory: voter-app
+        run: npm ci --no-audit --no-fund
+
+      - name: TypeScript dead code & unused deps (knip)
+        working-directory: voter-app
+        continue-on-error: true
+        run: npx knip --no-progress | tee knip.txt
+
+      - name: Cross-language duplication (jscpd)
+        continue-on-error: true
+        run: npx --yes jscpd --config .jscpd.json fast_api_voter/api voter-app/src | tee jscpd.txt
+
+      # THE gating step of this job. Every tool above stays non-blocking; this
+      # compares their counts to .github/quality-baseline.json and fails only on
+      # an INCREASE. Existing debt is grandfathered, new debt is not — see the
+      # header of the script. `if: always()` so it still runs when a tool step
+      # above exited non-zero (they all do, that's what continue-on-error means).
+      - name: Quality ratchet (debt may shrink, never grow)
+        if: always()
+        run: ./scripts/check_quality_ratchet.sh
+
+      # The second gating step, and deliberately only the AVERAGE. -a A passes
+      # today (measured), so this locks the codebase-wide average at rank A for
+      # free: the repo can no longer drift complex as a whole, even while
+      # individual functions stay bad.
+      # -b and -m stay at F (never fail) on purpose — 9 functions are rank F and
+      # 20 rank E, so a per-block gate would fail on the existing backlog and get
+      # switched off within a week, which is how a gate becomes decoration.
+      # -b tightens to D once those are decomposed; until then the radon count in
+      # the ratchet above is what stops new complex functions being added.
+      # Runs at the end, after the reporting steps, so a failure here cannot skip
+      # the tool steps the ratchet reads.
+      - name: Complexity gate (xenon — average must stay rank A)
+        if: always()
+        working-directory: fast_api_voter
+        run: python -m xenon api/ -e "api/tests/*" -b F -m F -a A
+
+      - name: Publish summary
+        if: always()
+        run: |
+          {
+            echo "### Code Quality (raw tool output — the ratchet step is what gates)"
+            echo
+            echo "<details><summary>vulture (Python dead code)</summary>"
+            echo; echo '```'; cat fast_api_voter/vulture.txt 2>/dev/null || echo "(no output)"; echo '```'
+            echo "</details>"
+            echo "<details><summary>radon (Python cyclomatic complexity, rank C+)</summary>"
+            echo; echo '```'; cat fast_api_voter/radon.txt 2>/dev/null || echo "(no output)"; echo '```'
+            echo "</details>"
+            echo "<details><summary>xenon (radon threshold summary)</summary>"
+            echo; echo '```'; cat fast_api_voter/xenon.txt 2>/dev/null || echo "(no output)"; echo '```'
+            echo "</details>"
+            echo "<details><summary>knip (TS dead code / unused deps)</summary>"
+            echo; echo '```'; cat voter-app/knip.txt 2>/dev/null || echo "(no output)"; echo '```'
+            echo "</details>"
+            echo "<details><summary>jscpd (duplication)</summary>"
+            echo; echo '```'; cat jscpd.txt 2>/dev/null || echo "(no output)"; echo '```'
+            echo "</details>"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: code-quality-report
+          path: |
+            fast_api_voter/vulture.txt
+            fast_api_voter/radon.txt
+            fast_api_voter/xenon.txt
+            voter-app/knip.txt
+            jscpd.txt
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------
   # CodeQL — GitHub's native code scanning (free on public repos). Results land
   # in the Security tab. Non-gating by itself; severities show up as alerts.
   codeql:

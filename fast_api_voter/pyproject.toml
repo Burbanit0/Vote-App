@@ -6,7 +6,7 @@ build-backend = "setuptools.backends._legacy:_Backend"
 minversion = "7.0"
 testpaths = ["api/tests"]
 asyncio_mode = "strict"
-addopts = "--cov=api --cov-report=term --cov-report=html --cov-fail-under=30 -v"
+addopts = "--cov=api --cov-report=term --cov-report=html --cov-fail-under=90 -v"
 
 [tool.coverage.run]
 source = ["api"]
@@ -16,4 +16,116 @@ omit = ["api/tests/*"]
 show_missing = true
 skip_covered = true
 precision = 0
-fail_under = 30
+fail_under = 90
+
+# Dead-code detection (informational only — see CODE_AUDIT.md for the
+# rationale and how this feeds scripts/audit.sh / CI). min_confidence=80 keeps
+# the signal-to-noise ratio usable: below that threshold Enum members and
+# FastAPI/pydantic decorated handlers dominate the output as false positives.
+# The whitelist (.vulture_whitelist.py) is passed as an extra PATH argument
+# on the command line, e.g. `vulture api/ .vulture_whitelist.py --config ...`
+# — vulture has no config key for it.
+[tool.vulture]
+min_confidence = 80
+ignore_decorators = [
+  "@*.get", "@*.post", "@*.put", "@*.patch", "@*.delete", "@*.websocket",
+  "@field_validator", "@model_validator", "@validator",
+]
+exclude = ["api/tests/"]
+
+[tool.mutmut]
+# First pass, scoped deliberately (see prompt-mutation-testing.md). The doc's
+# §1 scope named two files; this pass covers only one of them —
+# api/domain/theory/workers.py is EXCLUDED here, not by the doc's choice but
+# by a tooling incompatibility discovered while setting this up (see
+# prompt-mutation-testing.md's companion note / PR description): its only
+# test coverage runs through FastAPI's TestClient (test_theory_batch1-4.py),
+# and mutmut 3.7.0 runs pytest in-process, repeatedly, inside the same
+# interpreter — every attempt to include any TestClient-based test in the
+# selection reproducibly broke with "NumPy module reloaded" + asyncio
+# "cancelled via cancel scope" / "invalid state" errors during mutmut's own
+# stats-gathering pass (reproduced 3x; the exact same pytest invocation and
+# flags run clean outside mutmut, isolating this to mutmut's in-process
+# re-exec model, not a bug in the test suite itself). Flagged for a decision
+# rather than worked around silently — see the PR description.
+source_paths = [
+    "api/engine/utils/simulation_ranked_utils.py",
+    # The cardinal half of the engine-parity harness. Both files are locked
+    # against the TS client by voter-app's playgroundVoting.parity.test.ts, so
+    # both deserve the same "do the tests actually assert, or just execute?"
+    # check — mutating only the ordinal half left half the invariant unmeasured.
+    "api/engine/utils/simulation_score_utils.py",
+]
+# mutmut's mutants/ working copy only contains source_paths + also_copy —
+# our tests live at api/tests/ (not the top-level tests/ mutmut assumes by
+# default), and pytest needs the rest of the api/ package (schemas, routes,
+# __init__.py chain) importable too. also_copy runs before mutation
+# application, so re-copying the source_paths file here is harmless.
+also_copy = ["api/"]
+# Skip lines the coverage report already shows as unexercised — mutants there
+# are guaranteed, uninteresting survivors (we already know from --cov-report
+# that nothing asserts on them); this keeps the baseline focused on "did a
+# covered line's mutation actually get caught".
+mutate_only_covered_lines = true
+# -o addopts= strips pyproject's `--cov-fail-under=90` (and -v) for mutmut's
+# own pytest runs: mutmut selects a small per-mutant test subset via
+# dependency tracking, so that subset's coverage is always far below the
+# repo-wide 85% floor — without this override, every mutant run would exit
+# non-zero on the coverage gate regardless of whether the mutant was
+# actually caught, corrupting the kill/survive signal (same footgun as the
+# quick local `-o addopts=""` pattern documented in CLAUDE.md).
+pytest_add_cli_args = ["-o", "addopts="]
+# EVERY test file that imports either source_paths module directly and does NOT
+# touch FastAPI/TestClient/numpy (the in-process re-exec incompatibility above).
+# Derived, not hand-curated — regenerate with:
+#   for p in api/tests/test_*.py; do
+#     grep -qE "simulation_(ranked|score)_utils" "$p" || continue
+#     grep -qE "TestClient|from fastapi|import numpy|from api\.main" "$p" && continue
+#     echo "$p"
+#   done
+#
+# The previous list held 12 + 2 files out of the 80 in api/tests/, and its own
+# KNOWN CAVEAT flagged nine functions (condorcet, two_round, plurality, approval,
+# minimax, copeland, nanson, baldwin, kemeny) as having "no dedicated test file
+# in the list above". They all had one — it just wasn't selected. So the score
+# was partly measuring this list rather than the tests. Widening it to 25 files
+# moved the run from 58.9% to 64.2% (714 → 621 survivors) with no test written.
+pytest_add_cli_args_test_selection = [
+    "api/tests/test_anti_plurality.py",
+    "api/tests/test_approval.py",
+    "api/tests/test_baldwin.py",
+    "api/tests/test_benham.py",
+    "api/tests/test_black.py",
+    "api/tests/test_bucklin_cumulative.py",
+    "api/tests/test_cardinal_batch.py",
+    "api/tests/test_condorcet.py",
+    "api/tests/test_copeland.py",
+    "api/tests/test_dowdall.py",
+    # Property-based suites: the most effective mutant killers in the selection,
+    # and both were previously left out.
+    "api/tests/test_hypothesis_condorcet.py",
+    "api/tests/test_hypothesis_monotonicity.py",
+    "api/tests/test_irv_coombs_elimination.py",
+    "api/tests/test_kemeny_young.py",
+    "api/tests/test_minimax.py",
+    "api/tests/test_nanson.py",
+    "api/tests/test_plurality.py",
+    "api/tests/test_ranked_pairs_random_ballot.py",
+    "api/tests/test_raynaud.py",
+    "api/tests/test_river.py",
+    "api/tests/test_schulze_beatpath.py",
+    "api/tests/test_smith_irv.py",
+    "api/tests/test_split_cycle.py",
+    "api/tests/test_star_runoff_tie.py",
+    "api/tests/test_two_round.py",
+]
+# WHAT THE WIDER RUN REVEALED, and what it did not fix:
+# simulation_ranked_utils   440 → 337 survivors (71.3%)
+# simulation_score_utils    284 → 284 survivors (51.7%)  ← not one mutant
+# Every file added above tests an ORDINAL rule, so the cardinal module did not
+# move at all. That settles the ambiguity the old caveat left open: 51.7% is a
+# real assertion deficit, not an artifact of the selection. The cause is plain —
+# simulation_score_utils.py exports 11 rules and has 6 tests in total, and the
+# parity harness locks only 5 of them (score, star, cumulative, maximin, nash).
+# median_voting, mean_median_hybrid, variance_based, score_distribution_analysis,
+# majority_judgment and evaluative are in neither. That is the next chantier.

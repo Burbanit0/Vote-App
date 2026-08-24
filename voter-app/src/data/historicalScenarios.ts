@@ -152,12 +152,3 @@ export const HISTORICAL_SCENARIOS: Record<string, HistoricalScenario> = {
     reference: 'https://fr.wikipedia.org/wiki/M%C3%A9thode_de_Condorcet',
   },
 };
-
-/** Ordered list for UI display */
-export const HISTORICAL_SCENARIO_IDS = [
-  'france2002',
-  'usa1992',
-  'germany2021',
-  'condorcet_cycle',
-  'consensus',
-] as const;

@@ -7050,6 +7050,11 @@ export interface components {
          */
         RealElectionRequest: {
             /**
+             * Blank Rule
+             * @default symbolic
+             */
+            blank_rule: string;
+            /**
              * Blank Vote
              * @default false
              */
@@ -7081,6 +7086,10 @@ export interface components {
             };
             /** Methods With Blank */
             methods_with_blank?: {
+                [key: string]: unknown;
+            } | null;
+            /** Methods With Blank Rule */
+            methods_with_blank_rule?: {
                 [key: string]: unknown;
             } | null;
             /** Plurality Winner */

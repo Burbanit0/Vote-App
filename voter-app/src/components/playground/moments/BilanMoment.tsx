@@ -12,10 +12,11 @@ import { LEADER_RULES } from '../../../lib/scorecard';
 import { METHOD_FAMILY, FAMILY_ORDER, type MethodFamily } from '../../../data/methodCriteria';
 import { CANDIDATE_COLORS_LIGHT } from '../../../constants/chartColors';
 
-const RULES_BY_FAMILY = FAMILY_ORDER.reduce(
-  (acc, fam) => ({ ...acc, [fam]: LEADER_RULES.filter((r) => METHOD_FAMILY[r] === fam) }),
-  {} as Record<MethodFamily, Rule[]>
-);
+const rulesByFamily = (rules: Rule[]): Record<MethodFamily, Rule[]> =>
+  FAMILY_ORDER.reduce(
+    (acc, fam) => ({ ...acc, [fam]: rules.filter((r) => METHOD_FAMILY[r] === fam) }),
+    {} as Record<MethodFamily, Rule[]>
+  );
 
 const FAMILY_LABEL_KEY: Record<MethodFamily, string> = {
   majoritarian: 'lab.matrix.familyMajoritarian',
@@ -66,26 +67,43 @@ function AxisCell({ axis }: { axis?: { mean: number; lo: number; hi: number } })
 const BilanMoment: React.FC = () => {
   const { t } = useTranslation('playground');
   const { ruleLabels, structureLabels } = useVotingLabels();
-  const { mode, assembly, parlSc, currentAxes, leaderSc, result, votingVoters, leaderCandidates } =
-    usePlaygroundCtx();
+  const {
+    mode,
+    assembly,
+    parlSc,
+    currentAxes,
+    leaderSc,
+    result,
+    votingVoters,
+    leaderCandidates,
+    enabledRules,
+  } = usePlaygroundCtx();
   const [replayRule, setReplayRule] = useState<Rule | null>(null);
+
+  // Moment ② is explicit about it ("seules les méthodes cochées apparaissent dans
+  // le bilan"): the whole synthesis below is scoped to the compared set.
+  const activeRules = useMemo(
+    () => LEADER_RULES.filter((r) => enabledRules.has(r)),
+    [enabledRules]
+  );
+  const familyRules = useMemo(() => rulesByFamily(activeRules), [activeRules]);
 
   const liveWinners = useMemo(() => {
     if (!votingVoters.length || !leaderCandidates.length) return {} as Record<Rule, number>;
-    return LEADER_RULES.reduce(
+    return activeRules.reduce(
       (acc, rule) => {
         acc[rule] = ruleWinner(votingVoters, leaderCandidates, rule);
         return acc;
       },
       {} as Record<Rule, number>
     );
-  }, [votingVoters, leaderCandidates]);
+  }, [votingVoters, leaderCandidates, activeRules]);
 
   // Group methods by the candidate they elect (most-backed first) — the synthesis
   // that makes the thesis literal: does the winner depend on the rule?
   const winnerGroups = useMemo(() => {
     const m = new Map<number, Rule[]>();
-    for (const rule of LEADER_RULES) {
+    for (const rule of activeRules) {
       const idx = liveWinners[rule];
       if (idx == null || idx < 0) continue;
       const arr = m.get(idx) ?? [];
@@ -93,7 +111,7 @@ const BilanMoment: React.FC = () => {
       m.set(idx, arr);
     }
     return [...m.entries()].sort((a, b) => b[1].length - a[1].length);
-  }, [liveWinners]);
+  }, [liveWinners, activeRules]);
 
   const condorcetName = result?.condorcet_winner ?? null;
   const condorcetIdx = condorcetName
@@ -235,7 +253,7 @@ const BilanMoment: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {FAMILY_ORDER.map((fam) => (
+                    {FAMILY_ORDER.filter((fam) => familyRules[fam].length > 0).map((fam) => (
                       <React.Fragment key={fam}>
                         <tr className={FAMILY_HEADER_CLS[fam]}>
                           <td
@@ -245,7 +263,7 @@ const BilanMoment: React.FC = () => {
                             {t(FAMILY_LABEL_KEY[fam])}
                           </td>
                         </tr>
-                        {RULES_BY_FAMILY[fam].map((rule, i) => {
+                        {familyRules[fam].map((rule, i) => {
                           const winIdx = liveWinners[rule] ?? 0;
                           const winner = leaderCandidates[winIdx];
                           const axes = leaderSc?.[rule];

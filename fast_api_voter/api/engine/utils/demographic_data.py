@@ -103,12 +103,6 @@ def sample_likelihood_to_vote(age: int) -> float:
     return base + age_effect + income_effect
 
 
-def sample_political_lean() -> float:
-    if np.random.random() < 0.5:
-        return np.random.normal(-0.5, 0.3)
-    return np.random.normal(0.5, 0.3)
-
-
 def sample_employment_status() -> str:
     return random.choices(
         population=["employed", "unemployed", "self_employed", "retired"],

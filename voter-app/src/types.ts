@@ -1,25 +1,5 @@
 // src/types.ts
 
-export interface User {
-  id: number;
-  access_token: string;
-  username: string;
-  role: string;
-  created_at: string;
-  user_id: number;
-  first_name: string;
-  last_name: string;
-}
-
-export interface Profile_ {
-  id: number;
-  username: string;
-  first_name: string;
-  last_name: string;
-  role: string;
-  is_admin: boolean;
-}
-
 // --- Simulation types ---
 
 export interface CandidateSimu {
@@ -36,12 +16,12 @@ export interface CandidateSimu {
   popularity: number;
 }
 
-export type Gender = 'male' | 'female';
+type Gender = 'male' | 'female';
 export type Region = 'urban' | 'suburban' | 'rural';
 export type Income = 'low' | 'middle' | 'high';
 export type PartySimu = 'Green' | 'Conservative' | 'Liberal' | 'Independent';
-export type Education = 'none' | 'high_school' | 'bachelor' | 'master' | 'phd';
-export type Employment = 'employed' | 'unemployed' | 'self_employed' | 'retired';
+type Education = 'none' | 'high_school' | 'bachelor' | 'master' | 'phd';
+type Employment = 'employed' | 'unemployed' | 'self_employed' | 'retired';
 /** @deprecated Use Employment */
 export type Employement = Employment;
 export type Family = 'single' | 'with_children' | 'retired';
@@ -108,7 +88,7 @@ export interface ScenarioSummary {
 }
 
 /** Compact, display-ready summary of a saved scenario's results. */
-export interface ScenarioResultsSummary {
+interface ScenarioResultsSummary {
   winners?: Record<string, string>;
   note?: string;
 }
@@ -120,7 +100,7 @@ export interface ScenarioDetail extends ScenarioSummary {
 
 // --- Sensitivity analysis ---
 
-export interface SensitivityPoint {
+interface SensitivityPoint {
   value: string | number;
   condorcet_winner: string | null;
   winners_by_method: Record<string, string | null>;
@@ -136,7 +116,7 @@ export interface SensitivityResult {
 
 // --- Condorcet matrix ---
 
-export interface CondorcetDuel {
+interface CondorcetDuel {
   pct_a: number;
   pct_b: number;
   winner: string;
@@ -151,7 +131,7 @@ export interface CondorcetMatrixResult {
 
 // --- Monte Carlo ---
 
-export interface MethodMonteCarloStats {
+interface MethodMonteCarloStats {
   winner_distribution: Record<string, number>;
   most_common_winner: string | null;
   winner_stability: number;
@@ -181,23 +161,31 @@ export interface RealElectionSummary {
   country: string;
 }
 
-export interface RealElectionDivergence {
+interface RealElectionDivergence {
   method: string;
   winner: string | null;
   differs_from_plurality: boolean;
 }
 
-export interface BlankVoteRuleOutcome {
+interface BlankVoteRuleOutcome {
   blank_wins?: boolean;
   winner: string | null;
   triggered: boolean;
   consequence: string;
 }
 
-export interface BlankVoteAnalysis {
+interface BlankVoteAnalysis {
   estimated_blank_pct: number;
   competitive: BlankVoteRuleOutcome;
   threshold_30: BlankVoteRuleOutcome;
+}
+
+export interface MethodBlankRuleOutcome {
+  winner: string | null;
+  blank_triggered: boolean;
+  consequence: string;
+  blank_pct: number;
+  rule: string;
 }
 
 export interface RealElectionResult {
@@ -215,6 +203,7 @@ export interface RealElectionResult {
   first_round_results: Record<string, number>;
   methods: Record<string, string | null>;
   methods_with_blank?: Record<string, string | null>;
+  methods_with_blank_rule?: Record<string, MethodBlankRuleOutcome>;
   divergences: RealElectionDivergence[];
   summary: {
     methods_with_different_winner: number;
@@ -225,14 +214,14 @@ export interface RealElectionResult {
 
 // --- Multi-winner proportional methods ---
 
-export interface ProportionalityMetrics {
+interface ProportionalityMetrics {
   gallagher_index: number | null;
   largest_deviation: { party: string; deviation: number } | null;
   effective_parties_votes: number | null;
   effective_parties_seats: number | null;
 }
 
-export interface MethodSeats {
+interface MethodSeats {
   seats: Record<string, number>;
   metrics: ProportionalityMetrics;
 }
@@ -254,12 +243,12 @@ export interface MultiwinnerResult {
 
 // --- Bandwagon simulation ---
 
-export interface BandwagonMethodData {
+interface BandwagonMethodData {
   winner: string | null;
   bayesian_regret: number | null;
 }
 
-export interface BandwagonRound {
+interface BandwagonRound {
   round: number;
   poll_standings: Record<string, number>;
   methods: Record<string, BandwagonMethodData>;
@@ -302,7 +291,7 @@ export interface ArrowCriteriaResult {
 
 // --- Simulation comparison ---
 
-export interface MethodComparison {
+interface MethodComparison {
   winner: string | null;
   bayesian_regret: number | null;
   condorcet_consistent: boolean | null;
@@ -310,7 +299,7 @@ export interface MethodComparison {
   strategic_vulnerability: number | null;
 }
 
-export interface InformationModelResult {
+interface InformationModelResult {
   enabled: boolean;
   sincere_winner?: string | null;
   perceived_winner?: string | null;
@@ -374,7 +363,7 @@ export interface IdeologyMapVoter {
   prefers_a: boolean;
 }
 
-export interface IdeologyMapCandidate {
+interface IdeologyMapCandidate {
   name: string;
   x: number;
   y: number;

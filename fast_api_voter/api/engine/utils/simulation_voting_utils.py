@@ -964,7 +964,3 @@ def run_simulation(
             }
         )
     return results
-    import json
-
-    with open("election_results.json", "w") as f:
-        json.dump(results, f)

@@ -84,6 +84,51 @@ export default [
     },
   },
   {
+    // Repo tooling (scripts/check-flaky.mjs …): Node, not the browser. The main
+    // block above only matches .js/.jsx/.ts/.tsx, so .mjs would otherwise fall
+    // through to js.configs.recommended with browser-only globals.
+    files: ['scripts/**/*.{mjs,cjs,js}'],
+    languageOptions: {
+      globals: { ...globals.node },
+      sourceType: 'module',
+      ecmaVersion: 'latest',
+    },
+  },
+  {
+    // A Web Worker has no `window`. Importing a React component into one pulls in
+    // React + i18next + the UI kit, all of which touch `window` at module init —
+    // the worker then dies on start-up with "window is not defined" and every
+    // dispatch to it fails silently (that is exactly what happened to the
+    // Monte-Carlo fiche: simulationWorker.ts imported IdeologyHeatmap,
+    // MethodSimilarityGraph and MethodRaceBar just to reuse three pure functions).
+    // Workers import from src/lib/ only — see src/lib/simulationKernels.ts.
+    files: ['src/workers/**/*.{ts,js}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            { name: 'react', message: 'A worker has no DOM. Keep pure logic in src/lib/.' },
+            { name: 'react-dom', message: 'A worker has no DOM. Keep pure logic in src/lib/.' },
+            {
+              name: 'react-i18next',
+              message: 'i18next touches window at init. Workers stay UI-free.',
+            },
+            { name: 'i18next', message: 'i18next touches window at init. Workers stay UI-free.' },
+          ],
+          patterns: [
+            {
+              group: ['**/components/**', '@/components/**', '**/hooks/**', '@/hooks/**'],
+              message:
+                'Importing a component/hook into a worker loads React at worker start-up ' +
+                '("window is not defined"). Extract the pure part into src/lib/ and import that.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     ignores: [
       'dist/',
       'build/',

@@ -68,6 +68,31 @@ def test_split_cycle_single_and_empty():
     assert get_split_cycle_winner([["A"]]) == "A"
 
 
+def test_split_cycle_margin_must_be_signed_not_a_total_comparison_count():
+    """Locks the sign of `margin(i, j) = pw[i][j] - pw[j][i]`. PR #157's
+    mutation-testing baseline found `-` -> `+` survives every other test in
+    this file: `+` makes margin symmetric (margin(i,j) == margin(j,i)),
+    which makes every candidate mutually "undefeated" and silently routes
+    every case here into the Borda-tiebreak-among-all-candidates fallback --
+    which happens to still agree with the correct winner on the profiles
+    above. This profile was found by random search specifically because it
+    does NOT coincide: the correct (signed-margin) winner is the Condorcet
+    winner B, but the symmetric-margin mutant returns C instead."""
+    ballots = [
+        ["C", "A", "B", "D"],
+        ["B", "C", "D", "A"],
+        ["D", "C", "A", "B"],
+        ["A", "B", "C", "D"],
+        ["B", "C", "A", "D"],
+        ["B", "C", "A", "D"],
+        ["C", "D", "B", "A"],
+        ["C", "D", "A", "B"],
+        ["B", "C", "A", "D"],
+    ]
+    assert get_condorcet_winner(ballots) == "B"
+    assert get_split_cycle_winner(ballots) == "B"
+
+
 def test_compare_all_methods_registers_split_cycle():
     names = ["A", "B", "C"]
     matrix = {

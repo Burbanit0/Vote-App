@@ -4,6 +4,7 @@
 # Tests
 pytest==9.0.3
 pytest-cov==6.1.0
+pytest-xdist==3.8.0   # -n auto: ~14min sequential -> ~8min in CI, measured (see backend-ci-cd-pipeline.yml)
 # Phase 4.4 — async tests for the v2 Socket.IO server. Drives the FastAPI
 # ASGI app via a uvicorn-on-a-thread fixture (see api/tests/test_sockets.py).
 pytest-asyncio==1.3.0
@@ -13,14 +14,25 @@ pytest-asyncio==1.3.0
 aiohttp==3.14.3   # 3.14.3: GHSA-cq5v-8q36-5273 (chunked-response parser OOB read),
                   #         GHSA-mfx4-hv73-q22v (ws upgrade smuggling),
                   #         GHSA-mq44-7p77-q5h7 (ws permessage-deflate)
+hypothesis==6.165.10  # Property-based testing for the theoretical invariants
+                      # (Condorcet, monotonicity, legitimacy bounds)
 
 # Security
 bandit==1.8.3        # Python SAST (static analysis)
 pip-audit==2.9.0     # Dependency CVE scan
 
+# Mutation testing (weekly CI job, non-blocking — scope limited to the
+# file(s) in [tool.mutmut] below). Native Windows isn't supported upstream
+# (mutmut/__main__.py exits on platform.system() == "Windows"); run via WSL
+# or Docker locally.
+mutmut==3.7.0
+
 # Code quality
 flake8==7.2.0
 mypy==1.16.0         # Static type checking
+vulture==2.16        # Dead-code detection (informational, see pyproject.toml [tool.vulture])
+radon==6.0.1          # Cyclomatic complexity report (informational, see CODE_AUDIT.md)
+xenon==0.9.3          # radon threshold runner — same report, informational here too
 types-redis==4.6.0.20241004  # Redis type stubs
 types-requests==2.32.0.20250328  # Requests type stubs
 types-PyYAML==6.0.12.20250915  # domain/polity/config.py — polity_config.yaml loader
