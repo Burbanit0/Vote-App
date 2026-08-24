@@ -434,7 +434,15 @@ class LlmConfig:
 
     max_batch_replays (v4 Lot 8, §3.6.10): extra attempts on a batch
     LlmResponseError, shipped 0 (today's exact behavior -- no replay).
-    See llm_behavior_engine._complete_and_decode_with_replay."""
+    See llm_behavior_engine._complete_and_decode_with_replay.
+
+    recycle_after_n_calls: forces an Ollama model unload+reload (resetting
+    llama.cpp's own prompt-cache pool) after this many complete_json calls,
+    shipped null (disabled). See OllamaJsonClient's own docstring for the
+    measured evidence -- a call reliably degenerates once the cache pool
+    approaches its observed capacity, and this stays off by default because
+    that capacity was measured for one specific prompt shape, not proven
+    general."""
 
     enabled: bool
     provider: str
@@ -449,6 +457,7 @@ class LlmConfig:
     codebook_version: str
     personas_count: int
     max_batch_replays: int
+    recycle_after_n_calls: int | None
 
 
 @dataclass(frozen=True)
@@ -834,6 +843,12 @@ def _parse_llm(raw: dict[str, Any]) -> LlmConfig:
     if enabled and temperature != 0.0:
         raise PolityConfigError(f"'llm.temperature': must be 0.0 when llm.enabled is true, got {temperature}")
 
+    recycle_after_n_calls = _get_optional_int(s, "llm", "recycle_after_n_calls")
+    if recycle_after_n_calls is not None and recycle_after_n_calls <= 0:
+        raise PolityConfigError(
+            f"'llm.recycle_after_n_calls': must be a positive integer or null, got {recycle_after_n_calls}"
+        )
+
     return LlmConfig(
         enabled=enabled,
         provider=_get_enum(s, "llm", "provider", _LLM_PROVIDERS),
@@ -848,6 +863,7 @@ def _parse_llm(raw: dict[str, Any]) -> LlmConfig:
         codebook_version=_get(s, "llm", "codebook_version", str),
         personas_count=_get_positive_int(s, "llm", "personas_count"),
         max_batch_replays=_get_nonneg_int(s, "llm", "max_batch_replays"),
+        recycle_after_n_calls=recycle_after_n_calls,
     )
 
 

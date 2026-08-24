@@ -36,7 +36,10 @@ if/else split.
 """
 from __future__ import annotations
 
-from collections.abc import Mapping
+import json
+import logging
+import subprocess
+from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -46,6 +49,7 @@ import numpy as np
 
 from api.domain.polity.accountability import (
     applicable_pressure_act,
+    chamber_deviation,
     current_office_holders,
     current_sortition_members,
     is_term_limited,
@@ -61,6 +65,7 @@ from api.domain.polity.accountability import (
     select_consulted,
     sign_petition,
     ticks_to_election,
+    unified_mandate_deviation,
     update_event_salience,
     update_street_pressure,
 )
@@ -90,6 +95,7 @@ from api.domain.polity.llm_behavior_engine import (
     ReactionContext,
     ResponseContext,
     cast_votes,
+    clamped_dimensions,
     decide_campaign_positioning,
     decide_candidacies,
     decide_chamber_deliberation,
@@ -102,7 +108,7 @@ from api.domain.polity.llm_behavior_engine import (
     resolve_ranking_cids,
 )
 from api.domain.polity.llm_client import LlmClientProtocol, build_json_client
-from api.domain.polity.llm_schemas import PressureDecision, ReactionDecision
+from api.domain.polity.llm_schemas import PositionShift, PressureDecision, ReactionDecision
 from api.domain.polity.metrics import mobilization_rate
 from api.domain.polity.parties import Party, initialize_parties
 from api.domain.polity.shock import economic_shock_step, scandal_arrival
@@ -125,6 +131,74 @@ from api.domain.polity.simple_rules import (
     vacate_office,
 )
 from api.domain.polity.social_graph import SocialGraph, generate_social_graph
+
+_logger = logging.getLogger(__name__)
+
+_WARM_UP_SCHEMA = {
+    "type": "object",
+    "properties": {"ok": {"type": "boolean"}},
+    "required": ["ok"],
+    "additionalProperties": False,
+}
+"""Deliberately NOT one of llm_schemas.py's real decision schemas: the
+warm-up call below exists purely to exercise a GPU inference pass through
+each endpoint shape before any real decision runs, never to decode a
+meaningful answer. A trivial, domain-independent schema keeps that
+separation obvious -- reusing e.g. PRESSURE_JSON_SCHEMA would require
+fabricating a fake citizen/target/act just to satisfy validation, and would
+blur an infra warm-up with an actual polity decision."""
+
+
+def _warm_up_llm_client(client: LlmClientProtocol) -> None:
+    """Reliability fix, GPU inference: a freshly loaded Ollama model's
+    FIRST inference pass is measurably non-deterministic -- confirmed
+    empirically (scripts/llm_batching_determinism_results_gpu.md, "cold
+    start vs warm" section): the same prompt, same seed, temperature=0,
+    issued right after a cold model load, produces a different raw
+    completion than every subsequent call with that same prompt, which are
+    then perfectly reproducible among themselves. Since every real
+    acceptance run's very first LLM call is a real, journaled decision
+    (typically candidacy_considered), that one-time coin flip would
+    otherwise land on something that matters and cascades downstream (a
+    different nominee count observed directly in this project's own
+    investigation).
+
+    Issues one throwaway call through EACH endpoint shape --
+    think=True (/v1/chat/completions) and think=False (native /api/chat,
+    see llm_client.py's own module docstring for why these are two
+    genuinely different request paths) -- so whichever one the pipeline's
+    real first call happens to use, it is already warm. Confirmed
+    empirically that a fixed warm-up call, applied after a forced-cold
+    state, makes the subsequent real call deterministic and repeatable
+    across independent cold-start cycles (same results doc) -- "warm" is
+    path-dependent, not one universal state, but a CONSISTENT procedure is
+    what §4 reproducibility actually needs, not literal agreement with an
+    arbitrary prior warm history.
+
+    Does not, on its own, protect a call in the middle of a multi-hour run
+    from a cold-start reintroduced by Ollama's idle keep_alive timeout --
+    confirmed empirically that keep_alive is silently ignored when sent on
+    the OpenAI-compat endpoint (same failure mode as num_ctx, see
+    ollama_context_window_results.md), so that half of the fix is the
+    container-level OLLAMA_KEEP_ALIVE env var documented in
+    polity_config.yaml's llm.base_url comment, not application code.
+
+    Best-effort and deliberately never fatal: a warm-up call failing (for
+    any reason) is logged and swallowed, not allowed to abort a run over
+    what is not itself part of the simulation -- and never journaled, for
+    the same reason LLM replay attempts aren't (v4 Lot 8): this is about
+    the inference host, not the polity."""
+    for think in (True, False):
+        try:
+            client.complete_json(
+                system_prompt="Reply with the required JSON object.",
+                user_prompt="{}",
+                json_schema=_WARM_UP_SCHEMA,
+                max_tokens=32,
+                think=think,
+            )
+        except Exception as exc:  # noqa: BLE001
+            _logger.warning("LLM warm-up call (think=%s) failed, continuing anyway: %s", think, exc)
 
 
 @dataclass(frozen=True)
@@ -171,6 +245,89 @@ def _is_forced_attempt(pending_rerun: PendingRerun | None, config: PolityConfig)
     return pending_rerun is not None and pending_rerun.attempt > config.institutions.reelection_max_attempts
 
 
+def _capture_gpu_driver_info() -> tuple[str | None, str | None]:
+    """Best-effort (driver_version, cuda_version) via a local `nvidia-smi`
+    subprocess call -- never fatal, degrades to (None, None) on any
+    failure (no NVIDIA GPU, nvidia-smi not on PATH, timeout), mirroring
+    llm_test_harness/environment.py's own `_real_runner` "never allowed to
+    abort what it's describing" discipline, which this reuses the query
+    shape from without adopting the harness itself.
+
+    driver_version comes straight from `--query-gpu=driver_version` (a
+    real, stable CSV field). cuda_version has NO equivalent --query-gpu
+    field on this nvidia-smi version (confirmed directly: querying it
+    exits 2, "not a valid field to query") -- it only appears in the
+    plain-text header ("... Driver Version: 591.86  CUDA Version: 13.1
+    ..."), so it is parsed from that line instead, and stays None if the
+    marker string is ever absent (a different nvidia-smi version, a
+    different locale) rather than raising."""
+    try:
+        driver = subprocess.run(
+            ["nvidia-smi", "--query-gpu=driver_version", "--format=csv,noheader"],
+            capture_output=True, text=True, timeout=10.0, check=False,
+        ).stdout.strip().splitlines()
+        driver_version = driver[0].strip() if driver and driver[0].strip() else None
+
+        header = subprocess.run(
+            ["nvidia-smi"], capture_output=True, text=True, timeout=10.0, check=False,
+        ).stdout
+        cuda_version = None
+        for line in header.splitlines():
+            if "CUDA Version:" in line:
+                cuda_version = line.split("CUDA Version:")[1].strip().split()[0].rstrip("|").strip()
+                break
+        return driver_version, cuda_version
+    except (OSError, subprocess.SubprocessError):
+        return None, None
+
+
+def _write_run_metadata(run_dir: Path, config: PolityConfig, run_id: str) -> None:
+    """Records what's cheaply knowable about this run's LLM target -- NOT
+    a journal event (would prepend a byte to every run and break every
+    byte-for-byte reproducibility test); a sibling file instead, so
+    events.jsonl's own contract is untouched.
+
+    gpu_driver_version/gpu_cuda_version (v6b post-acceptance cleanup,
+    prompt-sequencement-post-harnais.md's own étape 3.1, named repeatedly
+    during the bug 4 investigation and never done until now) are captured
+    via `_capture_gpu_driver_info` ONLY when `config.llm.enabled` -- GPU
+    identity is only relevant when an LLM call could actually happen, and
+    gating this way keeps the ~100+ deterministic-only test invocations of
+    `run_simulation` from paying a subprocess call for information they
+    have no use for. Both fields are best-effort and describe the HOST
+    machine's GPU, not proof that inference actually ran on it (a
+    CPU-only Ollama build on a GPU-equipped host would still report a
+    driver version here) -- this is provider/base_url/model's own
+    "prevents comparing two Monte Carlo runs against different backends
+    without knowing it" bar, not full backend fingerprinting, which
+    remains a real, larger follow-up (still no HTTP-visible way for the
+    Ollama client itself to confirm which device served a given call --
+    Ollama's own `ollama ps` CLI queries the server directly for that,
+    and the closest HTTP equivalent, `/api/ps`'s `size_vram` field, isn't
+    wired up anywhere in this codebase)."""
+    run_dir.mkdir(parents=True, exist_ok=True)
+    gpu_driver_version: str | None = None
+    gpu_cuda_version: str | None = None
+    if config.llm.enabled:
+        gpu_driver_version, gpu_cuda_version = _capture_gpu_driver_info()
+    (run_dir / "run_metadata.json").write_text(
+        json.dumps(
+            {
+                "run_id": run_id,
+                "llm_enabled": config.llm.enabled,
+                "llm_provider": config.llm.provider if config.llm.enabled else None,
+                "llm_base_url": config.llm.base_url if config.llm.enabled else None,
+                "llm_model": config.llm.model if config.llm.enabled else None,
+                "gpu_driver_version": gpu_driver_version,
+                "gpu_cuda_version": gpu_cuda_version,
+            },
+            sort_keys=True,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+
 def run_simulation(
     config: PolityConfig, run_id: str | None = None, llm_client: LlmClientProtocol | None = None
 ) -> Path:
@@ -205,6 +362,7 @@ def run_simulation(
         )
 
     run_id = run_id or config.run.run_label
+    _write_run_metadata(Path(config.journal.output_dir) / run_id, config, run_id)
     citizens = generate_population(config.citizens, config.run.population_size, config.run.seed)
     parties = initialize_parties(citizens, config.parties.initial_count, config.run.seed)
     for citizen in citizens:
@@ -312,7 +470,14 @@ def _llm_client_scope(config: PolityConfig, llm_client: LlmClientProtocol | None
     `enabled: false` still loads and runs), and only then does dispatch
     happen — so an unsupported/unimplemented provider (currently only
     "api") now fails HERE, at run start, rather than at the first decision
-    inside llm_behavior_engine._check_supported. Earlier and cheaper."""
+    inside llm_behavior_engine._check_supported. Earlier and cheaper.
+
+    GPU reliability fix: _warm_up_llm_client runs exactly once, only on a
+    real, owned client -- never on an injected one (tests always inject a
+    fake client, which must never make a real HTTP call) -- and always
+    before the caller's first real decision, so a cold-model non-
+    determinism (see that function's own docstring) never lands on
+    something journaled."""
     if llm_client is not None:
         yield llm_client
         return
@@ -320,6 +485,7 @@ def _llm_client_scope(config: PolityConfig, llm_client: LlmClientProtocol | None
         yield None
         return
     with build_json_client(config.llm, seed=config.run.seed) as owned_client:
+        _warm_up_llm_client(owned_client)
         yield owned_client
 
 
@@ -482,6 +648,24 @@ def _declare_nominees(
     return nominees
 
 
+def _journal_clamped_dimensions(
+    journal: Journal, *, tick: int, citizen_id: int, decision_event: str,
+    base: tuple[float, ...], shifts: Sequence[PositionShift], result: tuple[float, ...],
+) -> None:
+    """apply_shifts's own KNOWN OBSERVABILITY GAP, resolved here (see its own
+    docstring) -- adjacent, self-gating, only when a dimension actually
+    saturated this tick. Shared by all three of apply_shifts's own call sites
+    (dt=5/6/11) so the check has exactly one implementation."""
+    clamped = clamped_dimensions(base, shifts, result)
+    if clamped:
+        journal.write(
+            tick=tick,
+            event_type="clamped_at_bound",
+            payload={"decision_event": decision_event, "dimensions": sorted(clamped)},
+            citizen_id=citizen_id,
+        )
+
+
 def _declare_nominees_llm(
     citizens: list[Citizen],
     parties: list[Party],
@@ -581,6 +765,12 @@ def _declare_nominees_llm(
             motif=str(positioning_decision.motif),
             codebook_version=config.llm.codebook_version,
         )
+        # issue_positions is the correct base: this loop never mutates it, only
+        # pledged_platform/revealed_position.
+        _journal_clamped_dimensions(
+            journal, tick=tick, citizen_id=nominee.citizen_id, decision_event="campaign_positioning",
+            base=nominee.issue_positions, shifts=positioning_decision.shifts, result=new_platform,
+        )
     return nominees
 
 
@@ -632,7 +822,18 @@ def _hold_presidential_election(
                 journal.write(
                     tick=tick,
                     event_type="vote_cast",
-                    payload={"blank": decision.blank, "ranking": resolve_ranking_cids(decision, nominees)},
+                    payload={
+                        "blank": decision.blank,
+                        "ranking": resolve_ranking_cids(decision, nominees),
+                        # §3.7.1 booleans-as-0/1: a deliberate, LOCAL exception
+                        # to temperature=0 determinism (llm_behavior_engine's
+                        # own _VOTE_CAST_RETRY_TEMPERATURE) -- marks a decision
+                        # that came from a temperature-varied RETRY, never the
+                        # first attempt, so a future analysis of this journal
+                        # cannot mistake a varied-sampling retry's decision for
+                        # an ordinary, deterministic first-attempt one.
+                        "retry_sampling_varied": int(outcome.retry_sampling_varied.get(decision.cid, False)),
+                    },
                     citizen_id=decision.cid,
                     motif=str(decision.motif),
                     codebook_version=config.llm.codebook_version,
@@ -1060,9 +1261,27 @@ def _run_representative_responses(
     revealed_position from pledged_platform (declare_candidacy pins them
     equal, and only decide_representative_response/decide_campaign_positioning
     ever touch either afterwards), so "no delta, stance=silence" is already
-    true by construction -- the absence of this call IS the fallback."""
+    true by construction -- the absence of this call IS the fallback.
+
+    payload["unified_deviation"] (v6b, production-wiring lot) is
+    unified_mandate_deviation computed at the SAME instant as ctx.mandate_dev
+    -- same pre-decision pass, before decide_representative_response runs and
+    before revealed_position is overwritten -- differing from ctx.mandate_dev
+    only in weighting basis (full issue_priorities vs top-k). Deliberately
+    NOT placed post-decision like chamber_deviation's own payload key:
+    representative_response already has a pre-decision comparator
+    (ctx.mandate_dev) to stay paired with, and pairing a post-decision
+    unified figure next to a pre-decision top-k one would silently introduce
+    a one-tick lag between the two series -- the exact class of misread this
+    key exists to prevent. Deliberately NOT inside ctx either: ctx is shared
+    verbatim by the user-prompt builder and this journal write so "the ctx
+    an analyst reads is provably the ctx the model saw" stays true --
+    unified_deviation is never shown to the model."""
     assert llm_client is not None  # guaranteed by _llm_client_scope when llm.enabled
-    respondents = [h for h in holders if h.pledged_platform is not None and h.revealed_position is not None]
+    # pledged_platform/revealed_position are always written together (declare_candidacy,
+    # this function's own overwrite below, the loser-reset in _hold_presidential_election)
+    # -- checking one implies the other, so filtering on just one is exact, not a shortcut.
+    respondents = [h for h in holders if h.pledged_platform is not None]
     if not respondents:
         return
     contexts = {h.citizen_id: _response_context(h, config, tick) for h in respondents}
@@ -1070,6 +1289,12 @@ def _run_representative_responses(
     decisions = {d.cid: d for d in outcome.decisions}
     for holder in respondents:
         decision = decisions[holder.citizen_id]
+        base = holder.revealed_position
+        assert base is not None  # guaranteed by the respondents filter above
+        # unified_mandate_deviation reads holder.revealed_position -- computed HERE,
+        # before the overwrite below, so it lands at the same pre-decision instant as
+        # `base`/ctx.mandate_dev (see this function's own docstring).
+        unified_deviation = unified_mandate_deviation(holder)
         holder.revealed_position = outcome.positions[holder.citizen_id]
         journal.write(
             tick=tick,
@@ -1079,10 +1304,15 @@ def _run_representative_responses(
                 "stance": decision.stance,
                 "shifts": [{"dimension": s.dimension, "delta": s.delta} for s in decision.shifts],
                 "ctx": contexts[holder.citizen_id].to_payload(),
+                "unified_deviation": unified_deviation,
             },
             citizen_id=holder.citizen_id,
             motif=str(decision.motif),
             codebook_version=config.llm.codebook_version,
+        )
+        _journal_clamped_dimensions(
+            journal, tick=tick, citizen_id=holder.citizen_id, decision_event="representative_response",
+            base=base, shifts=decision.shifts, result=holder.revealed_position,
         )
 
 
@@ -1149,7 +1379,17 @@ def _run_chamber_deliberation(
     (_run_sortition_rotation) and nothing else in the codebase ever
     touches it without this call, so "no delta" is already true by
     construction -- the absence of this call IS the fallback, exactly
-    _run_representative_responses's own precedent for dt=6."""
+    _run_representative_responses's own precedent for dt=6.
+
+    v6b Lot 4: the journal payload's own "chamber_deviation" key is the
+    POST-decision value (accountability.chamber_deviation, computed AFTER
+    chamber_position is updated below) -- the direct structural analogue
+    of mandate_deviation_recorded, added for Lot 4's own elected-vs-
+    sortition acceptance comparison. Never shown to the model itself:
+    ChamberContext stays exactly as minimal as Lot 3 shipped it (one
+    field, ticks_left) -- this is a post-hoc analysis value only, unlike
+    dt=6's own ctx.mandate_dev, which is genuinely pre-decision
+    information the model sees."""
     if not config.llm.enabled:
         return
     members = current_sortition_members(citizens)
@@ -1164,6 +1404,8 @@ def _run_chamber_deliberation(
     decisions = {d.cid: d for d in outcome.decisions}
     for member in members:
         decision = decisions[member.citizen_id]
+        base = member.chamber_position
+        assert base is not None  # guaranteed by _run_sortition_rotation's own seating loop
         member.chamber_position = outcome.positions[member.citizen_id]
         journal.write(
             tick=tick,
@@ -1171,10 +1413,15 @@ def _run_chamber_deliberation(
             payload={
                 "shifts": [{"dimension": s.dimension, "delta": s.delta} for s in decision.shifts],
                 "ctx": contexts[member.citizen_id].to_payload(),
+                "chamber_deviation": chamber_deviation(member),
             },
             citizen_id=member.citizen_id,
             motif=str(decision.motif),
             codebook_version=config.llm.codebook_version,
+        )
+        _journal_clamped_dimensions(
+            journal, tick=tick, citizen_id=member.citizen_id, decision_event="chamber_deliberation",
+            base=base, shifts=decision.shifts, result=member.chamber_position,
         )
 
 
@@ -1239,6 +1486,17 @@ def _run_accountability_phase(
     alone is false: only the mandate_deviation_recorded *journal write*
     stays gated on mandate.enabled, so a configured erosion term is never
     silently zeroed just because pledge/deviation tracking itself is off.
+    mandate_deviation_recorded's own "unified_deviation" key (v6b,
+    production-wiring lot) is a SECOND-ORDER-CENSORED view of
+    unified_mandate_deviation: the write itself is still gated on the
+    TOP-K-scoped `deviation` crossing deviation_log_threshold, not on the
+    unified value's own magnitude -- on a term where top-k reads 0.0
+    throughout (the exact case that motivated this lot), this event never
+    fires and the unified series has no representation here either.
+    representative_response's own uncensored "unified_deviation" (every
+    presided tick) is therefore the primary series; this one is a
+    symmetric secondary, kept structurally consistent with `deviation`'s
+    own censoring rather than given a threshold of its own.
     The `can_sign`/`can_launch` facts passed into deterministic_pressure_action
     are computed unconditionally (they are False by construction on default
     state) -- menu.petition_enabled inside that function is the single
@@ -1302,17 +1560,25 @@ def _run_accountability_phase(
         _run_representative_responses(holders, config, journal, tick, llm_client)
     for holder in holders:
         deviation: float | None = None
+        unified: float | None = None
         if (
             (config.mandate.enabled or config.legitimacy.passive_erosion_weight > 0.0)
             and holder.pledged_platform is not None
             and holder.revealed_position is not None
         ):
             deviation = mandate_deviation(holder, config.mandate)
+            unified = unified_mandate_deviation(holder)
         if config.mandate.enabled and deviation is not None and deviation > config.mandate.deviation_log_threshold:
             journal.write(
                 tick=tick,
                 event_type="mandate_deviation_recorded",
-                payload={"office": Office.PRESIDENT.value, "deviation": deviation},
+                payload={
+                    "office": Office.PRESIDENT.value,
+                    "deviation": deviation,
+                    # provably non-None wherever this write runs: assigned in
+                    # the same guarded block as `deviation`, immediately above
+                    "unified_deviation": unified,
+                },
                 citizen_id=holder.citizen_id,
             )
 

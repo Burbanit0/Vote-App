@@ -20,7 +20,11 @@ and by `pressure_action`'s (dt=10) `ctx` -- still a sampling-gate input
 only, never a decision, same §7bis.9d discipline as every other term here.
 v6b Lot 3 adds this module's first `Citizen.chamber_position` reader:
 `chamber_deviation` is dt=11's own comparable quantity to `mandate_deviation`,
-for a citizen who never pledged anything.
+for a citizen who never pledged anything. v6b's production-wiring lot adds
+`unified_mandate_deviation`, the full-priority twin of `mandate_deviation`
+on the same weighting basis `chamber_deviation` already uses -- reporting
+only, journaled alongside the shipped top-k-scoped value, never read by
+`écart(t)`, the awakening gate, or any `ctx`.
 """
 from __future__ import annotations
 
@@ -87,7 +91,34 @@ def pledge_weights(priorities: Sequence[float], config: MandateConfig) -> tuple[
     survivors to sum to 1 -- without this, pledge_scope would silently
     become a scale change (a top-5 subset of dirichlet weights sums to
     ~0.25-0.3) rather than a scope change, and deviation_log_threshold
-    would mean two different things depending on scope."""
+    would mean two different things depending on scope.
+
+    KNOWN METRIC DESIGN BUG (found 2026-08-22, v6b Lot 4's second acceptance
+    run, shipped default pledge_scope=top_k_priorities): a dimension outside
+    the officeholder's own top-k priority set gets weight exactly 0.0 here,
+    which means mandate_deviation is STRUCTURALLY BLIND to drift on that
+    dimension -- not merely under-weighted, invisible. Live-verified: a
+    presided term drifted revealed_position on 3 dimensions from ~0.1-0.8 to
+    the [0,1] clamp ceiling (raw unweighted distance ~1.0 across the
+    platform), while mandate_deviation read exactly 0.0 for the entire term,
+    because those 3 dimensions never fell in that officeholder's own top-5.
+    This was never a bug in what top_k_priorities computes -- it is doing
+    exactly what its own docstring says -- but nothing here ever warned a
+    caller that "did they keep their stated top-priority promises" and "how
+    much did their overall position move" are DIFFERENT questions, and that
+    mandate_deviation only answers the first one. Comparing mandate_deviation
+    against a full-priority-weighted quantity computed elsewhere (e.g.
+    chamber_deviation, which weights by the FULL issue_priorities vector,
+    never top-k) is therefore not apples-to-apples, and a caller that treats
+    a flat mandate_deviation series as "no real drift happened" can be
+    completely wrong. Not fixed here -- pledge_scope=top_k_priorities is
+    still the shipped default and this function's own behavior is
+    unchanged. Since the v6b production-wiring lot, the apples-to-apples
+    comparator is journaled in band: unified_mandate_deviation is computed
+    at the same call sites and written to the journal as "unified_deviation"
+    on both representative_response and mandate_deviation_recorded, so a
+    caller no longer has to recompute it by hand. See traceability.md's own
+    polity row for the cross-reference."""
     if config.pledge_scope == "full_platform":
         return tuple(priorities)
     if config.pledge_scope != "top_k_priorities":
@@ -109,13 +140,51 @@ def mandate_deviation(officeholder: Citizen, config: MandateConfig) -> float:
     """§7bis.5: distance(pledged_platform, revealed_position(t)), weighted by
     the officeholder's own issue_priorities per pledge_weights. Provably 0
     throughout Lots 2-5: nothing sets revealed_position independently from
-    pledged_platform until Lot 6's representative_response exists."""
+    pledged_platform until Lot 6's representative_response exists.
+
+    KNOWN METRIC DESIGN BUG under the shipped pledge_scope=top_k_priorities:
+    can read exactly 0.0 even with large, real, saturating drift, if that
+    drift lands entirely outside the officeholder's own top-5 priority
+    dimensions -- see pledge_weights's own docstring for the live-verified
+    case. unified_mandate_deviation (below) is the full-priority-weighted
+    comparator, journaled alongside this value's own output since the v6b
+    production-wiring lot -- no recomputation needed."""
     if config.deviation_metric not in _SUPPORTED_DEVIATION_METRICS:
         raise NotImplementedError(f"mandate.deviation_metric {config.deviation_metric!r} not supported")
     if officeholder.pledged_platform is None or officeholder.revealed_position is None:
         raise ValueError(f"citizen {officeholder.citizen_id} has no pledged_platform/revealed_position")
     weights = pledge_weights(officeholder.issue_priorities, config)
     return weighted_euclidean(officeholder.pledged_platform, officeholder.revealed_position, weights)
+
+
+def unified_mandate_deviation(officeholder: Citizen) -> float:
+    """mandate_deviation on the FULL, untruncated issue_priorities -- provably
+    identical to mandate_deviation(officeholder, <config with
+    pledge_scope="full_platform">), since pledge_weights returns
+    tuple(priorities) unchanged on that branch (pinned by
+    test_unified_mandate_deviation_equals_mandate_deviation_under_full_platform_scope).
+    This is the SAME weighting basis chamber_deviation already uses -- the
+    entire reason this function exists: the elected and sortition sides of
+    §6bis.3's own comparison must be on one basis to be compared at all
+    (v6b Lot 4, THEORY.md §10.9).
+
+    Config-free for the same reason chamber_deviation is: there is nothing
+    to configure, it IS the full-priority basis. Accepted cost: unlike
+    mandate_deviation, this skips deviation_metric validation --
+    _SUPPORTED_DEVIATION_METRICS has exactly one member today; if a second
+    metric ever ships, both functions gain the parameter together.
+
+    Measurement only. Never feeds écart(t), the awakening gate, or any ctx
+    -- compose_ecart/select_consulted/_pressure_context/_response_context
+    all keep reading mandate_deviation's own top-k-scoped value, unchanged.
+    Journaled (v6b, production-wiring lot) as "unified_deviation" on
+    representative_response and mandate_deviation_recorded, alongside the
+    shipped top_k-scoped value -- never replacing it (see pledge_weights'
+    own "KNOWN METRIC DESIGN BUG" docstring for why the two answer different
+    questions)."""
+    if officeholder.pledged_platform is None or officeholder.revealed_position is None:
+        raise ValueError(f"citizen {officeholder.citizen_id} has no pledged_platform/revealed_position")
+    return weighted_euclidean(officeholder.pledged_platform, officeholder.revealed_position, officeholder.issue_priorities)
 
 
 def self_gap(citizen: Citizen, officeholder: Citizen) -> float:

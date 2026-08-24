@@ -70,6 +70,61 @@ in code, using the real 30-member cohort (cids 700-729):
 | `chunk_voters(., 15)` | [15, 15] | both chunks: only 6/15 decisions returned each (last 6 cids) |
 | `chunk_voters(., 10)` | [10, 10, 10] | all 3 chunks: 10/10 decisions returned, fully aligned |
 
-**Overall (as shipped): PASS** -- both findings resolved in code (`ChamberDecision`'s coherence validator
-removed; `decide_chamber_deliberation` chunks at `_CHAMBER_MAX_CHUNK_SIZE=10`), confirmed against the real
-model at the real production scale.
+**Overall (as shipped at the time): PASS** -- both findings resolved in code (`ChamberDecision`'s coherence
+validator removed; `decide_chamber_deliberation` chunks at `_CHAMBER_MAX_CHUNK_SIZE=10`), confirmed against
+the real model at the real production scale. **Superseded below** -- 10 was not a stable ceiling either.
+
+## Lot 4 correction — chunk_size=10 was not a stable ceiling; 5 tried and disproven; 1 shipped
+
+A real v6b acceptance run (2026-08-21/22, GPU, `sortition-llm-8y`, tick 18) hit `finish_reason='length'` on
+a `chamber_deliberation` chunk-of-10 call, 3/3 attempts (original + both replays), aborting the run.
+Correlated against the ollama container logs: all three attempts landed on **exactly** `n_decoded=10136`
+tokens generated -- `compute_max_tokens(10) + _CHAMBER_THINK_TOKEN_ALLOWANCE = 2136 + 8000 = 10136`,
+byte-for-byte identical across attempts. `n_ctx_slot=16384`, `truncated=0`, prompt=4754 tokens (11630
+tokens of real headroom to the actual context ceiling) -- not a context-window artifact, the deterministic
+"hits the configured ceiling on the nose" signature (Mode B: budget too tight), the same signature
+`_VOTE_CAST_MAX_CHUNK_SIZE`'s own history already documents. The failed run's own journal (1258 events, one
+real `recalled` event) was preserved, renamed aside rather than deleted.
+
+**Diagnostic methodology**: reconstructed ground truth directly from the crashed run's own journal (no
+re-run) -- regenerated the population deterministically (seed=42, `generate_population`), identified the
+30 seated sortition members from the last `sortition_rotation` event (tick 16), and replayed each member's
+own journaled `chamber_deliberation` shifts (ticks 16-17) via `apply_shifts` to reconstruct the real
+`chamber_position` state at tick 18, the crash tick. Called the real production prompt builders
+(`build_chamber_system_prompt`/`build_chamber_user_prompt`) and `OllamaJsonClient` directly against this
+reconstructed state -- the same "replay from the journal, call the real production path" methodology used
+for the same-day `cast_votes` retry-mitigation validation.
+
+**Step 1 -- reproduce at chunk_size=10**: called all three original chunk-of-10 groups (sorted citizen_id,
+exactly what `decide_chamber_deliberation` built under the then-shipped constant) against the real model.
+None reproduced the crash this time (22.2s/26.6s/30.0s, all clean) -- consistent with this backend's own
+already-documented finding that temperature=0 + a pinned seed is NOT a reproducibility guarantee here
+(`llm_client.py`'s own module docstring), not evidence the overflow doesn't happen.
+
+**Step 2 -- try chunk_size=5**: split each chunk-of-10 into two chunk-of-5 halves (six calls total) for
+margin evidence. Five of six completed cleanly (13.0-35.0s). The sixth -- `chunk3-half-A`, cids
+`[59, 61, 65, 75, 90]` -- **reproduced the identical failure**: `finish_reason='length'`, 99.1s to fail.
+Docker logs confirmed `eval time = 96931.95 ms / 9836 tokens` -- **exactly**
+`compute_max_tokens(5) + _CHAMBER_THINK_TOKEN_ALLOWANCE = 1836 + 8000 = 9836`, the new configured ceiling,
+zero margin, not merely close to it. **chunk_size=5 does not hold** -- it relocates the same failure to a
+different sub-chunk. This mirrors `_VOTE_CAST_MAX_CHUNK_SIZE`'s own history precisely: intermediate chunk
+sizes (there, 3 and then 2) can still occasionally overflow.
+
+**Step 3 -- chunk_size=1 on the same failing group**: called each of the five failing citizens
+(`[59, 61, 65, 75, 90]`) individually, same reconstructed context, `max_tokens = compute_max_tokens(1) +
+8000 = 9596`. All five completed cleanly: 7.7s, 11.7s, 5.9s, 4.3s, 5.1s -- an order of magnitude faster
+than the 99-108s overflow calls, real margin rather than a near-miss.
+
+| step | chunk_size | result |
+|---|---|---|
+| 1 | 10 (all 3 original chunks) | 3/3 clean this pass (did not reproduce the live crash -- backend non-determinism) |
+| 2 | 5 (6 halves of the above) | 5/6 clean; `chunk3-half-A` [59,61,65,75,90] failed at exactly the new ceiling (9836/9836) |
+| 3 | 1 (the 5 failing citizens, individually) | 5/5 clean, 4.3-11.7s each, real margin |
+
+**Resolution (v6b Lot 4 correction, 2026-08-22)**: `_CHAMBER_MAX_CHUNK_SIZE` cut from 10 to **1** --
+`vote_cast`'s own endpoint, for the same reason. `min_batch_size=1` (already passed) is now a no-op but
+left in place, harmless. Cost consequence, stated honestly: `chamber_deliberation` runs every tick, so this
+is 30 calls/tick instead of 3 (chunk=10) or 6 (chunk=5) -- but per-call wall clock dropped sharply at the
+smaller chunk size (heavy prompt-cache reuse across near-identical system prompts, and less content to
+reason about per call), partially offsetting the call-count increase; the real net effect is reported by
+the acceptance run itself, not estimated here.

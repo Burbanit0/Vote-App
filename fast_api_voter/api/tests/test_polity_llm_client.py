@@ -69,6 +69,27 @@ def test_request_shape_is_correct():
     assert body["response_format"]["json_schema"]["schema"] == {"type": "object"}
 
 
+def test_temperature_override_replaces_the_configured_value_for_that_call_only():
+    # llm_behavior_engine.py's own local, deliberate exception to
+    # temperature=0 determinism (cast_votes's retry_temperature) -- the
+    # override must reach the request body, and only for the call it was
+    # passed to.
+    captured = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.append(json.loads(request.content))
+        return _ok_response('{"decisions": []}')
+
+    client = _client(handler)
+    client.complete_json(system_prompt="sys", user_prompt="usr", json_schema={"type": "object"}, max_tokens=64)
+    client.complete_json(
+        system_prompt="sys", user_prompt="usr", json_schema={"type": "object"}, max_tokens=64, temperature=0.3
+    )
+    client.complete_json(system_prompt="sys", user_prompt="usr", json_schema={"type": "object"}, max_tokens=64)
+
+    assert [c["temperature"] for c in captured] == [0.0, 0.3, 0.0]
+
+
 def test_nested_ref_schema_is_dereferenced_before_sending():
     captured = {}
 
@@ -211,6 +232,22 @@ def test_native_request_shape_is_correct():
     assert "chat_template_kwargs" not in body
 
 
+def test_temperature_override_reaches_the_native_path_too():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return _ok_native_response('{"decisions": []}')
+
+    client = _client(handler)
+    client.complete_json(
+        system_prompt="sys", user_prompt="usr", json_schema={"type": "object"}, max_tokens=64,
+        think=False, temperature=0.3,
+    )
+
+    assert captured["body"]["options"] == {"temperature": 0.3, "seed": 42, "num_predict": 64}
+
+
 def test_native_done_reason_not_stop_raises_without_retry():
     calls = {"count": 0}
 
@@ -235,6 +272,86 @@ def test_native_http_500_retries_then_raises_transport_error():
     with pytest.raises(LlmTransportError):
         client.complete_json(system_prompt="s", user_prompt="u", json_schema={}, max_tokens=64, think=False)
     assert calls["count"] == 3
+
+
+# ── OllamaJsonClient.recycle_after_n_calls (bug 4 investigation) ──────────
+# A recorded-request handler that answers BOTH endpoint shapes generically
+# (real decision calls and _recycle's own force-unload/re-warm calls all
+# share the same two endpoints), so these tests can assert on the request
+# SEQUENCE rather than juggling two separate handlers.
+
+def _recording_handler(requests: list[dict]):
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        requests.append({"url": str(request.url), "body": body})
+        if body.get("keep_alive") == 0:
+            return httpx.Response(200, json={"model": "qwen3:8b", "done": True, "done_reason": "unload"})
+        if str(request.url).endswith("/api/chat"):
+            return _ok_native_response('{"decisions": []}')
+        return _ok_response('{"decisions": []}')
+
+    return handler
+
+
+def test_recycle_disabled_by_default_never_unloads():
+    requests: list[dict] = []
+    client = _client(_recording_handler(requests))
+    for _ in range(10):
+        client.complete_json(system_prompt="s", user_prompt="u", json_schema={}, max_tokens=64)
+    assert len(requests) == 10
+    assert not any(r["body"].get("keep_alive") == 0 for r in requests)
+
+
+def test_recycle_triggers_before_the_call_that_reaches_the_threshold():
+    requests: list[dict] = []
+    client = _client(_recording_handler(requests), recycle_after_n_calls=2)
+
+    client.complete_json(system_prompt="s", user_prompt="u", json_schema={}, max_tokens=64)
+    client.complete_json(system_prompt="s", user_prompt="u", json_schema={}, max_tokens=64)
+    assert len(requests) == 2  # no recycle yet -- threshold not reached
+
+    client.complete_json(system_prompt="s", user_prompt="u", json_schema={}, max_tokens=64)
+    # call 3 = 1 unload + 2 re-warm (think=True, think=False) + the real call itself
+    assert len(requests) == 6
+    assert requests[2]["body"].get("keep_alive") == 0
+    assert requests[3]["url"] == "http://localhost:11434/v1/chat/completions"  # re-warm, think=True
+    # Padded, not the tiny "{}" stub -- see _RECYCLE_WARM_UP_USER_PROMPT's
+    # own docstring for why (a live regression: the trivial stub made the
+    # NEXT real call reliably fail).
+    assert len(requests[3]["body"]["messages"][1]["content"]) > 1000
+    assert requests[4]["url"] == "http://localhost:11434/api/chat"  # re-warm, think=False
+    assert requests[5]["url"] == "http://localhost:11434/v1/chat/completions"  # the real call
+
+
+def test_recycle_counter_resets_and_fires_again_after_the_next_threshold():
+    requests: list[dict] = []
+    client = _client(_recording_handler(requests), recycle_after_n_calls=2)
+    for _ in range(5):
+        client.complete_json(system_prompt="s", user_prompt="u", json_schema={}, max_tokens=64)
+    unload_count = sum(1 for r in requests if r["body"].get("keep_alive") == 0)
+    # calls 1,2 clean (counter 0->1->2); call 3 recycles (counter was >=2,
+    # resets to 0, then becomes 1); call 4 clean (counter becomes 2);
+    # call 5 recycles again (counter was >=2) -- the counter is cyclic,
+    # so threshold=2 recycles every 2 calls after the first 2, not once.
+    assert unload_count == 2
+
+
+def test_recycle_failure_does_not_abort_the_real_call():
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        if body.get("keep_alive") == 0:
+            raise httpx.ConnectError("refused")  # _force_unload has no retry loop -- fire-and-forget
+        if str(request.url).endswith("/api/chat"):
+            return _ok_native_response('{"decisions": []}')
+        return _ok_response('{"decisions": []}')
+
+    client = _client(handler, recycle_after_n_calls=1)
+    client.complete_json(system_prompt="s", user_prompt="u", json_schema={}, max_tokens=64)
+    # The second call triggers a recycle whose own unload leg raises a
+    # genuine transport error -- best-effort: logged and swallowed (the
+    # re-warm calls still run, and the real call still succeeds).
+    content = client.complete_json(system_prompt="s", user_prompt="u", json_schema={}, max_tokens=64)
+    assert content == '{"decisions": []}'
 
 
 # ── VllmJsonClient (v4 vLLM switch, §15bis.6) ─────────────────────────────
@@ -262,6 +379,24 @@ def test_vllm_request_shape_is_correct():
     assert body["messages"] == [{"role": "system", "content": "sys"}, {"role": "user", "content": "usr"}]
     assert body["response_format"]["json_schema"]["strict"] is True
     assert body["response_format"]["json_schema"]["schema"] == {"type": "object"}
+
+
+def test_vllm_temperature_override_replaces_the_configured_value():
+    # Protocol parity with OllamaJsonClient's own override -- unverified
+    # against a live vLLM server like every other claim in this class, see
+    # its own docstring.
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return _ok_response('{"decisions": []}')
+
+    client = _vllm_client(handler)
+    client.complete_json(
+        system_prompt="sys", user_prompt="usr", json_schema={"type": "object"}, max_tokens=64, temperature=0.3
+    )
+
+    assert captured["body"]["temperature"] == 0.3
 
 
 def test_vllm_think_true_sets_enable_thinking_true():

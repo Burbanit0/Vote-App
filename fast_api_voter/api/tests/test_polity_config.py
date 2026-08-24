@@ -37,6 +37,7 @@ def test_loads_the_real_polity_config_with_expected_v0_values():
     assert config.metrics.petition_success_rate is True
     assert config.metrics.stance_distribution is True
     assert config.llm.max_batch_replays == 0
+    assert config.llm.recycle_after_n_calls is None
     assert config.llm.enabled is False
     assert config.llm.provider == "ollama"
     assert config.llm.base_url == "http://localhost:11434/v1"
@@ -355,6 +356,30 @@ def test_llm_max_batch_replays_zero_is_legal(tmp_path):
 def test_llm_max_batch_replays_positive_is_legal(tmp_path):
     path = _write(tmp_path, lambda d: d["llm"].__setitem__("max_batch_replays", 2))
     assert load_config(path).llm.max_batch_replays == 2
+
+
+# ── llm.recycle_after_n_calls (bug 4 investigation, 2026-08-19/20) ────────
+
+def test_llm_recycle_after_n_calls_null_is_legal(tmp_path):
+    path = _write(tmp_path, lambda d: d["llm"].__setitem__("recycle_after_n_calls", None))
+    assert load_config(path).llm.recycle_after_n_calls is None
+
+
+def test_llm_recycle_after_n_calls_positive_is_legal(tmp_path):
+    path = _write(tmp_path, lambda d: d["llm"].__setitem__("recycle_after_n_calls", 6))
+    assert load_config(path).llm.recycle_after_n_calls == 6
+
+
+def test_llm_recycle_after_n_calls_zero_raises(tmp_path):
+    path = _write(tmp_path, lambda d: d["llm"].__setitem__("recycle_after_n_calls", 0))
+    with pytest.raises(PolityConfigError, match="recycle_after_n_calls"):
+        load_config(path)
+
+
+def test_llm_recycle_after_n_calls_negative_raises(tmp_path):
+    path = _write(tmp_path, lambda d: d["llm"].__setitem__("recycle_after_n_calls", -1))
+    with pytest.raises(PolityConfigError, match="recycle_after_n_calls"):
+        load_config(path)
 
 
 def test_mandate_unknown_pledge_scope_raises(tmp_path):

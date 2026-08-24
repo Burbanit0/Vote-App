@@ -30,6 +30,7 @@ from api.domain.polity.accountability import (
     self_gap,
     sign_petition,
     ticks_to_election,
+    unified_mandate_deviation,
     update_event_salience,
     update_street_pressure,
     weighted_euclidean,
@@ -170,6 +171,59 @@ def test_mandate_deviation_raises_without_a_pledged_or_revealed_position():
     officeholder = _citizen(1, (0.5, 0.5))
     with pytest.raises(ValueError, match="pledged_platform"):
         mandate_deviation(officeholder, _FULL_PLATFORM_CONFIG)
+
+
+# ── unified_mandate_deviation (v6b, production-wiring lot) ──────────────
+
+def test_unified_mandate_deviation_equals_mandate_deviation_under_full_platform_scope():
+    officeholder = _citizen(
+        1, (0.0, 0.0, 0.0), priorities=(0.6, 0.3, 0.1),
+        pledged_platform=(0.0, 0.0, 0.0), revealed_position=(0.5, 0.2, 0.0),
+    )
+    assert unified_mandate_deviation(officeholder) == pytest.approx(
+        mandate_deviation(officeholder, _FULL_PLATFORM_CONFIG)
+    )
+
+
+def test_unified_mandate_deviation_sees_drift_the_top_k_scope_is_blind_to():
+    officeholder = _citizen(
+        1, (0.0, 0.0, 0.0, 0.0), priorities=(0.4, 0.3, 0.2, 0.1),
+        pledged_platform=(0.0, 0.0, 0.0, 0.0), revealed_position=(0.0, 0.0, 0.0, 0.5),
+    )
+    config = MandateConfig(**{**_TOP_K_CONFIG.__dict__, "pledge_top_k": 2})
+    # dim 3 (priority 0.1) is outside the shipped-shape top-2 -- the shipped
+    # metric is structurally blind to this drift, the unified one is not.
+    assert mandate_deviation(officeholder, config) == 0.0
+    assert unified_mandate_deviation(officeholder) > 0.0
+
+
+def test_unified_mandate_deviation_hand_computed():
+    officeholder = _citizen(
+        1, (0.5, 0.5), priorities=(0.6, 0.4), pledged_platform=(0.0, 0.0), revealed_position=(0.5, 0.0),
+    )
+    assert unified_mandate_deviation(officeholder) == pytest.approx((0.6 * 0.25) ** 0.5)
+
+
+def test_unified_mandate_deviation_uses_the_same_weighting_basis_as_chamber_deviation():
+    citizen = _citizen(
+        1, (0.5, 0.5), priorities=(0.6, 0.4),
+        pledged_platform=(0.5, 0.5), revealed_position=(0.5, 0.0),
+        chamber_position=(0.5, 0.0),
+    )
+    assert unified_mandate_deviation(citizen) == chamber_deviation(citizen)
+
+
+def test_unified_mandate_deviation_is_zero_when_platforms_are_equal():
+    officeholder = _citizen(
+        1, (0.5, 0.5), pledged_platform=(0.3, 0.3), revealed_position=(0.3, 0.3),
+    )
+    assert unified_mandate_deviation(officeholder) == 0.0
+
+
+def test_unified_mandate_deviation_raises_without_a_pledged_or_revealed_position():
+    officeholder = _citizen(1, (0.5, 0.5))
+    with pytest.raises(ValueError, match="pledged_platform"):
+        unified_mandate_deviation(officeholder)
 
 
 # ── self_gap ──────────────────────────────────────────────────────────────

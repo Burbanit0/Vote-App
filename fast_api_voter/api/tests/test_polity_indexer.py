@@ -24,9 +24,12 @@ def _ctx(mandate_dev=0.0):
     return {"self_gap": 0.0, "mandate_dev": mandate_dev, "neighbors_acting": None, "ticks_to_election": 4}
 
 
-def _config(*, legitimacy_enabled=False, **metrics_overrides):
+def _config(*, legitimacy_enabled=False, sortition_enabled=False, **metrics_overrides):
     config = load_config()
     config = dataclasses.replace(config, legitimacy=dataclasses.replace(config.legitimacy, enabled=legitimacy_enabled))
+    config = dataclasses.replace(
+        config, sortition_chamber=dataclasses.replace(config.sortition_chamber, enabled=sortition_enabled)
+    )
     if metrics_overrides:
         config = dataclasses.replace(config, metrics=dataclasses.replace(config.metrics, **metrics_overrides))
     return config
@@ -300,6 +303,103 @@ def test_mandate_deviation_is_none_when_its_flag_is_off():
     assert metrics.mandate_deviation_coverage is None
 
 
+# ── mandate_deviation_unified (v6b, production-wiring lot) ───────────────
+
+def test_unified_deviation_series_is_indexed_beside_the_top_k_one():
+    events = [
+        _e(0, "elected", {"office": 1}, citizen_id=1),
+        _e(
+            0, "representative_response",
+            {"office": 1, "stance": 3, "shifts": [], "ctx": _ctx(0.05), "unified_deviation": 0.31},
+            citizen_id=1, motif="308",
+        ),
+        _e(
+            1, "representative_response",
+            {"office": 1, "stance": 3, "shifts": [], "ctx": _ctx(0.2), "unified_deviation": 0.4},
+            citizen_id=1, motif="308",
+        ),
+    ]
+    config = _config(mandate_deviation=True)
+    metrics = index_events(events, config)
+    assert metrics.mandate_deviation_source == "ctx"
+    assert dict(metrics.mandate_deviation) == {0: 0.05, 1: 0.2}
+    assert dict(metrics.mandate_deviation_unified) == {0: 0.31, 1: 0.4}
+
+
+def test_unified_deviation_falls_back_to_the_recorded_series_without_dt6():
+    events = [
+        _e(0, "elected", {"office": 1}, citizen_id=1),
+        _e(1, "mandate_deviation_recorded", {"office": 1, "deviation": 0.2, "unified_deviation": 0.5}, citizen_id=1),
+    ]
+    config = _config(mandate_deviation=True)
+    metrics = index_events(events, config)
+    assert metrics.mandate_deviation_source == "recorded"
+    assert dict(metrics.mandate_deviation) == {1: 0.2}
+    assert dict(metrics.mandate_deviation_unified) == {1: 0.5}
+
+
+def test_unified_deviation_is_none_on_a_journal_that_predates_the_key():
+    # Directly models the two already-committed v6b journals: representative_response
+    # events with no "unified_deviation" key at all -- must index without raising,
+    # yielding None while mandate_deviation is populated normally.
+    events = [
+        _e(0, "elected", {"office": 1}, citizen_id=1),
+        _e(0, "representative_response", {"office": 1, "stance": 3, "shifts": [], "ctx": _ctx(0.05)}, citizen_id=1, motif="308"),
+    ]
+    config = _config(mandate_deviation=True)
+    metrics = index_events(events, config)
+    assert dict(metrics.mandate_deviation) == {0: 0.05}
+    assert metrics.mandate_deviation_unified is None
+
+
+def test_unified_deviation_is_none_when_a_partial_series_would_result():
+    events = [
+        _e(0, "elected", {"office": 1}, citizen_id=1),
+        _e(
+            0, "representative_response",
+            {"office": 1, "stance": 3, "shifts": [], "ctx": _ctx(0.05), "unified_deviation": 0.31},
+            citizen_id=1, motif="308",
+        ),
+        # tick 1 predates the key -- a mixed journal must never yield a partial tuple.
+        _e(1, "representative_response", {"office": 1, "stance": 3, "shifts": [], "ctx": _ctx(0.2)}, citizen_id=1, motif="308"),
+    ]
+    config = _config(mandate_deviation=True)
+    metrics = index_events(events, config)
+    assert dict(metrics.mandate_deviation) == {0: 0.05, 1: 0.2}
+    assert metrics.mandate_deviation_unified is None
+
+
+# ── chamber_deviation (v6b, production-wiring lot) ────────────────────────
+
+def test_chamber_deviation_series_is_indexed_when_the_chamber_is_enabled():
+    events = [
+        _e(0, "chamber_deliberation", {"shifts": [], "ctx": {"ticks_left": 4}, "chamber_deviation": 0.0}, citizen_id=1, motif="701"),
+        _e(0, "chamber_deliberation", {"shifts": [], "ctx": {"ticks_left": 4}, "chamber_deviation": 0.02}, citizen_id=2, motif="701"),
+        _e(1, "chamber_deliberation", {"shifts": [], "ctx": {"ticks_left": 3}, "chamber_deviation": 0.01}, citizen_id=1, motif="701"),
+        _e(1, "chamber_deliberation", {"shifts": [], "ctx": {"ticks_left": 3}, "chamber_deviation": 0.03}, citizen_id=2, motif="701"),
+    ]
+    config = _config(sortition_enabled=True)
+    metrics = index_events(events, config)
+    assert metrics.chamber_deviation == ((0, 0.0), (0, 0.02), (1, 0.01), (1, 0.03))
+
+
+def test_chamber_deviation_is_none_when_the_sortition_chamber_is_off():
+    events = [
+        _e(0, "chamber_deliberation", {"shifts": [], "ctx": {"ticks_left": 4}, "chamber_deviation": 0.0}, citizen_id=1, motif="701"),
+    ]
+    config = _config(sortition_enabled=False)
+    metrics = index_events(events, config)
+    assert metrics.chamber_deviation is None
+
+
+def test_chamber_deviation_is_an_empty_series_when_the_chamber_never_deliberates():
+    events = [_e(0, "elected", {"office": 1}, citizen_id=1)]
+    config = _config(sortition_enabled=True)
+    metrics = index_events(events, config)
+    assert metrics.chamber_deviation == ()
+    assert metrics.chamber_deviation is not None
+
+
 # ── lame_duck_deviation_delta ──────────────────────────────────────────────
 
 def test_lame_duck_deviation_delta_is_none_with_no_lame_duck_term():
@@ -366,6 +466,7 @@ def test_every_v4_metric_is_none_when_its_flag_is_off():
     assert metrics.mandate_deviation is None
     assert metrics.mandate_deviation_source is None
     assert metrics.mandate_deviation_coverage is None
+    assert metrics.mandate_deviation_unified is None
     assert metrics.lame_duck_deviation_delta is None
     assert metrics.inaction_rate is None
     assert metrics.pressure_lever_mix is None

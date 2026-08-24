@@ -12,11 +12,13 @@ import json
 import numpy as np
 import pytest
 
-from api.domain.polity.accountability import update_street_pressure
+import api.domain.polity.run_polity_simulation as run_polity_simulation_module
+from api.domain.polity.accountability import chamber_deviation, unified_mandate_deviation, update_street_pressure
 from api.domain.polity.citizen import Citizen, Office, Role, generate_population
 from api.domain.polity.codebook import EventType, ReactionMotif
 from api.domain.polity.config import PolityConfig, load_config
 from api.domain.polity.journal import Journal
+from api.domain.polity.llm_behavior_engine import _VOTE_CAST_RETRY_TEMPERATURE
 from api.domain.polity.llm_client import LlmResponseError, OllamaJsonClient, VllmJsonClient
 from api.domain.polity.metrics import consultation_rate, mobilization_rate
 from api.domain.polity.parties import Party, initialize_parties
@@ -24,12 +26,14 @@ from api.domain.polity.run_polity_simulation import (
     ExogenousEventsOutcome,
     PendingRerun,
     _attempt_rupture_candidacies,
+    _declare_nominees_llm,
     _hold_presidential_election,
     _llm_client_scope,
     _run_accountability_phase,
     _run_chamber_deliberation,
     _run_exogenous_events,
     _run_sortition_rotation,
+    _warm_up_llm_client,
     run_simulation,
 )
 from api.domain.polity.simple_rules import assign_party_affiliation, declare_candidacy
@@ -65,6 +69,16 @@ def _events(journal_path):
 # ── _llm_client_scope (v4 vLLM switch, §15bis.6 — dispatch on provider) ──
 # Constructing OllamaJsonClient/VllmJsonClient opens no socket (httpx.Client
 # doesn't connect until a request is sent), so these stay fully offline.
+# The two provider-dispatch tests below patch _warm_up_llm_client to a
+# no-op: entering _llm_client_scope's `with` block now runs one real,
+# best-effort warm-up call on an owned (non-injected) client (GPU
+# reliability fix, see that function's own docstring) -- without patching
+# it here these tests would attempt real network I/O against a real
+# client just to check its TYPE, breaking the "fully offline" contract
+# above. The two tests that already inject a client (sentinel / None-when-
+# disabled) never reach _warm_up_llm_client at all -- it's called only
+# inside the `with build_json_client(...) as owned_client:` branch -- so
+# they need no patch.
 
 def test_llm_client_scope_yields_the_injected_client_untouched():
     config = load_config()
@@ -80,18 +94,40 @@ def test_llm_client_scope_yields_none_when_llm_is_disabled():
         assert client is None
 
 
-def test_llm_client_scope_builds_an_ollama_client_for_the_ollama_provider():
+def test_llm_client_scope_builds_an_ollama_client_for_the_ollama_provider(monkeypatch):
+    monkeypatch.setattr(run_polity_simulation_module, "_warm_up_llm_client", lambda client: None)
     config = load_config()
     config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=True, provider="ollama"))
     with _llm_client_scope(config, None) as client:
         assert isinstance(client, OllamaJsonClient)
 
 
-def test_llm_client_scope_builds_a_vllm_client_for_the_vllm_provider():
+def test_llm_client_scope_builds_a_vllm_client_for_the_vllm_provider(monkeypatch):
+    monkeypatch.setattr(run_polity_simulation_module, "_warm_up_llm_client", lambda client: None)
     config = load_config()
     config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=True, provider="vllm"))
     with _llm_client_scope(config, None) as client:
         assert isinstance(client, VllmJsonClient)
+
+
+def test_llm_client_scope_calls_warm_up_exactly_once_for_an_owned_client(monkeypatch):
+    calls = []
+    monkeypatch.setattr(run_polity_simulation_module, "_warm_up_llm_client", lambda client: calls.append(client))
+    config = load_config()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=True, provider="ollama"))
+    with _llm_client_scope(config, None) as client:
+        assert calls == [client]
+
+
+def test_llm_client_scope_never_warms_up_an_injected_client(monkeypatch):
+    calls = []
+    monkeypatch.setattr(run_polity_simulation_module, "_warm_up_llm_client", lambda client: calls.append(client))
+    config = load_config()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=True, provider="ollama"))
+    sentinel = object()
+    with _llm_client_scope(config, sentinel):  # type: ignore[arg-type]
+        pass
+    assert calls == []
 
 
 def test_llm_client_scope_rejects_the_api_provider_at_run_start():
@@ -100,6 +136,45 @@ def test_llm_client_scope_rejects_the_api_provider_at_run_start():
     with pytest.raises(NotImplementedError, match="provider"):
         with _llm_client_scope(config, None):
             pass
+
+
+# ── _warm_up_llm_client (GPU cold-start reliability fix) ──────────────────
+# scripts/llm_batching_determinism_results_gpu.md, "cold start vs warm"
+# section: a freshly loaded Ollama model's first inference pass is
+# measurably non-deterministic; every subsequent call with the same input
+# is not. This exercises one call through each endpoint shape before any
+# real decision runs.
+
+class _RecordingClient:
+    def __init__(self, *, fail_think: bool = False) -> None:
+        self.calls: list[bool] = []
+        self._fail_think = fail_think
+
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        self.calls.append(think)
+        if think is self._fail_think:
+            raise RuntimeError("simulated warm-up failure")
+        return '{"ok": true}'
+
+
+def test_warm_up_llm_client_calls_both_endpoint_shapes_once_each():
+    client = _RecordingClient()
+    _warm_up_llm_client(client)
+    assert client.calls == [True, False]
+
+
+def test_warm_up_llm_client_swallows_a_failure_on_one_endpoint_and_still_tries_the_other():
+    client = _RecordingClient(fail_think=True)
+    _warm_up_llm_client(client)  # must not raise
+    assert client.calls == [True, False]
+
+
+def test_warm_up_llm_client_never_raises_even_when_both_endpoints_fail():
+    class _AlwaysFailingClient:
+        def complete_json(self, **kwargs):
+            raise RuntimeError("simulated warm-up failure")
+
+    _warm_up_llm_client(_AlwaysFailingClient())  # must not raise
 
 
 # ── compaction wiring (v4 storage lot, §16.6) ─────────────────────────────
@@ -177,6 +252,114 @@ def test_different_seed_produces_a_different_journal(tmp_path):
     path_a = run_simulation(config_a, run_id="r")
     path_b = run_simulation(config_b, run_id="r")
     assert path_a.read_bytes() != path_b.read_bytes()
+
+
+# ── run_metadata.json (backend-traceability gap, prompt-verification-gpu-
+# determinisme.md's step 3) -- a sibling of events.jsonl, NOT a journal
+# event, so the journal's own byte-identical contract is untouched.
+
+def test_run_metadata_json_is_written_beside_the_journal(tmp_path):
+    journal_path = run_simulation(_config_with_output_dir(tmp_path), run_id="r")
+    metadata_path = journal_path.parent / "run_metadata.json"
+    assert metadata_path.exists()
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    assert metadata["run_id"] == "r"
+
+
+def test_run_metadata_records_none_for_llm_fields_when_the_llm_is_disabled(tmp_path, monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        run_polity_simulation_module, "_capture_gpu_driver_info", lambda: calls.append(1) or ("999.99", "13.1")
+    )
+    journal_path = run_simulation(_config_with_output_dir(tmp_path), run_id="r")
+    metadata = json.loads((journal_path.parent / "run_metadata.json").read_text(encoding="utf-8"))
+    assert metadata["llm_enabled"] is False
+    assert metadata["llm_provider"] is None
+    assert metadata["llm_base_url"] is None
+    assert metadata["llm_model"] is None
+    # gpu_driver_version/gpu_cuda_version stay None when llm.enabled=False -- the capture
+    # helper is never even called, not just discarded (a subprocess call has no use for a
+    # deterministic-only run, and >100 test invocations of run_simulation share this path).
+    assert calls == []
+    assert metadata["gpu_driver_version"] is None
+    assert metadata["gpu_cuda_version"] is None
+
+
+def test_run_metadata_records_the_llm_provider_base_url_and_model_when_enabled(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        run_polity_simulation_module, "_capture_gpu_driver_info", lambda: ("591.86", "13.1")
+    )
+    config = _config_with_llm_enabled(tmp_path)
+    journal_path = run_simulation(config, run_id="r", llm_client=_FakeLlmClient())
+    metadata = json.loads((journal_path.parent / "run_metadata.json").read_text(encoding="utf-8"))
+    assert metadata["llm_enabled"] is True
+    assert metadata["llm_provider"] == config.llm.provider
+    assert metadata["llm_base_url"] == config.llm.base_url
+    assert metadata["llm_model"] == config.llm.model
+    assert metadata["gpu_driver_version"] == "591.86"
+    assert metadata["gpu_cuda_version"] == "13.1"
+
+
+def test_run_metadata_gpu_fields_fall_back_to_none_when_the_capture_helper_finds_nothing(tmp_path, monkeypatch):
+    monkeypatch.setattr(run_polity_simulation_module, "_capture_gpu_driver_info", lambda: (None, None))
+    config = _config_with_llm_enabled(tmp_path)
+    journal_path = run_simulation(config, run_id="r", llm_client=_FakeLlmClient())
+    metadata = json.loads((journal_path.parent / "run_metadata.json").read_text(encoding="utf-8"))
+    assert metadata["gpu_driver_version"] is None
+    assert metadata["gpu_cuda_version"] is None
+
+
+class _FakeCompletedProcess:
+    def __init__(self, stdout: str) -> None:
+        self.stdout = stdout
+
+
+def test_capture_gpu_driver_info_parses_driver_and_cuda_version(monkeypatch):
+    responses = iter([
+        _FakeCompletedProcess("591.86\n"),
+        _FakeCompletedProcess(
+            "Sat Aug 22 13:30:00 2026       \n"
+            "+-----------------------------------------------------------------------------------------+\n"
+            "| NVIDIA-SMI 591.86                 Driver Version: 591.86         CUDA Version: 13.1     |\n"
+        ),
+    ])
+    monkeypatch.setattr(
+        run_polity_simulation_module.subprocess, "run", lambda *a, **kw: next(responses)
+    )
+    driver_version, cuda_version = run_polity_simulation_module._capture_gpu_driver_info()
+    assert driver_version == "591.86"
+    assert cuda_version == "13.1"
+
+
+def test_capture_gpu_driver_info_degrades_to_none_on_subprocess_failure(monkeypatch):
+    def _raise(*args, **kwargs):
+        raise FileNotFoundError("nvidia-smi not found")
+
+    monkeypatch.setattr(run_polity_simulation_module.subprocess, "run", _raise)
+    driver_version, cuda_version = run_polity_simulation_module._capture_gpu_driver_info()
+    assert driver_version is None
+    assert cuda_version is None
+
+
+def test_capture_gpu_driver_info_degrades_to_none_when_cuda_version_marker_is_absent(monkeypatch):
+    responses = iter([
+        _FakeCompletedProcess("591.86\n"),
+        _FakeCompletedProcess("no CUDA marker in this output\n"),
+    ])
+    monkeypatch.setattr(
+        run_polity_simulation_module.subprocess, "run", lambda *a, **kw: next(responses)
+    )
+    driver_version, cuda_version = run_polity_simulation_module._capture_gpu_driver_info()
+    assert driver_version == "591.86"
+    assert cuda_version is None
+
+
+def test_run_metadata_does_not_perturb_the_journals_own_byte_identical_reproducibility(tmp_path):
+    path_a = run_simulation(_config_with_output_dir(tmp_path / "a"), run_id="same-run-id")
+    path_b = run_simulation(_config_with_output_dir(tmp_path / "b"), run_id="same-run-id")
+    assert path_a.read_bytes() == path_b.read_bytes()
+    assert (path_a.parent / "run_metadata.json").exists()
+    assert (path_b.parent / "run_metadata.json").exists()
 
 
 # ── outgoing president's stale office/role reset ─────────────────────────
@@ -374,6 +557,8 @@ def test_accountability_phase_records_deviation_only_above_the_threshold(tmp_pat
     assert above_events[0]["event_type"] == "mandate_deviation_recorded"
     assert above_events[0]["citizen_id"] == 0
     assert above_events[0]["payload"]["deviation"] > config.mandate.deviation_log_threshold
+    # v6b, production-wiring lot: both scopes carried on the same event.
+    assert above_events[0]["payload"]["unified_deviation"] > 0.0
 
 
 # ── term limits (v4 Lot 2, §6bis.1) ──────────────────────────────────────
@@ -1687,6 +1872,9 @@ def test_llm_path_completes_and_journals_vote_cast_events(tmp_path):
     assert len(vote_events) == config.run.population_size * 8
     assert all(e["motif"] == "101" for e in vote_events)
     assert all(e["codebook_version"] == config.llm.codebook_version for e in vote_events)
+    # A clean run never retries, so the local sampling-variation exception
+    # (cache_recycle_chunk_size_tension_findings.md) never engages.
+    assert all(e["payload"]["retry_sampling_varied"] == 0 for e in vote_events)
 
 
 def test_two_llm_runs_with_the_same_seed_produce_byte_identical_journals(tmp_path):
@@ -1709,6 +1897,16 @@ def test_default_config_run_emits_no_representative_response_events(tmp_path):
     journal_path = run_simulation(_config_with_output_dir(tmp_path), run_id="baseline")
     events = _events(journal_path)
     assert not [e for e in events if e["event_type"] == "representative_response"]
+
+
+def test_default_config_run_emits_no_unified_deviation_anywhere(tmp_path):
+    # v6b, production-wiring lot: the byte-identity claim, as a direct test
+    # rather than only an argument -- the shipped default writes zero
+    # representative_response/mandate_deviation_recorded events at all, so
+    # "unified_deviation" cannot appear in any payload.
+    journal_path = run_simulation(_config_with_output_dir(tmp_path), run_id="baseline")
+    events = _events(journal_path)
+    assert not any("unified_deviation" in e["payload"] for e in events)
 
 
 def test_llm_enabled_without_mandate_tracking_emits_no_representative_response_events(tmp_path):
@@ -1744,7 +1942,7 @@ def test_representative_response_is_journalled_once_per_presided_tick(tmp_path):
 
     for e in response_events:
         assert e["payload"]["office"] == Office.PRESIDENT.value
-        assert set(e["payload"].keys()) == {"office", "stance", "shifts", "ctx"}
+        assert set(e["payload"].keys()) == {"office", "stance", "shifts", "ctx", "unified_deviation"}
         assert set(e["payload"]["ctx"].keys()) == {"L", "mandate_dev", "street", "lame_duck", "ticks_left"}
         assert e["payload"]["ctx"]["lame_duck"] in (0, 1)
         assert e["motif"] == "301"
@@ -1870,6 +2068,81 @@ def test_ctx_mandate_dev_is_the_pre_decision_deviation(tmp_path):
     assert seen_mandate_devs[1] == pytest.approx(deviation_t0)  # tick 1 sees tick 0's post-decision deviation
 
 
+def test_unified_deviation_is_the_pre_decision_value_like_ctx_mandate_dev(tmp_path):
+    # v6b, production-wiring lot: unified_deviation is computed at the SAME
+    # instant as ctx.mandate_dev -- same lag, same pairing.
+    config = _config_with_legitimacy_enabled(tmp_path)
+    config = dataclasses.replace(
+        config,
+        llm=dataclasses.replace(config.llm, enabled=True),
+        mandate=dataclasses.replace(config.mandate, enabled=True),
+    )
+    holder = _legitimacy_test_citizen(0, legitimacy_capital=0.9, mandate_strength_value=0.9)
+    holder.pledged_platform = (0.5,)
+    holder.revealed_position = (0.5,)
+
+    class RecordingClient:
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+            payload = json.loads(user_prompt)
+            decisions = [
+                {"cid": h["cid"], "shifts": [{"dimension": 0, "delta": 0.2}], "stance": 1, "motif": 301}
+                for h in payload["holders"]
+            ]
+            return json.dumps({"decisions": decisions})
+
+    client = RecordingClient()
+    with Journal(tmp_path / "t0.jsonl", run_id="t0") as journal:
+        _run_accountability_phase([holder], config, journal, tick=0, llm_client=client)
+    events_t0 = _events(tmp_path / "t0.jsonl")
+    response_t0 = next(e for e in events_t0 if e["event_type"] == "representative_response")
+    assert response_t0["payload"]["unified_deviation"] == 0.0  # tick 0: no drift yet -- pre-decision
+    expected_t1 = unified_mandate_deviation(holder)  # holder mutated in place by tick 0's own shift
+
+    with Journal(tmp_path / "t1.jsonl", run_id="t1") as journal:
+        _run_accountability_phase([holder], config, journal, tick=1, llm_client=client)
+    events_t1 = _events(tmp_path / "t1.jsonl")
+    response_t1 = next(e for e in events_t1 if e["event_type"] == "representative_response")
+    assert response_t1["payload"]["unified_deviation"] == pytest.approx(expected_t1)
+
+
+def test_unified_deviation_is_nonzero_where_the_top_k_scoped_ctx_reads_zero(tmp_path):
+    # dim 0 (priority 0.1) sits outside the shipped top-2 -- ctx.mandate_dev
+    # stays blind to a drift there while unified_deviation, on the SAME
+    # event, sees it (both pre-decision, at the start of tick 1, reflecting
+    # the shift tick 0 already applied).
+    config = _config_with_mandate_llm_enabled(tmp_path, pledge_top_k=2)
+    holder = Citizen(
+        citizen_id=0, issue_positions=(0.5, 0.5, 0.5), issue_priorities=(0.1, 0.6, 0.3),
+        blank_threshold=0.5, ambition_score=0.5, role=Role.ELECTED, office=Office.PRESIDENT,
+        # legitimacy.enabled is also on (_config_with_mandate_llm_enabled's own
+        # shape) -- comfortably above recall_floor so the office survives to
+        # tick 1; a floor-crossing recall is not what this test is about.
+        legitimacy_capital=0.9, mandate_strength=0.9,
+    )
+    holder.pledged_platform = (0.5, 0.5, 0.5)
+    holder.revealed_position = (0.5, 0.5, 0.5)
+
+    class ShiftDim0Client:
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+            payload = json.loads(user_prompt)
+            decisions = [
+                {"cid": h["cid"], "shifts": [{"dimension": 0, "delta": 0.3}], "stance": 1, "motif": 301}
+                for h in payload["holders"]
+            ]
+            return json.dumps({"decisions": decisions})
+
+    client = ShiftDim0Client()
+    with Journal(tmp_path / "t0.jsonl", run_id="t0") as journal:
+        _run_accountability_phase([holder], config, journal, tick=0, llm_client=client)
+    with Journal(tmp_path / "t1.jsonl", run_id="t1") as journal:
+        _run_accountability_phase([holder], config, journal, tick=1, llm_client=client)
+
+    events_t1 = _events(tmp_path / "t1.jsonl")
+    response_t1 = next(e for e in events_t1 if e["event_type"] == "representative_response")
+    assert response_t1["payload"]["ctx"]["mandate_dev"] == 0.0
+    assert response_t1["payload"]["unified_deviation"] > 0.0
+
+
 def test_no_representative_response_while_the_presidency_is_vacant(tmp_path):
     config = _config_with_llm_enabled(tmp_path)
     config = dataclasses.replace(config, mandate=dataclasses.replace(config.mandate, enabled=True))
@@ -1958,8 +2231,16 @@ def test_confidence_vote_keep_ratio_decouples_from_mandate_strength_once_the_pos
 def test_llm_batch_misalignment_aborts_the_run_with_no_partial_journal(tmp_path):
     class _ShortClient:
         """Answers candidacy calls in full (so nominees exist to vote on),
-        but drops every decision but the first on a vote call -- isolates
-        the misalignment failure to cast_votes specifically."""
+        but answers every vote call with a decision for a cid that was
+        never asked -- isolates the misalignment failure to cast_votes
+        specifically. A wrong cid, not "drop all but the first" or an
+        empty decisions list: cast_votes now chunks at
+        _VOTE_CAST_MAX_CHUNK_SIZE=1, so a chunk's own expected_cids is
+        already length 1 -- "first decision only" would no longer be a
+        mismatch at that chunk size, it would coincidentally match; and
+        VoteCastBatch's own min_length=1 would turn an empty list into a
+        schema-validation LlmResponseError, not the "misaligned" one this
+        test asserts on."""
 
         def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
             payload = json.loads(user_prompt)
@@ -1984,8 +2265,7 @@ def test_llm_batch_misalignment_aborts_the_run_with_no_partial_journal(tmp_path)
             if "nominees" in payload:
                 decisions = [{"cid": n["cid"], "shifts": [], "motif": 601} for n in payload["nominees"]]
                 return json.dumps({"decisions": decisions})
-            first = payload["voters"][0]
-            return json.dumps({"decisions": [{"cid": first["cid"], "blank": 1, "ranking": [], "motif": 101}]})
+            return json.dumps({"decisions": [{"cid": 999999, "blank": 1, "ranking": [], "motif": 101}]})
 
     config = _config_with_llm_enabled(tmp_path)
     with pytest.raises(LlmResponseError, match="misaligned"):
@@ -2018,6 +2298,52 @@ def test_a_replayed_batch_lets_the_run_complete(tmp_path):
     journal_path = run_simulation(config, run_id="replay-recovers", llm_client=_RecoveringClient(_FakeLlmClient()))
     events = _events(journal_path)
     assert events  # completed with a non-empty journal, not aborted
+
+
+class _FlakyVoteClient:
+    """Wraps _FakeLlmClient but fails the FIRST vote_cast call only
+    (detected by the "voters" fallback key -- see _FakeLlmClient's own
+    dispatch), recording the temperature kwarg each call receives.
+    Exercises cast_votes's own local, deliberate retry_temperature
+    exception (llm_behavior_engine._VOTE_CAST_RETRY_TEMPERATURE) at the
+    full run_simulation level, including the journal's own
+    retry_sampling_varied marker."""
+
+    def __init__(self, inner):
+        self._inner = inner
+        self._vote_calls = 0
+        self.temperatures: list[float | None] = []
+
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None):
+        self.temperatures.append(temperature)
+        payload = json.loads(user_prompt)
+        is_vote_call = not any(k in payload for k in ("citizens", "parties", "nominees", "responders", "holders", "consulted", "reactors", "members"))
+        if is_vote_call:
+            self._vote_calls += 1
+            if self._vote_calls == 1:
+                return "not valid json"
+        return self._inner.complete_json(
+            system_prompt=system_prompt, user_prompt=user_prompt, json_schema=json_schema,
+            max_tokens=max_tokens, think=think,
+        )
+
+
+def test_vote_cast_retries_at_a_varied_temperature_and_journals_the_marker(tmp_path):
+    config = _config_with_llm_enabled(tmp_path)
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, max_batch_replays=1))
+    client = _FlakyVoteClient(_FakeLlmClient())
+    journal_path = run_simulation(config, run_id="vote-retry", llm_client=client)
+    events = _events(journal_path)
+    vote_events = [e for e in events if e["event_type"] == "vote_cast"]
+    assert vote_events  # the run completed, the retry recovered it
+    # Exactly one voter's decision came from a retry -- the one whose
+    # first attempt this fake deliberately broke.
+    varied = [e for e in vote_events if e["payload"]["retry_sampling_varied"] == 1]
+    assert len(varied) == 1
+    # First attempt (the failure): no override. The recovering retry: the
+    # local exception's own temperature.
+    assert client.temperatures[0] is None
+    assert _VOTE_CAST_RETRY_TEMPERATURE in client.temperatures
 
 
 # ── pressure_action (v4 Lot 7, dt=10) ────────────────────────────────────
@@ -2691,10 +3017,80 @@ def test_chamber_deliberation_is_journalled_once_per_seated_member_per_tick(tmp_
     assert [e["citizen_id"] for e in tick0_events] == sorted(e["citizen_id"] for e in tick0_events)
     assert len(tick0_events) == 3  # seats
     for e in tick0_events:
-        assert set(e["payload"].keys()) == {"shifts", "ctx"}
+        assert set(e["payload"].keys()) == {"shifts", "ctx", "chamber_deviation"}
         assert set(e["payload"]["ctx"].keys()) == {"ticks_left"}
         assert e["motif"] in ("701", "702")
         assert e["codebook_version"] == config.llm.codebook_version
+
+
+def test_chamber_deliberation_journals_chamber_deviation_after_the_shift_lands(tmp_path):
+    # v6b Lot 4: chamber_deviation is the POST-decision value -- computed
+    # AFTER member.chamber_position is updated, never a stale pre-shift
+    # reading. Direct _run_chamber_deliberation call (not a full run) with a
+    # fake client returning a fixed, hand-verifiable +0.1 shift on the
+    # single-dimension _sortition_test_citizen fixture: issue_positions
+    # (0.5,) -> chamber_position (0.6,), so
+    # weighted_euclidean((0.5,), (0.6,), (1.0,)) == 0.1 exactly.
+    config = _config_with_output_dir(tmp_path)
+    config = dataclasses.replace(
+        config,
+        sortition_chamber=dataclasses.replace(config.sortition_chamber, enabled=True, seats=3),
+        llm=dataclasses.replace(config.llm, enabled=True),
+    )
+    citizens = [
+        _sortition_test_citizen(i, sortition_seat_until_tick=4, chamber_position=(0.5,)) for i in range(3)
+    ]
+
+    class _ShiftingClient:
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+            payload = json.loads(user_prompt)
+            decisions = [
+                {"cid": m["cid"], "shifts": [{"dimension": 0, "delta": 0.1}], "motif": 702}
+                for m in payload["members"]
+            ]
+            return json.dumps({"decisions": decisions})
+
+    journal_path = tmp_path / "deviation.jsonl"
+    with Journal(journal_path, run_id="deviation") as journal:
+        _run_chamber_deliberation(citizens, config, journal, tick=0, llm_client=_ShiftingClient())
+    events = _events(journal_path)
+    chamber_events = sorted(
+        (e for e in events if e["event_type"] == "chamber_deliberation"), key=lambda e: e["citizen_id"]
+    )
+    assert len(chamber_events) == 3
+    for e, citizen in zip(chamber_events, citizens):
+        assert citizen.chamber_position == pytest.approx((0.6,))
+        expected = chamber_deviation(citizen)
+        assert expected == pytest.approx(0.1)
+        assert e["payload"]["chamber_deviation"] == pytest.approx(expected)
+
+
+def test_chamber_deviation_is_zero_when_the_model_returns_a_sincere_decision(tmp_path):
+    config = _config_with_output_dir(tmp_path)
+    config = dataclasses.replace(
+        config,
+        sortition_chamber=dataclasses.replace(config.sortition_chamber, enabled=True, seats=3),
+        llm=dataclasses.replace(config.llm, enabled=True),
+    )
+    citizens = [
+        _sortition_test_citizen(i, sortition_seat_until_tick=4, chamber_position=(0.5,)) for i in range(3)
+    ]
+
+    class _SincereClient:
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+            payload = json.loads(user_prompt)
+            decisions = [{"cid": m["cid"], "shifts": [], "motif": 701} for m in payload["members"]]
+            return json.dumps({"decisions": decisions})
+
+    journal_path = tmp_path / "sincere.jsonl"
+    with Journal(journal_path, run_id="sincere") as journal:
+        _run_chamber_deliberation(citizens, config, journal, tick=0, llm_client=_SincereClient())
+    events = _events(journal_path)
+    chamber_events = [e for e in events if e["event_type"] == "chamber_deliberation"]
+    assert len(chamber_events) == 3
+    for e in chamber_events:
+        assert e["payload"]["chamber_deviation"] == 0.0
+        assert e["motif"] == "701"
 
 
 def test_chamber_deliberation_never_fires_while_the_accountability_gate_is_entirely_off(tmp_path):
@@ -2768,6 +3164,160 @@ def test_no_chamber_deliberation_llm_call_with_an_empty_chamber(tmp_path):
         _run_chamber_deliberation(citizens, config, journal, tick=0, llm_client=_RaisingClient())
     events = _events(journal_path)
     assert not [e for e in events if e["event_type"] == "chamber_deliberation"]
+
+
+# ── clamped_at_bound (apply_shifts's own observability gap, resolved) ────
+# clamped_dimensions itself is unit-tested in test_polity_llm_behavior_engine.py;
+# these confirm the three run_polity_simulation.py call sites (dt=5/6/11)
+# actually journal the resulting event, adjacent to the decision it
+# describes, only when a dimension genuinely saturates.
+
+def test_default_config_run_emits_no_clamped_at_bound_events(tmp_path):
+    journal_path = run_simulation(_config_with_output_dir(tmp_path), run_id="baseline")
+    events = _events(journal_path)
+    assert not [e for e in events if e["event_type"] == "clamped_at_bound"]
+
+
+def test_chamber_deliberation_clamp_journals_clamped_at_bound_adjacent_to_the_decision(tmp_path):
+    config = _config_with_output_dir(tmp_path)
+    config = dataclasses.replace(
+        config,
+        sortition_chamber=dataclasses.replace(config.sortition_chamber, enabled=True, seats=1),
+        llm=dataclasses.replace(config.llm, enabled=True),
+    )
+    citizens = [_sortition_test_citizen(0, sortition_seat_until_tick=4, chamber_position=(0.9,))]
+
+    class _BigShiftClient:
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+            payload = json.loads(user_prompt)
+            decisions = [
+                {"cid": m["cid"], "shifts": [{"dimension": 0, "delta": 0.3}], "motif": 702}
+                for m in payload["members"]
+            ]
+            return json.dumps({"decisions": decisions})
+
+    journal_path = tmp_path / "chamber-clamp.jsonl"
+    with Journal(journal_path, run_id="chamber-clamp") as journal:
+        _run_chamber_deliberation(citizens, config, journal, tick=0, llm_client=_BigShiftClient())
+    events = _events(journal_path)
+    decision_event = next(e for e in events if e["event_type"] == "chamber_deliberation")
+    clamp_event = next(e for e in events if e["event_type"] == "clamped_at_bound")
+    assert clamp_event["tick"] == 0
+    assert clamp_event["citizen_id"] == 0
+    assert clamp_event["motif"] is None
+    assert clamp_event["codebook_version"] == ""
+    assert clamp_event["payload"] == {"decision_event": "chamber_deliberation", "dimensions": [0]}
+    # adjacent: the very next event, immediately after the decision it describes.
+    assert events.index(clamp_event) == events.index(decision_event) + 1
+
+
+def test_chamber_deliberation_without_a_clamp_emits_no_clamped_at_bound_event(tmp_path):
+    config = _config_with_output_dir(tmp_path)
+    config = dataclasses.replace(
+        config,
+        sortition_chamber=dataclasses.replace(config.sortition_chamber, enabled=True, seats=1),
+        llm=dataclasses.replace(config.llm, enabled=True),
+    )
+    citizens = [_sortition_test_citizen(0, sortition_seat_until_tick=4, chamber_position=(0.5,))]
+
+    class _SmallShiftClient:
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+            payload = json.loads(user_prompt)
+            decisions = [
+                {"cid": m["cid"], "shifts": [{"dimension": 0, "delta": 0.1}], "motif": 702}
+                for m in payload["members"]
+            ]
+            return json.dumps({"decisions": decisions})
+
+    journal_path = tmp_path / "chamber-no-clamp.jsonl"
+    with Journal(journal_path, run_id="chamber-no-clamp") as journal:
+        _run_chamber_deliberation(citizens, config, journal, tick=0, llm_client=_SmallShiftClient())
+    events = _events(journal_path)
+    assert [e for e in events if e["event_type"] == "chamber_deliberation"]  # the decision itself fired
+    assert not [e for e in events if e["event_type"] == "clamped_at_bound"]
+
+
+def test_representative_response_clamp_journals_clamped_at_bound(tmp_path):
+    config = _config_with_mandate_llm_enabled(tmp_path)
+    holder = Citizen(
+        citizen_id=0, issue_positions=(0.9,), issue_priorities=(1.0,),
+        blank_threshold=0.5, ambition_score=0.5, role=Role.ELECTED, office=Office.PRESIDENT,
+        legitimacy_capital=0.9, mandate_strength=0.9,  # comfortably above recall_floor
+    )
+    holder.pledged_platform = (0.9,)
+    holder.revealed_position = (0.9,)
+
+    class _BigShiftClient:
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+            payload = json.loads(user_prompt)
+            decisions = [
+                {"cid": h["cid"], "shifts": [{"dimension": 0, "delta": 0.3}], "stance": 1, "motif": 301}
+                for h in payload["holders"]
+            ]
+            return json.dumps({"decisions": decisions})
+
+    journal_path = tmp_path / "response-clamp.jsonl"
+    with Journal(journal_path, run_id="response-clamp") as journal:
+        _run_accountability_phase([holder], config, journal, tick=0, llm_client=_BigShiftClient())
+    events = _events(journal_path)
+    decision_event = next(e for e in events if e["event_type"] == "representative_response")
+    clamp_event = next(e for e in events if e["event_type"] == "clamped_at_bound")
+    assert clamp_event["citizen_id"] == 0
+    assert clamp_event["motif"] is None
+    assert clamp_event["payload"] == {"decision_event": "representative_response", "dimensions": [0]}
+    assert events.index(clamp_event) == events.index(decision_event) + 1
+    assert holder.revealed_position == pytest.approx((1.0,))
+
+
+def test_campaign_positioning_clamp_journals_clamped_at_bound(tmp_path):
+    # decide_candidacies (the "citizens" branch) batches population-scale via
+    # chunk_voters, which floors at MIN_SAFE_BATCH_SIZE=20 -- a 1-citizen
+    # population would raise NotImplementedError before ever reaching
+    # positioning. 19 filler electors (never declare, party_affiliation
+    # irrelevant) get the count above that floor; only cid=0 (party 1)
+    # actually declares, so party 1 stays uncontested (no
+    # party_nomination_choice/"parties" call expected).
+    config = _config_with_llm_enabled(tmp_path)
+    nominee = Citizen(
+        citizen_id=0, issue_positions=(0.9,), issue_priorities=(1.0,),
+        blank_threshold=0.5, ambition_score=0.5, party_affiliation=1,
+    )
+    fillers = [
+        Citizen(citizen_id=i, issue_positions=(0.5,), issue_priorities=(1.0,), blank_threshold=0.5, ambition_score=0.0)
+        for i in range(1, 20)
+    ]
+    citizens = [nominee, *fillers]
+    parties = [Party(party_id=1, platform=(0.5,))]
+
+    class _BigShiftClient:
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+            payload = json.loads(user_prompt)
+            if "citizens" in payload:
+                decisions = [
+                    {"cid": c["cid"], "outcome": 1 if c["cid"] == 0 else 0, "motif": 203 if c["cid"] == 0 else 201}
+                    for c in payload["citizens"]
+                ]
+                return json.dumps({"decisions": decisions})
+            if "nominees" in payload:
+                decisions = [
+                    {"cid": n["cid"], "shifts": [{"dimension": 0, "delta": 0.3}], "motif": 602}
+                    for n in payload["nominees"]
+                ]
+                return json.dumps({"decisions": decisions})
+            raise AssertionError(f"unexpected payload shape (single-candidate party should be uncontested, "
+                                  f"no party_nomination_choice call expected): {sorted(payload.keys())}")
+
+    journal_path = tmp_path / "positioning-clamp.jsonl"
+    with Journal(journal_path, run_id="positioning-clamp") as journal:
+        _declare_nominees_llm(citizens, parties, config, journal, tick=0, llm_client=_BigShiftClient())
+    events = _events(journal_path)
+    decision_event = next(e for e in events if e["event_type"] == "campaign_positioning")
+    clamp_event = next(e for e in events if e["event_type"] == "clamped_at_bound")
+    assert clamp_event["citizen_id"] == 0
+    assert clamp_event["motif"] is None
+    assert clamp_event["payload"] == {"decision_event": "campaign_positioning", "dimensions": [0]}
+    assert events.index(clamp_event) == events.index(decision_event) + 1
+    assert nominee.pledged_platform == pytest.approx((1.0,))
 
 
 # ── LLM candidacy path (v2 increment 2) ──────────────────────────────────

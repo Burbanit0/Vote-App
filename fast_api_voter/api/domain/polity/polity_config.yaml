@@ -313,6 +313,14 @@ llm:
                               #   serait en bf16 — les résultats live commités
                               #   (ollama_structured_output_results.md, etc.)
                               #   décrivent Ollama et ne se transposent pas
+                              # ⚠ ollama-polity DOIT etre lance avec
+                              #   OLLAMA_CONTEXT_LENGTH>=16384 (env var au
+                              #   niveau du conteneur -- num_ctx par requete
+                              #   est ignore silencieusement sur l'endpoint
+                              #   OpenAI-compat que think=True utilise).
+                              #   Sans ca : troncature silencieuse rare mais
+                              #   reelle (finish_reason='length'), cf.
+                              #   scripts/ollama_context_window_results.md
   # base_url: "http://localhost:8000/v1"  # vllm
   base_url: "http://localhost:11434/v1"
   model: "qwen3:8b"           # [v2] version ÉPINGLÉE (jamais 'latest', cf. B2)
@@ -358,6 +366,28 @@ llm:
   max_batch_replays: 0        # [v4] §3.6.10 — 0 = pas de rejeu (comportement
                               #      historique) ; relevé pour le run
                               #      d'acceptation (Lot 8), jamais en défaut
+  recycle_after_n_calls: null # null = désactivé (défaut). Force un
+                              #      unload/reload du modèle Ollama (via
+                              #      keep_alive=0 sur l'endpoint natif —
+                              #      pas un redémarrage de conteneur) tous
+                              #      les N appels complete_json, pour
+                              #      réinitialiser le cache de prompts
+                              #      llama.cpp avant qu'il n'approche sa
+                              #      capacité mesurée (bug 4 investigation,
+                              #      2026-08-19/20) : sur ce conteneur, à
+                              #      capacité ~8 prompts, le taux d'échec
+                              #      par troncature est nul sous 7 prompts
+                              #      en cache (0/24 mesurés) et domine à
+                              #      7-8 (12/28, ratio ≥2x confirmé). Une
+                              #      valeur de 5-6 reste prudente sous ce
+                              #      seuil. Vérifié directement : l'unload
+                              #      réinitialise bien "cache state" à 0,
+                              #      même effet qu'un redémarrage complet.
+                              #      Seuil mesuré sur un prompt shape précis
+                              #      (campaign_positioning, think=True,
+                              #      grand budget) — pas prouvé général à
+                              #      tout mélange de types de décision ;
+                              #      voir llm_batching_determinism_results_gpu.md
 
 # =============================================================================
 # JOURNAL ET DONNÉES (§16)
