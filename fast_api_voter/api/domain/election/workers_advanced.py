@@ -8,10 +8,11 @@ Depends only on the engine utils + the shared ._electorate / ._helpers.
 """
 from __future__ import annotations
 
+import itertools
 import math
 import random as _random
 from collections import Counter
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import numpy as _np
 
@@ -19,7 +20,8 @@ from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.simulation_voting_utils import calculate_utility, create_voter
 from api.engine.utils.simulation_metrics import compare_all_methods
 from api.engine.utils.simulation_ranked_utils import (
-    get_plurality_winner, get_condorcet_winner,
+    get_borda_winner, get_condorcet_winner, get_irv_winner, get_plurality_winner,
+    get_schulze_winner,
 )
 from ._electorate import _build_base_electorate
 from ._helpers import build_candidate_from_xy as _build_candidate_from_xy
@@ -30,177 +32,278 @@ from ._helpers import build_candidate_from_xy as _build_candidate_from_xy
 _AGE_LABELS  = ["jeunes (18-34)", "adultes (35-64)", "seniors (65+)"]
 _EDU_LABELS  = ["faible éducation", "éducation élevée"]
 
+_DT_RULES = {
+    "borda":   get_borda_winner,
+    "irv":     get_irv_winner,
+    "schulze": get_schulze_winner,
+}
 
-def _demographic_turnout_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /demographic-turnout — extracted for FastAPI v2."""
-    num_voters        = max(50,  min(500, int(data.get("num_voters",         300))))
-    seed              = int(data.get("seed",              42))
-    primary_method    = str(data.get("method",           "plurality"))
-    correct_flag      = bool(data.get("correct_for_turnout", True))
-    cand_specs        = data.get("candidates", [
-        {"name": "Alice", "x": -0.5, "y": -0.2},
-        {"name": "Bob",   "x":  0.5, "y":  0.2},
-        {"name": "Carol", "x":  0.0, "y":  0.1},
-    ])[:6]
+_DT_DEFAULT_CANDIDATES = [
+    {"name": "Alice", "x": -0.5, "y": -0.2},
+    {"name": "Bob",   "x":  0.5, "y":  0.2},
+    {"name": "Carol", "x":  0.0, "y":  0.1},
+]
 
-    if len(cand_specs) < 2:
-        return {"error": "At least 2 candidates required"}, 400
 
-    # Pydantic Optional dict may pass null — fall back to empty + use field defaults.
-    dp       = data.get("demographic_profile") or {}
-    age_dist = [float(x) for x in (dp.get("age_distribution")    or [0.25, 0.45, 0.30])][:3]
-    to_age   = [float(x) for x in (dp.get("turnout_by_age")      or [0.55, 0.70, 0.85])][:3]
-    ideo_age = [float(x) for x in (dp.get("ideology_by_age")     or [-0.10, 0.00,  0.15])][:3]
-    edu_dist = [float(x) for x in (dp.get("education_distribution") or [0.40, 0.60])][:2]
-    to_edu   = [float(x) for x in (dp.get("turnout_by_education")   or [1.00, 1.00])][:2]
-    ideo_edu = [float(x) for x in (dp.get("ideology_by_education") or [ 0.05, -0.05])][:2]
+def _dt_floats(raw: Any, default: List[float], keep: int) -> List[float]:
+    """One profile vector: the caller's numbers when given, this endpoint's
+    defaults otherwise. Pydantic passes null for an omitted Optional, so an
+    empty value has to fall back too — hence `or`, not a dict default."""
+    return [float(x) for x in (raw or default)][:keep]
 
-    # Normalize distributions
-    sum_a = sum(age_dist) or 1.0
-    age_dist = [x / sum_a for x in age_dist]
-    sum_e = sum(edu_dist) or 1.0
-    edu_dist = [x / sum_e for x in edu_dist]
 
-    _random.seed(seed)
-    _np.random.seed(seed)
-    issues   = DEFAULT_ISSUES
-    cand_names = [str(s.get("name", f"C{i}")) for i, s in enumerate(cand_specs)]
+def _dt_profile(dp: Dict[str, Any]) -> Dict[str, List[float]]:
+    """The demographic profile with defaults filled in, the two population
+    splits renormalised to sum to 1."""
+    prof = {
+        "age_dist": _dt_floats(dp.get("age_distribution"),       [0.25, 0.45, 0.30], 3),
+        "to_age":   _dt_floats(dp.get("turnout_by_age"),         [0.55, 0.70, 0.85], 3),
+        "ideo_age": _dt_floats(dp.get("ideology_by_age"),        [-0.10, 0.00, 0.15], 3),
+        "edu_dist": _dt_floats(dp.get("education_distribution"), [0.40, 0.60], 2),
+        "to_edu":   _dt_floats(dp.get("turnout_by_education"),   [1.00, 1.00], 2),
+        "ideo_edu": _dt_floats(dp.get("ideology_by_education"),  [0.05, -0.05], 2),
+    }
+    for key in ("age_dist", "edu_dist"):
+        total = sum(prof[key]) or 1.0
+        prof[key] = [x / total for x in prof[key]]
+    return prof
+
+
+def _dt_candidates(
+    cand_specs: List[Dict[str, Any]],
+    issues: Any,
+) -> tuple[List[str], List[Dict[str, Any]]]:
+    """Names and spatial candidates, positions clamped to the unit square."""
+    names = [str(s.get("name", f"C{i}")) for i, s in enumerate(cand_specs)]
     candidates = [
         _build_candidate_from_xy(
-            i, cand_names[i],
+            i, names[i],
             max(-1.0, min(1.0, float(s.get("x", 0.0)))),
             max(-1.0, min(1.0, float(s.get("y", 0.0)))),
             issues,
         )
         for i, s in enumerate(cand_specs)
     ]
+    return names, candidates
 
-    # ── Generate voters with demographic attributes ────────────────────────
-    demo_rng     = _random.Random(seed)
-    age_cumsum   = [sum(age_dist[:k+1]) for k in range(len(age_dist))]
-    edu_cumsum   = [sum(edu_dist[:k+1]) for k in range(len(edu_dist))]
 
-    def _pick_group(rng_val: float, cumsum: list[float]) -> int:
-        for i, th in enumerate(cumsum):
-            if rng_val < th:
-                return i
-        return len(cumsum) - 1
+def _dt_pick_group(rng_val: float, cumsum: List[float]) -> int:
+    """Index of the band `rng_val` falls in, given cumulative shares."""
+    for i, th in enumerate(cumsum):
+        if rng_val < th:
+            return i
+    return len(cumsum) - 1
 
-    raw_voters = [
-        create_voter(issues, i, ideology_distribution="random")
-        for i in range(num_voters)
-    ]
 
-    voter_demo: Dict[int, Dict[str, Any]] = {}
+def _dt_assign_demographics(
+    raw_voters: List[Dict[str, Any]],
+    seed: int,
+    prof: Dict[str, List[float]],
+) -> Dict[Any, Dict[str, Any]]:
+    """Give each voter an age band, an education band, an ideology shifted by
+    both, and the turnout probability those bands imply. Also rewrites the
+    voter's economy position, since that is what the utility model reads."""
+    demo_rng   = _random.Random(seed)
+    age_cumsum = [sum(prof["age_dist"][:k+1]) for k in range(len(prof["age_dist"]))]
+    edu_cumsum = [sum(prof["edu_dist"][:k+1]) for k in range(len(prof["edu_dist"]))]
+
+    voter_demo: Dict[Any, Dict[str, Any]] = {}
     for v in raw_voters:
-        ag    = _pick_group(demo_rng.random(), age_cumsum)
-        eg    = _pick_group(demo_rng.random(), edu_cumsum)
-        base  = demo_rng.uniform(-0.5, 0.5)
-        ideo  = max(-1.0, min(1.0, base + ideo_age[ag] + ideo_edu[eg]))
-        p_v   = max(0.0, min(1.0, to_age[ag] * to_edu[eg]))
+        ag   = _dt_pick_group(demo_rng.random(), age_cumsum)
+        eg   = _dt_pick_group(demo_rng.random(), edu_cumsum)
+        base = demo_rng.uniform(-0.5, 0.5)
+        ideo = max(-1.0, min(1.0, base + prof["ideo_age"][ag] + prof["ideo_edu"][eg]))
+        p_v  = max(0.0, min(1.0, prof["to_age"][ag] * prof["to_edu"][eg]))
         voter_demo[v["id"]] = {"age": ag, "edu": eg, "ideology": ideo, "p_vote": p_v}
         v["issue_positions"]["economy"] = (ideo + 1.0) / 2.0   # remap to [0, 1]
+    return voter_demo
 
-    # Utilities (recomputed after ideology override)
-    utils: Dict[Any, Dict[str, float]] = {
-        v["id"]: {c["name"]: calculate_utility(v, c, issues)["utility"] for c in candidates}
-        for v in raw_voters
-    }
 
-    # ── Determine effective voters ─────────────────────────────────────────
-    t_rng      = _random.Random(seed + 100)
+def _dt_turnout_draw(
+    raw_voters: List[Dict[str, Any]],
+    voter_demo: Dict[Any, Dict[str, Any]],
+    seed: int,
+) -> tuple[set[Any], List[Dict[str, Any]]]:
+    """Who actually shows up: one draw per voter against their own probability."""
+    t_rng = _random.Random(seed + 100)
     voted_ids: set[Any] = {
         v["id"] for v in raw_voters
         if t_rng.random() < voter_demo[v["id"]]["p_vote"]
     }
-    actual_voters = [v for v in raw_voters if v["id"] in voted_ids]
-    n_actual  = len(actual_voters)
+    return voted_ids, [v for v in raw_voters if v["id"] in voted_ids]
 
-    # ── Fast winner ────────────────────────────────────────────────────────
-    from api.engine.utils.simulation_ranked_utils import (
-        get_borda_winner   as _b_dt,
-        get_irv_winner     as _i_dt,
-        get_schulze_winner as _s_dt,
-    )
 
-    def _winner(vlist: list[Dict[str, Any]]) -> tuple[str, Dict[str, float]]:
-        if not vlist:
-            return cand_names[0], {c: 0.0 for c in cand_names}
-        rnk = [sorted(utils[v["id"]].keys(), key=lambda n: -utils[v["id"]][n]) for v in vlist]
-        if primary_method == "borda":
-            w: Optional[str] = _b_dt(rnk)
-        elif primary_method == "irv":
-            w = _i_dt(rnk)
-        elif primary_method == "schulze":
-            w = _s_dt(rnk)
-        else:
-            w = get_plurality_winner(rnk)
-        total  = len(vlist)
-        fc     = Counter(r[0] for r in rnk)
-        shares = {c: round(fc.get(c, 0) / total, 4) for c in cand_names}
-        return w or cand_names[0], shares
+def _dt_winner(
+    vlist: List[Dict[str, Any]],
+    utils: Dict[Any, Dict[str, float]],
+    cand_names: List[str],
+    method: str,
+) -> tuple[str, Dict[str, float]]:
+    """Winner and first-choice shares for one voter subset."""
+    if not vlist:
+        return cand_names[0], {c: 0.0 for c in cand_names}
+    rnk = [sorted(utils[v["id"]].keys(), key=lambda n: -utils[v["id"]][n]) for v in vlist]
+    w: Optional[str] = _DT_RULES.get(method, get_plurality_winner)(rnk)
+    fc = Counter(r[0] for r in rnk)
+    shares = {c: round(fc.get(c, 0) / len(vlist), 4) for c in cand_names}
+    return w or cand_names[0], shares
 
-    biased_winner,    biased_shares    = _winner(actual_voters)
-    corrected_winner, corrected_shares = _winner(raw_voters) if correct_flag else (biased_winner, biased_shares)
-    winner_changed = biased_winner != corrected_winner
 
-    # ── Ideology stats ─────────────────────────────────────────────────────
-    full_mean = round(sum(voter_demo[v["id"]]["ideology"] for v in raw_voters)   / num_voters,  4)
-    bias_mean = round(sum(voter_demo[v["id"]]["ideology"] for v in actual_voters) / n_actual,    4) if n_actual else 0.0
-    ideo_drift = round(bias_mean - full_mean, 4)
+def _dt_mean(
+    voters: List[Dict[str, Any]],
+    voter_demo: Dict[Any, Dict[str, Any]],
+    field: str,
+) -> float:
+    """Mean of one demographic field over a voter subset; 0.0 when empty.
+    `field` is an age or education band (int) or an ideology (float), so the
+    values are widened to float before summing."""
+    if not voters:
+        return 0.0
+    return round(sum(float(voter_demo[v["id"]][field]) for v in voters) / len(voters), 4)
 
-    # ── Demographic breakdown (3 age × 2 edu groups) ─────────────────────
-    grp_pop: Dict[tuple[Any, ...], int]   = {}
-    grp_vot: Dict[tuple[Any, ...], int]   = {}
+
+def _dt_breakdown(
+    raw_voters: List[Dict[str, Any]],
+    voted_ids: set[Any],
+    voter_demo: Dict[Any, Dict[str, Any]],
+    prof: Dict[str, List[float]],
+    num_voters: int,
+    n_actual: int,
+) -> List[Dict[str, Any]]:
+    """One row per age × education cell: its share of the population, its share
+    of the people who actually voted, and the mean ideology of the latter."""
+    grp_pop: Dict[tuple[Any, ...], int] = {}
+    grp_vot: Dict[tuple[Any, ...], int] = {}
     grp_ideo: Dict[tuple[Any, ...], list[Any]] = {}
     for v in raw_voters:
         d   = voter_demo[v["id"]]
         key = (d["age"], d["edu"])
-        grp_pop[key]  = grp_pop.get(key, 0) + 1
+        grp_pop[key] = grp_pop.get(key, 0) + 1
         if v["id"] in voted_ids:
-            grp_vot[key]  = grp_vot.get(key, 0) + 1
+            grp_vot[key] = grp_vot.get(key, 0) + 1
             grp_ideo.setdefault(key, []).append(d["ideology"])
 
-    breakdown: list[Dict[str, Any]] = []
-    for ag in range(len(age_dist)):
-        for eg in range(len(edu_dist)):
+    breakdown: List[Dict[str, Any]] = []
+    for ag in range(len(prof["age_dist"])):
+        for eg in range(len(prof["edu_dist"])):
             key       = (ag, eg)
-            pop_cnt   = grp_pop.get(key, 0)
-            vot_cnt   = grp_vot.get(key, 0)
             ideo_vals = grp_ideo.get(key, [])
             breakdown.append({
                 "group":          f"{_AGE_LABELS[ag]}, {_EDU_LABELS[eg]}",
-                "population_pct": round(pop_cnt / num_voters,        4),
-                "voter_pct":      round(vot_cnt / n_actual,          4) if n_actual else 0.0,
+                "population_pct": round(grp_pop.get(key, 0) / num_voters, 4),
+                "voter_pct":      round(grp_vot.get(key, 0) / n_actual, 4) if n_actual else 0.0,
                 "ideology_mean":  round(sum(ideo_vals) / len(ideo_vals), 4) if ideo_vals else 0.0,
             })
+    return breakdown
 
-    overrep  = [d["group"] for d in breakdown if d["voter_pct"] > d["population_pct"] + 0.05]
-    underrep = [d["group"] for d in breakdown if d["voter_pct"] < d["population_pct"] - 0.05]
 
+def _dt_winners_by_method(
+    subsets: List[List[Dict[str, Any]]],
+    candidates: List[Dict[str, Any]],
+    issues: Any,
+) -> List[Dict[str, Any]]:
+    """Winner per method for each voter subset. All-or-nothing on failure, kept
+    from before the split: the two subsets must never disagree about whether the
+    comparison ran at all, or the caller would read one as a real change."""
+    try:
+        compares = [compare_all_methods(vs, candidates, issues) for vs in subsets]
+    except Exception:  # pylint: disable=broad-except
+        return [{} for _ in subsets]
+    return [
+        {m: d.get("winner") for m, d in c.get("methods", {}).items()}
+        for c in compares
+    ]
+
+
+# A cell counts as over- or under-represented once its share of the people who
+# actually voted is this far from its share of the population.
+_DT_REPRESENTATION_MARGIN = 0.05
+
+
+def _dt_representation_gap(
+    breakdown: List[Dict[str, Any]],
+    ideo_drift: float,
+) -> Dict[str, Any]:
+    """Which demographic cells the turnout bias lifted, and which it dropped."""
+    return {
+        "ideology_drift": ideo_drift,
+        "overrepresented_groups": [
+            d["group"] for d in breakdown
+            if d["voter_pct"] > d["population_pct"] + _DT_REPRESENTATION_MARGIN
+        ],
+        "underrepresented_groups": [
+            d["group"] for d in breakdown
+            if d["voter_pct"] < d["population_pct"] - _DT_REPRESENTATION_MARGIN
+        ],
+    }
+
+
+def _dt_note(
+    n_actual: int,
+    num_voters: int,
+    ideo_drift: float,
+    biased_winner: str,
+    corrected_winner: str,
+) -> str:
     note = (
         f"Avec les taux de participation configurés, "
         f"l'électorat effectif ({round(n_actual/num_voters*100, 1)}% de participation) "
         f"est décalé de {ideo_drift:+.3f} sur l'axe idéologique par rapport à la population totale. "
     )
-    if winner_changed:
-        note += f"Si tous votaient, le résultat serait différent : '{biased_winner}' → '{corrected_winner}'."
-    else:
-        note += f"La méthode produit le même vainqueur ('{biased_winner}') malgré le biais de participation."
+    if biased_winner != corrected_winner:
+        return note + f"Si tous votaient, le résultat serait différent : '{biased_winner}' → '{corrected_winner}'."
+    return note + f"La méthode produit le même vainqueur ('{biased_winner}') malgré le biais de participation."
 
-    # ── Per-method winners for both voter subsets ─────────────────────────
-    try:
-        bias_compare = compare_all_methods(actual_voters, candidates, issues)
-        full_compare = compare_all_methods(raw_voters,    candidates, issues)
-        biased_winners_by_method = {
-            m: d.get("winner") for m, d in bias_compare.get("methods", {}).items()
-        }
-        corrected_winners_by_method = {
-            m: d.get("winner") for m, d in full_compare.get("methods", {}).items()
-        }
-    except Exception:  # pylint: disable=broad-except
-        biased_winners_by_method = {}
-        corrected_winners_by_method = {}
+
+def _demographic_turnout_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /demographic-turnout — extracted for FastAPI v2."""
+    num_voters     = max(50, min(500, int(data.get("num_voters", 300))))
+    seed           = int(data.get("seed", 42))
+    primary_method = str(data.get("method", "plurality"))
+    correct_flag   = bool(data.get("correct_for_turnout", True))
+    cand_specs     = data.get("candidates", _DT_DEFAULT_CANDIDATES)[:6]
+
+    if len(cand_specs) < 2:
+        return {"error": "At least 2 candidates required"}, 400
+
+    prof = _dt_profile(data.get("demographic_profile") or {})
+
+    _random.seed(seed)
+    _np.random.seed(seed)
+    issues = DEFAULT_ISSUES
+    cand_names, candidates = _dt_candidates(cand_specs, issues)
+
+    raw_voters = [
+        create_voter(issues, i, ideology_distribution="random")
+        for i in range(num_voters)
+    ]
+    voter_demo = _dt_assign_demographics(raw_voters, seed, prof)
+
+    # Utilities are computed after the ideology override, not before.
+    utils: Dict[Any, Dict[str, float]] = {
+        v["id"]: {c["name"]: calculate_utility(v, c, issues)["utility"] for c in candidates}
+        for v in raw_voters
+    }
+
+    voted_ids, actual_voters = _dt_turnout_draw(raw_voters, voter_demo, seed)
+    n_actual = len(actual_voters)
+
+    biased_winner, biased_shares = _dt_winner(actual_voters, utils, cand_names, primary_method)
+    corrected_winner, corrected_shares = (
+        _dt_winner(raw_voters, utils, cand_names, primary_method) if correct_flag
+        else (biased_winner, biased_shares)
+    )
+
+    full_mean  = _dt_mean(raw_voters, voter_demo, "ideology")
+    bias_mean  = _dt_mean(actual_voters, voter_demo, "ideology")
+    ideo_drift = round(bias_mean - full_mean, 4)
+
+    breakdown = _dt_breakdown(
+        raw_voters, voted_ids, voter_demo, prof, num_voters, n_actual,
+    )
+    biased_by_method, corrected_by_method = _dt_winners_by_method(
+        [actual_voters, raw_voters], candidates, issues,
+    )
 
     return {
         "biased_result": {
@@ -208,26 +311,24 @@ def _demographic_turnout_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
             "vote_shares":    biased_shares,
             "actual_turnout": round(n_actual / num_voters, 4),
             "voter_profile": {
-                "mean_age_group":       round(sum(voter_demo[v["id"]]["age"] for v in actual_voters) / n_actual, 4) if n_actual else 0.0,
-                "mean_education_level": round(sum(voter_demo[v["id"]]["edu"] for v in actual_voters) / n_actual, 4) if n_actual else 0.0,
+                "mean_age_group":       _dt_mean(actual_voters, voter_demo, "age"),
+                "mean_education_level": _dt_mean(actual_voters, voter_demo, "edu"),
                 "mean_ideology_x":      bias_mean,
             },
-            "winners_by_method": biased_winners_by_method,
+            "winners_by_method": biased_by_method,
         },
         "corrected_result": {
             "winner":         corrected_winner,
             "vote_shares":    corrected_shares,
             "mean_ideology_x": full_mean,
-            "winners_by_method": corrected_winners_by_method,
+            "winners_by_method": corrected_by_method,
         },
-        "winner_changed":      winner_changed,
-        "representation_gap": {
-            "ideology_drift":          ideo_drift,
-            "overrepresented_groups":  overrep,
-            "underrepresented_groups": underrep,
-        },
+        "winner_changed":      biased_winner != corrected_winner,
+        "representation_gap":  _dt_representation_gap(breakdown, ideo_drift),
         "demographic_breakdown": breakdown,
-        "pedagogical_note":      note,
+        "pedagogical_note":      _dt_note(
+            n_actual, num_voters, ideo_drift, biased_winner, corrected_winner,
+        ),
     }, 200
 
 
@@ -414,8 +515,6 @@ def _compulsory_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
 
 # ── Sortition (tirage au sort) ────────────────────────────────────────────────
 
-import math as _math
-
 
 def _sortition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     """Pure worker for /sortition — extracted for FastAPI v2 reuse."""
@@ -494,8 +593,8 @@ def _sortition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         ps = [c / n for c in counts if c > 0]
         if len(ps) <= 1:
             return 0.0
-        ent = -sum(p * _math.log(p) for p in ps)
-        return round(ent / _math.log(4), 4)
+        ent = -sum(p * math.log(p) for p in ps)
+        return round(ent / math.log(4), 4)
 
     def _decision_regret(asm: set[Any]) -> float:
         if not asm:
@@ -679,118 +778,128 @@ def _sortition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
 # ── Party Dynamics ────────────────────────────────────────────────────────────
 
-def _party_dynamics_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /party-dynamics — extracted for FastAPI v2.
+_PD_DEFAULT_PARTIES = [
+    {"name": "A", "x": -0.8, "y":  0.0, "support_pct": 0.10},
+    {"name": "B", "x": -0.3, "y":  0.0, "support_pct": 0.25},
+    {"name": "C", "x":  0.1, "y":  0.0, "support_pct": 0.30},
+    {"name": "D", "x":  0.5, "y":  0.0, "support_pct": 0.25},
+    {"name": "E", "x":  0.9, "y":  0.0, "support_pct": 0.10},
+]
+_PD_TACTICAL_METHODS = {"plurality", "two_round", "irv"}
 
-    Simulate multi-election party system evolution (Duverger's Law).
-    """
 
-    num_voters    = max(100, min(1000, int(data.get("num_voters",        500))))
-    ideology      = str(data.get("ideology",                "random"))
-    seed          = int(data.get("seed",                     42))
-    num_elections = max(1,  min(30,  int(data.get("num_elections",       10))))
-    method        = str(data.get("method",                  "plurality"))
-    surv_thr      = max(0.01, min(0.20, float(data.get("survival_threshold",   0.05))))
-    emerge_prob   = max(0.00, min(1.00, float(data.get("emergence_probability", 0.10))))
-    hotelling_a   = max(0.00, min(1.00, float(data.get("hotelling_adaptation",  0.10))))
-    tactical_on   = bool(data.get("tactical_voting", True))
-    # Pydantic Optional may pass null — fall back to the server default.
-    initial_pts   = (data.get("initial_parties") or [
-        {"name": "A", "x": -0.8, "y":  0.0, "support_pct": 0.10},
-        {"name": "B", "x": -0.3, "y":  0.0, "support_pct": 0.25},
-        {"name": "C", "x":  0.1, "y":  0.0, "support_pct": 0.30},
-        {"name": "D", "x":  0.5, "y":  0.0, "support_pct": 0.25},
-        {"name": "E", "x":  0.9, "y":  0.0, "support_pct": 0.10},
-    ])[:10]
-
-    if len(initial_pts) < 2:
-        return {"error": "At least 2 initial parties required"}, 400
-
-    _random.seed(seed)
-    _np.random.seed(seed)
-
-    # ── Voter ideology (fixed across all elections) ───────────────────────
+def _pd_voter_ideology(ideology: str, num_voters: int) -> Any:
+    """The fixed voter ideology axis for the whole run — one draw, reused across
+    every election, since it's the parties that move, not the electorate."""
     if ideology == "polarized":
         h = num_voters // 2
-        voter_x = _np.clip(
+        return _np.clip(
             _np.concatenate([_np.random.normal(-0.6, 0.2, h),
-                             _np.random.normal( 0.6, 0.2, num_voters - h)]),
+                             _np.random.normal(0.6, 0.2, num_voters - h)]),
             -1.0, 1.0,
         )
-    elif ideology == "normal":
-        voter_x = _np.clip(_np.random.normal(0, 0.3, num_voters), -1.0, 1.0)
-    else:
-        voter_x = _np.random.uniform(-1.0, 1.0, num_voters)
+    if ideology == "normal":
+        return _np.clip(_np.random.normal(0, 0.3, num_voters), -1.0, 1.0)
+    return _np.random.uniform(-1.0, 1.0, num_voters)
 
-    voter_median = float(_np.median(voter_x))
 
-    # ── Active parties (mutable state) ───────────────────────────────────
-    active: list[Dict[str, Any]] = [
+def _pd_normalise_parties(initial_pts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Clamp positions to the unit square and rescale polling to sum to 1."""
+    active: List[Dict[str, Any]] = [
         {
-            "name":        str(p.get("name", f"P{i}")),
-            "x":           max(-1.0, min(1.0, float(p.get("x", 0.0)))),
-            "y":           max(-1.0, min(1.0, float(p.get("y", 0.0)))),
-            "poll":        max(0.0,  float(p.get("support_pct", 1 / len(initial_pts)))),
+            "name": str(p.get("name", f"P{i}")),
+            "x":    max(-1.0, min(1.0, float(p.get("x", 0.0)))),
+            "y":    max(-1.0, min(1.0, float(p.get("y", 0.0)))),
+            "poll": max(0.0,  float(p.get("support_pct", 1 / len(initial_pts)))),
         }
         for i, p in enumerate(initial_pts)
     ]
-    # Normalize polls
     poll_total = sum(p["poll"] for p in active) or 1.0
     for p in active:
         p["poll"] /= poll_total
+    return active
 
-    initial_positions: Dict[str, float] = {p["name"]: p["x"] for p in active}
-    party_counter      = len(active)
-    rng                = _random.Random(seed + 1)
-    all_elections: list[Dict[str, Any]] = []
-    n_eff_curve: list[float] = []
-    tactical_methods = {"plurality", "two_round", "irv"}
 
-    # ── Vote-share helper ─────────────────────────────────────────────────
-    def _vote_shares(parties: list[Any], polls: Dict[str, float]) -> Dict[str, float]:
-        pxs = _np.array([p["x"] for p in parties])
-        dists = _np.abs(voter_x[:, None] - pxs[None, :])   # (N, K)
-        nearest = _np.argmin(dists, axis=1)
+def _pd_vote_shares(
+    parties: List[Dict[str, Any]],
+    polls: Dict[str, float],
+    voter_x: Any,
+    num_voters: int,
+    method: str,
+    tactical_on: bool,
+    surv_thr: float,
+) -> Dict[str, float]:
+    """Each voter picks their nearest party on the ideology axis — except, under
+    a method where tactical voting applies, a voter whose nearest party looks
+    non-viable (polling under twice the survival threshold) instead picks their
+    nearest VIABLE party."""
+    pxs = _np.array([p["x"] for p in parties])
+    dists = _np.abs(voter_x[:, None] - pxs[None, :])   # (N, K)
+    nearest = _np.argmin(dists, axis=1)
 
-        apply_tac = tactical_on and method in tactical_methods
-        if apply_tac:
-            viable = _np.array([polls.get(p["name"], 0) >= 2 * surv_thr
-                                 for p in parties])
-            if viable.any() and not viable.all():
-                masked = dists.copy()
-                masked[:, ~viable] = 1e9
-                tac_nearest = _np.argmin(masked, axis=1)
-                mask = ~viable[nearest]
-                nearest[mask] = tac_nearest[mask]
+    if tactical_on and method in _PD_TACTICAL_METHODS:
+        viable = _np.array([polls.get(p["name"], 0) >= 2 * surv_thr
+                             for p in parties])
+        if viable.any() and not viable.all():
+            masked = dists.copy()
+            masked[:, ~viable] = 1e9
+            tac_nearest = _np.argmin(masked, axis=1)
+            mask = ~viable[nearest]
+            nearest[mask] = tac_nearest[mask]
 
-        counts = _np.bincount(nearest, minlength=len(parties))
-        return {p["name"]: float(counts[i] / num_voters) for i, p in enumerate(parties)}
+    counts = _np.bincount(nearest, minlength=len(parties))
+    return {p["name"]: float(counts[i] / num_voters) for i, p in enumerate(parties)}
 
-    # ── Gap finder for party emergence ────────────────────────────────────
-    def _find_gap(pxs: list[Any]) -> float:
-        cands = _np.linspace(-1.0, 1.0, 60)
-        best_x, best_gap = 0.0, 0.0
-        for cx in cands:
-            g = min(abs(float(cx) - px) for px in pxs)
-            if g > best_gap:
-                best_gap, best_x = g, float(cx)
-        return round(best_x, 2)
 
-    # ── N_eff ─────────────────────────────────────────────────────────────
-    def _n_eff(shares: Dict[str, float]) -> float:
-        s = sum(v ** 2 for v in shares.values() if v > 0)
-        return round(1.0 / s, 4) if s > 0 else 1.0
+def _pd_find_gap(pxs: List[Any]) -> float:
+    """The point on the axis farthest from every current party — where a new
+    entrant would face the least crowding."""
+    best_x, best_gap = 0.0, 0.0
+    for cx in _np.linspace(-1.0, 1.0, 60):
+        g = min(abs(float(cx) - px) for px in pxs)
+        if g > best_gap:
+            best_gap, best_x = g, float(cx)
+    return round(best_x, 2)
 
-    # ── Simulation loop ───────────────────────────────────────────────────
-    for k in range(num_elections):
-        polls_dict = {p["name"]: p["poll"] for p in active}
-        shares     = _vote_shares(active, polls_dict)
-        n_eff      = _n_eff(shares)
-        n_eff_curve.append(n_eff)
 
-        winner = max(shares, key=shares.__getitem__) if shares else ""
+def _pd_n_eff(shares: Dict[str, float]) -> float:
+    """Laakso-Taagepera effective number of parties: the inverse Herfindahl
+    index of vote shares. 1.0 means one party takes everything."""
+    s = sum(v ** 2 for v in shares.values() if v > 0)
+    return round(1.0 / s, 4) if s > 0 else 1.0
 
-        parties_snap = [
+
+def _pd_run_round(
+    k: int,
+    active: List[Dict[str, Any]],
+    voter_x: Any,
+    num_voters: int,
+    method: str,
+    tactical_on: bool,
+    surv_thr: float,
+    hotelling_a: float,
+    voter_median: float,
+    emerge_prob: float,
+    rng: _random.Random,
+    party_counter: int,
+    initial_positions: Dict[str, float],
+    num_elections: int,
+) -> tuple[Dict[str, Any], List[Dict[str, Any]], int, float]:
+    """One election: tally shares, snapshot the field, eliminate whoever fell
+    under the survival threshold, let survivors drift toward the median
+    (Hotelling), and maybe spawn a new entrant into the largest gap. Returns the
+    round's record and the state that carries into the next round."""
+    polls_dict = {p["name"]: p["poll"] for p in active}
+    shares = _pd_vote_shares(
+        active, polls_dict, voter_x, num_voters, method, tactical_on, surv_thr,
+    )
+    n_eff = _pd_n_eff(shares)
+    winner = max(shares, key=shares.__getitem__) if shares else ""
+
+    record: Dict[str, Any] = {
+        "election_n":        k + 1,
+        "active_parties":    len(active),
+        "parties": [
             {
                 "name":     p["name"],
                 "x":        round(p["x"], 4),
@@ -800,59 +909,44 @@ def _party_dynamics_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
                 "survived": shares.get(p["name"], 0) >= surv_thr,
             }
             for p in active
-        ]
+        ],
+        "effective_parties": n_eff,
+        "winner":            winner,
+        "new_entrants":      [],
+        "eliminated":        [p["name"] for p in active if shares.get(p["name"], 0) < surv_thr],
+    }
 
-        # Record before elimination
-        all_elections.append({
-            "election_n":        k + 1,
-            "active_parties":    len(active),
-            "parties":           parties_snap,
-            "effective_parties": n_eff,
-            "winner":            winner,
-            "new_entrants":      [],   # filled in next iteration
-            "eliminated":        [],   # filled below
-        })
+    active = [p for p in active if shares.get(p["name"], 0) >= surv_thr]
+    for p in active:
+        p["poll"] = shares.get(p["name"], 0)
+    if not active:
+        return record, active, party_counter, n_eff
 
-        # Eliminate
-        eliminated = [p["name"] for p in active
-                      if shares.get(p["name"], 0) < surv_thr]
-        all_elections[-1]["eliminated"] = eliminated
-        active = [p for p in active if shares.get(p["name"], 0) >= surv_thr]
+    for p in active:
+        p["x"] = round(p["x"] + hotelling_a * (voter_median - p["x"]), 4)
+        p["y"] = round(p["y"] + hotelling_a * (0.0 - p["y"]), 4)
 
-        # Update polls
-        for p in active:
-            p["poll"] = shares.get(p["name"], 0)
+    if emerge_prob > 0 and rng.random() < emerge_prob:
+        gap_x = _pd_find_gap([p["x"] for p in active])
+        party_counter += 1
+        new_name = f"Nouveau-{party_counter}"
+        active.append({"name": new_name, "x": gap_x, "y": 0.0, "poll": surv_thr * 1.5})
+        initial_positions[new_name] = gap_x
+        if k < num_elections - 1:
+            record["new_entrants"] = [new_name]
 
-        if not active:
-            break
+    return record, active, party_counter, n_eff
 
-        # Hotelling adaptation
-        for p in active:
-            p["x"] = round(p["x"] + hotelling_a * (voter_median - p["x"]), 4)
-            p["y"] = round(p["y"] + hotelling_a * (0.0 - p["y"]), 4)
 
-        # Party emergence
-        new_entrants: list[str] = []
-        if emerge_prob > 0 and rng.random() < emerge_prob:
-            gap_x = _find_gap([p["x"] for p in active])
-            party_counter += 1
-            new_name = f"Nouveau-{party_counter}"
-            new_party: Dict[str, Any] = {
-                "name": new_name, "x": gap_x, "y": 0.0, "poll": surv_thr * 1.5,
-            }
-            active.append(new_party)
-            new_entrants.append(new_name)
-            initial_positions[new_name] = gap_x
-
-        if k + 1 < len(all_elections):
-            all_elections[k + 1]["new_entrants"] = new_entrants
-        else:
-            # Mark on the NEXT election (we just finished election k)
-            pass
-        if new_entrants and k < num_elections - 1:
-            all_elections[-1]["new_entrants"] = new_entrants
-
-    # ── Summary ───────────────────────────────────────────────────────────
+def _pd_summary(
+    all_elections: List[Dict[str, Any]],
+    n_eff_curve: List[float],
+    method: str,
+    num_elections: int,
+    initial_pts: List[Dict[str, Any]],
+    active: List[Dict[str, Any]],
+    initial_positions: Dict[str, float],
+) -> Dict[str, Any]:
     n_eff_final = n_eff_curve[-1] if n_eff_curve else 1.0
     if n_eff_final < 2.5:
         final_system = "bipartite"
@@ -895,7 +989,57 @@ def _party_dynamics_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         "convergence_speed":       convergence_speed,
         "ideology_drift":          ideology_drift,
         "pedagogical_note":        note,
-    }, 200
+    }
+
+
+def _party_dynamics_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /party-dynamics — extracted for FastAPI v2.
+
+    Simulate multi-election party system evolution (Duverger's Law).
+    """
+    num_voters    = max(100, min(1000, int(data.get("num_voters", 500))))
+    ideology      = str(data.get("ideology", "random"))
+    seed          = int(data.get("seed", 42))
+    num_elections = max(1, min(30, int(data.get("num_elections", 10))))
+    method        = str(data.get("method", "plurality"))
+    surv_thr      = max(0.01, min(0.20, float(data.get("survival_threshold", 0.05))))
+    emerge_prob   = max(0.00, min(1.00, float(data.get("emergence_probability", 0.10))))
+    hotelling_a   = max(0.00, min(1.00, float(data.get("hotelling_adaptation", 0.10))))
+    tactical_on   = bool(data.get("tactical_voting", True))
+    # Pydantic Optional may pass null — fall back to the server default.
+    initial_pts   = (data.get("initial_parties") or _PD_DEFAULT_PARTIES)[:10]
+
+    if len(initial_pts) < 2:
+        return {"error": "At least 2 initial parties required"}, 400
+
+    _random.seed(seed)
+    _np.random.seed(seed)
+
+    voter_x = _pd_voter_ideology(ideology, num_voters)
+    voter_median = float(_np.median(voter_x))
+    active = _pd_normalise_parties(initial_pts)
+
+    initial_positions: Dict[str, float] = {p["name"]: p["x"] for p in active}
+    party_counter = len(active)
+    rng = _random.Random(seed + 1)
+    all_elections: list[Dict[str, Any]] = []
+    n_eff_curve: list[float] = []
+
+    for k in range(num_elections):
+        record, active, party_counter, n_eff = _pd_run_round(
+            k, active, voter_x, num_voters, method, tactical_on, surv_thr,
+            hotelling_a, voter_median, emerge_prob, rng, party_counter,
+            initial_positions, num_elections,
+        )
+        all_elections.append(record)
+        n_eff_curve.append(n_eff)
+        if not active:
+            break
+
+    return _pd_summary(
+        all_elections, n_eff_curve, method, num_elections, initial_pts, active,
+        initial_positions,
+    ), 200
 
 
 # ── Deliberation + Vote ───────────────────────────────────────────────────────
@@ -1115,137 +1259,145 @@ def _deliberation_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
 # ── /api/election/power-indices ───────────────────────────────────────────────
 
-import itertools as _it_pi  # noqa: E402
+# Shapley-Shubik enumerates every arrival order: 10! is 3.6M permutations, and
+# each extra party multiplies that again. Past this the index is reported as 0
+# rather than hanging the request.
+_SHAPLEY_MAX_PARTIES = 10
 
-def _power_indices_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /power-indices — extracted for FastAPI v2."""
-    raw_parties: List[Dict[str, Any]] = data.get("parties") or []
-    majority_threshold: int = int(data.get("majority_threshold", 0))
-    constraints_raw: List[Dict[str, str]] = data.get("coalition_constraints") or []
-    calc_shapley: bool = bool(data.get("calculate_shapley", True))
-    calc_banzhaf: bool = bool(data.get("calculate_banzhaf", True))
+_CoalitionTest = Callable[[frozenset[Any]], bool]
 
-    if not raw_parties:
-        return {"error": "parties required"}, 400
 
-    # Normalise input
-    parties: List[Dict[str, Any]] = []
-    for p in raw_parties:
-        name  = str(p.get("name", "?"))
-        seats = max(0, int(p.get("seats", 0)))
-        pariah = bool(p.get("pariah", False))
-        parties.append({"name": name, "seats": seats, "pariah": pariah})
-
-    total_seats = sum(p["seats"] for p in parties)
-    if majority_threshold <= 0:
-        majority_threshold = total_seats // 2 + 1
-
-    names = [p["name"] for p in parties]
-    n = len(names)
-    seats_map: Dict[str, int] = {p["name"]: p["seats"] for p in parties}
-    pariah_set: set[Any] = {p["name"] for p in parties if p["pariah"]}
-
-    # Build forbidden pairs: explicit constraints + pariah rules
+def _pi_forbidden_pairs(
+    names: List[str],
+    pariah_set: set[Any],
+    constraints_raw: List[Dict[str, str]],
+) -> set[Any]:
+    """Pairs that may never sit in the same coalition: the explicit constraints,
+    plus a pariah's pair with every other party (the cordon sanitaire)."""
     forbidden: set[Any] = set()
     for c in constraints_raw:
         a, b = c.get("party_a", ""), c.get("party_b", "")
         if a in names and b in names:
             forbidden.add(frozenset([a, b]))
-    # Pariah: cannot be in coalition with any other party
     for par in pariah_set:
         for other in names:
             if other != par:
                 forbidden.add(frozenset([par, other]))
+    return forbidden
 
-    def _coalition_valid(members: frozenset[Any]) -> bool:
-        """Returns True if no forbidden pair is fully inside members."""
-        for pair in forbidden:
-            if pair.issubset(members):
-                return False
-        return True
 
-    def _coalition_wins(members: frozenset[Any]) -> bool:
-        return _coalition_valid(members) and sum(seats_map[m] for m in members) >= majority_threshold
+def _pi_pivot(
+    perm: tuple[str, ...],
+    seats_map: Dict[str, int],
+    majority_threshold: int,
+    is_valid: _CoalitionTest,
+) -> Optional[str]:
+    """The party whose arrival first carries this ordering over the majority
+    line, or None if the ordering never reaches one."""
+    running: frozenset[Any] = frozenset()
+    for party in perm:
+        running = running | {party}
+        if is_valid(running) and sum(seats_map[m] for m in running) >= majority_threshold:
+            return party
+    return None
 
-    # ── Shapley-Shubik ────────────────────────────────────────────────────────
+
+def _pi_shapley(
+    names: List[str],
+    seats_map: Dict[str, int],
+    majority_threshold: int,
+    is_valid: _CoalitionTest,
+) -> tuple[Dict[str, float], Dict[str, int]]:
+    """Shapley-Shubik: over every arrival order, count how often each party is
+    the pivot. Returns the normalised index and the raw pivot counts."""
     pivot_counts: Dict[str, int] = {name: 0 for name in names}
+    if len(names) > _SHAPLEY_MAX_PARTIES:
+        return {name: 0.0 for name in names}, pivot_counts
+
     total_perms = 0
+    for perm in itertools.permutations(names):
+        total_perms += 1
+        pivot = _pi_pivot(perm, seats_map, majority_threshold, is_valid)
+        if pivot is not None:
+            pivot_counts[pivot] += 1
 
-    if calc_shapley and n <= 10:
-        for perm in _it_pi.permutations(names):
-            total_perms += 1
-            running: frozenset[Any] = frozenset()
-            already_won = False
-            for party in perm:
-                new_coalition = running | {party}
-                if _coalition_valid(new_coalition):
-                    seats_so_far = sum(seats_map[m] for m in new_coalition)
-                    if not already_won and seats_so_far >= majority_threshold:
-                        pivot_counts[party] += 1
-                        already_won = True
-                running = new_coalition
+    shapley = {
+        name: round(pivot_counts[name] / total_perms, 6) if total_perms else 0.0
+        for name in names
+    }
+    return shapley, pivot_counts
 
-    shapley: Dict[str, float] = {}
-    if calc_shapley and total_perms > 0:
-        for name in names:
-            shapley[name] = round(pivot_counts[name] / total_perms, 6)
-    else:
-        for name in names:
-            shapley[name] = 0.0
 
-    # ── Banzhaf ───────────────────────────────────────────────────────────────
+def _pi_critical_members(coalition: frozenset[Any], wins: _CoalitionTest) -> List[Any]:
+    """The members whose departure would cost this coalition its majority."""
+    return [m for m in coalition if not wins(coalition - {m})]
+
+
+def _pi_banzhaf(
+    names: List[str],
+    seats_map: Dict[str, int],
+    wins: _CoalitionTest,
+) -> tuple[Dict[str, float], Dict[str, int], List[Dict[str, Any]]]:
+    """Banzhaf: over every winning coalition, count how often each member is
+    critical. Also collects the winning coalitions themselves — one is minimal
+    exactly when every one of its members is critical."""
     critical_counts: Dict[str, int] = {name: 0 for name in names}
-    viable_coalitions: List[Dict[str, Any]] = []
+    viable: List[Dict[str, Any]] = []
 
-    if calc_banzhaf:
-        for r in range(1, n + 1):
-            for combo in _it_pi.combinations(names, r):
-                coalition = frozenset(combo)
-                if _coalition_wins(coalition):
-                    # Track critical parties
-                    for member in combo:
-                        without = coalition - {member}
-                        if not _coalition_wins(without):
-                            critical_counts[member] += 1
-                    viable_coalitions.append({
-                        "parties": sorted(combo),
-                        "seats":   sum(seats_map[m] for m in combo),
-                        "minimal": all(
-                            not _coalition_wins(coalition - {m}) for m in combo
-                        ),
-                    })
+    for r in range(1, len(names) + 1):
+        for combo in itertools.combinations(names, r):
+            coalition = frozenset(combo)
+            if not wins(coalition):
+                continue
+            critical = _pi_critical_members(coalition, wins)
+            for member in critical:
+                critical_counts[member] += 1
+            viable.append({
+                "parties": sorted(combo),
+                "seats":   sum(seats_map[m] for m in combo),
+                "minimal": len(critical) == len(combo),
+            })
 
-        total_critical = sum(critical_counts.values())
-        banzhaf: Dict[str, float] = {}
-        for name in names:
-            banzhaf[name] = (
-                round(critical_counts[name] / total_critical, 6)
-                if total_critical > 0 else 0.0
-            )
-    else:
-        banzhaf = {name: 0.0 for name in names}
+    total_critical = sum(critical_counts.values())
+    banzhaf = {
+        name: round(critical_counts[name] / total_critical, 6) if total_critical else 0.0
+        for name in names
+    }
+    return banzhaf, critical_counts, viable
 
-    # ── Build per-party output ────────────────────────────────────────────────
-    party_results = []
+
+def _pi_party_results(
+    parties: List[Dict[str, Any]],
+    total_seats: int,
+    shapley: Dict[str, float],
+    banzhaf: Dict[str, float],
+    critical_counts: Dict[str, int],
+    pivot_counts: Dict[str, int],
+) -> List[Dict[str, Any]]:
+    """Per-party row. `power_ratio` is the point of the whole endpoint: coalition
+    power divided by seat share, so 1.0 means a party is exactly as powerful as
+    it is large."""
+    results = []
     for p in parties:
         name = p["name"]
         seat_pct = p["seats"] / total_seats if total_seats > 0 else 0.0
         sh = shapley.get(name, 0.0)
-        bz = banzhaf.get(name, 0.0)
-        power_ratio = round(sh / seat_pct, 4) if seat_pct > 0 else 0.0
-        party_results.append({
+        results.append({
             "name":           name,
             "seats":          p["seats"],
             "seat_pct":       round(seat_pct, 4),
             "shapley_index":  sh,
-            "banzhaf_index":  bz,
-            "power_ratio":    power_ratio,
+            "banzhaf_index":  banzhaf.get(name, 0.0),
+            "power_ratio":    round(sh / seat_pct, 4) if seat_pct > 0 else 0.0,
             "critical_count": critical_counts.get(name, 0),
             "pivot_count":    pivot_counts.get(name, 0),
             "is_pariah":      p["pariah"],
         })
+    return results
 
-    # ── Power surprises ───────────────────────────────────────────────────────
+
+def _pi_surprises(party_results: List[Dict[str, Any]]) -> List[str]:
+    """The cases where seat count and real power come apart."""
     surprises: List[str] = []
     for pr in party_results:
         ratio = pr["power_ratio"]
@@ -1264,36 +1416,104 @@ def _power_indices_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             surprises.append(
                 f"{pr['name']} : {pr['seats']} sièges mais pouvoir=0 (paria, exclu de toutes les coalitions)"
             )
+    return surprises
 
-    # ── Pedagogical note ──────────────────────────────────────────────────────
-    if party_results:
-        top = max(party_results, key=lambda x: x["shapley_index"])
-        parias_with_seats = [p for p in party_results if p["is_pariah"] and p["seats"] > 0]
-        note = (
-            f"Shapley-Shubik 1954 : le parti '{top['name']}' détient "
-            f"{round(top['shapley_index']*100, 1)}% du pouvoir de coalition "
-            f"pour {round(top['seat_pct']*100, 1)}% des sièges. "
-        )
-        if parias_with_seats:
-            names_str = ", ".join(p["name"] for p in parias_with_seats)
-            total_paria_seats = sum(p["seats"] for p in parias_with_seats)
-            note += (
-                f"Les partis '{names_str}' totalisent {total_paria_seats} sièges "
-                f"mais ont un pouvoir réel de 0 (cordon sanitaire). "
-            )
+
+def _pi_note(party_results: List[Dict[str, Any]]) -> str:
+    if not party_results:
+        return "Aucun parti fourni."
+
+    top = max(party_results, key=lambda x: x["shapley_index"])
+    note = (
+        f"Shapley-Shubik 1954 : le parti '{top['name']}' détient "
+        f"{round(top['shapley_index']*100, 1)}% du pouvoir de coalition "
+        f"pour {round(top['seat_pct']*100, 1)}% des sièges. "
+    )
+    parias_with_seats = [p for p in party_results if p["is_pariah"] and p["seats"] > 0]
+    if parias_with_seats:
+        names_str = ", ".join(p["name"] for p in parias_with_seats)
+        total_paria_seats = sum(p["seats"] for p in parias_with_seats)
         note += (
-            "Banzhaf (1965) : un parti est critique si son départ fait "
-            "passer la coalition de gagnante à perdante."
+            f"Les partis '{names_str}' totalisent {total_paria_seats} sièges "
+            f"mais ont un pouvoir réel de 0 (cordon sanitaire). "
         )
-    else:
-        note = "Aucun parti fourni."
+    return note + (
+        "Banzhaf (1965) : un parti est critique si son départ fait "
+        "passer la coalition de gagnante à perdante."
+    )
+
+
+def _pi_normalise(
+    raw_parties: List[Dict[str, Any]],
+    majority_threshold: int,
+) -> tuple[List[Dict[str, Any]], List[str], Dict[str, int], int, int]:
+    """Clamp the request into the shapes the indices need. A threshold of 0 or
+    less means "unspecified": fall back to a simple majority of the seats."""
+    parties: List[Dict[str, Any]] = [
+        {
+            "name":   str(p.get("name", "?")),
+            "seats":  max(0, int(p.get("seats", 0))),
+            "pariah": bool(p.get("pariah", False)),
+        }
+        for p in raw_parties
+    ]
+    total_seats = sum(p["seats"] for p in parties)
+    if majority_threshold <= 0:
+        majority_threshold = total_seats // 2 + 1
+    names = [p["name"] for p in parties]
+    seats_map = {p["name"]: p["seats"] for p in parties}
+    return parties, names, seats_map, total_seats, majority_threshold
+
+
+def _pi_zeros(names: List[str]) -> tuple[Dict[str, float], Dict[str, int]]:
+    """Neutral indices, for an index the caller switched off."""
+    return {n: 0.0 for n in names}, {n: 0 for n in names}
+
+
+def _power_indices_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /power-indices — extracted for FastAPI v2."""
+    raw_parties: List[Dict[str, Any]] = data.get("parties") or []
+    if not raw_parties:
+        return {"error": "parties required"}, 400
+
+    parties, names, seats_map, total_seats, majority_threshold = _pi_normalise(
+        raw_parties, int(data.get("majority_threshold", 0)),
+    )
+    forbidden = _pi_forbidden_pairs(
+        names,
+        {p["name"] for p in parties if p["pariah"]},
+        data.get("coalition_constraints") or [],
+    )
+
+    def is_valid(members: frozenset[Any]) -> bool:
+        """True when no forbidden pair sits entirely inside members."""
+        return not any(pair <= members for pair in forbidden)
+
+    def wins(members: frozenset[Any]) -> bool:
+        return is_valid(members) and sum(seats_map[m] for m in members) >= majority_threshold
+
+    zero_float, zero_int = _pi_zeros(names)
+    shapley, pivot_counts = (
+        _pi_shapley(names, seats_map, majority_threshold, is_valid)
+        if data.get("calculate_shapley", True)
+        else (zero_float, zero_int)
+    )
+    banzhaf, critical_counts, viable_coalitions = (
+        _pi_banzhaf(names, seats_map, wins)
+        if data.get("calculate_banzhaf", True)
+        else (zero_float, zero_int, [])
+    )
+
+    party_results = _pi_party_results(
+        parties, total_seats, shapley, banzhaf, critical_counts, pivot_counts,
+    )
 
     return {
         "total_seats":        total_seats,
         "majority_threshold": majority_threshold,
         "parties":            party_results,
         "viable_coalitions":  viable_coalitions[:50],
-        "power_surprises":    surprises,
-        "pedagogical_note":   note,
+        "power_surprises":    _pi_surprises(party_results),
+        "pedagogical_note":   _pi_note(party_results),
     }, 200
 
