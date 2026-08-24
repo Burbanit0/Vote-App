@@ -17,6 +17,8 @@ import { Progress } from '@/components/ui/progress';
 import { Spinner } from '@/components/ui/spinner';
 import { useElection } from '../../stores/useElectionStore';
 import { $api } from '../../api/hooks';
+import { hemicycleArc, hemicyclePath, hemicycleSegments } from '@/lib/hemicycleGeometry';
+import HemicycleLegend from './HemicycleLegend';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -73,25 +75,7 @@ const Hémicycle: React.FC<HémicycleProps> = ({ seats, names, total, label }) =
   const cy = H - 8;
   const rI = 40;
   const rO = 100;
-  const parties = names.filter((n) => (seats[n] ?? 0) > 0);
-  let cum = Math.PI;
-  const segs = parties.map((n) => {
-    const span = ((seats[n] ?? 0) / total) * Math.PI;
-    const s = { name: n, a1: cum, a2: cum + span };
-    cum += span;
-    return s;
-  });
-  function arc(r: number, a: number): [number, number] {
-    return [cx + r * Math.cos(a), cy - r * Math.sin(a)];
-  }
-  function path(r1: number, r2: number, a1: number, a2: number) {
-    const [x1, y1] = arc(r1, a1);
-    const [x2, y2] = arc(r2, a1);
-    const [x3, y3] = arc(r2, a2);
-    const [x4, y4] = arc(r1, a2);
-    const la = a2 - a1 > Math.PI ? 1 : 0;
-    return `M${x1} ${y1} L${x2} ${y2} A${r2} ${r2} 0 ${la} 0 ${x3} ${y3} L${x4} ${y4} A${r1} ${r1} 0 ${la} 1 ${x1} ${y1} Z`;
-  }
+  const segs = hemicycleSegments(seats, names, total);
   return (
     <div className="text-center">
       <div style={{ fontSize: '0.78rem', fontWeight: 600, marginBottom: 2 }}>{label}</div>
@@ -99,7 +83,7 @@ const Hémicycle: React.FC<HémicycleProps> = ({ seats, names, total, label }) =
         {segs.map((s) => (
           <path
             key={s.name}
-            d={path(rI, rO, s.a1, s.a2)}
+            d={hemicyclePath(cx, cy, rI, rO, s.a1, s.a2)}
             fill={candColor(s.name, names)}
             stroke="#fff"
             strokeWidth={1.5}
@@ -110,32 +94,21 @@ const Hémicycle: React.FC<HémicycleProps> = ({ seats, names, total, label }) =
           </path>
         ))}
         <line
-          x1={arc(rI - 3, Math.PI / 2)[0]}
-          y1={arc(rI - 3, Math.PI / 2)[1]}
-          x2={arc(rO + 3, Math.PI / 2)[0]}
-          y2={arc(rO + 3, Math.PI / 2)[1]}
+          x1={hemicycleArc(cx, cy, rI - 3, Math.PI / 2)[0]}
+          y1={hemicycleArc(cx, cy, rI - 3, Math.PI / 2)[1]}
+          x2={hemicycleArc(cx, cy, rO + 3, Math.PI / 2)[0]}
+          y2={hemicycleArc(cx, cy, rO + 3, Math.PI / 2)[1]}
           stroke="#dc3545"
           strokeWidth={1.5}
           strokeDasharray="3 2"
         />
       </svg>
-      <div className="flex flex-wrap gap-1 justify-center mt-1">
-        {parties.map((n) => (
-          <span key={n} style={{ fontSize: '0.68rem' }}>
-            <span
-              style={{
-                display: 'inline-block',
-                width: 8,
-                height: 8,
-                borderRadius: 1,
-                background: candColor(n, names),
-                marginRight: 2,
-              }}
-            />
-            {n} ({seats[n]})
-          </span>
-        ))}
-      </div>
+      <HemicycleLegend
+        seats={seats}
+        names={names}
+        colorFor={candColor}
+        className="flex flex-wrap gap-1 justify-center mt-1"
+      />
     </div>
   );
 };
