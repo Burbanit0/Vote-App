@@ -778,118 +778,128 @@ def _sortition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
 # ── Party Dynamics ────────────────────────────────────────────────────────────
 
-def _party_dynamics_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /party-dynamics — extracted for FastAPI v2.
+_PD_DEFAULT_PARTIES = [
+    {"name": "A", "x": -0.8, "y":  0.0, "support_pct": 0.10},
+    {"name": "B", "x": -0.3, "y":  0.0, "support_pct": 0.25},
+    {"name": "C", "x":  0.1, "y":  0.0, "support_pct": 0.30},
+    {"name": "D", "x":  0.5, "y":  0.0, "support_pct": 0.25},
+    {"name": "E", "x":  0.9, "y":  0.0, "support_pct": 0.10},
+]
+_PD_TACTICAL_METHODS = {"plurality", "two_round", "irv"}
 
-    Simulate multi-election party system evolution (Duverger's Law).
-    """
 
-    num_voters    = max(100, min(1000, int(data.get("num_voters",        500))))
-    ideology      = str(data.get("ideology",                "random"))
-    seed          = int(data.get("seed",                     42))
-    num_elections = max(1,  min(30,  int(data.get("num_elections",       10))))
-    method        = str(data.get("method",                  "plurality"))
-    surv_thr      = max(0.01, min(0.20, float(data.get("survival_threshold",   0.05))))
-    emerge_prob   = max(0.00, min(1.00, float(data.get("emergence_probability", 0.10))))
-    hotelling_a   = max(0.00, min(1.00, float(data.get("hotelling_adaptation",  0.10))))
-    tactical_on   = bool(data.get("tactical_voting", True))
-    # Pydantic Optional may pass null — fall back to the server default.
-    initial_pts   = (data.get("initial_parties") or [
-        {"name": "A", "x": -0.8, "y":  0.0, "support_pct": 0.10},
-        {"name": "B", "x": -0.3, "y":  0.0, "support_pct": 0.25},
-        {"name": "C", "x":  0.1, "y":  0.0, "support_pct": 0.30},
-        {"name": "D", "x":  0.5, "y":  0.0, "support_pct": 0.25},
-        {"name": "E", "x":  0.9, "y":  0.0, "support_pct": 0.10},
-    ])[:10]
-
-    if len(initial_pts) < 2:
-        return {"error": "At least 2 initial parties required"}, 400
-
-    _random.seed(seed)
-    _np.random.seed(seed)
-
-    # ── Voter ideology (fixed across all elections) ───────────────────────
+def _pd_voter_ideology(ideology: str, num_voters: int) -> Any:
+    """The fixed voter ideology axis for the whole run — one draw, reused across
+    every election, since it's the parties that move, not the electorate."""
     if ideology == "polarized":
         h = num_voters // 2
-        voter_x = _np.clip(
+        return _np.clip(
             _np.concatenate([_np.random.normal(-0.6, 0.2, h),
-                             _np.random.normal( 0.6, 0.2, num_voters - h)]),
+                             _np.random.normal(0.6, 0.2, num_voters - h)]),
             -1.0, 1.0,
         )
-    elif ideology == "normal":
-        voter_x = _np.clip(_np.random.normal(0, 0.3, num_voters), -1.0, 1.0)
-    else:
-        voter_x = _np.random.uniform(-1.0, 1.0, num_voters)
+    if ideology == "normal":
+        return _np.clip(_np.random.normal(0, 0.3, num_voters), -1.0, 1.0)
+    return _np.random.uniform(-1.0, 1.0, num_voters)
 
-    voter_median = float(_np.median(voter_x))
 
-    # ── Active parties (mutable state) ───────────────────────────────────
-    active: list[Dict[str, Any]] = [
+def _pd_normalise_parties(initial_pts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Clamp positions to the unit square and rescale polling to sum to 1."""
+    active: List[Dict[str, Any]] = [
         {
-            "name":        str(p.get("name", f"P{i}")),
-            "x":           max(-1.0, min(1.0, float(p.get("x", 0.0)))),
-            "y":           max(-1.0, min(1.0, float(p.get("y", 0.0)))),
-            "poll":        max(0.0,  float(p.get("support_pct", 1 / len(initial_pts)))),
+            "name": str(p.get("name", f"P{i}")),
+            "x":    max(-1.0, min(1.0, float(p.get("x", 0.0)))),
+            "y":    max(-1.0, min(1.0, float(p.get("y", 0.0)))),
+            "poll": max(0.0,  float(p.get("support_pct", 1 / len(initial_pts)))),
         }
         for i, p in enumerate(initial_pts)
     ]
-    # Normalize polls
     poll_total = sum(p["poll"] for p in active) or 1.0
     for p in active:
         p["poll"] /= poll_total
+    return active
 
-    initial_positions: Dict[str, float] = {p["name"]: p["x"] for p in active}
-    party_counter      = len(active)
-    rng                = _random.Random(seed + 1)
-    all_elections: list[Dict[str, Any]] = []
-    n_eff_curve: list[float] = []
-    tactical_methods = {"plurality", "two_round", "irv"}
 
-    # ── Vote-share helper ─────────────────────────────────────────────────
-    def _vote_shares(parties: list[Any], polls: Dict[str, float]) -> Dict[str, float]:
-        pxs = _np.array([p["x"] for p in parties])
-        dists = _np.abs(voter_x[:, None] - pxs[None, :])   # (N, K)
-        nearest = _np.argmin(dists, axis=1)
+def _pd_vote_shares(
+    parties: List[Dict[str, Any]],
+    polls: Dict[str, float],
+    voter_x: Any,
+    num_voters: int,
+    method: str,
+    tactical_on: bool,
+    surv_thr: float,
+) -> Dict[str, float]:
+    """Each voter picks their nearest party on the ideology axis — except, under
+    a method where tactical voting applies, a voter whose nearest party looks
+    non-viable (polling under twice the survival threshold) instead picks their
+    nearest VIABLE party."""
+    pxs = _np.array([p["x"] for p in parties])
+    dists = _np.abs(voter_x[:, None] - pxs[None, :])   # (N, K)
+    nearest = _np.argmin(dists, axis=1)
 
-        apply_tac = tactical_on and method in tactical_methods
-        if apply_tac:
-            viable = _np.array([polls.get(p["name"], 0) >= 2 * surv_thr
-                                 for p in parties])
-            if viable.any() and not viable.all():
-                masked = dists.copy()
-                masked[:, ~viable] = 1e9
-                tac_nearest = _np.argmin(masked, axis=1)
-                mask = ~viable[nearest]
-                nearest[mask] = tac_nearest[mask]
+    if tactical_on and method in _PD_TACTICAL_METHODS:
+        viable = _np.array([polls.get(p["name"], 0) >= 2 * surv_thr
+                             for p in parties])
+        if viable.any() and not viable.all():
+            masked = dists.copy()
+            masked[:, ~viable] = 1e9
+            tac_nearest = _np.argmin(masked, axis=1)
+            mask = ~viable[nearest]
+            nearest[mask] = tac_nearest[mask]
 
-        counts = _np.bincount(nearest, minlength=len(parties))
-        return {p["name"]: float(counts[i] / num_voters) for i, p in enumerate(parties)}
+    counts = _np.bincount(nearest, minlength=len(parties))
+    return {p["name"]: float(counts[i] / num_voters) for i, p in enumerate(parties)}
 
-    # ── Gap finder for party emergence ────────────────────────────────────
-    def _find_gap(pxs: list[Any]) -> float:
-        cands = _np.linspace(-1.0, 1.0, 60)
-        best_x, best_gap = 0.0, 0.0
-        for cx in cands:
-            g = min(abs(float(cx) - px) for px in pxs)
-            if g > best_gap:
-                best_gap, best_x = g, float(cx)
-        return round(best_x, 2)
 
-    # ── N_eff ─────────────────────────────────────────────────────────────
-    def _n_eff(shares: Dict[str, float]) -> float:
-        s = sum(v ** 2 for v in shares.values() if v > 0)
-        return round(1.0 / s, 4) if s > 0 else 1.0
+def _pd_find_gap(pxs: List[Any]) -> float:
+    """The point on the axis farthest from every current party — where a new
+    entrant would face the least crowding."""
+    best_x, best_gap = 0.0, 0.0
+    for cx in _np.linspace(-1.0, 1.0, 60):
+        g = min(abs(float(cx) - px) for px in pxs)
+        if g > best_gap:
+            best_gap, best_x = g, float(cx)
+    return round(best_x, 2)
 
-    # ── Simulation loop ───────────────────────────────────────────────────
-    for k in range(num_elections):
-        polls_dict = {p["name"]: p["poll"] for p in active}
-        shares     = _vote_shares(active, polls_dict)
-        n_eff      = _n_eff(shares)
-        n_eff_curve.append(n_eff)
 
-        winner = max(shares, key=shares.__getitem__) if shares else ""
+def _pd_n_eff(shares: Dict[str, float]) -> float:
+    """Laakso-Taagepera effective number of parties: the inverse Herfindahl
+    index of vote shares. 1.0 means one party takes everything."""
+    s = sum(v ** 2 for v in shares.values() if v > 0)
+    return round(1.0 / s, 4) if s > 0 else 1.0
 
-        parties_snap = [
+
+def _pd_run_round(
+    k: int,
+    active: List[Dict[str, Any]],
+    voter_x: Any,
+    num_voters: int,
+    method: str,
+    tactical_on: bool,
+    surv_thr: float,
+    hotelling_a: float,
+    voter_median: float,
+    emerge_prob: float,
+    rng: _random.Random,
+    party_counter: int,
+    initial_positions: Dict[str, float],
+    num_elections: int,
+) -> tuple[Dict[str, Any], List[Dict[str, Any]], int, float]:
+    """One election: tally shares, snapshot the field, eliminate whoever fell
+    under the survival threshold, let survivors drift toward the median
+    (Hotelling), and maybe spawn a new entrant into the largest gap. Returns the
+    round's record and the state that carries into the next round."""
+    polls_dict = {p["name"]: p["poll"] for p in active}
+    shares = _pd_vote_shares(
+        active, polls_dict, voter_x, num_voters, method, tactical_on, surv_thr,
+    )
+    n_eff = _pd_n_eff(shares)
+    winner = max(shares, key=shares.__getitem__) if shares else ""
+
+    record: Dict[str, Any] = {
+        "election_n":        k + 1,
+        "active_parties":    len(active),
+        "parties": [
             {
                 "name":     p["name"],
                 "x":        round(p["x"], 4),
@@ -899,59 +909,44 @@ def _party_dynamics_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
                 "survived": shares.get(p["name"], 0) >= surv_thr,
             }
             for p in active
-        ]
+        ],
+        "effective_parties": n_eff,
+        "winner":            winner,
+        "new_entrants":      [],
+        "eliminated":        [p["name"] for p in active if shares.get(p["name"], 0) < surv_thr],
+    }
 
-        # Record before elimination
-        all_elections.append({
-            "election_n":        k + 1,
-            "active_parties":    len(active),
-            "parties":           parties_snap,
-            "effective_parties": n_eff,
-            "winner":            winner,
-            "new_entrants":      [],   # filled in next iteration
-            "eliminated":        [],   # filled below
-        })
+    active = [p for p in active if shares.get(p["name"], 0) >= surv_thr]
+    for p in active:
+        p["poll"] = shares.get(p["name"], 0)
+    if not active:
+        return record, active, party_counter, n_eff
 
-        # Eliminate
-        eliminated = [p["name"] for p in active
-                      if shares.get(p["name"], 0) < surv_thr]
-        all_elections[-1]["eliminated"] = eliminated
-        active = [p for p in active if shares.get(p["name"], 0) >= surv_thr]
+    for p in active:
+        p["x"] = round(p["x"] + hotelling_a * (voter_median - p["x"]), 4)
+        p["y"] = round(p["y"] + hotelling_a * (0.0 - p["y"]), 4)
 
-        # Update polls
-        for p in active:
-            p["poll"] = shares.get(p["name"], 0)
+    if emerge_prob > 0 and rng.random() < emerge_prob:
+        gap_x = _pd_find_gap([p["x"] for p in active])
+        party_counter += 1
+        new_name = f"Nouveau-{party_counter}"
+        active.append({"name": new_name, "x": gap_x, "y": 0.0, "poll": surv_thr * 1.5})
+        initial_positions[new_name] = gap_x
+        if k < num_elections - 1:
+            record["new_entrants"] = [new_name]
 
-        if not active:
-            break
+    return record, active, party_counter, n_eff
 
-        # Hotelling adaptation
-        for p in active:
-            p["x"] = round(p["x"] + hotelling_a * (voter_median - p["x"]), 4)
-            p["y"] = round(p["y"] + hotelling_a * (0.0 - p["y"]), 4)
 
-        # Party emergence
-        new_entrants: list[str] = []
-        if emerge_prob > 0 and rng.random() < emerge_prob:
-            gap_x = _find_gap([p["x"] for p in active])
-            party_counter += 1
-            new_name = f"Nouveau-{party_counter}"
-            new_party: Dict[str, Any] = {
-                "name": new_name, "x": gap_x, "y": 0.0, "poll": surv_thr * 1.5,
-            }
-            active.append(new_party)
-            new_entrants.append(new_name)
-            initial_positions[new_name] = gap_x
-
-        if k + 1 < len(all_elections):
-            all_elections[k + 1]["new_entrants"] = new_entrants
-        else:
-            # Mark on the NEXT election (we just finished election k)
-            pass
-        if new_entrants and k < num_elections - 1:
-            all_elections[-1]["new_entrants"] = new_entrants
-
-    # ── Summary ───────────────────────────────────────────────────────────
+def _pd_summary(
+    all_elections: List[Dict[str, Any]],
+    n_eff_curve: List[float],
+    method: str,
+    num_elections: int,
+    initial_pts: List[Dict[str, Any]],
+    active: List[Dict[str, Any]],
+    initial_positions: Dict[str, float],
+) -> Dict[str, Any]:
     n_eff_final = n_eff_curve[-1] if n_eff_curve else 1.0
     if n_eff_final < 2.5:
         final_system = "bipartite"
@@ -994,7 +989,57 @@ def _party_dynamics_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         "convergence_speed":       convergence_speed,
         "ideology_drift":          ideology_drift,
         "pedagogical_note":        note,
-    }, 200
+    }
+
+
+def _party_dynamics_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /party-dynamics — extracted for FastAPI v2.
+
+    Simulate multi-election party system evolution (Duverger's Law).
+    """
+    num_voters    = max(100, min(1000, int(data.get("num_voters", 500))))
+    ideology      = str(data.get("ideology", "random"))
+    seed          = int(data.get("seed", 42))
+    num_elections = max(1, min(30, int(data.get("num_elections", 10))))
+    method        = str(data.get("method", "plurality"))
+    surv_thr      = max(0.01, min(0.20, float(data.get("survival_threshold", 0.05))))
+    emerge_prob   = max(0.00, min(1.00, float(data.get("emergence_probability", 0.10))))
+    hotelling_a   = max(0.00, min(1.00, float(data.get("hotelling_adaptation", 0.10))))
+    tactical_on   = bool(data.get("tactical_voting", True))
+    # Pydantic Optional may pass null — fall back to the server default.
+    initial_pts   = (data.get("initial_parties") or _PD_DEFAULT_PARTIES)[:10]
+
+    if len(initial_pts) < 2:
+        return {"error": "At least 2 initial parties required"}, 400
+
+    _random.seed(seed)
+    _np.random.seed(seed)
+
+    voter_x = _pd_voter_ideology(ideology, num_voters)
+    voter_median = float(_np.median(voter_x))
+    active = _pd_normalise_parties(initial_pts)
+
+    initial_positions: Dict[str, float] = {p["name"]: p["x"] for p in active}
+    party_counter = len(active)
+    rng = _random.Random(seed + 1)
+    all_elections: list[Dict[str, Any]] = []
+    n_eff_curve: list[float] = []
+
+    for k in range(num_elections):
+        record, active, party_counter, n_eff = _pd_run_round(
+            k, active, voter_x, num_voters, method, tactical_on, surv_thr,
+            hotelling_a, voter_median, emerge_prob, rng, party_counter,
+            initial_positions, num_elections,
+        )
+        all_elections.append(record)
+        n_eff_curve.append(n_eff)
+        if not active:
+            break
+
+    return _pd_summary(
+        all_elections, n_eff_curve, method, num_elections, initial_pts, active,
+        initial_positions,
+    ), 200
 
 
 # ── Deliberation + Vote ───────────────────────────────────────────────────────
