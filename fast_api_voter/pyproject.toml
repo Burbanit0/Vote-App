@@ -75,32 +75,57 @@ mutate_only_covered_lines = true
 # actually caught, corrupting the kill/survive signal (same footgun as the
 # quick local `-o addopts=""` pattern documented in CLAUDE.md).
 pytest_add_cli_args = ["-o", "addopts="]
-# Explicit file list (not "api/tests" + ignores): these are exactly the
-# tests that import simulation_ranked_utils.py or simulation_score_utils.py
-# directly, none of them touch FastAPI/TestClient/numpy (verified), which keeps
-# this pass clear of the in-process re-exec issue above.
+# EVERY test file that imports either source_paths module directly and does NOT
+# touch FastAPI/TestClient/numpy (the in-process re-exec incompatibility above).
+# Derived, not hand-curated — regenerate with:
+#   for p in api/tests/test_*.py; do
+#     grep -qE "simulation_(ranked|score)_utils" "$p" || continue
+#     grep -qE "TestClient|from fastapi|import numpy|from api\.main" "$p" && continue
+#     echo "$p"
+#   done
+#
+# The previous list held 12 + 2 files out of the 80 in api/tests/, and its own
+# KNOWN CAVEAT flagged nine functions (condorcet, two_round, plurality, approval,
+# minimax, copeland, nanson, baldwin, kemeny) as having "no dedicated test file
+# in the list above". They all had one — it just wasn't selected. So the score
+# was partly measuring this list rather than the tests. Widening it to 25 files
+# moved the run from 58.9% to 64.2% (714 → 621 survivors) with no test written.
 pytest_add_cli_args_test_selection = [
     "api/tests/test_anti_plurality.py",
+    "api/tests/test_approval.py",
+    "api/tests/test_baldwin.py",
     "api/tests/test_benham.py",
     "api/tests/test_black.py",
     "api/tests/test_bucklin_cumulative.py",
+    "api/tests/test_cardinal_batch.py",
+    "api/tests/test_condorcet.py",
+    "api/tests/test_copeland.py",
     "api/tests/test_dowdall.py",
+    # Property-based suites: the most effective mutant killers in the selection,
+    # and both were previously left out.
+    "api/tests/test_hypothesis_condorcet.py",
+    "api/tests/test_hypothesis_monotonicity.py",
     "api/tests/test_irv_coombs_elimination.py",
+    "api/tests/test_kemeny_young.py",
+    "api/tests/test_minimax.py",
+    "api/tests/test_nanson.py",
+    "api/tests/test_plurality.py",
     "api/tests/test_ranked_pairs_random_ballot.py",
     "api/tests/test_raynaud.py",
     "api/tests/test_river.py",
     "api/tests/test_schulze_beatpath.py",
     "api/tests/test_smith_irv.py",
     "api/tests/test_split_cycle.py",
-    # …and the two that cover simulation_score_utils.py.
-    "api/tests/test_cardinal_batch.py",
     "api/tests/test_star_runoff_tie.py",
+    "api/tests/test_two_round.py",
 ]
-# KNOWN CAVEAT (signalled, not acted on — see baseline report in the PR):
-# get_condorcet_winner, get_two_round_winner, get_plurality_winner,
-# get_approval_winner, get_minimax_winner, get_copeland_winner,
-# get_nanson_winner, get_baldwin_winner, and get_kemeny_young_winner have no
-# dedicated test file in the list above — they're exercised only indirectly
-# (e.g. get_black_winner calls get_condorcet_winner internally). Their high
-# survival rate in this baseline may reflect a real gap or may just be an
-# artifact of this narrow selection; not reliable enough to act on yet.
+# WHAT THE WIDER RUN REVEALED, and what it did not fix:
+# simulation_ranked_utils   440 → 337 survivors (71.3%)
+# simulation_score_utils    284 → 284 survivors (51.7%)  ← not one mutant
+# Every file added above tests an ORDINAL rule, so the cardinal module did not
+# move at all. That settles the ambiguity the old caveat left open: 51.7% is a
+# real assertion deficit, not an artifact of the selection. The cause is plain —
+# simulation_score_utils.py exports 11 rules and has 6 tests in total, and the
+# parity harness locks only 5 of them (score, star, cumulative, maximin, nash).
+# median_voting, mean_median_hybrid, variance_based, score_distribution_analysis,
+# majority_judgment and evaluative are in neither. That is the next chantier.
