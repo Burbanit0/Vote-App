@@ -152,4 +152,3 @@ export const HISTORICAL_SCENARIOS: Record<string, HistoricalScenario> = {
     reference: 'https://fr.wikipedia.org/wiki/M%C3%A9thode_de_Condorcet',
   },
 };
-
