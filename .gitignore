@@ -221,6 +221,17 @@ voter-app/build/
 #    generated markdown reports get committed instead, same registry as
 #    acceptance_*_runs/ vs acceptance_*_results.md) ─────────────────────────
 fast_api_voter/scripts/llm_test_harness/data/
+
+# ── Acceptance/calibration run output (raw journals, configs, replay logs --
+#    local experiment state; the hand-narrated acceptance_*_results.md /
+#    *_calibration_results.md docs get committed instead, per this project's
+#    own established convention) ────────────────────────────────────────────
+fast_api_voter/scripts/acceptance_v5_runs/
+fast_api_voter/scripts/acceptance_v6a_runs/
+fast_api_voter/scripts/acceptance_v6b_runs/
+fast_api_voter/scripts/acceptance_v6b_runs_electoral_only/
+fast_api_voter/scripts/acceptance_v6b_runs_recallfloor0/
+fast_api_voter/scripts/sortition_calibration_runs/
 voter-app/dist/
 
 # ── OS junk ──────────────────────────────────────────────────────────────────
