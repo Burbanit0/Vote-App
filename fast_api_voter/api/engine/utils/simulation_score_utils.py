@@ -289,7 +289,8 @@ def get_score_distribution_analysis(all_scores: Any) -> Dict[str, Any]:
     Analyze the distribution of scores for each candidate.
     """
     # Define score bins (0-0.5, 0.5-1, ..., 4.5-5)
-    bins = [i * 0.5 for i in range(0, 11)]  # 0, 0.5, 1, ..., 5
+    bin_width = 0.5
+    bins = [i * bin_width for i in range(0, 11)]  # 0, 0.5, 1, ..., 5
     candidate_distributions: "defaultdict[Any, list[int]]" = defaultdict(
         lambda: [0] * (len(bins) - 1)
     )
@@ -297,18 +298,16 @@ def get_score_distribution_analysis(all_scores: Any) -> Dict[str, Any]:
     last = len(bins) - 2  # index of the final bin, 4.5 → 5.0
     for vote in all_scores:
         for candidate, score in vote.items():
-            # Find the appropriate bin. The final bin is closed on the right:
-            # every other bin is [lo, hi), so a score of exactly 5.0 — the top of
-            # the scale, and a perfectly ordinary ballot — matched no bin at all
-            # and was silently dropped from the distribution it is supposed to
-            # describe. Half-open everywhere except the last edge.
-            for i in range(len(bins) - 1):
-                hit = bins[i] <= score < bins[i + 1] or (
-                    i == last and score == bins[i + 1]
-                )
-                if hit:
-                    candidate_distributions[candidate][i] += 1
-                    break
+            # Index the bin arithmetically rather than scanning for it. The scan
+            # this replaces tested `bins[i] <= score < bins[i+1]` for every bin,
+            # which left a score of exactly 5.0 — the top of the scale, and a
+            # perfectly ordinary ballot — matching nothing and vanishing from the
+            # distribution it belongs to. min() closes the final bin on the right.
+            # Out-of-range scores are still ignored, exactly as the scan did.
+            if 0 <= score <= bins[-1]:
+                candidate_distributions[candidate][
+                    min(int(score / bin_width), last)
+                ] += 1
 
     results = []
     for candidate, distribution in candidate_distributions.items():
