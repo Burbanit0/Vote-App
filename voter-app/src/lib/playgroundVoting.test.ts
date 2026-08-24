@@ -469,3 +469,232 @@ describe('sampleVoters', () => {
     );
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The spatial helpers, asserted on VALUES rather than on shape.
+//
+// The tests above already covered these — but only as "returns 64 cells" and
+// "every value is in [0, 1]". Mutation testing showed what that buys: 46 mutants
+// survive across randomBallotProbGrid (21), applyTurnout (10), winRegionGrid (9)
+// and applyBlankVote (6), because you can flip the sign of a coordinate, invert
+// a comparison or change a radius and still return a correctly-shaped grid of
+// in-range numbers.
+//
+// These fix the geometry to hand-computable answers instead.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('spatial helpers — exact values', () => {
+  // With n = 2 the cell centres are the four points (±0.5, ±0.5):
+  //   x = ((c + 0.5) / n) * 2 - 1   →  c=0 → -0.5,  c=1 → +0.5
+  //   y = 1 - ((r + 0.5) / n) * 2   →  r=0 → +0.5,  r=1 → -0.5   (y descends)
+  // so row-major order is  (-0.5,+0.5) (+0.5,+0.5) (-0.5,-0.5) (+0.5,-0.5).
+  const CELL_CENTRES: Pt[] = [
+    { x: -0.5, y: 0.5 },
+    { x: 0.5, y: 0.5 },
+    { x: -0.5, y: -0.5 },
+    { x: 0.5, y: -0.5 },
+  ];
+
+  it('randomBallotProbGrid places cells on the exact grid centres', () => {
+    // One voter sitting on cell 0's centre, one candidate on cell 1's centre.
+    // The voter is 1.0 from the candidate, so a hypothetical entrant is its
+    // nearest option in every cell except the far diagonal (distance √2).
+    const voters: Pt[] = [CELL_CENTRES[0]];
+    const cands: NamedPt[] = [{ name: 'A', x: 0.5, y: 0.5 }];
+
+    const grid = randomBallotProbGrid(voters, cands, 2, 2);
+
+    // Flipping either axis, or transposing row-major to column-major, permutes
+    // this vector — which is the point of asserting it rather than its length.
+    expect(grid.cells).toEqual([1, 1, 1, 0]);
+    expect(grid.rows).toBe(2);
+    expect(grid.n).toBe(2);
+  });
+
+  it('randomBallotProbGrid ties go to the entrant (strictly-nearer wins)', () => {
+    // Cell 1's centre IS the candidate's position: the entrant ties, and the
+    // rule is dist(v, cand) < dh — strict, so a tie leaves H nearest.
+    const voters: Pt[] = [CELL_CENTRES[0]];
+    const cands: NamedPt[] = [{ name: 'A', x: 0.5, y: 0.5 }];
+
+    expect(randomBallotProbGrid(voters, cands, 2, 2).cells[1]).toBe(1);
+  });
+
+  it('randomBallotProbGrid divides by the electorate, not the cell count', () => {
+    // Three voters on cell 0's centre, one far away and firmly the candidate's.
+    // Cell 0 therefore wins exactly 3 of 4 first preferences.
+    const voters: Pt[] = [CELL_CENTRES[0], CELL_CENTRES[0], CELL_CENTRES[0], { x: 0.99, y: -0.99 }];
+    const cands: NamedPt[] = [{ name: 'A', x: 0.95, y: -0.95 }];
+
+    expect(randomBallotProbGrid(voters, cands, 2, 2).cells[0]).toBeCloseTo(0.75, 12);
+  });
+
+  it('a 1-D grid is a single row, not an n x n square', () => {
+    const voters = sampleVoters(20, 3, 'random', 1);
+    const cands: NamedPt[] = [{ name: 'A', x: 0.5, y: 0 }];
+
+    const prob = randomBallotProbGrid(voters, cands, 6, 1);
+    expect(prob.rows).toBe(1);
+    expect(prob.cells).toHaveLength(6);
+
+    const win = winRegionGrid(voters, cands, 'plurality', 6, 1);
+    expect(win.rows).toBe(1);
+    expect(win.cells).toHaveLength(6);
+  });
+
+  it('the win region and the probability field share one cell geometry', () => {
+    // Head-to-head against a single incumbent, an entrant wins a cell under
+    // plurality exactly when it holds more than half the first preferences
+    // there — which is what randomBallotProbGrid reports for the same cell.
+    //
+    // Asserting the two agree cell-for-cell pins BOTH grids to the same
+    // coordinate mapping. Shifting a half-cell in one of them (the mutation
+    // that a "the entrant wins everywhere" assertion cannot see, because it
+    // stays true wherever the cells are) desynchronises the pair.
+    const voters = sampleVoters(101, 7, 'random'); // odd: no 50/50 cell
+    const cands: NamedPt[] = [{ name: 'A', x: 0.4, y: -0.3 }];
+
+    const win = winRegionGrid(voters, cands, 'plurality', 6, 2);
+    const prob = randomBallotProbGrid(voters, cands, 6, 2);
+
+    expect(win.cells).toHaveLength(prob.cells.length);
+    const entrant = cands.length;
+    win.cells.forEach((w, i) => {
+      expect(w === entrant).toBe(prob.cells[i] > 0.5);
+    });
+    // …and the entrant genuinely wins somewhere and loses somewhere, so the
+    // invariant above is not satisfied by a constant grid.
+    expect(win.cells.some((w) => w === entrant)).toBe(true);
+    expect(win.cells.some((w) => w !== entrant)).toBe(true);
+  });
+
+  it('randomBallotShares break a distance tie toward the first candidate', () => {
+    // The voter is exactly equidistant from A and B. The scan keeps the best
+    // seen so far on d < bd, so the earlier index wins.
+    const voters: Pt[] = [{ x: 0, y: 0 }];
+    const cands: NamedPt[] = [
+      { name: 'A', x: -1, y: 0 },
+      { name: 'B', x: 1, y: 0 },
+    ];
+
+    expect(randomBallotShares(voters, cands)).toEqual([1, 0]);
+  });
+});
+
+describe('turnout and blank vote — exact thresholds', () => {
+  const oneCandidate: NamedPt[] = [{ name: 'A', x: 0, y: 0 }];
+
+  // alienation radius = (1 - k) * 1.5 + 0.2, so k = 1 gives exactly 0.2.
+  const nearAndFar: Pt[] = [
+    { x: 0.1, y: 0 },
+    { x: 0.15, y: 0 },
+    { x: 0.9, y: 0 },
+    { x: 0.9, y: 0 },
+  ];
+
+  it('alienation abstains beyond the radius the intensity sets', () => {
+    const out = applyTurnout(nearAndFar, oneCandidate, 'alienation', 1);
+
+    expect(out.voters).toHaveLength(2);
+    expect(out.rate).toBe(0.5);
+    expect(out.voters.every((v) => v.x <= 0.2)).toBe(true);
+  });
+
+  it('alienation keeps a voter sitting exactly on the radius', () => {
+    // ds[0] <= radius is inclusive; at k = 1 the radius is 0.2 and this voter
+    // is at 0.2. Two more inside, so the "never empty the electorate" floor
+    // does not mask the result.
+    const onTheLine: Pt[] = [
+      { x: 0.2, y: 0 },
+      { x: 0.05, y: 0 },
+      { x: 0.05, y: 0 },
+      { x: 0.9, y: 0 },
+    ];
+
+    expect(applyTurnout(onTheLine, oneCandidate, 'alienation', 1).voters).toHaveLength(3);
+  });
+
+  it('indifference abstains when the top two are too close together', () => {
+    // margin = k * 0.4, so 0.2 at k = 0.5. A voter votes only when the gap
+    // between its two nearest candidates EXCEEDS the margin.
+    const cands: NamedPt[] = [
+      { name: 'L', x: -1, y: 0 },
+      { name: 'R', x: 1, y: 0 },
+    ];
+    const voters: Pt[] = [
+      { x: -0.9, y: 0 }, // gap 1.8  -> votes
+      { x: 0.9, y: 0 }, //  gap 1.8  -> votes
+      { x: 0, y: 0 }, //    gap 0    -> abstains, perfectly torn
+      { x: 0.05, y: 0 }, // gap 0.1  -> abstains, under the margin
+    ];
+
+    const out = applyTurnout(voters, cands, 'indifference', 0.5);
+
+    expect(out.voters).toHaveLength(2);
+    expect(out.rate).toBe(0.5);
+
+    // NOTE: `ds[1] - ds[0] > margin` versus `>= margin` is an EQUIVALENT mutant
+    // here, and deliberately left alive. Separating them needs a voter whose gap
+    // equals the margin exactly, and the margin is k * 0.4 — a value with no
+    // exact binary representation. A voter placed to sit "on the line" lands at
+    // 0.20000000000000007 against a margin of 0.2 and votes either way. The
+    // boundary is unreachable with real inputs, so a test that appeared to cover
+    // it would only be testing floating-point noise.
+  });
+
+  it('turnout never empties the electorate', () => {
+    // Only one voter survives the radius, so the model hands the full
+    // electorate back rather than running an election on a single ballot.
+    const mostlyFar: Pt[] = [
+      { x: 0.1, y: 0 },
+      { x: 0.9, y: 0 },
+      { x: 0.9, y: 0 },
+      { x: 0.9, y: 0 },
+    ];
+
+    const out = applyTurnout(mostlyFar, oneCandidate, 'alienation', 1);
+
+    expect(out.voters).toHaveLength(4);
+    expect(out.rate).toBe(1);
+  });
+
+  it('a full-turnout model leaves the electorate untouched', () => {
+    const out = applyTurnout(nearAndFar, oneCandidate, 'full', 1);
+
+    expect(out.voters).toBe(nearAndFar);
+    expect(out.rate).toBe(1);
+  });
+
+  it('zero intensity leaves the electorate untouched', () => {
+    expect(applyTurnout(nearAndFar, oneCandidate, 'alienation', 0).rate).toBe(1);
+  });
+
+  it('blank vote splits on the same radius and reports its share', () => {
+    const out = applyBlankVote(nearAndFar, oneCandidate, true, 1);
+
+    expect(out.expressed).toHaveLength(2);
+    expect(out.blankCount).toBe(2);
+    expect(out.blankShare).toBe(0.5);
+  });
+
+  it('blank vote never blanks out the whole electorate', () => {
+    const mostlyFar: Pt[] = [
+      { x: 0.1, y: 0 },
+      { x: 0.9, y: 0 },
+      { x: 0.9, y: 0 },
+      { x: 0.9, y: 0 },
+    ];
+
+    const out = applyBlankVote(mostlyFar, oneCandidate, true, 1);
+
+    expect(out.expressed).toHaveLength(4);
+    expect(out.blankCount).toBe(0);
+    expect(out.blankShare).toBe(0);
+  });
+
+  it('a disabled blank vote expresses everyone', () => {
+    const out = applyBlankVote(nearAndFar, oneCandidate, false, 1);
+
+    expect(out.expressed).toBe(nearAndFar);
+    expect(out.blankCount).toBe(0);
+  });
+});
