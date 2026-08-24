@@ -35,11 +35,21 @@ def test_split_cycle_resolves_a_simple_top_cycle():
 
 
 def test_split_cycle_can_diverge_from_schulze_and_ranked_pairs():
-    """Found by random search: on this 4-candidate cyclic profile, Split
-    Cycle's "discard the weakest link of EVERY cycle" rule leaves a
-    different candidate undefeated than Schulze's strongest-path or Ranked
-    Pairs' single strongest-majorities-first lock order -- a real
-    algorithmic difference, not a tie-break artefact."""
+    """Found by random search: on this 4-candidate cyclic profile, Split Cycle's
+    "discard the weakest link of EVERY cycle" rule leaves a different candidate
+    undefeated than Ranked Pairs' strongest-majorities-first lock order.
+
+    CORRECTED. This docstring used to add Schulze to that list and call the whole
+    thing "a real algorithmic difference, not a tie-break artefact". For Schulze
+    it was precisely a tie-break artefact: B and C BOTH satisfy the Schulze
+    condition here, with strongest paths of 8 in each direction between them.
+    The old assertion of "C" recorded nothing but which candidate happened to
+    appear first in the ballot list, and shuffling these fifteen ballots flipped
+    it. The anonymity fix breaks that tie alphabetically, so Schulze now reports
+    B — the same candidate Split Cycle elects, for an entirely different reason.
+
+    Ranked Pairs' "C" is the genuine divergence, and it is stable under
+    permutation."""
     ballots = [
         ["C", "A", "B", "D"],
         ["C", "D", "B", "A"],
@@ -58,7 +68,8 @@ def test_split_cycle_can_diverge_from_schulze_and_ranked_pairs():
         ["D", "C", "B", "A"],
     ]
     assert get_condorcet_winner(ballots) is None
-    assert get_schulze_winner(ballots) == "C"
+    # Schulze ties B and C; the alphabetical tie-break settles it on B.
+    assert get_schulze_winner(ballots) == "B"
     assert get_ranked_pairs_winner(ballots) == "C"
     assert get_split_cycle_winner(ballots) == "B"
 

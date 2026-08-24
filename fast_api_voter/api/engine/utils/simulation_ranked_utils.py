@@ -1,4 +1,10 @@
 from collections import defaultdict, Counter
+# Dowdall sums 1/(rank+1). In binary floating point that sum is not
+# associative, so two candidates who tie exactly can differ by ~1e-16
+# depending on the order the ballots were added — an anonymity violation
+# that no tie-break can fix, because the values are no longer equal.
+# Fraction makes the sum exact, so genuine ties stay ties.
+from fractions import Fraction
 from itertools import combinations, permutations
 from typing import Any, Optional
 
@@ -72,7 +78,11 @@ def get_two_round_winner(votes: list[Any], blank_candidate_name: str = "") -> Op
         if count > majority:
             return str(candidate)
 
-    top_two_candidates = [c for c, _ in first_choice_votes.most_common(2)]
+    # NOT most_common(2): Counter breaks count ties by insertion order, so the
+    # ballot order decided who reached the runoff.
+    top_two_candidates = sorted(
+        first_choice_votes, key=lambda c: (-first_choice_votes[c], c)
+    )[:2]
 
     second_round_votes: "Counter[Any]" = Counter()
     for vote in votes:
@@ -84,7 +94,7 @@ def get_two_round_winner(votes: list[Any], blank_candidate_name: str = "") -> Op
 
     if not second_round_votes:
         return None
-    return str(max(second_round_votes, key=lambda c: second_round_votes[c]))
+    return str(min(second_round_votes, key=lambda c: (-second_round_votes[c], c)))
 
 
 def get_borda_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
@@ -104,7 +114,7 @@ def get_borda_winner(votes: list[Any], blank_candidate_name: str = "") -> Option
             scores[candidate] += num_candidates - 1 - position
     if not scores:
         return None
-    return str(max(scores.items(), key=lambda x: x[1])[0])
+    return str(min(scores, key=lambda c: (-scores[c], c)))
 
 
 def get_dowdall_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
@@ -122,10 +132,10 @@ def get_dowdall_winner(votes: list[Any], blank_candidate_name: str = "") -> Opti
     for vote in votes:
         ranking = _get_ranking(vote, is_dict)
         for position, candidate in enumerate(ranking):
-            scores[candidate] += 1 / (position + 1)
+            scores[candidate] += Fraction(1, position + 1)
     if not scores:
         return None
-    return str(max(scores.items(), key=lambda x: x[1])[0])
+    return str(min(scores, key=lambda c: (-scores[c], c)))
 
 
 def get_black_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
@@ -202,7 +212,7 @@ def get_plurality_winner(votes: list[Any], blank_candidate_name: str = "") -> Op
             first_choice_votes[ranking[0]] += 1
     if not first_choice_votes:
         return None
-    return str(max(first_choice_votes.items(), key=lambda x: x[1])[0])
+    return str(min(first_choice_votes, key=lambda c: (-first_choice_votes[c], c)))
 
 
 def get_anti_plurality_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
@@ -230,7 +240,7 @@ def get_anti_plurality_winner(votes: list[Any], blank_candidate_name: str = "") 
     if not candidates:
         return None
     # A candidate never ranked last has 0 vetoes — Counter.get defaults it in.
-    return str(min(candidates, key=lambda c: last_choice_votes.get(c, 0)))
+    return str(min(candidates, key=lambda c: (last_choice_votes.get(c, 0), c)))
 
 
 def get_approval_winner(
@@ -278,7 +288,7 @@ def get_approval_winner(
 
     if not approval_votes:
         return None
-    return str(max(approval_votes.items(), key=lambda x: x[1])[0])
+    return str(min(approval_votes, key=lambda c: (-approval_votes[c], c)))
 
 
 def get_approval_winner_sincere(utility_scores: dict[Any, Any]) -> Optional[str]:
@@ -399,7 +409,7 @@ def get_positional_score_winner(votes: list[Any], **kwargs: Any) -> Optional[str
             scores[candidate] += 1 - (position / (num_candidates - 1)) if num_candidates > 1 else 1
     if not scores:
         return None
-    return str(max(scores.items(), key=lambda x: x[1])[0])
+    return str(min(scores, key=lambda c: (-scores[c], c)))
 
 
 # Backward-compatible alias used by existing route code.
@@ -479,7 +489,7 @@ def get_kemeny_young_winner(votes: list[Any], **kwargs: Any) -> Optional[str]:
             if pos[ranking[i]] < pos[ranking[j]]
         )
 
-    best = max(permutations(candidates), key=_kemeny_score)
+    best = max(permutations(sorted(candidates)), key=_kemeny_score)
     return best[0] if best else None
 
 
@@ -509,9 +519,9 @@ def get_bucklin_winner(votes: list[Any], blank_candidate_name: str = "") -> Opti
 
         over_majority = [(c, v) for c, v in votes_count.items() if v > majority]
         if over_majority:
-            return str(max(over_majority, key=lambda cv: cv[1])[0])
+            return str(min(over_majority, key=lambda cv: (-cv[1], cv[0]))[0])
 
-    return str(max(votes_count.items(), key=lambda x: x[1])[0]) if votes_count else None
+    return str(min(votes_count, key=lambda c: (-votes_count[c], c))) if votes_count else None
 
 
 def get_minimax_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
@@ -547,7 +557,7 @@ def get_minimax_winner(votes: list[Any], blank_candidate_name: str = "") -> Opti
         )
         for candidate in candidates
     }
-    return str(min(max_opposition.items(), key=lambda x: x[1])[0])
+    return str(min(max_opposition, key=lambda c: (max_opposition[c], c)))
 
 
 def get_schulze_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
@@ -600,10 +610,13 @@ def get_schulze_winner(votes: list[Any], blank_candidate_name: str = "") -> Opti
 
     # The Schulze winner's strongest path to every other candidate is at least as
     # strong as the reverse (at least one such candidate always exists).
-    for cand in candidates:
+    # Scan in name order, not first-seen order: several candidates can satisfy the
+    # condition at once, and taking the first one encountered made the winner
+    # depend on which ballot happened to mention whom first.
+    for cand in sorted(candidates):
         if all(p[cand][other] >= p[other][cand] for other in candidates if other != cand):
             return str(cand)
-    return str(candidates[0])
+    return str(sorted(candidates)[0])
 
 
 # ── New methods ────────────────────────────────────────────────────────────────
@@ -1053,7 +1066,7 @@ def get_split_cycle_winner(votes: list[Any], blank_candidate_name: str = "") -> 
         for pos, c in enumerate(ranking):
             if c in borda_scores:
                 borda_scores[c] += n - 1 - pos
-    return max(winners, key=lambda c: borda_scores[c])
+    return min(winners, key=lambda c: (-borda_scores[c], c))
 
 
 def random_ballot_probabilities(votes: list[Any]) -> dict[str, float]:
