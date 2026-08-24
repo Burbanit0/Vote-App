@@ -73,11 +73,18 @@ export default defineConfig({
         'src/**/*.test.{ts,tsx}',
         'src/**/*.stories.{ts,tsx}',
       ],
+      // Each floor sits just under what the suite actually reaches, so it locks
+      // in what exists rather than describing an aspiration nobody is working
+      // toward. Measured 2026-08-24: statements 84.57, branches 74.77,
+      // functions 75.98, lines 86.28.
+      // functions stays at 75 on purpose — the real figure is 75.98, so there is
+      // no room to ratchet without writing tests first. Raising it anyway would
+      // make the next unrelated PR fail for a reason its author cannot act on.
       thresholds: {
-        branches: 70,
+        branches: 74,
         functions: 75,
-        lines: 85,
-        statements: 80,
+        lines: 86,
+        statements: 84,
       },
     },
   },

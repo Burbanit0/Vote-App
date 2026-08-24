@@ -169,8 +169,10 @@ jobs:
       - name: Python cyclomatic complexity (xenon)
         working-directory: fast_api_voter
         continue-on-error: true
-        # Lenient thresholds (F = worst rank = never fails): report, not a
-        # gate, until the backlog in CODE_AUDIT.md is resorbed.
+        # Reporting only, and it must stay non-blocking: the knip and jscpd steps
+        # below have no `if: always()`, so a hard failure here would skip them and
+        # leave the ratchet with missing input files. The gate lives at the end of
+        # the job instead.
         run: python -m xenon api/ -e "api/tests/*" -b F -m F -a F | tee xenon.txt
 
       - name: Install frontend deps
@@ -194,6 +196,22 @@ jobs:
       - name: Quality ratchet (debt may shrink, never grow)
         if: always()
         run: ./scripts/check_quality_ratchet.sh
+
+      # The second gating step, and deliberately only the AVERAGE. -a A passes
+      # today (measured), so this locks the codebase-wide average at rank A for
+      # free: the repo can no longer drift complex as a whole, even while
+      # individual functions stay bad.
+      # -b and -m stay at F (never fail) on purpose — 9 functions are rank F and
+      # 20 rank E, so a per-block gate would fail on the existing backlog and get
+      # switched off within a week, which is how a gate becomes decoration.
+      # -b tightens to D once those are decomposed; until then the radon count in
+      # the ratchet above is what stops new complex functions being added.
+      # Runs at the end, after the reporting steps, so a failure here cannot skip
+      # the tool steps the ratchet reads.
+      - name: Complexity gate (xenon — average must stay rank A)
+        if: always()
+        working-directory: fast_api_voter
+        run: python -m xenon api/ -e "api/tests/*" -b F -m F -a A
 
       - name: Publish summary
         if: always()

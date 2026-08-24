@@ -273,3 +273,6 @@ INTERVIEW_PREP.md
 /fast_api_voter/radon.txt
 /fast_api_voter/xenon.txt
 /voter-app/knip.txt
+
+# mutmut run log (tee'd in CI so scripts/check_mutation_score.sh can read the score)
+/fast_api_voter/mutmut-run.log
