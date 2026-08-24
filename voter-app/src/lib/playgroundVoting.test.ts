@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   ruleWinner,
   ruleWinnerFromRanks,
+  condorcetWinnerIdx,
   fieldWinnerName,
   winRegionGrid,
   randomBallotShares,
@@ -696,5 +697,109 @@ describe('turnout and blank vote — exact thresholds', () => {
 
     expect(out.expressed).toBe(nearAndFar);
     expect(out.blankCount).toBe(0);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// The branches no test reached.
+//
+// Stryker reported nine mutants with NO covering test at all, in a file whose
+// line coverage sits above 85%. Every one of them guards a degenerate or
+// defensive case: the electorate is empty, the field is empty, or an
+// elimination round wipes out every remaining candidate at once.
+//
+// These are the cases a real user hits by dragging the last candidate off the
+// map, or by loading a saved URL whose rule no longer exists. Leaving them
+// unasserted means the app's behaviour there is whatever the code happens to do.
+// ─────────────────────────────────────────────────────────────────────────────
+describe('degenerate cases — no winner, empty field, unknown rule', () => {
+  // A perfect 3-way Condorcet cycle: every candidate is first once, last once,
+  // and beaten by exactly one other. Nothing distinguishes them, so an
+  // elimination round condemns all three at the same time.
+  const CYCLE = ranksOf([
+    [1, [0, 1, 2]], // A > B > C
+    [1, [1, 2, 0]], // B > C > A
+    [1, [2, 0, 1]], // C > A > B
+  ]);
+
+  // The four rules that eliminate iteratively all share the same guard:
+  //   if (doomed.length >= remaining) return -1;   // every survivor tied
+  // Without it they would eliminate the whole field and then index into an
+  // empty set. -1 is the file's "no winner" sentinel.
+  it.each(['irv', 'coombs', 'smith_irv', 'benham'] as const)(
+    '%s reports no winner when a round would eliminate every survivor',
+    (rule) => {
+      expect(ruleWinnerFromRanks(CYCLE, 3, rule)).toBe(-1);
+    }
+  );
+
+  // NOTE: `doomed.length >= remaining` versus `> remaining` is an EQUIVALENT
+  // mutant. doomed is a subset of the alive set, so `>` is never true; without
+  // the early return the round eliminates everyone, remaining falls to 0, the
+  // while loop exits and findIndex finds no survivor — returning the same -1.
+  // The guard is a short-circuit and a piece of documentation, not a behaviour.
+  // No test can separate the two, and one that appeared to would be asserting
+  // something else.
+
+  it('a cycle has no Condorcet winner, but the condorcet RULE still elects one', () => {
+    // The premise of the four cases above: none of them can short-circuit to a
+    // Condorcet winner, because the cycle has none.
+    expect(condorcetWinnerIdx(CYCLE, 3)).toBe(-1);
+
+    // The rule the UI labels "condorcet" is Copeland — pairwise wins minus
+    // losses, Borda as tie-break — so it always resolves a cycle rather than
+    // reporting no winner. Worth pinning: the helper and the rule share a name
+    // and answer different questions.
+    expect(ruleWinnerFromRanks(CYCLE, 3, 'condorcet')).toBeGreaterThanOrEqual(0);
+  });
+
+  it('an empty field has no winner', () => {
+    expect(ruleWinnerFromRanks([], 0, 'plurality')).toBe(-1);
+    expect(ruleWinnerFromRanks(CYCLE, 0, 'plurality')).toBe(-1);
+  });
+
+  it('an empty ballot box has no winner', () => {
+    expect(ruleWinnerFromRanks([], 3, 'plurality')).toBe(-1);
+  });
+
+  it('a spatial election with no candidates has no winner', () => {
+    const voters: Pt[] = [{ x: 0, y: 0 }];
+    expect(ruleWinner(voters, [], 'plurality')).toBe(-1);
+  });
+
+  it('a spatial election with no voters has no winner', () => {
+    const cands: NamedPt[] = [{ name: 'A', x: 0, y: 0 }];
+    expect(ruleWinner([], cands, 'plurality')).toBe(-1);
+  });
+
+  // The guards above answer "is this degenerate?". Asserting only the
+  // degenerate side lets the threshold slip by one and still return -1 for an
+  // empty field — because an empty field returns -1 further down anyway. These
+  // pin the SMALLEST valid election, which a slipped guard would wrongly call
+  // degenerate.
+  it('the smallest valid election still elects its only candidate', () => {
+    const oneBallot = ranksOf([[1, [0]]]);
+    expect(ruleWinnerFromRanks(oneBallot, 1, 'plurality')).toBe(0);
+
+    const oneVoter: Pt[] = [{ x: 0, y: 0 }];
+    const oneCand: NamedPt[] = [{ name: 'A', x: 0.2, y: 0 }];
+    expect(ruleWinner(oneVoter, oneCand, 'plurality')).toBe(0);
+  });
+
+  it('an unknown rule id falls back to plurality rather than crashing', () => {
+    // The dispatch switch covers every member of the Rule union, so this branch
+    // is unreachable through the type system — but rule ids also arrive from
+    // saved URLs and stored state, where nothing checks them. The fallback is a
+    // runtime guard, and this pins what it does instead of leaving it to chance.
+    const clear = ranksOf([
+      [3, [0, 1, 2]],
+      [1, [1, 0, 2]],
+      [1, [2, 1, 0]],
+    ]);
+
+    const fallback = ruleWinnerFromRanks(clear, 3, 'not_a_real_rule' as Rule);
+
+    expect(fallback).toBe(ruleWinnerFromRanks(clear, 3, 'plurality'));
+    expect(fallback).toBe(0); // A, on 3 of 5 first preferences
   });
 });
