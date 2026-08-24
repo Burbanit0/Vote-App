@@ -60,9 +60,9 @@ import argparse
 import subprocess
 import sys
 import time
-import urllib.error
-import urllib.request
 from datetime import datetime, timezone
+
+import httpx
 
 DEFAULT_CONTAINER = "ollama-polity"
 DEFAULT_MAX_UPTIME_HOURS = 12.0
@@ -93,14 +93,23 @@ def container_uptime_hours(container: str) -> float:
     return (datetime.now(timezone.utc) - started_at).total_seconds() / 3600.0
 
 
-def wait_until_healthy(url: str = DEFAULT_HEALTH_URL, *, timeout_seconds: float = 30.0) -> bool:
+def wait_until_healthy(*, timeout_seconds: float = 30.0) -> bool:
+    """Always polls DEFAULT_HEALTH_URL -- never a caller-supplied URL, a
+    customization point nothing in this script has ever needed. httpx, not
+    urllib, is deliberate: this is the same HTTP client llm_client.py's own
+    OllamaJsonClient/VllmJsonClient already use for every other call to this
+    same Ollama instance -- one HTTP library for this project's Ollama
+    traffic, not two. (A urllib.request.urlopen call here also trips
+    Semgrep's python.lang.security.audit.dynamic-urllib-use-detected rule
+    even against a hardcoded literal URL -- confirmed directly, not assumed
+    -- so httpx settles both concerns at once.)"""
     deadline = time.monotonic() + timeout_seconds
     while time.monotonic() < deadline:
         try:
-            with urllib.request.urlopen(url, timeout=5.0) as response:
-                if response.status == 200:
-                    return True
-        except (urllib.error.URLError, OSError):
+            response = httpx.get(DEFAULT_HEALTH_URL, timeout=5.0)
+            if response.status_code == 200:
+                return True
+        except httpx.HTTPError:
             pass
         time.sleep(1.0)
     return False
