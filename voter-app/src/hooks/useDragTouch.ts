@@ -173,36 +173,3 @@ export function makeDragHandlers(
   };
 }
 
-/**
- * Simplified version of useDragTouch that bundles the dragging-ref internally.
- * Returns { dragHandlers, draggingRef } — wire dragHandlers to draggable elements.
- */
-export function useDragTouchWithHandlers(
-  svgRef: RefObject<SVGSVGElement | null>,
-  callbacks: DragCallbacks,
-  toDomain?: (clientX: number, clientY: number, rect: DOMRect) => { x: number; y: number }
-): {
-  draggingRef: { current: boolean };
-  onMouseDown: (e: React.MouseEvent) => void;
-  onTouchStart: (e: React.TouchEvent) => void;
-} {
-  const draggingRef = useRef(false);
-
-  useDragTouch(svgRef, {
-    ...callbacks,
-    toDomain,
-    onStart: (x, y) => {
-      draggingRef.current = true;
-      callbacks.onStart(x, y);
-    },
-    onEnd: () => {
-      draggingRef.current = false;
-      callbacks.onEnd();
-    },
-  });
-
-  const domainFn = toDomain ?? defaultToDomain;
-  const handlers = makeDragHandlers(svgRef, draggingRef, callbacks.onStart, domainFn);
-
-  return { draggingRef, ...handlers };
-}

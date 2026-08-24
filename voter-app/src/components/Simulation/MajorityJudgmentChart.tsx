@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 
 // ── Grade palette (red → orange → yellow → light-green → green → dark-green) ──
 
-export const MJ_GRADE_KEYS = [
+const MJ_GRADE_KEYS = [
   'mj.àRejeter',
   'mj.passable',
   'mj.assezBien',

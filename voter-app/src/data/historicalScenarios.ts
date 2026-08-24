@@ -153,11 +153,3 @@ export const HISTORICAL_SCENARIOS: Record<string, HistoricalScenario> = {
   },
 };
 
-/** Ordered list for UI display */
-export const HISTORICAL_SCENARIO_IDS = [
-  'france2002',
-  'usa1992',
-  'germany2021',
-  'condorcet_cycle',
-  'consensus',
-] as const;

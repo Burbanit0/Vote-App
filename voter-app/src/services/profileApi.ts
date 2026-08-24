@@ -32,11 +32,7 @@ export interface ProfileSimulateResult {
 }
 
 /** Build the `extra="forbid"` request body from shared electorate + playground knobs. */
-export function toProfilePayload(
-  config: ElectionConfig,
-  pg: PlaygroundState,
-  computeStrategic = false
-) {
+function toProfilePayload(config: ElectionConfig, pg: PlaygroundState, computeStrategic = false) {
   return {
     source: pg.prefSource,
     candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y, z: c.z ?? 0 })),

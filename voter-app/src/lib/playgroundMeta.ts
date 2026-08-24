@@ -2,7 +2,7 @@
 // page shell, the moment panels and the Bilan readout so the selector, the
 // scorecard title and the values lens stay in sync.
 
-export const PARLIAMENT_AXIS_META: { key: string; label: string; hint: string }[] = [
+const PARLIAMENT_AXIS_META: { key: string; label: string; hint: string }[] = [
   {
     key: 'proportionality',
     label: 'Proportionnalité',
