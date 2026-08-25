@@ -34,6 +34,51 @@ interface CrossTabulationData {
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
+interface DemographicPieCardProps {
+  title: string;
+  data: ChartData[];
+  tooltipFormatter?: (value: number) => string;
+}
+
+// One demographic breakdown, as a pie: title + 300px chart. Every slice gets
+// its own <Cell>, so the <Pie>'s own `fill` never actually shows — that let
+// the seven call sites drift (some passed it, some didn't) with no visible
+// effect either way.
+const DemographicPieCard: React.FC<DemographicPieCardProps> = ({
+  title,
+  data,
+  tooltipFormatter,
+}) => (
+  <Card>
+    <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
+      <CardTitle>{title}</CardTitle>
+    </CardHeader>
+    <CardBody>
+      <div style={{ height: '300px' }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={data}
+              dataKey="value"
+              nameKey="name"
+              cx="50%"
+              cy="50%"
+              outerRadius={80}
+              label
+            >
+              {data.map((_, index) => (
+                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+              ))}
+            </Pie>
+            <Tooltip formatter={tooltipFormatter} />
+            <Legend />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
+    </CardBody>
+  </Card>
+);
+
 const VoterVisualization: React.FC = () => {
   const { t } = useTranslation();
   const { voters, setVoters } = useSimulation();
@@ -348,101 +393,17 @@ const VoterVisualization: React.FC = () => {
         </Col>
 
         <Col md={6}>
-          <Card>
-            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
-              <CardTitle>{t('simulation.voterViz.genderDist')}</CardTitle>
-            </CardHeader>
-            <CardBody>
-              <div style={{ height: '300px' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={genderData()}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      fill="#1a56cc"
-                      label
-                    >
-                      {genderData().map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </CardBody>
-          </Card>
+          <DemographicPieCard title={t('simulation.voterViz.genderDist')} data={genderData()} />
         </Col>
       </Row>
 
       <Row className="mb-4">
         <Col md={6}>
-          <Card>
-            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
-              <CardTitle>{t('simulation.voterViz.regionDist')}</CardTitle>
-            </CardHeader>
-            <CardBody>
-              <div style={{ height: '300px' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={regionData()}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      fill="#1a56cc"
-                      label
-                    >
-                      {regionData().map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </CardBody>
-          </Card>
+          <DemographicPieCard title={t('simulation.voterViz.regionDist')} data={regionData()} />
         </Col>
 
         <Col md={6}>
-          <Card>
-            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
-              <CardTitle>{t('simulation.voterViz.incomeDist')}</CardTitle>
-            </CardHeader>
-            <CardBody>
-              <div style={{ height: '300px' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={incomeData()}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      fill="#1a56cc"
-                      label
-                    >
-                      {incomeData().map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </CardBody>
-          </Card>
+          <DemographicPieCard title={t('simulation.voterViz.incomeDist')} data={incomeData()} />
         </Col>
       </Row>
 
@@ -469,136 +430,31 @@ const VoterVisualization: React.FC = () => {
         </Col>
 
         <Col md={6}>
-          <Card>
-            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
-              <CardTitle>{t('simulation.voterViz.partyPref')}</CardTitle>
-            </CardHeader>
-            <CardBody>
-              <div style={{ height: '300px' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={partyData()}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      fill="#1a56cc"
-                      label
-                    >
-                      {partyData().map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </CardBody>
-          </Card>
+          <DemographicPieCard title={t('simulation.voterViz.partyPref')} data={partyData()} />
         </Col>
       </Row>
       <Row className="mb-4">
         <Col md={6}>
-          <Card>
-            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
-              <CardTitle>{t('simulation.voterViz.educationDist')}</CardTitle>
-            </CardHeader>
-            <CardBody>
-              <div style={{ height: '300px' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={educationData()}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      fill="#1a56cc"
-                      label
-                    >
-                      {educationData().map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </CardBody>
-          </Card>
+          <DemographicPieCard
+            title={t('simulation.voterViz.educationDist')}
+            data={educationData()}
+          />
         </Col>
 
         <Col md={6}>
-          <Card>
-            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
-              <CardTitle>{t('simulation.voterViz.jobStatus')}</CardTitle>
-            </CardHeader>
-            <CardBody>
-              <div style={{ height: '300px' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={employmentData()}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      label
-                    >
-                      {employmentData().map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </CardBody>
-          </Card>
+          <DemographicPieCard title={t('simulation.voterViz.jobStatus')} data={employmentData()} />
         </Col>
       </Row>
 
       <Row className="mb-4">
         <Col md={6}>
-          <Card>
-            <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
-              <CardTitle>{t('simulation.voterViz.familyStatus')}</CardTitle>
-            </CardHeader>
-            <CardBody>
-              <div style={{ height: '300px' }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={familyData()}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      label
-                    >
-                      {familyData().map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(value: number) =>
-                        `${value} (${formatPercentage(value, voters.length)})`
-                      }
-                    />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </CardBody>
-          </Card>
+          <DemographicPieCard
+            title={t('simulation.voterViz.familyStatus')}
+            data={familyData()}
+            tooltipFormatter={(value: number) =>
+              `${value} (${formatPercentage(value, voters.length)})`
+            }
+          />
         </Col>
         <Col md={6}>
           <Card>

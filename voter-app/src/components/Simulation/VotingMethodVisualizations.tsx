@@ -25,6 +25,9 @@ import {
 import type { VotingMethodVisualizationProps } from './votingMethods/types';
 import { VIZ_COLORS } from './votingMethods/types';
 import MethodBarChart from './votingMethods/MethodBarChart';
+import PairwiseMatrixCard from './votingMethods/PairwiseMatrixCard';
+import EliminatedCandidatesCard from './votingMethods/EliminatedCandidatesCard';
+import { pairwiseCounts } from './votingMethods/pairwiseMatrix';
 import { PluralityVisualization, BordaVisualization, IRVVisualization } from './votingMethods';
 
 const VotingMethodVisualizations: React.FC<VotingMethodVisualizationProps> = ({
@@ -499,22 +502,7 @@ const CoombsVisualization: React.FC<VotingMethodVisualizationProps> = ({
             </CardBody>
           </Card>
 
-          {eliminated.length > 0 && (
-            <Card className="mt-3">
-              <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
-                Eliminated Candidates
-              </CardHeader>
-              <CardBody>
-                <div className="flex flex-wrap gap-2">
-                  {eliminated.map((candidate) => (
-                    <Badge key={candidate} variant="secondary" className="p-2">
-                      {candidate}
-                    </Badge>
-                  ))}
-                </div>
-              </CardBody>
-            </Card>
-          )}
+          {eliminated.length > 0 && <EliminatedCandidatesCard candidates={eliminated} />}
 
           <button
             className="btn btn-primary mt-3"
@@ -781,39 +769,16 @@ const MinimaxVisualization: React.FC<VotingMethodVisualizationProps> = ({
   rankings,
   candidates,
 }) => {
-  // Calculate pairwise opposition
-  const opposition: Record<string, Record<string, number>> = {};
-
-  candidates.forEach((c1) => {
-    opposition[c1] = {};
-    candidates.forEach((c2) => {
-      if (c1 !== c2) {
-        opposition[c1][c2] = 0;
-      }
-    });
-  });
-
-  // Count pairwise preferences
-  candidates.forEach((c1) => {
-    candidates.forEach((c2) => {
-      if (c1 !== c2) {
-        rankings.forEach(({ ranking }) => {
-          const pos1 = ranking.indexOf(c1);
-          const pos2 = ranking.indexOf(c2);
-          if (pos2 < pos1) {
-            // c2 is preferred over c1
-            opposition[c1][c2]++;
-          }
-        });
-      }
-    });
-  });
+  // opposition[c1][c2]: ballots preferring c2 over c1 — the transpose of the
+  // shared "ballots ranking a before b" matrix.
+  const counts = pairwiseCounts(rankings, candidates);
+  const opposition = (c1: string, c2: string) => counts[c2][c1];
 
   // Find the maximum opposition for each candidate
   const maxOpposition: Record<string, number> = {};
   candidates.forEach((candidate) => {
     maxOpposition[candidate] = Math.max(
-      ...candidates.filter((c) => c !== candidate).map((other) => opposition[candidate][other] || 0)
+      ...candidates.filter((c) => c !== candidate).map((other) => opposition(candidate, other) || 0)
     );
   });
 
@@ -828,39 +793,11 @@ const MinimaxVisualization: React.FC<VotingMethodVisualizationProps> = ({
         head-to-head comparison), and the candidate with the smallest such defeat wins.
       </p>
 
-      <Card className="mt-3">
-        <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
-          Pairwise Opposition Matrix
-        </CardHeader>
-        <CardBody>
-          <div className="table-responsive">
-            <Table className="[&_th]:p-2 [&_td]:p-2 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border [&_tbody_tr:hover]:bg-muted/50">
-              <thead>
-                <tr>
-                  <th></th>
-                  {candidates.map((candidate) => (
-                    <th key={candidate}>{candidate}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {candidates.map((c1) => (
-                  <tr key={c1}>
-                    <th>{c1}</th>
-                    {candidates.map((c2) => (
-                      <td key={`${c1}-${c2}`} className={c1 === c2 ? 'bg-slate-100' : ''}>
-                        {c1 === c2
-                          ? '-'
-                          : `${opposition[c1][c2]} vs ${opposition[c2] ? opposition[c2][c1] : 0}`}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
-          </div>
-        </CardBody>
-      </Card>
+      <PairwiseMatrixCard
+        title="Pairwise Opposition Matrix"
+        candidates={candidates}
+        cellContent={(c1, c2) => `${opposition(c1, c2)} vs ${opposition(c2, c1)}`}
+      />
 
       <Card className="mt-3">
         <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
@@ -892,32 +829,7 @@ const SchulzeVisualization: React.FC<VotingMethodVisualizationProps> = ({
   rankings,
   candidates,
 }) => {
-  // Calculate pairwise preferences
-  const pref: Record<string, Record<string, number>> = {};
-
-  candidates.forEach((c1) => {
-    pref[c1] = {};
-    candidates.forEach((c2) => {
-      if (c1 !== c2) {
-        pref[c1][c2] = 0;
-      }
-    });
-  });
-
-  // Count pairwise preferences
-  candidates.forEach((c1) => {
-    candidates.forEach((c2) => {
-      if (c1 !== c2) {
-        rankings.forEach(({ ranking }) => {
-          const pos1 = ranking.indexOf(c1);
-          const pos2 = ranking.indexOf(c2);
-          if (pos1 < pos2) {
-            pref[c1][c2]++;
-          }
-        });
-      }
-    });
-  });
+  const pref = pairwiseCounts(rankings, candidates);
 
   // Calculate the strength of the strongest paths
   const strength: Record<string, Record<string, number>> = {};
@@ -979,37 +891,11 @@ const SchulzeVisualization: React.FC<VotingMethodVisualizationProps> = ({
         one exists, and provides a complete ranking of candidates.
       </p>
 
-      <Card className="mt-3">
-        <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
-          Strength of Strongest Paths
-        </CardHeader>
-        <CardBody>
-          <div className="table-responsive">
-            <Table className="[&_th]:p-2 [&_td]:p-2 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border [&_tbody_tr:hover]:bg-muted/50">
-              <thead>
-                <tr>
-                  <th></th>
-                  {candidates.map((candidate) => (
-                    <th key={candidate}>{candidate}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {candidates.map((c1, i) => (
-                  <tr key={c1}>
-                    <th>{c1}</th>
-                    {candidates.map((c2, j) => (
-                      <td key={`${c1}-${c2}`} className={i === j ? 'bg-slate-100' : ''}>
-                        {i === j ? '-' : matrixData[i][j]}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
-          </div>
-        </CardBody>
-      </Card>
+      <PairwiseMatrixCard
+        title="Strength of Strongest Paths"
+        candidates={candidates}
+        cellContent={(_c1, _c2, i, j) => matrixData[i][j]}
+      />
 
       <p className="mt-3">
         <strong>Schulze Winner:</strong> {winner}
@@ -1025,33 +911,7 @@ const KemenyYoungVisualization: React.FC<VotingMethodVisualizationProps> = ({
 }) => {
   // This is a simplified visualization as the full Kemeny-Young method
   // is computationally intensive for more than a few candidates
-
-  // Calculate pairwise preferences
-  const pref: Record<string, Record<string, number>> = {};
-
-  candidates.forEach((c1) => {
-    pref[c1] = {};
-    candidates.forEach((c2) => {
-      if (c1 !== c2) {
-        pref[c1][c2] = 0;
-      }
-    });
-  });
-
-  // Count pairwise preferences
-  candidates.forEach((c1) => {
-    candidates.forEach((c2) => {
-      if (c1 !== c2) {
-        rankings.forEach(({ ranking }) => {
-          const pos1 = ranking.indexOf(c1);
-          const pos2 = ranking.indexOf(c2);
-          if (pos1 < pos2) {
-            pref[c1][c2]++;
-          }
-        });
-      }
-    });
-  });
+  const pref = pairwiseCounts(rankings, candidates);
 
   // For visualization, we'll just show the pairwise preference matrix
   // The actual Kemeny-Young winner would require finding the ranking with
@@ -1065,37 +925,11 @@ const KemenyYoungVisualization: React.FC<VotingMethodVisualizationProps> = ({
         represents the voters preferences.
       </p>
 
-      <Card className="mt-3">
-        <CardHeader className="block space-y-0 border-b border-border px-4 py-2">
-          Pairwise Preference Matrix
-        </CardHeader>
-        <CardBody>
-          <div className="table-responsive">
-            <Table className="[&_th]:p-2 [&_td]:p-2 [&_th]:text-left [&_td]:border-t [&_th]:border-b [&_td]:border-border [&_th]:border-border [&_*]:align-middle [&_th]:border [&_td]:border [&_tbody_tr:hover]:bg-muted/50">
-              <thead>
-                <tr>
-                  <th></th>
-                  {candidates.map((candidate) => (
-                    <th key={candidate}>{candidate}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {candidates.map((c1) => (
-                  <tr key={c1}>
-                    <th>{c1}</th>
-                    {candidates.map((c2) => (
-                      <td key={`${c1}-${c2}`} className={c1 === c2 ? 'bg-slate-100' : ''}>
-                        {c1 === c2 ? '-' : pref[c1][c2]}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
-          </div>
-        </CardBody>
-      </Card>
+      <PairwiseMatrixCard
+        title="Pairwise Preference Matrix"
+        candidates={candidates}
+        cellContent={(c1, c2) => pref[c1][c2]}
+      />
 
       <div className="alert alert-info mt-3">
         <strong>Note:</strong> The full Kemeny-Young method requires computing the ranking with
