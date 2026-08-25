@@ -216,9 +216,36 @@ d'acceptance sans les modifier).
 - Aucun script d'acceptance modifié — chacun hérite du nouveau défaut via
   `load_config()` au prochain run.
 
-**Statut** : Phase 3 terminée. Phase 4 (re-baseline sélectif d'un ou
-plusieurs résultats déjà publiés) **non commencée** — décision distincte,
-non prise à ce stade.
+**Statut** : Phase 3 terminée.
+
+### 4.1 Vérification bon marché avant décision Phase 4 (2026-08-25)
+
+Avant de décider d'un re-baseline sélectif, quatre sondes déterministes
+(secondes chacune, scripts scratch, aucun run committé modifié, aucun
+calcul LLM) rejouent sous `factor_structure` les configurations exactes de
+résultats déjà publiés :
+
+| arm | `uniform` (publié) | `factor_structure` (sonde) |
+|---|---|---|
+| v4 `both`, 8 ans | L=0,345, 2 rappels | L=0,745, **2 rappels** |
+| v4 `mobilization_only`, 30 ans | L=0,061, 8 rappels | L=0,216, **7 rappels** |
+| v4 `electoral_only`, 8 ans | L=0,510, 0 rappel | L=0,770, **0 rappel** |
+| v6b `both`, plancher livré | occupation ~6-9%, 2 rappels | occupation 63,6%, **2 rappels** |
+
+L'acceptabilité de base (`m`) monte substantiellement partout, mais les
+comptes de rappel et la propriété de contrôle d'`electoral_only` restent
+quasi inchangés — signal suggestif (pas concluant, ces sondes ne testent
+que la ligne de base déterministe §11.4, pas l'arbitrage LLM) que les
+dynamiques de crise sont structurelles, pas un artefact de la distribution.
+
+**Décision (recommandation retenue)** : pas de re-run LLM complet à ce
+stade — le signal déterministe ne justifie pas plusieurs heures de calcul
+par run pour confirmer une conclusion déjà probable. Documenté dans
+`THEORY.md` §10.10 et `traceability.md`.
+
+**Statut** : Phase 4 **non engagée en re-run** — le constat ci-dessus en
+réduit la priorité sans la clore. Décision distincte et toujours ouverte
+si de nouvelles raisons de douter d'un résultat publié apparaissent.
 
 ## 3. `ambition_threshold=0.0` — sous-décision séparée, à ne pas mélanger
 

@@ -1612,8 +1612,30 @@ institutionnelle propre à la chambre.
   cascade v4+v5+v6a) ne sont **pas** rejoués ni réétiquetés
   rétroactivement ; ils restent documentés comme ayant tourné sous
   `uniform`/`seed=42`, non validée comme représentative au moment de leur
-  publication. Un re-baseline sélectif d'un ou plusieurs résultats déjà
-  publiés reste une décision distincte, non prise à ce stade.
+  publication.
+  **Vérification bon marché de la robustesse des conclusions déjà
+  publiées (2026-08-25)** : avant de décider d'un re-baseline sélectif
+  (plan §4), quatre sondes déterministes (secondes chacune, aucun calcul
+  LLM, aucun script committé modifié) rejouent les configurations exactes
+  de v4 Lot 8 (`both`, `electoral_only`, `mobilization_only`) et de la
+  troisième comparaison v6b sous `factor_structure` : l'acceptabilité de
+  base (`m`) monte substantiellement partout (`electoral_only` :
+  `L=0,510→0,770` ; `both` 8 ans : `L=0,345→0,745` ; `mobilization_only`
+  30 ans : `L=0,061→0,216` ; occupation de la présidence en v6b sous le
+  menu `both` complet, plancher livré : `~6-9%→63,6%`), mais le nombre de
+  rappels reste quasi inchangé (`both` : 2→2 ; `mobilization_only` : 8→7 ;
+  v6b `both` : 2→2) et la propriété de contrôle d'`electoral_only` (jamais
+  de rappel) tient toujours. Lecture : les dynamiques de crise du menu de
+  pression semblent structurelles (portées par la mécanique
+  pétition/mobilisation elle-même), pas un artefact de la faible
+  acceptabilité d'`uniform` — preuve suggestive, pas concluante, puisque
+  ces sondes testent uniquement la ligne de base déterministe (§11.4), pas
+  l'arbitrage libre de l'agent LLM des runs réellement publiés. Décision,
+  prise sur cette base : **pas de re-run LLM complet à ce stade** — le
+  signal déterministe ne justifie pas plusieurs heures de calcul par run
+  pour une confirmation dont la conclusion qualitative est déjà probable.
+  Un re-baseline sélectif reste une décision distincte, ouverte, non prise
+  ici — ce constat en réduit la priorité sans la clore.
 - **`stance = 4` (contre-mobilisation) est observable mais mécaniquement
   inerte** : aucun levier citoyen pro-sortant n'existe encore pour lui
   répondre — un représentant peut choisir cette posture, mais rien dans le
