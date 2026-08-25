@@ -1529,6 +1529,21 @@ institutionnelle propre à la chambre.
 
 ### 10.10 Limites connues du modèle v4, v5, v6a et v6b
 
+- **`seed=42` — la seule graine jamais utilisée par un run d'acceptation de
+  ce projet — n'a jamais été validée comme représentative, et se trouve
+  démontrée proche d'un seuil de basculement.** Un sweep de 11 graines
+  alternatives (`scripts/acceptance_cascade_results.md`, run cascade
+  v4+v5+v6a) montre que 9 sur 11 ne produisent aucun président élu du
+  tout : le Blanc l'emporte au second tour du scrutin présidentiel
+  (`election_no_winner`) dès qu'assez d'électeurs jugent les 5 plateformes
+  de parti inacceptables. `seed=42` se situe juste sous ce seuil (~32-34 %
+  de bulletins classant Blanc en tête) par coïncidence de tirage, pas par
+  une propriété distinctive de la population générée — son `blank_threshold`
+  moyen et sa distance moyenne au nominee le plus proche ne sont pas
+  systématiquement plus favorables que plusieurs graines qui échouent. Ce
+  constat touche rétroactivement **tout** run d'acceptation du projet, de
+  v4 Lot 8 jusqu'aux runs v6b et cascade les plus récents : chacun a
+  utilisé `seed=42` sans que sa représentativité n'ait jamais été vérifiée.
 - **`stance = 4` (contre-mobilisation) est observable mais mécaniquement
   inerte** : aucun levier citoyen pro-sortant n'existe encore pour lui
   répondre — un représentant peut choisir cette posture, mais rien dans le
