@@ -1530,20 +1530,66 @@ institutionnelle propre à la chambre.
 ### 10.10 Limites connues du modèle v4, v5, v6a et v6b
 
 - **`seed=42` — la seule graine jamais utilisée par un run d'acceptation de
-  ce projet — n'a jamais été validée comme représentative, et se trouve
-  démontrée proche d'un seuil de basculement.** Un sweep de 11 graines
-  alternatives (`scripts/acceptance_cascade_results.md`, run cascade
-  v4+v5+v6a) montre que 9 sur 11 ne produisent aucun président élu du
-  tout : le Blanc l'emporte au second tour du scrutin présidentiel
-  (`election_no_winner`) dès qu'assez d'électeurs jugent les 5 plateformes
-  de parti inacceptables. `seed=42` se situe juste sous ce seuil (~32-34 %
-  de bulletins classant Blanc en tête) par coïncidence de tirage, pas par
-  une propriété distinctive de la population générée — son `blank_threshold`
-  moyen et sa distance moyenne au nominee le plus proche ne sont pas
-  systématiquement plus favorables que plusieurs graines qui échouent. Ce
-  constat touche rétroactivement **tout** run d'acceptation du projet, de
-  v4 Lot 8 jusqu'aux runs v6b et cascade les plus récents : chacun a
-  utilisé `seed=42` sans que sa représentativité n'ait jamais été vérifiée.
+  ce projet — n'a jamais été validée comme représentative, et le mécanisme
+  complet qui la rend fragile est maintenant identifié, pas seulement
+  corrélé.** Un premier sweep de 11 graines alternatives
+  (`scripts/acceptance_cascade_results.md`, run cascade v4+v5+v6a) montrait
+  déjà que 9 sur 11 ne produisent aucun président élu (`election_no_winner`
+  au second tour du `two_round`, le Blanc l'emportant). Une investigation
+  dédiée, élargie à 40-60 graines et menée directement contre le pipeline
+  de production (`generate_population` → `initialize_parties` →
+  `select_party_nominee` → `build_ranking` → `get_two_round_winner`),
+  ferme la chaîne causale complète :
+  - À l'échelle du projet, le Blanc l'emporte sur **41/60 graines (68 %)**
+    à la configuration livrée — un taux d'échec bien plus élevé que le
+    premier sweep ne le laissait supposer.
+  - **Le mécanisme du second tour contre le Blanc est une condition
+    déterministe, pas probabiliste** : une fois le Blanc qualifié pour le
+    second tour, `build_ranking` classe systématiquement tout candidat
+    dans la tolérance (`blank_threshold`) d'un électeur au-dessus du Blanc,
+    et tout candidat hors tolérance en dessous — donc le second tour se
+    réduit, pour chaque électeur, à une seule question binaire : *ce
+    finaliste précis m'est-il personnellement acceptable ?*, indépendamment
+    des trois autres candidats et de leur score au premier tour. Vérifié
+    empiriquement : le Blanc gagne si et seulement si l'acceptabilité du
+    finaliste dans l'ensemble de la population est `≤ 50 %` — frontière
+    exacte, mesurée sur 40 graines (`max` quand le Blanc gagne = 50,0 %,
+    `min` quand un candidat réel gagne = 51,0 %, aucun chevauchement).
+  - **Pourquoi cette majorité est difficile à atteindre** : `citizens.
+    position_dist: uniform` disperse 100 citoyens de façon maximale sur un
+    espace à 20 dimensions, sans centre de gravité naturel ; combiné à une
+    pondération de priorités individualisée par électeur
+    (`priority_dist: dirichlet`), aucun point unique n'est proche, sous la
+    métrique propre à chacun, de plus de la moitié d'une population aussi
+    dispersée.
+  - La méthode de sélection du candidat de chaque parti a un effet réel
+    mais secondaire : remplacer le critère livré (le membre du parti au
+    score d'ambition le plus élevé — un trait indépendant de la position
+    politique, artefact du `ambition_threshold=0.0` que tout script
+    d'acceptance impose) par le membre le plus proche du centroïde
+    k-means du parti fait passer le taux de victoire du Blanc de **70 % à
+    27,5 %** (5 partis, 40 graines) — sans toucher au reste du pipeline.
+    Augmenter le nombre de partis/nominee n'aide pas de façon monotone
+    (55 % à 10 partis, mais remonte à 67,5 % à 15-20) : la couverture
+    s'améliore mais la fragmentation du vote "acceptable" s'aggrave en
+    proportion.
+  - **Le levier qui referme la chaîne** : `citizens.position_dist` accepte
+    déjà `gaussian_mixture` dans le schéma de configuration, mais
+    `generate_population` le rejette avec `NotImplementedError` — jamais
+    implémenté. Remplacer uniquement le tirage des positions (tout le
+    reste du pipeline inchangé) par une simple gaussienne centrée
+    (`std=0.30`, toujours large) fait chuter le taux d'échec de 27,5 % à
+    2,5 % (1/40) ; `std≤0.20`, ou un mélange à 2-3 modes, l'annule
+    entièrement sur les 40 graines testées.
+
+  Investigation menée intégralement en lecture/mesure contre le pipeline
+  réel, aucun changement de code de production. Touche rétroactivement
+  **tout** run d'acceptation du projet, de v4 Lot 8 jusqu'aux runs v6b et
+  cascade les plus récents : chacun a utilisé `seed=42` sans que sa
+  représentativité n'ait jamais été vérifiée. La décision de corriger
+  (implémenter `gaussian_mixture`, revoir `select_party_nominee`, ou
+  autre) reste délibérément ouverte — n'a pas été prise dans le cadre de
+  cette investigation.
 - **`stance = 4` (contre-mobilisation) est observable mais mécaniquement
   inerte** : aucun levier citoyen pro-sortant n'existe encore pour lui
   répondre — un représentant peut choisir cette posture, mais rien dans le
