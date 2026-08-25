@@ -111,6 +111,16 @@ jobs:
   stryker:
     name: Frontend mutation score (Stryker, floor 76%)
     runs-on: ubuntu-latest
+    # Stryker's `concurrency` isn't pinned in stryker.config.json, so it
+    # defaults to cpuCount - 1: 4 workers on this runner vs 15 on a 16-core
+    # dev machine, so a full pass genuinely takes ~2h-2h30 here (~38min
+    # locally). Confirmed 2026-08-25 by letting a run go to 71% (1128/1501
+    # mutants, Stryker's own ETA ~42min remaining) before cancelling it —
+    # not a hang, just less parallelism. This timeout exists so a REAL hang
+    # (stuck mutant, runner fault) fails loudly instead of running silently
+    # toward GitHub's 360-minute job default and looking identical to "just
+    # slow" for hours.
+    timeout-minutes: 240
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
