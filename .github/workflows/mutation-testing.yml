@@ -47,7 +47,7 @@ concurrency:
 
 jobs:
   mutmut:
-    name: Backend mutation score (mutmut, floor 62%)
+    name: Backend mutation score (mutmut, floor 70%)
     runs-on: ubuntu-latest
 
     steps:
@@ -79,14 +79,14 @@ jobs:
           python -m mutmut run --max-children 4 2>&1 | tee mutmut-run.log
 
       # Floor set just UNDER the measured score, to lock in what exists rather
-      # than to aspire. Measured 2026-08-24: 1130/1761 killed = 64.2%, after the
-      # test selection was widened from 14 to 25 files (+5.3 pts, no test
-      # written). Raise it as the cardinal-rule and tie-break work lands — the
-      # route to 80% is +166 mutants from the cardinal module and +161 from tie
-      # fixtures, both of which are planned chantiers.
-      - name: Mutation score floor (62%)
+      # than to aspire. Measured 2026-08-25 (CI-confirmed, after fixing the
+      # test-selection list to include test_anonymity.py + test_cardinal_
+      # orphans.py): 1389/1896 killed = 72.9%. Raise it further as the
+      # remaining cardinal-rule coverage lands (simulation_score_utils.py is
+      # still the weaker half — see the pyproject.toml [tool.mutmut] note).
+      - name: Mutation score floor (70%)
         if: always()
-        run: ./scripts/check_mutation_score.sh fast_api_voter/mutmut-run.log 62
+        run: ./scripts/check_mutation_score.sh fast_api_voter/mutmut-run.log 70
 
       - name: Mutation results (survivors + score)
         if: always()
@@ -109,15 +109,32 @@ jobs:
           retention-days: 30
 
   stryker:
-    name: Frontend mutation score (Stryker, floor 76%)
+    name: Frontend mutation score (Stryker, floor 80%)
     runs-on: ubuntu-latest
+    # Stryker's `concurrency` isn't pinned in stryker.config.json, so it
+    # defaults to cpuCount - 1: 4 workers on this runner vs 15 on a 16-core
+    # dev machine, so a full pass genuinely takes ~2h-2h30 here (~38min
+    # locally). Confirmed 2026-08-25 by letting a run go to 71% (1128/1501
+    # mutants, Stryker's own ETA ~42min remaining) before cancelling it —
+    # not a hang, just less parallelism. This timeout exists so a REAL hang
+    # (stuck mutant, runner fault) fails loudly instead of running silently
+    # toward GitHub's 360-minute job default and looking identical to "just
+    # slow" for hours.
+    timeout-minutes: 240
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
+      # @stryker-mutator/core@10.0.0 hard-requires Node >=22 (it throws before
+      # running a single mutant otherwise) — every other workflow in this repo
+      # pins Node 20, so this job needs its own version, not the project default.
+      # Discovered because this gate had never actually passed in CI: it went
+      # straight from continue-on-error to a hard `thresholds.break` fail on its
+      # very first scheduled/push run, and both looked identical to a genuine
+      # mutation-score regression until the log was read.
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: voter-app/package-lock.json
 

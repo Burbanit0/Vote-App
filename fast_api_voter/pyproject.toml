@@ -90,7 +90,15 @@ pytest_add_cli_args = ["-o", "addopts="]
 # in the list above". They all had one — it just wasn't selected. So the score
 # was partly measuring this list rather than the tests. Widening it to 25 files
 # moved the run from 58.9% to 64.2% (714 → 621 survivors) with no test written.
+#
+# Regenerated again after test_anonymity.py + test_cardinal_orphans.py were
+# added (the 13-rule tie-break fix): the measured score barely moved on that
+# PR (64.2% → 63.2%, despite fixing 13 real bugs and adding 96 tests) because
+# this list is hand-curated, not auto-discovered, and neither new file had
+# been added to it — the exact tests written to catch the tie-break bugs never
+# ran under mutmut at all.
 pytest_add_cli_args_test_selection = [
+    "api/tests/test_anonymity.py",
     "api/tests/test_anti_plurality.py",
     "api/tests/test_approval.py",
     "api/tests/test_baldwin.py",
@@ -98,6 +106,7 @@ pytest_add_cli_args_test_selection = [
     "api/tests/test_black.py",
     "api/tests/test_bucklin_cumulative.py",
     "api/tests/test_cardinal_batch.py",
+    "api/tests/test_cardinal_orphans.py",
     "api/tests/test_condorcet.py",
     "api/tests/test_copeland.py",
     "api/tests/test_dowdall.py",
