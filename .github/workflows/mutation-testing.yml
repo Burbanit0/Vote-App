@@ -115,9 +115,16 @@ jobs:
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
+      # @stryker-mutator/core@10.0.0 hard-requires Node >=22 (it throws before
+      # running a single mutant otherwise) — every other workflow in this repo
+      # pins Node 20, so this job needs its own version, not the project default.
+      # Discovered because this gate had never actually passed in CI: it went
+      # straight from continue-on-error to a hard `thresholds.break` fail on its
+      # very first scheduled/push run, and both looked identical to a genuine
+      # mutation-score regression until the log was read.
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: voter-app/package-lock.json
 
