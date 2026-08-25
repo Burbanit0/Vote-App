@@ -183,9 +183,42 @@ initiale, `uniform` et `factor_structure` passés à travers le vrai
   émergente.
 
 **Statut** : Phase 2 terminée, critère du §2 satisfait par `factor_structure`.
-Phase 3 (nouveau défaut livré, migration `THEORY.md`/`traceability.md`) et
-Phase 4 (re-baseline sélectif) **non commencées** — présentées ici pour
-validation avant de continuer, comme prévu par ce document.
+
+### 3.1 Résultats Phase 3 (2026-08-25)
+
+Périmètre discuté et validé avant implémentation (options recommandées
+retenues sur les deux points ouverts : extension du bullet §10.10 existant
+plutôt qu'une nouvelle sous-section, migration silencieuse des scripts
+d'acceptance sans les modifier).
+
+- `polity_config.yaml` : `citizens.position_dist` bascule de `uniform` à
+  `factor_structure` comme défaut livré, avec justification écrite en
+  commentaire (chiffres du sweep §2.1, référence à ce document).
+- **Découverte pendant l'implémentation, pas anticipée dans le cadrage** :
+  plusieurs tests (`test_polity_citizen.py`, `test_polity_run_simulation.py`)
+  dépendaient implicitement de `uniform` via `load_config()` — soit pour
+  reproduire la séquence de tirage RNG d'origine (v4 Lot 2), soit parce que
+  des seuils de déclenchement (mobilisation, pétition) avaient été calibrés
+  empiriquement contre la population `uniform`/`seed=42` spécifique
+  (`scripts/awakening_calibration_results.md`,
+  `scripts/petition_calibration_results.md`). Corrigé en épinglant
+  `position_dist: "uniform"` explicitement dans ces tests précis (pas dans
+  toute la suite) — préserve leur intention réelle (tester le mécanisme,
+  pas "quelle que soit la distribution livrée") sans dépendre du défaut
+  livré. Suite complète : `1730 passed, 41 skipped`, aucune régression ;
+  mypy/flake8 propres.
+- `THEORY.md` §10.10 : le bullet seed=42 existant est étendu — la phrase
+  « décision de corriger... reste délibérément ouverte » est remplacée par
+  la décision réellement prise (`factor_structure`, argumentation, chiffres
+  du sweep, non-rejeu des runs passés).
+- `traceability.md` (autre worktree, commit séparé) : la ligne Polity est
+  mise à jour dans le même sens.
+- Aucun script d'acceptance modifié — chacun hérite du nouveau défaut via
+  `load_config()` au prochain run.
+
+**Statut** : Phase 3 terminée. Phase 4 (re-baseline sélectif d'un ou
+plusieurs résultats déjà publiés) **non commencée** — décision distincte,
+non prise à ce stade.
 
 ## 3. `ambition_threshold=0.0` — sous-décision séparée, à ne pas mélanger
 

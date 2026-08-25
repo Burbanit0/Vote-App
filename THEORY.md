@@ -1586,10 +1586,34 @@ institutionnelle propre à la chambre.
   réel, aucun changement de code de production. Touche rétroactivement
   **tout** run d'acceptation du projet, de v4 Lot 8 jusqu'aux runs v6b et
   cascade les plus récents : chacun a utilisé `seed=42` sans que sa
-  représentativité n'ait jamais été vérifiée. La décision de corriger
-  (implémenter `gaussian_mixture`, revoir `select_party_nominee`, ou
-  autre) reste délibérément ouverte — n'a pas été prise dans le cadre de
-  cette investigation.
+  représentativité n'ait jamais été vérifiée.
+  **Décision de correction, prise le 2026-08-25**
+  (`plan-distribution-positions-seeds.md`) : `citizens.position_dist:
+  factor_structure` — pas `gaussian_mixture` (jamais implémenté, et un
+  mélange présupposerait la question de convergence/polarisation que la
+  vue méso existe pour *observer*, §14.2 du plan de conception), pas non
+  plus une révision de `select_party_nominee`. Positions générées via un
+  modèle factoriel à bas rang (`position = sigmoid(facteurs · loadings +
+  bruit)`, 2 facteurs — l'axe économique et l'axe sociétal déjà nommés en
+  §14.2), qui corrèle les 20 dimensions de façon réaliste sans imposer de
+  pic artificiel : facteurs tirés d'une distribution unimodale, donc
+  neutre sur la question convergence/polarisation. Choisie après un
+  cadrage théorique écrit avant tout sweep (littérature déjà citée par le
+  projet : Downs 1957 justifie une gaussienne simple mais sur un espace à
+  une seule dimension ; Iyengar et al. 2019, §5, documente une
+  polarisation qui argumenterait pour un mélange ; la structure
+  factorielle répond aux deux en restant agnostique). Un sweep comparatif
+  à 40 graines contre le vrai pipeline confirme : 0/40 victoires du Blanc
+  (contre 11/40 sous `uniform`), corrélation inter-dimensions réaliste
+  (0,54, contre 0,08 pour une gaussienne simple appliquée indépendamment
+  par dimension — qui ne corrèle rien), variance seed-à-seed préservée
+  (pas de consensus artificiel). Adoptée comme **nouveau défaut livré**
+  pour tous les runs futurs — les runs déjà publiés (v4 Lot 8 à la
+  cascade v4+v5+v6a) ne sont **pas** rejoués ni réétiquetés
+  rétroactivement ; ils restent documentés comme ayant tourné sous
+  `uniform`/`seed=42`, non validée comme représentative au moment de leur
+  publication. Un re-baseline sélectif d'un ou plusieurs résultats déjà
+  publiés reste une décision distincte, non prise à ce stade.
 - **`stance = 4` (contre-mobilisation) est observable mais mécaniquement
   inerte** : aucun levier citoyen pro-sortant n'existe encore pour lui
   répondre — un représentant peut choisir cette posture, mais rien dans le

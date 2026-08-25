@@ -21,6 +21,16 @@ def _citizens_config():
     return load_config().citizens
 
 
+def _uniform_config():
+    # Explicit, not "whatever citizens.position_dist ships as" -- some tests
+    # below are specifically about the uniform branch (or about comparing it
+    # against factor_structure) and must stay correct regardless of which
+    # value polity_config.yaml's own default carries
+    # (plan-distribution-positions-seeds.md, Phase 3).
+    config = _citizens_config()
+    return config.__class__(**{**config.__dict__, "position_dist": "uniform"})
+
+
 def _factor_structure_config():
     config = _citizens_config()
     return config.__class__(**{**config.__dict__, "position_dist": "factor_structure"})
@@ -69,8 +79,11 @@ def test_appended_base_threshold_draw_does_not_perturb_pre_existing_fields():
     """v4 Lot 2 DoD: base_threshold is drawn LAST, so every field that
     existed before Lot 2 must stay field-for-field identical at a fixed
     seed. Replicates the pre-Lot-2 draw sequence inline rather than trusting
-    generate_population's own internals."""
-    config = _citizens_config()
+    generate_population's own internals. Pinned to uniform explicitly (not
+    _citizens_config()): this is the original, pre-factor_structure draw
+    sequence, and must stay correct regardless of citizens.position_dist's
+    shipped default."""
+    config = _uniform_config()
     n, k = 50, config.issue_count
     rng = np.random.default_rng(42)
     positions = rng.uniform(0.0, 1.0, size=(n, k))
@@ -154,8 +167,10 @@ def test_factor_structure_and_uniform_produce_different_populations_at_the_same_
     so the RNG state diverges before priorities are even drawn -- nothing
     downstream of the position draw is expected to agree between branches,
     only that each branch is independently reproducible (see the two
-    determinism tests above)."""
-    uniform_pop = generate_population(_citizens_config(), population_size=50, seed=7)
+    determinism tests above). Uses _uniform_config(), not _citizens_config():
+    this comparison is meaningless if the shipped default ever becomes
+    factor_structure, since both sides would then be the same branch."""
+    uniform_pop = generate_population(_uniform_config(), population_size=50, seed=7)
     factor_pop = generate_population(_factor_structure_config(), population_size=50, seed=7)
     assert uniform_pop != factor_pop
 
