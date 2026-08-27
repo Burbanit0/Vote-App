@@ -14,9 +14,16 @@ on:
       # …and the pipeline definition itself: editing it must run it.
       - '.github/workflows/backend-ci-cd-pipeline.yml'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
-    name: Tests + Coverage + Security
+    # Prefixed to disambiguate from Frontend CI's identically-named job: GitHub
+    # matches required status checks on this literal name, and two check-runs
+    # sharing one name are indistinguishable to branch protection.
+    name: "Backend: Tests + Coverage + Security"
     runs-on: ubuntu-latest
 
     steps:
@@ -49,9 +56,13 @@ jobs:
         # B324 md5 findings were switched to sha256). B104 (bind-all) / B311 (non-crypto
         # random) stay skipped — both are intentional in this study app.
 
+      # Blocking, matching `npm audit --audit-level=high` on the frontend side —
+      # was informational-only before. Precheck 2026-08-27: zero open Dependabot
+      # pip-ecosystem alerts touch a package listed in requirements.txt (the only
+      # 6 open ones are all aiohttp, pinned to the patched 3.14.3 in
+      # requirements-dev.txt, which this step doesn't scan).
       - name: pip-audit (dependency CVEs)
         run: pip-audit --requirement fast_api_voter/requirements.txt
-        continue-on-error: true   # informational for now
 
       # ── Type checking ─────────────────────────────────────────────────────
       - name: Mypy (strict type checking on api/)

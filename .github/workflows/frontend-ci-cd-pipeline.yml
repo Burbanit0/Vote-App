@@ -14,9 +14,16 @@ on:
       # …and the pipeline definition itself: editing it must run it.
       - '.github/workflows/frontend-ci-cd-pipeline.yml'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
-    name: Tests + Coverage + Security
+    # Prefixed to disambiguate from Backend CI's identically-named job: GitHub
+    # matches required status checks on this literal name, and two check-runs
+    # sharing one name are indistinguishable to branch protection.
+    name: "Frontend: Tests + Coverage + Security"
     runs-on: ubuntu-latest
 
     steps:

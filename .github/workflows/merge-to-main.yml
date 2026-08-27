@@ -8,6 +8,10 @@ on:
       - synchronize
       - edited
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check-branch:
     runs-on: ubuntu-latest
