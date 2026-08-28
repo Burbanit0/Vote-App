@@ -13,7 +13,7 @@ pydantic-settings==2.14.2      # 12-factor env config for api/core/config.py (2.
 redis==5.2.1
 
 # ── Utilities ────────────────────────────────────────────────────────────────
-python-dotenv==1.2.2          # 1.2.2: GHSA-mf9w-mj56-hr94 (set_key symlink-follow)
+python-dotenv==1.2.3          # 1.2.2: GHSA-mf9w-mj56-hr94 (set_key symlink-follow)
 structlog==25.4.0              # JSON structured logging (api/engine/utils/logger.py)
 PyYAML==6.0.3                  # domain/polity/config.py — polity_config.yaml loader
 
