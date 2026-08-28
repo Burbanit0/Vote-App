@@ -28,7 +28,7 @@ pip-audit==2.9.0     # Dependency CVE scan
 mutmut==3.7.0
 
 # Code quality
-flake8==7.2.0
+flake8==7.3.0
 mypy==1.16.0         # Static type checking
 vulture==2.16        # Dead-code detection (informational, see pyproject.toml [tool.vulture])
 radon==6.0.1          # Cyclomatic complexity report (informational, see CODE_AUDIT.md)

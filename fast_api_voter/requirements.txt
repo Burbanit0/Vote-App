@@ -28,7 +28,7 @@ networkx==3.5                  # §5 — génération du graphe social (v6),
                                 # transitive (confirmé : pip show networkx -> Requires: vide).
 
 # ── Dev / test ───────────────────────────────────────────────────────────────
-flake8==7.2.0
+flake8==7.3.0
 pytest==9.0.3
 pytest-asyncio==1.3.0
 pytest-cov==6.1.0
