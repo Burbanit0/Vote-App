@@ -20,7 +20,7 @@ jobs:
         env:
           SOURCE: ${{ github.head_ref }}   # via env (untrusted) — never interpolate into the shell
         run: |
-          ALLOWED="^(feature|feat|fix|bugfix|hotfix|refactor|chore|docs|test|ci|perf)/.+"
+          ALLOWED="^(feature|feat|fix|bugfix|hotfix|refactor|chore|docs|test|ci|perf|dependabot)/.+"
 
           echo "Source branch : $SOURCE"
           echo "Target branch : develop"
@@ -36,6 +36,7 @@ jobs:
             echo "  refactor/ chore/    → refactoring / maintenance"
             echo "  docs/     test/     → documentation / tests"
             echo "  ci/       perf/     → CI/CD / performance"
+            echo "  dependabot/         → mises à jour automatiques (Dependabot)"
             echo ""
             echo "Exemple : feature/vote-blanc-toggle"
             exit 1
