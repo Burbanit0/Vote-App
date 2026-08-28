@@ -31,6 +31,7 @@ Tout changement passe par une PR soumise à validation CI.
 | `ci/` | Modifications de la CI/CD |
 | `perf/` | Amélioration de performance |
 | `security/` | Correctif sécurité |
+| `dependabot/` | Mises à jour automatiques (Dependabot — préfixe imposé, pas de choix) |
 
 **Exemple :** `git checkout -b feature/vote-blanc-toggle`
 
