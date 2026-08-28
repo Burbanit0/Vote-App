@@ -184,6 +184,146 @@ initiale, `uniform` et `factor_structure` passés à travers le vrai
 
 **Statut** : Phase 2 terminée, critère du §2 satisfait par `factor_structure`.
 
+### 2.2 Effet de bord du sweep : boucle Mode A sur `cast_votes` (2026-08-28)
+
+Découvert en aval, pas anticipé par le critère du §2 : le run d'acceptance
+LLM v6b sous le nouveau défaut `factor_structure` a **échoué deux fois de
+suite**, au tick 0, dans `cast_votes` — `LlmResponseError: generation did not
+finish cleanly: finish_reason='length'`, `completion_tokens=13596` (le budget
+exact : `compute_max_tokens(1)=1596` + `_VOTE_THINK_TOKEN_ALLOWANCE=12000`).
+Consigné ici, et pas comme un chantier séparé : c'est une conséquence
+mesurable du changement de distribution documenté au §2.1.
+
+**Diagnostic, au niveau de la réponse brute — pas inféré.** L'endpoint
+OpenAI-compat d'Ollama renvoie le `<think>` dans un champ `message.reasoning`
+**distinct** de `message.content` ; `_extract_content` ne lit que `content`,
+d'où des logs de production vides sur les deux échecs. En lisant `reasoning`
+(64 101 caractères capturés sur cid=8) : le modèle atteint la **bonne**
+réponse (`[4,1,2,5,3]`) dans les ~1 500 premiers caractères, puis répète
+~62 000 caractères d'un paragraphe quasi identique, re-citant textuellement la
+REGLE du prompt système, sans jamais trancher ni émettre de JSON.
+**Mode A caractérisé** (rumination non convergente), pas Mode B : le budget
+avait déjà été relevé 4000 → 8000 → 12000, un cinquième chiffre n'aurait
+déplacé que le plafond.
+
+**Facteur causal majeur : l'ambiguïté du prompt** — pas la distribution, et
+(mesuré après coup, voir plus bas) **pas la cause unique**. La REGLE de
+`build_system_prompt` (« classe les POSITIONS des candidats acceptables du
+plus proche au plus eloigne ») se lit aussi bien « classe *tous* les
+acceptables » que « classe, c.-à-d. choisis, le plus proche » — c'est
+exactement l'alternative sur laquelle le modèle tourne. `factor_structure` ne
+crée pas l'ambiguïté ; il **augmente la fréquence** du cas qui la déclenche
+(plusieurs candidats acceptables, donc un `ranking` réellement multi-éléments) :
+
+| | `uniform` | `factor_structure` |
+|---|---|---|
+| candidats acceptables / électeur (moyenne) | 2,62 | 3,54 |
+| électeurs à 0 acceptable (vote blanc) | 30,0% | 4,0% |
+| électeurs à ≥ 2 acceptables | 62,0% | **88,0%** |
+| électeurs à 5 acceptables | 33,0% | 41,0% |
+
+Passer de 62% à 88% suffit à transformer un taux de boucle de ~6-7% par appel
+en échec fiable d'un run complet. Deux pistes écartées par mesure directe : le
+seul nombre de candidats acceptables ne prédit pas l'échec (cid=18, 5/5
+acceptables dont 4 dans un intervalle de 0,0016, répond en 9,9 s) ; et ce
+n'est pas déterministe (cid=7 échoue une fois puis réussit 5/5 sur requête
+byte-identique — cohérent avec `ollama_structured_output_results.md`).
+
+**Correctif retenu et vérifié avant livraison.** Une consigne stricte est
+ajoutée au prompt système, immédiatement après la REGLE : « Le tableau
+'ranking' doit OBLIGATOIREMENT contenir CHAQUE candidat juge acceptable […]
+Ne te limite JAMAIS au seul candidat le plus proche ». Stress-test sur le vrai
+`build_system_prompt` de production (insertion sur ancre, jamais un prompt
+dupliqué) — 25 appels live : cid=8 ×10, cid=7 ×5, plus les deux électeurs
+tous-acceptables à la marge au seuil la plus faible (cid=89, cid=53) ×5.
+**0 boucle, 25/25 rankings exactement égaux à l'ensemble acceptable trié par
+distance croissante.** cid=8 passe de 13 596 tokens sans réponse à 58 tokens
+en 6,1 s. Suite complète `1731 passed, 41 skipped`, mypy/flake8 propres, tous
+les tests de reproductibilité byte-for-byte inchangés.
+
+**Taux réel, mesuré ensuite sur le run complet — le stress-test était trop
+étroit.** Les 25 itérations portaient sur 4 électeurs choisis pour être les
+cas les plus durs *identifiés* ; l'électorat en compte 100, et le run
+d'acceptance qui a suivi (33 ticks, ~1 811 appels LLM, terminé) en donne le
+dénominateur honnête :
+
+| | diagnostic | stress-test (4 électeurs) | **run complet (~1 811 appels)** |
+|---|---|---|---|
+| troncatures | ~6-7% estimé | 0/25 | **11 → 0,6%** |
+| absorbées par le rejeu | — | — | **11/11, aucune n'atteint `attempt 2/3`** |
+| dont `cast_votes` | — | — | 9/11 |
+| dont **`chamber_deliberation`** | — | — | **2/11** |
+
+**Conclusion : ligne 2 de la matrice pré-enregistrée, pas ligne 1.** Des
+boucles persistent, donc l'ambiguïté du prompt était un **facteur causal
+majeur, pas la cause racine unique**. Deux constats l'établissent
+indépendamment : le taux ne tombe pas à zéro (0,6%), et **2 des 11 rejeux
+portent sur `chamber_deliberation`** — un type de décision dont le prompt
+n'a pas été touché, qui n'a aucune notion de `ranking`, et dont le
+constructeur (`build_chamber_system_prompt`) ne partage ni texte, ni
+constante, ni helper avec celui du vote. Il subsiste donc un fond de
+troncature indépendant du prompt corrigé.
+
+Ce qui a permis au run d'aboutir n'est pas le prompt seul, mais son couplage
+avec deux mécanismes déjà livrés : `llm.max_batch_replays=2` et
+`_VOTE_CAST_RETRY_TEMPERATURE=0.3` — le rejeu à température non nulle casse
+la boucle déterministe, ce pour quoi il avait été introduit.
+
+**Décision** : conformément à la ligne 2, le repli vers `build_ranking` n'est
+pas classé sans suite — son périmètre est écrit au §2.3 **avant** tout
+développement. Il n'est pas implémenté à ce stade : à 0,6% intégralement
+absorbé, le coût (mélanger deux sources de bulletins dans un même run) excède
+le bénéfice. Non-déterminisme oblige, c'est une mesure de taux sur un run,
+pas une garantie pour un run différent.
+
+**Statut** : correctif livré et validé en conditions réelles — premier run
+d'acceptance v6b complet sous `factor_structure` (33/33 ticks, 1 998
+événements, `PYTHON_EXIT=0`, 4 h 06). Résultat scientifique de ce run :
+**invalide selon son propre critère pré-enregistré**, voir §4.2.
+
+### 2.3 Périmètre du fallback `build_ranking` (écrit, non implémenté)
+
+Rédigé parce que la ligne 2 de la matrice l'exige, avant tout code, et pour
+qu'une occurrence future n'ait pas à re-décider dans l'urgence. **Rien de ce
+qui suit n'est implémenté.**
+
+**Déclenchement.** Uniquement sur épuisement des rejeux, jamais en première
+intention : `_complete_and_decode_with_replay` lève `LlmResponseError` après
+`llm.max_batch_replays + 1` tentatives — c'est le seul point d'entrée. Le
+run complet montre que ce seuil n'a jamais été atteint (aucune ligne
+`attempt 2/3`), donc le fallback est un filet, pas un chemin courant. Nouvelle
+clé de config dédiée, par défaut **désactivée** : le comportement livré reste
+« un batch épuisé fait échouer le run », et l'activer est un choix
+expérimental explicite, tracé dans le `config.json` archivé du run — même
+registre que `max_batch_replays` lui-même.
+
+**Portée du remplacement.** Le **votant** dont le batch a échoué, et lui
+seul — jamais le tick, jamais le run. À `_VOTE_CAST_MAX_CHUNK_SIZE=1`, un
+batch échoué est exactement un électeur, donc la granularité est déjà la
+bonne sans découpage supplémentaire. `build_ranking(voter, candidates)`
+produit le bulletin déterministe que `cast_votes` a remplacé en v2
+increment 1 — même signature, même contrat, aucun code à écrire côté règle.
+**Hors périmètre** : les six autres types de décision. En particulier
+`chamber_deliberation`, pourtant concerné par 2/11 des rejeux, **n'a pas de
+baseline déterministe à laquelle se replier** (v6b Lot 3 : « le statu quo
+*est* le fallback », `chamber_position` reste figée sur `issue_positions`) —
+un fallback y signifierait « ne rien décider ce tick », ce qui n'est pas la
+même chose et demande sa propre décision.
+
+**Marqueur journal.** Non négociable : un run mixte doit rester analysable.
+L'événement `vote_cast` gagne une clé `"source"` valant `"llm"` ou
+`"fallback"`, écrite **inconditionnellement** dès que la clé de config est
+activée, jamais seulement sur la branche de repli — sans quoi l'absence de
+clé serait ambiguë entre « LLM » et « ancien journal ». Conséquence à
+accepter d'emblée : tout run avec fallback actif est **exclu** des
+comparaisons §11.4 LLM-vs-déterministe, puisqu'il n'est ni l'un ni l'autre ;
+`indexer.py` doit exposer le compte par `source` pour que cette exclusion
+soit vérifiable depuis le journal, pas seulement depuis les logs.
+
+**Ce qui rouvrirait la question** : un rejeu qui échoue à son tour
+(`attempt 2/3` dans un `replays.log`), ou un taux de troncature qui remonte
+au-delà de ~2% sur un run complet. Aucun des deux n'est observé à ce jour.
+
 ### 3.1 Résultats Phase 3 (2026-08-25)
 
 Périmètre discuté et validé avant implémentation (options recommandées
@@ -246,6 +386,59 @@ par run pour confirmer une conclusion déjà probable. Documenté dans
 **Statut** : Phase 4 **non engagée en re-run** — le constat ci-dessus en
 réduit la priorité sans la clore. Décision distincte et toujours ouverte
 si de nouvelles raisons de douter d'un résultat publié apparaissent.
+
+### 4.2 Le bras LLM produit une crise plus sévère que la sonde déterministe ne le prédit (2026-08-28)
+
+Résultat à part entière, pas une note de bas de page du run de §2.2 : c'est la
+première mesure **like-for-like** LLM-sous-`uniform` contre
+LLM-sous-`factor_structure`, et elle contredit quantitativement la sonde
+déterministe qui avait servi à décider de la Phase 4.
+
+Sur la configuration v6b `both`, 8 ans, plancher livré, seed 42 :
+
+| mesure | occupation de la présidence | rappels |
+|---|---|---|
+| LLM, `uniform` (publié, v6b Lot 4 run 1) | ~6-9% | 2 |
+| **sonde déterministe, `factor_structure` (§4.1, prédiction)** | **63,6%** | 2 |
+| **bras LLM, `factor_structure` (mesuré ici)** | **33,3%** | 2 |
+
+**Lecture.** `factor_structure` améliore réellement l'occupation sous LLM
+(~6-9% → 33,3%, soit environ ×4), mais **la sonde déterministe la
+surestimait d'un facteur ~2**. Sur la quantité *discrète* — le compte de
+rappels — la sonde était juste (2 dans les trois cas). Sur la quantité
+*continue* — combien de temps la présidence tient — elle ne l'était pas.
+
+**Portée pour la décision de §4.1.** Cette décision (« pas de re-run LLM
+complet, le signal déterministe ne le justifie pas ») n'est pas invalidée :
+elle reposait explicitement sur les comptes de rappel et sur la propriété de
+contrôle d'`electoral_only`, deux choses que la sonde prédit correctement.
+Mais sa réserve écrite — « ces sondes ne testent que la ligne de base
+déterministe §11.4, pas l'arbitrage LLM » — cesse d'être une précaution de
+principe : elle est désormais **mesurée**, avec un facteur ~2 sur une
+quantité continue. Toute sonde déterministe future doit être lue comme une
+**borne optimiste** sur les dynamiques de crise, pas comme une prédiction.
+
+**Pourquoi c'est cohérent avec le mécanisme.** `deterministic_pressure_action`
+ne mobilise qu'au-delà du `blank_threshold` propre au citoyen — une règle
+rigide qui plafonne mécaniquement la pression. Le LLM arbitre librement dans
+le menu : le mix de leviers réalisé sur ce run
+(`{0: 0,467, 1: 0,210, 2: 0,029, 3: 0,295}`) montre 29,5% de mobilisations et
+21% de signatures, au-dessus de ce que la règle déterministe produit à
+population identique. Le risque était nommé dès v4 Lot 7 (« une cohorte LLM
+qui mobilise plus librement peut faire tomber `L` plus vite que n'importe quel
+bras déterministe ») ; c'est sa première quantification.
+
+**Conséquence directe** : le run de §2.2 est **scientifiquement invalide selon
+son propre critère pré-enregistré** — `office_occupancy=0,333` contre un seuil
+de 0,70, avertissement émis par le script lui-même. `mandate_deviation` reste
+plat à 0 avec une couverture de 0,0 (`representative_response` ne se déclenche
+que 11 fois sur 33 ticks faute de titulaire), donc la comparaison élu contre
+tiré-au-sort qui motive v6b n'est pas réalisable sur ce run. Le confound de
+vacance du run 1 de v6b Lot 4 est atténué par `factor_structure`, pas levé.
+
+**Suite** : reprise sous `--menu electoral_only`, la seule configuration qui
+lève le confound sans désactiver l'accountability comme le faisait
+`recall_floor=0.0`.
 
 ## 3. `ambition_threshold=0.0` — sous-décision séparée, à ne pas mélanger
 

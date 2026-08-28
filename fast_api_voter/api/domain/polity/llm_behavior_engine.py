@@ -715,7 +715,37 @@ def build_system_prompt(citizens: Sequence[Citizen], candidates: Sequence[Citize
     computes exactly (simple_rules.weighted_distance), left for the model
     to approximate from scratch, batched across 25 voters at once. See
     build_user_prompt's own docstring for the fix (precomputed distances)
-    this system prompt now explains how to read."""
+    this system prompt now explains how to read.
+
+    States EXPLICITLY that `ranking` carries EVERY acceptable candidate,
+    never just the closest one -- the sentence looks redundant next to the
+    REGLE above it and is not: the REGLE's own wording ("classe les
+    POSITIONS des candidats acceptables du plus proche au plus eloigne")
+    is genuinely ambiguous between "rank the acceptable ones" and "rank,
+    i.e. pick, the closest acceptable one", and that ambiguity was the
+    root cause of a Mode A reasoning loop that aborted two consecutive
+    v6b acceptance runs under citizens.position_dist: factor_structure.
+    Diagnosed live at the raw-response level, not inferred: the model
+    reaches the CORRECT answer within the first ~1500 characters of
+    <think>, then spends the remaining ~62 000 characters repeating one
+    near-identical paragraph re-quoting this prompt's own REGLE, never
+    resolving the format question and never emitting JSON -- burning the
+    entire 13 596-token budget (finish_reason='length', content empty).
+    NOT a token-budget failure: _VOTE_THINK_TOKEN_ALLOWANCE had already
+    been raised 4000 -> 8000 -> 12000 and the loop is non-convergent, so a
+    fifth number would only move the ceiling. factor_structure does not
+    create the ambiguity, it raises how often the triggering condition is
+    met -- voters with >= 2 acceptable candidates go from 62% (uniform) to
+    88%, and mean acceptable candidates per voter from 2.62 to 3.54, which
+    is enough to make a ~6-7% per-call loop rate abort a full run
+    reliably. Fix verified live before shipping: 25 iterations across the
+    truncating voter (cid=8, x10), the previously flaky one (cid=7, x5)
+    and the two tightest-margin all-acceptable voters (x5 each) -- 0
+    loops, 25/25 rankings exactly equal to the full acceptable set sorted
+    by ascending distance, cid=8 going from 13 596 tokens with no answer
+    to 58 tokens in 6.1s. Ollama at temperature=0 with a pinned seed is
+    NOT deterministic (ollama_structured_output_results.md), so this is a
+    rate measurement, not a proof of impossibility."""
     candidate_count = len(candidates)
     truncate_at = truncation_limit(candidate_count)
     truncate_note = "" if truncate_at is None else f" (classer au plus les {truncate_at} meilleurs)"
@@ -737,9 +767,14 @@ def build_system_prompt(citizens: Sequence[Citizen], candidates: Sequence[Citize
         f"(distance la plus faible) au plus eloigne{truncate_note}, motif "
         "105 (ACCEPTABLE_MATCH) pour le cas usuel d'un vote sincere -- un "
         "candidat imparfait mais sous le seuil DOIT etre prefere au vote "
-        "blanc, ce n'est pas un pis-aller. Le vote blanc (blank=1, ranking "
-        "vide, motif 101) est reserve au cas ou AUCUN candidat ne passe ce "
-        "seuil pour cet electeur -- ce n'est pas une option par defaut.\n"
+        "blanc, ce n'est pas un pis-aller.\n"
+        "Le tableau 'ranking' doit OBLIGATOIREMENT contenir CHAQUE candidat "
+        "juge acceptable, classe par ordre de preference. Ne te limite "
+        "JAMAIS au seul candidat le plus proche si d'autres candidats "
+        "passent aussi le seuil de l'electeur.\n"
+        "Le vote blanc (blank=1, ranking vide, motif 101) est reserve au cas "
+        "ou AUCUN candidat ne passe ce seuil pour cet electeur -- ce n'est "
+        "pas une option par defaut.\n"
         f"Motifs valides (code court obligatoire) :\n{VOTE_MOTIF_PROMPT_TABLE}"
         "\nIMPORTANT : la liste decisions doit contenir EXACTEMENT ces "
         f"{len(citizens)} cid de CITOYENS-ELECTEURS (jamais un cid de "

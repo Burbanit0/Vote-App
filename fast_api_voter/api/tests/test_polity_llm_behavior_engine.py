@@ -274,6 +274,22 @@ def test_system_prompt_tells_the_model_to_prefer_an_acceptable_candidate_over_bl
     assert "DOIT etre prefere au vote" in prompt
 
 
+def test_system_prompt_requires_every_acceptable_candidate_in_the_ranking():
+    # The REGLE above this sentence is genuinely ambiguous between "rank the
+    # acceptable ones" and "rank (i.e. pick) the closest acceptable one", and
+    # that ambiguity was the root cause of a Mode A reasoning loop that
+    # aborted two v6b acceptance runs under position_dist: factor_structure
+    # -- the model solved the vote, then burned its whole 13 596-token budget
+    # re-quoting this prompt without resolving the format question. See
+    # build_system_prompt's docstring for the live diagnosis and the 25-call
+    # verification. Pinned so a later prompt tidy-up cannot silently drop it.
+    citizens = _population(2)
+    candidates = [_candidate(10, (0.1,)), _candidate(11, (0.9,))]
+    prompt = build_system_prompt(citizens, candidates)
+    assert "CHAQUE candidat" in prompt
+    assert "Ne te limite " in prompt
+
+
 # ── validate_decision ─────────────────────────────────────────────────────
 
 def _decision(**overrides):
