@@ -126,17 +126,27 @@ bash scripts/setup-branch-protection.sh
 source de vérité redevient "lire les 9 YAML". Si vous changez un déclencheur
 ou un gate, mettez cette table à jour dans la même PR.
 
-| Workflow | Déclencheur | Bloque la PR ? | Durée typique |
-|---|---|---|---|
-| `backend-ci-cd-pipeline.yml` (Backend CI) | push/PR sur `develop`/`main`, paths `fast_api_voter/**` | Oui — check requis | ~12-14 min |
-| `frontend-ci-cd-pipeline.yml` (Frontend CI) | push/PR sur `develop`/`main`, paths `voter-app/**` | Oui — check requis | ~2-3 min |
-| `e2e.yml` (E2E Tests) | push/PR, paths `voter-app/**` + `fast_api_voter/**` | Oui — check requis | ~5-7 min (peut aller jusqu'au timeout de 25 min si une régression casse plusieurs specs en cascade) |
-| `branch-policy.yml` (Branch Policy) | PR | Oui — check requis | ~10-30 s |
-| `merge-to-main.yml` (Check Merge Source) | `pull_request_target` vers `main` (opened/reopened/synchronize/edited) | Oui — bloque toute PR vers `main` dont la source n'est pas `develop` | ~10 s |
-| `openapi-contract.yml` (Generated Artifacts Contract) | push/PR, paths schémas/fixtures/générateurs | Oui — check requis | ~1 min |
-| `audit.yml` (Security Audit) | push/PR + cron lundi 06:00 UTC | Semgrep/Bandit/Trivy/Secret Scan : oui · CodeQL : non · code mort/duplication/complexité (vulture/radon/knip/jscpd) : non-bloquant sauf régression du cliquet (`quality-baseline.json`) | ~2-3 min (le run cron est indépendant d'une PR) |
-| `mutation-testing.yml` (Mutation Testing) | push sur `develop` (paths engine uniquement) + `workflow_dispatch` + cron lundi 04:17 UTC | Non — ne se déclenche jamais sur PR, volontairement absent des checks requis | mutmut ~40 min-3h · Stryker jusqu'à ~2h30 (`timeout-minutes: 240`) |
-| `release.yml` (🚀 Release Vote Lab) | `workflow_dispatch` uniquement | N/A — pas de PR, gate lui-même sur CI+E2E avant de taguer `main` | dépend de `ci-frontend`/`ci-backend`/`e2e` + publication |
+| Workflow | Déclencheur | Gate quand il tourne ? | Check requis (branch protection `develop`) ? | Durée typique |
+|---|---|---|---|---|
+| `backend-ci-cd-pipeline.yml` (Backend CI) | push/PR sur `develop`/`main`, paths `fast_api_voter/**` | Oui | Non | ~12-14 min |
+| `frontend-ci-cd-pipeline.yml` (Frontend CI) | push/PR sur `develop`/`main`, paths `voter-app/**` | Oui | Non | ~2-3 min |
+| `e2e.yml` (E2E Tests) | push/PR, paths `voter-app/**` + `fast_api_voter/**` | Oui | Non | ~5-7 min (peut aller jusqu'au timeout de 25 min si une régression casse plusieurs specs en cascade) |
+| `branch-policy.yml` (Branch Policy) | PR | Oui | Oui | ~10-30 s |
+| `merge-to-main.yml` (Check Merge Source) | `pull_request_target` vers `main` (opened/reopened/synchronize/edited) | Oui — bloque toute PR vers `main` dont la source n'est pas `develop` | N/A (protège `main`, pas `develop`) | ~10 s |
+| `openapi-contract.yml` (Generated Artifacts Contract) | push/PR, paths schémas/fixtures/générateurs | Oui | Non | ~1 min |
+| `audit.yml` (Security Audit) | push/PR + cron lundi 06:00 UTC | Semgrep/Trivy/Secret Scan : oui · CodeQL : non · code mort/duplication/complexité (vulture/radon/knip/jscpd) : non-bloquant sauf régression du cliquet (`quality-baseline.json`) | Oui (les 4 jobs gating) | ~2-3 min (le run cron est indépendant d'une PR) |
+| `mutation-testing.yml` (Mutation Testing) | push sur `develop` (paths engine uniquement) + `workflow_dispatch` + cron lundi 04:17 UTC | Non — jamais bloquant | Non — ne se déclenche jamais sur PR | mutmut ~40 min-3h · Stryker jusqu'à ~2h30 (`timeout-minutes: 240`) |
+| `release.yml` (🚀 Release Vote Lab) | `workflow_dispatch` uniquement | N/A — pas de PR, gate lui-même sur CI+E2E avant de taguer `main` | N/A | dépend de `ci-frontend`/`ci-backend`/`e2e` + publication |
+
+**Pourquoi Backend/Frontend CI, E2E et OpenAPI Contract ne sont pas des checks
+requis malgré `strict: true`** : tous les quatre sont scopés par `paths:`. Une
+PR qui n'y touche pas (docs, config CI, ce fichier) ne les déclenche jamais —
+et un check requis qui ne se déclenche jamais bloque la PR indéfiniment.
+Confirmé en direct : la PR #205 (un fix de `branch-policy.yml` +
+`CONTRIBUTING.md`) s'est retrouvée bloquée exactement comme ça. Ils gatent
+normalement dès qu'ils tournent ; ils ne sont simplement pas dans la liste de
+`scripts/setup-branch-protection.sh`. Si vous élargissez leurs `paths:` (ou
+les retirez), reconsidérez de les remettre dans la liste des checks requis.
 
 `schedule`/`workflow_dispatch` (utilisés par `mutation-testing.yml` et
 `audit.yml`) sont résolus par GitHub contre la **branche par défaut du
