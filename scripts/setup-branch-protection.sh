@@ -1,20 +1,29 @@
 #!/usr/bin/env bash
 # ── Vote Lab — Branch protection setup ────────────────────────────────────────
 # Usage:
-#   bash scripts/setup-branch-protection.sh               # uses gh CLI
-#   bash scripts/setup-branch-protection.sh <GH_TOKEN>    # uses curl + token
+#   bash scripts/setup-branch-protection.sh [main|develop|all] [GH_TOKEN]
+#   bash scripts/setup-branch-protection.sh              # both branches, gh CLI
+#   bash scripts/setup-branch-protection.sh develop      # develop only, gh CLI
+#   bash scripts/setup-branch-protection.sh all <TOKEN>  # both, curl + token
 #
 # Get a token: GitHub → Settings → Developer settings → Personal access tokens
 # Required scopes: repo (or Administration for fine-grained tokens)
 #
 # Install gh CLI on Windows: winget install --id GitHub.cli --accept-source-agreements
 # Then: gh auth login
+#
+# Required-status-check contexts below are the literal `name:` of each job —
+# GitHub matches branch protection against that string, not against a stable
+# ID. Renaming a job in any of these workflows must come with an update here
+# in the same PR, or protection silently waits forever on a check that no
+# longer reports under the old name.
 
 set -euo pipefail
 
 OWNER="Burbanit0"
 REPO="Vote-App"
-TOKEN="${1:-}"
+TARGET="${1:-all}"
+TOKEN="${2:-}"
 
 # ── Helper: call GitHub API ────────────────────────────────────────────────────
 api_call() {
@@ -42,7 +51,7 @@ api_call() {
     echo "  Then re-run this script."
     echo ""
     echo "Option B — Use a personal access token:"
-    echo "  bash scripts/setup-branch-protection.sh <YOUR_GITHUB_TOKEN>"
+    echo "  bash scripts/setup-branch-protection.sh all <YOUR_GITHUB_TOKEN>"
     echo ""
     echo "Option C — Configure manually via GitHub UI:"
     echo "  Settings → Branches → Add branch ruleset"
@@ -51,67 +60,75 @@ api_call() {
   fi
 }
 
-echo "🔒 Setting up branch protection for ${OWNER}/${REPO}..."
+# Same required checks for both branches — main will need everything develop
+# needs once a real develop→main release resumes. mutation-testing.yml is
+# deliberately excluded: it never runs on pull_request (see CONTRIBUTING.md's
+# workflow table), so a required check under that name would block forever.
+REQUIRED_CONTEXTS='[
+      "Validate branch source and naming",
+      "Backend: Tests + Coverage + Security",
+      "Frontend: Tests + Coverage + Security",
+      "Playwright E2E",
+      "Generated artifacts in sync",
+      "Semgrep SAST",
+      "Secret Scan",
+      "Dependencies, Containers & Misconfig",
+      "Code Quality (dead code, duplication & complexity)"
+    ]'
+
+protect_main() {
+  echo "Protecting 'main'..."
+  api_call PUT "repos/${OWNER}/${REPO}/branches/main/protection" "{
+    \"required_status_checks\": {
+      \"strict\": true,
+      \"contexts\": ${REQUIRED_CONTEXTS}
+    },
+    \"enforce_admins\": true,
+    \"required_pull_request_reviews\": {
+      \"required_approving_review_count\": 1,
+      \"dismiss_stale_reviews\": true,
+      \"require_last_push_approval\": true
+    },
+    \"restrictions\": null,
+    \"required_linear_history\": true,
+    \"allow_force_pushes\": false,
+    \"allow_deletions\": false
+  }"
+  echo "✅  'main' protected."
+}
+
+protect_develop() {
+  echo "Protecting 'develop'..."
+  api_call PUT "repos/${OWNER}/${REPO}/branches/develop/protection" "{
+    \"required_status_checks\": {
+      \"strict\": true,
+      \"contexts\": ${REQUIRED_CONTEXTS}
+    },
+    \"enforce_admins\": false,
+    \"required_pull_request_reviews\": {
+      \"required_approving_review_count\": 0,
+      \"dismiss_stale_reviews\": false
+    },
+    \"restrictions\": null,
+    \"required_linear_history\": false,
+    \"allow_force_pushes\": false,
+    \"allow_deletions\": false
+  }"
+  echo "✅  'develop' protected."
+}
+
+echo "🔒 Setting up branch protection for ${OWNER}/${REPO} (target: ${TARGET})..."
 echo ""
 
-# ── Protect: main ─────────────────────────────────────────────────────────────
-echo "Protecting 'main'..."
+case "$TARGET" in
+  main)    protect_main ;;
+  develop) protect_develop ;;
+  all)     protect_main; echo ""; protect_develop ;;
+  *) echo "❌ Unknown target '$TARGET' — use main, develop, or all"; exit 1 ;;
+esac
 
-api_call PUT "repos/${OWNER}/${REPO}/branches/main/protection" '{
-  "required_status_checks": {
-    "strict": true,
-    "contexts": [
-      "Branch Policy / validate-source",
-      "Tests + Coverage + Security",
-      "Tests frontend",
-      "Tests backend"
-    ]
-  },
-  "enforce_admins": true,
-  "required_pull_request_reviews": {
-    "required_approving_review_count": 1,
-    "dismiss_stale_reviews": true,
-    "require_last_push_approval": true
-  },
-  "restrictions": null,
-  "required_linear_history": true,
-  "allow_force_pushes": false,
-  "allow_deletions": false
-}'
-
-echo "✅  'main' protected."
-echo ""
-
-# ── Protect: develop ──────────────────────────────────────────────────────────
-echo "Protecting 'develop'..."
-
-api_call PUT "repos/${OWNER}/${REPO}/branches/develop/protection" '{
-  "required_status_checks": {
-    "strict": true,
-    "contexts": [
-      "Branch Policy / validate-source",
-      "Tests frontend",
-      "Tests backend"
-    ]
-  },
-  "enforce_admins": false,
-  "required_pull_request_reviews": {
-    "required_approving_review_count": 0,
-    "dismiss_stale_reviews": false
-  },
-  "restrictions": null,
-  "required_linear_history": false,
-  "allow_force_pushes": false,
-  "allow_deletions": false
-}'
-
-echo "✅  'develop' protected."
 echo ""
 echo "🎉 Branch protection configured!"
 echo ""
-echo "Rules applied:"
-echo "  main    ← develop only  (requires 1 approval + all CI checks)"
-echo "  develop ← feature/* fix/* etc. (requires CI checks)"
-echo ""
-echo "Note: Status checks only appear in GitHub UI after"
-echo "      at least one PR has triggered those workflows."
+echo "Note: a required check only appears as satisfiable in the GitHub UI"
+echo "      after at least one PR has triggered that workflow."

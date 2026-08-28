@@ -5,6 +5,10 @@ on:
     branches: [develop, main]
     types: [opened, synchronize, reopened, edited]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate-source:
     name: Validate branch source and naming

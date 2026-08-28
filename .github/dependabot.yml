@@ -1,0 +1,24 @@
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/fast_api_voter"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+
+  - package-ecosystem: "npm"
+    directory: "/voter-app"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+
+  # Actions are pinned by commit hash (see any workflow's `# v4`-style
+  # comments) — Dependabot proposes hash bumps for these, not just version tags.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
