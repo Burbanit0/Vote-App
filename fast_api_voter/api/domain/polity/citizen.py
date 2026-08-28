@@ -125,11 +125,53 @@ class Citizen:
     chamber_position: tuple[float, ...] | None = None
 
 
+# plan-distribution-positions-seeds.md, Phase 1 (2026-08-25): position_dist
+# is uniform's only alternative, added because a maximally-dispersed
+# population (uniform, independent per dimension) has no center of mass a
+# single candidate can realistically be close to for a majority of voters —
+# root cause of the Blank-wins-outright finding (THEORY.md §10.10). Chosen
+# over a plain multi-modal mixture specifically because a mixture would
+# presuppose the answer to the question design doc §14.2 says the meso view
+# exists to *observe* (do parties converge to a Downsian center, or settle
+# into Kollman-Miller-Page polarized equilibria?) — factor scores are drawn
+# from a single, unimodal Gaussian, so nothing about the starting population
+# forces either outcome; only the correlation structure between issues is
+# imposed, addressing the independent-dimensions critique a plain Gaussian
+# doesn't. N_FACTORS=2 is not an arbitrary tuning knob: it matches the
+# "axe économique / axe sociétal" pair design doc §14.2 already names for
+# the meso visualization.
+_FACTOR_STRUCTURE_N_FACTORS = 2
+_FACTOR_STRUCTURE_FACTOR_STD = 1.0
+_FACTOR_STRUCTURE_LOADING_STD = 1.0
+_FACTOR_STRUCTURE_NOISE_STD = 0.3
+
+
+def _generate_factor_structure_positions(rng: np.random.Generator, n: int, k: int) -> np.ndarray:
+    """Low-rank factor model, sigmoid-squashed into (0, 1): position(i, j) =
+    sigmoid(factors(i) . loadings(j) + noise(i, j)). loadings are drawn once
+    per population (shared structure every citizen's positions are built
+    from — this is what correlates the k issue dimensions, unlike uniform's
+    independent per-dimension draw); factors and noise are drawn once per
+    citizen. Calibrated (not guessed) against the shipped population_size=100/
+    issue_count=20: 0/40 seeds ever let Blank win the two_round runoff, mean
+    best-candidate population-wide acceptability 0.712 (stdev 0.054 across
+    seeds — comparable in scale to uniform's own seed-to-seed variability,
+    not artificially collapsed into a false consensus). Sigmoid, not clipping:
+    compresses smoothly into the open interval, no artificial mass exactly at
+    0 or 1 the way clipping a Gaussian would produce."""
+    loadings = rng.normal(0.0, _FACTOR_STRUCTURE_LOADING_STD, size=(k, _FACTOR_STRUCTURE_N_FACTORS))
+    factors = rng.normal(0.0, _FACTOR_STRUCTURE_FACTOR_STD, size=(n, _FACTOR_STRUCTURE_N_FACTORS))
+    noise = rng.normal(0.0, _FACTOR_STRUCTURE_NOISE_STD, size=(n, k))
+    raw = factors @ loadings.T + noise
+    result: np.ndarray = 1.0 / (1.0 + np.exp(-raw))
+    return result
+
+
 def generate_population(config: CitizensConfig, population_size: int, seed: int) -> list[Citizen]:
     """Deterministic population generation: the same (config, population_size,
     seed) always produces field-for-field identical citizens (Lot 2 test
     contract) — required for the end-to-end reproducibility test (Lot 8)."""
-    if config.position_dist != "uniform":
+    if config.position_dist not in ("uniform", "factor_structure"):
         raise NotImplementedError(f"citizens.position_dist {config.position_dist!r} not supported in v0")
     if config.priority_dist != "dirichlet":
         raise NotImplementedError(f"citizens.priority_dist {config.priority_dist!r} not supported in v0")
@@ -138,8 +180,18 @@ def generate_population(config: CitizensConfig, population_size: int, seed: int)
     n, k = population_size, config.issue_count
 
     # Fixed draw order is itself part of the determinism contract: changing
-    # it changes every downstream value even at the same seed.
-    positions = rng.uniform(0.0, 1.0, size=(n, k))
+    # it changes every downstream value even at the same seed. The two
+    # position_dist branches consume DIFFERENT quantities from rng
+    # (factor_structure draws loadings + per-citizen factors + noise, not one
+    # flat (n, k) array), so priorities/thresholds/ambitions genuinely differ
+    # between position_dist choices at the same seed -- nothing in this
+    # codebase requires cross-branch agreement, only that a fixed (config,
+    # population_size, seed) always reproduces the same population, which
+    # holds independently for each branch.
+    if config.position_dist == "uniform":
+        positions = rng.uniform(0.0, 1.0, size=(n, k))
+    else:
+        positions = _generate_factor_structure_positions(rng, n, k)
     priorities = rng.dirichlet(np.ones(k), size=n)
     blank_a, blank_b = _parse_beta_params(config.blank_threshold_dist)
     blank_thresholds = rng.beta(blank_a, blank_b, size=n)

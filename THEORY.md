@@ -1529,6 +1529,113 @@ institutionnelle propre à la chambre.
 
 ### 10.10 Limites connues du modèle v4, v5, v6a et v6b
 
+- **`seed=42` — la seule graine jamais utilisée par un run d'acceptation de
+  ce projet — n'a jamais été validée comme représentative, et le mécanisme
+  complet qui la rend fragile est maintenant identifié, pas seulement
+  corrélé.** Un premier sweep de 11 graines alternatives
+  (`scripts/acceptance_cascade_results.md`, run cascade v4+v5+v6a) montrait
+  déjà que 9 sur 11 ne produisent aucun président élu (`election_no_winner`
+  au second tour du `two_round`, le Blanc l'emportant). Une investigation
+  dédiée, élargie à 40-60 graines et menée directement contre le pipeline
+  de production (`generate_population` → `initialize_parties` →
+  `select_party_nominee` → `build_ranking` → `get_two_round_winner`),
+  ferme la chaîne causale complète :
+  - À l'échelle du projet, le Blanc l'emporte sur **41/60 graines (68 %)**
+    à la configuration livrée — un taux d'échec bien plus élevé que le
+    premier sweep ne le laissait supposer.
+  - **Le mécanisme du second tour contre le Blanc est une condition
+    déterministe, pas probabiliste** : une fois le Blanc qualifié pour le
+    second tour, `build_ranking` classe systématiquement tout candidat
+    dans la tolérance (`blank_threshold`) d'un électeur au-dessus du Blanc,
+    et tout candidat hors tolérance en dessous — donc le second tour se
+    réduit, pour chaque électeur, à une seule question binaire : *ce
+    finaliste précis m'est-il personnellement acceptable ?*, indépendamment
+    des trois autres candidats et de leur score au premier tour. Vérifié
+    empiriquement : le Blanc gagne si et seulement si l'acceptabilité du
+    finaliste dans l'ensemble de la population est `≤ 50 %` — frontière
+    exacte, mesurée sur 40 graines (`max` quand le Blanc gagne = 50,0 %,
+    `min` quand un candidat réel gagne = 51,0 %, aucun chevauchement).
+  - **Pourquoi cette majorité est difficile à atteindre** : `citizens.
+    position_dist: uniform` disperse 100 citoyens de façon maximale sur un
+    espace à 20 dimensions, sans centre de gravité naturel ; combiné à une
+    pondération de priorités individualisée par électeur
+    (`priority_dist: dirichlet`), aucun point unique n'est proche, sous la
+    métrique propre à chacun, de plus de la moitié d'une population aussi
+    dispersée.
+  - La méthode de sélection du candidat de chaque parti a un effet réel
+    mais secondaire : remplacer le critère livré (le membre du parti au
+    score d'ambition le plus élevé — un trait indépendant de la position
+    politique, artefact du `ambition_threshold=0.0` que tout script
+    d'acceptance impose) par le membre le plus proche du centroïde
+    k-means du parti fait passer le taux de victoire du Blanc de **70 % à
+    27,5 %** (5 partis, 40 graines) — sans toucher au reste du pipeline.
+    Augmenter le nombre de partis/nominee n'aide pas de façon monotone
+    (55 % à 10 partis, mais remonte à 67,5 % à 15-20) : la couverture
+    s'améliore mais la fragmentation du vote "acceptable" s'aggrave en
+    proportion.
+  - **Le levier qui referme la chaîne** : `citizens.position_dist` accepte
+    déjà `gaussian_mixture` dans le schéma de configuration, mais
+    `generate_population` le rejette avec `NotImplementedError` — jamais
+    implémenté. Remplacer uniquement le tirage des positions (tout le
+    reste du pipeline inchangé) par une simple gaussienne centrée
+    (`std=0.30`, toujours large) fait chuter le taux d'échec de 27,5 % à
+    2,5 % (1/40) ; `std≤0.20`, ou un mélange à 2-3 modes, l'annule
+    entièrement sur les 40 graines testées.
+
+  Investigation menée intégralement en lecture/mesure contre le pipeline
+  réel, aucun changement de code de production. Touche rétroactivement
+  **tout** run d'acceptation du projet, de v4 Lot 8 jusqu'aux runs v6b et
+  cascade les plus récents : chacun a utilisé `seed=42` sans que sa
+  représentativité n'ait jamais été vérifiée.
+  **Décision de correction, prise le 2026-08-25**
+  (`plan-distribution-positions-seeds.md`) : `citizens.position_dist:
+  factor_structure` — pas `gaussian_mixture` (jamais implémenté, et un
+  mélange présupposerait la question de convergence/polarisation que la
+  vue méso existe pour *observer*, §14.2 du plan de conception), pas non
+  plus une révision de `select_party_nominee`. Positions générées via un
+  modèle factoriel à bas rang (`position = sigmoid(facteurs · loadings +
+  bruit)`, 2 facteurs — l'axe économique et l'axe sociétal déjà nommés en
+  §14.2), qui corrèle les 20 dimensions de façon réaliste sans imposer de
+  pic artificiel : facteurs tirés d'une distribution unimodale, donc
+  neutre sur la question convergence/polarisation. Choisie après un
+  cadrage théorique écrit avant tout sweep (littérature déjà citée par le
+  projet : Downs 1957 justifie une gaussienne simple mais sur un espace à
+  une seule dimension ; Iyengar et al. 2019, §5, documente une
+  polarisation qui argumenterait pour un mélange ; la structure
+  factorielle répond aux deux en restant agnostique). Un sweep comparatif
+  à 40 graines contre le vrai pipeline confirme : 0/40 victoires du Blanc
+  (contre 11/40 sous `uniform`), corrélation inter-dimensions réaliste
+  (0,54, contre 0,08 pour une gaussienne simple appliquée indépendamment
+  par dimension — qui ne corrèle rien), variance seed-à-seed préservée
+  (pas de consensus artificiel). Adoptée comme **nouveau défaut livré**
+  pour tous les runs futurs — les runs déjà publiés (v4 Lot 8 à la
+  cascade v4+v5+v6a) ne sont **pas** rejoués ni réétiquetés
+  rétroactivement ; ils restent documentés comme ayant tourné sous
+  `uniform`/`seed=42`, non validée comme représentative au moment de leur
+  publication.
+  **Vérification bon marché de la robustesse des conclusions déjà
+  publiées (2026-08-25)** : avant de décider d'un re-baseline sélectif
+  (plan §4), quatre sondes déterministes (secondes chacune, aucun calcul
+  LLM, aucun script committé modifié) rejouent les configurations exactes
+  de v4 Lot 8 (`both`, `electoral_only`, `mobilization_only`) et de la
+  troisième comparaison v6b sous `factor_structure` : l'acceptabilité de
+  base (`m`) monte substantiellement partout (`electoral_only` :
+  `L=0,510→0,770` ; `both` 8 ans : `L=0,345→0,745` ; `mobilization_only`
+  30 ans : `L=0,061→0,216` ; occupation de la présidence en v6b sous le
+  menu `both` complet, plancher livré : `~6-9%→63,6%`), mais le nombre de
+  rappels reste quasi inchangé (`both` : 2→2 ; `mobilization_only` : 8→7 ;
+  v6b `both` : 2→2) et la propriété de contrôle d'`electoral_only` (jamais
+  de rappel) tient toujours. Lecture : les dynamiques de crise du menu de
+  pression semblent structurelles (portées par la mécanique
+  pétition/mobilisation elle-même), pas un artefact de la faible
+  acceptabilité d'`uniform` — preuve suggestive, pas concluante, puisque
+  ces sondes testent uniquement la ligne de base déterministe (§11.4), pas
+  l'arbitrage libre de l'agent LLM des runs réellement publiés. Décision,
+  prise sur cette base : **pas de re-run LLM complet à ce stade** — le
+  signal déterministe ne justifie pas plusieurs heures de calcul par run
+  pour une confirmation dont la conclusion qualitative est déjà probable.
+  Un re-baseline sélectif reste une décision distincte, ouverte, non prise
+  ici — ce constat en réduit la priorité sans la clore.
 - **`stance = 4` (contre-mobilisation) est observable mais mécaniquement
   inerte** : aucun levier citoyen pro-sortant n'existe encore pour lui
   répondre — un représentant peut choisir cette posture, mais rien dans le

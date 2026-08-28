@@ -1042,6 +1042,10 @@ def test_legitimacy_is_flat_at_mandate_strength_for_the_entire_run(tmp_path):
     # (Lots 4-5 not built yet) and recall_floor=0.0 isolating this from the
     # recall mechanism, L(t) == m at every single tick, every term.
     config = _config_with_legitimacy_enabled_and_guaranteed_winners(tmp_path, recall_floor=0.0)
+    # Pinned to uniform regardless of citizens.position_dist's shipped
+    # default (plan-distribution-positions-seeds.md, Phase 3): m=0.51 below
+    # was computed for this seed specifically under uniform.
+    config = dataclasses.replace(config, citizens=dataclasses.replace(config.citizens, position_dist="uniform"))
     journal_path = run_simulation(config, run_id="legitimacy-flat")
     events = _events(journal_path)
     updates = [e for e in events if e["event_type"] == "legitimacy_updated"]
@@ -1067,6 +1071,10 @@ def test_legitimacy_is_flat_at_mandate_strength_for_the_entire_run(tmp_path):
 )
 def test_mandate_strength_is_correct_and_method_agnostic(tmp_path, method, expected_winner_cid, expected_m):
     config = _config_with_legitimacy_enabled_and_guaranteed_winners(tmp_path)
+    # Pinned to uniform (see the sibling "flat at m" test above): the
+    # expected winners/m above were computed for this seed under uniform,
+    # independent of citizens.position_dist's shipped default.
+    config = dataclasses.replace(config, citizens=dataclasses.replace(config.citizens, position_dist="uniform"))
     config = dataclasses.replace(config, institutions=dataclasses.replace(config.institutions, presidential_method=method))
     citizens = generate_population(config.citizens, config.run.population_size, config.run.seed)
     parties = initialize_parties(citizens, config.parties.initial_count, config.run.seed)
@@ -1177,6 +1185,17 @@ def test_passive_erosion_applies_without_mandate_tracking_enabled(tmp_path):
 
 def _config_with_awakening_enabled(output_dir, **overrides) -> PolityConfig:
     config = _config_with_legitimacy_enabled(output_dir)
+    # Pinned to uniform regardless of citizens.position_dist's shipped
+    # default (plan-distribution-positions-seeds.md, Phase 3): every test
+    # built on this helper (mobilization, petition lifecycle, awakening-gate
+    # consultation rate) relies on tuned base_threshold_dist/signature
+    # thresholds calibrated against uniform's self_gap distribution
+    # specifically (scripts/awakening_calibration_results.md,
+    # scripts/petition_calibration_results.md) -- those tunings don't
+    # transfer to a different position distribution's own self_gap shape
+    # (e.g. factor_structure's higher mean acceptability consults fewer
+    # citizens at the same base_threshold_dist).
+    config = dataclasses.replace(config, citizens=dataclasses.replace(config.citizens, position_dist="uniform"))
     return dataclasses.replace(config, awakening=dataclasses.replace(config.awakening, enabled=True, **overrides))
 
 
