@@ -86,7 +86,7 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       # 1) Non-gating JSON report → uploaded as an artifact (always).
       - name: Trivy (JSON report artifact)
-        uses: aquasecurity/trivy-action@c07df6fec6fa692e6fd1200d50aaa1fdd66f03c8 # master
+        uses: aquasecurity/trivy-action@d2a0b60797ff03db6132bd4e2b293f9b37081297 # master
         with:
           scan-type: fs
           scanners: vuln,secret,misconfig
@@ -105,7 +105,7 @@ jobs:
       # 1b) SARIF report → Security tab (non-gating).
       - name: Trivy (SARIF report)
         if: always()
-        uses: aquasecurity/trivy-action@c07df6fec6fa692e6fd1200d50aaa1fdd66f03c8 # master
+        uses: aquasecurity/trivy-action@d2a0b60797ff03db6132bd4e2b293f9b37081297 # master
         with:
           scan-type: fs
           scanners: vuln,secret,misconfig
@@ -126,7 +126,7 @@ jobs:
       #    `if: always()` so the gate runs even if the best-effort upload above hiccups.
       - name: Trivy (gating)
         if: always()
-        uses: aquasecurity/trivy-action@c07df6fec6fa692e6fd1200d50aaa1fdd66f03c8 # master
+        uses: aquasecurity/trivy-action@d2a0b60797ff03db6132bd4e2b293f9b37081297 # master
         with:
           scan-type: fs
           scanners: vuln,secret,misconfig
