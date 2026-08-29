@@ -270,6 +270,13 @@ graphify-out/
 # preflight guard exists to catch — that guard only scopes to source extensions
 # under voter-app/src and fast_api_voter/api, so it would not have caught this.
 !/docs/adr/
+# Le journal de bord est versionné pour la même raison, et elle s'est vérifiée :
+# il documente désormais plusieurs jours d'investigation dense (chaîne causale
+# seed=42, chantier de distribution, ADR-002) dont le raisonnement n'existe
+# nulle part ailleurs — les commits portent le résultat, le journal porte le
+# pourquoi. Le garder hors du dépôt le laissait sur un seul disque, exactement
+# le risque évité pour le correctif de prompt et les commits de distribution.
+!/docs/journal/
 /CLAUDE.md
 /AGENTS.md
 /STRATEGIC_REFACTOR_PLAN.md
