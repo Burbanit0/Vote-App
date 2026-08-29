@@ -231,6 +231,8 @@ fast_api_voter/scripts/acceptance_v6a_runs/
 fast_api_voter/scripts/acceptance_v6b_runs/
 fast_api_voter/scripts/acceptance_v6b_runs_electoral_only/
 fast_api_voter/scripts/acceptance_v6b_runs_recallfloor0/
+fast_api_voter/scripts/acceptance_v6b_runs_factor_structure/
+fast_api_voter/scripts/acceptance_v6b_runs_fs_electoral_only/
 fast_api_voter/scripts/sortition_calibration_runs/
 fast_api_voter/scripts/acceptance_cascade_runs/
 voter-app/dist/
@@ -283,6 +285,9 @@ graphify-out/
 /dev-plan-v0-worktree.md
 /audit-precision-plan.md
 /prompt-liquid-democracy-conviction-voting.md
+# Scratch file used to hand a prompt to the coding agent, rewritten between
+# turns — session input, never a project artefact.
+/prompt.txt
 /files/
 
 # Personal interview prep (not part of the project)

@@ -436,9 +436,124 @@ que 11 fois sur 33 ticks faute de titulaire), donc la comparaison élu contre
 tiré-au-sort qui motive v6b n'est pas réalisable sur ce run. Le confound de
 vacance du run 1 de v6b Lot 4 est atténué par `factor_structure`, pas levé.
 
-**Suite** : reprise sous `--menu electoral_only`, la seule configuration qui
-lève le confound sans désactiver l'accountability comme le faisait
-`recall_floor=0.0`.
+**Nuance apportée par le run `electoral_only` (§4.3), qui restreint la portée
+de « borne optimiste ».** Sur ce run-là la sonde déterministe s'est révélée
+**juste** : elle annonçait 0 rappel et `L≈0,77`, le bras LLM donne 0 rappel et
+`L` à 0,720 puis 0,850. « Toute sonde déterministe surestime » est donc faux
+tel quel. Ce qui le remplace est une **hypothèse de travail consolidée par ce
+run, pas une règle établie** : la sonde serait fiable sur les quantités
+mécaniquement déterminées (le point fixe `L ≡ m`, le compte de rappels sous un
+menu où `écart(t) ≡ 0`) et optimiste sur celles qui dépendent de l'arbitrage
+citoyen (l'occupation sous un menu où des leviers de pression existent). Elle
+est cohérente avec le mécanisme décrit ci-dessus — sous `electoral_only` il n'y
+a rien à arbitrer, donc rien qui puisse diverger de la règle rigide — mais elle
+ne repose que sur **un seul cas favorable**, et sur un cas où sa propre clause
+« rien à arbitrer » la rend presque tautologique. Le test qui la mettrait
+réellement à l'épreuve n'a pas été fait : une sonde contre un bras LLM sous un
+menu où des leviers existent *et* où la sonde prédirait une quantité continue
+correctement. À ne pas citer ailleurs dans le projet comme acquise avant ce
+test.
+
+**Suite — résolue le 2026-08-29** : reprise sous `--menu electoral_only`, la
+seule configuration qui lève le confound sans désactiver l'accountability comme
+le faisait `recall_floor=0.0`. Run exécuté, critère franchi, résultats en §4.3.
+
+### 4.3 Comparaison élu / tiré-au-sort enfin valide, sur n=2 présidents (2026-08-29)
+
+**n=2.** Le run `electoral_only` franchit son propre critère pré-enregistré
+(`office_occupancy = 1,0` contre un seuil de 0,70, là où le run `both` de §2.2
+échouait à 0,333) et rend donc la comparaison v6b calculable pour la première
+fois — mais le côté élu de cette comparaison repose sur **deux présidents
+seulement, au comportement opposé, et qui ne partaient pas de positions
+comparables**. Cette phrase vient avant les chiffres délibérément : elle
+conditionne tout ce qui suit.
+
+Configuration : v6b, 8 ans, seed 42, `factor_structure`, `--menu electoral_only`,
+plancher livré `recall_floor=0.2` non touché. 15 037 s (4 h 10), 2 178
+événements, sortie 0. Doc de résultats :
+`fast_api_voter/scripts/acceptance_v6b_fs_electoral_only_results.md`.
+
+| | moyenne | max | observations |
+|---|---|---|---|
+| Élu — `mandate_deviation_unified` | 0,0479 | 0,1702 (**écrêté**) | 33 ticks |
+| Chambre — `chamber_deviation` | 0,000000 | 0,000000 | 990 délibérations |
+
+La chambre n'a pas bougé : 989 délibérations sur 990 en `SINCERE_POSITION`, et
+l'unique `DELIBERATIVE_SHIFT` est revenu avec un `shifts` vide — une étiquette
+sans mouvement derrière (le validateur de cohérence a été retiré en v6b Lot 3
+pour cause de fiabilité, le motif est donc déclaré, pas vérifié). Réponse à
+§6bis.3 sur ce run : **sincère, pas erratique**.
+
+**Ce que n=2 interdit d'affirmer.** Le président 42 (ticks 0-15) concède sur 13
+ticks sur 16 ; le président 2 (ticks 16-31) répond `silence` 16 fois sur 16 et
+ne bouge jamais. Une vérification ponctuelle contre la population régénérée à
+seed 42 explique l'essentiel de cet écart structurellement, pas
+comportementalement :
+
+| | distance pondérée de la promesse au centre de masse | dispersion (σ) | citoyens au-delà de leur propre `blank_threshold` |
+|---|---|---|---|
+| Président 42 | 0,1495 | 0,152 | **29 / 99** |
+| Président 2 | **0,0963** | **0,071** | **15 / 99** |
+| référence population | 0,1939 (moyenne) | 0,193 (moyenne) | — |
+
+Le président 2 est un quasi-centriste — 7ᵉ plus proche du centre de masse sur
+100 sur sa position sincère, plateforme comprise entre 0,327 et 0,583 sur les
+20 dimensions (son virage de campagne ne vaut que 0,0123, contre 0,0702 pour le
+président 42, donc promesse et position sincère disent ici la même chose) — face à
+environ moitié moins de mécontents. Sa dérive nulle est donc largement un cas
+de « rien à concéder », pas une résistance démontrée à la pression. Lecture
+honnête et étroite : **la dérive est atteignable côté élu et n'a pas été
+atteinte une seule fois en 990 occasions côté chambre** — pas que l'élection
+cause la dérive et le tirage au sort la prévienne. Cette seconde affirmation
+demanderait plus d'une graine et plus de deux présidents.
+
+**Le président a concédé 13 fois à une population qui n'a jamais agi.** Résultat
+le plus inattendu du run, et il mérite d'être énoncé seul : `inaction_rate` vaut
+**exactement 1,0 à chaque tick de 0 à 15** — sur tout le premier mandat, aucun
+citoyen de la cohorte consultée n'a choisi autre chose que `NOTHING` — et
+pendant ces mêmes seize ticks le président 42 a rendu `stance = concession`
+treize fois. Le mix de leviers du run entier est `{0: 383, 4: 16}` : 383
+non-actions explicites, 16 renvois à l'élection, zéro mobilisation, zéro
+pétition. La dérive mesurée ici n'est donc **pas une réponse à la pression : il
+n'y avait aucune pression à laquelle répondre**. §7bis.6 affirme qu'un
+représentant qui trahit son mandat devant une population passive ne perd pas de
+légitimité ; ce run montre l'image miroir, que la clause ne couvre pas — un
+représentant qui *concède* à une population passive, sans y être poussé, avec
+`L` plate à `m`. Modèle anticipant un électorat futur, ou artefact d'un prompt
+qui réclame une réaction à chaque tick : ce run ne tranche pas.
+
+**`clamped_at_bound` a fonctionné en conditions réelles, pour la première
+fois.** L'événement ajouté en `397d0ac`, qui referme la « KNOWN OBSERVABILITY
+GAP » documentée dans la docstring d'`apply_shifts`, s'est déclenché 8 fois :
+4 sur `campaign_positioning` (ticks 0 et 32) et **4 sur `representative_response`
+du président 42, aux ticks 8, 9, 13 et 15, dimensions 0 et 1**. Or la série
+unifiée stagne à exactement 0,164 sur les ticks 10 à 13 avant de monter à 0,170.
+Avant cet événement, ce plateau était indiscernable d'un « le modèle a cessé de
+concéder », et la seule façon de trancher était la reconstruction non écrêtée
+jetable et non commitée de l'investigation précédente (×2,8 à ×3,6 au-dessus du
+chiffre écrêté, `THEORY.md` §10.9/§10.10). Ici les quatre écrêtages tombent
+dans le plateau et le diagnostic se lit **depuis le seul journal**. Conséquence
+à porter : le max de 0,1702 est un chiffre **écrêté, sous-estimé**.
+
+**Troisième confirmation de la cécité du scope `top_k_priorities`, cette fois en
+bande.** `mandate_deviation` (scope livré) affiche 0,0000 sur les 33 ticks
+pendant que la version unifiée atteint 0,1702 sur les mêmes événements ;
+`mandate_deviation_coverage = 0,0`, aucun `mandate_deviation_recorded` n'ayant
+pu franchir un seuil de 0,1 sur une quantité qui n'a jamais quitté zéro. C'est
+le premier run où le chiffre corrigé est **journalisé en bande** par du code de
+production, et non reconstruit après coup : le trou de provenance visé par le
+lot de câblage est refermé pour ce run.
+
+**Fiabilité** : 11 rejeux, tous absorbés en `attempt 1/3`, aucun épuisement —
+**8 `vote_cast`, 3 `chamber_deliberation`**. Rapporté aux ≥1 290 appels des deux
+seuls types tournant en chunks de 1 (300 `vote_cast`, 990
+`chamber_deliberation`), plus les autres types, cela reste sous le pour cent,
+même ordre que les 0,6% du run `both` de §2.2. La composition compte plus que
+le taux : trois rejeux sur `chamber_deliberation`, dont le prompt système n'a
+pas été touché par le correctif de `cast_votes` et qui n'a aucune notion de
+`ranking`. Le plancher résiduel se reproduit sur un troisième run indépendant,
+ce qui maintient la ligne 2 de la matrice de §2.2 et garde le périmètre écrit
+du fallback (§2.3) justifié plutôt qu'académique.
 
 ## 3. `ambition_threshold=0.0` — sous-décision séparée, à ne pas mélanger
 
