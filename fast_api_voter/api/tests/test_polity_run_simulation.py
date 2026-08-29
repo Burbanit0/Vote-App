@@ -34,6 +34,7 @@ from api.domain.polity.run_polity_simulation import (
     _run_exogenous_events,
     _run_sortition_rotation,
     _warm_up_llm_client,
+    _warn_if_no_candidate_is_possible,
     run_simulation,
 )
 from api.domain.polity.simple_rules import assign_party_affiliation, declare_candidacy
@@ -644,14 +645,52 @@ def test_two_runs_with_blank_vote_competitive_enabled_produce_byte_identical_jou
     assert path_a.read_bytes() == path_b.read_bytes()
 
 
+def _config_with_a_structurally_empty_candidate_field(output_dir, **overrides) -> PolityConfig:
+    """president_term_limit=0 makes is_term_limited (accountability.py) true for
+    EVERY citizen -- `term_limit is not None and mandates_served >= 0` holds
+    before anyone has served anything -- so _declare_nominees's `eligible` list
+    is empty by construction, at every tick, for every seed, independently of
+    any RNG draw.
+
+    This replaces the mechanism these proofs used to rest on: until ADR-002 was
+    closed (2026-08-29) the shipped ambition_threshold of 0.7 emptied the pool
+    on its own, and that was a DEFECT being used as a fixture. The shipped
+    threshold is now 0.30 and fields ~5 nominees per election, so an empty
+    candidate field has to be produced deliberately -- and this way of producing
+    it is exact rather than distributional, which the previous one only
+    approximately was."""
+    config = _config_with_output_dir(output_dir)
+    return dataclasses.replace(
+        config,
+        institutions=dataclasses.replace(config.institutions, president_term_limit=0, **overrides),
+    )
+
+
+def test_a_structurally_empty_candidate_field_really_is_empty(tmp_path):
+    # Guards the fixture the two byte-identity proofs below depend on: if
+    # president_term_limit=0 ever stopped emptying the field, those proofs would
+    # silently degrade into "happens not to trigger this seed" without failing.
+    journal_path = run_simulation(_config_with_a_structurally_empty_candidate_field(tmp_path), run_id="empty")
+    events = _events(journal_path)
+    assert not [e for e in events if e["event_type"] == "candidacy_declared"]
+    no_winner = [e for e in events if e["event_type"] == "election_no_winner"]
+    assert no_winner
+    assert all(e["payload"]["reason"] == "no_candidates" for e in no_winner)
+
+
 def test_blank_vote_competitive_enabled_but_never_triggered_matches_the_default_journal_byte_for_byte(tmp_path):
-    # The load-bearing off-vs-on proof: at the shipped default population/
-    # candidacy config, no citizen ever crosses ambition_threshold (0.7), so
-    # nominees is always [] and the invalidation check inside `if nominees:`
-    # never even runs -- turning the gate on is a true no-op here, not
-    # merely "happens not to trigger this seed".
-    path_off = run_simulation(_config_with_output_dir(tmp_path / "off"), run_id="same-run-id")
-    path_on = run_simulation(_config_with_blank_vote_competitive_enabled(tmp_path / "on"), run_id="same-run-id")
+    # The load-bearing off-vs-on proof. With an empty candidate field, nominees
+    # is always [] and the invalidation check inside `if nominees:` never even
+    # runs -- turning the gate on is a true no-op here, not merely "happens not
+    # to trigger this seed". Both arms are term-limited identically, so the
+    # comparison isolates blank_vote_competitive and nothing else.
+    path_off = run_simulation(
+        _config_with_a_structurally_empty_candidate_field(tmp_path / "off"), run_id="same-run-id"
+    )
+    path_on = run_simulation(
+        _config_with_a_structurally_empty_candidate_field(tmp_path / "on", blank_vote_competitive=True),
+        run_id="same-run-id",
+    )
     events_on = _events(path_on)
     assert not [e for e in events_on if e["event_type"] == "election_invalidated"]
     assert not any("attempt" in e["payload"] for e in events_on if e["event_type"] in ("elected", "election_no_winner"))
@@ -1297,9 +1336,15 @@ def test_pressure_action_events_precede_legitimacy_updated_and_are_ascending_wit
 
 
 def test_no_pressure_action_events_while_the_presidency_is_vacant(tmp_path):
-    # Shipped ambition_threshold never produces a winner (Lot 2/3) -- the
-    # presidency stays vacant the entire run.
-    config = _config_with_awakening_enabled(tmp_path)
+    # president_term_limit=0 keeps the candidate field empty for the whole run
+    # (see _config_with_a_structurally_empty_candidate_field), so the presidency
+    # never fills. Before ADR-002 was closed this vacancy came for free from the
+    # shipped ambition_threshold of 0.7 -- i.e. from the defect, not from
+    # anything this test was asserting.
+    config = dataclasses.replace(
+        _config_with_awakening_enabled(tmp_path),
+        institutions=dataclasses.replace(load_config().institutions, president_term_limit=0),
+    )
     journal_path = run_simulation(config, run_id="vacant")
     events = _events(journal_path)
     assert not [e for e in events if e["event_type"] == "elected"]
@@ -1694,9 +1739,11 @@ def test_a_defeated_incumbents_petition_state_is_deliberately_not_cleared(tmp_pa
 
 
 def test_no_petition_events_while_the_presidency_is_vacant(tmp_path):
+    # Same structurally-empty candidate field as the pressure_action twin above.
     config = _config_with_awakening_enabled(tmp_path)
     config = dataclasses.replace(
         config,
+        institutions=dataclasses.replace(load_config().institutions, president_term_limit=0),
         pressure_menu=dataclasses.replace(config.pressure_menu, electoral_only=False, petition_enabled=True),
         petition=dataclasses.replace(config.petition, enabled=True),
     )
@@ -3561,20 +3608,31 @@ def _config_with_events_enabled(output_dir, **overrides) -> PolityConfig:
     # awakening.enabled + context_modulation.event_salience are forced on by
     # config.py's own cross-field rule whenever events.enabled is true --
     # replicated here since dataclasses.replace bypasses load_config's own
-    # validation. candidacy.ambition_threshold is DELIBERATELY left
-    # untouched at its shipped value (0.7, never produces a winner at
-    # seed=42) in every test below that goes through the real tick loop --
-    # this keeps current_office_holders empty for the whole run, so
-    # _run_accountability_phase's per-holder loop (steps 1-6) never runs.
-    # This was load-bearing pre-v5-Lot-3: awakening_threshold's
-    # event_salience guard used to raise NotImplementedError the moment a
-    # real officeholder existed under events.enabled=True. That guard is
-    # gone now (v5 Lot 3 implemented it) -- ambition_threshold is left
-    # untouched here purely because these tests were never about electoral
-    # dynamics, not because anything would break if a winner existed.
+    # validation. That forcing is exactly why _config_with_awakening_but_no_events
+    # below exists: the off-arm of an events on/off comparison has to carry the
+    # same awakening config, or the comparison silently measures awakening too.
+    return dataclasses.replace(
+        _config_with_awakening_but_no_events(output_dir),
+        events=dataclasses.replace(
+            load_config().events,
+            **{**{"enabled": True, "scandal_enabled": True, "economic_shock_enabled": True}, **overrides},
+        ),
+    )
+
+
+def _config_with_awakening_but_no_events(output_dir) -> PolityConfig:
+    """The correct off-arm for any events on/off comparison: identical to
+    _config_with_events_enabled except events stays off.
+
+    Until ADR-002 was closed (2026-08-29) the off-arm was
+    _config_with_output_dir, whose awakening is OFF -- and that comparison only
+    passed because the shipped ambition_threshold of 0.7 left the presidency
+    permanently vacant, so awakening had no officeholder to produce
+    pressure_action events about and was inert on both sides by accident. At the
+    calibrated threshold the on-arm emits 1421 pressure_action events the
+    off-arm never had (64 journal lines vs 1485), which is a difference in
+    AWAKENING, not in events -- the variable the test names."""
     config = _config_with_output_dir(output_dir)
-    defaults = {"enabled": True, "scandal_enabled": True, "economic_shock_enabled": True}
-    events = dataclasses.replace(config.events, **{**defaults, **overrides})
     return dataclasses.replace(
         config,
         awakening=dataclasses.replace(
@@ -3582,7 +3640,6 @@ def _config_with_events_enabled(output_dir, **overrides) -> PolityConfig:
             enabled=True,
             context_modulation=dataclasses.replace(config.awakening.context_modulation, event_salience=True),
         ),
-        events=events,
     )
 
 
@@ -3598,7 +3655,9 @@ def test_events_enabled_but_structurally_inert_matches_the_default_journal_byte_
     # but can never produce a nonzero outcome -- an EXACT, not probabilistic,
     # proof that turning events.enabled on is byte-identical to leaving it
     # off, the same register as v4 Lot 9's own analogous test.
-    path_off = run_simulation(_config_with_output_dir(tmp_path / "off"), run_id="same-run-id")
+    # The off-arm carries the SAME awakening config as the on-arm (see
+    # _config_with_awakening_but_no_events) so the only variable is `events`.
+    path_off = run_simulation(_config_with_awakening_but_no_events(tmp_path / "off"), run_id="same-run-id")
     path_on = run_simulation(
         _config_with_events_enabled(tmp_path / "on", scandal_rate_per_tick=0.0, economy_ar1_sigma=0.0),
         run_id="same-run-id",
@@ -3623,7 +3682,16 @@ def test_a_real_firing_events_run_produces_scandal_and_economic_shock_events(tmp
     shocks = [e for e in events if e["event_type"] == "economic_shock_tick"]
     # scandal_rate_per_tick=1.0 -> exactly one scandal_occurred per tick.
     assert len(scandals) == config.run.total_ticks + 1
-    assert all(e["payload"]["target"] is None for e in scandals)  # never a winner at shipped ambition_threshold
+    # Target resolution is exercised in BOTH directions here, which it was not
+    # before ADR-002 was closed: the shipped threshold used to leave the
+    # presidency permanently vacant, so every target was null and the null
+    # branch was the only one this run ever reached. At the calibrated
+    # threshold a president exists for most of the run, so both branches fire.
+    # (The per-branch contract itself is asserted by
+    # test_scandal_occurred_targets_the_sitting_president_and_is_null_on_vacancy.)
+    targets = {e["payload"]["target"] for e in scandals}
+    assert None in targets, "tick 0 precedes the first election -- a vacancy must still be reachable"
+    assert targets - {None}, "a sitting president must be targeted once one is elected"
     # economy_shock_threshold=0.0 -> abs(x) >= 0.0 is true for every x, so
     # every tick's step crosses, including tick 0 (economy_x is stepped
     # once, from its seeded 0.0, before tick 0's journal write happens).
@@ -3982,3 +4050,112 @@ def test_reaction_to_event_llm_never_reads_self_gap_or_mandate_dev(tmp_path):
     for e in reactions:
         assert "self_gap" not in e["payload"]["ctx"]
         assert "mandate_dev" not in e["payload"]["ctx"]
+
+
+# ── ADR-002: the shipped candidacy config cannot elect, and said so silently ──
+
+
+def _population_at_shipped_defaults() -> list[Citizen]:
+    config = load_config()
+    return generate_population(config.citizens, config.run.population_size, config.run.seed)
+
+
+def test_a_config_whose_pool_is_empty_warns_that_no_candidacy_is_ever_possible(tmp_path, caplog):
+    # ADR-002's guard. It used to be exercised by the SHIPPED config, because
+    # the shipped config was the defect; since the calibration landed
+    # (ambition_threshold 0.7 -> 0.30) an empty pool has to be asked for
+    # explicitly. ambition_dist beta(2,8) is bounded above by 1.0 and draws are
+    # continuous, so a threshold of 1.0 empties the pool for every seed.
+    config = _config_with_output_dir(tmp_path)
+    config = dataclasses.replace(config, candidacy=dataclasses.replace(config.candidacy, ambition_threshold=1.0))
+    with caplog.at_level("WARNING", logger=run_polity_simulation_module.__name__):
+        run_simulation(config, run_id="silent")
+    assert "no citizen can ever declare a candidacy" in caplog.text
+    assert "ADR-002" in caplog.text
+
+
+def test_the_shipped_config_no_longer_warns(tmp_path, caplog):
+    # The regression guard for the ADR-002 calibration itself: if the shipped
+    # (ambition_dist, ambition_threshold) pair ever drifts back to a state where
+    # no citizen can run, this fails rather than quietly returning to 39-seeds-
+    # in-40 holding no election.
+    with caplog.at_level("WARNING", logger=run_polity_simulation_module.__name__):
+        journal_path = run_simulation(_config_with_output_dir(tmp_path), run_id="calibrated")
+    assert "no citizen can ever declare a candidacy" not in caplog.text
+    events = _events(journal_path)
+    assert [e for e in events if e["event_type"] == "elected"]
+    assert not [e for e in events if e["event_type"] == "election_no_winner"]
+
+
+def test_no_candidacy_warning_when_at_least_one_citizen_clears_the_threshold(tmp_path, caplog):
+    config = _config_with_output_dir(tmp_path)
+    config = dataclasses.replace(config, candidacy=dataclasses.replace(config.candidacy, ambition_threshold=0.0))
+    with caplog.at_level("WARNING", logger=run_polity_simulation_module.__name__):
+        run_simulation(config, run_id="has-candidates")
+    assert "no citizen can ever declare a candidacy" not in caplog.text
+
+
+def test_no_candidacy_warning_on_the_llm_path(caplog):
+    # _declare_nominees_llm never consults ambition_threshold at all (the model
+    # arbitrates from ambition_score and perceived support), so an empty
+    # deterministic pool is a non-event there -- warning here would cry wolf.
+    config = load_config()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=True))
+    with caplog.at_level("WARNING", logger=run_polity_simulation_module.__name__):
+        _warn_if_no_candidate_is_possible(_population_at_shipped_defaults(), config)
+    assert caplog.text == ""
+
+
+def test_no_candidacy_warning_when_the_rupture_path_is_open(caplog):
+    # §2.4's rupture path is threshold-independent: a candidacy can appear
+    # without anyone clearing ambition_threshold, so the pool being empty no
+    # longer implies no candidate.
+    config = load_config()
+    config = dataclasses.replace(config, candidacy=dataclasses.replace(config.candidacy, rupture_path_enabled=True))
+    with caplog.at_level("WARNING", logger=run_polity_simulation_module.__name__):
+        _warn_if_no_candidate_is_possible(_population_at_shipped_defaults(), config)
+    assert caplog.text == ""
+
+
+def test_election_no_winner_names_an_absent_candidate_field(tmp_path):
+    # ADR-002: election_no_winner used to cover two structurally different
+    # failures with the same payload. This is the "no candidate existed" one --
+    # now produced deliberately (president_term_limit=0) rather than inherited
+    # from the mis-calibrated shipped threshold.
+    journal_path = run_simulation(
+        _config_with_a_structurally_empty_candidate_field(tmp_path), run_id="no-field"
+    )
+    no_winner = [e for e in _events(journal_path) if e["event_type"] == "election_no_winner"]
+    assert no_winner
+    for event in no_winner:
+        assert event["payload"]["reason"] == "no_candidates"
+
+
+def test_election_no_winner_omits_reason_when_candidates_actually_ran(tmp_path):
+    # The other failure: five nominees stood and Blank won the runoff outright
+    # (uniform/seed=1 -- the §10.10 distribution failure mode). `reason` must
+    # stay absent, since its whole job is to mark the empty-field case.
+    config = _config_with_output_dir(tmp_path)
+    config = dataclasses.replace(
+        config,
+        run=dataclasses.replace(config.run, seed=1),
+        citizens=dataclasses.replace(config.citizens, position_dist="uniform"),
+        candidacy=dataclasses.replace(config.candidacy, ambition_threshold=0.0),
+    )
+    journal_path = run_simulation(config, run_id="blank-won")
+    events = _events(journal_path)
+    no_winner = [e for e in events if e["event_type"] == "election_no_winner"]
+    assert no_winner
+    assert [e for e in events if e["event_type"] == "candidacy_declared"]
+    for event in no_winner:
+        assert "reason" not in event["payload"]
+
+
+def test_elected_never_carries_a_reason(tmp_path):
+    config = _config_with_output_dir(tmp_path)
+    config = dataclasses.replace(config, candidacy=dataclasses.replace(config.candidacy, ambition_threshold=0.0))
+    journal_path = run_simulation(config, run_id="elected-clean")
+    elected = [e for e in _events(journal_path) if e["event_type"] == "elected"]
+    assert elected
+    for event in elected:
+        assert "reason" not in event["payload"]

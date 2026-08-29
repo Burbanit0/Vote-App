@@ -556,23 +556,46 @@ def summarize(runs_dir: Path, results_path: Path | None) -> None:
         print(line)
         lines.append(line)
 
+    first_meta = json.loads(metrics_files[0].read_text(encoding="utf-8"))["_meta"]
+    menu = first_meta.get("menu", "both")
+
     log("# v6b acceptance run — elected vs. sortition (§6bis.3), Lot 4\n")
+    # The elected side's own framing is menu-dependent, so it cannot be one fixed
+    # paragraph: under `both` the president faces all three §7bis channels (§6bis.3's
+    # own literal comparison), under `electoral_only` they face none of them, which is
+    # what removes the office-vacancy confound the `both` runs hit -- saying "full
+    # pressure menu" on an electoral_only directory would contradict the very next line.
+    if menu == "electoral_only":
+        elected_side = (
+            "The elected side runs under `--menu electoral_only`: `écart(t) ≡ 0` by "
+            "construction (no petition, no street pressure, `passive_erosion_weight: 0.0`), "
+            "so `L(t)` converges to `m` and never crosses the shipped `recall_floor` -- the "
+            "office stays occupied for the whole run. This removes the vacancy confound the "
+            "`both` runs hit (`office_occupancy = 0.333`, `mandate_deviation_coverage = 0.0`) "
+            "STRUCTURALLY, without disabling accountability the way `--recall-floor 0.0` did. "
+            "The cost is stated rather than hidden: a president facing none of §7bis's three "
+            "channels is not §6bis.3's own literal comparison subject, so any drift observed "
+            "here is drift under NO measurable pressure at all."
+        )
+    else:
+        elected_side = (
+            "The elected side reuses `run_acceptance_comparison.py`'s own `both` arm shape "
+            "(full pressure menu, legitimacy/mandate/awakening enabled) -- §6bis.3's own "
+            "comparison is against a president \"soumise aux trois canaux du §7bis\", all "
+            "three, not one isolated lever."
+        )
     log(
         "n=1 (one seed, no Monte Carlo band), the same limit every prior acceptance run in this "
-        "project has already named. The elected side reuses `run_acceptance_comparison.py`'s own "
-        "`both` arm shape (full pressure menu, legitimacy/mandate/awakening enabled) -- §6bis.3's "
-        "own comparison is against a president \"soumise aux trois canaux du §7bis\", all three, "
-        "not one isolated lever. `social_graph.enabled`/`events.enabled` stay OFF throughout, the "
-        "same confound-avoidance call v5 Lot 5 and v6a Lot 4 already made independently. Unlike v6a "
-        "Lot 4, this comparison needs BOTH quantities from the SAME run at the SAME ticks, so there "
-        "is no prior acceptance row to cite -- this is one new, self-contained run.\n"
+        f"project has already named. {elected_side} `social_graph.enabled`/`events.enabled` stay "
+        "OFF throughout, the same confound-avoidance call v5 Lot 5 and v6a Lot 4 already made "
+        "independently. Unlike v6a Lot 4, this comparison needs BOTH quantities from the SAME run "
+        "at the SAME ticks, so there is no prior acceptance row to cite -- this is one new, "
+        "self-contained run.\n"
     )
-    if metrics_files:
-        first_meta = json.loads(metrics_files[0].read_text(encoding="utf-8"))["_meta"]
-        log(
-            f"This directory's own runs used `--menu {first_meta.get('menu', 'both')} "
-            f"--recall-floor {first_meta.get('recall_floor', 0.2)}`.\n"
-        )
+    log(
+        f"This directory's own runs used `--menu {menu} "
+        f"--recall-floor {first_meta.get('recall_floor', 0.2)}`.\n"
+    )
     log(
         "| menu | engine | years | elapsed(s) | replays | office_occupancy | mean L (last) | recalls | "
         "mandate_dev (mean/max) | mandate_dev unified (mean/max) | chamber_dev (mean/max) | motif mix | "

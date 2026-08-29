@@ -1246,6 +1246,23 @@ rien dans les données journalisées de ce run ne contredit sa propre
 conclusion. **Le résultat n'est donc pas invalidé — il reste non
 re-vérifié sous le code corrigé**, et cette distinction est délibérée.
 
+**Second avertissement, de nature différente : représentativité de la
+population (ajouté 2026-08-29).** Le run ci-dessus a tourné sous
+`citizens.position_dist: uniform` à `seed=42` — la configuration livrée à
+l'époque, et la seule graine jamais utilisée par un run d'acceptation de
+ce projet. Mesuré **a posteriori** (2026-08-24, §10.10) : sous cette
+distribution, le Blanc l'emporte au second tour du `two_round` sur
+**41/60 graines (68 %)**, et `seed=42` se trouve juste sous la frontière
+d'échec par coïncidence, sans propriété distinctive. `uniform` a depuis
+été remplacée par `factor_structure` comme défaut livré (0/40 victoires du
+Blanc sur le même protocole). Ce run n'a **pas** été rejoué : il reste
+valide comme point de mesure de son propre mécanisme, mais la population
+sur laquelle il repose n'est pas représentative au sens du §10.10, et une
+répétition sous le défaut actuel produirait une population qualitativement
+différente. Le contrôle bon marché mené sur les configurations
+déterministes équivalentes (§10.10) ne contredit pas sa conclusion
+qualitative ; il ne la confirme pas non plus au niveau de l'agent LLM.
+
 ### 10.8 Le graphe social et la contagion
 
 Le palier v6a (§5) construit un graphe social déterministe, propre au
@@ -1344,11 +1361,29 @@ même semaine, mais rien dans les données journalisées de ce run ne
 contredit sa propre conclusion. **Le résultat n'est donc pas invalidé —
 il reste non re-vérifié sous le code corrigé.**
 
+**Second avertissement, de nature différente : représentativité de la
+population (ajouté 2026-08-29).** Comme celui de §10.7, ce run a tourné sous
+`citizens.position_dist: uniform` à `seed=42`. Mesuré a posteriori
+(2026-08-24, §10.10) : le Blanc l'emporte sur **41/60 graines (68 %)** sous
+cette distribution, et `seed=42` passe juste sous la frontière d'échec par
+coïncidence. `factor_structure` est depuis le défaut livré (0/40). Ce run n'a
+pas été rejoué et reste un point de mesure valide de son propre mécanisme,
+mais sa population n'est pas représentative au sens du §10.10. La réserve est
+ici d'autant plus concrète que le run cascade (v4+v5+v6a) a ensuite montré,
+sur ce même menu `mobilization_only`, que 9 graines sur 11 n'élisent aucun
+président du tout sous `uniform` — l'effondrement de légitimité mesuré ici
+n'est donc pas séparable, sur cette seule graine, d'un défaut d'acceptabilité
+de la population de départ.
+
 ### 10.9 La chambre de sortition — sincère ou erratique ?
 
 **n=1, une seule graine (seed=42) : ce qui suit est un point de mesure, pas
-une moyenne statistique — et il a fallu trois runs, un bug de métrique
-corrigé et un second confond de calendrier résolu pour l'obtenir.**
+une moyenne statistique — et il a fallu quatre runs, un bug de métrique
+corrigé et un confond de calendrier résolu deux fois (une fois par un
+plancher nul, une fois structurellement) pour l'obtenir.** Les trois premiers
+runs ont tourné sous `citizens.position_dist: uniform`, le quatrième sous
+`factor_structure` — le défaut livré depuis (§10.10) ; ils ne sont donc pas
+interchangeables et sont rapportés comme deux lignées distinctes.
 
 Le palier v6b (§6bis.3) construit un second corps délibératif, tiré au sort
 plutôt qu'élu — explicitement conçu comme **groupe de contrôle** : « aucun
@@ -1519,6 +1554,85 @@ premier run (confondu par le calendrier de rappel) reste une donnée
 distincte et informative sur la dynamique du menu `both`, pas une mesure à
 écarter.
 
+**Quatrième run — même comparaison sous la distribution livrée
+(`factor_structure`), et le confond de vacance disparaît sans aucun
+contournement (2026-08-29).** Les trois runs ci-dessus ont tourné sous
+`uniform`, dont la faible acceptabilité de base était elle-même le moteur des
+effondrements de légitimité. Depuis, `factor_structure` est le défaut livré
+(§10.10). Rejoué sous ce défaut, le menu `both` **reste invalide selon son
+propre critère pré-enregistré** — `office_occupancy=0,333` contre un seuil de
+0,70, avertissement émis par le script lui-même : la nouvelle distribution
+atténue le confond (~6-9 % → 33,3 %) sans le lever. Sous `--menu
+electoral_only`, plancher livré `0,2` non touché, il disparaît complètement :
+`office_occupancy = 1,0`, `recalls_by_trigger = {}`, et `mean_legitimacy`
+**plate à `m` sur chaque mandat** à la troisième décimale (0,720 sur les ticks
+0-15, 0,850 sur 16-31, 0,720 au tick 32) — le point fixe `L ≡ m` de §7bis.6
+observé sur le chemin LLM plutôt que déduit de la formule.
+
+La comparaison elle-même : déviation unifiée du président **0,0479 en moyenne,
+0,1702 au maximum** (33 ticks) contre une chambre **strictement immobile —
+0,000000 de moyenne comme de maximum sur 990 délibérations**, dont 989
+étiquetées `SINCERE_POSITION` et un unique `DELIBERATIVE_SHIFT` revenu avec un
+`shifts` vide (étiquette sans mouvement : le validateur de cohérence a été
+retiré en v6b Lot 3 pour cause de fiabilité). Même sens que les trois runs
+`uniform`, sur une population plus réaliste.
+
+**Ce que ce run ne permet pas d'affirmer, et il faut le dire avant d'en tirer
+quoi que ce soit : le côté élu repose sur deux présidents au comportement
+opposé, qui ne partaient pas de positions comparables.** Le président 42
+(ticks 0-15) concède sur 13 ticks sur 16 ; le président 2 (ticks 16-31) répond
+`silence` 16 fois sur 16 et ne bouge jamais. Une vérification contre la
+population régénérée explique l'essentiel structurellement : le président 2 est
+un quasi-centriste — 7ᵉ plus proche du centre de masse sur 100 sur sa position
+sincère, plateforme comprise entre 0,327 et 0,583 sur les vingt dimensions,
+distance pondérée de sa promesse 0,0963 contre 0,1495 pour le président 42, sur
+une moyenne de population de 0,1939 (son virage de campagne ne vaut que 0,0123,
+contre 0,0702 pour le président 42) — et
+il ne fait face qu'à 15 mécontents sur 99 là où le président 42 en a 29. Sa
+dérive nulle est donc largement un cas de « rien à concéder », pas une
+résistance démontrée. Lecture retenue, étroite : **la dérive est atteignable
+côté élu et n'a pas été atteinte une seule fois en 990 occasions côté
+chambre** — ce qui n'établit pas que l'élection cause la dérive ni que le
+tirage au sort la prévienne.
+
+**Le président a concédé treize fois à une population qui n'a jamais agi.**
+C'est le résultat le plus inattendu du run et il tient en une phrase :
+`inaction_rate` vaut exactement 1,0 à *chaque* tick de 0 à 15 — sur tout le
+premier mandat, aucun citoyen de la cohorte consultée n'a choisi autre chose
+que `NOTHING` — pendant que le président 42 rendait `stance = concession`
+treize fois. Le mix de leviers du run entier est `{0: 383, 4: 16}` : 383
+non-actions explicites, 16 renvois à l'élection, zéro mobilisation, zéro
+pétition. La dérive mesurée ici n'est donc pas une réponse à la pression : il
+n'y avait aucune pression à laquelle répondre. §7bis.6 affirme qu'un
+représentant qui trahit son mandat devant une population passive ne perd pas de
+légitimité ; ce run montre l'image miroir, que la clause ne couvre pas — un
+représentant qui *concède* à une population passive, sans y être poussé, avec
+`L` plate à `m`. Ce que ce run ne tranche pas : modèle anticipant un électorat
+futur, ou artefact d'un prompt qui réclame une réaction à chaque tick.
+
+**Le plafonnement se lit désormais depuis le seul journal.** L'événement
+`clamped_at_bound`, ajouté pour refermer la lacune d'observabilité documentée
+dans la docstring d'`apply_shifts`, a **fonctionné en conditions réelles pour la
+première fois** : 8 déclenchements, dont quatre sur les
+`representative_response` du président 42 aux ticks 8, 9, 13 et 15, dimensions
+0 et 1 — précisément là où la série unifiée stagne à 0,164 des ticks 10 à 13
+avant de monter à 0,170. Sur les trois runs précédents, ce même plateau ne
+pouvait être diagnostiqué que par la reconstruction non clampée jetable décrite
+plus haut (×2,8 à ×3,6) ; ici la saturation est lisible directement dans le
+journal, et la conséquence se porte telle quelle : le maximum de 0,1702 est un
+chiffre **écrêté, sous-estimé**.
+
+Enfin, `mandate_deviation` au scope livré `top_k_priorities` affiche 0,0000 sur
+les 33 ticks pendant que la version unifiée atteint 0,1702 — troisième
+confirmation indépendante de la cécité structurelle décrite plus haut, et
+première fois que le chiffre corrigé est **journalisé en bande** par du code de
+production plutôt que reconstruit après coup par un script non commité.
+Fiabilité du run : 11 rejeux, tous absorbés en `attempt 1/3`, dont 3 sur
+`chamber_deliberation` — un type de décision dont le prompt système n'a pas été
+touché par les correctifs de `cast_votes`, ce qui confirme un plancher résiduel
+de troncature indépendant de ces correctifs. Détail complet :
+`scripts/acceptance_v6b_fs_electoral_only_results.md`.
+
 **Limite assumée, énoncée sans détour : ce n'est ni un test institutionnel,
 ni une comparaison statistiquement établie.** Le point ouvert n°11 du plan
 de conception (droit de veto de la chambre) reste entièrement hors
@@ -1636,6 +1750,68 @@ institutionnelle propre à la chambre.
   pour une confirmation dont la conclusion qualitative est déjà probable.
   Un re-baseline sélectif reste une décision distincte, ouverte, non prise
   ici — ce constat en réduit la priorité sans la clore.
+  **La réserve ci-dessus n'est plus une précaution de principe : elle est
+  mesurée (2026-08-28/29).** Deux runs LLM v6b ont finalement tourné sous
+  `factor_structure`, ce qui donne la première comparaison *like-for-like*
+  contre les sondes. Sous le menu `both`, la sonde annonçait 63,6 %
+  d'occupation de la présidence ; le bras LLM en produit **33,3 %** — un gain
+  réel sur les ~6-9 % d'`uniform` (environ ×4), mais **la sonde
+  surestimait d'un facteur ~2**, et le run reste invalide selon son propre
+  critère pré-enregistré de 0,70. Sous `electoral_only`, à l'inverse, la sonde
+  était juste : 0 rappel et `L≈0,77` annoncés, 0 rappel et `L` à 0,720 puis
+  0,850 mesurés. « Toute sonde déterministe surestime » est donc faux tel
+  quel. Ce qui le remplace est une **hypothèse de travail, consolidée par ce
+  run mais pas établie** : une sonde serait fiable sur les quantités
+  mécaniquement déterminées (le point fixe `L ≡ m`, le compte de rappels sous
+  un menu où `écart(t) ≡ 0`) et optimiste sur celles qui dépendent de
+  l'arbitrage citoyen — cohérent avec le mécanisme, puisque
+  `deterministic_pressure_action` ne mobilise qu'au-delà du `blank_threshold`
+  propre au citoyen alors que l'agent arbitre librement dans le menu (mix
+  réalisé sur le run `both` : 29,5 % de mobilisations, 21 % de signatures).
+  Elle ne repose cependant que sur **un seul cas favorable**, et sur un cas où
+  sa propre clause « rien à arbitrer » la rend presque tautologique : elle
+  attend un run où une sonde prédirait correctement une quantité continue sous
+  un menu doté de leviers. En attendant, la prudence opérationnelle reste de
+  lire une sonde déterministe comme une **borne optimiste** sur les dynamiques
+  de crise — mais c'est une précaution, pas un résultat démontré, et elle ne
+  doit pas être citée ailleurs dans le projet comme acquise.
+- **Aucun résultat publié ci-dessus n'a été mesuré à la configuration de
+  candidature livrée.** Jusqu'au 2026-08-29, `candidacy.ambition_threshold`
+  valait `0.7` contre un `citizens.ambition_dist: beta(2,8)` : **0,03 citoyen
+  sur 100** était éligible et **39 graines sur 40 ne produisaient aucun
+  candidat**, donc aucune élection n'était tenue (mesuré, 40 graines, pipeline
+  réel ; identique sous `uniform` et sous `factor_structure`, le blocage étant
+  orthogonal aux positions). Le seuil a depuis été **calibré à `0.30`**
+  (20,0 % d'éligibles, 4,0 prétendants par parti, 0 élection à champ vide sur
+  320, reproduit sur un bloc de graines indépendant) — décision, critère
+  pré-enregistré et coûts dans
+  `docs/adr/ADR-002-ambition-threshold-blocks-candidacy.md` et
+  `plan-calibration-ambition.md`. **Mais les scripts d'acceptation imposent
+  toujours `ambition_threshold=0.0`**, désormais par choix de continuité :
+  tous les résultats de §10.4 à §10.9 restent mesurés à `0.0`. **Ce choix a
+  été vérifié sans conséquence, pas seulement supposé sans risque
+  (2026-08-29, `plan-calibration-ambition.md` §3bis)** : `ambition_threshold`
+  n'a qu'un seul site de lecture fonctionnelle dans tout le code de domaine,
+  et c'est le chemin déterministe (`decide_candidacy` /
+  `select_party_nominee`) — le chemin LLM (`decide_candidacies`) ne le
+  consulte jamais, donc **chaque affirmation chiffrée de §10.4 à §10.9,
+  toutes mesurées sous `--engine llm`, est structurellement invariante à ce
+  changement**. Les ancres de pré-vol déterministes des scripts
+  d'acceptance, seules exposées à ce paramètre, ont été mesurées
+  byte-identiques entre `0.0` et `0.30` sur huit configurations couvrant
+  chaque famille de script publiée (v4/v5/v6a/v6b/cascade, les deux
+  `position_dist` livrées, avec et sans `sortition_chamber`/`events`/
+  `social_graph`). Aucun re-baseline n'est donc dû pour ce changement précis.
+- **La revendication §2.4 « un candidat doit avoir du soutien perçu » n'est
+  toujours pas implémentée.** `decide_candidacy` ne teste que
+  `ambition_score`, alors que le plan de conception décrit un seuil *combiné*
+  ambition + soutien social, et que le chemin LLM
+  (`llm_behavior_engine.decide_candidacies`) alimente déjà le modèle avec les
+  deux signaux. Implémenter la règle combinée a été mesuré : elle ne déplace
+  le soutien moyen des nominees que de **+0,018 (~3 %)**, parce que
+  `select_party_nominee` prend l'argmax sur `ambition_score` et lave l'effet —
+  c'est le même constat que le point §10.10 ci-dessus. Les deux questions sont
+  donc reportées **ensemble**, pas séparément.
 - **`stance = 4` (contre-mobilisation) est observable mais mécaniquement
   inerte** : aucun levier citoyen pro-sortant n'existe encore pour lui
   répondre — un représentant peut choisir cette posture, mais rien dans le
@@ -1674,8 +1850,17 @@ institutionnelle propre à la chambre.
   pression continue et absorbe silencieusement toute dérive au-delà —
   mesuré une première fois sous pression complète (facteur ×2,8 à ×3,6),
   corroboré une seconde fois de façon indépendante sous `electoral_only`
-  (mêmes trois dimensions saturées, même plafond, atteint plus tard). n=3
-  runs, une seule graine, aucune bande de Monte-Carlo.
+  (mêmes trois dimensions saturées, même plafond, atteint plus tard). Depuis
+  le quatrième run, ce plafonnement n'a plus besoin d'une reconstruction
+  hors-modèle pour être diagnostiqué : l'événement `clamped_at_bound` le
+  journalise en bande, et l'a fait pour la première fois en conditions
+  réelles (4 déclenchements sur `representative_response`, exactement dans le
+  plateau de la série unifiée). Le chiffre publié reste néanmoins un
+  plancher. **n=4 runs, une seule graine, aucune bande de Monte-Carlo** — et
+  le côté élu du quatrième run repose sur **deux présidents seulement**, dont
+  l'un est un quasi-centriste face à moitié moins de mécontents que l'autre :
+  la comparaison montre que la dérive est atteignable côté élu et jamais
+  atteinte côté chambre, pas que l'institution en soit la cause (§10.9).
 - **La configuration livrée des événements exogènes ne se déclenche presque
   jamais sur un run court** : à `(phi=0.8, sigma=0.1, seuil=0.5)`, le choc
   économique est un événement à ~3 écarts-types, jamais observé sur un run
