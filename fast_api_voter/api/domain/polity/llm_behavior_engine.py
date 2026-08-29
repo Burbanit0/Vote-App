@@ -2193,7 +2193,22 @@ def build_chamber_system_prompt(members: Sequence[Citizen], config: PolityConfig
     "sincere" anyway; see that model's own docstring. Explains that this
     body is INSULATED: no election, no citizen pressure, no legitimacy
     floor reaches it -- purely a personal reflection on one's own stated
-    position over time. Explains ctx.ticks_left's meaning."""
+    position over time. Explains ctx.ticks_left's meaning.
+
+    Names the chamber_position==sincere_position case explicitly (v6b Lot 5
+    correction): a live 270-call sweep against the real model found this
+    EXACT state -- true at seating time (chamber_position is pinned to
+    issue_positions there, run_polity_simulation._run_sortition_rotation)
+    and for as long as a member never picks motif=702 -- reliably triggers
+    the model's own Mode A (unbounded, non-convergent reasoning: the same
+    "wait, maybe they differ -- let me check again" paragraph repeated
+    ~70-140x, landing exactly on the token ceiling every time, 7/270 =
+    2.6% of this state specifically). Left ambiguous, the model treats
+    "the two arrays are literally equal" as something to keep re-verifying
+    rather than a self-evidently trivial case. See
+    scripts/lot3_chamber_reliability_results.md's own "Lot 5 correction"
+    for the full diagnostic; this sentence is the fix, not a budget change
+    -- chunk_size is already at its floor (_CHAMBER_MAX_CHUNK_SIZE=1)."""
     cid_list = ",".join(str(m.citizen_id) for m in members)
     return (
         "Tu es un moteur de simulation. Pour chaque membre tire au sort de "
@@ -2215,6 +2230,10 @@ def build_chamber_system_prompt(members: Sequence[Citizen], config: PolityConfig
         "En principe, motif=701 (SINCERE_POSITION) correspond a une liste "
         "shifts vide, et motif=702 (DELIBERATIVE_SHIFT) a au moins un "
         "ajustement -- choisis le motif qui decrit le mieux ta decision.\n"
+        "Si chamber_position est identique a sincere_position, c'est l'etat "
+        "normal d'un membre qui vient d'etre tire au sort ou qui n'a jamais "
+        "devie -- tranche motif=701, shifts vide, sans verification repetee "
+        "ni hesitation.\n"
         f"IMPORTANT : la liste decisions doit contenir EXACTEMENT ces "
         f"{len(members)} cid, chacun une seule fois, dans cet ordre : "
         f"[{cid_list}]. Verifie ta reponse avant de la finaliser : chaque "

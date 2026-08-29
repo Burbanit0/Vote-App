@@ -1438,6 +1438,21 @@ def test_chamber_system_prompt_carries_the_motif_table():
     assert "702 = DELIBERATIVE_SHIFT" in prompt
 
 
+def test_chamber_system_prompt_disambiguates_the_identical_position_case():
+    # v6b Lot 5 correction: a live 270-call sweep found chamber_position==
+    # sincere_position (true at seating time and for as long as a member
+    # never picks motif=702) reliably triggers the model's own Mode A
+    # (unbounded reasoning, 7/270 landed exactly on the token ceiling,
+    # ~70-140x repeated "wait, maybe they differ" paragraphs) when left
+    # unaddressed. Regression guard for the disambiguating sentence itself,
+    # not the live behavior (see scripts/lot3_chamber_reliability_results.md
+    # for the live verification that resolved all 7 failing cases).
+    members = [_member(0, (0.5,))]
+    config = _config_with_llm_enabled()
+    prompt = build_chamber_system_prompt(members, config)
+    assert "identique a sincere_position" in prompt
+
+
 def test_chamber_user_prompt_carries_sincere_and_chamber_positions_and_ctx():
     member = _member(0, (0.2, 0.4), chamber=(0.3, 0.4))
     contexts = {0: _chamber_context(0, ticks_left=3)}
