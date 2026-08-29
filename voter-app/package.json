@@ -32,7 +32,6 @@
     "recharts": "^3.3.0",
     "socket.io-client": "^4.8.3",
     "tailwind-merge": "^3.6.0",
-    "web-vitals": "^2.1.4",
     "zustand": "^5.0.14"
   },
   "scripts": {
@@ -65,10 +64,10 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.3",
-    "@babel/core": "^7.27.4",
-    "@babel/preset-env": "^7.27.2",
-    "@babel/preset-react": "^7.27.1",
-    "@babel/preset-typescript": "^7.27.1",
+    "@babel/core": "^8.0.1",
+    "@babel/preset-env": "^8.0.2",
+    "@babel/preset-react": "^8.0.1",
+    "@babel/preset-typescript": "^8.0.1",
     "@eslint/js": "^9.39.5",
     "@playwright/test": "^1.60.0",
     "@stryker-mutator/core": "10.0.0",
