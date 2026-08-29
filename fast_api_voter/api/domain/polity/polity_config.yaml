@@ -125,6 +125,26 @@ citizens:
 # =============================================================================
 candidacy:
   ambition_threshold: 0.7             # [v0] seuil du chemin dominant
+  # ⚠ CETTE VALEUR CASSE LA MÉCANIQUE ÉLECTORALE À LA CONFIGURATION LIVRÉE.
+  # Mesuré le 2026-08-29 (sonde déterministe, 40 graines, pipeline réel) :
+  # combinée à `citizens.ambition_dist: beta(2,8)` ci-dessus, elle ne rend
+  # éligible que 0,03 citoyen sur 100 en moyenne — 39 graines sur 40 ne
+  # produisent AUCUN candidat, donc aucune élection n'est tenue. Indépendant
+  # de `citizens.position_dist` (identique sous uniform et factor_structure) :
+  # le blocage est le couple (ambition_dist, ambition_threshold), pas les
+  # positions. Et `rupture_path_enabled: false` ci-dessous fait de
+  # `decide_candidacy` le SEUL chemin de candidature ici — il n'y a pas de
+  # voie de secours.
+  # Conséquence à connaître avant de lire un résultat : TOUS les scripts
+  # d'acceptance (`run_acceptance_comparison.py`, `run_v5/v6a/v6b_acceptance.py`,
+  # `run_cascade_acceptance.py`) forcent `ambition_threshold=0.0` via
+  # `dataclasses.replace`. Ce n'est pas une commodité de test, c'est une
+  # condition d'existence de l'élection — et cela veut dire que la valeur
+  # livrée n'a jamais été exercée par un run publié (THEORY.md §10.4-§10.9
+  # sont tous mesurés à 0.0).
+  # NON CORRIGÉ ICI, délibérément : calibrer `ambition_dist`, baisser ce
+  # seuil, ou les deux, est un arbitrage de modélisation à part entière.
+  # Voir docs/adr/ADR-002-ambition-threshold-blocks-candidacy.md.
   independent_signature_ratio: 0.01   # [v0] % de la population à réunir
   rupture_path_enabled: false         # [v1] chemin rare (§2.4)
   rupture_base_probability: 0.001     # [v1] proba par tick et par citoyen

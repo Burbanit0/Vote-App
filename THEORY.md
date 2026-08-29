@@ -1246,6 +1246,23 @@ rien dans les données journalisées de ce run ne contredit sa propre
 conclusion. **Le résultat n'est donc pas invalidé — il reste non
 re-vérifié sous le code corrigé**, et cette distinction est délibérée.
 
+**Second avertissement, de nature différente : représentativité de la
+population (ajouté 2026-08-29).** Le run ci-dessus a tourné sous
+`citizens.position_dist: uniform` à `seed=42` — la configuration livrée à
+l'époque, et la seule graine jamais utilisée par un run d'acceptation de
+ce projet. Mesuré **a posteriori** (2026-08-24, §10.10) : sous cette
+distribution, le Blanc l'emporte au second tour du `two_round` sur
+**41/60 graines (68 %)**, et `seed=42` se trouve juste sous la frontière
+d'échec par coïncidence, sans propriété distinctive. `uniform` a depuis
+été remplacée par `factor_structure` comme défaut livré (0/40 victoires du
+Blanc sur le même protocole). Ce run n'a **pas** été rejoué : il reste
+valide comme point de mesure de son propre mécanisme, mais la population
+sur laquelle il repose n'est pas représentative au sens du §10.10, et une
+répétition sous le défaut actuel produirait une population qualitativement
+différente. Le contrôle bon marché mené sur les configurations
+déterministes équivalentes (§10.10) ne contredit pas sa conclusion
+qualitative ; il ne la confirme pas non plus au niveau de l'agent LLM.
+
 ### 10.8 Le graphe social et la contagion
 
 Le palier v6a (§5) construit un graphe social déterministe, propre au
@@ -1343,6 +1360,20 @@ cette règle précise, pas les autres modes de défaillance identifiés la
 même semaine, mais rien dans les données journalisées de ce run ne
 contredit sa propre conclusion. **Le résultat n'est donc pas invalidé —
 il reste non re-vérifié sous le code corrigé.**
+
+**Second avertissement, de nature différente : représentativité de la
+population (ajouté 2026-08-29).** Comme celui de §10.7, ce run a tourné sous
+`citizens.position_dist: uniform` à `seed=42`. Mesuré a posteriori
+(2026-08-24, §10.10) : le Blanc l'emporte sur **41/60 graines (68 %)** sous
+cette distribution, et `seed=42` passe juste sous la frontière d'échec par
+coïncidence. `factor_structure` est depuis le défaut livré (0/40). Ce run n'a
+pas été rejoué et reste un point de mesure valide de son propre mécanisme,
+mais sa population n'est pas représentative au sens du §10.10. La réserve est
+ici d'autant plus concrète que le run cascade (v4+v5+v6a) a ensuite montré,
+sur ce même menu `mobilization_only`, que 9 graines sur 11 n'élisent aucun
+président du tout sous `uniform` — l'effondrement de légitimité mesuré ici
+n'est donc pas séparable, sur cette seule graine, d'un défaut d'acceptabilité
+de la population de départ.
 
 ### 10.9 La chambre de sortition — sincère ou erratique ?
 
@@ -1744,6 +1775,23 @@ institutionnelle propre à la chambre.
   lire une sonde déterministe comme une **borne optimiste** sur les dynamiques
   de crise — mais c'est une précaution, pas un résultat démontré, et elle ne
   doit pas être citée ailleurs dans le projet comme acquise.
+- **La configuration livrée ne peut pas tenir d'élection, et aucun run
+  d'acceptation ne l'a jamais exercée** (mesuré 2026-08-29, sonde
+  déterministe, 40 graines, pipeline réel). `candidacy.ambition_threshold`
+  vaut `0.7` alors que `citizens.ambition_dist` est un `beta(2,8)` : la
+  probabilité de dépasser le seuil est si faible que **0,03 citoyen sur 100
+  en moyenne** est éligible, et **39 graines sur 40 ne produisent aucun
+  candidat** — donc aucune élection n'est même tenue. Le constat est
+  identique sous `uniform` et sous `factor_structure` : le blocage tient au
+  couple (`ambition_dist`, `ambition_threshold`), orthogonal à la
+  distribution des positions. Tous les scripts d'acceptation imposent
+  `ambition_threshold=0.0` ; ce n'est donc pas une commodité de test mais une
+  **condition d'existence de l'élection**, et tous les résultats de §10.4 à
+  §10.9 sont mesurés sous cette valeur, jamais sous celle livrée. **Traité
+  comme un chantier à part entière, pas comme une limite de fin de section** :
+  la question ouverte (calibrer `ambition_dist`, baisser le seuil, ou les
+  deux) est posée sans être tranchée dans
+  `docs/adr/ADR-002-ambition-threshold-blocks-candidacy.md`.
 - **`stance = 4` (contre-mobilisation) est observable mais mécaniquement
   inerte** : aucun levier citoyen pro-sortant n'existe encore pour lui
   répondre — un représentant peut choisir cette posture, mais rien dans le

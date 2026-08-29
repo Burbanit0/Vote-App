@@ -164,6 +164,18 @@ initiale, `uniform` et `factor_structure` passés à travers le vrai
 | gaussienne simple (référence, non implémentée) | 0/40 (0,0%) | 0,801 | 0,052 | 0,640 | 0,081 |
 | mélange à 3 modes (référence, non implémenté) | 0/40 (0,0%) | 0,832 | 0,044 | 0,700 | 0,347 |
 
+> **Annotation (2026-08-29) — la ligne `uniform` de ce tableau n'est pas le
+> critère livré.** Re-mesuré contre le pipeline de production
+> (`select_party_nominee`, nominee au plus haut score d'ambition), `uniform`
+> donne **70,0 % / 75,0 % / 67,5 %** de victoires du Blanc sur trois blocs de
+> 40 graines, pas 27,5 % — cohérent avec les 68 % sur 60 graines de
+> `THEORY.md` §10.10. Les 27,5 % correspondent à la variante **centroïde**
+> du choix de nominee, que `THEORY.md` documente explicitement comme faisant
+> passer le taux « de 70 % à 27,5 % ». La conclusion de Phase 2 tient — et
+> l'écart réel en faveur de `factor_structure` est *plus* large que ce
+> tableau ne le montre — mais ce point de comparaison est faux tel quel.
+> Détail en §3.1.
+
 **Lecture par rapport au critère du §2, fixé avant ce tableau** :
 - Taux de victoire du Blanc < 5% : **validé** (0,0%), avec une marge
   confortable (`accept_min=0,590`, aucune seed proche de la frontière à
@@ -564,6 +576,66 @@ corriger la distribution devrait suffire — `ambition_threshold=0.0`
 peut rester un choix de conception distinct et légitime (garantir un
 pool de candidats suffisant), pas un pansement sur le vrai problème.
 À vérifier empiriquement une fois §2 tranché, pas supposé.
+
+### 3.1 Vérification (2026-08-29) — l'hypothèse est fausse, et dans un sens plus fort qu'attendu
+
+Sonde déterministe, protocole du §2 (40 graines, vrai pipeline de production
+`generate_population` → `initialize_parties` → `assign_party_affiliation` →
+`select_party_nominee` → `declare_candidacy` → `build_ranking` →
+`get_presidential_winner`), quatre cellules mesurées dans la même exécution
+pour rester comparables entre elles :
+
+| `position_dist` | `ambition_threshold` | citoyens éligibles (moy.) | nominees (moy.) | aucun candidat | victoire du Blanc | vainqueur réel |
+|---|---|---|---|---|---|---|
+| `uniform` | 0,0 | 100 | 5,00 | 0/40 | **28/40 (70,0 %)** | 12/40 |
+| `uniform` | **0,7 (livré)** | **0,03** | **0,03** | **39/40 (97,5 %)** | 1/40 | 0/40 |
+| `factor_structure` | 0,0 | 100 | 5,00 | 0/40 | **0/40 (0,0 %)** | 40/40 |
+| `factor_structure` | **0,7 (livré)** | **0,03** | **0,03** | **39/40 (97,5 %)** | 0/40 | 1/40 |
+
+**Résultat : `ambition_threshold=0.0` n'est pas un choix de conception
+distinct, c'est une condition d'existence de l'élection.** Au seuil livré de
+0,7, `ambition_dist: beta(2,8)` ne place pratiquement aucune masse au-dessus
+du seuil — **0,03 citoyen éligible en moyenne sur 100** — donc 39 graines sur
+40 ne produisent **aucun candidat** et aucune élection n'est même tenue. Ce
+n'est pas un effet de la distribution des positions : le constat est
+identique sous `uniform` et sous `factor_structure`, parce que le blocage
+tient à un couple (`ambition_dist`, `ambition_threshold`) totalement
+orthogonal aux positions.
+
+L'hypothèse de §3 — « corriger la distribution devrait suffire » — est donc
+fausse, mais pas comme anticipé : ce n'est pas que `ambition_threshold=0.0`
+masquait encore un problème de position résiduel, c'est que **sans lui il n'y
+a pas de démocratie à observer du tout**. Le commentaire « guarantees a real
+elected president » que tout script d'acceptance porte n'est pas une
+commodité : il est structurellement obligatoire à la configuration livrée.
+
+**Ce que ça ouvre, et qui n'est pas tranché ici** : la configuration livrée
+(`ambition_dist: beta(2,8)` + `ambition_threshold: 0.7`) est
+*intrinsèquement* incapable de produire une élection — et
+`rupture_path_enabled: false` fait de `decide_candidacy` le seul chemin de
+candidature, donc il n'y a pas de voie de secours. Aucun run d'acceptance ne
+l'a jamais exercée. Trancher (calibrer `ambition_dist`, baisser le seuil, ou
+les deux) dépasse le périmètre de ce chantier (§6) : **c'est une découverte
+nouvelle, sortie séparément en
+`docs/adr/ADR-002-ambition-threshold-blocks-candidacy.md`**, avec sa question
+ouverte posée et non résolue. Ce chantier-ci est clos dans son périmètre
+initial ; celui-là commence.
+
+**Écart trouvé au passage dans le tableau du §2.1, à corriger séparément.**
+La ligne `uniform` (défaut livré) du sweep de Phase 2 annonce **11/40
+(27,5 %)** de victoires du Blanc. Cette valeur n'est pas reproductible contre
+le pipeline livré : trois blocs de 40 graines indépendants (1-40, 41-80,
+101-140) donnent **70,0 %, 75,0 % et 67,5 %**, cohérents entre eux et
+cohérents avec les 68 % sur 60 graines déjà publiés en `THEORY.md` §10.10.
+`THEORY.md` donne l'explication directement : « remplacer le critère livré
+(le membre du parti au score d'ambition le plus élevé) par le membre le plus
+proche du centroïde k-means du parti fait passer le taux de victoire du Blanc
+de **70 % à 27,5 %** ». Le 27,5 % du tableau §2.1 est donc la variante
+**centroïde**, pas le critère livré — la ligne de référence `uniform` sous-
+estime le problème d'un facteur ~2,5. La décision de Phase 2 n'est pas
+affectée (`factor_structure` gagne dans les deux lectures, et par une marge
+*plus* large que documentée), mais le tableau donne un point de comparaison
+faux et devrait être annoté.
 
 ## 4. Politique de validation de seed — corriger le processus, pas seulement la config
 
