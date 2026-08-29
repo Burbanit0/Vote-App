@@ -24,6 +24,7 @@ def test_loads_the_real_polity_config_with_expected_v0_values():
     assert config.institutions.president_term_limit is None
     assert config.parties.initial_count == 5
     assert config.parties.coalition_tiebreak == ("seats", "votes", "party_id")
+    assert config.parties.coalition_max_negotiation_rounds == 3
     assert config.citizens.issue_count == 20
     assert config.legitimacy.enabled is False
     assert config.journal.enabled is True
@@ -145,6 +146,14 @@ def test_reelection_delay_ticks_zero_raises(tmp_path):
         tmp_path, lambda d: d["institutions"].__setitem__("reelection_delay_ticks", 0)
     )
     with pytest.raises(PolityConfigError, match="reelection_delay_ticks"):
+        load_config(path)
+
+
+def test_coalition_max_negotiation_rounds_zero_raises(tmp_path):
+    path = _write(
+        tmp_path, lambda d: d["parties"].__setitem__("coalition_max_negotiation_rounds", 0)
+    )
+    with pytest.raises(PolityConfigError, match="coalition_max_negotiation_rounds"):
         load_config(path)
 
 

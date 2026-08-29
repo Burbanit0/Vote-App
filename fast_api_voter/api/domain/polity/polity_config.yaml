@@ -91,6 +91,29 @@ parties:
                               #      pour la reproductibilité octet-pour-octet :
                               #      jamais de max() ou de tri instable
   coalition_majority_ratio: 0.5   # [v0] seuil de majorité à atteindre
+  coalition_max_negotiation_rounds: 3  # [v7] borne dure de la négociation
+  # multi-tours (§3.4 Cas 2). PARSÉ, PAS ENCORE CONSOMMÉ EN v7 LOT 1 —
+  # decide_coalition reste un appel unique jusqu'au Lot 2 (boucle de
+  # négociation), voir plan-coalition-negotiation-v7.md.
+  # Choix PRAGMATIQUE, explicitement marqué comme tel : Riker (1962) et
+  # Axelrod (1970), déjà cités §3.3, sont des théories de SÉLECTION
+  # D'ÉQUILIBRE (quelle coalition se forme), pas des modèles de PROCESSUS
+  # de négociation — aucun des deux ne donne, ni ne prétend donner, un
+  # nombre de tours. 3 est dérivé structurellement, pas empirique (aucun
+  # sweep fait) : round 1 = le mécanisme actuel exact (chaque répondant
+  # décide sans visibilité sur les autres — testable en parité directe
+  # contre le comportement d'aujourd'hui) ; round 2 = premier tour où le
+  # raisonnement conditionnel devient possible ("je rejoins si X a
+  # rejoint") ; round 3 = seconde révision, nécessaire parce qu'un
+  # changement d'avis au round 2 peut modifier le calcul d'un parti qui
+  # n'avait pas prévu de bouger. Au-delà, dans un jeu à au plus
+  # parties.initial_count - 1 répondants (4 ici), le contenu
+  # informationnel marginal d'un tour de plus est faible. Arrêt anticipé
+  # dès qu'un round ne change aucune décision JOIN/LEAVE (point fixe) —
+  # cette borne dure n'est donc qu'un plafond, pas la durée typique
+  # attendue. Voir plan-coalition-negotiation-v7.md §3 pour la dérivation
+  # complète et §5 pour le coût mesuré (négligeable face à
+  # chamber_deliberation/vote_cast, même au pire cas).
 
 # =============================================================================
 # CITOYENS (§2)

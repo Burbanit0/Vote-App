@@ -151,6 +151,7 @@ class PartiesConfig:
     coalition_initiator: str
     coalition_tiebreak: tuple[str, ...]
     coalition_majority_ratio: float
+    coalition_max_negotiation_rounds: int
 
 
 @dataclass(frozen=True)
@@ -560,6 +561,7 @@ def _parse_parties(raw: dict[str, Any]) -> PartiesConfig:
         coalition_initiator=_get_enum(s, "parties", "coalition_initiator", _COALITION_INITIATORS),
         coalition_tiebreak=tuple(tiebreak),
         coalition_majority_ratio=_get_ratio(s, "parties", "coalition_majority_ratio"),
+        coalition_max_negotiation_rounds=_get_positive_int(s, "parties", "coalition_max_negotiation_rounds"),
     )
 
 
