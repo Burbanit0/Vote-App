@@ -9,6 +9,56 @@
 
 ---
 
+## 2026-08-29 (après-midi) — La calibration d'ambition tranchée à 0,30, deux erreurs de vérification corrigées en route, et un flake E2E qui bloque désormais le merge
+
+**Contexte du jour.** Suite directe du matin même (commit `218d1d6`, moitié
+visibilité d'ADR-002 livrée) : exécution de `plan-calibration-ambition.md`,
+la moitié restante — trancher pourquoi la configuration livrée
+(`ambition_threshold=0.7`, `ambition_dist=beta(2,8)`,
+`rupture_path_enabled=false`) ne produit jamais de candidat, et quoi
+corriger.
+
+**Ce qui a avancé**
+- **Phase 1 — la piste « `rupture_path_enabled` était l'accident » testée et écartée.** Sonde déterministe, 40 graines, pipeline réel, durée livrée (320 élections), 3 bras. Bras livré : 312/320 élections à champ candidat vide (reproduit exactement ADR-002). Bras rupture activée seule : 212 élections avec vainqueur mais **86 (26,9 %) toujours sans aucun candidat**. Écartée sur trois motifs : elle remplace le chemin dominant plutôt que le restaurer (476 déclarations de rupture contre 8 dominantes, nomination de parti inerte sur 312/320 élections) ; 58,8 % des élections ont zéro ou un candidat ; et l'hypothèse de coût du plan était **fausse, vérifiée pas supposée** — la piste casse les **mêmes 7 tests** que les options de calibration, parce que la preuve de byte-identité dépend de `nominees == []`, pas d'`ambition_threshold`.
+- Le critère pré-enregistré du §2.2 comptait en « runs » ; le bras rupture atteint 100 % des runs tout en laissant 26,9 % des élections vides. **Unité corrigée en « élection » avant tout sweep.**
+- **Découverte latérale → ADR-003.** `rupture_signature_ratio: 0.005` ne rejette structurellement personne à n=100 : `sympathizer_ratio` compte le citoyen lui-même, donc le ratio plancher à `1/n = 0,01`. Mesuré : 477 495 tirages, 476 succès au pile-ou-face, 476 passages du seuil, **zéro rejet**. L'inertie s'inverse au-dessus de n=200 — à l'échelle v3 (1000 citoyens, déjà sur la feuille de route) le filtre deviendrait vivant sans prévenir. `independent_signature_ratio` est par ailleurs parsé, validé, et lu par aucun code de domaine.
+- **Coût de migration mesuré avant d'implémenter** : 7 tests dépendaient du défaut, pas les 4 annoncés par ADR-002 — dont une **seconde** preuve de byte-identité non identifiée (`test_events_enabled_but_structurally_inert_...`), qui cassait à 64 lignes contre 1485 parce que son bras « off » n'activait pas `awakening` comme son bras « on » : elle ne passait que grâce à la présidence perpétuellement vacante.
+- **Une quatrième option, absente d'ADR-002.** §2.4 définit le chemin dominant comme `ambition_score` **et** le soutien social perçu franchissant un seuil combiné ; `decide_candidacy` ne teste que le premier terme. Le code le dit lui-même ailleurs : `decide_candidacies` (LLM) se décrit comme le remplacement du « bare ambition_score threshold » et alimente le modèle avec les deux signaux.
+- **Erreur de méthode corrigée en cours de route.** La première vérification RNG de l'option 4 comparait `bare @0.7` à `combiné @0.7` et concluait « coût RNG nul » — vérification vide : aux deux règles le pool est vide, les deux runs sont le même run, même classe d'erreur que le postulat de coût de la Phase 1. Refaite sur des bras à pools réellement différents, en comparant option 4 à option 2 plutôt qu'au statu quo cassé, sur l'état final du bit generator plutôt que le nombre d'appels. Conclusion solide : flux `population`/`parties` identiques dans tous les bras ; seul `rupture_rng` bouge, identiquement pour options 2, 4 et le contournement 0.0 ; option 4 contre option 2 au même seuil : aucun flux ne diffère.
+- **Sweep contre le critère pré-enregistré** : trois bras passent (`bare @0,25`, `bare @0,30`, `combiné @0,45`), tous reproduits sur le bloc de graines indépendant 41..80. L'option 4 seule ne suffit pas : au seuil livré 0,7 elle laisse encore 304/320 élections vides (contre 312), une moyenne comprimant au lieu de translater. Le critère ne départage pas les deux règles.
+- **Mesure discriminante ajoutée pour ne pas décider à l'aveugle** : la règle combinée ne déplace le soutien moyen des nominees que de +0,018 (~3 %), parce que `select_party_nominee` prend l'argmax sur `ambition_score` et lave l'effet. La revendication de fond de §2.4 est bloquée en aval par le critère de nomination (§10.10), pas par `decide_candidacy`.
+- **Décision (utilisateur) : option 2, `ambition_threshold` 0.7 → 0.30**, valeur dérivée non ajustée (§2.3 exige ≥ 2 éligibles/parti → plancher 10 %, plafond ~40 %). Mesuré à 0.30 : 20,0 % d'éligibles, 4,0 prétendants/parti, 0/320 élection vide, 100 % avec ≥ 4 partis. Option 4 reportée et explicitement groupée avec §10.10.
+- **Implémenté** : les deux preuves de byte-identité reconstruites sur `institutions.president_term_limit: 0` (champ candidat vide par construction, à chaque tick, pour chaque graine, indépendamment de tout tirage) ; bras « off » du test events corrigé ; 2 nouveaux garde-fous. Suite verte à 1776 tests (1774 avant). ADR-002 fermé, `THEORY.md` corrigé, ADR-003 ouvert. Commit `8470bf3`.
+- **Recadrage de l'utilisateur** : la checklist v3 avait été écrite dans `polity-simulation-design-v2.md` §11.1 — fichier gitignoré ; refus explicite qu'elle reste locale. En la déplaçant, découverte que `docs/v3-readiness-checklist.md` est **aussi** ignoré (`.gitignore` exclut `/docs/*`, ne réinclut que `/docs/adr/` et `/docs/journal/`) — premier commit échoué là-dessus. Atterrie dans `docs/adr/v3-readiness-checklist.md`, avec audit des 27 paramètres en ratio (exactement 2 concernés) et trois autres classes de sensibilité à l'échelle — dont la dérivation de l'`ambition_threshold` qui venait d'être posée (à n=1000, ~40 prétendants/parti au lieu de 4, l'arbitrage de nomination change de nature). Commit `c72c4e5`.
+- **Deux flakes documentés en issues plutôt que laissés sans trace** : #217 (backend, `TestShyVoter::test_rejects_num_polls_above_30`, échec unique non reproductible en 3 relances complètes, hypothèse rate-limiting vérifiée et fausse, diagnostic non établi) et #218 (E2E, `playground-method.spec.ts`, garde-fou anti-flaky ; run précédent sur la même branche vert et commit fautif ne touchant que deux fichiers Markdown — donc non causé par la branche).
+
+**Points bloquants**
+- #218 laisse la PR #216 en `MERGEABLE / UNSTABLE` — tous les autres checks sont verts, seul le garde-fou anti-flaky E2E échoue, sans lien apparent avec cette branche. Pas un blocage dur (`MERGEABLE`), laissé volontairement pour une session dédiée plutôt que d'ouvrir un chantier E2E frontend au milieu de la calibration polity.
+- #217 reste non diagnostiqué et non reproductible — faible urgence, mais sans explication.
+- ADR-003 reste ouvert : trois correctifs candidats nommés, aucun choisi.
+- Le re-baseline des scripts d'acceptance (qui gardent tous `ambition_threshold=0.0` par continuité) n'a pas démarré ; aucun critère écrit pour distinguer un changement de conclusion qualitative d'un simple changement de chiffre avant d'engager le run LLM (~6500s).
+- Option 4 (§2.4) et le critère de nomination §10.10 restent groupés mais non traités ensemble.
+
+**Décisions prises**
+- Écarter la piste `rupture_path_enabled` malgré son coût apparemment nul — *pourquoi* : elle remplace le chemin dominant au lieu de le restaurer et casse le même nombre de tests que les options de calibration, donc n'offre aucun avantage réel.
+- Corriger l'unité du critère pré-enregistré de « run » à « élection » avant tout sweep — *pourquoi* : un critère en runs aurait laissé passer le bras rupture à 100 % alors que 26,9 % de ses élections étaient vides, il était aveugle au problème qu'il devait mesurer.
+- Refaire la vérification RNG de l'option 4 sur des bras à pools réellement différents plutôt que garder la première mesure — *pourquoi* : la première comparaison ne testait rien (pool vide des deux côtés), même classe d'erreur que le postulat de coût de la Phase 1.
+- Retenir l'option 2 (`ambition_threshold` 0.30) et reporter l'option 4 — *pourquoi* : le critère empirique ne départage pas les deux règles, et la mesure discriminante montre que l'option 4 seule ne change presque rien (+0,018 de soutien) tant que le critère de nomination (§10.10) n'est pas rouvert.
+- Reconstruire les preuves de byte-identité sur `institutions.president_term_limit: 0` plutôt que sur un autre contournement — *pourquoi* : mécanisme exact (champ vide par construction) plutôt que distributionnel, plus robuste à toute future recalibration.
+- Déplacer la checklist v3 dans `docs/adr/` plutôt que la laisser dans le fichier gitignoré — *pourquoi* : consigne explicite de l'utilisateur, un document que personne ne peut lire ne remplit pas sa fonction, même logique déjà appliquée aux ADR et au journal.
+- Documenter les deux flakes en issues séparées plutôt que relancer silencieusement le CI — *pourquoi* : consigne du garde-fou anti-flaky lui-même (« a flaky test is a broken test »), et convention déjà établie sur ce projet de ne rien laisser sans trace.
+- Laisser #218 (flake E2E) pour une session dédiée plutôt que le traiter dans la foulée — *pourquoi* : déjà bien caractérisé comme non lié à cette branche (run précédent vert, commit fautif ne touchant que du Markdown), la PR reste `MERGEABLE`, et mélanger un chantier E2E frontend avec la fin de la calibration polity romprait le périmètre maintenu tout du long.
+
+**Prochaines étapes**
+- [ ] Merger la PR #216 (pas de blocage dur ; #218 peut être traité séparément).
+- [ ] Corriger ADR-003, en vérifiant que le correctif ne change **rien** à n=100 — pas seulement qu'il retire le basculement à n=1000.
+- [ ] Re-baseline déterministe des résultats publiés : écrire avant le sweep le critère distinguant « change une conclusion qualitative » de « change juste un chiffre », pour trancher d'avance la décision d'engager le run LLM (~6500s).
+- [ ] Restent ouverts sans urgence : §10.10 + option 4 ensemble (critère de nomination), et le flake #217, et le flake E2E #218 (session dédiée).
+
+**Pour aller plus loin** : `plan-calibration-ambition.md` (protocole complet, §1.1 piste rupture, §2.1bis-2.4 option 4 et sweep, §3.1 coût de migration), `docs/adr/ADR-002-ambition-threshold-blocks-candidacy.md` (calibration tranchée), `docs/adr/ADR-003-ballot-access-filter-is-inert.md` (filtre inerte, décision reportée), `docs/adr/v3-readiness-checklist.md` (audit des 27 paramètres en ratio, 4 classes de sensibilité à l'échelle), `THEORY.md` §10.10, PR #216, issues #217 et #218, commits `8470bf3` et `c72c4e5`.
+
+---
+
 ## 2026-08-29 — Le chantier distribution se referme, et découvre en sortant que la configuration livrée ne peut pas tenir d'élection
 
 **Contexte du jour.** Suite directe de l'entrée du 24/08 : la chaîne causale seed=42 était fermée (positions `uniform` + priorités individualisées favorisent structurellement le Blanc au second tour), mais la décision de corriger restait entièrement ouverte, et la réécriture de `THEORY.md` §10.10 non commitée. Objectif de la période : trancher et implémenter le correctif, le faire vivre sous charge LLM réelle, et fermer le chantier distribution proprement.
