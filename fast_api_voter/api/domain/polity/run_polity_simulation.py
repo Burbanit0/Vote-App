@@ -1095,24 +1095,51 @@ def _form_and_journal_coalition_llm(
     seated, non-initiator party. The initiator designation, the majority
     rule, and the ordering in which willing partners are added stay
     deterministic (see assemble_coalition) -- the LLM contributes
-    willingness and nothing else. Journals one coalition_decision per
-    responder, then the aggregate coalition_formed/coalition_failed event in
-    its existing, unchanged shape, so metrics.py needs no changes."""
+    willingness and nothing else.
+
+    v7 Lot 2: journals one coalition_decision per (round, responder) --
+    `round` is the only additive payload key, so a pre-v7 journal reader
+    that never learned about `round` still sees the exact same event shape
+    it always did. The aggregate event gains `rounds_used` on
+    coalition_formed, or `aborted_at_round`/`rounds_completed` on
+    coalition_failed when decide_coalition caught a round >= 2 failure
+    (see that function's own docstring) -- distinguishes "negotiated to a
+    genuine conclusion, no majority reachable" from "negotiation cut short
+    by an LLM failure", which the pre-v7 single coalition_failed shape could
+    not (plan-coalition-negotiation-v7.md §4)."""
     assert llm_client is not None  # guaranteed by _llm_client_scope when llm.enabled
     outcome = decide_coalition(parties, seats, votes, config, llm_client)
-    for decision in outcome.decisions:
+    for round_number, round_decisions in enumerate(outcome.rounds, start=1):
+        for decision in round_decisions:
+            journal.write(
+                tick=tick,
+                event_type="coalition_decision",
+                payload={
+                    "party_id": decision.party_id,
+                    "action": decision.action,
+                    "initiator": outcome.initiator,
+                    "round": round_number,
+                },
+                motif=str(decision.motif),
+                codebook_version=config.llm.codebook_version,
+            )
+    if outcome.aborted_at_round is not None:
         journal.write(
             tick=tick,
-            event_type="coalition_decision",
-            payload={"party_id": decision.party_id, "action": decision.action, "initiator": outcome.initiator},
-            motif=str(decision.motif),
-            codebook_version=config.llm.codebook_version,
+            event_type="coalition_failed",
+            payload={
+                "coalition": None,
+                "seats": seats,
+                "aborted_at_round": outcome.aborted_at_round,
+                "rounds_completed": len(outcome.rounds),
+            },
         )
-    journal.write(
-        tick=tick,
-        event_type="coalition_formed" if outcome.coalition is not None else "coalition_failed",
-        payload={"coalition": outcome.coalition, "seats": seats},
-    )
+    else:
+        journal.write(
+            tick=tick,
+            event_type="coalition_formed" if outcome.coalition is not None else "coalition_failed",
+            payload={"coalition": outcome.coalition, "seats": seats, "rounds_used": len(outcome.rounds)},
+        )
 
 
 def _response_context(holder: Citizen, config: PolityConfig, tick: int) -> ResponseContext:
