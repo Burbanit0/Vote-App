@@ -104,11 +104,16 @@ together, not raced.
   the value itself, the same treatment ADR-002 got.
 - Nothing is blocked: `rupture_path_enabled` ships `false`, so no shipped
   configuration and no published acceptance run exercises either bar.
-- **The scale flip is registered where it will actually be read**, not only
-  here: `polity-simulation-design-v2.md` §11.1 now carries an explicit
-  verify-at-the-palier checklist, and §13's v3 roadmap entry ("passage à
-  1 000 citoyens") names it as an entry gate. The point of that cross-reference
-  is that v3 is specified as "aucun nouveau paramètre, uniquement un test de
-  robustesse" — which is true and still leaves an existing parameter changing
+- **The scale flip is registered as a runnable gate, not only as a finding
+  here**: `docs/adr/v3-readiness-checklist.md` carries it, together with the
+  generalised rule it is an instance of — *any* threshold expressed as a ratio
+  of the population changes regime with `n` when the measured quantity floors
+  at `k/n`. That file audits all 27 ratio-valued parameters against the rule
+  (exactly two are affected, one of which is this ADR's unread
+  `independent_signature_ratio`) and adds three further scale-sensitivity
+  classes: per-citizen rates whose counts scale linearly, absolute counts
+  calibrated at n=100, and calibrations whose *derivation* assumed the scale.
+  The point is that §13 specifies v3 as "aucun nouveau paramètre, uniquement un
+  test de robustesse" — true, and still leaving existing parameters changing
   behaviour underneath it. Documenting the flip only in this ADR would have
   left it to be rediscovered from the results.
