@@ -3513,18 +3513,81 @@ def test_llm_path_journals_coalition_decision_per_seated_non_initiator_party(tmp
         assert "party_id" in event["payload"]
 
 
-def test_llm_path_aggregate_coalition_payload_shape_is_unchanged(tmp_path):
+def test_llm_path_aggregate_coalition_payload_keeps_coalition_key_shape(tmp_path):
     # metrics.py's is_cohabitation/coalition_lifespans read payload["coalition"]
     # as a plain list[int] | None -- this must never change shape, on either
-    # path, or those consumers break silently.
+    # path, or those consumers break silently. v7 Lot 2 adds "rounds_used"
+    # additively (see plan-coalition-negotiation-v7.md §4); _FakeLlmClient
+    # never fails, so aborted_at_round/rounds_completed never fire here --
+    # see test_llm_path_coalition_negotiation_aborts_gracefully_on_a_round_
+    # two_failure for that shape instead.
     config = _config_with_llm_enabled(tmp_path)
     journal_path = run_simulation(config, run_id="llm-coalition-shape", llm_client=_FakeLlmClient())
     events = _events(journal_path)
     aggregate_events = [e for e in events if e["event_type"] in ("coalition_formed", "coalition_failed")]
     assert aggregate_events
     for event in aggregate_events:
-        assert set(event["payload"].keys()) == {"coalition", "seats"}
+        assert set(event["payload"].keys()) == {"coalition", "seats", "rounds_used"}
         assert event["payload"]["coalition"] is None or isinstance(event["payload"]["coalition"], list)
+
+
+class _CoalitionRoundTwoFailsClient(_FakeLlmClient):
+    """Identical to _FakeLlmClient for every other decision type. Coalition's
+    first round succeeds (unanimous join, same as the parent); every
+    coalition call after that returns malformed JSON, isolating
+    _form_and_journal_coalition_llm's new aborted_at_round branch inside a
+    real run -- not just decide_coalition in isolation (see
+    test_decide_coalition_aborts_gracefully_on_a_round_two_failure in
+    test_polity_llm_behavior_engine.py for that narrower unit test).
+    Party composition never changes in this config (birth/death/split all
+    off), so the responder set is identical across every legislative
+    election -- a plain call counter would misattribute a LATER election's
+    own round 1 as a revision round. The test that uses this fake
+    constrains run.duration_years so only one election ever happens, side-
+    stepping the ambiguity entirely rather than trying to disambiguate it."""
+
+    def __init__(self):
+        self._coalition_calls = 0
+
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        payload = json.loads(user_prompt)
+        if "responders" in payload:
+            self._coalition_calls += 1
+            if self._coalition_calls > 1:
+                return "not json"
+            decisions = [{"party_id": r["party_id"], "action": 1, "motif": 501} for r in payload["responders"]]
+            return json.dumps({"decisions": decisions})
+        return super().complete_json(
+            system_prompt=system_prompt, user_prompt=user_prompt, json_schema=json_schema,
+            max_tokens=max_tokens, think=think,
+        )
+
+
+def test_llm_path_coalition_negotiation_aborts_gracefully_on_a_round_two_failure(tmp_path):
+    config = _config_with_llm_enabled(tmp_path)
+    config = dataclasses.replace(
+        config,
+        run=dataclasses.replace(config.run, duration_years=5),  # exactly one legislative election, see the fake's own docstring
+        llm=dataclasses.replace(config.llm, max_batch_replays=0),
+    )
+    journal_path = run_simulation(config, run_id="llm-coalition-abort", llm_client=_CoalitionRoundTwoFailsClient())
+    events = _events(journal_path)
+
+    failed_events = [e for e in events if e["event_type"] == "coalition_failed"]
+    formed_events = [e for e in events if e["event_type"] == "coalition_formed"]
+    assert len(failed_events) == 1  # isolated to exactly one election, see duration_years above
+    assert formed_events == []
+    event = failed_events[0]
+    assert event["payload"]["coalition"] is None
+    assert event["payload"]["aborted_at_round"] == 2
+    assert event["payload"]["rounds_completed"] == 1
+    assert set(event["payload"].keys()) == {"coalition", "seats", "aborted_at_round", "rounds_completed"}
+
+    # round 1's own decisions are still journaled even though the
+    # negotiation as a whole aborted -- nothing already-completed is lost.
+    decision_events = [e for e in events if e["event_type"] == "coalition_decision"]
+    assert decision_events
+    assert all(e["payload"]["round"] == 1 for e in decision_events)
 
 
 def test_deterministic_path_emits_no_coalition_decision_events(tmp_path):

@@ -1884,6 +1884,43 @@ def test_coalition_user_prompt_top_level_key_is_responders():
     assert "nominees" not in payload
 
 
+def test_coalition_system_prompt_round_one_is_byte_identical_to_omitting_round_number():
+    # v7 Lot 2's own parity requirement (plan-coalition-negotiation-v7.md
+    # §3): round 1 must reproduce the pre-v7 prompt exactly.
+    args = ([1, 2], 0, 30, 100, 50.0)
+    assert build_coalition_system_prompt(*args, round_number=1) == build_coalition_system_prompt(*args)
+
+
+def test_coalition_system_prompt_round_two_names_it_a_revision_round():
+    prompt = build_coalition_system_prompt([1], initiator=0, initiator_seats=30, total_seats=100, majority_seats_threshold=50.0, round_number=2)
+    assert "tour 2" in prompt
+
+
+def test_coalition_user_prompt_round_one_is_byte_identical_to_omitting_prior_state():
+    platforms = {0: (0.0,), 1: (0.3,)}
+    seats = {0: 30, 1: 25}
+    votes = {0: 30.0, 1: 25.0}
+    args = ([1], 0, platforms, seats, votes, 100, 50.0)
+    assert build_coalition_user_prompt(*args, prior_decisions=None, provisional_coalition_seats=None) == build_coalition_user_prompt(*args)
+
+
+def test_coalition_user_prompt_round_two_carries_prior_decision_and_provisional_seats():
+    platforms = {0: (0.0,), 1: (0.3,), 2: (0.6,)}
+    seats = {0: 30, 1: 25, 2: 20}
+    votes = {0: 30.0, 1: 25.0, 2: 20.0}
+    prior = {1: _coalition_decision(1, action=2, motif=504), 2: _coalition_decision(2, action=1, motif=501)}
+    payload = json.loads(
+        build_coalition_user_prompt(
+            [1, 2], 0, platforms, seats, votes, 100, 50.0,
+            prior_decisions=prior, provisional_coalition_seats=50,
+        )
+    )
+    assert payload["assembly"]["provisional_coalition_seats"] == 50
+    responders_by_id = {r["party_id"]: r for r in payload["responders"]}
+    assert responders_by_id[1]["prior_decision"] == {"action": 2, "motif": 504}
+    assert responders_by_id[2]["prior_decision"] == {"action": 1, "motif": 501}
+
+
 # ── decide_coalition (FakeCoalitionLlmClient) ────────────────────────────
 
 class FakeCoalitionLlmClient:
@@ -1957,7 +1994,10 @@ def test_decide_coalition_sorts_responders_by_party_id_regardless_of_input_order
     seats = {3: 10, 0: 30, 1: 25, 2: 20}
     votes = {3: 10.0, 0: 30.0, 1: 25.0, 2: 20.0}
     parties = [Party(party_id=pid, platform=(round(pid * 0.1, 4),)) for pid in (3, 1, 0, 2)]  # deliberately out of order
+    # Pinned to one round -- this test is about ordering, not negotiation;
+    # see the coalition_decision _replay_cases entry for the same reasoning.
     config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, parties=dataclasses.replace(config.parties, coalition_max_negotiation_rounds=1))
     client = FakeCoalitionLlmClient()
 
     decide_coalition(parties, seats, votes, config, client)
@@ -2053,6 +2093,137 @@ def test_decide_coalition_propagates_llm_response_error_on_count_mismatch():
 
     with pytest.raises(LlmResponseError, match="misaligned"):
         decide_coalition(parties, seats, votes, config, ShortClient())
+
+
+def test_decide_coalition_round_one_llm_error_propagates_like_the_pre_v7_single_call():
+    # Round 1's failure behavior must not change -- no new resilience claimed
+    # for a path nothing about v7 touches (see decide_coalition's own
+    # docstring). ShortClient above already covers a decode-time failure;
+    # this covers complete_json raising directly, the other source
+    # _complete_and_decode_with_replay's own docstring names.
+    seats = {0: 45, 1: 25, 2: 30}
+    votes = {0: 45.0, 1: 25.0, 2: 30.0}
+    parties = [Party(party_id=0, platform=(0.0,)), Party(party_id=1, platform=(0.1,)), Party(party_id=2, platform=(0.9,))]
+    config = _config_with_llm_enabled()
+
+    class AlwaysFailsClient:
+        def complete_json(self, **kwargs):
+            raise LlmResponseError("generation did not finish cleanly: done_reason='length'")
+
+    with pytest.raises(LlmResponseError, match="did not finish cleanly"):
+        decide_coalition(parties, seats, votes, config, AlwaysFailsClient())
+
+
+def test_decide_coalition_aborts_gracefully_on_a_round_two_failure():
+    # Round >= 2 is the asymmetric case: caught, not propagated -- see
+    # decide_coalition's own docstring for why this is a deliberate
+    # divergence from round 1's (and every other decide_*'s) behavior.
+    seats = {0: 45, 1: 25, 2: 30}
+    votes = {0: 45.0, 1: 25.0, 2: 30.0}
+    parties = [Party(party_id=0, platform=(0.0,)), Party(party_id=1, platform=(0.1,)), Party(party_id=2, platform=(0.9,))]
+    config = _config_with_llm_enabled()
+
+    class FailsFromRoundTwoClient:
+        def __init__(self):
+            self.calls = 0
+
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+            self.calls += 1
+            if self.calls > 1:
+                raise LlmResponseError("generation did not finish cleanly: done_reason='length'")
+            payload = json.loads(user_prompt)
+            decisions = [{"party_id": r["party_id"], "action": 1, "motif": 501} for r in payload["responders"]]
+            return json.dumps({"decisions": decisions})
+
+    client = FailsFromRoundTwoClient()
+    outcome = decide_coalition(parties, seats, votes, config, client)
+
+    assert outcome.coalition is None
+    assert outcome.aborted_at_round == 2
+    assert len(outcome.rounds) == 1  # round 1's decisions were kept, not discarded
+    assert outcome.decisions == outcome.rounds[0]
+    assert client.calls == 2
+
+
+def test_decide_coalition_stops_early_on_a_fixed_point_before_the_hard_cap():
+    seats = {0: 45, 1: 25, 2: 30}
+    votes = {0: 45.0, 1: 25.0, 2: 30.0}
+    parties = [Party(party_id=0, platform=(0.0,)), Party(party_id=1, platform=(0.1,)), Party(party_id=2, platform=(0.9,))]
+    config = _config_with_llm_enabled()
+    # Cap well above what convergence actually needs, so an early stop here
+    # is unambiguously the fixed-point check firing, not the hard cap.
+    config = dataclasses.replace(config, parties=dataclasses.replace(config.parties, coalition_max_negotiation_rounds=5))
+
+    class ConvergesAtRoundThreeClient:
+        """Round 1 (no prior_decision yet): party 1 declines. Round >= 2
+        (prior_decision now present): everyone joins, including party 1
+        reconsidering -- exactly the conditional-reasoning case v7 exists
+        for. Round 3 repeats round 2's answer, so round 3 is a fixed point
+        even though round 1 != round 2."""
+
+        def __init__(self):
+            self.calls = 0
+
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+            self.calls += 1
+            payload = json.loads(user_prompt)
+            decisions = []
+            for r in payload["responders"]:
+                if r.get("prior_decision") is None:
+                    action, motif = (2, 504) if r["party_id"] == 1 else (1, 501)
+                else:
+                    action, motif = 1, 501
+                decisions.append({"party_id": r["party_id"], "action": action, "motif": motif})
+            return json.dumps({"decisions": decisions})
+
+    client = ConvergesAtRoundThreeClient()
+    outcome = decide_coalition(parties, seats, votes, config, client)
+
+    assert client.calls == 3
+    assert len(outcome.rounds) == 3
+    assert outcome.aborted_at_round is None
+    # both responders end up joining by round 3, but assemble_coalition's own
+    # short-circuit (ascending distance to initiator, stop once majority is
+    # cleared) never needs party 2 once party 1's 25 seats alone push the
+    # 45-seat initiator past the 50-seat threshold (45+25=70>50) -- this
+    # assertion is about that existing, unchanged assembly logic, not v7.
+    assert outcome.coalition == [0, 1]
+    # round 1's own outcome is still visible in the transcript, distinct from the final answer
+    assert {d.party_id: d.action for d in outcome.rounds[0]} == {1: 2, 2: 1}
+
+
+def test_decide_coalition_stops_at_the_hard_cap_when_never_converging():
+    seats = {0: 45, 1: 25, 2: 30}
+    votes = {0: 45.0, 1: 25.0, 2: 30.0}
+    parties = [Party(party_id=0, platform=(0.0,)), Party(party_id=1, platform=(0.1,)), Party(party_id=2, platform=(0.9,))]
+    config = _config_with_llm_enabled()  # shipped default: coalition_max_negotiation_rounds=3
+
+    class NeverConvergesClient:
+        """Flips every responder's action relative to their own prior round
+        -- can never reach a fixed point by construction."""
+
+        def __init__(self):
+            self.calls = 0
+
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+            self.calls += 1
+            payload = json.loads(user_prompt)
+            decisions = []
+            for r in payload["responders"]:
+                prior = r.get("prior_decision")
+                action, motif = (1, 501) if prior is None or prior["action"] == 2 else (2, 504)
+                decisions.append({"party_id": r["party_id"], "action": action, "motif": motif})
+            return json.dumps({"decisions": decisions})
+
+    client = NeverConvergesClient()
+    outcome = decide_coalition(parties, seats, votes, config, client)
+
+    assert client.calls == config.parties.coalition_max_negotiation_rounds == 3
+    assert len(outcome.rounds) == 3
+    assert outcome.aborted_at_round is None  # exhausting the cap is not a failure
+    # rounds alternate JOIN/LEAVE/JOIN by construction -- round 1 and round 3 agree, round 2 differs from both
+    assert outcome.rounds[0] != outcome.rounds[1]
+    assert outcome.rounds[1] != outcome.rounds[2]
 
 
 # ── menu_acts (v4 Lot 7) ──────────────────────────────────────────────────
@@ -2823,7 +2994,17 @@ def _replay_cases():
         ),
         (
             "coalition_decision",
-            lambda config, client: decide_coalition(coalition_parties, coalition_seats, coalition_votes, config, client),
+            # Pinned to a single round: this test is about
+            # _complete_and_decode_with_replay's generic retry behavior,
+            # not v7's multi-round negotiation -- at the shipped default
+            # (3 rounds), a converged FlakyClient would trigger a SECOND
+            # round (to check for a fixed point) and inflate client.calls
+            # beyond what this shared, parametrized test expects.
+            lambda config, client: decide_coalition(
+                coalition_parties, coalition_seats, coalition_votes,
+                dataclasses.replace(config, parties=dataclasses.replace(config.parties, coalition_max_negotiation_rounds=1)),
+                client,
+            ),
             coalition_good,
         ),
         (

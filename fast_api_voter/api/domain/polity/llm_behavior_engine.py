@@ -2360,11 +2360,28 @@ class CoalitionBatchOutcome:
     decisions: list[CoalitionDecision]
     initiator: int | None
     coalition: list[int] | None
+    rounds: list[list[CoalitionDecision]] = field(default_factory=list)
+    aborted_at_round: int | None = None
     """Already assembled into form_coalition's exact return shape
     (list[int] | None) -- only this module has the platform/seat context the
     assembly needs, mirroring how cast_votes resolves positions into ballots
     internally rather than exposing raw wire values. metrics.py consumes
-    this unchanged."""
+    this unchanged.
+
+    v7 Lot 2: `decisions` keeps its pre-v7 meaning -- the FINAL round's
+    resolved decisions, so every caller that only ever looked at `decisions`/
+    `coalition`/`initiator` needs no change. `rounds` is additive: `rounds[i]`
+    is round i+1's own decisions, in order, so a caller that wants the full
+    negotiation transcript (the journal writer, see plan-coalition-
+    negotiation-v7.md §4) can journal one coalition_decision event per
+    (round, party) instead of collapsing straight to the final answer.
+    `decisions == rounds[-1]` always holds except when `aborted_at_round` is
+    set, in which case `decisions` is the last round that DID complete (for
+    diagnostic visibility) but `coalition` is always None -- an aborted
+    negotiation is never treated as equivalent to a concluded one, since the
+    model might have been about to change its mind (that is the entire
+    reason to run more rounds); see decide_coalition's own docstring for why
+    only round >= 2 failures reach this path."""
 
 
 def build_coalition_system_prompt(
@@ -2373,6 +2390,7 @@ def build_coalition_system_prompt(
     initiator_seats: int,
     total_seats: int,
     majority_seats_threshold: float,
+    round_number: int = 1,
 ) -> str:
     """Mirrors build_party_nomination_system_prompt's "enumerate the full
     expected id list verbatim + self-check" discipline (Finding B), keyed on
@@ -2386,8 +2404,25 @@ def build_coalition_system_prompt(
     enforces it strictly. No coalition-theory framing anywhere in this
     prompt (§3.3 -- no "prefer a minimal winning coalition", no strategy
     hint of any kind): only the rules of the game and the closed code
-    tables."""
+    tables.
+
+    v7 Lot 2: `round_number` is additive, defaults to 1, and produces
+    byte-identical output to the pre-v7 prompt when omitted -- round 1's own
+    parity requirement (plan-coalition-negotiation-v7.md §3). round_number
+    > 1 adds exactly one sentence naming this a revision round; everything
+    else (rules, self-check discipline) is unchanged, since what a revision
+    actually SEES is carried entirely by build_coalition_user_prompt's own
+    prior_decisions/provisional_coalition_seats, not by this prompt."""
     party_id_list = ",".join(str(pid) for pid in responder_party_ids)
+    round_sentence = (
+        ""
+        if round_number == 1
+        else (
+            f"Ceci est le tour {round_number} d'une negociation multi-tours : ta reponse au "
+            "tour precedent et l'etat provisoire de la coalition te sont rappeles ci-dessous. "
+            "Tu peux maintenir ta decision precedente ou en changer, a la lumiere de cet etat.\n"
+        )
+    )
     return (
         f"Tu es un moteur de simulation. Le parti {initiator} (avec "
         f"{initiator_seats} sieges) vient d'etre designe formateur et "
@@ -2395,7 +2430,7 @@ def build_coalition_system_prompt(
         "recu, decide s'il rejoint cette coalition (action=1) ou refuse "
         "(action=2), a partir de sa propre position, de sa proximite avec "
         "le formateur, de son nombre de sieges, et de ce qu'il manque au "
-        f"formateur pour la majorite.\nL'assemblee compte {total_seats} "
+        f"formateur pour la majorite.\n{round_sentence}L'assemblee compte {total_seats} "
         "sieges au total ; la coalition doit depasser strictement "
         f"{majority_seats_threshold} sieges pour atteindre la majorite.\n"
         f"Actions valides :\n{COALITION_ACTION_PROMPT_TABLE}\nMotifs "
@@ -2419,6 +2454,8 @@ def build_coalition_user_prompt(
     votes: dict[int, float],
     total_seats: int,
     majority_seats_threshold: float,
+    prior_decisions: Mapping[int, CoalitionDecision] | None = None,
+    provisional_coalition_seats: int | None = None,
 ) -> str:
     """Canonical JSON (sort_keys, compact separators, rounded floats), same
     reproducibility discipline as every prior prompt builder.
@@ -2427,11 +2464,20 @@ def build_coalition_user_prompt(
     verbatim id list and this user prompt describe one order, not two.
     `distance_to_initiator` reuses form_coalition's own unweighted
     math.dist convention, not the voter-tolerance-specific
-    weighted_distance. Deliberately does NOT include a roster of the other
-    responders' own context (§3.3 -- a single-shot call cannot express "I
-    join iff party X joins"; that conditional-coalition reasoning is what
-    the deferred v7 multi-turn negotiation palier, §3.4 Cas 2, exists
-    for)."""
+    weighted_distance.
+
+    v7 Lot 2: `prior_decisions`/`provisional_coalition_seats` are additive,
+    both default to None, and produce byte-identical JSON to the pre-v7
+    single-shot prompt when omitted -- round 1's own parity requirement
+    (plan-coalition-negotiation-v7.md §3). When provided (round >= 2), each
+    responder block gains its own prior round's `{"action", "motif"}`, and
+    the "assembly" block gains the coalition's current provisional seat
+    total -- the state that makes "I join iff party X joins" conditional
+    reasoning possible, the single-shot gap this whole palier exists to
+    close (see the pre-v7 docstring this replaces, kept in git history).
+    Deliberately NOT a verbatim transcript of every prior round: a mutable
+    snapshot, like chamber_position, not a growing log (plan doc §4) --
+    keeps prompt size bounded regardless of how many rounds have run."""
     initiator_shortfall = max(0.0, majority_seats_threshold - seats[initiator])
     responder_blocks = [
         {
@@ -2439,16 +2485,29 @@ def build_coalition_user_prompt(
             "seats": seats[pid],
             "votes": round(votes.get(pid, 0.0), 4),
             "distance_to_initiator": round(math.dist(party_platforms[pid], party_platforms[initiator]), 4),
+            **(
+                {
+                    "prior_decision": {
+                        "action": prior_decisions[pid].action,
+                        "motif": prior_decisions[pid].motif,
+                    }
+                }
+                if prior_decisions is not None
+                else {}
+            ),
         }
         for pid in responder_party_ids
     ]
+    assembly_block: dict[str, Any] = {
+        "total_seats": total_seats,
+        "majority_seats_threshold": round(majority_seats_threshold, 4),
+        "initiator_shortfall": round(initiator_shortfall, 4),
+    }
+    if provisional_coalition_seats is not None:
+        assembly_block["provisional_coalition_seats"] = provisional_coalition_seats
     return json.dumps(
         {
-            "assembly": {
-                "total_seats": total_seats,
-                "majority_seats_threshold": round(majority_seats_threshold, 4),
-                "initiator_shortfall": round(initiator_shortfall, 4),
-            },
+            "assembly": assembly_block,
             "initiator": {
                 "party_id": initiator,
                 "platform": [round(x, 4) for x in party_platforms[initiator]],
@@ -2559,7 +2618,38 @@ def decide_coalition(
     Calls the client with think=False, the same guess as increments 3/4's
     comparative-judgment prompt shape ("do you join THIS coalition"),
     flagged for live verification rather than assumed -- see
-    test_polity_llm_live.py."""
+    test_polity_llm_live.py.
+
+    v7 Lot 2 (§3.4 Cas 2): what was a single batched call is now a bounded
+    loop of up to config.parties.coalition_max_negotiation_rounds rounds,
+    each an ordinary batched call over the SAME full responder set (never
+    narrowed -- a party that already answered can still revise in a later
+    round, which is the entire point: round 1 alone cannot express "I join
+    iff party X joins"). Stops on whichever comes first: the hard round cap,
+    or every responder's action matching the previous round's (a fixed
+    point -- a motif-only change does not count, since it doesn't change
+    assemble_coalition's result). Round 1's own prompts are byte-identical
+    to the pre-v7 single-shot call (build_coalition_*_prompt's own
+    parity-by-construction, tested directly) -- round 1 always runs even at
+    the shipped default (3), so results a caller obtained before v7 do not
+    silently change shape, only the number of calls does.
+
+    Round >= 2 failure handling is deliberately asymmetric with round 1:
+    round 1's LlmResponseError propagates exactly as the pre-v7 single call
+    did (no behaviour change for that path). A round >= 2 failure is instead
+    caught and converted into an outcome with `coalition=None` and
+    `aborted_at_round` set -- unlike every other decide_* function, a failed
+    coalition negotiation already has a legitimate, non-crashing domain
+    outcome to degrade to (coalition_failed already exists for "no majority
+    reachable"; there is no equivalent soft outcome for e.g. a citizen who
+    fails to vote). Round 1 keeps the old propagate-and-abort-the-run
+    behaviour specifically because nothing about it changed -- there is no
+    new resilience to claim there that wasn't already a design choice this
+    lot could make. See plan-coalition-negotiation-v7.md §4 for the
+    reasoning and its own explicit limit: this protects only an
+    intra-process retry (rounds already computed, never regenerated); a full
+    run restart is not protected, exactly like every other decide_* call
+    already is not (§4.3's accepted non-determinism limit)."""
     _check_supported(config)
 
     party_platforms = {party.party_id: party.platform for party in parties}
@@ -2579,23 +2669,59 @@ def decide_coalition(
     if not responders:
         return CoalitionBatchOutcome(decisions=[], initiator=initiator, coalition=None)
 
-    decisions = _complete_and_decode_with_replay(
-        client,
-        system_prompt=build_coalition_system_prompt(
-            responders, initiator, seats[initiator], total_seats, threshold
-        ),
-        user_prompt=build_coalition_user_prompt(
-            responders, initiator, party_platforms, seats, votes, total_seats, threshold
-        ),
-        json_schema=COALITION_JSON_SCHEMA,
-        max_tokens=compute_max_tokens(len(responders)),
-        think=False,
-        decode=lambda raw: decode_coalition_batch(raw, responders),
-        replays=config.llm.max_batch_replays,
-        decision_type="coalition_decision",
-    )
-    for decision in decisions:
-        validate_coalition_decision(decision, seats, initiator)
+    all_rounds: list[list[CoalitionDecision]] = []
+    prior_by_party: dict[int, CoalitionDecision] | None = None
+    provisional_seats: int | None = None
+    round_number = 1
+    while True:
+        try:
+            round_decisions = _complete_and_decode_with_replay(
+                client,
+                system_prompt=build_coalition_system_prompt(
+                    responders, initiator, seats[initiator], total_seats, threshold,
+                    round_number=round_number,
+                ),
+                user_prompt=build_coalition_user_prompt(
+                    responders, initiator, party_platforms, seats, votes, total_seats, threshold,
+                    prior_decisions=prior_by_party,
+                    provisional_coalition_seats=provisional_seats,
+                ),
+                json_schema=COALITION_JSON_SCHEMA,
+                max_tokens=compute_max_tokens(len(responders)),
+                think=False,
+                decode=lambda raw: decode_coalition_batch(raw, responders),
+                replays=config.llm.max_batch_replays,
+                decision_type="coalition_decision",
+            )
+        except LlmResponseError:
+            if round_number == 1:
+                raise
+            return CoalitionBatchOutcome(
+                decisions=all_rounds[-1],
+                initiator=initiator,
+                coalition=None,
+                rounds=all_rounds,
+                aborted_at_round=round_number,
+            )
 
-    coalition = assemble_coalition(decisions, initiator, party_platforms, seats, majority_ratio)
-    return CoalitionBatchOutcome(decisions=decisions, initiator=initiator, coalition=coalition)
+        for decision in round_decisions:
+            validate_coalition_decision(decision, seats, initiator)
+        all_rounds.append(round_decisions)
+
+        current_by_party = {d.party_id: d for d in round_decisions}
+        converged = prior_by_party is not None and all(
+            prior_by_party[pid].action == current_by_party[pid].action for pid in responders
+        )
+        if converged or round_number >= config.parties.coalition_max_negotiation_rounds:
+            break
+
+        prior_by_party = current_by_party
+        joiners = [pid for pid, d in current_by_party.items() if d.action == CoalitionAction.JOIN.value]
+        provisional_seats = seats[initiator] + sum(seats[pid] for pid in joiners)
+        round_number += 1
+
+    final_decisions = all_rounds[-1]
+    coalition = assemble_coalition(final_decisions, initiator, party_platforms, seats, majority_ratio)
+    return CoalitionBatchOutcome(
+        decisions=final_decisions, initiator=initiator, coalition=coalition, rounds=all_rounds
+    )
