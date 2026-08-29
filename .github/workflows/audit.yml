@@ -17,6 +17,17 @@ on:
     branches: [main, develop]
   schedule:
     - cron: "0 6 * * 1" # weekly Monday 06:00 UTC
+  # Required by GitHub's merge queue: once enabled on `develop`, each queued
+  # PR is re-tested against the up-to-date base via this event before it
+  # actually merges. All 4 required-check jobs here (Semgrep SAST, Secret
+  # Scan, Dependencies/Containers & Misconfig, Code Quality — see
+  # scripts/setup-branch-protection.sh) are pure code scans, safe to rerun
+  # under any event. branch-policy.yml deliberately does NOT get this
+  # trigger: it reads github.head_ref / the PR title, neither of which
+  # exists in the merge_group context, and re-validating branch naming on
+  # a merge-queue's temporary commit is meaningless anyway (it already
+  # passed that check to enter the queue).
+  merge_group:
 
 permissions:
   contents: read
