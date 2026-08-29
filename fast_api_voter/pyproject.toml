@@ -35,19 +35,31 @@ exclude = ["api/tests/"]
 
 [tool.mutmut]
 # First pass, scoped deliberately (see prompt-mutation-testing.md). The doc's
-# §1 scope named two files; this pass covers only one of them —
-# api/domain/theory/workers.py is EXCLUDED here, not by the doc's choice but
-# by a tooling incompatibility discovered while setting this up (see
-# prompt-mutation-testing.md's companion note / PR description): its only
-# test coverage runs through FastAPI's TestClient (test_theory_batch1-4.py),
-# and mutmut 3.7.0 runs pytest in-process, repeatedly, inside the same
-# interpreter — every attempt to include any TestClient-based test in the
-# selection reproducibly broke with "NumPy module reloaded" + asyncio
-# "cancelled via cancel scope" / "invalid state" errors during mutmut's own
-# stats-gathering pass (reproduced 3x; the exact same pytest invocation and
-# flags run clean outside mutmut, isolating this to mutmut's in-process
-# re-exec model, not a bug in the test suite itself). Flagged for a decision
-# rather than worked around silently — see the PR description.
+# §1 scope named two files; api/domain/theory/workers.py was EXCLUDED here at
+# first, not by the doc's choice but by a tooling incompatibility discovered
+# while setting this up (see prompt-mutation-testing.md's companion note / PR
+# description): its only test coverage ran through FastAPI's TestClient
+# (test_theory_batch1-4.py), and mutmut 3.7.0 runs pytest in-process,
+# repeatedly, inside the same interpreter — every attempt to include any
+# TestClient-based test in the selection reproducibly broke with "NumPy
+# module reloaded" + asyncio "cancelled via cancel scope" / "invalid state"
+# errors during mutmut's own stats-gathering pass (reproduced 3x; the exact
+# same pytest invocation and flags run clean outside mutmut, isolating this
+# to mutmut's in-process re-exec model, not a bug in the test suite itself).
+#
+# UPDATE (2026-08-29): the incompatibility lives in the TEST FILES (TestClient
+# coupling), not in workers.py itself — the module has zero FastAPI/Pydantic
+# coupling of its own (confirmed by reading + grep). test_theory_pure.py calls
+# 11 of its 15 `_xxx_worker(data: dict) -> (body, status)` functions directly
+# with a plain dict, with no TestClient/fastapi/numpy import anywhere in that
+# file, so mutmut's auto-detection can select it — added to source_paths and
+# the selection below. The other 4 workers (_plott_chaos_worker,
+# _agenda_manipulation_worker, _manipulation_analysis_worker,
+# _democratic_backsliding_worker) touch numpy directly and stay excluded: no
+# file in this selection has imported numpy before, so whether mutmut's
+# in-process reload failure is specifically a TestClient problem or a numpy
+# problem is still untested — confirm on a clean run of the 11-worker file
+# before adding the numpy-touching 4 (also blocked on the regression below).
 #
 # 🔴 REGRESSION (2026-08-29): the entire mutmut job (both files, no test-file
 # changes needed to trigger it) now fails deterministically before producing
@@ -73,6 +85,12 @@ source_paths = [
     # both deserve the same "do the tests actually assert, or just execute?"
     # check — mutating only the ordinal half left half the invariant unmeasured.
     "api/engine/utils/simulation_score_utils.py",
+    # 11 of 15 workers here are numpy-free and now have direct-call tests
+    # (test_theory_pure.py) that mutmut's auto-detection can select — see the
+    # UPDATE (2026-08-29) note above. The 4 numpy-touching workers are not
+    # covered here; they stay excluded pending confirmation numpy itself
+    # doesn't retrigger the in-process reload failure.
+    "api/domain/theory/workers.py",
 ]
 # mutmut's mutants/ working copy only contains source_paths + also_copy —
 # our tests live at api/tests/ (not the top-level tests/ mutmut assumes by
@@ -145,6 +163,7 @@ pytest_add_cli_args_test_selection = [
     "api/tests/test_smith_irv.py",
     "api/tests/test_split_cycle.py",
     "api/tests/test_star_runoff_tie.py",
+    "api/tests/test_theory_pure.py",
     "api/tests/test_two_round.py",
 ]
 # WHAT THE WIDER RUN REVEALED, and what it did not fix:
