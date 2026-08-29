@@ -193,6 +193,31 @@ def test_distribution_orders_candidates_by_ballot_count():
     assert out["method"] == "Score Distribution Analysis"
 
 
+def test_distribution_drops_out_of_range_scores_silently():
+    """`0 <= score <= bins[-1]` guards both ends. A negative score or one above
+    the top of the scale must be excluded from the distribution entirely —
+    not clamped into the first/last bin, not counted in `total`."""
+    votes = [{"A": -1.0}, {"A": 0.2}, {"A": 5.5}, {"A": 4.0}]
+    out = get_score_distribution_analysis(votes)
+
+    row = out["details"][0]
+    assert row["total"] == 2, "only 0.2 and 4.0 are in [0, 5]"
+    assert sum(row["distribution"]) == 2
+
+
+def test_distribution_mode_tie_keeps_the_lower_bin():
+    """`max(..., key=...)` returns the FIRST maximum on a tie: when two bins are
+    equally full, the lower-scoring bin is reported as the mode, not the
+    higher one — pins which side of the tie the mutation operators can flip."""
+    votes = [{"A": 0.0}, {"A": 4.9}]  # bin 0 and bin 9, each count 1
+    out = get_score_distribution_analysis(votes)
+
+    row = out["details"][0]
+    assert row["distribution"][0] == 1
+    assert row["distribution"][9] == 1
+    assert row["mode_range"] == "0.0-0.5"
+
+
 # ------------------------------------------------------------ majority judgment
 
 
@@ -266,6 +291,39 @@ def test_majority_judgment_reports_a_full_grade_distribution():
     assert out["grade_distributions"]["A"] == [1, 0, 0, 0, 0, 2]
     assert out["grades"]["A"]["Excellent"] == 2
     assert out["grades"]["A"]["À Rejeter"] == 1
+
+
+def test_majority_judgment_iterative_tiebreak_can_still_swap_the_ranking():
+    """A and B tie exactly on (median, gauge): both median 'Bien' (3), gauge
+    diff 0. The gauge tiebreak alone can't separate them, so the iterative
+    step fires: drop one median-valued grade from each and recompute.
+
+    A: grades [Assez Bien, Bien, Très Bien] -> drop the Bien -> [Assez Bien,
+    Très Bien], new median Assez Bien (2).
+    B: grades [Bien, Bien, Bien] -> drop one Bien -> [Bien, Bien], median
+    stays Bien (3).
+
+    B's post-drop median (3) beats A's (2), so B overtakes A — a real rank
+    swap, not just a reached-and-noop branch. This also pins two things
+    nothing else asserts: the reported "medians" reflect the POST-tiebreak
+    grades (not the original tied median both started at), and "scores" (the
+    continuous weighted average) is computed over the shrunk, post-drop grade
+    list.
+    """
+    votes = [
+        {"A": 0.40, "B": 0.55},  # A: Assez Bien, B: Bien
+        {"A": 0.55, "B": 0.55},  # A: Bien,       B: Bien
+        {"A": 0.75, "B": 0.55},  # A: Très Bien,  B: Bien
+    ]
+    out = get_majority_judgment_winner(votes)
+
+    assert out["winner"] == "B"
+    assert out["medians"]["A"] == "Assez Bien"  # post-drop, not the original "Bien"
+    assert out["medians"]["B"] == "Bien"
+    assert out["grade_distributions"]["A"] == [0, 0, 1, 0, 1, 0]
+    assert out["grade_distributions"]["B"] == [0, 0, 0, 2, 0, 0]
+    assert out["scores"]["A"] == pytest.approx(3.0)  # (2+4)/2 over the shrunk list
+    assert out["scores"]["B"] == pytest.approx(3.0)  # (3+3)/2 over the shrunk list
 
 
 def test_majority_judgment_empty_ballots_have_no_winner():
