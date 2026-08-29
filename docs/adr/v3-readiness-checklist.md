@@ -1,6 +1,6 @@
 # v3 readiness checklist — what to verify *before* `population_size: 100 → 1000`
 
-**Status**: open gate, nothing here has been run
+**Status**: open gate — Class A1 resolved 2026-08-29, everything else unrun
 **Owner of the trigger**: whoever starts §13's v3 milestone
 **Date opened**: 2026-08-29 (out of `ADR-003-ballot-access-filter-is-inert.md`)
 
@@ -42,7 +42,7 @@ against this rule. **Exactly two are affected, and one of them is dead code.**
 
 | Parameter | Compared against | Floor | Affected? |
 |---|---|---|---|
-| `candidacy.rupture_signature_ratio` (0.005) | `sympathizer_ratio`, which counts the citizen themself | `1/n` | **YES — flips between 200 and 1000** |
+| `candidacy.rupture_signature_ratio` (0.005) | `ballot_access_signature_ratio` (was `sympathizer_ratio`) | ~~`1/n`~~ **fixed 2026-08-29** | **RESOLVED — see A1** |
 | `candidacy.independent_signature_ratio` (0.01) | nothing — **parsed, validated, read by no domain code** | `1/n` | **YES in theory, moot in fact** (ADR-003) |
 | `institutions.electoral_threshold` (0.05) | `votes / total_votes` (`ballot_and_aggregation.py:117`) | `1/total_votes` | no — floor is far below 0.05 at both scales |
 | `institutions.blank_invalidation_threshold` (0.5) | `blank_share`, a share of cast ballots | `1/len(ballots)` | no |
@@ -50,26 +50,45 @@ against this rule. **Exactly two are affected, and one of them is dead code.**
 | `parties.coalition_majority_ratio` (0.5) | seat share, keyed to `assembly_seats` (100) | independent of `population_size` | no |
 | the other 21 | decay rates, amplitudes, probabilities, per-tick deltas — never a population-derived share | — | no |
 
-### A1. `rupture_signature_ratio` — the confirmed flip
+### A1. `rupture_signature_ratio` — RESOLVED 2026-08-29, kept here for the record
 
-- **Today (n=100)**: `sympathizer_ratio` floors at `1/100 = 0.01 ≥ 0.005`, so
-  the bar rejects **nobody**. Measured over 40 seeds at shipped duration:
-  477 495 draws, 476 coin-flip passes, **476 signature passes, zero
-  rejections**. The rupture path is a pure per-tick coin flip.
-- **At n=1000**: the floor drops to `0.001 < 0.005`. The bar becomes live — a
-  citizen needs **at least 5 sympathisers** to declare.
-- **To run**: re-execute the ADR-003 probe at both scales with
-  `rupture_path_enabled: true` and publish the **rejection rate** of the
-  signature bar. Expected: 0% at n=100, strictly positive at n=1000.
-- **What would be a surprise**: a rejection rate still at 0% at n=1000 (means
-  `sympathizer_ratio` is saturating and the bar is inert for a *different*
-  reason — worth knowing), or a rate so high that the rupture path effectively
-  closes.
-- **Decide before running, not after**: whether the intended design is a bar
-  that binds at scale or one that never binds. ADR-003 lists three candidate
-  repairs (exclude self from the count; express the bar in absolute
-  signatures; wire or delete `independent_signature_ratio`) and deliberately
-  picks none. **Pick one before v3, not during.**
+**Was**: `sympathizer_ratio` floored at `1/n` (every citizen counts
+themself), which made the bar structurally unreachable at
+`population_size <= 200` and would have flipped it live above 200 —
+477 495 draws at n=100, 476 coin-flip passes, **476 signature passes, zero
+rejections**, the rupture path a pure per-tick coin flip.
+
+**Fix (ADR-003, option 1)**: `attempt_rupture_candidacy` now gates on a new
+`ballot_access_signature_ratio`, which excludes the citizen from their own
+count. `sympathizer_ratio` itself is untouched — it has two other call sites
+feeding the LLM's "perceived support" signal, out of scope of this fix.
+
+**Re-run at both scales, not assumed**: the predicted "strictly positive
+rejection rate at n=1000" **did not happen**. Same 40-seed protocol, both
+shipped `position_dist` values, both formulas, both scales:
+
+| `population_size` | `position_dist` | evaluations | OLD rejects | NEW rejects |
+|---|---|---|---|---|
+| 100 | `factor_structure` | 472 | 0 | 0 |
+| 100 | `uniform` | 477 | 0 | 0 |
+| 1000 | `factor_structure` | 4 858 | 0 | 0 |
+| 1000 | `uniform` | 4 859 | 0 | 0 |
+
+**Zero rejections in every cell, both before and after the fix.** The floor
+crossing at n>200 is necessary for a rejection to be *possible*, not
+sufficient for one to actually happen — under this project's
+`blank_threshold_dist: beta(3,5)` (mean 0.375), nobody the generator produces
+is ever isolated enough to fail even the old, self-inclusive bar, at either
+scale. Confirmed the mechanism is nonetheless real with a hand-built isolated
+citizen (n=101, nobody within anybody's tolerance): OLD accepts
+(`1/101 ≈ 0.0099 ≥ 0.005`), NEW correctly rejects (`0.0 < 0.005`).
+
+**Lesson for the next Class-A item found**: "the floor crosses the threshold
+mathematically" is not the same claim as "the bar will actually bind" — the
+second one needs the same re-measurement this one got, against the real
+population generator, not inferred from the arithmetic alone.
+
+Full writeup: `docs/adr/ADR-003-ballot-access-filter-is-inert.md`.
 
 ### A2. `independent_signature_ratio` — fix before, not during
 
@@ -83,9 +102,12 @@ acquire a second live ballot-access bar at the same moment as A1.
 
 - **`candidacy.rupture_base_probability` (0.001 per citizen per tick).**
   Expected declarations scale with `n × ticks`. Measured at n=100: ~476
-  declarations across 40 runs of 121 ticks (~11.9 per run). At n=1000, expect
-  **~10× that per run**, interacting with A1 in the opposite direction (more
-  attempts, each now filterable).
+  declarations across 40 runs of 121 ticks (~11.9 per run); at n=1000, ~4 860
+  (~10×, as expected — confirmed directly while re-measuring A1, not just
+  extrapolated). A1's fix does **not** cut into this at n=1000 the way it was
+  expected to: zero of those ~4 860 were rejected by the (now-correct)
+  signature bar, so the 10× growth in declarations is not damped by A1 at
+  all under the shipped `blank_threshold_dist`.
 - **To run**: report expected and observed declaration counts at both scales
   *before* interpreting any v3 electoral result.
 
@@ -125,12 +147,15 @@ the problem.
 
 ## Order of operations
 
-1. Settle A2 (wire or delete the unread parameter) — cheapest, and it removes
-   a confound from every measurement below.
-2. Decide A1's intended design, then measure it at both scales.
-3. Measure B and C at both scales; they interact (B feeds C's cap).
+1. ~~Decide A1's intended design, then measure it at both scales.~~ **Done
+   2026-08-29** — see A1 above.
+2. Settle A2 (wire or delete the unread parameter) — cheapest remaining item,
+   and it removes a confound from every measurement below.
+3. Measure B and C at both scales; they interact (B feeds C's cap). B is
+   partly done (A1's re-measurement confirmed the ~10× growth directly), C is
+   not.
 4. Re-examine D's mechanism, not its value.
 5. Only then run the v3 robustness comparison §13 actually asks for.
 
 Running step 5 first is the failure mode this file exists to prevent: a v3
-result set that differs from v2 for four documented reasons nobody separated.
+result set that differs from v2 for reasons nobody separated.

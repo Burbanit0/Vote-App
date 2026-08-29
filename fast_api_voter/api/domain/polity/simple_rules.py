@@ -214,6 +214,34 @@ def sympathizer_ratio(citizen: Citizen, population: list[Citizen]) -> float:
     return sympathizers / len(population)
 
 
+def ballot_access_signature_ratio(citizen: Citizen, population: list[Citizen]) -> float:
+    """ADR-003's fix: §2.3's ballot-access threshold ("parrainages simulés"),
+    for the rupture path's signature bar (rupture_signature_ratio) below —
+    deliberately NOT sympathizer_ratio, which this excludes `citizen`
+    themself from the count and that one does not.
+
+    sympathizer_ratio is the right function for its own two call sites
+    (llm_behavior_engine's "perceived support" signal): a citizen's own
+    trivial self-agreement is a defensible part of "how the population would
+    receive you" as an LLM input signal, and changing that function would
+    perturb every LLM run's byte-identical journal, past and future, for a
+    concern this ADR was never about.
+
+    A signature one gives oneself is not a signature. Before this fix,
+    sympathizer_ratio floored at 1/population_size (every citizen counts
+    themselves), which made the bar structurally unreachable at
+    population_size <= 200 and silently live above it (ADR-003). Excluding
+    self removes that floor at every population size — 0 external
+    sympathizers gives 0.0, not 1/n — rather than merely raising the
+    population size at which the floor stops mattering."""
+    signatures = sum(
+        1 for other in population
+        if other.citizen_id != citizen.citizen_id
+        and weighted_distance(other, citizen.issue_positions) <= other.blank_threshold
+    )
+    return signatures / len(population)
+
+
 def attempt_rupture_candidacy(
     citizen: Citizen,
     population: list[Citizen],
@@ -239,7 +267,7 @@ def attempt_rupture_candidacy(
         return False
     if rng.random() >= config.rupture_base_probability:
         return False
-    return sympathizer_ratio(citizen, population) >= config.rupture_signature_ratio
+    return ballot_access_signature_ratio(citizen, population) >= config.rupture_signature_ratio
 
 
 def select_party_nominee(

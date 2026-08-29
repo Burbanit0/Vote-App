@@ -1,6 +1,8 @@
 # ADR-003: §2.3's ballot-access filter is inert on both candidacy paths — and its inertness is population-size-dependent
 
-**Status**: Open — defect measured, fix deliberately deferred
+**Status**: Partially fixed 2026-08-29 (option 1, the rupture-path signature
+bar). Option 3 (`independent_signature_ratio`) remains open. (Was: Open,
+defect measured and fix deliberately deferred, earlier the same day.)
 **Date**: 2026-08-29
 **Context**: found while discharging Phase 1 of `plan-calibration-ambition.md`
 (the ADR-002 calibration chantier), not while looking for it
@@ -66,31 +68,113 @@ than a footnote — it is not a dormant parameter, it is a **regime change
 waiting on a scale increase that is already on the roadmap**, and nothing in
 the codebase would announce it.
 
-## Decision
+## Decision (2026-08-29, partially superseding the deferral recorded below)
 
-**None today. The defect is named, measured, and deferred.**
+**Option 1 implemented: `attempt_rupture_candidacy` now gates on a new
+`ballot_access_signature_ratio`, which excludes the citizen from their own
+count.** `sympathizer_ratio` itself is untouched — see "Why a new function,
+not a change to `sympathizer_ratio`" below. Options 2 and 3 remain open;
+option 2 is now redundant with option 1 (both remove the `1/n` floor, no
+reason to do both), option 3 is a separate, smaller decision not made here.
 
-Deferred for the same reason ADR-002 defers its own question, and with the same
-discipline: the repair is a modelling judgment, not a bug fix, and there are at
-least three distinguishable ones —
+This became decidable once ADR-002 closed (2026-08-29, same day): the
+deferral below explicitly named ADR-002 as the blocker ("both change who
+reaches the ballot"), and it no longer applies — `ambition_threshold` is
+settled at 0.30 and this fix touches a disjoint code path
+(`attempt_rupture_candidacy`, not `decide_candidacy`).
 
-1. **Exclude the citizen from their own sympathizer count.** Cheapest, and
-   arguably the correct reading: a "parrainage" one gives oneself is not a
-   signature. Makes the bar reachable at every population size, and removes the
-   `1/n` floor that causes the scale dependence.
-2. **Express the bar in absolute signatures rather than a ratio**, which is how
-   real ballot-access rules are written and would make the parameter
-   scale-invariant by construction.
-3. **Wire `independent_signature_ratio` to something**, or delete it. Keeping a
-   validated-but-unread institutional parameter in `candidacy:` is the same
-   class of defect ADR-002 documents: a config site that reads as load-bearing
-   and is not.
+**Why a new function, not a change to `sympathizer_ratio`.**
+`sympathizer_ratio` has two call sites beyond this one — both in
+`llm_behavior_engine.py`, both feeding the LLM a "perceived support" input
+signal for the dominant candidacy path and party nomination. A citizen's own
+trivial self-agreement (distance 0 to their own position) is a defensible
+part of "how the population would receive you" for that use — this ADR was
+never about it, and changing it would perturb the exact bytes sent to the
+model in every LLM run, past and future, for a concern out of scope here.
+`ballot_access_signature_ratio` is scoped to the one call site this ADR is
+about.
 
-Choosing between these interacts with the calibration decision currently open
-in ADR-002 — both change who reaches the ballot — so they should be decided
-together, not raced.
+**n=100 invariance, verified two ways, not assumed.**
 
-## Consequences of deferring
+1. **Structural.** `sympathizer_ratio` is untouched (diff-verifiable), and
+   `rupture_path_enabled` ships `false` with no acceptance script setting it
+   (grepped, confirmed) — so no published result can be affected by
+   construction, at any population size.
+2. **Empirical, and the result was a genuine surprise.** Re-running this
+   ADR's own 40-seed protocol against the real pipeline, comparing the OLD
+   formula (self counted, reconstructed for comparison) against the NEW one,
+   at **both** `population_size=100` and `population_size=1000`, under
+   **both** shipped position distributions:
+
+   | `population_size` | `position_dist` | signature-bar evaluations | OLD rejects | NEW rejects |
+   |---|---|---|---|---|
+   | 100 | `factor_structure` | 472 | 0 | 0 |
+   | 100 | `uniform` | 477 | 0 | 0 |
+   | 1000 | `factor_structure` | 4 858 | 0 | 0 |
+   | 1000 | `uniform` | 4 859 | 0 | 0 |
+
+   **Not one rejection, in either formula, at either scale, under either
+   distribution.** This is stronger than "n=100 is unaffected" — the fix
+   changes *zero* observable behaviour in every regime measured, including
+   n=1000. Confirmed directly (not just inferred from the zero count) with a
+   hand-built isolated citizen — nobody within anybody's tolerance, n=101 —
+   where the OLD formula still accepts (`1/101 ≈ 0.0099 ≥ 0.005`) and the NEW
+   one correctly rejects (`0.0 < 0.005`): the mechanism the fix targets is
+   real, it is just apparently never triggered by the population this project
+   actually generates.
+
+**This refines §3's own "silently becomes live" framing, and the correction
+matters.** The floor crossing at `population_size > 200` (`1/n < 0.005`) is a
+*necessary* condition for the old formula to ever reject anyone — it is not
+*sufficient*. Whether it does depends on the population's tolerance structure
+(`blank_threshold_dist: beta(3,5)`, mean 0.375, fairly generous), and under
+every distribution this project ships, apparently nobody is ever isolated
+enough to fall under even the un-fixed bar. The defect was real and worth
+fixing on its own terms — the old formula made it *structurally impossible*
+to ever reject a genuinely isolated citizen, at any population size, which is
+wrong independent of whether the shipped distributions happen to produce one
+— but the "silently becomes live" urgency should be read as a latent risk
+under a *different* future `blank_threshold_dist` or a genuinely polarized
+population, not as something already caught in the act at n=1000 under
+today's distributions.
+
+**Regression guard**: `test_attempt_rupture_candidacy_rejects_a_fully_isolated_citizen_at_the_shipped_signature_ratio`
+(`test_polity_simple_rules.py`) — verified to fail against the old formula
+before being kept, not merely written and trusted.
+
+**Option 3, `independent_signature_ratio`, is untouched and still open.**
+Wiring it or deleting it is a separate, smaller decision; nothing here forces
+it either way.
+
+## Consequences
+
+- **The rupture-path signature bar is now structurally correct**: a
+  genuinely isolated citizen can no longer clear it purely by counting
+  themselves, at any population size. Empirically (see above) this changes
+  no observed behaviour at `population_size` 100 or 1000 under either shipped
+  `position_dist`, because the shipped `blank_threshold_dist` apparently
+  never produces a citizen isolated enough to fail even the old, self-
+  inclusive bar. The fix is a correctness fix for a latent defect, not a
+  response to an observed one.
+- §2.3's "bornage par les règles" still reduces to `max_candidates_hard_cap`
+  alone in practice, since the (now-correct) bar has never been observed to
+  reject anyone under any shipped configuration — a structural fix, not yet
+  an empirically load-bearing one.
+- `polity_config.yaml`'s `rupture_signature_ratio` comment is updated to
+  point at the fixed function and this decision, replacing the "no rejections
+  possible" warning it previously carried.
+- Nothing was blocked by the fix: `rupture_path_enabled` still ships `false`,
+  so no shipped configuration and no published acceptance run was ever
+  exercising either bar, before or after.
+- **`docs/adr/v3-readiness-checklist.md`'s Class A1 item is resolved** for
+  `rupture_signature_ratio` specifically — its `1/n` floor is gone at every
+  population size, not just raised past a higher `n`. `independent_signature_ratio`
+  (Class A2, option 3 above) remains open, and the checklist's general rule
+  (any population-ratio threshold with a `k/n` floor changes regime with `n`)
+  stays as documentation for future parameters, not specific to this one
+  anymore.
+
+## Consequences of deferring (superseded for option 1 — kept for the record)
 
 - Any run that enables `rupture_path_enabled` at `population_size <= 200` must
   be read as a **flat per-tick lottery over the whole electorate**, with no

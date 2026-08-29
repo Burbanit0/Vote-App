@@ -154,16 +154,23 @@ candidacy:
   rupture_base_probability: 0.001     # [v1] proba par tick et par citoyen
   rupture_signature_ratio: 0.005      # [v1] RÉSOLUTION C1 : seuil réduit,
                                       #      pas d'exemption totale
-  # ⚠ CE SEUIL NE REJETTE PERSONNE À population_size <= 200.
-  # `sympathizer_ratio` compte le citoyen lui-même (distance 0 <= son propre
-  # blank_threshold), donc le ratio vaut au minimum 1/population_size = 0,01
-  # ici — toujours >= 0,005. Mesuré le 2026-08-29 (40 graines, durée livrée,
-  # rupture activée) : 477 495 tirages, 476 succès au pile-ou-face, 476
-  # passages du seuil, ZÉRO rejet. À la configuration livrée le chemin de
-  # rupture est donc un pur pile-ou-face, et la « RÉSOLUTION C1 » ci-dessus
-  # ne mord pas. Attention : l'inertie s'inverse à population_size > 200
-  # (1/1000 = 0,001 < 0,005), donc le filtre deviendrait vivant, sans
-  # avertissement, à l'échelle v3 de §11.1. Voir
+  # CORRIGÉ le 2026-08-29 (ADR-003, option 1). Ce seuil compare désormais
+  # `simple_rules.ballot_access_signature_ratio`, PAS `sympathizer_ratio` :
+  # cette nouvelle fonction exclut le citoyen de son propre compte de
+  # signatures (une signature qu'on se donne à soi-même n'en est pas une),
+  # là où `sympathizer_ratio` — inchangée, toujours utilisée pour le signal
+  # « soutien perçu » envoyé au LLM ailleurs — le comptait toujours, ce qui
+  # rendait ce seuil structurellement infranchissable à population_size <= 200
+  # (plancher à 1/population_size) et l'inversait silencieusement au-delà.
+  # Mesuré le 2026-08-29 (40 graines, durée livrée, rupture activée, AVANT et
+  # APRÈS correctif, aux deux distributions livrées) : ZÉRO rejet dans les
+  # deux formules, à population_size=100 ET à population_size=1000 — le
+  # correctif ne change donc AUCUN comportement observé dans les
+  # configurations livrées ; c'est un correctif de justesse structurelle
+  # (personne d'isolé ne devrait jamais passer), pas une réponse à un
+  # symptôme observé. Confirmé directement sur un citoyen isolé construit à
+  # la main : l'ancienne formule l'acceptait quand même (1/101 ≈ 0,0099 ≥
+  # 0,005), la nouvelle le rejette (0,0 < 0,005). Voir
   # docs/adr/ADR-003-ballot-access-filter-is-inert.md.
   max_candidates_hard_cap: 20         # [v0] garde-fou de dernier recours
 

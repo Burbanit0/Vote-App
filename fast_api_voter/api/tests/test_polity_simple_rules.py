@@ -15,6 +15,7 @@ from api.domain.polity.simple_rules import (
     BLANK_LABEL,
     assign_party_affiliation,
     attempt_rupture_candidacy,
+    ballot_access_signature_ratio,
     ballot_ranks_above_blank,
     blank_share,
     build_confidence_ballot,
@@ -29,6 +30,7 @@ from api.domain.polity.simple_rules import (
     form_coalition,
     select_party_nominee,
     select_party_nominee_from_declared,
+    sympathizer_ratio,
     vacate_office,
 )
 
@@ -173,6 +175,49 @@ def test_attempt_rupture_candidacy_succeeds_when_probability_and_signature_bar_c
     population = [citizen] + [_citizen(i, (0.0,), priorities=(1.0,), blank_threshold=1.0) for i in range(2, 6)]
     rng = np.random.default_rng(0)
     assert attempt_rupture_candidacy(citizen, population, config, rng) is True
+
+
+# ── ballot_access_signature_ratio (ADR-003 fix) ──────────────────────────
+
+def test_ballot_access_signature_ratio_excludes_the_citizen_from_their_own_count():
+    # sympathizer_ratio always counts the citizen themself (distance 0 to
+    # their own position, <= their own positive blank_threshold) --
+    # ballot_access_signature_ratio must not, since a signature one gives
+    # oneself is not a signature (ADR-003).
+    lone = _citizen(1, (0.5,), blank_threshold=0.5)
+    population = [lone]
+    assert sympathizer_ratio(lone, population) == 1.0
+    assert ballot_access_signature_ratio(lone, population) == 0.0
+
+
+def test_ballot_access_signature_ratio_has_no_population_size_floor():
+    # ADR-003: sympathizer_ratio floors at 1/population_size (self always
+    # counts), which made the rupture-path signature bar structurally
+    # unreachable at population_size <= 200. A citizen with genuinely ZERO
+    # external support must read 0.0 regardless of population size --
+    # ballot_access_signature_ratio removes the floor entirely rather than
+    # merely raising the population size at which it stops mattering.
+    isolated = _citizen(1, (0.0,), blank_threshold=0.0)
+    others = [_citizen(i, (1.0,), blank_threshold=0.0) for i in range(2, 102)]  # n=101, nobody tolerates anybody
+    population = [isolated] + others
+    assert sympathizer_ratio(isolated, population) == pytest.approx(1 / 101)  # the old, unreachable-to-0 floor
+    assert ballot_access_signature_ratio(isolated, population) == 0.0
+
+
+def test_attempt_rupture_candidacy_rejects_a_fully_isolated_citizen_at_the_shipped_signature_ratio():
+    # The regression guard for the ADR-003 fix: at the shipped
+    # rupture_signature_ratio (0.005) and population_size (100), the OLD
+    # sympathizer_ratio-based formula would ACCEPT this citizen purely from
+    # self-counting (1/101 ~= 0.0099 >= 0.005) despite zero external support
+    # -- this test would have failed before the fix landed.
+    config = CandidacyConfig(
+        **{**_CANDIDACY_CONFIG.__dict__, "rupture_path_enabled": True, "rupture_base_probability": 1.0}
+    )
+    isolated = _citizen(1, (0.0,), blank_threshold=0.0)
+    others = [_citizen(i, (1.0,), blank_threshold=0.0) for i in range(2, 102)]
+    population = [isolated] + others
+    rng = np.random.default_rng(0)
+    assert attempt_rupture_candidacy(isolated, population, config, rng) is False
 
 
 # ── select_party_nominee ──────────────────────────────────────────────────
