@@ -1788,9 +1788,20 @@ institutionnelle propre à la chambre.
   `docs/adr/ADR-002-ambition-threshold-blocks-candidacy.md` et
   `plan-calibration-ambition.md`. **Mais les scripts d'acceptation imposent
   toujours `ambition_threshold=0.0`**, désormais par choix de continuité :
-  tous les résultats de §10.4 à §10.9 restent mesurés à `0.0`, donc
-  comparables entre eux et **non représentatifs de la valeur livrée**. Un
-  re-baseline à la valeur calibrée est un chantier ouvert, non fait.
+  tous les résultats de §10.4 à §10.9 restent mesurés à `0.0`. **Ce choix a
+  été vérifié sans conséquence, pas seulement supposé sans risque
+  (2026-08-29, `plan-calibration-ambition.md` §3bis)** : `ambition_threshold`
+  n'a qu'un seul site de lecture fonctionnelle dans tout le code de domaine,
+  et c'est le chemin déterministe (`decide_candidacy` /
+  `select_party_nominee`) — le chemin LLM (`decide_candidacies`) ne le
+  consulte jamais, donc **chaque affirmation chiffrée de §10.4 à §10.9,
+  toutes mesurées sous `--engine llm`, est structurellement invariante à ce
+  changement**. Les ancres de pré-vol déterministes des scripts
+  d'acceptance, seules exposées à ce paramètre, ont été mesurées
+  byte-identiques entre `0.0` et `0.30` sur huit configurations couvrant
+  chaque famille de script publiée (v4/v5/v6a/v6b/cascade, les deux
+  `position_dist` livrées, avec et sans `sortition_chamber`/`events`/
+  `social_graph`). Aucun re-baseline n'est donc dû pour ce changement précis.
 - **La revendication §2.4 « un candidat doit avoir du soutien perçu » n'est
   toujours pas implémentée.** `decide_candidacy` ne teste que
   `ambition_score`, alors que le plan de conception décrit un seuil *combiné*

@@ -587,6 +587,131 @@ ni `run_polity_simulation.py` ne le référencent. Combiné au constat du §1.1
 filtre d'accès au bulletin de §2.3 n'existe aujourd'hui dans aucun des deux
 chemins. À traiter séparément, pas ici.
 
+## 3bis. Re-baseline déterministe des résultats publiés — vérifié NON APPLICABLE (2026-08-29)
+
+Question posée après l'implémentation de l'option 2 : les résultats déjà
+publiés dans `THEORY.md` §10.4-§10.9 restent-ils valides maintenant que le
+seuil livré change (0,7 → 0,30) ? Avant d'écrire un critère qualitatif/
+numérique pour trancher, la prémisse elle-même a été vérifiée — et elle
+était fausse.
+
+### La prémisse initiale était fausse : `ambition_threshold` n'est jamais lu sur le chemin LLM
+
+Recherche exhaustive (`grep` sur tout `fast_api_voter/`) : le **seul** site de
+lecture fonctionnelle d'`ambition_threshold` dans tout le paquet de domaine
+est `simple_rules.py:196` (`decide_candidacy`), appelé uniquement par
+`select_party_nominee` — le chemin **déterministe**. `_declare_nominees_llm`
+route vers `decide_candidacies` (`llm_behavior_engine.py`), qui n'arbitre
+QUE sur `ambition_score` et `perceived_support`, sans jamais comparer à un
+seuil — confirmé par sa propre docstring (« v2 increment 2's replacement for
+`decide_candidacy`'s bare ambition_score threshold ») et par
+`_declare_nominees`'s propre branchement (`if config.llm.enabled: return
+_declare_nominees_llm(...)` — la branche qui lit `ambition_threshold` est
+après ce `if`, donc inatteignable quand `llm.enabled` est vrai).
+
+**Conséquence directe : tout résultat mesuré sous `--engine llm` est
+structurellement, par construction, invariant au changement 0,7→0,30 — pas
+parce que l'effet mesuré serait petit, mais parce que le chemin de code qui
+porterait l'effet n'existe pas.** Or les affirmations chiffrées de §10.4 à
+§10.9 (déviation de mandat, comparaison contagion/atomisé, comparaison
+chambre/président, amplitude de l'étincelle) sont **toutes** issues de runs
+`--engine llm`. Le "critère qualitatif/numérique + décision sur le run LLM à
+~6500 s" initialement envisagé répondait donc à une question qui ne se pose
+pas — la même classe d'erreur que le postulat de coût de la Phase 1
+(§1.1) : une prémisse non tracée, prise pour acquise.
+
+### Ce qui reste réellement ouvert, et sa nuance
+
+Seul le moteur `--engine deterministic` lit `ambition_threshold`. Deux
+usages distincts de ce moteur ont été vérifiés séparément, précisément parce
+qu'un même seed/config peut apparaître dans les deux registres sans que ce
+soit évident au premier coup d'œil :
+
+1. **Ancres de pré-vol internes aux scripts d'acceptance** — un sanity-check
+   bon marché avant de lancer le bras LLM coûteux (ex. `run_v6a_acceptance.py` :
+   « compare its own recall count / final mean_legitimacy against
+   `mobilization_only/deterministic/8y`'s own committed anchor... before
+   proceeding to `--engine llm` »). Jamais cité comme résultat scientifique
+   en soi.
+2. **La citation à part entière de `THEORY.md` §10.10** — les « quatre sondes
+   déterministes » du 2026-08-25 (chantier distribution, Phase 4), qui
+   rejouent « les configurations exactes de v4 Lot 8 (`both`, `electoral_only`,
+   `mobilization_only`) et de la troisième comparaison v6b sous
+   `factor_structure` », avec leurs propres chiffres cités dans le texte
+   (`L=0,510→0,770`, etc.) et leur propre statut épistémique (« preuve
+   suggestive, pas concluante ») — dont dérive l'heuristique « sonde fiable
+   sur les quantités mécaniques, optimiste sur l'arbitrage citoyen » réutilisée
+   depuis dans ce même chantier de calibration (§2.1bis).
+
+**Vérifié : ce sont les mêmes configurations sous-jacentes** (même seed=42,
+même `population_size=100`, mêmes deux valeurs de `position_dist` en jeu —
+`uniform` pour v4 Lot 8/v5/v6a et les trois premières sondes du §10.10 v6b,
+`factor_structure` pour v6b `factor_structure`/`fs_electoral_only` et la
+quatrième sonde). Un seul contrôle couvre donc les deux usages ; inutile
+d'en construire deux séparés.
+
+### Contrôle structurel, puis mesure directe (pas d'un seul, des deux)
+
+**Étape 1 — structurel, quasi gratuit.** `static_population: true`,
+`president_term_limit: null` (illimité) et aucune de ces configs n'active
+`blank_vote_competitive` : le pool éligible que voit `select_party_nominee`
+est donc le **même** — la population de parti au complet — à **chaque**
+élection du calendrier, pas seulement à la première. Un seul calcul
+d'argmax(`ambition_score`) par parti et par `(seed, position_dist)` suffit
+donc à caractériser tout le run, pas juste son premier tick.
+
+| `position_dist` (seed=42, n=100) | argmax `ambition_score` par parti (min sur les 5) | clears 0,30 |
+|---|---|---|
+| `uniform` | 0,4553 (min ; max 0,5560) | **oui, les 5** |
+| `factor_structure` | 0,4068 (min ; max 0,5654) | **oui, les 5** |
+
+Aucun cas limite : la marge la plus faible est +0,10 au-dessus du seuil. Si
+l'argmax de chaque parti franchit déjà 0,30, le **même** citoyen est nominee
+de chaque parti à `ambition_threshold=0.0` et à `0.30` — donc la même
+élection, à chaque tour, pour toute la durée du run.
+
+**Étape 2 — mesure directe, pas seulement l'argument.** Le raisonnement
+ci-dessus est exact (le tiebreak reproduit lettre pour lettre celui de
+`select_party_nominee`), mais la discipline de ce chantier est de mesurer,
+pas de faire confiance à un raisonnement seul (cf. la vérification RNG de
+l'option 4, §2.3, dont la première version s'est révélée vide). Pipeline
+réel de bout en bout, `ambition_threshold=0.0` contre `0.30`, comparaison
+d'octets sur le journal complet, sur les 8 configurations couvrant chaque
+famille de script d'acceptance publiée :
+
+| Configuration | Byte-identique 0,0 vs 0,30 |
+|---|---|
+| v4 Lot 8 `both`, `uniform` | **oui** |
+| v4 Lot 8 `electoral_only`, `uniform` (= base v5) | **oui** |
+| v4 Lot 8 `mobilization_only`, `uniform` (= base v6a) | **oui** |
+| `both`, `factor_structure` | **oui** |
+| `electoral_only`, `factor_structure` (v6b fs_electoral_only) | **oui** |
+| v6b `both` + `sortition_chamber`, `uniform` | **oui** |
+| v6b `both` + `sortition_chamber`, `factor_structure` (§10.10, 4ᵉ sonde) | **oui** |
+| cascade `both` + `events` + `social_graph`, `uniform` (r=0,08, s=0,12) | **oui** |
+
+**Huit configurations sur huit, byte-identiques.** Couvre chaque famille de
+script (v4/v5/v6a/v6b/cascade), les deux `position_dist` jamais utilisées par
+un run publié, avec et sans `sortition_chamber`/`events`/`social_graph`
+activés.
+
+### Conclusion — VÉRIFIÉ NON APPLICABLE, pas reporté
+
+**La question du re-baseline est close, pas différée.** Ni les affirmations
+scientifiques de §10.4-§10.9 (toutes mesurées sous `--engine llm`, chemin qui
+ne lit jamais `ambition_threshold` — invariance structurelle, prouvée par
+lecture de code) ni les ancres de pré-vol déterministes (invariance mesurée,
+huit configurations byte-identiques) ne sont affectées par la calibration
+0,7→0,30. Aucun ajustement de script n'est nécessaire : les ancres
+committées restent exactes telles quelles.
+
+Si un jour une des huit configurations cessait d'être byte-identique (ex.
+après un changement d'`ambition_dist`, de `position_dist`, ou de
+`parties.initial_count`), ce serait un **ajustement mécanique de config**
+dans le script concerné — jamais une remise en cause d'un résultat
+scientifique publié, puisque toutes les affirmations elles-mêmes reposent
+sur le chemin LLM, structurellement hors d'atteinte.
+
 ## 4. Ce que ce plan ne couvre pas
 
 - Le mécanisme de sélection de nominee (`ambition` vs `centroïde`) n'est
@@ -641,9 +766,25 @@ chemins. À traiter séparément, pas ici.
   construction**, à chaque tick, pour chaque graine, indépendamment de tout
   tirage — là où l'ancien mécanisme n'était que distributionnel. Les scripts
   d'acceptance gardent `ambition_threshold=0.0`, désormais par continuité et
-  non par nécessité ; le re-baseline est un chantier ouvert, non fait.
+  non par nécessité.
+- **Re-baseline déterministe — VÉRIFIÉ NON APPLICABLE (§3bis), pas
+  reporté.** La prémisse initiale (« le run LLM à ~6500 s pourrait devoir
+  être rejoué ») était fausse : `ambition_threshold` n'a qu'un seul site de
+  lecture fonctionnelle dans tout le paquet de domaine, et c'est le chemin
+  déterministe — le chemin LLM (`decide_candidacies`) ne le consulte jamais.
+  Trouvé en traçant le code avant d'écrire le moindre critère, la même
+  discipline que la Phase 1 sur `rupture_path_enabled` et que la
+  vérification RNG de l'option 4 : remonter à la source plutôt que de partir
+  d'une prémisse non vérifiée. Les ancres de pré-vol déterministes (jamais
+  citées comme résultat scientifique) ET la citation séparée du §10.10
+  (les « quatre sondes déterministes », mêmes configs sous-jacentes,
+  vérifié) sont toutes les deux mesurées byte-identiques entre 0,0 et 0,30
+  sur huit configurations couvrant chaque famille de script publiée. Aucun
+  script à ajuster.
 - Sondes en scratchpad, non commitées (convention du dépôt) :
   `probe_rupture_phase1.py`, `probe_signature_bar.py`,
   `probe_threshold_plugin.py` / `probe_rupture_plugin.py`, `option4.py`,
   `probe_option4_rng.py` / `_rng2` / `_rng3`, `probe_sweep.py`,
-  `probe_discriminate.py`.
+  `probe_discriminate.py`, `probe_preflight_anchor_check.py`,
+  `probe_preflight_byte_identity.py`, `probe_v6b_byte_identity.py`,
+  `probe_cascade_byte_identity.py`.

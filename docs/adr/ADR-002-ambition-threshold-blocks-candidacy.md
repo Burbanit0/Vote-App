@@ -130,8 +130,22 @@ awakening inert on both sides.
 **Deliberately NOT changed**: the acceptance scripts keep their
 `ambition_threshold=0.0` override. It is now a **continuity** choice — keeping
 `THEORY.md` §10.4–§10.9 comparable with each other — rather than a precondition
-for an election to exist. Re-baselining them at the calibrated value is a
-separate, legitimate piece of work; nothing here forces it.
+for an election to exist.
+
+**Re-baseline question — checked, not deferred (2026-08-29,
+`plan-calibration-ambition.md` §3bis).** `ambition_threshold` has exactly one
+functional read site in the whole domain package
+(`decide_candidacy`/`select_party_nominee`, the deterministic path only) —
+the LLM path (`decide_candidacies`) never consults it, confirmed by tracing
+the code before writing any sweep criterion. Every numeric claim in §10.4–
+§10.9 is measured under `--engine llm`, so every one of them is structurally
+invariant to this calibration, by construction. The only thing exposed to
+`ambition_threshold` — each acceptance script's cheap `--engine deterministic`
+pre-flight anchor — was measured byte-identical between `0.0` and `0.30`
+across eight configurations spanning every acceptance script family
+(v4/v5/v6a/v6b/cascade, both shipped `position_dist` values, with and
+without `sortition_chamber`/`events`/`social_graph`). **Nothing needs
+re-baselining.**
 
 **Spun out**: `ADR-003-ballot-access-filter-is-inert.md`, for a defect found
 while measuring this one (§2.3's ballot-access filter rejects nobody at
