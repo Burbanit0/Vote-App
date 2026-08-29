@@ -78,27 +78,76 @@ Nothing is blocked by leaving it open: every acceptance script already
 overrides the value explicitly, and the override is now documented at the
 config site rather than implicit.
 
-## What the next pass must do FIRST — before any calibration question
+## The visibility half — DONE 2026-08-29, ahead of the calibration question
 
-**Priority 1: stop the failure from being silent.** Running `run_simulation`
-at the shipped defaults today produces zero candidates, zero elections, and
-**no error, no warning, no journal signal** — the run completes "successfully"
-and simply contains no democracy. That is a worse defect than a mis-calibrated
-value, and it is worse for a specific reason: a bad value is at least
+**Priority 1 was to stop the failure from being silent, and that half has now
+landed.** Running `run_simulation` at the shipped defaults produced zero
+candidates and zero elections while completing "successfully" — a worse defect
+than a mis-calibrated value, for a specific reason: a bad value is at least
 detectable by looking at the results, whereas a mechanism that silently
-degrades to nothing gives an observer a clean-looking run with no indication
-that anything is missing. Every acceptance script happens to override the
-value, so this has never bitten a published run — but it is exactly the shape
-of defect that costs hours the first time someone runs at defaults and trusts
-the output.
+degrades to nothing hands an observer a clean-looking run with no indication
+anything is missing. Every acceptance script happens to override the value, so
+this never bit a published run — but it is exactly the shape of defect that
+costs hours the first time someone runs at defaults and trusts the output.
 
-Whatever form it takes — a `PolityConfigError` at load time when
-`(ambition_dist, ambition_threshold)` cannot produce a candidate pool, a
-run-time guard when an election tick finds zero nominees, or a journal event
-making the empty candidacy explicit — the guard should land **before** the
-calibration debate below is opened, and is independent of how that debate
-resolves. It is also the cheaper of the two: it needs no re-baselining
-decision, no RNG-order change, and no target rate to be agreed.
+**Correction to this ADR's own first statement of the problem.** It originally
+read "no error, no warning, **no journal signal**". The third term was wrong,
+and measuring rather than re-reading the code is what caught it: a default
+8-year run emits exactly seven events — three `election_no_winner`, two
+`legislative_result`, two `coalition_formed` — so there *was* a journal signal.
+The real defect was narrower and more interesting: `election_no_winner`'s
+payload was `{"office": "president"}` and nothing else, so it covered two
+structurally different failures with the same bytes — *"candidates ran and
+Blank won the runoff"* (the §10.10 seed/distribution failure mode) and *"no
+candidate existed at all"*. **No journal this project has ever produced could
+tell them apart.**
+
+What shipped, therefore:
+
+1. **A run-start warning** (`_warn_if_no_candidate_is_possible`) when no
+   citizen can ever declare a candidacy. Exact rather than distributional:
+   `ambition_score` is drawn once in `generate_population` and never mutated
+   anywhere in the package, so an empty eligible pool at generation stays empty
+   for the whole run. Both alternative candidacy paths are checked rather than
+   assumed, so it never cries wolf — `llm.enabled` routes to
+   `_declare_nominees_llm`, which never consults `ambition_threshold` at all,
+   and `rupture_path_enabled` opens a second, threshold-independent route.
+2. **A `reason: "no_candidates"` key on `election_no_winner`**, conditional on
+   the nominee field being empty. Conditional deliberately: the emptiness *is*
+   the new information, so the key appears exactly where it says something, and
+   a config that fields no nominee keeps the byte-for-byte no-op property
+   `election_invalidated`'s own comment exists to protect. Journals predating
+   the key stay ambiguous — accepted, since they are already documented as
+   non-representative (`uniform`/seed=42).
+
+**A `PolityConfigError` was considered and rejected, and the reason matters
+more than the choice.** Raising would declare the shipped configuration
+invalid — which is precisely the calibration decision this ADR defers. A guard
+that forces that decision is not "the guard before the calibration", it *is*
+the calibration. Naming the defect out loud is not the same act as ruling on
+it, and only the first was in scope.
+
+## The test suite depends on this defect — which raises the price of the fix
+
+Found while designing the guard, and recorded here because whoever opens the
+calibration question needs it up front: **at least four places in
+`test_polity_run_simulation.py` rely on the shipped threshold producing no
+nominee**, with the reasoning written into their own comments. Two lower it to
+`0.0` explicitly, noting that `0.7` "never actually produces a presidential
+winner at seed=42". One asserts the presidency stays vacant for a whole run on
+that basis. And one is load-bearing in a stronger sense —
+`test_blank_vote_competitive_enabled_but_never_triggered_matches_the_default_journal_byte_for_byte`
+derives its entire proof from it: *"no citizen ever crosses ambition_threshold
+(0.7), so nominees is always [] and the invalidation check inside `if nominees:`
+never even runs — turning the gate on is a true no-op here, not merely 'happens
+not to trigger this seed'."*
+
+So the codebase has been aware of the behaviour for several paliers and used it
+as a convenience, without ever identifying it as a breakage. The consequence is
+concrete: **fixing the calibration will invalidate at least one byte-identity
+proof and will require rebuilding it on a different mechanism for keeping the
+nominee field empty.** That cost belongs in the calibration decision, not
+discovered halfway through it.
 
 ## The open question (after the guard, not before)
 
@@ -130,10 +179,11 @@ criterion written before the sweep, not after.
 
 ## Consequences of deferring
 
-- The shipped configuration remains unable to hold an election, and the
-  failure is silent — see "What the next pass must do FIRST" above, which is
-  the single highest-priority item on this ADR and is deliberately ordered
-  ahead of the calibration question.
+- The shipped configuration remains unable to hold an election — but it no
+  longer fails quietly: a run-start warning names it, and `election_no_winner`
+  now distinguishes an empty candidate field from a Blank-won runoff (see "The
+  visibility half" above, shipped 2026-08-29). The calibration itself is
+  untouched and still open.
 - `THEORY.md` §10.10 carries a reader-facing bullet so the limitation is
   visible where readers look for limitations, and `polity_config.yaml` carries
   the warning at the value itself. Both point here.

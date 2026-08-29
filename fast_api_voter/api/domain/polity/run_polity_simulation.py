@@ -122,6 +122,7 @@ from api.domain.polity.simple_rules import (
     build_ranking,
     choose_party,
     citizen_id_from_label,
+    decide_candidacy,
     declare_candidacy,
     deterministic_pressure_action,
     deterministic_reaction_to_event,
@@ -328,6 +329,55 @@ def _write_run_metadata(run_dir: Path, config: PolityConfig, run_id: str) -> Non
     )
 
 
+def _warn_if_no_candidate_is_possible(citizens: list[Citizen], config: PolityConfig) -> None:
+    """ADR-002: warn at run start when no citizen can ever declare a candidacy.
+
+    The shipped `candidacy.ambition_threshold: 0.7` against the shipped
+    `citizens.ambition_dist: beta(2,8)` leaves ~0.03 eligible citizens per 100
+    -- 39 seeds in 40 produce zero candidates, so no election is ever held and
+    the run completes "successfully" containing no democracy at all. This is
+    the silent half of that defect: the journal does record
+    `election_no_winner`, but nothing tells an operator, at any point, that the
+    configuration made a candidacy arithmetically impossible from tick 0.
+
+    Exact, not distributional: `ambition_score` is drawn once in
+    `generate_population` and never mutated anywhere in this package (only read
+    by decide_candidacy/select_party_nominee and the prompt builders), so an
+    empty eligible pool at generation stays empty for the whole run.
+
+    Deliberately a warning, not a `PolityConfigError`. Raising would declare
+    the shipped configuration invalid, which is exactly the calibration
+    decision ADR-002 defers -- and several tests depend on today's behaviour on
+    purpose, including a load-bearing byte-identity proof whose validity comes
+    from `nominees` always being empty at the shipped threshold. Choosing a fix
+    is a modelling judgment; saying out loud that the mechanism is inert is
+    not.
+
+    Both other candidacy paths are checked rather than assumed, so this never
+    cries wolf: `llm.enabled` routes to `_declare_nominees_llm`, which never
+    consults `ambition_threshold` at all (the model arbitrates from
+    ambition_score and perceived support), and `rupture_path_enabled` opens a
+    second, threshold-independent route. Either one makes an empty eligible
+    pool a non-event.
+    """
+    if config.llm.enabled or config.candidacy.rupture_path_enabled:
+        return
+    if any(decide_candidacy(citizen, config.candidacy) for citizen in citizens):
+        return
+    _logger.warning(
+        "no citizen can ever declare a candidacy: 0/%d clear "
+        "candidacy.ambition_threshold=%s (highest ambition_score drawn from "
+        "citizens.ambition_dist=%s is %.4f), and neither the LLM nor the rupture "
+        "path is enabled. Every presidential election in this run will be an "
+        "election_no_winner with no candidate field at all. See "
+        "docs/adr/ADR-002-ambition-threshold-blocks-candidacy.md",
+        len(citizens),
+        config.candidacy.ambition_threshold,
+        config.citizens.ambition_dist,
+        max((c.ambition_score for c in citizens), default=0.0),
+    )
+
+
 def run_simulation(
     config: PolityConfig, run_id: str | None = None, llm_client: LlmClientProtocol | None = None
 ) -> Path:
@@ -364,6 +414,7 @@ def run_simulation(
     run_id = run_id or config.run.run_label
     _write_run_metadata(Path(config.journal.output_dir) / run_id, config, run_id)
     citizens = generate_population(config.citizens, config.run.population_size, config.run.seed)
+    _warn_if_no_candidate_is_possible(citizens, config)
     parties = initialize_parties(citizens, config.parties.initial_count, config.run.seed)
     for citizen in citizens:
         citizen.party_affiliation = assign_party_affiliation(citizen, parties)
@@ -941,6 +992,20 @@ def _hold_presidential_election(
                 if config.institutions.blank_vote_competitive and nominees
                 else {}
             ),
+            # ADR-002: election_no_winner covered two structurally different
+            # failures with the same payload -- "candidates ran and Blank won
+            # the runoff" (the §10.10 seed/distribution failure mode) and "no
+            # candidate existed at all" (the shipped ambition_threshold making
+            # candidacy arithmetically impossible). No journal this project has
+            # produced could tell them apart. This key names the second.
+            # Conditional on `nominees` being empty, deliberately: the emptiness
+            # IS the new information, so the key appears exactly where it says
+            # something, and a config that fields no nominee keeps the
+            # byte-for-byte no-op property election_invalidated's own comment
+            # above is written to protect. Consequence accepted: journals
+            # predating this key stay ambiguous -- they are already documented
+            # as non-representative (uniform/seed=42, THEORY.md §10.10).
+            **({"reason": "no_candidates"} if not nominees else {}),
         },
         citizen_id=winner.citizen_id if winner is not None else None,
     )

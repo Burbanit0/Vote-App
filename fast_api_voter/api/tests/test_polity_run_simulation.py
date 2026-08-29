@@ -34,6 +34,7 @@ from api.domain.polity.run_polity_simulation import (
     _run_exogenous_events,
     _run_sortition_rotation,
     _warm_up_llm_client,
+    _warn_if_no_candidate_is_possible,
     run_simulation,
 )
 from api.domain.polity.simple_rules import assign_party_affiliation, declare_candidacy
@@ -3982,3 +3983,92 @@ def test_reaction_to_event_llm_never_reads_self_gap_or_mandate_dev(tmp_path):
     for e in reactions:
         assert "self_gap" not in e["payload"]["ctx"]
         assert "mandate_dev" not in e["payload"]["ctx"]
+
+
+# ── ADR-002: the shipped candidacy config cannot elect, and said so silently ──
+
+
+def _population_at_shipped_defaults() -> list[Citizen]:
+    config = load_config()
+    return generate_population(config.citizens, config.run.population_size, config.run.seed)
+
+
+def test_shipped_config_warns_that_no_candidacy_is_ever_possible(tmp_path, caplog):
+    # ADR-002's own headline: at the shipped ambition_dist beta(2,8) against
+    # ambition_threshold=0.7, nobody clears the bar (highest score drawn at
+    # seed=42 is 0.5654), so the run holds no election at all -- and until this
+    # warning existed, nothing said so anywhere outside the journal.
+    with caplog.at_level("WARNING", logger=run_polity_simulation_module.__name__):
+        run_simulation(_config_with_output_dir(tmp_path), run_id="silent")
+    assert "no citizen can ever declare a candidacy" in caplog.text
+    assert "ADR-002" in caplog.text
+
+
+def test_no_candidacy_warning_when_at_least_one_citizen_clears_the_threshold(tmp_path, caplog):
+    config = _config_with_output_dir(tmp_path)
+    config = dataclasses.replace(config, candidacy=dataclasses.replace(config.candidacy, ambition_threshold=0.0))
+    with caplog.at_level("WARNING", logger=run_polity_simulation_module.__name__):
+        run_simulation(config, run_id="has-candidates")
+    assert "no citizen can ever declare a candidacy" not in caplog.text
+
+
+def test_no_candidacy_warning_on_the_llm_path(caplog):
+    # _declare_nominees_llm never consults ambition_threshold at all (the model
+    # arbitrates from ambition_score and perceived support), so an empty
+    # deterministic pool is a non-event there -- warning here would cry wolf.
+    config = load_config()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=True))
+    with caplog.at_level("WARNING", logger=run_polity_simulation_module.__name__):
+        _warn_if_no_candidate_is_possible(_population_at_shipped_defaults(), config)
+    assert caplog.text == ""
+
+
+def test_no_candidacy_warning_when_the_rupture_path_is_open(caplog):
+    # §2.4's rupture path is threshold-independent: a candidacy can appear
+    # without anyone clearing ambition_threshold, so the pool being empty no
+    # longer implies no candidate.
+    config = load_config()
+    config = dataclasses.replace(config, candidacy=dataclasses.replace(config.candidacy, rupture_path_enabled=True))
+    with caplog.at_level("WARNING", logger=run_polity_simulation_module.__name__):
+        _warn_if_no_candidate_is_possible(_population_at_shipped_defaults(), config)
+    assert caplog.text == ""
+
+
+def test_election_no_winner_names_an_absent_candidate_field(tmp_path):
+    # ADR-002: election_no_winner used to cover two structurally different
+    # failures with the same payload. This is the "no candidate existed" one.
+    journal_path = run_simulation(_config_with_output_dir(tmp_path), run_id="no-field")
+    no_winner = [e for e in _events(journal_path) if e["event_type"] == "election_no_winner"]
+    assert no_winner
+    for event in no_winner:
+        assert event["payload"]["reason"] == "no_candidates"
+
+
+def test_election_no_winner_omits_reason_when_candidates_actually_ran(tmp_path):
+    # The other failure: five nominees stood and Blank won the runoff outright
+    # (uniform/seed=1 -- the §10.10 distribution failure mode). `reason` must
+    # stay absent, since its whole job is to mark the empty-field case.
+    config = _config_with_output_dir(tmp_path)
+    config = dataclasses.replace(
+        config,
+        run=dataclasses.replace(config.run, seed=1),
+        citizens=dataclasses.replace(config.citizens, position_dist="uniform"),
+        candidacy=dataclasses.replace(config.candidacy, ambition_threshold=0.0),
+    )
+    journal_path = run_simulation(config, run_id="blank-won")
+    events = _events(journal_path)
+    no_winner = [e for e in events if e["event_type"] == "election_no_winner"]
+    assert no_winner
+    assert [e for e in events if e["event_type"] == "candidacy_declared"]
+    for event in no_winner:
+        assert "reason" not in event["payload"]
+
+
+def test_elected_never_carries_a_reason(tmp_path):
+    config = _config_with_output_dir(tmp_path)
+    config = dataclasses.replace(config, candidacy=dataclasses.replace(config.candidacy, ambition_threshold=0.0))
+    journal_path = run_simulation(config, run_id="elected-clean")
+    elected = [e for e in _events(journal_path) if e["event_type"] == "elected"]
+    assert elected
+    for event in elected:
+        assert "reason" not in event["payload"]
