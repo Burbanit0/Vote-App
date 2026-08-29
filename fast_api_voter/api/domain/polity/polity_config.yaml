@@ -146,10 +146,6 @@ candidacy:
   # forcent toujours `ambition_threshold=0.0` via `dataclasses.replace`, et
   # c'est désormais un choix de CONTINUITÉ (garder THEORY.md §10.4-§10.9
   # comparables entre eux), plus une condition d'existence de l'élection.
-  independent_signature_ratio: 0.01   # [v0] % de la population à réunir
-  # ⚠ PARSÉ ET VALIDÉ, JAMAIS LU PAR LE CODE DE DOMAINE. Aucun chemin de
-  # candidature indépendante n'existe : toute candidature est soit une
-  # nomination de parti, soit une déclaration de rupture. Voir ADR-003.
   rupture_path_enabled: false         # [v1] chemin rare (§2.4)
   rupture_base_probability: 0.001     # [v1] proba par tick et par citoyen
   rupture_signature_ratio: 0.005      # [v1] RÉSOLUTION C1 : seuil réduit,

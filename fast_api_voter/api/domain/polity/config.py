@@ -168,7 +168,6 @@ class CitizensConfig:
 @dataclass(frozen=True)
 class CandidacyConfig:
     ambition_threshold: float
-    independent_signature_ratio: float
     rupture_path_enabled: bool
     rupture_base_probability: float
     rupture_signature_ratio: float
@@ -582,7 +581,6 @@ def _parse_candidacy(raw: dict[str, Any]) -> CandidacyConfig:
     s = _section(raw, "candidacy")
     return CandidacyConfig(
         ambition_threshold=_get_ratio(s, "candidacy", "ambition_threshold"),
-        independent_signature_ratio=_get_ratio(s, "candidacy", "independent_signature_ratio"),
         rupture_path_enabled=_get(s, "candidacy", "rupture_path_enabled", bool),
         rupture_base_probability=_get_ratio(s, "candidacy", "rupture_base_probability"),
         rupture_signature_ratio=_get_ratio(s, "candidacy", "rupture_signature_ratio"),
