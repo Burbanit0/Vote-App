@@ -78,7 +78,29 @@ Nothing is blocked by leaving it open: every acceptance script already
 overrides the value explicitly, and the override is now documented at the
 config site rather than implicit.
 
-## The open question
+## What the next pass must do FIRST — before any calibration question
+
+**Priority 1: stop the failure from being silent.** Running `run_simulation`
+at the shipped defaults today produces zero candidates, zero elections, and
+**no error, no warning, no journal signal** — the run completes "successfully"
+and simply contains no democracy. That is a worse defect than a mis-calibrated
+value, and it is worse for a specific reason: a bad value is at least
+detectable by looking at the results, whereas a mechanism that silently
+degrades to nothing gives an observer a clean-looking run with no indication
+that anything is missing. Every acceptance script happens to override the
+value, so this has never bitten a published run — but it is exactly the shape
+of defect that costs hours the first time someone runs at defaults and trusts
+the output.
+
+Whatever form it takes — a `PolityConfigError` at load time when
+`(ambition_dist, ambition_threshold)` cannot produce a candidate pool, a
+run-time guard when an election tick finds zero nominees, or a journal event
+making the empty candidacy explicit — the guard should land **before** the
+calibration debate below is opened, and is independent of how that debate
+resolves. It is also the cheaper of the two: it needs no re-baselining
+decision, no RNG-order change, and no target rate to be agreed.
+
+## The open question (after the guard, not before)
 
 Three candidate resolutions, none evaluated here:
 
@@ -108,10 +130,10 @@ criterion written before the sweep, not after.
 
 ## Consequences of deferring
 
-- The shipped configuration remains unable to hold an election. Anyone running
-  `run_simulation` at defaults gets zero candidates and no election, silently
-  — no error, no warning. That silence is itself part of the problem and may
-  deserve a `PolityConfigError`-style guard as part of whatever fix lands.
+- The shipped configuration remains unable to hold an election, and the
+  failure is silent — see "What the next pass must do FIRST" above, which is
+  the single highest-priority item on this ADR and is deliberately ordered
+  ahead of the calibration question.
 - `THEORY.md` §10.10 carries a reader-facing bullet so the limitation is
   visible where readers look for limitations, and `polity_config.yaml` carries
   the warning at the value itself. Both point here.
