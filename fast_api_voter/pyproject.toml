@@ -48,6 +48,24 @@ exclude = ["api/tests/"]
 # flags run clean outside mutmut, isolating this to mutmut's in-process
 # re-exec model, not a bug in the test suite itself). Flagged for a decision
 # rather than worked around silently — see the PR description.
+#
+# 🔴 REGRESSION (2026-08-29): the entire mutmut job (both files, no test-file
+# changes needed to trigger it) now fails deterministically before producing
+# any score — "ImportError: cannot load module more than once per process"
+# while collecting test_anti_plurality.py's `import numpy`, during mutmut's
+# own stats-gathering pass. Reproduced 2x in CI (runs 33227879711,
+# 33228264565), same failure both times — not flaky. Last clean run: 73.3%
+# on 2026-08-28T11:34Z. numpy 2.2.6 → 2.4.6 merged 2026-08-29T01:30Z (13h
+# later) is the only relevant change on develop between the two — strong
+# circumstantial link, not yet confirmed by bisection (would need a WSL
+# environment; not run — see CLAUDE.md's "run via WSL" note above and this
+# repo's session notes on avoiding WSL churn). Likely the same root cause as
+# the workers.py exclusion above — numpy's newer C-extension singleton
+# loading is stricter about repeated imports in one process, and mutmut's
+# in-process re-exec model does exactly that — just now tripped by a file
+# that isn't TestClient-coupled at all. Not yet fixed; needs its own
+# investigation (bisect the numpy version, or find a mutmut-side mitigation)
+# before this job's score can be trusted again.
 source_paths = [
     "api/engine/utils/simulation_ranked_utils.py",
     # The cardinal half of the engine-parity harness. Both files are locked
