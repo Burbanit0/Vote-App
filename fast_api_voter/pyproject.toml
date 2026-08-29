@@ -107,6 +107,7 @@ pytest_add_cli_args_test_selection = [
     "api/tests/test_bucklin_cumulative.py",
     "api/tests/test_cardinal_batch.py",
     "api/tests/test_cardinal_orphans.py",
+    "api/tests/test_cardinal_score_and_regret.py",
     "api/tests/test_condorcet.py",
     "api/tests/test_copeland.py",
     "api/tests/test_dowdall.py",
@@ -132,9 +133,32 @@ pytest_add_cli_args_test_selection = [
 # simulation_ranked_utils   440 → 337 survivors (71.3%)
 # simulation_score_utils    284 → 284 survivors (51.7%)  ← not one mutant
 # Every file added above tests an ORDINAL rule, so the cardinal module did not
-# move at all. That settles the ambiguity the old caveat left open: 51.7% is a
-# real assertion deficit, not an artifact of the selection. The cause is plain —
-# simulation_score_utils.py exports 11 rules and has 6 tests in total, and the
-# parity harness locks only 5 of them (score, star, cumulative, maximin, nash).
+# move at all. That settled the ambiguity the old caveat left open: 51.7% was a
+# real assertion deficit, not an artifact of the selection.
+#
+# UPDATE (2026-08-23, same day): test_cardinal_orphans.py landed, asserting on
+# the numbers (not just the winner) for all six previously-untested rules —
 # median_voting, mean_median_hybrid, variance_based, score_distribution_analysis,
-# majority_judgment and evaluative are in neither. That is the next chantier.
+# majority_judgment, evaluative — and was added to the selection above. Combined
+# score (both files) measured 73.3% on the next CI run (2026-08-28,
+# 1397/1906 killed) — up from the 72.9% floor set right after this file first
+# got wired in, confirming the six-rule gap is mostly closed rather than fixing
+# it by chance.
+#
+# UPDATE (2026-08-29): two remaining gaps found by reading, not measuring (no
+# survivor artifact was retrievable from CI — the .mutmut-cache upload found no
+# files on the last run) — closed in test_cardinal_orphans.py:
+# get_majority_judgment_winner's iterative tiebreak branch (fires only when two
+# candidates tie on BOTH median and gauge) was never reached by any test, and
+# its "scores" output was never asserted anywhere; get_score_distribution_
+# analysis's out-of-range/negative-score exclusion and its mode-tie-break
+# (first bin wins) were likewise untested. Also added test_cardinal_score_and_
+# regret.py for get_simple_score_winner and calculate_bayesian_regret — same
+# file, outside the six named rules, but with zero dedicated tests of their own
+# (only exercised indirectly through domain workers/routes, which mutmut's
+# TestClient exclusion above keeps out of this selection).
+#
+# Next real chantier here, if the score doesn't clear ~85%+ on the next run:
+# get_simple_score_winner/calculate_bayesian_regret are the only functions left
+# in this file without hand-picked adversarial fixtures (only the tests just
+# added) — worth a second pass once a fresh survivor list is available.
