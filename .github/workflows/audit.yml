@@ -12,9 +12,9 @@ name: Security Audit
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, polity]
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, polity]
   schedule:
     - cron: "0 6 * * 1" # weekly Monday 06:00 UTC
   # Required by GitHub's merge queue: once enabled on `develop`, each queued

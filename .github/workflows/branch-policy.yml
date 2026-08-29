@@ -2,7 +2,7 @@ name: Branch Policy
 
 on:
   pull_request:
-    branches: [develop, main]
+    branches: [develop, main, polity]
     types: [opened, synchronize, reopened, edited]
 
 concurrency:
@@ -43,6 +43,35 @@ jobs:
           fi
 
           echo "✅  Branche valide pour develop : $SOURCE"
+
+      - name: Check branch naming (PRs to polity)
+        if: github.base_ref == 'polity'
+        env:
+          SOURCE: ${{ github.head_ref }}   # via env (untrusted) — never interpolate into the shell
+        run: |
+          ALLOWED="^(feature|feat|fix|bugfix|hotfix|refactor|chore|docs|test|ci|perf|dependabot)/.+"
+
+          echo "Source branch : $SOURCE"
+          echo "Target branch : polity"
+
+          if [[ ! "$SOURCE" =~ $ALLOWED ]]; then
+            echo ""
+            echo "❌  La branche '$SOURCE' ne peut pas merger dans polity."
+            echo ""
+            echo "Préfixes autorisés :"
+            echo "  feature/  feat/     → nouvelle fonctionnalité"
+            echo "  fix/      bugfix/   → correction de bug"
+            echo "  hotfix/             → correction urgente"
+            echo "  refactor/ chore/    → refactoring / maintenance"
+            echo "  docs/     test/     → documentation / tests"
+            echo "  ci/       perf/     → CI/CD / performance"
+            echo "  dependabot/         → mises à jour automatiques (Dependabot)"
+            echo ""
+            echo "Exemple : feat/polity-lot-name"
+            exit 1
+          fi
+
+          echo "✅  Branche valide pour polity : $SOURCE"
 
       - name: Check source is develop (PRs to main)
         if: github.base_ref == 'main'

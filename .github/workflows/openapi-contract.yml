@@ -15,7 +15,7 @@ name: Generated Artifacts Contract
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, polity]
     paths:
       - "fast_api_voter/api/**"
       - "fast_api_voter/scripts/gen_openapi.py"
@@ -28,7 +28,7 @@ on:
       - ".github/workflows/openapi-contract.yml"
       - "scripts/check_*_drift.sh"
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, polity]
     paths:
       - "fast_api_voter/api/**"
       - "fast_api_voter/scripts/gen_openapi.py"
