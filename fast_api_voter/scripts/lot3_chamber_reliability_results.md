@@ -128,3 +128,71 @@ is 30 calls/tick instead of 3 (chunk=10) or 6 (chunk=5) -- but per-call wall clo
 smaller chunk size (heavy prompt-cache reuse across near-identical system prompts, and less content to
 reason about per call), partially offsetting the call-count increase; the real net effect is reported by
 the acceptance run itself, not estimated here.
+
+## Lot 5 correction — a residual floor at chunk_size=1, classified Mode A, fixed by disambiguation
+
+A production `sortition-llm-8y` run's own `replays.log` recorded 3 `chamber_deliberation` truncations
+(alongside 7 `vote_cast`), all absorbed on the first retry (`_complete_and_decode_with_replay`) -- so no run
+was lost, but a residual failure floor existed at the already-minimal chunk_size=1 and remained
+unclassified: is this Mode A (unbounded, prompt-ambiguity-driven, never converges regardless of budget) or
+Mode B (deterministic, genuine content, just needs more budget)? The distinction matters because the two
+have opposite fixes, and chunk_size is already at its floor -- a Mode B finding here would have had no
+further lever to pull.
+
+**Diagnostic gap this had to work around**: `OllamaJsonClient.complete_json`'s own `_extract_content` /
+`_extract_native_content` raise `LlmResponseError` the instant `finish_reason != "stop"`, discarding
+`message.content` and `message.reasoning` (Ollama's `/v1` endpoint puts `<think>` content in `reasoning`, a
+field neither extractor reads) before the caller ever sees them -- exactly the gap this project's own
+`llm_test_harness/README.md` and the `13e4a14` commit message already flag: "a token count alone cannot
+separate Mode A from Mode B."
+
+**Methodology**: a probe (`probe_chamber_truncation.py`, scratchpad, not committed) reconstructed the real
+seated-chamber membership across all 9 `sortition_rotation`s of the failing run's own journal (270 individual
+`(cid, seat_tick)` pairs, the real `factor_structure`/seed=42/population_size=100 population), called the
+real production prompt builders (`build_chamber_system_prompt`/`build_chamber_user_prompt`) directly, and
+made a RAW HTTP POST mirroring `_complete_json_openai_compat`'s own request body -- bypassing
+`complete_json` entirely so a truncation's full raw JSON response (`finish_reason`, `usage.completion_tokens`,
+`message.content`, `message.reasoning`) stayed inspectable instead of being thrown away in an exception.
+
+**Result**: 7/270 failures (2.6%), all identical signature -- `finish_reason='length'`,
+`completion_tokens=9596` exactly (`compute_max_tokens(1) + _CHAMBER_THINK_TOKEN_ALLOWANCE`, the configured
+ceiling, byte-for-byte, every time), 90-106s elapsed. The raw `reasoning` field (40,240-45,347 chars each)
+resolved the Mode A/B question immediately: a near-identical paragraph repeated verbatim dozens of times --
+one 43,860-char trace contains "Wait, maybe" x71, "Therefore" x140, "motif 701" x139 -- e.g. "...the answer
+is motif 701 with empty shifts. But the user's example might have a different scenario. Wait, perhaps the
+member's sincere_position is different from the chamber_position? Let me check again..." on an endless loop.
+The model reaches the correct answer almost immediately and then cannot commit to it. **Classified: Mode A.**
+
+**Root cause, not just correlation**: all 7 failures shared `chamber_position == sincere_position` exactly.
+Checked whether that's a probe artifact (every trial in the 270-call sweep used this state) rather than a
+real trigger -- it is not: `run_polity_simulation.py`'s `_run_sortition_rotation` pins
+`member.chamber_position = member.issue_positions` at seating time, and nothing else touches it until a
+`motif=702` decision fires, so this is the real, common state for any freshly-seated member or any member
+who has stayed sincere so far -- not a corner case. And the reasoning traces themselves are explicitly
+fixated on that comparison ("the sincere_position is the same as chamber_position here... Wait, maybe [it]
+is different? Let me check again"), not on anything else in the payload -- the confusion is legible, not
+merely inferred from the state that happened to be sampled. `build_chamber_system_prompt` stated the
+motif<->shifts mapping but never told the model that exact equality is itself the trivial, expected case --
+left to "figure it out," the model keeps re-verifying an already-settled comparison instead of concluding.
+
+**Resolution (2026-08-29)**: one disambiguating sentence added to `build_chamber_system_prompt` --
+"Si chamber_position est identique a sincere_position, c'est l'etat normal d'un membre qui vient d'etre tire
+au sort ou qui n'a jamais devie -- tranche motif=701, shifts vide, sans verification repetee ni hesitation."
+No budget or chunk-size change (`_CHAMBER_MAX_CHUNK_SIZE` stays 1) -- this is Mode A, and this project's own
+established precedent (`vote_cast`'s history) is that widening budget never converges Mode A; only removing
+the ambiguity does.
+
+**Live verification**: re-ran the exact 7 failing `(cid, seat_tick)` cases against the patched prompt, same
+raw-HTTP methodology. **0/7 still fail.** All 7 now return `finish_reason='stop'` in 2.7-4.9s (vs. 90-106s
+before) at 23-39 completion tokens (vs. 9596) -- not a near-miss improvement, an order-of-magnitude collapse
+in both latency and token cost for exactly the cases that used to overflow.
+
+| | before | after |
+|---|---|---|
+| failures | 7/7 of the identical-position cases tested | 0/7 |
+| elapsed | 90-106s | 2.7-4.9s |
+| completion_tokens | 9596 (exact ceiling) | 23-39 |
+
+Regression guard: `test_chamber_system_prompt_disambiguates_the_identical_position_case`
+(`test_polity_llm_behavior_engine.py`) asserts the sentence's presence; it cannot assert the live-model
+behavior, which is what the verification above establishes instead.
