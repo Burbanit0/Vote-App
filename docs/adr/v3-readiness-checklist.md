@@ -1,6 +1,6 @@
 # v3 readiness checklist — what to verify *before* `population_size: 100 → 1000`
 
-**Status**: open gate — Class A1 resolved 2026-08-29, everything else unrun
+**Status**: open gate — Class A1 and A2 resolved 2026-08-29, everything else unrun
 **Owner of the trigger**: whoever starts §13's v3 milestone
 **Date opened**: 2026-08-29 (out of `ADR-003-ballot-access-filter-is-inert.md`)
 
@@ -43,7 +43,7 @@ against this rule. **Exactly two are affected, and one of them is dead code.**
 | Parameter | Compared against | Floor | Affected? |
 |---|---|---|---|
 | `candidacy.rupture_signature_ratio` (0.005) | `ballot_access_signature_ratio` (was `sympathizer_ratio`) | ~~`1/n`~~ **fixed 2026-08-29** | **RESOLVED — see A1** |
-| `candidacy.independent_signature_ratio` (0.01) | nothing — **parsed, validated, read by no domain code** | `1/n` | **YES in theory, moot in fact** (ADR-003) |
+| ~~`candidacy.independent_signature_ratio` (0.01)~~ **deleted 2026-08-29** | nothing — **parsed, validated, read by no domain code** | `1/n` | **RESOLVED — see A2 (deletion, not a fix)** |
 | `institutions.electoral_threshold` (0.05) | `votes / total_votes` (`ballot_and_aggregation.py:117`) | `1/total_votes` | no — floor is far below 0.05 at both scales |
 | `institutions.blank_invalidation_threshold` (0.5) | `blank_share`, a share of cast ballots | `1/len(ballots)` | no |
 | `petition.signature_threshold` (0.25) | share of the population signing | `1/n` | no — 0.01 ≪ 0.25 already at n=100 |
@@ -90,11 +90,18 @@ population generator, not inferred from the arithmetic alone.
 
 Full writeup: `docs/adr/ADR-003-ballot-access-filter-is-inert.md`.
 
-### A2. `independent_signature_ratio` — fix before, not during
+### A2. `independent_signature_ratio` — RESOLVED 2026-08-29, deleted not wired
 
-It is validated at parse time and read nowhere. Deleting it or wiring it is a
-decision that belongs *before* the scale change, so v3 does not silently
-acquire a second live ballot-access bar at the same moment as A1.
+It was validated at parse time and read nowhere. "Wire it" turned out not to
+be the small change it looked like: `party_affiliation` is typed
+`int | None`, but the only assignment site (`assign_party_affiliation`)
+always returns the nearest party's id — no citizen is ever actually
+unaffiliated in this simulation today. Wiring the threshold would mean
+designing a whole new independent-citizen category and candidacy path from
+scratch, a real feature addition out of scope for both this cleanup item and
+§13's "v3 adds no new parameter" rule. Deleted from `CandidacyConfig`,
+`polity_config.yaml`, and its one test fixture. Full reasoning:
+`docs/adr/ADR-003-ballot-access-filter-is-inert.md`'s "Decision on option 3".
 
 ---
 
@@ -149,8 +156,8 @@ the problem.
 
 1. ~~Decide A1's intended design, then measure it at both scales.~~ **Done
    2026-08-29** — see A1 above.
-2. Settle A2 (wire or delete the unread parameter) — cheapest remaining item,
-   and it removes a confound from every measurement below.
+2. ~~Settle A2 (wire or delete the unread parameter).~~ **Done 2026-08-29** —
+   deleted, see A2 above.
 3. Measure B and C at both scales; they interact (B feeds C's cap). B is
    partly done (A1's re-measurement confirmed the ~10× growth directly), C is
    not.

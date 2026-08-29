@@ -50,7 +50,6 @@ def _citizen(citizen_id, positions, priorities=None, blank_threshold=0.5, ambiti
 
 _CANDIDACY_CONFIG = CandidacyConfig(
     ambition_threshold=0.7,
-    independent_signature_ratio=0.01,
     rupture_path_enabled=False,
     rupture_base_probability=0.001,
     rupture_signature_ratio=0.005,
