@@ -136,6 +136,12 @@ export default [
       'playwright-report/',
       'node_modules/',
       'src/api/types.gen.ts',
+      // Stryker's instrumented sandbox copy of src/ — gitignored, so CI never
+      // sees it, but a machine that's run mutation testing locally will have
+      // one lying around. Left in, `eslint .` tries to lint the duplicate
+      // tree too and the stylish formatter overflows (RangeError: Invalid
+      // string length) trying to print the doubled-up results.
+      '.stryker-tmp/',
     ],
   },
 ];
