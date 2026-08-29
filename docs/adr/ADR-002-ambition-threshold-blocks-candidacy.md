@@ -1,6 +1,7 @@
-# ADR-002: the shipped candidacy configuration cannot hold an election — problem stated, fix deferred
+# ADR-002: the shipped candidacy configuration cannot hold an election — calibrated, `ambition_threshold` 0.7 → 0.30
 
-**Status**: Open — problem named and measured, decision deliberately deferred
+**Status**: Accepted — calibrated 2026-08-29. (Was: Open, problem measured and
+deferred, 2026-08-29 earlier the same day.)
 **Date**: 2026-08-29
 **Context**: found while discharging §3 of
 `plan-distribution-positions-seeds.md` (the population-distribution chantier),
@@ -63,7 +64,80 @@ settled, not assumed"). The hypothesis is false, but in the opposite direction
 to the one anticipated: the parameter was not masking a residual position
 problem, it is load-bearing on its own.
 
-## Decision
+## Decision (2026-08-29, superseding the deferral recorded below)
+
+**`candidacy.ambition_threshold: 0.7` → `0.30`. `citizens.ambition_dist`
+(`beta(2,8)`) and `decide_candidacy`'s rule are both left untouched.**
+
+This is option 2 of the three listed further down. The reasoning, and what was
+rejected with it:
+
+- **Why not 0.0** (the value every acceptance script forces): it would enshrine
+  the workaround. At 0.0 every citizen is eligible, the threshold carries no
+  information, and the whole weight of selection falls on
+  `select_party_nominee`'s tie-break — the regime `THEORY.md` §10.10 measured
+  as costing 70% Blank wins under `uniform`. The pre-registered criterion
+  rejects it explicitly (eligible rate must stay ≤ 40%).
+- **Why 0.30 specifically, derived before the sweep, not fitted to it**: §2.3
+  gives the party an arbitration between *several* internal contenders (an LLM
+  decision point, §3.6.3), so the mechanism needs ≥ 2 eligible per party on
+  average — at 5 parties and 100 citizens that is a floor of 10% eligible. The
+  ceiling is ~40%, past which the trait stops discriminating. 0.30 lands at
+  **20.0% eligible, 4.0 contenders per party**. Measured against the real
+  pipeline over 320 elections: **0 elections with an empty candidate field,
+  100% with ≥ 4 of 5 parties fielding a nominee**, reproduced on an independent
+  seed block (41..80: 20.4%, 0 empty, 100%).
+- **The fourth reading was tested and rejected.** `rupture_path_enabled: true`
+  alone leaves 26.9% of elections with no candidate at all, inverts §2.4's own
+  proportions (476 rupture declarations against 8 dominant), leaves the party
+  nomination inert on 312 of 320 elections — and is not even cheaper: it breaks
+  the same seven tests. Full measurement in
+  `plan-calibration-ambition.md` §1.1.
+- **A fifth option was found, and is deferred on evidence rather than on
+  cost.** Design doc §2.4 defines the dominant path as `ambition_score` **and**
+  perceived social support crossing a *combined* threshold;
+  `decide_candidacy` implements only the first half, while the LLM path
+  (`llm_behavior_engine.decide_candidacies`) already feeds the model both
+  signals and describes itself as the replacement for "`decide_candidacy`'s
+  **bare** ambition_score threshold". Implementing §2.4 as written was measured
+  to cost no more than option 2 (verified on final bit-generator state: neither
+  option touches `generate_population`'s stream), but it **does not fix the
+  problem on its own** — at the shipped 0.7 the combined rule still leaves
+  304/320 elections empty, because a mean compresses rather than translates.
+  And once recalibrated to pass the criterion, it moves the mean support of
+  actual nominees by **+0.018 (~3%)** and nothing else, because
+  `select_party_nominee` takes the argmax on `ambition_score` and washes the
+  eligibility change out. **§2.4's substantive claim is blocked downstream by
+  the nominee criterion, not by `decide_candidacy`** — so it is deferred to be
+  taken up *together* with §10.10's nominee-selection question, where it would
+  actually have an effect. Full measurement in `plan-calibration-ambition.md`
+  §2.3–§2.4.
+
+**Migration cost, as actually paid** (measured before implementing, per the
+plan's §3, rather than discovered during): seven tests, not the four this ADR
+originally named — including a **second** byte-identity proof it had not
+identified. Both proofs were rebuilt on
+`institutions.president_term_limit: 0`, which makes `is_term_limited` true for
+every citizen before anyone has served anything, so the candidate field is
+empty *by construction, at every tick, for every seed, independent of any RNG
+draw* — an exact mechanism where the old one (the shipped threshold happening
+to empty the pool) was only distributional. `test_events_enabled_but_
+structurally_inert_...` additionally needed its off-arm corrected to carry the
+same `awakening` config as its on-arm: it was comparing awakening as well as
+events, and only passed because the permanently vacant presidency made
+awakening inert on both sides.
+
+**Deliberately NOT changed**: the acceptance scripts keep their
+`ambition_threshold=0.0` override. It is now a **continuity** choice — keeping
+`THEORY.md` §10.4–§10.9 comparable with each other — rather than a precondition
+for an election to exist. Re-baselining them at the calibrated value is a
+separate, legitimate piece of work; nothing here forces it.
+
+**Spun out**: `ADR-003-ballot-access-filter-is-inert.md`, for a defect found
+while measuring this one (§2.3's ballot-access filter rejects nobody at
+`population_size ≤ 200`, and silently becomes live above it).
+
+## The original deferral (superseded, kept for the record)
 
 **None today. The problem is named, measured, and deferred.**
 
@@ -177,7 +251,22 @@ explicitly and measure against it, the same discipline
 `plan-distribution-positions-seeds.md` §2 used for the distribution question:
 criterion written before the sweep, not after.
 
-## Consequences of deferring
+## Consequences
+
+- **The shipped configuration now holds elections**: 320/320 in the 40-seed
+  block, 0 with an empty candidate field. A regression guard
+  (`test_the_shipped_config_no_longer_warns`) fails if the shipped pair ever
+  drifts back to a state where no citizen can run.
+- The run-start warning and `election_no_winner`'s `reason: "no_candidates"`
+  key (the visibility half, below) both remain — they are no longer describing
+  the shipped default, but they are what makes any *future* empty-pool
+  configuration loud instead of silent, which was always their point.
+- **Every published result predating 2026-08-29 was measured at
+  `ambition_threshold=0.0`** and remains so: nothing was re-baselined, and the
+  acceptance scripts still pin 0.0. `THEORY.md` §10.4–§10.9 are therefore
+  internally comparable but do not reflect the shipped value.
+
+## Consequences of deferring (superseded — kept for the record)
 
 - The shipped configuration remains unable to hold an election — but it no
   longer fails quietly: a run-start warning names it, and `election_no_winner`

@@ -124,32 +124,47 @@ citizens:
 # CANDIDATURE (§2.3, §2.4 — contradiction C1 résolue ici)
 # =============================================================================
 candidacy:
-  ambition_threshold: 0.7             # [v0] seuil du chemin dominant
-  # ⚠ CETTE VALEUR CASSE LA MÉCANIQUE ÉLECTORALE À LA CONFIGURATION LIVRÉE.
-  # Mesuré le 2026-08-29 (sonde déterministe, 40 graines, pipeline réel) :
-  # combinée à `citizens.ambition_dist: beta(2,8)` ci-dessus, elle ne rend
-  # éligible que 0,03 citoyen sur 100 en moyenne — 39 graines sur 40 ne
-  # produisent AUCUN candidat, donc aucune élection n'est tenue. Indépendant
-  # de `citizens.position_dist` (identique sous uniform et factor_structure) :
-  # le blocage est le couple (ambition_dist, ambition_threshold), pas les
-  # positions. Et `rupture_path_enabled: false` ci-dessous fait de
-  # `decide_candidacy` le SEUL chemin de candidature ici — il n'y a pas de
-  # voie de secours.
-  # Conséquence à connaître avant de lire un résultat : TOUS les scripts
-  # d'acceptance (`run_acceptance_comparison.py`, `run_v5/v6a/v6b_acceptance.py`,
-  # `run_cascade_acceptance.py`) forcent `ambition_threshold=0.0` via
-  # `dataclasses.replace`. Ce n'est pas une commodité de test, c'est une
-  # condition d'existence de l'élection — et cela veut dire que la valeur
-  # livrée n'a jamais été exercée par un run publié (THEORY.md §10.4-§10.9
-  # sont tous mesurés à 0.0).
-  # NON CORRIGÉ ICI, délibérément : calibrer `ambition_dist`, baisser ce
-  # seuil, ou les deux, est un arbitrage de modélisation à part entière.
-  # Voir docs/adr/ADR-002-ambition-threshold-blocks-candidacy.md.
+  ambition_threshold: 0.30            # [v0] seuil du chemin dominant
+  # CALIBRÉ le 2026-08-29 (ADR-002 clos). Valeur précédente : 0.7, qui ne
+  # rendait éligible que 0,03 citoyen sur 100 — 39 graines sur 40 ne
+  # produisaient AUCUN candidat et aucune élection n'était tenue.
+  # 0.30 n'est pas la valeur qui fait disparaître le symptôme le plus vite
+  # (ce serait 0.0) : c'est la valeur dérivée de ce que le mécanisme doit
+  # rendre vivant. §2.3 confie au parti l'arbitrage entre PLUSIEURS
+  # prétendants internes (et §3.6.3 en fait un point de décision LLM), donc
+  # il faut >= 2 éligibles par parti en moyenne ; à 5 partis et 100 citoyens
+  # cela impose >= 10 % d'éligibles. Au-delà de ~40 % le seuil ne discrimine
+  # plus et tout le poids bascule sur le départage de select_party_nominee
+  # — le régime 0.0, dont THEORY.md §10.10 a mesuré le coût.
+  # Mesuré à 0.30, 40 graines, pipeline réel, durée livrée (320 élections) :
+  # 20,0 % d'éligibles, 4,0 prétendants par parti, 0 élection à champ vide,
+  # 100 % des élections avec >= 4 partis présentant un nominee. Reproduit sur
+  # un bloc de graines indépendant (41..80) : 20,4 %, 0 champ vide, 100 %.
+  # Critère pré-enregistré AVANT le sweep, voir plan-calibration-ambition.md
+  # §2.2 ; résultats §2.4 ; décision et coûts docs/adr/ADR-002-*.md.
+  # À savoir avant de lire un résultat publié : les scripts d'acceptance
+  # forcent toujours `ambition_threshold=0.0` via `dataclasses.replace`, et
+  # c'est désormais un choix de CONTINUITÉ (garder THEORY.md §10.4-§10.9
+  # comparables entre eux), plus une condition d'existence de l'élection.
   independent_signature_ratio: 0.01   # [v0] % de la population à réunir
+  # ⚠ PARSÉ ET VALIDÉ, JAMAIS LU PAR LE CODE DE DOMAINE. Aucun chemin de
+  # candidature indépendante n'existe : toute candidature est soit une
+  # nomination de parti, soit une déclaration de rupture. Voir ADR-003.
   rupture_path_enabled: false         # [v1] chemin rare (§2.4)
   rupture_base_probability: 0.001     # [v1] proba par tick et par citoyen
   rupture_signature_ratio: 0.005      # [v1] RÉSOLUTION C1 : seuil réduit,
                                       #      pas d'exemption totale
+  # ⚠ CE SEUIL NE REJETTE PERSONNE À population_size <= 200.
+  # `sympathizer_ratio` compte le citoyen lui-même (distance 0 <= son propre
+  # blank_threshold), donc le ratio vaut au minimum 1/population_size = 0,01
+  # ici — toujours >= 0,005. Mesuré le 2026-08-29 (40 graines, durée livrée,
+  # rupture activée) : 477 495 tirages, 476 succès au pile-ou-face, 476
+  # passages du seuil, ZÉRO rejet. À la configuration livrée le chemin de
+  # rupture est donc un pur pile-ou-face, et la « RÉSOLUTION C1 » ci-dessus
+  # ne mord pas. Attention : l'inertie s'inverse à population_size > 200
+  # (1/1000 = 0,001 < 0,005), donc le filtre deviendrait vivant, sans
+  # avertissement, à l'échelle v3 de §11.1. Voir
+  # docs/adr/ADR-003-ballot-access-filter-is-inert.md.
   max_candidates_hard_cap: 20         # [v0] garde-fou de dernier recours
 
 # =============================================================================

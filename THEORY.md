@@ -1775,23 +1775,32 @@ institutionnelle propre à la chambre.
   lire une sonde déterministe comme une **borne optimiste** sur les dynamiques
   de crise — mais c'est une précaution, pas un résultat démontré, et elle ne
   doit pas être citée ailleurs dans le projet comme acquise.
-- **La configuration livrée ne peut pas tenir d'élection, et aucun run
-  d'acceptation ne l'a jamais exercée** (mesuré 2026-08-29, sonde
-  déterministe, 40 graines, pipeline réel). `candidacy.ambition_threshold`
-  vaut `0.7` alors que `citizens.ambition_dist` est un `beta(2,8)` : la
-  probabilité de dépasser le seuil est si faible que **0,03 citoyen sur 100
-  en moyenne** est éligible, et **39 graines sur 40 ne produisent aucun
-  candidat** — donc aucune élection n'est même tenue. Le constat est
-  identique sous `uniform` et sous `factor_structure` : le blocage tient au
-  couple (`ambition_dist`, `ambition_threshold`), orthogonal à la
-  distribution des positions. Tous les scripts d'acceptation imposent
-  `ambition_threshold=0.0` ; ce n'est donc pas une commodité de test mais une
-  **condition d'existence de l'élection**, et tous les résultats de §10.4 à
-  §10.9 sont mesurés sous cette valeur, jamais sous celle livrée. **Traité
-  comme un chantier à part entière, pas comme une limite de fin de section** :
-  la question ouverte (calibrer `ambition_dist`, baisser le seuil, ou les
-  deux) est posée sans être tranchée dans
-  `docs/adr/ADR-002-ambition-threshold-blocks-candidacy.md`.
+- **Aucun résultat publié ci-dessus n'a été mesuré à la configuration de
+  candidature livrée.** Jusqu'au 2026-08-29, `candidacy.ambition_threshold`
+  valait `0.7` contre un `citizens.ambition_dist: beta(2,8)` : **0,03 citoyen
+  sur 100** était éligible et **39 graines sur 40 ne produisaient aucun
+  candidat**, donc aucune élection n'était tenue (mesuré, 40 graines, pipeline
+  réel ; identique sous `uniform` et sous `factor_structure`, le blocage étant
+  orthogonal aux positions). Le seuil a depuis été **calibré à `0.30`**
+  (20,0 % d'éligibles, 4,0 prétendants par parti, 0 élection à champ vide sur
+  320, reproduit sur un bloc de graines indépendant) — décision, critère
+  pré-enregistré et coûts dans
+  `docs/adr/ADR-002-ambition-threshold-blocks-candidacy.md` et
+  `plan-calibration-ambition.md`. **Mais les scripts d'acceptation imposent
+  toujours `ambition_threshold=0.0`**, désormais par choix de continuité :
+  tous les résultats de §10.4 à §10.9 restent mesurés à `0.0`, donc
+  comparables entre eux et **non représentatifs de la valeur livrée**. Un
+  re-baseline à la valeur calibrée est un chantier ouvert, non fait.
+- **La revendication §2.4 « un candidat doit avoir du soutien perçu » n'est
+  toujours pas implémentée.** `decide_candidacy` ne teste que
+  `ambition_score`, alors que le plan de conception décrit un seuil *combiné*
+  ambition + soutien social, et que le chemin LLM
+  (`llm_behavior_engine.decide_candidacies`) alimente déjà le modèle avec les
+  deux signaux. Implémenter la règle combinée a été mesuré : elle ne déplace
+  le soutien moyen des nominees que de **+0,018 (~3 %)**, parce que
+  `select_party_nominee` prend l'argmax sur `ambition_score` et lave l'effet —
+  c'est le même constat que le point §10.10 ci-dessus. Les deux questions sont
+  donc reportées **ensemble**, pas séparément.
 - **`stance = 4` (contre-mobilisation) est observable mais mécaniquement
   inerte** : aucun levier citoyen pro-sortant n'existe encore pour lui
   répondre — un représentant peut choisir cette posture, mais rien dans le
