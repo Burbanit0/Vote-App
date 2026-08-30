@@ -1869,6 +1869,22 @@ def decide_pressure_actions(
     (simple_rules.py), which stays exactly as it is as the permanent
     §11.4 baseline.
 
+    RELIABILITY WARNING (2026-08-30, reasoning_budget_and_decision_quality_findings.md): decision
+    QUALITY here is not established at any chunk size tested. At the shipped
+    config.llm.max_batch_size=25, a real chunk collapses to one uniform act for every citizen in
+    it, ignoring individual ctx. At every smaller size tested (3, 5, 10 -- the same sizes
+    `lot6_batch_reliability_results.md` validated as producing clean, well-formed JSON, cited
+    below for `min_batch_size=1`) the model never chooses an acting code (SIGN_PETITION/
+    LAUNCH_PETITION/MOBILIZE) at all, regardless of content -- "clean parse" there was never a
+    content-quality check, and is now known not to imply one. Confirmed even at size=1 (fully
+    isolated single-citizen calls, no cross-citizen interaction possible): 0/63 acting codes,
+    including the most extreme "should act" case tested -- this rules out batching itself as the
+    cause. No chunk size from 1 to 25 has been shown to track each citizen's own
+    gap/blank_threshold correctly; the problem lives in the prompt or schema itself. Treat
+    mobilization_rate/pressure-related metrics from any llm.enabled=True run as unverified until
+    this is resolved -- see the findings doc for the full evidence trail and remediation options
+    under discussion.
+
     Unlike every other decide_* function, this one CHUNKS: it is the first
     decision type since vote_cast to batch CITIZENS rather than a handful
     of officeholders/nominees/parties, and the consulted cohort can be
