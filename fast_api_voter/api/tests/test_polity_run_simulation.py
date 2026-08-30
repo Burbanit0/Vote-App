@@ -831,7 +831,10 @@ def test_barred_candidates_are_excluded_from_the_next_partys_nomination(tmp_path
 def test_barred_candidates_cannot_declare_a_rupture_candidacy(tmp_path):
     # blank_vote_competitive itself is irrelevant to this call --
     # _attempt_rupture_candidacies only reads config.candidacy and the
-    # barred_candidate_ids argument directly.
+    # barred_candidate_ids argument directly. rupture_distance_multiplier=0.0
+    # keeps this a pure probability/signature-bar test, same as before the
+    # distance-weighted probability was added -- party_affiliation only needs
+    # to resolve to *some* party in `parties` for the lookup to succeed.
     config = load_config()
     config = dataclasses.replace(
         config,
@@ -839,17 +842,21 @@ def test_barred_candidates_cannot_declare_a_rupture_candidacy(tmp_path):
             config.candidacy,
             rupture_path_enabled=True,
             rupture_base_probability=1.0,
+            rupture_distance_multiplier=0.0,
             rupture_signature_ratio=0.0,
         ),
     )
-    citizen = _blank_leaning_citizen(0, 0.5, blank_threshold=1.0, ambition=0.0)
+    parties = [Party(party_id=0, platform=(0.5,))]
+    citizen = _blank_leaning_citizen(0, 0.5, blank_threshold=1.0, ambition=0.0, party=0)
     citizen.role = Role.ELECTOR
-    population = [citizen] + [_blank_leaning_citizen(i, 0.5, blank_threshold=1.0, ambition=0.0) for i in range(1, 4)]
+    population = [citizen] + [
+        _blank_leaning_citizen(i, 0.5, blank_threshold=1.0, ambition=0.0, party=0) for i in range(1, 4)
+    ]
     rng = np.random.default_rng(0)
 
     with Journal(tmp_path / "run.jsonl", run_id="r") as journal:
         _attempt_rupture_candidacies(
-            population, config, journal, tick=0, rng=rng, barred_candidate_ids=frozenset({0})
+            population, parties, config, journal, tick=0, rng=rng, barred_candidate_ids=frozenset({0})
         )
 
     events = _events(tmp_path / "run.jsonl")

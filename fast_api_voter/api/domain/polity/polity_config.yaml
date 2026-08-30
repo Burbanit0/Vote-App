@@ -171,6 +171,20 @@ candidacy:
   # comparables entre eux), plus une condition d'existence de l'élection.
   rupture_path_enabled: false         # [v1] chemin rare (§2.4)
   rupture_base_probability: 0.001     # [v1] proba par tick et par citoyen
+  rupture_distance_multiplier: 2.0    # [v1] RÉSOLUTION points ouverts #1
+                                      #      (2026-08-29) : proba effective =
+                                      #      rupture_base_probability * (1 +
+                                      #      k * weighted_distance(citizen,
+                                      #      son_parti_affilie)) -- k=2.0,
+                                      #      donc jusqu'a 3x la proba de base
+                                      #      au desaccord maximal, exactement
+                                      #      la proba de base au desaccord nul
+                                      #      (comportement pre-changement
+                                      #      inchange a distance 0). Pas de
+                                      #      derivation theorique disponible
+                                      #      (THEORY.md ne couvre pas ce point) --
+                                      #      choix pragmatique explicite, voir
+                                      #      plan-rupture-candidacy-threshold.md.
   rupture_signature_ratio: 0.005      # [v1] RÉSOLUTION C1 : seuil réduit,
                                       #      pas d'exemption totale
   # CORRIGÉ le 2026-08-29 (ADR-003, option 1). Ce seuil compare désormais
