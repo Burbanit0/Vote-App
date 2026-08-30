@@ -36,14 +36,17 @@ if/else split.
 """
 from __future__ import annotations
 
+import dataclasses
+import hashlib
 import json
 import logging
 import subprocess
 from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterator
+from typing import Any, Iterator
 
 import numpy as np
 
@@ -305,7 +308,33 @@ def _write_run_metadata(run_dir: Path, config: PolityConfig, run_id: str) -> Non
     Ollama client itself to confirm which device served a given call --
     Ollama's own `ollama ps` CLI queries the server directly for that,
     and the closest HTTP equivalent, `/api/ps`'s `size_vram` field, isn't
-    wired up anywhere in this codebase)."""
+    wired up anywhere in this codebase).
+
+    The run-shape block (total_ticks/population_size/duration_years/
+    ticks_per_year/seed) exists because nothing else in the run directory
+    states them: an observer reading `events.jsonl` can see which tick the
+    run has REACHED but has no way to know which tick it is heading FOR,
+    so "tick 12" is unreadable without a denominator it would otherwise
+    have to guess from a config file that lives outside the run directory
+    (the acceptance scripts each dump their own `config.json` one level
+    up, which is exactly the coupling this removes). Sourced from
+    `config.run` rather than from an `InstitutionalClock`, so this stays
+    callable before the clock is built -- `run.total_ticks` is the same
+    `ticks_per_year * duration_years` the clock itself reads.
+
+    `started_at` deliberately makes THIS file differ between two otherwise
+    identical runs. That is not a reproducibility regression: the contract
+    those tests assert is over `events.jsonl`'s bytes, and this file is a
+    sibling precisely so it can carry things the journal must not. No test
+    compares run_metadata.json across runs, and none should start.
+
+    `config_digest` hashes the TYPED config, not `config.raw`. The raw
+    mapping is the YAML as parsed off disk and does not see the
+    `dataclasses.replace` overrides every acceptance script applies, so
+    digesting it would report two runs as identically configured whenever
+    they differed only in the overrides -- which is the only way those
+    scripts ever differ. sha256, not md5: the backend is bandit-clean and
+    B324 findings were converted rather than skipped."""
     run_dir.mkdir(parents=True, exist_ok=True)
     gpu_driver_version: str | None = None
     gpu_cuda_version: str | None = None
@@ -321,10 +350,62 @@ def _write_run_metadata(run_dir: Path, config: PolityConfig, run_id: str) -> Non
                 "llm_model": config.llm.model if config.llm.enabled else None,
                 "gpu_driver_version": gpu_driver_version,
                 "gpu_cuda_version": gpu_cuda_version,
+                "total_ticks": config.run.total_ticks,
+                "population_size": config.run.population_size,
+                "duration_years": config.run.duration_years,
+                "ticks_per_year": config.run.ticks_per_year,
+                "seed": config.run.seed,
+                "started_at": datetime.now(timezone.utc).isoformat(),
+                "config_digest": config_digest(config),
             },
             sort_keys=True,
             indent=2,
         ),
+        encoding="utf-8",
+    )
+
+
+def typed_config_mapping(config: PolityConfig) -> dict[str, Any]:
+    """The whole config as plain JSON-able data, minus `raw`.
+
+    `raw` is dropped rather than merged: it is the pre-override YAML (see
+    `_write_run_metadata`'s own note), so keeping both would put two
+    disagreeing answers in one file and leave a reader to guess which one
+    the run actually used.
+
+    Every field of PolityConfig except `raw` is itself a frozen dataclass,
+    so this is a plain per-section `asdict`. `default=str` on the caller's
+    `json.dumps` is the backstop for any future field whose type isn't
+    JSON-native -- describing the run must never be able to abort it.
+    """
+    return {
+        field.name: dataclasses.asdict(getattr(config, field.name))
+        for field in dataclasses.fields(config)
+        if field.name != "raw"
+    }
+
+
+def config_digest(config: PolityConfig) -> str:
+    """Stable sha256 over the typed config -- equal digests mean two runs
+    were configured identically, including overrides."""
+    payload = json.dumps(typed_config_mapping(config), sort_keys=True, default=str)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _write_run_config(run_dir: Path, config: PolityConfig) -> None:
+    """The full resolved config, beside the journal.
+
+    Not a nicety: most polity mechanisms ship `enabled: false`, and
+    indexer.py's convention is that a metric reads `None` when its
+    governing flag is off and `0.0` only when it genuinely measured zero.
+    A reader holding just `events.jsonl` cannot tell those apart -- an
+    absent `legitimacy_updated` stream means "legitimacy disabled" or
+    "enabled and nothing happened" depending on a flag it cannot see. This
+    file is what makes that distinction recoverable after the fact.
+    """
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "config.json").write_text(
+        json.dumps(typed_config_mapping(config), sort_keys=True, indent=2, default=str),
         encoding="utf-8",
     )
 
@@ -413,6 +494,7 @@ def run_simulation(
 
     run_id = run_id or config.run.run_label
     _write_run_metadata(Path(config.journal.output_dir) / run_id, config, run_id)
+    _write_run_config(Path(config.journal.output_dir) / run_id, config)
     citizens = generate_population(config.citizens, config.run.population_size, config.run.seed)
     _warn_if_no_candidate_is_possible(citizens, config)
     parties = initialize_parties(citizens, config.parties.initial_count, config.run.seed)

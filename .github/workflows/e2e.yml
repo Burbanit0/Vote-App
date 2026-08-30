@@ -8,14 +8,17 @@ on:
   # ("exhaustive and slow"), which let the specs rot against a UI that had moved
   # on for two months without anyone noticing. The suite now runs in ~1 min, so
   # it belongs where the drift happens.
+  # `polity` is included for the same reason as in frontend-ci-cd-pipeline.yml:
+  # it is a long-lived integration branch, and until now nothing ran the e2e
+  # suite against it at all.
   pull_request:
-    branches: [develop, main]
+    branches: [develop, main, polity]
     paths:
       - 'voter-app/**'
       - 'fast_api_voter/**'
       - '.github/workflows/e2e.yml'
   push:
-    branches: [develop]
+    branches: [develop, polity]
     paths:
       - 'voter-app/**'
       - 'fast_api_voter/**'

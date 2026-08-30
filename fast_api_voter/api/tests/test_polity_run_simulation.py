@@ -363,6 +363,72 @@ def test_run_metadata_does_not_perturb_the_journals_own_byte_identical_reproduci
     assert (path_b.parent / "run_metadata.json").exists()
 
 
+# ── run shape + resolved config (live-UI observability seam) ─────────────
+# An observer holding only events.jsonl can see the tick a run has REACHED
+# but not the one it is heading FOR, and cannot tell "metric disabled" from
+# "metric enabled and measured nothing". These two files close both gaps
+# without the journal gaining a byte.
+
+def test_run_metadata_records_the_run_shape_so_a_reader_has_a_denominator(tmp_path):
+    config = _config_with_output_dir(tmp_path)
+    config = dataclasses.replace(config, run=dataclasses.replace(config.run, duration_years=3))
+    journal_path = run_simulation(config, run_id="shape")
+    metadata = json.loads((journal_path.parent / "run_metadata.json").read_text(encoding="utf-8"))
+    assert metadata["duration_years"] == 3
+    assert metadata["ticks_per_year"] == config.run.ticks_per_year
+    assert metadata["total_ticks"] == config.run.total_ticks == 3 * config.run.ticks_per_year
+    assert metadata["population_size"] == config.run.population_size
+    assert metadata["seed"] == config.run.seed
+    assert metadata["started_at"]
+
+
+def test_typed_config_mapping_drops_raw_and_keeps_every_other_section():
+    config = load_config()
+    mapping = run_polity_simulation_module.typed_config_mapping(config)
+    assert "raw" not in mapping
+    expected = {f.name for f in dataclasses.fields(config)} - {"raw"}
+    assert set(mapping) == expected
+    assert mapping["run"]["seed"] == config.run.seed
+
+
+def test_config_digest_is_stable_for_the_same_config():
+    assert run_polity_simulation_module.config_digest(load_config()) == \
+        run_polity_simulation_module.config_digest(load_config())
+
+
+def test_config_digest_changes_on_an_override_that_raw_would_not_see():
+    # The whole reason the digest hashes the TYPED config: dataclasses.replace
+    # (what every acceptance script uses to build its arms) never touches
+    # `config.raw`, so a raw-based digest would call two differently-configured
+    # arms identical -- and differing overrides is the only way they ever differ.
+    base = load_config()
+    overridden = dataclasses.replace(base, run=dataclasses.replace(base.run, seed=base.run.seed + 1))
+    assert overridden.raw == base.raw
+    assert run_polity_simulation_module.config_digest(overridden) != \
+        run_polity_simulation_module.config_digest(base)
+
+
+def test_run_writes_the_resolved_config_beside_the_journal(tmp_path):
+    config = _config_with_output_dir(tmp_path)
+    config = dataclasses.replace(config, run=dataclasses.replace(config.run, seed=4321))
+    journal_path = run_simulation(config, run_id="resolved")
+    written = json.loads((journal_path.parent / "config.json").read_text(encoding="utf-8"))
+    assert "raw" not in written
+    # The override, not the YAML on disk: this file must describe the run
+    # that actually happened.
+    assert written["run"]["seed"] == 4321
+    assert written["journal"]["index_after_run"] is False
+
+
+def test_resolved_config_records_which_mechanisms_were_enabled(tmp_path):
+    # indexer.py's None-vs-0.0 convention is only decodable with these flags.
+    journal_path = run_simulation(_config_with_output_dir(tmp_path), run_id="flags")
+    written = json.loads((journal_path.parent / "config.json").read_text(encoding="utf-8"))
+    for section in ("legitimacy", "petition", "street_pressure", "awakening",
+                    "events", "social_graph", "sortition_chamber", "llm"):
+        assert "enabled" in written[section]
+
+
 # ── outgoing president's stale office/role reset ─────────────────────────
 
 def _office_test_citizen(cid, position):

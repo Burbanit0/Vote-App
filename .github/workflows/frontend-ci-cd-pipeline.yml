@@ -1,14 +1,20 @@
 name: Frontend CI
 
+# `polity` is in these lists for the same reason develop and main are: it is a
+# long-lived integration branch that accumulates many PRs before it merges
+# anywhere. Backend CI and the generated-artifacts contract already gated it;
+# this one and e2e.yml did not, so every frontend change landing on `polity`
+# went in with no lint, no type check, no tests and no build — the gap only
+# became visible when the polity work grew a frontend of its own.
 on:
   push:
-    branches: [develop, main]
+    branches: [develop, main, polity]
     paths:
       - 'voter-app/**'
       # …and the pipeline definition itself: editing it must run it.
       - '.github/workflows/frontend-ci-cd-pipeline.yml'
   pull_request:
-    branches: [develop, main]
+    branches: [develop, main, polity]
     paths:
       - 'voter-app/**'
       # …and the pipeline definition itself: editing it must run it.
