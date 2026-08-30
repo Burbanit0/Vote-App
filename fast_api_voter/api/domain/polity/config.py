@@ -107,6 +107,19 @@ def _get_nonneg_int(section: dict[str, Any], path: str, key: str) -> int:
     return value
 
 
+def _get_nonneg_float(section: dict[str, Any], path: str, key: str) -> float:
+    """Unlike _get_ratio, not bounded to [0, 1] -- for a multiplier or
+    weight where only "not negative" is a meaningful floor (e.g.
+    candidacy.rupture_distance_multiplier: negative would mean more
+    disagreement LOWERS the rupture-candidacy probability, inverting the
+    parameter's own intent)."""
+    value = _get(section, path, key, (int, float))
+    result = float(value)
+    if result < 0.0:
+        raise PolityConfigError(f"'{path}.{key}': must be non-negative, got {result}")
+    return result
+
+
 @dataclass(frozen=True)
 class RunConfig:
     seed: int
@@ -171,6 +184,7 @@ class CandidacyConfig:
     ambition_threshold: float
     rupture_path_enabled: bool
     rupture_base_probability: float
+    rupture_distance_multiplier: float
     rupture_signature_ratio: float
     max_candidates_hard_cap: int
 
@@ -585,6 +599,7 @@ def _parse_candidacy(raw: dict[str, Any]) -> CandidacyConfig:
         ambition_threshold=_get_ratio(s, "candidacy", "ambition_threshold"),
         rupture_path_enabled=_get(s, "candidacy", "rupture_path_enabled", bool),
         rupture_base_probability=_get_ratio(s, "candidacy", "rupture_base_probability"),
+        rupture_distance_multiplier=_get_nonneg_float(s, "candidacy", "rupture_distance_multiplier"),
         rupture_signature_ratio=_get_ratio(s, "candidacy", "rupture_signature_ratio"),
         max_candidates_hard_cap=_get_positive_int(s, "candidacy", "max_candidates_hard_cap"),
     )

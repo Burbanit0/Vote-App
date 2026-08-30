@@ -474,7 +474,7 @@ def run_simulation(
     with Journal.from_config(config.journal, run_id) as journal, _llm_client_scope(config, llm_client) as client:
         for tick in range(clock.total_ticks + 1):
             barred_ids = pending_rerun.barred_candidate_ids if pending_rerun is not None else frozenset()
-            _attempt_rupture_candidacies(citizens, config, journal, tick, rupture_rng, barred_candidate_ids=barred_ids)
+            _attempt_rupture_candidacies(citizens, parties, config, journal, tick, rupture_rng, barred_candidate_ids=barred_ids)
             exogenous = _run_exogenous_events(citizens, config, journal, tick, events_rng, economy_x)
             economy_x = exogenous.economy_x
             election = clock.election_at(tick)
@@ -542,6 +542,7 @@ def _llm_client_scope(config: PolityConfig, llm_client: LlmClientProtocol | None
 
 def _attempt_rupture_candidacies(
     citizens: list[Citizen],
+    parties: list[Party],
     config: PolityConfig,
     journal: Journal,
     tick: int,
@@ -562,7 +563,7 @@ def _attempt_rupture_candidacies(
         # gated citizen would shift the RNG stream and break byte-for-byte
         # reproducibility for any non-null president_term_limit or any run
         # where a rerun cycle is open (v4 Lot 2, §6bis.1 / Lot 9, §6bis.2).
-        declared = attempt_rupture_candidacy(citizen, citizens, config.candidacy, rng)
+        declared = attempt_rupture_candidacy(citizen, citizens, parties, config.candidacy, rng)
         if (
             declared
             and not is_term_limited(citizen, config.institutions.president_term_limit)
