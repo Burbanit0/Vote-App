@@ -2669,6 +2669,45 @@ def decide_coalition(
     if not responders:
         return CoalitionBatchOutcome(decisions=[], initiator=initiator, coalition=None)
 
+    all_rounds, aborted_at_round = _run_coalition_negotiation(
+        client, responders, initiator, party_platforms, seats, votes, total_seats, threshold, config,
+    )
+    if aborted_at_round is not None:
+        return CoalitionBatchOutcome(
+            decisions=all_rounds[-1],
+            initiator=initiator,
+            coalition=None,
+            rounds=all_rounds,
+            aborted_at_round=aborted_at_round,
+        )
+
+    final_decisions = all_rounds[-1]
+    coalition = assemble_coalition(final_decisions, initiator, party_platforms, seats, majority_ratio)
+    return CoalitionBatchOutcome(
+        decisions=final_decisions, initiator=initiator, coalition=coalition, rounds=all_rounds
+    )
+
+
+def _run_coalition_negotiation(
+    client: LlmClientProtocol,
+    responders: Sequence[int],
+    initiator: int,
+    party_platforms: dict[int, tuple[float, ...]],
+    seats: dict[int, int],
+    votes: dict[int, float],
+    total_seats: int,
+    threshold: float,
+    config: PolityConfig,
+) -> tuple[list[list[CoalitionDecision]], int | None]:
+    """The round loop itself, split out of decide_coalition (radon: the
+    unsplit function was D(21) -- this keeps each function's own cyclomatic
+    complexity readable, a pure refactor, no behavior change). Returns
+    (all_rounds, aborted_at_round): aborted_at_round is None on a normal
+    stop (fixed point or hard cap reached, see decide_coalition's own
+    docstring for the exact stop condition), and set to the failing round
+    number on a round >= 2 LlmResponseError -- round 1's own failure still
+    propagates straight out of this function unchanged, per the same
+    docstring's documented asymmetry."""
     all_rounds: list[list[CoalitionDecision]] = []
     prior_by_party: dict[int, CoalitionDecision] | None = None
     provisional_seats: int | None = None
@@ -2696,13 +2735,7 @@ def decide_coalition(
         except LlmResponseError:
             if round_number == 1:
                 raise
-            return CoalitionBatchOutcome(
-                decisions=all_rounds[-1],
-                initiator=initiator,
-                coalition=None,
-                rounds=all_rounds,
-                aborted_at_round=round_number,
-            )
+            return all_rounds, round_number
 
         for decision in round_decisions:
             validate_coalition_decision(decision, seats, initiator)
@@ -2713,15 +2746,9 @@ def decide_coalition(
             prior_by_party[pid].action == current_by_party[pid].action for pid in responders
         )
         if converged or round_number >= config.parties.coalition_max_negotiation_rounds:
-            break
+            return all_rounds, None
 
         prior_by_party = current_by_party
         joiners = [pid for pid, d in current_by_party.items() if d.action == CoalitionAction.JOIN.value]
         provisional_seats = seats[initiator] + sum(seats[pid] for pid in joiners)
         round_number += 1
-
-    final_decisions = all_rounds[-1]
-    coalition = assemble_coalition(final_decisions, initiator, party_platforms, seats, majority_ratio)
-    return CoalitionBatchOutcome(
-        decisions=final_decisions, initiator=initiator, coalition=coalition, rounds=all_rounds
-    )
