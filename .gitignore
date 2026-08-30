@@ -235,6 +235,7 @@ fast_api_voter/scripts/acceptance_v6b_runs_factor_structure/
 fast_api_voter/scripts/acceptance_v6b_runs_fs_electoral_only/
 fast_api_voter/scripts/sortition_calibration_runs/
 fast_api_voter/scripts/acceptance_cascade_runs/
+fast_api_voter/scripts/acceptance_v7_runs/
 voter-app/dist/
 
 # ── OS junk ──────────────────────────────────────────────────────────────────
