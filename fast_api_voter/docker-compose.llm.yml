@@ -33,12 +33,21 @@
 #                                   Ollama under decide_campaign_positioning
 #                                   (see that function's own docstring).
 #
-# ⚠ Different weights from the Ollama default: qwen3:8b on Ollama is a
-# quantized GGUF; Qwen/Qwen3-8B here would be served in bf16. Every
-# committed live results doc (ollama_structured_output_results.md,
-# batch_size_boundary_results.md, lot6_batch_reliability_results.md,
-# acceptance_v4_results.md) describes the Ollama/GGUF configuration only —
-# none of those numbers are assumed to transfer here.
+# ⚠ Different weights from the Ollama default, on purpose: Qwen/Qwen3-8B
+# in bf16 needs ~16GB for weights ALONE (8B params x 2 bytes) -- on this
+# project's 16.3GB card (RTX 5070 Ti) that leaves ~0 headroom for KV
+# cache and would almost certainly OOM at launch. Qwen/Qwen3-8B-AWQ
+# (4-bit, ~4-5GB weights) is used instead -- see
+# plan-vllm-switch-readiness.md for the full VRAM reasoning. This is a
+# SECOND variable confounded with the serving-layer switch, not a
+# transparent substitution: every committed live results doc
+# (ollama_structured_output_results.md, batch_size_boundary_results.md,
+# lot6_batch_reliability_results.md, acceptance_v4_results.md) describes
+# Ollama running the UN-quantized GGUF qwen3:8b -- none of those numbers,
+# nor the token-budget/chunk-size calibrations derived from them
+# (_POSITIONING_THINK_TOKEN_ALLOWANCE, _VOTE_CAST_MAX_CHUNK_SIZE,
+# _CHAMBER_MAX_CHUNK_SIZE), are assumed to transfer to AWQ without
+# re-verification (plan-vllm-switch-readiness.md §3, axis b).
 #
 # §15's own vigilance note: beyond ~4 concurrent requests per GPU, time-to-
 # first-token tends to double. Doesn't bind THIS client, which never issues
@@ -51,18 +60,33 @@
 
 services:
   vllm:
-    # PLACEHOLDER — never a guessed version, never `latest` (same rule this
-    # project enforces on llm.model, config.py). Fill in the real pinned
-    # tag at first deployment and commit it.
-    image: vllm/vllm-openai:<PINNED_TAG>
+    # Pinned 2026-08-29 (plan-vllm-switch-readiness.md): confirmed to exist
+    # on Docker Hub directly (not guessed), amd64, pushed 2026-08-26.
+    image: vllm/vllm-openai:v0.28.0
     container_name: vllm-polity
     command:
       - "--model"
-      - "Qwen/Qwen3-8B"
+      - "Qwen/Qwen3-8B-AWQ"         # NOT the base repo -- see the VRAM note
+                                    # above. Official Qwen release, not a
+                                    # community requant.
       - "--revision"
-      - "<HF_COMMIT_SHA>"          # pin the weights, not just the repo id
+      - "4da05a8edb55c6046cce958586c33b61da07bb79"  # pinned via the HF API
+                                    # directly 2026-08-29 (`sha` field of
+                                    # /api/models/Qwen/Qwen3-8B-AWQ), not
+                                    # copied from a webpage.
+      - "--quantization"
+      - "awq_marlin"                # vLLM's AWQ kernel; awq_marlin (not
+                                    # plain awq) is the maintained path on
+                                    # Ampere+ GPUs including this card
+                                    # (Blackwell).
       - "--served-model-name"
       - "qwen3:8b"                 # must match polity_config.yaml's llm.model
+                                    # -- deliberately does NOT match the repo
+                                    # actually served (Qwen3-8B-AWQ, not the
+                                    # base repo): every prompt/journal byte
+                                    # downstream stays identical across
+                                    # providers. Not a labeling error --
+                                    # see plan-vllm-switch-readiness.md §6.
       - "--reasoning-parser"
       - "qwen3"
       - "--max-model-len"
