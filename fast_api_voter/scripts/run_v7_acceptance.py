@@ -321,6 +321,9 @@ def summarize(runs_dir: Path, results_path: Path | None) -> None:
         "of which way it comes out, and not treated as conclusive at n~2 either way."
     )
 
+    if results_path is not None:
+        results_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
