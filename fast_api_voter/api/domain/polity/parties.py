@@ -3,8 +3,15 @@ api.domain.polity.parties — initial party platforms (Lot 3).
 
 Resolves audit blocker A2 ("rien ne dit d'où viennent les partis"): N fixed
 parties, platforms initialized by k-means on citizen issue positions. No
-birth/death/split in v0 (parties.birth_enabled/death_enabled/split_enabled
-are all false — that's a v1+ palier).
+birth/death in v0 (parties.birth_enabled/death_enabled are both false —
+that's a v1+ palier). Party splitting (Points ouverts #4) was closed
+2026-08-29 with no code ever written: no research motivation was ever
+named anywhere in the design doc for it, unlike every other Points
+ouverts item this project has resolved -- see
+polity-simulation-design-v2.md's own entry for the closure reasoning.
+parties.split_enabled existed only as an unconsumed config flag (same
+class of dead config as candidacy.independent_signature_ratio,
+ADR-003) and was deleted, not merely left reserved.
 """
 from __future__ import annotations
 

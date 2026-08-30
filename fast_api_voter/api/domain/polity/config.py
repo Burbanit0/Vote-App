@@ -160,7 +160,6 @@ class PartiesConfig:
     manual_platforms: list[Any]
     birth_enabled: bool
     death_enabled: bool
-    split_enabled: bool
     coalition_initiator: str
     coalition_tiebreak: tuple[str, ...]
     coalition_majority_ratio: float
@@ -571,7 +570,6 @@ def _parse_parties(raw: dict[str, Any]) -> PartiesConfig:
         manual_platforms=_get(s, "parties", "manual_platforms", list),
         birth_enabled=_get(s, "parties", "birth_enabled", bool),
         death_enabled=_get(s, "parties", "death_enabled", bool),
-        split_enabled=_get(s, "parties", "split_enabled", bool),
         coalition_initiator=_get_enum(s, "parties", "coalition_initiator", _COALITION_INITIATORS),
         coalition_tiebreak=tuple(tiebreak),
         coalition_majority_ratio=_get_ratio(s, "parties", "coalition_majority_ratio"),

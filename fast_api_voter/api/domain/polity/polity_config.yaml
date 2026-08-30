@@ -82,7 +82,6 @@ parties:
   manual_platforms: []        # [v0] si init_strategy = manual
   birth_enabled: false        # [v1] un parti peut-il naître en cours de run ?
   death_enabled: false        # [v1] un parti disparaît-il après N échecs ?
-  split_enabled: false        # [v1] scission (point ouvert n°4)
 
   # --- Formation de coalition (A5, §3.6.8) ---
   coalition_initiator: largest_seats   # [v0] largest_seats | largest_votes
