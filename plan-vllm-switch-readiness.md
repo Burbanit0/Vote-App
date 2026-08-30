@@ -54,6 +54,43 @@ Voies possibles, non tranchées ici :
    cohérent avec le traitement déjà donné au point ouvert #20 (le
    provider reste `ollama`, la limite déjà mesurée et acceptée).
 
+## 0bis. Décision, 2026-08-30 : option 4, `provider: ollama` inchangé
+
+**Écarté explicitement, avec raison :**
+- **Option 1 (version pré-V2)** : aucun repère sur quelle version
+  fonctionnerait encore — exactement le tâtonnement à l'aveugle déjà
+  refusé en §0. Rechercher une version sans signal de départ n'est pas
+  plus fondé que réessayer des tags au hasard.
+- **Option 2 (attendre #47579)** : dépendance externe non maîtrisée par
+  ce projet — en conflit de rebase depuis un mois (ouvert 2026-07-03,
+  conflit constaté 2026-08-08), sans date de résolution.
+- **Option 3 (Linux natif)** : rouvrirait une question déjà mise de côté
+  (ne pas changer d'environnement d'exécution en pleine investigation)
+  pour un gain non garanti — mauvais rapport coût/bénéfice tant que rien
+  d'autre ne motive ce changement d'OS.
+
+**Pourquoi Ollama reste viable en attendant** : le fix de prompt du
+2026-08-29 (désambiguïsation `chamber_position == sincere_position`,
+§2 point 2 ci-dessus) a déjà ramené le taux de troncature résiduel à
+0,6 %, absorbé à 100 % par le mécanisme de replay existant
+(`cache_recycle_chunk_size_tension_findings.md`). vLLM n'a jamais été un
+besoin urgent au sens d'un problème actif non résolu — seulement une
+piste en retard sur le critère de bascule documenté au §15 (croisé dès
+v4). Le retard documenté n'équivaut pas à une urgence opérationnelle.
+
+**Ce n'est pas un renoncement définitif — une décision à réévaluer,
+condition de réouverture explicite, même traitement que le veto de la
+chambre de sortition (point ouvert #11, différé) :**
+- À retester si/quand `vllm-project/vllm#47579` (ou un correctif
+  équivalent résolvant `RuntimeError: UVA is not available` sous WSL2)
+  est mergé **et publié dans une release** — pas seulement mergé sur
+  `main`.
+- À retester si l'environnement d'exécution de ce projet bascule un jour
+  sur Linux natif, pour une raison indépendante de cette question précise.
+
+Aucune autre condition de réouverture n'est valide sans repasser par ce
+même raisonnement (pas de « on réessaie juste pour voir »).
+
 Le reste de ce document (§1-6) reste la référence pour LE JOUR où un
 backend vLLM démarre réellement — rien de son raisonnement n'est invalidé
 par ce blocage, qui est en amont de tout ce qu'il couvre.
