@@ -2164,6 +2164,25 @@ class ChamberBatchOutcome:
     reasoning as dt=6's own `positions` dict). issue_positions itself is
     never resolved here -- it is the member's own sincere anchor, never
     mutated by any decision."""
+    motif_corrected: dict[int, bool] = field(default_factory=dict)
+    """cid -> whether decide_chamber_deliberation overrode this decision's
+    `motif` from 702 (DELIBERATIVE_SHIFT) to 701 (SINCERE_POSITION) because
+    `shifts` was empty -- an incoherent pairing measured 2026-08-30
+    (plan-adversarial-framing-collapse.md), NOT the same incoherence
+    ChamberDecision's own docstring already documents and deliberately
+    leaves unenforced (a small NON-EMPTY shift mislabeled 701 -- the
+    opposite direction, never independently shown problematic, so still
+    untouched here). `motif=702 with shifts=[]` has no legitimate reading
+    under this schema's own stated intent (702 IS "at least one
+    adjustment"), and `shifts`/`chamber_position` are what
+    `metrics.chamber_deviation` actually reads -- `motif` was purely a
+    misleading audit label with zero effect on simulation behavior, so
+    correcting it here is a label fix, not a behavior change. Same
+    "never let a correction pass as a first-hand decision" discipline as
+    `VoteBatchOutcome.retry_sampling_varied` -- populated here, journaled
+    explicitly by the caller, never silent. Defaults to an empty dict
+    (every key absent means False) so every pre-existing
+    ChamberBatchOutcome(...) construction keeps compiling unchanged."""
 
 
 def validate_chamber_decision(decision: ChamberDecision, config: PolityConfig) -> None:
@@ -2362,13 +2381,30 @@ def decide_chamber_deliberation(
         decisions.extend(chunk_decisions)
 
     positions: dict[int, tuple[float, ...]] = {}
+    motif_corrected: dict[int, bool] = {}
     for decision in decisions:
         validate_chamber_decision(decision, config)
+        # motif=702 (DELIBERATIVE_SHIFT) with empty shifts has no legitimate reading under
+        # this schema's own stated intent (702 IS "at least one adjustment") -- measured
+        # 2026-08-30 (plan-adversarial-framing-collapse.md) as a real, reproducible pairing,
+        # not a corner case. Corrected to 701 (what shifts=[] actually means) rather than
+        # rejected: unlike VoteCastDecision's blank/ranking incoherence, this label has zero
+        # effect on simulation behavior (metrics.chamber_deviation reads shifts/
+        # chamber_position, never motif -- ChamberDecision's own docstring), and the
+        # incoherence measured 3/3, systematic rather than intermittent noise -- a reject-
+        # and-retry mitigation (VoteBatchOutcome's own retry_sampling_varied precedent)
+        # would risk exhausting retries on a case with no real variance to sample past,
+        # the same lesson this project already learned from the cache-reuse nonce
+        # mitigation. The correction is tracked, never silent -- see
+        # ChamberBatchOutcome.motif_corrected's own docstring.
+        if decision.motif == 702 and not decision.shifts:
+            decision.motif = 701
+            motif_corrected[decision.cid] = True
         member = members_by_id[decision.cid]
         assert member.chamber_position is not None  # guaranteed by the caller's own filter
         positions[decision.cid] = apply_shifts(member.chamber_position, decision.shifts)
 
-    return ChamberBatchOutcome(decisions=decisions, positions=positions)
+    return ChamberBatchOutcome(decisions=decisions, positions=positions, motif_corrected=motif_corrected)
 
 
 @dataclass(frozen=True)

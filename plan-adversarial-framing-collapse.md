@@ -179,7 +179,7 @@ SCANDAL) — un quatrième type de décision.
 | `candidacy_considered` | Auto-évaluation à seuil (ambition/soutien perçu) | Réelle, fonctionnelle | **Pas de collapse** (5/5 correct) |
 | `party_nomination_choice` | Auto-évaluation comparative entre pairs (ambition) | Réelle, fonctionnelle | **Pas de collapse** (4/5, 80,0%) |
 | `campaign_positioning` | Acte (ajuster sa plateforme de campagne) | Aucune | **Non tranché** — motif varie de façon plausible, mais plafond de shifts saturé dans les deux pôles ; 66% d'échec sur un pôle |
-| `chamber_deliberation` | Acte/réflexion (maintenir ou ajuster sa position) | Aucune (prompt prescrit un cas) | **Non tranché** — pôle prescrit correct (3/3), pôle dérivé incohérent (motif actif + aucun ajustement réel, 3/3 uniforme) |
+| `chamber_deliberation` | Acte/réflexion (maintenir ou ajuster sa position) | Aucune (prompt prescrit un cas) | **Non tranché sur la théorie** — pôle prescrit correct (3/3) ; incohérence du pôle dérivé (motif actif + aucun ajustement réel, 3/3 uniforme) **corrigée en production** (correctif d'étiquette tracé, pas un rejet), comportement sous-jacent toujours non expliqué |
 
 ## Le principe suspecté — hypothèse de conception, pas une loi générale
 
@@ -279,6 +279,48 @@ variation : `motif=702` (qui suppose « j'ai ajusté ma position ») couplé à 
 ajustement réel). Le modèle semble remarquer qu'il y a un écart existant (d'où le motif différent)
 sans jamais le traduire en une décision réelle — une forme d'insensibilité au contenu plus étroite
 qu'un collapse total, mais bien réelle et bien reproduite (3/3, aucune exception).
+
+### `chamber_deliberation` — correction déployée, question comportementale non close
+
+Historique de l'ancien validateur retiré (`_check_motif_coherence`, `scripts/
+lot3_chamber_reliability_results.md`) relu avant toute correction, pas redécouvert
+empiriquement : la règle retirée était **bidirectionnelle** (`shifts non-vide ⟺ motif==702`),
+et le taux de faux rejet mesuré (9/10 puis 6/6) venait exclusivement d'UNE direction — un petit
+ajustement réel (ex. `{"dimension": 4, "delta": 0.05}`) étiqueté `motif=701` (sincère) par le
+modèle. L'incohérence trouvée ici est la direction **opposée** (`motif=702` avec `shifts` vide)
+— jamais mise en cause par l'historique de faux rejets, puisque tous ces cas portaient sur
+`motif=701`, hors du champ d'une règle resserrée à `motif==702 ⟹ shifts non-vide`. Cette règle
+plus étroite ne peut donc pas reproduire le problème historique — vérifié par construction, pas
+supposé.
+
+**Correction déployée (2026-08-30, pas un rejet — un correctif d'étiquette a posteriori)** :
+`decide_chamber_deliberation` (`llm_behavior_engine.py`) corrige `motif` de 702 vers 701 quand
+`shifts` est vide, et journalise la correction explicitement (`ChamberBatchOutcome.
+motif_corrected`, propagé dans le payload `chamber_deliberation` de `run_polity_simulation.py`)
+— même discipline que `retry_sampling_varied` pour `cast_votes` : ne jamais laisser une
+intervention corrective se confondre avec une décision de première main. Pas un rejet-et-relance
+(le mécanisme qui a résolu l'incohérence `vote_cast`) parce que l'incohérence mesurée ici est
+**systématique** (3/3, aucune variance) plutôt qu'intermittente — un rejet-et-relance sur un cas
+sans vraie variance à exploiter risquerait de tourner en boucle sans converger, la même leçon
+apprise cette semaine avec la mitigation nonce du cache-reuse. Et `chamber_deviation` (la seule
+métrique qui compte) lit `shifts`/`chamber_position` directement, jamais `motif` — l'incohérence
+ne corrompait aucun comportement de simulation, seulement la piste d'audit ; corriger l'étiquette
+répare exactement ce qui est cassé sans toucher à ce qui fonctionne. Régression testée
+(`test_decide_chamber_deliberation_corrects_motif_702_with_empty_shifts_to_701` et deux tests
+frères confirmant que la correction ne touche NI un `motif=702` cohérent NI l'autre direction
+historique, `motif=701` avec un petit shift réel).
+
+**Ce qui reste ouvert, malgré la correction d'étiquette — ne pas classer ce point comme réglé.**
+Le comportement sous-jacent n'est pas expliqué, seulement rendu inoffensif pour l'audit. Direction
+précise, pas celle initialement supposée : `motif=702` **affirme** qu'un ajustement actif a eu
+lieu, alors que `shifts=[]` montre qu'aucun n'a eu lieu — le modèle sur-déclare l'action dans
+l'étiquette, il ne sous-déclare pas une action réelle. Uniforme sur les 3 membres testés (aucune
+variance), donc probablement pas du bruit. Lien possible, non vérifié, avec le biais acte/réponse
+caractérisé en parallèle dans ce même document : même dans un cas où le contenu réel de la
+décision reste passif (aucun ajustement), le modèle semble malgré tout attiré par l'étiquette qui
+*décrit* une réponse active plutôt que la sincère/passive — une préférence pour le cadrage actif
+qui se manifeste jusque dans le choix du motif, indépendamment de ce que la décision produit
+réellement. Reste à comprendre un jour, pas aujourd'hui.
 
 **Ni l'un ni l'autre ne confirme ou n'infirme proprement la théorie acte/réponse.** Aucun des deux
 ne montre le collapse plat des 4 cas déjà confirmés (sortie strictement identique quel que soit le
