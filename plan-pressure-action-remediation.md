@@ -340,6 +340,116 @@ priorité vers §3.2 (format de sortie) ou §3.3 (ancrage par l'exemple) avec un
 qu'un choix a priori — pas vers une combinaison de pistes, puisque §3.1 seule ne montre aucun
 signal positif partiel (le critère du §4.3.3 pour justifier un croisement n'est pas rempli).
 
+### 3.4 Champ de raisonnement en tête de schéma (nouvelle piste, pré-enregistrée avant tout appel)
+
+**Origine de l'hypothèse** : une lecture externe évoquait un phénomène documenté en général dans
+la littérature sur les contraintes de format LLM (contraindre un modèle à un format structuré
+peut dégrader son raisonnement, potentiellement parce que le champ de réponse doit être rempli
+avant que le raisonnement ne soit terminé) — **aucun chiffre précis de cette lecture n'est
+utilisé ici comme justification** (ni transférabilité vérifiée à ce contexte : 8B, température=0,
+décision isolée, ni citation vérifiable à l'appui). Le test qui suit se justifie uniquement par sa
+propre logique mécanique, pas par cette lecture.
+
+**Hypothèse mécanique propre** : ajouter un champ `reasoning` (texte libre court) EN PREMIER dans
+le schéma JSON, avant `act`/`motif` — sous le même décodage contraint par grammaire que la
+production, jamais retiré. Si le décodage contraint par grammaire force le modèle à s'engager sur
+`act` avant d'avoir squelette-articulé un raisonnement, l'ordre des champs du schéma pourrait
+suffire à changer ça sans changer la structure de la décision (contrairement à §3.1) ni le
+mécanisme de production de la réponse (contrairement à §3.2, texte libre + parseur externe).
+
+**Deux complications réelles à ne pas glisser sous le tapis, nommées avant de lancer quoi que ce
+soit** — ce n'est pas une piste vierge, c'est une variante mécaniquement distincte de deux pistes
+qui ont déjà échoué d'une façon liée :
+
+1. **`think=True` forcé** (déjà testé, `reasoning_budget_and_decision_quality_findings.md`) : un
+   raisonnement COMPLET et NON CONTRAINT avant le JSON entier (pas juste un champ réordonné dedans)
+   a produit ZÉRO contenu `<think>` visible et un collapse vers une réponse fixe différente
+   (`act=4`/`motif=305`). Si laisser le modèle raisonner totalement librement échoue déjà, ça
+   n'annonce rien de bon pour une version plus contrainte — mais le mécanisme diffère
+   réellement : un bloc `<think>` séparé (chemin de code/parsing différent, non contraint par la
+   grammaire du schéma) n'est pas la même chose qu'un champ DANS le schéma, sous la MÊME
+   contrainte de grammaire que `act`/`motif`. Vaut la peine d'être testé sur ce mérite mécanique
+   précis, pas malgré cette différence, mais pas non plus en l'ignorant.
+2. **§3.2 lui-même** (déjà testé, résultat ci-dessus) : demandait déjà une articulation
+   (`SITUATION:`) AVANT la décision, en texte libre. Résultat : l'articulation elle-même s'est
+   révélée content-blind (phrase quasi identique pour des citoyens à ratios opposés), et la
+   décision a collapsé identiquement (17/70, 24,3%). « Raisonner avant de décider » comme
+   stratégie générale a donc déjà été essayé sous une forme proche et a échoué — cette piste
+   teste spécifiquement si le mécanisme (champ de schéma sous grammaire contrainte, vs texte
+   libre puis parseur externe) fait la différence, pas l'idée de « raisonner avant » en tant que
+   telle, déjà mise à l'épreuve.
+
+**Protocole** : schéma local isolé (`PressureDecision` réel jamais touché) — `cid`, `reasoning`
+(court, obligatoire, en premier), `act`, `motif`, dans cet ordre de déclaration. Prompt de
+production réel + une seule phrase ajoutée demandant une justification courte avant l'acte. Même
+menu à 5 voies que la production (pas la refonte binaire de §3.1). Même jeu de 70 citoyens non
+ambigus que §3.1/§3.2 (population_size=190, élu `cid=5` non biaisé), `size=1`, `think=False`
+(chemin de production réel), `température=0,0`. **Contrôle qualitatif d'abord** (4-6 cas) pour
+vérifier que le champ `reasoning` est bien rempli AVANT `act`/`motif` dans la réponse brute
+(l'ordre de déclaration Pydantic ne garantit pas seul l'ordre de génération sous grammaire
+contrainte — à vérifier, pas supposer) et que le contenu n'est pas lui-même du remplissage
+générique (le piège déjà trouvé en §3.2).
+
+**Critère pré-enregistré** : même barre que §3.1/§3.2 — ≥80% d'accord avec la vérité de référence
+sur les cas non ambigus (≥60 citoyens, §4.1).
+- **Si ≥80%** : le mécanisme (champ de schéma sous grammaire contrainte) fait une vraie
+  différence par rapport au `<think>` séparé et au texte-libre-puis-parseur — résultat
+  actionnable et peu coûteux à déployer (un ajout de schéma, pas une refonte).
+- **Si le champ `reasoning` lui-même est content-blind** (texte générique répété, comme en §3.2) :
+  échec informatif au même endroit que §3.2, mais confirmé maintenant sous grammaire contrainte
+  aussi, pas seulement en texte libre — resserre encore l'hypothèse sur ce qui cause le collapse.
+- **Si le champ `reasoning` varie de façon plausible mais `act`/`motif` collapsent quand même** :
+  résultat distinct des deux précédents — le raisonnement lui-même n'est pas content-blind, mais
+  la traduction en décision l'est ; pointerait vers un mécanisme différent de ceux déjà écartés.
+
+### 3.4 — BLOQUÉ, 2026-08-30 : mécanisme exact, pas contourné en passant
+
+**Ne pas contourner `sort_keys=True` dans `llm_client.py`** — ce paramètre protège la
+reproductibilité octet-à-octet des requêtes pour **tous** les types de décision du projet, pas
+seulement `pressure_action`. Un changement à cette échelle mérite son propre document de scoping,
+pas une décision prise en passant dans ce chantier de remédiation.
+
+**Mécanisme exact, vérifié directement** : `OllamaJsonClient._complete_json_openai_compat`
+(chemin `think=True`) ET `_complete_json_native_no_think` (chemin `think=False`) appellent
+chacun `json.dumps(body, sort_keys=True, separators=(",", ":"))` sur le corps ENTIER de la
+requête — `sort_keys=True` trie récursivement TOUTES les clés à tous les niveaux, y compris le
+schéma JSON passé en `format`/`response_format.json_schema.schema`. Concrètement : peu importe
+l'ordre de déclaration des champs Pydantic (`reasoning` en premier dans le schéma local de test),
+la requête réellement envoyée à Ollama présente les propriétés du schéma triées
+alphabétiquement (`act`, `cid`, `motif`, `reasoning`) — confirmé en inspectant la réponse brute
+d'un contrôle qualitatif à 6 citoyens : `act` est apparu AVANT `reasoning` dans le JSON généré,
+l'inverse exact de l'hypothèse testée. Le test n'a donc jamais exercé le mécanisme qu'il visait à
+tester — arrêté avant le run complet à 70 citoyens, pas de résultat de fond à en tirer.
+
+**Ce bloqueur touche également `campaign_positioning`** (chemin `think=True`, même fonction de
+sérialisation) — un réordonnancement de schéma sur ce type de décision se heurterait au même
+mécanisme, pas une piste distincte encore viable.
+
+**Condition de réouverture, datée et nommée, même traitement que le veto de la chambre (#11) ou
+la bascule vLLM** : si `sort_keys` est un jour retravaillé pour une autre raison (ex. un besoin de
+reproductibilité plus fin, distinguant le corps de la requête du schéma qu'il transporte), §3.4
+redevient testable tel que conçu. Pas de contournement local, pas de décision prise pour cette
+seule remédiation.
+
+### Découvertes annexes du contrôle qualitatif (2026-08-30), à conserver séparément
+
+- **Texte de raisonnement templaté** : sur les 6 citoyens testés (3 « devrait agir » extrêmes, 3
+  « ne devrait pas » extrêmes), le champ `reasoning` a produit un texte structurellement quasi
+  identique (« Le citoyen a un ecart modéré... mandate_dev est nul... suit probablement les
+  actions de ses voisins... ») qualifiant `self_gap` de « modéré » pour des valeurs allant de
+  0,11 à 0,50 — un facteur 4,5x sans distinction dans le qualificatif employé. Cohérent avec
+  l'hypothèse de collapse déjà établie (§3.2 avait trouvé la même généricité dans son propre
+  champ `SITUATION`), mais **pas une preuve indépendante** ici puisque `reasoning` a été généré
+  APRÈS `act` (voir ci-dessus) — le raisonnement n'a causalement rien pu influencer.
+- **Lecture erronée de `neighbors_acting=null`** : le texte généré interprète le champ comme
+  « les voisins ne sont pas actifs » (une affirmation sur leur état) plutôt que « non suivi dans
+  cette simulation » (l'absence de suivi elle-même, énoncée explicitement dans le prompt : «
+  toujours null... jamais zero »). **Vérifié, pas supposé, que ce champ n'existe que dans
+  `PressureContext`** (`llm_behavior_engine.py` — `ChamberContext`'s own docstring liste
+  explicitement `neighbors_acting` parmi les signaux exclus de `chamber_deliberation`, et aucun
+  autre type de décision ne le porte) — pas de comparaison cross-type possible, la mauvaise
+  lecture reste scopée à `pressure_action` seul.
+
 ## 4. Protocole de test strict — éviter le tâtonnement
 
 **Principe directeur, non négociable** : ne jamais tester plusieurs

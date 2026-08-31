@@ -215,6 +215,13 @@ Ce que ce résultat NE dit PAS, pour rester honnête sur sa portée :
   response` est confirmé représentatif de la production (jamais batché) ;
   `coalition_decision`/`reaction_to_event` restent non vérifiés à leur
   échelle de batch réelle (voir la section batching ci-dessus).
+- **Le collapse `think=True` en configuration single-citizen-batch (catalogué séparément dans
+  `reasoning_budget_and_decision_quality_findings.md`) n'est PAS une preuve à l'appui de cette
+  théorie** — vérifié 2026-08-30 (`check_candidacy_forced_reasoning_comparison.py`) : la même
+  suppression totale de raisonnement se reproduit sur `candidacy_considered` (8/8 citoyens, deux
+  pôles, aucun collapse sous son propre chemin `think=False` réel) sous ce même appel forcé.
+  Semble être une propriété générale de cette configuration d'appel elle-même, jamais utilisée en
+  production, pas un symptôme du cadrage acte/réponse.
 
 ## Portée — tranchée, 2026-08-30 : documenté comme contrainte de conception
 
