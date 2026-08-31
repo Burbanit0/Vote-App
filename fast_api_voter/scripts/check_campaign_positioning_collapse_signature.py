@@ -90,26 +90,45 @@ def main() -> int:
                         think=True,
                     )
                     decision = decode_positioning_batch(raw, [nominee.citizen_id])[0]
+                    # Instrumentation gap fixed 2026-08-30 (plan-adversarial-framing-collapse.md):
+                    # the first run of this script only logged len(shifts), which could not tell
+                    # "always maxes out the shift count, but with real per-nominee dimensions/
+                    # deltas" apart from "always the identical shift vector regardless of
+                    # nominee" -- the actual content is what distinguishes a masked collapse from
+                    # real strategy. Logged as a sorted, hashable tuple so it can be compared for
+                    # exact equality across calls, not just eyeballed.
+                    shift_content = tuple(sorted((s.dimension, s.delta) for s in decision.shifts))
                     print(
                         f"  cid={nominee.citizen_id} dist_to_mean={dist:.4f} -> "
-                        f"shifts={len(decision.shifts)} motif={decision.motif}"
+                        f"shifts={len(decision.shifts)} content={shift_content} motif={decision.motif}"
                     )
-                    results.append((pole_label, nominee.citizen_id, len(decision.shifts), decision.motif))
+                    results.append((pole_label, nominee.citizen_id, len(decision.shifts), shift_content, decision.motif))
                 except Exception as exc:  # noqa: BLE001 -- report per-nominee failures without aborting
                     print(f"  cid={nominee.citizen_id} dist_to_mean={dist:.4f} FAILED: {exc}")
 
     print("\n--- verdict ---")
-    distinct_pairs = {(n_shifts, motif) for _pole, _cid, n_shifts, motif in results}
-    if len(distinct_pairs) == 1:
-        n_shifts, motif = next(iter(distinct_pairs))
+    distinct_content = {content for _pole, _cid, _n, content, _m in results}
+    distinct_pairs = {(n_shifts, motif) for _pole, _cid, n_shifts, _content, motif in results}
+    if len(distinct_content) == 1:
+        (content,) = distinct_content
         print(
-            f"IDENTICAL (shifts={n_shifts}, motif={motif}) across ALL calls, both poles -> same "
+            f"IDENTICAL shift content ({content}) across ALL calls, both poles -> same "
             "content-blind collapse signature as the 4 confirmed act/response cases -- "
             "campaign_positioning extends the pattern, as the theory predicted."
         )
+    elif len(distinct_pairs) == 1:
+        n_shifts, motif = next(iter(distinct_pairs))
+        print(
+            f"Shift COUNT and motif identical (shifts={n_shifts}, motif={motif}) across all calls, "
+            "but the actual shift dimensions/deltas DIFFER -> NOT a collapse by this test's own "
+            "criterion. Real per-nominee content, just always using the full allowance -- worth "
+            "noting as its own pattern (why does it always max out?) but distinct from the "
+            "confirmed act/response collapse signature, which is identical OUTPUT, not identical "
+            "output size."
+        )
     else:
-        far_vals = {(s, m) for pole, _c, s, m in results if pole.startswith("FAR")}
-        aligned_vals = {(s, m) for pole, _c, s, m in results if pole.startswith("ALIGNED")}
+        far_vals = {(n, c, m) for pole, _cid, n, c, m in results if pole.startswith("FAR")}
+        aligned_vals = {(n, c, m) for pole, _cid, n, c, m in results if pole.startswith("ALIGNED")}
         print(f"Response VARIES (far pole: {far_vals}, aligned pole: {aligned_vals}) -> no collapse signature found here.")
     return 0
 

@@ -1611,6 +1611,20 @@ def decide_representative_response(
     replace -- "no delta, stance=silence" is already true by construction
     without this module ever running).
 
+    RELIABILITY WARNING (2026-08-30, plan-adversarial-framing-collapse.md): confirmed to show the
+    same content-blind collapse signature as pressure_action. Two structurally opposite ctx poles
+    (crisis: L=0.05/mandate_dev=0.8/street=3.0/ticks_left=2; no-problem: L=0.95/mandate_dev=0.0/
+    street=0.0/ticks_left=20), 3 different holders each, size=1/think=False (the REAL production
+    shape here -- this decision type never chunks, so this test was never an artificial
+    isolation). All 4 successfully-decoded calls returned the exact same stance, shift count, and
+    motif in both poles. Unlike pressure_action, no per-response ground truth exists to measure a
+    disagreement rate against -- this is a collapse-signature finding, not an accuracy figure.
+    Suspected common cause (unproven): the decision is framed as an act/response with
+    institutional consequence (choosing a stance) rather than a self-evaluation against a
+    threshold -- see the design doc's own §3.6.0 verification-obligation constraint. Treat
+    stance/mandate_deviation-derived metrics from any llm.enabled=True run as unverified until
+    this is resolved -- no remediation has been found or attempted for this decision type yet.
+
     Deliberately does NOT use chunk_voters/MIN_SAFE_BATCH_SIZE, same
     reasoning as decide_party_nominations/decide_campaign_positioning:
     this batches this tick's sitting OFFICEHOLDERS (0-or-1 today, president
@@ -2084,6 +2098,22 @@ def decide_reaction_to_event(
     §11.4 baseline. Mirrors that function's own signature -- ONE event_type
     per call, never a combined scandal+shock request -- extended only by
     what the LLM path additionally needs (citizens/contexts/config/client).
+
+    RELIABILITY WARNING (2026-08-30, plan-adversarial-framing-collapse.md), SCANDAL branch only
+    (ECONOMIC_SHOCK not tested): confirmed to show the same content-blind collapse signature as
+    pressure_action. Two structurally opposite ctx.event_salience poles (0.0: untouched by any
+    past event; 0.9: already heavily sensitized), 3 different citizens each, size=1/think=False.
+    All 6 calls returned the identical salience_delta and motif in both poles. SCANDAL was chosen
+    specifically because it carries a real `target` (the implicated president); ECONOMIC_SHOCK's
+    target is always null (a systemic event), so this warning should not be assumed to transfer to
+    that branch without its own check. deterministic_reaction_to_event cannot ground a per-citizen
+    accuracy check for either branch (no Citizen parameter, confirmed in plan-decision-quality-
+    validation.md's own inventory) -- this is a collapse-signature finding, not an accuracy
+    figure. Suspected common cause (unproven): framed as a reaction/response to an external event
+    rather than a self-evaluation against a threshold -- see the design doc's own §3.6.0
+    verification-obligation constraint. Treat event_salience-derived metrics from any
+    llm.enabled=True SCANDAL run as unverified until this is resolved -- no remediation has been
+    found or attempted yet.
 
     Population-wide, like decide_pressure_actions -- CHUNKS via
     chunk_voters, but at the DEFAULT MIN_SAFE_BATCH_SIZE floor, not dt=10's
@@ -2645,6 +2675,23 @@ def decide_coalition(
     client -- no journal writes here, matching every prior decide_*
     function's convention; run_polity_simulation.py owns every journal
     write.
+
+    RELIABILITY WARNING (2026-08-30, plan-adversarial-framing-collapse.md): confirmed to show the
+    same content-blind collapse signature as pressure_action. Two structurally opposite poles
+    (join-obvious: identical platform to initiator, pushes comfortably past majority, initiator
+    needs it; decline-obvious: maximum platform distance across all 20 issue dimensions, initiator
+    already has a majority alone), 3 different responder party_ids each, size=1/think=False. All
+    6 calls returned the identical action (JOIN) and motif in both poles -- including the
+    decline-obvious pole, where every rational signal pointed the other way. Only partial ground
+    truth exists for this decision type (form_coalition decides at the algorithm/whole-coalition
+    level, not "would THIS party join THIS specific proposal"), so this is a collapse-signature
+    finding, not an accuracy figure. Not tested at real production batch size: decide_coalition
+    batches seated non-initiator parties directly (up to ~4 in the shipped config), and this test
+    used size=1, smaller than a typical real call -- an open gap. Suspected common cause
+    (unproven): framed as an act with institutional consequence (join/decline) rather than a
+    self-evaluation against a threshold -- see the design doc's own §3.6.0 verification-obligation
+    constraint. Treat coalition composition/lifespan metrics from any llm.enabled=True run as
+    unverified until this is resolved -- no remediation has been found or attempted yet.
 
     Formation only: design doc §3.1's "maintien et rupture" of a coalition
     across subsequent ticks is out of scope for this increment. Reasons: no
