@@ -278,3 +278,44 @@ reste, pas une promesse.
 - Un juge automatisé quel qu'il soit — même raisonnement que l'outil
   d'audit du point ouvert #3 : rien d'autre dans ce projet ne fait juger
   le LLM par le LLM, et ce chantier ne commence pas cette pratique.
+
+## 6. Statut après le chantier `pressure_action` / cadrage acte-réponse (2026-08-30)
+
+**Une distinction à ne pas perdre, par instruction explicite** : en creusant `pressure_action` et
+la découverte de portée plus large qui en a émergé (`plan-adversarial-framing-collapse.md`), 5
+des 6 autres types initialement scopés ici ont été **touchés**, mais pas selon le protocole
+complet de ce document (Groupe A/B/C, ≥30-60 essais, barre ≥90%/≥80%). Ils ont reçu un test de
+**signature de collapse** : la question binaire et grossière « ce type de décision s'effondre-t-il
+vers une réponse fixe en isolation, sur des cas extrêmes des deux pôles (4-6 essais) », pas la
+question fine « quelle est sa précision réelle sur l'ensemble de sa distribution de production,
+avec une confiance suffisante ». Cette distinction compte concrètement : le premier pilote
+`pressure_action` a lui-même mesuré 25,0% de désaccord sur un petit échantillon, puis 41,7% une
+fois l'échantillon doublé — un type de décision qui « ne collapse pas » sur 4-6 cas extrêmes n'a
+**aucune garantie** d'avoir 90% de précision sur sa distribution réelle. Les résultats de
+signature de collapse sont une contribution réelle au chantier de conception (`act/réponse vs
+seuil`), pas un score de fiabilité de production validé.
+
+| Type | Statut mis à jour | Détail |
+|---|---|---|
+| `pressure_action` | Mécanisme de collapse **confirmé**, fiabilité de production **non fiable, marqué comme tel** | Pilote complet mené (41,7% de désaccord), pas juste signature de collapse — voir `reasoning_budget_and_decision_quality_findings.md` |
+| `representative_response` | Mécanisme de collapse **confirmé** (signature seulement) | `plan-adversarial-framing-collapse.md` — fiabilité de production non validée par le protocole complet, mais non fiable de toute façon (marqué comme tel dans le principe de conception §3.6.0) |
+| `coalition_decision` | Mécanisme de collapse **confirmé** (signature seulement) | idem — non fiable de toute façon |
+| `reaction_to_event` (branche SCANDAL) | Mécanisme de collapse **confirmé** (signature seulement, une seule branche testée) | idem — non fiable de toute façon ; branche ECONOMIC_SHOCK non testée |
+| `candidacy_considered` | Mécanisme de collapse **écarté** (signature seulement) | Candidat légitime pour le protocole complet Groupe A — pas de défaut structurel connu |
+| `party_nomination_choice` | Mécanisme de collapse **écarté** (pilote réel avec vérité de référence, 4/5 = 80%) | Candidat légitime pour le protocole complet Groupe A — le seul des 5 « touchés » à avoir déjà une mesure de précision réelle, pas seulement une signature ; un second échantillon resserrerait la confiance |
+
+**Conséquence pour la suite de ce chantier** : les 3 types dont le collapse est confirmé
+(`representative_response`, `coalition_decision`, `reaction_to_event`) restent en file d'attente
+pour le protocole complet, mais ne le méritent pas tant que la remédiation n'est pas trouvée —
+mesurer précisément la précision d'un système déjà cassé n'apporte rien. `candidacy_considered`
+et `party_nomination_choice` restent candidats légitimes pour la validation complète, puisqu'ils
+n'ont pas ce défaut structurel connu.
+
+`campaign_positioning`/`chamber_deliberation` : testés (`plan-adversarial-framing-collapse.md`),
+résultats **non tranchés**, ni collapse plat ni comportement propre — `campaign_positioning`
+sature son plafond de shifts (3) dans les deux pôles testés avec un motif qui varie de façon
+plausible (contenu réel des ajustements non loggé, 66% d'échec sur un pôle) ;
+`chamber_deliberation` répond correctement à l'état que le prompt prescrit explicitement mais
+couple systématiquement un motif « ajustement actif » à une liste de shifts vide sur son second
+pôle. Ni candidats francs pour le protocole complet, ni classables comme cassés — suivi ciblé
+nécessaire avant de trancher, pas fait ici.

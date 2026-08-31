@@ -267,18 +267,22 @@ Vérifié ensuite sur `coalition_decision` et `reaction_to_event` (branche SCAND
 collapsent aussi. Seul `candidacy_considered` (cadrage purement autoréférentiel) n'collapse pas.
 
 **Ceci dépasse le périmètre de ce document** — ce n'est plus « `pressure_action` a besoin de
-remédiation » mais potentiellement « le cadrage relationnel/relatif-à-une-cible provoque un
-collapse quel que soit le type de décision qui le porte », un principe de conception à auditer.
-Preuves complètes, protocole, et la question de portée (documenter dans le design doc §3.6.0 ?) :
-**`plan-adversarial-framing-collapse.md`**.
+remédiation » mais potentiellement « toute décision formulée comme un acte/une réponse (pas une
+auto-évaluation à seuil) risque un collapse content-blind en isolation », un principe de
+conception à auditer (théorie affinée deux fois : ni « acteur externe nommé » ni « ton
+adversarial » ne tenaient sur `representative_response`/`coalition_decision` une fois vérifiés
+précisément — voir le document pour l'historique complet). Preuves complètes, protocole, et la
+question de portée (documentée dans le design doc §3.6.0) : **`plan-adversarial-framing-collapse.md`**.
 
-**§3.3 en pause, par instruction directe (2026-08-30)** : le problème semble structurel au
-cadrage relationnel lui-même (4/4 types de décision testés avec ce cadrage collapsent, voir
-`plan-adversarial-framing-collapse.md`), pas spécifique au prompt de `pressure_action` — une
-reformulation locale par l'exemple a donc moins de valeur tant qu'il n'y a aucune piste sur la
-cause du collapse relationnel lui-même. La piste reste pertinente et pourrait même être informée
-par cette découverte une fois digérée, mais n'est pas relancée maintenant. Ce chantier reprendra
-une fois la découverte plus large mieux comprise, pas avant.
+**§3.3 en pause, par instruction directe (2026-08-30)** : le problème semble structurel à la
+forme acte/réponse de la décision elle-même (4/4 types formulés ainsi collapsent, 2/2
+auto-évaluations à seuil — dont `party_nomination_choice`, testé après coup — ne collapsent pas ;
+voir `plan-adversarial-framing-collapse.md`), pas spécifique au prompt de `pressure_action` — une
+reformulation locale par l'exemple a donc moins de valeur tant que le mécanisme exact
+(pourquoi la forme acte/réponse déclenche le collapse) n'est pas mieux compris. La piste reste
+pertinente et pourrait même être informée par cette découverte une fois digérée, mais n'est pas
+relancée maintenant. Ce chantier reprendra une fois la découverte plus large mieux comprise, pas
+avant.
 
 ### 3.2 Langage primaire + traduction algorithmique
 Repense le **format de sortie** : le modèle produit une réponse en

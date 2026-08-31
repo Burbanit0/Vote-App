@@ -1,4 +1,4 @@
-# Cadrage adversarial/relatif-à-une-cible et collapse de contenu en isolation — une hypothèse de conception, pas encore une loi générale
+# Cadrage acte/réponse vs auto-évaluation à seuil, et collapse de contenu en isolation — une hypothèse de conception, pas encore une loi générale
 
 > Découverte de conception, pas une remédiation de prompt isolée — voir
 > `plan-pressure-action-remediation.md` pour la question d'origine (comment
@@ -8,6 +8,24 @@
 > soit vue et citée indépendamment, pas enterrée en annexe d'un chantier
 > plus étroit — même traitement que ADR-002/ADR-003 pour les découvertes
 > de cette ampleur cette semaine.
+>
+> **Théorie révisée, 2026-08-30 (fin de journée)** : la lecture initiale
+> (« cadrage adversarial/relatif-à-une-cible ») a été affinée deux fois en
+> cours de route — d'abord parce qu'un test causal direct a montré que la
+> simple présence d'une cible nommée ne suffit pas (`candidacy_considered`
+> + référence neutre à un titulaire ne casse pas), puis parce que
+> `representative_response` (qui collapse) n'a en fait AUCUNE référence à
+> un autre acteur dans son `ctx`, contredisant même la lecture « acteur
+> externe nommé ». Théorie retenue après un test décisif sur
+> `party_nomination_choice` (comparatif entre pairs, sans acteur externe,
+> sans forme acte/réponse — ne collapse pas) : **c'est la forme
+> acte/réponse de la décision (une action ou une réaction avec conséquence
+> institutionnelle vis-à-vis de l'extérieur) qui est à risque, pas la
+> présence d'un acteur externe ni un ton adversarial en soi.** Le titre et
+> le tableau-bilan reflètent cette théorie révisée ; les sections
+> narratives ci-dessous gardent l'historique des deux lectures précédentes
+> et pourquoi chacune s'est révélée incomplète — utile pour ne pas
+> retomber dans les mêmes impasses si la théorie doit encore bouger.
 
 ## Contexte
 
@@ -150,43 +168,53 @@ FORTE-SALIENCE:  cid10/20/30 -> salience_delta=0,2000 motif=401 a chaque fois
 **6/6 identiques.** Le collapse s'étend à `reaction_to_event` (branche
 SCANDAL) — un quatrième type de décision.
 
-## Bilan : 4/4 cadrages relationnels collapsent, 1/1 cadrage autoréférentiel n'collapse pas
+## Bilan : 4/4 cadrages acte/réponse collapsent, 2/2 auto-évaluations à seuil ne collapsent pas, 2 cas non tranchés
 
-| Type de décision | Cadrage | Vérité de référence | Résultat |
+| Type de décision | Forme | Vérité de référence | Résultat |
 |---|---|---|---|
-| `pressure_action` | Citoyen vs élu cible (pression) | Réelle, fonctionnelle | **Collapse** (0/70) |
-| `representative_response` | Élu répondant à la pression citoyenne | Constante seulement | **Collapse** (4/4 identiques) |
-| `coalition_decision` | Parti répondant à un autre parti (formateur) | Partielle | **Collapse** (6/6 identiques) |
-| `reaction_to_event` (SCANDAL) | Citoyen face à un événement ciblant un élu | Aucune | **Collapse** (6/6 identiques) |
-| `candidacy_considered` | Citoyen seul (ambition/soutien perçu) | Réelle, fonctionnelle | **Pas de collapse** (5/5 correct) |
+| `pressure_action` | Acte (choisir un levier de pression) | Réelle, fonctionnelle | **Collapse** (0/70) |
+| `representative_response` | Acte/réponse (choisir une posture) | Constante seulement | **Collapse** (4/4 identiques) |
+| `coalition_decision` | Acte (rejoindre/refuser une coalition) | Partielle | **Collapse** (6/6 identiques) |
+| `reaction_to_event` (SCANDAL) | Acte/réaction à un événement | Aucune | **Collapse** (6/6 identiques) |
+| `candidacy_considered` | Auto-évaluation à seuil (ambition/soutien perçu) | Réelle, fonctionnelle | **Pas de collapse** (5/5 correct) |
+| `party_nomination_choice` | Auto-évaluation comparative entre pairs (ambition) | Réelle, fonctionnelle | **Pas de collapse** (4/5, 80,0%) |
+| `campaign_positioning` | Acte (ajuster sa plateforme de campagne) | Aucune | **Non tranché** — motif varie de façon plausible, mais plafond de shifts saturé dans les deux pôles ; 66% d'échec sur un pôle |
+| `chamber_deliberation` | Acte/réflexion (maintenir ou ajuster sa position) | Aucune (prompt prescrit un cas) | **Non tranché** — pôle prescrit correct (3/3), pôle dérivé incohérent (motif actif + aucun ajustement réel, 3/3 uniforme) |
 
 ## Le principe suspecté — hypothèse de conception, pas une loi générale
 
-**Un cadrage de décision construit autour d'une partie répondant à/contre
-une autre partie spécifique (cible, autorité, formateur, événement visant
-un tiers) semble structurellement à risque de collapse content-blind en
+**Une décision formulée comme un acte ou une réponse avec conséquence
+institutionnelle vis-à-vis de l'extérieur (agir, répondre, rejoindre,
+réagir) semble structurellement à risque de collapse content-blind en
 isolation (`size=1`, `think=False`) sur ce modèle (`qwen3:8b`) — tandis
-qu'un cadrage purement autoréférentiel ne l'est pas.**
+qu'une auto-évaluation contre un seuil, même comparative entre plusieurs
+pairs, ne l'est pas.** Ni la présence d'un acteur externe nommé dans le
+`ctx` (`representative_response` n'en a aucun et collapse quand même), ni
+un ton adversarial au sens strict (`coalition_decision` est une décision
+de coopération et collapse aussi) ne se sont révélés être le facteur
+discriminant une fois vérifiés précisément — voir les sections
+ci-dessus pour l'historique complet des deux lectures écartées.
 
 Ce que ce résultat NE dit PAS, pour rester honnête sur sa portée :
-- **Pas une preuve causale du mécanisme.** 4 confirmations et 1 seul
-  contrôle négatif est un signal fort, pas une preuve formelle — aucune
-  variable confondue (longueur de prompt, présence d'un champ « target »
-  vs absence, nombre d'options du menu) n'a été isolée expérimentalement
-  comme le facteur causal exact. `pressure_action` a déjà montré que
-  retirer une phrase de cadrage spécifique ne suffit pas à elle seule
-  (`plan-pressure-action-remediation.md` §3.1) — le mécanisme réel reste
-  non identifié même pour le cas le mieux caractérisé des quatre.
+- **Pas une preuve causale du mécanisme.** 4 confirmations et 2 contrôles
+  négatifs (5/5 et 4/5) est un signal fort, pas une preuve formelle —
+  aucune variable confondue n'a été isolée expérimentalement comme LE
+  facteur causal exact, seulement comme un axe qui explique mieux les 6
+  cas déjà regardés que les deux lectures précédentes. `pressure_action` a
+  déjà montré que retirer une phrase de cadrage spécifique ne suffit pas
+  à elle seule (`plan-pressure-action-remediation.md` §3.1) — le
+  mécanisme réel reste non identifié même pour le cas le mieux
+  caractérisé des quatre.
 - **Pas nécessairement propre à `qwen3:8b`** — non testé sur d'autres
-  modèles pour CES quatre types (le test cross-modèle de
+  modèles pour CES types (le test cross-modèle de
   `plan-pressure-action-remediation.md` §1 ne portait que sur
   `pressure_action`, et lui-même n'a produit que 2 échantillons
   exploitables sur 4 modèles alternatifs).
 - **Pas nécessairement lié au batching** — déjà écarté comme cause pour
-  `pressure_action` (`size=1` collapse identiquement) ; les trois autres
-  cas sont eux aussi testés exclusivement en isolation, donc rien ici ne
-  dit si le cadrage adversarial collapse aussi ou non en configuration
-  batchée.
+  `pressure_action` (`size=1` collapse identiquement) ; `representative_
+  response` est confirmé représentatif de la production (jamais batché) ;
+  `coalition_decision`/`reaction_to_event` restent non vérifiés à leur
+  échelle de batch réelle (voir la section batching ci-dessus).
 
 ## Portée — tranchée, 2026-08-30 : documenté comme contrainte de conception
 
@@ -199,6 +227,186 @@ la charge de la preuve pour tout futur type de décision au cadrage
 relationnel/relatif-à-une-cible (tester en isolation avant de faire
 confiance en production), pas sur une explication déjà tenue pour
 acquise.
+
+## Les deux types réellement non testés — résultats nuancés, pas un simple oui/non (2026-08-30)
+
+Les deux seuls types de décision jamais testés, structurellement, ni acte/réponse ni seuil a
+priori évident (`campaign_positioning`/`chamber_deliberation` — aucune vérité de référence,
+vérifié contre le code : tous deux remplacent un fallback constant « pas de changement », pas une
+fonction de jugement réelle). Testés en signature de collapse comme prédit par la théorie
+(act/réponse) — mais les deux résultats sont plus subtils qu'un simple « collapse ou pas », et le
+verdict imprimé par chaque script (vérification binaire des paires de sortie) sous-estime la
+nuance réelle — corrigé ici plutôt que repris tel quel.
+
+### `campaign_positioning`
+
+3 nominés loin de la moyenne électorale (dist. 1,73-1,83) vs 3 nominés déjà alignés (dist. 0,31) —
+`think=True`, `size=1` (chunking réel de production : « a handful, `parties.initial_count` », donc
+plus petit qu'un batch typique, écart non testé comme `coalition_decision`).
+
+```
+LOIN:    3/3 -> shifts=3, motif=602 (MEDIAN_VOTER_APPEAL)
+ALIGNE:  1/3 -> shifts=3, motif=603 (BASE_CONSOLIDATION) ; 2/3 echec (troncature, motif fuite dans cid)
+```
+
+`max_positioning_shifts` livré = **3** — chaque appel réussi a saturé le plafond exact, dans les
+deux pôles. Le motif diffère de façon plausible et cohérente avec chaque situation (appel au
+centre pour qui en est loin, consolidation de base pour qui y est déjà) — pas un label arbitraire.
+Mais le CONTENU réel des ajustements (quelles dimensions, quels deltas) n'a pas été loggé, donc
+impossible de trancher si « toujours saturer le plafond » masque un collapse plus subtil (le
+compte est fixe, seul le motif varie) ou reflète un vrai raisonnement stratégique dont seul le
+volume happens to converge. **Non tranché** — 66% d'échec sur le pôle aligné (troncature +
+fuite de motif dans le champ `cid`, la même signature déjà vue chez `qwen2.5:7b`) est lui-même un
+résultat à part, distinct de la question du collapse.
+
+### `chamber_deliberation`
+
+3 membres à `chamber_position == sincere_position` (l'état que le prompt lui-même prescrit
+explicitement : `shifts=[]`, `motif=701`) vs 3 membres avec un écart déjà présent (+0,3 sur une
+dimension) — `think=True`, `size=1` **= la vraie taille de production** (`_CHAMBER_MAX_CHUNK_SIZE=1`
+déjà, confirmé, pas un écart comme les deux ci-dessus).
+
+```
+IDENTIQUE:  3/3 -> shifts=[], motif=701 (exactement la reponse prescrite par le prompt)
+DERIVE:     3/3 -> shifts=[], motif=702 (DELIBERATIVE_SHIFT — incoherent : ce motif suppose un ajustement reel)
+```
+
+Le pôle IDENTIQUE est un vrai résultat de justesse (pas juste une signature de collapse) — 3/3
+correspondent exactement à ce que le prompt prescrit explicitement pour cet état. Le pôle DÉRIVE
+n'est PAS un collapse plat (le motif diffère bien du premier pôle, contrairement aux 4 cas déjà
+confirmés) — mais il révèle une incohérence systématique, uniforme sur les 3 membres sans aucune
+variation : `motif=702` (qui suppose « j'ai ajusté ma position ») couplé à `shifts=[]` (aucun
+ajustement réel). Le modèle semble remarquer qu'il y a un écart existant (d'où le motif différent)
+sans jamais le traduire en une décision réelle — une forme d'insensibilité au contenu plus étroite
+qu'un collapse total, mais bien réelle et bien reproduite (3/3, aucune exception).
+
+**Ni l'un ni l'autre ne confirme ou n'infirme proprement la théorie acte/réponse.** Aucun des deux
+ne montre le collapse plat des 4 cas déjà confirmés (sortie strictement identique quel que soit le
+pôle) — mais aucun des deux ne se comporte non plus comme les 2 cas qui ne collapsent pas
+(`candidacy_considered`/`party_nomination_choice`, correction fine et cohérente sur toute la
+plage testée). Les deux méritent un suivi ciblé avant d'être classés d'un côté ou de l'autre —
+non fait ici, signalé pour décision.
+
+## Vérification du batching réel en production (2026-08-30, avant tout nouveau test)
+
+Avant de tester l'effet du batching sur les 3 nouveaux cas, vérifié directement contre le code
+si c'est même pertinent — pas présumé :
+
+- **`representative_response`** : `decide_representative_response` **ne chunk jamais** — batches
+  les titulaires en poste ce tick, « 0-or-1 today (president only) ». Le test à `size=1` de ce
+  document **est** exactement la forme de production, pas une isolation artificielle. Batching
+  hors sujet pour ce cas — le collapse trouvé reflète déjà le comportement réel.
+- **`coalition_decision`** : `decide_coalition` ne chunk pas non plus, mais batches les partis
+  répondants directement — « a handful at most, `parties.initial_count` » (livré : 5, donc
+  jusqu'à ~4 répondants non-initiateurs en un seul appel réel). Le test de ce document à
+  `size=1` est **plus petit** qu'un batch de production typique — écart non testé.
+- **`reaction_to_event`** : `decide_reaction_to_event` chunk réellement via `chunk_voters` à
+  `config.llm.max_batch_size` (25) — « population-wide... À `population_size=100` livré, exactement
+  4 chunks de 25. » Le test de ce document à `size=1` est bien en dessous de l'échelle réelle —
+  écart non testé.
+
+**Conséquence** : le collapse de `representative_response` est confirmé représentatif de la
+production tel quel. Ceux de `coalition_decision` et `reaction_to_event` restent à vérifier à
+leur échelle de batch réelle avant de conclure qu'ils se comportent pareil en production —
+non fait ici, priorité donnée au levier diagnostique ci-dessous.
+
+## Affiner l'hypothèse causale — cible nommée vs ton adversarial (2026-08-30)
+
+Deux lectures de la découverte restent non départagées : est-ce la simple **présence d'une
+cible nommée** dans le contexte (peu importe le ton), ou spécifiquement le **cadrage
+adversarial/de pression** (« contre », « pression ») ?
+
+**Protocole pré-enregistré, avant tout appel** : reprendre `candidacy_considered` — le seul
+cadrage testé qui NE collapse PAS — et lui ajouter une référence à une cible/un rival dans son
+`ctx`, **sans aucun ton adversarial** (une information neutre, pas une opposition). Mêmes 5
+citoyens à `ambition_score` extrêmement bas déjà testés (0,0069 à 0,0214), même isolation totale
+(`size=1`, `think=False`).
+
+- **Si ça casse quand même** (le citoyen se met à « déclarer » malgré une ambition quasi nulle) →
+  la simple **présence d'une cible** suffit, indépendamment du ton — le ton adversarial n'est pas
+  le facteur spécifique, c'est la structure relationnelle elle-même (avoir un point de référence
+  externe nommé dans la décision).
+- **Si ça ne casse pas** (le citoyen continue de « renoncer » correctement) → le **ton
+  adversarial/de pression** est bien le facteur spécifique, pas la simple présence d'une cible —
+  resserre l'hypothèse à quelque chose dans le vocabulaire/cadrage de pression lui-même, pas dans
+  la structure relationnelle générique.
+
+**Résultat, 2026-08-30** (`check_candidacy_target_reference_ablation.py`) : mêmes 5 citoyens à
+`ambition_score` extrêmement bas, `ctx.current_officeholder` ajouté (une phrase purement
+factuelle, « une information de contexte, pas une cible d'action ni un rival à affronter »),
+`size=1`, `think=False`.
+
+```
+5/5 correct -- outcome=0 (renonce) pour les 5 citoyens, motif=204 a chaque fois, meme avec la reference neutre ajoutee
+```
+
+**La simple présence d'une cible nommée, sans ton adversarial, ne suffit pas à casser
+`candidacy_considered`.** Deuxième lecture pré-enregistrée confirmée : **le ton adversarial/de
+pression est le facteur plus spécifique**, pas la structure relationnelle générique
+(« il existe une autre partie nommée dans mon contexte »). Resserre l'hypothèse : ce n'est pas
+« toute décision avec une cible référencée risque le collapse », c'est quelque chose dans le
+cadrage de PRESSION/OPPOSITION lui-même (le vocabulaire « pression », « contre », le fait que la
+décision porte sur une action envers/contre l'autre partie plutôt que sur un simple fait la
+concernant) qui semble en cause.
+
+## Test décisif : `party_nomination_choice` — comparatif entre pairs, sans acteur externe, sans forme acte/réponse
+
+Comparaison précise des deux prompts (`candidacy_considered` vs `coalition_decision`) : la
+présence d'un acteur externe nommé (le profil complet de l'initiateur dans `coalition_decision`)
+n'explique pas `representative_response`, dont le `ctx` (`ResponseContext`, vérifié directement
+dans le code) ne référence aucun autre acteur du tout — juste des attributs propres à l'élu
+(`legitimacy`, `mandate_dev`) et un signal agrégé (`street`). Reformulation plus fine, qui tient
+sur les 4 cas confirmés : ce n'est pas la présence d'un acteur externe qui compte, c'est si la
+décision est formulée comme un **acte/réponse** (agir, répondre, rejoindre, réagir — une
+conséquence institutionnelle vis-à-vis de l'extérieur) plutôt qu'une **auto-évaluation contre un
+seuil** (`candidacy_considered` : ambition suffisante pour se présenter, oui/non).
+
+**Protocole pré-enregistré** : `party_nomination_choice` — vérité de référence réelle
+(`select_party_nominee`, `simple_rules.py` : ambition_score maximale parmi les membres
+éligibles). Ni acteur externe à enjeu (comparaison purement interne, entre les propres membres
+du parti), ni forme acte/réponse (« choisis lequel », pas « décide s'il agit/répond/rejoint »).
+Devrait, selon la nouvelle hypothèse, se comporter comme `candidacy_considered` (pas de
+collapse), pas comme les 4 cas qui collapsent.
+
+Slates construits à partir d'une population réelle (500 citoyens) et d'une formation de partis
+réelle (`initialize_parties`/`assign_party_affiliation`, k-means déterministe, aucun LLM) — 5
+partis, chacun avec son membre le plus ambitieux face aux 3 membres éligibles les moins
+ambitieux (marge measurée 0,16 à 0,35 — la distribution `beta(2,8)` compresse les scores juste
+au-dessus du seuil, donc la marge se mesure contre le pire du groupe, pas le second, pour rester
+non ambiguë).
+
+```
+party=1: 459 (0,510) vs 293/134/484 (~0,31) -> AGREE
+party=0: 67  (0,622) vs 396/32/333 (~0,31)  -> AGREE
+party=4: 266 (0,658) vs 50/222/19 (~0,31)   -> AGREE
+party=2: 39  (0,523) vs 217/468/242 (~0,31) -> AGREE
+party=3: 344 (0,467) vs 349/36/328 (~0,31)  -> DISAGREE (choisit le MOINS ambitieux du groupe)
+```
+
+**4/5 (80,0%) — franchit le seuil pré-enregistré, mais pas un résultat aussi net que les 5/5 de
+`candidacy_considered`.** Le seul désaccord porte sur le cas à la marge la plus faible (0,16) et
+à l'ambition maximale la plus basse des 5 (0,467) — un cas réellement à la limite, pas un
+collapse total (0% uniforme sur tous les cas, comme dans les 4 cas confirmés) : ici 4 cas
+corrects couvrant une large plage de marges, un seul désaccord sur le cas le plus serré, vers un
+choix incohérent (le pire du groupe, pas un intermédiaire plausible).
+
+**`party_nomination_choice` ne collapse pas.** Confirme « acte/réponse vs seuil » comme le
+facteur qui explique les 5 cas testés jusqu'ici (4 collapsent, 2 ne collapsent pas), là où
+« acteur externe nommé » échouait sur `representative_response` et où « ton adversarial » laissait
+`coalition_decision` non expliqué. Théorie retenue : **une décision formulée comme un acte ou une
+réponse avec conséquence institutionnelle vis-à-vis de l'extérieur est à risque de collapse en
+isolation ; une auto-évaluation contre un seuil (même comparative entre pairs) ne l'est pas** —
+toujours une hypothèse de conception, pas une loi prouvée (5 cas, pas une preuve causale du
+mécanisme).
+
+**Nuance à garder** : `representative_response` et `coalition_decision` (les deux autres cas
+confirmés collapsants, en plus de `pressure_action`) sont-ils vraiment « adversariaux » au même
+titre que `pressure_action` ? `representative_response` répond à une pression déjà reçue (pas une
+action offensive) ; `coalition_decision` est une décision de coopération/négociation (rejoindre
+une coalition), pas d'opposition. Si le facteur commun est bien « pression/opposition » au sens
+strict, `coalition_decision` en particulier reste à expliquer — sa décision n'a rien
+d'adversarial au sens littéral, seulement relationnel/stratégique. Ce point n'a pas été creusé
+davantage ici ; à traiter avant de considérer l'hypothèse « ton adversarial » comme complète.
 
 ## Hors scope de ce document
 
