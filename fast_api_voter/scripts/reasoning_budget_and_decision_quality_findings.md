@@ -227,6 +227,26 @@ A/B) for a hypothetical configuration, not a bug affecting any current run. Reco
 isn't rediscovered from scratch if `pressure_action` is ever considered for `think=True`, or if
 single-citizen batching is ever proposed for it.
 
+**Update, 2026-08-30 (`check_candidacy_forced_reasoning_comparison.py`)**: the single-citizen-
+batch `think=True` collapse documented above is **not specific to `pressure_action`**. The same
+mechanism forced onto `candidacy_considered` (a decision type that does NOT collapse under its
+own real `think=False` production path -- `check_candidacy_considered_isolation_disposition.py`,
+5/5 correct) produced the identical signature: zero visible `<think>` content across all 8 test
+citizens (5 extreme low-ambition + 3 extreme high-ambition, both poles, correcting a first draft
+of this script that tested only the low-ambition citizens and could not have distinguished a real
+collapse from "correct because every test citizen shares the same true answer" -- caught and
+fixed before drawing a conclusion), and all 8 collapsed to the identical `outcome=0`
+(decline)/`motif=204` -- including the 3 high-ambition citizens who should have declared. **This
+weakens, not strengthens, any link between the think=True reasoning-suppression finding and the
+act/response framing theory characterized in `plan-adversarial-framing-collapse.md`.** If a
+decision type that is otherwise immune to the relational-framing collapse shows the identical
+total reasoning suppression under this specific, never-used-in-production call shape
+(single-citizen batch, `think=True`), the suppression looks like a general property of that call
+configuration itself -- plausibly something about how this backend's reasoning trigger behaves on
+an extremely small, simple single-item prompt -- not a symptom of, or evidence for, the
+relational/act-response mechanism. Kept as its own catalogued finding (same register as the
+original), explicitly cross-referenced now rather than left implicitly connected.
+
 **Neither finding (the 25% rate, nor the collapse) settles the original question** of whether the
 4 citizens' `think=False` divergence reflects genuine information the coarse proxy lacks, or a
 real content-quality gap. Both investigative avenues (richer context-field inspection; forced
