@@ -3090,7 +3090,7 @@ def test_chamber_deliberation_is_journalled_once_per_seated_member_per_tick(tmp_
     assert [e["citizen_id"] for e in tick0_events] == sorted(e["citizen_id"] for e in tick0_events)
     assert len(tick0_events) == 3  # seats
     for e in tick0_events:
-        assert set(e["payload"].keys()) == {"shifts", "ctx", "chamber_deviation"}
+        assert set(e["payload"].keys()) == {"shifts", "ctx", "chamber_deviation", "motif_corrected"}
         assert set(e["payload"]["ctx"].keys()) == {"ticks_left"}
         assert e["motif"] in ("701", "702")
         assert e["codebook_version"] == config.llm.codebook_version
