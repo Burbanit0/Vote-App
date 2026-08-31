@@ -768,6 +768,46 @@ pre-registration and validation cycle (new schema, new failure surface to check)
 diagnostic. Explicitly not the only candidate — named because it directly follows from the leading
 structural hypothesis, not because alternatives were ruled out.
 
+## Postscript, 2026-08-30 — cross-model check: doesn't reproduce cleanly, but doesn't exonerate qwen3:8b either
+
+Prompted by a tangent about switching serving backend/model (vLLM remains blocked, unrelated
+platform issue — see `project_polity_vllm_switch` memory), tested whether the total avoidance of
+acting codes is qwen3:8b-specific by running the REAL, unmodified prompt (size=1, `think=False`)
+against 4 other models on the same 5-case set used in the ablation test
+(`check_pressure_action_model_comparison.py`, new, committed). Not a return to full
+characterization — a single, cheap check appended to an already-closed workstream, not a reopening
+of it.
+
+**Results are messier than a clean yes/no, and the script's own auto-generated verdict ("not
+qwen3:8b-specific") undersells that messiness — flagging this explicitly rather than repeating it
+uncorrected**:
+
+- **`llama3.1:8b` and `gemma2:9b`: 0/5 usable results — both failed decode on every single call**,
+  returning the same `cid` duplicated 2-4 times in the response array instead of one decision.
+  This is a structured-output schema-compliance failure via Ollama's native endpoint, not a
+  content-quality result either way — these two models could not be evaluated on the actual
+  question at all.
+- **`mistral:7b`: 5/5 decoded cleanly, and all 5 chose `MOBILIZE`** — including the control case
+  (cid=158, ratio=0.177, should clearly NOT act). This is a real collapse, content-blind exactly
+  like qwen3:8b's, just to the **opposite** pole (always acts vs. never acts). This is arguably
+  stronger evidence for the "task/menu shape induces collapse" hypothesis than a clean "other
+  models are fine" result would have been — a second model family collapses on this exact call
+  shape, just onto a different fixed answer.
+- **`qwen2.5:7b` (same lineage, prior generation): 3/5 decoded** (2 failed with a different
+  error — the model emitted a motif code, 306, in the `cid` field). All 3 that decoded chose
+  `NOTHING`, consistent with — not proof of — a Qwen-lineage-wide tendency rather than a
+  qwen3-specific one.
+
+**Honest reading**: this does not exonerate qwen3:8b's specific direction, and it does not cleanly
+confirm the "menu structure" hypothesis either — it adds a real, different data point (a second
+model collapsing the opposite way, content-blind) and two data points that aren't informative at
+all (structural JSON-compliance failures unrelated to content quality). Switching model is not a
+demonstrated fix on this evidence: one alternative that actually produced valid output collapsed
+just as completely, in the direction that would be worse for a simulation whose mobilization
+metrics already tend to look "too eventful" in this failure mode. Kept as an appendix to the
+closed investigation, not a re-characterization — the named remediation candidate (binary-then-
+lever split) and the closure status below are unchanged.
+
 **Status**: `pressure_action` stays marked unreliable in production (`decide_pressure_actions`
 docstring, `llm_behavior_engine.py`; §3.6.6 design-doc marker) — mechanism now well-characterized,
 not resolved. The 6 remaining quality probes (`candidacy_considered`, `party_nomination_choice`,
