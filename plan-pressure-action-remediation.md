@@ -1,5 +1,26 @@
 # Plan — Remédiation `pressure_action` (collapse de contenu, cause structurelle non identifiée)
 
+> ## ⚠️ PRÉMISSE INVALIDÉE — 2026-08-31
+>
+> **Le « collapse de contenu » que ce document cherche à remédier n'existe
+> pas.** Les redesigns §3.1 (binary-lever) et §3.2 (primary-language), et
+> tous les diagnostics associés, tournaient sous le menu **livré**
+> (`electoral_only: true`) où seuls les actes `[0, 4]` sont légaux et où le
+> prompt interdit explicitement 1/2/3. Leur « échec identique à 17/70 »
+> comptait cette contrainte constitutionnelle, pas un comportement du
+> modèle. Menu ouvert, mêmes 70 citoyens : **29/70 codes d'action émis**
+> (`check_pressure_action_open_menu_baseline.py`).
+>
+> Sur les 20 scripts de diagnostic `pressure_action`, **18 ont ce défaut**.
+> Les deux exceptions ouvrent le menu via `dataclasses.replace` :
+> `check_pressure_action_quality_pilot.py` (dont le 41,7 % de désaccord
+> tient toujours, et que la mesure menu-ouvert reproduit à 60 % d'accord)
+> et `check_pressure_action_forced_reasoning.py`.
+>
+> À lire donc comme un dossier historique : la §3.4 « bloquée sur
+> `sort_keys` » reste techniquement exacte sur le mécanisme
+> d'alphabétisation, mais elle cherchait à réparer un problème inexistant.
+
 > Document de scoping, à discuter et amender avant toute implémentation.
 > Suite directe de l'investigation qualité `pressure_action` (chantier
 > `plan-decision-quality-validation.md`) : position écartée, taille de
