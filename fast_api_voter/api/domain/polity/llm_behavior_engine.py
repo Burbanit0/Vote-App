@@ -1982,21 +1982,46 @@ def decide_pressure_actions(
     (simple_rules.py), which stays exactly as it is as the permanent
     §11.4 baseline.
 
-    RELIABILITY WARNING (2026-08-30, reasoning_budget_and_decision_quality_findings.md): decision
-    QUALITY here is not established at any chunk size tested. At the shipped
-    config.llm.max_batch_size=25, a real chunk collapses to one uniform act for every citizen in
-    it, ignoring individual ctx. At every smaller size tested (3, 5, 10 -- the same sizes
-    `lot6_batch_reliability_results.md` validated as producing clean, well-formed JSON, cited
-    below for `min_batch_size=1`) the model never chooses an acting code (SIGN_PETITION/
-    LAUNCH_PETITION/MOBILIZE) at all, regardless of content -- "clean parse" there was never a
-    content-quality check, and is now known not to imply one. Confirmed even at size=1 (fully
-    isolated single-citizen calls, no cross-citizen interaction possible): 0/63 acting codes,
-    including the most extreme "should act" case tested -- this rules out batching itself as the
-    cause. No chunk size from 1 to 25 has been shown to track each citizen's own
-    gap/blank_threshold correctly; the problem lives in the prompt or schema itself. Treat
-    mobilization_rate/pressure-related metrics from any llm.enabled=True run as unverified until
-    this is resolved -- see the findings doc for the full evidence trail and remediation options
-    under discussion.
+    RELIABILITY WARNING (2026-08-30, revised 2026-08-31 after a MAJOR MEASUREMENT DEFECT was
+    found -- see below before trusting any figure in this docstring's history):
+
+    RETRACTED: "the model never chooses an acting code, regardless of content" (0/63 at size=1,
+    0/70 across the §3.1/§3.2 redesigns, 0/17 on the informative pole). Those runs used the
+    SHIPPED config, where pressure_menu is electoral_only=true / petition_enabled=false /
+    mobilization_enabled=false -- the design's own "GROUPE DE CONTRÔLE principal". Under it
+    menu_acts() returns (0, 4) and build_pressure_system_prompt states "CONTRAINTE ABSOLUE : le
+    champ act ... doit valoir UN DES CODES SUIVANTS, et aucun autre : [0, 4]". Acting codes
+    1/2/3 are FORBIDDEN by construction, and the scripts' own ground truth nonetheless expected
+    them. Those runs measured an impossibility, not a behavior -- which is also why §3.1 and
+    §3.2 "failed identically at 17/70": both were counting the same constitutional constraint.
+    18 of the 20 pressure_action diagnostic scripts share this defect (the exceptions,
+    check_pressure_action_quality_pilot.py and check_pressure_action_forced_reasoning.py, open
+    the menu explicitly via dataclasses.replace).
+
+    MEASURED with the menu opened, same 70 citizens, same production prompt, size=1,
+    think=False (check_pressure_action_open_menu_baseline.py, 2026-08-31): 29/70 acting codes
+    emitted, spread across NOTHING 40 / SIGN_PETITION 27 / MOBILIZE 2 / WAIT_FOR_ELECTION 1.
+    There is NO content-blind collapse here: given legal levers, the model uses them and its
+    output distribution is not fixed.
+
+    WHAT REMAINS TRUE: decision QUALITY is mediocre and unvalidated. Agreement with the
+    deterministic proxy is 9/17 (52.9%) on the "should act" pole and 42/70 (60.0%) overall,
+    against this project's own >=80% bar -- independently consistent with the one always-valid
+    earlier measurement, check_pressure_action_quality_pilot.py's 41.7% disagreement (~58%
+    agreement). Note the proxy (gap/blank_threshold > 1.5 => "should act") is a modelling
+    assumption, not ground truth: §7bis.3 states 0 and 4 are legitimate, journaled outcomes, so
+    part of the gap may be the proxy rather than the model.
+
+    STILL UNVERIFIED, do not assume either way: the claim that a real chunk at
+    config.llm.max_batch_size=25 collapses to one uniform act was measured under the same closed
+    menu, where "uniform" is trivially satisfied by the only legal answers -- it needs re-running
+    with the menu open before it can be believed or dismissed. Under the SHIPPED (closed) menu,
+    pressure_action's real task is only choosing between 0 and 4; whether it tracks self_gap
+    across that pair has not been measured either.
+
+    Treat mobilization_rate/pressure metrics from any llm.enabled=True run with an OPEN menu as
+    quality-unvalidated (not collapsed). Under the shipped closed menu no acting code can occur
+    by design, so a zero mobilization rate there is the configuration, never a bug.
 
     Unlike every other decide_* function, this one CHUNKS: it is the first
     decision type since vote_cast to batch CITIZENS rather than a handful

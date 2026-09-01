@@ -1,5 +1,37 @@
 # Plan — Résolution du collapse `pressure_action` (voie tout-LLM)
 
+> ## ⚠️ CE PLAN EST INVALIDÉ DANS SA PRÉMISSE — 2026-08-31
+>
+> **Il n'y a pas de collapse `pressure_action`.** Toutes les mesures de ce
+> document (§2.1, §2.3, §2.4, et les §0 qui reprennent §3.1/§3.2) ont tourné
+> sous le menu constitutionnel **livré** — `electoral_only: true`,
+> `petition_enabled: false`, `mobilization_enabled: false` — où
+> `menu_acts()` renvoie `(0, 4)` et où le prompt de production déclare
+> « CONTRAINTE ABSOLUE : le champ act doit valoir UN DES CODES SUIVANTS,
+> et aucun autre : **[0, 4]** ». Les codes d'action 1/2/3 sont **interdits
+> par conception**, et la vérité de référence du harnais les exigeait
+> quand même. Ces runs mesuraient une impossibilité, pas un comportement —
+> ce qui explique aussi pourquoi §3.1 et §3.2 « échouaient identiquement à
+> 17/70 » : ils comptaient la même contrainte.
+>
+> **Mesure décisive, menu ouvert, mêmes 70 citoyens, même prompt de
+> production** (`check_pressure_action_open_menu_baseline.py`) :
+> **29/70 codes d'action émis** (NOTHING 40, SIGN_PETITION 27, MOBILIZE 2,
+> WAIT_FOR_ELECTION 1), pôle « devrait agir » à **9/17 (52,9 %)** contre
+> 0/17 sous menu fermé. Le modèle utilise les leviers dès qu'ils sont
+> légaux.
+>
+> **Ce qui reste vrai** : la justesse est médiocre (60,0 % d'accord global
+> contre une barre à 80 %) — indépendamment cohérent avec la seule mesure
+> toujours valide, le pilote d'origine (41,7 % de désaccord, ≈ 58 %
+> d'accord), qui lui ouvre le menu explicitement. Le vrai chantier est
+> donc **la qualité de décision**, pas un collapse.
+>
+> Les conclusions négatives des §2.1/§2.3/§2.4 ne disent rien : elles
+> testaient si un ajustement de prompt pouvait faire émettre un code
+> interdit. Ne pas s'en servir pour écarter température, contrainte
+> grammaticale ou few-shot — ces pistes sont **non testées**, pas écartées.
+
 > Document de scoping, à valider avant toute implémentation.
 > **Objectif assumé** : faire fonctionner le chemin LLM, pas basculer sur
 > un repli déterministe. Le déterminisme reste le baseline de comparaison

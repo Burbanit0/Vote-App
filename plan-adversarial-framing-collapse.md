@@ -1,5 +1,39 @@
 # Cadrage acte/réponse vs auto-évaluation à seuil, et collapse de contenu en isolation — une hypothèse de conception, pas encore une loi générale
 
+> ## ⚠️ BASE DE PREUVE AMPUTÉE — 2026-08-31 : `pressure_action` retiré des cas confirmés
+>
+> **`pressure_action`, le cas « le mieux caractérisé » sur lequel cette
+> théorie s'est construite, ne collapse pas.** Ses mesures (0/70 codes
+> d'action, 0/17 sur le pôle informatif, et l'« échec identique à 17/70 »
+> de §3.1/§3.2 qui a précisément motivé l'élargissement de la découverte)
+> ont toutes tourné sous le menu constitutionnel livré, où
+> `menu_acts()` = `(0, 4)` et où le prompt déclare les codes 1/2/3
+> **interdits**. La vérité de référence exigeait un acte que la
+> configuration rend impossible. Menu ouvert, mêmes 70 citoyens, même
+> prompt : **29/70 codes d'action émis**, quatre codes distincts
+> (`check_pressure_action_open_menu_baseline.py`).
+>
+> **Ce que la théorie conserve** : 3 confirmations
+> (`representative_response`, `coalition_decision`, `reaction_to_event`
+> branche SCANDAL) et 2 contrôles négatifs. Leurs jeux d'options ne sont
+> gated par aucune config (`Stance` 1-4, `CoalitionAction` JOIN/LEAVE
+> toujours disponibles) et leurs scripts ne restreignent rien — le vice
+> qui a détruit `pressure_action` ne les touche pas. **Mais chacun doit
+> quand même être re-vérifié explicitement sur ce point avant d'être
+> re-cité**, plutôt que présumé sain par analogie.
+>
+> **Ce que la théorie perd** : son cas le plus documenté, la répétition
+> « deux remédiations échouent identiquement » qui lui donnait sa force
+> apparente, et le statut de « 4/4 puis 4/5 ». Le vrai compte est
+> **3 confirmations sur 4 types acte/réponse testés valablement**, sur des
+> signatures de 4-6 essais — pas un socle solide. À traiter comme une
+> hypothèse ouverte, nettement plus faible qu'écrit ci-dessous.
+>
+> Leçon de méthode, à retenir au-delà de ce document : aucune de ces
+> mesures n'a jamais vérifié que la réponse attendue était **autorisée**
+> par la configuration testée. Une vérité de référence doit être
+> confrontée au menu actif avant le premier appel.
+
 > Découverte de conception, pas une remédiation de prompt isolée — voir
 > `plan-pressure-action-remediation.md` pour la question d'origine (comment
 > réparer `pressure_action` spécifiquement), qui reste pertinente
@@ -168,7 +202,7 @@ FORTE-SALIENCE:  cid10/20/30 -> salience_delta=0,2000 motif=401 a chaque fois
 **6/6 identiques.** Le collapse s'étend à `reaction_to_event` (branche
 SCANDAL) — un quatrième type de décision.
 
-## Bilan, corrigé 2026-08-31 : 4/5 cadrages acte/réponse collapsent (1 exception réelle), 2/2 auto-évaluations à seuil ne collapsent pas, 1 cas non tranché
+## Bilan, corrigé deux fois le 2026-08-31 : 3/5 cadrages acte/réponse collapsent (2 exceptions réelles), 2/2 auto-évaluations à seuil ne collapsent pas, 1 cas non tranché
 
 **`campaign_positioning` est act/réponse par sa forme (ajuster sa plateforme en réaction aux
 rivaux/à l'électorat) mais NE collapse PAS** (contenu vérifié, voir section dédiée ci-dessous) —
@@ -177,7 +211,7 @@ conséquence plutôt que laissé à « 4/4 », qui ne tient plus.
 
 | Type de décision | Forme | Vérité de référence | Résultat |
 |---|---|---|---|
-| `pressure_action` | Acte (choisir un levier de pression) | Réelle, fonctionnelle | **Collapse** (0/70) |
+| `pressure_action` | Acte (choisir un levier de pression) | Réelle, fonctionnelle | ~~**Collapse** (0/70)~~ → **RETIRÉ 2026-08-31** : 0/70 mesuré sous menu fermé (actes 1/2/3 interdits par config). Menu ouvert : **29/70 actes émis**, pas de collapse. Reste un problème de **justesse** (60,0 % d'accord, barre 80 %) |
 | `representative_response` | Acte/réponse (choisir une posture) | Constante seulement | **Collapse** (4/4 identiques) |
 | `coalition_decision` | Acte (rejoindre/refuser une coalition) | Partielle | **Collapse** (6/6 identiques) |
 | `reaction_to_event` (SCANDAL) | Acte/réaction à un événement | Aucune | **Collapse** (6/6 identiques) |
