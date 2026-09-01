@@ -1310,7 +1310,36 @@ def build_positioning_system_prompt(nominees: Sequence[Citizen], config: PolityC
     import time. Without stating the real numbers here, the model has no
     way to know what it's actually being validated against in
     validate_positioning_decision -- an omission that would make rejections
-    common rather than a validated guardrail against rare cases."""
+    common rather than a validated guardrail against rare cases.
+
+    Disambiguation sentence between the motif table and the cid-list
+    self-check (2026-08-31 fix, plan-adversarial-framing-collapse.md,
+    same shape as decide_chamber_deliberation's own Mode A fix): a live
+    diagnostic (check_campaign_positioning_truncation_reasoning.py) read
+    the full raw reasoning of 3 reproduced Mode A truncations (cid 167,
+    209, 158) and found, in each, the SAME concrete misreading -- the
+    model reaches a substantively complete answer (real per-dimension
+    shift math, real motif reasoning) and only THEN spirals, believing
+    "la liste decisions doit contenir EXACTEMENT ces N cid" is in
+    conflict with "Motifs valides... 601-604" immediately above it, as
+    if the decisions list itself had to equal the cid list AND
+    separately enumerate the 4 motif codes -- e.g. cid=209's trace:
+    "the decisions list must contain exactly [209]... But the valid
+    codes are 601-604... This is conflicting", repeated 30-63x. The
+    prior wording had NO separating sentence between the motif table and
+    the cid-list instruction (unlike chamber's prompt, which has two);
+    at size=1 "chacun une seule fois" applied to a single-element list is
+    also unusually vacuous phrasing, likely compounding the misreading.
+    NOT the same failure as cid=79's OTHER Mode A trace (same diagnostic
+    run): that one fixates on "electorate_mean is for 10 dimensions...
+    the user provided 20 numb[ers]" from the very first paragraph, before
+    any real per-dimension work -- verified against the actual request
+    body that no dimension mismatch exists (position/priorities/
+    party_platform/electorate_mean are all issue_count=20-dimensional);
+    the model silently truncates its OWN transcription of a 20-element
+    array to 10 while reasoning, an internal artifact this sentence does
+    not address and no prompt wording is expected to fix. See the plan
+    doc for the full traces this diagnosis is based on."""
     cid_list = ",".join(str(n.citizen_id) for n in nominees)
     return (
         "Tu es un moteur de simulation. Pour chaque candidat nomme, decide "
@@ -1327,6 +1356,13 @@ def build_positioning_system_prompt(nominees: Sequence[Citizen], config: PolityC
         f"{config.campaign.max_positioning_delta} inclus. Toute decision "
         "hors de ces bornes sera rejetee.\n"
         f"Motifs valides (code court obligatoire) :\n{CAMPAIGN_MOTIF_PROMPT_TABLE}\n"
+        "Chaque element de la liste decisions correspond a UN candidat "
+        "(identifie par son cid) et porte SON PROPRE motif -- un seul "
+        "code choisi parmi ceux ci-dessus -- et SES PROPRES shifts. La "
+        "contrainte sur les cid ci-dessous et le choix du motif sont deux "
+        "informations independantes du meme objet, pas deux exigences "
+        "concurrentes sur la meme liste : il n'y a rien a concilier entre "
+        "elles.\n"
         f"IMPORTANT : la liste decisions doit contenir EXACTEMENT ces "
         f"{len(nominees)} cid, chacun une seule fois, dans cet ordre : "
         f"[{cid_list}]. Verifie ta reponse avant de la finaliser : chaque "
@@ -1428,33 +1464,45 @@ def decide_campaign_positioning(
     batch sizes is unmeasured; do not assume either direction without a
     live check at that size.
 
-    CONFIRMED Mode A, 2026-08-31 (check_campaign_positioning_truncation_
-    reasoning.py): 4/4 reproduced truncations show the same repeated-
-    paragraph signature as decide_chamber_deliberation's own Mode A bug
-    (see that function's docstring) -- an unbounded, non-convergent
-    reasoning loop, 47-242 near-identical repeats, finish_reason='length'
-    landing exactly on the configured ceiling every time. NOT yet fixed:
-    unlike chamber_deliberation, the exact ambiguous prompt phrase driving
-    the loop is not yet pinned down. Leading candidate: this function's
-    own system prompt (build_positioning_system_prompt) states no
-    shifts<->motif pairing guidance at all (contrast build_chamber_
-    system_prompt's explicit "701=empty shifts, 702=at least one" rule) --
-    CAMPAIGN_MOTIF_PROMPT_TABLE lists 601-604 with no stated correspondence
-    to an empty vs non-empty shifts list, and two of the four reproduced
-    traces ruminate exactly there ("the valid codes are 601-604" / "the
-    decisions list is [...], and the codes are 601-604" / "This is
-    conflicting", repeated dozens of times). A second, distinct rumination
-    (one trace fixates on "electorate_mean is for each of the 10
-    dimensions... the user provided 20 numb[ers]") was checked against the
-    actual data and is NOT a real shape mismatch (issue_positions/
+    CONFIRMED Mode A AND FIXED, 2026-08-31 (check_campaign_positioning_
+    truncation_reasoning.py, then validate_campaign_positioning_
+    disambiguation_fix.py): 4/4 reproduced truncations showed the same
+    repeated-paragraph signature as decide_chamber_deliberation's own
+    Mode A bug (see that function's docstring) -- an unbounded, non-
+    convergent reasoning loop, 47-242 near-identical repeats,
+    finish_reason='length' landing exactly on the configured ceiling
+    every time. Reading the full traces (39-42k chars each) found 3/4
+    (cid 167, 209, 158) shared one concrete, legible mechanism: in each,
+    the model had ALREADY worked out a substantively complete answer
+    (real per-dimension shift math, real motif reasoning) and only then
+    spiraled, misreading "la liste decisions doit contenir EXACTEMENT ces
+    N cid" as conflicting with the motif menu (601-604) stated
+    immediately above it -- e.g. "the decisions list must contain exactly
+    [209]... But the valid codes are 601-604... This is conflicting",
+    repeated 30-63x. Fixed below by inserting a sentence between the
+    motif table and the cid-list self-check, stating explicitly that the
+    cid and the motif are independent fields of the same object -- same
+    shape as chamber_deliberation's own working fix. Live validation on
+    the exact 3 reproduced cases, 3 reps each: 0/9 truncations post-fix,
+    down from 6/6 pre-fix (experiment 20260901T003657Z-0a0e4d59) -- the
+    same standard chamber_deliberation's own fix achieved (7/7 -> 0/7).
+
+    The 4th reproduced truncation (cid=79) is a DIFFERENT, NOT-addressed-
+    by-this-fix bug: its rumination starts immediately, before any real
+    per-dimension work, fixated on "electorate_mean is for each of the 10
+    dimensions... the user provided 20 numb[ers]". Checked against the
+    actual request body: no real shape mismatch exists (issue_positions/
     issue_priorities/electorate_mean are all issue_count=20-dimensional,
-    citizen.py:180) -- a pure reasoning artifact, not (yet) traceable to a
-    specific prompt ambiguity. Do not write a disambiguation fix without
-    first reading the full reasoning traces (39-42k chars each) to confirm
-    which hypothesis is the real driver -- same discipline
-    chamber_deliberation's own fix followed: diagnosis before correction,
-    never the reverse. See plan-adversarial-framing-collapse.md's
-    campaign_positioning section for the full traces/analysis."""
+    citizen.py:180) -- the model silently truncates its OWN transcription
+    of a 20-element array to 10 while reasoning, an internal artifact no
+    prompt wording addresses. It also came back 0/3 in the same
+    validation run (vs 3/3 truncated across three independent pre-fix
+    measurements) -- notable, but n=3 is too small to call this second
+    issue resolved, and nothing about the fix below should mechanically
+    affect how the model transcribes a numeric array; treat as an
+    unexplained, unconfirmed observation, not a second validated fix.
+    See plan-adversarial-framing-collapse.md's campaign_positioning
+    section for the full traces/analysis."""
     _check_supported(config)
 
     if not nominees:

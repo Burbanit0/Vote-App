@@ -408,6 +408,69 @@ fragments les plus répétés ont été extraits ici) pour confirmer laquelle de
 une troisième) est la cause réelle avant d'écrire un correctif — même standard que
 `chamber_deliberation`, où le diagnostic a précédé le correctif, jamais l'inverse.
 
+**Traces complètes lues, 2026-08-31** (`check_campaign_positioning_truncation_reasoning.py`
+modifié pour dumper `message.reasoning`/prompts complets, relancé sur les mêmes 6 cid) : mêmes 4
+troncatures reproduites (167, 79, 209, 158), point de bascule entre mot ~400 et ~870 (bien avant
+l'épuisement du budget de 8000 tokens).
+
+**Hypothèse 1 confirmée, sur 3/4 traces (167, 209, 158)** : dans chacune, le travail de fond
+(calcul des shifts par dimension, raisonnement sur le motif) est **substantiellement terminé** au
+moment de la bascule — exactement le même schéma que `chamber_deliberation` (réponse correcte
+trouvée tôt, puis spirale sur le format, pas sur le fond). La rumination elle-même est lisible et
+concrète, ex. cid=209 : *« the decisions list must contain exactly [209]... But the valid codes are
+601-604... This is conflicting »*, répété 30 à 63 fois. Le modèle lit la phrase « la liste decisions
+doit contenir EXACTEMENT ces 1 cid... [209] » comme si elle entrait en conflit avec la table des
+motifs (601-604) juste au-dessus — comme si la liste `decisions` devait À LA FOIS être `[209]` et
+énumérer les 4 codes. Mécanisme plausible : contrairement au prompt de `chamber_deliberation` (deux
+phrases tampon entre la table des motifs et l'auto-vérification cid), celui de `campaign_positioning`
+n'avait **aucune** phrase de séparation entre les deux — et à `size=1`, « chacun une seule fois »
+appliqué à une liste à un seul élément est une formulation particulièrement vide de sens,
+probablement aggravante.
+
+**Hypothèse 2 réfutée en tant qu'ambiguïté de prompt (cid=79)** : la confusion démarre dès le
+premier paragraphe, avant tout travail de fond — différent des 3 autres cas. Vérifié directement
+contre le corps de requête réel envoyé (`cid79_user_prompt.txt`) : `position`, `priorities`,
+`party_platform` et `electorate_mean` font tous 20 éléments, aucune incohérence réelle. Le modèle
+**tronque sa propre transcription** du tableau `position` à 10 éléments dans sa réponse (« Their
+position is [0.5489, ..., 0.5217] » — exactement les 10 premiers des 20 réels), puis se rend
+compte que l'`electorate_mean` (qu'il retranscrit correctement) ne correspond pas à sa PROPRE copie
+tronquée, et boucle sur ce faux désaccord. Aucun « 10 » n'apparaît nulle part dans le prompt réel —
+un artefact de transcription interne du modèle sur un long tableau numérique, pas une ambiguïté de
+formulation qu'une phrase peut corriger.
+
+**Correctif appliqué** (`llm_behavior_engine.py`, `build_positioning_system_prompt`) : une phrase
+insérée entre la table des motifs et l'auto-vérification cid, précisant explicitement que le cid et
+le motif sont deux informations indépendantes du même objet, pas des exigences concurrentes sur la
+même liste — même forme que le correctif `chamber_deliberation`. Cible uniquement l'hypothèse 1 ;
+aucune tentative de corriger l'artefact de transcription du cid=79 (pas actionnable par une
+reformulation de prompt).
+
+**Validation en direct, 2026-08-31** (`validate_campaign_positioning_disambiguation_fix.py`, mêmes
+6 cid, 3 répétitions chacun, expérience `20260901T003657Z-0a0e4d59`) :
+
+```
+cid=184 [no-regression]:      0/3 troncature (avant : 0/2)
+cid=167 [CIBLE DU CORRECTIF]: 0/3 troncature (avant : 2/2)
+cid=126 [no-regression]:      0/3 troncature (avant : 0/2)
+cid=79  [cause differente]:   0/3 troncature (avant : 3/3 -- 1 mesure initiale + 2 reproductions)
+cid=209 [CIBLE DU CORRECTIF]: 0/3 troncature (avant : 2/2)
+cid=158 [CIBLE DU CORRECTIF]: 0/3 troncature (avant : 2/2)
+
+Cibles du correctif (167/209/158) : 0/9 troncature -- avant : 6/6.
+```
+
+**Le correctif fonctionne, franchement, sur les cas qu'il cible** : 0/9 contre 6/6 avant — le même
+standard que la référence `chamber_deliberation` (7/7 → 0/7). C'est la première vraie victoire de
+remédiation de tout ce chantier.
+
+**Point à ne pas sur-interpréter** : `cid=79` (cause différente, non ciblée par ce correctif) est
+AUSSI passé à 0/3, contre 3/3 avant sur trois mesures indépendantes. C'est notable, mais **pas une
+preuve que l'artefact de transcription est réparé** — n=3 après correctif est un échantillon trop
+petit pour trancher, et rien dans le correctif ne devrait mécaniquement affecter la façon dont le
+modèle recopie un tableau de 20 nombres. Traité comme un résultat encourageant à surveiller, pas
+comme un second correctif validé. Ne pas écrire dans la documentation de production que l'artefact
+cid=79 est résolu tant qu'une mesure dédiée, à plus grand n, ne l'a pas confirmé.
+
 ### `chamber_deliberation`
 
 3 membres à `chamber_position == sincere_position` (l'état que le prompt lui-même prescrit
