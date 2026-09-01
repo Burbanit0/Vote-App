@@ -168,7 +168,12 @@ FORTE-SALIENCE:  cid10/20/30 -> salience_delta=0,2000 motif=401 a chaque fois
 **6/6 identiques.** Le collapse s'étend à `reaction_to_event` (branche
 SCANDAL) — un quatrième type de décision.
 
-## Bilan : 4/4 cadrages acte/réponse collapsent, 2/2 auto-évaluations à seuil ne collapsent pas, 2 cas non tranchés
+## Bilan, corrigé 2026-08-31 : 4/5 cadrages acte/réponse collapsent (1 exception réelle), 2/2 auto-évaluations à seuil ne collapsent pas, 1 cas non tranché
+
+**`campaign_positioning` est act/réponse par sa forme (ajuster sa plateforme en réaction aux
+rivaux/à l'électorat) mais NE collapse PAS** (contenu vérifié, voir section dédiée ci-dessous) —
+la théorie n'est donc plus un prédicteur à 100 % au sein de sa propre catégorie. Titre corrigé en
+conséquence plutôt que laissé à « 4/4 », qui ne tient plus.
 
 | Type de décision | Forme | Vérité de référence | Résultat |
 |---|---|---|---|
@@ -178,7 +183,7 @@ SCANDAL) — un quatrième type de décision.
 | `reaction_to_event` (SCANDAL) | Acte/réaction à un événement | Aucune | **Collapse** (6/6 identiques) |
 | `candidacy_considered` | Auto-évaluation à seuil (ambition/soutien perçu) | Réelle, fonctionnelle | **Pas de collapse** (5/5 correct) |
 | `party_nomination_choice` | Auto-évaluation comparative entre pairs (ambition) | Réelle, fonctionnelle | **Pas de collapse** (4/5, 80,0%) |
-| `campaign_positioning` | Acte (ajuster sa plateforme de campagne) | Aucune | **Non tranché** — motif varie de façon plausible, mais plafond de shifts saturé dans les deux pôles ; 66% d'échec sur un pôle |
+| `campaign_positioning` | Acte (ajuster sa plateforme de campagne) | Aucune | **Pas de collapse** — contenu vérifié, varie réellement entre nominés et entre pôles (2026-08-31) ; **exception au sein de la catégorie acte/réponse**. Défaut distinct et non résolu : 50-66% d'échec (troncature + fuite motif→cid) selon le pôle |
 | `chamber_deliberation` | Acte/réflexion (maintenir ou ajuster sa position) | Aucune (prompt prescrit un cas) | **Non tranché sur la théorie** — pôle prescrit correct (3/3) ; incohérence du pôle dérivé (motif actif + aucun ajustement réel, 3/3 uniforme) **corrigée en production** (correctif d'étiquette tracé, pas un rejet), comportement sous-jacent toujours non expliqué |
 
 ## Le principe suspecté — hypothèse de conception, pas une loi générale
@@ -265,6 +270,143 @@ compte est fixe, seul le motif varie) ou reflète un vrai raisonnement stratégi
 volume happens to converge. **Non tranché** — 66% d'échec sur le pôle aligné (troncature +
 fuite de motif dans le champ `cid`, la même signature déjà vue chez `qwen2.5:7b`) est lui-même un
 résultat à part, distinct de la question du collapse.
+
+**Résultat avec logging de contenu, 2026-08-31**
+(`check_campaign_positioning_collapse_signature.py`, instrumentation corrigée) :
+
+```
+LOIN:    cid=93  dist=1.7254 -> shifts=1 content=((0, 0.3),)                            motif=602
+         cid=295 dist=1.7352 -> shifts=3 content=((0, 0.3), (1, -0.18), (5, -0.19))       motif=603
+         cid=49  dist=1.8344 -> ECHEC (batch desaligne : cid retourne = motif, pas 49)
+ALIGNE:  cid=251 dist=0.3084 -> shifts=3 content=((11, -0.12), (15, -0.13), (16, 0.12))   motif=602
+         cid=79  dist=0.3240 -> ECHEC (troncature, finish_reason=length)
+         cid=64  dist=0.3306 -> ECHEC (batch desaligne : cid retourne = motif, pas 64)
+```
+
+**Tranché : PAS un collapse.** Le contenu varie réellement, entre nominés ET entre pôles — aucune
+paire de sorties n'est identique. Ceci **corrige** l'affirmation ci-dessus (« chaque appel réussi a
+saturé le plafond exact ») : `cid=93` (pôle LOIN) n'a produit qu'1 seul shift, pas 3 — le plafond
+n'est donc pas systématiquement saturé, contrairement à ce que les 4 seuls appels réussis du
+premier passage (sans logging de contenu) laissaient croire. Le motif varie aussi À L'INTÉRIEUR
+d'un même pôle (602 chez `cid=93`, 603 chez `cid=295`, tous deux LOIN) — pas seulement entre pôles
+comme supposé. `campaign_positioning` n'étend donc PAS le motif de collapse content-blind confirmé
+sur les 4 autres types act/réponse — la prédiction de la théorie échoue ici.
+
+**Réserve sur la taille d'échantillon** : seulement 3/6 appels réussis ce passage (50 %), 4/6 au
+passage précédent — cumulé, ~7 observations valides sur 12 tentatives à travers les deux passages.
+Suffisant pour rejeter « contenu toujours identique » (une seule paire différente suffit), mais
+**pas** suffisant pour affirmer un raisonnement stratégique pleinement fiable — seulement pour
+exclure le collapse tel que défini par ce critère.
+
+**Le taux d'échec (50 % ce passage, cohérent avec 66 % côté ALIGNÉ au passage précédent) reste un
+problème à part, non résolu par ce test et distinct de la question du collapse** : la même
+signature de fuite motif→cid réapparaît (`cid` retourné = valeur de motif attendue, pas le cid
+demandé) sur 2 des 3 échecs, plus une troncature pure (`finish_reason=length`) malgré le budget de
+8000 tokens déjà généreux. `campaign_positioning` sous `think=True` reste donc peu fiable en
+pratique même là où son contenu, quand il arrive à terme, n'est pas un collapse — deux défauts
+indépendants, à ne pas confondre.
+
+**Mesure du taux d'échec à plus grand n, 2026-08-31** (décision explicite de l'utilisateur : lancer
+un test dédié plutôt que documenter seulement ou laisser tel quel).
+`decide_campaign_positioning`'s own docstring (`llm_behavior_engine.py`) affirmait « 5/5 correct
+batches » pour `think=True` — en contradiction avec le 50 % observé ci-dessus à n=6.
+`check_campaign_positioning_failure_rate.py` (16 par pôle, n=32, même protocole, expérience
+`20260831T233502Z-586e3c0e`) :
+
+```
+FAR pole:     4/16 failed
+ALIGNED pole: 4/16 failed
+overall:      8/32 (25,0%)
+failure modes: {truncation: 6, cid_motif_leak_or_misalignment: 2}
+```
+
+**Le taux réel se stabilise à 25 %, pas 50 % — le n=6 était un tirage haut, pas du bruit pur (25 %
+reste bien au-dessus de 0), mais le taux vrai est plus proche de 1 échec sur 4 que d'1 sur 2.**
+Franchit exactement le seuil pré-enregistré (≥ 25 %) : **la revendication « 5/5, résolu proprement »
+du docstring est fausse pour des batches `size=1`** — corrigé directement dans
+`llm_behavior_engine.py` (RELIABILITY CAVEAT ajoutée à `decide_campaign_positioning`, pas une
+réécriture de l'affirmation d'origine, qui reste vraie pour le contexte où elle a été mesurée -- un
+acceptance run à la taille de batch réelle de production, plus grande que `size=1`). Le mode
+dominant a aussi changé : troncature (6/8) plutôt que fuite motif→cid (2/8), contrairement à ce que
+le n=6 seul suggérait (1 troncature, 2 fuites). Le contenu des 24 appels réussis confirme, à plus
+grande échelle, l'absence de collapse déjà établie (motifs 601/602/603 tous observés, dimensions et
+deltas différents à chaque appel, y compris entre nominés du même pôle). Ce que ce taux d'échec
+implique pour la taille de batch réelle de production (plus grande que `size=1`) reste non mesuré.
+
+**PROCHAINE ÉTAPE IMMÉDIATE, pas une dette vague (2026-08-31, à la demande de l'utilisateur avant
+tout commit)** : vérifier si les 6/8 troncatures ci-dessus partagent la signature Mode A déjà
+diagnostiquée et corrigée pour `chamber_deliberation` (§ ci-dessous, `lot3_chamber_reliability_
+results.md` « Lot 5 correction ») — un paragraphe de rumination quasi identique répété des dizaines
+de fois dans `message.reasoning`, atterrissant systématiquement pile sur le plafond de tokens
+configuré, symptôme d'une boucle non convergente que le budget ne peut PAS résoudre (contrairement
+à Mode B, où plus de budget suffit). Si confirmé, la correction serait la même méthode que pour
+`chamber_deliberation` : une phrase de désambiguïsation dans le prompt ciblant l'état précis qui
+déclenche la boucle, pas un changement de budget — et ce serait la première vraie victoire de
+remédiation sur ce chantier (les 4 collapses act/réponse confirmés n'ont, à ce jour, aucune piste
+positive — voir `plan-pressure-action-resolution.md`, Phase 2 entièrement négative).
+
+**Obstacle diagnostique à contourner, déjà rencontré et déjà résolu une fois** : `OllamaJsonClient.
+complete_json`'s `_extract_content`/`_extract_native_content` lèvent `LlmResponseError` dès que
+`finish_reason != "stop"`, jetant `message.content`/`message.reasoning` avant que l'appelant ne les
+voie — exactement le trou diagnostique que la sonde `chamber_deliberation` (`probe_chamber_
+truncation.py`, scratchpad, jamais committé) a dû contourner par un POST HTTP brut reproduisant le
+corps de requête réel (même technique que `pressure_action_harness.raw_pressure_call`, mais pour le
+prompt de `campaign_positioning`, pas encore écrite). Prochaine étape concrète : un script du même
+genre, appelant `build_positioning_system_prompt`/`build_positioning_user_prompt` réels, POST brut
+bypassant `complete_json`, capturant `message.reasoning` complet sur les cas `finish_reason='length'`
+spécifiquement — pré-enregistré via le harnais avant tout appel, comme le reste de cette
+investigation. Cible naturelle : les 6 cid déjà identifiés comme troncature dans le run à n=32
+(`184, 167, 126, 79, 209, 158` — expérience `20260831T233502Z-586e3c0e`, requêtes reproductibles au
+même seed/config).
+
+**Résultat, 2026-08-31** (`check_campaign_positioning_truncation_reasoning.py`, POST brut
+mirroring `_complete_json_openai_compat`, `message.reasoning` capturée même hors `finish_reason=
+'stop'`) :
+
+```
+cid=184: no_repro (finish_reason=stop cette fois, non-determinisme sous batching, deja documente ailleurs)
+cid=167: MODE_A -- x242 "Wait, the user's instruction says that the decisions must be a list containing exactly the cid 16..."
+cid=126: no_repro (finish_reason=stop cette fois)
+cid=79:  MODE_A -- x55/x52/x51/x49/x47, cinq variantes de "Alternatively, maybe the electorate_mean is for each of the 10 dimensions, and the user provided 20 numb[ers]..."
+cid=209: MODE_A -- x63 "This is conflicting.", x60 sur la liste decisions, x32 "However, the valid codes are 601-604."
+cid=158: MODE_A -- x59 sur la liste decisions, x56 "So the decisions list is [158], and the codes are 601-604.", x33 "This is conflicting.", x31 "This is very confusing."
+```
+
+**CONFIRMÉ : signature Mode A, 4/4 troncatures reproduites** (2 des 6 cid n'ont pas retronqué à ce
+tirage — cohérent avec le non-déterminisme déjà documenté sous batching, pas un désaccord). Même
+mécanisme que `chamber_deliberation` : un paragraphe quasi identique répété 47 à 242 fois,
+`finish_reason='length'` pile au plafond configuré (9596 tokens = `compute_max_tokens(1) +
+_POSITIONING_THINK_TOKEN_ALLOWANCE`), le modèle boucle au lieu de conclure. **C'est la première
+piste de remédiation réelle sur ce chantier** — les 4 collapses act/réponse confirmés n'en ont
+aucune (Phase 2 de `plan-pressure-action-resolution.md` entièrement négative).
+
+**Deux déclencheurs plausibles, distincts, ni l'un ni l'autre encore confirmé au niveau du prompt
+(contrairement au cas chamber_deliberation, où la phrase ambiguë exacte a été identifiée avant
+d'écrire le correctif)** :
+1. `build_positioning_system_prompt` ne contient **aucune phrase de guidage shifts↔motif**
+   (contrairement à `build_chamber_system_prompt`, qui dit explicitement « motif=701 correspond à
+   une liste shifts vide, motif=702 à au moins un ajustement »). `CAMPAIGN_MOTIF_PROMPT_TABLE`
+   liste juste 601-604 sans dire lequel correspond à une liste `shifts` vide (601 SINCERE_CONVICTION,
+   par déduction) vs non vide (602-604) — cid=209/cid=158 rument précisément là-dessus (« the valid
+   codes are 601-604 », « the decisions list is [...], and the codes are 601-604 », « This is
+   conflicting »). Candidat direct pour une phrase de désambiguïsation, même forme que le correctif
+   déjà livré pour `chamber_deliberation`.
+2. cid=79 rumine sur autre chose : une confusion possible entre le nombre de dimensions de
+   `issue_positions`/`electorate_mean` et celui de `issue_priorities` (« electorate_mean is for
+   each of the 10 dimensions... the user provided 20 numb[ers] ») — **vérifié et écarté comme
+   asymétrie réelle des données** : `issue_positions` et `issue_priorities` font toutes deux
+   `config.citizens.issue_count=20` dimensions (`citizen.py:180`, `polity_config.yaml:121`), et
+   `electorate_mean` est calculé sur ces mêmes 20 dimensions (`decide_campaign_positioning`'s
+   `np.mean([c.issue_positions ...], axis=0)`, reproduit à l'identique dans le script de mesure).
+   Le « 10 vs 20 » que le modèle invoque ne correspond à rien dans les données envoyées — un
+   artefact de raisonnement, pas une ambiguïté de prompt identifiable comme celle de
+   `chamber_deliberation`. Reste inexpliqué en tant que tel ; ne pas confondre avec l'hypothèse 1
+   ci-dessus, qui elle reste une piste concrète et actionnable.
+
+**Pas encore fait** : lire les traces `reasoning` complètes (39-42k caractères chacune, seuls les 5
+fragments les plus répétés ont été extraits ici) pour confirmer laquelle de ces deux hypothèses (ou
+une troisième) est la cause réelle avant d'écrire un correctif — même standard que
+`chamber_deliberation`, où le diagnostic a précédé le correctif, jamais l'inverse.
 
 ### `chamber_deliberation`
 

@@ -2419,6 +2419,20 @@ def test_pressure_system_prompt_states_toujours_null_when_the_graph_is_off():
     assert "voisinage social qui a deja mobilise" not in prompt
 
 
+def test_pressure_system_prompt_disambiguates_null_neighbors_acting_from_inactive():
+    # 2026-08-30, plan-pressure-action-resolution.md §1.4: the model was measured
+    # interpreting neighbors_acting=null as "neighbors are inactive" (a claim about their
+    # state) rather than "not tracked" (no information at all) -- a real context-
+    # understanding bug independent of the collapse investigation, polluting any
+    # reasoning read produced during tests. Pins the disambiguating sentence.
+    consulted = [_pressure_citizen(0)]
+    config = _config_with_llm_enabled()
+    assert config.social_graph.enabled is False
+    prompt = build_pressure_system_prompt(consulted, config)
+    assert "n'existe pas du tout" in prompt
+    assert "ignorer" in prompt
+
+
 def test_pressure_system_prompt_explains_the_real_fraction_when_the_graph_is_on():
     consulted = [_pressure_citizen(0)]
     config = _config_with_llm_enabled()

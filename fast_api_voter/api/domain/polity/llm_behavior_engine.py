@@ -1407,7 +1407,54 @@ def decide_campaign_positioning(
     widened the reasoning content itself resolved the alignment failure. The
     two decision types share a superficial "comparative/strategic judgment"
     description but not the same failure mode; do not assume this result
-    transfers back to decide_party_nominations without its own live check."""
+    transfers back to decide_party_nominations without its own live check.
+
+    RELIABILITY CAVEAT (2026-08-31, plan-adversarial-framing-collapse.md):
+    the "5/5 correct, resolved cleanly" claim above does NOT hold at size=1
+    (a single nominee per call, smaller than the acceptance run's own
+    multi-nominee batches, and the shape this module's own diagnostic
+    scripts use). Measured failure rate at size=1, same think=True and
+    +_POSITIONING_THINK_TOKEN_ALLOWANCE budget: 8/32 (25%) --
+    check_campaign_positioning_failure_rate.py, experiment
+    20260831T233502Z-586e3c0e. 6/8 failures are truncation
+    (finish_reason='length') despite the 8000-token allowance; 2/8 are a
+    batch-misalignment where the returned cid equals a CampaignMotif enum
+    value instead of the requested citizen cid (also seen with
+    qwen2.5:7b previously). NOT a content-collapse issue -- when a call
+    does complete, the shift dimensions/deltas/motif vary genuinely
+    per nominee (verified, see the plan doc) -- this is a completion-
+    reliability problem specific to small batches, not decision quality.
+    Whether this failure rate holds at the acceptance run's own larger
+    batch sizes is unmeasured; do not assume either direction without a
+    live check at that size.
+
+    CONFIRMED Mode A, 2026-08-31 (check_campaign_positioning_truncation_
+    reasoning.py): 4/4 reproduced truncations show the same repeated-
+    paragraph signature as decide_chamber_deliberation's own Mode A bug
+    (see that function's docstring) -- an unbounded, non-convergent
+    reasoning loop, 47-242 near-identical repeats, finish_reason='length'
+    landing exactly on the configured ceiling every time. NOT yet fixed:
+    unlike chamber_deliberation, the exact ambiguous prompt phrase driving
+    the loop is not yet pinned down. Leading candidate: this function's
+    own system prompt (build_positioning_system_prompt) states no
+    shifts<->motif pairing guidance at all (contrast build_chamber_
+    system_prompt's explicit "701=empty shifts, 702=at least one" rule) --
+    CAMPAIGN_MOTIF_PROMPT_TABLE lists 601-604 with no stated correspondence
+    to an empty vs non-empty shifts list, and two of the four reproduced
+    traces ruminate exactly there ("the valid codes are 601-604" / "the
+    decisions list is [...], and the codes are 601-604" / "This is
+    conflicting", repeated dozens of times). A second, distinct rumination
+    (one trace fixates on "electorate_mean is for each of the 10
+    dimensions... the user provided 20 numb[ers]") was checked against the
+    actual data and is NOT a real shape mismatch (issue_positions/
+    issue_priorities/electorate_mean are all issue_count=20-dimensional,
+    citizen.py:180) -- a pure reasoning artifact, not (yet) traceable to a
+    specific prompt ambiguity. Do not write a disambiguation fix without
+    first reading the full reasoning traces (39-42k chars each) to confirm
+    which hypothesis is the real driver -- same discipline
+    chamber_deliberation's own fix followed: diagnosis before correction,
+    never the reverse. See plan-adversarial-framing-collapse.md's
+    campaign_positioning section for the full traces/analysis."""
     _check_supported(config)
 
     if not nominees:
@@ -1807,7 +1854,11 @@ def build_pressure_system_prompt(consulted: Sequence[Citizen], config: PolityCon
     else:
         neighbors_acting_line = (
             "ctx.neighbors_acting : toujours null dans cette simulation (aucun "
-            "graphe social suivi), jamais zero.\n"
+            "graphe social suivi), jamais zero -- null signifie que cette "
+            "information n'existe pas du tout ici, PAS que les voisins sont "
+            "inactifs ou absents. Ne rien en deduire sur le voisinage : ignorer "
+            "ce champ dans le raisonnement, ne jamais l'interpreter comme un "
+            "signal.\n"
         )
     return (
         "Tu es un moteur de simulation. Pour chaque citoyen mecontent recu "
