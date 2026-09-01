@@ -65,6 +65,7 @@ _TARGET_CIDS_WITH_EXPECTED_DIST = {
     184: 1.4675, 167: 1.5034, 126: 1.5262, 79: 0.3240, 209: 0.3601, 158: 0.3799,
 }
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
+_DUMP_DIR = Path(r"C:\Users\burba\AppData\Local\Temp\claude\c--Users-burba-Vote-App-polity\22458a2f-ddf0-45bc-bb54-2e029e1a45ce\scratchpad\campaign_positioning_traces")
 
 
 def _electorate_mean(population: list[Citizen]) -> tuple[float, ...]:
@@ -152,11 +153,23 @@ def main() -> int:
                 verdicts.append((cid, "no_repro"))
                 continue
 
+            _DUMP_DIR.mkdir(parents=True, exist_ok=True)
+            (_DUMP_DIR / f"cid{cid}_reasoning.txt").write_text(reasoning, encoding="utf-8")
+            (_DUMP_DIR / f"cid{cid}_user_prompt.txt").write_text(user_prompt, encoding="utf-8")
+            (_DUMP_DIR / f"cid{cid}_system_prompt.txt").write_text(system_prompt, encoding="utf-8")
+
             top_fragments = _top_repeated_fragments(reasoning)
             print("  top repeated sentences:")
             for fragment, count in top_fragments:
                 preview = fragment if len(fragment) <= 100 else fragment[:97] + "..."
                 print(f"    x{count}: {preview!r}")
+
+            if top_fragments:
+                first_fragment = top_fragments[0][0]
+                pivot_char = reasoning.find(first_fragment)
+                pivot_word_estimate = reasoning[:pivot_char].count(" ") if pivot_char >= 0 else -1
+                print(f"  pivot: most-repeated fragment first appears at char {pivot_char}/{len(reasoning)} (~{pivot_word_estimate} words in)")
+            print(f"  full reasoning/prompts dumped to {_DUMP_DIR}")
 
             max_repeat = top_fragments[0][1] if top_fragments else 0
             if max_repeat >= 10:
