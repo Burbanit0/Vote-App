@@ -29,7 +29,7 @@ mutmut==3.7.0
 
 # Code quality
 flake8==7.3.0
-mypy==1.16.0         # Static type checking
+mypy==2.3.1         # Static type checking
 vulture==2.16        # Dead-code detection (informational, see pyproject.toml [tool.vulture])
 radon==6.0.1          # Cyclomatic complexity report (informational, see CODE_AUDIT.md)
 xenon==0.9.3          # radon threshold runner — same report, informational here too
