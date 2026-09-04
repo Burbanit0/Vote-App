@@ -320,3 +320,7 @@ INTERVIEW_PREP.md
 
 # mutmut run log (tee'd in CI so scripts/check_mutation_score.sh can read the score)
 /fast_api_voter/mutmut-run.log
+
+# Obsidian vault config (personal, machine-local — the repo root doubles as the vault
+# for JOURNAL_DE_BORD.md / docs/research/ rendering)
+/.obsidian/
