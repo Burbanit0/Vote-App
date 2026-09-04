@@ -35,4 +35,4 @@ radon==6.0.1          # Cyclomatic complexity report (informational, see CODE_AU
 xenon==0.9.3          # radon threshold runner — same report, informational here too
 types-redis==4.6.0.20241004  # Redis type stubs
 types-requests==2.32.0.20250328  # Requests type stubs
-types-PyYAML==6.0.12.20250915  # domain/polity/config.py — polity_config.yaml loader
+types-PyYAML==6.0.12.20260815  # domain/polity/config.py — polity_config.yaml loader
