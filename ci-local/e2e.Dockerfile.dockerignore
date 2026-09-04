@@ -16,6 +16,7 @@ voter-app/test-results
 voter-app/.vite
 **/__pycache__
 **/*.pyc
+fast_api_voter/.venv
 fast_api_voter/.pytest_cache
 fast_api_voter/.mypy_cache
 fast_api_voter/.hypothesis
