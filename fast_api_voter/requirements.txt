@@ -23,7 +23,7 @@ scipy==1.15.3
 duckdb==1.5.5                  # §16.6 — compaction post-run du journal JSONL en base
                                 # analytique (domain/polity/compaction.py). Embarqué,
                                 # sans serveur : un fichier .duckdb par run.
-networkx==3.5                  # §5 — génération du graphe social (v6),
+networkx==3.6.1                  # §5 — génération du graphe social (v6),
                                 # domain/polity/social_graph.py. Zéro dépendance
                                 # transitive (confirmé : pip show networkx -> Requires: vide).
 
@@ -31,4 +31,4 @@ networkx==3.5                  # §5 — génération du graphe social (v6),
 flake8==7.3.0
 pytest==9.0.3
 pytest-asyncio==1.4.0
-pytest-cov==6.1.0
+pytest-cov==7.1.0
