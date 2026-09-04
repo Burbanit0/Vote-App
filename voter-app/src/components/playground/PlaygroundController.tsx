@@ -72,8 +72,19 @@ function useController() {
   // Central-map lens: the moment sets a sensible default (Méthode → critères,
   // Stratégie → manipulation, sinon vainqueur). The user can still override it on
   // the instrument within the current moment.
+  //
+  // useLayoutEffect, not useEffect: this must commit synchronously with the
+  // moment-panel becoming visible. A passive effect flushes after paint, on its
+  // own schedule — an immediate lens click right after switching moments (a
+  // real interaction, and exactly what the e2e suite does) could then land
+  // BEFORE this effect's setLens, only for the effect to fire afterward and
+  // silently overwrite the user's click. Reproduced as flaky e2e failures on
+  // Firefox in CI (playground-method.spec.ts's "the four lenses..." test),
+  // where the screenshot at timeout showed 'criteria' selected instead of the
+  // just-clicked 'winner' — this effect winning a race it has no business
+  // being in.
   const [lens, setLens] = React.useState<Lens>('winner');
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     setLens(
       activeMoment === 'method'
         ? 'criteria'
