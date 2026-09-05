@@ -48,6 +48,12 @@ jobs:
               - "fast_api_voter/scripts/gen_openapi.py"
               - "fast_api_voter/scripts/gen_engine_parity.py"
               - "fast_api_voter/openapi.gen.json"
+              # A dependency bump can change the generated schema without
+              # touching api/** — confirmed live: fastapi 0.121.2 -> 0.141.1
+              # (#253) changed Pydantic's ValidationError shape (added
+              # ctx/input) and went uncaught on develop until this filter
+              # started watching this workflow file's own edits instead.
+              - "fast_api_voter/requirements.txt"
               - "voter-app/src/api/types.gen.ts"
               - "voter-app/src/lib/__fixtures__/**"
               - "voter-app/package.json"
