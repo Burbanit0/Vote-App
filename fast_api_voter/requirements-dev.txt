@@ -19,7 +19,7 @@ hypothesis==6.165.10  # Property-based testing for the theoretical invariants
 
 # Security
 bandit==1.9.4        # Python SAST (static analysis)
-pip-audit==2.9.0     # Dependency CVE scan
+pip-audit==2.10.1     # Dependency CVE scan
 
 # Mutation testing (weekly CI job, non-blocking — scope limited to the
 # file(s) in [tool.mutmut] below). Native Windows isn't supported upstream
