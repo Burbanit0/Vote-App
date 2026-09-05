@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # The backend — FastAPI served by uvicorn. It serves the whole API; the
   # frontend reaches it via /api/* (proxied by Vite in dev). The app is

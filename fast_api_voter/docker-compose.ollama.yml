@@ -64,6 +64,15 @@
 # `ollama`/`vllm` at a time in production; this only bites when both
 # containers happen to be up for testing, as they were here.
 
+name: polity-ollama   # explicit, distinct from docker-compose.yml / .llm.yml --
+                      # all three files share this directory, so without this
+                      # they'd default to the SAME implicit project name
+                      # (the directory name) and each `up`/`down`/`ps` would
+                      # treat every other file's containers as "orphans" of
+                      # its own project (observed live 2026-09-05: `up` on
+                      # this file warned about vllm-polity/fastapi_app/redis
+                      # as orphans, and vice versa for docker-compose.llm.yml)
+
 services:
   ollama:
     image: ollama/ollama:0.33.3    # pinned 2026-09-05 to the version already
