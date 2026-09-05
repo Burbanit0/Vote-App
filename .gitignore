@@ -272,7 +272,10 @@ Thumbs.db
 graphify-out/
 .graphifyignore
 
-# ── Process / planning / design docs (kept local, not in the repo) ──────────
+# ── Process / planning / design docs ────────────────────────────────────────
+# Les plans et docs de conception sont versionnés : ils sont la seule trace du
+# raisonnement (les commits portent le résultat), et « local » voulait dire
+# « sur un seul disque » — donc perdus au changement de machine.
 # App stays: README*, THEORY.md, GUIDE_UTILISATEUR.md, CONTRIBUTING.md, research/, .github/
 # NOTE: excludes docs/ CONTENTS (/docs/*), not the directory itself — git cannot
 # re-include anything under a directory that is itself excluded, so `/docs/` would
@@ -291,15 +294,13 @@ graphify-out/
 # pourquoi. Le garder hors du dépôt le laissait sur un seul disque, exactement
 # le risque évité pour le correctif de prompt et les commits de distribution.
 !/docs/journal/
+# Bibliographie + traçabilité : la ligne « research/ stays » ci-dessus était
+# fausse depuis que /docs/* existe — research/ n'a jamais été suivi.
+!/docs/research/
 /AGENTS.md
-/STRATEGIC_REFACTOR_PLAN.md
-/CODE_AUDIT_CHECKLIST.md
-/PRE_PUBLIC_CHECKLIST.md
-/PROJECT_ANALYSIS.md
-/PLAN.md
-/PLAN_A_VOUS_DE_JOUER.md
-/PLAN_UX_ACCESSIBILITE.md
-/PLAN_METHODES_HISTOIRES_ATLAS.md
+# Polity design/planning docs stay ignored here on purpose: they're versioned
+# on the `polity` branch instead (see chore/portable-workspace-ubuntu), not on
+# develop, since they're specific to that project rather than the repo at large.
 /DEMARRAGE-polity-v0.md
 /polity-simulation-design-v2.md
 /dev-plan-v0-worktree.md
