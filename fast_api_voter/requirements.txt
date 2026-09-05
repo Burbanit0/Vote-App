@@ -1,7 +1,7 @@
 # Vote Lab backend — FastAPI (Flask fully retired in Phase 4.5.b).
 
 # ── Web framework (ASGI) ─────────────────────────────────────────────────────
-fastapi==0.121.2
+fastapi==0.141.1               # 0.121.2 capped starlette below the fix for PYSEC-2026-{161,249,248,2281,2280}
 uvicorn[standard]==0.40.0
 python-socketio==5.16.2        # WebSocket streaming (AsyncServer mounted on FastAPI)
 slowapi==0.1.9                 # per-IP rate limiting for the public /api/v1 surface
