@@ -90,8 +90,36 @@ services:
       - "--reasoning-parser"
       - "qwen3"
       - "--max-model-len"
-      - "8192"                     # re-measure live against compute_max_tokens(25)
-                                    # plus a 25x20-dim prompt before trusting this
+      - "16384"                    # measured live 2026-09-05: 8192 was too small.
+                                    # compute_max_tokens(25)=3036 + a real 25x20-dim
+                                    # vote prompt (~5157 input tokens) alone already
+                                    # exceeded 8192; decide_campaign_positioning's
+                                    # output budget alone (_POSITIONING_THINK_TOKEN_
+                                    # ALLOWANCE=8000 + compute_max_tokens, up to 9836)
+                                    # exceeds it regardless of input. 16384 clears
+                                    # both with real headroom.
+                                    # ⚠ First tried 24576: worked on one cold start,
+                                    # then CUDA-OOM'd on a plain `compose restart`
+                                    # (vllm's own free-memory auto-profiling isn't
+                                    # stable run to run on this 16GB card -- 5.93 GiB
+                                    # KV cache reserved one run, 8.02 GiB the next,
+                                    # for the SAME flag -- the second left only 37MiB
+                                    # free and died during CUDA-graph/sampler warmup,
+                                    # not under load). 16384 + the explicit
+                                    # --gpu-memory-utilization below replace that
+                                    # auto-profiling with a fixed, reproducible
+                                    # budget instead of chasing a larger one. Verify
+                                    # with >=3 consecutive clean restarts before
+                                    # trusting this, not just one -- that's exactly
+                                    # what 24576 lacked when it fooled a first pass.
+      - "--gpu-memory-utilization"
+      - "0.80"                     # explicit and conservative, not vLLM's own
+                                    # auto-tuned default (observed 0.92 -- the value
+                                    # that left only 37MiB free above) -- this client
+                                    # never issues concurrent requests (see
+                                    # VllmJsonClient's docstring), so a modest,
+                                    # explicit budget with real margin matters more
+                                    # here than maximizing concurrency headroom.
       - "--port"
       - "8000"
       - "--seed"

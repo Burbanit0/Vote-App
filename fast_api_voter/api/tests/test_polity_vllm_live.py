@@ -182,8 +182,12 @@ def test_think_true_actually_produces_reasoning():
     response = httpx.post(f"{_VLLM_URL}/chat/completions", json=body, timeout=60.0)
     response.raise_for_status()
     message = response.json()["choices"][0]["message"]
-    reasoning_content = message.get("reasoning_content") or ""
-    has_inline_think_block = "<think>" in message.get("content", "")
+    # vLLM v0.28.0's --reasoning-parser qwen3 names this field `reasoning`, not the
+    # `reasoning_content` this test originally checked (a name from the v4 switch's
+    # written-but-unverified docs, pre-dating any live vLLM response) -- confirmed
+    # live 2026-09-05 via a raw probe against this exact server.
+    reasoning_content = message.get("reasoning") or ""
+    has_inline_think_block = "<think>" in (message.get("content") or "")
     assert reasoning_content.strip() or has_inline_think_block, (
         "enable_thinking=True produced no visible reasoning anywhere in the response -- "
         "the server is likely missing --reasoning-parser qwen3 (see docker-compose.llm.yml); "
