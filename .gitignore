@@ -299,14 +299,21 @@ graphify-out/
 # fausse depuis que /docs/* existe — research/ n'a jamais été suivi.
 !/docs/research/
 /AGENTS.md
-# Polity design/planning docs stay ignored here on purpose: they're versioned
-# on the `polity` branch instead (see chore/portable-workspace-ubuntu), not on
-# develop, since they're specific to that project rather than the repo at large.
-/DEMARRAGE-polity-v0.md
-/polity-simulation-design-v2.md
-/dev-plan-v0-worktree.md
-/audit-precision-plan.md
-/prompt-liquid-democracy-conviction-voting.md
+# Mémoire de l'agent de code (copie versionnée de ~/.claude/projects/<slug>/
+# memory/). Elle vit normalement hors du dépôt, donc hors de toute machine
+# sauf une : c'est le contenu le plus coûteux à reconstruire (historique des
+# lots v4→v7, enquête pressure_action, conventions de travail). docs/
+# claude-memory/README.md explique comment la restaurer sur une autre machine.
+!/docs/claude-memory/
+# Les docs de conception polity sont versionnés sur cette branche (contrairement
+# à develop, où ils restent ignorés — voir chore/track-local-docs) : le code les
+# cite par numéro de section (§3.4, §5, §8, §6bis.3), et hors du dépôt ces
+# références pointent vers un fichier introuvable.
+#   /polity-simulation-design-v2.md            ← doc de conception maître
+#   /DEMARRAGE-polity-v0.md                    ← procédure de démarrage
+#   /dev-plan-v0-worktree.md
+#   /audit-precision-plan.md
+#   /prompt-liquid-democracy-conviction-voting.md
 # Scratch file used to hand a prompt to the coding agent, rewritten between
 # turns — session input, never a project artefact.
 /prompt.txt
