@@ -291,6 +291,14 @@ graphify-out/
 # fausse depuis que /docs/* existe — research/ n'a jamais été suivi.
 !/docs/research/
 /AGENTS.md
+# Polity design/planning docs stay ignored here on purpose: they're versioned
+# on the `polity` branch instead (see chore/portable-workspace-ubuntu), not on
+# develop, since they're specific to that project rather than the repo at large.
+/DEMARRAGE-polity-v0.md
+/polity-simulation-design-v2.md
+/dev-plan-v0-worktree.md
+/audit-precision-plan.md
+/prompt-liquid-democracy-conviction-voting.md
 # Scratch file used to hand a prompt to the coding agent, rewritten between
 # turns — session input, never a project artefact.
 /prompt.txt
