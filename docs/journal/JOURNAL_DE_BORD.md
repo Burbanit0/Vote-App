@@ -9,6 +9,91 @@
 
 ---
 
+## 2026-09-04 — Consolidation post-migration Ubuntu : trois PR de docs/outillage triées et fusionnées, projet Polity prêt à être repris (mais rien avancé dessus)
+
+**Contexte du jour.** Reprise du projet après la migration Windows/WSL2 → Ubuntu
+native. Trois PR ouvertes contenaient des documents qui n'existaient jusque-là
+que sur la machine Windows : `#252` (`chore/track-local-docs`, base `develop`),
+`#254` (`chore/portable-workspace-ubuntu`, base `polity`) et `#253`
+(`chore/ci-dependabot-metadata`, base `develop`, sans rapport avec la
+migration). Objectif du jour : trancher le chevauchement entre `#252` et `#254`
+et fusionner ce qui doit l'être pour pouvoir reprendre le travail sur Polity.
+
+**Ce qui a avancé**
+- Règle de répartition tranchée avec l'utilisateur : l'outillage journal
+  (agent `journal-writer` + commande `/log-session`) est générique et doit
+  vivre sur `develop` ; tout ce qui est spécifique à Polity reste sur la
+  branche `polity`.
+- Extraction de cet outillage en une PR dédiée, `#255`
+  (`chore/claude-journal-tooling`, base `develop`), avec les règles
+  `.gitignore` correspondantes — mergée dans `develop`.
+- `#252` élaguée : les 5 docs polity-spécifiques
+  (`DEMARRAGE-polity-v0.md`, `polity-simulation-design-v2.md`,
+  `dev-plan-v0-worktree.md`, `audit-precision-plan.md`,
+  `prompt-liquid-democracy-conviction-voting.md`) retirés, lignes `.gitignore`
+  correspondantes restaurées — force-push, puis mergée dans `develop`
+  (commit `eb26deb`).
+- `develop` fusionné dans `polity` (sync de routine, cohérent avec
+  l'historique de la branche qui l'a déjà fait des dizaines de fois).
+- `#254` rebasée sur le nouveau tip de `polity` : conflit sur `.gitignore`
+  résolu à la main (règles `.claude/agents`/`.claude/commands` devenues
+  redondantes retirées, lignes d'ignore des 5 docs polity transformées en
+  commentaires pour qu'ils restent versionnés sur cette branche) —
+  force-push, puis mergée dans `polity` (commit `d7ecc51`) : `docs/claude-memory/`
+  (24 fichiers), `polity-simulation-design-v2.md`, l'enquête `pressure_action`
+  et un commit `wip` de travail non commité sur Windows sont maintenant
+  disponibles côté Linux.
+- Worktree `~/Vote-App-polity` créé (`git worktree add -b polity
+  ../Vote-App-polity origin/polity`), conforme à la convention déjà
+  documentée dans `dev-plan-v0-worktree.md`.
+- Instantané `docs/claude-memory/` restauré dans son propre espace mémoire
+  Claude Code (`~/.claude/projects/-home-burbanit0-Vote-App-polity/memory/`,
+  distinct de celui du repo principal), suivant la procédure de
+  `docs/claude-memory/README.md`.
+- Mémoire Claude Code du repo principal mise à jour (deux nouveaux souvenirs :
+  consolidation du jour, règle de répartition develop/polity).
+
+**Points bloquants**
+- Le classifieur de sécurité de l'environnement bloque l'action `gh pr merge`
+  pour l'agent : chaque fusion de PR (`#255`, `#252`, `#254`) a dû être
+  exécutée par l'utilisateur lui-même, pas par l'agent.
+- Obsidian : le vault était enraciné sur le repo principal `Vote-App` ; le
+  nouveau worktree `Vote-App-polity` est un répertoire séparé sans config
+  `.obsidian/` propre. Pas automatisable depuis l'agent — l'utilisateur doit
+  l'ouvrir lui-même comme vault (ou vault lié) dans l'interface Obsidian.
+- `#253` (labels Dependabot + `pip-audit` bloquant en CI) reste ouverte,
+  intacte, non traitée : son propre corps de PR prévient que le flip
+  `pip-audit` fera passer la CI backend au rouge tant que `fastapi` n'est pas
+  mis à jour. Décision à prendre séparément (accepter le rouge, scinder le
+  commit, ou l'accompagner du bump `fastapi`).
+
+**Décisions prises**
+- Partager l'outillage journal sur `develop` plutôt que de le laisser
+  dépendre de `polity` — *pourquoi* : il n'est pas spécifique à Polity et
+  alimente `docs/journal/`, déjà versionné sur `develop`.
+- Garder tout le reste (docs de conception, enquêtes, checklists) spécifique
+  à `polity` plutôt que de le dupliquer sur `develop` — *pourquoi* : consigne
+  explicite de l'utilisateur pour éviter la redondance entre les deux
+  branches à mesure que le projet Polity avance.
+- Laisser `#253` de côté pour cette session — *pourquoi* : sans rapport avec
+  la migration, et son impact (CI rouge) mérite une décision séparée plutôt
+  qu'un arbitrage rapide en fin de session.
+
+**Prochaines étapes**
+- [ ] Ouvrir `~/Vote-App-polity` comme vault Obsidian (ou vault lié) pour
+      retrouver l'accès au journal et aux docs depuis l'interface.
+- [ ] Trancher le sort de `#253` (accepter la CI rouge, scinder le commit
+      pip-audit, ou l'accompagner du bump `fastapi`).
+- [ ] Reprendre effectivement le contenu du projet Polity depuis le worktree
+      `~/Vote-App-polity` — rien n'a avancé sur ce plan aujourd'hui, la
+      session était uniquement de la consolidation d'infrastructure.
+
+**Pour aller plus loin** : PR `#255`, `#252` (élaguée), `#254` (rebasée) ;
+commits `eb26deb`, `d7ecc51` ; `docs/claude-memory/README.md` ;
+`dev-plan-v0-worktree.md`.
+
+---
+
 ## 2026-08-29 (après-midi) — La calibration d'ambition tranchée à 0,30, deux erreurs de vérification corrigées en route, et un flake E2E qui bloque désormais le merge
 
 **Contexte du jour.** Suite directe du matin même (commit `218d1d6`, moitié
