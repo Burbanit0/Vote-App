@@ -1,0 +1,9 @@
+{
+  "gpu_cuda_version": "13.1",
+  "gpu_driver_version": "591.86",
+  "llm_base_url": "http://localhost:11434/v1",
+  "llm_enabled": true,
+  "llm_model": "qwen3:8b",
+  "llm_provider": "ollama",
+  "run_id": "pressure-action-quality-pilot"
+}

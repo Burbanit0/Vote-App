@@ -1310,7 +1310,36 @@ def build_positioning_system_prompt(nominees: Sequence[Citizen], config: PolityC
     import time. Without stating the real numbers here, the model has no
     way to know what it's actually being validated against in
     validate_positioning_decision -- an omission that would make rejections
-    common rather than a validated guardrail against rare cases."""
+    common rather than a validated guardrail against rare cases.
+
+    Disambiguation sentence between the motif table and the cid-list
+    self-check (2026-08-31 fix, plan-adversarial-framing-collapse.md,
+    same shape as decide_chamber_deliberation's own Mode A fix): a live
+    diagnostic (check_campaign_positioning_truncation_reasoning.py) read
+    the full raw reasoning of 3 reproduced Mode A truncations (cid 167,
+    209, 158) and found, in each, the SAME concrete misreading -- the
+    model reaches a substantively complete answer (real per-dimension
+    shift math, real motif reasoning) and only THEN spirals, believing
+    "la liste decisions doit contenir EXACTEMENT ces N cid" is in
+    conflict with "Motifs valides... 601-604" immediately above it, as
+    if the decisions list itself had to equal the cid list AND
+    separately enumerate the 4 motif codes -- e.g. cid=209's trace:
+    "the decisions list must contain exactly [209]... But the valid
+    codes are 601-604... This is conflicting", repeated 30-63x. The
+    prior wording had NO separating sentence between the motif table and
+    the cid-list instruction (unlike chamber's prompt, which has two);
+    at size=1 "chacun une seule fois" applied to a single-element list is
+    also unusually vacuous phrasing, likely compounding the misreading.
+    NOT the same failure as cid=79's OTHER Mode A trace (same diagnostic
+    run): that one fixates on "electorate_mean is for 10 dimensions...
+    the user provided 20 numb[ers]" from the very first paragraph, before
+    any real per-dimension work -- verified against the actual request
+    body that no dimension mismatch exists (position/priorities/
+    party_platform/electorate_mean are all issue_count=20-dimensional);
+    the model silently truncates its OWN transcription of a 20-element
+    array to 10 while reasoning, an internal artifact this sentence does
+    not address and no prompt wording is expected to fix. See the plan
+    doc for the full traces this diagnosis is based on."""
     cid_list = ",".join(str(n.citizen_id) for n in nominees)
     return (
         "Tu es un moteur de simulation. Pour chaque candidat nomme, decide "
@@ -1327,6 +1356,13 @@ def build_positioning_system_prompt(nominees: Sequence[Citizen], config: PolityC
         f"{config.campaign.max_positioning_delta} inclus. Toute decision "
         "hors de ces bornes sera rejetee.\n"
         f"Motifs valides (code court obligatoire) :\n{CAMPAIGN_MOTIF_PROMPT_TABLE}\n"
+        "Chaque element de la liste decisions correspond a UN candidat "
+        "(identifie par son cid) et porte SON PROPRE motif -- un seul "
+        "code choisi parmi ceux ci-dessus -- et SES PROPRES shifts. La "
+        "contrainte sur les cid ci-dessous et le choix du motif sont deux "
+        "informations independantes du meme objet, pas deux exigences "
+        "concurrentes sur la meme liste : il n'y a rien a concilier entre "
+        "elles.\n"
         f"IMPORTANT : la liste decisions doit contenir EXACTEMENT ces "
         f"{len(nominees)} cid, chacun une seule fois, dans cet ordre : "
         f"[{cid_list}]. Verifie ta reponse avant de la finaliser : chaque "
@@ -1407,7 +1443,66 @@ def decide_campaign_positioning(
     widened the reasoning content itself resolved the alignment failure. The
     two decision types share a superficial "comparative/strategic judgment"
     description but not the same failure mode; do not assume this result
-    transfers back to decide_party_nominations without its own live check."""
+    transfers back to decide_party_nominations without its own live check.
+
+    RELIABILITY CAVEAT (2026-08-31, plan-adversarial-framing-collapse.md):
+    the "5/5 correct, resolved cleanly" claim above does NOT hold at size=1
+    (a single nominee per call, smaller than the acceptance run's own
+    multi-nominee batches, and the shape this module's own diagnostic
+    scripts use). Measured failure rate at size=1, same think=True and
+    +_POSITIONING_THINK_TOKEN_ALLOWANCE budget: 8/32 (25%) --
+    check_campaign_positioning_failure_rate.py, experiment
+    20260831T233502Z-586e3c0e. 6/8 failures are truncation
+    (finish_reason='length') despite the 8000-token allowance; 2/8 are a
+    batch-misalignment where the returned cid equals a CampaignMotif enum
+    value instead of the requested citizen cid (also seen with
+    qwen2.5:7b previously). NOT a content-collapse issue -- when a call
+    does complete, the shift dimensions/deltas/motif vary genuinely
+    per nominee (verified, see the plan doc) -- this is a completion-
+    reliability problem specific to small batches, not decision quality.
+    Whether this failure rate holds at the acceptance run's own larger
+    batch sizes is unmeasured; do not assume either direction without a
+    live check at that size.
+
+    CONFIRMED Mode A AND FIXED, 2026-08-31 (check_campaign_positioning_
+    truncation_reasoning.py, then validate_campaign_positioning_
+    disambiguation_fix.py): 4/4 reproduced truncations showed the same
+    repeated-paragraph signature as decide_chamber_deliberation's own
+    Mode A bug (see that function's docstring) -- an unbounded, non-
+    convergent reasoning loop, 47-242 near-identical repeats,
+    finish_reason='length' landing exactly on the configured ceiling
+    every time. Reading the full traces (39-42k chars each) found 3/4
+    (cid 167, 209, 158) shared one concrete, legible mechanism: in each,
+    the model had ALREADY worked out a substantively complete answer
+    (real per-dimension shift math, real motif reasoning) and only then
+    spiraled, misreading "la liste decisions doit contenir EXACTEMENT ces
+    N cid" as conflicting with the motif menu (601-604) stated
+    immediately above it -- e.g. "the decisions list must contain exactly
+    [209]... But the valid codes are 601-604... This is conflicting",
+    repeated 30-63x. Fixed below by inserting a sentence between the
+    motif table and the cid-list self-check, stating explicitly that the
+    cid and the motif are independent fields of the same object -- same
+    shape as chamber_deliberation's own working fix. Live validation on
+    the exact 3 reproduced cases, 3 reps each: 0/9 truncations post-fix,
+    down from 6/6 pre-fix (experiment 20260901T003657Z-0a0e4d59) -- the
+    same standard chamber_deliberation's own fix achieved (7/7 -> 0/7).
+
+    The 4th reproduced truncation (cid=79) is a DIFFERENT, NOT-addressed-
+    by-this-fix bug: its rumination starts immediately, before any real
+    per-dimension work, fixated on "electorate_mean is for each of the 10
+    dimensions... the user provided 20 numb[ers]". Checked against the
+    actual request body: no real shape mismatch exists (issue_positions/
+    issue_priorities/electorate_mean are all issue_count=20-dimensional,
+    citizen.py:180) -- the model silently truncates its OWN transcription
+    of a 20-element array to 10 while reasoning, an internal artifact no
+    prompt wording addresses. It also came back 0/3 in the same
+    validation run (vs 3/3 truncated across three independent pre-fix
+    measurements) -- notable, but n=3 is too small to call this second
+    issue resolved, and nothing about the fix below should mechanically
+    affect how the model transcribes a numeric array; treat as an
+    unexplained, unconfirmed observation, not a second validated fix.
+    See plan-adversarial-framing-collapse.md's campaign_positioning
+    section for the full traces/analysis."""
     _check_supported(config)
 
     if not nominees:
@@ -1611,6 +1706,20 @@ def decide_representative_response(
     replace -- "no delta, stance=silence" is already true by construction
     without this module ever running).
 
+    RELIABILITY WARNING (2026-08-30, plan-adversarial-framing-collapse.md): confirmed to show the
+    same content-blind collapse signature as pressure_action. Two structurally opposite ctx poles
+    (crisis: L=0.05/mandate_dev=0.8/street=3.0/ticks_left=2; no-problem: L=0.95/mandate_dev=0.0/
+    street=0.0/ticks_left=20), 3 different holders each, size=1/think=False (the REAL production
+    shape here -- this decision type never chunks, so this test was never an artificial
+    isolation). All 4 successfully-decoded calls returned the exact same stance, shift count, and
+    motif in both poles. Unlike pressure_action, no per-response ground truth exists to measure a
+    disagreement rate against -- this is a collapse-signature finding, not an accuracy figure.
+    Suspected common cause (unproven): the decision is framed as an act/response with
+    institutional consequence (choosing a stance) rather than a self-evaluation against a
+    threshold -- see the design doc's own §3.6.0 verification-obligation constraint. Treat
+    stance/mandate_deviation-derived metrics from any llm.enabled=True run as unverified until
+    this is resolved -- no remediation has been found or attempted for this decision type yet.
+
     Deliberately does NOT use chunk_voters/MIN_SAFE_BATCH_SIZE, same
     reasoning as decide_party_nominations/decide_campaign_positioning:
     this batches this tick's sitting OFFICEHOLDERS (0-or-1 today, president
@@ -1793,7 +1902,11 @@ def build_pressure_system_prompt(consulted: Sequence[Citizen], config: PolityCon
     else:
         neighbors_acting_line = (
             "ctx.neighbors_acting : toujours null dans cette simulation (aucun "
-            "graphe social suivi), jamais zero.\n"
+            "graphe social suivi), jamais zero -- null signifie que cette "
+            "information n'existe pas du tout ici, PAS que les voisins sont "
+            "inactifs ou absents. Ne rien en deduire sur le voisinage : ignorer "
+            "ce champ dans le raisonnement, ne jamais l'interpreter comme un "
+            "signal.\n"
         )
     return (
         "Tu es un moteur de simulation. Pour chaque citoyen mecontent recu "
@@ -1868,6 +1981,47 @@ def decide_pressure_actions(
     """v4 Lot 7's dt=10 replacement for deterministic_pressure_action
     (simple_rules.py), which stays exactly as it is as the permanent
     §11.4 baseline.
+
+    RELIABILITY WARNING (2026-08-30, revised 2026-08-31 after a MAJOR MEASUREMENT DEFECT was
+    found -- see below before trusting any figure in this docstring's history):
+
+    RETRACTED: "the model never chooses an acting code, regardless of content" (0/63 at size=1,
+    0/70 across the §3.1/§3.2 redesigns, 0/17 on the informative pole). Those runs used the
+    SHIPPED config, where pressure_menu is electoral_only=true / petition_enabled=false /
+    mobilization_enabled=false -- the design's own "GROUPE DE CONTRÔLE principal". Under it
+    menu_acts() returns (0, 4) and build_pressure_system_prompt states "CONTRAINTE ABSOLUE : le
+    champ act ... doit valoir UN DES CODES SUIVANTS, et aucun autre : [0, 4]". Acting codes
+    1/2/3 are FORBIDDEN by construction, and the scripts' own ground truth nonetheless expected
+    them. Those runs measured an impossibility, not a behavior -- which is also why §3.1 and
+    §3.2 "failed identically at 17/70": both were counting the same constitutional constraint.
+    18 of the 20 pressure_action diagnostic scripts share this defect (the exceptions,
+    check_pressure_action_quality_pilot.py and check_pressure_action_forced_reasoning.py, open
+    the menu explicitly via dataclasses.replace).
+
+    MEASURED with the menu opened, same 70 citizens, same production prompt, size=1,
+    think=False (check_pressure_action_open_menu_baseline.py, 2026-08-31): 29/70 acting codes
+    emitted, spread across NOTHING 40 / SIGN_PETITION 27 / MOBILIZE 2 / WAIT_FOR_ELECTION 1.
+    There is NO content-blind collapse here: given legal levers, the model uses them and its
+    output distribution is not fixed.
+
+    WHAT REMAINS TRUE: decision QUALITY is mediocre and unvalidated. Agreement with the
+    deterministic proxy is 9/17 (52.9%) on the "should act" pole and 42/70 (60.0%) overall,
+    against this project's own >=80% bar -- independently consistent with the one always-valid
+    earlier measurement, check_pressure_action_quality_pilot.py's 41.7% disagreement (~58%
+    agreement). Note the proxy (gap/blank_threshold > 1.5 => "should act") is a modelling
+    assumption, not ground truth: §7bis.3 states 0 and 4 are legitimate, journaled outcomes, so
+    part of the gap may be the proxy rather than the model.
+
+    STILL UNVERIFIED, do not assume either way: the claim that a real chunk at
+    config.llm.max_batch_size=25 collapses to one uniform act was measured under the same closed
+    menu, where "uniform" is trivially satisfied by the only legal answers -- it needs re-running
+    with the menu open before it can be believed or dismissed. Under the SHIPPED (closed) menu,
+    pressure_action's real task is only choosing between 0 and 4; whether it tracks self_gap
+    across that pair has not been measured either.
+
+    Treat mobilization_rate/pressure metrics from any llm.enabled=True run with an OPEN menu as
+    quality-unvalidated (not collapsed). Under the shipped closed menu no acting code can occur
+    by design, so a zero mobilization rate there is the configuration, never a bug.
 
     Unlike every other decide_* function, this one CHUNKS: it is the first
     decision type since vote_cast to batch CITIZENS rather than a handful
@@ -2069,6 +2223,22 @@ def decide_reaction_to_event(
     per call, never a combined scandal+shock request -- extended only by
     what the LLM path additionally needs (citizens/contexts/config/client).
 
+    RELIABILITY WARNING (2026-08-30, plan-adversarial-framing-collapse.md), SCANDAL branch only
+    (ECONOMIC_SHOCK not tested): confirmed to show the same content-blind collapse signature as
+    pressure_action. Two structurally opposite ctx.event_salience poles (0.0: untouched by any
+    past event; 0.9: already heavily sensitized), 3 different citizens each, size=1/think=False.
+    All 6 calls returned the identical salience_delta and motif in both poles. SCANDAL was chosen
+    specifically because it carries a real `target` (the implicated president); ECONOMIC_SHOCK's
+    target is always null (a systemic event), so this warning should not be assumed to transfer to
+    that branch without its own check. deterministic_reaction_to_event cannot ground a per-citizen
+    accuracy check for either branch (no Citizen parameter, confirmed in plan-decision-quality-
+    validation.md's own inventory) -- this is a collapse-signature finding, not an accuracy
+    figure. Suspected common cause (unproven): framed as a reaction/response to an external event
+    rather than a self-evaluation against a threshold -- see the design doc's own §3.6.0
+    verification-obligation constraint. Treat event_salience-derived metrics from any
+    llm.enabled=True SCANDAL run as unverified until this is resolved -- no remediation has been
+    found or attempted yet.
+
     Population-wide, like decide_pressure_actions -- CHUNKS via
     chunk_voters, but at the DEFAULT MIN_SAFE_BATCH_SIZE floor, not dt=10's
     own min_batch_size=1 override: dt=8's cohort is the entire population
@@ -2148,6 +2318,25 @@ class ChamberBatchOutcome:
     reasoning as dt=6's own `positions` dict). issue_positions itself is
     never resolved here -- it is the member's own sincere anchor, never
     mutated by any decision."""
+    motif_corrected: dict[int, bool] = field(default_factory=dict)
+    """cid -> whether decide_chamber_deliberation overrode this decision's
+    `motif` from 702 (DELIBERATIVE_SHIFT) to 701 (SINCERE_POSITION) because
+    `shifts` was empty -- an incoherent pairing measured 2026-08-30
+    (plan-adversarial-framing-collapse.md), NOT the same incoherence
+    ChamberDecision's own docstring already documents and deliberately
+    leaves unenforced (a small NON-EMPTY shift mislabeled 701 -- the
+    opposite direction, never independently shown problematic, so still
+    untouched here). `motif=702 with shifts=[]` has no legitimate reading
+    under this schema's own stated intent (702 IS "at least one
+    adjustment"), and `shifts`/`chamber_position` are what
+    `metrics.chamber_deviation` actually reads -- `motif` was purely a
+    misleading audit label with zero effect on simulation behavior, so
+    correcting it here is a label fix, not a behavior change. Same
+    "never let a correction pass as a first-hand decision" discipline as
+    `VoteBatchOutcome.retry_sampling_varied` -- populated here, journaled
+    explicitly by the caller, never silent. Defaults to an empty dict
+    (every key absent means False) so every pre-existing
+    ChamberBatchOutcome(...) construction keeps compiling unchanged."""
 
 
 def validate_chamber_decision(decision: ChamberDecision, config: PolityConfig) -> None:
@@ -2346,13 +2535,30 @@ def decide_chamber_deliberation(
         decisions.extend(chunk_decisions)
 
     positions: dict[int, tuple[float, ...]] = {}
+    motif_corrected: dict[int, bool] = {}
     for decision in decisions:
         validate_chamber_decision(decision, config)
+        # motif=702 (DELIBERATIVE_SHIFT) with empty shifts has no legitimate reading under
+        # this schema's own stated intent (702 IS "at least one adjustment") -- measured
+        # 2026-08-30 (plan-adversarial-framing-collapse.md) as a real, reproducible pairing,
+        # not a corner case. Corrected to 701 (what shifts=[] actually means) rather than
+        # rejected: unlike VoteCastDecision's blank/ranking incoherence, this label has zero
+        # effect on simulation behavior (metrics.chamber_deviation reads shifts/
+        # chamber_position, never motif -- ChamberDecision's own docstring), and the
+        # incoherence measured 3/3, systematic rather than intermittent noise -- a reject-
+        # and-retry mitigation (VoteBatchOutcome's own retry_sampling_varied precedent)
+        # would risk exhausting retries on a case with no real variance to sample past,
+        # the same lesson this project already learned from the cache-reuse nonce
+        # mitigation. The correction is tracked, never silent -- see
+        # ChamberBatchOutcome.motif_corrected's own docstring.
+        if decision.motif == 702 and not decision.shifts:
+            decision.motif = 701
+            motif_corrected[decision.cid] = True
         member = members_by_id[decision.cid]
         assert member.chamber_position is not None  # guaranteed by the caller's own filter
         positions[decision.cid] = apply_shifts(member.chamber_position, decision.shifts)
 
-    return ChamberBatchOutcome(decisions=decisions, positions=positions)
+    return ChamberBatchOutcome(decisions=decisions, positions=positions, motif_corrected=motif_corrected)
 
 
 @dataclass(frozen=True)
@@ -2593,6 +2799,23 @@ def decide_coalition(
     client -- no journal writes here, matching every prior decide_*
     function's convention; run_polity_simulation.py owns every journal
     write.
+
+    RELIABILITY WARNING (2026-08-30, plan-adversarial-framing-collapse.md): confirmed to show the
+    same content-blind collapse signature as pressure_action. Two structurally opposite poles
+    (join-obvious: identical platform to initiator, pushes comfortably past majority, initiator
+    needs it; decline-obvious: maximum platform distance across all 20 issue dimensions, initiator
+    already has a majority alone), 3 different responder party_ids each, size=1/think=False. All
+    6 calls returned the identical action (JOIN) and motif in both poles -- including the
+    decline-obvious pole, where every rational signal pointed the other way. Only partial ground
+    truth exists for this decision type (form_coalition decides at the algorithm/whole-coalition
+    level, not "would THIS party join THIS specific proposal"), so this is a collapse-signature
+    finding, not an accuracy figure. Not tested at real production batch size: decide_coalition
+    batches seated non-initiator parties directly (up to ~4 in the shipped config), and this test
+    used size=1, smaller than a typical real call -- an open gap. Suspected common cause
+    (unproven): framed as an act with institutional consequence (join/decline) rather than a
+    self-evaluation against a threshold -- see the design doc's own §3.6.0 verification-obligation
+    constraint. Treat coalition composition/lifespan metrics from any llm.enabled=True run as
+    unverified until this is resolved -- no remediation has been found or attempted yet.
 
     Formation only: design doc §3.1's "maintien et rupture" of a coalition
     across subsequent ticks is out of scope for this increment. Reasons: no

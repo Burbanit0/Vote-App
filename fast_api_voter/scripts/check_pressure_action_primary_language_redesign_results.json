@@ -1,0 +1,632 @@
+{
+  "3": {
+    "agree": true,
+    "blank_threshold": 0.08242805047655613,
+    "expected_act": true,
+    "motif": "305",
+    "self_gap": 0.17184728296442137,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "8": {
+    "agree": false,
+    "blank_threshold": 0.4281458138216581,
+    "expected_act": false,
+    "motif": "301",
+    "self_gap": 0.20228219509101938,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "12": {
+    "agree": false,
+    "blank_threshold": 0.4748413482130646,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.11475536973286447,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "14": {
+    "agree": false,
+    "blank_threshold": 0.6123805080228009,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.20005769003390292,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "17": {
+    "agree": false,
+    "blank_threshold": 0.5816692142754522,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.0914374666096894,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "18": {
+    "agree": true,
+    "blank_threshold": 0.14614796397194366,
+    "expected_act": true,
+    "motif": "301",
+    "self_gap": 0.2561939239084229,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "24": {
+    "agree": false,
+    "blank_threshold": 0.33248614328328485,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.1358549395443877,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "25": {
+    "agree": false,
+    "blank_threshold": 0.41476556774667656,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.17307212837600533,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "26": {
+    "agree": false,
+    "blank_threshold": 0.6369543723179869,
+    "expected_act": false,
+    "motif": "301",
+    "self_gap": 0.28403720948811045,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "27": {
+    "agree": true,
+    "blank_threshold": 0.23134012124999095,
+    "expected_act": true,
+    "motif": "305",
+    "self_gap": 0.4964951797158138,
+    "situation": "Le citoyen a un ecart important avec l'elu cible, mais l'elu a tenu sa promesse.",
+    "will_act": true
+  },
+  "28": {
+    "agree": true,
+    "blank_threshold": 0.27229573598704854,
+    "expected_act": true,
+    "motif": "305",
+    "self_gap": 0.4220597917361079,
+    "situation": "Le citoyen a un ecart de mecontentement modere avec l'elu cible.",
+    "will_act": true
+  },
+  "30": {
+    "agree": false,
+    "blank_threshold": 0.35245764673962177,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.14332950160516064,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "35": {
+    "agree": false,
+    "blank_threshold": 0.3626061079520457,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.08355243130978547,
+    "situation": "Le citoyen a un ecart de mecontentement modere avec l'elu cible.",
+    "will_act": true
+  },
+  "38": {
+    "agree": false,
+    "blank_threshold": 0.6101400188987265,
+    "expected_act": false,
+    "motif": "304",
+    "self_gap": 0.15349404824821158,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "39": {
+    "agree": true,
+    "blank_threshold": 0.15623146716111247,
+    "expected_act": true,
+    "motif": "305",
+    "self_gap": 0.23634551538276893,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "41": {
+    "agree": false,
+    "blank_threshold": 0.42407402682913037,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.12302579959759291,
+    "situation": "Le citoyen a un ecart de mecontentement modere avec l'elu cible.",
+    "will_act": true
+  },
+  "45": {
+    "agree": true,
+    "blank_threshold": 0.173015602965997,
+    "expected_act": true,
+    "motif": "305",
+    "self_gap": 0.3117910722770411,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "46": {
+    "agree": false,
+    "blank_threshold": 0.3612839743682155,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.16748736819832935,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "47": {
+    "agree": true,
+    "blank_threshold": 0.14764146513794874,
+    "expected_act": true,
+    "motif": "305",
+    "self_gap": 0.4317061334646345,
+    "situation": "Le citoyen a un ecart de mecontentement modere avec l'elu cible.",
+    "will_act": true
+  },
+  "48": {
+    "agree": false,
+    "blank_threshold": 0.3217009597188391,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.0988969722020632,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "50": {
+    "agree": false,
+    "blank_threshold": 0.593689991372442,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.28958813662604377,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "54": {
+    "agree": false,
+    "blank_threshold": 0.6370099723330558,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.1907008441210955,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "56": {
+    "agree": true,
+    "blank_threshold": 0.24682132239762025,
+    "expected_act": true,
+    "motif": "305",
+    "self_gap": 0.43478730813188093,
+    "situation": "Le citoyen a un ecart de mecontentement modere avec l'elu cible.",
+    "will_act": true
+  },
+  "58": {
+    "agree": false,
+    "blank_threshold": 0.3823749217598255,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.12985066954655863,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "60": {
+    "agree": true,
+    "blank_threshold": 0.2030898756295493,
+    "expected_act": true,
+    "motif": "305",
+    "self_gap": 0.3794194428206943,
+    "situation": "Le citoyen a un ecart de mecontentement modere avec l'elu cible.",
+    "will_act": true
+  },
+  "62": {
+    "agree": true,
+    "blank_threshold": 0.20810100122658018,
+    "expected_act": true,
+    "motif": "305",
+    "self_gap": 0.3209056280014788,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "65": {
+    "agree": false,
+    "blank_threshold": 0.7008249334756237,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.1919482461772951,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "68": {
+    "agree": false,
+    "blank_threshold": 0.47459464190513706,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.19908778612575304,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "69": {
+    "agree": false,
+    "blank_threshold": 0.3619320883270259,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.16627272695681916,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "70": {
+    "agree": false,
+    "blank_threshold": 0.564086047217235,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.22748272486428434,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "72": {
+    "agree": false,
+    "blank_threshold": 0.5883198640597497,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.15087734683597073,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "74": {
+    "agree": true,
+    "blank_threshold": 0.035609348243070285,
+    "expected_act": true,
+    "motif": "305",
+    "self_gap": 0.26318817380657983,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "79": {
+    "agree": false,
+    "blank_threshold": 0.5455282787717918,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.16397615988624986,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "80": {
+    "agree": false,
+    "blank_threshold": 0.6174569882965875,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.15062005393148184,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "88": {
+    "agree": false,
+    "blank_threshold": 0.5670515025174536,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.15141310721087933,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "90": {
+    "agree": false,
+    "blank_threshold": 0.4698101886175628,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.17665324142764108,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "96": {
+    "agree": false,
+    "blank_threshold": 0.4782834114804054,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.09754690029753871,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "97": {
+    "agree": false,
+    "blank_threshold": 0.7068613448393939,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.30257754303603807,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "101": {
+    "agree": true,
+    "blank_threshold": 0.1376408995168064,
+    "expected_act": true,
+    "motif": "305",
+    "self_gap": 0.49378305394257266,
+    "situation": "Le citoyen a un ecart de mecontentement modere avec l'elu cible.",
+    "will_act": true
+  },
+  "107": {
+    "agree": false,
+    "blank_threshold": 0.42419259306723694,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.14340028029582513,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "109": {
+    "agree": true,
+    "blank_threshold": 0.2230166748298616,
+    "expected_act": true,
+    "motif": "305",
+    "self_gap": 0.43937959556815026,
+    "situation": "Le citoyen a un ecart de mecontentement modere avec l'elu cible.",
+    "will_act": true
+  },
+  "110": {
+    "agree": false,
+    "blank_threshold": 0.5547386803062538,
+    "expected_act": false,
+    "motif": "301",
+    "self_gap": 0.25557613824043207,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "112": {
+    "agree": false,
+    "blank_threshold": 0.32593097634834195,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.0886689106441005,
+    "situation": "Le citoyen a un ecart de mecontentement modere avec l'elu cible.",
+    "will_act": true
+  },
+  "114": {
+    "agree": false,
+    "blank_threshold": 0.7422625056828387,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.16808213491858684,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "119": {
+    "agree": false,
+    "blank_threshold": 0.34393250453226976,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.14123179941577615,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "123": {
+    "agree": false,
+    "blank_threshold": 0.4278356748497924,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.15265438388514163,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "124": {
+    "agree": false,
+    "blank_threshold": 0.5846875743258445,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.21307127252794048,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "127": {
+    "agree": false,
+    "blank_threshold": 0.500044786637467,
+    "expected_act": false,
+    "motif": "301",
+    "self_gap": 0.17507722588254143,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "130": {
+    "agree": false,
+    "blank_threshold": 0.783529162121141,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.39035211208501736,
+    "situation": "Le citoyen a un ecart de mecontentement modere avec l'elu cible.",
+    "will_act": true
+  },
+  "135": {
+    "agree": false,
+    "blank_threshold": 0.3429957861638311,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.1329705490952291,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "137": {
+    "agree": false,
+    "blank_threshold": 0.633105886966989,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.1900283833181908,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "138": {
+    "agree": false,
+    "blank_threshold": 0.6876903198184389,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.291900796042329,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "141": {
+    "agree": false,
+    "blank_threshold": 0.4705536150311158,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.1413056050768559,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "146": {
+    "agree": true,
+    "blank_threshold": 0.2381315991721189,
+    "expected_act": true,
+    "motif": "305",
+    "self_gap": 0.4212019609251659,
+    "situation": "Le citoyen a un ecart de mecontentement modere avec l'elu cible.",
+    "will_act": true
+  },
+  "149": {
+    "agree": false,
+    "blank_threshold": 0.3047656087946007,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.14151073130788458,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "151": {
+    "agree": false,
+    "blank_threshold": 0.3286681453887171,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.14605078404250113,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "154": {
+    "agree": false,
+    "blank_threshold": 0.538584210656336,
+    "expected_act": false,
+    "motif": "301",
+    "self_gap": 0.25738782271593,
+    "situation": "Le citoyen a un ecart de mecontentement modere avec l'elu cible.",
+    "will_act": true
+  },
+  "155": {
+    "agree": false,
+    "blank_threshold": 0.6260722387550499,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.139658614084119,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "157": {
+    "agree": false,
+    "blank_threshold": 0.7798051580343621,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.1721941861128505,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "158": {
+    "agree": false,
+    "blank_threshold": 0.4199499729802146,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.1457427619899152,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "160": {
+    "agree": false,
+    "blank_threshold": 0.3942569227733953,
+    "expected_act": false,
+    "motif": "304",
+    "self_gap": 0.15180809619216606,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "161": {
+    "agree": true,
+    "blank_threshold": 0.17313054596832794,
+    "expected_act": true,
+    "motif": "305",
+    "self_gap": 0.2849957376860349,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "164": {
+    "agree": false,
+    "blank_threshold": 0.6106926666082338,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.09938652282972602,
+    "situation": "Le citoyen a un ecart de mecontentement modere avec l'elu cible.",
+    "will_act": true
+  },
+  "173": {
+    "agree": false,
+    "blank_threshold": 0.7098790604135955,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.08903604853201115,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "175": {
+    "agree": true,
+    "blank_threshold": 0.2003229228802247,
+    "expected_act": true,
+    "motif": "305",
+    "self_gap": 0.4332584596553676,
+    "situation": "Le citoyen a un ecart de mecontentement modere avec l'elu cible.",
+    "will_act": true
+  },
+  "178": {
+    "agree": false,
+    "blank_threshold": 0.3824187532928764,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.16327062534307576,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "179": {
+    "agree": false,
+    "blank_threshold": 0.6823652421532275,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.2816941462012589,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "182": {
+    "agree": true,
+    "blank_threshold": 0.040441400693593095,
+    "expected_act": true,
+    "motif": "305",
+    "self_gap": 0.14281743660075574,
+    "situation": "Le citoyen a un ecart de mecontentement modere avec l'elu cible.",
+    "will_act": true
+  },
+  "183": {
+    "agree": false,
+    "blank_threshold": 0.6211209693776897,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.11235072039446252,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  },
+  "189": {
+    "agree": false,
+    "blank_threshold": 0.5448598577905245,
+    "expected_act": false,
+    "motif": "305",
+    "self_gap": 0.11277678429327893,
+    "situation": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 avec l'elu cible.",
+    "will_act": true
+  }
+}

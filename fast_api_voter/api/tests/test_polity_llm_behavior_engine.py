@@ -1600,6 +1600,64 @@ def test_decide_chamber_deliberation_applies_shifts_on_top_of_chamber_position()
     assert outcome.positions[0] == expected
 
 
+def test_decide_chamber_deliberation_corrects_motif_702_with_empty_shifts_to_701():
+    # measured 2026-08-30 (plan-adversarial-framing-collapse.md): motif=702 (DELIBERATIVE_SHIFT)
+    # paired with an empty shifts list has no legitimate reading under the schema's own stated
+    # intent (702 IS "at least one adjustment") -- corrected to 701, tracked explicitly.
+    member = _member(0, (0.2,), chamber=(0.5,))  # already drifted -- the pole that measured this
+    contexts = {0: _chamber_context(0)}
+    config = _config_with_llm_enabled()
+
+    class IncoherentClient:
+        def complete_json(self, **kwargs):
+            decision = {"cid": 0, "shifts": [], "motif": 702}
+            return json.dumps({"decisions": [decision]})
+
+    outcome = decide_chamber_deliberation([member], contexts, config, IncoherentClient())
+
+    assert outcome.decisions[0].motif == 701
+    assert outcome.motif_corrected == {0: True}
+    # the correction is a label fix only -- chamber_position is unaffected either way, since
+    # shifts was already empty.
+    assert outcome.positions[0] == (0.5,)
+
+
+def test_decide_chamber_deliberation_does_not_correct_a_coherent_702():
+    member = _member(0, (0.2,), chamber=(0.2,))
+    contexts = {0: _chamber_context(0)}
+    config = _config_with_llm_enabled()
+
+    class CoherentClient:
+        def complete_json(self, **kwargs):
+            decision = {"cid": 0, "shifts": [{"dimension": 0, "delta": 0.1}], "motif": 702}
+            return json.dumps({"decisions": [decision]})
+
+    outcome = decide_chamber_deliberation([member], contexts, config, CoherentClient())
+
+    assert outcome.decisions[0].motif == 702
+    assert outcome.motif_corrected == {}  # absent, not False -- never flagged as corrected
+
+
+def test_decide_chamber_deliberation_does_not_correct_701_with_a_small_nonempty_shift():
+    # the OTHER incoherence direction (a small real shift labelled 701/sincere) -- already
+    # measured (scripts/lot3_chamber_reliability_results.md), never independently shown
+    # problematic for THIS narrower rule, and deliberately left untouched: it's a documented,
+    # accepted mismatch (ChamberDecision's own docstring), not the one this correction targets.
+    member = _member(0, (0.2,), chamber=(0.2,))
+    contexts = {0: _chamber_context(0)}
+    config = _config_with_llm_enabled()
+
+    class SmallShiftClient:
+        def complete_json(self, **kwargs):
+            decision = {"cid": 0, "shifts": [{"dimension": 0, "delta": 0.05}], "motif": 701}
+            return json.dumps({"decisions": [decision]})
+
+    outcome = decide_chamber_deliberation([member], contexts, config, SmallShiftClient())
+
+    assert outcome.decisions[0].motif == 701  # unchanged -- this rule never fires on motif=701
+    assert outcome.motif_corrected == {}
+
+
 def test_decide_chamber_deliberation_leaves_issue_positions_untouched():
     member = _member(0, (0.2,), chamber=(0.2,))
     contexts = {0: _chamber_context(0)}
@@ -2359,6 +2417,20 @@ def test_pressure_system_prompt_states_toujours_null_when_the_graph_is_off():
     prompt = build_pressure_system_prompt(consulted, config)
     assert "toujours null" in prompt
     assert "voisinage social qui a deja mobilise" not in prompt
+
+
+def test_pressure_system_prompt_disambiguates_null_neighbors_acting_from_inactive():
+    # 2026-08-30, plan-pressure-action-resolution.md §1.4: the model was measured
+    # interpreting neighbors_acting=null as "neighbors are inactive" (a claim about their
+    # state) rather than "not tracked" (no information at all) -- a real context-
+    # understanding bug independent of the collapse investigation, polluting any
+    # reasoning read produced during tests. Pins the disambiguating sentence.
+    consulted = [_pressure_citizen(0)]
+    config = _config_with_llm_enabled()
+    assert config.social_graph.enabled is False
+    prompt = build_pressure_system_prompt(consulted, config)
+    assert "n'existe pas du tout" in prompt
+    assert "ignorer" in prompt
 
 
 def test_pressure_system_prompt_explains_the_real_fraction_when_the_graph_is_on():

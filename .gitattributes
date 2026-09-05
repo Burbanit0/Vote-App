@@ -6,3 +6,11 @@
 Dockerfile      text eol=lf
 *.Dockerfile    text eol=lf
 *.dockerignore  text eol=lf
+
+# Même motif pour les fichiers d'exigences pip : ils sont lus par
+# `pip install -r` dans les images Linux. Vécu : un `pip freeze >` sous
+# PowerShell a réécrit fast_api_voter/requirements.txt en UTF-16 LE + CRLF,
+# que pip ne sait pas parser — git l'a vu comme un binaire, donc sans diff
+# lisible pour le signaler. `eol=lf` corrige la moitié CRLF ; pour l'encodage,
+# écrire avec `Out-File -Encoding utf8` (jamais la redirection `>` nue).
+requirements*.txt   text eol=lf

@@ -1507,6 +1507,13 @@ def _run_chamber_deliberation(
                 "shifts": [{"dimension": s.dimension, "delta": s.delta} for s in decision.shifts],
                 "ctx": contexts[member.citizen_id].to_payload(),
                 "chamber_deviation": chamber_deviation(member),
+                # decide_chamber_deliberation's own motif_corrected marker: true iff this
+                # decision arrived as motif=702 (DELIBERATIVE_SHIFT) with empty shifts -- an
+                # incoherent pairing under this schema's own stated intent, corrected to 701
+                # (what shifts=[] actually means) rather than rejected, since motif has zero
+                # effect on chamber_deviation/simulation behavior. Journaled explicitly so a
+                # future reader cannot mistake a corrected label for a first-hand 701.
+                "motif_corrected": int(outcome.motif_corrected.get(member.citizen_id, False)),
             },
             citizen_id=member.citizen_id,
             motif=str(decision.motif),
