@@ -142,6 +142,20 @@ jobs:
         run: npm ci
         working-directory: ./voter-app
 
+      # Rolling cache for Stryker's --incremental state: a full pass mutates
+      # and re-tests every mutant on every run even when most of the mutated
+      # file is unchanged since last time. Keyed uniquely per commit so it
+      # never "hits" exactly (forcing a fresh save each run) but always
+      # restores the nearest prior state via restore-keys — a cache miss just
+      # means "fall back to a full run," never a wrong incremental result.
+      - name: Cache Stryker incremental state
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: voter-app/.stryker-tmp/incremental.json
+          key: stryker-incremental-${{ github.sha }}
+          restore-keys: |
+            stryker-incremental-
+
       # Scope (which file gets mutated, which tests run) lives entirely in
       # voter-app/stryker.config.json + vitest.stryker.config.ts — this step
       # just runs it — including `thresholds.break`, which Stryker enforces
@@ -149,8 +163,16 @@ jobs:
       # Set to 76 against a measured 80.82%: under the measure, to lock in what
       # exists rather than to aspire. Target 85 once the spatial-helper and
       # tie-break chantiers land.
+      #
+      # --incremental skips re-mutating files unchanged since the cached state
+      # above. --concurrency is pinned explicitly here (CI-only, via flag, not
+      # in stryker.config.json) rather than left at the implicit cpuCount - 1
+      # default: this job already measured 4 workers on this runner class vs
+      # 15 locally (see the timeout-minutes comment above) — pinning only the
+      # CI invocation keeps that number honest here without slowing down local
+      # runs, which should keep using all available cores.
       - name: Run Stryker (fails under thresholds.break)
-        run: npx stryker run
+        run: npx stryker run --incremental --concurrency 4
         working-directory: ./voter-app
 
       - name: Upload HTML mutation report

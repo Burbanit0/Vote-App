@@ -96,7 +96,7 @@ jobs:
             echo "  feat(blank-vote): add competitive rule to scenario builder"
             echo "  fix(navbar): dark mode background not adapting to theme"
             echo "  ci: add pre-commit hooks and coverage thresholds"
-            # Warning only — does not block (remove 'exit 1' to enforce)
+            exit 1
           else
             echo "✅  Titre de PR valide."
           fi

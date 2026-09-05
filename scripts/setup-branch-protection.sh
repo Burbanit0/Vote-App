@@ -61,22 +61,36 @@ api_call() {
 }
 
 # Same required checks for both branches — main will need everything develop
-# needs once a real develop→main release resumes. Excluded on purpose:
-# - mutation-testing.yml: never runs on pull_request (see CONTRIBUTING.md's
-#   workflow table), so a required check under that name would block forever.
-# - Backend CI / Frontend CI / E2E / OpenAPI Contract: all scoped by `paths:`
-#   to fast_api_voter/**, voter-app/**, or the generated-artifacts set. A PR
-#   that touches none of those (docs, CI config, this script) never triggers
-#   them, and a required check that never reports blocks the PR forever —
-#   confirmed live when PR #205 (a branch-policy.yml + CONTRIBUTING.md fix)
-#   got stuck exactly this way. They still gate normally on the PRs that do
-#   trigger them; they're just not in branch protection's required list.
+# needs once a real develop→main release resumes.
+#
+# Backend CI / Frontend CI / E2E / OpenAPI Contract used to be excluded here:
+# each was scoped by a `paths:` filter at the workflow-trigger level, and a
+# required check that never even creates a check run (because its workflow
+# never triggered) blocks the PR forever — confirmed live when PR #205 (a
+# branch-policy.yml + CONTRIBUTING.md fix) got stuck exactly this way. Rather
+# than leave them out permanently, each of those 4 workflows now moves the
+# `paths:` filter into a job-level `changes` gate (dorny/paths-filter) instead
+# of the trigger: the workflow always fires, so the check run always exists,
+# and the real job just reports "skipped" (which GitHub treats as passing)
+# when nothing relevant changed. That's what makes them safe to require below.
+#
+# Still excluded, and still for the reason PR #205 taught: mutation-testing.yml
+# never runs on pull_request at all (push-to-develop/schedule/dispatch only —
+# see its own header comment), so a required check under either of its job
+# names would block every PR forever.
 REQUIRED_CONTEXTS='[
       "Validate branch source and naming",
       "Semgrep SAST",
       "Secret Scan",
       "Dependencies, Containers & Misconfig",
-      "Code Quality (dead code, duplication & complexity)"
+      "Code Quality (dead code, duplication & complexity)",
+      "Dependency Review",
+      "CodeQL (javascript-typescript)",
+      "CodeQL (python)",
+      "Backend: Tests + Coverage + Security",
+      "Frontend: Tests + Coverage + Security",
+      "Playwright E2E",
+      "Generated artifacts in sync"
     ]'
 
 protect_main() {
