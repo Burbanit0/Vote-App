@@ -25,6 +25,8 @@ import EvaluativeChart from './EvaluativeChart';
 import type { EvaluativeResult } from './EvaluativeChart';
 import { useTranslation } from 'react-i18next';
 
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+
 function avg(values: number[]): number {
   return values.length === 0 ? 0 : values.reduce((a, b) => a + b, 0) / values.length;
 }
@@ -164,7 +166,10 @@ const MetricsTab: React.FC<Props> = ({ comparisonResults, allMethodNames, numSim
                   interval={0}
                 />
                 <YAxis domain={[0, 1]} tick={{ fontSize: 11, fill: ct.tickFill }} />
-                <Tooltip formatter={(v: number) => v.toFixed(3)} contentStyle={ct.tooltipStyle} />
+                <Tooltip
+                  formatter={numericTooltipFormatter((v: number) => v.toFixed(3))}
+                  contentStyle={ct.tooltipStyle}
+                />
 
                 {/* Median reference line for Bayesian Regret */}
                 {medianRegret !== null && (

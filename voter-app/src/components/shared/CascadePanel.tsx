@@ -27,6 +27,8 @@ import {
 } from 'recharts';
 import { useElection } from '../../stores/useElectionStore';
 import PinToCentralButton from './PinToCentralButton';
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+
 const DEBOUNCE_MS = 400;
 const ANIM_STEP_MS = 80;
 
@@ -429,7 +431,9 @@ const CascadePanel: React.FC = () => {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="strength" tickFormatter={(v: number) => v.toFixed(1)} />
                 <YAxis domain={[0, 1]} tickFormatter={(v: number) => `${Math.round(v * 100)}%`} />
-                <Tooltip formatter={(v: number) => `${Math.round(v * 100)}%`} />
+                <Tooltip
+                  formatter={numericTooltipFormatter((v: number) => `${Math.round(v * 100)}%`)}
+                />
                 <Legend />
                 <ReferenceLine x={cascadeStrength} stroke="#6c757d" strokeDasharray="4 2" />
                 <Line

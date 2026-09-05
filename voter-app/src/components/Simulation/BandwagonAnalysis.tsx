@@ -24,6 +24,8 @@ import { getBandwagonAnalysis, BandwagonParams } from '../../services/simulation
 import SkeletonCard from '../shared/SkeletonCard';
 import { useChartTheme } from '../../hooks/useChartTheme';
 
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+
 // ── Constants ──────────────────────────────────────────────────────────────
 
 const CANDIDATE_COLORS = [
@@ -271,7 +273,7 @@ const BandwagonAnalysis: React.FC<Props> = ({ baseParams }) => {
                     tick={{ fontSize: 11 }}
                   />
                   <Tooltip
-                    formatter={(v: number) => `${(v * 100).toFixed(1)}%`}
+                    formatter={numericTooltipFormatter((v: number) => `${(v * 100).toFixed(1)}%`)}
                     contentStyle={ct.tooltipStyle}
                   />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
@@ -324,7 +326,9 @@ const BandwagonAnalysis: React.FC<Props> = ({ baseParams }) => {
                   <XAxis dataKey="round" tick={{ fontSize: 11, fill: ct.tickFill }} />
                   <YAxis tick={{ fontSize: 11, fill: ct.tickFill }} />
                   <Tooltip
-                    formatter={(v: number) => (v != null ? v.toFixed(4) : '—')}
+                    formatter={numericTooltipFormatter((v: number) =>
+                      v != null ? v.toFixed(4) : '—'
+                    )}
                     contentStyle={ct.tooltipStyle}
                   />
                   <Legend verticalAlign="bottom" wrapperStyle={{ paddingTop: 10, fontSize: 10 }} />

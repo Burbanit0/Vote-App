@@ -36,6 +36,8 @@ import MethodSimilarityGraph, {
 import { useSimulationWorker } from '../../hooks/useSimulationWorker';
 import MetricTooltip from '../shared/MetricTooltip';
 
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+
 const CANDIDATE_PALETTE = ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948'];
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -422,7 +424,10 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
                     interval={0}
                   />
                   <YAxis tick={{ fontSize: 10, fill: ct.tickFill }} />
-                  <Tooltip formatter={(v: number) => v.toFixed(4)} contentStyle={ct.tooltipStyle} />
+                  <Tooltip
+                    formatter={numericTooltipFormatter((v: number) => v.toFixed(4))}
+                    contentStyle={ct.tooltipStyle}
+                  />
                   <Bar dataKey="regret" name={t('simulation.bayesianRegret')} fill="#4e79a7">
                     {regretBarData.map((_, i) => (
                       <Cell key={i} fill="#4e79a7" />

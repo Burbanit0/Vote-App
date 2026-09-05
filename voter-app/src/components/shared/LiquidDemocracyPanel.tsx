@@ -23,6 +23,8 @@ import {
 } from 'recharts';
 import { useElection } from '../../stores/useElectionStore';
 import { $api } from '../../api/hooks';
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+
 const DEBOUNCE_MS = 400;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -418,7 +420,7 @@ const LiquidDemocracyPanel: React.FC = () => {
                   tickFormatter={(v: number) => `${Math.round(v * 100)}%`}
                 />
                 <YAxis domain={[0, 1]} tickFormatter={(v: number) => v.toFixed(1)} />
-                <Tooltip formatter={(v: number) => v.toFixed(3)} />
+                <Tooltip formatter={numericTooltipFormatter((v: number) => v.toFixed(3))} />
                 <Line
                   type="monotone"
                   dataKey="gini"

@@ -25,6 +25,8 @@ import {
 } from 'recharts';
 import { $api } from '../../api/hooks';
 
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface Counterexample {
@@ -459,7 +461,9 @@ const ArrowExplorer: React.FC = () => {
                 tickFormatter={(v: number) => `${Math.round(v * 100)}%`}
                 tick={{ fontSize: 10 }}
               />
-              <Tooltip formatter={(v: number) => `${Math.round(v * 100)}%`} />
+              <Tooltip
+                formatter={numericTooltipFormatter((v: number) => `${Math.round(v * 100)}%`)}
+              />
               <ReferenceLine y={0} stroke="#198754" strokeDasharray="4 2" />
               <Line
                 type="monotone"

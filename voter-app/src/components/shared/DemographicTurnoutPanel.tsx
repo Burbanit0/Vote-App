@@ -27,6 +27,8 @@ import {
 import { useElection } from '../../stores/useElectionStore';
 import PinToCentralButton from './PinToCentralButton';
 
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface VoterProfile {
@@ -409,7 +411,7 @@ const DemographicTurnoutPanel: React.FC = () => {
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                 <XAxis type="number" unit="%" tick={{ fontSize: 10 }} />
                 <YAxis type="category" dataKey="group" tick={{ fontSize: 9 }} width={118} />
-                <Tooltip formatter={(v: number) => `${v}%`} />
+                <Tooltip formatter={numericTooltipFormatter((v: number) => `${v}%`)} />
                 <Legend wrapperStyle={{ fontSize: 10 }} />
                 <Bar
                   dataKey="population"
@@ -433,7 +435,7 @@ const DemographicTurnoutPanel: React.FC = () => {
                   <BarChart data={biasedBarData} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
                     <XAxis dataKey="name" tick={{ fontSize: 10 }} />
                     <YAxis unit="%" tick={{ fontSize: 10 }} domain={[0, 60]} />
-                    <Tooltip formatter={(v: number) => `${v}%`} />
+                    <Tooltip formatter={numericTooltipFormatter((v: number) => `${v}%`)} />
                     <Bar dataKey="share">
                       {biasedBarData.map((entry, i) => (
                         <Cell key={i} fill={candColor(entry.name, candidateNames)} />
@@ -455,7 +457,7 @@ const DemographicTurnoutPanel: React.FC = () => {
                   >
                     <XAxis dataKey="name" tick={{ fontSize: 10 }} />
                     <YAxis unit="%" tick={{ fontSize: 10 }} domain={[0, 60]} />
-                    <Tooltip formatter={(v: number) => `${v}%`} />
+                    <Tooltip formatter={numericTooltipFormatter((v: number) => `${v}%`)} />
                     <Bar dataKey="share">
                       {correctedBarData.map((entry, i) => (
                         <Cell key={i} fill={candColor(entry.name, candidateNames)} />

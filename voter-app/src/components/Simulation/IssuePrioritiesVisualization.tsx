@@ -3,6 +3,8 @@ import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/card';
 import { Check, Select } from '@/components/ui/form-controls';
 import { Col, Row } from '@/components/ui/grid';
 import { useTranslation } from 'react-i18next';
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+
 import {
   BarChart,
   Bar,
@@ -246,10 +248,10 @@ const IssuePrioritiesVisualization: React.FC<IssuePrioritiesVisualizationProps> 
                         <XAxis type="number" domain={[0, 0.3]} />
                         <YAxis dataKey="group" type="category" />
                         <Tooltip
-                          formatter={(value: number) => [
+                          formatter={numericTooltipFormatter((value: number) => [
                             `${(value * 100).toFixed(1)}%`,
                             t('simulation.issuePriorities.priority'),
-                          ]}
+                          ])}
                         />
                         <Legend />
                         {issues?.map((issue, index) => (
@@ -297,10 +299,10 @@ const IssuePrioritiesVisualization: React.FC<IssuePrioritiesVisualizationProps> 
                           ))}
                           <Legend />
                           <Tooltip
-                            formatter={(value: number) => [
+                            formatter={numericTooltipFormatter((value: number) => [
                               `${(value * 100).toFixed(1)}%`,
                               t('simulation.issuePriorities.priority'),
-                            ]}
+                            ])}
                           />
                         </RadarChart>
                       </ResponsiveContainer>
@@ -342,10 +344,10 @@ const IssuePrioritiesVisualization: React.FC<IssuePrioritiesVisualizationProps> 
                           tickFormatter={(value) => `${(value * 100).toFixed(0)}%`}
                         />
                         <Tooltip
-                          formatter={(value: number) => [
+                          formatter={numericTooltipFormatter((value: number) => [
                             `${(value * 100).toFixed(1)}%`,
                             t('simulation.issuePriorities.avgPriority'),
-                          ]}
+                          ])}
                         />
                         <Bar dataKey="average">
                           {priorityRanking.map((_, index) => (

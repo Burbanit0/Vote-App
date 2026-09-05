@@ -27,6 +27,8 @@ import {
 import PinToCentralButton from './PinToCentralButton';
 import { $api } from '../../api/hooks';
 
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface IdentityGroup {
@@ -613,7 +615,7 @@ const IdentityVotingPanel: React.FC<IdentityVotingLabProps> = ({
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" tick={{ fontSize: 9 }} />
                   <YAxis tick={{ fontSize: 10 }} unit="%" domain={[0, 100]} />
-                  <Tooltip formatter={(v: number) => `${v}%`} />
+                  <Tooltip formatter={numericTooltipFormatter((v: number) => `${v}%`)} />
                   <Legend wrapperStyle={{ fontSize: '0.7rem' }} />
                   <Bar dataKey="identity" name={t('identity.identityVote')} radius={[3, 3, 0, 0]}>
                     {groupsChartData.map((pt, i) => (
@@ -691,7 +693,7 @@ const IdentityVotingPanel: React.FC<IdentityVotingLabProps> = ({
                       position: 'top',
                     }}
                   />
-                  <Tooltip formatter={(v: number) => `${v}%`} />
+                  <Tooltip formatter={numericTooltipFormatter((v: number) => `${v}%`)} />
                   <Line
                     type="monotone"
                     dataKey="agreement"

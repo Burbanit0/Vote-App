@@ -28,6 +28,8 @@ import { simulateCandidates } from '../../services';
 import { CandidateSimu } from '../../types';
 import { useSimulation } from '../../stores/useSimuStore';
 
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+
 const COLORS = [
   '#0088FE',
   '#00C49F',
@@ -390,10 +392,10 @@ const CandidatesVisualization: React.FC = () => {
                           />
                           <YAxis />
                           <Tooltip
-                            formatter={(value: number) => [
+                            formatter={numericTooltipFormatter((value: number) => [
                               `${value.toFixed(1)}%`,
                               t('simulation.candidatesViz.importance'),
-                            ]}
+                            ])}
                           />
                           <Legend />
                           <Bar dataKey="value" fill="#1a56cc">
@@ -681,10 +683,10 @@ const CandidatesVisualization: React.FC = () => {
                             <XAxis type="number" domain={[0, 100]} />
                             <YAxis dataKey="issue" type="category" width={120} />
                             <Tooltip
-                              formatter={(value: number) => [
+                              formatter={numericTooltipFormatter((value: number) => [
                                 `${value.toFixed(1)}%`,
                                 t('simulation.candidatesViz.priority'),
-                              ]}
+                              ])}
                             />
                             <Bar dataKey="value" fill="#1a56cc" />
                           </BarChart>

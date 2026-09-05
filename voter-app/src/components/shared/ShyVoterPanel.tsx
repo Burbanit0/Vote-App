@@ -27,6 +27,8 @@ import {
 import { useElection } from '../../stores/useElectionStore';
 import PinToCentralButton from './PinToCentralButton';
 import { $api } from '../../api/hooks';
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+
 const DEBOUNCE_MS = 400;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -272,7 +274,7 @@ const ShyVoterPanel: React.FC = () => {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                 <YAxis unit="%" tick={{ fontSize: 10 }} />
-                <Tooltip formatter={(v: number) => `${v}%`} />
+                <Tooltip formatter={numericTooltipFormatter((v: number) => `${v}%`)} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
                 <Bar dataKey="poll" name={t('shyVoter.poll')} fill="#adb5bd" opacity={0.8} />
                 <Bar dataKey="real" name={t('shyVoter.real')} fill="#005CAB" />
@@ -294,7 +296,7 @@ const ShyVoterPanel: React.FC = () => {
                   tick={{ fontSize: 10 }}
                 />
                 <YAxis unit="%" tick={{ fontSize: 10 }} />
-                <Tooltip formatter={(v: number) => `${v}%`} />
+                <Tooltip formatter={numericTooltipFormatter((v: number) => `${v}%`)} />
                 <Legend wrapperStyle={{ fontSize: 10 }} />
                 <ReferenceLine
                   x={data.poll_results.length + 0.5}

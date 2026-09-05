@@ -18,6 +18,8 @@ import { METHOD_LABELS, METHOD_LINE_COLORS } from './simulationConstants';
 import EmptyChart from '../shared/EmptyChart';
 import { useTranslation } from 'react-i18next';
 
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+
 interface Props {
   strategicData: StrategicImpactPoint[];
   allMethodNames: string[];
@@ -131,7 +133,9 @@ const StrategicImpactTab: React.FC<Props> = ({ strategicData, allMethodNames }) 
                 }}
               />
               <Tooltip
-                formatter={(v: number) => (v !== null ? v.toFixed(4) : '—')}
+                formatter={numericTooltipFormatter((v: number) =>
+                  v !== null ? v.toFixed(4) : '—'
+                )}
                 contentStyle={ct.tooltipStyle}
               />
               <Legend verticalAlign="bottom" wrapperStyle={{ paddingTop: 24, fontSize: 11 }} />

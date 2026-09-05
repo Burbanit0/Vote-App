@@ -28,6 +28,8 @@ import { simulateUtility, getUtilityMatrix, getVoterSegments } from '../../servi
 import { CandidateSimu, VoterSimu } from '../../types';
 import { useSimulation } from '../../stores/useSimuStore';
 
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+
 const COLORS = [
   '#0088FE',
   '#00C49F',
@@ -466,11 +468,11 @@ const UtilityVisualization: React.FC = () => {
                             />
                             <YAxis />
                             <Tooltip
-                              formatter={(value: number, name: string) =>
+                              formatter={numericTooltipFormatter((value: number, name: string) =>
                                 name.includes('Utility')
                                   ? formatNumber(value, 2)
                                   : formatPercentage(value)
-                              }
+                              )}
                             />
                             <Legend />
                             <Bar
@@ -578,11 +580,11 @@ const UtilityVisualization: React.FC = () => {
                             />
                             <YAxis />
                             <Tooltip
-                              formatter={(value: number, name: string) =>
+                              formatter={numericTooltipFormatter((value: number, name: string) =>
                                 name === t('simulation.utilityViz.avgUtilityLabel')
                                   ? formatNumber(value, 2)
                                   : value
-                              }
+                              )}
                             />
                             <Legend />
                             <Bar
@@ -629,7 +631,7 @@ const UtilityVisualization: React.FC = () => {
                               ))}
                             </Pie>
                             <Tooltip
-                              formatter={(value: number, _name: string, props: any) => {
+                              formatter={(value: unknown, _name: unknown, props: any) => {
                                 const segment = prepareVoterSegmentsData()[props.dataIndex];
                                 return segment
                                   ? [
@@ -854,7 +856,9 @@ const UtilityVisualization: React.FC = () => {
                                       <XAxis type="number" domain={[-0.5, 0.5]} />
                                       <YAxis dataKey="name" type="category" width={150} />
                                       <Tooltip
-                                        formatter={(value: number) => formatNumber(value, 3)}
+                                        formatter={numericTooltipFormatter((value: number) =>
+                                          formatNumber(value, 3)
+                                        )}
                                       />
                                       {data.map((item) => (
                                         <Bar

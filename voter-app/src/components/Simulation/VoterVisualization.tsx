@@ -21,6 +21,8 @@ import IssuePrioritiesVisualization from './IssuePrioritiesVisualization';
 import { Region, Income, PartySimu, Family, Ethnicity, Religion, Employement } from '../../types';
 import { useSimulation } from '../../stores/useSimuStore';
 
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+
 // Interface compatible avec Recharts
 interface ChartData {
   [key: string]: number | string;
@@ -70,7 +72,9 @@ const DemographicPieCard: React.FC<DemographicPieCardProps> = ({
                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
               ))}
             </Pie>
-            <Tooltip formatter={tooltipFormatter} />
+            <Tooltip
+              formatter={tooltipFormatter ? numericTooltipFormatter(tooltipFormatter) : undefined}
+            />
             <Legend />
           </PieChart>
         </ResponsiveContainer>
@@ -468,9 +472,9 @@ const VoterVisualization: React.FC = () => {
                     <XAxis dataKey="name" />
                     <YAxis />
                     <Tooltip
-                      formatter={(value: number) =>
-                        `${value} (${formatPercentage(value, voters.length)})`
-                      }
+                      formatter={numericTooltipFormatter(
+                        (value: number) => `${value} (${formatPercentage(value, voters.length)})`
+                      )}
                     />
                     <Legend />
                     <Bar dataKey="value">
@@ -498,9 +502,9 @@ const VoterVisualization: React.FC = () => {
                     <XAxis dataKey="name" />
                     <YAxis />
                     <Tooltip
-                      formatter={(value: number) =>
-                        `${value} (${formatPercentage(value, voters.length)})`
-                      }
+                      formatter={numericTooltipFormatter(
+                        (value: number) => `${value} (${formatPercentage(value, voters.length)})`
+                      )}
                     />
                     <Legend />
                     <Bar dataKey="value">
@@ -531,9 +535,9 @@ const VoterVisualization: React.FC = () => {
                     <XAxis dataKey="primary" />
                     <YAxis />
                     <Tooltip
-                      formatter={(value: number) =>
-                        `${value} (${formatPercentage(value, voters.length)})`
-                      }
+                      formatter={numericTooltipFormatter(
+                        (value: number) => `${value} (${formatPercentage(value, voters.length)})`
+                      )}
                     />
                     <Legend />
                     <Bar dataKey="count" fill="#1a56cc">
@@ -565,9 +569,9 @@ const VoterVisualization: React.FC = () => {
                     <XAxis dataKey="primary" />
                     <YAxis />
                     <Tooltip
-                      formatter={(value: number) =>
-                        `${value} (${formatPercentage(value, voters.length)})`
-                      }
+                      formatter={numericTooltipFormatter(
+                        (value: number) => `${value} (${formatPercentage(value, voters.length)})`
+                      )}
                     />
                     <Legend />
                     <Bar dataKey="count" fill="#1b5e20" name="Count">

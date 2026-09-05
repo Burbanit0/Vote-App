@@ -17,6 +17,8 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 
 import { useElection } from '../../stores/useElectionStore';
 import PinToCentralButton from './PinToCentralButton';
 
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+
 const DEBOUNCE_MS = 400;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -120,7 +122,7 @@ const ResultCard: React.FC<ResultCardProps> = ({
           <BarChart data={barData} margin={{ top: 0, right: 4, bottom: 0, left: 0 }}>
             <XAxis dataKey="name" tick={{ fontSize: 9 }} />
             <YAxis unit="%" domain={[0, 60]} tick={{ fontSize: 9 }} />
-            <Tooltip formatter={(v: number) => `${v}%`} />
+            <Tooltip formatter={numericTooltipFormatter((v: number) => `${v}%`)} />
             <Bar dataKey="share">
               {barData.map((entry, i) => (
                 <Cell key={i} fill={candColor(entry.name, candidateNames)} />
