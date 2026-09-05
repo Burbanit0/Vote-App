@@ -4,6 +4,16 @@ updates:
     directory: "/fast_api_voter"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 5
+    allow:
+      - dependency-type: "all"
+    labels:
+      - "security"
+      - "dependencies"
+      - "backend"
+    commit-message:
+      prefix: "fix"
+      include: "scope"
     cooldown:
       default-days: 7
 
@@ -11,6 +21,14 @@ updates:
     directory: "/voter-app"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "security"
+      - "dependencies"
+      - "frontend"
+    commit-message:
+      prefix: "fix"
+      include: "scope"
     cooldown:
       default-days: 7
 
@@ -20,5 +38,9 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    labels:
+      - "security"
+      - "dependencies"
+      - "ci"
     cooldown:
       default-days: 7
