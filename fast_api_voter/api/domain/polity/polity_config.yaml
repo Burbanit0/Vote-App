@@ -382,11 +382,16 @@ llm:
                               #      le facteur de charge est le nombre de
                               #      décisions PAR TICK, pas la population
                               #      v4 (vLLM switch) : VllmJsonClient est
-                              #      écrit et testé hors-ligne (llm_client.py),
-                              #      mais "ollama" reste le défaut — aucune
-                              #      vérification live n'a pu être faite
-                              #      (pas de GPU dans cet environnement),
-                              #      §15bis.5 n'a jamais tourné contre vLLM
+                              #      écrit et testé hors-ligne (llm_client.py).
+                              #      §15bis.5 vérifié live 2026-09-05 (PR #273,
+                              #      scripts/vllm_determinism_results.md) : B2
+                              #      (déterminisme) tient sous vLLM, y compris
+                              #      en concurrence — mais "ollama" reste le
+                              #      défaut, le basculement et la ré-
+                              #      vérification axe (b) (calibrations
+                              #      mesurées contre les poids Ollama non
+                              #      quantisés, pas l'AWQ de vLLM) restant des
+                              #      décisions séparées, non encore autorisées
                               # pour basculer :
                               #   1. base_url: "http://localhost:8000/v1"
                               #   2. docker compose -f docker-compose.llm.yml up
@@ -408,6 +413,11 @@ llm:
                               #   Sans ca : troncature silencieuse rare mais
                               #   reelle (finish_reason='length'), cf.
                               #   scripts/ollama_context_window_results.md
+                              #   -- lancer via `docker compose -f
+                              #   docker-compose.ollama.yml up -d` (2026-09-05:
+                              #   image et modele desormais epingles par
+                              #   version/digest dans ce fichier, plus un
+                              #   simple `docker run` non versionne)
   # base_url: "http://localhost:8000/v1"  # vllm
   base_url: "http://localhost:11434/v1"
   model: "qwen3:8b"           # [v2] version ÉPINGLÉE (jamais 'latest', cf. B2)

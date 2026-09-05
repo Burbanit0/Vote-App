@@ -1,0 +1,101 @@
+# docker-compose.ollama.yml — Ollama inference server (shipped default provider,
+# polity_config.yaml's llm.provider: ollama)
+#
+# Written 2026-09-05, retroactively: `ollama-polity` had been running since
+# before this file existed, launched by a bare `docker run` on this machine
+# only — image tag, GPU passthrough, env vars, and restart policy lived
+# nowhere in the repo. This file makes that launch config reproducible and
+# version-controlled, matching the rigor `docker-compose.llm.yml` already
+# applies to vLLM (a pinned version tag, not `latest`).
+#
+# Usage:
+#   docker compose -f docker-compose.ollama.yml up -d
+#   ollama pull qwen3:8b   # first time only; see the model-pinning note below
+#
+# ⚠ Image tag discipline: `ollama/ollama:latest` is what this container had
+# been running on (pulled 2026-09-03, resolved to 0.33.3 — the actual latest
+# stable release at the time, so no drift had occurred yet in practice). But
+# `latest` is a floating tag: the next `docker compose pull` silently takes
+# whatever is newest that day, with no record of what changed. Pinned here to
+# the exact version already running, so upgrading is a deliberate, reviewable
+# edit to this file, not a side effect of an unrelated `pull`/`up`.
+#
+# ⚠ Model pinning is a SEPARATE, weaker guarantee than the image's: `llm.model:
+# "qwen3:8b"` in polity_config.yaml is already "pinned" in the sense the
+# design doc means (never `:latest`), but `qwen3:8b` is itself a tag on
+# Ollama's library, not a content digest — it CAN be silently re-pointed to a
+# re-quantized build the same way `ollama/ollama:latest` could. vLLM's
+# equivalent config pins an actual HF commit SHA (`docker-compose.llm.yml`'s
+# `--revision`); Ollama's `ollama pull qwen3:8b` has no equivalent
+# by-digest-pull syntax. The closest available guarantee: record the digest
+# actually running and treat a mismatch as a signal to investigate, not
+# silently accept. Measured live 2026-09-05, `docker exec ollama-polity ollama
+# show qwen3:8b --modelfile` / `curl registry.ollama.ai/v2/library/qwen3/manifests/8b`:
+#   - weight blob:   sha256:a3de86cd1c132c822487ededd47a324c50491393e6565cd14bafa40d0b8e686f
+#   - manifest config: sha256:05a61d37b08453e59290add468e3bb2f688e23a01e967fecb0e2fa41218cea76
+#   - quantization: Q4_K_M, 8.2B params (registry and local blob matched exactly
+#     at measurement time — no drift had occurred yet in practice, same as the
+#     image tag above)
+# If a future `ollama pull qwen3:8b` ever produces a different digest, that is
+# a live-behavior-relevant event (every reliability calibration in this
+# codebase — chunk sizes, token budgets, the ranking-ambiguity fix — was
+# measured against these exact weights) and should be re-verified before
+# trusting the model unchanged, not assumed identical because the tag name
+# didn't change.
+#
+# OLLAMA_CONTEXT_LENGTH is load-bearing, not cosmetic: without it, `num_ctx`
+# per-request is silently ignored on the OpenAI-compatible endpoint that
+# think=True uses, causing rare but real silent truncation
+# (scripts/ollama_context_window_results.md). polity_config.yaml's own
+# provider comment already states this requirement; this file is what
+# actually enforces it now.
+#
+# ⚠ Don't run this alongside docker-compose.llm.yml (vLLM) on a single-GPU
+# box without checking `docker exec ollama-polity ollama ps` afterward.
+# Measured live 2026-09-05: starting Ollama while vLLM already held its
+# static ~13.8GB GPU reservation left Ollama only ~1GB free at model-load
+# time, and it silently placed 98% of layers on CPU instead of failing loud
+# -- `ollama ps`'s PROCESSOR column showed `98%/2% CPU/GPU`, and inference
+# still returned a normal-looking (just slow) response, so nothing else
+# surfaced the problem. Worse: Ollama does not re-evaluate that placement
+# once GPU memory frees up later (e.g. after stopping vLLM) -- the model has
+# to be explicitly unloaded (`ollama stop qwen3:8b`) and reloaded (a fresh
+# request) before it actually returns to `100% GPU`. `provider` is one of
+# `ollama`/`vllm` at a time in production; this only bites when both
+# containers happen to be up for testing, as they were here.
+
+services:
+  ollama:
+    image: ollama/ollama:0.33.3    # pinned 2026-09-05 to the version already
+                                    # running (see the module comment above) --
+                                    # bump deliberately, never via a bare pull
+    container_name: ollama-polity
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    environment:
+      OLLAMA_HOST: "0.0.0.0:11434"
+      OLLAMA_CONTEXT_LENGTH: "16384"  # required -- see module comment
+    volumes:
+      - ollama:/root/.ollama         # model blobs + manifests persist here;
+                                      # matches the pre-existing named volume
+                                      # (`ollama`) this container already used
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  ollama:
+    external: true   # already exists (pre-dates this file) -- don't let
+                      # `compose down -v` or a fresh `up` silently recreate
+                      # an empty one and orphan the real model data
