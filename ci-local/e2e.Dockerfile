@@ -5,7 +5,7 @@
 # mirrors this one too.
 #
 # Fidelity choices:
-#  - python:3.11 == actions/setup-python '3.11' (same base as backend.Dockerfile),
+#  - python:3.14 == actions/setup-python '3.14' (same base as backend.Dockerfile),
 #    plus Node 20 via NodeSource == actions/setup-node '20'. One image, because the
 #    workflow runs backend + frontend + browsers on ONE runner.
 #  - `npx playwright install --with-deps chromium firefox` — the exact CI step, so
@@ -16,7 +16,7 @@
 #    server (reuseExistingServer is off under CI).
 #
 # CI checks run as CMD, so `docker run` exits non-zero exactly when the PR would fail.
-FROM python:3.11-slim-bookworm
+FROM python:3.14-slim-bookworm
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONDONTWRITEBYTECODE=1 \

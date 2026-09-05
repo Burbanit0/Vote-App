@@ -66,7 +66,7 @@ database — so this is the full experience. Ctrl+C once stops both. Run a singl
 with `npm run dev:backend` or `npm run dev:frontend`.
 
 **Prerequisites:** [Node.js](https://nodejs.org/) 20+ and
-[Python](https://www.python.org/) 3.11+. [Docker](https://www.docker.com/) only if you
+[Python](https://www.python.org/) 3.14+. [Docker](https://www.docker.com/) only if you
 want the containerised stack below.
 
 ### Docker
