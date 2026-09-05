@@ -26,6 +26,8 @@ import LiveBadge from './LiveBadge';
 import PinToCentralButton from './PinToCentralButton';
 import CampaignSwimlane from './CampaignSwimlane';
 
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const SNAPSHOT_DAYS = [0, 7, 14, 21, 28, 'final'] as const;
@@ -99,7 +101,10 @@ const StabilityChart: React.FC<{
           />
           <Tooltip
             contentStyle={ct.tooltipStyle}
-            formatter={(v: number) => [`${Math.round(v * 100)}%`, t('campaign.stabilityScore')]}
+            formatter={numericTooltipFormatter((v: number) => [
+              `${Math.round(v * 100)}%`,
+              t('campaign.stabilityScore'),
+            ])}
           />
           <Bar dataKey="score" radius={[0, 4, 4, 0]} isAnimationActive>
             {data.map((entry) => (
@@ -163,7 +168,7 @@ const AgreementTimeline: React.FC<{
         <YAxis tick={{ fontSize: 10, fill: ct.tickFill }} domain={[0, 100]} unit="%" />
         <Tooltip
           contentStyle={ct.tooltipStyle}
-          formatter={(v: number) => [`${v}%`, t('divergence.agreement')]}
+          formatter={numericTooltipFormatter((v: number) => [`${v}%`, t('divergence.agreement')])}
           labelFormatter={(l) => `${t('campaign.day')} ${l}`}
         />
         <Area

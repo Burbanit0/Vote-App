@@ -12,6 +12,8 @@ import { Control, Range } from '@/components/ui/form-controls';
 import { Col, Row } from '@/components/ui/grid';
 import { Spinner } from '@/components/ui/spinner';
 import { Table } from '@/components/ui/table';
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+
 import {
   BarChart,
   Bar,
@@ -450,7 +452,7 @@ const IntergenerationalPanel: React.FC = () => {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" tick={{ fontSize: 9 }} />
                   <YAxis tick={{ fontSize: 10 }} unit="%" domain={[0, 100]} />
-                  <Tooltip formatter={(v: number) => `${v}%`} />
+                  <Tooltip formatter={numericTooltipFormatter((v: number) => `${v}%`)} />
                   <Legend wrapperStyle={{ fontSize: '0.7rem' }} />
                   <Bar dataKey="adoption" name={t('intergen.adoptionRate')} radius={[3, 3, 0, 0]}>
                     {comparisonChartData.map((pt, i) => (
@@ -479,7 +481,7 @@ const IntergenerationalPanel: React.FC = () => {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" tick={{ fontSize: 8 }} angle={-30} textAnchor="end" />
                   <YAxis tick={{ fontSize: 10 }} unit="%" domain={[0, 100]} />
-                  <Tooltip formatter={(v: number) => `${v}%`} />
+                  <Tooltip formatter={numericTooltipFormatter((v: number) => `${v}%`)} />
                   <Legend wrapperStyle={{ fontSize: '0.7rem' }} />
                   <Bar
                     dataKey="none_future"

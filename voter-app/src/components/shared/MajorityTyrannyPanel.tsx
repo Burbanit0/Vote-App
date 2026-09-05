@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/button';
 import { Control, Range } from '@/components/ui/form-controls';
 import { Col, Row } from '@/components/ui/grid';
 import { Spinner } from '@/components/ui/spinner';
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+
 import {
   RadarChart,
   Radar,
@@ -318,7 +320,9 @@ const MajorityTyrannyPanel: React.FC = () => {
                     tickFormatter={(v) => `${Math.round(v * 100)}%`}
                     tick={{ fontSize: 10 }}
                   />
-                  <Tooltip formatter={(v: number) => `${Math.round(v * 100)}%`} />
+                  <Tooltip
+                    formatter={numericTooltipFormatter((v: number) => `${Math.round(v * 100)}%`)}
+                  />
                   <Legend iconSize={10} wrapperStyle={{ fontSize: '0.72rem' }} />
                   {rules.map((r) => (
                     <Line

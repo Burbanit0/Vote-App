@@ -22,6 +22,8 @@ import { getVoteSteps, VoteStepsParams } from '../../services/simulationCompareA
 import { useChartTheme } from '../../hooks/useChartTheme';
 import { useAnimationBroadcast } from '../../stores/useLabStore';
 
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+
 // ── Palette ───────────────────────────────────────────────────────────────────
 
 const C = {
@@ -97,7 +99,10 @@ const IRVChart: React.FC<{
             tick={{ fontSize: 11, fill: ct.tickFill }}
             width={60}
           />
-          <Tooltip contentStyle={ct.tooltipStyle} formatter={(v: number) => [`${v}%`, '']} />
+          <Tooltip
+            contentStyle={ct.tooltipStyle}
+            formatter={numericTooltipFormatter((v: number) => [`${v}%`, ''])}
+          />
           <Bar dataKey="pct" radius={[0, 4, 4, 0]} isAnimationActive animationDuration={400}>
             <LabelList
               dataKey="pct"
@@ -155,7 +160,7 @@ const BordaChart: React.FC<{
           <YAxis domain={[0, maxTally * 1.1]} tick={{ fontSize: 10, fill: ct.tickFill }} />
           <Tooltip
             contentStyle={ct.tooltipStyle}
-            formatter={(v: number) => [v, t('animation.borda_total')]}
+            formatter={numericTooltipFormatter((v: number) => [v, t('animation.borda_total')])}
           />
           <Bar dataKey="points" radius={[4, 4, 0, 0]} isAnimationActive animationDuration={400}>
             <LabelList
@@ -216,7 +221,10 @@ const PluralityChart: React.FC<{
             tick={{ fontSize: 11, fill: ct.tickFill }}
             width={60}
           />
-          <Tooltip contentStyle={ct.tooltipStyle} formatter={(v: number) => [`${v}%`, '']} />
+          <Tooltip
+            contentStyle={ct.tooltipStyle}
+            formatter={numericTooltipFormatter((v: number) => [`${v}%`, ''])}
+          />
           <Bar dataKey="pct" radius={[0, 4, 4, 0]} isAnimationActive animationDuration={600}>
             <LabelList
               dataKey="pct"
@@ -378,7 +386,10 @@ const ApprovalChart: React.FC<{
           />
           <Tooltip
             contentStyle={ct.tooltipStyle}
-            formatter={(v: number) => [`${v}%`, t('animation.approval_rate')]}
+            formatter={numericTooltipFormatter((v: number) => [
+              `${v}%`,
+              t('animation.approval_rate'),
+            ])}
           />
           <Bar
             dataKey="pct"

@@ -21,6 +21,8 @@ import PinToCentralButton from './PinToCentralButton';
 import { $api } from '../../api/hooks';
 import type { AdaptiveResponse } from '../../api';
 
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 // Source of truth is the generated `AdaptiveResponse` (Phase 6 response_model).
 
@@ -354,10 +356,10 @@ const AdaptiveVotingPanel: React.FC = () => {
                     />
                     <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} unit="%" />
                     <Tooltip
-                      formatter={(v: number, name: string) => [
+                      formatter={numericTooltipFormatter((v: number, name: string) => [
                         `${v}%`,
                         name.replace('_sincere', ' (sincere)'),
-                      ]}
+                      ])}
                     />
                     <Legend wrapperStyle={{ fontSize: '0.75rem' }} />
                     <ReferenceLine

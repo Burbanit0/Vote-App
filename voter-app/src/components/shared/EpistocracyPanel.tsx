@@ -26,6 +26,8 @@ import {
 } from 'recharts';
 import PinToCentralButton from './PinToCentralButton';
 
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface SchemeResult {
@@ -519,7 +521,7 @@ const EpistocracyPanel: React.FC<EpistocracyLabProps> = ({
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" tick={{ fontSize: 9 }} />
                   <YAxis tick={{ fontSize: 10 }} unit="%" domain={[0, 100]} />
-                  <Tooltip formatter={(v: number) => `${v}%`} />
+                  <Tooltip formatter={numericTooltipFormatter((v: number) => `${v}%`)} />
                   <ReferenceLine
                     y={33}
                     stroke="#adb5bd"
@@ -578,7 +580,7 @@ const EpistocracyPanel: React.FC<EpistocracyLabProps> = ({
                       position: 'top',
                     }}
                   />
-                  <Tooltip formatter={(v: number) => `${v}%`} />
+                  <Tooltip formatter={numericTooltipFormatter((v: number) => `${v}%`)} />
                   <Line
                     type="monotone"
                     dataKey="acc"

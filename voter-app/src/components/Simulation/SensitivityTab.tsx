@@ -21,6 +21,8 @@ import { SensitivityResult } from '../../types';
 import { getSensitivityAnalysis } from '../../services/simulationCompareApi';
 import { CANDIDATE_PALETTE, METHOD_LABELS, METHOD_LINE_COLORS } from './simulationConstants';
 
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+
 const DEFAULT_VALUES: Record<string, string> = {
   ideology_distribution: 'random, centrist, polarized, left_skewed, right_skewed',
   num_voters: '100, 250, 500, 1000, 2000',
@@ -222,7 +224,11 @@ const SensitivityTab: React.FC<Props> = ({ baseConfig }) => {
                   interval={0}
                 />
                 <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(v: number) => (v !== null ? v.toFixed(4) : '—')} />
+                <Tooltip
+                  formatter={numericTooltipFormatter((v: number) =>
+                    v !== null ? v.toFixed(4) : '—'
+                  )}
+                />
                 <Legend verticalAlign="bottom" wrapperStyle={{ paddingTop: 10, fontSize: 10 }} />
                 {methodNames.map((method) => (
                   <Line

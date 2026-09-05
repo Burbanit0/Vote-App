@@ -27,6 +27,8 @@ import {
 } from 'recharts';
 import { useElection } from '../../stores/useElectionStore';
 import PinToCentralButton from './PinToCentralButton';
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+
 const DEBOUNCE_MS = 400;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -273,7 +275,7 @@ const BallotComplexityPanel: React.FC = () => {
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                 <XAxis type="number" unit="%" domain={[0, 'auto']} tick={{ fontSize: 10 }} />
                 <YAxis type="category" dataKey="method" tick={{ fontSize: 10 }} width={68} />
-                <Tooltip formatter={(v: number) => `${v}%`} />
+                <Tooltip formatter={numericTooltipFormatter((v: number) => `${v}%`)} />
                 <Bar dataKey="null_rate" name={t('ballot.nullRate')} radius={[0, 3, 3, 0]}>
                   {barData.map((entry, i) => (
                     <Cell key={i} fill={entry.fill} />
@@ -306,7 +308,7 @@ const BallotComplexityPanel: React.FC = () => {
                   }}
                 />
                 <YAxis unit="%" tick={{ fontSize: 10 }} />
-                <Tooltip formatter={(v: number) => `${v}%`} />
+                <Tooltip formatter={numericTooltipFormatter((v: number) => `${v}%`)} />
                 <Legend wrapperStyle={{ fontSize: 10 }} />
                 {methodKeys.map((m, i) => (
                   <Line

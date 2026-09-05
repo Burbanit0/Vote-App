@@ -23,6 +23,8 @@ import {
 import { MultiwinnerResult } from '../../types';
 import { getMultiwinner } from '../../services/simulationCompareApi';
 
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+
 // ── Constants ──────────────────────────────────────────────────────────────
 
 const METHOD_LABELS: Record<string, string> = {
@@ -278,10 +280,10 @@ const MultiwinnerAnalysis: React.FC = () => {
                     tick={{ fontSize: 11 }}
                   />
                   <Tooltip
-                    formatter={(value: number, name: string) => [
+                    formatter={numericTooltipFormatter((value: number, name: string) => [
                       `${value} seats (${pct(value, result.num_seats)})`,
                       name,
-                    ]}
+                    ])}
                   />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
                   {/* Proportional ideal reference lines per party */}

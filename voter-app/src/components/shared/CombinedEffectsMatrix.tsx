@@ -27,6 +27,8 @@ import { useChartTheme } from '../../hooks/useChartTheme';
 import LiveBadge from './LiveBadge';
 import MetricTooltip from './MetricTooltip';
 
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+
 // ── Colour helpers ────────────────────────────────────────────────────────────
 
 function agreementColor(rate: number): string {
@@ -216,10 +218,10 @@ const FactorBars: React.FC<{
         />
         <Tooltip
           contentStyle={ct.tooltipStyle}
-          formatter={(v: number) => [
+          formatter={numericTooltipFormatter((v: number) => [
             `${v > 0 ? '+' : ''}${v.toFixed(1)}%`,
             t('combined.agreementDelta'),
-          ]}
+          ])}
         />
         <Bar dataKey="delta" radius={[0, 4, 4, 0]} isAnimationActive>
           <LabelList

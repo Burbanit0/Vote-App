@@ -12,6 +12,8 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 
 import { $api } from '../../api/hooks';
 import type { HistoricalReplayResponse } from '../../api';
 
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 // Source of truth is the generated `HistoricalReplayResponse` (Phase 6 response_model).
 
@@ -408,7 +410,7 @@ const HistoricalReplay: React.FC = () => {
                   >
                     <XAxis type="number" domain={[0, 100]} unit="%" tick={{ fontSize: 9 }} />
                     <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={75} />
-                    <Tooltip formatter={(v: number) => `${v}%`} />
+                    <Tooltip formatter={numericTooltipFormatter((v: number) => `${v}%`)} />
                     <Bar dataKey="pct" radius={[0, 3, 3, 0]} isAnimationActive={false}>
                       {chartData.map((entry, i) => (
                         <Cell key={i} fill={candColor(entry.name, candidateNames)} />
