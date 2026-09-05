@@ -14,7 +14,7 @@ redis==5.2.1
 
 # ── Utilities ────────────────────────────────────────────────────────────────
 python-dotenv==1.2.3          # 1.2.2: GHSA-mf9w-mj56-hr94 (set_key symlink-follow)
-structlog==25.4.0              # JSON structured logging (api/engine/utils/logger.py)
+structlog==26.1.0              # JSON structured logging (api/engine/utils/logger.py)
 PyYAML==6.0.3                  # domain/polity/config.py — polity_config.yaml loader
 
 # ── Data / science (the simulation engine) ───────────────────────────────────
