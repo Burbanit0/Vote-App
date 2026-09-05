@@ -1,14 +1,14 @@
 # Local reproduction of the GitHub "Backend CI" job (.github/workflows/backend-ci-cd-pipeline.yml).
 #
 # Fidelity choices:
-#  - python:3.11 == actions/setup-python python-version '3.11' (exact interpreter).
+#  - python:3.14 == actions/setup-python python-version '3.14' (exact interpreter).
 #    Base distro is Debian (slim) rather than Ubuntu; irrelevant for pure-Python +
-#    manylinux wheels, and it guarantees the same 3.11.x the runner uses.
+#    manylinux wheels, and it guarantees the same 3.14.x the runner uses.
 #  - build-essential present so any sdist-only dep compiles (numpy/scipy ship wheels).
 #  - Installs BOTH requirements.txt and requirements-dev.txt (== the CI install step).
 #
 # CI checks run as CMD, so `docker run` exits non-zero exactly when the PR would fail.
-FROM python:3.11-slim-bookworm
+FROM python:3.14-slim-bookworm
 
 ENV PYTHONDONTWRITEBYTECODE=1 PIP_DISABLE_PIP_VERSION_CHECK=1
 RUN apt-get update \

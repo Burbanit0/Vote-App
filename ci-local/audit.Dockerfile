@@ -3,7 +3,7 @@
 # aren't in the lint/type/test pipelines (Semgrep, Gitleaks, Trivy) into one image,
 # the same way frontend/backend.Dockerfile bundle their checks. Mirrors
 # .github/workflows/audit.yml so failures surface locally before a push.
-FROM python:3.11-slim
+FROM python:3.14-slim
 
 ARG GITLEAKS_VERSION=8.18.4
 ARG TRIVY_VERSION=0.71.2
