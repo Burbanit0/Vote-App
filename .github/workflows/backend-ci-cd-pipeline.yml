@@ -1,25 +1,42 @@
 name: Backend CI
 
+# No top-level `paths:` filter (moved to the `changes` job below, on purpose):
+# this workflow is a required status check, and a required check scoped by
+# `paths:` at trigger level never even creates a check run on a PR that
+# doesn't touch those paths — which blocks that PR's merge FOREVER (a required
+# check that never reports can't be satisfied). That's exactly what happened
+# to PR #205 (a docs/CI-only change) before this workflow was added to
+# required checks. The workflow now always triggers; the real job is skipped
+# instead, which GitHub treats as a passing required check.
 on:
   push:
     branches: [develop, main]
-    paths:
-      - 'fast_api_voter/**'
-      # …and the pipeline definition itself: editing it must run it.
-      - '.github/workflows/backend-ci-cd-pipeline.yml'
   pull_request:
     branches: [develop, main]
-    paths:
-      - 'fast_api_voter/**'
-      # …and the pipeline definition itself: editing it must run it.
-      - '.github/workflows/backend-ci-cd-pipeline.yml'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Detect backend changes
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'fast_api_voter/**'
+              - '.github/workflows/backend-ci-cd-pipeline.yml'
+
   test:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     # Prefixed to disambiguate from Frontend CI's identically-named job: GitHub
     # matches required status checks on this literal name, and two check-runs
     # sharing one name are indistinguishable to branch protection.

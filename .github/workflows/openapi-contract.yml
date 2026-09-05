@@ -13,40 +13,51 @@ name: Generated Artifacts Contract
 #     winners, leaving the parity test green against a frozen snapshot while the
 #     two engines diverged. See scripts/check_engine_parity_drift.sh.
 
+# No top-level `paths:` filter (moved to the `changes` job below, on purpose):
+# this workflow is a required status check, and a required check scoped by
+# `paths:` at trigger level never even creates a check run on a PR that
+# doesn't touch those paths — which blocks that PR's merge FOREVER (a required
+# check that never reports can't be satisfied). That's exactly what happened
+# to PR #205 (a docs/CI-only change) before this workflow was added to
+# required checks. The workflow now always triggers; the real job is skipped
+# instead, which GitHub treats as a passing required check.
 on:
   push:
     branches: [main, develop]
-    paths:
-      - "fast_api_voter/api/**"
-      - "fast_api_voter/scripts/gen_openapi.py"
-      - "fast_api_voter/scripts/gen_engine_parity.py"
-      - "fast_api_voter/openapi.gen.json"
-      - "voter-app/src/api/types.gen.ts"
-      - "voter-app/src/lib/__fixtures__/**"
-      - "voter-app/package.json"
-      - "voter-app/package-lock.json"
-      - ".github/workflows/openapi-contract.yml"
-      - "scripts/check_*_drift.sh"
   pull_request:
     branches: [main, develop]
-    paths:
-      - "fast_api_voter/api/**"
-      - "fast_api_voter/scripts/gen_openapi.py"
-      - "fast_api_voter/scripts/gen_engine_parity.py"
-      - "fast_api_voter/openapi.gen.json"
-      - "voter-app/src/api/types.gen.ts"
-      - "voter-app/src/lib/__fixtures__/**"
-      - "voter-app/package.json"
-      - "voter-app/package-lock.json"
-      - ".github/workflows/openapi-contract.yml"
-      - "scripts/check_*_drift.sh"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Detect generated-artifact-relevant changes
+    runs-on: ubuntu-latest
+    outputs:
+      relevant: ${{ steps.filter.outputs.relevant }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          filters: |
+            relevant:
+              - "fast_api_voter/api/**"
+              - "fast_api_voter/scripts/gen_openapi.py"
+              - "fast_api_voter/scripts/gen_engine_parity.py"
+              - "fast_api_voter/openapi.gen.json"
+              - "voter-app/src/api/types.gen.ts"
+              - "voter-app/src/lib/__fixtures__/**"
+              - "voter-app/package.json"
+              - "voter-app/package-lock.json"
+              - ".github/workflows/openapi-contract.yml"
+              - "scripts/check_*_drift.sh"
+
   drift-check:
+    needs: changes
+    if: needs.changes.outputs.relevant == 'true'
     name: Generated artifacts in sync
     runs-on: ubuntu-latest
     steps:
