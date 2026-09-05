@@ -8,18 +8,19 @@ on:
   # ("exhaustive and slow"), which let the specs rot against a UI that had moved
   # on for two months without anyone noticing. The suite now runs in ~1 min, so
   # it belongs where the drift happens.
+  #
+  # No `paths:` filter here (moved to the `changes` job below, on purpose): this
+  # workflow is a required status check, and a required check scoped by `paths:`
+  # at trigger level never even creates a check run on a PR that doesn't touch
+  # those paths — which blocks that PR's merge FOREVER (a required check that
+  # never reports can't be satisfied). That's exactly what happened to PR #205
+  # (a docs/CI-only change) before this workflow was added to required checks.
+  # The workflow now always triggers; the real job is skipped instead, which
+  # GitHub treats as a passing required check.
   pull_request:
     branches: [develop, main]
-    paths:
-      - 'voter-app/**'
-      - 'fast_api_voter/**'
-      - '.github/workflows/e2e.yml'
   push:
     branches: [develop]
-    paths:
-      - 'voter-app/**'
-      - 'fast_api_voter/**'
-      - '.github/workflows/e2e.yml'
 
 # A newer push to the same branch cancels the previous e2e run.
 concurrency:
@@ -27,7 +28,32 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: Detect e2e-relevant changes
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    outputs:
+      relevant: ${{ steps.filter.outputs.relevant }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          filters: |
+            relevant:
+              - 'voter-app/**'
+              - 'fast_api_voter/**'
+              - '.github/workflows/e2e.yml'
+
   e2e:
+    needs: changes
+    # Always run for a manual dispatch or the release-gate call (no paths to
+    # filter on); otherwise only when the changes job found something relevant.
+    if: |
+      always() &&
+      (github.event_name == 'workflow_dispatch' ||
+       github.event_name == 'workflow_call' ||
+       needs.changes.outputs.relevant == 'true')
     name: Playwright E2E
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -79,6 +105,17 @@ jobs:
         working-directory: ./voter-app
 
       # ── Playwright ────────────────────────────────────────────────────────────
+      # Browser binaries keyed on package-lock.json, where the Playwright
+      # version is pinned — a version bump naturally invalidates the cache.
+      # `playwright install` still runs unconditionally below: it already
+      # skips re-downloading browsers present in this cache dir, but still
+      # needs to run apt for --with-deps' system libraries either way.
+      - name: Cache Playwright browsers
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('voter-app/package-lock.json') }}
+
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium firefox
         working-directory: ./voter-app
