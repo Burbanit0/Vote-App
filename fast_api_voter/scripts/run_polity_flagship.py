@@ -69,6 +69,7 @@ import argparse
 import dataclasses
 import json
 import logging
+import shutil
 import sys
 import time
 from collections import Counter
@@ -106,6 +107,25 @@ def _flagship_config(
         ),
         journal=dataclasses.replace(config.journal, output_dir=str(output_dir)),
         # --- full richness: every substantive mechanism on ---
+        # Two flags here are shipped `false` and are NOT merely defaults left
+        # alone -- both are implemented, consequential mechanisms, and the
+        # flagship is the run that is supposed to exercise them:
+        #   * candidacy.rupture_path_enabled -- the §2.4 rare path by which a
+        #     citizen declares against their own party. Without it the candidate
+        #     field is a flat one-nominee-per-party at every scale, which is also
+        #     why `max_candidates_hard_cap` can never bind and why Class B counts
+        #     zero rupture declarations (measured: polity_scale_gate_pop500_
+        #     results.md).
+        #   * institutions.blank_vote_competitive -- v4 Lot 9's live mechanism
+        #     letting a blank plurality invalidate a presidential election and
+        #     force a rerun with the previous field barred. It is bounded by
+        #     reelection_max_attempts=2, so it cannot loop.
+        # Deliberately still OFF: parties.birth_enabled/death_enabled, which are
+        # parsed but not implemented (parties.py's own module docstring), and
+        # social_graph.evolving / sortition_chamber.renewable, which load_config
+        # rejects outright as designs this codebase decided against.
+        candidacy=dataclasses.replace(config.candidacy, rupture_path_enabled=True),
+        institutions=dataclasses.replace(config.institutions, blank_vote_competitive=True),
         legitimacy=dataclasses.replace(config.legitimacy, enabled=True),
         mandate=dataclasses.replace(config.mandate, enabled=True),
         petition=dataclasses.replace(config.petition, enabled=True),
@@ -171,6 +191,8 @@ def _assert_coherent(config: PolityConfig) -> None:
         raise ValueError("pressure_menu.mobilization_enabled must match street_pressure.enabled")
     if config.sortition_chamber.enabled and config.sortition_chamber.seats > config.run.population_size:
         raise ValueError("sortition_chamber.seats must not exceed run.population_size")
+    if config.institutions.blank_vote_competitive and not config.institutions.blank_vote_enabled:
+        raise ValueError("institutions.blank_vote_competitive requires institutions.blank_vote_enabled")
 
 
 def _metrics_to_json(metrics: RunMetrics) -> dict[str, Any]:
@@ -247,6 +269,7 @@ def run_flagship(
     provider: str | None,
     workers: int,
     run_id: str | None,
+    force: bool = False,
 ) -> Path:
     config = _flagship_config(
         engine=engine,
@@ -264,6 +287,19 @@ def run_flagship(
     effective_provider = config.llm.provider if engine == "llm" else "none"
     run_id = run_id or f"flagship-{years}y-p{population}-{engine}"
     run_dir = output_dir / run_id
+    if run_dir.exists() and not force:
+        # Journal.__init__ opens events.jsonl in append mode, so a re-run into
+        # an existing run_id silently CONCATENATES two runs into one file --
+        # event_id restarts at 0 mid-file and every count downstream doubles.
+        # Every other runner here guards this; measured the hard way when this
+        # one did not (the Phase 5 scale gate reported 62 sortition rotations
+        # for a 30-year run that has 31).
+        raise FileExistsError(
+            f"{run_dir} already exists -- Journal appends rather than overwrites, so re-running "
+            "into it would concatenate two runs. Remove it, pass --run-id, or pass --force."
+        )
+    if run_dir.exists() and force:
+        shutil.rmtree(run_dir)
     run_dir.mkdir(parents=True, exist_ok=True)
     config = dataclasses.replace(
         config, journal=dataclasses.replace(config.journal, output_dir=str(run_dir / "run"))
@@ -358,6 +394,7 @@ def main(argv: list[str] | None = None) -> int:
         help="parallel.intra_run_workers; >1 is refused by the engine until the plan's Phase 2 lands",
     )
     parser.add_argument("--run-id", default=None)
+    parser.add_argument("--force", action="store_true", help="delete an existing run dir instead of refusing")
     parser.add_argument("--output-dir", type=Path, default=Path("scripts/flagship_runs"))
     args = parser.parse_args(argv)
 
@@ -372,6 +409,7 @@ def main(argv: list[str] | None = None) -> int:
         provider=args.provider,
         workers=args.workers,
         run_id=args.run_id,
+        force=args.force,
     )
     return 0
 

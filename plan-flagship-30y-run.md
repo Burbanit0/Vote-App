@@ -8,18 +8,25 @@
 >
 > **Status legend**: `TODO` · `IN PROGRESS` · `DONE` · `BLOCKED` · `DROPPED`
 
-**Overall status: Phase 0 IN PROGRESS** (last updated 2026-09-06)
+**Overall status: Phase 0 IN PROGRESS — blocked on a newly-found vLLM defect**
+(last updated 2026-09-06)
 
 | Phase | What | Status |
 |---|---|---|
-| 0 | Pre-flight: disk, provider switch, baseline timing | **IN PROGRESS** |
+| 0 | Pre-flight: disk, provider switch, baseline timing | **IN PROGRESS** — see Phase 0bis |
+| 0bis | **NEW**: the `vote_cast` retry is inert on vLLM | **BLOCKING** |
 | 1 | Re-test the 3 collapse-flagged decision types under vLLM | TODO |
 | 2 | Concurrency unlock + byte-identical determinism proof | TODO |
 | 3 | Checkpoint / resume | TODO |
 | 4 | Observability (`progress.json`) | TODO |
-| 5 | v3 scale gate at population 500 | TODO |
+| 5 | v3 scale gate at population 500 | **PARTLY DONE** — sortition + arity measured |
 | 6 | UI-ready output (`snapshots.py`, `viz_export.py`) | TODO |
 | 7 | The staged ramp and the flagship run | TODO |
+
+> **The plan survived contact with a real run for four minutes.** That is the
+> point of Phase 0 doing a real run first, and the two things it found are both
+> recorded below as their own phases rather than folded silently into the work:
+> Phase 0bis (a hard blocker) and a correction to Phase 5's cost assumption.
 
 ---
 
@@ -137,6 +144,67 @@ not ship on argument — it ships on the proof in Phase 2.**
 
 **Gate**: `run_metadata.json` records vllm provider + model; the 2-year run
 completes and its journal indexes cleanly via `index_run()`.
+
+## Phase 0bis — the `vote_cast` retry is inert on vLLM · **BLOCKING**
+
+Not in the original plan. Found by Phase 0's own first real LLM arm, which died
+4 minutes in, in tick 0's presidential election:
+
+    LlmResponseError: batch failed schema validation: 1 validation error for
+    VoteCastBatch decisions.0
+      Value error, blank=1 requires an empty ranking (§3.6.1 hard rule)
+
+The defect itself is old and documented — `cache_recycle_chunk_size_tension_
+findings.md` characterises `blank=1` + non-empty `ranking` as a **deterministic,
+per-voter-prompt** model error at temperature=0 — and it ships with a mitigation:
+`_VOTE_CAST_RETRY_TEMPERATURE = 0.3`, a deliberate, narrow exception to the
+temperature=0 rule, so a retry can *resample past* an answer an identical retry
+would only reproduce.
+
+**That mitigation is structurally inert on vLLM.** The crashed run's replay log
+shows cid 24 failing, being retried at 0.3, and returning byte-identical output
+(`blank=1`, `ranking=[4, 5, 1]`), then failing again the same way.
+
+Two independent causes, each measured separately rather than conflated:
+
+| Condition | Distinct outputs of 4 |
+|---|---|
+| temp 0.3, same seed (**what the retry does**) | 1 |
+| temp 0.3, different seeds | 1 — 0.3 is too peaked to escape |
+| temp 1.0, same seed | 1 — vLLM honours the pinned seed strictly |
+| temp 1.0, different seeds | 4 — sampling does work |
+
+`VllmJsonClient._complete_json` sends `"seed": self._seed`, the same value every
+time. So neither raising the temperature nor varying the seed would fix this
+alone; on this evidence both are needed.
+
+**Why it never surfaced on Ollama** is recorded in the mitigation's own document:
+*"temperature=0 + a pinned seed is not a reproducibility guarantee on this
+inference backend."* Ollama resamples whether asked to or not, so a retry there
+varies. vLLM's strict determinism — the property this project spent a week
+verifying, and the reason Phase 2's concurrency unlock is even possible — is
+precisely what makes the retry inert. The two are the same fact.
+
+This also means the shipped mitigation's validation was thinner than it looked:
+one clean confirmatory case (cid=7) and one inconclusive one, all on Ollama.
+
+**Reproduction**: `scripts/check_vllm_vote_cast_retry_is_inert.py`, driving the
+real production path (`build_system_prompt`/`build_user_prompt`,
+`VOTE_CAST_JSON_SCHEMA`, `decode_vote_batch`, the shipped budget and chunk-size-1
+shape) on the crashed run's own tick-0 world. It measures the base rate and the
+{temperature} x {seed} 2x2 on the voters that actually fail, so the fix is chosen
+from measurement rather than from the plausible half of the diagnosis.
+
+**Fix, once the 2x2 says which**: give `_complete_and_decode_with_replay` a
+per-attempt seed (mirroring the existing per-call `temperature` override) and/or
+raise `_VOTE_CAST_RETRY_TEMPERATURE`. Both clients pin a seed today, so the
+override needs to reach the request body in `VllmJsonClient` and
+`OllamaJsonClient` alike. Determinism cost is already accounted for: a run with
+`max_batch_replays > 0` is documented as not byte-reproducible, and Phases 2 and 3
+run their determinism proofs at `replays=0`.
+
+**Severity**: this is a hard blocker for the flagship. At the crashed run's own
+observed rate, a 30-year run at pop 500 would die in its first election.
 
 ## Phase 1 — Re-test the three collapse-flagged decision types under vLLM · TODO
 
