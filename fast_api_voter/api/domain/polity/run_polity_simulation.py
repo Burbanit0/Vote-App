@@ -107,7 +107,12 @@ from api.domain.polity.llm_behavior_engine import (
     menu_acts,
     resolve_ranking_cids,
 )
-from api.domain.polity.llm_client import LlmClientProtocol, build_json_client
+from api.domain.polity.llm_client import (
+    _RECYCLE_WARM_UP_MAX_TOKENS,
+    _RECYCLE_WARM_UP_USER_PROMPT,
+    LlmClientProtocol,
+    build_json_client,
+)
 from api.domain.polity.llm_schemas import PositionShift, PressureDecision, ReactionDecision
 from api.domain.polity.metrics import mobilization_rate
 from api.domain.polity.parties import Party, initialize_parties
@@ -188,14 +193,39 @@ def _warm_up_llm_client(client: LlmClientProtocol) -> None:
     any reason) is logged and swallowed, not allowed to abort a run over
     what is not itself part of the simulation -- and never journaled, for
     the same reason LLM replay attempts aren't (v4 Lot 8): this is about
-    the inference host, not the polity."""
+    the inference host, not the polity.
+
+    **Budget and prompt shape are shared with the recycle re-warm**
+    (`_RECYCLE_WARM_UP_USER_PROMPT`/`_RECYCLE_WARM_UP_MAX_TOKENS`), rather
+    than the `"{}"` stub at `max_tokens=32` this function used until
+    2026-09-06. Two independent reasons, neither speculative:
+
+    - Those constants' own docstrings record that the tiny stub was tested
+      and made a live 5-call sequence WORSE (2/5 vs baseline), which is why
+      the recycle path moved off it. Having two warm-up implementations
+      where the better-evidenced one runs only on recycle, and the one that
+      runs at the start of EVERY run is the shape already known to be worse,
+      was an inconsistency, not a design.
+    - Under vLLM the old budget did not merely underperform, it hard-failed:
+      32 tokens cannot hold a Qwen3 reasoning pass, so the think=True
+      warm-up returned finish_reason='length' on every run
+      (`LLM warm-up call (think=True) failed, continuing anyway`, observed
+      on the first real vLLM arm) and that endpoint was never warmed at all
+      -- silently defeating this function's entire purpose on exactly the
+      path it exists to protect.
+
+    What this does NOT claim: the cold-start determinism result quoted above
+    was measured on Ollama at the old budget. Changing the budget keeps the
+    procedure CONSISTENT (which is what §4 reproducibility actually needs,
+    per the paragraph above) but does not re-establish that result under
+    vLLM/AWQ, which would need its own forced-cold protocol."""
     for think in (True, False):
         try:
             client.complete_json(
                 system_prompt="Reply with the required JSON object.",
-                user_prompt="{}",
+                user_prompt=_RECYCLE_WARM_UP_USER_PROMPT,
                 json_schema=_WARM_UP_SCHEMA,
-                max_tokens=32,
+                max_tokens=_RECYCLE_WARM_UP_MAX_TOKENS,
                 think=think,
             )
         except Exception as exc:  # noqa: BLE001
