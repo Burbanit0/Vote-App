@@ -44,9 +44,23 @@ limiter = Limiter(
 )
 
 
-@limiter.limit("30/minute")
+@limiter.limit("120/minute")
 async def check_v2_rate_limit(request: Request) -> None:
     """FastAPI dependency form of `@limiter.limit` — see module docstring for
     why this isn't a decorator on each route handler directly. Add via
-    `APIRouter(..., dependencies=[Depends(check_v2_rate_limit)])`."""
+    `APIRouter(..., dependencies=[Depends(check_v2_rate_limit)])`.
+
+    120/minute (2/s), not the /api/v1-style 5-10/min: /api/v2/election's
+    `/profile-simulate` is a live, debounced call fired from a `useEffect` on
+    every Playground config change (usePlaygroundData.ts), not an explicit
+    "run" action — a first cut at 30/minute measurably flaked
+    playground-strategy.spec.ts in CI (two Playwright browser projects x 25
+    playground e2e tests, each triggering it on interaction, comfortably
+    clears 30/min on one shared per-path bucket well before any single test
+    even runs). 120/min still bounds genuine abuse — a real attacker sending
+    hundreds of requests/second is unaffected by the difference between 30
+    and 120 — while giving interactive, debounced UI traffic (and the test
+    suite that exercises it) the same order-of-magnitude headroom the
+    endpoint already had with no limit at all.
+    """
     return None
