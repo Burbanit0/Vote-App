@@ -44,3 +44,41 @@ updates:
       - "ci"
     cooldown:
       default-days: 7
+
+  # Dependabot's docker ecosystem only scans files literally named `Dockerfile`
+  # (one entry per directory covers every Dockerfile in it — no glob support) —
+  # ci-local/*.Dockerfile are excluded for that reason, not by choice.
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "security"
+      - "dependencies"
+      - "docker"
+    cooldown:
+      default-days: 7
+
+  - package-ecosystem: "docker"
+    directory: "/fast_api_voter"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "security"
+      - "dependencies"
+      - "docker"
+      - "backend"
+    cooldown:
+      default-days: 7
+
+  - package-ecosystem: "docker"
+    directory: "/voter-app"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "security"
+      - "dependencies"
+      - "docker"
+      - "frontend"
+    cooldown:
+      default-days: 7

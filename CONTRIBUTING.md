@@ -134,10 +134,10 @@ déjà documenté pour les checks scopés par `paths:`).
 
 ---
 
-## Carte des 11 workflows CI
+## Carte des 10 workflows CI
 
-11 fichiers dans `.github/workflows/` — sans une table à jour ici, la seule
-source de vérité redevient "lire les 11 YAML". Si vous changez un déclencheur
+10 fichiers dans `.github/workflows/` — sans une table à jour ici, la seule
+source de vérité redevient "lire les 10 YAML". Si vous changez un déclencheur
 ou un gate, mettez cette table à jour dans la même PR.
 
 | Workflow | Déclencheur | Gate quand il tourne ? | Check requis (branch protection `develop`) ? | Durée typique |
@@ -145,14 +145,22 @@ ou un gate, mettez cette table à jour dans la même PR.
 | `backend-ci-cd-pipeline.yml` (Backend CI) | push/PR sur `develop`/`main`, toujours (le filtre `paths` vit maintenant dans un job `changes` interne, pas au niveau du déclencheur) | Oui, quand `fast_api_voter/**` a changé — sinon le job `test` est `skipped` | Oui | ~12-14 min (skip quasi instantané sinon) |
 | `frontend-ci-cd-pipeline.yml` (Frontend CI) | push/PR sur `develop`/`main`, toujours (même schéma `changes`) | Oui, quand `voter-app/**` a changé — sinon `skipped` | Oui | ~2-3 min (skip quasi instantané sinon) |
 | `e2e.yml` (E2E Tests) | push/PR + `workflow_dispatch` + `workflow_call` (depuis `release.yml`), toujours (même schéma `changes` ; dispatch/call ignorent le filtre) | Oui, quand `voter-app/**`/`fast_api_voter/**` a changé, ou toujours pour dispatch/call — sinon `skipped` | Oui | ~5-7 min (peut aller jusqu'au timeout de 25 min si une régression casse plusieurs specs en cascade) |
-| `branch-policy.yml` (Branch Policy) | PR | Oui, y compris le format du titre (Conventional Commits — plus un simple avertissement) | Oui | ~10-30 s |
-| `merge-to-main.yml` (Check Merge Source) | `pull_request_target` vers `main` (opened/reopened/synchronize/edited) | Oui — bloque toute PR vers `main` dont la source n'est pas `develop` | N/A (protège `main`, pas `develop`) | ~10 s |
+| `branch-policy.yml` (Branch Policy) | PR | Oui, y compris le format du titre (Conventional Commits — plus un simple avertissement) et la source pour les PR vers `main` (`Check source is develop`) | Oui | ~10-30 s |
 | `openapi-contract.yml` (Generated Artifacts Contract) | push/PR, toujours (même schéma `changes`) | Oui, quand un fichier du contrat a changé — sinon `skipped` | Oui | ~1 min (skip quasi instantané sinon) |
 | `dependency-review.yml` (Dependency Review) | PR sur `develop`/`main` | Oui — sévérité `high`+ introduite par la PR | Oui | ~15-30 s |
 | `audit.yml` (Security Audit) | push/PR + cron lundi 06:00 UTC + `merge_group` | Semgrep/Trivy/Secret Scan : oui · CodeQL : le job doit terminer mais ne bloque pas sur ses trouvailles (elles atterrissent dans l'onglet Security) · code mort/duplication/complexité (vulture/radon/knip/jscpd) : non-bloquant sauf régression du cliquet (`quality-baseline.json`) | Oui (les 4 jobs gating + les 2 jobs CodeQL du matrix) | ~2-3 min (le run cron est indépendant d'une PR) |
 | `mutation-testing.yml` (Mutation Testing) | push sur `develop` (paths engine uniquement) + `workflow_dispatch` + cron lundi 04:17 UTC | Non — jamais bloquant | Non — ne se déclenche jamais sur PR | mutmut ~40 min-3h · Stryker jusqu'à ~2h30 en cold-cache (`timeout-minutes: 240`), moins avec le cache `--incremental` une fois chaud |
 | `release.yml` (🚀 Release Vote Lab) | `workflow_dispatch` uniquement | N/A — pas de PR, gate lui-même sur CI+E2E avant de taguer `main` | N/A | dépend de `ci-frontend`/`ci-backend`/`e2e` + publication |
 | `scorecard.yml` (OpenSSF Scorecard) | push `develop` + cron mardi 07:30 UTC + changement de règle de protection + `workflow_dispatch` | Non — score publié dans l'onglet Security, jamais bloquant | Non | ~1-2 min |
+
+**`merge-to-main.yml` (Check Merge Source) a été supprimé** : son unique
+vérification ("seule `develop` peut merger dans `main`") faisait double emploi
+avec l'étape `Check source is develop (PRs to main)` de `branch-policy.yml`
+ci-dessus — mais sous `pull_request_target` plutôt que le `pull_request` plus
+sûr utilisé par `branch-policy.yml`, sans bloc `permissions:`. Son job
+(`check-branch`) n'était pas dans la liste des checks requis de `develop`, et
+`main` elle-même n'a pas de protection de branche configurée — suppression
+sans impact sur `scripts/setup-branch-protection.sh`.
 
 **Comment Backend/Frontend CI, E2E et OpenAPI Contract sont devenus des checks
 requis malgré leur portée `paths`** : les quatre étaient auparavant scopés par
