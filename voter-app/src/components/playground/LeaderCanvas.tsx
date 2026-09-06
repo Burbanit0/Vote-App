@@ -16,7 +16,7 @@ import {
   type WinRegion,
 } from '../../lib/playgroundVoting';
 import { useVotingLabels } from '../../hooks/useVotingLabels';
-import { makeSvgToDomain } from '../../hooks/useDragTouch';
+import { makeSvgToDomain, arrowKeyNudge } from '../../hooks/useDragTouch';
 import LeaderScene3D from './LeaderScene3D';
 import WinnerRobustness from './WinnerRobustness';
 import MethodReplayModal from './MethodReplayModal';
@@ -381,7 +381,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
       <svg
         ref={svgRef}
         viewBox={`0 0 ${SVG} ${SVG}`}
-        role="img"
+        role="group"
         aria-label={t('canvas.svgAria')}
         className="mx-auto block w-full touch-none select-none rounded-lg bg-card"
         style={{ maxWidth: 460, maxHeight: '52vh', display: show3d ? 'none' : undefined }}
@@ -546,6 +546,9 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
               <g
                 key={`${cand.name}-${i}`}
                 data-testid={`candidate-${i}`}
+                tabIndex={0}
+                role="button"
+                aria-label={t('canvas.candidateAria', { name: cand.name })}
                 style={{ cursor: 'grab' }}
                 onMouseDown={(e) => {
                   e.preventDefault();
@@ -553,6 +556,11 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
                 }}
                 onTouchStart={() => {
                   draggingIdx.current = i;
+                }}
+                onKeyDown={(e) => {
+                  arrowKeyNudge(e, cand, (nx, ny) => {
+                    onMoveCandidate(i, nx, dims === 1 ? 0 : ny);
+                  });
                 }}
               >
                 {dims === 3 && (cand.z ?? 0) !== 0 && (
