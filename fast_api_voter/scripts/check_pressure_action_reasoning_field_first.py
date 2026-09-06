@@ -284,7 +284,7 @@ def main() -> int:
     should_not_cases = [v for v in per_citizen.values() if not v["expected_act"]]
     should_act_rate = sum(v["agree"] for v in should_act_cases) / len(should_act_cases) if should_act_cases else float("nan")
     should_not_rate = sum(v["agree"] for v in should_not_cases) / len(should_not_cases) if should_not_cases else float("nan")
-    print(f"\nclass breakdown (the informative subset is 'should act', not the pooled rate):")
+    print("\nclass breakdown (the informative subset is 'should act', not the pooled rate):")
     print(f"  should-act (ratio>1.5):     {sum(v['agree'] for v in should_act_cases)}/{len(should_act_cases)} ({should_act_rate:.1%})")
     print(f"  should-not-act (ratio<0.5): {sum(v['agree'] for v in should_not_cases)}/{len(should_not_cases)} ({should_not_rate:.1%})")
 
