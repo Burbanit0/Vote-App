@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RULE_LABELS, type Rule } from '../lib/playgroundVoting';
 import { MANIP_COMPLEXITY } from '../lib/scorecard';
@@ -38,34 +39,41 @@ export function useVotingLabels() {
   const { t } = useTranslation('playground');
   const { plainLanguage } = usePlainLanguage();
 
-  // Plain-language mode swaps the technical method name for a plain one, but only
-  // where a plain label exists (bounded set) — otherwise it keeps the real term.
-  const ruleLabels = Object.fromEntries(
-    (Object.keys(RULE_LABELS) as Rule[]).map((r) => [
-      r,
-      plainLanguage ? t(`rulesPlain.${r}`, { defaultValue: t(`rules.${r}`) }) : t(`rules.${r}`),
-    ])
-  ) as Record<Rule, string>;
+  // Memoized on [t, plainLanguage] (t's reference only changes when the active
+  // language does) — every field here was a fresh object/array literal on every
+  // render otherwise, which defeated memoization in every consumer downstream
+  // (PlaygroundController's context value chief among them: axisMeta/
+  // structureLabels flow straight into its own useMemo dependency list).
+  return useMemo(() => {
+    // Plain-language mode swaps the technical method name for a plain one, but
+    // only where a plain label exists (bounded set) — otherwise keeps the real term.
+    const ruleLabels = Object.fromEntries(
+      (Object.keys(RULE_LABELS) as Rule[]).map((r) => [
+        r,
+        plainLanguage ? t(`rulesPlain.${r}`, { defaultValue: t(`rules.${r}`) }) : t(`rules.${r}`),
+      ])
+    ) as Record<Rule, string>;
 
-  const structureLabels = Object.fromEntries(
-    STRUCTURE_KEYS.map((s) => [s, t(`structures.${s}`)])
-  ) as Record<string, string>;
+    const structureLabels = Object.fromEntries(
+      STRUCTURE_KEYS.map((s) => [s, t(`structures.${s}`)])
+    ) as Record<string, string>;
 
-  const manipComplexity = Object.fromEntries(
-    (Object.keys(MANIP_COMPLEXITY) as Rule[]).map((r) => [
-      r,
-      { hard: MANIP_COMPLEXITY[r].hard, label: t(`manip.${r}.label`), ref: t(`manip.${r}.ref`) },
-    ])
-  ) as Record<Rule, { hard: boolean; label: string; ref: string }>;
+    const manipComplexity = Object.fromEntries(
+      (Object.keys(MANIP_COMPLEXITY) as Rule[]).map((r) => [
+        r,
+        { hard: MANIP_COMPLEXITY[r].hard, label: t(`manip.${r}.label`), ref: t(`manip.${r}.ref`) },
+      ])
+    ) as Record<Rule, { hard: boolean; label: string; ref: string }>;
 
-  const axisMetaOf = (keys: readonly string[]): AxisMeta[] =>
-    keys.map((key) => ({ key, label: t(`axes.${key}.label`), hint: t(`axes.${key}.hint`) }));
+    const axisMetaOf = (keys: readonly string[]): AxisMeta[] =>
+      keys.map((key) => ({ key, label: t(`axes.${key}.label`), hint: t(`axes.${key}.hint`) }));
 
-  return {
-    ruleLabels,
-    structureLabels,
-    manipComplexity,
-    leaderAxisMeta: axisMetaOf(LEADER_AXIS_KEYS),
-    parliamentAxisMeta: axisMetaOf(PARLIAMENT_AXIS_KEYS),
-  };
+    return {
+      ruleLabels,
+      structureLabels,
+      manipComplexity,
+      leaderAxisMeta: axisMetaOf(LEADER_AXIS_KEYS),
+      parliamentAxisMeta: axisMetaOf(PARLIAMENT_AXIS_KEYS),
+    };
+  }, [t, plainLanguage]);
 }
