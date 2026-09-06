@@ -26,15 +26,18 @@ from typing import Any
 
 import socketio
 
+from api.core.config import get_settings
 from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.simulation_metrics      import compare_all_methods_mc
 from api.engine.utils.simulation_voting_utils import create_candidate, create_voter
 
 
 # ── Single AsyncServer for the v2 backend ──────────────────────────────────
+# Mirrors the HTTP CORS setup in api/main.py — same CORS_ORIGINS env var,
+# instead of the wildcard this used to carry.
 sio = socketio.AsyncServer(
     async_mode="asgi",
-    cors_allowed_origins="*",   # tighten in main.py once CORS settings flow in
+    cors_allowed_origins=get_settings().allowed_origins,
 )
 
 
