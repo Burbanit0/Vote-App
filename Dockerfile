@@ -11,7 +11,7 @@
 # ──────────────────────────────────────────────────────────────────────────────
 
 # ── Stage 1: frontend build (Vite → /voter-app/build) ───────────────────────
-FROM node:22-slim AS frontend
+FROM node:26-slim AS frontend
 WORKDIR /voter-app
 COPY voter-app/package.json ./
 RUN npm install
