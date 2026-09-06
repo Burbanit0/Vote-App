@@ -1,5 +1,5 @@
 # Vote Lab backend — FastAPI (ASGI), served by uvicorn. Dev image.
-FROM python:3.11-slim
+FROM python:3.14-slim-bookworm
 
 WORKDIR /app
 
