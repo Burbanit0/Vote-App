@@ -397,6 +397,27 @@ Options à évaluer (non tranchées ici) :
 décision — impact sur la reproductibilité à mesurer explicitement,
 pas supposé.
 
+**Résolu 2026-09-05 — scoping tranché sans toucher `sort_keys`** :
+sur les trois options ci-dessus, seul le renommage de clé (`a_reasoning`)
+ne touche pas le code partagé — vérifié directement contre le corps de
+requête réel de `llm_client.py` (`sort_keys=True` place bien `a_reasoning`
+avant `act`/`cid`/`motif`). Les deux autres options restent hors de
+portée : elles exigeraient de modifier `sort_keys` lui-même, ce que ce
+document interdit explicitement pour cette seule remédiation.
+
+**Test live exécuté** (`scripts/check_pressure_action_reasoning_field_first.py`,
+résultats complets dans `check_pressure_action_reasoning_field_first_results.md`) :
+mécanisme confirmé en direct (70/70 réponses brutes avec `a_reasoning` avant
+`act`), raisonnement non content-blind (70 chaînes distinctes) — mais le
+taux global de 81,4% est un artefact de déséquilibre de classe identique à
+celui déjà nommé en §2.3 : 100% sur les 53 cas triviaux « ne devrait pas
+agir », seulement 23,5% (4/17) sur le seul sous-ensemble informatif « devrait
+agir ». **Phase 4 échoue** sur le sous-ensemble qui compte réellement — 3ème
+issue pré-enregistrée de `plan-pressure-action-remediation.md` §3.4 (le
+raisonnement varie mais la traduction en décision collapse quand même), pas
+la 1ère (mécanisme validé). Aucune piste supplémentaire identifiée par ce
+plan ne reste ouverte.
+
 ---
 
 ## 5. Ce que ce plan ne fait pas

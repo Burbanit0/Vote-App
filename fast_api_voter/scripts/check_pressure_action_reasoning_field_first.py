@@ -7,6 +7,24 @@ motivated by any external citation with specific figures (deliberately not cited
 plan doc's own §3.4 for why) -- motivated purely by its own mechanical distinction from two
 already-tried, already-failed related paths:
 
+PRE-REGISTRATION UPDATE (2026-09-05, before this run): the first attempt at this exact test
+(2026-08-30) never exercised its own hypothesis. `llm_client.py`'s `json.dumps(body,
+sort_keys=True, ...)` alphabetizes the ENTIRE request body, including the schema passed in
+`format` -- regardless of Pydantic field declaration order, the wire schema's properties come out
+alphabetically sorted, and the raw generated JSON confirmed `act` was emitted BEFORE `reasoning`
+(plan-pressure-action-remediation.md §3.4, "BLOQUÉ" note). That plan doc also explicitly forecloses
+touching `sort_keys` itself for this remediation alone -- it protects byte-for-byte request
+reproducibility for every decision type, and reopening it needs its own separate scoping, not a
+local workaround here.
+
+Fix applied here, scoped to this standalone test schema only (the real `PressureDecision` is
+untouched): the field is renamed `a_reasoning` -- `'a_reasoning' < 'act' < 'cid' < 'motif'`
+alphabetically (verified: `sorted(['act','cid','motif','a_reasoning'])` puts `a_reasoning` first),
+so it now sorts and generates BEFORE act/cid/motif under the identical `sort_keys=True` mechanism,
+with zero change to `llm_client.py`'s shared serialization. This is the option
+plan-pressure-action-resolution.md's own §4 flagged as "by far the least costly" among the three
+it named, and the only one that doesn't touch code shared by every decision type.
+
   1. think=True forced (reasoning_budget_and_decision_quality_findings.md): a FULL, UNCONSTRAINED
      reasoning block before the entire JSON, produced ZERO visible <think> content and collapsed
      to a fixed default (act=4/motif=305) -- a different code path (separate block, not grammar-
@@ -36,6 +54,7 @@ Usage:
 """
 from __future__ import annotations
 
+import dataclasses
 import json
 import sys
 from pathlib import Path
@@ -61,14 +80,18 @@ _ACT_NAMES = {0: "NOTHING", 1: "SIGN_PETITION", 2: "LAUNCH_PETITION", 3: "MOBILI
 
 
 class ReasoningPressureDecision(BaseModel):
-    """Field declaration order (cid, reasoning, act, motif) is the whole point of this test --
-    reasoning is generated BEFORE act/motif under Ollama's grammar-constrained decoding, unlike
-    PressureDecision's own real schema, which asks for act/motif with no reasoning field at all."""
+    """The wire field name `a_reasoning` (not `reasoning`) is the whole point of this test, not a
+    typo -- see this module's PRE-REGISTRATION UPDATE. `llm_client.py` alphabetizes the entire
+    request body including the schema (`sort_keys=True`), so Pydantic's own declaration order
+    below is NOT what the model actually receives; only the wire key's alphabetical position
+    controls generation order under grammar-constrained decoding. `a_reasoning` sorts (and is
+    therefore generated) BEFORE act/cid/motif; PressureDecision's own real schema, untouched by
+    this test, has no reasoning field at all."""
 
     model_config = ConfigDict(extra="forbid")
 
     cid: int = Field(..., ge=0, description="citizen_id of the consulted citizen this decision belongs to.")
-    reasoning: str = Field(
+    a_reasoning: str = Field(
         ..., min_length=1, max_length=400,
         description="Courte justification (1-2 phrases) AVANT de choisir l'acte, basee sur ctx.self_gap et ctx.mandate_dev.",
     )
@@ -116,7 +139,7 @@ def build_reasoning_first_system_prompt(config: PolityConfig, target: int) -> st
         "(pressure_action), decide son action envers l'elu cible, en te "
         "basant sur son propre ecart de mecontentement (ctx) et le menu "
         "constitutionnel actif.\n"
-        "IMPORTANT : remplis d'abord le champ reasoning avec une courte "
+        "IMPORTANT : remplis d'abord le champ a_reasoning avec une courte "
         "justification (1-2 phrases) basee sur ctx.self_gap et "
         "ctx.mandate_dev, AVANT de choisir act et motif.\n"
         f"CONTRAINTE ABSOLUE : le champ act de CHAQUE decision doit valoir "
@@ -176,7 +199,17 @@ def _harvest_unambiguous_citizens(config: PolityConfig) -> tuple[Citizen, list[t
 
 
 def main() -> int:
-    config = load_config()
+    # electoral_only=True (the shipped default) forbids acting codes 1/2/3 entirely -- exactly the
+    # trap that corrupted 18 of 20 earlier pressure_action diagnostics into measuring a forbidden
+    # act, not a behavior (see check_pressure_action_open_menu_baseline.py / the retraction memory).
+    # This test is specifically about the act/no-act decision, so the menu must be open.
+    shipped = load_config()
+    config = dataclasses.replace(
+        shipped,
+        pressure_menu=dataclasses.replace(
+            shipped.pressure_menu, electoral_only=False, petition_enabled=True, mobilization_enabled=True,
+        ),
+    )
     holder, cases = _harvest_unambiguous_citizens(config)
     print(f"harvested {len(cases)} unambiguous citizens (population_size={_POPULATION_SIZE}, holder=cid{holder.citizen_id})")
     if len(cases) < 60:
@@ -186,6 +219,8 @@ def main() -> int:
     per_citizen: dict[int, dict] = {}
     correct = 0
     failures = 0
+    order_confirmed = 0
+    order_violated = 0
     with OllamaJsonClient.from_config(config.llm, seed=config.run.seed) as client:
         for citizen, gap, expected_act in cases:
             user_prompt = build_reasoning_first_user_prompt(
@@ -199,6 +234,17 @@ def main() -> int:
                     max_tokens=compute_max_tokens(1) + 300,  # headroom for the reasoning field itself
                     think=False,
                 )
+                # The exact check that caught 2026-08-30's attempt exercising nothing: inspect the
+                # RAW generated JSON's key order directly, never assume it from schema declaration
+                # order or from theory. This is the mechanism the whole test hinges on.
+                stripped = _THINK_TAG_RE.sub("", raw).strip()
+                reasoning_pos = stripped.find('"a_reasoning"')
+                act_pos = stripped.find('"act"')
+                if reasoning_pos == -1 or act_pos == -1 or reasoning_pos < act_pos:
+                    order_confirmed += 1
+                else:
+                    order_violated += 1
+                    print(f"  cid={citizen.citizen_id} ORDER VIOLATION: 'act' appeared before 'a_reasoning' in the raw response")
                 decision = decode_reasoning_pressure_batch(raw, [citizen.citizen_id])[0]
                 actual_act = decision.act in _ACTING_CODES
                 agree = actual_act == expected_act
@@ -206,10 +252,10 @@ def main() -> int:
                 per_citizen[citizen.citizen_id] = {
                     "self_gap": gap, "blank_threshold": citizen.blank_threshold,
                     "expected_act": expected_act, "act": decision.act, "agree": agree,
-                    "reasoning": decision.reasoning,
+                    "reasoning": decision.a_reasoning,
                 }
                 print(f"  cid={citizen.citizen_id} expected={expected_act} act={decision.act} ({_ACT_NAMES[decision.act]}) {'AGREE' if agree else 'DISAGREE'}")
-                print(f"    reasoning: {decision.reasoning!r}")
+                print(f"    reasoning: {decision.a_reasoning!r}")
             except Exception as exc:  # noqa: BLE001 -- count failures, keep testing the rest
                 failures += 1
                 print(f"  cid={citizen.citizen_id} FAILED: {exc}")
@@ -225,11 +271,30 @@ def main() -> int:
     print(f"checked: {checked}/{len(cases)} ({failures} decode failures)")
     print(f"agreement with deterministic proxy (act-vs-no-act): {correct}/{checked} ({rate:.1%})")
     print(f"pre-registered success threshold: >= {_SUCCESS_THRESHOLD:.0%}")
+    print(f"raw-response order check (a_reasoning before act): {order_confirmed} confirmed, {order_violated} violated")
 
     distinct_reasonings = {v["reasoning"] for v in per_citizen.values()}
     print(f"\ndistinct reasoning strings across {len(per_citizen)} decoded cases: {len(distinct_reasonings)}")
 
+    # The overall rate is a KNOWN trap in this exact investigation (plan-pressure-action-
+    # resolution.md §2.3: "the apparent 75.7% pass was a base-rate artifact from class imbalance").
+    # The harvested cases are dominated by the ratio<0.5 "should NOT act" bucket -- report the two
+    # classes separately, never trust the pooled rate alone.
+    should_act_cases = [v for v in per_citizen.values() if v["expected_act"]]
+    should_not_cases = [v for v in per_citizen.values() if not v["expected_act"]]
+    should_act_rate = sum(v["agree"] for v in should_act_cases) / len(should_act_cases) if should_act_cases else float("nan")
+    should_not_rate = sum(v["agree"] for v in should_not_cases) / len(should_not_cases) if should_not_cases else float("nan")
+    print("\nclass breakdown (the informative subset is 'should act', not the pooled rate):")
+    print(f"  should-act (ratio>1.5):     {sum(v['agree'] for v in should_act_cases)}/{len(should_act_cases)} ({should_act_rate:.1%})")
+    print(f"  should-not-act (ratio<0.5): {sum(v['agree'] for v in should_not_cases)}/{len(should_not_cases)} ({should_not_rate:.1%})")
+
     print("\n--- verdict ---")
+    if order_violated > 0:
+        print(
+            f"{order_violated} case(s) generated 'act' before 'a_reasoning' despite the rename -- "
+            "this run exercised the mechanism only partially, same class of problem as 2026-08-30's "
+            "attempt. Do not trust the agreement rate below without investigating this first."
+        )
     if checked == 0:
         print("No usable results -- cannot conclude.")
     elif len(distinct_reasonings) <= max(1, len(per_citizen) // 10):
@@ -238,9 +303,21 @@ def main() -> int:
             "-> the reasoning field itself is content-blind, the same failure already found in §3.2's "
             "free-text articulation, now confirmed under grammar-constrained schema decoding too."
         )
+    elif should_act_rate < _SUCCESS_THRESHOLD:
+        print(
+            f"FAILS on the informative subset: only {should_act_rate:.1%} of should-act cases agree "
+            f"(vs {should_not_rate:.1%} on should-not-act, and {rate:.1%} pooled) -- the pooled rate "
+            f"clearing {_SUCCESS_THRESHOLD:.0%} is a base-rate artifact from class imbalance "
+            f"({len(should_not_cases)}/{checked} cases are the trivial should-not-act majority), the "
+            "exact trap already named once in this investigation (§2.3). Reasoning varies content-wise "
+            "(not content-blind) and the schema-embedded ordering mechanism now genuinely engages "
+            f"({order_confirmed}/{checked} order-confirmed), but the collapse toward inaction persists "
+            "on the cases that actually test it. Does not validate the schema-reordering fix."
+        )
     elif rate >= _SUCCESS_THRESHOLD:
         print(
-            f"PASSES the pre-registered {_SUCCESS_THRESHOLD:.0%} bar, and reasoning varies per citizen -> "
+            f"PASSES the pre-registered {_SUCCESS_THRESHOLD:.0%} bar on BOTH the pooled rate and the "
+            f"should-act subset specifically ({should_act_rate:.1%}), and reasoning varies per citizen -> "
             "the schema-embedded mechanism is a real, actionable difference from the two already-failed "
             "reasoning-before-deciding attempts."
         )
