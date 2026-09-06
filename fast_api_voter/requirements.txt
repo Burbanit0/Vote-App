@@ -6,7 +6,7 @@ uvicorn[standard]==0.40.0
 python-socketio==5.16.4        # WebSocket streaming (AsyncServer mounted on FastAPI)
 slowapi==0.1.10                 # per-IP rate limiting for the public /api/v1 surface
 httpx==0.28.1                  # FastAPI TestClient
-pydantic==2.13.4
+pydantic==2.13.5
 pydantic-settings==2.15.0      # 12-factor env config for api/core/config.py (2.14.2: secrets_dir symlink-follow fix, Dependabot #119)
 
 # ── Cache ────────────────────────────────────────────────────────────────────
