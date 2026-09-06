@@ -2,17 +2,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from api.core.ratelimit import limiter
 from api.main import app
-
-
-@pytest.fixture(autouse=True)
-def _reset_limiter():
-    """slowapi counters are process-global; reset between tests so a rate-limit
-    test doesn't poison the next one (and vice-versa)."""
-    limiter.reset()
-    yield
-    limiter.reset()
 
 
 @pytest.fixture
