@@ -60,3 +60,9 @@ only its footprint was mapped, empirically, schema by schema.
 
 `sort_keys` itself is not touched — same standing discipline as every other document in this
 investigation.
+
+## Resolved, 2026-09-06
+
+The vLLM/xgrammar mechanism this document left unisolated is now identified and fixed:
+`scripts/check_vllm_disable_any_whitespace_fix_results.md`. All 9 decision types, including
+`PartyNominationDecision`'s previously-broken unsorted ordering, are clean afterward.
