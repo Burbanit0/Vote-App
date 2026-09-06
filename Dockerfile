@@ -11,7 +11,7 @@
 # ──────────────────────────────────────────────────────────────────────────────
 
 # ── Stage 1: frontend build (Vite → /voter-app/build) ───────────────────────
-FROM node:22-slim AS frontend
+FROM node:26-slim AS frontend
 WORKDIR /voter-app
 COPY voter-app/package.json ./
 RUN npm install
@@ -22,7 +22,7 @@ COPY voter-app/ ./
 RUN npx vite build
 
 # ── Stage 2: python wheels ──────────────────────────────────────────────────
-FROM python:3.11-slim AS pybuild
+FROM python:3.14-slim AS pybuild
 WORKDIR /build
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential gcc \
@@ -31,7 +31,7 @@ COPY fast_api_voter/requirements.txt .
 RUN pip wheel --no-cache-dir --wheel-dir=/wheels -r requirements.txt
 
 # ── Stage 3: runtime ────────────────────────────────────────────────────────
-FROM python:3.11-slim AS runtime
+FROM python:3.14-slim AS runtime
 RUN groupadd --gid 1000 app && useradd --uid 1000 --gid app --shell /bin/bash app
 RUN apt-get update && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
