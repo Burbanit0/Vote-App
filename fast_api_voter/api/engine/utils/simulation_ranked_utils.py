@@ -453,14 +453,28 @@ def _build_pairwise(candidates: list[str], votes: list[Any], is_dict: bool) -> d
 _KY_EXACT_CAP = 6
 
 
+def kemeny_used_approximation(votes: list[Any]) -> bool:
+    """Whether get_kemeny_young_winner(votes) would take the KwikSort
+    approximation path rather than the exact one, based on candidate count
+    alone — pure function of the input, safe to call from any thread."""
+    if not votes:
+        return False
+    is_dict: bool = _is_dict_format(votes)
+    cand_set: set[str] = set()
+    for vote in votes:
+        cand_set.update(_get_ranking(vote, is_dict))
+    return len(cand_set) > _KY_EXACT_CAP
+
+
 def get_kemeny_young_winner(votes: list[Any], **kwargs: Any) -> Optional[str]:
     """
     Determine the Kemeny-Young winner from a set of rankings.
 
     Exact algorithm for ≤ 6 candidates (O(n!)).
-    KwikSort approximation for > 6 candidates (O(n log n)).
-    The approximation flag is stored in a thread-local so callers
-    that need to know can check ``get_kemeny_young_winner.was_approx``.
+    KwikSort approximation for > 6 candidates (O(n log n)). Callers that need
+    to know which path was taken should call kemeny_used_approximation(votes)
+    separately rather than inspecting this function's state — see its
+    docstring for why.
     """
     if not votes:
         return None
@@ -469,8 +483,6 @@ def get_kemeny_young_winner(votes: list[Any], **kwargs: Any) -> Optional[str]:
     for vote in votes:
         cand_set.update(_get_ranking(vote, is_dict))
     candidates = list(cand_set)
-
-    get_kemeny_young_winner.was_approx = len(candidates) > _KY_EXACT_CAP  # type: ignore[attr-defined]
 
     pairwise = _build_pairwise(candidates, votes, is_dict)
 
