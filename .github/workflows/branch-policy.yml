@@ -9,10 +9,14 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   validate-source:
     name: Validate branch source and naming
     runs-on: ubuntu-latest
+    timeout-minutes: 5
 
     steps:
       - name: Check branch naming (PRs to develop)
