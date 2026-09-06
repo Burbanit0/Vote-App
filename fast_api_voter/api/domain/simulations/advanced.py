@@ -76,7 +76,7 @@ def _monte_carlo_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
     (Synchronous aggregation variant — distinct from the Socket.IO streaming
     Monte Carlo migrated in Phase 4.4.)
     """
-    num_runs       = min(int(data.get("num_runs", 100)), 500)
+    num_runs       = int(data.get("num_runs", 100))
     num_voters     = int(data.get("num_voters", 150))
     ideology_dist  = data.get("ideology_distribution", "random")
     raw_candidates = data.get("candidates", ["Alice", "Bob", "Charlie"])

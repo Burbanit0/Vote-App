@@ -2043,11 +2043,15 @@
           },
           "num_rounds": {
             "default": 5,
+            "maximum": 10.0,
+            "minimum": 1.0,
             "title": "Num Rounds",
             "type": "integer"
           },
           "num_voters": {
             "default": 300,
+            "maximum": 1000.0,
+            "minimum": 10.0,
             "title": "Num Voters",
             "type": "integer"
           },
@@ -8396,11 +8400,15 @@
           },
           "num_runs": {
             "default": 100,
+            "maximum": 500.0,
+            "minimum": 1.0,
             "title": "Num Runs",
             "type": "integer"
           },
           "num_voters": {
             "default": 150,
+            "maximum": 1000.0,
+            "minimum": 10.0,
             "title": "Num Voters",
             "type": "integer"
           }
@@ -10317,6 +10325,8 @@
           },
           "num_voters": {
             "default": 1000,
+            "maximum": 1000.0,
+            "minimum": 10.0,
             "title": "Num Voters",
             "type": "integer"
           }
