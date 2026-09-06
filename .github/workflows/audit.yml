@@ -43,6 +43,7 @@ jobs:
   semgrep:
     name: Semgrep SAST
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -80,6 +81,7 @@ jobs:
   gitleaks:
     name: Secret Scan
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
@@ -93,6 +95,7 @@ jobs:
   trivy:
     name: Dependencies, Containers & Misconfig
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
       # 1) Non-gating JSON report → uploaded as an artifact (always).
@@ -148,6 +151,80 @@ jobs:
           trivyignores: .trivyignore.yaml
 
   # ---------------------------------------------------------------
+  # Built-image scan + SBOM. Neither Dockerfile is exercised by any other
+  # workflow — the `trivy` job above only scans the filesystem, never a built
+  # image, so the actual base images (python:3.11-slim, node:20,
+  # nginxinc/nginx-unprivileged:alpine) and whatever the multi-stage builds
+  # layer on top were previously unscanned and could silently bit-rot.
+  #
+  # Building + scanning 2 images adds several minutes, so this stays off the
+  # normal PR loop on purpose — only the weekly cron and pushes to `develop`
+  # pay for it (a code review or a hotfix PR shouldn't wait on a Node/Python
+  # base-image scan that has nothing to do with the diff).
+  #
+  # NON-GATING for now, unlike the filesystem trivy job above: a first run
+  # would immediately surface whatever base-image CVEs exist today, most of
+  # them the upstream image's problem, not something a single PR can fix —
+  # gating on day one would just block develop indefinitely. Findings land in
+  # the Security tab; promote to gating once a triage pass + .trivyignore
+  # entries (mirroring the fs job's existing pattern) clears the backlog.
+  image-scan:
+    name: Docker image scan & SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: github.event_name == 'schedule' || (github.event_name == 'push' && github.ref == 'refs/heads/develop')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: backend
+            dockerfile: fast_api_voter/Dockerfile.prod
+            context: fast_api_voter
+            tag: votelab-backend:scan
+          - name: frontend
+            dockerfile: voter-app/Dockerfile
+            context: voter-app
+            tag: votelab-frontend:scan
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      - name: Build ${{ matrix.name }} image
+        run: docker build -f ${{ matrix.dockerfile }} -t ${{ matrix.tag }} ${{ matrix.context }}
+
+      - name: Trivy (image scan, non-gating for now — see job comment)
+        if: always()
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ matrix.tag }}
+          scan-type: image
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          format: sarif
+          output: trivy-image-${{ matrix.name }}.sarif
+          exit-code: "0"
+      - name: Upload Trivy image SARIF
+        if: always()
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v3
+        with:
+          sarif_file: trivy-image-${{ matrix.name }}.sarif
+          category: trivy-image-${{ matrix.name }}
+
+      - name: Generate SBOM (SPDX)
+        if: always()
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        with:
+          image: ${{ matrix.tag }}
+          format: spdx-json
+          output-file: sbom-${{ matrix.name }}.spdx.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: sbom-${{ matrix.name }}
+          path: sbom-${{ matrix.name }}.spdx.json
+          if-no-files-found: ignore
+
+  # ---------------------------------------------------------------
   # Code Quality — dead code, unused deps, cross-language duplication,
   # cyclomatic complexity.
   # The tools themselves stay NON-GATING (the repo never did a full cleanup
@@ -158,6 +235,7 @@ jobs:
   code-quality:
     name: Code Quality (dead code, duplication & complexity)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -268,6 +346,7 @@ jobs:
   codeql:
     name: CodeQL
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
