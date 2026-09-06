@@ -22,6 +22,46 @@ greedy/temperature=0 decoder can get stuck exploiting: emitting more whitespace 
 grammar-legal, so once the sampler's argmax lands there, nothing forces it back out.
 `disable_any_whitespace=True` removes that flexibility from the compiled grammar.
 
+## The mechanism, confirmed with token-level evidence
+
+The paragraph above explains WHAT the fix removes; this section confirms WHY it was needed, via a
+temporary diagnostic instance (default config, `disable_any_whitespace=False`, a bare `docker run`
+alongside the shipped container so the fix in `docker-compose.llm.yml` was never actually reverted)
+requesting `logprobs`/`top_logprobs` on the exact failing calls.
+
+**`PressureDecision` (fields `act, cid, motif, target` under `sort_keys=True`)**: token-by-token
+inspection of the raw completion shows the model emitting `{"decisions":[{"act":3,"cid":3,
+"motif":306` cleanly (every token argmax at or near 0 logprob — fully confident, correctly
+constrained), then at the exact position after `306` closes, the top-2 candidates are bare `\n`
+(chosen, logprob **-0.013**, ~98.7% probability) vs. `,\n` — the token that would continue to the
+still-required `target` field (logprob **-4.33**, ~1.3%). Not a grammar dead-end: `,\n` was legal
+and available, just far less probable in the model's own distribution at that exact branch point.
+Once `\n` is chosen, the same pattern repeats at every subsequent step (whitespace token argmax at
+~0 logprob, `,\n` still sitting a few logprobs behind as a live but never-taken alternative) —
+self-reinforcing under greedy decoding, with nothing in the local context ever making the
+comma-continuation the argmax again.
+
+**`CandidacyDecision` (fields `cid, motif, outcome` under `sort_keys=True`)**: same shape,
+independently confirmed. Right after `"motif":201` closes, bare `\n` (logprob **-0.010**, ~99%)
+beats `,\n` (logprob **-4.57**, ~1%) — the token that would continue to the still-required
+`outcome` field. Same self-reinforcing loop afterward.
+
+**What this narrows**: the failure is not a grammar dead-end (both continuations were always
+legal) — it's that xgrammar's grammar makes bare trailing whitespace an available continuation at
+all at that branch point, and the model's own learned distribution assigns it far more mass than
+the correct continuation, right after finishing the *second-to-last* required field in both broken
+schemas' alphabetized order. `disable_any_whitespace=True` fixes this not by changing the model's
+preference, but by removing the whitespace option from the grammar entirely at that point, forcing
+argmax to choose among only the continuations that actually complete the object.
+
+**What this does NOT explain**: why the model's distribution favors closing at exactly this
+point for `PressureDecision`/`CandidacyDecision` but not for the structurally similar clean
+schemas. `motif` sits in the same penultimate wire position for `ReactionDecision`
+(`cid, motif, salience_delta`) and `CoalitionDecision` (`action, motif, party_id`) too — both
+clean. Field position alone doesn't predict it; the model's own training-data-shaped preference
+for particular field-name/enum-value combinations plausibly does, but tracing that further would
+mean probing the model's own weights/training data, not vLLM's serving stack — out of scope here.
+
 ## Fix and verification
 
 `vllm serve`'s `--structured-outputs-config` accepts this as a JSON CLI arg —
@@ -68,8 +108,7 @@ raised against any `provider: vllm` production switch — the truncation bug tha
 authorize the switch: `provider` stays `ollama`, and axis (b)'s broader caveat still stands — this
 fix addresses a structural generation-corruption bug, not a re-verification of every reliability
 calibration in the codebase (`_VOTE_CAST_MAX_CHUNK_SIZE`, `recycle_after_n_calls`, etc.) against
-AWQ weights, which remains a separate, not-yet-done piece of work. It also doesn't explain why
-xgrammar's default whitespace flexibility specifically corrupts THESE schemas and not the other
-six — that would need vLLM-internals-level tracing (token-by-token logprob inspection at the
-failure point) this investigation didn't attempt, since the empirical fix already resolves the
-practical question without it.
+AWQ weights, which remains a separate, not-yet-done piece of work. Nor does it explain why this
+model-side preference is specific to these schemas (see the mechanism section above) — that would
+need probing the model's own weights/training, not vLLM's serving stack, since the empirical fix
+already resolves the practical question without it.
