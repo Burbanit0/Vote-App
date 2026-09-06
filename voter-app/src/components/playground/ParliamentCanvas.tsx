@@ -228,7 +228,7 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
         <svg
           ref={svgRef}
           viewBox={`0 0 ${SVG} ${SVG}`}
-          role="img"
+          role="group"
           aria-label={t('parliament.mapAria')}
           className="mx-auto block w-full touch-none select-none rounded-lg bg-card"
           style={{ maxWidth: 460, maxHeight: '52vh' }}
@@ -298,6 +298,9 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
               <g
                 key={`${p.name}-${i}`}
                 data-testid={`party-${i}`}
+                tabIndex={0}
+                role="button"
+                aria-label={t('parliament.partyAria', { name: p.name })}
                 style={{ cursor: 'grab' }}
                 onMouseDown={(e) => {
                   e.preventDefault();
@@ -305,6 +308,31 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
                 }}
                 onTouchStart={() => {
                   draggingIdx.current = i;
+                }}
+                onKeyDown={(e) => {
+                  const step = e.shiftKey ? 0.1 : 0.02;
+                  let dx = 0;
+                  let dy = 0;
+                  switch (e.key) {
+                    case 'ArrowLeft':
+                      dx = -step;
+                      break;
+                    case 'ArrowRight':
+                      dx = step;
+                      break;
+                    case 'ArrowUp':
+                      dy = step;
+                      break;
+                    case 'ArrowDown':
+                      dy = -step;
+                      break;
+                    default:
+                      return;
+                  }
+                  e.preventDefault();
+                  const nx = Math.max(-1, Math.min(1, p.x + dx));
+                  const ny = Math.max(-1, Math.min(1, p.y + dy));
+                  onMoveParty(i, nx, ny);
                 }}
               >
                 <rect

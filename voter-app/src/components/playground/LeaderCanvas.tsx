@@ -381,7 +381,7 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
       <svg
         ref={svgRef}
         viewBox={`0 0 ${SVG} ${SVG}`}
-        role="img"
+        role="group"
         aria-label={t('canvas.svgAria')}
         className="mx-auto block w-full touch-none select-none rounded-lg bg-card"
         style={{ maxWidth: 460, maxHeight: '52vh', display: show3d ? 'none' : undefined }}
@@ -546,6 +546,9 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
               <g
                 key={`${cand.name}-${i}`}
                 data-testid={`candidate-${i}`}
+                tabIndex={0}
+                role="button"
+                aria-label={t('canvas.candidateAria', { name: cand.name })}
                 style={{ cursor: 'grab' }}
                 onMouseDown={(e) => {
                   e.preventDefault();
@@ -553,6 +556,31 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
                 }}
                 onTouchStart={() => {
                   draggingIdx.current = i;
+                }}
+                onKeyDown={(e) => {
+                  const step = e.shiftKey ? 0.1 : 0.02;
+                  let dx = 0;
+                  let dy = 0;
+                  switch (e.key) {
+                    case 'ArrowLeft':
+                      dx = -step;
+                      break;
+                    case 'ArrowRight':
+                      dx = step;
+                      break;
+                    case 'ArrowUp':
+                      dy = step;
+                      break;
+                    case 'ArrowDown':
+                      dy = -step;
+                      break;
+                    default:
+                      return;
+                  }
+                  e.preventDefault();
+                  const nx = Math.max(-1, Math.min(1, cand.x + dx));
+                  const ny = dims === 1 ? 0 : Math.max(-1, Math.min(1, cand.y + dy));
+                  onMoveCandidate(i, nx, ny);
                 }}
               >
                 {dims === 3 && (cand.z ?? 0) !== 0 && (
