@@ -54,13 +54,22 @@ schemas' alphabetized order. `disable_any_whitespace=True` fixes this not by cha
 preference, but by removing the whitespace option from the grammar entirely at that point, forcing
 argmax to choose among only the continuations that actually complete the object.
 
-**What this does NOT explain**: why the model's distribution favors closing at exactly this
-point for `PressureDecision`/`CandidacyDecision` but not for the structurally similar clean
-schemas. `motif` sits in the same penultimate wire position for `ReactionDecision`
-(`cid, motif, salience_delta`) and `CoalitionDecision` (`action, motif, party_id`) too — both
-clean. Field position alone doesn't predict it; the model's own training-data-shaped preference
-for particular field-name/enum-value combinations plausibly does, but tracing that further would
-mean probing the model's own weights/training data, not vLLM's serving stack — out of scope here.
+**Correction — the trigger lives in the prompt, not the schema's field names.** An earlier version
+of this document speculated the model's own preference for particular field-name/enum-value
+combinations was the likely differentiator, since `motif` sits in the same penultimate wire
+position for `ReactionDecision`/`CoalitionDecision` too (both clean). Tested directly with a
+controlled swap, not assumed: took `pressure_action`'s real system+user prompt verbatim and
+re-ran it against a schema whose last field was renamed from `target` to `party_id` — **still
+broke, identically** (`finish_reason='length'`, same whitespace loop). Took `coalition_decision`'s
+real prompt (always clean) and renamed ITS last field to `target` — **still clean**. The field
+name makes no difference in either direction; a bare, generic prompt ("Return a JSON object with
+cid=7, motif=305, and `<field>`=5") stays clean regardless of which of the four real field names
+is used. **The trigger is something in `pressure_action`'s/`candidacy_considered`'s own real
+system/user prompt content** (length, specific instructions, something else) that the shorter or
+differently-worded prompts for the other seven decision types don't share — not the schema. What
+exactly, in the prompt, causes it was not isolated further (would mean a systematic prompt-
+ablation study, its own separate effort) — this correction narrows the search space to the right
+place, not to a conclusion.
 
 ## Fix and verification
 
@@ -108,7 +117,8 @@ raised against any `provider: vllm` production switch — the truncation bug tha
 authorize the switch: `provider` stays `ollama`, and axis (b)'s broader caveat still stands — this
 fix addresses a structural generation-corruption bug, not a re-verification of every reliability
 calibration in the codebase (`_VOTE_CAST_MAX_CHUNK_SIZE`, `recycle_after_n_calls`, etc.) against
-AWQ weights, which remains a separate, not-yet-done piece of work. Nor does it explain why this
-model-side preference is specific to these schemas (see the mechanism section above) — that would
-need probing the model's own weights/training, not vLLM's serving stack, since the empirical fix
-already resolves the practical question without it.
+AWQ weights, which remains a separate, not-yet-done piece of work. Nor does it explain what,
+specifically, in `pressure_action`'s/`candidacy_considered`'s own real prompts triggers the
+model's closing preference — narrowed to "the prompt content, not the schema" above, but not
+identified further, since the empirical fix already resolves the practical question without
+needing that.
