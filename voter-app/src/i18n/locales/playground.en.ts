@@ -374,6 +374,7 @@ const pgEn: PlaygroundKeys = {
     view3d: '🧊 3D view',
     viewPlane: '▦ x–y plane (edit)',
     svgAria: 'Ideology map — electing a leader',
+    candidateAria: '{{name}} — drag, or use arrow keys to move (Shift for a bigger step)',
     manipCompromise: 'Tempted to vote tactically (drops their favourite)',
     manipBurying: 'Tempted to bury a rival (ranks them too low)',
     manipSafe: 'Stays sincere (nothing to gain by gaming)',
@@ -600,6 +601,7 @@ const pgEn: PlaygroundKeys = {
     unavailable:
       '⚠ Hemicycle unavailable: the assembly computation did not complete. If you just updated, restart the backend server (uvicorn) so it picks up the new schema.',
     mapAria: 'Ideology map — parties and territories',
+    partyAria: '{{name}} — drag, or use arrow keys to move (Shift for a bigger step)',
     hemicycleAria: 'Hemicycle — seats per party',
     seatsLine: '{{seats}} seats · majority {{majority}}',
     computing: 'Computing the assembly…',
