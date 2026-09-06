@@ -49,6 +49,9 @@ jobs:
   mutmut:
     name: Backend mutation score (mutmut, floor 70%)
     runs-on: ubuntu-latest
+    # CONTRIBUTING.md: ~40min-3h depending on how much the incremental cache
+    # (if any) covers — matches the margin stryker's own 240min timeout gives.
+    timeout-minutes: 210
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
