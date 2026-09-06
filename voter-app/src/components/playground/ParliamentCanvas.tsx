@@ -4,6 +4,7 @@ import { buildVoronoiPaths } from '../../utils/voronoiRegions';
 import { cn } from '@/lib/utils';
 import type { NamedPt, Pt } from '../../lib/playgroundVoting';
 import type { AssemblyResult } from '../../services/assemblyApi';
+import { makeSvgToDomain } from '../../hooks/useDragTouch';
 
 // ParliamentCanvas (Lab reshape P3) — the live party-level viz. Parties are
 // draggable on the ideology map (voters re-attach to their nearest party
@@ -32,14 +33,7 @@ export const PARTY_PALETTE = [
 const toSvg = (v: number, axis: 'x' | 'y'): number =>
   axis === 'x' ? MARGIN + ((v + 1) / 2) * PLOT : MARGIN + ((1 - v) / 2) * PLOT;
 
-function svgToDomain(clientX: number, clientY: number, rect: DOMRect) {
-  const sx = ((clientX - rect.left) / rect.width) * SVG;
-  const sy = ((clientY - rect.top) / rect.height) * SVG;
-  return {
-    x: Math.max(-1, Math.min(1, ((sx - MARGIN) / PLOT) * 2 - 1)),
-    y: Math.max(-1, Math.min(1, 1 - ((sy - MARGIN) / PLOT) * 2)),
-  };
-}
+const svgToDomain = makeSvgToDomain({ width: SVG, height: SVG, pad: MARGIN });
 
 // ── Hemicycle geometry ────────────────────────────────────────────────────────
 

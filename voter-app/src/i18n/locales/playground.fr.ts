@@ -1421,6 +1421,14 @@ const pgFr = {
       },
     },
   },
+  fullResults: {
+    intro:
+      'La table complète des méthodes (vainqueur · regret bayésien · conformité Condorcet), plus la lecture narrative et la référence historique — sur l’électorat partagé.',
+    running: 'Simulation…',
+    rerun: '↻ Re-simuler',
+    run: '▶ Simuler toutes les méthodes',
+    error: 'Erreur lors de la simulation.',
+  },
 };
 
 export type PlaygroundKeys = typeof pgFr;
