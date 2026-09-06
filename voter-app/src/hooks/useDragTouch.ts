@@ -8,7 +8,7 @@
  * The hook normalises coordinates via the caller-supplied `toDomain` function
  * so each component keeps its own coordinate system.
  */
-import { RefObject, useCallback, useEffect, useRef } from 'react';
+import { RefObject, useCallback, useEffect, useRef, type KeyboardEvent } from 'react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -46,6 +46,42 @@ function defaultToDomain(clientX: number, clientY: number, rect: DOMRect) {
  * square case, HistoricalReplay passes distinct width/height for the general
  * rect case).
  */
+/**
+ * Keyboard equivalent of a drag: arrow keys nudge a domain point (0.02 step,
+ * 0.1 with Shift), clamped to [-1, 1]. Ignores every other key. Shared by
+ * LeaderCanvas (candidates) and ParliamentCanvas (parties) — both call this
+ * from a draggable element's onKeyDown, then apply any component-specific
+ * rule to the result themselves (e.g. LeaderCanvas zeroes y in 1-D mode,
+ * matching what its mouse/touch drag already does).
+ */
+export function arrowKeyNudge(
+  e: KeyboardEvent,
+  current: { x: number; y: number },
+  onMove: (x: number, y: number) => void
+): void {
+  const step = e.shiftKey ? 0.1 : 0.02;
+  let dx = 0;
+  let dy = 0;
+  switch (e.key) {
+    case 'ArrowLeft':
+      dx = -step;
+      break;
+    case 'ArrowRight':
+      dx = step;
+      break;
+    case 'ArrowUp':
+      dy = step;
+      break;
+    case 'ArrowDown':
+      dy = -step;
+      break;
+    default:
+      return;
+  }
+  e.preventDefault();
+  onMove(Math.max(-1, Math.min(1, current.x + dx)), Math.max(-1, Math.min(1, current.y + dy)));
+}
+
 export function makeSvgToDomain(viewBox: { width: number; height: number; pad: number }) {
   const { width, height, pad } = viewBox;
   const plotW = width - 2 * pad;

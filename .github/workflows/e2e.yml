@@ -32,6 +32,7 @@ jobs:
     name: Detect e2e-relevant changes
     if: github.event_name == 'pull_request' || github.event_name == 'push'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       relevant: ${{ steps.filter.outputs.relevant }}
     steps:

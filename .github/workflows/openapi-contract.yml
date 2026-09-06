@@ -31,10 +31,14 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   changes:
     name: Detect generated-artifact-relevant changes
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       relevant: ${{ steps.filter.outputs.relevant }}
     steps:
@@ -66,6 +70,7 @@ jobs:
     if: needs.changes.outputs.relevant == 'true'
     name: Generated artifacts in sync
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
 
