@@ -585,9 +585,14 @@ def test_vllm_missing_choices_raises_response_error():
 
 # ── build_json_client (provider dispatch) ─────────────────────────────────
 
+# Both dispatch tests name their provider explicitly rather than leaning on
+# whichever one the shipped config happens to default to -- the ollama one
+# used to rely on that and broke when the default moved to vllm (2026-09-06).
+
 def test_build_json_client_returns_an_ollama_client_for_the_ollama_provider():
     config = load_config()
-    with build_json_client(config.llm, seed=42) as client:
+    llm = dataclasses.replace(config.llm, provider="ollama")
+    with build_json_client(llm, seed=42) as client:
         assert isinstance(client, OllamaJsonClient)
 
 

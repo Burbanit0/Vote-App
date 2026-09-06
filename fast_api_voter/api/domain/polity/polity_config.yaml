@@ -376,7 +376,7 @@ social_graph:
 # =============================================================================
 llm:
   enabled: false              # [v2] false => simple_rules.py (baseline v0/v1)
-  provider: ollama            # [v2] ollama | vllm | api ("api" épelable,
+  provider: vllm              # [v2] ollama | vllm | api ("api" épelable,
                               #      non implémenté — hors périmètre §12)
                               #      BASCULE vers vllm dès v4 (§15bis.6) :
                               #      le facteur de charge est le nombre de
@@ -386,13 +386,25 @@ llm:
                               #      §15bis.5 vérifié live 2026-09-05 (PR #273,
                               #      scripts/vllm_determinism_results.md) : B2
                               #      (déterminisme) tient sous vLLM, y compris
-                              #      en concurrence — mais "ollama" reste le
-                              #      défaut, le basculement et la ré-
-                              #      vérification axe (b) (calibrations
-                              #      mesurées contre les poids Ollama non
-                              #      quantisés, pas l'AWQ de vLLM) restant des
-                              #      décisions séparées, non encore autorisées
-                              # pour basculer :
+                              #      en concurrence.
+                              # BASCULÉ 2026-09-06 (plan-flagship-30y-run.md
+                              #   phase 0) : "vllm" est désormais le défaut.
+                              #   Prérequis levés : axe (a) et axe (b)
+                              #   (scripts/vllm_switch_results.md), et le bug
+                              #   de troncature xgrammar (2/9 types de décision
+                              #   cassés) corrigé par --structured-outputs-
+                              #   config disable_any_whitespace, cf.
+                              #   scripts/check_vllm_disable_any_whitespace_
+                              #   fix_results.md.
+                              #   ⚠ RESTE OUVERT : les calibrations de
+                              #   fiabilité (_VOTE_CAST_MAX_CHUNK_SIZE,
+                              #   recycle_after_n_calls, seuils de collapse)
+                              #   ont été mesurées contre les poids Ollama non
+                              #   quantisés, pas l'AWQ de vLLM — à surveiller
+                              #   sous charge réelle, pas supposées transposer.
+                              # pour revenir à ollama : décommenter la
+                              #   base_url 11434 et remettre provider: ollama.
+                              # pour lancer vLLM :
                               #   1. base_url: "http://localhost:8000/v1"
                               #   2. docker compose -f docker-compose.llm.yml up
                               #   3. le serveur vLLM DOIT être lancé avec
@@ -418,8 +430,9 @@ llm:
                               #   image et modele desormais epingles par
                               #   version/digest dans ce fichier, plus un
                               #   simple `docker run` non versionne)
-  # base_url: "http://localhost:8000/v1"  # vllm
-  base_url: "http://localhost:11434/v1"
+  base_url: "http://localhost:8000/v1"   # vllm (bascule 2026-09-06, cf.
+                              #      plan-flagship-30y-run.md phase 0)
+  # base_url: "http://localhost:11434/v1"  # ollama
   model: "qwen3:8b"           # [v2] version ÉPINGLÉE (jamais 'latest', cf. B2)
                               #      identique pour vllm : lancer le serveur
                               #      avec --served-model-name qwen3:8b
