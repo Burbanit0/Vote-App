@@ -6,7 +6,6 @@ import { makeTestQueryClient } from '../../../test/queryWrapper';
 
 vi.mock('../../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
-  getAccessToken: vi.fn(() => null),
 }));
 const { apiClient } = (await import('../../../api/client')) as unknown as {
   apiClient: { POST: jest.Mock };
