@@ -4,7 +4,7 @@ import { buildVoronoiPaths } from '../../utils/voronoiRegions';
 import { cn } from '@/lib/utils';
 import type { NamedPt, Pt } from '../../lib/playgroundVoting';
 import type { AssemblyResult } from '../../services/assemblyApi';
-import { makeSvgToDomain } from '../../hooks/useDragTouch';
+import { makeSvgToDomain, arrowKeyNudge } from '../../hooks/useDragTouch';
 
 // ParliamentCanvas (Lab reshape P3) — the live party-level viz. Parties are
 // draggable on the ideology map (voters re-attach to their nearest party
@@ -310,29 +310,7 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
                   draggingIdx.current = i;
                 }}
                 onKeyDown={(e) => {
-                  const step = e.shiftKey ? 0.1 : 0.02;
-                  let dx = 0;
-                  let dy = 0;
-                  switch (e.key) {
-                    case 'ArrowLeft':
-                      dx = -step;
-                      break;
-                    case 'ArrowRight':
-                      dx = step;
-                      break;
-                    case 'ArrowUp':
-                      dy = step;
-                      break;
-                    case 'ArrowDown':
-                      dy = -step;
-                      break;
-                    default:
-                      return;
-                  }
-                  e.preventDefault();
-                  const nx = Math.max(-1, Math.min(1, p.x + dx));
-                  const ny = Math.max(-1, Math.min(1, p.y + dy));
-                  onMoveParty(i, nx, ny);
+                  arrowKeyNudge(e, p, (nx, ny) => onMoveParty(i, nx, ny));
                 }}
               >
                 <rect

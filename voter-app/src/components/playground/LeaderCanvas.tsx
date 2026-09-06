@@ -16,7 +16,7 @@ import {
   type WinRegion,
 } from '../../lib/playgroundVoting';
 import { useVotingLabels } from '../../hooks/useVotingLabels';
-import { makeSvgToDomain } from '../../hooks/useDragTouch';
+import { makeSvgToDomain, arrowKeyNudge } from '../../hooks/useDragTouch';
 import LeaderScene3D from './LeaderScene3D';
 import WinnerRobustness from './WinnerRobustness';
 import MethodReplayModal from './MethodReplayModal';
@@ -558,29 +558,9 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
                   draggingIdx.current = i;
                 }}
                 onKeyDown={(e) => {
-                  const step = e.shiftKey ? 0.1 : 0.02;
-                  let dx = 0;
-                  let dy = 0;
-                  switch (e.key) {
-                    case 'ArrowLeft':
-                      dx = -step;
-                      break;
-                    case 'ArrowRight':
-                      dx = step;
-                      break;
-                    case 'ArrowUp':
-                      dy = step;
-                      break;
-                    case 'ArrowDown':
-                      dy = -step;
-                      break;
-                    default:
-                      return;
-                  }
-                  e.preventDefault();
-                  const nx = Math.max(-1, Math.min(1, cand.x + dx));
-                  const ny = dims === 1 ? 0 : Math.max(-1, Math.min(1, cand.y + dy));
-                  onMoveCandidate(i, nx, ny);
+                  arrowKeyNudge(e, cand, (nx, ny) => {
+                    onMoveCandidate(i, nx, dims === 1 ? 0 : ny);
+                  });
                 }}
               >
                 {dims === 3 && (cand.z ?? 0) !== 0 && (
