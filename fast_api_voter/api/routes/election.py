@@ -26,8 +26,10 @@ from __future__ import annotations
 import asyncio
 from typing import Any, Callable, Dict, TypeVar
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
+
+from api.core.ratelimit import check_v2_rate_limit
 
 # Re-uses the Pydantic models defined in Phase 1. Single source of truth
 # shared with the Flask side via the openapi-typescript pipeline.
@@ -160,7 +162,11 @@ from api.domain.election import (
     stv as stv_domain,
 )
 
-router = APIRouter(prefix="/api/v2/election", tags=["election"])
+router = APIRouter(
+    prefix="/api/v2/election",
+    tags=["election"],
+    dependencies=[Depends(check_v2_rate_limit)],
+)
 
 _ResponseT = TypeVar("_ResponseT", bound=BaseModel)
 
