@@ -1400,6 +1400,14 @@ const pgEn: PlaygroundKeys = {
       },
     },
   },
+  fullResults: {
+    intro:
+      'The full method table (winner · Bayesian regret · Condorcet compliance), plus the narrative read and the historical reference — on the shared electorate.',
+    running: 'Simulating…',
+    rerun: '↻ Re-run',
+    run: '▶ Simulate every method',
+    error: 'Simulation failed.',
+  },
 };
 
 export default pgEn;

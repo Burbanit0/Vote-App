@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useDragTouch } from '../../hooks/useDragTouch';
+import { useDragTouch, makeSvgToDomain } from '../../hooks/useDragTouch';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -49,11 +49,7 @@ function domX(v: number) {
 function domY(v: number) {
   return PAD + ((1 - v) / 2) * (SVG_H - 2 * PAD);
 }
-function svgToDomain(px: number, py: number, rect: DOMRect) {
-  const x = ((((px - rect.left) / rect.width) * SVG_W - PAD) / (SVG_W - 2 * PAD)) * 2 - 1;
-  const y = 1 - ((((py - rect.top) / rect.height) * SVG_H - PAD) / (SVG_H - 2 * PAD)) * 2;
-  return { x: Math.max(-1, Math.min(1, x)), y: Math.max(-1, Math.min(1, y)) };
-}
+const svgToDomain = makeSvgToDomain({ width: SVG_W, height: SVG_H, pad: PAD });
 
 interface IdeologyMapProps {
   candidates: ReplayCandidate[];

@@ -16,6 +16,7 @@ import {
   type WinRegion,
 } from '../../lib/playgroundVoting';
 import { useVotingLabels } from '../../hooks/useVotingLabels';
+import { makeSvgToDomain } from '../../hooks/useDragTouch';
 import LeaderScene3D from './LeaderScene3D';
 import WinnerRobustness from './WinnerRobustness';
 import MethodReplayModal from './MethodReplayModal';
@@ -69,14 +70,7 @@ const PALETTE = CANDIDATE_PALETTE;
 const toSvg = (v: number, axis: 'x' | 'y'): number =>
   axis === 'x' ? MARGIN + ((v + 1) / 2) * PLOT : MARGIN + ((1 - v) / 2) * PLOT;
 
-function svgToDomain(clientX: number, clientY: number, rect: DOMRect) {
-  const sx = ((clientX - rect.left) / rect.width) * SVG;
-  const sy = ((clientY - rect.top) / rect.height) * SVG;
-  return {
-    x: Math.max(-1, Math.min(1, ((sx - MARGIN) / PLOT) * 2 - 1)),
-    y: Math.max(-1, Math.min(1, 1 - ((sy - MARGIN) / PLOT) * 2)),
-  };
-}
+const svgToDomain = makeSvgToDomain({ width: SVG, height: SVG, pad: MARGIN });
 
 const median = (xs: number[]): number => {
   if (!xs.length) return 0;

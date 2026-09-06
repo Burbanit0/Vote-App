@@ -38,6 +38,28 @@ function defaultToDomain(clientX: number, clientY: number, rect: DOMRect) {
   };
 }
 
+/**
+ * Builds a toDomain converter for an SVG canvas with a fixed viewBox
+ * (`width` × `height`) and a plot-area inset of `pad` on every side — the
+ * shared shape behind every hand-rolled `svgToDomain` in the playground
+ * canvases (LeaderCanvas/ParliamentCanvas pass width === height for the
+ * square case, HistoricalReplay passes distinct width/height for the general
+ * rect case).
+ */
+export function makeSvgToDomain(viewBox: { width: number; height: number; pad: number }) {
+  const { width, height, pad } = viewBox;
+  const plotW = width - 2 * pad;
+  const plotH = height - 2 * pad;
+  return (clientX: number, clientY: number, rect: DOMRect) => {
+    const sx = ((clientX - rect.left) / rect.width) * width;
+    const sy = ((clientY - rect.top) / rect.height) * height;
+    return {
+      x: Math.max(-1, Math.min(1, ((sx - pad) / plotW) * 2 - 1)),
+      y: Math.max(-1, Math.min(1, 1 - ((sy - pad) / plotH) * 2)),
+    };
+  };
+}
+
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
 export function useDragTouch(
