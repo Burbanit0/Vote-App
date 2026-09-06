@@ -378,6 +378,8 @@ const pgFr = {
     view3d: '🧊 Vue 3D',
     viewPlane: '▦ Plan x–y (édition)',
     svgAria: 'Carte idéologique — élire un dirigeant',
+    candidateAria:
+      '{{name}} — glisser-déposer, ou flèches pour déplacer (Maj pour un pas plus large)',
     manipCompromise: 'Tenté par le vote utile (abandonne son favori)',
     manipBurying: 'Tenté d’enterrer un rival (le classe trop bas)',
     manipSafe: 'Reste sincère (rien à gagner à tricher)',
@@ -610,6 +612,7 @@ const pgFr = {
     unavailable:
       '⚠ Hémicycle indisponible : le calcul de l’assemblée n’a pas abouti. Si vous venez de mettre à jour, redémarrez le serveur backend (uvicorn) pour qu’il prenne le nouveau schéma.',
     mapAria: 'Carte idéologique — partis et territoires',
+    partyAria: '{{name}} — glisser-déposer, ou flèches pour déplacer (Maj pour un pas plus large)',
     hemicycleAria: 'Hémicycle — sièges par parti',
     seatsLine: '{{seats}} sièges · majorité {{majority}}',
     computing: 'Calcul de l’assemblée…',
