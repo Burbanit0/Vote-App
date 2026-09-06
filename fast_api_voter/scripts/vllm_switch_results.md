@@ -84,16 +84,23 @@ sincere position.
 
 ## What this does and does not license
 
-> **Correction, 2026-09-06 (PR #278) — read before treating "all clear" as blanket clearance.**
-> A follow-up comparison, on a decision type this document does not cover, found a severe,
-> vLLM-specific, `sort_keys`-triggered non-terminating truncation bug on `pressure_action`'s real
-> production schema (85.7% failure rate — see
-> `scripts/check_vllm_pressure_action_sort_keys_truncation_results.md`). Ollama is unaffected by
-> the identical reordering. This directly blocks any `provider: vllm` production switch as
-> currently wired. The "all clear" below was accurate for the two decision types axis (b) actually
-> tested — it was never exhaustive over every decision type in the engine, and this result is
-> evidence that exhaustiveness matters before a production switch is considered, not evidence
-> specific to `pressure_action` alone.
+> **Correction, 2026-09-06 (PR #278/#285) — since RESOLVED; read for the history.**
+> A follow-up comparison, on decision types this document does not cover, found a severe,
+> vLLM-specific, `sort_keys`-triggered non-terminating truncation bug affecting 2 of 9 decision
+> types outright (`pressure_action`, `candidacy_considered`) and a 3rd under one field ordering
+> (`party_nomination_choice`) — see `scripts/check_vllm_pressure_action_sort_keys_truncation_
+> results.md` and `scripts/check_vllm_remaining_decisions_sort_keys_truncation_results.md`. Ollama
+> was unaffected throughout. The "all clear" below was accurate for the two decision types axis
+> (b) actually tested — it was never exhaustive over every decision type in the engine.
+>
+> **Root-caused and fixed 2026-09-06** (`scripts/check_vllm_disable_any_whitespace_fix_results.md`):
+> xgrammar's default grammar allows arbitrary whitespace between JSON tokens, which greedy
+> decoding (temperature=0) could get stuck exploiting. `--structured-outputs-config
+> '{"backend": "xgrammar", "disable_any_whitespace": true}'` (now shipped in
+> `docker-compose.llm.yml`) removes that flexibility — all 9 decision types verified clean under
+> both field orderings afterward, with no regression to batching determinism or `think=True`
+> reasoning output. This no longer blocks a `provider: vllm` switch on truncation grounds; the
+> axis-(b) calibration caveat below still stands independently.
 
 **Confirmed**: axis (a) and axis (b) both clear their respective bars.
 Every check this plan named as a go/no-go criterion, including the one it

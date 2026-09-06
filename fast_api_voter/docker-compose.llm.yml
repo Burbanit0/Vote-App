@@ -99,6 +99,33 @@ services:
                                     # see plan-vllm-switch-readiness.md §6.
       - "--reasoning-parser"
       - "qwen3"
+      - "--structured-outputs-config"
+      - '{"backend": "xgrammar", "disable_any_whitespace": true}'
+                                    # FIX for a severe, vLLM-specific bug measured live
+                                    # 2026-09-06 (scripts/check_vllm_*_sort_keys_
+                                    # truncation_results.md): 2 of 9 decision types
+                                    # (PressureDecision, CandidacyDecision) and one
+                                    # ordering of a 3rd (PartyNominationDecision) hit a
+                                    # non-terminating whitespace-generation loop after
+                                    # certain field-name orderings -- valid tokens
+                                    # through the last-but-one field, then endless
+                                    # "\n   " until the token budget is exhausted.
+                                    # xgrammar's default grammar allows arbitrary
+                                    # whitespace between JSON tokens; greedy decoding
+                                    # (temperature=0) could get stuck exploiting that
+                                    # flexibility instead of emitting the next expected
+                                    # token. disable_any_whitespace removes that
+                                    # flexibility from the compiled grammar --
+                                    # `backend: xgrammar` must be explicit (the flag
+                                    # is rejected under `backend: auto`, vLLM's own
+                                    # default). Re-verified after this fix: all 9
+                                    # decision types clean under BOTH field orderings
+                                    # (not just the shipped one), full batching-
+                                    # determinism protocol (check_vllm_batching_
+                                    # determinism.py) still PASSES, think=True/
+                                    # reasoning-parser output unaffected. See
+                                    # scripts/check_vllm_disable_any_whitespace_fix_
+                                    # results.md for the full verification.
       - "--max-model-len"
       - "16384"                    # measured live 2026-09-05: 8192 was too small.
                                     # compute_max_tokens(25)=3036 + a real 25x20-dim

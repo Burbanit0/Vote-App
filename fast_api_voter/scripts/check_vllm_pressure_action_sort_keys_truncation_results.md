@@ -111,3 +111,10 @@ traces), just not caught by that one script's distinct-string heuristic. Anyone 
 verdict logic on a new backend/model should check for template phrases directly, not rely on the
 distinct-count proxy alone.
 
+## Resolved, 2026-09-06
+
+The truncation bug documented above is fixed — root-caused to xgrammar's default whitespace
+flexibility, not `sort_keys` itself. See `scripts/check_vllm_disable_any_whitespace_fix_results.md`.
+`sort_keys` was never touched. The content-quality comparison (the `a_reasoning` addendum above)
+is unrelated to the truncation mechanism and stands independently.
+
