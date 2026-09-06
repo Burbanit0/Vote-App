@@ -1,0 +1,562 @@
+{
+  "3": {
+    "act": 1,
+    "agree": true,
+    "blank_threshold": 0.08242805047655613,
+    "expected_act": true,
+    "reasoning": "Le citoyen a un ecart de mecontentement faible (self_gap = 0.1718) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il est donc plus enclin \u00e0 agir en fonction de son propre niveau de m\u00e9contentement plut\u00f4t que de la d\u00e9viation du mandat.",
+    "self_gap": 0.17184728296442137
+  },
+  "8": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.4281458138216581,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.2023) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.20228219509101938
+  },
+  "12": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.4748413482130646,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement faible (self_gap = 0.1148) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.11475536973286447
+  },
+  "14": {
+    "act": 4,
+    "agree": true,
+    "blank_threshold": 0.6123805080228009,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.2001) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Comme il reste 15 ticks avant l'\u00e9lection, il est plus probable qu'il attende la prochaine \u00e9lection plut\u00f4t que d'agir imm\u00e9diatement.",
+    "self_gap": 0.20005769003390292
+  },
+  "17": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.5816692142754522,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.0914) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.0914374666096894
+  },
+  "18": {
+    "act": 4,
+    "agree": false,
+    "blank_threshold": 0.14614796397194366,
+    "expected_act": true,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.2562) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Comme il reste 15 ticks avant l'\u00e9lection, il est plus probable qu'il attende la prochaine \u00e9lection plut\u00f4t que d'agir imm\u00e9diatement.",
+    "self_gap": 0.2561939239084229
+  },
+  "24": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.33248614328328485,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.1359) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.1358549395443877
+  },
+  "25": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.41476556774667656,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.1731) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.1730721283760053
+  },
+  "26": {
+    "act": 4,
+    "agree": true,
+    "blank_threshold": 0.6369543723179869,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.284) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Comme il reste 15 ticks avant l'\u00e9lection, il est plus probable qu'il attende la prochaine \u00e9lection plut\u00f4t que d'agir imm\u00e9diatement.",
+    "self_gap": 0.28403720948811045
+  },
+  "27": {
+    "act": 3,
+    "agree": true,
+    "blank_threshold": 0.23134012124999095,
+    "expected_act": true,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (0.4965) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.49649517971581375
+  },
+  "28": {
+    "act": 3,
+    "agree": true,
+    "blank_threshold": 0.27229573598704854,
+    "expected_act": true,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (0.4221) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.4220597917361079
+  },
+  "30": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.35245764673962177,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement faible (self_gap = 0.1433) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.14332950160516067
+  },
+  "35": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.3626061079520457,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.0836) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.08355243130978547
+  },
+  "38": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.6101400188987265,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.1535) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.15349404824821158
+  },
+  "39": {
+    "act": 1,
+    "agree": true,
+    "blank_threshold": 0.15623146716111247,
+    "expected_act": true,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.2363) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.23634551538276893
+  },
+  "41": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.42407402682913037,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement faible (self_gap = 0.123) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.12302579959759291
+  },
+  "45": {
+    "act": 1,
+    "agree": true,
+    "blank_threshold": 0.173015602965997,
+    "expected_act": true,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.3118) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.31179107227704106
+  },
+  "46": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.3612839743682155,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.1675) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.16748736819832935
+  },
+  "47": {
+    "act": 1,
+    "agree": true,
+    "blank_threshold": 0.14764146513794874,
+    "expected_act": true,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (0.4317) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.4317061334646345
+  },
+  "48": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.3217009597188391,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement faible (self_gap = 0.0989) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Cependant, il reste 15 ticks avant l'\u00e9lection, ce qui pourrait inciter \u00e0 une action plus proactive.",
+    "self_gap": 0.09889697220206321
+  },
+  "50": {
+    "act": 4,
+    "agree": true,
+    "blank_threshold": 0.593689991372442,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.2896) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Comme il reste 15 ticks avant l'\u00e9lection, il est plus probable qu'il attende la prochaine \u00e9lection plut\u00f4t que d'agir imm\u00e9diatement.",
+    "self_gap": 0.2895881366260438
+  },
+  "54": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.6370099723330558,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.1907) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.1907008441210955
+  },
+  "56": {
+    "act": 1,
+    "agree": true,
+    "blank_threshold": 0.24682132239762025,
+    "expected_act": true,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.4348) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.434787308131881
+  },
+  "58": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.3823749217598255,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.1299) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.12985066954655863
+  },
+  "60": {
+    "act": 1,
+    "agree": true,
+    "blank_threshold": 0.2030898756295493,
+    "expected_act": true,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.3794) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.3794194428206943
+  },
+  "62": {
+    "act": 1,
+    "agree": true,
+    "blank_threshold": 0.20810100122658018,
+    "expected_act": true,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.3209) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.3209056280014788
+  },
+  "65": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.7008249334756237,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.1919) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.1919482461772951
+  },
+  "68": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.47459464190513706,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement faible (self_gap = 0.1991) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.19908778612575304
+  },
+  "69": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.3619320883270259,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.1663) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.16627272695681916
+  },
+  "70": {
+    "act": 4,
+    "agree": true,
+    "blank_threshold": 0.564086047217235,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.2275) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Comme il reste 15 ticks avant l'\u00e9lection, il est plus probable qu'il attende la prochaine \u00e9lection plut\u00f4t que d'agir imm\u00e9diatement.",
+    "self_gap": 0.22748272486428434
+  },
+  "72": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.5883198640597497,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.1509) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.15087734683597076
+  },
+  "74": {
+    "act": 4,
+    "agree": false,
+    "blank_threshold": 0.035609348243070285,
+    "expected_act": true,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.2632) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Comme il reste 15 ticks avant l'\u00e9lection, il est plus probable qu'il attende la prochaine \u00e9lection plut\u00f4t que d'agir imm\u00e9diatement.",
+    "self_gap": 0.26318817380657983
+  },
+  "79": {
+    "act": 3,
+    "agree": false,
+    "blank_threshold": 0.5455282787717918,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement faible (self_gap = 0.164) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il est donc plus susceptible de mobiliser plut\u00f4t que de se d\u00e9sengager.",
+    "self_gap": 0.16397615988624986
+  },
+  "80": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.6174569882965875,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.1506) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.1506200539314819
+  },
+  "88": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.5670515025174536,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.1514) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.15141310721087933
+  },
+  "90": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.4698101886175628,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.1767) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.17665324142764108
+  },
+  "96": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.4782834114804054,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement faible (self_gap = 0.0975) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.09754690029753871
+  },
+  "97": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.7068613448393939,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.3026) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.30257754303603807
+  },
+  "101": {
+    "act": 2,
+    "agree": true,
+    "blank_threshold": 0.1376408995168064,
+    "expected_act": true,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (0.4938) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.49378305394257266
+  },
+  "107": {
+    "act": 4,
+    "agree": true,
+    "blank_threshold": 0.42419259306723694,
+    "expected_act": false,
+    "reasoning": "Le citoyen 107 a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.1434) et le mandate_dev est nul, indiquant que l'elu reste proche de ses promesses. Comme il reste 15 ticks avant l'\u00e9lection, il est plus probable qu'il attende la prochaine \u00e9lection plut\u00f4t que d'agir imm\u00e9diatement.",
+    "self_gap": 0.14340028029582513
+  },
+  "109": {
+    "act": 2,
+    "agree": true,
+    "blank_threshold": 0.2230166748298616,
+    "expected_act": true,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (0.4394) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.43937959556815026
+  },
+  "110": {
+    "act": 4,
+    "agree": true,
+    "blank_threshold": 0.5547386803062538,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.2556) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Comme il reste 15 ticks avant l'\u00e9lection, il est plus probable qu'il attende la prochaine \u00e9lection plut\u00f4t que d'agir imm\u00e9diatement.",
+    "self_gap": 0.25557613824043207
+  },
+  "112": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.32593097634834195,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.0887) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.0886689106441005
+  },
+  "114": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.7422625056828387,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.1681) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.16808213491858687
+  },
+  "119": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.34393250453226976,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.1412) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.14123179941577615
+  },
+  "123": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.4278356748497924,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.1527) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.1526543838851416
+  },
+  "124": {
+    "act": 4,
+    "agree": true,
+    "blank_threshold": 0.5846875743258445,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.2131) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Comme il reste 15 ticks avant l'\u00e9lection, il est plus probable qu'il attende la prochaine \u00e9lection plut\u00f4t que d'agir imm\u00e9diatement.",
+    "self_gap": 0.21307127252794048
+  },
+  "127": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.500044786637467,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.1751) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.17507722588254146
+  },
+  "130": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.783529162121141,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.3904) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.39035211208501736
+  },
+  "135": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.3429957861638311,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.133) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.13297054909522907
+  },
+  "137": {
+    "act": 4,
+    "agree": true,
+    "blank_threshold": 0.633105886966989,
+    "expected_act": false,
+    "reasoning": "Le citoyen 137 a un ecart de mecontentement faible (self_gap = 0.19) et le mandate_dev est nul, ce qui sugg\u00e8re que l'elu reste proche de ses promesses. Comme il reste 15 ticks avant l'\u00e9lection, il est plus probable qu'il attende la prochaine \u00e9lection plut\u00f4t que d'agir imm\u00e9diatement.",
+    "self_gap": 0.19002838331819077
+  },
+  "138": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.6876903198184389,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.2919) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.291900796042329
+  },
+  "141": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.4705536150311158,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.1413) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.1413056050768559
+  },
+  "146": {
+    "act": 2,
+    "agree": true,
+    "blank_threshold": 0.2381315991721189,
+    "expected_act": true,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (0.4212) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.4212019609251659
+  },
+  "149": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.3047656087946007,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.1415) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.14151073130788458
+  },
+  "151": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.3286681453887171,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.1461) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.14605078404250116
+  },
+  "154": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.538584210656336,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.2574) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.25738782271592997
+  },
+  "155": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.6260722387550499,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.1397) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.139658614084119
+  },
+  "157": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.7798051580343621,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.1722) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.1721941861128505
+  },
+  "158": {
+    "act": 4,
+    "agree": true,
+    "blank_threshold": 0.4199499729802146,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.1457) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Comme il reste 15 ticks avant l'\u00e9lection, il est plus probable qu'il attende la prochaine \u00e9lection plut\u00f4t que d'agir imm\u00e9diatement.",
+    "self_gap": 0.1457427619899152
+  },
+  "160": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.3942569227733953,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.1518) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.15180809619216606
+  },
+  "161": {
+    "act": 4,
+    "agree": false,
+    "blank_threshold": 0.17313054596832794,
+    "expected_act": true,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.285) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Comme il reste 15 ticks avant l'\u00e9lection, il est plus probable qu'il attende la prochaine \u00e9lection plut\u00f4t que d'agir imm\u00e9diatement.",
+    "self_gap": 0.2849957376860349
+  },
+  "164": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.6106926666082338,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.0994) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.099386522829726
+  },
+  "173": {
+    "act": 4,
+    "agree": true,
+    "blank_threshold": 0.7098790604135955,
+    "expected_act": false,
+    "reasoning": "Le citoyen 173 a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.089) et le mandate_dev est nul, indiquant que l'elu reste proche de ses promesses. Comme il reste 15 ticks avant l'\u00e9lection, il est plus probable qu'il attende la prochaine \u00e9lection plut\u00f4t que d'agir imm\u00e9diatement.",
+    "self_gap": 0.08903604853201116
+  },
+  "175": {
+    "act": 4,
+    "agree": false,
+    "blank_threshold": 0.2003229228802247,
+    "expected_act": true,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (0.4333) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Comme il reste 15 ticks avant l'\u00e9lection, il pourrait attendre pour agir plus tard.",
+    "self_gap": 0.4332584596553676
+  },
+  "178": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.3824187532928764,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.1633) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.16327062534307576
+  },
+  "179": {
+    "act": 4,
+    "agree": true,
+    "blank_threshold": 0.6823652421532275,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.2817) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Comme il reste 15 ticks avant l'\u00e9lection, il est plus probable qu'il attende la prochaine \u00e9lection plut\u00f4t que d'agir imm\u00e9diatement.",
+    "self_gap": 0.2816941462012589
+  },
+  "182": {
+    "act": 4,
+    "agree": false,
+    "blank_threshold": 0.040441400693593095,
+    "expected_act": true,
+    "reasoning": "Le citoyen a un ecart de mecontentement mod\u00e9r\u00e9 (self_gap = 0.1428) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Comme il reste 15 ticks avant l'\u00e9lection, il est plus probable qu'il attende la prochaine \u00e9lection plut\u00f4t que d'agir imm\u00e9diatement.",
+    "self_gap": 0.14281743660075574
+  },
+  "183": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.6211209693776897,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement faible (self_gap = 0.1124) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.11235072039446252
+  },
+  "189": {
+    "act": 1,
+    "agree": false,
+    "blank_threshold": 0.5448598577905245,
+    "expected_act": false,
+    "reasoning": "Le citoyen a un ecart de mecontentement faible (self_gap = 0.1128) et le mandate_dev est nul, indiquant que l'elu tient \u00e0 ses promesses. Il reste 15 ticks avant l'\u00e9lection, ce qui sugg\u00e8re une opportunit\u00e9 pour agir avant le scrutin.",
+    "self_gap": 0.11277678429327893
+  }
+}
