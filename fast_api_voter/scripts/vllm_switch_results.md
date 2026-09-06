@@ -84,6 +84,17 @@ sincere position.
 
 ## What this does and does not license
 
+> **Correction, 2026-09-06 (PR #278) — read before treating "all clear" as blanket clearance.**
+> A follow-up comparison, on a decision type this document does not cover, found a severe,
+> vLLM-specific, `sort_keys`-triggered non-terminating truncation bug on `pressure_action`'s real
+> production schema (85.7% failure rate — see
+> `scripts/check_vllm_pressure_action_sort_keys_truncation_results.md`). Ollama is unaffected by
+> the identical reordering. This directly blocks any `provider: vllm` production switch as
+> currently wired. The "all clear" below was accurate for the two decision types axis (b) actually
+> tested — it was never exhaustive over every decision type in the engine, and this result is
+> evidence that exhaustiveness matters before a production switch is considered, not evidence
+> specific to `pressure_action` alone.
+
 **Confirmed**: axis (a) and axis (b) both clear their respective bars.
 Every check this plan named as a go/no-go criterion, including the one it
 flagged as missing from the existing test suite, now has a result.
