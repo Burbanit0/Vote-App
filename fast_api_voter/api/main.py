@@ -19,6 +19,7 @@ from typing import Any, AsyncIterator, Awaitable, Callable
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.types import Scope
@@ -80,6 +81,27 @@ app = FastAPI(
 # a 429. Only the public router declares @limiter.limit decorators today.
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
+
+
+# ── Catch-all exception handler ──────────────────────────────────────────────
+# Most domain workers already catch their own exceptions and return a (body,
+# 500) tuple, which never reaches this handler — see the `log.error(...,
+# exc_info=True)` calls added alongside each of those. This handler is the
+# backstop for anything that still escapes uncaught (a route or middleware bug,
+# not a worker's own try/except), so a genuinely unhandled exception is logged
+# with a traceback instead of surfacing only as a bare 500 in the access log.
+_unhandled_log = get_logger("api.unhandled")
+
+
+@app.exception_handler(Exception)
+async def _unhandled_exception_handler(request: Request, exc: Exception) -> Response:
+    _unhandled_log.error(
+        "http.unhandled_exception",
+        method=request.method,
+        path=request.url.path,
+        exc_info=True,
+    )
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 
 # ── CORS ────────────────────────────────────────────────────────────────────
