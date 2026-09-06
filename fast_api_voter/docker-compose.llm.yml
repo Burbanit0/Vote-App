@@ -1,13 +1,16 @@
 # docker-compose.llm.yml — vLLM inference server (v4 vLLM switch, §15bis.6)
 #
-# ⚠ UNVERIFIED — never executed. A GPU (RTX 5070 Ti) became available in
-# this project's environment on 2026-08-17 and has been used to validate
-# Ollama on GPU (llm_batching_determinism_results_gpu.md) -- but no vLLM
-# server has ever been stood up on it, so this file remains untested for
-# that reason specifically. Every prior LLM finding here (batching
-# determinism, structured-output quirks, think=False bugs) was measured
-# against Ollama, not vLLM.
-# The design doc (§15) names this file; this is its first materialization.
+# Live-verified 2026-09-05 (PR #273, scripts/vllm_determinism_results.md) on
+# native Ubuntu, after a WSL2/Docker Desktop platform bug (`RuntimeError: UVA
+# is not available`) blocked a first live attempt on 2026-08-30. B2
+# (temperature=0 + pinned model ⇒ determinism) holds under this config,
+# including real concurrent batching -- see that results doc for the full
+# protocol and two config bugs found+fixed along the way (max-model-len
+# sizing, then a stability correction; both baked into the flags below).
+# Every prior LLM *content-quality* finding in this codebase (batching
+# quirks aside from B2, structured-output quirks, think=False bugs) was
+# still measured against Ollama, not vLLM -- axis (b) in
+# plan-vllm-switch-readiness.md, unresolved.
 #
 # Kept separate from docker-compose.yml (api + redis) so the api+redis stack
 # is unaffected on machines without a GPU — this file is opt-in.
@@ -57,6 +60,13 @@
 # No redis service here: §4.2's response cache is not implemented (see
 # polity_config.yaml's llm.cache_backend comment) and this lot does not
 # build it.
+
+name: polity-vllm   # explicit, distinct from docker-compose.yml / .ollama.yml
+                    # -- see docker-compose.ollama.yml's own comment on this;
+                    # without it all files under fast_api_voter/ share one
+                    # implicit project name (the directory name) and every
+                    # up/down/ps warns about the others' containers as
+                    # "orphans" of its own project
 
 services:
   vllm:
