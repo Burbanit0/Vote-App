@@ -12,6 +12,9 @@ from typing import Any, Dict
 from api.engine.utils.simulation_voting_utils import Voter, create_voter, create_candidate
 from api.engine.utils.simulation_metrics import compare_all_methods
 from api.engine.constants import DEFAULT_ISSUES
+from api.engine.utils.logger import get_logger
+
+log = get_logger(__name__)
 
 # ── Supported variant parameters ───────────────────────────────────────────
 
@@ -124,6 +127,7 @@ def _what_if_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
                 blank_vote=(blank_pct > 0),
             )
         except Exception as exc:
+            log.warning("simulation.whatif.value_failed", value=value, exc_info=True)
             results.append({
                 "value": value,
                 "error": str(exc),
