@@ -915,6 +915,13 @@ def _hold_presidential_election(
                         # cannot mistake a varied-sampling retry's decision for
                         # an ordinary, deterministic first-attempt one.
                         "retry_sampling_varied": int(outcome.retry_sampling_varied.get(decision.cid, False)),
+                        # Same convention, marking the OTHER provenance this
+                        # journal must not silently mistake for a real LLM
+                        # answer: cast_votes's own last-resort deterministic
+                        # fallback (VoteBatchOutcome.llm_fallback's docstring)
+                        # after every recovery attempt was exhausted for this
+                        # voter. Mutually exclusive with retry_sampling_varied.
+                        "llm_fallback": int(outcome.llm_fallback.get(decision.cid, False)),
                     },
                     citizen_id=decision.cid,
                     motif=str(decision.motif),

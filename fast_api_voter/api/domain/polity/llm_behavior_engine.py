@@ -153,6 +153,7 @@ from api.domain.polity.codebook import (
     CoalitionAction,
     EventType,
     ReactionMotif,
+    VoteMotif,
     check_codebook_version,
 )
 from api.domain.polity.config import PolityConfig, PressureMenuConfig
@@ -195,7 +196,9 @@ from api.domain.polity.llm_schemas import (
 from api.domain.polity.parties import Party
 from api.domain.polity.simple_rules import (
     BLANK_LABEL,
+    build_ranking,
     candidate_label,
+    citizen_id_from_label,
     sympathizer_ratio,
     tiebreak_key,
     weighted_distance,
@@ -442,6 +445,19 @@ class VoteBatchOutcome:
     so this is unambiguous per cid. Defaults to an empty dict (every key
     absent means False) so every pre-existing VoteBatchOutcome(...)
     construction in this codebase's own tests keeps compiling unchanged."""
+    llm_fallback: dict[int, bool] = field(default_factory=dict)
+    """cid -> whether that voter's ballot came from _deterministic_vote_
+    fallback rather than the model at all -- added 2026-09-06
+    (check_vllm_vote_cast_retry_is_inert_results.md) after a real vLLM run
+    crashed with the replay budget exhausted for one voter (cid=33: two
+    different retry seeds, identical wrong answer both times). Per the
+    project's own standing priority for this run ("must not die mid-run" >
+    observable > UI-ready output), cast_votes now degrades to
+    simple_rules.build_ranking for that ONE voter instead of raising and
+    killing the whole simulation. Mutually exclusive with
+    retry_sampling_varied being true for the same cid: a fallback decision
+    never came from any LLM attempt, varied-sampling or not. Same
+    empty-dict-means-False default as retry_sampling_varied, same reason."""
 
 
 def _check_supported(config: PolityConfig) -> None:
@@ -944,6 +960,37 @@ def resolve_ranking_cids(decision: VoteCastDecision, candidates: Sequence[Citize
     return [ordered[p - 1].citizen_id for p in decision.ranking]
 
 
+def _deterministic_vote_fallback(voter: Citizen, candidates: Sequence[Citizen]) -> VoteCastDecision:
+    """Last-resort ballot for cast_votes when the LLM path is exhausted for
+    this one voter -- see VoteBatchOutcome.llm_fallback's own docstring for
+    why this exists at all. Reuses simple_rules.build_ranking, the exact
+    function cast_votes's own module docstring says it REPLACED (v2
+    increment 1) -- not a new mechanism invented for this fallback, the
+    pre-existing v0/v1 baseline this codebase already trusts.
+
+    The motif is not a placeholder: build_ranking's own within-tolerance
+    test (weighted_distance <= voter.blank_threshold) is exactly what
+    VoteMotif.ACCEPTABLE_MATCH/NO_MATCHING_PRIORITY distinguish, so the code
+    reported here is the same classification an honest LLM answer would
+    carry for this voter, computed structurally instead of by model
+    judgment -- not a lie about provenance (VoteBatchOutcome.llm_fallback
+    carries that separately), just an accurate description of the ballot
+    actually produced.
+
+    `ranking` must be positions into `sorted_candidates(candidates)` (this
+    module's own canonical order, D-5) -- build_ranking's own output is
+    sorted by ascending distance instead, so every label has to be mapped
+    back through citizen_id_from_label before it can be turned into a
+    position."""
+    position_by_cid = {c.citizen_id: i for i, c in enumerate(sorted_candidates(candidates), start=1)}
+    ballot = build_ranking(voter, list(candidates))
+    blank_index = ballot.index(BLANK_LABEL)
+    if blank_index == 0:
+        return VoteCastDecision(cid=voter.citizen_id, blank=1, ranking=[], motif=VoteMotif.NO_MATCHING_PRIORITY)
+    ranking = [position_by_cid[citizen_id_from_label(label)] for label in ballot[:blank_index]]
+    return VoteCastDecision(cid=voter.citizen_id, blank=0, ranking=ranking, motif=VoteMotif.ACCEPTABLE_MATCH)
+
+
 def cast_votes(
     voters: Sequence[Citizen],
     candidates: Sequence[Citizen],
@@ -990,37 +1037,61 @@ def cast_votes(
     ballots: list[list[str]] = []
     decisions: list[VoteCastDecision] = []
     retry_sampling_varied: dict[int, bool] = {}
+    llm_fallback: dict[int, bool] = {}
     for chunk in chunk_voters(voters, _VOTE_CAST_MAX_CHUNK_SIZE, min_batch_size=1):
         expected_cids = [voter.citizen_id for voter in chunk]
         retry_info: dict[str, Any] = {}
-        chunk_decisions = _complete_and_decode_with_replay(
-            client,
-            system_prompt=build_system_prompt(chunk, candidates),
-            user_prompt=build_user_prompt(chunk, candidates),
-            json_schema=VOTE_CAST_JSON_SCHEMA,
-            max_tokens=compute_max_tokens(len(chunk)) + _VOTE_THINK_TOKEN_ALLOWANCE,
-            think=True,
-            decode=lambda raw: decode_vote_batch(raw, expected_cids),
-            replays=config.llm.max_batch_replays,
-            decision_type="vote_cast",
-            # A deliberate, local exception to temperature=0 determinism --
-            # see _VOTE_CAST_RETRY_TEMPERATURE's own comment. Only ever
-            # applies to a genuine retry (never the first attempt).
-            retry_temperature=_VOTE_CAST_RETRY_TEMPERATURE,
-            # _VOTE_CAST_RETRY_TEMPERATURE alone is not sufficient on vLLM --
-            # see _VOTE_CAST_RETRY_SEED_BASE's own comment and
-            # check_vllm_vote_cast_retry_is_inert_results.md.
-            retry_seed_base=_VOTE_CAST_RETRY_SEED_BASE,
-            retry_info=retry_info,
-        )
+        try:
+            chunk_decisions = _complete_and_decode_with_replay(
+                client,
+                system_prompt=build_system_prompt(chunk, candidates),
+                user_prompt=build_user_prompt(chunk, candidates),
+                json_schema=VOTE_CAST_JSON_SCHEMA,
+                max_tokens=compute_max_tokens(len(chunk)) + _VOTE_THINK_TOKEN_ALLOWANCE,
+                think=True,
+                decode=lambda raw: decode_vote_batch(raw, expected_cids),
+                replays=config.llm.max_batch_replays,
+                decision_type="vote_cast",
+                # A deliberate, local exception to temperature=0 determinism --
+                # see _VOTE_CAST_RETRY_TEMPERATURE's own comment. Only ever
+                # applies to a genuine retry (never the first attempt).
+                retry_temperature=_VOTE_CAST_RETRY_TEMPERATURE,
+                # _VOTE_CAST_RETRY_TEMPERATURE alone is not sufficient on vLLM --
+                # see _VOTE_CAST_RETRY_SEED_BASE's own comment and
+                # check_vllm_vote_cast_retry_is_inert_results.md.
+                retry_seed_base=_VOTE_CAST_RETRY_SEED_BASE,
+                retry_info=retry_info,
+            )
+            for decision in chunk_decisions:
+                validate_decision(decision, candidate_count, truncate_at)
+        except LlmResponseError as exc:
+            # Last resort, not a silent one -- see VoteBatchOutcome.llm_
+            # fallback's own docstring for why this exists and what it does
+            # and does not claim. Covers BOTH failure classes that reach
+            # here: the replay budget exhausted inside
+            # _complete_and_decode_with_replay, and a validate_decision
+            # failure on an otherwise-decoded batch (out-of-range/truncated
+            # ranking) -- neither is retried today, and both currently kill
+            # the whole run identically, which is the exact "must not die
+            # mid-run" failure this plan's own priority ordering names as
+            # worse than any of this run's other goals.
+            _logger.error(
+                "vote_cast: exhausted every recovery attempt for cid(s) %s, falling back to the "
+                "deterministic sincere ranking (simple_rules.build_ranking) instead of aborting "
+                "the run: %s", expected_cids, exc,
+            )
+            chunk_decisions = [_deterministic_vote_fallback(voter, candidates) for voter in chunk]
+            for decision in chunk_decisions:
+                llm_fallback[decision.cid] = True
         sampling_varied = bool(retry_info.get("sampling_varied", False))
         for decision in chunk_decisions:
-            validate_decision(decision, candidate_count, truncate_at)
             ballots.append(ballot_from_decision(decision, position_to_candidate))
             retry_sampling_varied[decision.cid] = sampling_varied
         decisions.extend(chunk_decisions)
 
-    return VoteBatchOutcome(ballots=ballots, decisions=decisions, retry_sampling_varied=retry_sampling_varied)
+    return VoteBatchOutcome(
+        ballots=ballots, decisions=decisions, retry_sampling_varied=retry_sampling_varied, llm_fallback=llm_fallback
+    )
 
 
 @dataclass(frozen=True)

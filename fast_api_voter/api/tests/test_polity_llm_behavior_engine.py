@@ -486,7 +486,16 @@ def test_cast_votes_raises_for_codebook_version_mismatch():
         cast_votes(voters, candidates, config, FakeLlmClient({}, candidates))
 
 
-def test_cast_votes_propagates_llm_response_error_on_count_mismatch():
+def test_cast_votes_falls_back_to_the_deterministic_ballot_on_count_mismatch():
+    # cast_votes no longer propagates LlmResponseError under ANY circumstance
+    # (2026-09-06, check_vllm_vote_cast_retry_is_inert_results.md) -- a real
+    # vLLM run crashed on exactly this exception type after its replay budget
+    # was exhausted, which this project's own standing priority for that run
+    # ("must not die mid-run") rules out. ShortClient always answers cid=0,
+    # so every voter EXCEPT cid=0 itself is misaligned and falls back --
+    # voter 0's own chunk coincidentally matches and succeeds normally,
+    # which the assertions below check for too (the fallback must not
+    # over-fire on a chunk that was never actually misaligned).
     voters = _population(20)
     candidates = [_candidate(100, (0.5,))]
     config = _config_with_llm_enabled()
@@ -495,8 +504,11 @@ def test_cast_votes_propagates_llm_response_error_on_count_mismatch():
         def complete_json(self, **kwargs):
             return json.dumps({"decisions": [{"cid": 0, "blank": 1, "ranking": [], "motif": 101}]})
 
-    with pytest.raises(LlmResponseError, match="misaligned"):
-        cast_votes(voters, candidates, config, ShortClient())
+    outcome = cast_votes(voters, candidates, config, ShortClient())
+
+    assert len(outcome.decisions) == len(voters)
+    assert outcome.llm_fallback.get(0) is None  # voter 0 was never misaligned, no fallback
+    assert all(outcome.llm_fallback.get(v.citizen_id) is True for v in voters if v.citizen_id != 0)
 
 
 # ── build_candidacy_system_prompt / build_candidacy_user_prompt ─────────────
@@ -3101,7 +3113,22 @@ def _replay_cases():
     ]
 
 
-@pytest.mark.parametrize("label,call,good_raw", _replay_cases(), ids=[c[0] for c in _replay_cases()])
+def _replay_cases_that_still_propagate():
+    # vote_cast is EXCLUDED here, not merely another parametrized case:
+    # since 2026-09-06 (check_vllm_vote_cast_retry_is_inert_results.md) it
+    # never propagates LlmResponseError under any replay budget -- it falls
+    # back to a deterministic ballot instead (VoteBatchOutcome.llm_fallback).
+    # The three "propagates"/"raises" tests below test the other 8 entry
+    # points, whose behavior is unchanged; vote_cast's own new behavior gets
+    # its own dedicated tests, same discipline as the existing negative case
+    # for retry_temperature (test_other_decide_entry_points_never_send_a_
+    # temperature_override_even_when_replayed).
+    return [c for c in _replay_cases() if c[0] != "vote_cast"]
+
+
+@pytest.mark.parametrize(
+    "label,call,good_raw", _replay_cases_that_still_propagate(), ids=[c[0] for c in _replay_cases_that_still_propagate()]
+)
 def test_max_batch_replays_zero_propagates_on_the_first_failure(label, call, good_raw):
     # Today's exact behavior, now explicitly pinned for every entry point --
     # the shipped default (0) must never retry.
@@ -3128,7 +3155,9 @@ def test_max_batch_replays_recovers_after_failures_within_the_budget(label, call
     assert client.prompts[0] == client.prompts[1] == client.prompts[2]
 
 
-@pytest.mark.parametrize("label,call,good_raw", _replay_cases(), ids=[c[0] for c in _replay_cases()])
+@pytest.mark.parametrize(
+    "label,call,good_raw", _replay_cases_that_still_propagate(), ids=[c[0] for c in _replay_cases_that_still_propagate()]
+)
 def test_max_batch_replays_still_raises_once_the_budget_is_exhausted(label, call, good_raw):
     config = _config_with_llm_enabled()
     config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, max_batch_replays=2))
@@ -3156,7 +3185,9 @@ def test_max_batch_replays_recovers_from_a_complete_json_raised_error(label, cal
     assert client.prompts[0] == client.prompts[1] == client.prompts[2]
 
 
-@pytest.mark.parametrize("label,call,good_raw", _replay_cases(), ids=[c[0] for c in _replay_cases()])
+@pytest.mark.parametrize(
+    "label,call,good_raw", _replay_cases_that_still_propagate(), ids=[c[0] for c in _replay_cases_that_still_propagate()]
+)
 def test_max_batch_replays_zero_propagates_a_complete_json_raised_error_on_the_first_attempt(label, call, good_raw):
     # Before the fix, this error skipped the retry loop entirely and
     # propagated silently (no WARNING logged) regardless of `replays` --
@@ -3178,6 +3209,74 @@ def test_max_batch_replays_never_catches_a_transport_error():
     with pytest.raises(LlmTransportError):
         decide_pressure_actions([citizen], contexts, config, client)
     assert client.calls == 1  # the client itself owns transport-level retries, not this layer
+
+
+# ── cast_votes's own deterministic fallback (2026-09-06) -- the one entry
+# point excluded from the three "propagates"/"raises" tests above, per
+# _replay_cases_that_still_propagate's own docstring. A real vLLM run
+# crashed with the replay budget exhausted for one voter
+# (check_vllm_vote_cast_retry_is_inert_results.md); cast_votes now falls
+# back to simple_rules.build_ranking for that voter instead of raising,
+# under EVERY replay budget including 0 -- the fallback is a separate,
+# zero-LLM-cost mechanism, not itself a replay, so it is not gated by how
+# many replays were configured. ──────────────────────────────────────────
+
+def test_cast_votes_falls_back_instead_of_propagating_when_replays_is_zero():
+    voters = _population(1, dims=1)
+    candidates = [_candidate(900, (0.5,))]
+    config = _config_with_llm_enabled()
+    assert config.llm.max_batch_replays == 0
+    client = _FlakyClient(fail_times=1, good_raw="ignored, never reached")
+
+    outcome = cast_votes(voters, candidates, config, client)
+
+    assert client.calls == 1  # no retry spent -- replays=0 means no LLM-side recovery attempt
+    assert outcome.llm_fallback == {voters[0].citizen_id: True}
+    assert outcome.ballots == [build_ranking(voters[0], candidates)]
+
+
+def test_cast_votes_falls_back_instead_of_raising_once_the_replay_budget_is_exhausted():
+    voters = _population(1, dims=1)
+    candidates = [_candidate(900, (0.5,))]
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, max_batch_replays=2))
+    client = _FlakyClient(fail_times=99, good_raw="ignored, never reached")  # never recovers
+
+    outcome = cast_votes(voters, candidates, config, client)
+
+    assert client.calls == 3  # 1 original + 2 replays, then fall back instead of raising
+    assert outcome.llm_fallback == {voters[0].citizen_id: True}
+
+
+def test_cast_votes_falls_back_on_a_complete_json_raised_error_too():
+    # The _FlakyResponseClient branch (complete_json itself raises, e.g. a
+    # truncated generation) -- same fallback, not just the decode-failure one.
+    voters = _population(1, dims=1)
+    candidates = [_candidate(900, (0.5,))]
+    config = _config_with_llm_enabled()
+    client = _FlakyResponseClient(fail_times=1, good_raw="ignored, never reached")
+
+    outcome = cast_votes(voters, candidates, config, client)
+
+    assert client.calls == 1
+    assert outcome.llm_fallback == {voters[0].citizen_id: True}
+
+
+def test_cast_votes_still_recovers_normally_when_a_retry_succeeds():
+    # The fallback must not shadow the ordinary, already-working recovery
+    # path -- a retry that actually succeeds is used as-is, no fallback.
+    voters = _population(1, dims=1)
+    candidates = [_candidate(900, (0.5,))]
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, max_batch_replays=2))
+    good_raw = json.dumps({"decisions": [{"cid": voters[0].citizen_id, "blank": 1, "ranking": [], "motif": 101}]})
+    client = _FlakyClient(fail_times=1, good_raw=good_raw)
+
+    outcome = cast_votes(voters, candidates, config, client)
+
+    assert client.calls == 2
+    assert outcome.llm_fallback == {}
+    assert outcome.retry_sampling_varied == {voters[0].citizen_id: True}
 
 
 # ── retry_temperature / retry_sampling_varied -- cast_votes's own local,

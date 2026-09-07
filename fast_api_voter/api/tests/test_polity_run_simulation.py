@@ -2301,11 +2301,17 @@ def test_confidence_vote_keep_ratio_decouples_from_mandate_strength_once_the_pos
     assert mismatches > 0  # the identity deliberately breaks once the position has drifted
 
 
-def test_llm_batch_misalignment_aborts_the_run_with_no_partial_journal(tmp_path):
+def test_llm_batch_misalignment_falls_back_instead_of_aborting_the_run(tmp_path):
+    # Renamed and re-asserted 2026-09-06 (check_vllm_vote_cast_retry_is_
+    # inert_results.md): cast_votes no longer propagates LlmResponseError at
+    # all -- a real vLLM run crashed on exactly this exception type, which
+    # this project's own standing priority ("must not die mid-run") rules
+    # out. The run now completes; every vote_cast event this misalignment
+    # touches is journaled with llm_fallback=1 instead.
     class _ShortClient:
         """Answers candidacy calls in full (so nominees exist to vote on),
         but answers every vote call with a decision for a cid that was
-        never asked -- isolates the misalignment failure to cast_votes
+        never asked -- isolates the misalignment to cast_votes
         specifically. A wrong cid, not "drop all but the first" or an
         empty decisions list: cast_votes now chunks at
         _VOTE_CAST_MAX_CHUNK_SIZE=1, so a chunk's own expected_cids is
@@ -2313,7 +2319,8 @@ def test_llm_batch_misalignment_aborts_the_run_with_no_partial_journal(tmp_path)
         mismatch at that chunk size, it would coincidentally match; and
         VoteCastBatch's own min_length=1 would turn an empty list into a
         schema-validation LlmResponseError, not the "misaligned" one this
-        test asserts on."""
+        test exercises (both now land on the same fallback path, but this
+        one is the case that actually crashed a real run)."""
 
         def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
             payload = json.loads(user_prompt)
@@ -2340,9 +2347,22 @@ def test_llm_batch_misalignment_aborts_the_run_with_no_partial_journal(tmp_path)
                 return json.dumps({"decisions": decisions})
             return json.dumps({"decisions": [{"cid": 999999, "blank": 1, "ranking": [], "motif": 101}]})
 
+    # duration_years=1 (4 ticks): stops the run before assembly_offset_years=2
+    # ever brings a legislative election (and therefore coalition
+    # negotiation) into play -- this fake only ever answered
+    # candidacy/nomination/campaign-positioning/vote shapes, matching its own
+    # "isolates the misalignment to cast_votes specifically" scope. Before
+    # this fix, the test never got far enough to notice: it crashed at tick
+    # 0's presidential election, the run's very first LLM call.
     config = _config_with_llm_enabled(tmp_path)
-    with pytest.raises(LlmResponseError, match="misaligned"):
-        run_simulation(config, run_id="r", llm_client=_ShortClient())
+    config = dataclasses.replace(config, run=dataclasses.replace(config.run, duration_years=1))
+    journal_path = run_simulation(config, run_id="r", llm_client=_ShortClient())
+
+    events = _events(journal_path)
+    vote_events = [e for e in events if e["event_type"] == "vote_cast"]
+    assert vote_events  # the run completed, it did not abort
+    assert all(e["payload"]["llm_fallback"] == 1 for e in vote_events)
+    assert all(e["payload"]["retry_sampling_varied"] == 0 for e in vote_events)
 
 
 # ── llm.max_batch_replays (v4 Lot 8) ─────────────────────────────────────

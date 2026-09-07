@@ -13,8 +13,8 @@
 
 | Phase | What | Status |
 |---|---|---|
-| 0 | Pre-flight: disk, provider switch, baseline timing | **IN PROGRESS** — re-running after Phase 0bis fix |
-| 0bis | **NEW**: `vote_cast` retry needed a seed override on vLLM | **FIXED**, re-verifying at scale |
+| 0 | Pre-flight: disk, provider switch, baseline timing | **IN PROGRESS** — re-running after Phase 0bis fallback fix |
+| 0bis | **NEW**: `vote_cast` needed a seed override AND a deterministic fallback on vLLM | **FIXED** (2 iterations), re-verifying at scale |
 | 1 | Re-test the 3 collapse-flagged decision types under vLLM | TODO |
 | 2 | Concurrency unlock + byte-identical determinism proof | TODO |
 | 3 | Checkpoint / resume | TODO |
@@ -229,6 +229,53 @@ never fires (attempt==0 always uses `seed=None`).
 available data), not proven to eliminate every stuck case at flagship scale
 (500 citizens x 8 elections x chunk-size-1 = 4,000 vote_cast calls). The Phase 0
 baseline re-run is the real test.
+
+**The re-run confirmed the residual risk, not a clean pass.** The seed-varying
+retry demonstrably worked for 4 of 5 voters that failed their first attempt in
+the re-run (cid 7, 12, 16, 24 all recovered on a later, differently-seeded
+retry) — the mechanism is real. But cid 33 failed **identically** across both
+retry seeds (900000002 and 900000003), same wrong ranking both times, and the
+run crashed again. This is the exact shape the first measurement's aggregate
+stats already implied (1 of 9 stuck even under the best condition) — not every
+seed change actually diversifies a temperature-0.3 sample for every prompt.
+
+**Second fix, shipped alongside a graceful-degradation design change**:
+`cast_votes` now catches `LlmResponseError` around its whole per-chunk block
+(the retry call AND `validate_decision`) and, on exhaustion, falls back to
+`simple_rules.build_ranking` — the exact deterministic function cast_votes's own
+module docstring says it replaced — for that one voter, rather than raising and
+killing the run. This applies at ANY `max_batch_replays` setting, including 0:
+the fallback is a zero-LLM-cost mechanism, not itself a replay, so it isn't
+gated by how much retry budget is configured.
+
+The fallback's motif is not a placeholder: `build_ranking`'s own
+within-blank-threshold test is exactly what `VoteMotif.ACCEPTABLE_MATCH`/
+`NO_MATCHING_PRIORITY` distinguish, so the reported code is an accurate
+classification of the ballot actually produced, computed structurally instead
+of by model judgment. Provenance is tracked honestly: a new
+`VoteBatchOutcome.llm_fallback: dict[int, bool]` field, journaled as
+`vote_cast.payload.llm_fallback` (mutually exclusive with
+`retry_sampling_varied`), so no future analysis mistakes a fallback ballot for
+a real model decision. 1205 polity tests pass (7 more new/updated for this
+second change), mypy clean.
+
+**This directly implements the plan's own stated priority order** ("must not die
+mid-run" > observable > UI-ready output) rather than just asserting it — the
+first thing that would have died mid-run now degrades instead.
+
+**Deliberately NOT done**: the same treatment for the other 8 decision types.
+Several have their own `simple_rules.py` deterministic equivalent already
+(`deterministic_pressure_action`, `deterministic_reaction_to_event`,
+`select_party_nominee`, `form_coalition`, `build_confidence_ballot`) — the same
+mechanism could extend to them relatively mechanically. This is scoped out for
+now because only `vote_cast` has actually been measured to fail this way; adding
+speculative fallbacks to 8 more call sites without evidence they need one would
+be exactly the kind of unrequested generality this project's own conventions
+argue against. **Flagged as a real, named risk for the flagship**: any of those
+other 8 types could crash a 30-year run the same way `vote_cast` did, and this
+has not been checked. Phase 1 (re-testing the collapse-flagged types) is a
+natural place to extend this check before the real run, not assumed safe by
+default.
 
 ## Phase 1 — Re-test the three collapse-flagged decision types under vLLM · TODO
 
