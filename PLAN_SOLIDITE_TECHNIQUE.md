@@ -1,0 +1,386 @@
+# PLAN — Solidité technique & exploration outillée
+
+> Plan d'exécution auto-suffisant, écrit pour être repris étape par étape (par
+> moi ou par un agent) sans contexte préalable. **Une branche `feat/*` + une PR
+> par item**, contre `develop`, merge `--no-ff` — comme le mandate `CLAUDE.md`.
+>
+> **Date d'ouverture** : 2026-09-07
+> **État de départ** : `develop` à `a5cb7ce`, tous les gates verts
+> (`ci-local/run-ci.sh all` : Backend CI, Frontend CI, Playwright E2E, Security
+> Audit — 1789 tests backend, 91 % de couverture, 0 vulnérabilité Trivy,
+> 0 secret Gitleaks).
+
+---
+
+## Pourquoi ce plan existe
+
+Vote-App poursuit deux explorations en parallèle, et ce plan sert les deux :
+
+1. **Une exploration des méthodes de vote** — 26 méthodes en parité verrouillée
+   entre deux implémentations, une théorie formelle documentée, un objectif
+   pédagogique.
+2. **Une exploration des technologies et pratiques de développement** — qu'est-ce
+   qui tient vraiment la route sur un projet réel, qu'est-ce qui coûte plus
+   qu'il ne rapporte, qu'est-ce qui trouve des bugs que rien d'autre ne trouve.
+
+La seconde exploration n'a de valeur que si elle est **documentée honnêtement,
+échecs compris**. Un outil essayé et rejeté avec une raison précise vaut autant
+qu'un outil adopté — souvent plus, parce que personne ne publie ses rejets.
+
+D'où le principe directeur de ce plan :
+
+> **Chaque item est une expérience, pas une tâche.** Elle se termine par un
+> verdict écrit (adopté / rejeté / suspendu) accompagné de ce qu'elle a
+> réellement trouvé et de ce qu'elle a réellement coûté.
+
+### Les deux axes de notation
+
+Chaque item est noté sur deux axes indépendants, parce qu'ils ne se recouvrent
+pas dans un projet exploratoire :
+
+| Axe | Notation | Ce que ça mesure |
+|---|---|---|
+| **Solidité** | ⭐ à ⭐⭐⭐ | Ce que ça apporte à la robustesse réelle du code |
+| **Récit** | 📝 à 📝📝📝 | La richesse de ce qu'il y aura à raconter à l'issue |
+
+Un item ⭐📝📝📝 (peu solide, très racontable — ex. Z3) mérite d'être fait **ici**
+alors qu'il ne le mériterait pas sur un projet purement produit. C'est
+précisément ce qui distingue ce plan d'un plan de durcissement classique.
+
+**Effort** : `S` (≤ 1 h) · `M` (une demi-journée) · `L` (1 jour ou plus).
+
+---
+
+## Lot 0 — Le dispositif de documentation *(à faire en premier)*
+
+Ce lot passe avant tout le reste : c'est lui qui transforme les 11 lots suivants
+en matière partageable au lieu d'une suite de commits. Le faire après, c'est
+reconstituer de mémoire ce qu'on a trouvé — donc mal.
+
+### 0.1 — Séparer les quatre surfaces de documentation
+
+Le repo a déjà plusieurs supports qui se chevauchent mal. À clarifier une fois
+pour toutes, dans un court `docs/README.md` :
+
+| Surface | Rôle | Rythme | Existe ? |
+|---|---|---|---|
+| `docs/journal/JOURNAL_DE_BORD.md` | Chronologie narrative, par session de travail | Par session | ✅ |
+| `docs/exploration/EXP-*.md` | Par expérience/outil : verdict + enseignement transférable | Par expérience | ❌ à créer |
+| `docs/adr/` | Décisions d'architecture engageantes, avec alternatives écartées | Rare | ✅ (polity seulement — à ouvrir à l'app) |
+| `CODE_AUDIT.md` | État de santé daté du code, rejouable | Par passe de nettoyage | ✅ |
+
+**Effort** S · Solidité ⭐ · Récit 📝📝
+
+### 0.2 — Créer `docs/exploration/` avec son gabarit
+
+Un fichier par expérience, gabarit fixe :
+
+```markdown
+# EXP-00X — <Outil> : <ce qu'on cherchait à savoir>
+
+- **Date** · **Statut** : adopté | rejeté | suspendu · **Coût réel** : Xh
+- **Verdict en une phrase** :
+
+## Hypothèse de départ
+Ce que j'espérais que ça trouve, avant de commencer.
+
+## Protocole
+Ce que j'ai fait exactement (commandes, config, périmètre).
+
+## Ce que ça a trouvé
+Les vraies trouvailles, avec des liens vers les commits/PR de correction.
+Zéro trouvaille est un résultat valide et intéressant.
+
+## Ce que ça a coûté
+Temps d'installation, temps CI ajouté, faux positifs, charge de maintenance.
+
+## Verdict et pourquoi
+## Ce que j'en retiens (transférable à un autre projet)
+```
+
+La dernière section est la charge utile du partage : elle doit tenir debout
+pour quelqu'un qui ne connaît pas Vote-App.
+
+**Effort** S · Solidité ⭐ · Récit 📝📝📝
+
+### 0.3 — L'index des verdicts
+
+`docs/exploration/README.md` : un tableau `EXP | Outil | Domaine | Verdict |
+Trouvailles réelles | Coût`. Mis à jour à chaque expérience close.
+
+**C'est le livrable partageable du projet** : « j'ai essayé ~25 outils de qualité
+sur un vrai projet, voilà lesquels ont trouvé quelque chose ». Ce tableau
+n'existe nulle part ailleurs parce que personne ne tient le compte de ses rejets.
+
+**Effort** S · Solidité ⭐ · Récit 📝📝📝
+
+### 0.4 — Commande `/log-experiment` + agent `experiment-writer`
+
+Sur le modèle exact de `/log-session` + `journal-writer` déjà en place : l'agent
+lit le diff, les résultats d'outil et la conversation, puis rédige le carnet
+d'expérience selon le gabarit, à valider avant application.
+
+**Effort** M · Solidité ⭐ · Récit 📝📝
+
+### 0.5 — Ouvrir les ADR côté application
+
+`docs/adr/` ne contient que des ADR polity. Les décisions structurantes de
+l'app (le double moteur et sa parité, le choix SVG natif vs Recharts, l'archi
+en 5 moments du Playground, le refus d'authentification) ne sont documentées
+nulle part comme *décisions avec alternatives écartées*. Les écrire
+rétroactivement — c'est de la reconstitution assumée, à signaler comme telle.
+
+**Effort** M · Solidité ⭐⭐ · Récit 📝📝📝
+
+---
+
+## Lot 1 — Quick wins d'infrastructure
+
+Effort minime, bénéfice immédiat, débloque le confort de tous les lots suivants.
+
+| Item | Pourquoi ici | Effort | Solidité | Récit |
+|---|---|---|---|---|
+| **Groupes Dependabot** (`groups:`) | `dependabot.yml` n'a aucun groupe → les 13 PR en cascade du 06/09 auraient été 2-3 PR. Cause racine identifiée, correctif de 20 min. | S | ⭐⭐⭐ | 📝📝 |
+| **Merge queue GitHub** | Résout structurellement l'invalidation en cascade (« doit être à jour avec develop ») : la queue rebase et teste en série toute seule. | S | ⭐⭐⭐ | 📝📝 |
+| **Ruff** (remplace flake8) | ~100× plus rapide, couvre flake8 + isort + pyupgrade + bugbear + une partie de bandit. Le meilleur ratio du plan. | S | ⭐⭐⭐ | 📝📝 |
+| **`uv`** (remplace pip en CI) | Installation Python drastiquement plus rapide + lockfile reproductible (aujourd'hui `requirements.txt` épinglé à la main). | M | ⭐⭐ | 📝📝 |
+| **Cache CI** (npm / pip / couches Docker) | Boucle de feedback plus courte sur tous les lots suivants. | S | ⭐⭐ | 📝 |
+| **`diff-cover`** | Exiger 100 % de couverture *sur les lignes modifiées d'une PR* — bien plus mordant qu'un seuil global à 90 % qu'on atteint en diluant. | S | ⭐⭐⭐ | 📝📝 |
+| **Codecov** | Commentaire de couverture par PR + tendance visible dans le temps. | S | ⭐ | 📝 |
+| **`act`** | Lancer les workflows GitHub en local, complète `ci-local/`. | S | ⭐ | 📝📝 |
+
+---
+
+## Lot 2 — Rendre les conventions exécutables
+
+Le repo a beaucoup de règles **écrites** (`CLAUDE.md`, skills) que rien
+n'applique. Ce lot les transforme en garde-fous. Angle de récit : *« combien de
+mes conventions documentées étaient déjà violées sans que je le sache ? »* —
+avec un chiffre réel à la clé.
+
+| Item | Pourquoi ici | Effort | Solidité | Récit |
+|---|---|---|---|---|
+| **`import-linter`** | La couche `route → domain → engine` du skill `voter-api` n'est qu'une convention. import-linter la rend bloquante. | M | ⭐⭐⭐ | 📝📝📝 |
+| **Règles Semgrep custom** | Semgrep tourne avec des règles génériques. Écrire les miennes : « aucun worker n'importe `api.routes` », « tout endpoint v2 a un rate-limit », « pas de `except Exception` sans log » — soit exactement les 3 bugs corrigés le 06/09, transformés en anti-récidive. | M | ⭐⭐⭐ | 📝📝📝 |
+| **`dependency-cruiser`** ou `eslint-plugin-boundaries` | Équivalent front : règles d'architecture sur les imports + cycles. | M | ⭐⭐ | 📝📝 |
+| **`deptry`** | Équivalent de knip pour Python (deps déclarées inutilisées / utilisées non déclarées). Détection présente côté front, absente côté back. | S | ⭐⭐ | 📝📝 |
+| **Hooks Claude** (`settings.json`) | `PreToolUse` **bloquant** sur `engineParity.json` → rend impossible l'édition manuelle que `CLAUDE.md` interdit par écrit ; `PostToolUse` sur le moteur → rappel de régénérer la parité. Le `.claude/` n'a aucun hook aujourd'hui. | M | ⭐⭐⭐ | 📝📝📝 |
+| **`madge`** | Cycles d'imports front + visualisation du graphe. | S | ⭐ | 📝 |
+
+---
+
+## Lot 3 — Le contrat API et la résilience
+
+| Item | Pourquoi ici | Effort | Solidité | Récit |
+|---|---|---|---|---|
+| **Schemathesis** | `openapi.gen.json` est versionné avec un gate de drift, mais **le contrat n'est jamais vérifié contre l'implémentation**. Schemathesis génère des centaines de requêtes depuis le schéma, fuzze, et vérifie la conformité des réponses. Chaînon manquant le plus évident du projet. | M | ⭐⭐⭐ | 📝📝📝 |
+| **Test du rate-limit (429)** | La valeur 120/min a été calibrée après deux échecs e2e — mais rien ne teste que la limite se déclenche vraiment. | S | ⭐⭐ | 📝📝 |
+| **Résilience Redis** | Le rate-limiter dépend de Redis. Que se passe-t-il quand il tombe ? Aujourd'hui : inconnu. | M | ⭐⭐⭐ | 📝📝📝 |
+| **Timeouts & backpressure** | Sémaphore limitant les simulations concurrentes + `asyncio.wait_for` sur les workers, au lieu de saturer le pool de threads. | M | ⭐⭐⭐ | 📝📝 |
+| **Déconnexion Socket.IO en plein run** | Partiellement testé le 06/09, à compléter (client qui coupe, run orphelin). | S | ⭐⭐ | 📝 |
+
+---
+
+## Lot 4 — Le domaine électoral *(le cœur exploratoire)*
+
+**C'est le lot à plus forte valeur du plan, et le plus spécifique à ce projet.**
+Les critères de la théorie du choix social sont littéralement des propriétés
+testables — un levier que presque aucun repo ne possède.
+
+### 4.1 — Tests axiomatiques systématiques ⭐⭐⭐ 📝📝📝 · `L`
+
+Pour chacune des 26 méthodes, vérifier les critères qu'elle **doit** satisfaire
+*et ceux qu'elle doit violer* : Condorcet, majorité, monotonie, participation,
+indépendance des clones, symétrie par renversement, Pareto, unanimité.
+
+Un test qui vérifie qu'**IRV échoue la monotonie** est aussi précieux qu'un test
+de succès : il documente la théorie *et* détecte une implémentation qui
+deviendrait accidentellement monotone — donc fausse. `test_anonymity.py` est
+déjà ce germe, à généraliser en matrice méthode × critère.
+
+Sous-produit : cette matrice est **directement publiable** comme contenu
+pédagogique, et recoupe `THEORY.md`.
+
+### 4.2 — Oracle tiers (`pref_voting` / `abcvoting`) ⭐⭐⭐ 📝📝📝 · `M`
+
+La parité actuelle compare *mes deux* implémentations — qui peuvent être fausses
+**ensemble**. Croiser avec une bibliothèque académique indépendante (celle de
+Pacuit & Holliday) casse cette corrélation d'erreur. Tout écart est soit un bug
+chez moi, soit une divergence de convention à documenter — les deux sont du bon
+contenu.
+
+### 4.3 — Vérification exhaustive des petits cas ⭐⭐⭐ 📝📝📝 · `M`
+
+Pour n ≤ 4 candidats et m ≤ 5 électeurs, l'espace des profils est **fini et
+petit**. On passe de « 60 scénarios aléatoires » à une **preuve exhaustive**
+front/back sur tout le domaine borné. Gain de confiance considérable pour un
+coût dérisoire.
+
+### 4.4 — `fast-check` côté TypeScript ⭐⭐⭐ 📝📝 · `M`
+
+Hypothesis couvre le Python ; `playgroundVoting.ts` — l'autre moitié du contrat
+de parité — n'a aucun test à propriétés.
+
+### 4.5 — Contre-exemples de la littérature comme fixtures nommées ⭐⭐ 📝📝📝 · `M`
+
+Paradoxe de Condorcet, exemples de manipulation Borda, profils de Saari…
+chaque exemple classique devient une fixture nommée et sourcée (clé BibTeX de
+`docs/research/`). Double emploi test + pédagogie.
+
+### 4.6 — Z3 / model checking ⭐ 📝📝📝 · `L` *(expérience à risque assumé)*
+
+Prouver l'équivalence de deux implémentations sur des configurations bornées
+plutôt que d'échantillonner. **Peut très bien échouer** (encodage trop lourd,
+explosion combinatoire) — et un échec documenté « voilà pourquoi le SMT ne passe
+pas à l'échelle sur ce problème » est un excellent carnet d'expérience.
+
+---
+
+## Lot 5 — Robustesse des tests eux-mêmes
+
+*Qui teste les tests ?* Angle de récit fort : la couverture à 91 % ment-elle ?
+
+| Item | Pourquoi ici | Effort | Solidité | Récit |
+|---|---|---|---|---|
+| **Score de mutation ciblé + gating** | mutmut/Stryker tournent mais sont informatifs. Un seuil *par module critique* (le moteur uniquement) vaut mieux qu'un score global mou. | M | ⭐⭐⭐ | 📝📝📝 |
+| **`pytest-randomly`** | Ordre d'exécution aléatoire → révèle les tests couplés par effet de bord (déjà rencontré avec le limiter partagé). | S | ⭐⭐ | 📝📝 |
+| **Chasse au flake nocturne** | Relancer la suite N fois et tracker l'instabilité. Le « flaky check » existe en e2e, rien côté backend. | M | ⭐⭐ | 📝📝 |
+| **Régénérabilité de `engineParity.json`** | Un job qui régénère et diffe prouverait que le fichier n'a pas été édité à la main — aujourd'hui c'est une règle écrite, rien ne l'applique. | S | ⭐⭐⭐ | 📝📝 |
+| **`syrupy`** (snapshots pytest) | Sorties de simulation riches, plus lisibles qu'des assertions à la main. | S | ⭐ | 📝 |
+
+---
+
+## Lot 6 — Ce que l'analyse statique ne voit pas
+
+| Item | Pourquoi ici | Effort | Solidité | Récit |
+|---|---|---|---|---|
+| **Couverture *runtime*** (Istanbul sur e2e + `coverage.py`) | Trouve le code jamais exécuté **même en usage réel** — angle mort total de vulture/knip qui sont statiques. Après avoir supprimé 16 500 lignes mortes, la question « qu'est-ce qui reste inatteignable ? » est légitime. | M | ⭐⭐⭐ | 📝📝📝 |
+| **`basedpyright`/pyright** | Moteur d'inférence différent de mypy → attrape d'autres choses. Combien, sur un code déjà mypy-strict-clean ? Bonne question d'expérience. | S | ⭐⭐ | 📝📝📝 |
+| **`refurb`** + **`perflint`** | Modernisation Python et anti-patterns de perf — pertinent sur un moteur CPU-bound. | S | ⭐ | 📝📝 |
+| **`type-coverage`** (TS) | % de code réellement typé (les `any` implicites que `tsc` laisse passer). | S | ⭐⭐ | 📝📝 |
+| **`eslint-plugin-sonarjs`** | Complexité cognitive (≠ cyclomatique, déjà mesurée par radon) + bugs courants. | S | ⭐⭐ | 📝 |
+| **`pip-licenses` / `license-checker`** | Conformité de licences sur un repo public MIT. | S | ⭐ | 📝 |
+
+---
+
+## Lot 7 — Surfaces perçues par l'utilisateur
+
+| Item | Pourquoi ici | Effort | Solidité | Récit |
+|---|---|---|---|---|
+| **a11y sur *toutes* les routes** | `routes.ts` est déjà « data » — boucler dessus et échouer si une surface n'est pas auditée, même mécanique que l'anti-rot e2e existant. | M | ⭐⭐⭐ | 📝📝 |
+| **Régression visuelle** (Playwright screenshots / Lost Pixel) | L'app est quasi entièrement visuelle (SVG, cartes, Recharts) et **rien** ne détecte qu'une carte s'affiche de travers. | M | ⭐⭐⭐ | 📝📝📝 |
+| **Viewport mobile en e2e** | App pédagogique → usage mobile probable, zéro test mobile aujourd'hui. | M | ⭐⭐ | 📝📝 |
+| **`i18next-parser`** + `eslint-plugin-i18next` | Clés orphelines/manquantes et chaînes en dur (5 encore trouvées à la main le 06/09). | M | ⭐⭐ | 📝📝 |
+| **Pseudo-locale à chaînes longues** | Casse les layouts avant que l'anglais ou une future langue ne le fasse. | S | ⭐⭐ | 📝📝📝 |
+| **Webkit en e2e** | Seuls chromium et firefox tournent aujourd'hui. | S | ⭐⭐ | 📝 |
+
+---
+
+## Lot 8 — Performance
+
+| Item | Pourquoi ici | Effort | Solidité | Récit |
+|---|---|---|---|---|
+| **`pytest-benchmark` + seuils** | Une régression de perf sur `simulation_ranked_utils` est aujourd'hui totalement invisible. | M | ⭐⭐⭐ | 📝📝 |
+| **Charge (k6 ou Locust)** | Le rate-limit 120/min a été calibré au jugé ; un test de charge donne le vrai plafond du pool de threads. | M | ⭐⭐⭐ | 📝📝📝 |
+| **Invariant de perf du form-lock** | Documenté dans le skill `voter-ui`, jamais mesuré. React Profiler + assertion. | M | ⭐⭐ | 📝📝📝 |
+| **Budget de bundle** | Seuil de taille sur le build Vite, échec si dépassement. | S | ⭐⭐ | 📝 |
+
+---
+
+## Lot 9 — Sécurité approfondie
+
+| Item | Pourquoi ici | Effort | Solidité | Récit |
+|---|---|---|---|---|
+| **DAST — ZAP baseline** | SAST (Semgrep/CodeQL) ne voit que le code, jamais le comportement de l'app qui tourne. | M | ⭐⭐ | 📝📝 |
+| **Fuzzing à couverture** (`atheris` ou `hypofuzz`) | Bien plus profond qu'Hypothesis seul sur le moteur et les parseurs. | L | ⭐⭐ | 📝📝📝 |
+| **`guarddog`** (Datadog) | Détecte les paquets *malveillants* (typosquatting, install-scripts hostiles) — angle mort de pip-audit/Trivy qui ne voient que les CVE connues. | S | ⭐⭐ | 📝📝📝 |
+| **`trufflehog`** | Secrets **vérifiés actifs**, pas juste des motifs (complète gitleaks + detect-secrets). | S | ⭐ | 📝 |
+| **OSV-Scanner** | Base de vulnérabilités différente de Trivy, recouvrement imparfait. Mesurer l'écart réel est une bonne expérience. | S | ⭐ | 📝📝📝 |
+| **Signature d'images + provenance SLSA** (cosign/sigstore) | Suite logique du SBOM + Scorecard déjà en place. | M | ⭐⭐ | 📝📝📝 |
+| **`minimumReleaseAge`** (via Renovate) | Attendre 3-7 j avant d'adopter une release : vraie défense contre les paquets compromis. | S | ⭐⭐⭐ | 📝📝 |
+
+---
+
+## Lot 10 — Observabilité
+
+| Item | Pourquoi ici | Effort | Solidité | Récit |
+|---|---|---|---|---|
+| **Sentry ou GlitchTip** | Le handler global ajouté le 06/09 *logge* — mais personne ne lit les logs d'une app pédagogique. Sans collecteur, ce travail ne sert à rien en pratique. | M | ⭐⭐⭐ | 📝📝 |
+| **OpenTelemetry** | Traces par endpoint, temps réel par méthode de vote — alimente aussi le Lot 8. | L | ⭐⭐ | 📝📝📝 |
+| **`/metrics` Prometheus** + readiness/liveness distincts | `/health` existe mais reste binaire. | M | ⭐⭐ | 📝 |
+
+---
+
+## Lot 11 — Outillage Claude avancé
+
+Le `.claude/` actuel est mince : 2 skills, 1 agent, 1 commande, **0 hook**.
+Angle de récit : *« à quoi ressemble un repo réellement outillé pour le
+développement assisté par agent ? »* — sujet sur lequel il existe très peu de
+retours concrets.
+
+| Item | Pourquoi ici | Effort | Solidité | Récit |
+|---|---|---|---|---|
+| **Agent `parity-guardian`** | Dès qu'une règle de vote bouge : régénère la parité, lance le test, explique tout écart. | M | ⭐⭐⭐ | 📝📝📝 |
+| **Agent `dep-triage`** | Lit les PR Dependabot, classe patch/mineur/majeur, lit les changelogs, propose l'ordre de merge. Répond pile à la douleur du 06/09. | M | ⭐⭐ | 📝📝📝 |
+| **Agent `axiom-checker`** | Vérifie qu'une nouvelle méthode de vote arrive avec ses tests axiomatiques (Lot 4.1). | M | ⭐⭐ | 📝📝 |
+| **Agent `flake-hunter`** | Isole les tests instables, propose un correctif. | M | ⭐⭐ | 📝📝 |
+| **Agent `doc-drift`** | Celui improvisé le 06/09, figé en agent réutilisable + cron mensuel. | S | ⭐⭐ | 📝📝📝 |
+| **Skill `voter-testing`** | Comment tester ici : Hypothesis, fixtures de parité, testids e2e, pièges connus. | M | ⭐⭐ | 📝📝 |
+| **Skill `voter-ci`** | Diagnostiquer un échec CI, où sont les gates, que faire quand le ratchet casse. | M | ⭐⭐ | 📝📝 |
+| **Skill `release`** | Checklist `develop → main`. | S | ⭐⭐ | 📝 |
+| **Agents planifiés** | Revue hebdo du diff de la semaine, audit doc mensuel, veille de dépendances. | M | ⭐⭐ | 📝📝📝 |
+| **`/code-review ultra`** sur les PR du moteur | Existe déjà, sous-utilisé sur les changements sensibles. | S | ⭐⭐ | 📝📝 |
+
+---
+
+## Lot 12 — Synthèse & partage *(à faire en dernier, il consomme tout le reste)*
+
+| Item | Contenu | Effort | Récit |
+|---|---|---|---|
+| **Index des verdicts complété** | Le tableau du Lot 0.3, rempli par ~25 expériences réelles. | S | 📝📝📝 |
+| **Rétrospective du plan** | Ce plan a-t-il survécu au contact ? Quels items abandonnés, lesquels ajoutés en route, lesquels ont déçu. | M | 📝📝📝 |
+| **Les 3-4 histoires les plus partageables** | Candidats naturels : « la couverture à 91 % ment-elle ? » (Lot 5) · « 25 outils de qualité sur un vrai projet, le tableau des verdicts » (Lot 0.3) · « tester une théorie mathématique comme on teste du code » (Lot 4) · « combien de mes conventions écrites étaient déjà violées » (Lot 2). | L | 📝📝📝 |
+| **`CODE_AUDIT.md` rejoué** | Nouvelle édition datée après tous les lots, comparaison avec l'édition du 2026-09-06. | S | 📝📝 |
+| **README qui raconte** | Le repo est public : rendre visible la double exploration (méthodes de vote *et* pratiques de dev). | M | 📝📝📝 |
+
+---
+
+## Séquencement recommandé
+
+```
+Lot 0  (documentation)          ← EN PREMIER, sinon tout le reste est perdu
+   ↓
+Lot 1  (quick wins)             ← débloque le confort de tous les suivants
+   ↓
+Lot 2  (conventions exécutables) ─┐
+Lot 3  (contrat API + résilience) ├─ indépendants entre eux
+Lot 5  (robustesse des tests)     │
+Lot 6  (angles morts du statique) ─┘
+   ↓
+Lot 4  (domaine électoral)      ← le cœur ; mérite d'être fait posément
+   ↓
+Lot 7 (surfaces) · Lot 8 (perf) · Lot 9 (sécurité) · Lot 10 (observabilité)
+   ↓
+Lot 11 (outillage Claude)       ← profite de tout ce qui précède
+   ↓
+Lot 12 (synthèse & partage)
+```
+
+**Dépendances dures** (le reste est librement réordonnable) :
+
+- Lot 0 avant tout — c'est le dispositif de capture.
+- Lot 1 avant les lots lourds en CI (cache, `uv`, groupes Dependabot).
+- Lot 4.1 (axiomes) avant Lot 11 `axiom-checker` — l'agent a besoin de la matrice.
+- Lot 12 en dernier par construction.
+
+## Règles d'exécution
+
+- **Une branche `feat/*` + une PR par item**, contre `develop`, merge `--no-ff`.
+- Un item se termine par un **carnet d'expérience** (`docs/exploration/EXP-*.md`)
+  quand il s'agit d'un outil essayé — pas pour les items purement internes.
+- **Un verdict « rejeté » est un succès du plan**, pas un échec : il faut juste
+  qu'il soit argumenté avec ce que l'outil a réellement trouvé et coûté.
+- Ne pas empiler plus de 2-3 items ouverts en parallèle : la protection de
+  branche invalide les PR entre elles (leçon du 06/09).
+- Chiffrer avant/après quand c'est possible — un plan d'exploration sans mesure
+  ne produit pas de récit crédible.
