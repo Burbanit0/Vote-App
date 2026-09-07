@@ -40,7 +40,7 @@ explore in depth.
 |---|---|
 | Backend | FastAPI (uvicorn) — **stateless**, no SQL DB, no auth · Redis (compute cache only) |
 | WebSockets | python-socketio (ASGI, Monte Carlo streaming) |
-| Frontend | React 19 · TypeScript · React Router v7 · Vite |
+| Frontend | React 19 · TypeScript · React Router v8 · Vite |
 | Data/State | TanStack Query + openapi-fetch (typed) · Zustand stores |
 | UI | Tailwind v4 + shadcn/ui (hand-written primitives in `src/components/ui/`) |
 | Charts | SVG-native (playground) · Recharts · D3 (Voronoi, hexbin) |
@@ -177,7 +177,7 @@ exists in **two implementations** — a fast client engine
 
 ## Public API (`/api/v1/`)
 
-Rate-limited (60 req/min), no authentication.
+Rate-limited per endpoint (5-120 req/min depending on route), no authentication.
 
 ```
 GET  /api/v1/methods           # method list with descriptions

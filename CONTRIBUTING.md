@@ -204,8 +204,8 @@ Types valides : `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `ci`, `secur
 
 | Métrique | Seuil | Fichier |
 |---|---|---|
-| Coverage frontend | lines 85 % · statements 80 % · functions 75 % · branches 70 % | `voter-app/vitest.config.ts` (`test.coverage.thresholds`) |
-| Coverage backend | 85 % | `fast_api_voter/pyproject.toml` (`--cov-fail-under`) |
+| Coverage frontend | lines 86 % · statements 84 % · functions 75 % · branches 74 % | `voter-app/vitest.config.ts` (`test.coverage.thresholds`) |
+| Coverage backend | 90 % | `fast_api_voter/pyproject.toml` (`--cov-fail-under`) |
 | eslint | 0 **erreur** (les warnings passent) | `voter-app/eslint.config.js` |
 | flake8 | 0 sur `E9,F` (erreurs de syntaxe et de nom) | `backend-ci-cd-pipeline.yml` |
 | mypy | strict, 0 erreur sur `api/` | `fast_api_voter/mypy.ini` |

@@ -33,36 +33,23 @@ npx serve -s build -l 5000
 
 ---
 
-## 3. Mode hors-ligne — Quiz
+## 3. Mode hors-ligne — Laboratoire (et anciennes URLs redirigées)
 
-1. Visiter `http://localhost:5000/quiz` une première fois (met en cache le SW)
+`/quiz`, `/regimes-internationaux` et `/galerie` n'existent plus comme pages
+dédiées : ce sont des redirections héritées vers `/laboratoire` (voir
+`LEGACY_REDIRECTS` dans `src/routes.ts`).
+
+1. Visiter `http://localhost:5000/laboratoire` une première fois (met en cache le SW)
 2. Ouvrir DevTools → onglet **Network** → activer **Offline**
 3. Recharger la page
-4. **Attendu** : la page `/quiz` se charge depuis le cache Workbox sans erreur réseau
-5. Vérifier que les 20 questions s'affichent correctement
+4. **Attendu** : la page `/laboratoire` se charge depuis le cache Workbox sans erreur réseau
+5. Naviguer vers `/quiz`, `/regimes-internationaux` ou `/galerie` : la redirection
+   côté client vers `/laboratoire` s'exécute sans requête réseau, donc fonctionne
+   aussi hors-ligne
 
 ---
 
-## 4. Mode hors-ligne — Régimes internationaux
-
-1. Visiter `http://localhost:5000/regimes-internationaux` en ligne
-2. Passer en mode Offline (DevTools → Network)
-3. Recharger
-4. **Attendu** : page chargée depuis le cache (données statiques, pas d'API)
-
----
-
-## 5. Mode hors-ligne — Galerie (partiel)
-
-1. Visiter `http://localhost:5000/galerie` en ligne (les scénarios vedette se mettent en cache via StaleWhileRevalidate)
-2. Passer en mode Offline
-3. Recharger
-4. **Attendu** : le banner "Mode hors-ligne" apparaît en haut de page
-5. La galerie peut afficher un message d'erreur (les POST/simulations dynamiques ne sont pas cachés — comportement attendu)
-
----
-
-## 6. Banner hors-ligne
+## 4. Banner hors-ligne
 
 1. DevTools → Network → **Offline**
 2. N'importe quelle page de l'app
@@ -72,7 +59,7 @@ npx serve -s build -l 5000
 
 ---
 
-## 7. Toast de mise à jour
+## 5. Toast de mise à jour
 
 1. Construire une nouvelle version (`npm run build`)
 2. L'app est déjà ouverte dans le navigateur avec l'ancienne version
@@ -84,7 +71,7 @@ npx serve -s build -l 5000
 
 ---
 
-## 8. DevTools — Application
+## 6. DevTools — Application
 
 1. DevTools → onglet **Application** → **Service Workers**
 2. **Attendu** : `sw.js` apparaît avec statut "Activated and running"
@@ -99,8 +86,7 @@ npx serve -s build -l 5000
 |---------|---------|--------|
 | Lighthouse PWA score | ≥ 90 | ☐ |
 | Installation Chrome/Edge | Icône d'install visible | ☐ |
-| Quiz hors-ligne | Fonctionne sans réseau | ☐ |
-| Régimes internationaux hors-ligne | Fonctionne sans réseau | ☐ |
+| Laboratoire hors-ligne (+ redirections héritées) | Fonctionne sans réseau | ☐ |
 | Banner hors-ligne | Visible quand offline | ☐ |
 | Toast mise à jour | Visible après rebuild | ☐ |
 | SW activé | Statut "running" dans DevTools | ☐ |

@@ -7,7 +7,9 @@ description: Conventions for the Vote-App React/TypeScript frontend (voter-app/)
 
 Stack: **React 19 + TypeScript + Vite + Tailwind v4 + shadcn**. Data layer: **TanStack Query
 + openapi-fetch** (`src/api/client.ts`, typed on `src/api/types.gen.ts`). State: **Zustand**
-stores in `src/stores/` (no React Context). Services in `src/services/*` wrap endpoints.
+stores in `src/stores/` for global app state; the Playground's own state is the exception —
+it flows through a dedicated React Context (`usePlaygroundCtx`, see below), not a store.
+Services in `src/services/*` wrap endpoints.
 For *visual* direction (palette, type, avoiding templated looks) use the **`frontend-design`**
 skill; this skill is about *this app's* structure and its non-obvious traps.
 
@@ -17,21 +19,30 @@ skill; this skill is about *this app's* structure and its non-obvious traps.
   `LeaderCanvas`, `ParliamentCanvas`, `CampaignTimeline`, the scorecard, win-region maps.
   New in-place visualisation (a sparkline, a band, an overlay) → **native SVG**, like the
   campaign "value of the result" trajectory. Do NOT reach for Recharts here.
-- **Recharts only inside lazy panels.** It is heavy and isolated as its **own manual chunk**
-  (`vite.config.ts` `manualChunks`) and idle-prefetched on the playground. Only the
-  Collapsible-gated exploration panels use it.
+- **Recharts only inside `Collapsible`-gated exploration panels**, never in the always-mounted
+  central canvases. It is heavy and isolated as its **own manual chunk**
+  (`vite.config.ts` `manualChunks`) — idle-prefetched once on the playground
+  (`PlaygroundController.tsx`), and per-fiche hover/focus-prefetched on the Laboratoire (see
+  the form-lock invariant below for the difference).
 
 ## The form-lock invariant (the #1 thing not to break)
 
 Tests enforce it (`PlaygroundPage.test.tsx`): **at first paint, only the `*-toggle`s are in
 the DOM** — no heavy panel is mounted. Rules:
 
-- Heavy panels mount **only when their `Collapsible` opens** (`{open && <div>{children}</div>}`).
-- Anchors/panels are `lazyWithPreload(() => import(...))` wrapped in a `Leaf`; the default
-  lens (`winner`) does **zero extra compute**. Adding a panel must not mount anything at first
-  paint or add a network fetch there.
-- **Hover-prefetch:** `Leaf` takes `prefetch={X.preload}` so hovering a toggle warms its chunk
-  before the click. Use it for every new lazy panel.
+- Heavy panels mount **only when their `Collapsible` opens** (`{open && <div>{children}</div>}`);
+  the default lens (`winner`) does **zero extra compute**. Adding a panel must not mount
+  anything at first paint or add a network fetch there.
+- Playground moment panels themselves are plain, eagerly-bundled components — there is no
+  per-panel code-splitting inside the Playground (that pattern was retired along with the old
+  `Leaf` component). Recharts is still isolated as its **own manual chunk**
+  (`vite.config.ts` `manualChunks`), warmed once via an idle-callback prefetch
+  (`requestIdleCallback` → `import('recharts')`) in `PlaygroundController.tsx` rather than a
+  per-panel hover trigger.
+- **Lazy + hover-prefetch** is the Laboratoire's pattern, not the Playground's: each fiche in
+  `components/lab/labCatalog.tsx` is `lazyWithPreload(() => import(...))`, and its chip wires
+  `onMouseEnter`/`onFocus={preload}` so hovering warms the chunk before the click. Use it for
+  every new Laboratoire fiche.
 - Give every testable element a stable `data-testid`; the form-lock + reveal tests key off them.
 
 ## "Don't denature the playground" — add depth in place
@@ -62,7 +73,10 @@ and the instrument are thin consumers. When adding voting-theory features:
 - Tailwind v4 (preflight on; Bootstrap retired). shadcn primitives are **hand-written** in
   `src/components/ui/` (Card, Badge, Button, …) — reuse them, match their idioms.
 - Bilingual **fr/en** via i18next (lazy-loaded, persisted). User-facing copy is primarily
-  French. Add keys to `src/i18n/locales/{fr,en}.ts`.
+  French. General-namespace keys go in `src/i18n/locales/{fr,en}.ts`; Playground/Laboratoire
+  copy uses the `playground` namespace (`useTranslation('playground')`) and belongs in
+  `src/i18n/locales/playground.{fr,en}.ts` instead — `playground.fr.ts` is the source of
+  truth and `playground.en.ts` must mirror it key-for-key (tsc enforces this).
 
 ## Gates (run from `voter-app/`)
 

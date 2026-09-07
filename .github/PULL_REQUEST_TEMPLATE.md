@@ -33,10 +33,10 @@
 - [ ] Testé en mode light et dark
 - [ ] Testé en mode Expert et Débutant
 - [ ] Testé sur mobile (tableaux responsifs)
-- [ ] Aucune régression sur HomePage, ScenarioBuilder, SimulationComparePage
+- [ ] Aucune régression sur HomePage, PlaygroundPage, LaboratoirePage
 
 ### Backend (si applicable)
-- [ ] Aucun endpoint exposé sans authentification (sauf routes publiques documentées)
+- [ ] Les nouveaux endpoints coûteux en calcul sont protégés par rate limiting (`check_v2_rate_limit` ou équivalent)
 - [ ] Les nouvelles routes sont testées
 - [ ] CORS respecté (pas de `*` ajouté)
 

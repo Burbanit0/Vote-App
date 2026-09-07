@@ -55,7 +55,7 @@ routes import from).
 ## Blocking gates (run from `fast_api_voter/` before every commit)
 
 ```bash
-python -m pytest                                   # tests + coverage (gate 30% min; actual ~90%)
+python -m pytest                                   # tests + coverage (gate 90% min, pyproject.toml)
 python -m mypy api/ --config-file mypy.ini         # BLOCKING — api/ is strict-clean, keep it so
 ```
 

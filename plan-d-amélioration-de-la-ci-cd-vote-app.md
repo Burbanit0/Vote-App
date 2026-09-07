@@ -1,5 +1,13 @@
 # 📌 Plan d'Amélioration de la CI/CD - Vote-App
 
+> **Relecture du 2026-09-06** : plusieurs tâches ci-dessous ont été
+> implémentées depuis la rédaction de ce plan (notamment via la passe de 14
+> PR du jour et les Dependabot PRs qui ont suivi). Les tâches confirmées
+> faites contre l'état actuel de `.github/workflows/*.yml` et
+> `.github/dependabot.yml` sont cochées `[x]` / marquées **✅ Fait** avec une
+> note ; le reste est laissé tel quel (document conservé comme trace
+> historique, rien de supprimé).
+
 ---
 
 ## **🎯 Objectif Global**
@@ -102,13 +110,13 @@ Documentation complète de la CI/CD, incluant :
 
 | **ID** | **Tâche** | **Description** | **Livrable** | **Responsable** | **Échéance** | **Statut** |
 |--------|-----------|----------------|--------------|-----------------|--------------|------------|
-| **P1-1** | Rendre les tests E2E bloquants | Ajouter `e2e` comme `required check` dans la protection de branche. | Mise à jour de `branch-policy.yml` | Équipe DevOps | J+2 | ⬜ |
-| **P1-2** | Rendre `pip-audit` bloquant | Supprimer `continue-on-error: true` dans `backend-ci-cd-pipeline.yml`. | Mise à jour du workflow | Équipe Dev | J+2 | ⬜ |
-| **P1-3** | Rendre Trivy bloquant pour les dépendances | Modifier `audit.yml` pour échouer sur toutes les vulnérabilités. | Mise à jour du workflow | Équipe Sécurité | J+3 | ⬜ |
-| **P1-4** | Corriger `mutation-testing.yml` | Changer la branche de déclenchement de `main` à `develop`. | Mise à jour du workflow | Matthieu Burban | J+1 | ⬜ |
-| **P1-5** | Mettre à jour Node.js pour Stryker | Passer à Node 22 dans `mutation-testing.yml`. | Mise à jour du workflow | Équipe Dev | J+2 | ⬜ |
-| **P1-6** | Ajouter des retries automatiques | Configurer `retry` pour les jobs flaky (E2E, mutation testing). | Mise à jour des workflows | Équipe DevOps | J+3 | ⬜ |
-| **P1-7** | Vérifier les dépendances de Stryker | S’assurer que `@stryker-mutator/core@10.0.0` est compatible avec le projet. | Rapport de compatibilité | Équipe Dev | J+4 | ⬜ |
+| **P1-1** | Rendre les tests E2E bloquants | Ajouter `e2e` comme `required check` dans la protection de branche. | Mise à jour de `branch-policy.yml` | Équipe DevOps | J+2 | ✅ Fait |
+| **P1-2** | Rendre `pip-audit` bloquant | Supprimer `continue-on-error: true` dans `backend-ci-cd-pipeline.yml`. | Mise à jour du workflow | Équipe Dev | J+2 | ✅ Fait |
+| **P1-3** | Rendre Trivy bloquant pour les dépendances | Modifier `audit.yml` pour échouer sur toutes les vulnérabilités. | Mise à jour du workflow | Équipe Sécurité | J+3 | ✅ Fait |
+| **P1-4** | Corriger `mutation-testing.yml` | Changer la branche de déclenchement de `main` à `develop`. | Mise à jour du workflow | Matthieu Burban | J+1 | ✅ Fait |
+| **P1-5** | Mettre à jour Node.js pour Stryker | Passer à Node 22 dans `mutation-testing.yml`. | Mise à jour du workflow | Équipe Dev | J+2 | ✅ Fait |
+| **P1-6** | Ajouter des retries automatiques | Configurer `retry` pour les jobs flaky (E2E, mutation testing). | Mise à jour des workflows | Équipe DevOps | J+3 | 🔶 Partiel |
+| **P1-7** | Vérifier les dépendances de Stryker | S’assurer que `@stryker-mutator/core@10.0.0` est compatible avec le projet. | Rapport de compatibilité | Équipe Dev | J+4 | ✅ Fait |
 | **P1-8** | Tester les corrections | Exécuter tous les workflows pour valider les changements. | Rapport de test | Équipe QA | J+5 | ⬜ |
 
 ---
@@ -136,6 +144,12 @@ Documentation complète de la CI/CD, incluant :
 **Validation** :
 - Ouvrir une PR avec un changement qui casse les tests E2E → **le merge doit être bloqué**.
 
+**✅ Fait (relecture 2026-09-06)** : `scripts/setup-branch-protection.sh` liste
+`"Playwright E2E"` parmi les required status checks de `develop`/`main`, aux
+côtés de `Backend:`/`Frontend: Tests + Coverage + Security`, `Semgrep SAST`,
+`Secret Scan`, `Dependencies, Containers & Misconfig` et `Code Quality`.
+`e2e.yml` déclenche sur chaque PR (pas seulement au dispatch manuel).
+
 ---
 
 #### **P1-2 : Rendre `pip-audit` bloquant**
@@ -149,6 +163,14 @@ Documentation complète de la CI/CD, incluant :
 
 **Validation** :
 - Ajouter une dépendance vulnérable (ex: `starlette==0.49.3`) et vérifier que le workflow échoue.
+
+**✅ Fait (relecture 2026-09-06)** : `backend-ci-cd-pipeline.yml` lance
+`pip-audit --requirement fast_api_voter/requirements.txt` sans
+`continue-on-error` (commit `8a5b4d0`, "ci: make pip-audit gating on the
+backend pipeline"). Note pour `ci-local/README.md` : le mirror Docker local
+garde volontairement `pip-audit` non-bloquant (résilience réseau), donc il y
+a un écart de fidélité résiduel entre le mirror et le vrai workflow sur ce
+point précis.
 
 ---
 
@@ -173,6 +195,16 @@ Documentation complète de la CI/CD, incluant :
 **Validation** :
 - Ajouter une dépendance vulnérable (ex: `requests==2.25.0`) et vérifier que le workflow échoue.
 
+**✅ Fait (relecture 2026-09-06)** : `audit.yml` a un step "Trivy (gating)"
+dédié (`severity: HIGH,CRITICAL`, `exit-code: "1"`, `if: always()`), séparé
+des deux steps non-gating qui alimentent juste le rapport JSON/SARIF. Les
+faux positifs triés vivent dans `.trivyignore.yaml` (path-scoped), comme
+prévu ailleurs dans le repo. Note sur le snippet d'exemple ci-dessus : le
+vrai workflow n'utilise plus `aquasecurity/trivy-action@master` (tag flottant)
+mais un commit SHA épinglé avec un commentaire de version
+(`@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0`) — ce SHA a d'ailleurs
+été re-épinglé le 2026-09-06 après avoir dérivé vers une release plus récente.
+
 ---
 
 #### **P1-4 : Corriger `mutation-testing.yml`**
@@ -191,6 +223,16 @@ Documentation complète de la CI/CD, incluant :
 **Validation** :
 - Pousser un changement sur `develop` → le workflow doit s’exécuter.
 
+**✅ Fait (relecture 2026-09-06)**, avec une cause différente de celle
+supposée ici : le vrai bug n’était pas "la branche `main` vs `develop`" mais
+que `schedule`/`workflow_dispatch` ne se résolvent que sur la branche par
+défaut du repo (`main`), qui était très en retard sur `develop` où vivait le
+fichier — le cron ne s’était donc jamais déclenché. `mutation-testing.yml`
+déclenche maintenant sur `push`/`pull_request` (résolus depuis la branche
+poussée) scopés par `paths` aux deux moteurs de vote, plus `workflow_dispatch`
+et un cron hebdomadaire de secours. Voir le commentaire en tête de ce fichier
+pour le détail.
+
 ---
 
 #### **P1-5 : Mettre à jour Node.js pour Stryker**
@@ -207,6 +249,11 @@ Documentation complète de la CI/CD, incluant :
 
 **Validation** :
 - Exécuter le job `stryker` → doit réussir sans erreur de version.
+
+**✅ Fait (relecture 2026-09-06)** : le job `stryker` de `mutation-testing.yml`
+utilise `actions/setup-node` avec `node-version: '22'` (tous les autres
+workflows du repo restent sur Node 20 — c'est le seul job qui a besoin de 22,
+`@stryker-mutator/core@10.0.0` l'exigeant).
 
 ---
 
@@ -226,12 +273,23 @@ Documentation complète de la CI/CD, incluant :
 **Validation** :
 - Simuler un échec flaky → le workflow doit réessayer.
 
+**🔶 Partiel (relecture 2026-09-06)** : pas de `retry`/`max_attempts` au
+niveau job (ce champ n'est d'ailleurs pas une syntaxe GitHub Actions native
+sans action tierce). Côté E2E, `playwright.config.ts` a bien
+`retries: process.env.CI ? 1 : 0`, mais le repo a délibérément pris le
+chemin inverse de "masquer le flaky" : `scripts/check-flaky.mjs` fait
+échouer la run si un test ne passe qu'à la retry (voir le commentaire dans
+`e2e.yml`, "A test that only passes on its retry is reported green by
+Playwright") — un choix de fiabilité différent de celui envisagé ici, pas un
+oubli. Côté mutation testing (`mutmut`/`stryker`), aucun retry, automatique
+ou non.
+
 ---
 
 #### **P1-7 : Vérifier les dépendances de Stryker**
 **Objectif** : S’assurer que Stryker est compatible avec le projet.
 **Actions** :
-1. Vérifier la version de `@stryker-mutator/core` dans `voter-app/package.json`. 
+1. Vérifier la version de `@stryker-mutator/core` dans `voter-app/package.json`.
 2. Tester localement avec Node 22 :
    ```bash
    npx stryker run --dry-run
@@ -239,6 +297,13 @@ Documentation complète de la CI/CD, incluant :
 
 **Validation** :
 - Stryker doit s’exécuter sans erreur avec Node 22.
+
+**✅ Fait (relecture 2026-09-06)** : `@stryker-mutator/core@10.0.0` est
+installé (`voter-app/package.json`) et le job tourne avec un seuil
+`thresholds.break` natif (pas de `continue-on-error`) — le commentaire du
+workflow documente explicitement que ce gate n’était jamais passé avant que
+Node 22 soit branché (il échouait dès `npx stryker run`, avant même de
+mesurer un score).
 
 ---
 
@@ -258,11 +323,11 @@ Documentation complète de la CI/CD, incluant :
 ---
 
 ### **✅ Critères de succès**
-- [ ] Les tests E2E sont **bloquants** pour les merges.
-- [ ] `pip-audit` et Trivy **bloquent les merges** en cas de vulnérabilités.
-- [ ] `mutation-testing.yml` s’exécute sur `develop`.
-- [ ] Stryker fonctionne avec **Node 22**.
-- [ ] Les jobs flaky (E2E, mutation testing) ont des **retries automatiques**.
+- [x] Les tests E2E sont **bloquants** pour les merges. *(fait — required check "Playwright E2E", voir P1-1)*
+- [x] `pip-audit` et Trivy **bloquent les merges** en cas de vulnérabilités. *(fait, voir P1-2/P1-3)*
+- [x] `mutation-testing.yml` s’exécute sur `develop`. *(fait, via push/pull_request scopés par paths, voir P1-4)*
+- [x] Stryker fonctionne avec **Node 22**. *(fait, voir P1-5/P1-7)*
+- [ ] Les jobs flaky (E2E, mutation testing) ont des **retries automatiques**. *(partiel, voir P1-6)*
 
 ---
 
@@ -408,15 +473,15 @@ Documentation complète de la CI/CD, incluant :
    - Utiliser `npm prune` pour supprimer les dépendances inutilisées.
 
 **Validation** :
-- Taille de `node_modules` et des dépendances Python réduite de **20%**. 
+- Taille de `node_modules` et des dépendances Python réduite de **20%**.
 
 ---
 
 ### **✅ Critères de succès**
-- [ ] Temps d’exécution total des workflows réduit de **30%**. 
+- [ ] Temps d’exécution total des workflows réduit de **30%**.
 - [ ] Coût GitHub Actions réduit de **20%** (moins de minutes d’exécution).
-- [ ] Les builds frontend sont **mis en cache**. 
-- [ ] Les scans redondants sont **désactivés**. 
+- [ ] Les builds frontend sont **mis en cache**.
+- [ ] Les scans redondants sont **désactivés**.
 - [ ] Les tests E2E sont **parallélisés** et optimisés.
 
 ---
@@ -435,7 +500,7 @@ Documentation complète de la CI/CD, incluant :
 | **P3-1** | Augmenter les seuils de mutation | Passer à 85% (Backend) et 90% (Frontend). | Mise à jour des workflows | Équipe Dev | J+2 | ⬜ |
 | **P3-2** | Ajouter des tests d’intégration | Tester les interactions entre composants. | Nouveau dossier `tests/integration/` | Équipe Dev | J+5 | ⬜ |
 | **P3-3** | Ajouter des tests de performance | Mesurer les performances backend et frontend. | Nouveaux workflows `performance.yml` | Équipe DevOps | J+7 | ⬜ |
-| **P3-4** | Scanner les images Docker | Ajouter un scan Trivy pour les images Docker. | Mise à jour de `audit.yml` | Équipe Sécurité | J+3 | ⬜ |
+| **P3-4** | Scanner les images Docker | Ajouter un scan Trivy pour les images Docker. | Mise à jour de `audit.yml` | Équipe Sécurité | J+3 | ✅ Fait |
 | **P3-5** | Améliorer la couverture de code | Passer à 95% (Backend) et 90% (Frontend). | Mise à jour des workflows | Équipe Dev | J+4 | ⬜ |
 | **P3-6** | Ajouter un scan SAST pour YAML | Détecter les configurations dangereuses. | Mise à jour de `audit.yml` | Équipe Sécurité | J+6 | ⬜ |
 | **P3-7** | Automatiser les revues de code | Intégrer SonarQube ou CodeClimate. | Nouveau workflow `sonarqube.yml` | Équipe DevOps | J+8 | ⬜ |
@@ -480,8 +545,8 @@ Documentation complète de la CI/CD, incluant :
 2. **Frontend** : Ajouter **Lighthouse** pour mesurer les performances web.
 
 **Validation** :
-- Les tests de performance s’exécutent **sans échec**. 
-- Les métriques (temps de réponse, score Lighthouse) sont **suivies**. 
+- Les tests de performance s’exécutent **sans échec**.
+- Les métriques (temps de réponse, score Lighthouse) sont **suivies**.
 
 ---
 
@@ -501,6 +566,17 @@ Documentation complète de la CI/CD, incluant :
 
 **Validation** :
 - Le scan détecte les vulnérabilités dans les images Docker.
+
+**✅ Fait (relecture 2026-09-06)**, via un mécanisme plus complet que le
+snippet ci-dessus : `audit.yml` a un job `image-scan` matriciel qui build
+les deux Dockerfiles de prod (`fast_api_voter/Dockerfile.prod`,
+`voter-app/Dockerfile`), scanne chaque image avec Trivy (`vuln,secret,
+misconfig`, HIGH/CRITICAL) et génère un SBOM SPDX via `anchore/sbom-action`.
+Volontairement **non-gating pour l'instant** (`exit-code: "0"`) et limité au
+cron hebdomadaire + aux push sur `develop` (pas chaque PR) — un premier run
+ferait remonter des CVE d'image de base qu'une PR isolée ne peut pas
+corriger ; le job passera en gating après une passe de triage avec des
+entrées `.trivyignore.yaml` dédiées (voir le commentaire du job).
 
 ---
 
@@ -537,18 +613,18 @@ Documentation complète de la CI/CD, incluant :
 2. Configurer SonarQube sur [SonarCloud](https://sonarcloud.io/).
 
 **Validation** :
-- Les rapports SonarQube sont **générés et accessibles**. 
+- Les rapports SonarQube sont **générés et accessibles**.
 
 ---
 
 ### **✅ Critères de succès**
-- [ ] Seuils de mutation à **85% (Backend)** et **90% (Frontend)**.
+- [ ] Seuils de mutation à **85% (Backend)** et **90% (Frontend)**. *(en cours — mesurés 72,9% / 80,82% au 2026-09-06, planchers CI à 70% / 76%)*
 - [ ] **10 tests d’intégration** ajoutés.
 - [ ] Tests de performance **fonctionnels** (Locust, Lighthouse).
-- [ ] Scan des images Docker **intégré**. 
-- [ ] Couverture de code à **95% (Backend)** et **90% (Frontend)**.
-- [ ] Scan SAST pour YAML **intégré**. 
-- [ ] SonarQube/CodeClimate **intégré**. 
+- [x] Scan des images Docker **intégré**. *(fait — voir P3-4)*
+- [ ] Couverture de code à **95% (Backend)** et **90% (Frontend)**. *(backend à 90% au 2026-09-06, pas encore 95%)*
+- [ ] Scan SAST pour YAML **intégré**.
+- [ ] SonarQube/CodeClimate **intégré**.
 
 ---
 
@@ -563,8 +639,8 @@ Documentation complète de la CI/CD, incluant :
 
 | **ID** | **Tâche** | **Description** | **Livrable** | **Responsable** | **Échéance** | **Statut** |
 |--------|-----------|----------------|--------------|-----------------|--------------|------------|
-| **P4-1** | Automatiser la génération des notes de release | Utiliser GitHub pour générer automatiquement les notes. | Mise à jour de `release.yml` | Équipe DevOps | J+2 | ⬜ |
-| **P4-2** | Ajouter des vérifications pré-release | Vérifier la couverture, la qualité, et la sécurité avant une release. | Mise à jour de `release.yml` | Équipe DevOps | J+4 | ⬜ |
+| **P4-1** | Automatiser la génération des notes de release | Utiliser GitHub pour générer automatiquement les notes. | Mise à jour de `release.yml` | Équipe DevOps | J+2 | 🔶 Partiel |
+| **P4-2** | Ajouter des vérifications pré-release | Vérifier la couverture, la qualité, et la sécurité avant une release. | Mise à jour de `release.yml` | Équipe DevOps | J+4 | 🔶 Partiel |
 | **P4-3** | Automatiser le déploiement sur staging | Déployer automatiquement sur Fly.io après une release. | Nouveau workflow `deploy-staging.yml` | Équipe DevOps | J+6 | ⬜ |
 | **P4-4** | Ajouter des canary releases | Déployer sur un sous-ensemble des utilisateurs. | Mise à jour de `release.yml` | Équipe DevOps | J+8 | ⬜ |
 | **P4-5** | Automatiser les rollbacks | Revenir à la version précédente en cas d’échec. | Script de rollback | Équipe DevOps | J+10 | ⬜ |
@@ -583,6 +659,11 @@ Documentation complète de la CI/CD, incluant :
 **Validation** :
 - Les notes de release sont **générées automatiquement** et incluent les métriques de qualité.
 
+**🔶 Partiel (relecture 2026-09-06)** : `release.yml` a bien
+`generate_release_notes: true`, mais le corps du template ne référence que
+`THEORY.md` et le lien "signaler un bug" — pas de métriques de qualité
+(couverture, mutation) injectées dans les notes.
+
 ---
 
 #### **P4-2 : Ajouter des vérifications pré-release**
@@ -592,6 +673,14 @@ Documentation complète de la CI/CD, incluant :
    - La couverture de code.
    - Les scores de mutation.
    - L’absence de vulnérabilités critiques.
+
+**🔶 Partiel (relecture 2026-09-06)** : pas de job `pre_release_checks`
+dédié, mais le job `release` a `needs: [ci-frontend, ci-backend, e2e]` — une
+release ne peut pas être créée si les tests frontend/backend ou l'E2E
+échouent. Ni les scores de mutation ni un scan de sécurité dédié ne sont
+re-vérifiés au moment du release (ils sont déjà gating plus tôt, sur
+`develop`, via `backend-ci-cd-pipeline.yml`/`audit.yml`/`mutation-testing.yml`
+— mais pas ré-exécutés ici).
 
 **Validation** :
 - Une release ne peut pas être créée si les vérifications échouent.
@@ -615,7 +704,7 @@ Documentation complète de la CI/CD, incluant :
 2. Configurer les flags pour les canary releases.
 
 **Validation** :
-- Une canary release est **déployée et testée**. 
+- Une canary release est **déployée et testée**.
 
 ---
 
@@ -638,17 +727,17 @@ Documentation complète de la CI/CD, incluant :
 3. Configurer les flags.
 
 **Validation** :
-- Les feature flags sont **utilisés dans le code**. 
+- Les feature flags sont **utilisés dans le code**.
 
 ---
 
 ### **✅ Critères de succès**
-- [ ] Les notes de release sont **générées automatiquement**. 
-- [ ] Les vérifications pré-release **bloquent les releases défectueuses**. 
-- [ ] Le déploiement sur staging est **automatique**. 
-- [ ] Les canary releases sont **intégrées**. 
-- [ ] Les rollbacks sont **automatisés**. 
-- [ ] Un outil de feature flags est **intégré**. 
+- [ ] Les notes de release sont **générées automatiquement**.
+- [ ] Les vérifications pré-release **bloquent les releases défectueuses**.
+- [ ] Le déploiement sur staging est **automatique**.
+- [ ] Les canary releases sont **intégrées**.
+- [ ] Les rollbacks sont **automatisés**.
+- [ ] Un outil de feature flags est **intégré**.
 
 ---
 
@@ -667,7 +756,7 @@ Documentation complète de la CI/CD, incluant :
 | **P5-2** | Ajouter des badges de statut | Afficher l’état de la CI/CD dans le README. | Mise à jour du `README.md` | Matthieu Burban | Ponctuelle | ⬜ |
 | **P5-3** | Suivre les métriques CI/CD | Mesurer les temps, coûts, et taux d’échec. | Script de suivi | Équipe DevOps | Mensuelle | ⬜ |
 | **P5-4** | Documenter les workflows | Maintenir la documentation à jour. | Mise à jour de `CI_CD.md` | Matthieu Burban | Trimestrielle | ⬜ |
-| **P5-5** | Automatiser la mise à jour des actions GitHub | Utiliser Dependabot pour mettre à jour les actions. | Mise à jour de `dependabot.yml` | Équipe DevOps | Mensuelle | ⬜ |
+| **P5-5** | Automatiser la mise à jour des actions GitHub | Utiliser Dependabot pour mettre à jour les actions. | Mise à jour de `dependabot.yml` | Équipe DevOps | Mensuelle | ✅ Fait |
 | **P5-6** | Revoir les seuils et règles | Ajuster les seuils en fonction des métriques. | Rapport de revue | Équipe Dev | Trimestrielle | ⬜ |
 | **P5-7** | Former l’équipe | Former les nouveaux membres à la CI/CD. | Session de formation | Matthieu Burban | Trimestrielle | ⬜ |
 
@@ -683,7 +772,7 @@ Documentation complète de la CI/CD, incluant :
 3. **Option 3** : Configurer **Grafana** pour les métriques personnalisées.
 
 **Validation** :
-- Un tableau de bord est **accessible et mis à jour**. 
+- Un tableau de bord est **accessible et mis à jour**.
 
 ---
 
@@ -702,7 +791,7 @@ Documentation complète de la CI/CD, incluant :
    ```
 
 **Validation** :
-- Les badges sont **affichés et mis à jour**. 
+- Les badges sont **affichés et mis à jour**.
 
 ---
 
@@ -713,7 +802,7 @@ Documentation complète de la CI/CD, incluant :
 2. Utiliser des outils comme [`github-actions-cost-estimator`](https://github.com/marketplace/actions/github-actions-cost-estimator).
 
 **Validation** :
-- Un rapport mensuel montre l’évolution des métriques. 
+- Un rapport mensuel montre l’évolution des métriques.
 
 ---
 
@@ -723,7 +812,7 @@ Documentation complète de la CI/CD, incluant :
 1. Mettre à jour `CI_CD.md` avec les nouveaux workflows et changements.
 
 **Validation** :
-- La documentation est **à jour et complète**. 
+- La documentation est **à jour et complète**.
 
 ---
 
@@ -733,7 +822,14 @@ Documentation complète de la CI/CD, incluant :
 1. Vérifier que Dependabot est configuré pour mettre à jour les actions GitHub.
 
 **Validation** :
-- Les actions GitHub sont **à jour**. 
+- Les actions GitHub sont **à jour**.
+
+**✅ Fait (relecture 2026-09-06)** : `.github/dependabot.yml` a un entry
+`package-ecosystem: "github-actions"` (`directory: "/"`, hebdomadaire). Le
+même fichier a aussi gagné trois entries `package-ecosystem: "docker"`
+aujourd'hui (racine, `/fast_api_voter`, `/voter-app`) — au-delà du périmètre
+de P5-5, mais ça couvre une lacune que ce plan ne mentionnait pas : les
+images de base des Dockerfiles étaient auparavant hors radar de Dependabot.
 
 ---
 
@@ -743,7 +839,7 @@ Documentation complète de la CI/CD, incluant :
 1. Revoir les seuils trimestriellement (couverture, mutation, complexité).
 
 **Validation** :
-- Les seuils sont **optimaux et réalistes**. 
+- Les seuils sont **optimaux et réalistes**.
 
 ---
 
@@ -754,18 +850,18 @@ Documentation complète de la CI/CD, incluant :
 2. Documenter les bonnes pratiques dans `CONTRIBUTING.md`.
 
 **Validation** :
-- L’équipe **comprend et utilise** la CI/CD efficacement. 
+- L’équipe **comprend et utilise** la CI/CD efficacement.
 
 ---
 
 ### **✅ Critères de succès**
-- [ ] Un **tableau de bord CI/CD** est disponible. 
-- [ ] Les **badges de statut** sont affichés dans le `README.md`. 
-- [ ] Les **métriques CI/CD** sont suivies et analysées. 
-- [ ] La **documentation** est à jour. 
-- [ ] Les **actions GitHub** sont automatiquement mises à jour. 
-- [ ] Les **seuils** sont revus trimestriellement. 
-- [ ] L’équipe est **formée** à la CI/CD. 
+- [ ] Un **tableau de bord CI/CD** est disponible.
+- [ ] Les **badges de statut** sont affichés dans le `README.md`.
+- [ ] Les **métriques CI/CD** sont suivies et analysées.
+- [ ] La **documentation** est à jour.
+- [ ] Les **actions GitHub** sont automatiquement mises à jour.
+- [ ] Les **seuils** sont revus trimestriellement.
+- [ ] L’équipe est **formée** à la CI/CD.
 
 ---
 
@@ -780,11 +876,11 @@ Documentation complète de la CI/CD, incluant :
 | **Phase** | **Durée** | **Tâches** | **Avancement** | **Statut** | **Responsable** |
 |-----------|----------|------------|----------------|------------|-----------------|
 | Phase 0 | 1 semaine | 5/5 | 0% | ⏳ À venir | Matthieu Burban |
-| Phase 1 | 2 semaines | 8/8 | 0% | ⏳ À venir | Équipe DevOps |
+| Phase 1 | 2 semaines | 6/8 faites, 1 partielle | ~75% | 🔶 Bien avancée *(relecture 2026-09-06)* | Équipe DevOps |
 | Phase 2 | 3 semaines | 7/7 | 0% | ⏳ À venir | Équipe DevOps |
-| Phase 3 | 4 semaines | 7/7 | 0% | ⏳ À venir | Équipe Dev |
-| Phase 4 | 4 semaines | 6/6 | 0% | ⏳ À venir | Équipe DevOps |
-| Phase 5 | Continu | 7/7 | 0% | ⏳ À venir | Équipe DevOps |
+| Phase 3 | 4 semaines | 1/7 | ~14% | 🔶 Démarrée *(relecture 2026-09-06)* | Équipe Dev |
+| Phase 4 | 4 semaines | 0/6 faites, 2 partielles | 0% | 🔶 Démarrée *(relecture 2026-09-06)* | Équipe DevOps |
+| Phase 5 | Continu | 1/7 | ~14% | 🔶 Démarrée *(relecture 2026-09-06)* | Équipe DevOps |
 
 ---
 
@@ -809,19 +905,19 @@ Documentation complète de la CI/CD, incluant :
 
 1. **Toujours tester les changements CI/CD** :
    - Ouvrir une **branche de test** avant de merger les changements sur `develop`.
-   - Vérifier que tous les workflows **passent ou échouent comme attendu**. 
+   - Vérifier que tous les workflows **passent ou échouent comme attendu**.
 
 2. **Documenter chaque changement** :
    - Mettre à jour `CI_CD.md` après chaque modification.
-   - Ajouter des **commentaires** dans les workflows pour expliquer les choix. 
+   - Ajouter des **commentaires** dans les workflows pour expliquer les choix.
 
 3. **Suivre les métriques** :
    - Utiliser **GitHub Insights** ou **Grafana** pour suivre les performances.
-   - **Revoir les seuils** trimestriellement. 
+   - **Revoir les seuils** trimestriellement.
 
 4. **Former l’équipe** :
    - Organiser des **sessions de formation** régulières.
-   - **Documenter les bonnes pratiques** dans `CONTRIBUTING.md`. 
+   - **Documenter les bonnes pratiques** dans `CONTRIBUTING.md`.
 
 5. **Automatiser au maximum** :
    - Utiliser **Dependabot** pour les mises à jour.
@@ -845,56 +941,56 @@ Documentation complète de la CI/CD, incluant :
 ---
 
 ### **✅ Phase 1 : Corrections Critiques**
-- [ ] Tests E2E **bloquants** pour les merges.
-- [ ] `pip-audit` **bloquant** pour les vulnérabilités.
-- [ ] Trivy **bloquant** pour les vulnérabilités HIGH/CRITICAL.
-- [ ] `mutation-testing.yml` **corrigé** (branche `develop`).
-- [ ] Node 22 **utilisé pour Stryker**. 
-- [ ] Retries automatiques **ajoutés** pour les jobs flaky.
-- [ ] Toutes les corrections **testées et validées**. 
+- [x] Tests E2E **bloquants** pour les merges.
+- [x] `pip-audit` **bloquant** pour les vulnérabilités.
+- [x] Trivy **bloquant** pour les vulnérabilités HIGH/CRITICAL.
+- [x] `mutation-testing.yml` **corrigé** (branche `develop`).
+- [x] Node 22 **utilisé pour Stryker**.
+- [ ] Retries automatiques **ajoutés** pour les jobs flaky. *(partiel — voir P1-6)*
+- [ ] Toutes les corrections **testées et validées**.
 
 ---
 
 ### **✅ Phase 2 : Optimisation des Performances**
 - [ ] Jobs CI **parallélisés** (Backend + Frontend).
-- [ ] Builds frontend **mis en cache**. 
-- [ ] Scans redondants **désactivés**. 
+- [ ] Builds frontend **mis en cache**.
+- [ ] Scans redondants **désactivés**.
 - [ ] Tests E2E **optimisés** (parallélisation, sous-ensemble en PR).
 - [ ] Runners plus puissants **utilisés** pour les jobs longs.
-- [ ] Temps d’exécution **mesurés et suivis**. 
+- [ ] Temps d’exécution **mesurés et suivis**.
 - [ ] Dépendances **optimisées** (taille réduite).
 
 ---
 
 ### **✅ Phase 3 : Qualité et Sécurité**
-- [ ] Seuils de mutation **augmentés** (Backend: 85%, Frontend: 90%).
+- [ ] Seuils de mutation **augmentés** (Backend: 85%, Frontend: 90%). *(en cours — 72,9%/80,82% mesurés)*
 - [ ] **10 tests d’intégration** ajoutés.
 - [ ] Tests de performance **fonctionnels** (Locust, Lighthouse).
-- [ ] Scan des images Docker **intégré**. 
-- [ ] Couverture de code **améliorée** (Backend: 95%, Frontend: 90%).
-- [ ] Scan SAST pour YAML **intégré**. 
-- [ ] SonarQube/CodeClimate **intégré**. 
+- [x] Scan des images Docker **intégré**. *(fait — voir P3-4)*
+- [ ] Couverture de code **améliorée** (Backend: 95%, Frontend: 90%). *(backend à 90%)*
+- [ ] Scan SAST pour YAML **intégré**.
+- [ ] SonarQube/CodeClimate **intégré**.
 
 ---
 
 ### **✅ Phase 4 : Automatisation Avancée**
-- [ ] Notes de release **générées automatiquement**. 
-- [ ] Vérifications pré-release **bloquantes**. 
-- [ ] Déploiement sur staging **automatique**. 
-- [ ] Canary releases **intégrées**. 
-- [ ] Rollbacks **automatisés**. 
-- [ ] Outil de feature flags **intégré**. 
+- [ ] Notes de release **générées automatiquement**. *(partiel — `generate_release_notes: true` fait, métriques de qualité dans le template pas fait, voir P4-1)*
+- [ ] Vérifications pré-release **bloquantes**. *(partiel — release gated sur tests+E2E, pas sur mutation/sécurité dédiés, voir P4-2)*
+- [ ] Déploiement sur staging **automatique**.
+- [ ] Canary releases **intégrées**.
+- [ ] Rollbacks **automatisés**.
+- [ ] Outil de feature flags **intégré**.
 
 ---
 
 ### **✅ Phase 5 : Monitoring et Maintenance**
-- [ ] Tableau de bord CI/CD **centralisé**. 
-- [ ] Badges de statut **affichés dans le README**. 
-- [ ] Métriques CI/CD **suivies et analysées**. 
-- [ ] Documentation **à jour**. 
-- [ ] Actions GitHub **automatiquement mises à jour**. 
-- [ ] Seuils **revus trimestriellement**. 
-- [ ] Équipe **formée** à la CI/CD. 
+- [ ] Tableau de bord CI/CD **centralisé**.
+- [ ] Badges de statut **affichés dans le README**.
+- [ ] Métriques CI/CD **suivies et analysées**.
+- [ ] Documentation **à jour**.
+- [x] Actions GitHub **automatiquement mises à jour**. *(fait — voir P5-5; Dependabot couvre aussi désormais les images Docker)*
+- [ ] Seuils **revus trimestriellement**.
+- [ ] Équipe **formée** à la CI/CD.
 
 ---
 
