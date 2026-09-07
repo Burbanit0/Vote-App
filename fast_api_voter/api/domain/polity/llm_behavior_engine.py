@@ -128,6 +128,7 @@ than silently made:
 """
 from __future__ import annotations
 
+import concurrent.futures
 import json
 import logging
 import math
@@ -485,7 +486,17 @@ def _check_supported(config: PolityConfig) -> None:
     if config.parallel.intra_run_workers != 1:
         raise NotImplementedError(
             "parallel.intra_run_workers > 1 is not supported -- concurrent batching breaks "
-            "reproducibility (llm_batching_determinism_results.md)"
+            "reproducibility on Ollama (llm_batching_determinism_results.md) AND, contrary to "
+            "this project's own working hypothesis going in, on vLLM too: "
+            "check_intra_run_concurrency_determinism_results.md found 20/497 events (~4%) "
+            "diverging between workers=1 and workers=8 on an otherwise byte-identical config, "
+            "concentrated in vote_cast's first-attempt success/failure outcome, and a real "
+            "increase in that failure rate under concurrent load (30% to 39%), not just a "
+            "reshuffling of which citizen fails -- confirmed against a workers=1-vs-workers=1 "
+            "control (0/497 diffs) to rule out this being inherent, non-concurrency vLLM "
+            "nondeterminism. run_chunks() itself (this module) is written, tested, and ready to "
+            "re-enable if a future investigation resolves the underlying batch-composition "
+            "sensitivity -- this guard is what currently keeps it unreachable."
         )
     check_codebook_version(config.llm.codebook_version)
 
@@ -684,6 +695,79 @@ def chunk_voters(
         chunks.append(list(voters[start:start + size]))
         start += size
     return chunks
+
+
+def run_chunks(
+    chunks: Sequence[list[Citizen]], worker: Callable[[list[Citizen]], _BatchT], workers: int
+) -> list[_BatchT]:
+    """The single shared execution strategy behind every chunked decide_*
+    entry point (Phase 2, plan-flagship-30y-run.md).
+
+    **Status: written and tested, but not currently reachable.**
+    `_check_supported` refuses `workers > 1` unconditionally --
+    `check_intra_run_concurrency_determinism_results.md` found that vLLM
+    concurrency ALSO breaks reproducibility (not just Ollama's, the finding
+    this guard originally cited): 20/497 events (~4%) diverged between
+    workers=1 and workers=8 on an otherwise identical config, concentrated
+    in `vote_cast`'s first-attempt success/failure outcome, with a real
+    increase in that failure rate under concurrent load (30% to 39%) --
+    confirmed via a workers=1-vs-workers=1 control (0/497 diffs) to rule out
+    this being inherent, non-concurrency vLLM nondeterminism before blaming
+    concurrency for it. So today, every caller only ever reaches the
+    `workers == 1` branch below. This function stays in place, correct and
+    unit-tested, as ready-to-enable groundwork should a future investigation
+    find and fix the underlying batch-composition sensitivity, or a
+    deliberate policy decision accepts the ~4% divergence rate -- neither
+    decision is made here.
+
+    `workers == 1` (every config today, on either provider) runs each chunk
+    in a plain sequential loop -- not merely a `ThreadPoolExecutor(max_
+    workers=1)`, which would add thread-creation overhead and a different
+    exception-wrapping behavior for zero benefit; this keeps the
+    pre-Phase-2 code path byte-for-byte the same code, not just the same
+    result.
+
+    `workers > 1` submits every chunk to a bounded `ThreadPoolExecutor` and
+    returns results **in chunk order, not completion order** -- the
+    property Phase 2's own determinism proof depends on
+    (check_intra_run_concurrency_determinism_results.md): `run_polity_
+    simulation.py`'s journal writes iterate a decide_*'s returned
+    decisions/outcome AFTER this function returns, in that same fixed
+    order, regardless of which underlying HTTP request actually completed
+    first. `Future.result()` on each future, read in submission order,
+    gives exactly that -- and re-raises that chunk's own exception (a
+    validate_decision/LlmResponseError failure) at the point this function
+    reads it, same as the sequential path would raise it inline.
+
+    Threads, not asyncio or multiprocessing: `VllmJsonClient`/
+    `OllamaJsonClient.complete_json` are synchronous, blocking network
+    calls (`httpx.Client.post`) -- the GIL releases for the duration of the
+    actual socket I/O, which is where virtually all of this function's
+    wall-clock time goes (a `think=True` generation takes seconds; the
+    Python-side request/response handling is microseconds), so threads give
+    real concurrency here without an async rewrite of nine decide_*
+    functions and run_polity_simulation.py's whole tick loop.
+    `httpx.Client` documents itself as safe for concurrent use across
+    threads -- a single shared client instance backs every chunk's call,
+    the same instance the sequential path already used.
+
+    This is a client-side concurrency mechanism, not the one
+    `vllm_determinism_results.md`'s own proof used (`asyncio.gather`) --
+    deliberately not assumed equivalent by that fact alone. What actually
+    matters for this project's determinism claim is server-side: does vLLM
+    still serve N genuinely-concurrent requests byte-identically regardless
+    of which client-side mechanism produced that concurrency. A thread pool
+    over a synchronous client and an asyncio event loop over an async
+    client both produce N requests in flight at the server at once; neither
+    is closer to what the server actually sees than the other. This is why
+    Phase 2 ships on `check_intra_run_concurrency_determinism.py`'s own
+    proof, run against THIS mechanism specifically, not by citing the
+    asyncio-based one."""
+    if workers == 1:
+        return [worker(chunk) for chunk in chunks]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = [pool.submit(worker, chunk) for chunk in chunks]
+        return [future.result() for future in futures]
 
 
 def truncation_limit(candidate_count: int) -> int | None:
@@ -1034,13 +1118,15 @@ def cast_votes(
     position_to_candidate = {i: c for i, c in enumerate(sorted_candidates(candidates), start=1)}
     truncate_at = truncation_limit(candidate_count)
 
-    ballots: list[list[str]] = []
-    decisions: list[VoteCastDecision] = []
-    retry_sampling_varied: dict[int, bool] = {}
-    llm_fallback: dict[int, bool] = {}
-    for chunk in chunk_voters(voters, _VOTE_CAST_MAX_CHUNK_SIZE, min_batch_size=1):
+    def _vote_chunk(chunk: list[Citizen]) -> tuple[list[VoteCastDecision], bool, bool]:
+        """One chunk's worth of work, run_chunks's own unit of parallelism
+        (Phase 2) -- every local here (expected_cids, retry_info) is fresh
+        per call, so concurrent invocations on separate threads share no
+        mutable state; `client`/`candidates`/`config` are read-only closures
+        over cast_votes's own arguments."""
         expected_cids = [voter.citizen_id for voter in chunk]
         retry_info: dict[str, Any] = {}
+        is_fallback = False
         try:
             chunk_decisions = _complete_and_decode_with_replay(
                 client,
@@ -1081,12 +1167,23 @@ def cast_votes(
                 "the run: %s", expected_cids, exc,
             )
             chunk_decisions = [_deterministic_vote_fallback(voter, candidates) for voter in chunk]
-            for decision in chunk_decisions:
-                llm_fallback[decision.cid] = True
+            is_fallback = True
         sampling_varied = bool(retry_info.get("sampling_varied", False))
+        return chunk_decisions, sampling_varied, is_fallback
+
+    ballots: list[list[str]] = []
+    decisions: list[VoteCastDecision] = []
+    retry_sampling_varied: dict[int, bool] = {}
+    llm_fallback: dict[int, bool] = {}
+    chunks = chunk_voters(voters, _VOTE_CAST_MAX_CHUNK_SIZE, min_batch_size=1)
+    for chunk_decisions, sampling_varied, is_fallback in run_chunks(
+        chunks, _vote_chunk, config.parallel.intra_run_workers
+    ):
         for decision in chunk_decisions:
             ballots.append(ballot_from_decision(decision, position_to_candidate))
             retry_sampling_varied[decision.cid] = sampling_varied
+            if is_fallback:
+                llm_fallback[decision.cid] = True
         decisions.extend(chunk_decisions)
 
     return VoteBatchOutcome(
@@ -1170,22 +1267,24 @@ def decide_candidacies(
     population = list(citizens)
     support = {c.citizen_id: sympathizer_ratio(c, population) for c in population}
 
-    decisions: list[CandidacyDecision] = []
-    for chunk in chunk_voters(citizens, config.llm.max_batch_size):
+    def _candidacy_chunk(chunk: list[Citizen]) -> list[CandidacyDecision]:
         expected_cids = [c.citizen_id for c in chunk]
-        decisions.extend(
-            _complete_and_decode_with_replay(
-                client,
-                system_prompt=build_candidacy_system_prompt(chunk),
-                user_prompt=build_candidacy_user_prompt(chunk, support),
-                json_schema=CANDIDACY_JSON_SCHEMA,
-                max_tokens=compute_max_tokens(len(chunk)),
-                think=False,
-                decode=lambda raw: decode_candidacy_batch(raw, expected_cids),
-                replays=config.llm.max_batch_replays,
-                decision_type="candidacy_considered",
-            )
+        return _complete_and_decode_with_replay(
+            client,
+            system_prompt=build_candidacy_system_prompt(chunk),
+            user_prompt=build_candidacy_user_prompt(chunk, support),
+            json_schema=CANDIDACY_JSON_SCHEMA,
+            max_tokens=compute_max_tokens(len(chunk)),
+            think=False,
+            decode=lambda raw: decode_candidacy_batch(raw, expected_cids),
+            replays=config.llm.max_batch_replays,
+            decision_type="candidacy_considered",
         )
+
+    decisions: list[CandidacyDecision] = []
+    chunks = chunk_voters(citizens, config.llm.max_batch_size)
+    for chunk_decisions in run_chunks(chunks, _candidacy_chunk, config.parallel.intra_run_workers):
+        decisions.extend(chunk_decisions)
 
     return CandidacyBatchOutcome(decisions=decisions)
 
@@ -2171,8 +2270,8 @@ def decide_pressure_actions(
     # agree on the same order regardless of the caller's order -- never
     # rely on an incidental insertion order (D-5 precedent).
     consulted = sorted(consulted, key=lambda c: c.citizen_id)
-    decisions: list[PressureDecision] = []
-    for chunk in chunk_voters(consulted, config.llm.max_batch_size, min_batch_size=1):
+
+    def _pressure_chunk(chunk: list[Citizen]) -> list[PressureDecision]:
         expected_cids = [c.citizen_id for c in chunk]
         chunk_decisions = _complete_and_decode_with_replay(
             client,
@@ -2187,6 +2286,11 @@ def decide_pressure_actions(
         )
         for decision in chunk_decisions:
             validate_pressure_decision(decision, contexts[decision.cid], config)
+        return chunk_decisions
+
+    decisions: list[PressureDecision] = []
+    chunks = chunk_voters(consulted, config.llm.max_batch_size, min_batch_size=1)
+    for chunk_decisions in run_chunks(chunks, _pressure_chunk, config.parallel.intra_run_workers):
         decisions.extend(chunk_decisions)
 
     return PressureBatchOutcome(decisions=decisions)
@@ -2341,21 +2445,32 @@ def decide_reaction_to_event(
     per call, never a combined scandal+shock request -- extended only by
     what the LLM path additionally needs (citizens/contexts/config/client).
 
-    RELIABILITY WARNING (2026-08-30, plan-adversarial-framing-collapse.md), SCANDAL branch only
-    (ECONOMIC_SHOCK not tested): confirmed to show the same content-blind collapse signature as
-    pressure_action. Two structurally opposite ctx.event_salience poles (0.0: untouched by any
-    past event; 0.9: already heavily sensitized), 3 different citizens each, size=1/think=False.
-    All 6 calls returned the identical salience_delta and motif in both poles. SCANDAL was chosen
-    specifically because it carries a real `target` (the implicated president); ECONOMIC_SHOCK's
-    target is always null (a systemic event), so this warning should not be assumed to transfer to
-    that branch without its own check. deterministic_reaction_to_event cannot ground a per-citizen
-    accuracy check for either branch (no Citizen parameter, confirmed in plan-decision-quality-
-    validation.md's own inventory) -- this is a collapse-signature finding, not an accuracy
-    figure. Suspected common cause (unproven): framed as a reaction/response to an external event
-    rather than a self-evaluation against a threshold -- see the design doc's own §3.6.0
-    verification-obligation constraint. Treat event_salience-derived metrics from any
-    llm.enabled=True SCANDAL run as unverified until this is resolved -- no remediation has been
-    found or attempted yet.
+    RELIABILITY WARNING, SCANDAL branch, RESOLVED on vLLM/AWQ (2026-09-06,
+    check_vllm_collapse_signatures_results.md) -- history below for context, no longer current.
+
+    Originally found (2026-08-30, plan-adversarial-framing-collapse.md, Ollama): the same
+    content-blind collapse signature as pressure_action. Two structurally opposite
+    ctx.event_salience poles (0.0: untouched by any past event; 0.9: already heavily sensitized),
+    3 different citizens each, size=1/think=False. All 6 calls returned the identical
+    salience_delta and motif in both poles.
+
+    Re-run against vLLM/AWQ, same protocol unmodified except the client
+    (check_vllm_reaction_to_event_collapse_signature.py), before this project's own flagship run
+    committed to it: the collapse does NOT reproduce. salience_delta varies 0.20 (low prior
+    salience) vs 0.15 (high prior salience), directionally sensible (diminishing returns) across
+    all 3 reactors at both poles. Two other decision types (representative_response,
+    coalition_decision) DID still collapse identically on the same vLLM re-run -- so this is not
+    "vLLM fixes everything", specifically this branch's collapse did not survive the backend
+    change. Not root-caused (why the Ollama collapse existed, or why it stopped on vLLM, is
+    unknown) -- measured, not explained.
+
+    SCANDAL was chosen specifically because it carries a real `target` (the implicated
+    president); ECONOMIC_SHOCK's target is always null (a systemic event), so neither the
+    original warning nor this resolution should be assumed to transfer to that branch without
+    its own check -- still untested, either backend. deterministic_reaction_to_event cannot
+    ground a per-citizen accuracy check for either branch (no Citizen parameter, confirmed in
+    plan-decision-quality-validation.md's own inventory) -- collapse-signature findings only,
+    never an accuracy figure, on either backend.
 
     Population-wide, like decide_pressure_actions -- CHUNKS via
     chunk_voters, but at the DEFAULT MIN_SAFE_BATCH_SIZE floor, not dt=10's
@@ -2382,8 +2497,8 @@ def decide_reaction_to_event(
     # agree on the same order regardless of the caller's order -- never
     # rely on an incidental insertion order (D-5 precedent).
     citizens = sorted(citizens, key=lambda c: c.citizen_id)
-    decisions: list[ReactionDecision] = []
-    for chunk in chunk_voters(citizens, config.llm.max_batch_size):
+
+    def _reaction_chunk(chunk: list[Citizen]) -> list[ReactionDecision]:
         expected_cids = [c.citizen_id for c in chunk]
         chunk_decisions = _complete_and_decode_with_replay(
             client,
@@ -2398,6 +2513,11 @@ def decide_reaction_to_event(
         )
         for decision in chunk_decisions:
             validate_reaction_decision(decision, event_type, config)
+        return chunk_decisions
+
+    decisions: list[ReactionDecision] = []
+    chunks = chunk_voters(citizens, config.llm.max_batch_size)
+    for chunk_decisions in run_chunks(chunks, _reaction_chunk, config.parallel.intra_run_workers):
         decisions.extend(chunk_decisions)
 
     return ReactionBatchOutcome(decisions=decisions)
@@ -2636,10 +2756,10 @@ def decide_chamber_deliberation(
     # rely on an incidental insertion order (D-5 precedent).
     members = sorted(members, key=lambda m: m.citizen_id)
     members_by_id = {m.citizen_id: m for m in members}
-    decisions: list[ChamberDecision] = []
-    for chunk in chunk_voters(members, _CHAMBER_MAX_CHUNK_SIZE, min_batch_size=1):
+
+    def _chamber_chunk(chunk: list[Citizen]) -> list[ChamberDecision]:
         expected_cids = [m.citizen_id for m in chunk]
-        chunk_decisions = _complete_and_decode_with_replay(
+        return _complete_and_decode_with_replay(
             client,
             system_prompt=build_chamber_system_prompt(chunk, config),
             user_prompt=build_chamber_user_prompt(chunk, contexts),
@@ -2650,6 +2770,10 @@ def decide_chamber_deliberation(
             replays=config.llm.max_batch_replays,
             decision_type="chamber_deliberation",
         )
+
+    decisions: list[ChamberDecision] = []
+    chunks = chunk_voters(members, _CHAMBER_MAX_CHUNK_SIZE, min_batch_size=1)
+    for chunk_decisions in run_chunks(chunks, _chamber_chunk, config.parallel.intra_run_workers):
         decisions.extend(chunk_decisions)
 
     positions: dict[int, tuple[float, ...]] = {}

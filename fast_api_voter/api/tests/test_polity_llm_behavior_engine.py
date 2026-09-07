@@ -4,6 +4,7 @@ Offline only: a FakeLlmClient stands in for OllamaJsonClient, no network.
 import dataclasses
 import json
 import math
+import time
 
 import pytest
 
@@ -42,6 +43,7 @@ from api.domain.polity.llm_behavior_engine import (
     build_user_prompt,
     cast_votes,
     chunk_voters,
+    run_chunks,
     clamped_dimensions,
     compute_max_tokens,
     decide_campaign_positioning,
@@ -157,6 +159,74 @@ def test_min_safe_batch_size_is_20():
     # Pinned so a change is deliberate, not accidental -- see
     # ollama_structured_output_results.md for the empirical basis.
     assert MIN_SAFE_BATCH_SIZE == 20
+
+
+# ── run_chunks (Phase 2, plan-flagship-30y-run.md) ──────────────────────────
+# The shared execution strategy behind every chunked decide_* entry point.
+# These test run_chunks itself in isolation, against plain callables, not
+# against a full decide_* + fake LLM client -- the per-entry-point tests
+# above/below already cover that integration; this covers the mechanism's own
+# two claims: order preservation under concurrency, and unchanged-code-path
+# behavior at workers=1.
+
+def test_run_chunks_workers_one_runs_sequentially_in_order():
+    order: list[int] = []
+
+    def worker(chunk):
+        order.append(chunk[0])
+        return chunk[0] * 10
+
+    result = run_chunks([[1], [2], [3]], worker, workers=1)
+
+    assert result == [10, 20, 30]
+    assert order == [1, 2, 3]  # sequential, not just order-preserving
+
+
+def test_run_chunks_workers_many_preserves_chunk_order_regardless_of_completion_order():
+    # Chunk 0 sleeps longest, chunk 2 shortest -- if run_chunks returned
+    # completion order rather than submission order, this would come back
+    # [2, 1, 0], not [0, 1, 2]. This is the exact property Phase 2's own
+    # determinism proof depends on (see run_chunks's own docstring).
+    delays = {0: 0.06, 1: 0.03, 2: 0.0}
+
+    def worker(chunk):
+        time.sleep(delays[chunk[0]])
+        return chunk[0]
+
+    result = run_chunks([[0], [1], [2]], worker, workers=3)
+
+    assert result == [0, 1, 2]
+
+
+def test_run_chunks_workers_many_actually_overlaps_in_wall_clock():
+    # Not just "doesn't crash with workers>1" -- proves real concurrency
+    # happened: 5 chunks x 0.05s each would take >=0.25s sequentially, and
+    # comfortably under that concurrently.
+    def worker(chunk):
+        time.sleep(0.05)
+        return chunk[0]
+
+    start = time.monotonic()
+    result = run_chunks([[i] for i in range(5)], worker, workers=5)
+    elapsed = time.monotonic() - start
+
+    assert result == [0, 1, 2, 3, 4]
+    assert elapsed < 0.2  # well under the 0.25s a sequential run would need
+
+
+def test_run_chunks_propagates_a_single_chunks_exception():
+    def worker(chunk):
+        if chunk[0] == 1:
+            raise LlmResponseError("boom")
+        return chunk[0]
+
+    with pytest.raises(LlmResponseError, match="boom"):
+        run_chunks([[0], [1], [2]], worker, workers=3)
+
+
+def test_run_chunks_empty_chunk_list_returns_empty():
+    assert run_chunks([], lambda chunk: chunk[0], workers=1) == []
+    assert run_chunks([], lambda chunk: chunk[0], workers=4) == []
 
 
 # ── truncation_limit ──────────────────────────────────────────────────────
@@ -472,6 +542,13 @@ def test_cast_votes_raises_for_intra_run_workers_above_one():
     voters = _population(20)
     candidates = [_candidate(100, (0.5,))]
     config = _config_with_llm_enabled()
+    # Phase 2 (plan-flagship-30y-run.md) tried making this provider-conditional
+    # (vllm exempted) and then reverted it: check_intra_run_concurrency_
+    # determinism_results.md found vLLM concurrency ALSO breaks reproducibility
+    # -- 20/497 events diverged between workers=1 and workers=8, confirmed via
+    # a workers=1-vs-workers=1 control (0 diffs) to rule out non-concurrency
+    # causes. The guard is unconditional again; this stays a plain workers>1
+    # check, not an ollama-specific one.
     config = dataclasses.replace(config, parallel=dataclasses.replace(config.parallel, intra_run_workers=2))
     with pytest.raises(NotImplementedError, match="intra_run_workers"):
         cast_votes(voters, candidates, config, FakeLlmClient({}, candidates))
@@ -617,6 +694,13 @@ def test_decide_candidacies_raises_for_dynamic_batch_sharding():
 def test_decide_candidacies_raises_for_intra_run_workers_above_one():
     citizens = _population(20)
     config = _config_with_llm_enabled()
+    # Phase 2 (plan-flagship-30y-run.md) tried making this provider-conditional
+    # (vllm exempted) and then reverted it: check_intra_run_concurrency_
+    # determinism_results.md found vLLM concurrency ALSO breaks reproducibility
+    # -- 20/497 events diverged between workers=1 and workers=8, confirmed via
+    # a workers=1-vs-workers=1 control (0 diffs) to rule out non-concurrency
+    # causes. The guard is unconditional again; this stays a plain workers>1
+    # check, not an ollama-specific one.
     config = dataclasses.replace(config, parallel=dataclasses.replace(config.parallel, intra_run_workers=2))
     with pytest.raises(NotImplementedError, match="intra_run_workers"):
         decide_candidacies(citizens, config, FakeCandidacyLlmClient())
@@ -800,6 +884,13 @@ def test_decide_party_nominations_raises_for_dynamic_batch_sharding():
 def test_decide_party_nominations_raises_for_intra_run_workers_above_one():
     citizens = _population(2)
     config = _config_with_llm_enabled()
+    # Phase 2 (plan-flagship-30y-run.md) tried making this provider-conditional
+    # (vllm exempted) and then reverted it: check_intra_run_concurrency_
+    # determinism_results.md found vLLM concurrency ALSO breaks reproducibility
+    # -- 20/497 events diverged between workers=1 and workers=8, confirmed via
+    # a workers=1-vs-workers=1 control (0 diffs) to rule out non-concurrency
+    # causes. The guard is unconditional again; this stays a plain workers>1
+    # check, not an ollama-specific one.
     config = dataclasses.replace(config, parallel=dataclasses.replace(config.parallel, intra_run_workers=2))
     with pytest.raises(NotImplementedError, match="intra_run_workers"):
         decide_party_nominations(citizens, [], set(), config, FakePartyNominationLlmClient())
@@ -1068,6 +1159,13 @@ def test_decide_campaign_positioning_raises_for_dynamic_batch_sharding():
 def test_decide_campaign_positioning_raises_for_intra_run_workers_above_one():
     citizens = _population(2)
     config = _config_with_llm_enabled()
+    # Phase 2 (plan-flagship-30y-run.md) tried making this provider-conditional
+    # (vllm exempted) and then reverted it: check_intra_run_concurrency_
+    # determinism_results.md found vLLM concurrency ALSO breaks reproducibility
+    # -- 20/497 events diverged between workers=1 and workers=8, confirmed via
+    # a workers=1-vs-workers=1 control (0 diffs) to rule out non-concurrency
+    # causes. The guard is unconditional again; this stays a plain workers>1
+    # check, not an ollama-specific one.
     config = dataclasses.replace(config, parallel=dataclasses.replace(config.parallel, intra_run_workers=2))
     with pytest.raises(NotImplementedError, match="intra_run_workers"):
         decide_campaign_positioning(citizens, citizens, {}, config, FakePositioningLlmClient())
@@ -1320,6 +1418,13 @@ def test_decide_representative_response_raises_for_intra_run_workers_above_one()
     holder = _holder(0, (0.5,))
     contexts = {0: _response_context(0)}
     config = _config_with_llm_enabled()
+    # Phase 2 (plan-flagship-30y-run.md) tried making this provider-conditional
+    # (vllm exempted) and then reverted it: check_intra_run_concurrency_
+    # determinism_results.md found vLLM concurrency ALSO breaks reproducibility
+    # -- 20/497 events diverged between workers=1 and workers=8, confirmed via
+    # a workers=1-vs-workers=1 control (0 diffs) to rule out non-concurrency
+    # causes. The guard is unconditional again; this stays a plain workers>1
+    # check, not an ollama-specific one.
     config = dataclasses.replace(config, parallel=dataclasses.replace(config.parallel, intra_run_workers=2))
     with pytest.raises(NotImplementedError, match="intra_run_workers"):
         decide_representative_response([holder], contexts, config, FakeResponseLlmClient())
@@ -1708,6 +1813,13 @@ def test_decide_chamber_deliberation_raises_for_intra_run_workers_above_one():
     member = _member(0, (0.5,))
     contexts = {0: _chamber_context(0)}
     config = _config_with_llm_enabled()
+    # Phase 2 (plan-flagship-30y-run.md) tried making this provider-conditional
+    # (vllm exempted) and then reverted it: check_intra_run_concurrency_
+    # determinism_results.md found vLLM concurrency ALSO breaks reproducibility
+    # -- 20/497 events diverged between workers=1 and workers=8, confirmed via
+    # a workers=1-vs-workers=1 control (0 diffs) to rule out non-concurrency
+    # causes. The guard is unconditional again; this stays a plain workers>1
+    # check, not an ollama-specific one.
     config = dataclasses.replace(config, parallel=dataclasses.replace(config.parallel, intra_run_workers=2))
     with pytest.raises(NotImplementedError, match="intra_run_workers"):
         decide_chamber_deliberation([member], contexts, config, FakeChamberLlmClient())
@@ -2138,6 +2250,13 @@ def test_decide_coalition_raises_for_intra_run_workers_above_one():
     seats = {0: 30, 1: 25}
     votes = {0: 30.0, 1: 25.0}
     config = _config_with_llm_enabled()
+    # Phase 2 (plan-flagship-30y-run.md) tried making this provider-conditional
+    # (vllm exempted) and then reverted it: check_intra_run_concurrency_
+    # determinism_results.md found vLLM concurrency ALSO breaks reproducibility
+    # -- 20/497 events diverged between workers=1 and workers=8, confirmed via
+    # a workers=1-vs-workers=1 control (0 diffs) to rule out non-concurrency
+    # causes. The guard is unconditional again; this stays a plain workers>1
+    # check, not an ollama-specific one.
     config = dataclasses.replace(config, parallel=dataclasses.replace(config.parallel, intra_run_workers=2))
     with pytest.raises(NotImplementedError, match="intra_run_workers"):
         decide_coalition(_parties_from_seats(seats), seats, votes, config, FakeCoalitionLlmClient())
@@ -2627,6 +2746,13 @@ def test_decide_pressure_actions_raises_for_intra_run_workers_above_one():
     citizens = _pressure_population(3)
     contexts = _pressure_contexts(citizens)
     config = _config_with_llm_enabled()
+    # Phase 2 (plan-flagship-30y-run.md) tried making this provider-conditional
+    # (vllm exempted) and then reverted it: check_intra_run_concurrency_
+    # determinism_results.md found vLLM concurrency ALSO breaks reproducibility
+    # -- 20/497 events diverged between workers=1 and workers=8, confirmed via
+    # a workers=1-vs-workers=1 control (0 diffs) to rule out non-concurrency
+    # causes. The guard is unconditional again; this stays a plain workers>1
+    # check, not an ollama-specific one.
     config = dataclasses.replace(config, parallel=dataclasses.replace(config.parallel, intra_run_workers=2))
     with pytest.raises(NotImplementedError, match="intra_run_workers"):
         decide_pressure_actions(citizens, contexts, config, FakePressureLlmClient())
@@ -2899,6 +3025,13 @@ def test_decide_reaction_to_event_raises_for_intra_run_workers_above_one():
     citizens = _reaction_population(25)
     contexts = _reaction_contexts(citizens)
     config = _config_with_llm_enabled()
+    # Phase 2 (plan-flagship-30y-run.md) tried making this provider-conditional
+    # (vllm exempted) and then reverted it: check_intra_run_concurrency_
+    # determinism_results.md found vLLM concurrency ALSO breaks reproducibility
+    # -- 20/497 events diverged between workers=1 and workers=8, confirmed via
+    # a workers=1-vs-workers=1 control (0 diffs) to rule out non-concurrency
+    # causes. The guard is unconditional again; this stays a plain workers>1
+    # check, not an ollama-specific one.
     config = dataclasses.replace(config, parallel=dataclasses.replace(config.parallel, intra_run_workers=2))
     with pytest.raises(NotImplementedError, match="intra_run_workers"):
         decide_reaction_to_event(citizens, contexts, EventType.SCANDAL, config, FakeReactionLlmClient(), target=205)

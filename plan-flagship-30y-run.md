@@ -8,16 +8,17 @@
 >
 > **Status legend**: `TODO` · `IN PROGRESS` · `DONE` · `BLOCKED` · `DROPPED`
 
-**Overall status: Phases 0, 0bis, 1 and 5 DONE. Starting Phase 2.**
-(last updated 2026-09-06)
+**Overall status: Phases 0, 0bis, 1 and 5 DONE. Phase 2 FAILED its own gate
+(does not ship) — the flagship runs sequential. Starting Phase 3, now load-bearing.**
+(last updated 2026-09-07)
 
 | Phase | What | Status |
 |---|---|---|
 | 0 | Pre-flight: disk, provider switch, baseline timing | **DONE** — real baseline measured, 2266.8s/8 ticks |
 | 0bis | **NEW**: `vote_cast` needed a seed override AND a deterministic fallback on vLLM | **DONE** — fixed, confirmed on a clean re-run |
 | 1 | Re-test the 3 collapse-flagged decision types under vLLM | **DONE** — 2/3 still collapse, 1/3 cleared |
-| 2 | Concurrency unlock + byte-identical determinism proof | TODO |
-| 3 | Checkpoint / resume | TODO |
+| 2 | Concurrency unlock + byte-identical determinism proof | **FAILED — does not ship.** vLLM concurrency breaks reproducibility too |
+| 3 | Checkpoint / resume | TODO — **now the only mitigation for a multi-day sequential run** |
 | 4 | Observability (`progress.json`) | TODO |
 | 5 | v3 scale gate at population 500 | **DONE** — sortition + arity + hard-cap + Class B measured |
 | 6 | UI-ready output (`snapshots.py`, `viz_export.py`) | TODO |
@@ -53,9 +54,14 @@ Three things block that today:
    sequential at pop 500/75 seats. **Corrected by Phase 0's own real vLLM
    measurement** (`plan-flagship-30y-run.md` Phase 0): a rough ~35.6h
    sequential at the same scale — cheaper per-decision on vLLM than the
-   Ollama-based estimate assumed, though still in "needs Phase 2's concurrency
-   unlock to be practical" territory, and still a linear-scaling projection
-   from one data point, not a second measurement.
+   Ollama-based estimate assumed, but a linear-scaling projection from one
+   data point, not a second measurement. **Concurrency does not reduce this**:
+   Phase 2's own determinism proof found vLLM concurrent batching breaks
+   reproducibility too (20/497 events diverged, workers=1 vs workers=8, a
+   real ~4% divergence rate, not a script artifact — see that phase's own
+   writeup), so the flagship runs sequential. ~35.6h (or whatever Phase 7's
+   own scale-probe stage actually measures) is the real number to plan
+   around, not a speedup on top of it.
 2. **No durability.** `run_simulation()` is one in-process `for tick in ...` loop
    holding all state (citizens, parties, 4 RNG streams, `economy_x`, `graph`,
    `pending_rerun`) in local variables. A crash at hour 60 forfeits everything.
@@ -89,11 +95,32 @@ population-independent otherwise. At 121 ticks:
 | 150 (30% ratio) | 18,150 | ~35h |
 
 This makes the chamber the **second-largest cost** in the run after
-`pressure_action`, and pushes the sequential total to roughly **75-82h**. It is
-the strongest single argument for Phase 2: without concurrency this run is not
-practical.
+`pressure_action`, and pushes the sequential total to roughly **75-82h**
+(this table's own per-call estimate of 6.9s is the pre-Phase-0 Ollama-based
+figure; Phase 0's real vLLM measurement revises the overall total down to a
+rough ~35.6h — see the Context section above). This table was the strongest
+single argument FOR attempting Phase 2's concurrency unlock; Phase 2's own
+determinism proof then found vLLM concurrency unsafe for this run (see below),
+so the run proceeds sequential regardless — this cost stands as measured, not
+mitigated.
 
-## Why concurrency is the right lever (and is safe here)
+## Why concurrency looked like the right lever (correction: it wasn't, see Phase 2)
+
+> **This section's own hypothesis was tested and disproven — Phase 2's
+> determinism proof found vLLM concurrency breaks reproducibility too (20/497
+> events diverged, workers=1 vs workers=8), for a mechanism outside every
+> property named below.** Kept here, unedited, because the reasoning was
+> genuine and every individual claim below is still true — it just wasn't the
+> complete list. All five properties are about THIS project's own code
+> (RNG ordering, chunk partitioning, journaling, per-chunk validation, the
+> shared call path). None of them says anything about vLLM's own server-side
+> floating-point behavior under concurrent GPU batch composition — the actual
+> mechanism the proof implicates. A correct argument about this codebase
+> was never going to be sufficient for a claim about the inference server's
+> own internals; that gap is exactly why this plan insisted on a live proof
+> rather than shipping on the argument. See
+> `scripts/check_intra_run_concurrency_determinism_results.md` for the full
+> finding and Phase 2's own entry below for the disposition.
 
 `_check_supported()` (`llm_behavior_engine.py:444-458`) hard-refuses
 `parallel.intra_run_workers != 1`, citing `llm_batching_determinism_results.md`.
@@ -346,7 +373,105 @@ either version of this check).
 **Cost**: ~1 minute of GPU time for all three (18 calls total, `think=False`,
 size=1). Done before spending days of GPU on the flagship, as planned.
 
-## Phase 2 — Concurrency unlock + determinism proof · TODO
+## Phase 2 — Concurrency unlock + determinism proof · **IN PROGRESS**
+
+**Structural finding, from actually reading the code rather than assuming**: only
+5 of the 9 decision types chunk at all (`cast_votes`, `decide_candidacies`,
+`decide_pressure_actions`, `decide_reaction_to_event`, `decide_chamber_
+deliberation`) — confirmed by grep, not inferred. The other 4
+(`decide_party_nominations`, `decide_campaign_positioning`,
+`decide_representative_response`, `decide_coalition`) make exactly one call per
+tick over a small officeholder/nominee/party count; there is nothing to
+parallelize WITHIN a tick for them. This exactly matches the plan's own
+"highest-value targets" list — not a coincidence, that list *is* the chunking
+decision types.
+
+**Shipped so far**:
+- `_check_supported()`'s blanket refusal is now provider-conditional: still
+  refuses `intra_run_workers > 1` on Ollama (the finding that guard exists to
+  protect against), allowed on vLLM.
+- A new shared helper, `run_chunks()`, is the single execution strategy behind
+  all 5 chunked decision types: `workers=1` is a plain sequential loop (not
+  merely a 1-worker thread pool — byte-for-byte the same code every prior
+  config ran), `workers>1` submits every chunk to a bounded
+  `ThreadPoolExecutor` and returns results **in chunk order, never completion
+  order** — the exact property the journal's own downstream ordering depends
+  on.
+- Threads, not the `asyncio.gather` mechanism `vllm_determinism_results.md`'s
+  own proof used — deliberately not assumed equivalent by that fact alone
+  (see `run_chunks`'s own docstring for why the client-side mechanism doesn't
+  matter to the server-side claim being tested). This is exactly why Phase 2
+  ships on its own dedicated proof, not by citing that one.
+- All 5 chunked `decide_*` functions refactored to build a per-chunk worker
+  closure and route it through `run_chunks`. Reaction_to_event's own
+  RELIABILITY WARNING docstring updated in place to reflect Phase 1's finding
+  (SCANDAL branch collapse resolved on vLLM).
+- Unit tests: `run_chunks` itself (order preservation under real concurrency,
+  unchanged sequential behavior at workers=1, exception propagation, empty
+  input) plus the 9 existing `_check_supported` guard tests split into
+  `_on_ollama` (still raises) + one shared vLLM positive case. 1211 polity
+  tests pass, mypy clean.
+- `scripts/check_intra_run_concurrency_determinism.py` written: runs the
+  flagship's own full-richness config twice (`workers=1` vs `workers=N`,
+  `max_batch_replays=0` — a run with replays>0 is already documented as not
+  byte-reproducible, entangling that with a concurrency question would make
+  a diff impossible to attribute), diffs `events.jsonl` byte for byte.
+
+**Smoke-scale proof ran (1 year/pop 100/seats 30/workers 8, replays=0).**
+
+First result was a **false FAIL**: `filecmp.cmp` flagged every line as different, but
+the only actual difference was the `run_id` field itself
+(`determinism-1y-p100-w1` vs `...-w8`) — a bug in the check script, not a
+finding: `run_id` is baked into every journal line and I'd used a different one
+per arm. Fixed (`run_arm` now uses the SAME `run_id` across arms, kept apart by
+`output_dir` instead) before drawing any conclusion from it.
+
+**With `run_id` normalized out of the already-computed journals**: 20 of 497
+events (~4%) still differ, all `vote_cast`, and all the SAME shape — payload's
+`llm_fallback` flips 0↔1 between arms (the voter succeeded on the first LLM
+attempt in one arm, failed and fell back in the other), while **`ranking`/
+`blank`/`motif` are byte-identical in every one of the 20 cases**. Not a
+different vote — a different MECHANISM producing the same vote, this time.
+
+**Consistent with, not yet proof of**, vLLM's own documented mechanism
+(`llm_client.py`'s class docstring, already on record before this proof):
+argmax at temperature=0 is normally robust to per-call floating-point noise,
+except at a genuine near-tie branch point, where kernel-level floating-point
+reduction order — itself a function of GPU batch composition, which
+concurrency changes by construction — can flip the result. 20/497 near-tie
+flips is a small, plausible rate for exactly that mechanism.
+
+**Control run: two sequential `workers=1` runs, same seed/config, diffed against
+each other — 0 of 497 events differ.** This rules out inherent, load-independent
+vLLM/AWQ non-determinism and confirms the 20/497 divergence against `workers=8`
+is attributable to concurrency specifically. Also measured precisely: `vote_cast`'s
+first-attempt failure rate was 30/100 identically in BOTH sequential runs, and
+39/100 under `workers=8` — concurrent load doesn't just reshuffle which citizen
+fails, it makes failure measurably more likely.
+
+## Phase 2 verdict: FAIL. Does not ship.
+
+Full writeup: `scripts/check_intra_run_concurrency_determinism_results.md`.
+
+Per the plan's own pre-registered gate ("Any diff => the unlock does not ship"):
+`_check_supported()`'s refusal of `intra_run_workers > 1` is **unconditional
+again**, now citing both the original Ollama finding and this new vLLM one.
+`run_chunks()` and the 5 refactored `decide_*` functions **stay in the
+codebase** — correct, unit-tested in isolation, and proven byte-identical to
+the pre-Phase-2 sequential code at the only value `_check_supported` now ever
+allows through (`workers == 1`). Deliberately not reverted: nothing about this
+finding says the mechanism itself is wrong, only that the gate must not open it
+yet. Re-enabling it needs either a fix to the underlying batch-composition
+sensitivity (vLLM/CUDA-level instrumentation this project doesn't have) or a
+separate, deliberate policy decision to accept a ~4% divergence rate — neither
+decided here.
+
+**Consequence for the flagship**: it stays sequential. Phase 0's real
+measurement (2266.8s for 2y/pop100) is the throughput to plan around, not the
+~3.5x speedup this proof's own timing showed before being disqualified on
+correctness grounds. Phase 3 (checkpoint/resume) moves from "nice to have
+alongside concurrency" to the only mitigation for a multi-day sequential run —
+exactly the plan's own pre-registered risk-section fallback, now the live path.
 
 **Change**: add a bounded worker pool for independent LLM calls within a tick,
 gated to `provider == "vllm"`, driven by the existing `parallel.intra_run_workers`
@@ -544,7 +669,7 @@ Then the same path to population 1000 as the mid-term goal.
 |---|---|
 | 0 | 2-year vLLM run completes; `run_metadata.json` shows vllm; measured baseline recorded |
 | 1 | Three collapse scripts re-run under vLLM; each type labelled verified or unverified |
-| 2 | **`events.jsonl` byte-identical, workers=1 vs workers=8, same seed** |
+| 2 | **`events.jsonl` byte-identical, workers=1 vs workers=8, same seed** — **FAILED, does not ship; flagship runs sequential (Phase 3 is now load-bearing)** |
 | 3 | **`events.jsonl` byte-identical, uninterrupted vs killed-and-resumed** |
 | 4 | `progress.json` updates per tick; ETA converges |
 | 5 | v3 checklist Classes B/C/D measured at pop 500; seats/initial_count decisions recorded |
@@ -558,9 +683,11 @@ code Phases 2-3 touch.
 
 ## Risks
 
-- **The determinism proof fails.** Mitigation: it is a gate, not an assumption.
+- **The determinism proof fails.** ~~Mitigation: it is a gate, not an assumption.
   Fallback is sequential + checkpointing (~3 days in resumable segments) — slower
-  but still achievable.
+  but still achievable.~~ **This happened.** Phase 2's proof failed (20/497 events
+  diverged, workers=1 vs workers=8) and the pre-registered fallback is now the
+  live plan: sequential + Phase 3 checkpointing, not a hedge.
 - **Reliability floor is irreducible.** ~6.7% deterministic `vote_cast` failures
   and ~2.6% chamber Mode-A truncations are documented and already mitigated
   (retry at temp 0.3, prompt fix). At 500 citizens × 8 elections plus 9,075
@@ -620,3 +747,21 @@ Newest last. One line per landed step, with the commit hash where there is one.
   all recovered, 0 fallback activations. Phase 0 and Phase 0bis both DONE.
   Corrected the flagship cost projection from the Ollama-extrapolated 65-82h down
   to a rough ~35.6h sequential, pending Phase 7's own scale-probe confirmation.
+- **2026-09-06** (`5629777`) — Phase 1: re-ran all 3 collapse-flagged decision
+  types under vLLM. 2 of 3 still collapse (representative_response,
+  coalition_decision); reaction_to_event's SCANDAL branch does not reproduce
+  the collapse and its warning is dropped.
+- **2026-09-07** — Phase 2: built `run_chunks()`, a shared thread-pool execution
+  strategy for the 5 chunked decision types, relaxed `_check_supported()` to
+  allow `intra_run_workers > 1` on vLLM, and wrote
+  `check_intra_run_concurrency_determinism.py` to prove it. First run of the
+  proof found a false FAIL caused by the script's own `run_id` bug (fixed).
+  The real result, after the fix: **FAIL, for a genuine reason** — 20/497
+  events diverged between workers=1 and workers=8 (all `vote_cast`, all a
+  first-attempt success/failure flip with byte-identical resulting ballots),
+  confirmed concurrency-specific via a workers=1-vs-workers=1 control (0/497
+  diffs). Per the plan's own pre-registered gate, reverted
+  `_check_supported()` to its unconditional refusal (now citing both findings)
+  and left `run_chunks()` in the codebase as tested, currently-unreachable
+  groundwork rather than reverting it outright. The flagship runs sequential;
+  Phase 3 (checkpoint/resume) is now the load-bearing mitigation, not a hedge.
