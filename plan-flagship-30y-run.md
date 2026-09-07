@@ -8,13 +8,13 @@
 >
 > **Status legend**: `TODO` · `IN PROGRESS` · `DONE` · `BLOCKED` · `DROPPED`
 
-**Overall status: Phase 0 IN PROGRESS — fix shipped, re-running the baseline**
+**Overall status: Phases 0, 0bis and 5 DONE. Starting Phase 1.**
 (last updated 2026-09-06)
 
 | Phase | What | Status |
 |---|---|---|
-| 0 | Pre-flight: disk, provider switch, baseline timing | **IN PROGRESS** — re-running after Phase 0bis fallback fix |
-| 0bis | **NEW**: `vote_cast` needed a seed override AND a deterministic fallback on vLLM | **FIXED** (2 iterations), re-verifying at scale |
+| 0 | Pre-flight: disk, provider switch, baseline timing | **DONE** — real baseline measured, 2266.8s/8 ticks |
+| 0bis | **NEW**: `vote_cast` needed a seed override AND a deterministic fallback on vLLM | **DONE** — fixed, confirmed on a clean re-run |
 | 1 | Re-test the 3 collapse-flagged decision types under vLLM | TODO |
 | 2 | Concurrency unlock + byte-identical determinism proof | TODO |
 | 3 | Checkpoint / resume | TODO |
@@ -48,10 +48,14 @@ against real data rather than a fixture.
 
 Three things block that today:
 
-1. **Runtime.** Extrapolating from the measured 16,670s (4.6h) for pop 100 /
-   8 years / full features, a 30-year run at population 500 is **~65-72h
-   sequential** — and ~75-82h once the sortition chamber is scaled to 75 seats
-   (see below). Three days-plus of uninterrupted GPU.
+1. **Runtime.** This was originally extrapolated from the *Ollama* measurement
+   of 16,670s (4.6h) for pop 100 / 8 years / full features, to ~65-82h
+   sequential at pop 500/75 seats. **Corrected by Phase 0's own real vLLM
+   measurement** (`plan-flagship-30y-run.md` Phase 0): a rough ~35.6h
+   sequential at the same scale — cheaper per-decision on vLLM than the
+   Ollama-based estimate assumed, though still in "needs Phase 2's concurrency
+   unlock to be practical" territory, and still a linear-scaling projection
+   from one data point, not a second measurement.
 2. **No durability.** `run_simulation()` is one in-process `for tick in ...` loop
    holding all state (citizens, parties, 4 RNG streams, `economy_x`, `graph`,
    `pending_rerun`) in local variables. A crash at hour 60 forfeits everything.
@@ -128,23 +132,41 @@ not ship on argument — it ships on the proof in Phase 2.**
 
 ---
 
-## Phase 0 — Pre-flight · **IN PROGRESS**
+## Phase 0 — Pre-flight · **DONE**
 
-- [ ] **Disk**: 86% full, 18G free. `docker system prune` reclaims ~23GB (8.8GB
-      images, 8.2GB build cache, 6.1GB volumes). Do this before any long run.
-      *Be surgical — a blanket prune also removes the stopped `vllm-polity`
-      container.*
-- [ ] **Provider switch**: `polity_config.yaml` `provider: ollama` → `vllm`,
-      `base_url` → `http://localhost:8000/v1`. Config already documents the
-      switch procedure in-place. This is the v8 "auto-hébergement" half of the
-      roadmap, now unblocked.
-- [ ] **Baseline timing, never measured**: run one short arm (2 years, pop 100)
-      on both providers and record wall-clock. Every cost projection in this
-      plan is extrapolated from *Ollama* numbers; we need the real vLLM per-call
-      cost before sizing the flagship run.
+- [x] **Disk**: reclaimed via `docker builder prune -f` (8.2GB) plus a removed
+      duplicate/orphaned HF-cache volume — 18G → 25G+ free. Done surgically,
+      not via a blanket `docker system prune`, to keep the stopped
+      `vllm-polity` container intact.
+- [x] **Provider switch**: `polity_config.yaml` `provider: ollama` → `vllm`,
+      `base_url` → `http://localhost:8000/v1`. Shipped in
+      `35e41bb feat(polity): switch the shipped LLM provider to vLLM`.
+- [x] **Baseline timing, measured for real** — 3 attempts, see Phase 0bis for
+      why the first two crashed and what fixed them. The third
+      (`baseline-2y-p100-vllm-v3`) completed cleanly: 2 years / pop 100 /
+      seats 30, full richness, `max_batch_replays=2`.
 
-**Gate**: `run_metadata.json` records vllm provider + model; the 2-year run
-completes and its journal indexes cleanly via `index_run()`.
+  | | Value |
+  |---|---|
+  | Wall-clock | 2266.8s (~37.8 min) over 8 ticks |
+  | Seconds/tick | 283.35s |
+  | Decisions | 632 total (100 candidacy, 100 vote_cast, 270 chamber, 137 pressure, 8 coalition, 7 response, 5 nomination, 5 positioning) |
+  | Replays | 188 log lines / **42 actual replay events** (multi-line pydantic errors inflate a naive line count ~4.5x) — all 42 recovered, 0 fallback activations needed in this run |
+
+  **Corrected flagship cost projection.** Every prior number in this plan
+  (the 65-82h range) was extrapolated from *Ollama* per-call costs. Scaling
+  this real vLLM measurement per decision type (population-linear for
+  candidacy/vote_cast/pressure_action, seat-linear for chamber, ~flat for
+  party/officeholder-level types) projects **~35.6h sequential** for
+  30y/pop 500/seats 75 — meaningfully cheaper than the Ollama-based estimate,
+  though still firmly in "needs Phase 2's concurrency unlock to be practical"
+  territory, and this is a rough linear-scaling model, not a second measured
+  data point. The Phase 7 scale-probe stage (8y/pop 500) is what actually
+  confirms or corrects this.
+
+**Gate met**: `run_metadata.json` records `llm_provider: vllm`, `llm_model:
+qwen3:8b`; the 2-year run completed and `index_run()` produced `metrics.json`
+with no errors.
 
 ## Phase 0bis — the `vote_cast` retry needed a seed override on vLLM · **FIXED**
 
@@ -262,6 +284,17 @@ second change), mypy clean.
 **This directly implements the plan's own stated priority order** ("must not die
 mid-run" > observable > UI-ready output) rather than just asserting it — the
 first thing that would have died mid-run now degrades instead.
+
+**Confirmed on the real re-run** (`baseline-2y-p100-vllm-v3`, same population/
+seed as the two crashed attempts): completed end-to-end, 100/100 `vote_cast`
+decisions produced, 42 first-attempt failures, **all 42 recovered via the
+seed-varying retry, 0 fallback activations needed**. Notably, the specific
+voter that got permanently stuck in the v2 crash (cid 33, identical wrong
+answer across both retry seeds) did NOT reproduce that behaviour here, despite
+identical population/seed/config — consistent with this project's own standing
+finding that vLLM's near-tie sampling behaviour is batch-composition/cache-state
+sensitive, not a pure function of the declared seed. Not chased further: the
+fallback's whole point is that this doesn't need explaining to be safe.
 
 **Deliberately NOT done**: the same treatment for the other 8 decision types.
 Several have their own `simple_rules.py` deterministic equivalent already
@@ -534,10 +567,40 @@ code Phases 2-3 touch.
 
 ## Execution log
 
-Newest last. One line per landed step, with the PR number where there is one.
+Newest last. One line per landed step, with the commit hash where there is one.
 
 - **2026-09-06** — Plan approved and written down here as a tracker. Starting
   state: branch `polity` at `455db1d`; `provider: ollama` shipped; `vllm-polity`
   container built and validated (`--structured-outputs-config
   '{"backend": "xgrammar", "disable_any_whitespace": true}'`, max-model-len
   16384, gpu-memory-utilization 0.80) but stopped; disk 86% full / 18G free.
+- **2026-09-06** (`9dcafa8`, `35e41bb`, `bb00bd9`) — disk reclaimed; provider
+  switched to vllm; `run_polity_flagship.py` written and verified deterministically
+  at full flagship scale (30y/pop 500, 6.4s, no GPU) before any LLM time was spent.
+- **2026-09-06** (`0574205`) — Phase 5 scale gate cleared at population 500:
+  sortition safe at 75 seats, nomination arity 15-26/party, `max_candidates_
+  hard_cap` found structurally inert (parsed, never read), Class B rupture counts
+  linear in population. Exposed and fixed two config gaps in the flagship runner
+  itself (missing richness flags; missing run-collision guard).
+- **2026-09-06** (`2324c81`) — fixed the run-start LLM warm-up: it was using a
+  shape (`"{}"` at `max_tokens=32`) this project's own recycle-path docstring
+  already documents as worse than the alternative, and it hard-failed under vLLM.
+- **2026-09-06** — first real LLM arm of the flagship plan (2y/pop100/vllm)
+  crashed in tick 0's presidential election: `vote_cast`'s shipped temperature-
+  varied retry mitigation turned out to be inert against vLLM's pinned-seed
+  determinism. Measured the mechanism directly
+  (`check_vllm_vote_cast_retry_is_inert_results.md`, 9 real failures): the
+  shipped retry recovers 74% of attempts but leaves 1 of 9 voters fully stuck.
+- **2026-09-06** (`95b5552`) — fix #1: vary the retry seed alongside the retry
+  temperature. Re-run recovered 4 of 5 failures cleanly, but a 5th voter (cid 33)
+  failed identically across both retry seeds and the run crashed again --
+  confirming the measured residual risk was real, not just a small-sample artifact.
+- **2026-09-06** (`a5d6b24`) — fix #2: `cast_votes` now falls back to
+  `simple_rules.build_ranking` for a single voter rather than raising, at any
+  replay budget, with honest provenance tracking (`llm_fallback`). Directly
+  implements the plan's own priority order ("must not die mid-run" first).
+- **2026-09-06** — Phase 0's baseline re-run (`baseline-2y-p100-vllm-v3`)
+  completed cleanly end-to-end: 2266.8s/8 ticks, 632 decisions, 42 replay events
+  all recovered, 0 fallback activations. Phase 0 and Phase 0bis both DONE.
+  Corrected the flagship cost projection from the Ollama-extrapolated 65-82h down
+  to a rough ~35.6h sequential, pending Phase 7's own scale-probe confirmation.
