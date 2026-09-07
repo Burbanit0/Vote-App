@@ -413,7 +413,105 @@ retours concrets.
 
 ---
 
-## Lot 12 — Synthèse & partage *(à faire en dernier, il consomme tout le reste)*
+## Lot 12 — Économie de tokens & efficacité du contexte
+
+Lot transversal : **12.1 et 12.2 peuvent démarrer immédiatement**, le reste
+s'installe au fil des autres lots.
+
+La garde `graphify` déjà en service dans le worktree polity (`PreToolUse` qui
+impose une requête de graphe avant tout grep) appartient déjà à cette famille —
+ce lot la généralise plutôt qu'il n'introduit un concept neuf.
+
+Principe directeur : **le levier n'est pas de « parler moins », c'est de ne
+jamais charger ce qui n'apporte rien.**
+
+### 12.1 — Mesurer d'abord · `S` · ⭐⭐ 📝📝📝
+
+On n'optimise pas ce qu'on ne mesure pas.
+
+- **Télémétrie OpenTelemetry de Claude Code** : consommation et coût par session.
+- **Analyse des transcripts locaux** (`~/.claude/projects/**/*.jsonl`) : ils
+  contiennent déjà les usages par tour — exploitables par script maison ou par
+  un outil communautaire type `ccusage` (à évaluer, pas à adopter d'office).
+- `/cost` en séance pour le retour immédiat.
+- **Rattachement au Lot 0.2** : ajouter une ligne « coût en tokens » au gabarit
+  de carnet d'expérience. Chaque expérience du plan porte alors son coût réel —
+  et le tableau des verdicts (0.3) devient *« ce que chaque outil a trouvé, et
+  ce qu'il a coûté »*, ce qui est nettement plus intéressant à partager.
+
+### 12.2 — Ne jamais charger ce qui ne doit pas l'être · `M` · ⭐⭐⭐ 📝📝
+
+Mesure réelle sur ce repo (estimation à ~4 octets/token) :
+
+| Fichier | Poids | Nature |
+|---|---|---|
+| `voter-app/package-lock.json` | ~155 k tok | généré |
+| `fast_api_voter/Electors simulation.ipynb` | ~152 k tok | notebook **avec sorties stockées** |
+| `fast_api_voter/openapi.gen.json` | ~116 k tok | généré |
+| `voter-app/src/api/types.gen.ts` | ~88 k tok | généré |
+| `voter-app/src/lib/__fixtures__/engineParity.json` | ~33 k tok | généré |
+
+**Ces cinq fichiers pèsent ~544 k tokens** — largement plus qu'une fenêtre de
+contexte. Une seule lecture intégrale accidentelle de l'un d'eux consomme
+l'équivalent de plusieurs heures de travail utile. Aucun n'a de raison d'être lu
+en entier : quatre sont des artefacts générés, le cinquième est un notebook dont
+l'essentiel du poids est constitué de sorties.
+
+Actions :
+
+- **`.claudeignore`** (absent aujourd'hui) sur les artefacts générés.
+- **Hook d'avertissement** sur la lecture intégrale d'un fichier généré, calqué
+  sur la garde `graphify` déjà éprouvée.
+- **`nbstripout`** en pre-commit sur le notebook : les sorties stockées n'ont
+  pas à être versionnées, et représentent ici l'essentiel des 152 k tokens.
+- **Rotation du journal** : `JOURNAL_DE_BORD.md` pèse déjà ~42 k tokens et
+  croît à chaque session. Archiver par année, sinon **le dispositif
+  anti-répétition devient lui-même le poste de dépense** — exactement le piège
+  identifié au Lot 0.5.
+
+### 12.3 — Lire moins cher ce qu'on lit quand même · `M` · ⭐⭐ 📝📝📝
+
+| Outil | Gain |
+|---|---|
+| **`graphify`** | Éprouvé côté polity — évaluer son portage sur `develop`. |
+| **`ast-grep`** | Recherche *structurelle* : beaucoup moins de faux positifs que grep, donc beaucoup moins de lecture pour les écarter. |
+| **`repomix --compress`** | Empaquette le repo en gardant les signatures sans les corps : vue large à coût réduit. |
+| **Cartes de fichier** (signatures seules, via tree-sitter/ast-grep) | S'orienter dans un fichier de 30 k tokens sans le charger. |
+| **Lecture par plage** (`offset`/`limit`) | Réflexe par défaut sur les gros fichiers plutôt que la lecture intégrale. |
+| **Sorties d'outils courtes** | `pytest -q --tb=short`, `jq` plutôt que du JSON brut, `--stat` plutôt qu'un diff complet. Une sortie verbeuse est un coût récurrent. |
+
+### 12.4 — Architecture de session · `M` · ⭐⭐ 📝📝📝
+
+- **Les sous-agents sont le levier majeur** : le contexte de fouille reste chez
+  eux, seul le rapport remonte. Pratiqué le 06/09 (4 agents de documentation en
+  parallèle) — à systématiser sur les tâches exploratoires.
+- **Un modèle par agent** (`model:` dans le frontmatter des définitions) : les
+  agents mécaniques du Lot 11 (`doc-drift`, `dep-triage`) n'ont pas besoin du
+  modèle le plus cher ; le jugement, si.
+- **Plan mode** pour cadrer avant d'exécuter — évite les allers-retours coûteux.
+- Sessions ciblées plutôt que fleuves.
+
+### 12.5 — Cache de prompt · `S` · ⭐⭐ 📝📝
+
+`CLAUDE.md` pèse ~1 200 tokens et est chargé **à chaque requête** : c'est sain
+aujourd'hui, l'enjeu est que ça le reste. Un gate CI sur sa taille suffit.
+Corollaire : éviter de modifier en cours de session les fichiers chargés
+d'office, chaque modification invalidant le cache.
+
+### 12.6 — Le lien avec tout le reste du plan · ⭐⭐⭐ 📝📝📝
+
+**Chaque gate automatisé est un token économisé.** Un linter qui renvoie
+l'erreur en trois lignes remplace un tour de conversation entier passé à la
+chercher. Vu sous cet angle, les Lots 1 à 9 ne sont pas seulement du
+durcissement : ce sont des économies de contexte.
+
+C'est probablement l'angle de récit le plus original de tout le plan —
+« j'ai mesuré ce que mon outillage qualité me faisait économiser en tokens » est
+un chiffre que personne ne publie.
+
+---
+
+## Lot 13 — Synthèse & partage *(à faire en dernier, il consomme tout le reste)*
 
 | Item | Contenu | Effort | Récit |
 |---|---|---|---|
@@ -443,7 +541,10 @@ Lot 7 (surfaces) · Lot 8 (perf) · Lot 9 (sécurité) · Lot 10 (observabilité
    ↓
 Lot 11 (outillage Claude)       ← profite de tout ce qui précède
    ↓
-Lot 12 (synthèse & partage)
+Lot 13 (synthèse & partage)
+
+Lot 12 (économie de tokens)     ← TRANSVERSAL : 12.1 et 12.2 dès maintenant,
+                                   le reste s'installe au fil des autres lots
 ```
 
 **Dépendances dures** (le reste est librement réordonnable) :
@@ -451,7 +552,9 @@ Lot 12 (synthèse & partage)
 - Lot 0 avant tout — c'est le dispositif de capture.
 - Lot 1 avant les lots lourds en CI (cache, `uv`, groupes Dependabot).
 - Lot 4.1 (axiomes) avant Lot 11 `axiom-checker` — l'agent a besoin de la matrice.
-- Lot 12 en dernier par construction.
+- Lot 12.1 (mesure) avant les lots coûteux, sinon on n'a pas de point de
+  comparaison pour chiffrer ce qu'ils économisent (§12.6).
+- Lot 13 en dernier par construction.
 
 ## Règles d'exécution
 
