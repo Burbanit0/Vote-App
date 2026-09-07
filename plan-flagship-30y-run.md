@@ -8,14 +8,14 @@
 >
 > **Status legend**: `TODO` · `IN PROGRESS` · `DONE` · `BLOCKED` · `DROPPED`
 
-**Overall status: Phases 0, 0bis and 5 DONE. Starting Phase 1.**
+**Overall status: Phases 0, 0bis, 1 and 5 DONE. Starting Phase 2.**
 (last updated 2026-09-06)
 
 | Phase | What | Status |
 |---|---|---|
 | 0 | Pre-flight: disk, provider switch, baseline timing | **DONE** — real baseline measured, 2266.8s/8 ticks |
 | 0bis | **NEW**: `vote_cast` needed a seed override AND a deterministic fallback on vLLM | **DONE** — fixed, confirmed on a clean re-run |
-| 1 | Re-test the 3 collapse-flagged decision types under vLLM | TODO |
+| 1 | Re-test the 3 collapse-flagged decision types under vLLM | **DONE** — 2/3 still collapse, 1/3 cleared |
 | 2 | Concurrency unlock + byte-identical determinism proof | TODO |
 | 3 | Checkpoint / resume | TODO |
 | 4 | Observability (`progress.json`) | TODO |
@@ -310,7 +310,7 @@ has not been checked. Phase 1 (re-testing the collapse-flagged types) is a
 natural place to extend this check before the real run, not assumed safe by
 default.
 
-## Phase 1 — Re-test the three collapse-flagged decision types under vLLM · TODO
+## Phase 1 — Re-test the three collapse-flagged decision types under vLLM · **DONE**
 
 `representative_response` (dt=6), `reaction_to_event` (dt=8, scandal branch) and
 `coalition_decision` (dt=9) each carry a `RELIABILITY WARNING` block:
@@ -319,16 +319,32 @@ structurally opposite input poles produced byte-identical decisions (4/4, 6/6,
 behave differently — the truncation bug already proved backend-specific
 behaviour is real.
 
-Reuse the existing collapse-signature scripts, pointed at vLLM:
-`check_representative_response_collapse_signature.py`,
-`check_coalition_decision_collapse_signature.py`, and the reaction equivalent.
+Re-ran the existing collapse-signature scripts, pointed at vLLM (new
+`check_vllm_*_collapse_signature.py` variants, client class swapped only):
+full results in `scripts/check_vllm_collapse_signatures_results.md`.
 
-**Decision gate**: if a type still collapses, it stays in the run but every
-metric derived from it is labelled `unverified` in the exported artifact, so the
-UI cannot present it as trustworthy. If it no longer collapses, record that and
-drop the warning.
+**Result: 2 of 3 still collapse, 1 of 3 does not.**
 
-**Cost**: minutes. Do this before spending days of GPU.
+| Decision type | vLLM/AWQ | Verdict |
+|---|---|---|
+| `representative_response` | 6/6 identical (CONCESSION), both poles | Confirmed — stays `unverified` |
+| `coalition_decision` | 6/6 identical (JOIN), both poles | Confirmed — stays `unverified` |
+| `reaction_to_event` (SCANDAL) | VARIES: 0.20 (low salience) vs 0.15 (high salience), directionally sensible | **Warning dropped** |
+
+Two collapses surviving a full backend + quantization change rules out "Ollama
+serving artifact" as the explanation for those two — points toward the model's
+own learned behaviour on those specific prompt shapes, not infrastructure. Not
+root-caused further here, same discipline as elsewhere in this investigation:
+this measures whether the warning still applies, not why.
+
+**Decision gate applied**: `representative_response`/`coalition_decision` stay
+`unverified` in any exported flagship artifact (Phase 6) — the UI must not
+present metrics derived from them as trustworthy. `reaction_to_event`'s SCANDAL
+branch warning is dropped (the `ECONOMIC_SHOCK` branch was never in scope for
+either version of this check).
+
+**Cost**: ~1 minute of GPU time for all three (18 calls total, `think=False`,
+size=1). Done before spending days of GPU on the flagship, as planned.
 
 ## Phase 2 — Concurrency unlock + determinism proof · TODO
 
