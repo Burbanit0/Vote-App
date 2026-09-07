@@ -57,7 +57,7 @@ Ce lot passe avant tout le reste : c'est lui qui transforme les 11 lots suivants
 en matière partageable au lieu d'une suite de commits. Le faire après, c'est
 reconstituer de mémoire ce qu'on a trouvé — donc mal.
 
-### 0.1 — Séparer les quatre surfaces de documentation
+### 0.1 — Séparer les surfaces de documentation
 
 Le repo a déjà plusieurs supports qui se chevauchent mal. À clarifier une fois
 pour toutes, dans un court `docs/README.md` :
@@ -68,6 +68,8 @@ pour toutes, dans un court `docs/README.md` :
 | `docs/exploration/EXP-*.md` | Par expérience/outil : verdict + enseignement transférable | Par expérience | ❌ à créer |
 | `docs/adr/` | Décisions d'architecture engageantes, avec alternatives écartées | Rare | ✅ (polity seulement — à ouvrir à l'app) |
 | `CODE_AUDIT.md` | État de santé daté du code, rejouable | Par passe de nettoyage | ✅ |
+| `docs/journal/commits.jsonl` | Trace machine exhaustive, générée — archéologie et alimentation des autres surfaces | Par commit (auto) | ❌ à créer (§0.5) |
+| Mémoire Claude polity | Écueils rechargés d'office à chaque session — le seul support qui empêche *réellement* la répétition | Par écueil rencontré | ✅ (manuel → à automatiser, §0.5) |
 
 **Effort** S · Solidité ⭐ · Récit 📝📝
 
@@ -122,7 +124,85 @@ d'expérience selon le gabarit, à valider avant application.
 
 **Effort** M · Solidité ⭐ · Récit 📝📝
 
-### 0.5 — Ouvrir les ADR côté application
+### 0.5 — Capture automatique par commit dans le worktree polity
+
+**Origine** : `/log-session` + `journal-writer` ont d'abord été construits pour
+résumer les expérimentations du worktree `Vote-App-polity`. L'objectif reste le
+même, mais il n'est atteint qu'à moitié : le récapitulatif dépend de la
+discipline de le lancer. Objectif visé : **chaque commit du worktree polity
+alimente automatiquement une trace, pour ne pas refaire en boucle les mêmes
+erreurs.**
+
+#### Les contraintes réelles, vérifiées
+
+| Fait | Conséquence de conception |
+|---|---|
+| **Les hooks git sont partagés entre worktrees** — depuis polity, `git rev-parse --git-path hooks` → `/home/burbanit0/Vote-App/.git/hooks` | Un `post-commit` **doit se garder** sur le worktree/la branche, sinon il se déclenche aussi sur les commits de `develop`. |
+| **361 commits sur 30 jours** (~12/jour) | Un recap LLM par commit = ~360 entrées/mois. C'est le volume qui **tue** la relecture : le remède deviendrait le mal. |
+| **La mémoire polity existe déjà** (~20 fichiers, namespace propre) et contient déjà des écueils (« awakening-gate landmine », « DuckDB `->>` precedence gotcha ») | Le mécanisme anti-boucle **existe** — il est alimenté à la main, et par lot. Le travail est de l'automatiser, pas de le réinventer. |
+| Le worktree polity a **déjà des hooks Claude** `PreToolUse` (garde graphify) | Le pattern est connu et en service : on l'étend, on n'introduit pas un concept neuf. |
+
+#### L'architecture en trois étages
+
+La distinction structurante : **le log sert l'archéologie et le récit ; la
+mémoire sert la non-répétition.** Un fichier de log qu'il faut penser à relire
+n'empêche aucune boucle — la mémoire, elle, se recharge d'office à chaque
+session. « Un recap par commit » mélange ces deux besoins ; les séparer les sert
+tous les deux.
+
+**Étage 1 — Capture exhaustive, par commit, sans LLM** · `M` · ⭐⭐⭐ 📝📝
+
+Un `post-commit` gardé sur le worktree polity écrit une ligne dans un JSONL
+append-only (`docs/journal/commits.jsonl`) : sha, date, branche, message,
+fichiers touchés, stats, plus les signaux propres à polity (un fichier de
+résultats d'acceptance a-t-il bougé ? un paramètre de config ?).
+
+Coût nul, aucune latence, **jamais bloquant** (`|| true` systématique — un hook
+ne doit jamais empêcher un commit). C'est la trace d'archéologie exhaustive,
+celle qui permet de répondre à « quand ai-je touché ce paramètre, et
+combien de fois ? ».
+
+**Étage 2 — Récit par session/lot, avec LLM** · `S` · ⭐ 📝📝📝
+
+`/log-session` existe déjà : il est simplement **alimenté par l'étage 1** au
+lieu de reconstituer de mémoire. La granularité narrative reste la session ou le
+lot — c'est déjà celle de la mémoire polity (`v5_lot1`, `v5_lot2`…), donc la
+granularité naturelle du projet.
+
+**Étage 3 — Mémoire d'écueils, alimentée automatiquement** · `M` · ⭐⭐⭐ 📝📝📝
+
+**C'est l'étage qui sert réellement l'objectif anti-boucle.** Quand l'étage 1
+détecte un signal d'échec, le pipeline propose une entrée dans le namespace
+mémoire polity (`~/.claude/projects/-home-burbanit0-Vote-App-polity/memory/`) —
+donc rechargée d'office à chaque session, sans effort de relecture.
+
+Signaux détectables **sans LLM**, à partir du seul JSONL :
+
+- un `revert`, ou un commit qui annule le précédent ;
+- un message contenant `fix`/`revert`/`retry`/`workaround` ;
+- **l'oscillation d'un paramètre** — même fichier de config modifié N fois en
+  M jours : signature d'une recherche à tâtons, donc d'un écueil non compris ;
+- un nouveau fichier de résultats d'acceptance : chaque run porte un verdict à
+  capter ;
+- **le signal le plus utile** : un commit qui touche un fichier déjà cité dans
+  une mémoire d'écueil existante.
+
+Ce dernier point justifie à lui seul le dispositif : un hook `PreToolUse` — sur
+le modèle exact de la garde graphify déjà en service — peut **prévenir au moment
+où tu touches une zone documentée comme piégeuse**, avant l'erreur, et non après.
+
+#### Points d'implémentation à ne pas rater
+
+- Garde de worktree obligatoire dans le `post-commit` (hooks partagés).
+- Jamais bloquant, jamais d'appel réseau synchrone au commit.
+- Enrichissement LLM **différé et par lot** (`/recap` traite les commits non
+  encore résumés), jamais au fil du commit : pas d'appel LLM sur un « wip typo ».
+- Répartition develop/polity conforme à la règle établie : le mécanisme
+  générique (script, commande) sur `develop`, l'activation et les mémoires
+  d'écueils côté polity.
+- `commits.jsonl` est un artefact **généré** : jamais édité à la main.
+
+### 0.6 — Ouvrir les ADR côté application
 
 `docs/adr/` ne contient que des ADR polity. Les décisions structurantes de
 l'app (le double moteur et sa parité, le choix SVG natif vs Recharts, l'archi
