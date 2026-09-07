@@ -22,13 +22,13 @@ responses are best-effort — expect an acknowledgement within a week or two.
 
 ## Scope
 
-In scope: authentication/JWT handling, the FastAPI endpoints, dependency CVEs,
-and anything that could affect someone running this code locally.
+In scope: the FastAPI endpoints, rate-limit bypass, dependency CVEs, and anything
+that could affect someone running this code locally.
 
 Out of scope: findings that require an unrealistic deployment (the project ships
 no production instance with real data), denial-of-service against your own local
-instance, and the documented local-dev defaults (e.g. the `myuser/mypassword`
-Postgres credentials in `docker-compose.yml`, which exist only for local use).
+instance, and the documented local-dev defaults (e.g. the CORS/Redis defaults in
+`docker-compose.yml` and `.env.example`, which exist only for local use).
 
 ## Automated security tooling
 

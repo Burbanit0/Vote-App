@@ -1,14 +1,14 @@
 # ci-local — GitHub CI mirror (run before every PR)
 
 A faithful local reproduction of the GitHub Actions pipeline, so failures surface
-here instead of on the PR. It mirrors the two gating jobs:
+here instead of on the PR. It mirrors the gating jobs:
 
 | Local target | Mirrors workflow | Environment |
 |---|---|---|
 | `frontend` | `.github/workflows/frontend-ci-cd-pipeline.yml` | **Ubuntu 24.04** (= `ubuntu-latest`), **Node 20** |
-| `backend`  | `.github/workflows/backend-ci-cd-pipeline.yml`  | **Python 3.11** |
-| `e2e`      | `.github/workflows/e2e.yml`                     | **Python 3.11** + **Node 20** + Playwright (chromium + firefox) |
-| `audit`    | `.github/workflows/audit.yml`                   | **Python 3.11** + Semgrep / Gitleaks / Trivy |
+| `backend`  | `.github/workflows/backend-ci-cd-pipeline.yml`  | **Python 3.14** |
+| `e2e`      | `.github/workflows/e2e.yml`                     | **Python 3.14** + **Node 20** + Playwright (chromium + firefox) |
+| `audit`    | `.github/workflows/audit.yml`                   | **Python 3.14** + Semgrep / Gitleaks / Trivy |
 
 Targets: `all` (default) = frontend + backend + e2e + audit (**run before each push**) ·
 `code` = frontend + backend only (quick iteration, skips the ~6 min e2e) · plus the
@@ -52,12 +52,21 @@ checks run as the container's `CMD`, so `docker run` failing == the PR failing.
 
 ## What each job runs (in order)
 
-**Frontend** — `npm run lint` (non-blocking, matches `continue-on-error`) →
-`npm audit --audit-level=high` → `npm run test:coverage` → `npm run build`.
+**Frontend** — `npm run lint` (gating — 0 errors) → `npm audit --audit-level=high`
+(gating on high/critical) → `npm run test:coverage` → `npm run build`. All four
+steps are blocking, matching the workflow (lint lost its `continue-on-error` once
+it reached 0 errors).
 
-**Backend** — `flake8` (non-blocking) → `bandit --exit-zero` (non-blocking) →
-`pip-audit` (non-blocking) → `mypy api/` (gating) →
-`pytest api/tests --cov=api --cov-fail-under=30` (gating).
+**Backend** — `flake8 --config=fast_api_voter/.flake8` (gating; scoped to `E9,F`
+— syntax + pyflakes only) → `bandit -r fast_api_voter/api -ll --skip B104,B311`
+(gating on medium+ severity — the `-ll` flag itself excludes low-severity findings,
+of which there are currently ~2,892, from failing the build; no `--exit-zero`) →
+`pip-audit` (non-blocking **in this local mirror only** — the actual GitHub
+workflow removed pip-audit's `continue-on-error` and now gates on it too; the
+local Dockerfile still swallows its failure for offline/flaky-network runs, a
+known fidelity gap) → `mypy api/` (gating) →
+`pytest api/tests --cov=api --cov-fail-under=85` (gating; the GitHub workflow and
+pre-commit hook both gate at 90% — see Fidelity caveats).
 
 **Audit** (strict) — `Semgrep` SAST → `Trivy` deps/containers/misconfig → `Gitleaks`
 secrets. **All three GATE**: any Semgrep finding, Trivy HIGH/CRITICAL, or secret fails
@@ -84,9 +93,20 @@ validate, or it can't help.)
 
 ## Fidelity caveats
 
-- Backend base is Debian-slim (for the exact 3.11.x interpreter); the runner is
+- Backend base is Debian-slim (for the exact 3.14.x interpreter); the runner is
   Ubuntu. Irrelevant for pure-Python + manylinux wheels.
 - E2E downloads ~400 MB of browsers on the first build (cached with the lockfile
   layer afterwards) and takes ~6 min to run — hence `code` for quick iteration.
-  Its Python 3.11 backend is a fixture, not the job under test.
+  Its Python 3.14 backend is a fixture, not the job under test.
 - Networked steps (`npm audit`, `pip-audit`) need internet, same as CI.
+- Backend coverage gate: this mirror runs `--cov-fail-under=85`; the actual
+  GitHub workflow (and the repo's own pre-commit hook) gate at 90%. Measured
+  coverage is currently ~91%, comfortably above both, but a change that drops
+  coverage into the 85–90% band would pass here and fail on the PR.
+- `audit.yml` now has more jobs than this `audit` target reproduces: this
+  mirror covers Semgrep, Gitleaks and the filesystem Trivy scan only. It does
+  **not** run the `image-scan` job (Trivy image scan + SBOM on the two prod
+  Dockerfiles — schedule/`push`-to-`develop` only, non-gating for now), the
+  `code-quality` job (vulture/knip/jscpd/radon behind a ratchet — see
+  `.github/quality-baseline.json`), or CodeQL (GitHub-native, not runnable
+  locally).
