@@ -90,6 +90,28 @@ def test_temperature_override_replaces_the_configured_value_for_that_call_only()
     assert [c["temperature"] for c in captured] == [0.0, 0.3, 0.0]
 
 
+def test_seed_override_replaces_the_configured_value_for_that_call_only():
+    # cast_votes's own retry_seed_base (llm_behavior_engine._VOTE_CAST_
+    # RETRY_SEED_BASE), added 2026-09-06 alongside retry_temperature --
+    # see check_vllm_vote_cast_retry_is_inert_results.md for why
+    # retry_temperature alone was not enough on VllmJsonClient. Mirrors the
+    # temperature-override test above: reaches the body, call-scoped only.
+    captured = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.append(json.loads(request.content))
+        return _ok_response('{"decisions": []}')
+
+    client = _client(handler)
+    client.complete_json(system_prompt="sys", user_prompt="usr", json_schema={"type": "object"}, max_tokens=64)
+    client.complete_json(
+        system_prompt="sys", user_prompt="usr", json_schema={"type": "object"}, max_tokens=64, seed=900_000_002
+    )
+    client.complete_json(system_prompt="sys", user_prompt="usr", json_schema={"type": "object"}, max_tokens=64)
+
+    assert [c["seed"] for c in captured] == [42, 900_000_002, 42]
+
+
 def test_nested_ref_schema_is_dereferenced_before_sending():
     captured = {}
 
@@ -248,6 +270,22 @@ def test_temperature_override_reaches_the_native_path_too():
     assert captured["body"]["options"] == {"temperature": 0.3, "seed": 42, "num_predict": 64}
 
 
+def test_seed_override_reaches_the_native_path_too():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return _ok_native_response('{"decisions": []}')
+
+    client = _client(handler)
+    client.complete_json(
+        system_prompt="sys", user_prompt="usr", json_schema={"type": "object"}, max_tokens=64,
+        think=False, seed=900_000_002,
+    )
+
+    assert captured["body"]["options"] == {"temperature": 0.0, "seed": 900_000_002, "num_predict": 64}
+
+
 def test_native_done_reason_not_stop_raises_without_retry():
     calls = {"count": 0}
 
@@ -397,6 +435,27 @@ def test_vllm_temperature_override_replaces_the_configured_value():
     )
 
     assert captured["body"]["temperature"] == 0.3
+
+
+def test_vllm_seed_override_replaces_the_configured_value():
+    # UNLIKE OllamaJsonClient (see the seed-override test above, and this
+    # module's own docstring on Ollama's non-reproducibility), VllmJsonClient's
+    # seed IS normally a strong lock at temperature=0 -- this override is
+    # exactly what cast_votes's retry_seed_base needs to actually vary a
+    # retry rather than reproducing it. See check_vllm_vote_cast_retry_is_
+    # inert_results.md.
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return _ok_response('{"decisions": []}')
+
+    client = _vllm_client(handler)
+    client.complete_json(
+        system_prompt="sys", user_prompt="usr", json_schema={"type": "object"}, max_tokens=64, seed=900_000_002
+    )
+
+    assert captured["body"]["seed"] == 900_000_002
 
 
 def test_vllm_think_true_sets_enable_thinking_true():

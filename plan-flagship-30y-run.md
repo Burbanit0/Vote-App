@@ -8,25 +8,26 @@
 >
 > **Status legend**: `TODO` · `IN PROGRESS` · `DONE` · `BLOCKED` · `DROPPED`
 
-**Overall status: Phase 0 IN PROGRESS — blocked on a newly-found vLLM defect**
+**Overall status: Phase 0 IN PROGRESS — fix shipped, re-running the baseline**
 (last updated 2026-09-06)
 
 | Phase | What | Status |
 |---|---|---|
-| 0 | Pre-flight: disk, provider switch, baseline timing | **IN PROGRESS** — see Phase 0bis |
-| 0bis | **NEW**: the `vote_cast` retry is inert on vLLM | **BLOCKING** |
+| 0 | Pre-flight: disk, provider switch, baseline timing | **IN PROGRESS** — re-running after Phase 0bis fix |
+| 0bis | **NEW**: `vote_cast` retry needed a seed override on vLLM | **FIXED**, re-verifying at scale |
 | 1 | Re-test the 3 collapse-flagged decision types under vLLM | TODO |
 | 2 | Concurrency unlock + byte-identical determinism proof | TODO |
 | 3 | Checkpoint / resume | TODO |
 | 4 | Observability (`progress.json`) | TODO |
-| 5 | v3 scale gate at population 500 | **PARTLY DONE** — sortition + arity measured |
+| 5 | v3 scale gate at population 500 | **DONE** — sortition + arity + hard-cap + Class B measured |
 | 6 | UI-ready output (`snapshots.py`, `viz_export.py`) | TODO |
 | 7 | The staged ramp and the flagship run | TODO |
 
 > **The plan survived contact with a real run for four minutes.** That is the
 > point of Phase 0 doing a real run first, and the two things it found are both
 > recorded below as their own phases rather than folded silently into the work:
-> Phase 0bis (a hard blocker) and a correction to Phase 5's cost assumption.
+> Phase 0bis (found, measured, fixed, tested) and a correction to Phase 5's cost
+> assumption (also resolved).
 
 ---
 
@@ -145,7 +146,7 @@ not ship on argument — it ships on the proof in Phase 2.**
 **Gate**: `run_metadata.json` records vllm provider + model; the 2-year run
 completes and its journal indexes cleanly via `index_run()`.
 
-## Phase 0bis — the `vote_cast` retry is inert on vLLM · **BLOCKING**
+## Phase 0bis — the `vote_cast` retry needed a seed override on vLLM · **FIXED**
 
 Not in the original plan. Found by Phase 0's own first real LLM arm, which died
 4 minutes in, in tick 0's presidential election:
@@ -161,50 +162,73 @@ per-voter-prompt** model error at temperature=0 — and it ships with a mitigati
 temperature=0 rule, so a retry can *resample past* an answer an identical retry
 would only reproduce.
 
-**That mitigation is structurally inert on vLLM.** The crashed run's replay log
-shows cid 24 failing, being retried at 0.3, and returning byte-identical output
-(`blank=1`, `ranking=[4, 5, 1]`), then failing again the same way.
+**Initial hypothesis, revised by the full measurement.** A first, narrow read of
+the crash's own replay log (cid 24 failing twice, byte-identical, at temp 0.3)
+suggested the mitigation was structurally inert on vLLM. The full 2x2 against 9
+real production-shaped failures says something more precise: it is not inert, but
+it is not reliable either.
 
-Two independent causes, each measured separately rather than conflated:
+| Retry condition | Total recovery (of 27 attempts) | Voters left stuck (of 9) |
+|---|---|---|
+| temp 0.3, pinned seed (**shipped**) | 74.1% | 1 |
+| temp 0.3, varied seed | 70.4% | **0** |
+| temp 1.0, pinned seed | 66.7% | 3 |
+| temp 1.0, varied seed | 59.3% | 1 |
 
-| Condition | Distinct outputs of 4 |
-|---|---|
-| temp 0.3, same seed (**what the retry does**) | 1 |
-| temp 0.3, different seeds | 1 — 0.3 is too peaked to escape |
-| temp 1.0, same seed | 1 — vLLM honours the pinned seed strictly |
-| temp 1.0, different seeds | 4 — sampling does work |
+The shipped mitigation actually has the *highest* raw recovery rate — but it is
+the only one (besides temp-1.0-varied) that leaves a voter fully stuck (0/3
+recovered across 3 otherwise-identical attempts). That stuck case is exactly what
+the crash hit: not "the mitigation never works," but "it doesn't always work, and
+production only budgets 2 retries." Varying the seed on retry — keeping
+temperature at 0.3, not raising it — is the one condition with zero stuck voters
+in this sample.
 
-`VllmJsonClient._complete_json` sends `"seed": self._seed`, the same value every
-time. So neither raising the temperature nor varying the seed would fix this
-alone; on this evidence both are needed.
+**Root mechanism, also more precise than the first pass**: `VllmJsonClient`
+pins `seed` on every call, and the class's OWN pre-existing docstring already
+anticipated why that matters at temperature>0 specifically: *"seed is sent for
+parity with OllamaJsonClient, but at temperature=0 sampling is already argmax; it
+does nothing about batch-composition nondeterminism, which is a kernel
+floating-point reduction order property, not a sampling one."* At temp=0.3,
+sampling is no longer robust to that per-call float noise the way argmax is — so
+"same seed, same temperature" is close to but not exactly deterministic on long,
+complex, `think=True` generations, which is why the shipped mitigation recovers
+*most* of the time without recovering *every* time.
 
-**Why it never surfaced on Ollama** is recorded in the mitigation's own document:
-*"temperature=0 + a pinned seed is not a reproducibility guarantee on this
-inference backend."* Ollama resamples whether asked to or not, so a retry there
-varies. vLLM's strict determinism — the property this project spent a week
-verifying, and the reason Phase 2's concurrency unlock is even possible — is
-precisely what makes the retry inert. The two are the same fact.
+**Why it never surfaced on Ollama**: Ollama's own non-reproducibility (already
+documented — *"temperature=0 + a pinned seed is not a reproducibility guarantee on
+this inference backend"*) meant a same-seed retry always varied there anyway. The
+shipped mitigation's own validation reflects that thinness: one clean confirmatory
+case (cid=7) and one inconclusive one, both on Ollama, never exercising the
+regime this measurement did.
 
-This also means the shipped mitigation's validation was thinner than it looked:
-one clean confirmatory case (cid=7) and one inconclusive one, all on Ollama.
-
-**Reproduction**: `scripts/check_vllm_vote_cast_retry_is_inert.py`, driving the
-real production path (`build_system_prompt`/`build_user_prompt`,
+**Reproduction**: `scripts/check_vllm_vote_cast_retry_is_inert.py` /
+`scripts/check_vllm_vote_cast_retry_is_inert_results.md`, driving the real
+production path (`build_system_prompt`/`build_user_prompt`,
 `VOTE_CAST_JSON_SCHEMA`, `decode_vote_batch`, the shipped budget and chunk-size-1
-shape) on the crashed run's own tick-0 world. It measures the base rate and the
-{temperature} x {seed} 2x2 on the voters that actually fail, so the fix is chosen
-from measurement rather than from the plausible half of the diagnosis.
+shape) on a same-seed, same-scale reconstruction of the crashed run's tick-0
+world (not byte-exact — nominee selection uses a simplified tie-break, so the
+specific failing cid differs — but the 36% base rate and the general
+retry-reliability phenomenon are real and reproduce independent of that detail).
+Also surfaced: 2 of 9 failures were `finish_reason='length'` token-budget
+truncations, not the blank/ranking defect at all — a second, distinct failure
+mode worth watching but not chased further here.
 
-**Fix, once the 2x2 says which**: give `_complete_and_decode_with_replay` a
-per-attempt seed (mirroring the existing per-call `temperature` override) and/or
-raise `_VOTE_CAST_RETRY_TEMPERATURE`. Both clients pin a seed today, so the
-override needs to reach the request body in `VllmJsonClient` and
-`OllamaJsonClient` alike. Determinism cost is already accounted for: a run with
-`max_batch_replays > 0` is documented as not byte-reproducible, and Phases 2 and 3
-run their determinism proofs at `replays=0`.
+**Fix, shipped**: `_complete_and_decode_with_replay` gained `retry_seed_base`,
+mirroring the existing `retry_temperature` — on retry, `seed = retry_seed_base +
+attempt`, a different seed every attempt, never repeating the first attempt's or
+each other's. `cast_votes` now sets both `retry_temperature=0.3` (unchanged) AND
+`retry_seed_base=_VOTE_CAST_RETRY_SEED_BASE` (new). Both `OllamaJsonClient` and
+`VllmJsonClient` gained a matching `seed` override on `complete_json`, symmetric
+with the existing `temperature` override. 1204 polity tests pass (12 new/updated
+for this change), mypy clean. Determinism cost is already accounted for: a run
+with `max_batch_replays > 0` is documented as not byte-reproducible regardless,
+and Phases 2/3 run their determinism proofs at `replays=0`, where this override
+never fires (attempt==0 always uses `seed=None`).
 
-**Severity**: this is a hard blocker for the flagship. At the crashed run's own
-observed rate, a 30-year run at pop 500 would die in its first election.
+**Not fully closed**: n=9 is a small sample. The fix is evidence-based (best
+available data), not proven to eliminate every stuck case at flagship scale
+(500 citizens x 8 elections x chunk-size-1 = 4,000 vote_cast calls). The Phase 0
+baseline re-run is the real test.
 
 ## Phase 1 — Re-test the three collapse-flagged decision types under vLLM · TODO
 
@@ -305,7 +329,30 @@ Cheap and high-value: it turns a 3-day black box into something watchable, and
 `progress.json` gives the future UI a live status endpoint for free (§16.1's
 "hot regime" without needing the WebSocket yet).
 
-## Phase 5 — v3 scale gate at population 500 · TODO
+## Phase 5 — v3 scale gate at population 500 · **MOSTLY DONE**
+
+Done early and cheaply, as the plan asks. Full numbers:
+`fast_api_voter/scripts/polity_scale_gate_pop500_results.md`, reproducible via
+`scripts/check_polity_scale_gate_pop500.py`.
+
+| Question | Answer |
+|---|---|
+| Sortition pool exhaustion at (500, 75) | **Safe, and better than shipped.** Strict eligibility survives to rotation #7 vs #4 at (100, 30); every rotation fills every seat at both scales |
+| `max_candidates_hard_cap: 20` | **Inert.** Parsed by `config.py`, read by nothing — it cannot bind at any population |
+| Nomination arity | **4–7 contenders per party at pop 100 → 15–26 at pop 500.** ADR-002's criterion still met, so `ambition_threshold` needs no re-deriving |
+| Class B rupture declarations | **17 at pop 100 → 82 at pop 500**, linear in population |
+
+**Still open**: whether the model *decides well* across a ~20-way
+`party_nomination_choice` — a decision-quality question no deterministic run can
+answer. Folded into the same labelling discipline as Phase 1.
+
+**Correction to this plan's own assumption.** Phase 5 said most of this is
+measurable from deterministic runs. Only the sortition question actually was: the
+hard-cap and Class B questions need `candidacy.rupture_path_enabled: true`, which
+is shipped `false` and which "full richness" was not turning on. Same for
+`institutions.blank_vote_competitive`. Both are now set in `_flagship_config`;
+`parties.birth_enabled`/`death_enabled` stay off because they are parsed but not
+implemented.
 
 `docs/adr/v3-readiness-checklist.md` is an **explicit gate** with Classes B/C/D
 unrun. Its own rule: *"'No new parameter' does not mean 'no parameter changes

@@ -13,6 +13,7 @@ from api.domain.polity.codebook import EventType, VoteMotif
 from api.domain.polity.config import PressureMenuConfig, load_config
 from api.domain.polity.llm_behavior_engine import (
     MIN_SAFE_BATCH_SIZE,
+    _VOTE_CAST_RETRY_SEED_BASE,
     _VOTE_CAST_RETRY_TEMPERATURE,
     ChamberContext,
     PressureContext,
@@ -2922,12 +2923,13 @@ class _FlakyClient:
     model. Records every (system_prompt, user_prompt) pair, so a test can
     assert the retried request is byte-identical to the original --
     "byte-identical" refers to the PROMPTS specifically; cast_votes's own
-    retry_temperature (a local, deliberate exception, see llm_behavior_
-    engine._VOTE_CAST_RETRY_TEMPERATURE) means the full request is not
-    byte-identical for that one entry point, covered by its own dedicated
-    test below. Also accepts and records `temperature` (defaulting like
-    the real client's own `complete_json`) so a caller opting into
-    retry_temperature doesn't raise a TypeError against this fake."""
+    retry_temperature/retry_seed_base (a local, deliberate exception, see
+    llm_behavior_engine._VOTE_CAST_RETRY_TEMPERATURE/_VOTE_CAST_RETRY_
+    SEED_BASE) means the full request is not byte-identical for that one
+    entry point, covered by its own dedicated test below. Also accepts and
+    records `temperature`/`seed` (defaulting like the real client's own
+    `complete_json`) so a caller opting into either retry override doesn't
+    raise a TypeError against this fake."""
 
     def __init__(self, fail_times, good_raw):
         self.fail_times = fail_times
@@ -2935,11 +2937,15 @@ class _FlakyClient:
         self.calls = 0
         self.prompts: list[tuple[str, str]] = []
         self.temperatures: list[float | None] = []
+        self.seeds: list[int | None] = []
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None):
+    def complete_json(
+        self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None, seed=None
+    ):
         self.calls += 1
         self.prompts.append((system_prompt, user_prompt))
         self.temperatures.append(temperature)
+        self.seeds.append(seed)
         if self.calls <= self.fail_times:
             return "not valid json"
         return self.good_raw
@@ -2961,11 +2967,15 @@ class _FlakyResponseClient:
         self.calls = 0
         self.prompts: list[tuple[str, str]] = []
         self.temperatures: list[float | None] = []
+        self.seeds: list[int | None] = []
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None):
+    def complete_json(
+        self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None, seed=None
+    ):
         self.calls += 1
         self.prompts.append((system_prompt, user_prompt))
         self.temperatures.append(temperature)
+        self.seeds.append(seed)
         if self.calls <= self.fail_times:
             raise LlmResponseError("generation did not finish cleanly: done_reason='length'")
         return self.good_raw
@@ -2975,7 +2985,9 @@ class _AlwaysTransportFailingClient:
     def __init__(self):
         self.calls = 0
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None):
+    def complete_json(
+        self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None, seed=None
+    ):
         self.calls += 1
         raise LlmTransportError("connection refused")
 
@@ -3201,8 +3213,9 @@ def test_cast_votes_retries_at_a_varied_temperature_and_marks_it():
 
     assert client.calls == 2
     # First attempt: no override (preserves determinism). Retry: the local
-    # exception's own temperature, never None.
+    # exception's own temperature and seed offset, never None.
     assert client.temperatures == [None, _VOTE_CAST_RETRY_TEMPERATURE]
+    assert client.seeds == [None, _VOTE_CAST_RETRY_SEED_BASE + 1]
     assert outcome.retry_sampling_varied == {0: True}
 
 
@@ -3229,9 +3242,9 @@ def test_cast_votes_retry_sampling_varied_defaults_to_an_empty_dict_when_unset()
 
 
 def test_other_decide_entry_points_never_send_a_temperature_override_even_when_replayed():
-    # The negative case for every OTHER decision type: retry_temperature
-    # defaults to None at every call site except cast_votes's own, so a
-    # replay never sends a temperature override for them -- byte-identical
+    # The negative case for every OTHER decision type: retry_temperature/
+    # retry_seed_base default to None at every call site except cast_votes's
+    # own, so a replay never sends either override for them -- byte-identical
     # retries, unchanged since v4 Lot 8.
     config = _config_with_llm_enabled()
     config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, max_batch_replays=1))
@@ -3244,3 +3257,4 @@ def test_other_decide_entry_points_never_send_a_temperature_override_even_when_r
 
     assert client.calls == 2
     assert client.temperatures == [None, None]
+    assert client.seeds == [None, None]

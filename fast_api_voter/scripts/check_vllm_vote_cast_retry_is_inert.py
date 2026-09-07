@@ -137,7 +137,13 @@ def _attempt(
     try:
         decisions = decode_vote_batch(raw, [voter.citizen_id])
     except LlmError as exc:
-        return False, str(exc).splitlines()[-1].strip() or str(exc)[:160]
+        # Pydantic's message is multi-line and ends with a docs URL; the line
+        # carrying the actual rule ("Value error, ...") is the informative one.
+        detail = next(
+            (line.strip() for line in str(exc).splitlines() if "Value error" in line),
+            str(exc).splitlines()[0].strip(),
+        )
+        return False, detail
     d = decisions[0]
     return True, f"blank={d.blank} ranking={d.ranking} motif={d.motif}"
 

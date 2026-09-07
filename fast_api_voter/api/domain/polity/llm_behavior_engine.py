@@ -348,6 +348,22 @@ _VOTE_CAST_MAX_CHUNK_SIZE = 1
 # this one call site, never the first attempt).
 _VOTE_CAST_RETRY_TEMPERATURE = 0.3
 
+# Added 2026-09-06 (check_vllm_vote_cast_retry_is_inert_results.md), alongside
+# _VOTE_CAST_RETRY_TEMPERATURE, not instead of it: the first real vLLM run of
+# this simulator crashed on the exact failure _VOTE_CAST_RETRY_TEMPERATURE
+# exists to resolve, because VllmJsonClient's pinned seed constrains a retry
+# even away from temperature=0 -- unlike Ollama, where the docstring above
+# already relies on the backend's own non-reproducibility to make a same-seed
+# retry vary at all. Measured directly (9 real production-shaped failures,
+# real vote_cast prompts, real config): retry_temperature alone left 1 of 9
+# stuck at 0/3 recovered across otherwise-identical retries; adding a
+# per-retry seed offset left 0 of 9 stuck in the same sample, at a
+# comparable overall recovery rate. Value is an arbitrary constant distinct
+# from config.run.seed's usual range, not itself meaningful -- only that
+# `retry_seed_base + attempt` differs from the run seed and from every other
+# retry attempt.
+_VOTE_CAST_RETRY_SEED_BASE = 900_000_001
+
 # Mirrors _POSITIONING_THINK_TOKEN_ALLOWANCE's own reasoning: a shared
 # constant would either starve one caller or over-provision another, since
 # each think=True prompt's reasoning-token appetite is measured
@@ -470,6 +486,7 @@ def _complete_and_decode_with_replay(
     replays: int,
     decision_type: str,
     retry_temperature: float | None = None,
+    retry_seed_base: int | None = None,
     retry_info: dict[str, Any] | None = None,
 ) -> _BatchT:
     """§3.6.10's "un batch invalide est rejoue integralement, jamais
@@ -528,36 +545,55 @@ def _complete_and_decode_with_replay(
     identical across recycle_after_n_calls settings, meaning an identical
     byte-for-byte retry at temperature=0 reproduces the identical wrong
     output rather than resampling past it). The FIRST attempt (attempt==0)
-    always uses `temperature=None` (the client's own configured value) --
-    this is unconditional and does not depend on `retry_temperature` being
-    set, so a caller opting into this parameter never loses determinism on
-    the common, successful-first-try path. Only a genuine retry (attempt
-    >= 1) uses `retry_temperature`, when given.
+    always uses `temperature=None`/`seed=None` (the client's own configured
+    values) -- this is unconditional and does not depend on either retry
+    parameter being set, so a caller opting into them never loses
+    determinism on the common, successful-first-try path. Only a genuine
+    retry (attempt >= 1) uses `retry_temperature`/`retry_seed_base`, when
+    given.
+
+    `retry_seed_base`, when given, overrides `seed` on every retry attempt
+    to `retry_seed_base + attempt` -- a DIFFERENT seed on each successive
+    retry, never repeating the first attempt's seed or each other's.
+    Added alongside `retry_temperature`, not as a replacement for it:
+    `check_vllm_vote_cast_retry_is_inert_results.md` measured directly that
+    `retry_temperature` ALONE is not sufficient on VllmJsonClient, where
+    `seed` is a strong lock even away from temperature=0 (unlike Ollama,
+    where cache_recycle_chunk_size_tension_findings.md's own validation
+    already relied on the backend's own non-reproducibility to make a
+    same-seed retry vary at all -- see that module's docstring). Measured on
+    the real production path, `retry_temperature` alone left 1 of 9 already-
+    failing voters stuck at 0/3 recovered across identical-parameter
+    retries; adding seed variation left 0 of 9 stuck in the same sample.
+    Every existing call site (before cast_votes opted in) passes neither
+    parameter and is unaffected.
 
     `retry_info` (default None) is an optional, caller-owned mutable dict
     this function writes into on success: `{"attempts": int, "sampling_
     varied": bool}`. `sampling_varied` is true iff the successful attempt
-    was itself a retry AND `retry_temperature` was set for it -- the
-    caller's own signal for whether to journal a `retry_sampling_varied`
-    marker, so a future analysis of the journal cannot mistake a
-    varied-sampling retry's decision for an ordinary, deterministic
-    first-attempt one. Every existing call site passes neither parameter
-    and is completely unaffected -- this dict is populated, never read, by
-    this function.
+    was itself a retry AND (`retry_temperature` or `retry_seed_base`) was
+    set for it -- the caller's own signal for whether to journal a
+    `retry_sampling_varied` marker, so a future analysis of the journal
+    cannot mistake a varied-sampling retry's decision for an ordinary,
+    deterministic first-attempt one. Every existing call site passes none
+    of these parameters and is completely unaffected -- this dict is
+    populated, never read, by this function.
 
-    The `temperature` kwarg is passed to `client.complete_json` only when
-    actually overriding (attempt >= 1 and `retry_temperature is not None`)
-    -- never as an explicit `temperature=None` on every call. This keeps
-    every fake/test client across this codebase's own test suite (whose
-    `complete_json` signatures predate this parameter and don't accept it)
-    working completely unchanged; only a caller that actually sets
-    `retry_temperature` and actually reaches a retry needs its own fake
-    client to accept the kwarg."""
+    The `temperature`/`seed` kwargs are passed to `client.complete_json`
+    only when actually overriding (attempt >= 1 and the corresponding
+    `retry_*` parameter is not None) -- never as an explicit `None` on every
+    call. This keeps every fake/test client across this codebase's own test
+    suite (whose `complete_json` signatures predate these parameters and
+    don't accept them) working completely unchanged; only a caller that
+    actually sets `retry_temperature`/`retry_seed_base` and actually reaches
+    a retry needs its own fake client to accept the kwarg."""
     attempt = 0
     while True:
         call_kwargs: dict[str, Any] = {}
         if attempt > 0 and retry_temperature is not None:
             call_kwargs["temperature"] = retry_temperature
+        if attempt > 0 and retry_seed_base is not None:
+            call_kwargs["seed"] = retry_seed_base + attempt
         try:
             raw = client.complete_json(
                 system_prompt=system_prompt,
@@ -570,16 +606,23 @@ def _complete_and_decode_with_replay(
             result = decode(raw)
             if retry_info is not None:
                 retry_info["attempts"] = attempt
-                retry_info["sampling_varied"] = attempt > 0 and retry_temperature is not None
+                retry_info["sampling_varied"] = attempt > 0 and (
+                    retry_temperature is not None or retry_seed_base is not None
+                )
             return result
         except LlmResponseError as exc:
             if attempt >= replays:
                 raise
             attempt += 1
+            detail = []
+            if retry_temperature is not None:
+                detail.append(f"temperature={retry_temperature}")
+            if retry_seed_base is not None:
+                detail.append(f"seed={retry_seed_base + attempt}")
             _logger.warning(
                 "%s batch rejected on attempt %d/%d, replaying%s: %s",
                 decision_type, attempt, replays + 1,
-                f" at temperature={retry_temperature}" if retry_temperature is not None else "",
+                f" at {', '.join(detail)}" if detail else "",
                 exc,
             )
 
@@ -964,6 +1007,10 @@ def cast_votes(
             # see _VOTE_CAST_RETRY_TEMPERATURE's own comment. Only ever
             # applies to a genuine retry (never the first attempt).
             retry_temperature=_VOTE_CAST_RETRY_TEMPERATURE,
+            # _VOTE_CAST_RETRY_TEMPERATURE alone is not sufficient on vLLM --
+            # see _VOTE_CAST_RETRY_SEED_BASE's own comment and
+            # check_vllm_vote_cast_retry_is_inert_results.md.
+            retry_seed_base=_VOTE_CAST_RETRY_SEED_BASE,
             retry_info=retry_info,
         )
         sampling_varied = bool(retry_info.get("sampling_varied", False))

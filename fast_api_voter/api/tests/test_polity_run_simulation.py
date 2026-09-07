@@ -18,7 +18,7 @@ from api.domain.polity.citizen import Citizen, Office, Role, generate_population
 from api.domain.polity.codebook import EventType, ReactionMotif
 from api.domain.polity.config import PolityConfig, load_config
 from api.domain.polity.journal import Journal
-from api.domain.polity.llm_behavior_engine import _VOTE_CAST_RETRY_TEMPERATURE
+from api.domain.polity.llm_behavior_engine import _VOTE_CAST_RETRY_SEED_BASE, _VOTE_CAST_RETRY_TEMPERATURE
 from api.domain.polity.llm_client import LlmResponseError, OllamaJsonClient, VllmJsonClient
 from api.domain.polity.metrics import consultation_rate, mobilization_rate
 from api.domain.polity.parties import Party, initialize_parties
@@ -2376,19 +2376,23 @@ def test_a_replayed_batch_lets_the_run_complete(tmp_path):
 class _FlakyVoteClient:
     """Wraps _FakeLlmClient but fails the FIRST vote_cast call only
     (detected by the "voters" fallback key -- see _FakeLlmClient's own
-    dispatch), recording the temperature kwarg each call receives.
-    Exercises cast_votes's own local, deliberate retry_temperature
-    exception (llm_behavior_engine._VOTE_CAST_RETRY_TEMPERATURE) at the
-    full run_simulation level, including the journal's own
-    retry_sampling_varied marker."""
+    dispatch), recording the temperature/seed kwargs each call receives.
+    Exercises cast_votes's own local, deliberate retry_temperature/
+    retry_seed_base exceptions (llm_behavior_engine._VOTE_CAST_RETRY_
+    TEMPERATURE/_VOTE_CAST_RETRY_SEED_BASE) at the full run_simulation
+    level, including the journal's own retry_sampling_varied marker."""
 
     def __init__(self, inner):
         self._inner = inner
         self._vote_calls = 0
         self.temperatures: list[float | None] = []
+        self.seeds: list[int | None] = []
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None):
+    def complete_json(
+        self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None, seed=None
+    ):
         self.temperatures.append(temperature)
+        self.seeds.append(seed)
         payload = json.loads(user_prompt)
         is_vote_call = not any(k in payload for k in ("citizens", "parties", "nominees", "responders", "holders", "consulted", "reactors", "members"))
         if is_vote_call:
@@ -2414,9 +2418,11 @@ def test_vote_cast_retries_at_a_varied_temperature_and_journals_the_marker(tmp_p
     varied = [e for e in vote_events if e["payload"]["retry_sampling_varied"] == 1]
     assert len(varied) == 1
     # First attempt (the failure): no override. The recovering retry: the
-    # local exception's own temperature.
+    # local exception's own temperature and seed offset.
     assert client.temperatures[0] is None
+    assert client.seeds[0] is None
     assert _VOTE_CAST_RETRY_TEMPERATURE in client.temperatures
+    assert _VOTE_CAST_RETRY_SEED_BASE + 1 in client.seeds
 
 
 # ── pressure_action (v4 Lot 7, dt=10) ────────────────────────────────────
