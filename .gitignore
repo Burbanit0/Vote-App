@@ -297,6 +297,14 @@ graphify-out/
 # Bibliographie + traçabilité : la ligne « research/ stays » ci-dessus était
 # fausse depuis que /docs/* existe — research/ n'a jamais été suivi.
 !/docs/research/
+# Carnets d'expérience (Lot 0.2/0.3 du plan) : même raison que les ADR — le
+# verdict d'un outil essayé n'a de valeur que partagé, pas laissé sur un
+# disque.
+!/docs/exploration/
+# docs/README.md oriente vers la bonne surface (Lot 0.1) ; /docs/* ignore
+# aussi les fichiers directement sous docs/, pas seulement les
+# sous-dossiers, d'où cette ligne séparée des `!/docs/<dir>/` ci-dessus.
+!/docs/README.md
 /AGENTS.md
 # Polity design/planning docs stay ignored here on purpose: they're versioned
 # on the `polity` branch instead (see chore/portable-workspace-ubuntu), not on
