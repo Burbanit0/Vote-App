@@ -569,6 +569,54 @@ batch invariance for the long-context/small-batch case specifically. Neither
 is in scope here. The flagship stays sequential, non-invariant, exactly as
 Phase 2 left it.
 
+### Follow-up (2026-09-08): chunk size > 1 — the other lever, and it works
+
+With concurrency ruled out, re-opened Phase 2's own "also worth testing" item:
+`_VOTE_CAST_MAX_CHUNK_SIZE`/`_CHAMBER_MAX_CHUNK_SIZE` are both pinned to 1, but
+chunk size and concurrency are orthogonal axes — at `workers=1`, every chunk
+size still submits exactly one request at a time, so none of Phase 2's
+batch-composition-dependent determinism risk applies. Full write-up, method,
+and every number below: `scripts/check_vllm_chunk_size_throughput_results.md`.
+
+**The historically blocking failure mode for vote_cast does not reproduce on
+vLLM.** `cast_votes`'s own docstring documents a "Mode A" identity-permutation
+collapse at chunk>=4 — schema-valid but factually wrong rankings, 0-2/5
+correct against real `weighted_distance` ground truth — but every citation is
+Ollama-era (`OLLAMA_CONTEXT_LENGTH`), predating the vLLM switch and never
+re-tested since. Re-tested here against the same ground truth
+(`simple_rules.build_ranking`): **23/24 correct at chunk=3, 29/30 at chunk=5**
+on vLLM/Qwen3-8B-AWQ. The collapse is gone on this backend.
+
+**Both decision types get a real throughput win once max_tokens is sized
+correctly.** A naive scaled-allowance guess (`chunk_size * 6000`) both
+contradicts this project's own flat-addend convention and blows the 16384
+context ceiling outright at chunk_size>=3. Probing the real `prompt_tokens`
+per call and requesting the maximum safe budget (`16384 - prompt_tokens -
+margin`) instead of a flat allowance fixes it: **chamber_deliberation ~2x
+faster per member at chunk=5** (2.9s → 1.4s/member, only 1 failure in 40
+attempts, no correctness-collapse concern on record for this type);
+**vote_cast ~2.5x faster per citizen at chunk=3** (12.2s → 4.5s/citizen,
+zero failures in 8/8, 23/24 correct) — chunk=3 edges out chunk=5 for
+vote_cast specifically once failure blast-radius is weighed in, since a
+failed chunk forces a full-chunk retry.
+
+**A separate, chunk-size-independent reliability quirk was found and ruled
+out as a chunk-size effect.** The model sometimes emits `blank=1` together
+with a non-empty `ranking`, a §3.6.1 hard rule Pydantic enforces post-hoc
+(not encoded in the JSON schema/grammar). Reproduced standalone at
+chunk_size=1, the shipped baseline — pre-existing, unrelated to this
+investigation, and already the kind of failure `_complete_and_decode_with_replay`
+retries against in production (this test script calls the client directly,
+with no retry, so its raw failure rates overstate what production sees).
+
+**Not yet shipped.** Raising the chunk-size constants requires also replacing
+the flat `compute_max_tokens(len(chunk)) + <allowance>` formula at both call
+sites with the dynamic probe-and-maximize approach proven here — otherwise
+larger chunks reproduce the exact context-overflow failure this
+investigation's first (buggy) pass hit. That's a real production change (new
+per-call round-trip, two constants, new tests), not a config flip — open
+decision on whether/how to bring it in before Phase 7.
+
 ## Phase 3 — Checkpoint / resume · **DONE**
 
 **Shipped**: `api/domain/polity/checkpoint.py` (new module) + `run_simulation`'s
