@@ -6,7 +6,7 @@ leaves a journal readable up to the last complete event.
 import json
 
 from api.domain.polity.config import load_config
-from api.domain.polity.journal import Journal
+from api.domain.polity.journal import Journal, truncate_journal
 
 
 def test_events_get_sequential_ids_in_write_order(tmp_path):
@@ -91,3 +91,68 @@ def test_two_journals_with_the_same_writes_produce_byte_identical_files(tmp_path
     write_five(path_a)
     write_five(path_b)
     assert path_a.read_bytes() == path_b.read_bytes()
+
+
+# ── start_event_id / next_event_id / truncate_journal (Phase 3, resume) ────
+
+def test_next_event_id_starts_at_zero_by_default(tmp_path):
+    with Journal(tmp_path / "run.jsonl", run_id="r1") as journal:
+        assert journal.next_event_id == 0
+
+
+def test_next_event_id_tracks_writes(tmp_path):
+    with Journal(tmp_path / "run.jsonl", run_id="r1") as journal:
+        assert journal.next_event_id == 0
+        journal.write(tick=0, event_type="vote_cast", payload={})
+        assert journal.next_event_id == 1
+        journal.write(tick=0, event_type="vote_cast", payload={})
+        assert journal.next_event_id == 2
+
+
+def test_start_event_id_resumes_numbering_where_a_prior_journal_left_off(tmp_path):
+    path = tmp_path / "run.jsonl"
+    with Journal(path, run_id="r1") as journal:
+        ids_first = [journal.write(tick=0, event_type="vote_cast", payload={"t": t}) for t in range(3)]
+    # A second Journal instance for the "same" run, as a resume would construct
+    # it -- start_event_id must reflect what's already on disk, or the next
+    # write's id collides with an existing one.
+    with Journal(path, run_id="r1", start_event_id=3) as journal:
+        ids_second = [journal.write(tick=1, event_type="vote_cast", payload={"t": t}) for t in range(2)]
+    assert ids_first == [0, 1, 2]
+    assert ids_second == [3, 4]
+    lines = path.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 5
+    assert [json.loads(line)["event_id"] for line in lines] == [0, 1, 2, 3, 4]
+
+
+def test_from_config_start_event_id_reaches_the_journal(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    config = load_config().journal
+    with Journal.from_config(config, run_id="r1", start_event_id=10) as journal:
+        assert journal.next_event_id == 10
+
+
+def test_truncate_journal_discards_events_after_keep_events(tmp_path):
+    path = tmp_path / "run.jsonl"
+    with Journal(path, run_id="r1") as journal:
+        for t in range(5):
+            journal.write(tick=t, event_type="vote_cast", payload={"t": t})
+    truncate_journal(path, keep_events=3)
+    lines = path.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 3
+    assert [json.loads(line)["event_id"] for line in lines] == [0, 1, 2]
+
+
+def test_truncate_journal_is_a_noop_when_the_file_already_has_keep_events_or_fewer(tmp_path):
+    path = tmp_path / "run.jsonl"
+    with Journal(path, run_id="r1") as journal:
+        for t in range(3):
+            journal.write(tick=t, event_type="vote_cast", payload={"t": t})
+    before = path.read_bytes()
+    truncate_journal(path, keep_events=3)  # exactly as many as exist
+    truncate_journal(path, keep_events=10)  # more than exist -- must never extend
+    assert path.read_bytes() == before
+
+
+def test_truncate_journal_missing_file_is_a_noop(tmp_path):
+    truncate_journal(tmp_path / "does_not_exist.jsonl", keep_events=5)  # must not raise

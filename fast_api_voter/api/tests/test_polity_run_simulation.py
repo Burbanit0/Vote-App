@@ -14,6 +14,7 @@ import pytest
 
 import api.domain.polity.run_polity_simulation as run_polity_simulation_module
 from api.domain.polity.accountability import chamber_deviation, unified_mandate_deviation, update_street_pressure
+from api.domain.polity.checkpoint import load_checkpoint
 from api.domain.polity.citizen import Citizen, Office, Role, generate_population
 from api.domain.polity.codebook import EventType, ReactionMotif
 from api.domain.polity.config import PolityConfig, load_config
@@ -4255,3 +4256,179 @@ def test_elected_never_carries_a_reason(tmp_path):
     assert elected
     for event in elected:
         assert "reason" not in event["payload"]
+
+
+# ── resume / checkpoint (Phase 3, plan-flagship-30y-run.md) ─────────────────
+
+class _SimulatedCrash(Exception):
+    """Marks an injected, deliberate interruption -- distinct from a real
+    bug's exception, so a test asserting "the run was interrupted" can never
+    be fooled by an unrelated failure inside the simulation itself."""
+
+
+def _resumable_config(output_dir) -> PolityConfig:
+    """Small and fast, but exercises every field Phase 3's checkpoint
+    captures: RNG-consuming phases (rupture, exogenous events, sortition),
+    citizen-mutating mechanisms (legitimacy, mandate, petition, street
+    pressure, awakening), a real social graph (so "the graph is safely
+    regenerated, never snapshotted" is actually exercised on resume, not
+    just asserted), and a sortition chamber (its own RNG stream plus
+    citizen sortition fields). llm.enabled stays False throughout (the
+    deterministic engine) -- this tests the checkpoint mechanism itself,
+    not anything LLM-path-specific."""
+    config = _config_with_output_dir(output_dir)
+    return dataclasses.replace(
+        config,
+        run=dataclasses.replace(config.run, population_size=30, duration_years=4),
+        candidacy=dataclasses.replace(config.candidacy, ambition_threshold=0.0, rupture_path_enabled=True),
+        legitimacy=dataclasses.replace(config.legitimacy, enabled=True),
+        mandate=dataclasses.replace(config.mandate, enabled=True),
+        petition=dataclasses.replace(config.petition, enabled=True),
+        street_pressure=dataclasses.replace(config.street_pressure, enabled=True),
+        social_graph=dataclasses.replace(config.social_graph, enabled=True),
+        events=dataclasses.replace(config.events, enabled=True, scandal_enabled=True, economic_shock_enabled=True),
+        awakening=dataclasses.replace(
+            config.awakening,
+            enabled=True,
+            context_modulation=dataclasses.replace(
+                config.awakening.context_modulation, event_salience=True, neighbors_acting=True,
+            ),
+        ),
+        sortition_chamber=dataclasses.replace(config.sortition_chamber, enabled=True, seats=5),
+        pressure_menu=dataclasses.replace(
+            config.pressure_menu, electoral_only=False, petition_enabled=True, mobilization_enabled=True,
+        ),
+    )
+
+
+def _events_ignoring_run_id(journal_path):
+    return [{k: v for k, v in e.items() if k != "run_id"} for e in _events(journal_path)]
+
+
+def test_resume_after_a_simulated_crash_mid_tick_matches_an_uninterrupted_run(tmp_path, monkeypatch):
+    config_a = _resumable_config(tmp_path / "uninterrupted")
+    journal_a = run_simulation(config_a, run_id="run")
+
+    config_b = _resumable_config(tmp_path / "crashed")
+    real_accountability_phase = run_polity_simulation_module._run_accountability_phase
+    crash_tick = 8
+
+    def _crash_partway_through_tick_8(citizens, config, journal, tick, llm_client=None, **kwargs):
+        if tick == crash_tick:
+            # The earlier phases for this SAME tick (rupture, exogenous
+            # events, elections, sortition) already ran and journaled --
+            # this only interrupts the LAST phase, so events.jsonl is left
+            # holding tick 8's own partial output, uncheckpointed.
+            raise _SimulatedCrash("simulated abrupt kill mid-tick")
+        return real_accountability_phase(citizens, config, journal, tick, llm_client, **kwargs)
+
+    monkeypatch.setattr(run_polity_simulation_module, "_run_accountability_phase", _crash_partway_through_tick_8)
+    with pytest.raises(_SimulatedCrash):
+        run_simulation(config_b, run_id="run", resume=False)
+    monkeypatch.undo()  # the resume call below must run the REAL phase, not the crash injector
+
+    crashed_dir = tmp_path / "crashed" / "run"
+    checkpoint = load_checkpoint(crashed_dir / "checkpoint.json")
+    assert checkpoint.tick == crash_tick - 1  # the last tick that finished AND got checkpointed
+    partial_events = _events(crashed_dir / "events.jsonl")
+    assert any(e["tick"] == crash_tick for e in partial_events)  # tick 8's own earlier phases did journal
+
+    journal_b = run_simulation(config_b, run_id="run", resume=True)
+
+    assert _events_ignoring_run_id(journal_a) == _events_ignoring_run_id(journal_b)
+
+
+def test_resume_after_a_clean_stop_between_ticks_matches_an_uninterrupted_run(tmp_path, monkeypatch):
+    # The simpler case Phase 3's own gate also names, and genuinely distinct
+    # from the mid-tick-crash test above: interrupted CLEANLY between two
+    # ticks, so tick 8 never started at all -- no partial-tick journal
+    # writes exist to truncate, unlike the mid-tick case. Same config/
+    # duration_years throughout, matching the actual use case Phase 7's own
+    # staged ramp needs (continue a run interrupted mid-flight), not
+    # "retroactively extend how long a finished run should have been" --
+    # config_hash deliberately treats duration_years as a real simulation
+    # parameter, so that second scenario is correctly refused, not this one.
+    config_a = _resumable_config(tmp_path / "uninterrupted")
+    journal_a = run_simulation(config_a, run_id="run")
+
+    config_b = _resumable_config(tmp_path / "stopped")
+    real_rupture_phase = run_polity_simulation_module._attempt_rupture_candidacies
+    stop_tick = 8
+
+    def _stop_before_tick_8(citizens, parties, config, journal, tick, rng, **kwargs):
+        if tick == stop_tick:
+            raise _SimulatedCrash("simulated clean stop between ticks")
+        return real_rupture_phase(citizens, parties, config, journal, tick, rng, **kwargs)
+
+    monkeypatch.setattr(run_polity_simulation_module, "_attempt_rupture_candidacies", _stop_before_tick_8)
+    with pytest.raises(_SimulatedCrash):
+        run_simulation(config_b, run_id="run", resume=False)
+    monkeypatch.undo()
+
+    checkpoint = load_checkpoint(tmp_path / "stopped" / "run" / "checkpoint.json")
+    assert checkpoint.tick == stop_tick - 1
+    stopped_events = _events(tmp_path / "stopped" / "run" / "events.jsonl")
+    assert not any(e["tick"] == stop_tick for e in stopped_events)  # nothing for tick 8 was ever written
+
+    journal_b = run_simulation(config_b, run_id="run", resume=True)
+
+    assert _events_ignoring_run_id(journal_a) == _events_ignoring_run_id(journal_b)
+
+
+def test_resume_false_refuses_when_a_checkpoint_already_exists(tmp_path):
+    config = _resumable_config(tmp_path)
+    run_simulation(config, run_id="run")
+
+    with pytest.raises(FileExistsError):
+        run_simulation(config, run_id="run", resume=False)
+
+
+def test_resume_true_raises_when_no_checkpoint_exists(tmp_path):
+    config = _resumable_config(tmp_path)
+
+    with pytest.raises(FileNotFoundError):
+        run_simulation(config, run_id="never-run-before", resume=True)
+
+
+def test_resume_true_raises_on_a_run_id_mismatch(tmp_path):
+    config = _resumable_config(tmp_path)
+    run_simulation(config, run_id="original")
+
+    # Point --resume at a DIFFERENT run_id sharing the same output_dir --
+    # not the crashed run's own checkpoint, a caller mistake this must
+    # catch loudly rather than resuming into someone else's state.
+    checkpoint_dir = tmp_path / "original"
+    wrong_dir = tmp_path / "wrong"
+    wrong_dir.mkdir()
+    (wrong_dir / "checkpoint.json").write_bytes((checkpoint_dir / "checkpoint.json").read_bytes())
+
+    with pytest.raises(ValueError, match="run_id"):
+        run_simulation(config, run_id="wrong", resume=True)
+
+
+def test_resume_true_raises_on_a_config_hash_mismatch(tmp_path):
+    config = _resumable_config(tmp_path)
+    run_simulation(config, run_id="run")
+
+    changed_config = dataclasses.replace(
+        config, candidacy=dataclasses.replace(config.candidacy, ambition_threshold=0.5)
+    )
+    with pytest.raises(ValueError, match="config"):
+        run_simulation(changed_config, run_id="run", resume=True)
+
+
+def test_checkpoint_is_written_after_every_tick(tmp_path):
+    config = _resumable_config(tmp_path)
+    run_simulation(config, run_id="run")
+
+    checkpoint = load_checkpoint(tmp_path / "run" / "checkpoint.json")
+    expected_last_tick = config.run.duration_years * config.run.ticks_per_year
+    assert checkpoint.tick == expected_last_tick
+
+
+def test_checkpoint_next_event_id_matches_the_final_journal_length(tmp_path):
+    config = _resumable_config(tmp_path)
+    journal_path = run_simulation(config, run_id="run")
+
+    checkpoint = load_checkpoint(tmp_path / "run" / "checkpoint.json")
+    assert checkpoint.next_event_id == len(_events(journal_path))

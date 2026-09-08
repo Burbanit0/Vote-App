@@ -51,17 +51,34 @@ Staged ramp (each stage gates the next -- see the plan's Phase 7):
         --years 30 --population 500 --seats 75 --engine llm --max-batch-replays 2 \\
         --output-dir scripts/flagship_runs
 
+    # if the flagship (or any arm) is interrupted, continue it with the SAME
+    # args plus --resume -- it picks up from its own last per-tick checkpoint
+    python fast_api_voter/scripts/run_polity_flagship.py \\
+        --years 30 --population 500 --seats 75 --engine llm --max-batch-replays 2 \\
+        --output-dir scripts/flagship_runs --resume
+
 `--engine deterministic` runs the same config through `simple_rules.py` in
 seconds and spends no GPU -- the cheap way to confirm the config plumbing before
 committing hours to an LLM arm, the same calibration-before-commit checkpoint
 `run_v7_acceptance.py` uses.
 
-Flags the plan reserves for later phases are NOT stubbed here: `--workers` is
-plumbed (it sets `parallel.intra_run_workers`) but the engine's own
-`_check_supported()` still refuses anything above 1 until Phase 2's determinism
-proof lands, and it refuses with its own message and citation rather than one
-invented here. `--resume` arrives with Phase 3, when there is a checkpoint to
-resume from.
+`--workers` is plumbed (it sets `parallel.intra_run_workers`) but the engine's
+own `_check_supported()` refuses anything above 1 unconditionally -- Phase 2
+built the concurrency mechanism and then found, via its own live determinism
+proof, that vLLM concurrent batching breaks reproducibility too (not just
+Ollama's already-known issue): 20/497 events diverged between workers=1 and
+workers=8 on an otherwise identical run. See plan-flagship-30y-run.md's own
+Phase 2 writeup and check_intra_run_concurrency_determinism_results.md. The
+flagship therefore runs sequential; `--workers` stays plumbed as ready-to-
+enable groundwork, not a live knob.
+
+`--resume` (Phase 3): continues a crashed or deliberately-stopped run from its
+own last per-tick checkpoint (`checkpoint.json`, beside `events.jsonl` in the
+run's own directory) -- see `api.domain.polity.checkpoint` and
+`run_simulation`'s own `resume` parameter for the mechanism. Requires the SAME
+CLI args (config) the original attempt used; `run_simulation`'s own
+`config_hash` check refuses loudly, not silently, if they differ. Mutually
+exclusive with `--force`, which destroys the very run `--resume` continues.
 """
 from __future__ import annotations
 
@@ -270,6 +287,7 @@ def run_flagship(
     workers: int,
     run_id: str | None,
     force: bool = False,
+    resume: bool = False,
 ) -> Path:
     config = _flagship_config(
         engine=engine,
@@ -287,7 +305,15 @@ def run_flagship(
     effective_provider = config.llm.provider if engine == "llm" else "none"
     run_id = run_id or f"flagship-{years}y-p{population}-{engine}"
     run_dir = output_dir / run_id
-    if run_dir.exists() and not force:
+    if resume:
+        # Phase 3 (plan-flagship-30y-run.md): --resume needs the SAME run_dir
+        # (and, inside it, the SAME config -- run_simulation's own config_hash
+        # check is the real guard here) a crashed or deliberately-stopped
+        # attempt already created. Never deleted, never recreated -- that
+        # would destroy the checkpoint/journal this flag exists to continue.
+        if not run_dir.exists():
+            raise FileNotFoundError(f"--resume requested but {run_dir} does not exist -- nothing to resume")
+    elif run_dir.exists() and not force:
         # Journal.__init__ opens events.jsonl in append mode, so a re-run into
         # an existing run_id silently CONCATENATES two runs into one file --
         # event_id restarts at 0 mid-file and every count downstream doubles.
@@ -296,17 +322,25 @@ def run_flagship(
         # for a 30-year run that has 31).
         raise FileExistsError(
             f"{run_dir} already exists -- Journal appends rather than overwrites, so re-running "
-            "into it would concatenate two runs. Remove it, pass --run-id, or pass --force."
+            "into it would concatenate two runs. Remove it, pass --run-id, --resume, or --force."
         )
-    if run_dir.exists() and force:
+    elif run_dir.exists() and force:
         shutil.rmtree(run_dir)
-    run_dir.mkdir(parents=True, exist_ok=True)
+        run_dir.mkdir(parents=True, exist_ok=True)
+    else:
+        run_dir.mkdir(parents=True, exist_ok=True)
     config = dataclasses.replace(
         config, journal=dataclasses.replace(config.journal, output_dir=str(run_dir / "run"))
     )
-    (run_dir / "config.json").write_text(
-        json.dumps(dataclasses.asdict(config), indent=2, default=str), encoding="utf-8"
-    )
+    if not resume:
+        # Skipped on resume, deliberately: rewriting this from a possibly-
+        # different set of CLI args right before run_simulation's own
+        # config_hash check might reject them would overwrite the one record
+        # of what the crashed attempt actually ran, for no benefit -- the
+        # hash check is the real guard either way.
+        (run_dir / "config.json").write_text(
+            json.dumps(dataclasses.asdict(config), indent=2, default=str), encoding="utf-8"
+        )
 
     replay_handler = None
     if engine == "llm":
@@ -326,7 +360,7 @@ def run_flagship(
 
     start = time.monotonic()
     try:
-        journal_path = run_simulation(config, run_id=run_id, llm_client=None)
+        journal_path = run_simulation(config, run_id=run_id, llm_client=None, resume=resume)
     finally:
         elapsed = time.monotonic() - start
         if replay_handler is not None:
@@ -391,12 +425,23 @@ def main(argv: list[str] | None = None) -> int:
         "--workers",
         type=int,
         default=1,
-        help="parallel.intra_run_workers; >1 is refused by the engine until the plan's Phase 2 lands",
+        help=(
+            "parallel.intra_run_workers; >1 is refused by the engine on every provider -- Phase 2's own "
+            "determinism proof found vLLM concurrency unsafe too, not just Ollama's already-known issue "
+            "(see plan-flagship-30y-run.md Phase 2 and check_intra_run_concurrency_determinism_results.md)"
+        ),
     )
     parser.add_argument("--run-id", default=None)
     parser.add_argument("--force", action="store_true", help="delete an existing run dir instead of refusing")
+    parser.add_argument(
+        "--resume", action="store_true",
+        help="continue a crashed or deliberately-stopped run from its own last checkpoint (Phase 3)",
+    )
     parser.add_argument("--output-dir", type=Path, default=Path("scripts/flagship_runs"))
     args = parser.parse_args(argv)
+
+    if args.force and args.resume:
+        parser.error("--force and --resume are mutually exclusive -- --force destroys the run --resume continues")
 
     run_flagship(
         engine=args.engine,
@@ -410,6 +455,7 @@ def main(argv: list[str] | None = None) -> int:
         workers=args.workers,
         run_id=args.run_id,
         force=args.force,
+        resume=args.resume,
     )
     return 0
 

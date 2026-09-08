@@ -8,8 +8,9 @@
 >
 > **Status legend**: `TODO` · `IN PROGRESS` · `DONE` · `BLOCKED` · `DROPPED`
 
-**Overall status: Phases 0, 0bis, 1 and 5 DONE. Phase 2 FAILED its own gate
-(does not ship) — the flagship runs sequential. Starting Phase 3, now load-bearing.**
+**Overall status: Phases 0, 0bis, 1, 3 and 5 DONE. Phase 2 FAILED its own gate
+(does not ship) — the flagship runs sequential, and Phase 3 is what makes that
+survivable. Starting Phase 4.**
 (last updated 2026-09-07)
 
 | Phase | What | Status |
@@ -18,7 +19,7 @@
 | 0bis | **NEW**: `vote_cast` needed a seed override AND a deterministic fallback on vLLM | **DONE** — fixed, confirmed on a clean re-run |
 | 1 | Re-test the 3 collapse-flagged decision types under vLLM | **DONE** — 2/3 still collapse, 1/3 cleared |
 | 2 | Concurrency unlock + byte-identical determinism proof | **FAILED — does not ship.** vLLM concurrency breaks reproducibility too |
-| 3 | Checkpoint / resume | TODO — **now the only mitigation for a multi-day sequential run** |
+| 3 | Checkpoint / resume | **DONE** — verified with a real `kill -KILL` mid-run, byte-identical resume |
 | 4 | Observability (`progress.json`) | TODO |
 | 5 | v3 scale gate at population 500 | **DONE** — sortition + arity + hard-cap + Class B measured |
 | 6 | UI-ready output (`snapshots.py`, `viz_export.py`) | TODO |
@@ -510,32 +511,70 @@ purely because of *Ollama* failures documented in-code. If vLLM tolerates
 chunk >1, that is a further multiple on top of concurrency. Test it; only raise
 it if clean.
 
-## Phase 3 — Checkpoint / resume · TODO
+## Phase 3 — Checkpoint / resume · **DONE**
 
-**Change**: per-tick checkpoint so a 3-day run survives interruption.
+**Shipped**: `api/domain/polity/checkpoint.py` (new module) + `run_simulation`'s
+own `resume: bool = False` parameter + `run_polity_flagship.py`'s `--resume`.
 
-State to capture at the end of each tick (exhaustive — anything missed silently
-corrupts a resume):
+**One refinement from the original plan, found by reading the actual code
+rather than assuming**: `graph` (the social graph) and `InstitutionalClock`
+are NOT checkpointed. Both are pure functions of `(config, population_size,
+seed)` with zero mid-run mutation (`social_graph.py`'s own docstring:
+"generated once... this never changes mid-run"; `InstitutionalClock.from_config`
+takes config alone, holds no state) — regenerating either from the resumed
+config reproduces them exactly. Snapshotting them would be pure duplication
+with its own resync risk, not a correctness requirement. What IS captured,
+exactly as planned: `citizens` (every field, including `chamber_position`,
+`petition_signers`, role/office), `parties`, `pending_rerun`, `economy_x`,
+`mobilized_last_tick`, and the three RNG streams that actually persist across
+ticks (`rupture_rng`, `events_rng`, `sortition_rng` — the social graph's own
+generation RNG is fully consumed once, before the tick loop starts, so there
+is no fourth persistent stream to restore).
 
-- `citizens` (full list, including `chamber_position`, `revealed_position`,
-  `pledged_platform`, `event_salience`, `sortition_seat_until_tick`,
-  `party_affiliation`, role/office state)
-- `parties`, `pending_rerun`, `economy_x`, `graph`, `mobilized_last_tick`
-- **All four RNG streams' `bit_generator.state`** (`rupture_rng`, `events_rng`,
-  `sortition_rng`, and the graph generator) — a plain reseed is *not* equivalent
-  and would diverge
-- `tick`, `run_id`, config hash, and the journal's last `event_id`
+**Checkpoint written to `<journal.output_dir>/<run_id>/checkpoint.json`**
+(atomic: `.tmp` + `os.replace`), after every tick's phases are fully done and
+journaled — never mid-tick, so a resume always restarts a tick from its own
+beginning. `journal.truncate_journal` discards any events a crash left behind
+from a tick that started but never finished (and therefore never got its own
+checkpoint) before the resumed `Journal` reopens the file with
+`start_event_id` set to the checkpoint's own `next_event_id`, continuing the
+id sequence rather than restarting it at 0 (a `Journal.__init__` gap that
+would otherwise corrupt a resumed file's event ids). `resume=True` verifies
+both `run_id` and `checkpoint.config_hash(config)` match before touching
+anything, and refuses loudly (not silently) on either mismatch.
+`resume=False` (every pre-Phase-3 caller, unaffected) now also refuses if a
+checkpoint already exists at that path — the same "don't silently clobber
+resumable progress" discipline the runner's own collision guard already had
+for a fresh run_id.
 
-Write to `runs/<run_id>/checkpoint.json` (atomic: temp file + rename). On resume:
-load, **truncate `events.jsonl` to the last event of the last completed tick**,
-and continue. The journal is already append-only and flushed per write, so
-truncation is well-defined.
+**A real efficiency bug found and fixed along the way**: the first working
+version serialized each `Citizen` via `dataclasses.asdict()`, which slowed
+the polity test suite by 3.3x (37s -> 123s) purely from checkpointing every
+tick of every `run_simulation` test. `asdict()`'s generic recursive
+implementation deep-copies every field defensively — wasted work for
+`Citizen`, a flat dataclass with no nested dataclass fields. Switched to
+`vars(citizen).copy()`: measured 303x faster (3.2ms -> 0.011ms per
+100-citizen pass), test suite back to 68s. Production impact is negligible
+either way (a real flagship tick costs 283-1069s+, GPU-bound) — this was
+purely a test-iteration-speed fix, caught by measuring rather than assuming
+the first working version was fast enough.
 
-Relax the `FileExistsError` guard in the runner to allow explicit `--resume`
-while still refusing accidental reuse.
-
-**Gate**: run 4 years uninterrupted; run 4 years killed at tick 8 and resumed;
-`events.jsonl` byte-identical between the two.
+**Gate, met three ways**:
+1. Unit tests: `checkpoint.py`'s own round-trip (every citizen field,
+   parties, pending_rerun, RNG stream continuation, config-hash sensitivity)
+   and `journal.py`'s `truncate_journal`/`start_event_id`/`next_event_id`.
+2. Integration (pytest, in-process): a real config (RNG-consuming phases,
+   citizen-mutating mechanisms, a real social graph, a sortition chamber)
+   interrupted by an injected exception — once mid-tick (after some of that
+   tick's own phases had already journaled, proving truncation), once
+   cleanly between ticks (proving the no-partial-data case too) — resumed,
+   and diffed byte-for-byte (run_id excluded) against an uninterrupted run.
+   Both match exactly.
+3. **The real-world case, not just pytest**: a live `run_polity_flagship.py`
+   process, actually `kill -KILL`'d mid-run (tick 52 of 120, 1000 citizens/
+   30 years/deterministic engine), resumed via the actual `--resume` CLI
+   flag, and diffed against an uninterrupted reference — 17,791 events,
+   **zero diffs**.
 
 ## Phase 4 — Observability · TODO
 
@@ -670,7 +709,7 @@ Then the same path to population 1000 as the mid-term goal.
 | 0 | 2-year vLLM run completes; `run_metadata.json` shows vllm; measured baseline recorded |
 | 1 | Three collapse scripts re-run under vLLM; each type labelled verified or unverified |
 | 2 | **`events.jsonl` byte-identical, workers=1 vs workers=8, same seed** — **FAILED, does not ship; flagship runs sequential (Phase 3 is now load-bearing)** |
-| 3 | **`events.jsonl` byte-identical, uninterrupted vs killed-and-resumed** |
+| 3 | **`events.jsonl` byte-identical, uninterrupted vs killed-and-resumed** — **MET**, incl. a real `kill -KILL` |
 | 4 | `progress.json` updates per tick; ETA converges |
 | 5 | v3 checklist Classes B/C/D measured at pop 500; seats/initial_count decisions recorded |
 | 6 | `viz_export.py` output loads; DuckDB queries return expected row counts |
@@ -765,3 +804,17 @@ Newest last. One line per landed step, with the commit hash where there is one.
   and left `run_chunks()` in the codebase as tested, currently-unreachable
   groundwork rather than reverting it outright. The flagship runs sequential;
   Phase 3 (checkpoint/resume) is now the load-bearing mitigation, not a hedge.
+- **2026-09-07** — Phase 3: `api/domain/polity/checkpoint.py` (new module),
+  `run_simulation(resume=...)`, `run_polity_flagship.py --resume`. Refined the
+  original plan after reading the actual code: `graph`/`InstitutionalClock`
+  are pure functions of config and are regenerated on resume, never
+  snapshotted -- only citizens/parties/pending_rerun/economy_x/
+  mobilized_last_tick/the 3 persistent RNG streams are captured. Found and
+  fixed a real efficiency bug along the way (`dataclasses.asdict()` on every
+  citizen every tick cost the polity test suite +86s; `vars().copy()` is
+  303x faster, measured, not assumed). Verified three ways: unit round-trip
+  tests, an in-process pytest integration test (injected mid-tick AND
+  clean-between-ticks interruptions, both byte-identical to an uninterrupted
+  run), and a real `kill -KILL` on a live `run_polity_flagship.py` process
+  (tick 52 of 120), resumed via the actual `--resume` CLI flag -- 17,791
+  events, zero diffs. 1837 backend tests pass, mypy clean.
