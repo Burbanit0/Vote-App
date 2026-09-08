@@ -39,6 +39,7 @@ from __future__ import annotations
 import json
 import logging
 import subprocess
+import time
 from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -77,6 +78,7 @@ from api.domain.polity.ballot_and_aggregation import (
     resolve_confidence_vote,
 )
 from api.domain.polity.checkpoint import config_hash, load_checkpoint, restore_rng, save_checkpoint
+from api.domain.polity.progress import ProgressTracker
 from api.domain.polity.citizen import Citizen, Office, Role, generate_population
 from api.domain.polity.codebook import BallotFormat, EventType, PressureAct, ReactionMotif
 from api.domain.polity.compaction import compact_run
@@ -494,6 +496,15 @@ def run_simulation(
     and continues the tick loop at `checkpoint.tick + 1`. `graph` is
     regenerated, never restored -- see checkpoint.py's own module docstring
     for why that is exact, not an approximation.
+
+    Also writes `progress.json` (Phase 4) after every tick, beside
+    `checkpoint.json` -- a live status snapshot (tick, simulated year,
+    wall-clock elapsed, rolling ETA, decisions by type, retry/fallback
+    counts) an operator or a future UI can read at any moment without
+    touching the journal. See `api.domain.polity.progress` for the
+    resume-correctness argument (short version: it re-derives everything
+    from the journal itself, so it can never drift from what actually
+    happened, fresh run or resumed).
     """
     if config.institutions.presidential_method not in RANKED_METHODS:
         raise NotImplementedError(
@@ -597,11 +608,21 @@ def run_simulation(
         first_tick = 0
         start_event_id = 0
 
+    progress_tracker = ProgressTracker(
+        run_id=run_id,
+        total_ticks=clock.total_ticks,
+        ticks_per_year=config.run.ticks_per_year,
+        progress_path=run_dir / "progress.json",
+        llm_enabled=config.llm.enabled,
+    )
+    run_start_time = time.monotonic()
+
     with (
         Journal.from_config(config.journal, run_id, start_event_id=start_event_id) as journal,
         _llm_client_scope(config, llm_client) as client,
     ):
         for tick in range(first_tick, clock.total_ticks + 1):
+            tick_start_time = time.monotonic()
             barred_ids = pending_rerun.barred_candidate_ids if pending_rerun is not None else frozenset()
             _attempt_rupture_candidacies(citizens, parties, config, journal, tick, rupture_rng, barred_candidate_ids=barred_ids)
             exogenous = _run_exogenous_events(citizens, config, journal, tick, events_rng, economy_x)
@@ -653,6 +674,17 @@ def run_simulation(
                 rupture_rng=rupture_rng,
                 events_rng=events_rng,
                 sortition_rng=sortition_rng,
+            )
+            # Phase 4 (plan-flagship-30y-run.md): same position as the
+            # checkpoint write above -- after this tick's own phases are
+            # fully journaled, so progress.json's own decision counts never
+            # reflect a partially-completed tick.
+            progress_tracker.record_tick(
+                tick=tick,
+                tick_duration=time.monotonic() - tick_start_time,
+                wall_clock_elapsed=time.monotonic() - run_start_time,
+                journal_path=journal_path,
+                checkpoint_tick=tick,
             )
 
     if config.journal.enabled and config.journal.index_after_run:

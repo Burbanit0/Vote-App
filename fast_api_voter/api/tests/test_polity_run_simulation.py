@@ -4432,3 +4432,47 @@ def test_checkpoint_next_event_id_matches_the_final_journal_length(tmp_path):
 
     checkpoint = load_checkpoint(tmp_path / "run" / "checkpoint.json")
     assert checkpoint.next_event_id == len(_events(journal_path))
+
+
+# ── progress.json (Phase 4, plan-flagship-30y-run.md) ───────────────────────
+
+def test_run_simulation_writes_progress_json(tmp_path):
+    config = _resumable_config(tmp_path)
+    run_simulation(config, run_id="run")
+
+    progress = json.loads((tmp_path / "run" / "progress.json").read_text(encoding="utf-8"))
+    expected_last_tick = config.run.duration_years * config.run.ticks_per_year
+    assert progress["tick"] == expected_last_tick
+    assert progress["total_ticks"] == expected_last_tick
+    assert progress["last_checkpoint_tick"] == expected_last_tick
+    assert progress["eta_seconds"] == 0.0  # the run is done
+    assert progress["decisions_total"] == 0  # deterministic engine, no LLM decisions
+
+
+def test_progress_json_reflects_the_full_cumulative_history_after_resume(tmp_path, monkeypatch):
+    # The same property Phase 3's own resume tests check for events.jsonl,
+    # here for progress.json: cumulative counts must reflect the WHOLE run,
+    # not just what happened after the resume.
+    config = _resumable_config(tmp_path)
+    real_rupture_phase = run_polity_simulation_module._attempt_rupture_candidacies
+    stop_tick = 8
+
+    def _stop_before_tick_8(citizens, parties, config, journal, tick, rng, **kwargs):
+        if tick == stop_tick:
+            raise _SimulatedCrash("simulated stop")
+        return real_rupture_phase(citizens, parties, config, journal, tick, rng, **kwargs)
+
+    monkeypatch.setattr(run_polity_simulation_module, "_attempt_rupture_candidacies", _stop_before_tick_8)
+    with pytest.raises(_SimulatedCrash):
+        run_simulation(config, run_id="run", resume=False)
+    monkeypatch.undo()
+
+    progress_before_resume = json.loads((tmp_path / "run" / "progress.json").read_text(encoding="utf-8"))
+    assert progress_before_resume["tick"] == stop_tick - 1
+
+    run_simulation(config, run_id="run", resume=True)
+
+    progress_after = json.loads((tmp_path / "run" / "progress.json").read_text(encoding="utf-8"))
+    expected_last_tick = config.run.duration_years * config.run.ticks_per_year
+    assert progress_after["tick"] == expected_last_tick
+    assert progress_after["last_checkpoint_tick"] == expected_last_tick

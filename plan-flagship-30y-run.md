@@ -8,9 +8,9 @@
 >
 > **Status legend**: `TODO` · `IN PROGRESS` · `DONE` · `BLOCKED` · `DROPPED`
 
-**Overall status: Phases 0, 0bis, 1, 3 and 5 DONE. Phase 2 FAILED its own gate
-(does not ship) — the flagship runs sequential, and Phase 3 is what makes that
-survivable. Starting Phase 4.**
+**Overall status: Phases 0, 0bis, 1, 3, 4 and 5 DONE. Phase 2 FAILED its own gate
+(does not ship) — the flagship runs sequential, and Phases 3/4 are what make that
+survivable and watchable. Starting Phase 6.**
 (last updated 2026-09-07)
 
 | Phase | What | Status |
@@ -20,7 +20,7 @@ survivable. Starting Phase 4.**
 | 1 | Re-test the 3 collapse-flagged decision types under vLLM | **DONE** — 2/3 still collapse, 1/3 cleared |
 | 2 | Concurrency unlock + byte-identical determinism proof | **FAILED — does not ship.** vLLM concurrency breaks reproducibility too |
 | 3 | Checkpoint / resume | **DONE** — verified with a real `kill -KILL` mid-run, byte-identical resume |
-| 4 | Observability (`progress.json`) | TODO |
+| 4 | Observability (`progress.json`) | **DONE** — verified live, incl. a real `kill -KILL`/`--resume` cycle |
 | 5 | v3 scale gate at population 500 | **DONE** — sortition + arity + hard-cap + Class B measured |
 | 6 | UI-ready output (`snapshots.py`, `viz_export.py`) | TODO |
 | 7 | The staged ramp and the flagship run | TODO |
@@ -576,18 +576,58 @@ the first working version was fast enough.
    flag, and diffed against an uninterrupted reference — 17,791 events,
    **zero diffs**.
 
-## Phase 4 — Observability · TODO
+## Phase 4 — Observability · **DONE**
 
-**Change**: per-tick progress to stderr and to `runs/<run_id>/progress.json`
-(atomic rewrite).
+**Shipped**: new module `api/domain/polity/progress.py` (`ProgressTracker` +
+`write_progress`), wired into `run_simulation`'s tick loop at the same point as
+Phase 3's own checkpoint write. `progress.json` lands beside `checkpoint.json`
+in the run's own directory, rewritten atomically after every tick.
 
-Fields: tick, simulated year, wall-clock elapsed, per-tick duration, rolling ETA,
-LLM calls by decision type, replay count, failure count by classification, and
-last checkpoint tick.
+Fields, all shipped as specified: `tick`, `total_ticks`, `simulated_year`,
+`wall_clock_elapsed_seconds`, `last_tick_duration_seconds`,
+`avg_recent_tick_duration_seconds` (a 10-tick rolling window, not a whole-run
+average — tick cost is genuinely heterogeneous, an election/coalition/chamber
+tick costs far more than a routine one, so a flat average would converge
+slowly and misrepresent the current phase of the run), `eta_seconds` +
+`eta_timestamp`, `decisions_by_type`, `decisions_total`, `retry_count`,
+`fallback_count`, `last_checkpoint_tick`.
 
-Cheap and high-value: it turns a 3-day black box into something watchable, and
-`progress.json` gives the future UI a live status endpoint for free (§16.1's
-"hot regime" without needing the WebSocket yet).
+**Design choice, and why**: every cumulative count is re-derived from the
+journal itself (an incremental scan via a running byte offset, not
+event_id bookkeeping — `Journal.write`'s own synchronous-flush contract makes
+a plain `seek`/`tell` sufficient), never tracked as a separately-maintained
+running total. This means `ProgressTracker` can never drift out of sync with
+what actually happened, and — the real payoff — it makes resume correctness
+free: a fresh `ProgressTracker` instance (byte offset 0) constructed in a
+resumed process's first call naturally reads everything the truncated journal
+already holds from the crashed attempt, backfilling cumulative counts with no
+separate "resume mode" or checkpoint-schema extension needed.
+
+**A real bug this surfaced, not introduced**: `run_polity_simulation._run_
+reaction_to_event` writes `codebook_version` unconditionally, even on its own
+deterministic branch (`llm.enabled=False`) — a pre-existing quirk this
+project's own `run_polity_flagship.py._count_llm_decisions` had already found
+and worked around (gated to `engine == "llm"`). `ProgressTracker`'s own
+"codebook_version is truthy ⇒ LLM decision" heuristic inherited the same false
+positive the first time it ran against a real deterministic run — caught by
+actually running it end-to-end (a live smoke test), not assumed safe.
+Fixed the same way: `ProgressTracker` takes `llm_enabled`, skipping the
+count (never the byte-offset advance) when false.
+
+**Verified three ways**: `progress.py`'s own unit tests (rolling window,
+incremental scanning, resume-backfill-by-construction, the reaction_to_event
+false-positive fix), an in-process integration test confirming cumulative
+counts survive an injected crash-and-resume, and — again, the real case, not
+just pytest — a live `run_polity_flagship.py` process actually `kill -KILL`'d
+mid-run: `progress.json` at the moment of the kill showed sensible tick/ETA/
+decision-count state, and after `--resume`, cumulative counts correctly
+reflected the FULL run's history (2000 → 3000 decisions across the crash
+boundary), not just the post-resume portion. 1258 polity tests pass, mypy
+clean.
+
+Cheap and high-value, as planned: it turns a 3-day black box into something
+watchable, and `progress.json` gives the future UI a live status endpoint for
+free (§16.1's "hot regime" without needing the WebSocket yet).
 
 ## Phase 5 — v3 scale gate at population 500 · **MOSTLY DONE**
 
@@ -710,7 +750,7 @@ Then the same path to population 1000 as the mid-term goal.
 | 1 | Three collapse scripts re-run under vLLM; each type labelled verified or unverified |
 | 2 | **`events.jsonl` byte-identical, workers=1 vs workers=8, same seed** — **FAILED, does not ship; flagship runs sequential (Phase 3 is now load-bearing)** |
 | 3 | **`events.jsonl` byte-identical, uninterrupted vs killed-and-resumed** — **MET**, incl. a real `kill -KILL` |
-| 4 | `progress.json` updates per tick; ETA converges |
+| 4 | `progress.json` updates per tick; ETA converges — **MET**, incl. a real `kill -KILL`/`--resume` cycle |
 | 5 | v3 checklist Classes B/C/D measured at pop 500; seats/initial_count decisions recorded |
 | 6 | `viz_export.py` output loads; DuckDB queries return expected row counts |
 | 7 | 8-year pop-100 parity vs `acceptance_v6b_results.md`; then flagship completes |
