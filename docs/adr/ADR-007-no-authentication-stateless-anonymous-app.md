@@ -1,7 +1,8 @@
 # ADR-007: Pas de comptes ni d'authentification — l'application est anonyme et sans état
 
 **Status**: Adopté, en vigueur
-**Date de la décision** : ~2026-06/07, retrait documenté dans le journal (« 2026-06-10 → 2026-07-30 »)
+**Date de la décision** : 2026-07-06, retrait en deux commits le même jour —
+`5077d00` (front) puis `cabf6e8` (back)
 **Date de rédaction de cet ADR** : 2026-09-08 — reconstruction rétroactive (Lot 0.6 du plan), voir la note en fin de document
 
 ## Contexte
@@ -27,13 +28,17 @@ d'identité.
 
 - **Conserver la couche OAuth/comptes déjà construite**, pour des
   fonctionnalités comme des scénarios sauvegardés ou une communauté
-  d'utilisateurs. Rejetée par retrait effectif. Le journal est honnête sur
-  une limite réelle de cette reconstruction : *« pourquoi : non détaillé
-  dans les messages de commit au-delà de "backend stateless" ; cohérent
-  avec l'orientation outil de recherche public plutôt que plateforme
-  communautaire »* — la décision est documentée dans son résultat et sa
-  cohérence avec le pivot produit, pas dans un raisonnement contemporain
-  explicite.
+  d'utilisateurs. Rejetée par retrait effectif, documenté en détail côté
+  mécanique : `5077d00` liste les pages supprimées (Login, Register,
+  OAuthCallback, Profile, UserProfile, ScenarioGallery, ScenarioBuilder…) et
+  `cabf6e8` la pile backend entière retirée (routes auth/oauth/users/gallery/
+  scenarios, `fastapi-users`, la couche SQLAlchemy async, le service Postgres
+  de `docker-compose`). Aucun des deux messages n'énonce en revanche la
+  raison **produit** du retrait (pourquoi basculer d'une plateforme
+  communautaire vers un outil de recherche public) — seulement son exécution
+  technique. C'est une vraie limite de la reconstitution, pas un historique
+  indisponible : les commits ont été retrouvés et lus en entier, ils ne
+  contiennent simplement pas ce raisonnement-là.
 
 ## Conséquences
 
@@ -57,14 +62,15 @@ d'identité.
 ## Note de reconstitution
 
 Cet ADR documente une décision déjà en vigueur dans le code ; il n'a pas été
-rédigé au moment où la décision a été prise, et le raisonnement original
-n'a jamais été pleinement enregistré (le journal le signale lui-même — voir
-citation ci-dessus). Sources : `README.md` (§ Stack, § Routes, § Public API),
-`docs/journal/JOURNAL_DE_BORD.md` (entrées reconstruites « 2026-05-23 →
-2026-06-09 » et « 2026-06-10 → 2026-07-30 »), et PR #313 (correction de
-`SECURITY.md`). L'historique git conservé par ce dépôt ne remonte qu'au
-2026-08-29 ; les commits d'origine de cette décision ne sont plus
-consultables directement, seule leur trace narrative dans le journal l'est.
-C'est, des quatre ADR de ce lot, celui dont la reconstitution est la plus
-incertaine : le journal lui-même admet ne pas avoir retrouvé le raisonnement
-complet derrière le retrait.
+rédigé au moment où la décision a été prise. Sources : les commits `5077d00`
+et `cabf6e8` cités ci-dessus (lus en entier, pas seulement leur titre),
+`README.md` (§ Stack, § Routes, § Public API), et PR #313 (correction de
+`SECURITY.md`, qui décrivait encore une authentification JWT n'existant plus
+dans l'app depuis ce retrait). C'est, des quatre ADR de ce lot, celui dont la
+reconstitution reste la plus incertaine — non pas faute d'avoir retrouvé les
+commits, mais parce qu'ils documentent en détail *ce qui* a été retiré et
+*comment* la suppression a été vérifiée (99 routes au boot, 374 tests
+backend verts, `tsc` propre), sans jamais énoncer *pourquoi* le produit a
+basculé d'une plateforme communautaire vers un outil de recherche public. Ce
+raisonnement produit, s'il a existé, n'est pas dans l'historique git — c'est
+une limite réelle, pas un historique tronqué.

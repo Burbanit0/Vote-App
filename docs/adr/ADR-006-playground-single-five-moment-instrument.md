@@ -1,7 +1,7 @@
 # ADR-006: Un seul instrument Playground à 5 moments, pas une galerie de pages par sujet
 
 **Status**: Adopté, en vigueur
-**Date de la décision** : ~2026-06/07, consolidation documentée dans le journal (« 2026-06-10 → 2026-07-30 »)
+**Date de la décision** : 2026-06-15, retrait de l'Election Lab (commit `4bc901b`) après absorption complète de son contenu par le Playground (PRs #41–44, citées dans le message de commit)
 **Date de rédaction de cet ADR** : 2026-09-08 — reconstruction rétroactive (Lot 0.6 du plan), voir la note en fin de document
 
 ## Contexte
@@ -33,10 +33,12 @@ Laboratoire.
 ## Alternatives considérées
 
 - **Garder l'Election Lab comme surface parallèle** au nouvel instrument
-  Playground, une fois celui-ci construit. Explicitement rejeté — le
-  journal cite la raison donnée dans le message du commit de retrait :
-  « éviter la duplication de state et les drill-downs circulaires entre deux
-  surfaces qui montrent la même donnée ».
+  Playground, une fois celui-ci construit. Explicitement rejeté — le message
+  du commit de retrait (`4bc901b`) donne deux raisons concrètes : il ne
+  restait plus rien d'unique dans le Lab (son contenu avait déjà été
+  entièrement absorbé, PRs #41–44), et les 🔬 boutons de drill-down du
+  Playground pointaient vers le Lab et seraient devenus circulaires (le
+  contenu ciblé vivait déjà dans la même page, section « Explorations »).
 - **Un panneau extensible par sujet** (accordéons empilés) plutôt qu'un rail
   séquentiel à moments. Non retenue en pratique : le rail impose un ordre de
   lecture narratif (électorat avant méthode avant stratégie), cohérent avec
@@ -64,10 +66,11 @@ Laboratoire.
 ## Note de reconstitution
 
 Cet ADR documente une décision déjà en vigueur dans le code ; il n'a pas été
-rédigé au moment où la décision a été prise. Sources : le skill `voter-ui`
-(« Don't denature the playground »), `PlaygroundController.tsx`, et
-`docs/journal/JOURNAL_DE_BORD.md` (entrée reconstruite « 2026-06-10 →
-2026-07-30 », qui cite directement la justification du message de commit de
-retrait de l'Election Lab). L'historique git conservé par ce dépôt ne remonte
-qu'au 2026-08-29 ; les commits d'origine de cette décision ne sont plus
-consultables directement, seule leur trace narrative dans le journal l'est.
+rédigé au moment où la décision a été prise. Sources : le commit `4bc901b`
+cité ci-dessus (et son historique amont, PRs #41–44), le skill `voter-ui`
+(« Don't denature the playground ») et `PlaygroundController.tsx`. Le choix
+du rail à 5 moments précis (plutôt qu'un autre découpage) et de la bascule
+Dirigeant/Assemblée n'a pas de commit de décision isolable distinct du long
+travail d'absorption progressive (PRs #41–44) ; cette partie est reconstruite
+à partir de la structure actuelle du code, pas d'une note d'architecture
+contemporaine.
