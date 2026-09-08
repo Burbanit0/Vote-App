@@ -14,8 +14,15 @@ from api.domain.polity.codebook import EventType, VoteMotif
 from api.domain.polity.config import PressureMenuConfig, load_config
 from api.domain.polity.llm_behavior_engine import (
     MIN_SAFE_BATCH_SIZE,
+    _CHAMBER_MAX_CHUNK_SIZE_OLLAMA,
+    _CHAMBER_MAX_CHUNK_SIZE_VLLM,
+    _VOTE_CAST_MAX_CHUNK_SIZE_OLLAMA,
+    _VOTE_CAST_MAX_CHUNK_SIZE_VLLM,
     _VOTE_CAST_RETRY_SEED_BASE,
     _VOTE_CAST_RETRY_TEMPERATURE,
+    _chamber_chunk_size,
+    _dynamic_max_tokens,
+    _vote_cast_chunk_size,
     ChamberContext,
     PressureContext,
     ReactionContext,
@@ -255,6 +262,83 @@ def test_compute_max_tokens_has_a_floor_for_tiny_chunks():
     assert compute_max_tokens(0) == 1536
 
 
+# ── _vote_cast_chunk_size / _chamber_chunk_size / _dynamic_max_tokens
+# (2026-09-08, check_vllm_chunk_size_throughput_results.md) ──────────────
+
+def test_vote_cast_chunk_size_is_provider_conditional():
+    config = _config_with_llm_enabled()
+    assert config.llm.provider == "vllm"
+    assert _vote_cast_chunk_size(config) == _VOTE_CAST_MAX_CHUNK_SIZE_VLLM == 3
+    ollama_config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, provider="ollama"))
+    assert _vote_cast_chunk_size(ollama_config) == _VOTE_CAST_MAX_CHUNK_SIZE_OLLAMA == 1
+
+
+def test_chamber_chunk_size_is_provider_conditional():
+    config = _config_with_llm_enabled()
+    assert config.llm.provider == "vllm"
+    assert _chamber_chunk_size(config) == _CHAMBER_MAX_CHUNK_SIZE_VLLM == 5
+    ollama_config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, provider="ollama"))
+    assert _chamber_chunk_size(ollama_config) == _CHAMBER_MAX_CHUNK_SIZE_OLLAMA == 1
+
+
+class _StubTokenCountingClient:
+    """Minimal LlmClientProtocol conformer for _dynamic_max_tokens's own
+    unit tests -- complete_json is never called (the function under test
+    only ever calls count_prompt_tokens), so it deliberately isn't
+    implemented; a test that reached it would fail loudly with an
+    AttributeError, which is the point."""
+
+    def __init__(self, prompt_tokens):
+        self._prompt_tokens = prompt_tokens
+        self.calls: list[tuple[str, str, bool]] = []
+
+    def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
+        self.calls.append((system_prompt, user_prompt, think))
+        return self._prompt_tokens
+
+
+def test_dynamic_max_tokens_uses_the_flat_allowance_on_ollama_without_probing():
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, provider="ollama"))
+    client = _StubTokenCountingClient(prompt_tokens=999999)  # would blow any real ceiling if ever used
+
+    result = _dynamic_max_tokens(
+        client, config, system_prompt="s", user_prompt="u", chunk_size=3, flat_allowance=12000
+    )
+
+    assert result == compute_max_tokens(3) + 12000
+    assert client.calls == []  # the ollama path never probes
+
+
+def test_dynamic_max_tokens_probes_and_maximizes_on_vllm():
+    config = _config_with_llm_enabled()
+    assert config.llm.provider == "vllm"
+    client = _StubTokenCountingClient(prompt_tokens=2000)
+
+    result = _dynamic_max_tokens(
+        client, config, system_prompt="sys", user_prompt="usr", chunk_size=3, flat_allowance=12000
+    )
+
+    assert result == 16384 - 2000 - 300
+    assert client.calls == [("sys", "usr", True)]  # probed with the real prompt, think=True
+
+
+def test_dynamic_max_tokens_floor_wins_when_headroom_is_smaller():
+    # A prompt so large that 16384 - prompt_tokens - margin would fall
+    # below compute_max_tokens's own floor -- the floor must still win
+    # rather than requesting a max_tokens too small to hold the visible
+    # answer alone.
+    config = _config_with_llm_enabled()
+    client = _StubTokenCountingClient(prompt_tokens=16000)
+
+    result = _dynamic_max_tokens(
+        client, config, system_prompt="s", user_prompt="u", chunk_size=5, flat_allowance=8000
+    )
+
+    assert result == compute_max_tokens(5)
+    assert compute_max_tokens(5) > 16384 - 16000 - 300  # confirms the floor branch was actually exercised
+
+
 # ── build_system_prompt / build_user_prompt ──────────────────────────────
 
 def test_system_prompt_enumerates_every_expected_cid():
@@ -415,6 +499,17 @@ class FakeLlmClient:
             sum(w * (vx - px) ** 2 for vx, px, w in zip(voter.issue_positions, platform, voter.issue_priorities))
         )
 
+    def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
+        # Small and fixed on purpose: _dynamic_max_tokens's floor (compute_
+        # max_tokens's own return value, at most a few hundred tokens for
+        # any chunk size a test builds) never binds against this, so tests
+        # that don't care about the exact dynamic value stay unaffected --
+        # only test_decide_chamber_deliberation_uses_think_true_and_the_
+        # reasoning_token_allowance's own OLLAMA-provider variant asserts an
+        # exact max_tokens value, and that one pins the flat-allowance
+        # formula this probe is never reached for.
+        return 500
+
     def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
         payload = json.loads(user_prompt)
         cids = [v["cid"] for v in payload["voters"]]
@@ -462,13 +557,16 @@ def test_cast_votes_matches_build_ranking_when_nobody_votes_blank():
 
 
 def test_cast_votes_preserves_voter_order_across_chunk_boundaries():
-    # cast_votes chunks at its own dedicated _VOTE_CAST_MAX_CHUNK_SIZE (1),
+    # cast_votes chunks at its own dedicated _vote_cast_chunk_size(config),
     # never config.llm.max_batch_size (a real v6b acceptance run found
-    # multi-voter batches collapse the model's per-voter distance reasoning,
-    # and even chunk_size=3 kept hitting finish_reason='length' under a
-    # widened token budget -- see cast_votes's own docstring). 7 voters at
-    # chunk size 1: 7 chunks of exactly 1 voter each, one client call per
-    # voter, in order.
+    # multi-voter batches collapse the model's per-voter distance reasoning
+    # on Ollama -- see cast_votes's own docstring; re-tested on vLLM
+    # 2026-09-08, does not reproduce, chunk raised to 3 on that provider,
+    # see _VOTE_CAST_MAX_CHUNK_SIZE_VLLM's own docstring). 7 voters at the
+    # shipped default (provider=vllm, chunk size 3): chunk_voters balances
+    # chunk sizes rather than greedily filling to the ceiling, so 7 voters
+    # come out as 3, 2, 2 -- boundaries still land mid-population, so order
+    # preservation across them is still meaningfully exercised.
     voters = _population(7, dims=1)
     candidates = [_candidate(100, (0.5,))]
     config = _config_with_llm_enabled(max_batch_size=25)
@@ -476,7 +574,7 @@ def test_cast_votes_preserves_voter_order_across_chunk_boundaries():
 
     outcome = cast_votes(voters, candidates, config, client)
 
-    assert client.calls == [[0], [1], [2], [3], [4], [5], [6]]
+    assert client.calls == [[0, 1, 2], [3, 4], [5, 6]]
     assert len(outcome.ballots) == 7
     for ballot in outcome.ballots:
         assert BLANK_LABEL in ballot
@@ -568,24 +666,37 @@ def test_cast_votes_falls_back_to_the_deterministic_ballot_on_count_mismatch():
     # (2026-09-06, check_vllm_vote_cast_retry_is_inert_results.md) -- a real
     # vLLM run crashed on exactly this exception type after its replay budget
     # was exhausted, which this project's own standing priority for that run
-    # ("must not die mid-run") rules out. ShortClient always answers cid=0,
-    # so every voter EXCEPT cid=0 itself is misaligned and falls back --
-    # voter 0's own chunk coincidentally matches and succeeds normally,
-    # which the assertions below check for too (the fallback must not
-    # over-fire on a chunk that was never actually misaligned).
+    # ("must not die mid-run") rules out. ShortClient answers the chunk
+    # containing voter 0 correctly and completely (proving the fallback
+    # doesn't over-fire on a chunk that was never actually misaligned) and
+    # answers every OTHER chunk with a bogus single cid=0 decision, which
+    # never matches that chunk's own expected cids -- misaligned, fallback.
+    # At the shipped default (provider=vllm, chunk size 3), voter 0's own
+    # chunk is [0, 1, 2] (20 voters chunk as 3,3,3,3,3,3,2): all three of
+    # those succeed normally, every other voter (3..19) falls back.
     voters = _population(20)
     candidates = [_candidate(100, (0.5,))]
     config = _config_with_llm_enabled()
 
     class ShortClient:
+        def count_prompt_tokens(self, **kwargs):
+            return 500
+
         def complete_json(self, **kwargs):
-            return json.dumps({"decisions": [{"cid": 0, "blank": 1, "ranking": [], "motif": 101}]})
+            payload = json.loads(kwargs["user_prompt"])
+            cids = [v["cid"] for v in payload["voters"]]
+            if 0 in cids:
+                decisions = [{"cid": cid, "blank": 1, "ranking": [], "motif": 101} for cid in cids]
+            else:
+                decisions = [{"cid": 0, "blank": 1, "ranking": [], "motif": 101}]
+            return json.dumps({"decisions": decisions})
 
     outcome = cast_votes(voters, candidates, config, ShortClient())
 
     assert len(outcome.decisions) == len(voters)
-    assert outcome.llm_fallback.get(0) is None  # voter 0 was never misaligned, no fallback
-    assert all(outcome.llm_fallback.get(v.citizen_id) is True for v in voters if v.citizen_id != 0)
+    for v in voters:
+        expected_fallback = None if v.citizen_id in (0, 1, 2) else True
+        assert outcome.llm_fallback.get(v.citizen_id) == expected_fallback
 
 
 # ── build_candidacy_system_prompt / build_candidacy_user_prompt ─────────────
@@ -1609,6 +1720,12 @@ class FakeChamberLlmClient:
         self.think_values: list[bool] = []
         self.max_tokens_values: list[int] = []
 
+    def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
+        # See FakeLlmClient.count_prompt_tokens's own comment -- same
+        # rationale, small and fixed so it never binds against
+        # compute_max_tokens's own floor.
+        return 500
+
     def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
         payload = json.loads(user_prompt)
         cids = [m["cid"] for m in payload["members"]]
@@ -1631,9 +1748,10 @@ def test_decide_chamber_deliberation_returns_empty_and_skips_the_client_when_no_
 
 
 def test_decide_chamber_deliberation_sorts_members_by_citizen_id_regardless_of_input_order():
-    # _CHAMBER_MAX_CHUNK_SIZE=1 means each member reaches the client as its
-    # own call -- the ordering guarantee (D-5) is now about CALL ORDER, not
-    # grouping within one call.
+    # At the shipped default (provider=vllm, _CHAMBER_MAX_CHUNK_SIZE_VLLM=5)
+    # 3 members fit in a single chunk/call -- the ordering guarantee (D-5)
+    # is about the order WITHIN that call's own cid list, since members are
+    # sorted by citizen_id before chunking regardless of input order.
     members = [_member(3, (0.5,)), _member(0, (0.5,)), _member(4, (0.5,))]
     contexts = {m.citizen_id: _chamber_context(m.citizen_id) for m in members}
     config = _config_with_llm_enabled()
@@ -1641,30 +1759,36 @@ def test_decide_chamber_deliberation_sorts_members_by_citizen_id_regardless_of_i
 
     decide_chamber_deliberation(members, contexts, config, client)
 
-    assert client.calls == [[0], [3], [4]]
+    assert client.calls == [[0, 3, 4]]
 
 
-def test_decide_chamber_deliberation_chunks_a_full_seats_sized_cohort_at_one():
+def test_decide_chamber_deliberation_chunks_a_full_seats_sized_cohort_at_one_on_ollama():
     # A 30-member cohort (sortition_chamber.seats shipped) must reach the
-    # client as THIRTY calls of 1 -- this lot's own pre-flight spike found
-    # one call of 30 (and even a chunk of 15) silently drops all but the
-    # last 6 decisions, so decide_chamber_deliberation chunks at its own
-    # measured ceiling (_CHAMBER_MAX_CHUNK_SIZE), not config.llm.max_batch_
-    # size (25). Cut from an original 10 -- via a tried-and-DISPROVEN
-    # intermediate of 5 -- to 1 (vote_cast's own endpoint) after a real v6b
-    # acceptance run (2026-08-21/22, GPU) hit finish_reason='length' on a
-    # chunk_size=10 call, 3/3 attempts, all landing exactly on
-    # n_decoded=10136 -- the deterministic "hits the configured ceiling"
-    # signature (Mode B), not unbounded reasoning collapse (Mode A) --
-    # fixed the same way _VOTE_CAST_MAX_CHUNK_SIZE's own history fixed an
-    # analogous overflow: cut the chunk size, not the budget. Halving to 5
-    # was tried first and reproduced the identical overflow on a different
-    # sub-chunk with zero margin; chunk_size=1 was validated directly
-    # against that same failing group before shipping -- see this
-    # constant's own docstring / scripts/lot3_chamber_reliability_results.md.
+    # client as THIRTY calls of 1 on Ollama -- this lot's own pre-flight
+    # spike found one call of 30 (and even a chunk of 15) silently drops
+    # all but the last 6 decisions, so decide_chamber_deliberation chunks
+    # at its own measured ceiling (_CHAMBER_MAX_CHUNK_SIZE_OLLAMA), not
+    # config.llm.max_batch_size (25). Cut from an original 10 -- via a
+    # tried-and-DISPROVEN intermediate of 5 -- to 1 (vote_cast's own
+    # endpoint) after a real v6b acceptance run (2026-08-21/22, GPU) hit
+    # finish_reason='length' on a chunk_size=10 call, 3/3 attempts, all
+    # landing exactly on n_decoded=10136 -- the deterministic "hits the
+    # configured ceiling" signature (Mode B), not unbounded reasoning
+    # collapse (Mode A) -- fixed the same way _VOTE_CAST_MAX_CHUNK_SIZE_
+    # OLLAMA's own history fixed an analogous overflow: cut the chunk size,
+    # not the budget. Halving to 5 was tried first and reproduced the
+    # identical overflow on a different sub-chunk with zero margin;
+    # chunk_size=1 was validated directly against that same failing group
+    # before shipping -- see this constant's own docstring /
+    # scripts/lot3_chamber_reliability_results.md. Explicitly pinned to
+    # provider=ollama: this whole history is Ollama-era and was never
+    # re-tested there -- see test_decide_chamber_deliberation_chunks_a_
+    # full_seats_sized_cohort_at_five_on_vllm below for the re-tested
+    # vLLM-era ceiling.
     members = [_member(i, (0.5,)) for i in range(30)]
     contexts = {m.citizen_id: _chamber_context(m.citizen_id) for m in members}
     config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, provider="ollama"))
     client = FakeChamberLlmClient()
 
     decide_chamber_deliberation(members, contexts, config, client)
@@ -1674,7 +1798,26 @@ def test_decide_chamber_deliberation_chunks_a_full_seats_sized_cohort_at_one():
     assert sorted(cid for call in client.calls for cid in call) == list(range(30))
 
 
-def test_decide_chamber_deliberation_uses_think_true_and_the_reasoning_token_allowance():
+def test_decide_chamber_deliberation_chunks_a_full_seats_sized_cohort_at_five_on_vllm():
+    # check_vllm_chunk_size_throughput_results.md (2026-09-08): raised to 5
+    # on vLLM once real ground-truth/throughput testing found chamber_
+    # deliberation's Ollama-era ceiling didn't transfer as a hard limit --
+    # see _CHAMBER_MAX_CHUNK_SIZE_VLLM's own docstring. 30 members chunk as
+    # six calls of exactly 5.
+    members = [_member(i, (0.5,)) for i in range(30)]
+    contexts = {m.citizen_id: _chamber_context(m.citizen_id) for m in members}
+    config = _config_with_llm_enabled()
+    assert config.llm.provider == "vllm"
+    client = FakeChamberLlmClient()
+
+    decide_chamber_deliberation(members, contexts, config, client)
+
+    assert len(client.calls) == 6
+    assert [len(c) for c in client.calls] == [5] * 6
+    assert sorted(cid for call in client.calls for cid in call) == list(range(30))
+
+
+def test_decide_chamber_deliberation_uses_think_true_and_the_flat_reasoning_token_allowance_on_ollama():
     # v6b Lot 4 correction: a real acceptance run (2026-08-17, GPU) found a
     # specific 10-cid chunk that think=False reproducibly (8/8) dropped to
     # 4/10, well-formed JSON, not a truncation; think=True fixed that exact
@@ -1685,12 +1828,15 @@ def test_decide_chamber_deliberation_uses_think_true_and_the_reasoning_token_all
     # corrected from an original 4000 after a real v6b acceptance run
     # (2026-08-20) hit finish_reason='length' on a chunk_size=10 call, 3/3,
     # deterministic budget exhaustion (not context truncation). 1 member
-    # (not 10) since _CHAMBER_MAX_CHUNK_SIZE was itself later cut to 1
-    # (via a disproven intermediate of 5) for the identical reason, two
-    # calls up.
+    # (not 10) since _CHAMBER_MAX_CHUNK_SIZE_OLLAMA was itself later cut to
+    # 1 (via a disproven intermediate of 5) for the identical reason, two
+    # calls up. Explicitly pinned to provider=ollama (2026-09-08): the flat
+    # allowance this test pins is now the OLLAMA-only formula --
+    # _dynamic_max_tokens replaced it on vLLM, see the companion test below.
     members = [_member(0, (0.5,))]
     contexts = {m.citizen_id: _chamber_context(m.citizen_id) for m in members}
     config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, provider="ollama"))
     client = FakeChamberLlmClient()
 
     decide_chamber_deliberation(members, contexts, config, client)
@@ -1699,12 +1845,35 @@ def test_decide_chamber_deliberation_uses_think_true_and_the_reasoning_token_all
     assert client.max_tokens_values == [compute_max_tokens(1) + 8000]
 
 
+def test_decide_chamber_deliberation_uses_the_dynamic_max_tokens_probe_on_vllm():
+    # _dynamic_max_tokens (2026-09-08, check_vllm_chunk_size_throughput_
+    # results.md): on vLLM, max_tokens is no longer the flat allowance the
+    # companion Ollama test above pins -- it's probed against the real
+    # prompt via count_prompt_tokens and maximized under the context
+    # ceiling. FakeChamberLlmClient.count_prompt_tokens returns a fixed 500
+    # (see its own comment), so the expected value is fully determined:
+    # max(compute_max_tokens(1), 16384 - 500 - 300).
+    members = [_member(0, (0.5,))]
+    contexts = {m.citizen_id: _chamber_context(m.citizen_id) for m in members}
+    config = _config_with_llm_enabled()
+    assert config.llm.provider == "vllm"
+    client = FakeChamberLlmClient()
+
+    decide_chamber_deliberation(members, contexts, config, client)
+
+    assert client.think_values == [True]
+    assert client.max_tokens_values == [max(compute_max_tokens(1), 16384 - 500 - 300)]
+
+
 def test_decide_chamber_deliberation_applies_shifts_on_top_of_chamber_position():
     member = _member(0, (0.2, 0.2), chamber=(0.4, 0.2))  # already drifted from the sincere position
     contexts = {0: _chamber_context(0)}
     config = _config_with_llm_enabled()
 
     class ShiftingClient:
+        def count_prompt_tokens(self, **kwargs):
+            return 500
+
         def complete_json(self, **kwargs):
             payload = json.loads(kwargs["user_prompt"])
             cid = payload["members"][0]["cid"]
@@ -1727,6 +1896,9 @@ def test_decide_chamber_deliberation_corrects_motif_702_with_empty_shifts_to_701
     config = _config_with_llm_enabled()
 
     class IncoherentClient:
+        def count_prompt_tokens(self, **kwargs):
+            return 500
+
         def complete_json(self, **kwargs):
             decision = {"cid": 0, "shifts": [], "motif": 702}
             return json.dumps({"decisions": [decision]})
@@ -1746,6 +1918,9 @@ def test_decide_chamber_deliberation_does_not_correct_a_coherent_702():
     config = _config_with_llm_enabled()
 
     class CoherentClient:
+        def count_prompt_tokens(self, **kwargs):
+            return 500
+
         def complete_json(self, **kwargs):
             decision = {"cid": 0, "shifts": [{"dimension": 0, "delta": 0.1}], "motif": 702}
             return json.dumps({"decisions": [decision]})
@@ -1766,6 +1941,9 @@ def test_decide_chamber_deliberation_does_not_correct_701_with_a_small_nonempty_
     config = _config_with_llm_enabled()
 
     class SmallShiftClient:
+        def count_prompt_tokens(self, **kwargs):
+            return 500
+
         def complete_json(self, **kwargs):
             decision = {"cid": 0, "shifts": [{"dimension": 0, "delta": 0.05}], "motif": 701}
             return json.dumps({"decisions": [decision]})
@@ -1782,6 +1960,9 @@ def test_decide_chamber_deliberation_leaves_issue_positions_untouched():
     config = _config_with_llm_enabled()
 
     class ShiftingClient:
+        def count_prompt_tokens(self, **kwargs):
+            return 500
+
         def complete_json(self, **kwargs):
             decision = {"cid": 0, "shifts": [{"dimension": 0, "delta": 0.1}], "motif": 702}
             return json.dumps({"decisions": [decision]})
@@ -1840,6 +2021,9 @@ def test_decide_chamber_deliberation_propagates_llm_response_error_on_count_mism
     config = _config_with_llm_enabled()
 
     class ShortClient:
+        def count_prompt_tokens(self, **kwargs):
+            return 500
+
         def complete_json(self, **kwargs):
             return json.dumps({"decisions": [{"cid": 0, "shifts": [], "motif": 701}]})
 
@@ -1856,6 +2040,9 @@ def test_decide_chamber_deliberation_uses_replay():
     class FlakyThenGoodClient:
         def __init__(self):
             self.attempts = 0
+
+        def count_prompt_tokens(self, **kwargs):
+            return 500
 
         def complete_json(self, **kwargs):
             self.attempts += 1
@@ -3084,6 +3271,15 @@ class _FlakyClient:
         self.temperatures: list[float | None] = []
         self.seeds: list[int | None] = []
 
+    def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
+        # Deliberately does NOT increment self.calls -- every test using
+        # this fake asserts self.calls against complete_json's own retry
+        # count specifically, and _dynamic_max_tokens's probe is a separate
+        # call outside _complete_and_decode_with_replay's retry loop (see
+        # that function's own docstring on why: the prompt cannot change
+        # between retries, so probing once per chunk is correct).
+        return 500
+
     def complete_json(
         self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None, seed=None
     ):
@@ -3113,6 +3309,11 @@ class _FlakyResponseClient:
         self.prompts: list[tuple[str, str]] = []
         self.temperatures: list[float | None] = []
         self.seeds: list[int | None] = []
+
+    def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
+        # See _FlakyClient.count_prompt_tokens's own comment -- same
+        # rationale.
+        return 500
 
     def complete_json(
         self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None, seed=None

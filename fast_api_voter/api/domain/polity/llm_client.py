@@ -161,6 +161,16 @@ class LlmClientProtocol(Protocol):
         seed: int | None = None,
     ) -> str: ...
 
+    # Prefill-only probe (`max_tokens=1`) returning the real token count of
+    # (system_prompt, user_prompt) as the backend's own chat template
+    # tokenizes it -- added for llm_behavior_engine._dynamic_max_tokens
+    # (2026-09-08, check_vllm_chunk_size_throughput_results.md). See each
+    # implementation's own docstring below for the verified-vs-unverified
+    # split (VllmJsonClient.count_prompt_tokens / OllamaJsonClient.count_
+    # prompt_tokens) -- this stub carries no doc of its own, matching
+    # complete_json's own convention on this Protocol.
+    def count_prompt_tokens(self, *, system_prompt: str, user_prompt: str, think: bool = True) -> int: ...
+
 
 SUPPORTED_PROVIDERS = frozenset({"ollama", "vllm"})
 """Providers with an actual client in this module. config._LLM_PROVIDERS is
@@ -440,6 +450,42 @@ class OllamaJsonClient:
         response = _post_with_transport_retry(self._client, f"{native_base}/api/chat", payload)
         return _extract_native_content(response)
 
+    def count_prompt_tokens(self, *, system_prompt: str, user_prompt: str, think: bool = True) -> int:
+        """UNVERIFIED against a live Ollama server, unlike VllmJsonClient's
+        own implementation -- this project's LLM investigation since the vLLM
+        switch (§15bis.6) has not touched Ollama at all, and this method is
+        never actually called against one in production: llm_behavior_engine.
+        _dynamic_max_tokens only invokes count_prompt_tokens behind a
+        `config.llm.provider == "vllm"` gate. Implemented anyway so
+        LlmClientProtocol has one real implementation per client rather than
+        a stub that would raise if ever reached, on the same OpenAI-compat
+        `/v1/chat/completions` shape `_complete_json_openai_compat` already
+        uses (Ollama's `usage.prompt_tokens` field is a standard part of that
+        same compat surface) -- but ollama_structured_output_results.md's own
+        finding that "temperature=0 + a pinned seed is not a reproducibility
+        guarantee on this backend" is reason enough not to assume this probe
+        is safe to actually wire into a chunk-size decision for Ollama
+        without first measuring it the way VllmJsonClient's own version was
+        measured. `think` intentionally does not route to the native
+        `think=False` endpoint the way complete_json does -- a max_tokens=1
+        probe on either endpoint returns the same usage.prompt_tokens for the
+        same input, so the extra complexity of a second code path here would
+        buy nothing."""
+        body = {
+            "model": self._model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "temperature": self._temperature,
+            "seed": self._seed,
+            "max_tokens": 1,
+            "stream": False,
+        }
+        payload = json.dumps(body, sort_keys=True, separators=(",", ":"))
+        response = _post_with_transport_retry(self._client, f"{self._base_url}/chat/completions", payload)
+        return _extract_prompt_tokens(response)
+
     def _recycle(self) -> None:
         """Forces a model unload (`keep_alive: 0` on the native endpoint,
         verified directly against a live container to reset "cache state"
@@ -648,6 +694,52 @@ class VllmJsonClient:
         response = _post_with_transport_retry(self._client, f"{self._base_url}/chat/completions", payload)
         return _extract_content(response)
 
+    def count_prompt_tokens(self, *, system_prompt: str, user_prompt: str, think: bool = True) -> int:
+        """VERIFIED live (2026-09-08, GPU, check_vllm_chunk_size_throughput_
+        results.md): a `max_tokens=1` request against the real production
+        prompt builders returns `usage.prompt_tokens` matching the real
+        tokenized size at every chunk size measured (1/2/3/5), not an
+        estimate -- this is what makes llm_behavior_engine._dynamic_max_tokens
+        safe to size against `--max-model-len` (docker-compose.llm.yml)
+        precisely rather than guessing a flat allowance the way the naive
+        first attempt at this fix did (a chunk_size-scaled allowance guess
+        both contradicted compute_max_tokens's own flat-addend convention and
+        exceeded the ceiling outright once chunk_size>=3, a real 19716-token
+        request rejected outright).
+
+        `chat_template_kwargs: {"enable_thinking": think}` is sent exactly
+        as complete_json sends it, so the probed prompt is byte-identical
+        (via the chat template) to what the real call will send -- a probe
+        under a different `think` value could plausibly tokenize differently
+        (Qwen3's template may alter its own preamble based on the flag) and
+        would silently mis-size the real call's budget. temperature/seed are
+        this client's own configured values (never overridden here): they do
+        not affect prompt tokenization, only sampling, but are included for
+        the same reason complete_json always includes them -- a total
+        function of the call arguments, no hidden server-side default.
+        `response_format` is deliberately omitted: xgrammar-style structured
+        output constrains GENERATION via logit masking, not the prompt sent
+        to the model, so it should not affect `usage.prompt_tokens` -- this
+        specific equivalence (probe vs. real-call prompt_tokens) was not
+        separately isolated in the live investigation and remains an
+        assumption, not a measured claim, though it follows directly from
+        how vLLM's structured-output backends are documented to work."""
+        body = {
+            "model": self._model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "temperature": self._temperature,
+            "seed": self._seed,
+            "max_tokens": 1,
+            "stream": False,
+            "chat_template_kwargs": {"enable_thinking": think},
+        }
+        payload = json.dumps(body, sort_keys=True, separators=(",", ":"))
+        response = _post_with_transport_retry(self._client, f"{self._base_url}/chat/completions", payload)
+        return _extract_prompt_tokens(response)
+
     def close(self) -> None:
         self._client.close()
 
@@ -705,6 +797,25 @@ def _extract_content(response: httpx.Response) -> str:
         raise LlmResponseError(f"expected choices[0].message.content to be a string, got {message!r}")
 
     return str(message["content"])
+
+
+def _extract_prompt_tokens(response: httpx.Response) -> int:
+    """Shared by both count_prompt_tokens implementations -- the OpenAI-
+    compat `usage.prompt_tokens` field, present on the response regardless
+    of `finish_reason` (a max_tokens=1 probe always finishes at 'length',
+    never 'stop', so this deliberately does NOT go through _extract_content,
+    which would raise on exactly that)."""
+    try:
+        body = response.json()
+    except ValueError as exc:
+        raise LlmResponseError(f"response was not valid JSON: {exc}") from exc
+
+    if not isinstance(body, dict):
+        raise LlmResponseError(f"expected a JSON object, got {type(body).__name__}")
+    usage = body.get("usage")
+    if not isinstance(usage, dict) or not isinstance(usage.get("prompt_tokens"), int):
+        raise LlmResponseError(f"expected usage.prompt_tokens to be an int, got {usage!r}")
+    return int(usage["prompt_tokens"])
 
 
 def _extract_native_content(response: httpx.Response) -> str:
@@ -915,11 +1026,11 @@ def decode_chamber_batch(raw: str, expected_cids: Sequence[int]) -> list[Chamber
 
     Like decode_pressure_batch/decode_reaction_batch, `expected_cids` here
     is a CHUNKED cohort -- decide_chamber_deliberation calls this once per
-    chunk_voters chunk, at its own measured ceiling of 10 members per call
-    (llm_behavior_engine._CHAMBER_MAX_CHUNK_SIZE), not
-    config.llm.max_batch_size: a real, measured correction after this
-    lot's own pre-flight spike found one call of 30 (and even a chunk of
-    15) silently drops all but the last 6 decisions."""
+    chunk_voters chunk, at its own measured, provider-conditional ceiling
+    (llm_behavior_engine._chamber_chunk_size(config): 1 on Ollama, 5 on
+    vLLM as of 2026-09-08), not config.llm.max_batch_size: a real, measured
+    correction after this lot's own pre-flight spike found one call of 30
+    (and even a chunk of 15) silently drops all but the last 6 decisions."""
     stripped = _THINK_TAG_RE.sub("", raw).strip()
     try:
         parsed = json.loads(stripped)

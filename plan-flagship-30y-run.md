@@ -594,7 +594,11 @@ context ceiling outright at chunk_size>=3. Probing the real `prompt_tokens`
 per call and requesting the maximum safe budget (`16384 - prompt_tokens -
 margin`) instead of a flat allowance fixes it: **chamber_deliberation ~2x
 faster per member at chunk=5** (2.9s → 1.4s/member, only 1 failure in 40
-attempts, no correctness-collapse concern on record for this type);
+attempts; chamber's own narrow Mode-A finding -- an unbounded reasoning loop
+when `chamber_position == sincere_position`, 2.6% baseline, already
+prompt-fixed -- was incidentally stress-tested by this investigation's own
+fixtures, which set that exact state on every synthetic member, without a
+rate increase);
 **vote_cast ~2.5x faster per citizen at chunk=3** (12.2s → 4.5s/citizen,
 zero failures in 8/8, 23/24 correct) — chunk=3 edges out chunk=5 for
 vote_cast specifically once failure blast-radius is weighed in, since a
@@ -609,13 +613,20 @@ investigation, and already the kind of failure `_complete_and_decode_with_replay
 retries against in production (this test script calls the client directly,
 with no retry, so its raw failure rates overstate what production sees).
 
-**Not yet shipped.** Raising the chunk-size constants requires also replacing
-the flat `compute_max_tokens(len(chunk)) + <allowance>` formula at both call
-sites with the dynamic probe-and-maximize approach proven here — otherwise
-larger chunks reproduce the exact context-overflow failure this
-investigation's first (buggy) pass hit. That's a real production change (new
-per-call round-trip, two constants, new tests), not a config flip — open
-decision on whether/how to bring it in before Phase 7.
+**Shipped (2026-09-08).** `_VOTE_CAST_MAX_CHUNK_SIZE_VLLM=3` /
+`_CHAMBER_MAX_CHUNK_SIZE_VLLM=5`, both provider-conditional (Ollama keeps its
+original chunk=1 and flat allowance, entirely unexamined and untouched by this
+change) via `_vote_cast_chunk_size(config)`/`_chamber_chunk_size(config)`.
+`LlmClientProtocol` gained `count_prompt_tokens` (implemented on both
+`VllmJsonClient`, live-verified, and `OllamaJsonClient`, unverified but never
+called in this config); `_dynamic_max_tokens` replaces the flat formula at
+both call sites, gated on `config.llm.provider == "vllm"`. 285+205 polity
+tests pass, `mypy api/` clean, `flake8` clean. Verified against the REAL
+shipped code path (not just fakes) on the live vLLM server:
+`scripts/check_shipped_chunk_size_smoke.py` — 10/10 vote_cast ballots correct
+against `simple_rules.build_ranking` ground truth, 0 fallbacks, 0 retries;
+chamber_deliberation 12/12 clean. Full diff detail:
+`scripts/check_vllm_chunk_size_throughput_results.md`.
 
 ## Phase 3 — Checkpoint / resume · **DONE**
 

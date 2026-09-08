@@ -94,9 +94,11 @@ the CALLER before this module is ever reached (run_polity_simulation's
 _run_chamber_deliberation is dispatched directly from the tick loop, never
 nested inside _run_accountability_phase -- see that function's own
 docstring for why). Chunks via chunk_voters, but at its OWN measured
-ceiling (_CHAMBER_MAX_CHUNK_SIZE=1, cut down from an original 10 -- via a
-tried-and-failed intermediate of 5 -- after repeated token-budget overflows;
-see that constant's own docstring), not config.llm.max_batch_size --
+ceiling (_CHAMBER_MAX_CHUNK_SIZE_OLLAMA=1, cut down from an original 10 --
+via a tried-and-failed intermediate of 5 -- after repeated token-budget
+overflows; see that constant's own docstring, and _CHAMBER_MAX_CHUNK_SIZE_
+VLLM=5 for the vLLM-era re-test that raised this on that provider), not
+config.llm.max_batch_size --
 originally designed to never chunk at all (the cohort is capped at
 sortition_chamber.seats, shipped 30, "a handful", the same category as
 dt=5/dt=6), but this lot's own pre-flight spike measured that assumption
@@ -267,7 +269,45 @@ MIN_SAFE_BATCH_SIZE = 20
 # scripts/lot3_chamber_reliability_results.md's "Lot 4 chunk_size=1
 # validation" section for the full evidence chain (chunk=10 crash,
 # chunk=5 re-failure, chunk=1 convergence).
-_CHAMBER_MAX_CHUNK_SIZE = 1
+#
+# Every finding above is Ollama-era (this project's own OLLAMA_CONTEXT_
+# LENGTH is the ceiling cited throughout) and stayed the shipped value for
+# every provider, unexamined since the vLLM switch (§15bis.6), because
+# nothing had re-tested it. Renamed here (2026-09-08) to make that explicit
+# rather than silently keep applying an Ollama-measured ceiling to vLLM --
+# see _CHAMBER_MAX_CHUNK_SIZE_VLLM below for the re-test and its very
+# different answer, and _chamber_chunk_size for how the two are selected.
+_CHAMBER_MAX_CHUNK_SIZE_OLLAMA = 1
+
+_CHAMBER_MAX_CHUNK_SIZE_VLLM = 5
+"""check_vllm_chunk_size_throughput_results.md (2026-09-08, GPU, real
+production prompts, real decode/validation, vLLM/Qwen3-8B-AWQ): unlike
+vote_cast (see _VOTE_CAST_MAX_CHUNK_SIZE_VLLM's own docstring), chamber_
+deliberation's Ollama-era failure history is exclusively "Mode B" -- token-
+budget exhaustion that converges once given enough budget, never a
+reasoning/attention collapse that persists regardless of budget -- so there
+is no analogous correctness risk to re-check against ground truth here, only
+whether a correctly-sized budget avoids Mode B. It does: 5 was the largest
+chunk size tested (not an exhaustively-searched ceiling), clean across every
+run in that investigation but one -- a single `finish_reason='length'`
+despite the maximized dynamic budget (_dynamic_max_tokens), in 40 total
+attempts across chunk sizes 2/3/5 -- and delivers the largest measured
+throughput win of any chunk size tested for this decision type (~2.9s/member
+at chunk=1 down to ~1.4s/member at chunk=5, roughly 2x), on top of the
+proportional 5x reduction in call count this run's own dominant cost driver
+(9,075 calls at chunk=1, seats=75 x ticks=121) sees from raising chunk size
+at all. Requires _dynamic_max_tokens at the call site, not just this raised
+ceiling on its own -- see that function's own docstring for why."""
+
+
+def _chamber_chunk_size(config: PolityConfig) -> int:
+    """The provider-conditional switch _CHAMBER_MAX_CHUNK_SIZE_VLLM/_OLLAMA's
+    own docstrings describe -- kept as a function rather than resolved once
+    at import time so a config change (e.g. a test overriding llm.provider)
+    is always honored, matching how every other provider-conditional check
+    in this module (_check_supported, _dynamic_max_tokens) already reads
+    config.llm.provider fresh per call rather than caching it."""
+    return _CHAMBER_MAX_CHUNK_SIZE_VLLM if config.llm.provider == "vllm" else _CHAMBER_MAX_CHUNK_SIZE_OLLAMA
 
 # A real v6b acceptance run (2026-08-17, GPU) found cast_votes's own
 # per-voter distance-threshold arithmetic -- correct at batch size 1 (5/5
@@ -315,7 +355,46 @@ _CHAMBER_MAX_CHUNK_SIZE = 1
 # (chamber_deliberation/pressure_action's own per-tick call volume is), and
 # likely an overestimate since it assumes chunk_size=3 would have completed
 # cleanly instead of repeatedly failing and burning replay attempts.
-_VOTE_CAST_MAX_CHUNK_SIZE = 1
+#
+# Every finding above is Ollama-era (OLLAMA_CONTEXT_LENGTH=16384 is the
+# ceiling cited throughout) and includes the single most serious reason to
+# be careful here: an "identity-permutation collapse" at batch size 4+,
+# checked against real weighted_distance ground truth, not just schema
+# validity (0-2/5 correct at chunk=5, cited above) -- a reasoning/attention
+# failure, not a token-budget one, that no amount of extra budget fixed.
+# Renamed here (2026-09-08) to make explicit this value only ever applied
+# to Ollama, unexamined since the vLLM switch (§15bis.6) -- see
+# _VOTE_CAST_MAX_CHUNK_SIZE_VLLM below for the re-test.
+_VOTE_CAST_MAX_CHUNK_SIZE_OLLAMA = 1
+
+_VOTE_CAST_MAX_CHUNK_SIZE_VLLM = 3
+"""check_vllm_chunk_size_throughput_results.md (2026-09-08, GPU, real
+production prompts, parties.initial_count=5): re-tested the identity-
+permutation collapse directly against the same ground truth the Ollama-era
+finding used (simple_rules.build_ranking, diffed decision-by-decision, not
+just schema validity) -- it does not reproduce on vLLM/Qwen3-8B-AWQ: 23/24
+correct at chunk=3, 29/30 at chunk=5, across every structurally-clean
+decode. Chunk=3 was chosen over the also-clean chunk=5 specifically because
+chunk=5 showed a real, if small, cost the throughput numbers alone don't
+capture: in that same run, chunk=5 produced both a `finish_reason='length'`
+truncation AND a multi-voter schema failure (the deterministic blank+
+non-empty-ranking §3.6.1 quirk _VOTE_CAST_RETRY_TEMPERATURE's own docstring
+already documents, chunk-size-independent, reproduced standalone at
+chunk=1 too) in 8 attempts, while chunk=3 was clean 8/8 -- and a chunk
+failure forces a full-chunk retry, so a bigger chunk means more already-
+computed work discarded per failure. Chunk=3 captured nearly all of the
+measured speedup anyway (~4.5s/citizen vs chunk=5's ~5.1s/citizen, both
+roughly 2.5x faster than chunk=1's ~12.2s/citizen) with the better observed
+failure profile on this project's own most extensively fragile decision
+type. Requires _dynamic_max_tokens at the call site, not just this raised
+ceiling on its own -- see that function's own docstring for why."""
+
+
+def _vote_cast_chunk_size(config: PolityConfig) -> int:
+    """The provider-conditional switch _VOTE_CAST_MAX_CHUNK_SIZE_VLLM/_OLLAMA's
+    own docstrings describe -- see _chamber_chunk_size's own docstring for
+    why this stays a function rather than a value resolved once."""
+    return _VOTE_CAST_MAX_CHUNK_SIZE_VLLM if config.llm.provider == "vllm" else _VOTE_CAST_MAX_CHUNK_SIZE_OLLAMA
 
 # cache_recycle_chunk_size_tension_findings.md's own 3-condition harness
 # experiment (2026-08-22, GPU) found the chunk_size=1 fix above still
@@ -441,11 +520,18 @@ class VoteBatchOutcome:
     retry_sampling_varied: dict[int, bool] = field(default_factory=dict)
     """cid -> whether that voter's decision came from a temperature-varied
     RETRY (never the first attempt -- see _VOTE_CAST_RETRY_TEMPERATURE),
-    per _complete_and_decode_with_replay's own retry_info contract. Since
-    _VOTE_CAST_MAX_CHUNK_SIZE=1, one chunk == one voter == one completion,
-    so this is unambiguous per cid. Defaults to an empty dict (every key
-    absent means False) so every pre-existing VoteBatchOutcome(...)
-    construction in this codebase's own tests keeps compiling unchanged."""
+    per _complete_and_decode_with_replay's own retry_info contract. On
+    Ollama (_VOTE_CAST_MAX_CHUNK_SIZE_OLLAMA=1) one chunk is one voter, so
+    this was trivially unambiguous per cid; on vLLM (_VOTE_CAST_MAX_CHUNK_
+    SIZE_VLLM=3) a chunk can hold several voters, but it stays unambiguous
+    for a different reason -- a chunk retries or falls back as a whole
+    (_complete_and_decode_with_replay retries the entire request, never a
+    partial correction, per §3.6.10), so every decision in that chunk
+    shares the same chunk-level sampling_varied outcome, assigned once per
+    decision.cid at the call site below, not once per chunk. Defaults to an
+    empty dict (every key absent means False) so every pre-existing
+    VoteBatchOutcome(...) construction in this codebase's own tests keeps
+    compiling unchanged."""
     llm_fallback: dict[int, bool] = field(default_factory=dict)
     """cid -> whether that voter's ballot came from _deterministic_vote_
     fallback rather than the model at all -- added 2026-09-06
@@ -789,6 +875,76 @@ def compute_max_tokens(chunk_size: int) -> int:
     return max(chunk_size * 60 + 1536, 1536)
 
 
+_VLLM_CONTEXT_LIMIT = 16384
+"""Matches `--max-model-len 16384` (docker-compose.llm.yml) -- vLLM's own
+hard ceiling on prompt_tokens + max_tokens together for one request. Used
+only by _dynamic_max_tokens, only on the vLLM path."""
+
+_VLLM_MAX_TOKENS_SAFETY_MARGIN = 300
+"""Headroom below _VLLM_CONTEXT_LIMIT that _dynamic_max_tokens never
+requests into -- check_vllm_chunk_size_throughput_results.md used the same
+300-token margin throughout; no live failure traced to margin size itself
+(the two truncations observed there both burned the FULL requested budget
+before finish_reason='length', an unpredictable-reasoning-length tail, not
+a margin that was too thin)."""
+
+
+def _dynamic_max_tokens(
+    client: LlmClientProtocol,
+    config: PolityConfig,
+    *,
+    system_prompt: str,
+    user_prompt: str,
+    chunk_size: int,
+    flat_allowance: int,
+) -> int:
+    """Replaces `compute_max_tokens(chunk_size) + flat_allowance` (every
+    call site's shape before 2026-09-08) with a probe-and-maximize strategy,
+    ON THE VLLM PATH ONLY -- gated on `config.llm.provider`, never on the
+    concrete client class, so llm_behavior_engine keeps touching only
+    LlmClientProtocol (see test_cast_votes_accepts_the_vllm_provider_with_
+    identical_output's own asserted invariant; VllmJsonClient/OllamaJsonClient
+    both implement count_prompt_tokens for exactly this reason -- see that
+    method's own docstring on each class).
+
+    Why gated, not universal: the flat allowance was tuned and re-tuned
+    empirically against Ollama (`_VOTE_THINK_TOKEN_ALLOWANCE`/`_CHAMBER_
+    THINK_TOKEN_ALLOWANCE`'s own multi-escalation histories), and this
+    project's LLM investigation since the vLLM switch has never re-touched
+    Ollama at all -- probing real prompt_tokens and requesting the maximum
+    safe budget is unverified there (see OllamaJsonClient.count_prompt_
+    tokens's own docstring) and stays inert for it: an Ollama-provider config
+    gets exactly the old formula, unchanged, forever, unless a future
+    investigation re-measures that path specifically.
+
+    On the vLLM path: one cheap `max_tokens=1` probe call (prefill only, no
+    decode) against the EXACT prompt about to be sent, then
+    `max(compute_max_tokens(chunk_size), _VLLM_CONTEXT_LIMIT - prompt_tokens
+    - _VLLM_MAX_TOKENS_SAFETY_MARGIN)` -- requesting the largest budget the
+    context window has left rather than guessing a number. Proven in
+    check_vllm_chunk_size_throughput_results.md: a naive chunk-size-scaled
+    guess (`chunk_size * 6000`, an early version of that investigation)
+    both contradicted this project's own flat-addend philosophy and exceeded
+    the context ceiling outright once chunk_size >= 3 (a real 19716-token
+    request rejected outright); probing and maximizing instead let both
+    vote_cast and chamber_deliberation decode cleanly at every tested chunk
+    size up to 5, with the two remaining failures in that investigation
+    (`finish_reason='length'` despite the maximized budget, 2 of 64 calls)
+    an irreducible unpredictable-reasoning-length tail, not something a
+    bigger allowance would have prevented -- the whole reason
+    `compute_max_tokens`'s own addend is flat rather than scaled.
+
+    The probe is issued once per chunk, not once per replay attempt: the
+    prompt is byte-identical across every attempt _complete_and_decode_
+    with_replay makes for the same chunk (only seed/temperature vary on a
+    retry), so prompt_tokens cannot change between attempts either."""
+    floor = compute_max_tokens(chunk_size)
+    if config.llm.provider != "vllm":
+        return floor + flat_allowance
+    prompt_tokens = client.count_prompt_tokens(system_prompt=system_prompt, user_prompt=user_prompt, think=True)
+    return max(floor, _VLLM_CONTEXT_LIMIT - prompt_tokens - _VLLM_MAX_TOKENS_SAFETY_MARGIN)
+
+
 _POSITIONING_THINK_TOKEN_ALLOWANCE = 8000
 """Extra budget decide_campaign_positioning adds on top of compute_max_tokens
 once it moved to think=True (v4 Lot 8 live finding, see that function's
@@ -1105,13 +1261,24 @@ def cast_votes(
     (5/5), a batch of 3 stayed 100% correct across three independent voter
     groups (9/9), and batches of 4+ degrade sharply (5/8 at 4, 0-2/5 at 5,
     a near-uniform identity-permutation collapse at the shipped chunk size
-    of 25). Chunks at the dedicated _VOTE_CAST_MAX_CHUNK_SIZE, not
+    of 25). Chunks at the dedicated _vote_cast_chunk_size(config), not
     config.llm.max_batch_size -- deliberately overriding chunk_voters's own
     min_batch_size floor down to 1, the same override dt=10/dt=11 already
     use for their own measured ceilings, and for the same reason: the
     shipped MIN_SAFE_BATCH_SIZE=20 floor was itself calibrated on this
     exact prompt shape, but without the extra reasoning budget below --
-    with it, small batches don't truncate, they're just correct."""
+    with it, small batches don't truncate, they're just correct.
+
+    Re-tested on vLLM (2026-09-08, check_vllm_chunk_size_throughput_
+    results.md): this whole finding above -- "batches of 4+ degrade
+    sharply" -- was measured on Ollama only and never re-checked after the
+    vLLM switch (§15bis.6) until now. It does not reproduce: diffed
+    directly against the same weighted_distance ground truth this
+    docstring's own history uses, chunk=3 was 23/24 correct and chunk=5 was
+    29/30, on the real vLLM/Qwen3-8B-AWQ backend. _vote_cast_chunk_size
+    returns 3 on that provider (not the also-clean 5 -- see _VOTE_CAST_MAX_
+    CHUNK_SIZE_VLLM's own docstring for why) and stays at the historical 1
+    on Ollama, since Ollama itself was never re-examined."""
     _check_supported(config)
 
     candidate_count = len(candidates)
@@ -1127,13 +1294,22 @@ def cast_votes(
         expected_cids = [voter.citizen_id for voter in chunk]
         retry_info: dict[str, Any] = {}
         is_fallback = False
+        system_prompt = build_system_prompt(chunk, candidates)
+        user_prompt = build_user_prompt(chunk, candidates)
         try:
             chunk_decisions = _complete_and_decode_with_replay(
                 client,
-                system_prompt=build_system_prompt(chunk, candidates),
-                user_prompt=build_user_prompt(chunk, candidates),
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
                 json_schema=VOTE_CAST_JSON_SCHEMA,
-                max_tokens=compute_max_tokens(len(chunk)) + _VOTE_THINK_TOKEN_ALLOWANCE,
+                max_tokens=_dynamic_max_tokens(
+                    client,
+                    config,
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    chunk_size=len(chunk),
+                    flat_allowance=_VOTE_THINK_TOKEN_ALLOWANCE,
+                ),
                 think=True,
                 decode=lambda raw: decode_vote_batch(raw, expected_cids),
                 replays=config.llm.max_batch_replays,
@@ -1175,7 +1351,7 @@ def cast_votes(
     decisions: list[VoteCastDecision] = []
     retry_sampling_varied: dict[int, bool] = {}
     llm_fallback: dict[int, bool] = {}
-    chunks = chunk_voters(voters, _VOTE_CAST_MAX_CHUNK_SIZE, min_batch_size=1)
+    chunks = chunk_voters(voters, _vote_cast_chunk_size(config), min_batch_size=1)
     for chunk_decisions, sampling_varied, is_fallback in run_chunks(
         chunks, _vote_chunk, config.parallel.intra_run_workers
     ):
@@ -2634,8 +2810,16 @@ def build_chamber_system_prompt(members: Sequence[Citizen], config: PolityConfig
     "the two arrays are literally equal" as something to keep re-verifying
     rather than a self-evidently trivial case. See
     scripts/lot3_chamber_reliability_results.md's own "Lot 5 correction"
-    for the full diagnostic; this sentence is the fix, not a budget change
-    -- chunk_size is already at its floor (_CHAMBER_MAX_CHUNK_SIZE=1)."""
+    for the full diagnostic; this sentence is the fix, not a budget or
+    chunk-size change -- at the time, chunk_size was already at its floor
+    (_CHAMBER_MAX_CHUNK_SIZE_OLLAMA=1) with nowhere lower to cut to. Still
+    holds up at the larger vLLM-era chunk size: check_vllm_chunk_size_
+    throughput_results.md's own chamber measurements happened to exercise
+    this exact trigger state on every synthetic member tested (chamber_
+    position pinned equal to issue_positions by construction) at chunk
+    sizes 2/3/5, and observed roughly the same failure rate as this
+    docstring's own 2.6% baseline, not a worse one -- not a deliberate,
+    dedicated stress test of this specific mode, but a real one."""
     cid_list = ",".join(str(m.citizen_id) for m in members)
     return (
         "Tu es un moteur de simulation. Pour chaque membre tire au sort de "
@@ -2710,7 +2894,7 @@ def decide_chamber_deliberation(
     time and nothing else ever touches it, so "no delta" is already true by
     construction without this module ever running).
 
-    Chunks via chunk_voters, but at _CHAMBER_MAX_CHUNK_SIZE (1), NOT
+    Chunks via chunk_voters, but at _chamber_chunk_size(config), NOT
     config.llm.max_batch_size (25) -- a real, measured correction to this
     lot's own original design, which assumed a small, un-chunked cohort
     (sortition_chamber.seats capped at 30, "a handful", the same category
@@ -2723,18 +2907,23 @@ def decide_chamber_deliberation(
     genuine token-budget overflow at chunk_size=10 (3/3 attempts, exact
     ceiling); halving to 5 was tried and validated-then-DISPROVEN against
     the real failing chunk (a different 5-member sub-chunk overflowed too,
-    zero margin); cut to 1 -- vote_cast's own endpoint, same reasoning --
-    and that held, with real margin, against the same failing citizens.
-    See _CHAMBER_MAX_CHUNK_SIZE's own docstring for the full diagnostic.
-    `min_batch_size=1` is now a no-op (chunk_voters always produces chunks
-    of exactly 1 at this chunk size) but is left in place -- harmless, and
-    it was the right override even when the ceiling was higher, since
-    sortition_chamber.seats can be configured below whatever
-    _CHAMBER_MAX_CHUNK_SIZE happens to be, and chunk_voters's own default
-    floor (MIN_SAFE_BATCH_SIZE=20) was calibrated on a lighter prompt shape
-    (vote_cast) that doesn't apply here either way -- see
-    scripts/lot3_chamber_reliability_results.md for the measured evidence
-    behind both the original batch ceiling and this floor override.
+    zero margin); cut to 1 (Ollama) -- vote_cast's own endpoint, same
+    reasoning -- and that held, with real margin, against the same failing
+    citizens. See _CHAMBER_MAX_CHUNK_SIZE_OLLAMA's own docstring for the
+    full diagnostic, and _CHAMBER_MAX_CHUNK_SIZE_VLLM's for the 2026-09-08
+    vLLM-era re-test that raised this back to 5 on that provider, once
+    _dynamic_max_tokens replaced the flat budget this whole history was
+    fighting.
+    `min_batch_size=1` is a no-op on Ollama (chunk_voters always produces
+    chunks of exactly 1 at that chunk size) but is left in place regardless
+    of provider -- harmless, and it was the right override even when the
+    ceiling was higher, since sortition_chamber.seats can be configured
+    below whatever _chamber_chunk_size(config) happens to be, and
+    chunk_voters's own default floor (MIN_SAFE_BATCH_SIZE=20) was
+    calibrated on a lighter prompt shape (vote_cast) that doesn't apply
+    here either way -- see scripts/lot3_chamber_reliability_results.md for
+    the measured evidence behind both the original batch ceiling and this
+    floor override.
 
     Calls the client with think=True (corrected from think=False, which
     this lot's own pre-flight spike originally chose): a real v6b
@@ -2759,12 +2948,21 @@ def decide_chamber_deliberation(
 
     def _chamber_chunk(chunk: list[Citizen]) -> list[ChamberDecision]:
         expected_cids = [m.citizen_id for m in chunk]
+        system_prompt = build_chamber_system_prompt(chunk, config)
+        user_prompt = build_chamber_user_prompt(chunk, contexts)
         return _complete_and_decode_with_replay(
             client,
-            system_prompt=build_chamber_system_prompt(chunk, config),
-            user_prompt=build_chamber_user_prompt(chunk, contexts),
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
             json_schema=CHAMBER_JSON_SCHEMA,
-            max_tokens=compute_max_tokens(len(chunk)) + _CHAMBER_THINK_TOKEN_ALLOWANCE,
+            max_tokens=_dynamic_max_tokens(
+                client,
+                config,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                chunk_size=len(chunk),
+                flat_allowance=_CHAMBER_THINK_TOKEN_ALLOWANCE,
+            ),
             think=True,
             decode=lambda raw: decode_chamber_batch(raw, expected_cids),
             replays=config.llm.max_batch_replays,
@@ -2772,7 +2970,7 @@ def decide_chamber_deliberation(
         )
 
     decisions: list[ChamberDecision] = []
-    chunks = chunk_voters(members, _CHAMBER_MAX_CHUNK_SIZE, min_batch_size=1)
+    chunks = chunk_voters(members, _chamber_chunk_size(config), min_batch_size=1)
     for chunk_decisions in run_chunks(chunks, _chamber_chunk, config.parallel.intra_run_workers):
         decisions.extend(chunk_decisions)
 

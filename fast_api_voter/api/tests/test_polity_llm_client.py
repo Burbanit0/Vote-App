@@ -206,6 +206,40 @@ def test_missing_choices_raises_response_error():
         client.complete_json(system_prompt="s", user_prompt="u", json_schema={}, max_tokens=64)
 
 
+# ── OllamaJsonClient.count_prompt_tokens (2026-09-08) -- UNVERIFIED against
+# a live server, unlike VllmJsonClient's own version below; see that
+# method's own docstring. Same request/response shape either way, so the
+# same offline coverage discipline applies.
+
+def test_count_prompt_tokens_request_shape_is_correct():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["url"] = str(request.url)
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(200, json={"usage": {"prompt_tokens": 123}, "choices": []})
+
+    client = _client(handler)
+    tokens = client.count_prompt_tokens(system_prompt="sys", user_prompt="usr")
+
+    assert tokens == 123
+    assert captured["url"] == f"{BASE_URL}/chat/completions"
+    body = captured["body"]
+    assert body["model"] == "qwen3:8b"
+    assert body["temperature"] == 0.0
+    assert body["seed"] == 42
+    assert body["max_tokens"] == 1
+    assert body["stream"] is False
+    assert body["messages"] == [{"role": "system", "content": "sys"}, {"role": "user", "content": "usr"}]
+    assert "response_format" not in body  # the schema constrains generation, not the prompt -- see docstring
+
+
+def test_count_prompt_tokens_missing_usage_raises_response_error():
+    client = _client(lambda request: httpx.Response(200, json={"choices": []}))
+    with pytest.raises(LlmResponseError, match="prompt_tokens"):
+        client.count_prompt_tokens(system_prompt="s", user_prompt="u")
+
+
 # ── OllamaJsonClient, think=False (native /api/chat path) ────────────────
 # No prior offline coverage of this path existed (only the think=True
 # OpenAI-compat path above was tested without a live server) -- these
@@ -640,6 +674,54 @@ def test_vllm_missing_choices_raises_response_error():
     client = _vllm_client(lambda request: httpx.Response(200, json={}))
     with pytest.raises(LlmResponseError, match="choices"):
         client.complete_json(system_prompt="s", user_prompt="u", json_schema={}, max_tokens=64)
+
+
+# ── VllmJsonClient.count_prompt_tokens (2026-09-08, check_vllm_chunk_size_
+# throughput_results.md) -- llm_behavior_engine._dynamic_max_tokens's own
+# probe, VERIFIED live (unlike OllamaJsonClient's own version above); see
+# that method's own docstring for the measured claim.
+
+def test_vllm_count_prompt_tokens_request_shape_is_correct():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["url"] = str(request.url)
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(200, json={"usage": {"prompt_tokens": 2335}, "choices": []})
+
+    client = _vllm_client(handler)
+    tokens = client.count_prompt_tokens(system_prompt="sys", user_prompt="usr", think=True)
+
+    assert tokens == 2335
+    assert captured["url"] == f"{VLLM_BASE_URL}/chat/completions"
+    body = captured["body"]
+    assert body["model"] == "qwen3:8b"
+    assert body["temperature"] == 0.0
+    assert body["seed"] == 42
+    assert body["max_tokens"] == 1
+    assert body["stream"] is False
+    assert body["messages"] == [{"role": "system", "content": "sys"}, {"role": "user", "content": "usr"}]
+    assert body["chat_template_kwargs"] == {"enable_thinking": True}
+    assert "response_format" not in body
+
+
+def test_vllm_count_prompt_tokens_sends_enable_thinking_false_when_asked():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(200, json={"usage": {"prompt_tokens": 1}, "choices": []})
+
+    client = _vllm_client(handler)
+    client.count_prompt_tokens(system_prompt="s", user_prompt="u", think=False)
+
+    assert captured["body"]["chat_template_kwargs"] == {"enable_thinking": False}
+
+
+def test_vllm_count_prompt_tokens_missing_usage_raises_response_error():
+    client = _vllm_client(lambda request: httpx.Response(200, json={"choices": []}))
+    with pytest.raises(LlmResponseError, match="prompt_tokens"):
+        client.count_prompt_tokens(system_prompt="s", user_prompt="u")
 
 
 # ── build_json_client (provider dispatch) ─────────────────────────────────

@@ -91,16 +91,29 @@ essentially tied with chunk=5's 5.07).
 | 3 | 16/16 | 1.85 |
 | 5 | 15/16 (1 truncation) | 1.40 |
 
-No ground-truth correctness concern is documented for chamber anywhere in this codebase (its own
-docstring history is exclusively "Mode B" — token-budget exhaustion, converges once given enough
-budget — never a Mode-A-style reasoning collapse). The one chunk=5 failure was a
-`finish_reason='length'` truncation, the same rare tail as vote_cast's.
+Correction: chamber_deliberation's own docstring history is *not* exclusively "Mode B" the way an
+earlier draft of this doc claimed — `build_chamber_system_prompt`'s docstring documents its own
+narrow Mode-A finding: an unbounded, non-convergent reasoning loop specifically when
+`chamber_position == sincere_position` (the seating-time default, before any motif=702 shift), 7/270
+= 2.6% of that state, landing exactly on the token ceiling every time. It was already fixed via a
+prompt change (an explicit sentence naming the equality as trivial), not a budget or chunk-size
+change, and unlike vote_cast's Mode A it was never characterized as producing a wrong-but-valid
+answer — only as occasionally failing to converge, functionally closer to Mode B's "consumes the
+whole budget and fails" than to vote_cast's "silently returns the wrong ranking." This test script's
+own synthetic members set `chamber_position = issue_positions` by construction (every member, every
+call), so every chamber measurement above happens to be a real, if not dedicated, stress test of
+exactly this trigger state at chunk sizes 2/3/5 — and the observed failure rate (1 truncation in 56
+total chamber attempts across every run in this investigation, ~1.8%) is in the same range as the
+docstring's own 2.6% baseline, not a worse one. The one chunk=5 failure recorded in the table above
+was a `finish_reason='length'` truncation, consistent with this mode, not vote_cast's identity-
+permutation collapse.
 
 ## What this does and does not decide
 
 **Chamber_deliberation → 5** is well-supported: consistent, large win (~2x), only one failure in
-40 total attempts across every run in this investigation, and no correctness-collapse concern on
-record for this decision type.
+40 total attempts across every run in this investigation, and the one narrow correctness-adjacent
+concern on record for this decision type (see the correction above) is prompt-fixed already and
+was incidentally stress-tested by this investigation's own fixtures without a rate increase.
 
 **vote_cast** is a closer call than "raise it to 5". Chunk=3 and chunk=5 deliver almost identical
 throughput, but chunk=3 was clean in every attempt in the rigorous run while chunk=5 produced both

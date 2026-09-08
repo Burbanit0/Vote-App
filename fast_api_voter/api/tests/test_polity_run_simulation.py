@@ -1831,6 +1831,14 @@ class _FakeLlmClient:
     exercise the integration plumbing (journal writes, reproducibility,
     error propagation) without needing real vote-quality logic."""
 
+    def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
+        # Small and fixed, matching test_polity_llm_behavior_engine.py's
+        # FakeLlmClient/FakeChamberLlmClient's own convention -- see their
+        # shared rationale: never binds against compute_max_tokens's own
+        # floor, so tests that don't assert on the exact dynamic max_tokens
+        # value are unaffected by _dynamic_max_tokens's vLLM-path probe.
+        return 500
+
     def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
         payload = json.loads(user_prompt)
         if "citizens" in payload:
@@ -2324,6 +2332,9 @@ def test_llm_batch_misalignment_falls_back_instead_of_aborting_the_run(tmp_path)
         test exercises (both now land on the same fallback path, but this
         one is the case that actually crashed a real run)."""
 
+        def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
+            return 500
+
         def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
             payload = json.loads(user_prompt)
             if "citizens" in payload:
@@ -2380,6 +2391,9 @@ class _RecoveringClient:
         self._inner = inner
         self.calls = 0
 
+    def count_prompt_tokens(self, **kwargs):
+        return self._inner.count_prompt_tokens(**kwargs)
+
     def complete_json(self, **kwargs):
         self.calls += 1
         if self.calls == 1:
@@ -2410,6 +2424,9 @@ class _FlakyVoteClient:
         self.temperatures: list[float | None] = []
         self.seeds: list[int | None] = []
 
+    def count_prompt_tokens(self, **kwargs):
+        return self._inner.count_prompt_tokens(**kwargs)
+
     def complete_json(
         self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None, seed=None
     ):
@@ -2435,10 +2452,14 @@ def test_vote_cast_retries_at_a_varied_temperature_and_journals_the_marker(tmp_p
     events = _events(journal_path)
     vote_events = [e for e in events if e["event_type"] == "vote_cast"]
     assert vote_events  # the run completed, the retry recovered it
-    # Exactly one voter's decision came from a retry -- the one whose
-    # first attempt this fake deliberately broke.
+    # cast_votes chunks at _vote_cast_chunk_size(config) -- 3 on the shipped
+    # vllm default -- and a chunk retries as a whole (a chunk-level failure,
+    # never a partial correction, per §3.6.10), so the FIRST chunk's own 3
+    # voters all carry the retry marker, not just the one whose own vote
+    # this fake's dispatch conceptually "broke" (it actually breaks the
+    # whole first vote_cast call, chunk-shaped, not a single voter).
     varied = [e for e in vote_events if e["payload"]["retry_sampling_varied"] == 1]
-    assert len(varied) == 1
+    assert len(varied) == 3
     # First attempt (the failure): no override. The recovering retry: the
     # local exception's own temperature and seed offset.
     assert client.temperatures[0] is None
@@ -3143,6 +3164,9 @@ def test_chamber_deliberation_journals_chamber_deviation_after_the_shift_lands(t
     ]
 
     class _ShiftingClient:
+        def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
+            return 500
+
         def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
             payload = json.loads(user_prompt)
             decisions = [
@@ -3178,6 +3202,9 @@ def test_chamber_deviation_is_zero_when_the_model_returns_a_sincere_decision(tmp
     ]
 
     class _SincereClient:
+        def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
+            return 500
+
         def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
             payload = json.loads(user_prompt)
             decisions = [{"cid": m["cid"], "shifts": [], "motif": 701} for m in payload["members"]]
@@ -3289,6 +3316,9 @@ def test_chamber_deliberation_clamp_journals_clamped_at_bound_adjacent_to_the_de
     citizens = [_sortition_test_citizen(0, sortition_seat_until_tick=4, chamber_position=(0.9,))]
 
     class _BigShiftClient:
+        def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
+            return 500
+
         def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
             payload = json.loads(user_prompt)
             decisions = [
@@ -3322,6 +3352,9 @@ def test_chamber_deliberation_without_a_clamp_emits_no_clamped_at_bound_event(tm
     citizens = [_sortition_test_citizen(0, sortition_seat_until_tick=4, chamber_position=(0.5,))]
 
     class _SmallShiftClient:
+        def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
+            return 500
+
         def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
             payload = json.loads(user_prompt)
             decisions = [
@@ -3640,6 +3673,9 @@ def test_llm_path_all_decline_produces_coalition_failed(tmp_path):
         """Same dispatch as _FakeLlmClient for every decision type except
         coalition, where every responder refuses -- isolates
         assemble_coalition's all-decline None contract inside a full run."""
+
+        def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
+            return 500
 
         def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
             payload = json.loads(user_prompt)
