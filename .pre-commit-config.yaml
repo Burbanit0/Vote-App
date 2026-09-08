@@ -41,11 +41,13 @@ repos:
         pass_filenames: false
 
   # ── Python linting ─────────────────────────────────────────────────────────
-  - repo: https://github.com/PyCQA/flake8
-    rev: 7.2.0
+  # Replaces flake8 (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md). Rule selection lives
+  # in fast_api_voter/pyproject.toml's [tool.ruff]/[tool.ruff.lint] — Ruff
+  # auto-discovers it from the target path, no --config flag needed here.
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.6
     hooks:
-      - id: flake8
-        args: ['--config=fast_api_voter/.flake8']
+      - id: ruff-check
         files: fast_api_voter/.*\.py$
 
   # ── Python type checking ───────────────────────────────────────────────────
