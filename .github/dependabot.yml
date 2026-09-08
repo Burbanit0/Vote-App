@@ -16,6 +16,17 @@ updates:
       include: "scope"
     cooldown:
       default-days: 7
+    # 2026-09-08: root cause of the 13-PR merge cascade on 2026-09-06 (see
+    # PLAN_SOLIDITE_TECHNIQUE.md, Lot 1) — every patch/minor bump landed as
+    # its own PR, and branch protection invalidates every other open PR each
+    # time one merges, forcing a repeated update-branch/wait/merge loop.
+    # Grouping collapses a week's patch+minor bumps into one PR; majors stay
+    # separate since they can need real review.
+    groups:
+      patch-and-minor:
+        update-types:
+          - "minor"
+          - "patch"
 
   - package-ecosystem: "npm"
     directory: "/voter-app"
@@ -31,6 +42,11 @@ updates:
       include: "scope"
     cooldown:
       default-days: 7
+    groups:
+      patch-and-minor:
+        update-types:
+          - "minor"
+          - "patch"
 
   # Actions are pinned by commit hash (see any workflow's `# v4`-style
   # comments) — Dependabot proposes hash bumps for these, not just version tags.
@@ -44,6 +60,11 @@ updates:
       - "ci"
     cooldown:
       default-days: 7
+    groups:
+      patch-and-minor:
+        update-types:
+          - "minor"
+          - "patch"
 
   # Dependabot's docker ecosystem only scans files literally named `Dockerfile`
   # (one entry per directory covers every Dockerfile in it — no glob support) —
@@ -58,6 +79,11 @@ updates:
       - "docker"
     cooldown:
       default-days: 7
+    groups:
+      patch-and-minor:
+        update-types:
+          - "minor"
+          - "patch"
 
   - package-ecosystem: "docker"
     directory: "/fast_api_voter"
@@ -70,6 +96,11 @@ updates:
       - "backend"
     cooldown:
       default-days: 7
+    groups:
+      patch-and-minor:
+        update-types:
+          - "minor"
+          - "patch"
 
   - package-ecosystem: "docker"
     directory: "/voter-app"
@@ -82,3 +113,8 @@ updates:
       - "frontend"
     cooldown:
       default-days: 7
+    groups:
+      patch-and-minor:
+        update-types:
+          - "minor"
+          - "patch"
