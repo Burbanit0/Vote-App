@@ -14,11 +14,20 @@ that code — it's a candidate, not a verdict. Categorising the output into the
 plan's four buckets (périmé / redondant / archéologique / pourquoi) is manual
 work for the next phase; this script only ranks where to start looking.
 
-Default threshold is 1 day, not the months a mature repo would warrant: this
-codebase's `fast_api_voter/api` and `voter-app/src` trees are only days old
-(the strangler-fig migration completed 2026-09-04), so most files have a
-single commit touching every line — there's no time-skew yet for a larger
-threshold to catch. Raise --threshold-days as the repo's history lengthens.
+Default threshold is 1 day: on this repo's full history (1553 commits back to
+2025-03-01 — see EXP-001 in docs/exploration/ for how a shallow/truncated
+clone can make it look otherwise), that already surfaces ~330 candidates with
+real gaps up to a year, roughly 6% of scanned blocks. A tighter threshold
+would just add noise from ordinary same-week edits; a much looser one would
+mostly drop candidates rather than add signal, since the distribution is
+already sparse above a few weeks.
+
+Precision caveat (see docs/comment-audit/README.md): on a 5-candidate manual
+check spanning the top of the ranking, all 5 were genuine time-skew but none
+were an actually-stale comment — the code nearby had changed for unrelated
+reasons (a type annotation, reformatting) while the comment stayed accurate.
+Treat this script's output as a search-space reduction for a content-aware
+triage pass, not as a staleness verdict on its own.
 
 Usage (from repo root):
     python scripts/audit_stale_comments.py
