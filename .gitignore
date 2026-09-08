@@ -297,6 +297,10 @@ graphify-out/
 # Bibliographie + traçabilité : la ligne « research/ stays » ci-dessus était
 # fausse depuis que /docs/* existe — research/ n'a jamais été suivi.
 !/docs/research/
+# Sortie de l'audit de commentaires (Lot 6.1) : le README explique la méthode
+# et le verdict, candidates.md est régénérable mais doit rester consultable
+# sans relancer le script.
+!/docs/comment-audit/
 /AGENTS.md
 # Polity design/planning docs stay ignored here on purpose: they're versioned
 # on the `polity` branch instead (see chore/portable-workspace-ubuntu), not on
