@@ -97,6 +97,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from api.domain.polity.config import PolityConfig, load_config  # noqa: E402
 from api.domain.polity.indexer import RunMetrics, index_run  # noqa: E402
+from api.domain.polity.viz_export import export_run  # noqa: E402
 from api.domain.polity.run_polity_simulation import run_simulation  # noqa: E402
 
 
@@ -397,6 +398,18 @@ def run_flagship(
     }
     metrics_path = run_dir / "metrics.json"
     metrics_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+    # Phase 6 (plan-flagship-30y-run.md): produced automatically for every
+    # arm, not left as a separate manual step -- snapshots.jsonl (Phase 6's
+    # in-run half) and events.duckdb (compact_run, above) already exist by
+    # this point; export_run adds the one piece neither of those covers
+    # (macro/institutional/social-graph, reshaped for a UI, not re-derived).
+    # No explicit output_path: export_run's own default (beside events.jsonl)
+    # keeps it in the SAME directory as checkpoint.json/progress.json/
+    # snapshots.jsonl/events.duckdb -- run_dir here is this script's own
+    # OUTER bookkeeping directory (config.json/metrics.json), one level up
+    # from where the actual run artifacts live (run_dir / "run" / run_id).
+    export_run(journal_path, config)
 
     print(
         f"[flagship] {run_id}: {elapsed:.1f}s over {metrics.total_ticks} ticks, "

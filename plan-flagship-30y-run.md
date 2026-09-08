@@ -8,9 +8,9 @@
 >
 > **Status legend**: `TODO` · `IN PROGRESS` · `DONE` · `BLOCKED` · `DROPPED`
 
-**Overall status: Phases 0, 0bis, 1, 3, 4 and 5 DONE. Phase 2 FAILED its own gate
-(does not ship) — the flagship runs sequential, and Phases 3/4 are what make that
-survivable and watchable. Starting Phase 6.**
+**Overall status: Phases 0, 0bis, 1, 3, 4, 5 and 6 DONE. Phase 2 FAILED its own
+gate (does not ship) — the flagship runs sequential, and Phases 3/4/6 are what
+make that survivable, watchable, and useful once it's done. Starting Phase 7.**
 (last updated 2026-09-07)
 
 | Phase | What | Status |
@@ -22,7 +22,7 @@ survivable and watchable. Starting Phase 6.**
 | 3 | Checkpoint / resume | **DONE** — verified with a real `kill -KILL` mid-run, byte-identical resume |
 | 4 | Observability (`progress.json`) | **DONE** — verified live, incl. a real `kill -KILL`/`--resume` cycle |
 | 5 | v3 scale gate at population 500 | **DONE** — sortition + arity + hard-cap + Class B measured |
-| 6 | UI-ready output (`snapshots.py`, `viz_export.py`) | TODO |
+| 6 | UI-ready output (`snapshots.py`, `viz_export.py`) | **DONE** — wired into the runner, verified live |
 | 7 | The staged ramp and the flagship run | TODO |
 
 > **The plan survived contact with a real run for four minutes.** That is the
@@ -685,40 +685,80 @@ At population 500 specifically:
 Most of this is measurable from **deterministic runs (0.1s each)** — no LLM cost.
 Do it cheaply and early.
 
-## Phase 6 — UI-ready output · TODO
+## Phase 6 — UI-ready output · **DONE**
 
-**In-run (`snapshots.py`, §16.4)**: once per simulated year, snapshot per-citizen
-state — `citizen_id`, `issue_positions` (20 dims), `party_affiliation`,
-role/office, `event_salience`, plus holder-specific `pledged_platform` vs
-`revealed_position`. At 500 citizens × 30 years that is 15,000 rows — negligible
-cost, and it is the only way §14.1 (micro force graph) and §14.2 (méso 2D
-projection animated over 30 years) can be built without replaying the entire
-journal.
+**Shipped, in-run (`api/domain/polity/snapshots.py`)**: once per simulated
+year, at the START of the year (tick 0, `ticks_per_year`, ...) rather than the
+end — the tick-0 snapshot is then the TRUE initial population, untouched by
+any simulated decision. Fields exactly as specified: `citizen_id`,
+`issue_positions`, `party_affiliation`, role/office, `event_salience`,
+holder-specific `pledged_platform`/`revealed_position`. Written as a plain
+append-only JSONL file (`snapshots.jsonl`, beside `events.jsonl`), the same
+register as the journal itself — settling §14.6's own open question ("during
+the run or in post-processing?") as **both**, as planned. Resume correctness
+reuses `journal.truncate_journal` as-is (a snapshot row is just another JSONL
+line); the row count to truncate to is a pure function of `(tick,
+ticks_per_year, population_size)`, never persisted in the checkpoint. Verified
+with a real `kill -KILL` on a live process at population 1000 — 31,000 rows,
+byte-identical to an uninterrupted reference after `--resume`.
 
-Settles §14.6's open question — *"snapshots generated during the run or in
-post-processing?"* — as **both**, deliberately: snapshots are cheap insurance
-against discovering post-hoc that the data wasn't captured, on a run too
-expensive to repeat.
+**Shipped, post-run (`api/domain/polity/viz_export.py`)**:
 
-**Post-run (`viz_export.py`, §14)**: replay journal + snapshots into UI-ready
-artifacts:
+- **Macro** (§14.3): `export_macro` is a faithful passthrough of every
+  `RunMetrics` field (`dataclasses.asdict`) — the plan's own worked list is
+  illustrative, not exhaustive; `RunMetrics` itself is the authoritative "what
+  this run measured," so nothing here re-derives a narrower view of it. A
+  `None` field (governing flag off) stays `None`, never silently defaulted to
+  an empty series.
+- **Institutional** (§14.4): `export_institutional`, a flat tick-ordered
+  timeline filtered from the raw journal against every election/coalition/
+  petition/recall/scandal `event_type` this codebase actually journals
+  (grepped from `run_polity_simulation.py`'s own `journal.write` call sites,
+  not assumed from the design doc's prose).
+- **Micro/méso** (§14.1/2): the yearly snapshots already exist as their own
+  artifact (above) — not duplicated here. The one piece never persisted
+  anywhere, the social graph itself, is regenerated (never read from a
+  checkpoint — `checkpoint.py`'s own "pure function of config, exact not an
+  approximation" argument applies here too) and reshaped into a plain
+  deduplicated node/edge list.
+- **Biography** (§16.7): confirmed already served by `compact_run`'s own
+  `citizen_events_decoded` DuckDB view — nothing to add.
+- **Phase 1's `unverified` labels, carried through explicitly**:
+  `export_metadata` names `representative_response`/`coalition_decision` (Phase
+  1: still collapse) and maps the specific `RunMetrics` fields
+  `indexer.py`'s own docstring traces to them (`mandate_deviation`,
+  `mandate_deviation_unified`, `lame_duck_deviation_delta`,
+  `cohabitation_rate`, `coalition_lifespans`) — not a silent inference, an
+  explicit, documented mapping. Empty when `llm.enabled` is False (the
+  collapse finding is LLM-path-specific).
 
-- **Macro** (§14.3): per-tick time series — legitimacy, effective parties,
-  blank-vote rate, mandate deviation, stance distribution, chamber deviation
-- **Institutional** (§14.4): timeline of elections, coalitions, petitions,
-  recalls, scandals
-- **Micro/méso** (§14.1/2): the yearly snapshots, plus the social graph
-- **Biography** (§16.7): per-citizen event stream, already queryable from the
-  DuckDB view
+**The three documented `indexer.py` traps** (`mandate_deviation` left-censored,
+`chamber_deviation` length `seats×presided_ticks` not `ticks`,
+`petition_success_rate` ≠ removal rate) need no special handling here
+specifically because `export_macro` is a passthrough, not a re-derivation —
+whatever correct/incorrect shape `RunMetrics` already has, this module
+inherits transparently. `export_macro`'s own docstring repeats the
+`chamber_deviation` warning at the export boundary anyway, since a UI author
+reading `viz_export.json` in isolation has no reason to have also read
+`indexer.py`'s docstring.
 
-Reuse `index_run()`/`RunMetrics` rather than recomputing metrics. Respect the
-three documented traps in `indexer.py`: `mandate_deviation` is left-censored
-(prefer the `ctx` source; check `mandate_deviation_source`), `chamber_deviation`
-has length seats×presided_ticks not ticks, and `petition_success_rate` is not the
-removal rate. Carry the Phase 1 `unverified` labels through.
+`compact_run()` already produces the DuckDB artifact and is untouched; it
+remains the queryable base.
 
-`compact_run()` already produces the DuckDB artifact; keep it as the queryable
-base.
+Wired into `run_polity_flagship.py`: `export_run` now runs automatically at
+the end of every arm, producing `viz_export.json` beside `events.jsonl`/
+`checkpoint.json`/`snapshots.jsonl`/`events.duckdb` — **caught one real bug
+this way, before it shipped**: the first version passed an explicit
+`output_path` pointing at the runner's own OUTER bookkeeping directory
+(where `config.json`/`metrics.json` live), one level above where the actual
+run artifacts live — a live CLI smoke test caught the file landing in the
+wrong place immediately; `export_run`'s own default (beside `events.jsonl`)
+was already correct, so the fix was removing the override, not adding logic.
+
+Verified: 15 unit/integration tests (`test_polity_viz_export.py`, hand-built
+journals for the pure-reshaping functions plus one end-to-end real-simulation
+export) and 12 more for `snapshots.py`, then the live CLI smoke test above
+that caught the path bug. 1290 polity tests pass, mypy clean.
 
 ## Phase 7 — The run · TODO
 
@@ -752,7 +792,7 @@ Then the same path to population 1000 as the mid-term goal.
 | 3 | **`events.jsonl` byte-identical, uninterrupted vs killed-and-resumed** — **MET**, incl. a real `kill -KILL` |
 | 4 | `progress.json` updates per tick; ETA converges — **MET**, incl. a real `kill -KILL`/`--resume` cycle |
 | 5 | v3 checklist Classes B/C/D measured at pop 500; seats/initial_count decisions recorded |
-| 6 | `viz_export.py` output loads; DuckDB queries return expected row counts |
+| 6 | `viz_export.py` output loads; DuckDB queries return expected row counts — **MET** |
 | 7 | 8-year pop-100 parity vs `acceptance_v6b_results.md`; then flagship completes |
 
 Existing gates stay green throughout: `mypy api/` clean, `flake8`, and the polity
@@ -858,3 +898,30 @@ Newest last. One line per landed step, with the commit hash where there is one.
   run), and a real `kill -KILL` on a live `run_polity_flagship.py` process
   (tick 52 of 120), resumed via the actual `--resume` CLI flag -- 17,791
   events, zero diffs. 1837 backend tests pass, mypy clean.
+- **2026-09-07** — Phase 4: `api/domain/polity/progress.py`
+  (`ProgressTracker` + `write_progress`), wired at the same point as Phase
+  3's own checkpoint write. Every cumulative count re-derived from the
+  journal itself via an incremental byte-offset scan, never a separately-
+  maintained running total -- buys resume correctness for free (a fresh
+  tracker's first scan naturally backfills from whatever the truncated
+  journal already holds). Caught a real bug by actually running it, not
+  assuming it safe: `_run_reaction_to_event` writes `codebook_version`
+  unconditionally even on its deterministic branch, a quirk `run_polity_
+  flagship.py`'s own decision counter had already found once; fixed the
+  same way (`llm_enabled` gate). Verified with a real `kill -KILL`/`--resume`
+  cycle -- cumulative decisions correctly spanned the crash boundary (2000
+  -> 3000), not just the post-resume portion. 1258 polity tests pass.
+- **2026-09-07** — Phase 6: `api/domain/polity/snapshots.py` (in-run, once
+  per simulated year, at the START of the year so tick 0 is the true initial
+  population) and `api/domain/polity/viz_export.py` (post-run: macro as a
+  faithful `RunMetrics` passthrough, institutional timeline filtered from
+  the raw journal, the social graph regenerated and reshaped, Phase 1's
+  `unverified` labels carried through explicitly). Wired `export_run` into
+  `run_polity_flagship.py` to run automatically on every arm -- a live CLI
+  smoke test immediately caught the first version writing `viz_export.json`
+  to the wrong directory (the runner's own outer bookkeeping folder, not
+  beside the actual run artifacts); `export_run`'s own default path was
+  already correct, so the fix was removing an unnecessary override. Verified
+  snapshots with a real `kill -KILL` at population 1000 -- 31,000 rows,
+  byte-identical to an uninterrupted reference after `--resume`. 1290 polity
+  tests pass, mypy clean.
