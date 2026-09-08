@@ -1,5 +1,7 @@
 # Vote Lab — Pre-commit hooks
-# Install: pip install pre-commit && pre-commit install && pre-commit install --hook-type pre-push
+# Install: pip install pre-commit && pre-commit install \
+#          && pre-commit install --hook-type pre-push \
+#          && pre-commit install --hook-type post-commit
 # Run manually: pre-commit run --all-files
 
 # ── Default stages ────────────────────────────────────────────────────────────
@@ -94,3 +96,19 @@ repos:
         stages: [pre-push]
         env:
           FLASK_ENV: testing
+
+# ── Post-commit hooks (fire-and-forget, after the commit exists) ──────────────
+  - repo: local
+    hooks:
+      - id: git-commit-capture
+        name: Per-commit capture (Lot 0.5, polity worktree only)
+        language: system
+        entry: python3 scripts/git_commit_capture.py
+        pass_filenames: false
+        always_run: true
+        stages: [post-commit]
+        # Installed repo-wide (git hooks are shared across worktrees — see
+        # the script's own docstring) but a strict no-op outside the
+        # Vote-App-polity worktree. Never blocks: every failure path inside
+        # the script prints a warning and exits 0.
+        verbose: false
