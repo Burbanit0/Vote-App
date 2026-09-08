@@ -374,7 +374,7 @@ either version of this check).
 **Cost**: ~1 minute of GPU time for all three (18 calls total, `think=False`,
 size=1). Done before spending days of GPU on the flagship, as planned.
 
-## Phase 2 — Concurrency unlock + determinism proof · **IN PROGRESS**
+## Phase 2 — Concurrency unlock + determinism proof · **FAILED — does not ship** (see follow-up below)
 
 **Structural finding, from actually reading the code rather than assuming**: only
 5 of the 9 decision types chunk at all (`cast_votes`, `decide_candidacies`,
@@ -510,6 +510,64 @@ with real measured numbers.
 purely because of *Ollama* failures documented in-code. If vLLM tolerates
 chunk >1, that is a further multiple on top of concurrency. Test it; only raise
 it if clean.
+
+### Follow-up (2026-09-08): `VLLM_BATCH_INVARIANT` — the correctness fix exists, the cost kills it
+
+Before starting Phase 7, investigated whether the batch-composition sensitivity
+itself could be fixed rather than worked around. vLLM 0.28.0 (the exact pinned
+version) ships `VLLM_BATCH_INVARIANT=1`: batch-invariant Triton kernels for
+matmul/bmm/softmax/rms_norm, `num_splits=1` on FlashAttention's decode path
+(disabling split-KV, the classic source of batch-composition-dependent
+reduction order), deterministic cuBLAS workspace config, and TF32 disabled.
+Confirmed genuinely active (not silently ignored): `envs.VLLM_BATCH_INVARIANT`
+reads `True` inside the running container, and the flag is threaded into
+attention-backend selection (`flash_attn.py`'s own `batch_invariant_enabled`
+gate), not just the matmul layer.
+
+**Correctness: fixed, cleanly.** Re-ran Phase 2's own determinism proof
+unmodified (1y/pop100/seats30, `workers=1` vs `workers=8`, `replays=0`) with
+the flag on: `filecmp.cmp` → **True**. Byte-identical, matching Phase 2's own
+gate exactly — the fix works.
+
+**Cost: prohibitive for this specific workload.**
+
+| | Time (4 ticks) | vs. original sequential baseline |
+|---|---|---|
+| workers=1, no batch invariance (Phase 2's own baseline) | 1482.4s | — |
+| workers=1, **with** batch invariance | 16801.2s | **11.3x slower** |
+| workers=8, **with** batch invariance | 2876.3s | **1.9x slower** |
+
+The 5.84x speedup from concurrency is real (16801.2s → 2876.3s) — it just isn't
+enough to claw back an 11.4x collapse in raw decode throughput. Confirmed by two
+independent measurements agreeing closely: an isolated single-call benchmark
+(no concurrency, no other load) measured 10.9 tokens/s against this session's
+own earlier baseline of 124-127 tokens/s — matching vLLM's own reported
+generation throughput in its logs, and matching the full-arm timing ratio
+almost exactly. Not GPU throttling (checked: 100% utilization, full clock speed,
+62°C, no thermal event) — the mechanism is exactly what the flag's own
+documentation says it disables: `num_splits=1` removes FlashAttention's
+split-KV parallelism, which is specifically what makes *long-context,
+small-batch* decoding fast. That is precisely this workload's profile — chunk
+size 1 (`_VOTE_CAST_MAX_CHUNK_SIZE`/`_CHAMBER_MAX_CHUNK_SIZE`), `think=True`
+reasoning budgets of 8,000-12,000 tokens. Published batch-invariant-mode
+overhead elsewhere (typically 20-60%, for more conventionally-batched
+workloads) does not transfer to this shape.
+
+**Net effect on the flagship**: `workers=8` + batch invariance projects to
+~69h at the flagship's own scale — slower than the ~35.6h sequential,
+non-invariant baseline this plan already has. Does not ship. Reverted
+completely (guard back to unconditional refusal, `vllm-polity` restarted
+without the flag, confirmed `VLLM_BATCH_INVARIANT` unset in the running
+container) — nothing here changed the shipped state.
+
+**What would need to be true for this to become worth revisiting**: either (a)
+a workload shape with larger effective batches per call (this project's own
+chunk-size floors are pinned to 1 specifically because of measured Ollama
+batch-size failures, not a free choice — see `_VOTE_CAST_MAX_CHUNK_SIZE`'s own
+docstring), or (b) an upstream fix that recovers split-KV parallelism under
+batch invariance for the long-context/small-batch case specifically. Neither
+is in scope here. The flagship stays sequential, non-invariant, exactly as
+Phase 2 left it.
 
 ## Phase 3 — Checkpoint / resume · **DONE**
 
@@ -925,3 +983,13 @@ Newest last. One line per landed step, with the commit hash where there is one.
   snapshots with a real `kill -KILL` at population 1000 -- 31,000 rows,
   byte-identical to an uninterrupted reference after `--resume`. 1290 polity
   tests pass, mypy clean.
+- **2026-09-08** — Investigated `VLLM_BATCH_INVARIANT` as a fix for Phase 2's
+  own finding, before starting Phase 7. Correctness: fixed cleanly (Phase 2's
+  own determinism proof re-run with the flag on -> byte-identical). Cost:
+  11.4x decode-throughput collapse (124-127 -> 10.9 tok/s, confirmed two
+  independent ways), because this workload's own chunk-size-1/long-think-budget
+  shape sits exactly in the regime batch invariance's `num_splits=1` hurts
+  most (loses FlashAttention's split-KV parallelism). Net: `workers=8` +
+  batch invariance projects to ~69h at flagship scale, slower than the
+  ~35.6h sequential baseline. Does not ship -- reverted completely, no code
+  changes kept. Phase 2's own verdict stands: the flagship runs sequential.
