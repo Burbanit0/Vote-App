@@ -11,4 +11,4 @@ rédigée via `/log-experiment`.
 
 | EXP | Outil | Domaine | Verdict | Trouvailles réelles | Coût |
 |---|---|---|---|---|---|
-| [001](./EXP-001-audit-commentaires-heuristique-git-blame.md) | Heuristique `git blame` (staleness) | Audit de commentaires (Lot 6.1) | Suspendu | 4/5 257 candidats flagués, les 4 des faux positifs (dépôt trop jeune pour que le signal existe) | ~1h |
+| [001](./EXP-001-audit-commentaires-heuristique-git-blame.md) | Heuristique `git blame` (staleness) | Audit de commentaires (Lot 6.1) | Adopté (comme filtre) | 329/~5 200 blocs présélectionnés (écarts jusqu'à 379j) ; 5 vérifiés à la main, 5/5 vrai décalage temporel mais 0/5 péremption réelle — bon proxy pour « à relire », mauvais pour « c'est faux » | ~1h30 |
