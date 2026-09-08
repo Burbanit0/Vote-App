@@ -10,9 +10,9 @@ manque de discipline, est ce qui les faisait dériver.
 | `docs/journal/JOURNAL_DE_BORD.md` | Chronologie narrative, par session de travail : ce qui a avancé, les blocages, les décisions, les prochaines étapes. | Par session (`/log-session`) | ✅ |
 | `docs/exploration/EXP-*.md` | Par expérience/outil essayé : verdict (adopté/rejeté/suspendu) + ce que ça a réellement trouvé et coûté. | Par expérience close (`/log-experiment`) | ✅ (ce lot) |
 | `docs/exploration/README.md` | Index de tous les verdicts — le livrable partageable du projet. | Mis à jour à chaque expérience close | ✅ (ce lot) |
-| `docs/adr/` | Décisions d'architecture engageantes, avec alternatives écartées. | Rare | ✅ (polity seulement pour l'instant — Lot 0.6 l'ouvre à l'app) |
-| `docs/journal/commits.jsonl` | Trace machine exhaustive, générée — archéologie et alimentation des autres surfaces. | Par commit (auto, worktree polity) | ❌ (Lot 0.5, dépend d'infrastructure spécifique au worktree `Vote-App-polity`, non disponible dans ce dépôt) |
-| Mémoire Claude polity | Écueils rechargés d'office à chaque session — le seul support qui empêche *réellement* la répétition. | Par écueil rencontré | ✅ côté polity uniquement — hors périmètre de ce dépôt |
+| `docs/adr/` | Décisions d'architecture engageantes, avec alternatives écartées. | Rare | ✅ (polity + application — ADR-004 à 007, Lot 0.6) |
+| `docs/journal/commits.jsonl` | Trace machine exhaustive, générée — archéologie et alimentation des autres surfaces. | Par commit (auto, worktree polity uniquement — `scripts/git_commit_capture.py` se garde sur le nom du worktree) | ✅ (Lot 0.5, tier 1 ; script générique sur `develop`, activation via `pre-commit install --hook-type post-commit`) |
+| Mémoire Claude polity | Écueils rechargés d'office à chaque session — le seul support qui empêche *réellement* la répétition. | Par écueil rencontré | ✅ côté polity uniquement — hors périmètre de ce dépôt ; alimentation automatique (Lot 0.5, tier 3) pas encore branchée |
 | `CODE_AUDIT.md` (racine) | État de santé daté du code, rejouable. | Par passe de nettoyage | ✅ |
 
 ## Comment choisir la bonne surface
