@@ -341,6 +341,48 @@ pas à l'échelle sur ce problème » est un excellent carnet d'expérience.
 | **`eslint-plugin-sonarjs`** | Complexité cognitive (≠ cyclomatique, déjà mesurée par radon) + bugs courants. | S | ⭐⭐ | 📝 |
 | **`pip-licenses` / `license-checker`** | Conformité de licences sur un repo public MIT. | S | ⭐ | 📝 |
 
+### 6.1 — Audit de pertinence des commentaires · `L` · ⭐⭐ 📝📝📝
+
+Aucun outil du repo ne regarde les commentaires. Ils sont pourtant du **code
+non compilé, non testé, jamais vérifié** — la seule zone du projet où une
+affirmation fausse peut survivre indéfiniment sans que rien ne la signale.
+
+**Poids mesuré** (2026-09-07) : ~174 k tokens côté `fast_api_voter/api`
+(26,6 % du volume) et ~79 k côté `voter-app/src` (9,5 %), soit **~253 k tokens
+de commentaires et docstrings**.
+
+**L'audit trie en quatre catégories, avec un traitement distinct :**
+
+| Catégorie | Traitement | Justification |
+|---|---|---|
+| **Périmé** — décrit du code qui a changé | Corriger ou supprimer | Activement nuisible : induit en erreur humains et agents. La passe de doc du 06/09 (PR #313) a traité ce problème au niveau des fichiers `.md` ; personne ne l'a jamais fait au niveau des commentaires. |
+| **Redondant** — paraphrase le code | Supprimer | Coût pur, zéro information. Sur du code typé mypy-strict, un docstring qui répète la signature n'apporte rien. |
+| **Archéologique** — récit d'une session (« le 25/08, essayé X, échoué parce que… ») | **Migrer vers `docs/exploration/`** | C'est du carnet d'expérience égaré dans du code source (cf. Lot 0.2). |
+| **« Pourquoi »** — contrainte, bug passé, alternative écartée | **Garder en place, non négociable** | C'est le mécanisme anti-répétition du Lot 0.5 à l'échelle de la ligne. Le docstring de `api/core/ratelimit.py` expliquant *pourquoi 120/min et pas 30* est ce qui empêche de le « ré-optimiser » à 30 et de recasser l'e2e. |
+
+**Cadrage explicite — ce que cet audit n'est pas** : ce n'est pas un projet
+d'économie de tokens, et il ne consiste pas à *déplacer* les commentaires hors
+du code. L'hypothèse a été mesurée puis écartée : `package-lock.json` seul
+(~155 k tokens) coûte plus cher que l'intégralité des commentaires du frontend
+(~79 k), et son exclusion via `.claudeignore` (§12.2) est gratuite et sans
+risque. Surtout, un commentaire voyage **dans le même diff** que le code qu'il
+explique — pas un fichier récap, qui dérive. Sortir les « pourquoi » du code
+fabriquerait à grande échelle exactement la dérive que la PR #313 a passé une
+session à réparer. Le bénéfice visé ici est la **justesse**, pas le volume ;
+la réduction de tokens n'est qu'un effet de bord des catégories « redondant »
+et « archéologique ».
+
+**La mesure à publier** : *« j'ai audité 253 k tokens de commentaires — quelle
+proportion mentait ? »* Ce chiffre n'existe nulle part, et il se prête à une
+méthode reproductible sur d'autres projets.
+
+**Piste d'outillage** : pas d'outil établi pour la détection de commentaires
+périmés. Deux approches à essayer et à comparer dans le carnet d'expérience —
+(a) heuristique par `git log` : commentaire dont la dernière modification est
+nettement plus ancienne que celle des lignes de code qu'il surplombe ;
+(b) passe LLM par lot sur des blocs `(commentaire, code)`. Le contraste entre
+les deux est lui-même un bon contenu.
+
 ---
 
 ## Lot 7 — Surfaces perçues par l'utilisateur
