@@ -1,7 +1,7 @@
 name: Security Audit
 
 # Supplementary SECURITY scanning only. The repo's lint/type/test gates already
-# live in backend-ci-cd-pipeline.yml + frontend-ci-cd-pipeline.yml (flake8, mypy,
+# live in backend-ci-cd-pipeline.yml + frontend-ci-cd-pipeline.yml (ruff, mypy,
 # pytest, bandit, pip-audit, eslint, tsc) — this workflow adds SAST / secret / CVE
 # coverage they don't have: Semgrep, Gitleaks, Trivy, CodeQL.
 #
