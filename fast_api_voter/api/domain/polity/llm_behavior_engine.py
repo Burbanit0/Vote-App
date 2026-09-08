@@ -447,6 +447,38 @@ _VOTE_CAST_RETRY_TEMPERATURE = 0.3
 # retry attempt.
 _VOTE_CAST_RETRY_SEED_BASE = 900_000_001
 
+# Added 2026-09-08 after Phase 7's own smoke run (plan-flagship-30y-run.md)
+# crashed on the FIRST real end-to-end exercise of _CHAMBER_MAX_CHUNK_SIZE_
+# VLLM=5: decide_chamber_deliberation had no retry_temperature/retry_seed_base
+# of its own, so its `_complete_and_decode_with_replay` call sent
+# byte-identical retries against a VllmJsonClient -- a strong lock at
+# temperature=0, exactly the mechanism check_vllm_vote_cast_retry_is_inert_
+# results.md already measured for vote_cast. A chunk's own deterministic
+# `finish_reason='length'` (the already-documented "chamber_position ==
+# sincere_position" Mode-A loop, build_chamber_system_prompt's own docstring,
+# 2.6% baseline at chunk=1) therefore exhausted every replay attempt
+# identically and propagated all the way out of run_simulation uncaught --
+# chamber_deliberation had neither this mitigation nor cast_votes's own
+# deterministic fallback, so nothing stood between one triggering member and
+# a dead run. Raising the chunk size made this qualitatively worse, not just
+# more probable: a chunk of 5 is ~4.7x more likely to CONTAIN a triggering
+# member than a chunk of 1 (1-(1-0.026)**5 ~= 12.3% vs 2.6%), and because the
+# whole chunk shares one completion, one triggering member drags every other
+# member in that chunk into the same failed retry cycle. Applied by direct
+# analogy to _VOTE_CAST_RETRY_TEMPERATURE/_VOTE_CAST_RETRY_SEED_BASE's own
+# already-measured fix for the identical mechanism -- not independently
+# re-measured for chamber's own recovery rate the way vote_cast's was (that
+# would need its own dedicated live investigation); paired with
+# _deterministic_chamber_fallback below for the case even this doesn't
+# recover, matching this project's own standing priority ("must not die
+# mid-run" first, per plan-flagship-30y-run.md's decision table).
+_CHAMBER_RETRY_TEMPERATURE = 0.3
+
+# Distinct from _VOTE_CAST_RETRY_SEED_BASE only so the two are never
+# confused reading a log -- both call sites always run sequentially, one
+# client, never concurrently, so nothing depends on the values differing.
+_CHAMBER_RETRY_SEED_BASE = 900_000_101
+
 # Mirrors _POSITIONING_THINK_TOKEN_ALLOWANCE's own reasoning: a shared
 # constant would either starve one caller or over-provision another, since
 # each think=True prompt's reasoning-token appetite is measured
@@ -2751,6 +2783,29 @@ class ChamberBatchOutcome:
     explicitly by the caller, never silent. Defaults to an empty dict
     (every key absent means False) so every pre-existing
     ChamberBatchOutcome(...) construction keeps compiling unchanged."""
+    retry_sampling_varied: dict[int, bool] = field(default_factory=dict)
+    """cid -> whether that member's decision came from a temperature-varied
+    RETRY (never the first attempt) -- see `VoteBatchOutcome.retry_sampling_
+    varied`'s own docstring for the identical contract and
+    `_CHAMBER_RETRY_TEMPERATURE`'s own docstring for why chamber needed it
+    too (2026-09-08). A chunk retries as a whole, so every member sharing a
+    chunk shares that chunk's own outcome -- see `VoteBatchOutcome.retry_
+    sampling_varied`'s own updated docstring for why that's still
+    unambiguous per cid. Defaults to an empty dict for the same reason."""
+    llm_fallback: dict[int, bool] = field(default_factory=dict)
+    """cid -> whether that member's decision came from `_deterministic_
+    chamber_fallback` (sincere, motif=701, shifts=[]) rather than the model
+    at all -- added 2026-09-08 alongside `_CHAMBER_RETRY_TEMPERATURE`, after
+    Phase 7's own smoke run crashed with no such fallback in place. Mirrors
+    `VoteBatchOutcome.llm_fallback` exactly, including the "sincere" choice
+    itself being well-motivated rather than arbitrary: `decide_chamber_
+    deliberation`'s own docstring already establishes that a member this
+    module never resolves stays at "no delta" by construction (chamber_
+    position pinned to issue_positions at seating, untouched otherwise) --
+    falling back to sincere is that same baseline, not a new default
+    invented for this mitigation. Mutually exclusive with retry_sampling_
+    varied for the same cid. Defaults to an empty dict for the same
+    reason."""
 
 
 def validate_chamber_decision(decision: ChamberDecision, config: PolityConfig) -> None:
@@ -2881,6 +2936,18 @@ def build_chamber_user_prompt(members: Sequence[Citizen], contexts: Mapping[int,
     return json.dumps({"members": member_blocks}, sort_keys=True, separators=(",", ":"))
 
 
+def _deterministic_chamber_fallback(members: Sequence[Citizen]) -> list[ChamberDecision]:
+    """Last-resort decision for decide_chamber_deliberation when the LLM path
+    is exhausted for a whole chunk -- see ChamberBatchOutcome.llm_fallback's
+    own docstring for why "sincere, no shift" is the well-motivated choice
+    here, not an arbitrary one: it is exactly the "no delta" outcome this
+    module's own docstring already establishes as what NOT running it means.
+    Mirrors _deterministic_vote_fallback's role for cast_votes (2026-09-06)
+    -- added 2026-09-08 after chamber_deliberation crashed a real run with no
+    such fallback in place."""
+    return [ChamberDecision(cid=member.citizen_id, shifts=[], motif=701) for member in members]
+
+
 def decide_chamber_deliberation(
     members: Sequence[Citizen],
     contexts: Mapping[int, ChamberContext],
@@ -2946,38 +3013,81 @@ def decide_chamber_deliberation(
     members = sorted(members, key=lambda m: m.citizen_id)
     members_by_id = {m.citizen_id: m for m in members}
 
-    def _chamber_chunk(chunk: list[Citizen]) -> list[ChamberDecision]:
+    def _chamber_chunk(chunk: list[Citizen]) -> tuple[list[ChamberDecision], bool, bool]:
+        """Mirrors cast_votes's own _vote_chunk (added 2026-09-08, alongside
+        _CHAMBER_RETRY_TEMPERATURE/_deterministic_chamber_fallback -- see
+        their own docstrings for why chamber needed this too): every local
+        here is fresh per call, so concurrent invocations on separate
+        threads would share no mutable state, if workers>1 were ever
+        reachable again."""
         expected_cids = [m.citizen_id for m in chunk]
+        retry_info: dict[str, Any] = {}
+        is_fallback = False
         system_prompt = build_chamber_system_prompt(chunk, config)
         user_prompt = build_chamber_user_prompt(chunk, contexts)
-        return _complete_and_decode_with_replay(
-            client,
-            system_prompt=system_prompt,
-            user_prompt=user_prompt,
-            json_schema=CHAMBER_JSON_SCHEMA,
-            max_tokens=_dynamic_max_tokens(
+        try:
+            chunk_decisions = _complete_and_decode_with_replay(
                 client,
-                config,
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
-                chunk_size=len(chunk),
-                flat_allowance=_CHAMBER_THINK_TOKEN_ALLOWANCE,
-            ),
-            think=True,
-            decode=lambda raw: decode_chamber_batch(raw, expected_cids),
-            replays=config.llm.max_batch_replays,
-            decision_type="chamber_deliberation",
-        )
+                json_schema=CHAMBER_JSON_SCHEMA,
+                max_tokens=_dynamic_max_tokens(
+                    client,
+                    config,
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    chunk_size=len(chunk),
+                    flat_allowance=_CHAMBER_THINK_TOKEN_ALLOWANCE,
+                ),
+                think=True,
+                decode=lambda raw: decode_chamber_batch(raw, expected_cids),
+                replays=config.llm.max_batch_replays,
+                decision_type="chamber_deliberation",
+                # A deliberate, local exception to temperature=0 determinism --
+                # see _CHAMBER_RETRY_TEMPERATURE's own comment. Only ever
+                # applies to a genuine retry (never the first attempt).
+                retry_temperature=_CHAMBER_RETRY_TEMPERATURE,
+                retry_seed_base=_CHAMBER_RETRY_SEED_BASE,
+                retry_info=retry_info,
+            )
+            for decision in chunk_decisions:
+                validate_chamber_decision(decision, config)
+        except LlmResponseError as exc:
+            # Last resort, not a silent one -- see ChamberBatchOutcome.llm_
+            # fallback's own docstring for why this exists and what it does
+            # and does not claim. Covers BOTH failure classes that reach
+            # here: the replay budget exhausted inside
+            # _complete_and_decode_with_replay, and a validate_chamber_
+            # decision failure on an otherwise-decoded batch -- neither is
+            # retried further, and both used to kill the whole run
+            # identically before this fix, which this plan's own priority
+            # ordering ("must not die mid-run" first) rules out.
+            _logger.error(
+                "chamber_deliberation: exhausted every recovery attempt for cid(s) %s, falling back "
+                "to the deterministic sincere decision (no shift) instead of aborting the run: %s",
+                expected_cids, exc,
+            )
+            chunk_decisions = _deterministic_chamber_fallback(chunk)
+            is_fallback = True
+        sampling_varied = bool(retry_info.get("sampling_varied", False))
+        return chunk_decisions, sampling_varied, is_fallback
 
     decisions: list[ChamberDecision] = []
+    retry_sampling_varied: dict[int, bool] = {}
+    llm_fallback: dict[int, bool] = {}
     chunks = chunk_voters(members, _chamber_chunk_size(config), min_batch_size=1)
-    for chunk_decisions in run_chunks(chunks, _chamber_chunk, config.parallel.intra_run_workers):
-        decisions.extend(chunk_decisions)
+    for chunk_decisions, sampling_varied, is_fallback in run_chunks(
+        chunks, _chamber_chunk, config.parallel.intra_run_workers
+    ):
+        for decision in chunk_decisions:
+            decisions.append(decision)
+            retry_sampling_varied[decision.cid] = sampling_varied
+            if is_fallback:
+                llm_fallback[decision.cid] = True
 
     positions: dict[int, tuple[float, ...]] = {}
     motif_corrected: dict[int, bool] = {}
     for decision in decisions:
-        validate_chamber_decision(decision, config)
         # motif=702 (DELIBERATIVE_SHIFT) with empty shifts has no legitimate reading under
         # this schema's own stated intent (702 IS "at least one adjustment") -- measured
         # 2026-08-30 (plan-adversarial-framing-collapse.md) as a real, reproducible pairing,
@@ -2990,7 +3100,10 @@ def decide_chamber_deliberation(
         # would risk exhausting retries on a case with no real variance to sample past,
         # the same lesson this project already learned from the cache-reuse nonce
         # mitigation. The correction is tracked, never silent -- see
-        # ChamberBatchOutcome.motif_corrected's own docstring.
+        # ChamberBatchOutcome.motif_corrected's own docstring. Applied here, after
+        # aggregation, regardless of a decision's fallback/retry provenance -- a fallback
+        # decision is always motif=701/shifts=[] already (no-op through this branch) and a
+        # retried decision is a real, validated decision like any other by this point.
         if decision.motif == 702 and not decision.shifts:
             decision.motif = 701
             motif_corrected[decision.cid] = True
@@ -2998,7 +3111,13 @@ def decide_chamber_deliberation(
         assert member.chamber_position is not None  # guaranteed by the caller's own filter
         positions[decision.cid] = apply_shifts(member.chamber_position, decision.shifts)
 
-    return ChamberBatchOutcome(decisions=decisions, positions=positions, motif_corrected=motif_corrected)
+    return ChamberBatchOutcome(
+        decisions=decisions,
+        positions=positions,
+        motif_corrected=motif_corrected,
+        retry_sampling_varied=retry_sampling_varied,
+        llm_fallback=llm_fallback,
+    )
 
 
 @dataclass(frozen=True)

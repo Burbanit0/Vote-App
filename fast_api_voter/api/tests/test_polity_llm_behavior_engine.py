@@ -16,6 +16,8 @@ from api.domain.polity.llm_behavior_engine import (
     MIN_SAFE_BATCH_SIZE,
     _CHAMBER_MAX_CHUNK_SIZE_OLLAMA,
     _CHAMBER_MAX_CHUNK_SIZE_VLLM,
+    _CHAMBER_RETRY_SEED_BASE,
+    _CHAMBER_RETRY_TEMPERATURE,
     _VOTE_CAST_MAX_CHUNK_SIZE_OLLAMA,
     _VOTE_CAST_MAX_CHUNK_SIZE_VLLM,
     _VOTE_CAST_RETRY_SEED_BASE,
@@ -2015,7 +2017,17 @@ def test_decide_chamber_deliberation_raises_for_codebook_version_mismatch():
         decide_chamber_deliberation([member], contexts, config, FakeChamberLlmClient())
 
 
-def test_decide_chamber_deliberation_propagates_llm_response_error_on_count_mismatch():
+def test_decide_chamber_deliberation_falls_back_to_the_deterministic_decision_on_count_mismatch():
+    # Renamed and re-asserted 2026-09-08, mirroring cast_votes's own
+    # identical fix (2026-09-06, check_vllm_vote_cast_retry_is_inert_
+    # results.md): decide_chamber_deliberation no longer propagates
+    # LlmResponseError under any circumstance -- a real Phase 7 smoke run
+    # crashed on exactly this exception type (a deterministic vLLM
+    # truncation, byte-identical retries could never recover from it), which
+    # this project's own standing priority ("must not die mid-run") rules
+    # out. Both members share one chunk at the shipped default (chunk
+    # size 5 >= 2 members), so a misalignment falls the whole chunk back to
+    # the deterministic sincere decision (motif=701, shifts=[]).
     members = [_member(0, (0.5,)), _member(1, (0.5,))]
     contexts = {m.citizen_id: _chamber_context(m.citizen_id) for m in members}
     config = _config_with_llm_enabled()
@@ -2027,8 +2039,74 @@ def test_decide_chamber_deliberation_propagates_llm_response_error_on_count_mism
         def complete_json(self, **kwargs):
             return json.dumps({"decisions": [{"cid": 0, "shifts": [], "motif": 701}]})
 
-    with pytest.raises(LlmResponseError, match="misaligned"):
-        decide_chamber_deliberation(members, contexts, config, ShortClient())
+    outcome = decide_chamber_deliberation(members, contexts, config, ShortClient())
+
+    assert len(outcome.decisions) == 2
+    assert outcome.llm_fallback == {0: True, 1: True}
+    assert all(d.motif == 701 and d.shifts == [] for d in outcome.decisions)
+
+
+def test_decide_chamber_deliberation_falls_back_instead_of_raising_once_the_replay_budget_is_exhausted():
+    member = _member(0, (0.5,))
+    contexts = {0: _chamber_context(0)}
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, max_batch_replays=2))
+
+    class _AlwaysBadClient:
+        def __init__(self):
+            self.calls = 0
+
+        def count_prompt_tokens(self, **kwargs):
+            return 500
+
+        def complete_json(self, **kwargs):
+            self.calls += 1
+            return "not valid json"  # never recovers
+
+    client = _AlwaysBadClient()
+    outcome = decide_chamber_deliberation([member], contexts, config, client)
+
+    assert client.calls == 3  # 1 original + 2 replays, then fall back instead of raising
+    assert outcome.llm_fallback == {0: True}
+    assert outcome.decisions[0].motif == 701
+    assert outcome.decisions[0].shifts == []
+
+
+def test_decide_chamber_deliberation_retries_at_a_varied_temperature_and_marks_it():
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, max_batch_replays=1))
+    member = _member(0, (0.5,))
+    contexts = {0: _chamber_context(0)}
+    good_raw = json.dumps({"decisions": [{"cid": 0, "shifts": [], "motif": 701}]})
+
+    class _FlakyClient:
+        def __init__(self):
+            self.calls = 0
+            self.temperatures: list[float | None] = []
+            self.seeds: list[int | None] = []
+
+        def count_prompt_tokens(self, **kwargs):
+            return 500
+
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True,
+                           temperature=None, seed=None):
+            self.calls += 1
+            self.temperatures.append(temperature)
+            self.seeds.append(seed)
+            if self.calls == 1:
+                return "not valid json"
+            return good_raw
+
+    client = _FlakyClient()
+    outcome = decide_chamber_deliberation([member], contexts, config, client)
+
+    assert client.calls == 2
+    # First attempt: no override (preserves determinism). Retry: the local
+    # exception's own temperature and seed offset, never None.
+    assert client.temperatures == [None, _CHAMBER_RETRY_TEMPERATURE]
+    assert client.seeds == [None, _CHAMBER_RETRY_SEED_BASE + 1]
+    assert outcome.retry_sampling_varied == {0: True}
+    assert outcome.llm_fallback == {}
 
 
 def test_decide_chamber_deliberation_uses_replay():

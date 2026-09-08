@@ -1723,6 +1723,15 @@ def _run_chamber_deliberation(
                 # effect on chamber_deviation/simulation behavior. Journaled explicitly so a
                 # future reader cannot mistake a corrected label for a first-hand 701.
                 "motif_corrected": int(outcome.motif_corrected.get(member.citizen_id, False)),
+                # Same §3.7.1 booleans-as-0/1 convention as vote_cast's own journal payload
+                # (see that call site's own comment) -- added 2026-09-08 alongside
+                # decide_chamber_deliberation's own retry_temperature/deterministic fallback,
+                # after a real Phase 7 run crashed with neither in place. Mutually exclusive
+                # per cid: retry_sampling_varied marks a genuine, temperature-varied recovery;
+                # llm_fallback marks the model path being exhausted entirely (sincere, no
+                # shift) instead of aborting the run.
+                "retry_sampling_varied": int(outcome.retry_sampling_varied.get(member.citizen_id, False)),
+                "llm_fallback": int(outcome.llm_fallback.get(member.citizen_id, False)),
             },
             citizen_id=member.citizen_id,
             motif=str(decision.motif),
