@@ -15,6 +15,7 @@ import pytest
 import api.domain.polity.run_polity_simulation as run_polity_simulation_module
 from api.domain.polity.accountability import chamber_deviation, unified_mandate_deviation, update_street_pressure
 from api.domain.polity.checkpoint import load_checkpoint
+from api.domain.polity.snapshots import expected_snapshot_rows
 from api.domain.polity.citizen import Citizen, Office, Role, generate_population
 from api.domain.polity.codebook import EventType, ReactionMotif
 from api.domain.polity.config import PolityConfig, load_config
@@ -4476,3 +4477,79 @@ def test_progress_json_reflects_the_full_cumulative_history_after_resume(tmp_pat
     expected_last_tick = config.run.duration_years * config.run.ticks_per_year
     assert progress_after["tick"] == expected_last_tick
     assert progress_after["last_checkpoint_tick"] == expected_last_tick
+
+
+# ── snapshots.jsonl (Phase 6, plan-flagship-30y-run.md) ─────────────────────
+
+def _snapshot_rows(snapshots_path):
+    return [json.loads(line) for line in snapshots_path.read_text(encoding="utf-8").splitlines()]
+
+
+def test_run_simulation_writes_a_snapshot_at_tick_zero_and_every_year_boundary(tmp_path):
+    config = _resumable_config(tmp_path)  # population_size=30, duration_years=4, ticks_per_year=4
+    run_simulation(config, run_id="run")
+
+    rows = _snapshot_rows(tmp_path / "run" / "snapshots.jsonl")
+    years_present = sorted({row["year"] for row in rows})
+    assert years_present == [0, 1, 2, 3, 4]  # tick 0, 4, 8, 12, 16
+    assert len(rows) == 5 * config.run.population_size
+
+
+def test_snapshot_at_tick_zero_reflects_the_true_initial_population(tmp_path):
+    # Snapshotting happens BEFORE tick 0's own phases run -- the year-0
+    # snapshot must show issue_positions exactly as generate_population
+    # produced them, untouched by any simulated decision.
+    config = _resumable_config(tmp_path)
+    run_simulation(config, run_id="run")
+
+    initial_population = generate_population(config.citizens, config.run.population_size, config.run.seed)
+    rows = _snapshot_rows(tmp_path / "run" / "snapshots.jsonl")
+    year_zero = {row["citizen_id"]: row for row in rows if row["year"] == 0}
+
+    for citizen in initial_population:
+        assert year_zero[citizen.citizen_id]["issue_positions"] == list(citizen.issue_positions)
+
+
+def test_expected_snapshot_rows_matches_what_an_uninterrupted_run_actually_writes(tmp_path):
+    config = _resumable_config(tmp_path)
+    run_simulation(config, run_id="run")
+
+    rows = _snapshot_rows(tmp_path / "run" / "snapshots.jsonl")
+    last_tick = config.run.duration_years * config.run.ticks_per_year
+    assert len(rows) == expected_snapshot_rows(last_tick, config.run.ticks_per_year, config.run.population_size)
+
+
+def test_resume_after_a_crash_on_a_snapshot_tick_matches_an_uninterrupted_run(tmp_path, monkeypatch):
+    # The specific case is_snapshot_tick's own docstring calls out: a crash
+    # on a tick that is BOTH a snapshot tick AND never finishes must not
+    # leave a duplicated (or, worse, a stale-but-uncounted) snapshot row
+    # once the same tick restarts from scratch on resume.
+    config_a = _resumable_config(tmp_path / "uninterrupted")
+    run_simulation(config_a, run_id="run")
+
+    config_b = _resumable_config(tmp_path / "crashed")
+    real_rupture_phase = run_polity_simulation_module._attempt_rupture_candidacies
+    crash_tick = 8  # a snapshot tick: 8 % ticks_per_year(4) == 0
+
+    def _crash_at_tick_8(citizens, parties, config, journal, tick, rng, **kwargs):
+        if tick == crash_tick:
+            raise _SimulatedCrash("simulated crash on a snapshot tick")
+        return real_rupture_phase(citizens, parties, config, journal, tick, rng, **kwargs)
+
+    monkeypatch.setattr(run_polity_simulation_module, "_attempt_rupture_candidacies", _crash_at_tick_8)
+    with pytest.raises(_SimulatedCrash):
+        run_simulation(config_b, run_id="run", resume=False)
+    monkeypatch.undo()
+
+    # The crash happened AFTER tick 8's own snapshot write (snapshotting is
+    # the very first thing a tick does) but before tick 8 finished/got
+    # checkpointed -- confirm that premature row really is on disk before
+    # resuming, so this test is exercising truncation, not a no-op.
+    premature_rows = _snapshot_rows(tmp_path / "crashed" / "run" / "snapshots.jsonl")
+    assert any(row["tick"] == crash_tick for row in premature_rows)
+
+    run_simulation(config_b, run_id="run", resume=True)
+
+    rows_a = _snapshot_rows(tmp_path / "uninterrupted" / "run" / "snapshots.jsonl")
+    rows_b = _snapshot_rows(tmp_path / "crashed" / "run" / "snapshots.jsonl")
+    assert rows_a == rows_b

@@ -79,6 +79,7 @@ from api.domain.polity.ballot_and_aggregation import (
 )
 from api.domain.polity.checkpoint import config_hash, load_checkpoint, restore_rng, save_checkpoint
 from api.domain.polity.progress import ProgressTracker
+from api.domain.polity.snapshots import expected_snapshot_rows, is_snapshot_tick, write_snapshot
 from api.domain.polity.citizen import Citizen, Office, Role, generate_population
 from api.domain.polity.codebook import BallotFormat, EventType, PressureAct, ReactionMotif
 from api.domain.polity.compaction import compact_run
@@ -516,6 +517,7 @@ def run_simulation(
     run_dir = Path(config.journal.output_dir) / run_id
     checkpoint_path = run_dir / "checkpoint.json"
     journal_path = run_dir / "events.jsonl"
+    snapshots_path = run_dir / "snapshots.jsonl"
 
     if resume and not checkpoint_path.exists():
         raise FileNotFoundError(f"--resume requested but no checkpoint at {checkpoint_path} -- nothing to resume")
@@ -547,6 +549,16 @@ def run_simulation(
                 "resuming a run under changed simulation rules is not supported"
             )
         truncate_journal(journal_path, checkpoint.next_event_id)
+        # Phase 6: a crash on a tick that is BOTH a snapshot tick (see
+        # is_snapshot_tick) AND never finished leaves a premature, never-
+        # checkpointed snapshot write on disk -- discard it the same way,
+        # to the row count the LAST COMPLETED tick accounts for (never the
+        # crashed one), so it is reproduced identically when that tick
+        # restarts from scratch rather than duplicated alongside it.
+        truncate_journal(
+            snapshots_path,
+            expected_snapshot_rows(checkpoint.tick, config.run.ticks_per_year, config.run.population_size),
+        )
         citizens = checkpoint.citizens
         parties = checkpoint.parties
         pending_rerun = _pending_rerun_from_dict(checkpoint.pending_rerun)
@@ -623,6 +635,15 @@ def run_simulation(
     ):
         for tick in range(first_tick, clock.total_ticks + 1):
             tick_start_time = time.monotonic()
+            # Phase 6: BEFORE this tick's own phases run, not after -- the
+            # tick-0 snapshot is then the true initial population, untouched
+            # by any simulated decision, and every later year's snapshot
+            # reflects state as of the START of that year (i.e. through the
+            # END of the year before it), matching a census-style reading.
+            # See is_snapshot_tick's own docstring for the resume-truncation
+            # consequence of this ordering.
+            if is_snapshot_tick(tick, config.run.ticks_per_year):
+                write_snapshot(snapshots_path, citizens, tick=tick, ticks_per_year=config.run.ticks_per_year)
             barred_ids = pending_rerun.barred_candidate_ids if pending_rerun is not None else frozenset()
             _attempt_rupture_candidacies(citizens, parties, config, journal, tick, rupture_rng, barred_candidate_ids=barred_ids)
             exogenous = _run_exogenous_events(citizens, config, journal, tick, events_rng, economy_x)
