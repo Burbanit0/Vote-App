@@ -1,7 +1,7 @@
 # Local reproduction of the GitHub "Backend CI" job (.github/workflows/backend-ci-cd-pipeline.yml).
 #
 # Fidelity choices:
-#  - python:3.14 == actions/setup-python python-version '3.14' (exact interpreter).
+#  - python:3.14 == astral-sh/setup-uv's python-version '3.14' (exact interpreter).
 #    Base distro is Debian (slim) rather than Ubuntu; irrelevant for pure-Python +
 #    manylinux wheels, and it guarantees the same 3.14.x the runner uses.
 #  - build-essential present so any sdist-only dep compiles (numpy/scipy ship wheels).
@@ -9,6 +9,10 @@
 #
 # CI checks run as CMD, so `docker run` exits non-zero exactly when the PR would fail.
 FROM python:3.14-slim-bookworm
+
+# uv (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md) — matches the CI workflow, which uses
+# astral-sh/setup-uv instead of pip.
+COPY --from=ghcr.io/astral-sh/uv:0.12.11 /uv /usr/local/bin/uv
 
 ENV PYTHONDONTWRITEBYTECODE=1 PIP_DISABLE_PIP_VERSION_CHECK=1
 RUN apt-get update \
@@ -19,8 +23,8 @@ WORKDIR /app
 
 # Install layer — cached unless the requirements files change.
 COPY fast_api_voter/requirements.txt fast_api_voter/requirements-dev.txt fast_api_voter/
-RUN pip install -r fast_api_voter/requirements.txt \
- && pip install -r fast_api_voter/requirements-dev.txt
+RUN uv pip install --system -r fast_api_voter/requirements.txt \
+ && uv pip install --system -r fast_api_voter/requirements-dev.txt
 
 # Source layer.
 COPY fast_api_voter/ fast_api_voter/
