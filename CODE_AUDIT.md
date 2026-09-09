@@ -29,6 +29,14 @@ qu'à `requirements-dev.txt` — retirés, et `fast_api_voter/Dockerfile` (image
 dev, utilisée par `scripts/bootstrap.sh` pour lancer `pytest` en conteneur)
 installe désormais aussi `requirements-dev.txt` en conséquence.*
 
+*`madge` ajouté le même jour (imports circulaires côté frontend +
+visualisation du graphe) — informationnel uniquement, pas dans le cliquet
+(`npm run madge:circular` dans `voter-app`, ou `scripts/audit.sh --quality`).
+Une trouvaille : un cycle `import type` entre `hooks/useSimulationWorker.ts`
+et `components/Simulation/IdeologyHeatmap.tsx` — bénin (les imports
+`type`-only sont éliminés à la compilation, aucun risque d'exécution), pas
+corrigé.*
+
 ## Résumé exécutif
 
 Le repo `Vote-App` (backend FastAPI `fast_api_voter/`, frontend React/TS
