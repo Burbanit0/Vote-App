@@ -189,6 +189,16 @@ if [ "$MODE" != "security" ]; then
     note "⚠️ vulture not installed — \`pip install vulture\` (in requirements-dev.txt)."
   fi
 
+  # --- Python unused/undeclared deps: deptry ---
+  section "Python unused/undeclared deps (deptry, informational)"
+  if have_py deptry; then
+    ( cd "$PY_DIRS" && python -m deptry . ) \
+      > "$REPORT_DIR/deptry.txt" 2>&1
+    note "Findings: $(grep -cE 'DEP[0-9]{3}' "$REPORT_DIR/deptry.txt" 2>/dev/null || echo 0). See \`$REPORT_DIR/deptry.txt\`. Not gated — see CODE_AUDIT.md."
+  else
+    note "⚠️ deptry not installed — \`pip install deptry\` (in requirements-dev.txt)."
+  fi
+
   # --- TS/React dead code + unused exports + unused deps: knip ---
   if [ -f "$TS_DIR/package.json" ]; then
     section "TypeScript dead code & unused deps (knip, informational)"

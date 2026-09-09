@@ -28,9 +28,3 @@ duckdb==1.5.5                  # §16.6 — compaction post-run du journal JSONL
 networkx==3.6.1                  # §5 — génération du graphe social (v6),
                                 # domain/polity/social_graph.py. Zéro dépendance
                                 # transitive (confirmé : pip show networkx -> Requires: vide).
-
-# ── Dev / test ───────────────────────────────────────────────────────────────
-ruff==0.16.6  # replaces flake8 — see requirements-dev.txt / pyproject.toml [tool.ruff]
-pytest==9.1.1
-pytest-asyncio==1.4.0
-pytest-cov==7.1.0

@@ -18,6 +18,17 @@ dans `fast_api_voter/pyproject.toml`. Les mentions de `flake8` ci-dessous
 restent comme trace historique de l'audit d'origine ; le lint réel tourne
 désormais sous `ruff check fast_api_voter`.*
 
+*Mise à jour du 2026-09-09 : `deptry` ajouté au cliquet (Lot 2 du plan de
+solidité technique — équivalent Python de `knip`, dépendances déclarées-
+mais-inutilisées / utilisées-mais-non-déclarées). Scope volontairement
+limité à `fast_api_voter/api/` (`scripts/` — la harness LLM polity — en est
+exclu, comme `api/tests/` par design de l'outil). Baseline : 0 trouvaille.
+Effet de bord : a révélé `ruff`/`pytest`/`pytest-asyncio`/`pytest-cov`
+dupliqués dans `requirements.txt` (production) alors qu'ils n'appartiennent
+qu'à `requirements-dev.txt` — retirés, et `fast_api_voter/Dockerfile` (image
+dev, utilisée par `scripts/bootstrap.sh` pour lancer `pytest` en conteneur)
+installe désormais aussi `requirements-dev.txt` en conséquence.*
+
 ## Résumé exécutif
 
 Le repo `Vote-App` (backend FastAPI `fast_api_voter/`, frontend React/TS
