@@ -49,7 +49,18 @@ jobs:
     timeout-minutes: 20
 
     steps:
+      # fetch-depth: 0 (full history) — needed by the diff-cover step below,
+      # which diffs against the PR's base branch.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          fetch-depth: 0
+
+      # diff-cover compares HEAD against this local branch (see below); a
+      # plain `origin/<base_ref>` isn't guaranteed to exist as a
+      # remote-tracking ref after actions/checkout's own fetch.
+      - name: Fetch base branch (for diff-cover)
+        if: github.event_name == 'pull_request'
+        run: git fetch origin ${{ github.base_ref }}:${{ github.base_ref }}
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -113,3 +124,16 @@ jobs:
             --cov-report=term-missing \
             --cov-report=xml \
             --cov-fail-under=90
+
+      # diff-cover (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md): 100% coverage on lines
+      # *changed* by this PR — far more mordant than the 90% global floor
+      # above, which a large already-tested codebase dilutes. Cobertura XML
+      # (coverage.xml) carries its own <source> root, so no path massaging is
+      # needed here (unlike the frontend's lcov.info — see
+      # frontend-ci-cd-pipeline.yml).
+      - name: diff-cover — 100% coverage on changed lines
+        if: github.event_name == 'pull_request'
+        run: |
+          diff-cover fast_api_voter/coverage.xml \
+            --compare-branch=${{ github.base_ref }} \
+            --fail-under=100
