@@ -1052,3 +1052,42 @@ Newest last. One line per landed step, with the commit hash where there is one.
   batch invariance projects to ~69h at flagship scale, slower than the
   ~35.6h sequential baseline. Does not ship -- reverted completely, no code
   changes kept. Phase 2's own verdict stands: the flagship runs sequential.
+- **2026-09-08** — chunk-size investigation (see the follow-up above): raised
+  `_VOTE_CAST_MAX_CHUNK_SIZE_VLLM=3`/`_CHAMBER_MAX_CHUNK_SIZE_VLLM=5`, shipped
+  with `_dynamic_max_tokens`.
+- **2026-09-08** — Phase 7 Stage 1 (smoke, 2y/pop100), first attempt: crashed
+  in `decide_chamber_deliberation` (`finish_reason='length'`, replay budget
+  exhausted) -- the first real end-to-end exercise of the new chunk size.
+  Root cause: unlike `cast_votes`, chamber had no retry-seed variation or
+  deterministic fallback, so a deterministic vLLM truncation (the
+  already-documented `chamber_position==sincere_position` Mode-A loop) sent
+  byte-identical retries, guaranteed to fail identically, then propagated
+  uncaught. A chunk of 5 is ~4.7x more likely to contain a triggering member
+  than a chunk of 1, so raising the chunk size made this qualitatively worse,
+  not just more probable. Fixed by direct analogy to `cast_votes`'s own
+  2026-09-06 fix: `_CHAMBER_RETRY_TEMPERATURE`/`_CHAMBER_RETRY_SEED_BASE` plus
+  `_deterministic_chamber_fallback` (sincere, no shift). 1304 polity tests
+  pass, mypy/flake8 clean.
+- **2026-09-08** — Phase 7 Stage 1, second attempt: completed cleanly (8
+  ticks, 1037 decisions, 86 replays, 0 fallbacks) but at 4257.6s -- **1.88x
+  SLOWER** than the pre-chunk-size baseline (`baseline-2y-p100-vllm-v3`,
+  2266.8s), the opposite of what the chunk-size investigation predicted.
+  Investigated directly rather than assuming a regression: (1) a controlled
+  flat-vs-dynamic-budget comparison at chunk_size=1 showed no latency
+  difference (`check_dynamic_budget_latency_regression.py`), ruling out the
+  budget STRATEGY itself; (2) vLLM's own logs showed steady ~100-128 tok/s
+  decode throughput for the whole run's duration, ruling out thermal
+  throttling; (3) a realistic-scale, same-session, controlled comparison of
+  the real `decide_chamber_deliberation` against a full 75-member cohort
+  (`check_chamber_chunk_size_at_realistic_scale.py`) confirmed chunk_size=5
+  IS genuinely faster than chunk_size=1 -- 1.66s/member vs 2.71s/member, a
+  real 1.63x speedup, zero fallbacks/retries either way, matching (roughly)
+  check_vllm_chunk_size_throughput_results.md's own numbers. The chunk-size
+  change is not the cause of the smoke run's slowdown. Most likely
+  explanation, not independently isolated further: nearly double the replay
+  count (86 vs 42) plus ordinary run-to-run variance in how much total work
+  8 ticks end up doing -- LLM decision outcomes feed back into which
+  citizens/parties/officeholders exist, so a single early divergent decision
+  can cascade into a materially different amount of downstream work between
+  two otherwise-identical-seed runs. Proceeding to Stage 2 (parity, 8y/pop100)
+  for a larger sample rather than chasing this further at 2y scale.
