@@ -28,8 +28,11 @@ import socketio
 
 from api.core.config import get_settings
 from api.engine.constants import DEFAULT_ISSUES
+from api.engine.utils.logger import get_logger
 from api.engine.utils.simulation_metrics      import compare_all_methods_mc
 from api.engine.utils.simulation_voting_utils import create_candidate, create_voter
+
+log = get_logger(__name__)
 
 
 # ── Single AsyncServer for the v2 backend ──────────────────────────────────
@@ -154,6 +157,7 @@ async def start_monte_carlo(sid: str, data: dict[str, Any]) -> None:
                 _run_one, candidate_configs, num_voters, ideology,
             )
         except Exception as exc:  # noqa: BLE001
+            log.warning("sockets.monte_carlo_run_failed", sid=sid, exc_info=True)
             await sio.emit("monte_carlo_error", {"message": str(exc)}, to=sid)
             return
 

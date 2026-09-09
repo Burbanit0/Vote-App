@@ -18,8 +18,9 @@ from typing import Any
 from api.engine.utils.simulation_voting_utils import create_voter, create_candidate
 from api.engine.utils.simulation_metrics import compare_all_methods
 from api.engine.constants import DEFAULT_ISSUES
+from api.engine.utils.logger import get_logger
 
-
+log = get_logger(__name__)
 
 
 # ── Methods catalogue ─────────────────────────────────────────────────────────
@@ -107,6 +108,7 @@ def _simulate_worker(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
         voters, candidates, issues = _build_simple_population(num_voters, num_candidates, ideology)
         result = compare_all_methods(voters, candidates, issues)
     except Exception as exc:
+        log.error("public.simulate.failed", exc_info=True)
         return {"error": f"Simulation failed: {exc}"}, 500
 
     # Filter requested methods
@@ -150,6 +152,7 @@ def _compare_worker(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
         voters, candidates, issues = _build_simple_population(num_voters, num_candidates, ideology)
         result = compare_all_methods(voters, candidates, issues, blank_vote=blank_vote)
     except Exception as exc:
+        log.error("public.compare.failed", exc_info=True)
         return {"error": f"Simulation failed: {exc}"}, 500
 
     if blank_vote:

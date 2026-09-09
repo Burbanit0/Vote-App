@@ -37,6 +37,20 @@ et `components/Simulation/IdeologyHeatmap.tsx` — bénin (les imports
 `type`-only sont éliminés à la compilation, aucun risque d'exécution), pas
 corrigé.*
 
+*`import-linter` ajouté le même jour (Lot 2) — contrat `layers`
+`routes → domain → engine` du skill `voter-api`, désormais bloquant en CI.
+0 violation trouvée (déjà propre).*
+
+*Règles Semgrep custom ajoutées le même jour (Lot 2,
+`.semgrep/vote-app-rules.yml`, bloquantes) : `v2-router-missing-rate-limit`
+a trouvé 3 routers `/api/v2` (`tech`, `theory`, `export`) sans aucune limite
+de débit — corrigé en leur ajoutant la dépendance `check_v2_rate_limit` déjà
+utilisée par `election`/`simulations`. `except-exception-without-log` a
+trouvé 18 `except Exception` muets sur 9 fichiers — corrigés en ajoutant un
+appel `log.*(..., exc_info=True)` à chacun, sur le modèle déjà établi
+ailleurs dans le code. Les deux corrections sont vérifiées par les 1789
+tests backend + mypy + ruff + un run e2e complet (218 tests, 0 flake).*
+
 ## Résumé exécutif
 
 Le repo `Vote-App` (backend FastAPI `fast_api_voter/`, frontend React/TS

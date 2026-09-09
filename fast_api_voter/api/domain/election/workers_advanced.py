@@ -17,6 +17,7 @@ from typing import Any, Callable, Dict, List, Optional
 import numpy as _np
 
 from api.engine.constants import DEFAULT_ISSUES
+from api.engine.utils.logger import get_logger
 from api.engine.utils.simulation_voting_utils import calculate_utility, create_voter
 from api.engine.utils.simulation_metrics import compare_all_methods
 from api.engine.utils.simulation_ranked_utils import (
@@ -25,6 +26,8 @@ from api.engine.utils.simulation_ranked_utils import (
 )
 from ._electorate import _build_base_electorate
 from ._helpers import build_candidate_from_xy as _build_candidate_from_xy
+
+log = get_logger(__name__)
 
 
 # ── Demographic Turnout ───────────────────────────────────────────────────────
@@ -208,6 +211,7 @@ def _dt_winners_by_method(
     try:
         compares = [compare_all_methods(vs, candidates, issues) for vs in subsets]
     except Exception:  # pylint: disable=broad-except
+        log.warning("workers_advanced.dt_winners_by_method_failed", exc_info=True)
         return [{} for _ in subsets]
     return [
         {m: d.get("winner") for m, d in c.get("methods", {}).items()}
@@ -482,6 +486,7 @@ def _compulsory_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
             m: d.get("winner") for m, d in comp_compare.get("methods", {}).items()
         }
     except Exception:  # pylint: disable=broad-except
+        log.warning("workers_advanced.compulsory_voting_winners_by_method_failed", exc_info=True)
         vol_winners_by_method = {}
         comp_winners_by_method = {}
 

@@ -17,6 +17,10 @@ import math
 import random
 from typing import Any, Optional
 
+from api.engine.utils.logger import get_logger
+
+log = get_logger(__name__)
+
 # ── Constants ────────────────────────────────────────────────────────────────
 
 _NAMES: list[str] = ["Alice", "Bob", "Carol", "Dave", "Eve", "Frank", "Grace", "Hugo"]
@@ -110,6 +114,7 @@ def _balloted_winner(
         winner = fn(ballots)
         return winner if winner else _plurality_winner(utilities)
     except Exception:
+        log.warning("campaign_dynamics.balloted_winner_failed", method=method, exc_info=True)
         return _plurality_winner(utilities)
 
 
