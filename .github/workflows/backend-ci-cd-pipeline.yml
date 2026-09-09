@@ -54,13 +54,22 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.14'
-          cache: 'pip'
-          cache-dependency-path: fast_api_voter/requirements.txt
+
+      # Replaces pip (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md): resolves/installs
+      # deps far faster than pip, with its own dependency-glob cache (no
+      # separate actions/cache setup needed). No `python-version` input here —
+      # `uv pip install --system` targets actions/setup-python's interpreter
+      # above; a uv-managed one (via setup-uv's own python-version) is
+      # rejected by `--system` ("No system Python installation found").
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+          cache-dependency-glob: 'fast_api_voter/requirements*.txt'
 
       - name: Install production + dev dependencies
         run: |
-          pip install -r fast_api_voter/requirements.txt
-          pip install -r fast_api_voter/requirements-dev.txt
+          uv pip install --system -r fast_api_voter/requirements.txt
+          uv pip install --system -r fast_api_voter/requirements-dev.txt
 
       # ── Linting ────────────────────────────────────────────────────────────
       # Blocking. Replaces flake8 (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md) — rule

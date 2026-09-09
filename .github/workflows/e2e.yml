@@ -67,11 +67,15 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.14'
-          cache: 'pip'
-          cache-dependency-path: fast_api_voter/requirements.txt
+      # No `python-version` here — see backend-ci-cd-pipeline.yml's comment on
+      # this same pairing (`--system` rejects a uv-managed interpreter).
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+          cache-dependency-glob: 'fast_api_voter/requirements*.txt'
 
       - name: Install Python dependencies
-        run: pip install -r fast_api_voter/requirements.txt
+        run: uv pip install --system -r fast_api_voter/requirements.txt
 
       # The backend is a fixture here (Assemblée mode and two Laboratoire fiches
       # call /api/v2/*); it is stateless — no DB, no JWT since auth was removed.

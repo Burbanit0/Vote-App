@@ -18,6 +18,10 @@
 # CI checks run as CMD, so `docker run` exits non-zero exactly when the PR would fail.
 FROM python:3.14-slim-bookworm
 
+# uv (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md) — matches e2e.yml, which uses
+# astral-sh/setup-uv instead of pip.
+COPY --from=ghcr.io/astral-sh/uv:0.12.11 /uv /usr/local/bin/uv
+
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
@@ -34,7 +38,7 @@ WORKDIR /app
 
 # Backend deps — cached unless requirements.txt changes.
 COPY fast_api_voter/requirements.txt fast_api_voter/
-RUN pip install -r fast_api_voter/requirements.txt
+RUN uv pip install --system -r fast_api_voter/requirements.txt
 
 # Frontend deps — cached unless the lockfile changes.
 WORKDIR /app/voter-app
