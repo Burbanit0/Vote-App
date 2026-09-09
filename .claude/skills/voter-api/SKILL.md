@@ -10,7 +10,7 @@ retired). Priority order for this project: **rigour of the voting algorithms >
 comparative correctness > security > performance**. It is a study project with no real
 users, so favour correctness-by-construction and clear algorithms over hardening.
 
-## Layering (never short-circuit it)
+## Layering (never short-circuit it — `import-linter` blocks it in CI)
 
 ```
 api/routes/*          thin HTTP layer: parse request → call worker → return (body, status)

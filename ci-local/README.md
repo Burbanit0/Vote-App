@@ -59,7 +59,10 @@ it reached 0 errors).
 
 **Backend** — `ruff check fast_api_voter` (gating; replaces flake8 as of Lot 1,
 scoped to pyflakes `F` only — rule selection lives in `fast_api_voter/
-pyproject.toml`'s `[tool.ruff]`) → `bandit -r fast_api_voter/api -ll --skip B104,B311`
+pyproject.toml`'s `[tool.ruff]`) → `lint-imports` (gating; enforces the
+`routes → domain → engine` layering the `voter-api` skill documents — Lot 2,
+`[tool.importlinter]` in the same `pyproject.toml`) →
+`bandit -r fast_api_voter/api -ll --skip B104,B311`
 (gating on medium+ severity — the `-ll` flag itself excludes low-severity findings,
 of which there are currently ~2,892, from failing the build; no `--exit-zero`) →
 `pip-audit` (non-blocking **in this local mirror only** — the actual GitHub

@@ -267,3 +267,25 @@ pytest_add_cli_args_test_selection = [
 # get_simple_score_winner/calculate_bayesian_regret are the only functions left
 # in this file without hand-picked adversarial fixtures (only the tests just
 # added) — worth a second pass once a fresh survivor list is available.
+
+# Makes the voter-api skill's documented layering blocking instead of just
+# written down (Lot 2, PLAN_SOLIDITE_TECHNIQUE.md — see .claude/skills/
+# voter-api/SKILL.md's "Layering (never short-circuit it)" section, which
+# this contract enforces verbatim). A "layers" contract forbids any import
+# from a layer back up into one listed above it; api.routes may import
+# api.domain and api.engine, api.domain may import api.engine, never the
+# reverse. api.core/api.schemas/api.sockets are deliberately not covered —
+# the skill only documents routes -> domain -> engine, and sockets already
+# has its own distinct (and legitimate) shape, calling api.engine directly
+# for its narrower live-stream use case.
+[tool.importlinter]
+root_packages = ["api"]
+
+[[tool.importlinter.contracts]]
+name = "Layering: routes -> domain -> engine"
+type = "layers"
+layers = [
+    "api.routes",
+    "api.domain",
+    "api.engine",
+]
