@@ -1091,3 +1091,44 @@ Newest last. One line per landed step, with the commit hash where there is one.
   can cascade into a materially different amount of downstream work between
   two otherwise-identical-seed runs. Proceeding to Stage 2 (parity, 8y/pop100)
   for a larger sample rather than chasing this further at 2y scale.
+- **2026-09-09** — Phase 7 Stage 2 (parity, 8y/pop100), interrupted and
+  resumed: the background process died with the previous session (no crash
+  in the code -- `status: stopped`, no transcript marker) after reaching
+  tick 26/32, but Phase 3's checkpoint had already saved that far;
+  `--resume` continued cleanly to completion. Also caught disk at 6.5G free
+  (95% full, docker image/build-cache buildup) mid-session and pruned back
+  to 17G before resuming -- worth rechecking before Stage 3/4.
+  True total wall-clock across both invocations: 12306.2s + 4086.4s =
+  **16392.6s**, 3433 decisions, 432 replay attempts logged
+  (`replays.log`), 332 decisions recovered via a varied-sampling retry, 181
+  fell back to the deterministic path (~15% of all decisions needed some
+  form of recovery -- materially higher than the 0-fallback rate the
+  realistic-scale controlled test measured on a synthetic, uniform-position
+  75-member cohort; real production diversity triggers the documented
+  per-member failure rates -- ~2.6% chamber Mode-A, ~6.7%+ vote_cast
+  blank/ranking -- at their real baseline, and a chunk-level failure drags
+  every member/voter sharing that chunk through the same costly retry
+  cycle). Behavioral sanity checked directly against `metrics.json`: 2
+  `legitimacy_floor` recalls, a mandate_deviation trajectory shaped like
+  `acceptance_v6b_results.md`'s own found pattern (monotone drift under
+  pressure), plausible effective-party-count and cohabitation numbers, no
+  crash, no garbage values -- the parity gate's actual stated purpose
+  ("vLLM + the chunk-size change didn't alter behaviour") is satisfied.
+  **The timing comparison against `acceptance_v6b_results.md` (16670.7s) is
+  NOT valid and was initially mis-reported as "~1.7% faster, near parity"
+  before this correction**: that baseline ran `sortition_chamber.seats=30`
+  with `social_graph`/`events` OFF; this run uses the full flagship config
+  (`_flagship_config`) at `seats=75` with both ON -- chamber_deliberation
+  alone is 72% of all decisions here, so a 2.5x seat-count difference
+  invalidates any direct wall-clock comparison regardless of the chunk-size
+  work's own real value. The controlled, scope-matched finding from the
+  smoke-run investigation (chunk_size=5 chamber, 1.63x faster than
+  chunk_size=1, same-session, realistic 75-member cohort) is NOT
+  invalidated by this confound and remains the trustworthy throughput
+  claim; the ~15% real-world recovery rate is a genuine, separate cost that
+  the clean synthetic test didn't capture, but per that test's own margin
+  is unlikely to fully cancel the gain. The open, decision-relevant
+  question -- real per-tick cost at the flagship's own target population --
+  is what Stage 3 (scale probe) exists to answer directly, so proceeding
+  there rather than chasing a properly-scope-matched retrospective
+  comparison further.
