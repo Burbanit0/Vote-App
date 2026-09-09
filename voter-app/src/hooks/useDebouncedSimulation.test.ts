@@ -5,11 +5,10 @@ vi.mock('../services/simulationCompareApi', () => ({
   runComparisonSimulation: vi.fn(),
 }));
 
-const { runComparisonSimulation } = (await import(
-  '../services/simulationCompareApi'
-)) as unknown as {
-  runComparisonSimulation: jest.Mock;
-};
+const { runComparisonSimulation } =
+  (await import('../services/simulationCompareApi')) as unknown as {
+    runComparisonSimulation: jest.Mock;
+  };
 
 const MOCK_RESULT = {
   condorcet_winner: 'Alice',

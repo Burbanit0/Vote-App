@@ -13,11 +13,7 @@
  */
 
 export type BlankVoteStatus =
-  | 'counted_separate'
-  | 'symbolic'
-  | 'competitive'
-  | 'threshold'
-  | 'merged_invalid';
+  'counted_separate' | 'symbolic' | 'competitive' | 'threshold' | 'merged_invalid';
 
 export interface BlankVoteRegime {
   country: string;
