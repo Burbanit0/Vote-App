@@ -14,7 +14,7 @@ pytest-asyncio==1.4.0
 aiohttp==3.14.3   # 3.14.3: GHSA-cq5v-8q36-5273 (chunked-response parser OOB read),
                   #         GHSA-mfx4-hv73-q22v (ws upgrade smuggling),
                   #         GHSA-mq44-7p77-q5h7 (ws permessage-deflate)
-hypothesis==6.167.0  # Property-based testing for the theoretical invariants
+hypothesis==6.167.1  # Property-based testing for the theoretical invariants
                       # (Condorcet, monotonicity, legitimacy bounds)
 
 # Security
@@ -36,5 +36,5 @@ vulture==2.16        # Dead-code detection (informational, see pyproject.toml [t
 radon==6.0.1          # Cyclomatic complexity report (informational, see CODE_AUDIT.md)
 xenon==0.9.3          # radon threshold runner — same report, informational here too
 types-redis==4.6.0.20241004  # Redis type stubs
-types-requests==2.32.0.20250328  # Requests type stubs
+types-requests==2.33.0.20260712  # Requests type stubs
 types-PyYAML==6.0.12.20260815  # domain/polity/config.py — polity_config.yaml loader

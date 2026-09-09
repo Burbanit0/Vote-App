@@ -316,7 +316,7 @@ def _allocate_assembly(
                     viable = [int(i) for i in counts.argsort()[-2:] if counts[i] > 0]
                     if len(viable) < 2:
                         continue
-                    sub = d2[_np.ix_(band, viable)]  # type: ignore[arg-type]
+                    sub = d2[_np.ix_(band, viable)]
                     nearest_viable = _np.array(viable)[sub.argmin(axis=1)]
                     movers = ~_np.isin(choice[band], viable)
                     new_choice[band[movers]] = nearest_viable[movers]
