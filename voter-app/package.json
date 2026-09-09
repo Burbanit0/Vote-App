@@ -12,7 +12,7 @@
     "@testing-library/dom": "^10.4.0",
     "@types/d3": "^7.4.3",
     "@types/d3-delaunay": "^6.0.4",
-    "@types/node": "^20.19.0",
+    "@types/node": "^26.4.1",
     "@typescript-eslint/parser": "^8.69.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
