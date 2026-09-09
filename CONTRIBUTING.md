@@ -72,7 +72,7 @@ git push origin feature/ma-feature
 | npm audit | CVE haute détectée |
 | E2E (Playwright) | Un parcours utilisateur casse sur Chromium ou Firefox — **ou passe seulement au second essai** (voir « Tests E2E » plus bas) |
 | Generated Artifacts Contract | `openapi.gen.json` / `types.gen.ts` **ou** `engineParity.json` désynchronisés du code (voir `scripts/check_openapi_drift.sh` et `scripts/check_engine_parity_drift.sh`) |
-| Quality ratchet | La dette vulture/radon/knip/jscpd a augmenté (voir « Code mort » plus bas) |
+| Quality ratchet | La dette vulture/radon/deptry/knip/jscpd a augmenté (voir « Code mort » plus bas) |
 | Dependency Review | La PR introduit une dépendance vulnérable (sévérité high+) — complète Dependabot, qui ne scanne que l'existant, pas ce qu'une PR ajoute |
 
 ### 4. Release : develop → main
@@ -153,7 +153,7 @@ ou un gate, mettez cette table à jour dans la même PR.
 | `branch-policy.yml` (Branch Policy) | PR | Oui, y compris le format du titre (Conventional Commits — plus un simple avertissement) et la source pour les PR vers `main` (`Check source is develop`) | Oui | ~10-30 s |
 | `openapi-contract.yml` (Generated Artifacts Contract) | push/PR, toujours (même schéma `changes`) | Oui, quand un fichier du contrat a changé — sinon `skipped` | Oui | ~1 min (skip quasi instantané sinon) |
 | `dependency-review.yml` (Dependency Review) | PR sur `develop`/`main` | Oui — sévérité `high`+ introduite par la PR | Oui | ~15-30 s |
-| `audit.yml` (Security Audit) | push/PR + cron lundi 06:00 UTC + `merge_group` | Semgrep/Trivy/Secret Scan : oui · CodeQL : le job doit terminer mais ne bloque pas sur ses trouvailles (elles atterrissent dans l'onglet Security) · code mort/duplication/complexité (vulture/radon/knip/jscpd) : non-bloquant sauf régression du cliquet (`quality-baseline.json`) · scan d'image Docker + SBOM (`image-scan`) : non-bloquant, et ne tourne que sur push `develop`/cron — jamais sur une PR (build de 2 images, coûte plusieurs minutes) | Oui (les 4 jobs gating + les 2 jobs CodeQL du matrix — `image-scan` n'est pas requis) | ~2-3 min sur PR (le run cron/push `develop`, qui inclut `image-scan`, est plus long et indépendant d'une PR) |
+| `audit.yml` (Security Audit) | push/PR + cron lundi 06:00 UTC + `merge_group` | Semgrep/Trivy/Secret Scan : oui · CodeQL : le job doit terminer mais ne bloque pas sur ses trouvailles (elles atterrissent dans l'onglet Security) · code mort/duplication/complexité (vulture/radon/deptry/knip/jscpd) : non-bloquant sauf régression du cliquet (`quality-baseline.json`) · scan d'image Docker + SBOM (`image-scan`) : non-bloquant, et ne tourne que sur push `develop`/cron — jamais sur une PR (build de 2 images, coûte plusieurs minutes) | Oui (les 4 jobs gating + les 2 jobs CodeQL du matrix — `image-scan` n'est pas requis) | ~2-3 min sur PR (le run cron/push `develop`, qui inclut `image-scan`, est plus long et indépendant d'une PR) |
 | `mutation-testing.yml` (Mutation Testing) | push sur `develop` (paths engine uniquement) + `workflow_dispatch` + cron lundi 04:17 UTC | Non — jamais bloquant | Non — ne se déclenche jamais sur PR | mutmut ~40 min-3h · Stryker jusqu'à ~2h30 en cold-cache (`timeout-minutes: 240`), moins avec le cache `--incremental` une fois chaud |
 | `release.yml` (🚀 Release Vote Lab) | `workflow_dispatch` uniquement | N/A — pas de PR, gate lui-même sur CI+E2E avant de taguer `main` | N/A | dépend de `ci-frontend`/`ci-backend`/`e2e` + publication |
 | `scorecard.yml` (OpenSSF Scorecard) | push `develop` + cron mardi 07:30 UTC + changement de règle de protection + `workflow_dispatch` | Non — score publié dans l'onglet Security, jamais bloquant | Non | ~1-2 min |
@@ -215,7 +215,7 @@ Types valides : `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `ci`, `secur
 | ruff | 0 sur `F` (pyflakes — erreurs de nom, imports morts…) | `fast_api_voter/pyproject.toml` |
 | mypy | strict, 0 erreur sur `api/` | `fast_api_voter/mypy.ini` |
 | Tests e2e instables | 0 — un test qui ne passe qu'au *retry* fait échouer la PR | `voter-app/scripts/check-flaky.mjs` |
-| Dette qualité (vulture/radon/knip/jscpd) | ne doit jamais augmenter | `.github/quality-baseline.json` |
+| Dette qualité (vulture/radon/deptry/knip/jscpd) | ne doit jamais augmenter | `.github/quality-baseline.json` |
 | npm audit severity | high | `npm audit --audit-level=high` |
 | Bandit severity | medium+ | `-ll` dans args bandit |
 
@@ -273,6 +273,7 @@ lieux) :
 |---|---|---|
 | `vulture` | Code mort backend (fonctions, variables, imports jamais utilisés) | `cd fast_api_voter && python -m vulture api/ .vulture_whitelist.py --config pyproject.toml` |
 | `radon`/`xenon` | Complexité cyclomatique backend (fonctions trop ramifiées) | `cd fast_api_voter && python -m radon cc api/ -e "api/tests/*" -n C -s` |
+| `deptry` | Dépendances Python déclarées-mais-inutilisées / utilisées-mais-non-déclarées | `cd fast_api_voter && python -m deptry .` (config dans `pyproject.toml`'s `[tool.deptry]`) |
 | `knip` | Fichiers/exports/dépendances inutilisés côté frontend | `cd voter-app && npm run knip` |
 | `jscpd` | Duplication de code cross-langage (Python + TS) | `npx jscpd --config .jscpd.json fast_api_voter/api voter-app/src` |
 
@@ -298,6 +299,7 @@ résultat de merge de la PR : une branche coupée avant le merge de quelqu'un
 d'autre produit des comptes que la CI ne reproduira pas.
 
 Un faux positif se réduit au silence à la source (`.vulture_whitelist.py`,
+`fast_api_voter/pyproject.toml`'s `[tool.deptry.per_rule_ignores]`,
 `voter-app/knip.json`, `.jscpd.json`), pas en remontant la baseline. Un script
 lancé par la CI mais importé par personne — `voter-app/scripts/check-flaky.mjs`
 en est un — est un faux positif knip : il s'ajoute à `ignore`.
@@ -338,7 +340,7 @@ de mutation ne peut bouger que si le code muté bouge.
   `# noqa: BLE001` dans `api/sockets/__init__.py` comme modèle).
 - Avant une PR volumineuse générée avec assistance LLM, lancer
   `./scripts/audit.sh --quality` et relire au moins les sections vulture /
-  radon / knip / jscpd du résumé.
+  radon / deptry / knip / jscpd du résumé.
 
 ---
 

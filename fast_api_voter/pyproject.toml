@@ -48,6 +48,44 @@ extend-exclude = [
 [tool.ruff.lint]
 select = ["F"]
 
+# Unused/undeclared dependency detection (Lot 2, PLAN_SOLIDITE_TECHNIQUE.md —
+# knip's Python equivalent). Scoped to api/ — fast_api_voter/scripts/ holds
+# the polity LLM test harness and acceptance scripts, a self-contained tool
+# area with its own dependency footprint (e.g. scipy, used only there), not
+# part of the application's own dependency contract this is meant to police.
+[tool.deptry]
+ignore_notebooks = true  # Electors simulation.ipynb — exploration, not the app.
+extend_exclude = [
+    "scripts/",    # see above.
+    "api/tests/",  # deptry's own docs: dev-only code should be excluded from
+                   # scanning entirely, not detected — a test file importing
+                   # pytest/hypothesis directly isn't a "misplaced dependency"
+                   # (DEP004), it's exactly where a dev dependency belongs.
+]
+
+[tool.deptry.per_rule_ignores]
+# Each of these is a real, deliberate case deptry's static import-scanning
+# can't see, not an unfixed finding — see PR that introduced this section for
+# the investigation behind each one:
+DEP002 = [
+    "python-dotenv",  # never `import dotenv` directly; used internally by
+                       # pydantic-settings' `SettingsConfigDict(env_file=...)`.
+    "scipy",           # unused by api/ itself, but IS used by scripts/llm_test_
+                       # harness/sample_size.py — excluded above, so it reads
+                       # as unused from this scan's (correct) narrower view.
+    "uvicorn",         # not `import`ed by api/ or api/tests/ (also excluded
+                       # above) — invoked as a CLI process (Dockerfile CMD /
+                       # workflow `run:` steps), never as a library.
+]
+DEP003 = [
+    "starlette",  # imported directly in api/main.py, but deliberately left as
+                  # fastapi's transitive pin rather than a second explicit one
+                  # — see requirements.txt's fastapi line, which already
+                  # tracks starlette's CVE-fixed versions through fastapi's
+                  # own pin. A separate starlette== pin would just be a second
+                  # place that pin can drift out of sync.
+]
+
 # Dead-code detection (informational only — see CODE_AUDIT.md for the
 # rationale and how this feeds scripts/audit.sh / CI). min_confidence=80 keeps
 # the signal-to-noise ratio usable: below that threshold Enum members and

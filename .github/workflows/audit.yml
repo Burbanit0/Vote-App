@@ -284,6 +284,19 @@ jobs:
         # the job instead.
         run: python -m xenon api/ -e "api/tests/*" -b F -m F -a F | tee xenon.txt
 
+      # deptry needs the actual dependencies installed (it maps import names
+      # to installed package metadata) — unlike vulture/radon/xenon above,
+      # which only need the source. Same install this job already runs, just
+      # for a different tool; not needed until this step.
+      - name: Install backend dependencies (for deptry)
+        working-directory: fast_api_voter
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Python unused/undeclared dependencies (deptry)
+        working-directory: fast_api_voter
+        continue-on-error: true
+        run: python -m deptry . | tee deptry.txt
+
       - name: Install frontend deps
         working-directory: voter-app
         run: npm ci --no-audit --no-fund
@@ -340,6 +353,9 @@ jobs:
             echo "<details><summary>knip (TS dead code / unused deps)</summary>"
             echo; echo '```'; cat voter-app/knip.txt 2>/dev/null || echo "(no output)"; echo '```'
             echo "</details>"
+            echo "<details><summary>deptry (Python unused/undeclared deps)</summary>"
+            echo; echo '```'; cat fast_api_voter/deptry.txt 2>/dev/null || echo "(no output)"; echo '```'
+            echo "</details>"
             echo "<details><summary>jscpd (duplication)</summary>"
             echo; echo '```'; cat jscpd.txt 2>/dev/null || echo "(no output)"; echo '```'
             echo "</details>"
@@ -353,6 +369,7 @@ jobs:
             fast_api_voter/radon.txt
             fast_api_voter/xenon.txt
             voter-app/knip.txt
+            fast_api_voter/deptry.txt
             jscpd.txt
           if-no-files-found: ignore
 

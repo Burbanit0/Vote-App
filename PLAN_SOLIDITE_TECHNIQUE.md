@@ -238,14 +238,14 @@ n'applique. Ce lot les transforme en garde-fous. Angle de récit : *« combien d
 mes conventions documentées étaient déjà violées sans que je le sache ? »* —
 avec un chiffre réel à la clé.
 
-| Item | Pourquoi ici | Effort | Solidité | Récit |
-|---|---|---|---|---|
-| **`import-linter`** | La couche `route → domain → engine` du skill `voter-api` n'est qu'une convention. import-linter la rend bloquante. | M | ⭐⭐⭐ | 📝📝📝 |
-| **Règles Semgrep custom** | Semgrep tourne avec des règles génériques. Écrire les miennes : « aucun worker n'importe `api.routes` », « tout endpoint v2 a un rate-limit », « pas de `except Exception` sans log » — soit exactement les 3 bugs corrigés le 06/09, transformés en anti-récidive. | M | ⭐⭐⭐ | 📝📝📝 |
-| **`dependency-cruiser`** ou `eslint-plugin-boundaries` | Équivalent front : règles d'architecture sur les imports + cycles. | M | ⭐⭐ | 📝📝 |
-| **`deptry`** | Équivalent de knip pour Python (deps déclarées inutilisées / utilisées non déclarées). Détection présente côté front, absente côté back. | S | ⭐⭐ | 📝📝 |
-| **Hooks Claude** (`settings.json`) | `PreToolUse` **bloquant** sur `engineParity.json` → rend impossible l'édition manuelle que `CLAUDE.md` interdit par écrit ; `PostToolUse` sur le moteur → rappel de régénérer la parité. Le `.claude/` n'a aucun hook aujourd'hui. | M | ⭐⭐⭐ | 📝📝📝 |
-| **`madge`** | Cycles d'imports front + visualisation du graphe. | S | ⭐ | 📝 |
+| Item | Pourquoi ici | Effort | Solidité | Récit | Statut |
+|---|---|---|---|---|---|
+| **`import-linter`** | La couche `route → domain → engine` du skill `voter-api` n'est qu'une convention. import-linter la rend bloquante. | M | ⭐⭐⭐ | 📝📝📝 | |
+| **Règles Semgrep custom** | Semgrep tourne avec des règles génériques. Écrire les miennes : « aucun worker n'importe `api.routes` », « tout endpoint v2 a un rate-limit », « pas de `except Exception` sans log » — soit exactement les 3 bugs corrigés le 06/09, transformés en anti-récidive. | M | ⭐⭐⭐ | 📝📝📝 | |
+| **`dependency-cruiser`** ou `eslint-plugin-boundaries` | Équivalent front : règles d'architecture sur les imports + cycles. | M | ⭐⭐ | 📝📝 | |
+| **`deptry`** | Équivalent de knip pour Python (deps déclarées inutilisées / utilisées non déclarées). Détection présente côté front, absente côté back. | S | ⭐⭐ | 📝📝 | ✅ scope `api/` (exclut `scripts/` polity + `api/tests/`, par design de l'outil), baseline 0, `[tool.deptry]` dans `pyproject.toml`, câblé dans le cliquet qualité. Effet de bord : `ruff`/`pytest*` dupliqués dans `requirements.txt` retirés, `Dockerfile` dev installe désormais `requirements-dev.txt` aussi |
+| **Hooks Claude** (`settings.json`) | `PreToolUse` **bloquant** sur `engineParity.json` → rend impossible l'édition manuelle que `CLAUDE.md` interdit par écrit ; `PostToolUse` sur le moteur → rappel de régénérer la parité. Le `.claude/` n'a aucun hook aujourd'hui. | M | ⭐⭐⭐ | 📝📝📝 | |
+| **`madge`** | Cycles d'imports front + visualisation du graphe. | S | ⭐ | 📝 | |
 
 ---
 
