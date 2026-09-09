@@ -30,7 +30,7 @@ networkx==3.6.1                  # §5 — génération du graphe social (v6),
                                 # transitive (confirmé : pip show networkx -> Requires: vide).
 
 # ── Dev / test ───────────────────────────────────────────────────────────────
-flake8==7.3.0
+ruff==0.16.6  # replaces flake8 — see requirements-dev.txt / pyproject.toml [tool.ruff]
 pytest==9.1.1
 pytest-asyncio==1.4.0
 pytest-cov==7.1.0

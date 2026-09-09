@@ -18,6 +18,36 @@ skip_covered = true
 precision = 0
 fail_under = 90
 
+# Linting (replaces flake8 as of Lot 1 of PLAN_SOLIDITE_TECHNIQUE.md — same
+# ~100x speedup and broader rule catalogue Ruff is known for, kept OUT of
+# scope here: this is a faithful swap, not a coverage expansion). Deliberately
+# narrow, matching the .flake8 config this replaces exactly: only F (pyflakes
+# — unused imports/vars, undefined names, f-string mistakes) is selected.
+# Syntax errors are reported by Ruff unconditionally, regardless of `select`,
+# so there's no equivalent of flake8's E9 to configure. The cosmetic E/W
+# pycodestyle codes stay OFF on purpose: the codebase uses a column-aligned
+# style those checks dislike and they carry no correctness signal — the exact
+# reasoning the replaced .flake8 documented for its own narrow `select`.
+# (The old .flake8 also ignored F824 — Ruff has no F824 rule at all, so
+# there's nothing to carry over.)
+[tool.ruff]
+line-length = 88
+extend-exclude = [
+    "api/tests",  # never linted under flake8 either (see the old .flake8's
+                  # `exclude` list) — extending coverage there is a separate,
+                  # deliberate decision, not a side effect of this swap.
+    ".vulture_whitelist.py",  # same exclusion the old .flake8 had — its
+                              # bare names are deliberately "undefined",
+                              # that's how vulture's whitelist mechanism works.
+    "*.ipynb",  # flake8 never linted notebooks at all (no native support);
+                # Ruff does by default, which is real *new* coverage, not
+                # parity — out of scope for a faithful swap. Revisit
+                # separately if notebook linting is ever wanted.
+]
+
+[tool.ruff.lint]
+select = ["F"]
+
 # Dead-code detection (informational only — see CODE_AUDIT.md for the
 # rationale and how this feeds scripts/audit.sh / CI). min_confidence=80 keeps
 # the signal-to-noise ratio usable: below that threshold Enum members and
