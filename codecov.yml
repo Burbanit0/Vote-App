@@ -1,0 +1,28 @@
+# Codecov (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md): PR coverage comment + trend
+# over time. Deliberately informational-only — diff-cover
+# (backend-ci-cd-pipeline.yml / frontend-ci-cd-pipeline.yml) is the actual
+# enforced 100%-on-changed-lines gate. `informational: true` keeps Codecov's
+# own GitHub status checks from ever blocking a merge or becoming a required
+# check someone adds to branch protection without realizing it can hang a PR
+# forever if it stops reporting (see PR #205, referenced in
+# scripts/setup-branch-protection.sh).
+coverage:
+  status:
+    project:
+      default:
+        informational: true
+    patch:
+      default:
+        informational: true
+
+comment:
+  layout: "condensed_header, diff, flags, condensed_files"
+  behavior: default
+
+flags:
+  backend:
+    paths:
+      - fast_api_voter/
+  frontend:
+    paths:
+      - voter-app/
