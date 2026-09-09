@@ -37,6 +37,8 @@ radon==6.0.1          # Cyclomatic complexity report (informational, see CODE_AU
 xenon==0.9.3          # radon threshold runner — same report, informational here too
 deptry==0.25.1        # Unused/undeclared deps (Lot 2, PLAN_SOLIDITE_TECHNIQUE.md — knip's
                        # Python equivalent, informational; see pyproject.toml [tool.deptry])
+import-linter==2.15    # Blocking routes -> domain -> engine layering (Lot 2,
+                       # PLAN_SOLIDITE_TECHNIQUE.md; see pyproject.toml [tool.importlinter])
 types-redis==4.6.0.20241004  # Redis type stubs
 types-requests==2.33.0.20260712  # Requests type stubs
 types-PyYAML==6.0.12.20260815  # domain/polity/config.py — polity_config.yaml loader

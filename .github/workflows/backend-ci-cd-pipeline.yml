@@ -91,6 +91,15 @@ jobs:
       - name: Ruff (pyflakes — blocking)
         run: ruff check fast_api_voter
 
+      # Makes the voter-api skill's documented routes -> domain -> engine
+      # layering blocking instead of just written down (Lot 2,
+      # PLAN_SOLIDITE_TECHNIQUE.md) — see pyproject.toml's [tool.importlinter]
+      # for exactly what's enforced and what's deliberately left out.
+      - name: Import layering — routes -> domain -> engine (blocking)
+        run: |
+          cd fast_api_voter
+          lint-imports
+
       # ── Security ───────────────────────────────────────────────────────────
       - name: Bandit (Python SAST — gating)
         run: |

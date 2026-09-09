@@ -35,6 +35,7 @@ COPY fast_api_voter/ fast_api_voter/
 ENV FLASK_ENV=testing
 CMD ["bash","-euo","pipefail","-c","\
 echo '=== Ruff (gating) ===';           ruff check fast_api_voter; \
+echo '=== Import layering (gating) ==='; (cd fast_api_voter && lint-imports); \
 echo '=== Bandit (gating) ===';         bandit -r fast_api_voter/api -ll --skip B104,B311; \
 echo '=== pip-audit (non-blocking) ==='; pip-audit --requirement fast_api_voter/requirements.txt || echo '(pip-audit failed — non-blocking)'; \
 cd fast_api_voter; \
