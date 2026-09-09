@@ -208,6 +208,16 @@ if [ "$MODE" != "security" ]; then
     else
       note "⚠️ knip not found in $TS_DIR/node_modules (run \`npm install\` there)."
     fi
+
+    # --- TS/React circular imports: madge ---
+    section "Circular imports (madge, informational)"
+    if ( cd "$TS_DIR" && npx --no-install madge --version >/dev/null 2>&1 ); then
+      ( cd "$TS_DIR" && npx --no-install madge --circular --extensions ts,tsx src ) \
+        > "$REPORT_DIR/madge.txt" 2>&1
+      note "$(grep -m1 '^✖ Found\|^No circular' "$REPORT_DIR/madge.txt" 2>/dev/null || echo 'see report'). See \`$REPORT_DIR/madge.txt\`. Not gated — see CODE_AUDIT.md. Graph image needs graphviz (\`dot\`) installed: \`npx madge --image graph.svg --extensions ts,tsx src\`."
+    else
+      note "⚠️ madge not found in $TS_DIR/node_modules (run \`npm install\` there)."
+    fi
   fi
 
   # --- Cross-language duplication: jscpd ---

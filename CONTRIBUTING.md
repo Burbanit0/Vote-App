@@ -275,6 +275,7 @@ lieux) :
 | `radon`/`xenon` | Complexité cyclomatique backend (fonctions trop ramifiées) | `cd fast_api_voter && python -m radon cc api/ -e "api/tests/*" -n C -s` |
 | `deptry` | Dépendances Python déclarées-mais-inutilisées / utilisées-mais-non-déclarées | `cd fast_api_voter && python -m deptry .` (config dans `pyproject.toml`'s `[tool.deptry]`) |
 | `knip` | Fichiers/exports/dépendances inutilisés côté frontend | `cd voter-app && npm run knip` |
+| `madge` | Imports circulaires côté frontend + visualisation du graphe | `cd voter-app && npm run madge:circular` (graphe image : `npx madge --image graph.svg --extensions ts,tsx src`, nécessite `graphviz`) |
 | `jscpd` | Duplication de code cross-langage (Python + TS) | `npx jscpd --config .jscpd.json fast_api_voter/api voter-app/src` |
 
 Tous tournent aussi dans `scripts/audit.sh` (mode `--quality` ou complet)
