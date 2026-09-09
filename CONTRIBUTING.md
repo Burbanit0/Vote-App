@@ -109,18 +109,23 @@ pre-commit install --hook-type pre-push
 bash scripts/setup-branch-protection.sh
 ```
 
-**Merge queue** : à activer manuellement (Settings → Branches → règle
-`develop` → "Require merge queue") — l'API classique de branch protection
-utilisée par le script ci-dessus n'expose pas ce réglage. Une fois activé,
-chaque PR en file est retestée contre l'état à jour de `develop` avant de
-vraiment merger (évite la classe de problème "verte mais `mergeable_state:
-behind`", vécue en direct sur la PR #188). `audit.yml` déclare déjà le
-trigger `merge_group:` nécessaire ; `branch-policy.yml` en est
-délibérément exclu (voir sa carte plus bas). Pendant la configuration,
-vérifiez dans l'écran du merge queue que seuls les checks qui déclarent
-`merge_group:` sont listés comme requis pour la file — un check requis qui
-ne le déclare pas peut bloquer la file indéfiniment (même risque que celui
-déjà documenté pour les checks scopés par `paths:`).
+**Merge queue** : [Mergify](https://mergify.com) (`.mergify.yml`), pas la
+merge queue native GitHub — celle-ci est réservée aux repos publics
+*organisation*, indisponible sur un repo à compte personnel comme celui-ci
+(confirmé en direct par un 422 sur l'API rulesets). Mergify est gratuit pour
+l'open source ; installer l'app GitHub sur le repo
+(github.com/apps/mergify/installations/new) suffit — elle détecte
+automatiquement les `required_status_checks` de la branch protection
+ci-dessus et les injecte comme conditions de merge, aucune duplication dans
+`.mergify.yml`. Chaque PR dont les checks passent est mise en file et
+mergée automatiquement (`auto_merge_conditions: true`), retestée contre
+l'état à jour de `develop` avant de vraiment merger (évite la classe de
+problème "verte mais `mergeable_state: behind`", vécue en direct sur la PR
+#188). Une fois Mergify vérifié en marche, désactiver *"Require branches to
+be up to date before merging"* (`strict`) sur la branch protection —
+Mergify le documente lui-même comme incompatible avec ses checks
+parallèles, et re-teste de toute façon contre la dernière version avant de
+merger.
 
 ---
 
