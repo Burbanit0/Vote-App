@@ -49,13 +49,39 @@ jobs:
     timeout-minutes: 10
 
     steps:
+      # fetch-depth: 0 (full history) — needed by the diff-cover step below,
+      # which diffs against the PR's base branch.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          fetch-depth: 0
+
+      # diff-cover compares HEAD against this local branch (see below); a
+      # plain `origin/<base_ref>` isn't guaranteed to exist as a
+      # remote-tracking ref after actions/checkout's own fetch.
+      - name: Fetch base branch (for diff-cover)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: git fetch origin "$BASE_REF:$BASE_REF"
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: voter-app/package-lock.json
+
+      # Python only exists in this job for diff-cover below (Lot 1,
+      # PLAN_SOLIDITE_TECHNIQUE.md) — no other step here needs it. Paired with
+      # setup-uv the same way the backend workflows are: `uv pip install
+      # --system` needs a real, non-uv-managed interpreter, so no
+      # `python-version` input on setup-uv itself (see
+      # backend-ci-cd-pipeline.yml's comment on this same pairing).
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
 
       - name: Install dependencies
         run: npm ci
@@ -79,6 +105,23 @@ jobs:
         working-directory: ./voter-app
         env:
           CI: 'true'
+
+      # diff-cover (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md): 100% coverage on lines
+      # *changed* by this PR — far more mordant than vitest.config.ts's global
+      # thresholds, which a large already-tested codebase dilutes.
+      - name: diff-cover — 100% coverage on changed lines
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          uv pip install --system diff-cover==10.5.1
+          # vitest writes lcov.info with SF: paths relative to voter-app/ (its
+          # own cwd), but `git diff` (and diff-cover's lcov reader) expects
+          # paths relative to the repo root — prefix them so the two line up.
+          sed 's|^SF:|SF:voter-app/|' voter-app/coverage/lcov.info > voter-app/coverage/lcov-diffcover.info
+          diff-cover voter-app/coverage/lcov-diffcover.info \
+            --compare-branch="$BASE_REF" \
+            --fail-under=100
 
       - name: Build
         run: npm run build

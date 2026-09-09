@@ -38,3 +38,10 @@ xenon==0.9.3          # radon threshold runner — same report, informational he
 types-redis==4.6.0.20241004  # Redis type stubs
 types-requests==2.33.0.20260712  # Requests type stubs
 types-PyYAML==6.0.12.20260815  # domain/polity/config.py — polity_config.yaml loader
+
+# Diff coverage (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md) — 100% coverage required
+# on lines *changed* by a PR, read from coverage.xml (see
+# backend-ci-cd-pipeline.yml). Also installed standalone in
+# frontend-ci-cd-pipeline.yml (against lcov.info) since that job has no other
+# Python dependency of its own.
+diff-cover==10.5.1
