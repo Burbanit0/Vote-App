@@ -57,8 +57,9 @@ checks run as the container's `CMD`, so `docker run` failing == the PR failing.
 steps are blocking, matching the workflow (lint lost its `continue-on-error` once
 it reached 0 errors).
 
-**Backend** — `flake8 --config=fast_api_voter/.flake8` (gating; scoped to `E9,F`
-— syntax + pyflakes only) → `bandit -r fast_api_voter/api -ll --skip B104,B311`
+**Backend** — `ruff check fast_api_voter` (gating; replaces flake8 as of Lot 1,
+scoped to pyflakes `F` only — rule selection lives in `fast_api_voter/
+pyproject.toml`'s `[tool.ruff]`) → `bandit -r fast_api_voter/api -ll --skip B104,B311`
 (gating on medium+ severity — the `-ll` flag itself excludes low-severity findings,
 of which there are currently ~2,892, from failing the build; no `--exit-zero`) →
 `pip-audit` (non-blocking **in this local mirror only** — the actual GitHub

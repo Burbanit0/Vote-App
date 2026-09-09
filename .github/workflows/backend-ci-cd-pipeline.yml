@@ -63,10 +63,11 @@ jobs:
           pip install -r fast_api_voter/requirements-dev.txt
 
       # ── Linting ────────────────────────────────────────────────────────────
-      # Blocking: .flake8 now selects only E9 + F (syntax + pyflakes real bugs),
-      # so this gates on genuine issues, not the cosmetic column-alignment style.
-      - name: Flake8 (E9 + pyflakes — blocking)
-        run: flake8 --config=fast_api_voter/.flake8 fast_api_voter
+      # Blocking. Replaces flake8 (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md) — rule
+      # selection (pyflakes real bugs only, not the cosmetic column-alignment
+      # style) lives in fast_api_voter/pyproject.toml, auto-discovered.
+      - name: Ruff (pyflakes — blocking)
+        run: ruff check fast_api_voter
 
       # ── Security ───────────────────────────────────────────────────────────
       - name: Bandit (Python SAST — gating)

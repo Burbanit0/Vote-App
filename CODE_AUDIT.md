@@ -11,6 +11,13 @@ et corrigé plusieurs des points relevés ci-dessous (voir §3 et §7 — tous l
 recalculés à partir de `.github/quality-baseline.json` et d'une exécution
 directe de `vulture`/`knip`/`jscpd`/`radon` sur le HEAD actuel de `develop`.*
 
+*Mise à jour du 2026-09-08 : `flake8` remplacé par `ruff` (Lot 1 du
+[plan de solidité technique](PLAN_SOLIDITE_TECHNIQUE.md)) — même périmètre
+exact (pyflakes uniquement, pas de règle de style/complexité), configuré
+dans `fast_api_voter/pyproject.toml`. Les mentions de `flake8` ci-dessous
+restent comme trace historique de l'audit d'origine ; le lint réel tourne
+désormais sous `ruff check fast_api_voter`.*
+
 ## Résumé exécutif
 
 Le repo `Vote-App` (backend FastAPI `fast_api_voter/`, frontend React/TS

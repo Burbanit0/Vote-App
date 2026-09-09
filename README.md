@@ -110,7 +110,7 @@ an always-warm demo, or `REDIS_URL` if you later add a cache.
 ```bash
 python -m pytest api/tests -o addopts="" -q   # unit tests (-o addopts="" skips the coverage gate)
 mypy api/                                      # strict, must stay clean
-flake8                                         # E9/F errors are gating
+ruff check .                                   # pyflakes (F) errors are gating
 ```
 
 ### Frontend (`voter-app/`)

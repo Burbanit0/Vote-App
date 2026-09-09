@@ -26,10 +26,11 @@ RUN pip install -r fast_api_voter/requirements.txt \
 COPY fast_api_voter/ fast_api_voter/
 
 # Mirror the workflow steps in order (matches GitHub CI gating).
-# flake8 + bandit = GATING. pip-audit = informational (continue-on-error upstream).
+# ruff (replaces flake8, Lot 1) + bandit = GATING. pip-audit = informational
+# (continue-on-error upstream).
 ENV FLASK_ENV=testing
 CMD ["bash","-euo","pipefail","-c","\
-echo '=== Flake8 (gating) ===';         flake8 --config=fast_api_voter/.flake8 fast_api_voter; \
+echo '=== Ruff (gating) ===';           ruff check fast_api_voter; \
 echo '=== Bandit (gating) ===';         bandit -r fast_api_voter/api -ll --skip B104,B311; \
 echo '=== pip-audit (non-blocking) ==='; pip-audit --requirement fast_api_voter/requirements.txt || echo '(pip-audit failed — non-blocking)'; \
 cd fast_api_voter; \

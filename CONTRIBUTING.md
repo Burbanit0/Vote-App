@@ -68,7 +68,7 @@ git push origin feature/ma-feature
 |---|---|
 | Branch Policy | Branche source sans préfixe valide |
 | Frontend CI | Tests échouent, coverage sous les seuils, ou eslint rapporte une erreur |
-| Backend CI | Tests échouent, coverage < 90 %, mypy ou flake8 en erreur |
+| Backend CI | Tests échouent, coverage < 90 %, mypy ou ruff en erreur |
 | npm audit | CVE haute détectée |
 | E2E (Playwright) | Un parcours utilisateur casse sur Chromium ou Firefox — **ou passe seulement au second essai** (voir « Tests E2E » plus bas) |
 | Generated Artifacts Contract | `openapi.gen.json` / `types.gen.ts` **ou** `engineParity.json` désynchronisés du code (voir `scripts/check_openapi_drift.sh` et `scripts/check_engine_parity_drift.sh`) |
@@ -128,7 +128,7 @@ déjà documenté pour les checks scopés par `paths:`).
 
 | Quand | Vérification | Bloque |
 |---|---|---|
-| `git commit` | detect-secrets, bandit, flake8, eslint, npm audit | Oui |
+| `git commit` | detect-secrets, bandit, ruff, eslint, npm audit | Oui |
 | `git push` | Tests + coverage (front + back) | Oui |
 | PR ouverte | Branch Policy, CI complète, build | Oui |
 
@@ -207,7 +207,7 @@ Types valides : `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `ci`, `secur
 | Coverage frontend | lines 86 % · statements 84 % · functions 75 % · branches 74 % | `voter-app/vitest.config.ts` (`test.coverage.thresholds`) |
 | Coverage backend | 90 % | `fast_api_voter/pyproject.toml` (`--cov-fail-under`) |
 | eslint | 0 **erreur** (les warnings passent) | `voter-app/eslint.config.js` |
-| flake8 | 0 sur `E9,F` (erreurs de syntaxe et de nom) | `backend-ci-cd-pipeline.yml` |
+| ruff | 0 sur `F` (pyflakes — erreurs de nom, imports morts…) | `fast_api_voter/pyproject.toml` |
 | mypy | strict, 0 erreur sur `api/` | `fast_api_voter/mypy.ini` |
 | Tests e2e instables | 0 — un test qui ne passe qu'au *retry* fait échouer la PR | `voter-app/scripts/check-flaky.mjs` |
 | Dette qualité (vulture/radon/knip/jscpd) | ne doit jamais augmenter | `.github/quality-baseline.json` |
