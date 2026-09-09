@@ -127,6 +127,18 @@ jobs:
             --cov-report=xml \
             --cov-fail-under=90
 
+      # Codecov (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md): PR coverage comment +
+      # trend over time. Purely informational — see codecov.yml
+      # (informational: true on both statuses); diff-cover below is the
+      # actual enforced gate. Runs on push too (not just pull_request), so
+      # the develop-branch trend graph stays populated.
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: fast_api_voter/coverage.xml
+          flags: backend
+
       # diff-cover (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md): 100% coverage on lines
       # *changed* by this PR — far more mordant than the 90% global floor
       # above, which a large already-tested codebase dilutes. Cobertura XML
