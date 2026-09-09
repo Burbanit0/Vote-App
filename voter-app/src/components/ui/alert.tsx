@@ -24,8 +24,7 @@ const alertVariants = cva('rounded-md border px-3 py-2 text-sm', {
 });
 
 export interface AlertProps
-  extends React.HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof alertVariants> {
+  extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof alertVariants> {
   /** react-bootstrap parity: render a close button that calls onClose. */
   dismissible?: boolean;
   onClose?: () => void;

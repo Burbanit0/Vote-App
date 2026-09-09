@@ -70,8 +70,7 @@ const initPromise = i18n
 // then switch to it.
 const detectedLanguage = (): string => {
   const detector = i18n.services.languageDetector as
-    | { detect?: () => string | string[] }
-    | undefined;
+    { detect?: () => string | string[] } | undefined;
   const found = detector?.detect?.();
   const lng = Array.isArray(found) ? found[0] : found;
   return lng || i18n.resolvedLanguage || i18n.language || 'fr';

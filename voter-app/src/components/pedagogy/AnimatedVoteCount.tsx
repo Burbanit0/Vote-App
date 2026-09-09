@@ -11,13 +11,7 @@ import { Button } from '@/components/ui/button';
 // ── Types ───────────────────────────────────────────────────────────────────
 
 export type VoteMethod =
-  | 'plurality'
-  | 'borda'
-  | 'irv'
-  | 'two-round'
-  | 'approval'
-  | 'schulze'
-  | 'star';
+  'plurality' | 'borda' | 'irv' | 'two-round' | 'approval' | 'schulze' | 'star';
 
 export interface VoteCandidate {
   name: string;

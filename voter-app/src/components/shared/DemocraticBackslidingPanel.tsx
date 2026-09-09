@@ -52,10 +52,7 @@ interface BackslidingData {
 
 type Method = 'gerrymandering' | 'media_capture' | 'voter_suppression';
 type Guardrail =
-  | 'constitutional_court'
-  | 'opposition_media'
-  | 'international_pressure'
-  | 'supermajority_required';
+  'constitutional_court' | 'opposition_media' | 'international_pressure' | 'supermajority_required';
 
 const GUARDRAILS: Guardrail[] = [
   'constitutional_court',

@@ -72,8 +72,7 @@ function ColoredDot(props: any) {
   if (!cx || !cy) return null;
   // Find blank_pct from any country key
   const pct = Object.values(payload).find((v) => typeof v === 'number' && v >= 0 && v <= 100) as
-    | number
-    | undefined;
+    number | undefined;
   return (
     <circle
       cx={cx}
