@@ -60,7 +60,9 @@ jobs:
       # remote-tracking ref after actions/checkout's own fetch.
       - name: Fetch base branch (for diff-cover)
         if: github.event_name == 'pull_request'
-        run: git fetch origin ${{ github.base_ref }}:${{ github.base_ref }}
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: git fetch origin "$BASE_REF:$BASE_REF"
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -133,7 +135,9 @@ jobs:
       # frontend-ci-cd-pipeline.yml).
       - name: diff-cover — 100% coverage on changed lines
         if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
           diff-cover fast_api_voter/coverage.xml \
-            --compare-branch=${{ github.base_ref }} \
+            --compare-branch="$BASE_REF" \
             --fail-under=100
