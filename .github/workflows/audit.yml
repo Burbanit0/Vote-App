@@ -1,7 +1,7 @@
 name: Security Audit
 
 # Supplementary SECURITY scanning only. The repo's lint/type/test gates already
-# live in backend-ci-cd-pipeline.yml + frontend-ci-cd-pipeline.yml (flake8, mypy,
+# live in backend-ci-cd-pipeline.yml + frontend-ci-cd-pipeline.yml (ruff, mypy,
 # pytest, bandit, pip-audit, eslint, tsc) — this workflow adds SAST / secret / CVE
 # coverage they don't have: Semgrep, Gitleaks, Trivy, CodeQL.
 #
@@ -188,8 +188,24 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
 
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      # GHA-backed layer cache (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md): this job
+      # only runs on the weekly cron + push-to-develop (see the job comment
+      # above), so a cold cache would otherwise redownload base images and
+      # reinstall every dependency on every run regardless of how little the
+      # Dockerfile changed week to week. `load: true` keeps the image in the
+      # local daemon (needed by Trivy/SBOM below) since this job only scans,
+      # it never pushes.
       - name: Build ${{ matrix.name }} image
-        run: docker build -f ${{ matrix.dockerfile }} -t ${{ matrix.tag }} ${{ matrix.context }}
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          tags: ${{ matrix.tag }}
+          load: true
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
 
       - name: Trivy (image scan, non-gating for now — see job comment)
         if: always()

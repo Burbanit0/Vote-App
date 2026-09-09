@@ -63,8 +63,9 @@ python -m mypy api/ --config-file mypy.ini         # BLOCKING — api/ is strict
   genuinely-untyped third-party surface (fastapi-users, authlib, python-socketio, numpy edge
   cases) use a **targeted `# type: ignore[code]` at the call site** — never a module-wide
   override.
-- `flake8 --config=.flake8 fast_api_voter` is non-blocking (the code uses column-aligned
-  style flake8 dislikes). `bandit` gates in CI; `pip-audit` stays informational on purpose.
+- `ruff check fast_api_voter` (replaces flake8, Lot 1) **gates** in CI — scoped to pyflakes
+  (`F`) only, in `pyproject.toml`'s `[tool.ruff]`, since the code uses a column-aligned style
+  the cosmetic pycodestyle rules dislike. `bandit` and `pip-audit` both gate in CI too.
 - Run: `uvicorn api.main:app --port 4434` (the FastAPI instance is `fastapi_app`; `app` is the
   socket.io ASGI wrapper). Or `npm run dev` from the repo root for backend + frontend together.
 
