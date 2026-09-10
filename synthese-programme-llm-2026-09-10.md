@@ -142,9 +142,24 @@ Un contrôle est offert gratuitement par la paire de géométries : A batchait e
 B en décroissant ; un artefact de position aurait **changé de signe**. Il ne l'a pas fait — la
 corrélation est un effet `self_gap` réel.
 
-**C'est exactement le mécanisme que §3.A.1 décrit**, et c'en est désormais la preuve empirique
-plutôt que l'intuition : décodage glouton sur une distribution faiblement discriminée ⇒ sortie
-constante. C'est ce qui fait de §3.A.1 la prochaine étape la mieux motivée.
+**Correction, ajoutée après vérification (10/09) :** une version antérieure de cette synthèse
+concluait ici que c'était « la preuve empirique du mécanisme de §3.A.1 — le signal est dans la
+distribution, l'argmax le jette ». **C'était surinterprété, et la vérification le réfute**
+(`check_per_citizen_sampling_premise_results.md`).
+
+Ce qui est vrai : P **corrèle** avec `self_gap`, et cette corrélation survit à l'inversion de
+l'ordre de batch — c'est donc bien un effet de contenu.
+
+Ce qui n'en découle pas : que cette corrélation ait une **amplitude** exploitable. La
+corrélation est sans échelle ; la variance de population, non. Une distribution peut suivre
+fidèlement la *forme* d'un signal tout en restant collée à 0 ou à 1, si près qu'aucun tirage
+n'en changerait jamais l'issue. C'est exactement le cas ici : sur le modèle shippé, P moyen
+= 0,998 et la variance de Bernoulli moyenne p(1−p) = 0,0018, soit **0,03 décision changée sur 17**
+par un tirage par citoyen. Autrement dit : rien.
+
+**Le collapse n'est donc pas un artefact d'argmax sur une distribution faiblement discriminée.
+C'est une distribution quasi déterministe, confiante — et fausse.** Les quatre configurations
+mesurées diffèrent surtout par le *pôle* dont elles sont sûres, pas par leur degré de certitude.
 
 ---
 
@@ -203,14 +218,24 @@ Ce programme a autant corrigé le projet qu'il l'a étendu :
 
 **Éliminé** : l'alignement comme explication générale ; TOON sur `pressure_action`.
 
-**Prochaine étape la mieux motivée — §3.A.1, échantillonnage déterministe par citoyen.**
-Elle n'est plus une intuition : §4.3 ci-dessus en fournit la preuve empirique. La distribution
-porte le signal, l'argmax le détruit. Deux faits nouveaux la cadrent :
+**§3.A.1 (échantillonnage déterministe par citoyen) est écarté** — vérifié avant construction
+plutôt qu'après (`check_per_citizen_sampling_premise_results.md`). Sa prémisse est fausse dans
+**toutes** les configurations mesurées : même dans la plus favorable jamais observée, un tirage
+par citoyen ne change que ~6 % des décisions, et sur le modèle shippé 0,2 %. Sa forme littérale
+coûterait en plus 25× les appels (seed et température sont des champs par *requête*, or
+`pressure_action` batche jusqu'à 25 citoyens par requête).
+
+**Ce qui reste — et que ce résultat désigne :** il faut **changer la distribution**, pas la
+rééchantillonner. Deux faits nouveaux cadrent la suite :
 
 - `coalition_decision` collapse **identiquement** avec et sans fine-tuning d'instruction → le
   problème est dans la construction du prompt/de la tâche, pas dans le post-training ;
 - le contexte de niveau appel écrase le signal par citoyen (§4.2) → toute correction devra agir
   sur **comment le signal propre au citoyen est présenté et résolu**.
+
+Le candidat le mieux placé devient donc **§3.A.2 (décomposition en deux étapes)**, intouché :
+scinder un jugement composé en une première étape plus étroite *produit une autre distribution*
+au lieu de retirer d'une mauvaise — et §5.C fournit déjà la lecture de cette première étape.
 
 **Réserves permanentes**, à ne pas perdre de vue : tout ceci reste **une graine** et, pour les
 mesures 4B, **un run par bras** ; le contraste 8B-vs-4B est confondu trois fois (nombre de

@@ -319,6 +319,28 @@ Ordered by expected value, all untried:
    months defending. Tradeoff to state honestly: it adds noise to each
    *individual* decision while restoring *population* variance — for an ABM,
    population variance is the scientifically load-bearing quantity.
+
+   > **PRÉMISSE RÉFUTÉE, 2026-09-10 — à ne pas construire tel quel**
+   > (`check_per_citizen_sampling_premise_results.md`, vérifié avant construction).
+   > Deux problèmes, tous deux mesurés :
+   > - **Architecture** : `seed` et `temperature` sont des champs par *requête*, or
+   >   `decide_pressure_actions` batche jusqu'à 25 citoyens par requête. Une graine
+   >   par citoyen impose `chunk_size=1`, soit **25× les appels** sur le type de
+   >   décision au plus fort volume du projet.
+   > - **Prémisse fausse** : un tirage ne peut exprimer que le signal déjà présent
+   >   dans P. Or sur le modèle shippé, P(act=4) moyen = **0,998** et la variance de
+   >   Bernoulli moyenne p(1−p) = **0,0018** → un tirage par citoyen changerait
+   >   **0,03 décision sur 17**. Dans la configuration la plus favorable jamais
+   >   mesurée (bras 4B base), il en changerait ~6 %. La distribution n'est pas
+   >   « faiblement discriminée » : elle est **quasi déterministe, confiante et
+   >   fausse**, et les configurations diffèrent surtout par le *pôle* dont elles
+   >   sont sûres.
+   >
+   > Corollaire : il faut **changer la distribution**, pas la rééchantillonner —
+   > ce qui désigne §3.A.2 ci-dessous. Monter la température au-delà de 1
+   > fabriquerait de la variance *décorrélée* de l'état du citoyen : pour un ABM
+   > c'est pire que l'échec actuel, pas mieux.
+
 2. **Two-stage decomposition** — already named by the project for
    `pressure_action` (binary act/don't-act, then lever choice), never tested.
    The refined axis in §2 says it should generalise to all four
