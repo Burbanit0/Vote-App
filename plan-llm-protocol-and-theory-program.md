@@ -144,6 +144,37 @@ decoding (xgrammar, already shipped) handles format. This is one GPU afternoon
 and it either identifies the mechanism the project has been chasing for weeks or
 eliminates the most plausible remaining candidate.
 
+> **RÉSULTAT, 2026-09-10 — l'hypothèse alignement ne tient pas comme explication
+> générale** (`check_base_vs_instruct_results.md`, protocole cadré en §2bis,
+> exécuté sur la paire bf16 `Qwen3-4B`/`Qwen3-4B-Base` : même famille, même
+> taille, même précision, même template, mêmes flags de service — seul le
+> fine-tuning d'instruction diffère).
+>
+> | type de décision | ce qui a été trouvé | portée sur l'hypothèse |
+> |---|---|---|
+> | `representative_response` | **aucun collapse** sur le bras 4B *instruct* (porte préalable) | alignement insuffisant : un modèle instruct traite le cas correctement |
+> | `coalition_decision` | collapse **identique** sur instruct ET base | **contredit** : retirer l'alignement ne change rien |
+> | `pressure_action` | collapse sur instruct, récupération **partielle et faible** sur base | seule preuve à l'appui — sous la barre pré-enregistrée, et non significative |
+>
+> Le seul signal positif (`pressure_action` : séparation **+0,089** et r=**+0,378**
+> contre −0,029/−0,117 sur instruct) est **en dessous de la barre pré-enregistrée
+> de 0,10** sur la statistique primaire, et **non significatif** (n=17, t=1,58,
+> df=15, **p ≈ 0,134**). Une distribution simplement plus diffuse sur le bras base
+> (P ≈ 0,85 au lieu de ≈1,0 sur coalition) peut produire un gradient apparent sans
+> rien « suivre » : cette explication alternative n'est pas écartée.
+>
+> §2 annonçait un test qui « identifie le mécanisme ou élimine le candidat le plus
+> plausible ». **Il l'a largement éliminé.** La conformité de format sur le bras
+> base était par ailleurs bonne (17/17 et 5/5 décisions structurellement valides) —
+> xgrammar a absorbé le problème exactement comme §2 le prévoyait.
+>
+> Conséquence pour la suite : `coalition_decision` qui collapse identiquement avec
+> et sans fine-tuning d'instruction pointe vers la construction du prompt/de la
+> tâche plutôt que vers le post-training. **§3.A.1 (échantillonnage déterministe
+> par citoyen) et §3.A.2 (décomposition en deux étapes), tous deux intouchés,
+> deviennent les candidats les mieux motivés.** Réplique préalable recommandée du
+> seul signal positif (2-3 graines) avant de lui accorder le moindre poids.
+
 ### 2bis — Cadrage technique, 2026-09-10 (mesuré, pas supposé)
 
 Le paragraphe ci-dessus dit « one GPU afternoon » ; le cadrage montre que la
@@ -876,7 +907,7 @@ the flagship runs, precisely because none can perturb it:
 | 0 | §5.B précision des flottants + payload redondant · §3.B.6/7 prefix-cache + speculative decoding | heures | Zéro risque, zéro dépendance, gain immédiat sur tous les runs suivants ; se fait pendant que le flagship tourne |
 | 1 | **§5.C logprobs — instrumenter la décision binaire** | 1 jour | **Passe avant tout le reste** : rend le collapse mesurable en continu au lieu d'inféré sur 4-6 cas construits à la main |
 | 1bis | ~~§5.E TOON en **entrée seulement**, sur `pressure_action`/`candidacy_considered`~~ **FAIT 2026-09-10** | 1 jour | `candidacy_considered` : -6,9%, qualité identique (16/25=16/25) → non shippé (décision séparée). `pressure_action` : -44,0%, qualité pas au rendez-vous (bascule de collapse, pas de sensibilité restaurée) → non shippé |
-| 2 | §2 base-vs-instruct — **cadré 2026-09-10 (§2bis), pas encore lancé** : la forme littérale (`Qwen3-8B-Base`) ne rentre pas sur cette carte et aucun base quantifié officiel n'existe ; forme retenue = paire bf16 `Qwen3-4B`/`Qwen3-4B-Base`, précédée d'une porte « le collapse se reproduit-il sur le 4B instruct ? » | 1 après-midi GPU + ~16 G de téléchargements | Identifie ou élimine le mécanisme cherché depuis des semaines — et §5.C rend le verdict quantitatif (sondes déjà écrites, réutilisables telles quelles : les base Qwen3 embarquent le même chat template) |
+| 2 | ~~§2 base-vs-instruct~~ **FAIT 2026-09-10** (§2bis pour le cadrage, `check_base_vs_instruct_results.md` pour le résultat) — paire bf16 `Qwen3-4B`/`Qwen3-4B-Base` | 1 après-midi GPU | **Hypothèse alignement largement éliminée** : contredite sur `coalition_decision` (collapse identique base et instruct), inutile sur `representative_response` (aucun collapse au 4B instruct), soutenue seulement faiblement et non significativement sur `pressure_action` (+0,089 < barre 0,10 ; p≈0,134). Renvoie vers §3.A.1/§3.A.2 |
 | 3 | §3.A.1 per-citizen deterministic sampling | 1-2 jours | Le levier le plus prometteur, compatible avec la reproductibilité |
 | 4 | §3.A.3 grammar-level invariants (`blank`/`ranking`) | 1 jour | Supprime une classe d'échec entière au lieu de la réessayer |
 | 5 | §3.A.2 décomposition en deux étapes, `pressure_action` d'abord | pré-enregistrement + cycle de validation | Candidat déjà nommé par le projet ; §2 dit qu'il généralise ; §5.C fournit son étage 1 |
