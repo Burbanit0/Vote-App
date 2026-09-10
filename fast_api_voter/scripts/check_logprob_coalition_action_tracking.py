@@ -47,6 +47,7 @@ Usage:
 from __future__ import annotations
 
 import dataclasses
+import os
 import sys
 from pathlib import Path
 
@@ -75,8 +76,17 @@ _STEPS = 5  # t=0 (join-obvious) .. t=1 (decline-obvious)
 
 
 def _vllm_config():
+    """`POLITY_PROBE_MODEL` overrides llm.model so this probe can be pointed
+    at a bench server (docker-compose.llm-4b.yml, §2bis's base-vs-instruct
+    arms) without editing the shipped polity_config.yaml. Unset, it uses the
+    shipped model exactly as before -- every measurement already recorded
+    against this script was taken on that default path."""
     shipped = load_config()
-    return dataclasses.replace(shipped, llm=dataclasses.replace(shipped.llm, provider="vllm", base_url="http://localhost:8000/v1"))
+    model = os.environ.get("POLITY_PROBE_MODEL", shipped.llm.model)
+    return dataclasses.replace(
+        shipped,
+        llm=dataclasses.replace(shipped.llm, provider="vllm", base_url="http://localhost:8000/v1", model=model),
+    )
 
 
 def _lerp(a: float, b: float, t: float) -> float:
