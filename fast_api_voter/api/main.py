@@ -115,6 +115,26 @@ app.add_middleware(
 )
 
 
+# ── Rate-limit state default (Lot 3, PLAN_SOLIDITE_TECHNIQUE.md — "Résilience
+# Redis") ─────────────────────────────────────────────────────────────────────
+# Pairs with `swallow_errors=True` on the Limiter in api/core/ratelimit.py.
+# slowapi's own decorator always reads `request.state.view_rate_limit` after
+# the rate-limit check runs (to populate response headers) — normally that
+# attribute was just set by the check itself, but when the check's own
+# exception gets swallowed (Redis unreachable), it never was, and Starlette's
+# State.__getattr__ raises a bare AttributeError for a missing key. This
+# middleware runs before any route dependency (including check_v2_rate_limit),
+# so the attribute always exists — a real gap in slowapi's swallow_errors
+# path, not something fixable in api/core/ratelimit.py alone. Confirmed live:
+# without this, `swallow_errors=True` on its own still crashed every request.
+@app.middleware("http")
+async def default_rate_limit_state(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
+    request.state.view_rate_limit = None
+    return await call_next(request)
+
+
 # ── Access log middleware ───────────────────────────────────────────────────
 _access_log = get_logger("api.access")
 
