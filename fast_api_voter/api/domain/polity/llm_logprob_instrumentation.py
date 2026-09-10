@@ -203,3 +203,20 @@ def binary_probability(token: TokenLogprob, *, true_value: str, false_value: str
     if total == 0.0:
         return 0.5
     return p_true / total
+
+
+def candidate_probability(token: TokenLogprob, candidate: str) -> float:
+    """Raw (NOT renormalized against any other candidate) P(candidate),
+    read directly off `token.alternatives` -- `exp(logprob)` if `candidate`
+    is among the server's own top-K for this position, else 0.0 ("not
+    captured by this top_logprobs budget", not "impossible": widen
+    top_logprobs if a near-zero reading here needs to be trusted).
+
+    Unlike `binary_probability`, does not assume `candidate` is one of
+    exactly two exhaustive outcomes -- the right tool for reading one
+    outcome's own probability out of a field with MORE than two possible
+    values (e.g. `stance` in {1,2,3,4}: candidate_probability(token, "1")
+    answers "how confident was the model in concession specifically",
+    without forcing a choice of which of the other three values to
+    normalize against)."""
+    return math.exp(token.alternatives[candidate]) if candidate in token.alternatives else 0.0

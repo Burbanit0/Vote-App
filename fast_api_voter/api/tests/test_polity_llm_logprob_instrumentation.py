@@ -22,6 +22,7 @@ from api.domain.polity.llm_logprob_instrumentation import (
     DecisionTokenProbe,
     LogprobAlignmentError,
     binary_probability,
+    candidate_probability,
     locate_decision_field_logprobs,
 )
 
@@ -159,3 +160,28 @@ def test_binary_probability_returns_one_half_when_neither_candidate_was_captured
 def test_binary_probability_treats_a_missing_candidate_as_zero_mass():
     token = _tok("1", logprob=-0.02, alternatives={"1": -0.02})
     assert binary_probability(token, true_value="1", false_value="0") == pytest.approx(1.0)
+
+
+# ── candidate_probability ───────────────────────────────────────────────
+
+def test_candidate_probability_reads_the_raw_exp_logprob():
+    token = _tok("1", logprob=-0.1, alternatives={"1": -0.1, "2": -2.0, "3": -3.0, "4": -4.0})
+    assert candidate_probability(token, "1") == pytest.approx(math.exp(-0.1))
+
+
+def test_candidate_probability_is_not_renormalized_across_more_than_two_candidates():
+    # A genuinely 4-way field: unlike binary_probability, no pair is
+    # singled out -- each candidate's own raw probability stands alone,
+    # so the four don't have to sum to 1 here (top_logprobs may not have
+    # captured the server's full distribution).
+    token = _tok("1", logprob=-0.1, alternatives={"1": -0.1, "2": -2.0})
+    p1 = candidate_probability(token, "1")
+    p2 = candidate_probability(token, "2")
+    assert p1 == pytest.approx(math.exp(-0.1))
+    assert p2 == pytest.approx(math.exp(-2.0))
+    assert p1 + p2 != pytest.approx(1.0)
+
+
+def test_candidate_probability_returns_zero_for_an_uncaptured_candidate():
+    token = _tok("1", logprob=-0.1, alternatives={"1": -0.1})
+    assert candidate_probability(token, "4") == 0.0

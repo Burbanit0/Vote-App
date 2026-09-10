@@ -2261,6 +2261,19 @@ def decide_representative_response(
     stance/mandate_deviation-derived metrics from any llm.enabled=True run as unverified until
     this is resolved -- no remediation has been found or attempted for this decision type yet.
 
+    SHARPENED 2026-09-10 (plan-llm-protocol-and-theory-program.md §5.C,
+    scripts/check_logprob_response_stance_tracking_results.md): the 2-point/4-sample
+    categorical finding above could not rule out some narrower region of real sensitivity
+    between the two poles. Re-measured via logprobs (P(stance=1, CONCESSION), read directly,
+    not a categorical draw) across 9 points linearly interpolated across the SAME two poles
+    (not re-chosen), real production shape (size=1, think=False) throughout. Result: P(stance=1)
+    stayed within 0.000001 of 1.0 at EVERY point, including both original poles -- no detectable
+    gradient anywhere between "near-perfect legitimacy, zero street pressure" and "near-zero
+    legitimacy, deep mandate deviation, sustained mass mobilization". More extreme than
+    pressure_action's own analogous reading (P(act=4) ranged 0.976-1.0, a small but real
+    gradient) -- this one shows none at all. Still no established mechanism, and still no
+    remediation attempted.
+
     Deliberately does NOT use chunk_voters/MIN_SAFE_BATCH_SIZE, same
     reasoning as decide_party_nominations/decide_campaign_positioning:
     this batches this tick's sitting OFFICEHOLDERS (0-or-1 today, president

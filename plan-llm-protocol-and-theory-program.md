@@ -52,7 +52,7 @@ The project has 9 LLM decision types. Their measured reliability splits cleanly
 | Decision type | What it carries | Measured status |
 |---|---|---|
 | `pressure_action` (dt=10) | **Citizen chooses a lever against an officeholder** | **60,0 % agreement (open menu), bar is 80 %** — every remediation lever exhausted; **collapse confirmed on the SHIPPED closed menu** (2026-09-10, logprobs: P(act=4) ≥0,976 for every self_gap tested, +0,004 separation, not a batching artifact) — the one config every real run ships |
-| `representative_response` (dt=6) | **Officeholder responds to citizen pressure** | **Collapse confirmed** (4/4 identical) |
+| `representative_response` (dt=6) | **Officeholder responds to citizen pressure** | **Collapse confirmed** (4/4 identical) — **sharpened 2026-09-10** (logprobs, 9-point continuous sweep across the same two poles): P(stance=1)=1,000000±0,000001 EVERYWHERE, no detectable gradient at all |
 | `coalition_decision` (dt=9) | **Party joins/refuses a coalition** | **Collapse confirmed** (6/6 identical) |
 | `reaction_to_event` (dt=8, SCANDAL) | **Citizen reacts to a shared event** | **Collapse confirmed** (6/6 identical) |
 | `chamber_deliberation` (dt=11) | Member adjusts own position | Non tranché |
@@ -500,6 +500,22 @@ sur un probe trivial, contre le vrai serveur, pas un mock. Une chose reste
    l'option qui SONNE la plus institutionnellement légitime parmi deux
    options passives, pas pour l'inaction en général. Voir le results doc
    pour la réserve complète.
+
+   **Deuxième application, 2026-09-10**
+   (`check_logprob_response_stance_tracking_results.md`) :
+   `representative_response`, dont le collapse n'était établi que par un
+   signal 2-points/4-échantillons (les deux pôles opposés de
+   `plan-adversarial-framing-collapse.md`). Rejoué en continu : les
+   MÊMES deux pôles, 9 points interpolés entre eux, P(stance=1,
+   CONCESSION) lue directement. Résultat encore plus net que
+   `pressure_action` : **P(stance=1) = 1,000000 ± 0,000001 SUR TOUS LES
+   9 POINTS**, y compris les deux pôles d'origine — aucun gradient
+   détectable entre un élu à légitimité quasi parfaite/rue à zéro et un
+   élu en crise profonde (L=0,05, mandat dévié de 0,8, mobilisation
+   soutenue). Confirme et affine le signal-collapse déjà établi plutôt
+   que de le contredire ou le nuancer — exclut explicitement l'hypothèse
+   qu'une zone de sensibilité réelle aurait pu se cacher entre les deux
+   points d'origine.
 
 ### 5.E — TOON : bon outil, mais pas sur les prompts qu'on croit
 
