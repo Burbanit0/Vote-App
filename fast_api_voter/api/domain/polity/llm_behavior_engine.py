@@ -196,6 +196,7 @@ from api.domain.polity.llm_schemas import (
     ResponseDecision,
     VoteCastDecision,
 )
+from api.domain.polity.llm_toon_encoding import encode_toon_array
 from api.domain.polity.parties import Party
 from api.domain.polity.simple_rules import (
     BLANK_LABEL,
@@ -1559,6 +1560,67 @@ def build_candidacy_user_prompt(chunk: Sequence[Citizen], support: dict[int, flo
         for c in chunk
     ]
     return json.dumps({"citizens": citizen_blocks}, sort_keys=True, separators=(",", ":"))
+
+
+_CANDIDACY_TOON_FIELDS = ("cid", "ambition_score", "perceived_support")
+"""Shared between build_candidacy_system_prompt_toon (the header it quotes
+in its own worked example) and build_candidacy_user_prompt_toon (the
+actual header it emits) -- one list, so the explanation and the real
+payload can never silently drift to a different field order."""
+
+
+def build_candidacy_system_prompt_toon(citizens: Sequence[Citizen]) -> str:
+    """plan-llm-protocol-and-theory-program.md §5.E: NOT shipped, NOT
+    wired into decide_candidacies -- a diagnostic variant of
+    build_candidacy_system_prompt for check_toon_candidacy_ab.py's live
+    A/B only, same "not wired into any decide_* entry point" framing
+    complete_with_logprobs's own docstring already established for §5.C's
+    primitive. Output stays JSON (xgrammar/CANDIDACY_JSON_SCHEMA,
+    unchanged) -- §5.E's own scope is input-only, by design (see
+    llm_toon_encoding.py's own module docstring for why).
+
+    Differs from build_candidacy_system_prompt ONLY in the added TOON-
+    format paragraph (with a concrete worked example, not just naming the
+    format -- the model has seen overwhelmingly more JSON in training, so
+    naming an unfamiliar format is not assumed sufficient on its own) --
+    every other sentence, including the motif table and the verbatim
+    expected-cid self-check, is unchanged, so a live A/B against the JSON
+    version isolates the format change specifically."""
+    cid_list = ",".join(str(c.citizen_id) for c in citizens)
+    return (
+        "Tu es un moteur de simulation. Pour chaque citoyen recu, decide "
+        "s'il se presente comme candidat (outcome=1) ou renonce "
+        "(outcome=0), a partir de son ambition et du soutien qu'il "
+        "percoit.\n"
+        "Le message utilisateur n'est PAS du JSON : il utilise le format "
+        "TOON. La premiere ligne 'citizens[N]{cid,ambition_score,"
+        "perceived_support}:' annonce le nombre d'enregistrements (N) et "
+        "l'ordre des champs. Chaque ligne suivante est UN enregistrement, "
+        "ses valeurs separees par des virgules, dans cet ordre exact. "
+        "Exemple : 'citizens[2]{cid,ambition_score,perceived_support}:\\n"
+        "0,0.52,0.31\\n1,0.68,0.44' decrit exactement 2 citoyens : "
+        "cid=0 (ambition_score=0.52, perceived_support=0.31) et "
+        "cid=1 (ambition_score=0.68, perceived_support=0.44).\n"
+        "Motifs valides (code court obligatoire) :\n"
+        f"{CANDIDACY_MOTIF_PROMPT_TABLE}\nIMPORTANT : la liste decisions "
+        f"doit contenir EXACTEMENT ces {len(citizens)} cid, chacun une "
+        f"seule fois, dans cet ordre : [{cid_list}]. Verifie ta reponse "
+        "avant de la finaliser : chaque cid de cette liste doit apparaitre "
+        "exactement une fois.\nReponds UNIQUEMENT avec un objet JSON "
+        "conforme au schema fourni."
+    )
+
+
+def build_candidacy_user_prompt_toon(chunk: Sequence[Citizen], support: dict[int, float]) -> str:
+    """The TOON-encoded twin of build_candidacy_user_prompt -- same
+    values, same rounding, same field set, only the wire shape differs.
+    See that function's own docstring for why `support` is precomputed
+    once against the full population rather than recomputed per chunk."""
+    rows = [
+        (c.citizen_id, round(c.ambition_score, 4), round(support[c.citizen_id], 4))
+        for c in chunk
+    ]
+    return encode_toon_array("citizens", _CANDIDACY_TOON_FIELDS, rows)
 
 
 def decide_candidacies(

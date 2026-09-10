@@ -626,6 +626,23 @@ squarely in TOON's zone.
    new prompt with no comparable baseline. One more reason instrumentation comes
    first.
 
+**`candidacy_considered` fait et vérifié en direct, 2026-09-10**
+(`check_toon_candidacy_ab_results.md`) — le point de départ mandaté ci-dessus (vérité
+terrain réelle, pas de défaut de collapse connu). Deux nouveaux prompt builders
+diagnostiques (`build_candidacy_system_prompt_toon`/`_user_prompt_toon`, ne diffèrent
+du JSON shippé QUE par un paragraphe d'explication du format, testé offline), sortie
+JSON inchangée, `think=False` de production, 25 citoyens (le `llm.max_batch_size`
+shippé, un chunk réel de taille pleine). Les deux portes tiennent : **économie de
+tokens réelle (853→794, -6,9 %)**, et **précision identique, pas seulement proche**
+(16/25 pour les deux formats — les mêmes décisions, pas juste le même compte).
+Trouvaille séparée, hors périmètre de ce gate : 16/25 = 64 % est en dessous de la
+barre ≥80 % habituelle du projet, **sur les deux formats identiquement** — donc pas
+un défaut introduit par TOON, mais une question de fiabilité de `candidacy_considered`
+lui-même (distincte du collapse), pas encore investiguée. Pas encore shippé dans
+`decide_candidacies` — décision séparée, pas automatique après un seul A/B propre.
+`pressure_action` est la prochaine cible, débloquée depuis que son propre baseline
+P(act) a été capturé (`check_logprob_pressure_action_gap_tracking_results.md`).
+
 ### 5.D — Autres axes de la littérature
 
 - **"Lost in the middle"** (Liu et al., 2023) — models attend unevenly across a

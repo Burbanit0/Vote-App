@@ -33,7 +33,9 @@ from api.domain.polity.llm_behavior_engine import (
     apply_shifts,
     assemble_coalition,
     build_candidacy_system_prompt,
+    build_candidacy_system_prompt_toon,
     build_candidacy_user_prompt,
+    build_candidacy_user_prompt_toon,
     build_chamber_system_prompt,
     build_chamber_user_prompt,
     build_coalition_system_prompt,
@@ -782,6 +784,45 @@ def test_candidacy_user_prompt_carries_the_precomputed_support_signal():
     by_cid = {c["cid"]: c for c in payload["citizens"]}
     assert by_cid[0]["perceived_support"] == 0.1
     assert by_cid[2]["perceived_support"] == 0.9
+
+
+# ── build_candidacy_*_prompt_toon (§5.E, diagnostic-only) ────────────────────
+
+def test_candidacy_user_prompt_toon_encodes_the_same_values_as_the_json_version():
+    citizens = _population(3)
+    support = {0: 0.1234, 1: 0.5, 2: 0.9}
+    toon = build_candidacy_user_prompt_toon(citizens, support)
+    assert toon.splitlines()[0] == "citizens[3]{cid,ambition_score,perceived_support}:"
+    json_payload = json.loads(build_candidacy_user_prompt(citizens, support))
+    by_cid = {c["cid"]: c for c in json_payload["citizens"]}
+    for line in toon.splitlines()[1:]:
+        cid, ambition, perceived = line.split(",")
+        assert float(ambition) == by_cid[int(cid)]["ambition_score"]
+        assert float(perceived) == by_cid[int(cid)]["perceived_support"]
+
+
+def test_candidacy_system_prompt_toon_still_enumerates_every_expected_cid():
+    citizens = _population(3)
+    prompt = build_candidacy_system_prompt_toon(citizens)
+    assert "[0,1,2]" in prompt
+    assert "EXACTEMENT ces 3" in prompt
+
+
+def test_candidacy_system_prompt_toon_explains_the_format_with_a_worked_example():
+    prompt = build_candidacy_system_prompt_toon(_population(1))
+    assert "citizens[N]{cid,ambition_score,perceived_support}:" in prompt
+    assert "0,0.52,0.31" in prompt  # the worked example -- not just naming the format
+
+
+def test_candidacy_system_prompt_toon_differs_from_json_only_in_the_format_paragraph():
+    # Isolates the format change: everything else (motif table, expected-
+    # cid self-check) must survive unchanged for the A/B to attribute any
+    # quality difference to the format alone.
+    citizens = _population(3)
+    json_lines = set(build_candidacy_system_prompt(citizens).splitlines())
+    toon_lines = set(build_candidacy_system_prompt_toon(citizens).splitlines())
+    assert json_lines - toon_lines == set()
+    assert json_lines <= toon_lines
 
 
 # ── decide_candidacies (FakeCandidacyLlmClient) ──────────────────────────────
