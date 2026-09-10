@@ -80,8 +80,18 @@ def _ci_half(m2: float, n: int) -> float | None:
 
 @sio.event  # type: ignore[untyped-decorator]  # python-socketio decorators are untyped
 async def disconnect(sid: str) -> None:
-    """Drop any pending stop flag on disconnect."""
-    _stop_flags.pop(sid, None)
+    """Signal any running iteration loop to stop.
+
+    Popping the flag here (the previous behaviour) only erased it — with
+    nothing left for the loop's own `_stop_flags.get(sid)` check to see, a
+    client that disconnects mid-run left its Monte Carlo loop running
+    unattended for up to num_iterations more rounds (each a real
+    asyncio.to_thread compute call), burning CPU/a worker thread with
+    nowhere left to send its events (Lot 3, PLAN_SOLIDITE_TECHNIQUE.md —
+    "Timeouts & backpressure", the Socket.IO orphaned-run case). Setting it
+    True instead makes the loop's own check catch it on the next iteration
+    and exit; the loop pops its own entry once it does."""
+    _stop_flags[sid] = True
 
 
 @sio.on("stop_monte_carlo")  # type: ignore[untyped-decorator]  # untyped socketio decorator
