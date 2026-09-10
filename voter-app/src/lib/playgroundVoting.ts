@@ -162,7 +162,12 @@ function winTwoRound(ranks: number[][], m: number): number {
       }
     }
   }
-  return av >= bv ? a : b;
+  // A second-round tie breaks alphabetically (lowest index), not by who led
+  // round one -- matches get_two_round_winner exactly (Lot 4.3,
+  // PLAN_SOLIDITE_TECHNIQUE.md: `av >= bv ? a : b` used to silently favour
+  // the round-one leader on a genuine tie).
+  if (av !== bv) return av > bv ? a : b;
+  return Math.min(a, b);
 }
 
 function winIRV(ranks: number[][], m: number): number {
@@ -236,21 +241,38 @@ function pairwise(ranks: number[][], m: number): number[][] {
   return beats;
 }
 
+/**
+ * Copeland: pairwise wins − losses; ties broken by total wins (descending),
+ * then alphabetically (candidate index order) -- matches the backend's
+ * get_copeland_winner exactly (Lot 4.3, PLAN_SOLIDITE_TECHNIQUE.md: an
+ * exhaustive small-profile comparison found this rule's tie-break used to
+ * be Borda here but total-wins-then-alpha on the backend, a real, frequent
+ * divergence on tied profiles).
+ */
 function winCondorcet(ranks: number[][], m: number): number {
-  // Copeland: pairwise wins − losses; ties broken by Borda.
   const beats = pairwise(ranks, m);
   const copeland = new Array(m).fill(0);
+  const totalWins = new Array(m).fill(0);
   for (let i = 0; i < m; i++) {
     for (let j = 0; j < m; j++) {
       if (i === j) continue;
-      if (beats[i][j] > beats[j][i]) copeland[i] += 1;
-      else if (beats[i][j] < beats[j][i]) copeland[i] -= 1;
+      if (beats[i][j] > beats[j][i]) {
+        copeland[i] += 1;
+        totalWins[i] += 1;
+      } else if (beats[i][j] < beats[j][i]) {
+        copeland[i] -= 1;
+      }
     }
   }
-  const best = Math.max(...copeland);
-  const tied = copeland.map((c, i) => (c === best ? i : -1)).filter((i) => i >= 0);
-  if (tied.length === 1) return tied[0];
-  return winBorda(ranks, m); // tie-break
+  let best = 0;
+  for (let i = 1; i < m; i++) {
+    if (
+      copeland[i] > copeland[best] ||
+      (copeland[i] === copeland[best] && totalWins[i] > totalWins[best])
+    )
+      best = i;
+  }
+  return best;
 }
 
 /** Minimax (margins): elect the candidate whose worst pairwise defeat is least. */
@@ -622,7 +644,11 @@ function winSmithIRV(ranks: number[][], m: number): number {
     for (let i = 0; i < m; i++) if (alive[i] && fp[i] < min) min = fp[i];
     const doomed: number[] = [];
     for (let i = 0; i < m; i++) if (alive[i] && fp[i] === min) doomed.push(i);
-    if (doomed.length >= remaining) return -1;
+    // A total tie (everyone left is tied for fewest) falls back to the
+    // alphabetically-first survivor, matching get_smith_irv_winner's
+    // documented tie-break -- not "no winner" (Lot 4.3,
+    // PLAN_SOLIDITE_TECHNIQUE.md).
+    if (doomed.length >= remaining) break;
     for (const i of doomed) {
       alive[i] = false;
       remaining -= 1;
@@ -734,7 +760,10 @@ function winBenham(ranks: number[][], m: number): number {
     for (let i = 0; i < m; i++) if (alive[i] && fp[i] < min) min = fp[i];
     const doomed: number[] = [];
     for (let i = 0; i < m; i++) if (alive[i] && fp[i] === min) doomed.push(i);
-    if (doomed.length >= remaining) return -1;
+    // A total tie (everyone left is tied for fewest) falls back to the
+    // alphabetically-first survivor, matching get_benham_winner's documented
+    // tie-break -- not "no winner" (Lot 4.3, PLAN_SOLIDITE_TECHNIQUE.md).
+    if (doomed.length >= remaining) break;
     for (const i of doomed) {
       alive[i] = false;
       remaining -= 1;

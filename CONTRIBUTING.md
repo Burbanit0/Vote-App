@@ -371,6 +371,51 @@ outil), chaque entrée est un couple `endpoint: raison`, classée
 fichier a trouvé et corrigé 3 bugs réels en route (voir `CODE_AUDIT.md` pour
 le détail) avant qu'ils ne rejoignent la liste des exceptions.
 
+### Preuve exhaustive de parité front/back sur les petits profils (Lot 4.3)
+
+La parité front/back (CLAUDE.md) reposait sur 60 scénarios *aléatoires* (voir
+`fast_api_voter/scripts/gen_engine_parity.py`) filtrés par `strict_winner` —
+un profil n'est comparé que si le gagnant backend survit à 200 relabellings,
+pour ignorer les cas décidés par un tie-break plutôt que par l'algorithme.
+Problème : ce filtre saute aussi, par construction, tous les profils où le
+gagnant backend est `None` ou dépend d'une égalité — exactement là où des
+divergences front/back peuvent se cacher.
+
+Pour n ≤ 4 candidats et m ≤ 5 électeurs, l'espace des profils est fini et
+petit : grâce à l'anonymat des règles (`test_anonymity.py`), il se réduit à
+des multi-ensembles de bulletins (118 754 profils pour n=4 seul, calculables
+en ~28s côté backend). Comparaison **exhaustive et non filtrée** :
+gagnant backend Python contre `ruleWinnerFromRanks` (front), gagnant exact
+exigé y compris `None`/égalité — pas seulement « les deux s'accordent quand
+c'est non-ambigu ».
+
+**Résultat : 5 méthodes sur 21 divergeaient réellement**, chacune investiguée
+et corrigée (détail complet dans `PLAN_SOLIDITE_TECHNIQUE.md`, § 4.3) :
+`condorcet` (mauvaise fonction backend comparée — `get_condorcet_winner` le
+critère strict, pas `get_copeland_winner` la méthode que le front implémente
+réellement, plus un départage de égalité différent une fois corrigé),
+`two_round` (égalité de second tour mal départagée), `benham`/`smith_irv`
+(fallback alphabétique du backend sur égalité totale non répliqué côté front),
+et `dowdall` (un vrai bug **backend** cette fois : `Fraction` neutralisé par
+un `defaultdict(float)`, réintroduisant le bug de précision flottante que le
+code prétendait éviter — trouvé par la comparaison avec le front, qui lui
+était déjà protégé).
+
+Une nouvelle clé du fixture, `exhaustiveScenarios` (voir
+`generate_exhaustive_scenarios` dans `gen_engine_parity.py`), committe les 481
+profils exhaustifs pour n≤3 — gagnants **bruts**, pas filtrés par
+`strict_winner`, pour ne jamais remasquer cette classe de bug. Régénérée et
+vérifiée à chaque PR comme le reste du fixture :
+
+```bash
+cd voter-app && npx vitest run src/lib/playgroundVoting.parity.test.ts
+```
+
+n=4 (98 280 profils de plus, ~60 Mo de JSON une fois sérialisé) n'est pas
+committé — vérifié une fois en développement, mais un fixture de cette taille
+ralentirait `check_engine_parity_drift.sh` sur chaque PR pour couvrir la même
+classe de bug qu'une tranche n≤3 beaucoup plus petite détecte déjà.
+
 ### Oracle tiers pour le moteur de vote (`pref_voting`, Lot 4.2)
 
 La parité front/back (CLAUDE.md) compare *mes deux* implémentations, qui

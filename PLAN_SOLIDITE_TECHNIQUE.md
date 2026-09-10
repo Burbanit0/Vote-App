@@ -380,6 +380,65 @@ petit**. On passe de « 60 scénarios aléatoires » à une **preuve exhaustive*
 front/back sur tout le domaine borné. Gain de confiance considérable pour un
 coût dérisoire.
 
+✅ **Fait — et le plus rentable des trois items du Lot 4 jusqu'ici.** Grâce à
+l'anonymat des règles (déjà établi par `test_anonymity.py`), l'espace des
+profils se réduit à des multi-ensembles de bulletins
+(`itertools.combinations_with_replacement` sur les n! bulletins possibles) :
+118 754 profils pour n=4/m≤5, calculables en ~28s côté backend seul — l'idée
+du plan (« coût dérisoire ») était juste. Comparaison directe **backend Python
+↔ frontend `ruleWinnerFromRanks`**, gagnant exact (y compris `None`/tie),
+`npx tsx` pour exécuter le TS côté script (pas de dépendance ajoutée).
+
+**2 503 935 comparaisons (119 235 profils × 21 méthodes), 5 méthodes en
+écart réel — chacune investiguée et corrigée à la main :**
+
+- **`condorcet`** (23 840 écarts — le plus fréquent, invisible jusqu'ici) :
+  `gen_engine_parity.py` comparait la mauvaise fonction backend.
+  `RULE_LABELS` du front étiquette explicitement cette règle « Condorcet
+  (Copeland) » — elle résout toujours un gagnant (méthode de Copeland) —
+  alors que le script comparait contre `get_condorcet_winner`, le critère
+  **strict** (`Optional[str]`, souvent `None`). Les deux ne peuvent diverger
+  que quand `get_condorcet_winner` retourne `None` — un cas que le fixture
+  historique (échantillon aléatoire + filtre `strict_winner` qui saute
+  justement les gagnants `None`) ne testait jamais. Remappé sur
+  `get_copeland_winner`, la vraie fonction jumelle.
+- **Même écart, deuxième couche** (5 821 restants après le remappage) :
+  `get_copeland_winner` départage les égalités par total de victoires puis
+  alphabétique ; `winCondorcet` (front) départageait par Borda — deux choix
+  légitimes mais différents. Front aligné sur le départage du backend
+  (autoritaire, CLAUDE.md).
+- **`two_round`** (3036 écarts) : sur une égalité EXACTE au second tour,
+  `av >= bv ? a : b` favorisait silencieusement le leader du premier tour
+  plutôt que de départager alphabétiquement comme le backend. Corrigé.
+- **`benham`** et **`smith_irv`** (4217 et 5075 écarts) : sur une égalité
+  totale (plus aucune élimination possible), le front retournait -1 (« pas de
+  gagnant ») alors que le backend retombe sur le survivant alphabétiquement
+  premier — un choix documenté explicitement dans le docstring de chacune de
+  ces deux fonctions backend, différent (et non partagé) de celui d'IRV/Coombs
+  qui, eux, retournent bien `None`. Front aligné sur ce fallback backend ;
+  `playgroundVoting.test.ts` mis à jour (le test figeait l'ancien -1 comme
+  comportement voulu pour les 4 méthodes d'un coup).
+- **`dowdall`** (70 écarts) : vrai bug backend, cette fois-ci **chez nous**
+  (pas dans un tiers comme au Lot 4.2). `get_dowdall_winner` utilisait
+  `Fraction` pour rester exact — mais `defaultdict(float)` réintroduit
+  silencieusement le flottant dès la première addition (`0.0 + Fraction(1,k)`
+  redevient un float via `Fraction.__radd__`), recréant exactement le bug que
+  le commentaire du fichier dit vouloir éviter. Le frontend, lui, était déjà
+  protégé (mise à l'échelle par `lcm(1..m)` pour rester en entiers exacts) —
+  ironie du sort, c'est la comparaison exhaustive avec le front qui a trouvé
+  le bug côté back. Corrigé en `defaultdict(Fraction)`.
+
+**Fixture permanente** (`voter-app/src/lib/__fixtures__/engineParity.json`,
+nouvelle clé `exhaustiveScenarios`) : les 481 profils exhaustifs pour n≤3
+(m≤5), gagnants **bruts** (pas filtrés par `strict_winner` — ce filtre aurait
+justement masqué 4 des 5 bugs ci-dessus), régénérés et vérifiés à chaque PR
+par `check_engine_parity_drift.sh` comme le reste du fixture. n=4 (98 280
+profils de plus, ~60 Mo de JSON) volontairement **non committé** : vérifié une
+fois en développement (0 écart après correctifs), mais un ajout de cette
+taille au fixture ralentirait `check_engine_parity_drift.sh` sur *chaque* PR
+pour couvrir la même classe de bugs qu'une tranche n≤3 beaucoup plus petite
+détecte déjà.
+
 ### 4.4 — `fast-check` côté TypeScript ⭐⭐⭐ 📝📝 · `M`
 
 Hypothesis couvre le Python ; `playgroundVoting.ts` — l'autre moitié du contrat

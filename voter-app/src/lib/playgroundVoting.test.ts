@@ -722,24 +722,40 @@ describe('degenerate cases — no winner, empty field, unknown rule', () => {
     [1, [2, 0, 1]], // C > A > B
   ]);
 
-  // The four rules that eliminate iteratively all share the same guard:
-  //   if (doomed.length >= remaining) return -1;   // every survivor tied
-  // Without it they would eliminate the whole field and then index into an
-  // empty set. -1 is the file's "no winner" sentinel.
-  it.each(['irv', 'coombs', 'smith_irv', 'benham'] as const)(
+  // All four rules guard the same case (`if (doomed.length >= remaining) ...`,
+  // without it they'd eliminate the whole field and index into an empty set),
+  // but resolve it two different ways, matching their respective backend
+  // twins exactly (Lot 4.3, PLAN_SOLIDITE_TECHNIQUE.md — an exhaustive
+  // small-profile parity check against the backend found and fixed a
+  // frontend/backend divergence here for smith_irv/benham).
+  //
+  // irv/coombs: `return -1` — -1 is the file's "no winner" sentinel, matching
+  // get_irv_winner/get_coombs_winner's own `return None` in this case.
+  it.each(['irv', 'coombs'] as const)(
     '%s reports no winner when a round would eliminate every survivor',
     (rule) => {
       expect(ruleWinnerFromRanks(CYCLE, 3, rule)).toBe(-1);
     }
   );
 
+  // smith_irv/benham: `break` out of the loop instead, falling through to the
+  // alphabetically-first (lowest-index) survivor — matching
+  // get_smith_irv_winner/get_benham_winner's own documented alphabetical
+  // fallback on a total tie, which is NOT "no winner".
+  it.each(['smith_irv', 'benham'] as const)(
+    '%s falls back to the alphabetically-first survivor when a round would eliminate everyone',
+    (rule) => {
+      expect(ruleWinnerFromRanks(CYCLE, 3, rule)).toBe(0);
+    }
+  );
+
   // NOTE: `doomed.length >= remaining` versus `> remaining` is an EQUIVALENT
-  // mutant. doomed is a subset of the alive set, so `>` is never true; without
-  // the early return the round eliminates everyone, remaining falls to 0, the
-  // while loop exits and findIndex finds no survivor — returning the same -1.
-  // The guard is a short-circuit and a piece of documentation, not a behaviour.
-  // No test can separate the two, and one that appeared to would be asserting
-  // something else.
+  // mutant for all four rules above. doomed is a subset of the alive set, so
+  // `>` is never true; without the early exit the round eliminates everyone,
+  // remaining falls to 0, the while loop exits, and findIndex finds no
+  // survivor either way. The guard is a short-circuit and a piece of
+  // documentation, not a behaviour. No test can separate the two, and one
+  // that appeared to would be asserting something else.
 
   it('a cycle has no Condorcet winner, but the condorcet RULE still elects one', () => {
     // The premise of the four cases above: none of them can short-circuit to a
