@@ -173,7 +173,10 @@ eliminates the most plausible remaining candidate.
 > tâche plutôt que vers le post-training. **§3.A.1 (échantillonnage déterministe
 > par citoyen) et §3.A.2 (décomposition en deux étapes), tous deux intouchés,
 > deviennent les candidats les mieux motivés.** Réplique préalable recommandée du
-> seul signal positif (2-3 graines) avant de lui accorder le moindre poids.
+> seul signal positif avant de lui accorder le moindre poids — en variant la
+> **géométrie de la sonde** (cids, valeurs de self_gap, ordre), **pas la graine** :
+> à temperature=0 l'échantillonnage est un argmax, une graine différente
+> reproduirait une sortie octet pour octet identique et ne confirmerait rien.
 
 ### 2bis — Cadrage technique, 2026-09-10 (mesuré, pas supposé)
 

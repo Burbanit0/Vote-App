@@ -62,9 +62,20 @@ weeks or eliminate the most plausible remaining candidate." It has largely elimi
 
 ## Caveats, stated rather than buried
 
-- **One run per arm**, no seed replication. The `pressure_action` signal in particular deserves
-  replication before any weight is placed on it — the honest reading today is "suggestive,
-  underpowered", not "found".
+- **One run per arm.** The `pressure_action` signal in particular deserves replication before
+  any weight is placed on it — the honest reading today is "suggestive, underpowered", not
+  "found".
+
+  **Correction to an earlier version of this doc:** it recommended replicating "with 2–3
+  seeds". That is not a valid experiment here. `llm.temperature` is pinned to 0.0 (config
+  rejects anything else when the LLM path is enabled) and at temperature=0 sampling is argmax —
+  `VllmJsonClient`'s own docstring says the seed "does nothing about §15bis.4c's
+  batch-composition nondeterminism, which is a kernel floating-point reduction order property,
+  not a sampling one". Re-running with a different seed would reproduce byte-identical output
+  and confirm nothing. The meaningful replication varies the **probe geometry** — the incidental
+  construction choices (which cids, which exact self_gap values, what order they are batched
+  in) — since those, not the seed, are what an underpowered n=17 reading could be an artifact
+  of.
 - **A diffuse output distribution can masquerade as weak sensitivity.** The base arm is less
   confident everywhere (0.85 vs 1.0 on coalition; 0.53→0.99 rather than a hard pin on
   pressure). A model whose probability mass is simply less concentrated will show larger
@@ -83,8 +94,9 @@ weeks or eliminate the most plausible remaining candidate." It has largely elimi
 The mechanism §2 has been chasing is **not** (or not mainly) alignment tuning. Suggested next
 moves, in the order the evidence argues for:
 
-1. **Replicate `pressure_action`'s base-arm reading** with 2–3 seeds before treating +0.089 as
-   real at all. Cheap: both arms are now scripted and reproducible.
+1. **Replicate `pressure_action`'s base-arm reading under a different probe geometry** before
+   treating +0.089 as real at all — NOT with different seeds, which cannot vary anything at
+   temperature=0 (see the correction above). Cheap: both arms are scripted and reproducible.
 2. **Redirect the mechanism hunt.** `coalition_decision` collapsing identically with and without
    instruction tuning points at something in the prompt/task construction itself rather than at
    post-training — §3.A.1's per-citizen deterministic sampling and §3.A.2's two-stage
