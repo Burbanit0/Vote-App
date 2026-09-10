@@ -3549,6 +3549,18 @@ def decide_coalition(
     constraint. Treat coalition composition/lifespan metrics from any llm.enabled=True run as
     unverified until this is resolved -- no remediation has been found or attempted yet.
 
+    BOTH GAPS CLOSED 2026-09-10 (plan-llm-protocol-and-theory-program.md §5.C,
+    scripts/check_logprob_coalition_action_tracking_results.md): re-measured via logprobs
+    (P(action=1, JOIN), read directly) across 5 points spanning the SAME two poles (platform
+    distance 0->sqrt(20), institutional shortfall 25->0, both moving together like the original
+    diagnostic), with every call batching all 5 responders together for the first time -- closing
+    the "not tested at real production batch size" gap directly. Result: P(action=1) stayed
+    within 0.965-0.999 at every point, including both original poles (pole-to-pole difference
+    -0.0026, negligible; full spread 0.0345, non-monotonic). The batched shape did not rescue any
+    signal a real, content-sensitive decision would show -- confirms and extends the original
+    6/6-identical finding rather than narrowing it. Still no established mechanism, and still no
+    remediation attempted.
+
     Formation only: design doc §3.1's "maintien et rupture" of a coalition
     across subsequent ticks is out of scope for this increment. Reasons: no
     tick hook exists for it today (this module only touches coalitions

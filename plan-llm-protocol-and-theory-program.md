@@ -53,7 +53,7 @@ The project has 9 LLM decision types. Their measured reliability splits cleanly
 |---|---|---|
 | `pressure_action` (dt=10) | **Citizen chooses a lever against an officeholder** | **60,0 % agreement (open menu), bar is 80 %** — every remediation lever exhausted; **collapse confirmed on the SHIPPED closed menu** (2026-09-10, logprobs: P(act=4) ≥0,976 for every self_gap tested, +0,004 separation, not a batching artifact) — the one config every real run ships |
 | `representative_response` (dt=6) | **Officeholder responds to citizen pressure** | **Collapse confirmed** (4/4 identical) — **sharpened 2026-09-10** (logprobs, 9-point continuous sweep across the same two poles): P(stance=1)=1,000000±0,000001 EVERYWHERE, no detectable gradient at all |
-| `coalition_decision` (dt=9) | **Party joins/refuses a coalition** | **Collapse confirmed** (6/6 identical) |
+| `coalition_decision` (dt=9) | **Party joins/refuses a coalition** | **Collapse confirmed** (6/6 identical) — **sharpened 2026-09-10** (logprobs, real batch size): P(action=1)=0,965-0,999 EVERYWHERE, batching does not rescue any signal |
 | `reaction_to_event` (dt=8, SCANDAL) | **Citizen reacts to a shared event** | **Collapse confirmed** (6/6 identical) |
 | `chamber_deliberation` (dt=11) | Member adjusts own position | Non tranché |
 | `campaign_positioning` (dt=5) | Nominee adjusts own platform | No collapse (separate 50-66 % failure defect) |
@@ -516,6 +516,28 @@ sur un probe trivial, contre le vrai serveur, pas un mock. Une chose reste
    que de le contredire ou le nuancer — exclut explicitement l'hypothèse
    qu'une zone de sensibilité réelle aurait pu se cacher entre les deux
    points d'origine.
+
+   **Troisième application, 2026-09-10**
+   (`check_logprob_coalition_action_tracking_results.md`) :
+   `coalition_decision`, dont le docstring nommait DEUX lacunes explicites
+   — un signal catégoriel 2-points/6-échantillons, et « not tested at
+   real production batch size ... an open gap » (le diagnostic d'origine
+   utilisait size=1, jamais un batch reel de plusieurs partis). Les deux
+   fermées ensemble : 5 points le long des MÊMES deux pôles (distance de
+   plateforme 0→√20, déficit institutionnel de l'initiateur 25→0, les deux
+   axes bougeant ensemble comme dans le diagnostic d'origine), CHAQUE
+   appel regroupant les 5 partis répondants ensemble (taille de batch
+   réelle de production, jamais exercée avant pour ce type). Résultat :
+   **P(action=1, JOIN) reste entre 0,965 et 0,999 partout**, y compris aux
+   deux pôles d'origine (différence pôle-à-pôle : -0,0026, négligeable).
+   Le batching ne restaure aucun signal qu'une décision réellement
+   sensible au contenu montrerait — confirme et étend le « 6/6 identiques
+   » d'origine plutôt que de le nuancer.
+
+   Trois des quatre types « collapse confirmé » d'origine
+   (`pressure_action`, `representative_response`, `coalition_decision`)
+   sont maintenant mesurés en continu via logprobs ; `reaction_to_event`
+   (branche SCANDAL) reste le seul non encore rejoué ainsi.
 
 ### 5.E — TOON : bon outil, mais pas sur les prompts qu'on croit
 
