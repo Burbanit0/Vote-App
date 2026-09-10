@@ -106,6 +106,14 @@ totale, pas graduelle. Le mécanisme de calibration n'est donc pas en cause — 
 appel entre plusieurs citoyens qui detruit le signal, quelle que soit la donnée fournie. La taille de
 batch devient la seule question restante (Phase D).
 
+**Coût mesuré, 2026-09-10** (`fast_api_voter/scripts/check_pressure_batch_size_cost_results.md`) :
+la taille de batch 1 coûte **2,8-3,0× le temps de la taille 25 — pas 25×**. La plupart de la latence
+d'un appel à cette taille de prompt est un coût fixe par requête, pas le traitement des tokens du
+prompt : le temps par appel chute de 2554 ms à 303 ms quand la taille de batch se réduit. Extrapolé
+sur les 120 ticks du run flagship (30 ans × 4 ticks/an) contre l'ancre réelle de 137 décisions/tick
+mesurée en Phase 7 : **+25,4 s/tick, +0,85 h sur les ~35,6 h du run complet** — moins de 2,5 % du
+temps total. **La taille de batch 1 est abordable.**
+
 ### `candidacy_considered` (dt=2)
 
 > Un citoyen dont l'ambition est nettement supérieure à ce qui est nécessaire pour se présenter s'y
