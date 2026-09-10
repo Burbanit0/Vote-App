@@ -32,6 +32,7 @@ from api.schemas import (
     DemocraticBacksliddingResponse,
     EpistocracyRequest,
     EpistocracyResponse,
+    ErrorDetail,
     IdentityVotingRequest,
     IdentityVotingResponse,
     IIARateRequest,
@@ -72,6 +73,8 @@ router = APIRouter(
     prefix="/api/v2/theory",
     tags=["theory"],
     dependencies=[Depends(check_v2_rate_limit)],
+    # See election.py's router for why 400/500 apply to every route here.
+    responses={400: {"model": ErrorDetail}, 500: {"model": ErrorDetail}},
 )
 
 

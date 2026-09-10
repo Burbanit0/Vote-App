@@ -109,3 +109,13 @@ class TestPolisWithCandidates:
     def test_rejects_extra_field(self, client):
         bad = {**self.payload, "evil": 1}
         assert client.post("/api/v2/tech/polis", json=bad).status_code == 422
+
+    def test_accepts_plain_string_statements(self, client):
+        # The schema promises List[str] (not the internal default's
+        # {"text", "category"} dict shape) — a plain string statement falls
+        # back to the "default" category instead of crashing.
+        req = {**self.payload, "statements": ["Statement A", "Statement B"]}
+        r = client.post("/api/v2/tech/polis", json=req)
+        assert r.status_code == 200, r.text
+        texts = [s["text"] for s in r.json()["statements"]]
+        assert texts == ["Statement A", "Statement B"]

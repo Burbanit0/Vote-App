@@ -39,6 +39,7 @@ from api.domain.public import (
 )
 from api.core.ratelimit import limiter
 from api.schemas import (
+    ErrorDetail,
     PublicCompareRequest,
     PublicCompareResponse,
     PublicMethodsResponse,
@@ -48,7 +49,14 @@ from api.schemas import (
 )
 
 
-router = APIRouter(prefix="/api/v1", tags=["public-v1"])
+router = APIRouter(
+    prefix="/api/v1",
+    tags=["public-v1"],
+    # See routes/election.py's router for why 400/500 apply to every route
+    # here (this module's own _run_passthrough/_run_worker follow the same
+    # (body, status) -> HTTPException pattern).
+    responses={400: {"model": ErrorDetail}, 500: {"model": ErrorDetail}},
+)
 
 
 async def _run_passthrough(

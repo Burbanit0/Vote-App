@@ -557,7 +557,11 @@ class IdentityVotingRequest(BaseModel):
             IDCandidate(name="Bob",   x= 0.0),
             IDCandidate(name="Carol", x= 0.5),
         ],
-        min_length=2, max_length=8,
+        # min_length=3, not 2: the worker's default identity groups (Groupe
+        # A/B/C) each pin to one of candidates[0..2] unconditionally — found
+        # by Schemathesis (Lot 3) sending exactly 2 candidates and crashing
+        # the worker with IndexError on candidates_raw[2].
+        min_length=3, max_length=8,
     )
     num_voters:       int   = Field(200, ge=20, le=2000)
     seed:             int   = Field(42, ge=0)

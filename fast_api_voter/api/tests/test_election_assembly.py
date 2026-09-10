@@ -109,6 +109,15 @@ def test_rejects_single_party(client: TestClient):
     assert res.status_code == 422  # Pydantic min_length=2
 
 
+def test_rejects_duplicate_party_names(client: TestClient):
+    # Two parties sharing a name collide as one dict key in vote tallying
+    # (found by Schemathesis, Lot 3) — rejected at the schema boundary.
+    dupes = [SIX_PARTIES[0], {**SIX_PARTIES[1], "name": SIX_PARTIES[0]["name"]}]
+    res = client.post("/api/v2/election/assembly", json=_payload(parties=dupes))
+    assert res.status_code == 422
+    assert "Duplicate party name" in res.text
+
+
 # ── Duverger demo (P4): strategic desertion ───────────────────────────────────
 
 def test_duverger_desertion_compresses_under_fptp(client: TestClient):

@@ -69,7 +69,10 @@ def _simulate_votes_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     demographics = form_data.get("demographics")
     turnout_rate = form_data.get("turnoutRate")
     influence_weights = form_data.get("influenceWeights")
-    simulation_type = form_data.get("simulationType")
+    # Default "" (not None): a missing simulationType previously crashed the
+    # `in` checks below with TypeError instead of falling through to the
+    # "unknown type" branch (found by Schemathesis, Lot 3).
+    simulation_type = form_data.get("simulationType") or ""
 
     # Accumulate the method winners here instead of introspecting locals().
     winners: Dict[str, Any] = {}

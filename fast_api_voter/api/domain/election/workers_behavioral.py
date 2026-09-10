@@ -1777,7 +1777,12 @@ def _co_note(
 
 def _co_parse(data: Dict[str, Any]) -> Dict[str, Any]:
     """Clamp and default every request field."""
-    hw = data.get("heuristic_weights", {})
+    # `or {}`, not `.get(..., {})`: heuristic_weights is Optional in the
+    # schema, so an explicit `null` in the request body is a present key with
+    # value None — `.get()`'s default only fires when the key is absent,
+    # so `None` reached `hw.get(...)` below and crashed with AttributeError
+    # (found by Schemathesis, Lot 3).
+    hw = data.get("heuristic_weights") or {}
     h_not = max(0.0, min(1.0, float(hw.get("notoriety", 0.20))))
     h_pri = max(0.0, min(1.0, float(hw.get("primacy", 0.10))))
     h_par = max(0.0, min(1.0, float(hw.get("partisan", 0.20))))

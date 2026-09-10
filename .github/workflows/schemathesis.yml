@@ -1,0 +1,78 @@
+name: Schemathesis Contract Fuzzing
+
+# Lot 3, PLAN_SOLIDITE_TECHNIQUE.md: `openapi.gen.json` is drift-checked
+# (openapi-contract.yml) against what FastAPI *declares*, but nothing checked
+# it against what the app actually *does* until this. See
+# fast_api_voter/api/tests/test_schema_contract.py's module docstring for the
+# full design rationale (generation mode, clamping, KNOWN_FAILURES).
+#
+# Deliberately its OWN workflow, not a step in backend-ci-cd-pipeline.yml:
+# a full pass measures ~220s (~3.5-4 min) locally, but that's HTTP-level fuzzing (more
+# runtime variance than a deterministic lint/type check) measured on one dev
+# machine, not confirmed against a real GitHub Actions runner. Rather than
+# risk that variance turning into a flaky per-PR blocker, this stays separate
+# and non-blocking — mirrors mutation-testing.yml's existing precedent for
+# exactly this tradeoff (also not on `pull_request`).
+#
+# `schedule`/`workflow_dispatch` are resolved by GitHub against the DEFAULT
+# branch (main), not the ref that owns the file — mutation-testing.yml hit
+# this already (its cron silently never fired because this repo's main was
+# hundreds of commits behind develop). They're included below for when a
+# develop -> main release makes them live, but `push: develop` is what
+# actually runs this today.
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'fast_api_voter/api/**'
+      - 'fast_api_voter/requirements*.txt'
+      - '.github/workflows/schemathesis.yml'
+  workflow_dispatch: {}
+  schedule:
+    - cron: '38 5 * * 1'  # Monday 05:38 UTC — off-peak, arbitrary offset
+
+concurrency:
+  group: schemathesis-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  contract-fuzz:
+    name: API contract fuzzing (Schemathesis)
+    runs-on: ubuntu-latest
+    # ~220s (~3.5-4 min) measured locally, but generous margin given the timing uncertainty
+    # noted above (untested on a real runner, and Hypothesis's own example
+    # generation time isn't bounded) — so a real hang fails loudly instead of
+    # running toward GitHub's 360min default and looking like "just slow".
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      # No `python-version` here — see backend-ci-cd-pipeline.yml's comment on
+      # this same pairing (`--system` rejects a uv-managed interpreter).
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+          cache-dependency-glob: 'fast_api_voter/requirements*.txt'
+
+      - name: Install production + dev dependencies
+        run: |
+          uv pip install --system -r fast_api_voter/requirements.txt
+          uv pip install --system -r fast_api_voter/requirements-dev.txt
+
+      # -o addopts="" drops pyproject.toml's default addopts (coverage gate +
+      # the --ignore that keeps this file out of the normal fast test run) —
+      # naming the file explicitly still collects it (--ignore only affects
+      # directory discovery, confirmed live), but the 90% coverage floor
+      # would otherwise fail outright: this file alone covers a small slice
+      # of the app.
+      - name: Run contract fuzzing
+        run: |
+          cd fast_api_voter
+          python -m pytest api/tests/test_schema_contract.py -v -o addopts=""

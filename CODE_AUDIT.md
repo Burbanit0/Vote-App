@@ -59,6 +59,42 @@ imports type-only exemptés). Baseline : 0 violation (287 modules, 1558
 dépendances). Épinglé en `17.4.3` : la `18.x` exige Node `^22||^24||>=26`, ce
 repo (CI et dev local) tourne encore en Node 20.*
 
+*Mise à jour du 2026-09-10 : `Schemathesis` ajouté (Lot 3 du plan de solidité
+technique) — fuzzing du contrat OpenAPI, `api/tests/test_schema_contract.py` +
+workflow dédié `schemathesis.yml` (pas dans `backend-ci-cd-pipeline.yml` par
+prudence : un run complet mesure ~220s (~3.5-4 min) en local, mais ce chiffre n'a pas été
+revérifié sur un runner GitHub réel — voir le docstring du fichier de test
+pour le détail des choix : mode POSITIVE uniquement, entiers lourds
+plafonnés à 100, pas de phase de shrink ; génération rendue reproductible via
+un `seed=` fixe sur le `Config` schemathesis — `derandomize=True` seul ne
+suffisait pas d'un process à l'autre, `PYTHONHASHSEED` non fixé fausse la
+dérivation de graine de Hypothesis). Écrire le test a immédiatement trouvé et
+corrigé 6 bugs réels : des codes de statut atteignables mais jamais
+documentés (400/404/500/503) sur les 7 routers de l'API (corrigé via
+`responses=` + un schéma `ErrorDetail` partagé) ; un crash `IndexError` sur
+`/theory/identity-voting` (le schéma acceptait 2 candidats, le worker en
+exige 3 sans le vérifier) ; un crash `max() iterable argument is empty` sur
+`/assembly`, `/assembly-scorecard`, `/temporal` et `/structural-fairness`
+quand deux partis partagent le même nom (collision de clé dans un dict
+agrégé par nom — corrigé par un `field_validator` Pydantic rejetant les
+doublons, plus sûr que de rendre le code d'agrégation tolérant aux
+collisions) ; un crash `TypeError`/`IndexError` sur `/campaign-sensitivity`
+(`snapshot_days` typé `List[Any]` au lieu de `List[Union[int, Literal["final"]]]`,
+et un jour négatif de grande magnitude débordait l'indexation Python faute
+d'être borné des deux côtés) ; un crash `AttributeError` sur
+`/choice-overload` (`heuristic_weights` explicitement `null` contournait le
+défaut de `.get()` — corrigé en `or {}`) ; un crash `AttributeError` sur
+`/tech/polis` (le schéma promet `List[str]`, le worker traitait chaque
+élément comme un dict — corrigé pour accepter les deux formes). Le reste des
+endpoints (~40 sur 95) porte de la dette pré-existante réelle mais
+volontairement non corrigée dans ce lot — requêtes historiquement peu typées
+(`Dict[str, Any]`, voir `api/schemas/simulations.py`) et endpoints de
+simulation dont le temps de réponse dépasse le timeout de 10s même avec des
+paramètres bridés — trackée nommément (pas un simple compte) dans
+`KNOWN_FAILURES`, avec la classe de problème pour chacune. Le deuxième point
+(timeouts) est exactement pourquoi l'item "Timeouts & backpressure" existe
+plus loin dans le même lot.*
+
 ## Résumé exécutif
 
 Le repo `Vote-App` (backend FastAPI `fast_api_voter/`, frontend React/TS
