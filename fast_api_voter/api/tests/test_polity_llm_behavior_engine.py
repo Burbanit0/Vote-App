@@ -44,9 +44,15 @@ from api.domain.polity.llm_behavior_engine import (
     build_party_nomination_user_prompt,
     build_positioning_system_prompt,
     build_positioning_user_prompt,
+    PRESSURE_HISTORY_SIGNAL,
+    PRESSURE_PERCENTILE_SIGNAL,
+    PRESSURE_PLEDGE_SIGNAL,
+    PRESSURE_THRESHOLD_SIGNAL,
     build_pressure_system_prompt,
+    build_pressure_system_prompt_calibrated,
     build_pressure_system_prompt_toon,
     build_pressure_user_prompt,
+    build_pressure_user_prompt_calibrated,
     build_pressure_user_prompt_toon,
     build_reaction_system_prompt,
     build_reaction_user_prompt,
@@ -3115,6 +3121,125 @@ def test_pressure_system_prompt_toon_differs_from_json_only_in_the_ctx_explanati
     shared = json_lines & toon_lines
     assert "Motifs valides (code court obligatoire) :" in shared
     assert any("CONTRAINTE ABSOLUE" in line for line in shared)
+
+
+# ── build_pressure_*_prompt_calibrated (polity-decision-contracts.md, diagnostic-only) ──
+
+def test_calibrated_user_prompt_with_no_signals_matches_the_unmodified_payload():
+    citizens = [_pressure_citizen(0), _pressure_citizen(1)]
+    contexts = {0: _pressure_context(0, available=(0, 4)), 1: _pressure_context(1, available=(0, 4))}
+    assert build_pressure_user_prompt_calibrated(citizens, contexts, {}) == build_pressure_user_prompt(citizens, contexts)
+
+
+def test_calibrated_user_prompt_merges_one_signal_into_every_ctx_block():
+    citizens = [_pressure_citizen(0), _pressure_citizen(1)]
+    contexts = {0: _pressure_context(0, available=(0, 4)), 1: _pressure_context(1, available=(0, 4))}
+    payload = json.loads(build_pressure_user_prompt_calibrated(
+        citizens, contexts, {"blank_threshold": {0: 0.31, 1: 0.72}}
+    ))
+    by_cid = {c["cid"]: c for c in payload["consulted"]}
+    assert by_cid[0]["ctx"]["blank_threshold"] == 0.31
+    assert by_cid[1]["ctx"]["blank_threshold"] == 0.72
+    # the unmodified fields are untouched
+    assert by_cid[0]["ctx"]["self_gap"] == _pressure_context(0).to_payload()["self_gap"]
+
+
+def test_calibrated_user_prompt_composes_several_signals_at_once():
+    citizen = _pressure_citizen(0)
+    context = _pressure_context(0, available=(0, 4))
+    payload = json.loads(build_pressure_user_prompt_calibrated(
+        [citizen], {0: context},
+        {"blank_threshold": {0: 0.4}, "self_gap_prev_tick": {0: 0.9}},
+    ))
+    ctx = payload["consulted"][0]["ctx"]
+    assert ctx["blank_threshold"] == 0.4
+    assert ctx["self_gap_prev_tick"] == 0.9
+
+
+def test_calibrated_user_prompt_rounds_signal_values_to_four_decimals():
+    citizen = _pressure_citizen(0)
+    context = _pressure_context(0, available=(0, 4))
+    payload = json.loads(build_pressure_user_prompt_calibrated(
+        [citizen], {0: context}, {"blank_threshold": {0: 0.123456}}
+    ))
+    assert payload["consulted"][0]["ctx"]["blank_threshold"] == 0.1235
+
+
+def test_calibrated_user_prompt_iteration_order_of_signal_values_does_not_affect_output():
+    citizen = _pressure_citizen(0)
+    context = _pressure_context(0, available=(0, 4))
+    a = build_pressure_user_prompt_calibrated(
+        [citizen], {0: context}, {"blank_threshold": {0: 0.4}, "self_gap_prev_tick": {0: 0.9}}
+    )
+    b = build_pressure_user_prompt_calibrated(
+        [citizen], {0: context}, {"self_gap_prev_tick": {0: 0.9}, "blank_threshold": {0: 0.4}}
+    )
+    assert a == b
+
+
+def test_calibrated_system_prompt_with_no_signals_matches_the_unmodified_prompt():
+    consulted = [_pressure_citizen(0), _pressure_citizen(1)]
+    config = _config_with_llm_enabled()
+    assert build_pressure_system_prompt_calibrated(consulted, config, []) == build_pressure_system_prompt(consulted, config)
+
+
+def test_calibrated_system_prompt_appends_exactly_the_requested_signal_definitions():
+    consulted = [_pressure_citizen(0)]
+    config = _config_with_llm_enabled()
+    prompt = build_pressure_system_prompt_calibrated(consulted, config, [PRESSURE_THRESHOLD_SIGNAL])
+    assert PRESSURE_THRESHOLD_SIGNAL.definition in prompt
+    assert PRESSURE_HISTORY_SIGNAL.definition not in prompt
+    assert PRESSURE_PERCENTILE_SIGNAL.definition not in prompt
+    assert PRESSURE_PLEDGE_SIGNAL.definition not in prompt
+
+
+def test_calibrated_system_prompt_composes_several_signals_in_the_given_order():
+    consulted = [_pressure_citizen(0)]
+    config = _config_with_llm_enabled()
+    prompt = build_pressure_system_prompt_calibrated(
+        consulted, config, [PRESSURE_THRESHOLD_SIGNAL, PRESSURE_HISTORY_SIGNAL],
+    )
+    assert prompt.index(PRESSURE_THRESHOLD_SIGNAL.definition) < prompt.index(PRESSURE_HISTORY_SIGNAL.definition)
+
+
+def test_calibrated_system_prompt_still_enumerates_every_expected_cid():
+    consulted = [_pressure_citizen(0), _pressure_citizen(1)]
+    config = _config_with_llm_enabled()
+    prompt = build_pressure_system_prompt_calibrated(consulted, config, [PRESSURE_PERCENTILE_SIGNAL])
+    assert "[0,1]" in prompt
+    assert "EXACTEMENT ces 2" in prompt
+
+
+def test_calibrated_system_prompt_differs_from_baseline_only_by_the_signal_lines():
+    # Isolates the format change the same way the TOON tests do: every
+    # OTHER line (menu constraint, legal-act table, motif table,
+    # expected-cid self-check) must survive unchanged.
+    consulted = [_pressure_citizen(0), _pressure_citizen(1)]
+    config = _config_with_llm_enabled()
+    baseline_lines = set(build_pressure_system_prompt(consulted, config).splitlines())
+    calibrated_lines = set(
+        build_pressure_system_prompt_calibrated(consulted, config, [PRESSURE_THRESHOLD_SIGNAL]).splitlines()
+    )
+    assert baseline_lines <= calibrated_lines
+    added = calibrated_lines - baseline_lines
+    assert added == {line for line in PRESSURE_THRESHOLD_SIGNAL.definition.splitlines() if line}
+
+
+@pytest.mark.parametrize("signal", [
+    PRESSURE_THRESHOLD_SIGNAL, PRESSURE_HISTORY_SIGNAL, PRESSURE_PERCENTILE_SIGNAL, PRESSURE_PLEDGE_SIGNAL,
+])
+def test_every_calibration_signal_definition_contains_no_if_then_wording(signal):
+    # polity-decision-contracts.md's C4, enforced structurally rather than
+    # only by convention: none of these sentences may cross from
+    # describing a number into prescribing a reaction to it.
+    # Deliberately not a bare "si " check: French uses "si" in plenty of
+    # non-conditional, non-prescriptive phrasing too ("voir si la
+    # situation s'est degradee" describes what the number MEANS, it does
+    # not tell the model what to do). What must never appear is a
+    # conditional tied to a specific ACTION.
+    lowered = signal.definition.lower()
+    for banned in ("alors", "->", "=>", "act=0", "act=4", "doit repondre", "tu dois", "choisis "):
+        assert banned not in lowered, f"{signal.field}'s definition looks prescriptive: {signal.definition!r}"
 
 
 # ── decide_pressure_actions (FakePressureLlmClient, v4 Lot 7) ───────────

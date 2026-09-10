@@ -2709,6 +2709,223 @@ def build_pressure_user_prompt_toon(consulted: Sequence[Citizen], contexts: Mapp
     return f"{call_block}\n{pressure_block}"
 
 
+@dataclass(frozen=True)
+class PressureCalibrationSignal:
+    """One optional, purely descriptive per-citizen field for the
+    calibrated pressure_action prompt -- polity-decision-contracts.md's
+    C3 (state must be perceptible: every decision-relevant quantity needs
+    a scale) without violating C4 (nothing prescriptive: no rule mapping
+    state to action). `definition` states what the number MEANS and MUST
+    NOT state what to do about it -- see build_pressure_system_prompt_
+    calibrated's own docstring for the §7bis.9d failure mode this exists
+    to avoid."""
+
+    field: str
+    definition: str  # one sentence, ends with "\n", no if/then, no prescribed action
+
+
+PRESSURE_THRESHOLD_SIGNAL = PressureCalibrationSignal(
+    field="blank_threshold",
+    definition=(
+        "ctx.blank_threshold : mon propre seuil de tolerance, sur la meme "
+        "echelle que ctx.self_gap -- au-dela, cet ecart devient notable "
+        "pour moi personnellement. Ce nombre ne prescrit aucune reaction.\n"
+    ),
+)
+"""polity-decision-contracts.md §3 pressure_action: `deterministic_
+pressure_action` (simple_rules.py) compares `gap < citizen.blank_
+threshold` to score every measurement this decision type has ever been
+judged against, yet the shipped prompt never sends blank_threshold at
+all -- see check_pressure_missing_threshold_results.md for the live
+evidence. This signal supplies the number without supplying the
+comparison."""
+
+PRESSURE_HISTORY_SIGNAL = PressureCalibrationSignal(
+    field="self_gap_prev_tick",
+    definition=(
+        "ctx.self_gap_prev_tick : mon propre ecart au tick precedent, sur "
+        "la meme echelle que ctx.self_gap -- permet de voir si la "
+        "situation s'est degradee, amelioree, ou n'a pas change depuis la "
+        "derniere fois.\n"
+    ),
+)
+"""§3.3 item 3's own "historique récent" -- literally named in the design
+doc, and currently absent from every ctx in this project. Values are
+supplied by the caller (see build_pressure_user_prompt_calibrated's own
+docstring for why this function never computes them itself); for a real
+caller wiring this into production, run_polity_simulation.py's own
+_run_accountability_phase already has holder.revealed_position captured
+one step earlier in the same tick (_run_representative_responses runs
+first), so a 1-tick window needs no new persistent state."""
+
+PRESSURE_PERCENTILE_SIGNAL = PressureCalibrationSignal(
+    field="self_gap_percentile",
+    definition=(
+        "ctx.self_gap_percentile : ma position (0 a 100) parmi les "
+        "citoyens consultes ce tick, classes par ecart croissant -- 0 "
+        "signifie que je suis le moins mecontent de ce groupe, 100 le "
+        "plus mecontent.\n"
+    ),
+)
+"""§3.3 item 3's "positions des autres acteurs", read as a within-cohort
+rank rather than an absolute one -- the purest fit to that phrase of the
+four signals, and the one most explicitly coupling one citizen's own
+reading to the rest of the batch it shares a call with, which is why
+polity-decision-contracts.md ranks it after the threshold/history
+signals rather than before them."""
+
+PRESSURE_PLEDGE_SIGNAL = PressureCalibrationSignal(
+    field="gap_vs_pledge",
+    definition=(
+        "ctx.gap_vs_pledge : l'ecart que j'aurais avec cet elu s'il avait "
+        "tenu sa promesse de campagne, sur la meme echelle que "
+        "ctx.self_gap -- une reference independante de sa position "
+        "actuelle.\n"
+    ),
+)
+"""A same-scale anchor requiring no population coupling at all (unlike
+PRESSURE_PERCENTILE_SIGNAL) and no institutional state (unlike
+PRESSURE_THRESHOLD_SIGNAL) -- purely a second weighted distance the
+caller already has the means to compute (weighted_euclidean against
+holder.pledged_platform, immutable for the whole term)."""
+
+
+def build_pressure_system_prompt_calibrated(
+    consulted: Sequence[Citizen], config: PolityConfig, signals: Sequence[PressureCalibrationSignal],
+) -> str:
+    """polity-decision-contracts.md's pilot correction for pressure_action
+    (C3: self_gap is sent with no scale reference at all -- see plan-llm-
+    protocol-and-theory-program.md §3.A.1's premise check and check_
+    pressure_missing_threshold_results.md for the live evidence this
+    responds to). Diagnostic-only -- NOT wired into decide_pressure_
+    actions, same discipline every §5.C/§5.E primitive this session
+    followed; only the Phase C experiment matrix script calls this.
+
+    `signals` composes which optional descriptive fields are added --
+    zero, one, or several of PRESSURE_THRESHOLD_SIGNAL/_HISTORY_SIGNAL/
+    _PERCENTILE_SIGNAL/_PLEDGE_SIGNAL -- so one function serves every
+    variant in the experiment matrix instead of near-duplicating this
+    prompt four or five times for a difference that is really just
+    "which sentences get appended".
+
+    HARD RULE, not a style choice: every `definition` in a signal MUST
+    describe what its number MEANS and MUST NOT state what to do about
+    it -- polity-decision-contracts.md's C4, and §7bis.9d's own warning
+    verbatim: "Si l'on inverse cette separation -- si le seuil decide de
+    l'action -- on obtient une simulation de Granovetter avec un LLM
+    decoratif par-dessus, c'est-a-dire l'inverse exact de l'objectif du
+    §3.3." Nothing here ever writes deterministic_pressure_action's own
+    `gap < blank_threshold` comparison into the prompt -- see check_
+    pressure_missing_threshold.py's own arm D for what that failure mode
+    looks like when it isn't avoided (a capability CONTROL there,
+    deliberately not a proposal, and not reused here for that reason).
+
+    Otherwise identical to build_pressure_system_prompt: same menu
+    constraint (stated twice), same legal-act table, same motif table,
+    same verbatim expected-cid self-check -- only the ctx explanations
+    gain the requested signal sentences, appended after the unmodified
+    ones, so a live A/B against the unmodified baseline isolates exactly
+    what was added."""
+    cid_list = ",".join(str(c.citizen_id) for c in consulted)
+    legal = menu_acts(config.pressure_menu)
+    legal_table = "\n".join(
+        line for line in PRESSURE_ACT_PROMPT_TABLE.splitlines() if int(line.split(" = ")[0]) in legal
+    )
+    if config.social_graph.enabled:
+        neighbors_acting_line = (
+            "ctx.neighbors_acting : proportion (0 a 1) de mon voisinage "
+            "social qui a deja mobilise contre cette meme cible, au tick "
+            "precedent. Le motif 306 (FOLLOWING_NEIGHBORS) est approprie "
+            "pour un act 1, 2 ou 3 motive par ce signal -- jamais pour "
+            "act 0 ou 4.\n"
+        )
+    else:
+        neighbors_acting_line = (
+            "ctx.neighbors_acting : toujours null dans cette simulation (aucun "
+            "graphe social suivi), jamais zero -- null signifie que cette "
+            "information n'existe pas du tout ici, PAS que les voisins sont "
+            "inactifs ou absents. Ne rien en deduire sur le voisinage : ignorer "
+            "ce champ dans le raisonnement, ne jamais l'interpreter comme un "
+            "signal.\n"
+        )
+    signal_lines = "".join(signal.definition for signal in signals)
+    return (
+        "Tu es un moteur de simulation. Pour chaque citoyen mecontent recu "
+        "(pressure_action), decide son action envers l'elu cible, en te "
+        "basant sur son propre ecart de mecontentement (ctx) et le menu "
+        "constitutionnel actif.\n"
+        f"CONTRAINTE ABSOLUE : le champ act de CHAQUE decision doit valoir "
+        f"UN DES CODES SUIVANTS, et aucun autre : {list(legal)}. Tout autre "
+        "code invalide le batch entier.\n"
+        f"act (les seuls codes autorises ce tick) :\n{legal_table}\n"
+        "0 (ne rien faire) et 4 (attendre la prochaine election) sont des "
+        "resultats legitimes et journalises, jamais des echecs -- la part "
+        "des mecontents qui n'agissent pas est une mesure du modele, pas "
+        "une erreur a eviter.\n"
+        f"Motifs valides (code court obligatoire) :\n{PRESSURE_MOTIF_PROMPT_TABLE}\n"
+        "ctx.self_gap : ecart pondere entre mes propres positions et la "
+        "position actuelle de l'elu cible.\n"
+        "ctx.mandate_dev : ecart pondere entre la promesse de l'elu et sa "
+        "position actuelle -- une information sur l'elu, pas sur moi.\n"
+        f"{neighbors_acting_line}"
+        "ctx.ticks_to_election : nombre de ticks avant la prochaine "
+        "election presidentielle, null si aucune election prevue.\n"
+        f"{signal_lines}"
+        f"IMPORTANT : la liste decisions doit contenir EXACTEMENT ces "
+        f"{len(consulted)} cid, chacun une seule fois, dans cet ordre : "
+        f"[{cid_list}]. Verifie ta reponse avant de la finaliser : chaque "
+        "cid de cette liste doit apparaitre exactement une fois, et chaque "
+        f"act doit appartenir a {list(legal)}.\n"
+        "Reponds UNIQUEMENT avec un objet JSON conforme au schema fourni."
+    )
+
+
+def build_pressure_user_prompt_calibrated(
+    consulted: Sequence[Citizen],
+    contexts: Mapping[int, PressureContext],
+    signal_values: Mapping[str, Mapping[int, float]],
+) -> str:
+    """build_pressure_user_prompt's own payload, with one extra key per
+    entry of `signal_values` merged into each citizen's `ctx` block --
+    `signal_values` maps a signal's own `field` name (see
+    PressureCalibrationSignal) to a {cid: value} mapping.
+
+    Deliberately does not compute any signal itself: percentile, history
+    and pledge-distance each need data this function has no access to
+    (the whole cohort's self_gap, the previous tick's revealed_position,
+    the officeholder's own pledged_platform) -- the CALLER computes and
+    supplies them, keeping this a pure serializer with no hidden
+    branching, same discipline as every prior prompt builder in this
+    module. Every key present in `signal_values` must have a value for
+    every consulted citizen, or this raises KeyError rather than silently
+    omitting a field for one citizen and not another.
+
+    Same canonical-JSON discipline as build_pressure_user_prompt (sort_
+    keys, compact separators, rounded floats) -- `sort_keys=True` also
+    means the iteration order of `signal_values` itself never affects the
+    output, so callers need not worry about it."""
+    citizen_blocks = []
+    for citizen in consulted:
+        context = contexts[citizen.citizen_id]
+        payload = context.to_payload()
+        for signal_field, values in signal_values.items():
+            payload[signal_field] = round(values[citizen.citizen_id], 4)
+        citizen_blocks.append(
+            {
+                "cid": citizen.citizen_id,
+                "target": context.target,
+                "ctx": payload,
+                "available": list(context.available),
+                "petition": {
+                    "open": context.petition_open,
+                    "expires_at_tick": context.petition_expires_at_tick,
+                    "already_signed": context.already_signed,
+                },
+            }
+        )
+    return json.dumps({"consulted": citizen_blocks}, sort_keys=True, separators=(",", ":"))
+
+
 def decide_pressure_actions(
     consulted: Sequence[Citizen],
     contexts: Mapping[int, PressureContext],
