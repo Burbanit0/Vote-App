@@ -1,0 +1,19 @@
+{
+  "forbidden": [
+    {
+      "name": "lib-is-pure",
+      "severity": "error",
+      "comment": "src/lib holds framework-agnostic analytical libs (CLAUDE.md's Playground architecture section: \"Analytical panels ... are pure libs in src/lib/ with a thin component each\") — a lib importing a component couples pure compute to React, defeating the point of factoring it out. Type-only imports are exempt: they're erased at compile time and carry no runtime coupling (see docs/exploration for the same reasoning applied to madge's circular-import check).",
+      "from": { "path": "^src/lib" },
+      "to": {
+        "path": "^src/(components|pages)",
+        "dependencyTypesNot": ["type-only"]
+      }
+    }
+  ],
+  "options": {
+    "tsConfig": { "fileName": "tsconfig.json" },
+    "doNotFollow": { "path": "node_modules" },
+    "exclude": "\\.test\\.(ts|tsx)$"
+  }
+}

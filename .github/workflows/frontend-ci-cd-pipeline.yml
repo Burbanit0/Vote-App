@@ -94,6 +94,15 @@ jobs:
         run: npm run lint
         working-directory: ./voter-app
 
+      # Frontend equivalent of the backend's import-linter layering contract
+      # (Lot 2, PLAN_SOLIDITE_TECHNIQUE.md) — see .dependency-cruiser.json for
+      # exactly what's enforced (src/lib must stay framework-agnostic, per
+      # CLAUDE.md's Playground architecture section) and why type-only
+      # imports are exempt.
+      - name: Architecture boundaries (dependency-cruiser — blocking)
+        run: npm run depcruise
+        working-directory: ./voter-app
+
       - name: Security — npm audit (high CVEs block)
         run: npm audit --audit-level=high
         working-directory: ./voter-app
