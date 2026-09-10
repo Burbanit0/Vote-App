@@ -306,6 +306,27 @@ Un faux positif se réduit au silence à la source (`.vulture_whitelist.py`,
 lancé par la CI mais importé par personne — `voter-app/scripts/check-flaky.mjs`
 en est un — est un faux positif knip : il s'ajoute à `ignore`.
 
+### Règles Semgrep custom (Lot 2)
+
+`.semgrep/vote-app-rules.yml` — les jeux de règles génériques de Semgrep
+(`p/python`, `p/security-audit`, …) ne connaissent pas les conventions
+propres à ce repo. Deux règles maison, **bloquantes**, tournent dans la même
+étape gating que le reste de Semgrep (`audit.yml`) :
+
+- `v2-router-missing-rate-limit` — tout `APIRouter(prefix="/api/v2/...")` doit
+  porter `dependencies=[Depends(check_v2_rate_limit)]` (sauf `/api/v2/health`,
+  une sonde de vivacité). Trouvé et corrigé en écrivant la règle : `tech.py`,
+  `theory.py`, `export.py` n'avaient aucune limite de débit.
+- `except-exception-without-log` — un `except Exception` sans appel `log.*`
+  dans le bloc est un bug avalé en silence. Scope limité à
+  `fast_api_voter/api/` (pas tout le repo — voir le commentaire dans le
+  fichier de règles). Trouvé et corrigé : 18 sites muets sur 9 fichiers.
+
+Une troisième règle prévue au plan initial (« aucun worker n'importe
+`api.routes` ») n'a pas été dupliquée ici : `import-linter` (voir plus haut)
+l'applique déjà via une vraie analyse du graphe d'imports, plus précise
+qu'un pattern-match.
+
 ### Score de mutation (informationnel)
 
 La couverture mesure les lignes *exécutées*, pas les lignes *assertées* — un

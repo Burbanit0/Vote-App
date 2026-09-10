@@ -18,6 +18,8 @@ import pytest
 import socketio
 import uvicorn
 
+import api.sockets as sockets_module
+
 
 # ── Boot helper: a single shared server for the whole module ──────────────
 
@@ -262,3 +264,35 @@ async def test_invalid_payload_emits_error(live_server):
     assert error_event, "Server never emitted monte_carlo_error"
     assert "Invalid parameters" in error_event[0]["message"]
     assert not complete_event
+
+
+@pytest.mark.asyncio
+async def test_run_failure_emits_error_and_logs(live_server, monkeypatch, caplog):
+    """A failure *inside* a run (as opposed to bad parameters, covered above)
+    — e.g. a numerical edge case in the engine — must still notify the client
+    and leave a server-side trail, not fail silently."""
+    def _boom(*a, **kw):
+        raise RuntimeError("engine exploded mid-run")
+
+    monkeypatch.setattr(sockets_module, "_run_one", _boom)
+
+    error_event = []
+    async with _connected(live_server) as client:
+        @client.on("monte_carlo_error")
+        async def _e(data):
+            error_event.append(data)
+
+        with caplog.at_level("WARNING"):
+            await client.emit("start_monte_carlo", {
+                "num_iterations": 5,
+                "num_voters":     50,
+                "num_candidates": 3,
+            })
+            for _ in range(50):
+                if error_event:
+                    break
+                await asyncio.sleep(0.05)
+
+    assert error_event, "Server never emitted monte_carlo_error"
+    assert "engine exploded mid-run" in error_event[0]["message"]
+    assert "sockets.monte_carlo_run_failed" in caplog.text

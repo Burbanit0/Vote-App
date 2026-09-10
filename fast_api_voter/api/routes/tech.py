@@ -16,9 +16,10 @@ from __future__ import annotations
 import asyncio
 from typing import Any, Callable, Dict, TypeVar
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
+from api.core.ratelimit import check_v2_rate_limit
 from api.domain.tech import (
     _e2e_demo_worker,
     _polis_simulation_worker,
@@ -34,7 +35,11 @@ from api.schemas import (
 )
 
 
-router = APIRouter(prefix="/api/v2/tech", tags=["tech"])
+router = APIRouter(
+    prefix="/api/v2/tech",
+    tags=["tech"],
+    dependencies=[Depends(check_v2_rate_limit)],
+)
 
 _ResponseT = TypeVar("_ResponseT", bound=BaseModel)
 

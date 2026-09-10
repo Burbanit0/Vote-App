@@ -12,6 +12,10 @@ from typing import Any, Dict
 
 from fastapi import APIRouter, Response
 
+from api.engine.utils.logger import get_logger
+
+log = get_logger(__name__)
+
 router = APIRouter(prefix="/api/v2", tags=["meta"])
 
 _BOOT = time.time()
@@ -37,6 +41,7 @@ def _check_redis() -> Dict[str, Any]:
     except Exception:
         # Don't surface the raw exception text to callers (info exposure); the
         # health contract only needs ok/not-ok. Details stay in server logs.
+        log.warning("health.redis_check_failed", exc_info=True)
         return {"ok": False, "error": "unreachable"}
 
 

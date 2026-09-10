@@ -57,6 +57,7 @@ jobs:
             --config=p/python --config=p/javascript --config=p/react \
             --config=p/security-audit --config=p/secrets \
             --config=p/sql-injection --config=p/owasp-top-ten \
+            --config=.semgrep/vote-app-rules.yml \
             --sarif-output=semgrep.sarif --json-output=semgrep.json \
             --error --metrics=off
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

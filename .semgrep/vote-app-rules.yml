@@ -1,0 +1,103 @@
+# Custom Semgrep rules (Lot 2, PLAN_SOLIDITE_TECHNIQUE.md) — the generic
+# registry rulesets (p/python, p/security-audit, ...) that audit.yml's Semgrep
+# job already runs can't know this codebase's own conventions. These two turn
+# two of the three bugs fixed on 2026-09-06 into anti-recidivism rules; the
+# third ("no worker imports api.routes") is already fully covered by
+# import-linter's routes -> domain -> engine layering contract
+# (fast_api_voter/pyproject.toml's [tool.importlinter]) — a real import-graph
+# check, strictly more precise than a pattern match on the same thing, so not
+# duplicated here.
+#
+# Both rules are 100% clean against the current codebase — but neither
+# started that way, and both gaps were fixed in the same PR that added the
+# rule, not left as baseline debt:
+#   - v2-router-missing-rate-limit: tech.py/theory.py/export.py had no rate
+#     limit at all (3 real, pre-existing gaps) — fixed by wiring the same
+#     check_v2_rate_limit dependency election.py/simulations.py already use.
+#   - except-exception-without-log: 18 silent `except Exception` sites
+#     across 9 files, none logging — fixed by adding a log call to each
+#     (mostly `log.warning("<module>.<thing>_failed", exc_info=True)`),
+#     following the shape already established elsewhere in the codebase.
+rules:
+  - id: v2-router-missing-rate-limit
+    languages: [python]
+    severity: ERROR
+    message: >-
+      /api/v2/* router with no check_v2_rate_limit dependency — this is the
+      frontend-facing, unauthenticated surface and needs a rate limit (see
+      commit 614238f, "fix(backend): rate-limit /api/v2/simulations and
+      /api/v2/election"). Add `dependencies=[Depends(check_v2_rate_limit)]`
+      to the APIRouter(...) call (api/core/ratelimit.py).
+    paths:
+      exclude:
+        - /fast_api_voter/api/routes/health.py  # liveness probe — monitoring
+                                                 # needs unrestricted access.
+    patterns:
+      - pattern: |
+          APIRouter(prefix=$PREFIX, ...)
+      - metavariable-regex:
+          metavariable: $PREFIX
+          regex: ^"/api/v2/.+"$
+      - pattern-not: |
+          APIRouter(..., dependencies=[..., Depends(check_v2_rate_limit), ...], ...)
+
+  - id: except-exception-without-log
+    languages: [python]
+    severity: ERROR
+    message: >-
+      "except Exception" with no log call in the block — a silent catch-all
+      hides real bugs from anyone who isn't reading this exact code path. Log
+      before returning a fallback, even for a deliberately-tolerated failure
+      (see the many `log.error("<event>", exc_info=True)` call sites for the
+      established shape).
+    paths:
+      # Scoped to the FastAPI application itself, not the whole repo — this
+      # rule is about api/'s own structlog-based logging convention
+      # (api/engine/utils/logger.py). An exclude list here would need a new
+      # entry every time an unrelated Python tool elsewhere in the repo (the
+      # polity LLM test harness in fast_api_voter/scripts/, this session's
+      # own scripts/git_commit_capture.py, ...) used a different, equally
+      # legitimate error-handling convention of its own — an include list
+      # doesn't have that problem.
+      include:
+        - /fast_api_voter/api/
+    patterns:
+      - pattern-either:
+          - pattern: |
+              try:
+                  ...
+              except Exception as $EXC:
+                  ...
+          - pattern: |
+              try:
+                  ...
+              except Exception:
+                  ...
+      - pattern-not: |
+          try:
+              ...
+          except Exception as $EXC:
+              ...
+              log.$METHOD(...)
+              ...
+      - pattern-not: |
+          try:
+              ...
+          except Exception:
+              ...
+              log.$METHOD(...)
+              ...
+      - pattern-not: |
+          try:
+              ...
+          except Exception as $EXC:
+              ...
+              _logger.$METHOD(...)
+              ...
+      - pattern-not: |
+          try:
+              ...
+          except Exception:
+              ...
+              _logger.$METHOD(...)
+              ...

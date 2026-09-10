@@ -2,6 +2,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
+import api.domain.public as public_module
 from api.main import app
 
 
@@ -92,6 +93,18 @@ class TestSimulate:
         })
         assert r.status_code == 200, r.text
 
+    def test_500_and_logs_on_compute_failure(self, client, monkeypatch, caplog):
+        def _boom(*a, **kw):
+            raise RuntimeError("engine exploded")
+        monkeypatch.setattr(public_module, "compare_all_methods", _boom)
+        with caplog.at_level("WARNING"):
+            r = client.post("/api/v1/simulate", json={
+                "num_candidates": 3, "num_voters": 60, "methods": ["plurality"],
+            })
+        assert r.status_code == 500
+        assert "engine exploded" in r.json()["detail"]
+        assert "public.simulate.failed" in caplog.text
+
 
 # ── POST /api/v1/compare ────────────────────────────────────────────────────
 
@@ -121,6 +134,18 @@ class TestCompare:
             "num_candidates": 3, "num_voters": 60, "blank_rule": "invalid_rule",
         })
         assert r.status_code == 400, r.text
+
+    def test_500_and_logs_on_compute_failure(self, client, monkeypatch, caplog):
+        def _boom(*a, **kw):
+            raise RuntimeError("engine exploded")
+        monkeypatch.setattr(public_module, "compare_all_methods", _boom)
+        with caplog.at_level("WARNING"):
+            r = client.post("/api/v1/compare", json={
+                "num_candidates": 3, "num_voters": 60, "methods": ["plurality"],
+            })
+        assert r.status_code == 500
+        assert "engine exploded" in r.json()["detail"]
+        assert "public.compare.failed" in caplog.text
 
 
 # ── GET /api/v1/real-elections ──────────────────────────────────────────────
