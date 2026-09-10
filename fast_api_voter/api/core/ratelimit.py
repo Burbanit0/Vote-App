@@ -41,6 +41,20 @@ from slowapi.util import get_remote_address
 limiter = Limiter(
     key_func=get_remote_address,
     storage_uri=os.environ.get("REDIS_URL") or "memory://",
+    # Fail OPEN, not closed (Lot 3, PLAN_SOLIDITE_TECHNIQUE.md — "Résilience
+    # Redis"). Without this, a Redis outage doesn't just disable throttling:
+    # confirmed live, every request to a rate-limited route raised a raw
+    # redis.exceptions.ConnectionError straight out of slowapi's internals,
+    # converted by the app's own catch-all handler into a 500 — Redis being
+    # unreachable took down the entire /api/v2 surface (every route sharing
+    # check_v2_rate_limit) and both /api/v1 endpoints, not just the abuse
+    # protection they're meant to provide. A rate limiter should never be a
+    # bigger availability risk than the abuse it guards against. The
+    # complementary half of this fix is main.py's `request.state.view_rate_limit
+    # = None` middleware line — see its comment for why swallow_errors alone
+    # still crashes (a real slowapi gap: header injection reads that attribute
+    # unconditionally after the check, even when the check was swallowed).
+    swallow_errors=True,
 )
 
 
