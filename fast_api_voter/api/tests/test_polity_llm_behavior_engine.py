@@ -1710,12 +1710,32 @@ def test_validate_chamber_decision_uses_sortition_bounds_not_mandate_bounds():
 
 # ── build_chamber_system_prompt / build_chamber_user_prompt ─────────────
 
-def test_chamber_system_prompt_enumerates_every_expected_cid():
+def test_chamber_system_prompt_references_expected_cids_by_name():
+    # 2026-09-10 (plan-llm-protocol-and-theory-program.md §3.B.7): mirrors
+    # vote_cast's own fix -- the literal cid list moved to build_chamber_
+    # user_prompt's own `expected_cids` field so build_chamber_system_
+    # prompt's own output is identical across every chunk (prefix-cache
+    # continuity). See test_chamber_system_prompt_is_identical_across_
+    # chunks and test_chamber_user_prompt_carries_expected_cids.
     members = [_member(0, (0.5,)), _member(1, (0.5,)), _member(2, (0.5,))]
     config = _config_with_llm_enabled()
     prompt = build_chamber_system_prompt(members, config)
-    assert "[0,1,2]" in prompt
-    assert "EXACTEMENT ces 3" in prompt
+    assert "[0,1,2]" not in prompt
+    assert "'expected_cids'" in prompt
+
+
+def test_chamber_system_prompt_is_identical_across_different_chunks():
+    config = _config_with_llm_enabled()
+    chunk_a = [_member(0, (0.5,)), _member(1, (0.5,)), _member(2, (0.5,))]
+    chunk_b = [_member(50, (0.5,)), _member(51, (0.5,))]
+    assert build_chamber_system_prompt(chunk_a, config) == build_chamber_system_prompt(chunk_b, config)
+
+
+def test_chamber_user_prompt_carries_expected_cids_in_member_order():
+    members = [_member(0, (0.5,)), _member(1, (0.5,)), _member(2, (0.5,))]
+    contexts = {m.citizen_id: _chamber_context(m.citizen_id) for m in members}
+    payload = json.loads(build_chamber_user_prompt(members, contexts))
+    assert payload["expected_cids"] == [0, 1, 2]
 
 
 def test_chamber_system_prompt_states_the_actual_numeric_bounds():

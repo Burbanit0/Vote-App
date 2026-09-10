@@ -2990,8 +2990,19 @@ def build_chamber_system_prompt(members: Sequence[Citizen], config: PolityConfig
     position pinned equal to issue_positions by construction) at chunk
     sizes 2/3/5, and observed roughly the same failure rate as this
     docstring's own 2.6% baseline, not a worse one -- not a deliberate,
-    dedicated stress test of this specific mode, but a real one."""
-    cid_list = ",".join(str(m.citizen_id) for m in members)
+    dedicated stress test of this specific mode, but a real one.
+
+    Correction, 2026-09-10 (plan-llm-protocol-and-theory-program.md §3.B.7,
+    same fix as build_system_prompt's own correction note): the per-chunk
+    cid list used to be embedded literally near this string's own end,
+    breaking prefix-cache continuity for every chunk this function is
+    called for. Moved to build_chamber_user_prompt's own `expected_cids`
+    field; this function's own output is now identical across every chunk
+    (chamber has no `candidates`-style shared user-prompt section the way
+    vote_cast does, so the win here is narrower -- only this string itself
+    becoming a stable, cacheable prefix, not also unlocking shared
+    user-prompt content -- but still a real one). No semantic change to
+    the instruction."""
     return (
         "Tu es un moteur de simulation. Pour chaque membre tire au sort de "
         "la chambre de sortition recu (chamber_deliberation), decide s'il "
@@ -3016,10 +3027,11 @@ def build_chamber_system_prompt(members: Sequence[Citizen], config: PolityConfig
         "normal d'un membre qui vient d'etre tire au sort ou qui n'a jamais "
         "devie -- tranche motif=701, shifts vide, sans verification repetee "
         "ni hesitation.\n"
-        f"IMPORTANT : la liste decisions doit contenir EXACTEMENT ces "
-        f"{len(members)} cid, chacun une seule fois, dans cet ordre : "
-        f"[{cid_list}]. Verifie ta reponse avant de la finaliser : chaque "
-        "cid de cette liste doit apparaitre exactement une fois.\n"
+        "IMPORTANT : la liste decisions doit contenir EXACTEMENT les cid "
+        "donnes par le champ 'expected_cids' du message utilisateur, "
+        "chacun une seule fois, dans le MEME ordre que ce champ. Verifie "
+        "ta reponse avant de la finaliser : chaque cid de 'expected_cids' "
+        "doit apparaitre exactement une fois.\n"
         "Reponds UNIQUEMENT avec un objet JSON conforme au schema fourni."
     )
 
@@ -3036,7 +3048,13 @@ def build_chamber_user_prompt(members: Sequence[Citizen], contexts: Mapping[int,
     chamber_position (mutable, accumulates shifts) -- mirrors dt=6 showing
     both pledged_platform and revealed_position, so the model can see
     exactly how far it has already drifted from its own stated
-    convictions."""
+    convictions.
+
+    `expected_cids` (2026-09-10, plan-llm-protocol-and-theory-program.md
+    §3.B.7): this chunk's own member cid list, in the same order as
+    `members` -- moved here from build_chamber_system_prompt's own output
+    for the same prefix-cache reason as build_user_prompt's own identical
+    field; see that function's own docstring."""
     member_blocks = []
     for member in members:
         assert member.chamber_position is not None
@@ -3056,7 +3074,11 @@ def build_chamber_user_prompt(members: Sequence[Citizen], contexts: Mapping[int,
                 "ctx": contexts[member.citizen_id].to_payload(),
             }
         )
-    return json.dumps({"members": member_blocks}, sort_keys=True, separators=(",", ":"))
+    return json.dumps(
+        {"expected_cids": [m.citizen_id for m in members], "members": member_blocks},
+        sort_keys=True,
+        separators=(",", ":"),
+    )
 
 
 def _deterministic_chamber_fallback(members: Sequence[Citizen]) -> list[ChamberDecision]:

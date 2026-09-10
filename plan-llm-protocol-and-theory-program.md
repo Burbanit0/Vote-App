@@ -192,6 +192,32 @@ Ordered by expected value, all untried:
    (system prompt + codebook tables byte-identical, variable citizen data last),
    and order chunks so consecutive calls share the longest possible prefix.
    Pure win, no behavioural risk, no determinism cost.
+
+   **Implémenté et vérifié en direct, 2026-09-10, pour `vote_cast` ET
+   `chamber_deliberation`.** Mesuré directement (pas estimé) : le
+   `cid_list` par chunk, jusque-là embarqué en fin de system prompt, brisait
+   la continuité du cache pour chaque nouveau chunk — deux chunks de la
+   même élection divergeaient dès 84,4 % de la longueur du system prompt.
+   Déplacé vers un champ `expected_cids` dans le user prompt (les données
+   qui varient par chunk appartiennent au message de données, pas au
+   message d'instruction). Aucun changement sémantique à l'instruction
+   elle-même.
+   - `vote_cast` : hit rate en direct montant de 65,2 % à 73,0 % sur une
+     rafale de 8 appels d'une même élection ; 14/15 décisions non-fallback
+     correctes contre `simple_rules.build_ranking` (voir
+     `check_vote_cast_prefix_cache_fix_results.md`).
+   - `chamber_deliberation` : le system prompt ne dépend plus DU TOUT des
+     membres (`build_chamber_system_prompt` ne lit même plus son propre
+     paramètre `members`) — il devient une constante pour toute la durée
+     d'un run à config fixée, pas seulement stable au sein d'un chunk.
+     30/30 décisions sincères correctes, 0 fallback, 0 retry, y compris en
+     forçant délibérément l'état déclencheur historique du mode A
+     (`chamber_position == issue_positions` pour chaque membre synthétique)
+     — zéro récurrence. Hit rate déjà haut (68-70 %) et stable dès le
+     premier échantillon de la rafale, cohérent avec un cache déjà chaud
+     depuis un appel chamber antérieur dans la même session serveur (voir
+     `check_chamber_prefix_cache_fix_results.md` pour la réserve sur cette
+     interprétation — non isolée avec un contrôle cache-froid dédié).
 8. **Reasoning-budget control** — `<think>` tokens dominate cost. The project
    checked for a `budget_tokens` equivalent, found none exposed, and stopped.
    Worth revisiting: budgets are currently sized against *worst case*
