@@ -2501,8 +2501,20 @@ def build_pressure_system_prompt(consulted: Sequence[Citizen], config: PolityCon
     is a REGRESSION PIN, not just documentation. When the graph is on, a
     second sentence explains the real [0,1] fraction and appends one line
     of act<->motif pairing guidance for 306 FOLLOWING_NEIGHBORS
-    (unenforced -- see PressureDecision's own docstring for why)."""
-    cid_list = ",".join(str(c.citizen_id) for c in consulted)
+    (unenforced -- see PressureDecision's own docstring for why).
+
+    Correction, 2026-09-10 (plan-llm-protocol-and-theory-program.md §3.B.7,
+    same fix already shipped for build_system_prompt/build_chamber_system_
+    prompt): the per-chunk cid list used to be embedded literally near this
+    string's own end, breaking prefix-cache continuity for every chunk --
+    two chunks' own system prompts would diverge only at that literal
+    list. Moved to build_pressure_user_prompt's own `expected_cids` field.
+    This function no longer reads `consulted` at all (kept as a parameter
+    for call-site/signature stability, same choice build_chamber_system_
+    prompt's own fix already made) -- its output is now a pure function of
+    `config`, identical across every chunk AND every tick for the whole
+    run, not merely within one chunk. No semantic change to the
+    instruction itself."""
     legal = menu_acts(config.pressure_menu)
     legal_table = "\n".join(
         line for line in PRESSURE_ACT_PROMPT_TABLE.splitlines() if int(line.split(" = ")[0]) in legal
@@ -2545,11 +2557,12 @@ def build_pressure_system_prompt(consulted: Sequence[Citizen], config: PolityCon
         f"{neighbors_acting_line}"
         "ctx.ticks_to_election : nombre de ticks avant la prochaine "
         "election presidentielle, null si aucune election prevue.\n"
-        f"IMPORTANT : la liste decisions doit contenir EXACTEMENT ces "
-        f"{len(consulted)} cid, chacun une seule fois, dans cet ordre : "
-        f"[{cid_list}]. Verifie ta reponse avant de la finaliser : chaque "
-        "cid de cette liste doit apparaitre exactement une fois, et chaque "
-        f"act doit appartenir a {list(legal)}.\n"
+        "IMPORTANT : la liste decisions doit contenir EXACTEMENT les cid "
+        "donnes par le champ 'expected_cids' du message utilisateur, "
+        "chacun une seule fois, dans le MEME ordre que ce champ. Verifie "
+        "ta reponse avant de la finaliser : chaque cid de 'expected_cids' "
+        "doit apparaitre exactement une fois dans le champ 'cid' des "
+        f"decisions, et chaque act doit appartenir a {list(legal)}.\n"
         "Reponds UNIQUEMENT avec un objet JSON conforme au schema fourni."
     )
 
@@ -2568,7 +2581,13 @@ def build_pressure_user_prompt(consulted: Sequence[Citizen], contexts: Mapping[i
     vectors per citizen -- at up to 25 citizens per chunk that would
     multiply the prompt far beyond what self_gap/mandate_dev already
     encode. Does not re-sort -- the caller owns the canonical order the
-    system prompt enumerates."""
+    system prompt enumerates.
+
+    `expected_cids` (2026-09-10, plan-llm-protocol-and-theory-program.md
+    §3.B.7): this chunk's own consulted cid list, in the same order as
+    `consulted` -- moved here from build_pressure_system_prompt's own
+    output for the same prefix-cache reason as build_user_prompt's own
+    identical field; see that function's own docstring."""
     citizen_blocks = []
     for citizen in consulted:
         context = contexts[citizen.citizen_id]
@@ -2585,7 +2604,10 @@ def build_pressure_user_prompt(consulted: Sequence[Citizen], contexts: Mapping[i
                 },
             }
         )
-    return json.dumps({"consulted": citizen_blocks}, sort_keys=True, separators=(",", ":"))
+    return json.dumps(
+        {"consulted": citizen_blocks, "expected_cids": [c.citizen_id for c in consulted]},
+        sort_keys=True, separators=(",", ":"),
+    )
 
 
 def build_pressure_system_prompt_toon(consulted: Sequence[Citizen], config: PolityConfig) -> str:
@@ -2825,8 +2847,14 @@ def build_pressure_system_prompt_calibrated(
     same verbatim expected-cid self-check -- only the ctx explanations
     gain the requested signal sentences, appended after the unmodified
     ones, so a live A/B against the unmodified baseline isolates exactly
-    what was added."""
-    cid_list = ",".join(str(c.citizen_id) for c in consulted)
+    what was added.
+
+    Correction, 2026-09-10 (plan-llm-protocol-and-theory-program.md
+    §3.B.7): this function was first written by copying build_pressure_
+    system_prompt's OWN pre-fix body, so it embedded the same per-chunk
+    cid list and inherited the same prefix-cache break. Updated in the
+    same pass as that function's own fix, to the same closing paragraph
+    (a reference to `expected_cids` by name)."""
     legal = menu_acts(config.pressure_menu)
     legal_table = "\n".join(
         line for line in PRESSURE_ACT_PROMPT_TABLE.splitlines() if int(line.split(" = ")[0]) in legal
@@ -2871,11 +2899,12 @@ def build_pressure_system_prompt_calibrated(
         "ctx.ticks_to_election : nombre de ticks avant la prochaine "
         "election presidentielle, null si aucune election prevue.\n"
         f"{signal_lines}"
-        f"IMPORTANT : la liste decisions doit contenir EXACTEMENT ces "
-        f"{len(consulted)} cid, chacun une seule fois, dans cet ordre : "
-        f"[{cid_list}]. Verifie ta reponse avant de la finaliser : chaque "
-        "cid de cette liste doit apparaitre exactement une fois, et chaque "
-        f"act doit appartenir a {list(legal)}.\n"
+        "IMPORTANT : la liste decisions doit contenir EXACTEMENT les cid "
+        "donnes par le champ 'expected_cids' du message utilisateur, "
+        "chacun une seule fois, dans le MEME ordre que ce champ. Verifie "
+        "ta reponse avant de la finaliser : chaque cid de 'expected_cids' "
+        "doit apparaitre exactement une fois dans le champ 'cid' des "
+        f"decisions, et chaque act doit appartenir a {list(legal)}.\n"
         "Reponds UNIQUEMENT avec un objet JSON conforme au schema fourni."
     )
 
@@ -2903,7 +2932,12 @@ def build_pressure_user_prompt_calibrated(
     Same canonical-JSON discipline as build_pressure_user_prompt (sort_
     keys, compact separators, rounded floats) -- `sort_keys=True` also
     means the iteration order of `signal_values` itself never affects the
-    output, so callers need not worry about it."""
+    output, so callers need not worry about it.
+
+    Correction, 2026-09-10 (plan-llm-protocol-and-theory-program.md
+    §3.B.7): first written by copying build_pressure_user_prompt's OWN
+    pre-fix payload, so it lacked `expected_cids`. Added in the same pass
+    as that function's own fix, for the same reason."""
     citizen_blocks = []
     for citizen in consulted:
         context = contexts[citizen.citizen_id]
@@ -2923,7 +2957,10 @@ def build_pressure_user_prompt_calibrated(
                 },
             }
         )
-    return json.dumps({"consulted": citizen_blocks}, sort_keys=True, separators=(",", ":"))
+    return json.dumps(
+        {"consulted": citizen_blocks, "expected_cids": [c.citizen_id for c in consulted]},
+        sort_keys=True, separators=(",", ":"),
+    )
 
 
 def decide_pressure_actions(

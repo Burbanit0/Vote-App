@@ -2926,12 +2926,26 @@ def _pressure_citizen(cid, positions=(0.5,)):
     return _citizen(cid, positions)
 
 
-def test_pressure_system_prompt_enumerates_every_expected_cid():
+def test_pressure_system_prompt_references_expected_cids_by_name():
     consulted = [_pressure_citizen(0), _pressure_citizen(1), _pressure_citizen(2)]
     config = _config_with_llm_enabled()
     prompt = build_pressure_system_prompt(consulted, config)
-    assert "[0,1,2]" in prompt
-    assert "EXACTEMENT ces 3" in prompt
+    assert "[0,1,2]" not in prompt
+    assert "'expected_cids'" in prompt
+
+
+def test_pressure_system_prompt_is_identical_across_different_chunks():
+    config = _config_with_llm_enabled()
+    chunk_a = [_pressure_citizen(0), _pressure_citizen(1), _pressure_citizen(2)]
+    chunk_b = [_pressure_citizen(50), _pressure_citizen(51)]
+    assert build_pressure_system_prompt(chunk_a, config) == build_pressure_system_prompt(chunk_b, config)
+
+
+def test_pressure_user_prompt_carries_expected_cids_in_consulted_order():
+    consulted = [_pressure_citizen(0), _pressure_citizen(1), _pressure_citizen(2)]
+    contexts = {c.citizen_id: _pressure_context(c.citizen_id) for c in consulted}
+    payload = json.loads(build_pressure_user_prompt(consulted, contexts))
+    assert payload["expected_cids"] == [0, 1, 2]
 
 
 def test_pressure_system_prompt_states_the_active_menu_only():
@@ -3202,12 +3216,19 @@ def test_calibrated_system_prompt_composes_several_signals_in_the_given_order():
     assert prompt.index(PRESSURE_THRESHOLD_SIGNAL.definition) < prompt.index(PRESSURE_HISTORY_SIGNAL.definition)
 
 
-def test_calibrated_system_prompt_still_enumerates_every_expected_cid():
+def test_calibrated_system_prompt_references_expected_cids_by_name():
     consulted = [_pressure_citizen(0), _pressure_citizen(1)]
     config = _config_with_llm_enabled()
     prompt = build_pressure_system_prompt_calibrated(consulted, config, [PRESSURE_PERCENTILE_SIGNAL])
-    assert "[0,1]" in prompt
-    assert "EXACTEMENT ces 2" in prompt
+    assert "[0,1]" not in prompt
+    assert "'expected_cids'" in prompt
+
+
+def test_calibrated_user_prompt_carries_expected_cids_in_consulted_order():
+    consulted = [_pressure_citizen(0), _pressure_citizen(1)]
+    contexts = {c.citizen_id: _pressure_context(c.citizen_id) for c in consulted}
+    payload = json.loads(build_pressure_user_prompt_calibrated(consulted, contexts, {}))
+    assert payload["expected_cids"] == [0, 1]
 
 
 def test_calibrated_system_prompt_differs_from_baseline_only_by_the_signal_lines():
