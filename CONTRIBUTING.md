@@ -371,6 +371,50 @@ outil), chaque entrée est un couple `endpoint: raison`, classée
 fichier a trouvé et corrigé 3 bugs réels en route (voir `CODE_AUDIT.md` pour
 le détail) avant qu'ils ne rejoignent la liste des exceptions.
 
+### Oracle tiers pour le moteur de vote (`pref_voting`, Lot 4.2)
+
+La parité front/back (CLAUDE.md) compare *mes deux* implémentations, qui
+peuvent être fausses **ensemble** — un bug dans les deux moteurs à la fois ne
+serait jamais détecté. `pref_voting` (Pacuit & Holliday) est une bibliothèque
+académique de théorie du choix social, indépendante du code de ce repo :
+croiser nos 21 méthodes ordinales contre les siennes casse cette corrélation
+d'erreur.
+
+**`pref_voting` n'est pas une dépendance du projet** — elle requiert Python
+`<3.14` (elle dépend de `numba`), incompatible avec le `3.14` de
+`fast_api_voter`. La passe s'est faite dans un venv jetable séparé
+(`~/.pyenv/versions/3.11.16` + `pip install pref_voting`), avec un script à
+deux étapes : un premier process (le venv normal du projet) sérialise des
+profils aléatoires et les gagnants de notre moteur en JSON, un second
+(le venv `pref_voting`) relit ce JSON et compare chaque gagnant à l'ensemble
+des gagnants (avec égalités) que retourne la méthode équivalente de
+`pref_voting` — comparaison **« mon gagnant ∈ l'ensemble oracle »**, pas
+égalité stricte, puisque les conventions de tie-break diffèrent
+légitimement entre implémentations indépendantes.
+
+3000 profils (3-4 candidats, 3-11 électeurs) × 21 méthodes : **18/21 sans
+aucun écart.** Les 4 écarts trouvés, tous investigués à la main avant
+conclusion (détail complet dans `PLAN_SOLIDITE_TECHNIQUE.md`, § 4.2) :
+
+- `dowdall` (1 écart) : pas un bug ici — un artefact de précision flottante
+  **dans `pref_voting` lui-même** (deux candidats exactement à égalité en
+  fractions exactes, mais l'ordre de sommation en flottant de la lib casse
+  l'égalité par un epsilon).
+- `baldwin` et `raynaud` (11 et 27 écarts) : bugs réels, corrigés — les deux
+  n'éliminaient qu'un seul candidat par tour au lieu de tous les candidats à
+  égalité pour le pire score/la pire défaite, contrairement à `get_irv_winner`/
+  `get_nanson_winner` dans le même fichier.
+- `smith_irv` (75 écarts, le plus fréquent) : bug réel dans `_smith_set` (test
+  de dominance qui ignorait les égalités pairwise) et dans
+  `get_smith_irv_winner` (l'ensemble de Smith était recalculé à chaque tour
+  au lieu d'une seule fois — pas la définition standard de Smith-IRV/Tideman's
+  Alternative). Une fois corrigé, `smith_irv` s'est révélé réellement
+  clone-indépendant — voir la note dans la section suivante.
+
+Chaque correctif backend a son miroir dans `playgroundVoting.ts`/
+`voteTrace.ts` (parité front/back oblige) ; `engineParity.json` régénéré et le
+test de parité repassé au vert après coup.
+
 ### Matrice axiomatique de théorie du choix social (Lot 4.1)
 
 `api/tests/test_voting_criteria_matrix.py` vérifie, pour chacune des 21
@@ -402,7 +446,12 @@ votes de premier choix exactement à égalité) — assez rares pour n'être
 trouvés que par la recherche par réduction (« shrinking ») de Hypothesis sur
 le test complet, pas par un tirage aléatoire à quelques centaines d'essais.
 Les 4 contre-exemples ont été vérifiés à la main (script indépendant) avant
-d'être épinglés dans le fichier.
+d'être épinglés dans le fichier. `smith_irv` en est ressorti une seconde
+fois lors du Lot 4.2 (oracle tiers) : son échec d'indépendance aux clones
+était en fait un symptôme d'un vrai bug dans `_smith_set`/
+`get_smith_irv_winner` (voir plus haut, § oracle tiers) — une fois corrigé,
+`smith_irv` satisfait réellement le critère, et est repassé côté « satisfait »
+dans ce fichier.
 
 Hors périmètre pour cette passe : participation et symétrie par renversement.
 Du signal réel existe pour les deux, mais aussi du bruit lié aux égalités de

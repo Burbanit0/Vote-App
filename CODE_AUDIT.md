@@ -95,6 +95,14 @@ paramètres bridés — trackée nommément (pas un simple compte) dans
 (timeouts) est exactement pourquoi l'item "Timeouts & backpressure" existe
 plus loin dans le même lot.*
 
+*Mise à jour du 2026-09-10 (bis) : régression `jscpd` (33→34 clones) trouvée
+et corrigée pendant le Lot 4.2 (oracle tiers `pref_voting`) — corriger un bug
+Raynaud (voir plus loin) a fait apparaître le même calcul de "pire défaite
+pairwise" en double entre `winRaynaud` (`playgroundVoting.ts`) et sa trace de
+rejeu (`voteTrace.ts`), auparavant trop différents structurellement pour que
+`jscpd` les détecte. Factorisé dans `raynaudWorstLoss`, exportée et partagée
+par les deux — cliquet revenu à 33 sans rien laisser en dette.*
+
 ## Résumé exécutif
 
 Le repo `Vote-App` (backend FastAPI `fast_api_voter/`, frontend React/TS

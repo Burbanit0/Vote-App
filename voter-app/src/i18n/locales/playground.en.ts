@@ -747,8 +747,7 @@ const pgEn: PlaygroundKeys = {
       round: 'Round {{round}}: no Condorcet winner → eliminate the weakest ({{cand}}).',
     },
     raynaud: {
-      round:
-        'Round {{round}}: the heaviest defeat is {{a}} over {{b}} ({{av}}–{{bv}}) → {{b}} out.',
+      round: 'Round {{round}}: worst pairwise loss ({{margin}}) → eliminated: {{cand}}.',
     },
     smith: {
       set: 'Keep the Smith set — the smallest group that beats everyone else: {{cand}}.',

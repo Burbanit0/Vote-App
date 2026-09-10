@@ -377,17 +377,31 @@ function winNanson(ranks: number[][], m: number): number {
   return alive.findIndex((a) => a);
 }
 
-/** Baldwin: iteratively eliminate the single lowest-Borda candidate. */
+/**
+ * Baldwin: iteratively eliminate EVERY candidate tied for the lowest Borda
+ * score (not just one) -- matches get_irv_winner/get_nanson_winner/
+ * get_smith_irv_winner's convention of eliminating all round-ties at once.
+ * Eliminating a single tied-lowest candidate was a bug: two different
+ * candidates tied for lowest should leave together, since keeping one
+ * around changes the Borda scores the next round recomputes with, which
+ * can change the eventual winner (Lot 4.2, PLAN_SOLIDITE_TECHNIQUE.md,
+ * caught cross-checking the backend twin of this function against the
+ * independent `pref_voting` library).
+ */
 function winBaldwin(ranks: number[][], m: number): number {
   const alive = new Array(m).fill(true);
   let remaining = m;
   while (remaining > 1) {
     const score = bordaAlive(ranks, m, alive);
-    let worst = -1;
-    for (let i = 0; i < m; i++)
-      if (alive[i] && (worst === -1 || score[i] < score[worst])) worst = i;
-    alive[worst] = false;
-    remaining -= 1;
+    let min = Infinity;
+    for (let i = 0; i < m; i++) if (alive[i] && score[i] < min) min = score[i];
+    const doomed: number[] = [];
+    for (let i = 0; i < m; i++) if (alive[i] && score[i] === min) doomed.push(i);
+    if (doomed.length >= remaining) break;
+    for (const i of doomed) {
+      alive[i] = false;
+      remaining -= 1;
+    }
   }
   return alive.findIndex((a) => a);
 }
@@ -537,10 +551,19 @@ function winBlack(ranks: number[][], m: number): number {
 }
 
 /**
- * The Smith set (GETCHA): the smallest non-empty set of candidates that each
- * beat-or-tie everyone outside it. Restrict to `alive` to compute it on a
- * subprofile. Pairwise margins are ballot-fixed, so the same tally serves any
- * subset. Returns member indices ascending. Exported for the replay animation.
+ * The Smith set (GETCHA): the smallest non-empty set S of candidates such
+ * that every member of S strictly beats every member outside S. Restrict to
+ * `alive` to compute it on a subprofile. Pairwise margins are ballot-fixed,
+ * so the same tally serves any subset. Returns member indices ascending.
+ * Exported for the replay animation.
+ *
+ * Requiring a strict beat (not beat-or-tie) matters: a candidate that only
+ * TIES everyone outside a smaller set does not make that smaller set
+ * dominant on its own -- checking merely "no outsider beats this set" (the
+ * previous, buggy version) passes vacuously on ties and can return a Smith
+ * set that's too small. Cross-checked against the independent `pref_voting`
+ * Python library's `smith_set` (Lot 4.2, PLAN_SOLIDITE_TECHNIQUE.md), which
+ * caught this on the backend twin of this function.
  */
 export function smithSet(ranks: number[][], m: number, alive?: boolean[]): number[] {
   const live = alive ?? new Array(m).fill(true);
@@ -561,38 +584,38 @@ export function smithSet(ranks: number[][], m: number, alive?: boolean[]): numbe
   // Grow the smallest Copeland-ordered prefix until it dominates everyone below.
   const order = [...members].sort((x, y) => copeland.get(y)! - copeland.get(x)!);
   for (let k = 1; k <= order.length; k++) {
-    const S = new Set(order.slice(0, k));
-    let dominant = true;
-    for (const i of S) {
-      for (const j of members)
-        if (!S.has(j) && b[j][i] > b[i][j]) {
-          dominant = false;
-          break;
-        }
-      if (!dominant) break;
-    }
-    if (dominant) return order.slice(0, k).sort((a, c) => a - c);
+    const S = order.slice(0, k);
+    const outside = members.filter((j) => !S.includes(j));
+    const dominant = S.every((i) => outside.every((j) => b[i][j] > b[j][i]));
+    if (dominant) return [...S].sort((a, c) => a - c);
   }
   return members;
 }
 
 /**
- * Smith-IRV (Tideman's Alternative): restrict to the Smith set, eliminate the
- * plurality loser, repeat. Condorcet-consistent and clone-independent.
+ * Smith-IRV (Tideman's Alternative): restrict to the Smith set ONCE, then run
+ * ordinary IRV (eliminate the candidate(s) tied for fewest first-preferences,
+ * and repeat) within that fixed set. Condorcet-consistent and clone-independent.
+ *
+ * The Smith set must be computed once from the full field, not recomputed
+ * after each elimination round -- recomputing it against a shrinking
+ * candidate set is a different (non-standard) procedure and was this
+ * function's original bug, caught cross-checking the backend twin of this
+ * function against the independent `pref_voting` library (Lot 4.2,
+ * PLAN_SOLIDITE_TECHNIQUE.md).
  */
 function winSmithIRV(ranks: number[][], m: number): number {
   const alive = new Array(m).fill(true);
   let remaining = m;
+  const S = smithSet(ranks, m);
+  if (S.length === 1) return S[0];
+  const inS = new Set(S);
+  for (let i = 0; i < m; i++)
+    if (!inS.has(i)) {
+      alive[i] = false;
+      remaining -= 1;
+    }
   while (remaining > 1) {
-    const S = smithSet(ranks, m, alive);
-    if (S.length === 1) return S[0];
-    const inS = new Set(S);
-    for (let i = 0; i < m; i++)
-      if (alive[i] && !inS.has(i)) {
-        alive[i] = false;
-        remaining -= 1;
-      }
-    if (remaining === 1) return alive.findIndex((a) => a);
     // IRV step: eliminate ALL alive candidates tied for the fewest first-prefs.
     const fp = pluralityCounts(ranks, alive, m);
     let min = Infinity;
@@ -772,24 +795,57 @@ function winNash(scores: number[][], m: number): number {
   return argmax(acc);
 }
 
-/** Raynaud: repeatedly eliminate the candidate on the losing end of the single
- *  largest pairwise defeat, until one remains. Condorcet-consistent. */
+/**
+ * Raynaud's worst-loss score per active candidate: the biggest margin by
+ * which any single opponent beats them (-1 if undefeated among `alive`).
+ * Shared between winRaynaud and its replay trace (voteTrace.ts) so the two
+ * can never drift apart.
+ */
+export function raynaudWorstLoss(b: number[][], alive: boolean[], m: number): number[] {
+  const worstLoss = new Array(m).fill(-1);
+  for (let c = 0; c < m; c++) {
+    if (!alive[c]) continue;
+    let worst = -1;
+    for (let o = 0; o < m; o++) {
+      if (o === c || !alive[o]) continue;
+      const margin = b[o][c] - b[c][o];
+      if (margin > 0 && margin > worst) worst = margin;
+    }
+    worstLoss[c] = worst;
+  }
+  return worstLoss;
+}
+
+/**
+ * Raynaud: each round, compute every active candidate's WORST pairwise loss
+ * (the biggest margin by which any single opponent beats them; undefeated
+ * candidates have none), then eliminate every candidate whose worst loss
+ * ties for biggest across the whole active set -- not just the loser of the
+ * single largest-margin pair. Repeat until one remains. Condorcet-consistent.
+ *
+ * Eliminating only one candidate per round was a bug: two different
+ * candidates can each be someone else's worst-loss victim by the same
+ * margin, via different opponents, and should leave together (Lot 4.2,
+ * PLAN_SOLIDITE_TECHNIQUE.md, caught cross-checking the backend twin of
+ * this function against the independent `pref_voting` library).
+ */
 function winRaynaud(ranks: number[][], m: number): number {
   const b = pairwise(ranks, m);
   const alive = new Array(m).fill(true);
   let remaining = m;
   while (remaining > 1) {
-    let worstMargin = -Infinity;
-    let loser = -1;
+    const worstLoss = raynaudWorstLoss(b, alive, m);
+    let maxWorstLoss = -1;
     for (let i = 0; i < m; i++)
-      for (let j = 0; j < m; j++)
-        if (i !== j && alive[i] && alive[j] && b[i][j] - b[j][i] > worstMargin) {
-          worstMargin = b[i][j] - b[j][i];
-          loser = j;
-        }
-    if (loser < 0) break;
-    alive[loser] = false;
-    remaining -= 1;
+      if (alive[i] && worstLoss[i] > maxWorstLoss) maxWorstLoss = worstLoss[i];
+    if (maxWorstLoss < 0) break;
+    const doomed: number[] = [];
+    for (let i = 0; i < m; i++) if (alive[i] && worstLoss[i] === maxWorstLoss) doomed.push(i);
+    if (doomed.length >= remaining) break;
+    for (const i of doomed) {
+      alive[i] = false;
+      remaining -= 1;
+    }
   }
   return alive.findIndex((a) => a);
 }
