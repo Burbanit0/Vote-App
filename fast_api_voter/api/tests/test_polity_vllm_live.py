@@ -1,12 +1,17 @@
 """Live smoke test against a real local vLLM instance — v4 vLLM switch
 (§15bis.6).
 
-Opt-in only, never runs in CI, and CANNOT run in this project's current
-environment: no GPU/vLLM server has ever been available here. Set
-POLITY_VLLM_LIVE=1 once one exists. Everything else about VllmJsonClient
-(request/response shape via httpx.MockTransport) is unit-tested offline in
-test_polity_llm_client.py -- this file is the only thing that can actually
-confirm or refute the UNVERIFIED claims in VllmJsonClient's own docstring.
+Opt-in only, never runs in CI. Written when no GPU/vLLM server had ever been
+available in this project's environment; a GPU host with `vllm-polity`
+(docker-compose.llm.yml) running qwen3:8b has existed since, and every claim
+below has since been exercised live against it (see e.g.
+check_pressure_shipped_wiring_results.md and the other scripts/check_*.py
+files this session used the same way) -- set POLITY_VLLM_LIVE=1 to run this
+file itself against it. Everything else about VllmJsonClient (request/
+response shape via httpx.MockTransport) is unit-tested offline in
+test_polity_llm_client.py -- this file is what actually confirms or refutes
+the claims in VllmJsonClient's own docstring end to end, through pytest
+rather than a one-off script.
 
 Kept as its own file rather than a parametrization of test_polity_llm_live.py
 (the Ollama live suite): that file's module-scoped fixture, its 49-line
@@ -37,12 +42,21 @@ import os
 import httpx
 import pytest
 
-from api.domain.polity.citizen import Citizen
+from api.domain.polity.citizen import Citizen, Office, Role
+from api.domain.polity.codebook import PressureMotif
 from api.domain.polity.config import load_config
-from api.domain.polity.llm_behavior_engine import build_system_prompt, build_user_prompt, compute_max_tokens
+from api.domain.polity.journal import Journal
+from api.domain.polity.llm_behavior_engine import (
+    PressureContext,
+    build_system_prompt,
+    build_user_prompt,
+    compute_max_tokens,
+    decide_pressure_actions,
+    menu_acts,
+)
 from api.domain.polity.llm_client import VllmJsonClient, _inline_refs, decode_vote_batch
 from api.domain.polity.llm_schemas import VOTE_CAST_JSON_SCHEMA, VoteCastBatch
-from api.domain.polity.run_polity_simulation import run_simulation
+from api.domain.polity.run_polity_simulation import _run_accountability_phase, run_simulation
 from api.domain.polity.simple_rules import declare_candidacy
 
 pytestmark = pytest.mark.skipif(
@@ -251,3 +265,117 @@ def test_two_short_live_runs_with_the_same_seed_are_byte_identical(tmp_path):
     path_b = run_simulation(config_b, run_id="same-run-id")
 
     assert path_a.read_bytes() == path_b.read_bytes()
+
+
+# ── pressure_action (v4 Lot 7, calibrated + shipped Phase E 2026-09-10) ──────
+#
+# NOT a copy-paste of test_polity_llm_live.py's own pressure_action tests --
+# think=False decisions route through OllamaJsonClient's Ollama-only native
+# /api/chat endpoint there, which vLLM does not serve (confirmed live,
+# 2026-09-10: running that file's pressure_action tests against the shipped
+# vllm-polity server 404s at exactly that call, unrelated to anything in this
+# session's own change -- a pre-existing gap between that file's Ollama-only
+# fixture and the provider this project has shipped since §15bis.6). This
+# file's own `client` fixture already uses VllmJsonClient, so these are new
+# tests, not a parametrization.
+
+def _pressure_context(cid, target, legal):
+    # Same alternating-availability shape as test_polity_llm_live.py's own
+    # helper of the same name -- kept structurally identical since it isn't
+    # provider-specific, only self_gap/blank_threshold (below) differ.
+    if cid % 2 == 0:
+        available = legal
+        petition_open = True
+        expires_at = 14
+    else:
+        available = tuple(a for a in legal if a not in (1, 2))
+        petition_open = False
+        expires_at = None
+    return PressureContext(
+        cid=cid, target=target, self_gap=0.6, mandate_dev=0.3, ticks_to_election=9,
+        available=available, petition_open=petition_open, petition_expires_at_tick=expires_at,
+        already_signed=False,
+    )
+
+
+def test_decide_pressure_actions_against_the_real_client(client):
+    """decide_pressure_actions now ships calibrated (PRESSURE_THRESHOLD_SIGNAL,
+    polity-decision-contracts.md Phase E), chunked one citizen per call
+    regardless of config.llm.max_batch_size -- so 10 consulted citizens means
+    10 real HTTP calls here, not one or two chunked ones."""
+    config = _vllm_config()
+    config = dataclasses.replace(
+        config,
+        llm=dataclasses.replace(config.llm, enabled=True),
+        pressure_menu=dataclasses.replace(config.pressure_menu, electoral_only=False, mobilization_enabled=True),
+    )
+    target = 9200
+    consulted = [_citizen(3200 + i, 1) for i in range(10)]
+    legal = menu_acts(config.pressure_menu)
+    contexts = {c.citizen_id: _pressure_context(c.citizen_id, target, legal) for c in consulted}
+
+    outcome = decide_pressure_actions(consulted, contexts, config, client)
+
+    assert [d.cid for d in outcome.decisions] == [c.citizen_id for c in consulted]
+    assert all(d.act in legal for d in outcome.decisions)
+
+
+def test_pressure_action_wiring_against_the_real_client_in_a_live_tick(client, tmp_path):
+    """The vLLM twin of test_polity_llm_live.py's own dt=10 wiring test:
+    proves run_polity_simulation.py's OWN wiring (the gate, the frozen
+    PressureContext, applicable_pressure_act, the journal write) against a
+    real client and a real tick -- not decide_pressure_actions in isolation.
+    Same hand-built holder/population shape as that file's own version
+    (base_threshold=0.0 guarantees consultation)."""
+    config = _vllm_config()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=True))
+    config = dataclasses.replace(config, legitimacy=dataclasses.replace(config.legitimacy, enabled=True))
+    config = dataclasses.replace(
+        config,
+        awakening=dataclasses.replace(config.awakening, enabled=True, modulation_amplitude=0.0),
+        pressure_menu=dataclasses.replace(
+            config.pressure_menu, electoral_only=False, petition_enabled=True, mobilization_enabled=True
+        ),
+        petition=dataclasses.replace(config.petition, enabled=True),
+    )
+    dims = config.citizens.issue_count
+    holder = Citizen(
+        citizen_id=1,
+        issue_positions=tuple(0.5 for _ in range(dims)),
+        issue_priorities=tuple(1.0 / dims for _ in range(dims)),
+        blank_threshold=0.5,
+        ambition_score=0.5,
+        role=Role.ELECTED,
+        office=Office.PRESIDENT,
+        term_end_tick=16,
+        mandates_served=1,
+        legitimacy_capital=0.5,
+        mandate_strength=0.5,
+    )
+    holder.pledged_platform = holder.issue_positions
+    holder.revealed_position = holder.issue_positions
+    consulted = [
+        Citizen(
+            citizen_id=100 + i,
+            issue_positions=tuple(0.0 for _ in range(dims)),
+            issue_priorities=tuple(1.0 / dims for _ in range(dims)),
+            blank_threshold=0.0,
+            ambition_score=0.5,
+            base_threshold=0.0,
+        )
+        for i in range(3)
+    ]
+
+    journal_path = tmp_path / "dt10-vllm-live.jsonl"
+    with Journal(journal_path, run_id="dt10-vllm-live") as journal:
+        _run_accountability_phase([holder] + consulted, config, journal, tick=0, llm_client=client)
+
+    events = [json.loads(line) for line in journal_path.read_text(encoding="utf-8").splitlines()]
+    pressure_events = [e for e in events if e["event_type"] == "pressure_action"]
+    assert len(pressure_events) == len(consulted)
+    legal = menu_acts(config.pressure_menu)
+    for e in pressure_events:
+        assert e["payload"]["target"] == holder.citizen_id
+        assert e["payload"]["act"] in legal
+        assert e["motif"] in {str(m.value) for m in PressureMotif}
+        assert e["codebook_version"] == config.llm.codebook_version

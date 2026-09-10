@@ -72,3 +72,42 @@ This closes the plan (`lets-build-a-solid-spicy-otter.md`, Phases A–E) for `pr
 pilot Phase A/B/C/D/E worked through. The specification and the audit of the other 8 decision types
 (Phase A) remain the reusable artifact for any future decision type found to fail the same C3 clause;
 none of those other types were touched by this change.
+
+## Addendum: confirmed via the project's own pytest live-test infrastructure too
+
+The check above is a standalone script. The project already has dedicated live-test files for
+exactly this purpose (`test_polity_llm_live.py` for Ollama, `test_polity_vllm_live.py` for vLLM,
+opt-in via `POLITY_LLM_LIVE=1`/`POLITY_VLLM_LIVE=1`) — asked whether they'd been run to confirm
+Phase E, they hadn't. Two findings from actually running them:
+
+- **`test_polity_llm_live.py`'s pressure_action tests 404 against the shipped server** — pre-existing,
+  unrelated to Phase E: that file's `client` fixture hardcodes `OllamaJsonClient`, whose think=False
+  path calls Ollama's native `/api/chat` endpoint. The shipped config points at vLLM
+  (`base_url: http://localhost:8000/v1`, migrated 2026-09-06), which doesn't serve that route —
+  confirmed via a direct run, `HTTP 404 from http://localhost:8000/api/chat`. Last touched
+  2026-08-16, before the vLLM migration; every decision type's live test in that file is affected
+  identically (a transport-layer issue, not a decision-quality one). Deliberately NOT patched to use
+  `VllmJsonClient`: `test_polity_vllm_live.py`'s own module docstring explains that file is kept
+  Ollama-specific on purpose (its 49-line historical wall-clock docstring and Ollama-only bug
+  workarounds don't apply to vLLM), so patching its fixture would fight the project's own stated
+  design rather than follow it.
+- **Added `test_decide_pressure_actions_against_the_real_client` and
+  `test_pressure_action_wiring_against_the_real_client_in_a_live_tick` to `test_polity_vllm_live.py`
+  instead** — the file actually designed for this provider, mirroring the Ollama file's own two
+  pressure_action tests. The second is the strongest live check to date: it runs through
+  `run_polity_simulation._run_accountability_phase` itself (the real simulation call site, real
+  `Journal` write), not a hand-built cohort in a standalone script. Both pass live, in 5.19s
+  combined:
+  ```
+  test_decide_pressure_actions_against_the_real_client PASSED
+  test_pressure_action_wiring_against_the_real_client_in_a_live_tick PASSED
+  ```
+
+**Side finding, not fixed here (out of scope for Phase E)**: running `test_polity_vllm_live.py`'s
+full non-run_simulation suite live surfaced one pre-existing failure unrelated to pressure_action —
+`test_structured_output_is_honored_on_a_full_size_vote_batch` (`finish_reason='length'` on an
+unchunked 25-citizen vote_cast batch built directly via `build_system_prompt`/`build_user_prompt`,
+bypassing `decide_pressure_actions`' sibling `_vote_cast_chunk_size` production chunking entirely).
+Confirmed unrelated to this change: nothing in this session's diff touches vote_cast code, and the
+file's own module docstring (now corrected above) shows this file had likely never been run against
+a real server before today. Worth a separate investigation, not addressed here.
