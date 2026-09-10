@@ -40,6 +40,9 @@ from api.engine.utils.simulation_score_utils import (
 # Spatial pipeline
 from api.engine.utils.simulation_voting_utils import calculate_utility, create_voter, create_candidate
 from api.engine.constants import DEFAULT_ISSUES
+from api.engine.utils.logger import get_logger
+
+log = get_logger(__name__)
 
 
 
@@ -66,7 +69,10 @@ def _simulate_votes_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     demographics = form_data.get("demographics")
     turnout_rate = form_data.get("turnoutRate")
     influence_weights = form_data.get("influenceWeights")
-    simulation_type = form_data.get("simulationType")
+    # Default "" (not None): a missing simulationType previously crashed the
+    # `in` checks below with TypeError instead of falling through to the
+    # "unknown type" branch (found by Schemathesis, Lot 3).
+    simulation_type = form_data.get("simulationType") or ""
 
     # Accumulate the method winners here instead of introspecting locals().
     winners: Dict[str, Any] = {}
@@ -213,6 +219,7 @@ def _simulate_utility_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
         ]
         return {"success": True, "utility_results": utility_results}, 200
     except Exception as e:
+        log.error("simulation.simulate_utility.failed", exc_info=True)
         return {"success": False, "error": str(e),
                 "message": "Failed to simulate utility scores"}, 500
 
@@ -229,6 +236,7 @@ def _calculate_utility_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
         return {"success": True, "result": result,
                 "message": "Utility calculated successfully"}, 200
     except Exception as e:
+        log.error("simulation.calculate_utility.failed", exc_info=True)
         return {"success": False, "error": str(e),
                 "message": "Failed to calculate utility"}, 500
 
@@ -279,6 +287,7 @@ def _utility_matrix_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             "message": f"Utility matrix calculated for {len(voters)} voters and {len(candidates)} candidates",
         }, 200
     except Exception as e:
+        log.error("simulation.utility_matrix.failed", exc_info=True)
         return {"success": False, "error": str(e),
                 "message": "Failed to calculate utility matrix"}, 500
 
@@ -349,6 +358,7 @@ def _voter_segments_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         return {"success": True, "segments": segments,
                 "message": f"Segment analysis completed for {len(segments)} segments"}, 200
     except Exception as e:
+        log.error("simulation.voter_segments.failed", exc_info=True)
         return {"success": False, "error": str(e),
                 "message": "Failed to calculate voter segments"}, 500
 

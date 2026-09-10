@@ -17,6 +17,7 @@ from typing import Any, Dict, List, Optional, Tuple  # noqa: F401
 import numpy as _np
 
 from api.engine.constants import DEFAULT_ISSUES
+from api.engine.utils.logger import get_logger
 from api.engine.utils.simulation_metrics import compare_all_methods
 from api.engine.utils.simulation_ranked_utils import (
     get_plurality_winner, get_condorcet_winner, get_irv_winner,
@@ -28,6 +29,8 @@ from api.engine.utils.simulation_multiwinner_utils import (
 )
 from ._electorate import _build_base_electorate
 from ._helpers import dhondt as _dhondt
+
+log = get_logger(__name__)
 
 
 # ── Adaptive voting endpoint ──────────────────────────────────────────────────
@@ -786,6 +789,7 @@ def _abstention_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             for m, data in final_compare.get("methods", {}).items()
         }
     except Exception:  # pylint: disable=broad-except
+        log.warning("workers_mechanisms.abstention_winners_by_method_failed", exc_info=True)
         sincere_winners_by_method = {}
         winners_by_method = {}
 

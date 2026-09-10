@@ -1,0 +1,7 @@
+# act (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md) — runs GitHub Actions workflows
+# locally via Docker. Complements ci-local/, which only mirrors the 4 gating
+# jobs Dockerised by hand (frontend/backend/e2e/audit) — act covers everything
+# else: openapi-contract.yml, mutation-testing.yml, branch-policy.yml,
+# dependency-review.yml, release.yml, scorecard.yml. See ci-local/README.md
+# for usage and known limitations (GitHub-API-backed actions, secrets).
+-P ubuntu-latest=catthehacker/ubuntu:act-latest

@@ -264,6 +264,8 @@ Thumbs.db
 !.claude/agents/**
 !.claude/commands/
 !.claude/commands/**
+!.claude/hooks/
+!.claude/hooks/**
 # .vscode/ already ignored above
 
 # Synced Claude Code session/memory data from another machine (Windows path
@@ -299,6 +301,18 @@ graphify-out/
 # Bibliographie + traçabilité : la ligne « research/ stays » ci-dessus était
 # fausse depuis que /docs/* existe — research/ n'a jamais été suivi.
 !/docs/research/
+# Carnets d'expérience (Lot 0.2/0.3 du plan) : même raison que les ADR — le
+# verdict d'un outil essayé n'a de valeur que partagé, pas laissé sur un
+# disque.
+!/docs/exploration/
+# docs/README.md oriente vers la bonne surface (Lot 0.1) ; /docs/* ignore
+# aussi les fichiers directement sous docs/, pas seulement les
+# sous-dossiers, d'où cette ligne séparée des `!/docs/<dir>/` ci-dessus.
+!/docs/README.md
+# Sortie de l'audit de commentaires (Lot 6.1) : le README explique la méthode
+# et le verdict, candidates.md est régénérable mais doit rester consultable
+# sans relancer le script.
+!/docs/comment-audit/
 /AGENTS.md
 # Mémoire de l'agent de code (copie versionnée de ~/.claude/projects/<slug>/
 # memory/). Elle vit normalement hors du dépôt, donc hors de toute machine
@@ -333,6 +347,7 @@ INTERVIEW_PREP.md
 /fast_api_voter/vulture.txt
 /fast_api_voter/radon.txt
 /fast_api_voter/xenon.txt
+/fast_api_voter/deptry.txt
 /voter-app/knip.txt
 
 # mutmut run log (tee'd in CI so scripts/check_mutation_score.sh can read the score)

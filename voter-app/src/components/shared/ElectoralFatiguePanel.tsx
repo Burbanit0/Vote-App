@@ -26,6 +26,8 @@ import {
 } from 'recharts';
 import { useElection } from '../../stores/useElectionStore';
 import PinToCentralButton from './PinToCentralButton';
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+
 const DEBOUNCE_MS = 400;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -388,7 +390,9 @@ const ElectoralFatiguePanel: React.FC = () => {
                   tickFormatter={(v: number) => `${Math.round(v * 100)}%`}
                   tick={{ fontSize: 10 }}
                 />
-                <Tooltip formatter={(v: number) => `${Math.round(v * 100)}%`} />
+                <Tooltip
+                  formatter={numericTooltipFormatter((v: number) => `${Math.round(v * 100)}%`)}
+                />
                 <Legend wrapperStyle={{ fontSize: 10 }} />
                 {candidateNames.map((c) => (
                   <Area

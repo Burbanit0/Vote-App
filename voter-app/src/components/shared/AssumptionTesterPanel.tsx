@@ -22,6 +22,8 @@ import {
 } from 'recharts';
 import { $api } from '../../api/hooks';
 
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface RelaxedResult {
@@ -452,7 +454,10 @@ const AssumptionTesterPanel: React.FC<AssumptionTesterLabProps> = ({
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" tick={{ fontSize: 8 }} angle={-20} textAnchor="end" />
                 <YAxis tick={{ fontSize: 10 }} unit="%" domain={[0, 100]} />
-                <Tooltip formatter={(v: number) => `${v}%`} labelFormatter={(l) => `${l}`} />
+                <Tooltip
+                  formatter={numericTooltipFormatter((v: number) => `${v}%`)}
+                  labelFormatter={(l) => `${l}`}
+                />
                 <Bar dataKey="variance" name={t('assumptions.varianceLabel')} radius={[3, 3, 0, 0]}>
                   {fragilityData.map((d, i) => (
                     <Cell key={i} fill={d.color} />

@@ -24,6 +24,8 @@ import { useChartTheme } from '../../hooks/useChartTheme';
 import LiveBadge from './LiveBadge';
 import PinToCentralButton from './PinToCentralButton';
 
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+
 const C = { blue: '#005CAB', orange: '#C8590A', green: '#007A33', red: '#B71C1C', gray: '#6c757d' };
 
 // ── Method comparison column ──────────────────────────────────────────────────
@@ -302,10 +304,10 @@ const BlankVoteDivergencePanel: React.FC = () => {
                     <YAxis hide domain={[0, 1]} />
                     <Tooltip
                       contentStyle={ct.tooltipStyle}
-                      formatter={(v: number) => [
+                      formatter={numericTooltipFormatter((v: number) => [
                         v === 1 ? t('divergence.changed') : t('divergence.stable'),
                         '',
-                      ]}
+                      ])}
                     />
                     <Bar dataKey="changed" radius={[3, 3, 0, 0]} isAnimationActive>
                       {barData.map((entry) => (

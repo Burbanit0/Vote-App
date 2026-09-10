@@ -31,6 +31,23 @@ class TestHealth:
         assert isinstance(body["uptime_s"], (int, float))
         assert body["uptime_s"] >= 0
 
+    def test_degraded_and_logs_when_redis_unreachable(self, client, monkeypatch, caplog):
+        monkeypatch.setenv("REDIS_URL", "redis://localhost:6379/0")
+
+        def _boom(*a, **kw):
+            raise ConnectionError("no redis here")
+
+        monkeypatch.setattr("redis.StrictRedis.from_url", _boom)
+
+        with caplog.at_level("WARNING"):
+            r = client.get("/api/v2/health")
+
+        assert r.status_code == 503
+        body = r.json()
+        assert body["status"] == "degraded"
+        assert body["checks"]["redis"] == {"ok": False, "error": "unreachable"}
+        assert "health.redis_check_failed" in caplog.text
+
 
 class TestRoot:
     def test_root_endpoint(self, client):

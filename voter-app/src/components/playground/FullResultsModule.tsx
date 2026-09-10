@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Alert } from '@/components/ui/alert';
 import { Spinner } from '@/components/ui/spinner';
@@ -13,6 +14,7 @@ import HistoricalReferencePanel from '../shared/HistoricalReferencePanel';
 // table + the narrative insight + the historical reference. On-demand (run button).
 
 const FullResultsModule: React.FC = () => {
+  const { t } = useTranslation('playground');
   const { config } = useElection();
   const [result, setResult] = React.useState<ElectionResult | null>(null);
   const [loading, setLoading] = React.useState(false);
@@ -33,10 +35,7 @@ const FullResultsModule: React.FC = () => {
 
   return (
     <div data-testid="full-results-module" className="flex flex-col gap-3">
-      <p className="text-[0.7rem] text-muted-foreground/80">
-        La table complète des méthodes (vainqueur · regret bayésien · conformité Condorcet), plus la
-        lecture narrative et la référence historique — sur l’électorat partagé.
-      </p>
+      <p className="text-[0.7rem] text-muted-foreground/80">{t('fullResults.intro')}</p>
       <Button
         data-testid="full-results-run"
         variant="outline"
@@ -47,16 +46,16 @@ const FullResultsModule: React.FC = () => {
       >
         {loading ? (
           <>
-            <Spinner size="sm" /> Simulation…
+            <Spinner size="sm" /> {t('fullResults.running')}
           </>
         ) : result ? (
-          '↻ Re-simuler'
+          t('fullResults.rerun')
         ) : (
-          '▶ Simuler toutes les méthodes'
+          t('fullResults.run')
         )}
       </Button>
 
-      {error && <Alert variant="danger">Erreur lors de la simulation.</Alert>}
+      {error && <Alert variant="danger">{t('fullResults.error')}</Alert>}
 
       {result && (
         <div className="flex flex-col gap-4">

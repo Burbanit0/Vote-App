@@ -16,9 +16,10 @@ from __future__ import annotations
 import asyncio
 from typing import Any, Callable, Dict, TypeVar
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
+from api.core.ratelimit import check_v2_rate_limit
 from api.domain.tech import (
     _e2e_demo_worker,
     _polis_simulation_worker,
@@ -27,6 +28,7 @@ from api.domain.tech import (
 from api.schemas import (
     E2EDemoRequest,
     E2EDemoResponse,
+    ErrorDetail,
     PolisSimulationRequest,
     PolisSimulationResponse,
     PolisWithCandidatesRequest,
@@ -34,7 +36,13 @@ from api.schemas import (
 )
 
 
-router = APIRouter(prefix="/api/v2/tech", tags=["tech"])
+router = APIRouter(
+    prefix="/api/v2/tech",
+    tags=["tech"],
+    dependencies=[Depends(check_v2_rate_limit)],
+    # See election.py's router for why 400/500 apply to every route here.
+    responses={400: {"model": ErrorDetail}, 500: {"model": ErrorDetail}},
+)
 
 _ResponseT = TypeVar("_ResponseT", bound=BaseModel)
 

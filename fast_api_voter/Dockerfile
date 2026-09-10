@@ -1,5 +1,10 @@
 # Vote Lab backend — FastAPI (ASGI), served by uvicorn. Dev image.
-FROM python:3.11-slim
+FROM python:3.14-slim-bookworm
+
+# uv (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md): faster, reproducible installs than
+# pip. Binary copied from Astral's distroless image rather than `pip install
+# uv`, so the bootstrap doesn't need pip at all.
+COPY --from=ghcr.io/astral-sh/uv:0.12.11 /uv /usr/local/bin/uv
 
 WORKDIR /app
 
@@ -8,9 +13,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies first (better layer caching).
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install dependencies first (better layer caching). Dev tools (requirements-
+# dev.txt) too: this is the image scripts/bootstrap.sh runs `pytest` inside
+# via `docker compose exec backend`, unlike the lean Dockerfile.prod.
+COPY requirements.txt requirements-dev.txt ./
+RUN uv pip install --system --no-cache -r requirements.txt -r requirements-dev.txt
 
 # Copy the application code.
 COPY . .

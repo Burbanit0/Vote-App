@@ -19,6 +19,8 @@ import { useTranslation } from 'react-i18next';
 import { useChartTheme } from '../../hooks/useChartTheme';
 import { MethodStreamStats } from '../../hooks/useMonteCarloStream';
 
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+
 const CANDIDATE_PALETTE = ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948'];
 
 interface Props {
@@ -122,7 +124,10 @@ const MonteCarloLiveChart: React.FC<Props> = ({
                 interval={0}
               />
               <YAxis unit="%" tick={{ fontSize: 10, fill: ct.tickFill }} domain={[0, 100]} />
-              <Tooltip formatter={(v: number) => `${v}%`} contentStyle={ct.tooltipStyle} />
+              <Tooltip
+                formatter={numericTooltipFormatter((v: number) => `${v}%`)}
+                contentStyle={ct.tooltipStyle}
+              />
               {candidates.map((c) => (
                 <Bar key={c} dataKey={c} stackId="a" name={c}>
                   {chartData.map((_, idx) => (

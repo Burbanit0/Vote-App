@@ -23,6 +23,10 @@ from __future__ import annotations
 import random
 from typing import Any, Callable, Optional
 
+from api.engine.utils.logger import get_logger
+
+log = get_logger(__name__)
+
 
 # ── Method dispatch ──────────────────────────────────────────────────────────
 
@@ -128,6 +132,7 @@ def compute_manipulability_index(
     try:
         sincere_winner: Optional[str] = method_fn(ballots)
     except Exception:
+        log.warning("gibbard_satterthwaite.sincere_winner_failed", method=method_name, exc_info=True)
         sincere_winner = None
 
     # ── Test each sampled voter ────────────────────────────────────────────
@@ -161,6 +166,10 @@ def compute_manipulability_index(
             try:
                 new_winner: Optional[str] = method_fn(test_ballots)
             except Exception:
+                log.warning(
+                    "gibbard_satterthwaite.manipulated_winner_failed",
+                    method=method_name, voter_idx=voter_idx, swap_pos=swap_pos, exc_info=True,
+                )
                 continue
 
             if new_winner is None or new_winner == sincere_winner:

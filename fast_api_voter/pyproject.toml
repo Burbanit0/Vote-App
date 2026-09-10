@@ -6,7 +6,14 @@ build-backend = "setuptools.backends._legacy:_Backend"
 minversion = "7.0"
 testpaths = ["api/tests"]
 asyncio_mode = "strict"
-addopts = "--cov=api --cov-report=term --cov-report=html --cov-fail-under=90 -v"
+# test_schema_contract.py (Lot 3, PLAN_SOLIDITE_TECHNIQUE.md) fuzzes the whole
+# API surface via Schemathesis — even clamped, a full pass takes ~10-15
+# minutes (95 operations x heavy simulation compute), which would triple the
+# normal ~3min test job. It has its own workflow (schemathesis.yml) and is run
+# there via `pytest api/tests/test_schema_contract.py -o addopts=""` — naming
+# the file explicitly bypasses this --ignore (it only affects directory
+# discovery, confirmed live), so that invocation still collects it.
+addopts = "--cov=api --cov-report=term --cov-report=html --cov-fail-under=90 -v --ignore=api/tests/test_schema_contract.py"
 
 [tool.coverage.run]
 source = ["api"]
@@ -17,6 +24,74 @@ show_missing = true
 skip_covered = true
 precision = 0
 fail_under = 90
+
+# Linting (replaces flake8 as of Lot 1 of PLAN_SOLIDITE_TECHNIQUE.md — same
+# ~100x speedup and broader rule catalogue Ruff is known for, kept OUT of
+# scope here: this is a faithful swap, not a coverage expansion). Deliberately
+# narrow, matching the .flake8 config this replaces exactly: only F (pyflakes
+# — unused imports/vars, undefined names, f-string mistakes) is selected.
+# Syntax errors are reported by Ruff unconditionally, regardless of `select`,
+# so there's no equivalent of flake8's E9 to configure. The cosmetic E/W
+# pycodestyle codes stay OFF on purpose: the codebase uses a column-aligned
+# style those checks dislike and they carry no correctness signal — the exact
+# reasoning the replaced .flake8 documented for its own narrow `select`.
+# (The old .flake8 also ignored F824 — Ruff has no F824 rule at all, so
+# there's nothing to carry over.)
+[tool.ruff]
+line-length = 88
+extend-exclude = [
+    "api/tests",  # never linted under flake8 either (see the old .flake8's
+                  # `exclude` list) — extending coverage there is a separate,
+                  # deliberate decision, not a side effect of this swap.
+    ".vulture_whitelist.py",  # same exclusion the old .flake8 had — its
+                              # bare names are deliberately "undefined",
+                              # that's how vulture's whitelist mechanism works.
+    "*.ipynb",  # flake8 never linted notebooks at all (no native support);
+                # Ruff does by default, which is real *new* coverage, not
+                # parity — out of scope for a faithful swap. Revisit
+                # separately if notebook linting is ever wanted.
+]
+
+[tool.ruff.lint]
+select = ["F"]
+
+# Unused/undeclared dependency detection (Lot 2, PLAN_SOLIDITE_TECHNIQUE.md —
+# knip's Python equivalent). Scoped to api/ — fast_api_voter/scripts/ holds
+# the polity LLM test harness and acceptance scripts, a self-contained tool
+# area with its own dependency footprint (e.g. scipy, used only there), not
+# part of the application's own dependency contract this is meant to police.
+[tool.deptry]
+ignore_notebooks = true  # Electors simulation.ipynb — exploration, not the app.
+extend_exclude = [
+    "scripts/",    # see above.
+    "api/tests/",  # deptry's own docs: dev-only code should be excluded from
+                   # scanning entirely, not detected — a test file importing
+                   # pytest/hypothesis directly isn't a "misplaced dependency"
+                   # (DEP004), it's exactly where a dev dependency belongs.
+]
+
+[tool.deptry.per_rule_ignores]
+# Each of these is a real, deliberate case deptry's static import-scanning
+# can't see, not an unfixed finding — see PR that introduced this section for
+# the investigation behind each one:
+DEP002 = [
+    "python-dotenv",  # never `import dotenv` directly; used internally by
+                       # pydantic-settings' `SettingsConfigDict(env_file=...)`.
+    "scipy",           # unused by api/ itself, but IS used by scripts/llm_test_
+                       # harness/sample_size.py — excluded above, so it reads
+                       # as unused from this scan's (correct) narrower view.
+    "uvicorn",         # not `import`ed by api/ or api/tests/ (also excluded
+                       # above) — invoked as a CLI process (Dockerfile CMD /
+                       # workflow `run:` steps), never as a library.
+]
+DEP003 = [
+    "starlette",  # imported directly in api/main.py, but deliberately left as
+                  # fastapi's transitive pin rather than a second explicit one
+                  # — see requirements.txt's fastapi line, which already
+                  # tracks starlette's CVE-fixed versions through fastapi's
+                  # own pin. A separate starlette== pin would just be a second
+                  # place that pin can drift out of sync.
+]
 
 # Dead-code detection (informational only — see CODE_AUDIT.md for the
 # rationale and how this feeds scripts/audit.sh / CI). min_confidence=80 keeps
@@ -199,3 +274,25 @@ pytest_add_cli_args_test_selection = [
 # get_simple_score_winner/calculate_bayesian_regret are the only functions left
 # in this file without hand-picked adversarial fixtures (only the tests just
 # added) — worth a second pass once a fresh survivor list is available.
+
+# Makes the voter-api skill's documented layering blocking instead of just
+# written down (Lot 2, PLAN_SOLIDITE_TECHNIQUE.md — see .claude/skills/
+# voter-api/SKILL.md's "Layering (never short-circuit it)" section, which
+# this contract enforces verbatim). A "layers" contract forbids any import
+# from a layer back up into one listed above it; api.routes may import
+# api.domain and api.engine, api.domain may import api.engine, never the
+# reverse. api.core/api.schemas/api.sockets are deliberately not covered —
+# the skill only documents routes -> domain -> engine, and sockets already
+# has its own distinct (and legitimate) shape, calling api.engine directly
+# for its narrower live-stream use case.
+[tool.importlinter]
+root_packages = ["api"]
+
+[[tool.importlinter.contracts]]
+name = "Layering: routes -> domain -> engine"
+type = "layers"
+layers = [
+    "api.routes",
+    "api.domain",
+    "api.engine",
+]

@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional  # noqa: F401
 import numpy as _np
 
 from api.engine.constants import DEFAULT_ISSUES
+from api.engine.utils.logger import get_logger
 from api.engine.utils.simulation_voting_utils import calculate_utility, create_voter
 from api.engine.utils.simulation_ranked_utils import (
     get_borda_winner, get_condorcet_winner, get_irv_winner, get_plurality_winner,
@@ -24,6 +25,8 @@ from api.engine.utils.simulation_ranked_utils import (
 from api.engine.utils.simulation_score_utils import get_majority_judgment_winner
 from ._electorate import _build_base_electorate
 from ._helpers import build_candidate_from_xy as _build_candidate_from_xy
+
+log = get_logger(__name__)
 
 
 # ── Information Cascade ───────────────────────────────────────────────────────
@@ -239,17 +242,20 @@ def _behavioral_biases_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
             try:
                 out[mname] = fn(rnk)
             except Exception:
+                log.warning("workers_behavioral.method_failed", method=mname, exc_info=True)
                 out[mname] = None
         try:
             raw = _star(sv)
             out["star_voting"] = raw.get("winner") if isinstance(raw, dict) else raw
         except Exception:
+            log.warning("workers_behavioral.method_failed", method="star_voting", exc_info=True)
             out["star_voting"] = None
         try:
             mj_utils = [dict(utils[v["id"]]) for v in voters]
             mj_raw   = _mj(mj_utils)
             out["majority_judgment"] = str(mj_raw["winner"]) if mj_raw.get("winner") else None
         except Exception:
+            log.warning("workers_behavioral.method_failed", method="majority_judgment", exc_info=True)
             out["majority_judgment"] = None
         return out
 
@@ -952,6 +958,7 @@ def _nota_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
                 mj_raw = _mj(mj_utils)
                 return str(mj_raw["winner"]) if mj_raw.get("winner") else None
             except Exception:
+                log.warning("workers_behavioral.method_failed", method="majority_judgment", exc_info=True)
                 return None
         return get_plurality_winner(rnk)
 
@@ -1134,6 +1141,7 @@ def _ballot_complexity_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
                 raw = _star_w(sv)
                 return raw.get("winner") if isinstance(raw, dict) else raw
             except Exception:
+                log.warning("workers_behavioral.method_failed", method="star_voting", exc_info=True)
                 return get_plurality_winner(rnk)
         if method == "majority_judgment":
             try:
@@ -1141,6 +1149,7 @@ def _ballot_complexity_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
                 raw  = _mj_w(mj_u)
                 return str(raw["winner"]) if raw.get("winner") else None
             except Exception:
+                log.warning("workers_behavioral.method_failed", method="majority_judgment", exc_info=True)
                 return get_plurality_winner(rnk)
         return get_plurality_winner(rnk)
 
@@ -1547,6 +1556,7 @@ def _co_majority_judgment(
     try:
         r = get_majority_judgment_winner([dict(utils[v["id"]]) for v in v_list])
     except Exception:  # pylint: disable=broad-except
+        log.warning("workers_behavioral.method_failed", method="majority_judgment", exc_info=True)
         return get_plurality_winner(rnk)
     return str(r["winner"]) if r.get("winner") else cnames[0]
 
@@ -1767,7 +1777,12 @@ def _co_note(
 
 def _co_parse(data: Dict[str, Any]) -> Dict[str, Any]:
     """Clamp and default every request field."""
-    hw = data.get("heuristic_weights", {})
+    # `or {}`, not `.get(..., {})`: heuristic_weights is Optional in the
+    # schema, so an explicit `null` in the request body is a present key with
+    # value None — `.get()`'s default only fires when the key is absent,
+    # so `None` reached `hw.get(...)` below and crashed with AttributeError
+    # (found by Schemathesis, Lot 3).
+    hw = data.get("heuristic_weights") or {}
     h_not = max(0.0, min(1.0, float(hw.get("notoriety", 0.20))))
     h_pri = max(0.0, min(1.0, float(hw.get("primacy", 0.10))))
     h_par = max(0.0, min(1.0, float(hw.get("partisan", 0.20))))

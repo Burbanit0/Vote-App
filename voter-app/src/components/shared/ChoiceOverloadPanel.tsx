@@ -28,6 +28,8 @@ import {
 } from 'recharts';
 import { useElection } from '../../stores/useElectionStore';
 import PinToCentralButton from './PinToCentralButton';
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+
 const DEFAULT_COUNTS = [2, 3, 5, 7, 10];
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -302,7 +304,7 @@ const ChoiceOverloadPanel: React.FC = () => {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="n" tick={{ fontSize: 10 }} />
                 <YAxis domain={[0, 100]} unit="%" tick={{ fontSize: 10 }} />
-                <Tooltip formatter={(v: number) => `${v}%`} />
+                <Tooltip formatter={numericTooltipFormatter((v: number) => `${v}%`)} />
                 <Legend wrapperStyle={{ fontSize: 10 }} />
                 <Bar dataKey="sincere" name={t('overload.sincere')} stackId="a" fill="#198754" />
                 <Bar

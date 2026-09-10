@@ -367,7 +367,10 @@ function useController() {
   const [lensMode, setLensMode] = React.useState<'dial' | 'granular'>('dial');
   const [dial, setDial] = React.useState(0.5);
   const manualWeights = mode === 'leader' ? leaderWeights : parlWeights;
-  const effectiveWeights = lensMode === 'dial' ? dialWeights(dial, mode) : manualWeights;
+  const effectiveWeights = React.useMemo(
+    () => (lensMode === 'dial' ? dialWeights(dial, mode) : manualWeights),
+    [lensMode, dial, mode, manualWeights]
+  );
 
   const democracyEntries = React.useMemo(
     () =>
@@ -423,96 +426,182 @@ function useController() {
   ]);
 
   const axisMeta = mode === 'leader' ? leaderAxisMeta : parliamentAxisMeta;
-  const currentAxes: ScorecardAxis[] = axisMeta.map(({ key, label, hint }) => ({
-    key,
-    label,
-    hint,
-    band:
+  const currentAxes: ScorecardAxis[] = React.useMemo(
+    () =>
+      axisMeta.map(({ key, label, hint }) => ({
+        key,
+        label,
+        hint,
+        band:
+          mode === 'leader'
+            ? (leaderSc?.[leaderRule]?.[key] ?? null)
+            : (parlSc?.structures?.[assembly.structure]?.[key] ?? null),
+      })),
+    [axisMeta, mode, leaderSc, leaderRule, parlSc, assembly.structure]
+  );
+  const lensItems: LensItem[] = React.useMemo(
+    () =>
       mode === 'leader'
-        ? (leaderSc?.[leaderRule]?.[key] ?? null)
-        : (parlSc?.structures?.[assembly.structure]?.[key] ?? null),
-  }));
-  const lensItems: LensItem[] =
-    mode === 'leader'
-      ? leaderSc
-        ? LEADER_RULES.filter((r) => enabledRules.has(r)).map((r) => ({ id: r, axes: leaderSc[r] }))
-        : []
-      : parlSc
-        ? Object.keys(structureLabels).map((s) => ({ id: s, axes: parlSc.structures[s] }))
-        : [];
+        ? leaderSc
+          ? LEADER_RULES.filter((r) => enabledRules.has(r)).map((r) => ({
+              id: r,
+              axes: leaderSc[r],
+            }))
+          : []
+        : parlSc
+          ? Object.keys(structureLabels).map((s) => ({ id: s, axes: parlSc.structures[s] }))
+          : [],
+    [mode, leaderSc, enabledRules, parlSc, structureLabels]
+  );
 
-  return {
-    // stores
-    config,
-    setConfig,
-    playground,
-    setMode,
-    setPlayground,
-    setPlaygroundDeep,
-    applyPreset,
-    presets,
-    mode,
-    space,
-    behavior,
-    prefSource,
-    prefParams,
-    assembly,
-    turnout,
-    blank,
-    pointWord,
-    // diagnostics
-    result,
-    loading,
-    assemblyResult,
-    assemblyLoading,
-    // journey
-    activeMoment,
-    setActiveMoment,
-    // instrument
-    dims,
-    leaderRule,
-    setLeaderRule,
-    enabledRules,
-    setEnabledRules,
-    lens,
-    setLens,
-    youPos,
-    setYouPos,
-    showYou,
-    electorate,
-    composed,
-    voters,
-    voterColors,
-    leaderCandidates,
-    votingVoters,
-    expressedVoters,
-    blankSplit,
-    blankVerdictLive,
-    sampleAtSeed,
-    baseSeed: config.seed,
-    moveCandidate,
-    pinToPlayground,
-    // shake
-    shakeOn,
-    setShakeOn,
-    shake,
-    // scorecards
-    leaderSc,
-    parlSc,
-    lensMode,
-    setLensMode,
-    dial,
-    setDial,
-    effectiveWeights,
-    setLeaderWeights,
-    setParlWeights,
-    democracyEntries,
-    manipDetail,
-    strategicOutcome,
-    axisMeta,
-    currentAxes,
-    lensItems,
-  };
+  // Memoized so an unrelated re-render (a parent passing a new `children`
+  // element, StrictMode's double-invoke, etc.) that changes none of these
+  // ~70 values doesn't hand every usePlaygroundCtx() consumer a new object
+  // reference — without this, every moment panel re-renders on ANY
+  // PlaygroundProvider re-render, not just the ones that touched its slice.
+  // It does NOT reduce re-renders when a dependency genuinely changes (most
+  // interactions touch `config`/`playground`, which this honestly depends
+  // on) — see PlaygroundController.render.test.tsx for what this does and
+  // does not buy.
+  return React.useMemo(
+    () => ({
+      // stores
+      config,
+      setConfig,
+      playground,
+      setMode,
+      setPlayground,
+      setPlaygroundDeep,
+      applyPreset,
+      presets,
+      mode,
+      space,
+      behavior,
+      prefSource,
+      prefParams,
+      assembly,
+      turnout,
+      blank,
+      pointWord,
+      // diagnostics
+      result,
+      loading,
+      assemblyResult,
+      assemblyLoading,
+      // journey
+      activeMoment,
+      setActiveMoment,
+      // instrument
+      dims,
+      leaderRule,
+      setLeaderRule,
+      enabledRules,
+      setEnabledRules,
+      lens,
+      setLens,
+      youPos,
+      setYouPos,
+      showYou,
+      electorate,
+      composed,
+      voters,
+      voterColors,
+      leaderCandidates,
+      votingVoters,
+      expressedVoters,
+      blankSplit,
+      blankVerdictLive,
+      sampleAtSeed,
+      baseSeed: config.seed,
+      moveCandidate,
+      pinToPlayground,
+      // shake
+      shakeOn,
+      setShakeOn,
+      shake,
+      // scorecards
+      leaderSc,
+      parlSc,
+      lensMode,
+      setLensMode,
+      dial,
+      setDial,
+      effectiveWeights,
+      setLeaderWeights,
+      setParlWeights,
+      democracyEntries,
+      manipDetail,
+      strategicOutcome,
+      axisMeta,
+      currentAxes,
+      lensItems,
+    }),
+    [
+      config,
+      setConfig,
+      playground,
+      setMode,
+      setPlayground,
+      setPlaygroundDeep,
+      applyPreset,
+      presets,
+      mode,
+      space,
+      behavior,
+      prefSource,
+      prefParams,
+      assembly,
+      turnout,
+      blank,
+      pointWord,
+      result,
+      loading,
+      assemblyResult,
+      assemblyLoading,
+      activeMoment,
+      setActiveMoment,
+      dims,
+      leaderRule,
+      setLeaderRule,
+      enabledRules,
+      setEnabledRules,
+      lens,
+      setLens,
+      youPos,
+      setYouPos,
+      showYou,
+      electorate,
+      composed,
+      voters,
+      voterColors,
+      leaderCandidates,
+      votingVoters,
+      expressedVoters,
+      blankSplit,
+      blankVerdictLive,
+      sampleAtSeed,
+      moveCandidate,
+      pinToPlayground,
+      shakeOn,
+      setShakeOn,
+      shake,
+      leaderSc,
+      parlSc,
+      lensMode,
+      setLensMode,
+      dial,
+      setDial,
+      effectiveWeights,
+      setLeaderWeights,
+      setParlWeights,
+      democracyEntries,
+      manipDetail,
+      strategicOutcome,
+      axisMeta,
+      currentAxes,
+      lensItems,
+    ]
+  );
 }
 
 export type PlaygroundCtx = ReturnType<typeof useController>;

@@ -1,0 +1,27 @@
+# Mergify (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md) — third-party merge queue.
+#
+# GitHub's own native merge queue (a ruleset `merge_queue` rule) is not
+# available on this repo: it's restricted to public repos owned by an
+# *organization*, not a personal account (confirmed live via a 422 attempting
+# to create that ruleset). Mergify is the pivot: free for open source,
+# installed as a GitHub App (github.com/apps/mergify), zero extra config
+# needed for the basics.
+#
+# `queue_rules`/`merge_protections` deliberately carry no explicit
+# `check-success=...` conditions: Mergify auto-detects this repo's branch
+# protection (`required_status_checks`, restored to its documented 12-context
+# list via scripts/setup-branch-protection.sh) and injects it as merge
+# conditions for both queuing and merging — duplicating that list here would
+# just be a second place for it to drift out of sync.
+queue_rules:
+  - name: default
+    # Matches the `--merge`/--no-ff convention used for every PR merged this
+    # session (see CLAUDE.md's workflow section) — a real merge commit, not a
+    # squash or rebase.
+    merge_method: merge
+
+merge_protections_settings:
+  # Every PR whose (injected) required checks pass is queued and merged
+  # automatically — matches the `gh pr merge` once-green pattern used
+  # throughout this session, just done by Mergify instead of by hand.
+  auto_merge_conditions: true

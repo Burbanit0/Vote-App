@@ -32,6 +32,8 @@ const DEBOUNCE_MS = 400;
 // the Pydantic schema, regenerated via `npm run gen:api`).
 import type { AbstentionRequest } from '../../api';
 
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface VoterSnap {
@@ -499,7 +501,7 @@ const AbstentionPanel: React.FC = () => {
                       }}
                     />
                     <YAxis domain={[0, 100]} unit="%" tick={{ fontSize: 10 }} />
-                    <Tooltip formatter={(v: number) => `${v}%`} />
+                    <Tooltip formatter={numericTooltipFormatter((v: number) => `${v}%`)} />
                     <Legend wrapperStyle={{ fontSize: '0.72rem' }} />
                     <ReferenceLine y={50} stroke="#dee2e6" strokeDasharray="3 2" />
                     {/* Overall turnout */}

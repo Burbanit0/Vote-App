@@ -11,6 +11,23 @@ from typing import Dict, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class ErrorDetail(BaseModel):
+    """Shape of a domain-level error response.
+
+    Every `routes/*.py` module's `_run_worker`/`_run_passthrough`/`_run_typed`
+    helper lifts a domain worker's `(body, status_code)` tuple into
+    `HTTPException(status_code=status_code, detail=body["error"])` when
+    `status_code != 200`; FastAPI serializes that as `{"detail": "<message>"}`.
+    `api/main.py`'s catch-all `Exception` handler uses the same shape for any
+    uncaught error, so it's also the 500 contract for every route in the app,
+    not just the ones that reach for it explicitly. Referenced via each
+    router's `responses=` (Schemathesis, Lot 3 of the plan, found these
+    codes were reachable but undocumented)."""
+    model_config = ConfigDict(extra="forbid")
+
+    detail: str = Field(..., description="Human-readable error message.")
+
+
 class CandidateSpec(BaseModel):
     """A single candidate placed at a 2D ideological position on [-1, 1]²."""
     model_config = ConfigDict(extra="forbid")

@@ -4,6 +4,7 @@ import { buildVoronoiPaths } from '../../utils/voronoiRegions';
 import { cn } from '@/lib/utils';
 import type { NamedPt, Pt } from '../../lib/playgroundVoting';
 import type { AssemblyResult } from '../../services/assemblyApi';
+import { makeSvgToDomain, arrowKeyNudge } from '../../hooks/useDragTouch';
 
 // ParliamentCanvas (Lab reshape P3) — the live party-level viz. Parties are
 // draggable on the ideology map (voters re-attach to their nearest party
@@ -32,14 +33,7 @@ export const PARTY_PALETTE = [
 const toSvg = (v: number, axis: 'x' | 'y'): number =>
   axis === 'x' ? MARGIN + ((v + 1) / 2) * PLOT : MARGIN + ((1 - v) / 2) * PLOT;
 
-function svgToDomain(clientX: number, clientY: number, rect: DOMRect) {
-  const sx = ((clientX - rect.left) / rect.width) * SVG;
-  const sy = ((clientY - rect.top) / rect.height) * SVG;
-  return {
-    x: Math.max(-1, Math.min(1, ((sx - MARGIN) / PLOT) * 2 - 1)),
-    y: Math.max(-1, Math.min(1, 1 - ((sy - MARGIN) / PLOT) * 2)),
-  };
-}
+const svgToDomain = makeSvgToDomain({ width: SVG, height: SVG, pad: MARGIN });
 
 // ── Hemicycle geometry ────────────────────────────────────────────────────────
 
@@ -234,7 +228,7 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
         <svg
           ref={svgRef}
           viewBox={`0 0 ${SVG} ${SVG}`}
-          role="img"
+          role="group"
           aria-label={t('parliament.mapAria')}
           className="mx-auto block w-full touch-none select-none rounded-lg bg-card"
           style={{ maxWidth: 460, maxHeight: '52vh' }}
@@ -304,6 +298,9 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
               <g
                 key={`${p.name}-${i}`}
                 data-testid={`party-${i}`}
+                tabIndex={0}
+                role="button"
+                aria-label={t('parliament.partyAria', { name: p.name })}
                 style={{ cursor: 'grab' }}
                 onMouseDown={(e) => {
                   e.preventDefault();
@@ -311,6 +308,9 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
                 }}
                 onTouchStart={() => {
                   draggingIdx.current = i;
+                }}
+                onKeyDown={(e) => {
+                  arrowKeyNudge(e, p, (nx, ny) => onMoveParty(i, nx, ny));
                 }}
               >
                 <rect

@@ -1,4 +1,5 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": ["src/App.tsx"],
   "ignore": ["src/api/types.gen.ts", "vitest.stryker.config.ts", "scripts/check-flaky.mjs"]
 }

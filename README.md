@@ -40,7 +40,7 @@ explore in depth.
 |---|---|
 | Backend | FastAPI (uvicorn) — **stateless**, no SQL DB, no auth · Redis (compute cache only) |
 | WebSockets | python-socketio (ASGI, Monte Carlo streaming) |
-| Frontend | React 19 · TypeScript · React Router v7 · Vite |
+| Frontend | React 19 · TypeScript · React Router v8 · Vite |
 | Data/State | TanStack Query + openapi-fetch (typed) · Zustand stores |
 | UI | Tailwind v4 + shadcn/ui (hand-written primitives in `src/components/ui/`) |
 | Charts | SVG-native (playground) · Recharts · D3 (Voronoi, hexbin) |
@@ -66,7 +66,7 @@ database — so this is the full experience. Ctrl+C once stops both. Run a singl
 with `npm run dev:backend` or `npm run dev:frontend`.
 
 **Prerequisites:** [Node.js](https://nodejs.org/) 20+ and
-[Python](https://www.python.org/) 3.11+. [Docker](https://www.docker.com/) only if you
+[Python](https://www.python.org/) 3.14+. [Docker](https://www.docker.com/) only if you
 want the containerised stack below.
 
 ### Docker
@@ -110,7 +110,7 @@ an always-warm demo, or `REDIS_URL` if you later add a cache.
 ```bash
 python -m pytest api/tests -o addopts="" -q   # unit tests (-o addopts="" skips the coverage gate)
 mypy api/                                      # strict, must stay clean
-flake8                                         # E9/F errors are gating
+ruff check .                                   # pyflakes (F) errors are gating
 ```
 
 ### Frontend (`voter-app/`)
@@ -177,7 +177,7 @@ exists in **two implementations** — a fast client engine
 
 ## Public API (`/api/v1/`)
 
-Rate-limited (60 req/min), no authentication.
+Rate-limited per endpoint (5-120 req/min depending on route), no authentication.
 
 ```
 GET  /api/v1/methods           # method list with descriptions

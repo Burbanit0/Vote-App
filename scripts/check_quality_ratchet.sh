@@ -28,7 +28,7 @@
 # file the missing merge had added. Rebase on develop before --update.
 #
 # Expects, relative to the repo root (produced by the code-quality job):
-#   fast_api_voter/vulture.txt  fast_api_voter/radon.txt
+#   fast_api_voter/vulture.txt  fast_api_voter/radon.txt  fast_api_voter/deptry.txt
 #   voter-app/knip.txt          jscpd.txt
 
 set -euo pipefail
@@ -63,6 +63,7 @@ require() {
 
 require fast_api_voter/vulture.txt
 require fast_api_voter/radon.txt
+require fast_api_voter/deptry.txt
 require voter-app/knip.txt
 require jscpd.txt
 
@@ -72,6 +73,11 @@ vulture=$(strip_ansi < fast_api_voter/vulture.txt | grep -cve '^[[:space:]]*$' |
 # radon (`cc -n C`): indented entries like "    F 34:0 _generate_rows - D (21)".
 # The bare filename headers between them are not findings.
 radon=$(strip_ansi < fast_api_voter/radon.txt | grep -cE '^[[:space:]]+[CMF] [0-9]+:[0-9]+ ' || true)
+
+# deptry: one finding per line, each carrying exactly one DEPnnn code (the
+# closing "Found N dependency issues." summary line has none, so it's never
+# double-counted).
+deptry=$(strip_ansi < fast_api_voter/deptry.txt | grep -cE 'DEP[0-9]{3}' || true)
 
 # knip: sum its own section counts ("Unused exports (47)") rather than counting
 # entry lines — the entry format changes between knip versions, the headers don't.
@@ -87,11 +93,11 @@ jscpd=${jscpd:-0}
 if [[ $UPDATE -eq 1 ]]; then
   python -c "
 import json, sys
-json.dump({'vulture': $vulture, 'radon_c_plus': $radon, 'knip': $knip, 'jscpd_clones': $jscpd},
+json.dump({'vulture': $vulture, 'radon_c_plus': $radon, 'deptry': $deptry, 'knip': $knip, 'jscpd_clones': $jscpd},
           open('$BASELINE', 'w'), indent=2)
 open('$BASELINE', 'a').write('\n')
 "
-  echo "✅ Baseline updated: vulture=$vulture radon=$radon knip=$knip jscpd=$jscpd"
+  echo "✅ Baseline updated: vulture=$vulture radon=$radon deptry=$deptry knip=$knip jscpd=$jscpd"
   exit 0
 fi
 
@@ -102,11 +108,11 @@ fi
 
 # One python call does the compare + the report: the exit code and the table have
 # to agree, and splitting them across bash and python is how they drift apart.
-python - "$BASELINE" "$vulture" "$radon" "$knip" "$jscpd" <<'PY'
+python - "$BASELINE" "$vulture" "$radon" "$deptry" "$knip" "$jscpd" <<'PY'
 import json, sys
 
 baseline_path, *counts = sys.argv[1:]
-vulture, radon, knip, jscpd = (int(c) for c in counts)
+vulture, radon, deptry, knip, jscpd = (int(c) for c in counts)
 
 with open(baseline_path) as f:
     base = json.load(f)
@@ -114,6 +120,7 @@ with open(baseline_path) as f:
 rows = [
     ("vulture (Python dead code)",        "vulture",      vulture),
     ("radon (functions ranked C or worse)", "radon_c_plus", radon),
+    ("deptry (unused/undeclared deps)",   "deptry",       deptry),
     ("knip (TS dead code / unused deps)", "knip",         knip),
     ("jscpd (duplicate clones)",          "jscpd_clones", jscpd),
 ]
@@ -139,7 +146,8 @@ if grown:
     print("", file=sys.stderr)
     print("   These tools are non-blocking on their own, but the total may not grow.", file=sys.stderr)
     print("   Fix the new findings, or — if a finding is a false positive — silence it", file=sys.stderr)
-    print("   at the source (.vulture_whitelist.py, voter-app/knip.json, .jscpd.json)", file=sys.stderr)
+    print("   at the source (.vulture_whitelist.py, fast_api_voter/pyproject.toml's", file=sys.stderr)
+    print("   [tool.deptry], voter-app/knip.json, .jscpd.json)", file=sys.stderr)
     print("   rather than raising the baseline.", file=sys.stderr)
     sys.exit(1)
 

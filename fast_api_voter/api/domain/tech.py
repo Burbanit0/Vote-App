@@ -351,10 +351,22 @@ def _polis_with_candidates_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
     stmt_pos: List[float]        = []
 
     for s in stmts_raw:
-        cat  = str(s.get("category", "default")).lower()
+        # `_POLIS_DEFAULT_STATEMENTS` above is {"text", "category"} dicts,
+        # but the request schema (PolisWithCandidatesRequest.statements)
+        # promises plain strings — a real client sending exactly what the
+        # schema documents crashed here with AttributeError, since only the
+        # internal default happened to be dict-shaped (found by
+        # Schemathesis, Lot 3). A caller-supplied string has no category, so
+        # it falls back to "default" (already a real key in _CATEGORY_BIAS).
+        if isinstance(s, dict):
+            cat  = str(s.get("category", "default")).lower()
+            text = str(s.get("text", "?"))
+        else:
+            cat  = "default"
+            text = str(s)
         base = _CATEGORY_BIAS.get(cat, 0.0)
         pos  = float(_np.clip(base + stmt_rng.uniform(-0.3, 0.3), -1, 1))
-        stmts.append({"text": str(s.get("text", "?")), "category": cat, "position": pos})
+        stmts.append({"text": text, "category": cat, "position": pos})
         stmt_pos.append(pos)
 
     n_stmts = len(stmts)

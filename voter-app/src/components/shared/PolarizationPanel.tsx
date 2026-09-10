@@ -28,6 +28,8 @@ import {
 import { useElection } from '../../stores/useElectionStore';
 import { $api } from '../../api/hooks';
 
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface PolarResult {
@@ -353,10 +355,10 @@ const PolarizationPanel: React.FC = () => {
                     </YAxis>
                     <Tooltip
                       cursor={{ strokeDasharray: '3 3' }}
-                      formatter={(v: number, n: string) => [
+                      formatter={numericTooltipFormatter((v: number, n: string) => [
                         n === 'x' ? v.toFixed(3) : `${v}%`,
                         n === 'x' ? 'P' : 'Condorcet %',
-                      ]}
+                      ])}
                       labelFormatter={() => ''}
                     />
                     {/* One Scatter per ideology for colour */}

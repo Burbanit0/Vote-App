@@ -49,20 +49,27 @@ jobs:
   mutmut:
     name: Backend mutation score (mutmut, floor 70%)
     runs-on: ubuntu-latest
+    # CONTRIBUTING.md: ~40min-3h depending on how much the incremental cache
+    # (if any) covers — matches the margin stryker's own 240min timeout gives.
+    timeout-minutes: 210
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.11'
-          cache: 'pip'
-          cache-dependency-path: fast_api_voter/requirements.txt
+          python-version: '3.14'
+      # No `python-version` here — see backend-ci-cd-pipeline.yml's comment on
+      # this same pairing (`--system` rejects a uv-managed interpreter).
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+          cache-dependency-glob: 'fast_api_voter/requirements*.txt'
 
       - name: Install production + dev dependencies
         run: |
-          pip install -r fast_api_voter/requirements.txt
-          pip install -r fast_api_voter/requirements-dev.txt
+          uv pip install --system -r fast_api_voter/requirements.txt
+          uv pip install --system -r fast_api_voter/requirements-dev.txt
 
       # Scope (which files get mutated, which tests run) lives entirely in
       # fast_api_voter/pyproject.toml's [tool.mutmut] — this step just runs it.
@@ -132,7 +139,7 @@ jobs:
       # straight from continue-on-error to a hard `thresholds.break` fail on its
       # very first scheduled/push run, and both looked identical to a genuine
       # mutation-score regression until the log was read.
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '22'
           cache: 'npm'
@@ -142,6 +149,20 @@ jobs:
         run: npm ci
         working-directory: ./voter-app
 
+      # Rolling cache for Stryker's --incremental state: a full pass mutates
+      # and re-tests every mutant on every run even when most of the mutated
+      # file is unchanged since last time. Keyed uniquely per commit so it
+      # never "hits" exactly (forcing a fresh save each run) but always
+      # restores the nearest prior state via restore-keys — a cache miss just
+      # means "fall back to a full run," never a wrong incremental result.
+      - name: Cache Stryker incremental state
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: voter-app/.stryker-tmp/incremental.json
+          key: stryker-incremental-${{ github.sha }}
+          restore-keys: |
+            stryker-incremental-
+
       # Scope (which file gets mutated, which tests run) lives entirely in
       # voter-app/stryker.config.json + vitest.stryker.config.ts — this step
       # just runs it — including `thresholds.break`, which Stryker enforces
@@ -149,8 +170,16 @@ jobs:
       # Set to 76 against a measured 80.82%: under the measure, to lock in what
       # exists rather than to aspire. Target 85 once the spatial-helper and
       # tie-break chantiers land.
+      #
+      # --incremental skips re-mutating files unchanged since the cached state
+      # above. --concurrency is pinned explicitly here (CI-only, via flag, not
+      # in stryker.config.json) rather than left at the implicit cpuCount - 1
+      # default: this job already measured 4 workers on this runner class vs
+      # 15 locally (see the timeout-minutes comment above) — pinning only the
+      # CI invocation keeps that number honest here without slowing down local
+      # runs, which should keep using all available cores.
       - name: Run Stryker (fails under thresholds.break)
-        run: npx stryker run
+        run: npx stryker run --incremental --concurrency 4
         working-directory: ./voter-app
 
       - name: Upload HTML mutation report

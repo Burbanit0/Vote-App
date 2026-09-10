@@ -25,14 +25,18 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
   # ── 1. CI — tests must pass before any release ─────────────────────────────
   ci-frontend:
     name: Tests frontend
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '20'
           cache: 'npm'
@@ -47,16 +51,21 @@ jobs:
   ci-backend:
     name: Tests backend
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.11'
-          cache: 'pip'
-          cache-dependency-path: fast_api_voter/requirements.txt
+          python-version: '3.14'
+      # No `python-version` here — see backend-ci-cd-pipeline.yml's comment on
+      # this same pairing (`--system` rejects a uv-managed interpreter).
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+          cache-dependency-glob: 'fast_api_voter/requirements*.txt'
       - run: |
-          pip install -r fast_api_voter/requirements.txt
-          pip install pytest pytest-cov
+          uv pip install --system -r fast_api_voter/requirements.txt
+          uv pip install --system pytest pytest-cov
       - run: python -m pytest fast_api_voter/api/tests -v
         env:
           FLASK_ENV: testing
@@ -74,6 +83,7 @@ jobs:
     name: Créer la release
     needs: [ci-frontend, ci-backend, e2e]
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: write   # needed to push tags and create releases
 
@@ -86,7 +96,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '20'
           cache: 'npm'
@@ -117,7 +127,7 @@ jobs:
           git push origin main --follow-tags
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           tag_name: ${{ steps.bump.outputs.version }}
           name: "🗳️ Vote Lab ${{ steps.bump.outputs.version }}"

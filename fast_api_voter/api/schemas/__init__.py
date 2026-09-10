@@ -22,6 +22,7 @@ from .common import (
     CampaignConfig,
     CandidateSpec,
     ContagionConfig,
+    ErrorDetail,
     InformationModelConfig,
     MethodResult,
     VoterSnapshot,
@@ -222,7 +223,7 @@ from .perturbers import (
 __all__ = [
     # common
     "BlankVoteConfig", "CampaignConfig", "CandidateSpec",
-    "ContagionConfig", "InformationModelConfig", "MethodResult",
+    "ContagionConfig", "ErrorDetail", "InformationModelConfig", "MethodResult",
     "VoterSnapshot",
     # election
     "AbstentionRequest", "AbstentionResponse",

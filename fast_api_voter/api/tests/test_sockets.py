@@ -12,10 +12,13 @@ import contextlib
 import socket
 import threading
 import time
+from typing import Any
 
 import pytest
 import socketio
 import uvicorn
+
+import api.sockets as sockets_module
 
 
 # ── Boot helper: a single shared server for the whole module ──────────────
@@ -165,6 +168,75 @@ async def test_stop_monte_carlo_aborts_loop(live_server):
 
 
 @pytest.mark.asyncio
+async def test_concurrent_sessions_do_not_cross_contaminate(live_server):
+    """Two clients running Monte Carlo at once each get their own result —
+    _stop_flags is keyed by sid, so this also guards against one session's
+    stop request (or disconnect) silently affecting the other."""
+    results: dict[str, list[Any]] = {"a": [], "b": []}
+
+    async def _run(key: str, num_voters: int):
+        async with _connected(live_server) as client:
+            @client.on("monte_carlo_complete")
+            async def _c(data):
+                results[key].append(data)
+
+            await client.emit("start_monte_carlo", {
+                "num_iterations": 50,
+                "num_voters":     num_voters,
+                "num_candidates": 3,
+                "ideology":       "random",
+            })
+            for _ in range(100):
+                if results[key]:
+                    break
+                await asyncio.sleep(0.1)
+
+    await asyncio.gather(_run("a", 30), _run("b", 40))
+
+    assert results["a"], "Session A never completed"
+    assert results["b"], "Session B never completed"
+    assert results["a"][0]["num_voters"] == 30
+    assert results["b"][0]["num_voters"] == 40
+
+
+@pytest.mark.asyncio
+async def test_disconnect_mid_run_leaves_the_server_healthy(live_server):
+    """Disconnecting before completion must not crash the handler or leak
+    state that breaks the next session (api/sockets/__init__.py's disconnect
+    handler pops the sid's stop flag for exactly this reason)."""
+    async with _connected(live_server) as client:
+        await client.emit("start_monte_carlo", {
+            "num_iterations": 10_000,  # long enough to still be running
+            "num_voters":     30,
+            "num_candidates": 3,
+            "ideology":       "random",
+        })
+        await asyncio.sleep(0.2)  # let it get into the loop
+    # `_connected`'s __aexit__ disconnects here, mid-run, on purpose.
+
+    # A fresh session afterwards must behave normally — proves the server
+    # (and its shared _stop_flags dict) wasn't left in a broken state.
+    complete_event: list[Any] = []
+    async with _connected(live_server) as client:
+        @client.on("monte_carlo_complete")
+        async def _c(data):
+            complete_event.append(data)
+
+        await client.emit("start_monte_carlo", {
+            "num_iterations": 50,
+            "num_voters":     30,
+            "num_candidates": 3,
+            "ideology":       "random",
+        })
+        for _ in range(100):
+            if complete_event:
+                break
+            await asyncio.sleep(0.1)
+
+    assert complete_event, "Server did not recover after a mid-run disconnect"
+
+
+@pytest.mark.asyncio
 async def test_invalid_payload_emits_error(live_server):
     error_event   = []
     complete_event = []
@@ -192,3 +264,35 @@ async def test_invalid_payload_emits_error(live_server):
     assert error_event, "Server never emitted monte_carlo_error"
     assert "Invalid parameters" in error_event[0]["message"]
     assert not complete_event
+
+
+@pytest.mark.asyncio
+async def test_run_failure_emits_error_and_logs(live_server, monkeypatch, caplog):
+    """A failure *inside* a run (as opposed to bad parameters, covered above)
+    — e.g. a numerical edge case in the engine — must still notify the client
+    and leave a server-side trail, not fail silently."""
+    def _boom(*a, **kw):
+        raise RuntimeError("engine exploded mid-run")
+
+    monkeypatch.setattr(sockets_module, "_run_one", _boom)
+
+    error_event = []
+    async with _connected(live_server) as client:
+        @client.on("monte_carlo_error")
+        async def _e(data):
+            error_event.append(data)
+
+        with caplog.at_level("WARNING"):
+            await client.emit("start_monte_carlo", {
+                "num_iterations": 5,
+                "num_voters":     50,
+                "num_candidates": 3,
+            })
+            for _ in range(50):
+                if error_event:
+                    break
+                await asyncio.sleep(0.05)
+
+    assert error_event, "Server never emitted monte_carlo_error"
+    assert "engine exploded mid-run" in error_event[0]["message"]
+    assert "sockets.monte_carlo_run_failed" in caplog.text
