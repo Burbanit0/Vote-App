@@ -144,6 +144,93 @@ decoding (xgrammar, already shipped) handles format. This is one GPU afternoon
 and it either identifies the mechanism the project has been chasing for weeks or
 eliminates the most plausible remaining candidate.
 
+### 2bis — Cadrage technique, 2026-09-10 (mesuré, pas supposé)
+
+Le paragraphe ci-dessus dit « one GPU afternoon » ; le cadrage montre que la
+version littérale (`Qwen3-8B-Base` contre le modèle shippé) **ne tient pas sur ce
+matériel**, et qu'une variante propre existe. Tout ce qui suit est vérifié
+(`nvidia-smi`, `df`, l'API HF directement — la convention du projet), jamais
+supposé.
+
+**Contraintes dures :**
+
+- **VRAM** : 16303 MiB au total, 12378 MiB pris par le serveur instruct en cours,
+  **3443 MiB libres** — deux modèles ne peuvent pas coexister. Tout protocole est
+  donc *séquentiel* (arrêter un serveur, démarrer l'autre), ce qui implique
+  qu'aucun run flagship ne peut être en vol pendant l'expérience.
+- **Disque** : 17 G libres (87 % utilisé), volume de cache HF à 6,1 G, plus 8,3 G
+  de build cache Docker récupérables par `docker system prune`.
+- **Il n'existe AUCUN modèle de base quantifié officiel dans toute la famille
+  Qwen3.** Vérifié via l'API HF : la famille entière ne compte qu'un seul AWQ
+  officiel, `Qwen/Qwen3-8B-AWQ` — précisément le modèle instruct déjà shippé. Le
+  seul AWQ de `Qwen3-8B-Base` est `Siddharth63/Qwen3-8B-Base-AWQ`, **5
+  téléchargements** : un requant communautaire.
+- `Qwen3-8B-Base` n'existe qu'en bf16, ~16 GB de poids — ce que le commentaire de
+  `docker-compose.llm.yml` établit déjà comme ne rentrant pas sur cette carte de
+  16,3 GB (c'est exactement la raison pour laquelle l'instruct est en AWQ).
+
+**Le déblocage, et c'est la découverte qui change la forme de l'expérience :**
+les modèles de base Qwen3 **embarquent le même chat template que les instruct**,
+`enable_thinking` et balises `<think>` incluses (vérifié sur `Qwen3-8B-Base`,
+`Qwen3-4B-Base` et `Qwen3-4B`). Un bras « base » ne demande donc **aucune**
+modification du client : ni chemin `/v1/completions` brut, ni prompt reconstruit
+à la main, ni variante de `VllmJsonClient`. Les scripts de sonde §5.C déjà
+écrits et déjà validés tournent tels quels contre un bras base, en ne changeant
+que le modèle servi. Cela supprime ce qui aurait été le plus gros facteur de
+confusion : un mécanisme de livraison de prompt différent entre les deux bras.
+
+**Options, avec le compromis énoncé :**
+
+| Option | Tient ? | Facteur de confusion |
+|---|---|---|
+| A. `8B-Base` bf16 vs instruct AWQ | **Non** (~16 GB de poids sur 16,3 GB) | — |
+| B. `8B-Base` requant communautaire vs AWQ officiel | Oui | **Qualité du requant confondue avec la variable base/instruct** — exactement la « seconde variable » que ce projet refuse ailleurs |
+| C. Paire AWQ officielle à une taille plus petite | **N'existe pas** | — |
+| D. FP8 à la volée sur les deux bras (sources bf16 8B) | VRAM oui (~8 GB), **disque non** (32 GB à télécharger contre ~25 GB libres après prune) | Symétrique, mais aucun bras n'est la config AWQ shippée ; forte rotation disque |
+| **E. `Qwen3-4B` vs `Qwen3-4B-Base`, bf16 tous les deux** | **Oui** (8,0 GB chacun, ~8 GB de marge KV) | **Aucun sur l'axe testé** : même famille, même taille, même précision, même template — seul le fine-tuning d'instruction diffère |
+
+**Recommandation : E**, avec une porte préalable obligatoire.
+
+**La porte préalable (peu coûteuse, décisive).** Le banc 4B n'est valide que si
+le collapse **se reproduit sur `Qwen3-4B` instruct**. Rejouer d'abord les trois
+sondes §5.C déjà écrites et validées contre le 4B instruct :
+`check_logprob_pressure_action_gap_tracking.py`,
+`check_logprob_response_stance_tracking.py`,
+`check_logprob_coalition_action_tracking.py`. Si le collapse se reproduit → banc
+légitime, on enchaîne sur le bras base. S'il **ne** se reproduit **pas** → c'est
+en soi un résultat réel (le collapse dépend de l'échelle ou du modèle), et le
+banc 4B ne peut pas répondre à la question de §2 : on retombe alors sur
+l'option B en étiquetant explicitement le facteur de confusion du requant, ou on
+diffère.
+
+**Critère pré-enregistré** (discipline du projet : énoncé avant tout appel
+live). Si l'alignement cause le collapse, le bras base doit montrer une
+sensibilité au contenu **matériellement** plus grande. Concrètement, en reprenant
+les écarts déjà mesurés sur le bras instruct shippé — `pressure_action` +0,004,
+`representative_response` 0,000001, `coalition_decision` 0,035 — le seuil
+pré-enregistré est : **le bras base montre un écart ≥ 0,10 sur au moins une sonde
+où l'instruct montrait < 0,05**. En dessous, l'hypothèse alignement est affaiblie,
+pas confirmée. La conformité de format sera pire sur le bras base : c'est attendu
+et hors sujet (xgrammar s'en charge) — les échecs de décodage se rapportent
+**séparément** de la lecture du gradient P, jamais confondus avec elle.
+
+**Notes opérationnelles :**
+
+- Service : un profil/override compose avec `--model Qwen/Qwen3-4B[-Base]`,
+  `--served-model-name qwen3:4b[-base]` (doit contenir « : » — règle de pinning de
+  `config.py` ligne 847, vérifiée), **sans** `--quantization` (bf16), même
+  `--reasoning-parser qwen3` et même `--structured-outputs-config` xgrammar/
+  `disable_any_whitespace` que le serveur shippé.
+- Révisions à épingler (convention du projet, récupérées via l'API HF) :
+  `Qwen3-4B` `1cfa9a720891…`, `Qwen3-4B-Base` `906bfd4b4dc7…`,
+  `Qwen3-8B-Base` `49e3418fbbbca6…` si l'option B est un jour reprise.
+- Les scripts de sonde surchargent déjà `provider`/`base_url` via
+  `dataclasses.replace` ; il leur faut une surcharge `model=` de plus —
+  changement mécanique, pas structurel.
+- Disque : `docker system prune` d'abord (8,3 G récupérables), puis 8 G + 8 G de
+  téléchargements contre 17 G libres. Les deux modèles peuvent coexister **sur
+  disque** ; un seul est chargé en VRAM à la fois.
+
 ---
 
 ## 3. Programme LLM
@@ -789,7 +876,7 @@ the flagship runs, precisely because none can perturb it:
 | 0 | §5.B précision des flottants + payload redondant · §3.B.6/7 prefix-cache + speculative decoding | heures | Zéro risque, zéro dépendance, gain immédiat sur tous les runs suivants ; se fait pendant que le flagship tourne |
 | 1 | **§5.C logprobs — instrumenter la décision binaire** | 1 jour | **Passe avant tout le reste** : rend le collapse mesurable en continu au lieu d'inféré sur 4-6 cas construits à la main |
 | 1bis | ~~§5.E TOON en **entrée seulement**, sur `pressure_action`/`candidacy_considered`~~ **FAIT 2026-09-10** | 1 jour | `candidacy_considered` : -6,9%, qualité identique (16/25=16/25) → non shippé (décision séparée). `pressure_action` : -44,0%, qualité pas au rendez-vous (bascule de collapse, pas de sensibilité restaurée) → non shippé |
-| 2 | §2 base-vs-instruct sur les 4 types collapsés | 1 après-midi GPU | Identifie ou élimine le mécanisme cherché depuis des semaines — et §5.C rend le verdict quantitatif |
+| 2 | §2 base-vs-instruct — **cadré 2026-09-10 (§2bis), pas encore lancé** : la forme littérale (`Qwen3-8B-Base`) ne rentre pas sur cette carte et aucun base quantifié officiel n'existe ; forme retenue = paire bf16 `Qwen3-4B`/`Qwen3-4B-Base`, précédée d'une porte « le collapse se reproduit-il sur le 4B instruct ? » | 1 après-midi GPU + ~16 G de téléchargements | Identifie ou élimine le mécanisme cherché depuis des semaines — et §5.C rend le verdict quantitatif (sondes déjà écrites, réutilisables telles quelles : les base Qwen3 embarquent le même chat template) |
 | 3 | §3.A.1 per-citizen deterministic sampling | 1-2 jours | Le levier le plus prometteur, compatible avec la reproductibilité |
 | 4 | §3.A.3 grammar-level invariants (`blank`/`ranking`) | 1 jour | Supprime une classe d'échec entière au lieu de la réessayer |
 | 5 | §3.A.2 décomposition en deux étapes, `pressure_action` d'abord | pré-enregistrement + cycle de validation | Candidat déjà nommé par le projet ; §2 dit qu'il généralise ; §5.C fournit son étage 1 |
