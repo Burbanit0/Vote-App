@@ -2556,9 +2556,24 @@ def decide_pressure_actions(
     STILL UNVERIFIED, do not assume either way: the claim that a real chunk at
     config.llm.max_batch_size=25 collapses to one uniform act was measured under the same closed
     menu, where "uniform" is trivially satisfied by the only legal answers -- it needs re-running
-    with the menu open before it can be believed or dismissed. Under the SHIPPED (closed) menu,
-    pressure_action's real task is only choosing between 0 and 4; whether it tracks self_gap
-    across that pair has not been measured either.
+    with the menu open before it can be believed or dismissed.
+
+    RESOLVED 2026-09-10 (plan-llm-protocol-and-theory-program.md §5.C,
+    scripts/check_logprob_pressure_action_gap_tracking_results.md): "whether it tracks self_gap
+    across that pair [0 vs 4 under the SHIPPED closed menu] has not been measured either" --
+    now measured, via logprobs rather than a categorical draw (P(act=4) read directly off the
+    real production prompt/schema/think=False shape, 17 citizens spanning self_gap 0.02-2.20
+    against a fixed blank_threshold=0.5). Answer: it does NOT track self_gap. P(act=4) stayed
+    >=0.976 for EVERY citizen tested, including the most satisfied one (self_gap=0.02, where the
+    deterministic proxy calls NOTHING correct) -- mean 0.996 below threshold vs 0.9999 above,
+    a negligible +0.004 separation. Confirmed NOT a batching artifact: the two most extreme
+    self_gap values re-run completely alone (chunk_size=1) showed an even flatter +0.000008
+    separation. Every real flagship run ships this closed menu -- this collapse was previously
+    invisible precisely because a flat act=4 rate under a closed menu produces exactly the
+    aggregate mobilization_rate the menu already predicts by construction, so it never surfaced
+    as an aggregate-metric anomaly, only in a citizen-level P(act) reading. Mechanism not
+    established (see that results doc's own "reading this carefully" section for why this
+    doesn't map cleanly onto §2's existing act/response hypothesis) -- that remains open.
 
     Treat mobilization_rate/pressure metrics from any llm.enabled=True run with an OPEN menu as
     quality-unvalidated (not collapsed). Under the shipped closed menu no acting code can occur

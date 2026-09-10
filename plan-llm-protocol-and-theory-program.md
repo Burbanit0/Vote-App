@@ -51,7 +51,7 @@ The project has 9 LLM decision types. Their measured reliability splits cleanly
 
 | Decision type | What it carries | Measured status |
 |---|---|---|
-| `pressure_action` (dt=10) | **Citizen chooses a lever against an officeholder** | **60,0 % agreement, bar is 80 %** — every remediation lever exhausted |
+| `pressure_action` (dt=10) | **Citizen chooses a lever against an officeholder** | **60,0 % agreement (open menu), bar is 80 %** — every remediation lever exhausted; **collapse confirmed on the SHIPPED closed menu** (2026-09-10, logprobs: P(act=4) ≥0,976 for every self_gap tested, +0,004 separation, not a batching artifact) — the one config every real run ships |
 | `representative_response` (dt=6) | **Officeholder responds to citizen pressure** | **Collapse confirmed** (4/4 identical) |
 | `coalition_decision` (dt=9) | **Party joins/refuses a coalition** | **Collapse confirmed** (6/6 identical) |
 | `reaction_to_event` (dt=8, SCANDAL) | **Citizen reacts to a shared event** | **Collapse confirmed** (6/6 identical) |
@@ -472,6 +472,34 @@ sur un probe trivial, contre le vrai serveur, pas un mock. Une chose reste
    terrain (`pressure_action`, la cible nommée par §5.C lui-même) —
    **pas encore appliqué là**, prochaine étape distincte, pas supposée
    par analogie.
+
+   **Appliqué et mesuré en direct, 2026-09-10**
+   (`check_logprob_pressure_action_gap_tracking_results.md`) : la question
+   restée explicitement ouverte dans le docstring de `decide_pressure_
+   actions` lui-même — *« under the SHIPPED (closed) menu ... whether it
+   tracks self_gap across that pair [0 vs 4] has not been measured
+   either »* — a maintenant une réponse claire et négative. 17 citoyens
+   réels, self_gap 0,02→2,20, prompt/schema/think=False de production
+   inchangés, menu fermé shipped (`electoral_only=true`, {0,4} seuls
+   légaux) : **P(act=4) reste ≥0,976 pour CHAQUE citoyen**, y compris le
+   plus satisfait possible (self_gap=0,02) — séparation moyenne
+   satisfait/mécontent : **+0,004**, négligeable. **Exclu explicitement
+   comme artefact de batching** : les deux valeurs extrêmes rejouées
+   totalement seules (chunk_size=1) donnent une séparation encore plus
+   plate (+0,000008). C'est un collapse réel, quantifié en continu plutôt
+   qu'inféré, précédemment invisible car un taux plat d'act=4 sous menu
+   fermé produit exactement le `mobilization_rate` agrégé que le menu
+   prédit déjà par construction — il n'aurait jamais émergé comme anomalie
+   dans une métrique agrégée, seulement dans une lecture P(act) au niveau
+   citoyen. Chaque run flagship réel utilise ce menu fermé : ce collapse
+   touche donc le SEUL cas que toute production exerce réellement,
+   auparavant le moins testé de tous parce qu'il semblait le plus simple
+   (un choix à 2 options). Mécanisme non établi — ne correspond pas
+   proprement au cadre §2 existant (« atterrit sur un autre agent ») : les
+   deux options {0,4} sont non-assertives, la préférence mesurée est pour
+   l'option qui SONNE la plus institutionnellement légitime parmi deux
+   options passives, pas pour l'inaction en général. Voir le results doc
+   pour la réserve complète.
 
 ### 5.E — TOON : bon outil, mais pas sur les prompts qu'on croit
 
