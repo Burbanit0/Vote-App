@@ -387,6 +387,27 @@ It composes directly with §3.A.2: the two-stage split's first stage (act /
 don't-act) becomes a logprob read rather than a generation — cheaper *and*
 better instrumented than what it replaces.
 
+**Primitive implémenté, 2026-09-09** (`VllmJsonClient.complete_with_logprobs`,
+`llm_client.py`, offline-verified — mypy/flake8/1313 tests green, 7 new
+mocked-transport tests). Live-confirmé le même jour, avant le début de cette
+implémentation, contre le serveur réel : un probe forced-choice trivial
+("réponds oui/non") renvoie P(yes)=0.962, P(no)=0.038, exactement la forme
+attendue. Deux choses restent **non résolues, délibérément pas attaquées par
+ce premier incrément** :
+
+1. **Vérification en direct de la méthode elle-même** — bloquée par le run
+   scale-probe de Phase 7, toujours sur le même serveur partagé.
+2. **Le vrai problème dur : localiser le bon token dans une sortie JSON
+   contrainte par xgrammar.** Le probe déjà vérifié pose la question en
+   forced-choice nu (le PREMIER token généré EST la réponse) — une décision
+   de production réelle (`"act":3` quelque part dans un objet JSON) n'a pas
+   cette propriété : le token qui compte est enterré après le boilerplate
+   du schéma, à une position qui varie par prompt. `complete_with_logprobs`
+   expose la matière première (un `TokenLogprob` par position générée) mais
+   ne résout PAS cet alignement — c'est un problème séparé, pas encore
+   attaqué, et la prochaine étape réelle avant d'instrumenter un type de
+   décision de production.
+
 ### 5.E — TOON : bon outil, mais pas sur les prompts qu'on croit
 
 TOON (Token-Oriented Object Notation, fin 2025) declares keys once as a header
