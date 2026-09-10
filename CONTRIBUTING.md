@@ -215,6 +215,7 @@ Types valides : `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `ci`, `secur
 | ruff | 0 sur `F` (pyflakes — erreurs de nom, imports morts…) | `fast_api_voter/pyproject.toml` |
 | mypy | strict, 0 erreur sur `api/` | `fast_api_voter/mypy.ini` |
 | Couches `routes → domain → engine` | bloquant, 0 import remontant | `fast_api_voter/pyproject.toml` (`[tool.importlinter]`) |
+| `src/lib` pur (pas de dépendance vers `components`/`pages`) | bloquant, 0 violation | `voter-app/.dependency-cruiser.json` |
 | Tests e2e instables | 0 — un test qui ne passe qu'au *retry* fait échouer la PR | `voter-app/scripts/check-flaky.mjs` |
 | Dette qualité (vulture/radon/deptry/knip/jscpd) | ne doit jamais augmenter | `.github/quality-baseline.json` |
 | npm audit severity | high | `npm audit --audit-level=high` |
@@ -278,6 +279,15 @@ lieux) :
 | `knip` | Fichiers/exports/dépendances inutilisés côté frontend | `cd voter-app && npm run knip` |
 | `madge` | Imports circulaires côté frontend + visualisation du graphe | `cd voter-app && npm run madge:circular` (graphe image : `npx madge --image graph.svg --extensions ts,tsx src`, nécessite `graphviz`) |
 | `jscpd` | Duplication de code cross-langage (Python + TS) | `npx jscpd --config .jscpd.json fast_api_voter/api voter-app/src` |
+
+`dependency-cruiser` n'est **pas** dans ce tableau : contrairement aux outils
+ci-dessus (dette non-bloquante suivie par le cliquet), c'est un vrai gate —
+voir le tableau « Seuils qualité » plus haut et `voter-app/.dependency-
+cruiser.json`. Équivalent frontend d'`import-linter` : `src/lib` (libs pures,
+voir CLAUDE.md — section Playground) ne doit jamais importer depuis
+`src/components` ou `src/pages`. Épinglé en `17.4.3` (pas la dernière
+majeure) : `18.x` exige Node `^22||^24||>=26`, ce repo (CI et dev local) est
+encore sur Node 20. `npm run depcruise` en local.
 
 Tous tournent aussi dans `scripts/audit.sh` (mode `--quality` ou complet)
 et dans le job CI *Code Quality* de `audit.yml`.

@@ -51,6 +51,14 @@ appel `log.*(..., exc_info=True)` à chacun, sur le modèle déjà établi
 ailleurs dans le code. Les deux corrections sont vérifiées par les 1789
 tests backend + mypy + ruff + un run e2e complet (218 tests, 0 flake).*
 
+*`dependency-cruiser` ajouté le même jour (Lot 2) — équivalent frontend
+d'`import-linter` : `src/lib` (libs pures, voir CLAUDE.md — section
+Playground) ne doit jamais importer depuis `src/components`/`src/pages`,
+règle `lib-is-pure` désormais bloquante en CI (`.dependency-cruiser.json`,
+imports type-only exemptés). Baseline : 0 violation (287 modules, 1558
+dépendances). Épinglé en `17.4.3` : la `18.x` exige Node `^22||^24||>=26`, ce
+repo (CI et dev local) tourne encore en Node 20.*
+
 ## Résumé exécutif
 
 Le repo `Vote-App` (backend FastAPI `fast_api_voter/`, frontend React/TS
