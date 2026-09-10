@@ -18,10 +18,11 @@ import asyncio
 import csv
 import io
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 
 from api.core.ratelimit import check_v2_rate_limit
+from api.core.worker_dispatch import run_bounded
 from api.domain.export import _generate_rows, CSV_COLUMNS   # noqa: F401
 from api.schemas import (
     ErrorDetail,
@@ -38,7 +39,8 @@ router = APIRouter(
     # Unlike election/simulations/tech/theory/public, this router's own code
     # never returns a domain (body, 400) tuple — only 500 is reachable here,
     # via api/main.py's catch-all Exception handler (same for every route).
-    responses={500: {"model": ErrorDetail}},
+    # 503: run_bounded's own timeout (Lot 3, api/core/worker_dispatch.py).
+    responses={500: {"model": ErrorDetail}, 503: {"model": ErrorDetail}},
 )
 
 
@@ -56,12 +58,18 @@ router = APIRouter(
 async def export_csv(request: ExportDatasetRequest) -> StreamingResponse:
     """Same compute as the JSON variant, but emitted as RFC-4180 CSV with
     an attachment Content-Disposition so the browser triggers a download."""
-    rows = await asyncio.to_thread(
-        _generate_rows,
-        request.num_scenarios, request.num_candidates,
-        request.num_voters,    request.seed,
-        request.ideology,
-    )
+    try:
+        rows = await run_bounded(
+            _generate_rows,
+            request.num_scenarios, request.num_candidates,
+            request.num_voters,    request.seed,
+            request.ideology,
+        )
+    except asyncio.TimeoutError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Request took too long to process",
+        ) from None
 
     buf = io.StringIO()
     writer = csv.DictWriter(buf, fieldnames=CSV_COLUMNS, lineterminator="\n")
@@ -83,12 +91,18 @@ async def export_csv(request: ExportDatasetRequest) -> StreamingResponse:
     response_description="{ meta, columns, rows } — drop-in for pandas/dplyr.",
 )
 async def export_json(request: ExportDatasetRequest) -> ExportDatasetJSON:
-    rows = await asyncio.to_thread(
-        _generate_rows,
-        request.num_scenarios, request.num_candidates,
-        request.num_voters,    request.seed,
-        request.ideology,
-    )
+    try:
+        rows = await run_bounded(
+            _generate_rows,
+            request.num_scenarios, request.num_candidates,
+            request.num_voters,    request.seed,
+            request.ideology,
+        )
+    except asyncio.TimeoutError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Request took too long to process",
+        ) from None
     return ExportDatasetJSON(
         meta=ExportDatasetMeta(
             num_scenarios=request.num_scenarios,

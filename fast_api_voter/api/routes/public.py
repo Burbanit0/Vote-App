@@ -24,10 +24,9 @@ module. With stringized (PEP 563) annotations FastAPI can't resolve the
 Pydantic body type there and silently demotes it to a query param (→ 422
 "field required"). Keeping real annotation objects sidesteps that entirely.
 """
-import asyncio
 from typing import Any, Callable, Dict, Tuple
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
 from api.domain.public import (
@@ -38,6 +37,7 @@ from api.domain.public import (
     _simulate_worker,
 )
 from api.core.ratelimit import limiter
+from api.core.worker_dispatch import raise_for_status, run_worker_bounded
 from api.schemas import (
     ErrorDetail,
     PublicCompareRequest,
@@ -52,10 +52,14 @@ from api.schemas import (
 router = APIRouter(
     prefix="/api/v1",
     tags=["public-v1"],
-    # See routes/election.py's router for why 400/500 apply to every route
-    # here (this module's own _run_passthrough/_run_worker follow the same
-    # (body, status) -> HTTPException pattern).
-    responses={400: {"model": ErrorDetail}, 500: {"model": ErrorDetail}},
+    # See routes/election.py's router for why 400/500/503 apply to every
+    # route here (this module's own _run_passthrough/_run_worker follow the
+    # same (body, status) -> HTTPException pattern).
+    responses={
+        400: {"model": ErrorDetail},
+        500: {"model": ErrorDetail},
+        503: {"model": ErrorDetail},
+    },
 )
 
 
@@ -65,18 +69,8 @@ async def _run_passthrough(
 ) -> Dict[str, Any]:
     """Run the sync worker off the event loop and lift its (body, status)
     tuple into an HTTPException on error. Same helper as the other routers."""
-    body, status_code = await asyncio.to_thread(domain_fn, request_model.model_dump())
-    if status_code == 400:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=body.get("error", "Bad request"),
-        )
-    if status_code != 200:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=body.get("error", "Internal error"),
-        )
-    return body
+    body, status_code = await run_worker_bounded(domain_fn, request_model.model_dump())
+    return raise_for_status(body, status_code)
 
 
 @router.get(

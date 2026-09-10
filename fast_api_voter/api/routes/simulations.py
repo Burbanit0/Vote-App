@@ -23,13 +23,13 @@ app.routes.simulation_base.
 """
 from __future__ import annotations
 
-import asyncio
 from typing import Any, Callable, Dict, List, TypeVar
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
 
 from api.core.ratelimit import check_v2_rate_limit
+from api.core.worker_dispatch import run_worker_bounded
 
 _ResponseT = TypeVar("_ResponseT", bound=BaseModel)
 
@@ -129,10 +129,12 @@ router = APIRouter(
     # See election.py's router for why 400/500 apply to every route here.
     # 404 is specific to this router: api/domain/simulations/advanced.py's
     # real-election lookup returns (body, 404) for an unknown election name.
+    # 503: run_bounded's own timeout (Lot 3, api/core/worker_dispatch.py).
     responses={
         400: {"model": ErrorDetail},
         404: {"model": ErrorDetail},
         500: {"model": ErrorDetail},
+        503: {"model": ErrorDetail},
     },
 )
 
@@ -143,7 +145,7 @@ async def _run_worker(
 ) -> Dict[str, Any]:
     """Run the sync worker off the event loop and lift its (body, status) tuple
     into an HTTPException on error."""
-    body, status_code = await asyncio.to_thread(domain_fn, payload)
+    body, status_code = await run_worker_bounded(domain_fn, payload)
     if status_code != 200:
         # Propagate the worker's status (400 validation, 404 not-found, 500 …)
         raise HTTPException(

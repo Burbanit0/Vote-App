@@ -13,13 +13,13 @@ typing).
 """
 from __future__ import annotations
 
-import asyncio
 from typing import Any, Callable, Dict, TypeVar
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from api.core.ratelimit import check_v2_rate_limit
+from api.core.worker_dispatch import raise_for_status, run_worker_bounded
 from api.domain.tech import (
     _e2e_demo_worker,
     _polis_simulation_worker,
@@ -40,8 +40,12 @@ router = APIRouter(
     prefix="/api/v2/tech",
     tags=["tech"],
     dependencies=[Depends(check_v2_rate_limit)],
-    # See election.py's router for why 400/500 apply to every route here.
-    responses={400: {"model": ErrorDetail}, 500: {"model": ErrorDetail}},
+    # See election.py's router for why 400/500/503 apply to every route here.
+    responses={
+        400: {"model": ErrorDetail},
+        500: {"model": ErrorDetail},
+        503: {"model": ErrorDetail},
+    },
 )
 
 _ResponseT = TypeVar("_ResponseT", bound=BaseModel)
@@ -53,18 +57,8 @@ async def _run_passthrough(
 ) -> Dict[str, Any]:
     """Same helper as election + theory routers — runs the sync worker
     in a thread, lifts the (body, status) tuple into HTTPException."""
-    body, status_code = await asyncio.to_thread(domain_fn, request.model_dump())
-    if status_code == 400:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=body.get("error", "Bad request"),
-        )
-    if status_code != 200:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=body.get("error", "Internal error"),
-        )
-    return body
+    body, status_code = await run_worker_bounded(domain_fn, request.model_dump())
+    return raise_for_status(body, status_code)
 
 
 async def _run_typed(

@@ -10,13 +10,13 @@ counterexamples, resolution-method dicts) stay `Dict[str, Any]`.
 """
 from __future__ import annotations
 
-import asyncio
 from typing import Any, Callable, Dict, TypeVar
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from api.core.ratelimit import check_v2_rate_limit
+from api.core.worker_dispatch import raise_for_status, run_worker_bounded
 from api.schemas import (
     AgendaManipulationRequest,
     AgendaManipulationResponse,
@@ -73,8 +73,12 @@ router = APIRouter(
     prefix="/api/v2/theory",
     tags=["theory"],
     dependencies=[Depends(check_v2_rate_limit)],
-    # See election.py's router for why 400/500 apply to every route here.
-    responses={400: {"model": ErrorDetail}, 500: {"model": ErrorDetail}},
+    # See election.py's router for why 400/500/503 apply to every route here.
+    responses={
+        400: {"model": ErrorDetail},
+        500: {"model": ErrorDetail},
+        503: {"model": ErrorDetail},
+    },
 )
 
 
@@ -89,18 +93,8 @@ async def _run_typed(
     response_model: type[_ResponseT],
 ) -> _ResponseT:
     """Adapt (body, status) contract to FastAPI's exception-based model."""
-    body, status_code = await asyncio.to_thread(domain_fn, request.model_dump())
-    if status_code == 400:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=body.get("error", "Bad request"),
-        )
-    if status_code != 200:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=body.get("error", "Internal error"),
-        )
-    return response_model.model_validate(body)
+    body, status_code = await run_worker_bounded(domain_fn, request.model_dump())
+    return response_model.model_validate(raise_for_status(body, status_code))
 
 
 # ── /arrow ──────────────────────────────────────────────────────────────────

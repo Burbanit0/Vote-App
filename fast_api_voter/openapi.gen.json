@@ -12543,6 +12543,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Multi-method comparison with optional blank-vote rule",
@@ -12606,6 +12616,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "List the voting methods supported by the engine",
@@ -12649,6 +12669,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Hand-written OpenAPI 3.0 specification for /api/v1",
@@ -12690,6 +12720,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "List the historical elections in the dataset",
@@ -12751,6 +12791,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Run a multi-method simulation on a synthetic population",
@@ -12837,6 +12887,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Iterated abstention model with poll feedback",
@@ -12899,6 +12959,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "N rounds of adaptive/tactical voting with poll feedback",
@@ -12961,6 +13031,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Iyengar 2019: in/out-group hostility distorts voting",
@@ -13023,6 +13103,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Compose a parliament: votes → seats under PR / FPTP / MMP",
@@ -13085,6 +13175,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Monte-Carlo scorecard: six axes × pr/fptp/mmp, every number banded",
@@ -13147,6 +13247,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Null-vote rate per method as a function of ballot complexity",
@@ -13209,6 +13319,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Expressive voting + bullet voting + primacy effect",
@@ -13271,6 +13391,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Snapshot the election at multiple campaign days",
@@ -13333,6 +13463,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Sequential voting with information cascades",
@@ -13395,6 +13535,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Heuristics dominate beyond overload_threshold candidates",
@@ -13457,6 +13607,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Per-method D'Hondt + greedy coalition formation",
@@ -13519,6 +13679,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "2³ factorial — isolate each model's contribution to divergence",
@@ -13581,6 +13751,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Voluntary vs compulsory voting on the same electorate",
@@ -13643,6 +13823,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Polkadot-style conviction voting: tokens × multiplier(lock_days)",
@@ -13705,6 +13895,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "DeGroot opinion update across a network, then vote",
@@ -13767,6 +13967,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Full population vs effective electorate via age × education gaps",
@@ -13829,6 +14039,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "N districts with locally shifted ideology, FPTP vs proportional",
@@ -13891,6 +14111,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Same electorate, with vs without blank vote",
@@ -13953,6 +14183,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Turnout decay across repeated elections",
@@ -14015,6 +14255,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Voters assigned to user-drawn rectangular districts",
@@ -14077,6 +14327,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Day-by-day historical replay with candidate-position overrides",
@@ -14139,6 +14399,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Hotelling-Downs iterative best-response (Nash equilibrium)",
@@ -14201,6 +14471,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Deterministic interpretation of a /simulate result",
@@ -14263,6 +14543,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Issue-by-issue majorities vs the bundled platform vote",
@@ -14325,6 +14615,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Condorcet Jury Theorem under N voting methods",
@@ -14387,6 +14687,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Transitive delegation up to max_chain_length hops",
@@ -14449,6 +14759,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "STV / D'Hondt / SPAV / Phragmén / FPTP on the same electorate",
@@ -14511,6 +14831,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "NOTA (None Of The Above) as a ballot option",
@@ -14573,6 +14903,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Multi-election party-system evolution (Duverger's Law)",
@@ -14635,6 +14975,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Per-ideology Esteban-Ray index + voting-method robustness",
@@ -14697,6 +15047,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Shapley-Shubik and Banzhaf power indices for coalition bargaining",
@@ -14759,6 +15119,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Internal party primaries + general election",
@@ -14821,6 +15191,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Run every method over a configurable preference profile",
@@ -14883,6 +15263,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Buterin/Hitzig/Weyl 2019 quadratic funding for public goods",
@@ -14945,6 +15335,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Bradley / Shy Tory effect — socially-sensitive candidates underpolled",
@@ -15007,6 +15407,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Run the unified election simulation",
@@ -15069,6 +15479,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Step-by-step pipeline animation",
@@ -15131,6 +15551,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Elected vs sortition pure vs sortition stratified",
@@ -15193,6 +15623,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Structural (un)fairness: malapportionment, efficiency gap, Penrose, cumulative",
@@ -15255,6 +15695,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Single Transferable Vote + D'Hondt + FPTP comparison",
@@ -15317,6 +15767,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Democracy as a repeated game: N sequential elections",
@@ -15365,6 +15825,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Export a reproducible research dataset as CSV",
@@ -15416,6 +15886,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Export a reproducible research dataset as JSON",
@@ -15514,6 +15994,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Legacy form-based vote simulation (deprecated)",
@@ -15585,6 +16075,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Empirically check Arrow's criteria",
@@ -15656,6 +16156,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Cascading social-influence simulation",
@@ -15727,6 +16237,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "SIS blank-vote contagion simulation",
@@ -15800,6 +16320,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Blank-vote time series for a country",
@@ -15871,6 +16401,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Compute utility for a single voter × candidate",
@@ -15942,6 +16482,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Day-by-day electoral campaign simulation",
@@ -16013,6 +16563,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Per-method metrics on a fresh population",
@@ -16084,6 +16644,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Full pairwise duel matrix",
@@ -16155,6 +16725,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Constitutional aftermath of a blank-vote victory",
@@ -16226,6 +16806,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Assign voters to their nearest candidate (2-D spatial)",
@@ -16297,6 +16887,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Full utility matrix + vote-share stats",
@@ -16368,6 +16968,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Per-demographic-segment utility & top-candidate breakdown",
@@ -16439,6 +17049,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "2-D ideological map of voter preferences",
@@ -16552,6 +17172,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Gibbard-Satterthwaite manipulability index",
@@ -16623,6 +17253,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Aggregate Monte Carlo over N runs (sync variant)",
@@ -16694,6 +17334,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Compare proportional multi-winner methods",
@@ -16765,6 +17415,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Analyse a real historical election",
@@ -16820,6 +17480,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "List available historical elections",
@@ -16891,6 +17561,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Citizen-configured scenario, with/without blank vote",
@@ -16962,6 +17642,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Vary one parameter, track winners & regret",
@@ -17033,6 +17723,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Generate synthetic candidates across parties",
@@ -17104,6 +17804,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Compute utility for every voter × candidate pair",
@@ -17175,6 +17885,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Generate a synthetic voter population",
@@ -17246,6 +17966,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Regret vs proportion of strategic voters",
@@ -17317,6 +18047,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Step-by-step ballot-counting animation data",
@@ -17388,6 +18128,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Vary one parameter and compare method winners across values",
@@ -17449,6 +18199,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "End-to-end verifiable voting pedagogical simulation",
@@ -17510,6 +18270,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Pol.is clustering + classical election cross-comparison",
@@ -17571,6 +18341,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Pol.is consensus clustering on a statement set",
@@ -17633,6 +18413,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "McKelvey-style agenda manipulation under binary elimination",
@@ -17695,6 +18485,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Apportionment methods + Balinski-Young impossibility",
@@ -17757,6 +18557,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Per-method Arrow axiom violation analysis",
@@ -17819,6 +18629,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Test spatial-model robustness by relaxing core assumptions",
@@ -17881,6 +18701,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Does the general will exist, or is it a procedural artefact?",
@@ -17943,6 +18773,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Path toward autocracy across successive elections",
@@ -18005,6 +18845,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Epistocratic voting vs standard democracy (Caplan / Brennan)",
@@ -18067,6 +18917,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Green/Palmquist/Schickler 2002 identity-based voting",
@@ -18129,6 +18989,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Empirical IIA violation rate vs number of candidates",
@@ -18191,6 +19061,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Future-generation representation in long-horizon decisions",
@@ -18253,6 +19133,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Discursive dilemma (List & Pettit 2002)",
@@ -18315,6 +19205,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Tocqueville's tyranny of the majority across decision rules",
@@ -18377,6 +19277,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Gibbard-Satterthwaite manipulator identification",
@@ -18439,6 +19349,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Plott's Chaos Theorem in 2-D policy space",
@@ -18501,6 +19421,16 @@
               }
             },
             "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
           }
         },
         "summary": "Sen's Impossibility of a Paretian Liberal (1970)",

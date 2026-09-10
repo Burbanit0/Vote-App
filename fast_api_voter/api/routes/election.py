@@ -23,13 +23,13 @@ Backend layering (top to bottom):
 """
 from __future__ import annotations
 
-import asyncio
 from typing import Any, Callable, Dict, TypeVar
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from api.core.ratelimit import check_v2_rate_limit
+from api.core.worker_dispatch import raise_for_status, run_worker_bounded
 
 # Re-uses the Pydantic models defined in Phase 1. Single source of truth
 # shared with the Flask side via the openapi-typescript pipeline.
@@ -173,7 +173,13 @@ router = APIRouter(
     # Exception handler uses the same {"detail": ...} shape for any uncaught
     # error, on every route in the app. Both were reachable-but-undocumented
     # until Schemathesis (Lot 3) flagged them as undocumented status codes.
-    responses={400: {"model": ErrorDetail}, 500: {"model": ErrorDetail}},
+    # 503: run_bounded's own timeout (Lot 3 — "Timeouts & backpressure",
+    # api/core/worker_dispatch.py).
+    responses={
+        400: {"model": ErrorDetail},
+        500: {"model": ErrorDetail},
+        503: {"model": ErrorDetail},
+    },
 )
 
 _ResponseT = TypeVar("_ResponseT", bound=BaseModel)
@@ -187,50 +193,10 @@ async def _run_typed(
     response_model: type[_ResponseT],
 ) -> _ResponseT:
     """Run a domain compute function in a worker thread and adapt its
-    (body, status) contract to FastAPI's exception-based error model.
-
-    - 200 → parse body through `response_model` and return it.
-    - 400 → raise HTTPException(400) (domain-level validation, distinct from
-            Pydantic 422 which fires BEFORE the worker is even called).
-    - other → raise HTTPException(500).
-    """
-    body, status_code = await asyncio.to_thread(domain_fn, request.model_dump())
-    if status_code == 400:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=body.get("error", "Bad request"),
-        )
-    if status_code != 200:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=body.get("error", "Internal error"),
-        )
-    return response_model.model_validate(body)
-
-
-async def _run_passthrough(
-    domain_fn: Callable[[Dict[str, Any]], tuple[Dict[str, Any], int]],
-    request: BaseModel,
-) -> Dict[str, Any]:
-    """Like _run_typed but returns the body dict unchanged (no response_model).
-
-    Used for endpoints where the response shape is large, loosely-typed, or
-    not worth pinning down (typical of Perturber endpoints with curves
-    and method-comparison dicts). The frontend keeps its own TypeScript
-    interface for the response.
-    """
-    body, status_code = await asyncio.to_thread(domain_fn, request.model_dump())
-    if status_code == 400:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=body.get("error", "Bad request"),
-        )
-    if status_code != 200:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=body.get("error", "Internal error"),
-        )
-    return body
+    (body, status) contract to FastAPI's exception-based error model —
+    see api.core.worker_dispatch.raise_for_status for the status mapping."""
+    body, status_code = await run_worker_bounded(domain_fn, request.model_dump())
+    return response_model.model_validate(raise_for_status(body, status_code))
 
 
 # ── /simulate ───────────────────────────────────────────────────────────────
