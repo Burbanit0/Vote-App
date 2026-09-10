@@ -262,6 +262,8 @@ Thumbs.db
 !.claude/agents/**
 !.claude/commands/
 !.claude/commands/**
+!.claude/hooks/
+!.claude/hooks/**
 # .vscode/ already ignored above
 
 # Synced Claude Code session/memory data from another machine (Windows path

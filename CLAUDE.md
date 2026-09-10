@@ -76,6 +76,9 @@ bug until proven otherwise (the harness has caught real bugs on both sides).
 
 `engineParity.json` is a **generated artifact** — never hand-edit it (not even to
 silence a failing parity test); always regenerate it via `gen_engine_parity.py`.
+This is enforced, not just written down: `.claude/settings.json`'s `PreToolUse`
+hook blocks any Edit/Write/MultiEdit targeting the file, and a `PostToolUse`
+hook reminds to regenerate parity whenever either side of the engine changes.
 
 ## Playground architecture
 
