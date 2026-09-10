@@ -45,7 +45,17 @@ def _check_redis() -> Dict[str, Any]:
         return {"ok": False, "error": "unreachable"}
 
 
-@router.get("/health")
+@router.get(
+    "/health",
+    responses={
+        503: {
+            "description": (
+                "Degraded — one or more subsystem checks failed. Same body "
+                "shape as 200 (status='degraded'), not an ErrorDetail."
+            ),
+        },
+    },
+)
 def health(response: Response) -> Dict[str, Any]:
     """Return 200 when healthy, 503 when degraded — same contract as
     `/api/health` on the Flask side."""

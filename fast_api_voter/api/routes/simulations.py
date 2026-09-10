@@ -86,6 +86,7 @@ from api.schemas import (
     CondorcetMatrixResponse,
     ConstitutionalScenarioRequest,
     ConstitutionalScenarioResponse,
+    ErrorDetail,
     IdeologyMapRequest,
     IdeologyMapResponse,
     LegacySimulateRequest,
@@ -125,6 +126,14 @@ router = APIRouter(
     prefix="/api/v2/simulations",
     tags=["simulations"],
     dependencies=[Depends(check_v2_rate_limit)],
+    # See election.py's router for why 400/500 apply to every route here.
+    # 404 is specific to this router: api/domain/simulations/advanced.py's
+    # real-election lookup returns (body, 404) for an unknown election name.
+    responses={
+        400: {"model": ErrorDetail},
+        404: {"model": ErrorDetail},
+        500: {"model": ErrorDetail},
+    },
 )
 
 

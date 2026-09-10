@@ -39,6 +39,8 @@ deptry==0.25.1        # Unused/undeclared deps (Lot 2, PLAN_SOLIDITE_TECHNIQUE.m
                        # Python equivalent, informational; see pyproject.toml [tool.deptry])
 import-linter==2.15    # Blocking routes -> domain -> engine layering (Lot 2,
                        # PLAN_SOLIDITE_TECHNIQUE.md; see pyproject.toml [tool.importlinter])
+schemathesis==4.26.1   # OpenAPI contract fuzzing (Lot 3, PLAN_SOLIDITE_TECHNIQUE.md;
+                       # see api/tests/test_schema_contract.py + schemathesis.yml)
 types-redis==4.6.0.20241004  # Redis type stubs
 types-requests==2.33.0.20260712  # Requests type stubs
 types-PyYAML==6.0.12.20260815  # domain/polity/config.py — polity_config.yaml loader

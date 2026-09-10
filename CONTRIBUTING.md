@@ -139,10 +139,10 @@ merger.
 
 ---
 
-## Carte des 10 workflows CI
+## Carte des 11 workflows CI
 
-10 fichiers dans `.github/workflows/` — sans une table à jour ici, la seule
-source de vérité redevient "lire les 10 YAML". Si vous changez un déclencheur
+11 fichiers dans `.github/workflows/` — sans une table à jour ici, la seule
+source de vérité redevient "lire les 11 YAML". Si vous changez un déclencheur
 ou un gate, mettez cette table à jour dans la même PR.
 
 | Workflow | Déclencheur | Gate quand il tourne ? | Check requis (branch protection `develop`) ? | Durée typique |
@@ -155,6 +155,7 @@ ou un gate, mettez cette table à jour dans la même PR.
 | `dependency-review.yml` (Dependency Review) | PR sur `develop`/`main` | Oui — sévérité `high`+ introduite par la PR | Oui | ~15-30 s |
 | `audit.yml` (Security Audit) | push/PR + cron lundi 06:00 UTC + `merge_group` | Semgrep/Trivy/Secret Scan : oui · CodeQL : le job doit terminer mais ne bloque pas sur ses trouvailles (elles atterrissent dans l'onglet Security) · code mort/duplication/complexité (vulture/radon/deptry/knip/jscpd) : non-bloquant sauf régression du cliquet (`quality-baseline.json`) · scan d'image Docker + SBOM (`image-scan`) : non-bloquant, et ne tourne que sur push `develop`/cron — jamais sur une PR (build de 2 images, coûte plusieurs minutes) | Oui (les 4 jobs gating + les 2 jobs CodeQL du matrix — `image-scan` n'est pas requis) | ~2-3 min sur PR (le run cron/push `develop`, qui inclut `image-scan`, est plus long et indépendant d'une PR) |
 | `mutation-testing.yml` (Mutation Testing) | push sur `develop` (paths engine uniquement) + `workflow_dispatch` + cron lundi 04:17 UTC | Non — jamais bloquant | Non — ne se déclenche jamais sur PR | mutmut ~40 min-3h · Stryker jusqu'à ~2h30 en cold-cache (`timeout-minutes: 240`), moins avec le cache `--incremental` une fois chaud |
+| `schemathesis.yml` (Schemathesis Contract Fuzzing) | push sur `develop` (paths `fast_api_voter/api/**`) + `workflow_dispatch` + cron lundi 05:38 UTC | Non — jamais bloquant | Non — ne se déclenche jamais sur PR | ~220s (~3.5-4 min) en local, non re-mesuré sur un runner GitHub réel (`timeout-minutes: 45` par prudence) |
 | `release.yml` (🚀 Release Vote Lab) | `workflow_dispatch` uniquement | N/A — pas de PR, gate lui-même sur CI+E2E avant de taguer `main` | N/A | dépend de `ci-frontend`/`ci-backend`/`e2e` + publication |
 | `scorecard.yml` (OpenSSF Scorecard) | push `develop` + cron mardi 07:30 UTC + changement de règle de protection + `workflow_dispatch` | Non — score publié dans l'onglet Security, jamais bloquant | Non | ~1-2 min |
 
@@ -185,11 +186,14 @@ indéfiniment. **Piège à éviter** : si vous réintroduisez un `paths:` au niv
 d'abord de `REQUIRED_CONTEXTS` dans `scripts/setup-branch-protection.sh` — sinon
 c'est exactement le bug de la PR #205 qui revient.
 
-`schedule`/`workflow_dispatch` (utilisés par `mutation-testing.yml` et
-`audit.yml`) sont résolus par GitHub contre la **branche par défaut du
-dépôt**, pas contre une branche en particulier — un workflow qui n'existe que
-sur une branche non-défaut ne se déclenche jamais sur ces deux triggers, même
-s'il est mergé et présent dans le fichier.
+`schedule`/`workflow_dispatch` (utilisés par `mutation-testing.yml`,
+`schemathesis.yml` et `audit.yml`) sont résolus par GitHub contre la **branche
+par défaut du dépôt**, pas contre une branche en particulier — un workflow
+qui n'existe que sur une branche non-défaut ne se déclenche jamais sur ces
+deux triggers, même s'il est mergé et présent dans le fichier. Pour
+`schemathesis.yml`, c'est `push: develop` (scopé à `fast_api_voter/api/**`)
+qui fait réellement tourner le job aujourd'hui — le cron/dispatch ne
+deviendront actifs qu'après un `develop → main`.
 
 ---
 
@@ -336,6 +340,36 @@ Une troisième règle prévue au plan initial (« aucun worker n'importe
 `api.routes` ») n'a pas été dupliquée ici : `import-linter` (voir plus haut)
 l'applique déjà via une vraie analyse du graphe d'imports, plus précise
 qu'un pattern-match.
+
+### Fuzzing du contrat API (Schemathesis, Lot 3)
+
+`openapi.gen.json` a un gate de drift (`openapi-contract.yml`) contre ce que
+FastAPI *déclare*, mais rien ne vérifiait que l'implémentation tient
+réellement cette promesse. `api/tests/test_schema_contract.py` génère des
+requêtes valides pour chacune des 95 opérations et vérifie que la réponse
+correspond aux codes/schémas documentés :
+
+```bash
+cd fast_api_voter && python -m pytest api/tests/test_schema_contract.py -v -o addopts=""
+```
+
+`-o addopts=""` est nécessaire : par défaut ce fichier est exclu de
+`pytest api/tests` (voir `pyproject.toml`). Un run complet mesure ~220s (~3.5-4 min) en
+local (mode de génération POSITIVE uniquement, entiers lourds plafonnés à
+100, pas de phase de shrink — voir le docstring du fichier pour le détail de
+chaque choix), mais ce chiffre n'a pas été revérifié sur un vrai runner
+GitHub Actions — le fuzzing HTTP a plus de variance qu'un lint/typecheck
+déterministe. Par prudence il tourne dans son propre workflow,
+`schemathesis.yml`, jamais bloquant et jamais sur PR (même tradeoff que
+`mutation-testing.yml`).
+
+**`KNOWN_FAILURES` est un cliquet nommé, pas un silence.** Contrairement au
+cliquet générique (`.github/quality-baseline.json`, un simple compte par
+outil), chaque entrée est un couple `endpoint: raison`, classée
+`[timeout]`/`[loose-req]`/`[resp-shape]`/`[validator]` — un lecteur peut voir
+*quel* endpoint a de la dette et pourquoi, sans relancer l'outil. Écrire ce
+fichier a trouvé et corrigé 3 bugs réels en route (voir `CODE_AUDIT.md` pour
+le détail) avant qu'ils ne rejoignent la liste des exceptions.
 
 ### Score de mutation (informationnel)
 

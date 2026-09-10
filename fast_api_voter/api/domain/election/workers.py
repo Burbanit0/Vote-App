@@ -244,10 +244,16 @@ def _campaign_sensitivity_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], 
     camp_cands   = camp.get("candidates", [])   # internal campaign candidate names
     daily_scores = camp.get("daily_scores", {})  # {camp_name: [pct_day0, …]}
 
-    # Resolve snapshot days (convert "final" → num_days)
+    # Resolve snapshot days (convert "final" → num_days). Clamped on BOTH
+    # ends: min() alone only caps the upper bound, so an out-of-range
+    # negative day (schema only constrains the type, not the value) stayed
+    # negative and reached `shares_list[min(day, ...)]` below as a raw
+    # negative index — for a large enough magnitude that overflows CPython's
+    # ssize_t, crashing with IndexError instead of wrapping or 400ing
+    # (found by Schemathesis, Lot 3).
     resolved: list[int] = []
     for d in raw_snaps:
-        resolved.append(num_days if d == "final" else min(int(d), num_days))
+        resolved.append(num_days if d == "final" else max(0, min(int(d), num_days)))
     snapshot_days = sorted(set(resolved))
 
     # ── Snapshot loop ─────────────────────────────────────────────────────

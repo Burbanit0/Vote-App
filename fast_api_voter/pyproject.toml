@@ -6,7 +6,14 @@ build-backend = "setuptools.backends._legacy:_Backend"
 minversion = "7.0"
 testpaths = ["api/tests"]
 asyncio_mode = "strict"
-addopts = "--cov=api --cov-report=term --cov-report=html --cov-fail-under=90 -v"
+# test_schema_contract.py (Lot 3, PLAN_SOLIDITE_TECHNIQUE.md) fuzzes the whole
+# API surface via Schemathesis — even clamped, a full pass takes ~10-15
+# minutes (95 operations x heavy simulation compute), which would triple the
+# normal ~3min test job. It has its own workflow (schemathesis.yml) and is run
+# there via `pytest api/tests/test_schema_contract.py -o addopts=""` — naming
+# the file explicitly bypasses this --ignore (it only affects directory
+# discovery, confirmed live), so that invocation still collects it.
+addopts = "--cov=api --cov-report=term --cov-report=html --cov-fail-under=90 -v --ignore=api/tests/test_schema_contract.py"
 
 [tool.coverage.run]
 source = ["api"]

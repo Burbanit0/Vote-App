@@ -13,9 +13,9 @@ when the routes themselves move to FastAPI.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .common import (
     BlankVoteConfig,
@@ -170,6 +170,24 @@ class AssemblyPartySpec(BaseModel):
     y:    float = Field(0.0, ge=-1.0, le=1.0)
 
 
+def _reject_duplicate_names(parties: List[AssemblyPartySpec]) -> List[AssemblyPartySpec]:
+    """Shared validator for the `parties` field of Assembly/Scorecard/Temporal
+    requests below. `workers_playground.py`'s seat allocation tallies votes
+    into a `{name: count}` dict keyed by party name — two parties sharing a
+    name silently collapse into one dict key (last write wins), discarding
+    the other's votes. In the worst case every real vote lands on the
+    discarded key, `votes` ends up all-zero, and `get_dhondt_winners`
+    crashes on `max()` of an empty dict (found by Schemathesis, Lot 3).
+    Rejecting the duplicate at the boundary is simpler and safer than making
+    every downstream dict keyed by name tolerate collisions."""
+    seen = set()
+    for p in parties:
+        if p.name in seen:
+            raise ValueError(f"Duplicate party name: {p.name!r}")
+        seen.add(p.name)
+    return parties
+
+
 class AssemblyRequest(BaseModel):
     """POST /api/v2/election/assembly — votes → seats under PR / FPTP / MMP.
 
@@ -198,6 +216,11 @@ class AssemblyRequest(BaseModel):
     electorate: Optional[ElectorateConfig] = Field(
         None, description="Composed electorate (community mixture); overrides `ideology` when mode='composed'."
     )
+
+    @field_validator("parties")
+    @classmethod
+    def _no_duplicate_parties(cls, v: List[AssemblyPartySpec]) -> List[AssemblyPartySpec]:
+        return _reject_duplicate_names(v)
 
 
 class AssemblyPartyResult(BaseModel):
@@ -290,6 +313,11 @@ class AssemblyScorecardRequest(BaseModel):
     )
     replications: int = Field(24, ge=8, le=40)
 
+    @field_validator("parties")
+    @classmethod
+    def _no_duplicate_parties(cls, v: List[AssemblyPartySpec]) -> List[AssemblyPartySpec]:
+        return _reject_duplicate_names(v)
+
 
 class AssemblyScorecardResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -326,6 +354,11 @@ class TemporalRequest(BaseModel):
                                    description="Party vote-seeking step per round.")
     loyalty_drift: float = Field(0.05, ge=0.0, le=0.2,
                                  description="Voter drift toward their party per round.")
+
+    @field_validator("parties")
+    @classmethod
+    def _no_duplicate_parties(cls, v: List[AssemblyPartySpec]) -> List[AssemblyPartySpec]:
+        return _reject_duplicate_names(v)
 
 
 class TemporalPartyState(BaseModel):
@@ -442,6 +475,11 @@ class StructuralFairnessRequest(BaseModel):
     electorate: Optional[ElectorateConfig] = Field(
         None, description="Composed electorate (community mixture); overrides `ideology` when mode='composed'."
     )
+
+    @field_validator("parties")
+    @classmethod
+    def _no_duplicate_parties(cls, v: List[AssemblyPartySpec]) -> List[AssemblyPartySpec]:
+        return _reject_duplicate_names(v)
 
 
 class MalapportionmentOut(BaseModel):
@@ -569,6 +607,12 @@ class CombinedEffectsResponse(BaseModel):
 
 # ── /campaign-sensitivity ───────────────────────────────────────────────────
 
+# Typed separately (not inline in the Field(default_factory=lambda: [...])
+# below): a bare list literal mixing int and str infers as list[object] to
+# mypy, which doesn't match List[Union[int, Literal["final"]]].
+_DEFAULT_SNAPSHOT_DAYS: List[Union[int, Literal["final"]]] = [0, 7, 14, 21, 28, "final"]
+
+
 class CampaignSensitivityRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -576,8 +620,11 @@ class CampaignSensitivityRequest(BaseModel):
     num_voters: int = Field(150, ge=10, le=200)
     ideology:   str = Field("random")
     seed:       int = Field(42, ge=0)
-    snapshot_days: List[Any] = Field(
-        default_factory=lambda: [0, 7, 14, 21, 28, "final"],
+    # List[Any] (matching only the docstring, not enforcing it) let through
+    # dicts/floats/null that crashed _campaign_sensitivity_worker's `int(d)`
+    # with a raw TypeError instead of a 422 (found by Schemathesis, Lot 3).
+    snapshot_days: List[Union[int, Literal["final"]]] = Field(
+        default_factory=lambda: list(_DEFAULT_SNAPSHOT_DAYS),
         description="Days at which to snapshot — strings ('final') and ints are both accepted.",
     )
 

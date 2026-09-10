@@ -68,6 +68,7 @@ from api.schemas import (
     DivergenceResponse,
     ElectoralFatigueRequest,
     ElectoralFatigueResponse,
+    ErrorDetail,
     GerrymanderRequest,
     GerrymanderResponse,
     HistoricalReplayRequest,
@@ -166,6 +167,13 @@ router = APIRouter(
     prefix="/api/v2/election",
     tags=["election"],
     dependencies=[Depends(check_v2_rate_limit)],
+    # 400: the shared `_run_worker` helper below lifts a domain worker's
+    # (body, status) tuple into an HTTPException when status != 200 — every
+    # route in this router can hit that path. 500: api/main.py's catch-all
+    # Exception handler uses the same {"detail": ...} shape for any uncaught
+    # error, on every route in the app. Both were reachable-but-undocumented
+    # until Schemathesis (Lot 3) flagged them as undocumented status codes.
+    responses={400: {"model": ErrorDetail}, 500: {"model": ErrorDetail}},
 )
 
 _ResponseT = TypeVar("_ResponseT", bound=BaseModel)
