@@ -55,7 +55,10 @@ from hypothesis import HealthCheck, Phase, settings
 from schemathesis.config import GenerationConfig, ProjectConfig, ProjectsConfig
 
 from api.core.ratelimit import limiter
+from api.engine.utils.logger import get_logger
 from api.main import fastapi_app
+
+log = get_logger(__name__)
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -228,7 +231,7 @@ def test_contract(case: schemathesis.Case) -> None:
         try:
             case.call()
         except Exception:
-            pass
+            log.info("schema_contract.known_failure_call_error", operation=label, exc_info=True)
         return
 
     case.call_and_validate()
