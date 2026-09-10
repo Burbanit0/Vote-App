@@ -76,4 +76,31 @@ test.describe('WCAG 2.1 AA — axe-core audit', () => {
     await expect(method).toHaveAttribute('aria-checked', 'true');
     await expect(page.locator('[data-testid="moment-method-panel"]')).toBeVisible();
   });
+
+  test('a candidate can be nudged with arrow keys on the leader map', async ({ page }) => {
+    await page.goto('/playground');
+    const candidate = page.locator('[data-testid="candidate-0"]');
+    const dot = candidate.locator('circle').first();
+    await candidate.focus();
+    await expect(candidate).toBeFocused();
+    const before = Number(await dot.getAttribute('cx'));
+    await candidate.press('ArrowRight');
+    await expect(async () => {
+      expect(Number(await dot.getAttribute('cx'))).toBeGreaterThan(before);
+    }).toPass();
+  });
+
+  test('a party can be nudged with arrow keys on the assembly map', async ({ page }) => {
+    await page.goto('/playground');
+    await page.locator('[data-testid="mode-toggle-parliament"]').click();
+    const party = page.locator('[data-testid="party-0"]');
+    const box = party.locator('rect').first();
+    await party.focus();
+    await expect(party).toBeFocused();
+    const before = Number(await box.getAttribute('x'));
+    await party.press('ArrowRight');
+    await expect(async () => {
+      expect(Number(await box.getAttribute('x'))).toBeGreaterThan(before);
+    }).toPass();
+  });
 });

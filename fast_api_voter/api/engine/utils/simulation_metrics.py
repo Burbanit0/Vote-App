@@ -12,6 +12,7 @@ from .simulation_ranked_utils import (
     get_irv_winner,
     get_coombs_winner,
     get_kemeny_young_winner,
+    kemeny_used_approximation,
     get_bucklin_winner,
     get_minimax_winner,
     get_schulze_winner,
@@ -345,7 +346,7 @@ def compare_all_methods(
         winner = fn(rankings)
         entry = _build_metrics_ranked(fn, winner)
         if name == "kemeny_young":
-            entry["kemeny_exact"] = not getattr(fn, "was_approx", False)
+            entry["kemeny_exact"] = not kemeny_used_approximation(rankings)
         methods_result[name] = entry
 
     for name, fn in score_methods.items():

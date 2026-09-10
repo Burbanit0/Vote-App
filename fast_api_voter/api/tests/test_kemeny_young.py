@@ -4,7 +4,9 @@ with the electorate's pairwise preferences; its first-place candidate wins.
 No dedicated test file existed before (PR #157's mutation-testing baseline
 found 21 surviving mutants here)."""
 
-from api.engine.utils.simulation_ranked_utils import get_kemeny_young_winner, get_condorcet_winner
+from api.engine.utils.simulation_ranked_utils import (
+    get_kemeny_young_winner, get_condorcet_winner, kemeny_used_approximation,
+)
 from api.engine.utils.simulation_metrics import compare_all_methods
 
 
@@ -34,8 +36,12 @@ def test_kemeny_young_uses_the_exact_path_under_the_candidate_cap():
         + [["B", "A", "C"]] * 3
         + [["C", "A", "B"]] * 2
     )
-    get_kemeny_young_winner(ballots)
-    assert get_kemeny_young_winner.was_approx is False
+    assert kemeny_used_approximation(ballots) is False
+
+
+def test_kemeny_young_uses_the_approximation_path_over_the_candidate_cap():
+    ballots = [list("ABCDEFG")] * 3 + [list("GFEDCBA")] * 2  # 7 candidates > cap
+    assert kemeny_used_approximation(ballots) is True
 
 
 def test_kemeny_young_single_and_empty():

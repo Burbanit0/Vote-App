@@ -26,6 +26,8 @@ import {
 import { useElection } from '../../stores/useElectionStore';
 import PinToCentralButton from './PinToCentralButton';
 import { $api } from '../../api/hooks';
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+
 const DEBOUNCE_MS = 400;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -254,7 +256,9 @@ const NOTAPanel: React.FC = () => {
                   }}
                 />
                 <YAxis domain={[0, 1]} tickFormatter={(v: number) => `${Math.round(v * 100)}%`} />
-                <Tooltip formatter={(v: number) => `${Math.round(v * 100)}%`} />
+                <Tooltip
+                  formatter={numericTooltipFormatter((v: number) => `${Math.round(v * 100)}%`)}
+                />
                 <Legend />
                 {/* 50% line */}
                 <ReferenceLine

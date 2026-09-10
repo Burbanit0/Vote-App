@@ -32,8 +32,8 @@ Trois choses à faire comprendre, dans cet ordre :
   curseur, et l'utilisateur constate qu'il vient de trancher.
 - **Abstention, pas vote blanc**, en v1 : l'abstention est le bulletin retiré du
   décompte — entièrement côté client. Le vote blanc (qui agit sur la légitimité, et peut
-  *gagner* sous la règle compétitive) est un volet ultérieur, et n'existe aujourd'hui que
-  côté backend.
+  *gagner* sous la règle compétitive) est un volet ultérieur : il existe côté client
+  depuis (`lib/blankVote.ts`, moment Stratégie du Playground) mais n'est pas intégré ici.
 
 ## Direction visuelle
 

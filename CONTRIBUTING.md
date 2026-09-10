@@ -68,11 +68,11 @@ git push origin feature/ma-feature
 |---|---|
 | Branch Policy | Branche source sans préfixe valide |
 | Frontend CI | Tests échouent, coverage sous les seuils, ou eslint rapporte une erreur |
-| Backend CI | Tests échouent, coverage < 90 %, mypy ou flake8 en erreur |
+| Backend CI | Tests échouent, coverage < 90 %, mypy, ruff, ou la couche `routes → domain → engine` en erreur |
 | npm audit | CVE haute détectée |
 | E2E (Playwright) | Un parcours utilisateur casse sur Chromium ou Firefox — **ou passe seulement au second essai** (voir « Tests E2E » plus bas) |
 | Generated Artifacts Contract | `openapi.gen.json` / `types.gen.ts` **ou** `engineParity.json` désynchronisés du code (voir `scripts/check_openapi_drift.sh` et `scripts/check_engine_parity_drift.sh`) |
-| Quality ratchet | La dette vulture/radon/knip/jscpd a augmenté (voir « Code mort » plus bas) |
+| Quality ratchet | La dette vulture/radon/deptry/knip/jscpd a augmenté (voir « Code mort » plus bas) |
 | Dependency Review | La PR introduit une dépendance vulnérable (sévérité high+) — complète Dependabot, qui ne scanne que l'existant, pas ce qu'une PR ajoute |
 
 ### 4. Release : develop → main
@@ -109,18 +109,23 @@ pre-commit install --hook-type pre-push
 bash scripts/setup-branch-protection.sh
 ```
 
-**Merge queue** : à activer manuellement (Settings → Branches → règle
-`develop` → "Require merge queue") — l'API classique de branch protection
-utilisée par le script ci-dessus n'expose pas ce réglage. Une fois activé,
-chaque PR en file est retestée contre l'état à jour de `develop` avant de
-vraiment merger (évite la classe de problème "verte mais `mergeable_state:
-behind`", vécue en direct sur la PR #188). `audit.yml` déclare déjà le
-trigger `merge_group:` nécessaire ; `branch-policy.yml` en est
-délibérément exclu (voir sa carte plus bas). Pendant la configuration,
-vérifiez dans l'écran du merge queue que seuls les checks qui déclarent
-`merge_group:` sont listés comme requis pour la file — un check requis qui
-ne le déclare pas peut bloquer la file indéfiniment (même risque que celui
-déjà documenté pour les checks scopés par `paths:`).
+**Merge queue** : [Mergify](https://mergify.com) (`.mergify.yml`), pas la
+merge queue native GitHub — celle-ci est réservée aux repos publics
+*organisation*, indisponible sur un repo à compte personnel comme celui-ci
+(confirmé en direct par un 422 sur l'API rulesets). Mergify est gratuit pour
+l'open source ; installer l'app GitHub sur le repo
+(github.com/apps/mergify/installations/new) suffit — elle détecte
+automatiquement les `required_status_checks` de la branch protection
+ci-dessus et les injecte comme conditions de merge, aucune duplication dans
+`.mergify.yml`. Chaque PR dont les checks passent est mise en file et
+mergée automatiquement (`auto_merge_conditions: true`), retestée contre
+l'état à jour de `develop` avant de vraiment merger (évite la classe de
+problème "verte mais `mergeable_state: behind`", vécue en direct sur la PR
+#188). Une fois Mergify vérifié en marche, désactiver *"Require branches to
+be up to date before merging"* (`strict`) sur la branch protection —
+Mergify le documente lui-même comme incompatible avec ses checks
+parallèles, et re-teste de toute façon contre la dernière version avant de
+merger.
 
 ---
 
@@ -128,7 +133,7 @@ déjà documenté pour les checks scopés par `paths:`).
 
 | Quand | Vérification | Bloque |
 |---|---|---|
-| `git commit` | detect-secrets, bandit, flake8, eslint, npm audit | Oui |
+| `git commit` | detect-secrets, bandit, ruff, eslint, npm audit | Oui |
 | `git push` | Tests + coverage (front + back) | Oui |
 | PR ouverte | Branch Policy, CI complète, build | Oui |
 
@@ -142,33 +147,53 @@ ou un gate, mettez cette table à jour dans la même PR.
 
 | Workflow | Déclencheur | Gate quand il tourne ? | Check requis (branch protection `develop`) ? | Durée typique |
 |---|---|---|---|---|
-| `backend-ci-cd-pipeline.yml` (Backend CI) | push/PR sur `develop`/`main`, paths `fast_api_voter/**` | Oui | Non | ~12-14 min |
-| `frontend-ci-cd-pipeline.yml` (Frontend CI) | push/PR sur `develop`/`main`, paths `voter-app/**` | Oui | Non | ~2-3 min |
-| `e2e.yml` (E2E Tests) | push/PR, paths `voter-app/**` + `fast_api_voter/**` | Oui | Non | ~5-7 min (peut aller jusqu'au timeout de 25 min si une régression casse plusieurs specs en cascade) |
-| `branch-policy.yml` (Branch Policy) | PR | Oui | Oui | ~10-30 s |
-| `merge-to-main.yml` (Check Merge Source) | `pull_request_target` vers `main` (opened/reopened/synchronize/edited) | Oui — bloque toute PR vers `main` dont la source n'est pas `develop` | N/A (protège `main`, pas `develop`) | ~10 s |
-| `openapi-contract.yml` (Generated Artifacts Contract) | push/PR, paths schémas/fixtures/générateurs | Oui | Non | ~1 min |
-| `dependency-review.yml` (Dependency Review) | PR sur `develop`/`main` | Oui — sévérité `high`+ introduite par la PR | Non (pas encore ajouté à `scripts/setup-branch-protection.sh`) | ~15-30 s |
-| `audit.yml` (Security Audit) | push/PR + cron lundi 06:00 UTC + `merge_group` | Semgrep/Trivy/Secret Scan : oui · CodeQL : non · code mort/duplication/complexité (vulture/radon/knip/jscpd) : non-bloquant sauf régression du cliquet (`quality-baseline.json`) | Oui (les 4 jobs gating) | ~2-3 min (le run cron est indépendant d'une PR) |
-| `mutation-testing.yml` (Mutation Testing) | push sur `develop` (paths engine uniquement) + `workflow_dispatch` + cron lundi 04:17 UTC | Non — jamais bloquant | Non — ne se déclenche jamais sur PR | mutmut ~40 min-3h · Stryker jusqu'à ~2h30 (`timeout-minutes: 240`) |
+| `backend-ci-cd-pipeline.yml` (Backend CI) | push/PR sur `develop`/`main`, toujours (le filtre `paths` vit maintenant dans un job `changes` interne, pas au niveau du déclencheur) | Oui, quand `fast_api_voter/**` a changé — sinon le job `test` est `skipped` | Oui | ~12-14 min (skip quasi instantané sinon) |
+| `frontend-ci-cd-pipeline.yml` (Frontend CI) | push/PR sur `develop`/`main`, toujours (même schéma `changes`) | Oui, quand `voter-app/**` a changé — sinon `skipped` | Oui | ~2-3 min (skip quasi instantané sinon) |
+| `e2e.yml` (E2E Tests) | push/PR + `workflow_dispatch` + `workflow_call` (depuis `release.yml`), toujours (même schéma `changes` ; dispatch/call ignorent le filtre) | Oui, quand `voter-app/**`/`fast_api_voter/**` a changé, ou toujours pour dispatch/call — sinon `skipped` | Oui | ~5-7 min (peut aller jusqu'au timeout de 25 min si une régression casse plusieurs specs en cascade) |
+| `branch-policy.yml` (Branch Policy) | PR | Oui, y compris le format du titre (Conventional Commits — plus un simple avertissement) et la source pour les PR vers `main` (`Check source is develop`) | Oui | ~10-30 s |
+| `openapi-contract.yml` (Generated Artifacts Contract) | push/PR, toujours (même schéma `changes`) | Oui, quand un fichier du contrat a changé — sinon `skipped` | Oui | ~1 min (skip quasi instantané sinon) |
+| `dependency-review.yml` (Dependency Review) | PR sur `develop`/`main` | Oui — sévérité `high`+ introduite par la PR | Oui | ~15-30 s |
+| `audit.yml` (Security Audit) | push/PR + cron lundi 06:00 UTC + `merge_group` | Semgrep/Trivy/Secret Scan : oui · CodeQL : le job doit terminer mais ne bloque pas sur ses trouvailles (elles atterrissent dans l'onglet Security) · code mort/duplication/complexité (vulture/radon/deptry/knip/jscpd) : non-bloquant sauf régression du cliquet (`quality-baseline.json`) · scan d'image Docker + SBOM (`image-scan`) : non-bloquant, et ne tourne que sur push `develop`/cron — jamais sur une PR (build de 2 images, coûte plusieurs minutes) | Oui (les 4 jobs gating + les 2 jobs CodeQL du matrix — `image-scan` n'est pas requis) | ~2-3 min sur PR (le run cron/push `develop`, qui inclut `image-scan`, est plus long et indépendant d'une PR) |
+| `mutation-testing.yml` (Mutation Testing) | push sur `develop` (paths engine uniquement) + `workflow_dispatch` + cron lundi 04:17 UTC | Non — jamais bloquant | Non — ne se déclenche jamais sur PR | mutmut ~40 min-3h · Stryker jusqu'à ~2h30 en cold-cache (`timeout-minutes: 240`), moins avec le cache `--incremental` une fois chaud |
+| `schemathesis.yml` (Schemathesis Contract Fuzzing) | push sur `develop` (paths `fast_api_voter/api/**`) + `workflow_dispatch` + cron lundi 05:38 UTC | Non — jamais bloquant | Non — ne se déclenche jamais sur PR | ~220s (~3.5-4 min) en local, non re-mesuré sur un runner GitHub réel (`timeout-minutes: 45` par prudence) |
 | `release.yml` (🚀 Release Vote Lab) | `workflow_dispatch` uniquement | N/A — pas de PR, gate lui-même sur CI+E2E avant de taguer `main` | N/A | dépend de `ci-frontend`/`ci-backend`/`e2e` + publication |
 | `scorecard.yml` (OpenSSF Scorecard) | push `develop` + cron mardi 07:30 UTC + changement de règle de protection + `workflow_dispatch` | Non — score publié dans l'onglet Security, jamais bloquant | Non | ~1-2 min |
 
-**Pourquoi Backend/Frontend CI, E2E et OpenAPI Contract ne sont pas des checks
-requis malgré `strict: true`** : tous les quatre sont scopés par `paths:`. Une
-PR qui n'y touche pas (docs, config CI, ce fichier) ne les déclenche jamais —
-et un check requis qui ne se déclenche jamais bloque la PR indéfiniment.
-Confirmé en direct : la PR #205 (un fix de `branch-policy.yml` +
-`CONTRIBUTING.md`) s'est retrouvée bloquée exactement comme ça. Ils gatent
-normalement dès qu'ils tournent ; ils ne sont simplement pas dans la liste de
-`scripts/setup-branch-protection.sh`. Si vous élargissez leurs `paths:` (ou
-les retirez), reconsidérez de les remettre dans la liste des checks requis.
+**`merge-to-main.yml` (Check Merge Source) a été supprimé** : son unique
+vérification ("seule `develop` peut merger dans `main`") faisait double emploi
+avec l'étape `Check source is develop (PRs to main)` de `branch-policy.yml`
+ci-dessus — mais sous `pull_request_target` plutôt que le `pull_request` plus
+sûr utilisé par `branch-policy.yml`, sans bloc `permissions:`. Son job
+(`check-branch`) n'était pas dans la liste des checks requis de `develop`, et
+`main` elle-même n'a pas de protection de branche configurée — suppression
+sans impact sur `scripts/setup-branch-protection.sh`.
 
-`schedule`/`workflow_dispatch` (utilisés par `mutation-testing.yml` et
-`audit.yml`) sont résolus par GitHub contre la **branche par défaut du
-dépôt**, pas contre une branche en particulier — un workflow qui n'existe que
-sur une branche non-défaut ne se déclenche jamais sur ces deux triggers, même
-s'il est mergé et présent dans le fichier.
+**Comment Backend/Frontend CI, E2E et OpenAPI Contract sont devenus des checks
+requis malgré leur portée `paths`** : les quatre étaient auparavant scopés par
+un `paths:` au niveau du déclencheur (`on.push`/`on.pull_request`). Une PR qui
+n'y touchait pas (docs, config CI, ce fichier) ne les déclenchait jamais — et
+un check requis qui ne se déclenche jamais bloque la PR indéfiniment. Confirmé
+en direct : la PR #205 (un fix de `branch-policy.yml` + `CONTRIBUTING.md`)
+s'est retrouvée bloquée exactement comme ça, ce qui les avait fait exclure de
+`scripts/setup-branch-protection.sh` à l'époque. Le vrai correctif : le filtre
+`paths:` vit maintenant dans un job `changes` (via `dorny/paths-filter`) à
+l'intérieur de chaque workflow, pas au niveau du déclencheur — le workflow se
+déclenche donc toujours (le check-run existe toujours), et c'est le job réel
+qui devient `skipped` quand rien de pertinent n'a changé. GitHub traite un
+check requis `skipped` comme un succès, donc la PR n'est plus jamais bloquée
+indéfiniment. **Piège à éviter** : si vous réintroduisez un `paths:` au niveau
+`on.push`/`on.pull_request` sur l'un de ces quatre fichiers, retirez-le
+d'abord de `REQUIRED_CONTEXTS` dans `scripts/setup-branch-protection.sh` — sinon
+c'est exactement le bug de la PR #205 qui revient.
+
+`schedule`/`workflow_dispatch` (utilisés par `mutation-testing.yml`,
+`schemathesis.yml` et `audit.yml`) sont résolus par GitHub contre la **branche
+par défaut du dépôt**, pas contre une branche en particulier — un workflow
+qui n'existe que sur une branche non-défaut ne se déclenche jamais sur ces
+deux triggers, même s'il est mergé et présent dans le fichier. Pour
+`schemathesis.yml`, c'est `push: develop` (scopé à `fast_api_voter/api/**`)
+qui fait réellement tourner le job aujourd'hui — le cron/dispatch ne
+deviendront actifs qu'après un `develop → main`.
 
 ---
 
@@ -188,13 +213,15 @@ Types valides : `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `ci`, `secur
 
 | Métrique | Seuil | Fichier |
 |---|---|---|
-| Coverage frontend | lines 85 % · statements 80 % · functions 75 % · branches 70 % | `voter-app/vitest.config.ts` (`test.coverage.thresholds`) |
-| Coverage backend | 85 % | `fast_api_voter/pyproject.toml` (`--cov-fail-under`) |
+| Coverage frontend | lines 86 % · statements 84 % · functions 75 % · branches 74 % | `voter-app/vitest.config.ts` (`test.coverage.thresholds`) |
+| Coverage backend | 90 % | `fast_api_voter/pyproject.toml` (`--cov-fail-under`) |
 | eslint | 0 **erreur** (les warnings passent) | `voter-app/eslint.config.js` |
-| flake8 | 0 sur `E9,F` (erreurs de syntaxe et de nom) | `backend-ci-cd-pipeline.yml` |
+| ruff | 0 sur `F` (pyflakes — erreurs de nom, imports morts…) | `fast_api_voter/pyproject.toml` |
 | mypy | strict, 0 erreur sur `api/` | `fast_api_voter/mypy.ini` |
+| Couches `routes → domain → engine` | bloquant, 0 import remontant | `fast_api_voter/pyproject.toml` (`[tool.importlinter]`) |
+| `src/lib` pur (pas de dépendance vers `components`/`pages`) | bloquant, 0 violation | `voter-app/.dependency-cruiser.json` |
 | Tests e2e instables | 0 — un test qui ne passe qu'au *retry* fait échouer la PR | `voter-app/scripts/check-flaky.mjs` |
-| Dette qualité (vulture/radon/knip/jscpd) | ne doit jamais augmenter | `.github/quality-baseline.json` |
+| Dette qualité (vulture/radon/deptry/knip/jscpd) | ne doit jamais augmenter | `.github/quality-baseline.json` |
 | npm audit severity | high | `npm audit --audit-level=high` |
 | Bandit severity | medium+ | `-ll` dans args bandit |
 
@@ -252,8 +279,19 @@ lieux) :
 |---|---|---|
 | `vulture` | Code mort backend (fonctions, variables, imports jamais utilisés) | `cd fast_api_voter && python -m vulture api/ .vulture_whitelist.py --config pyproject.toml` |
 | `radon`/`xenon` | Complexité cyclomatique backend (fonctions trop ramifiées) | `cd fast_api_voter && python -m radon cc api/ -e "api/tests/*" -n C -s` |
+| `deptry` | Dépendances Python déclarées-mais-inutilisées / utilisées-mais-non-déclarées | `cd fast_api_voter && python -m deptry .` (config dans `pyproject.toml`'s `[tool.deptry]`) |
 | `knip` | Fichiers/exports/dépendances inutilisés côté frontend | `cd voter-app && npm run knip` |
+| `madge` | Imports circulaires côté frontend + visualisation du graphe | `cd voter-app && npm run madge:circular` (graphe image : `npx madge --image graph.svg --extensions ts,tsx src`, nécessite `graphviz`) |
 | `jscpd` | Duplication de code cross-langage (Python + TS) | `npx jscpd --config .jscpd.json fast_api_voter/api voter-app/src` |
+
+`dependency-cruiser` n'est **pas** dans ce tableau : contrairement aux outils
+ci-dessus (dette non-bloquante suivie par le cliquet), c'est un vrai gate —
+voir le tableau « Seuils qualité » plus haut et `voter-app/.dependency-
+cruiser.json`. Équivalent frontend d'`import-linter` : `src/lib` (libs pures,
+voir CLAUDE.md — section Playground) ne doit jamais importer depuis
+`src/components` ou `src/pages`. Épinglé en `17.4.3` (pas la dernière
+majeure) : `18.x` exige Node `^22||^24||>=26`, ce repo (CI et dev local) est
+encore sur Node 20. `npm run depcruise` en local.
 
 Tous tournent aussi dans `scripts/audit.sh` (mode `--quality` ou complet)
 et dans le job CI *Code Quality* de `audit.yml`.
@@ -277,9 +315,61 @@ résultat de merge de la PR : une branche coupée avant le merge de quelqu'un
 d'autre produit des comptes que la CI ne reproduira pas.
 
 Un faux positif se réduit au silence à la source (`.vulture_whitelist.py`,
+`fast_api_voter/pyproject.toml`'s `[tool.deptry.per_rule_ignores]`,
 `voter-app/knip.json`, `.jscpd.json`), pas en remontant la baseline. Un script
 lancé par la CI mais importé par personne — `voter-app/scripts/check-flaky.mjs`
 en est un — est un faux positif knip : il s'ajoute à `ignore`.
+
+### Règles Semgrep custom (Lot 2)
+
+`.semgrep/vote-app-rules.yml` — les jeux de règles génériques de Semgrep
+(`p/python`, `p/security-audit`, …) ne connaissent pas les conventions
+propres à ce repo. Deux règles maison, **bloquantes**, tournent dans la même
+étape gating que le reste de Semgrep (`audit.yml`) :
+
+- `v2-router-missing-rate-limit` — tout `APIRouter(prefix="/api/v2/...")` doit
+  porter `dependencies=[Depends(check_v2_rate_limit)]` (sauf `/api/v2/health`,
+  une sonde de vivacité). Trouvé et corrigé en écrivant la règle : `tech.py`,
+  `theory.py`, `export.py` n'avaient aucune limite de débit.
+- `except-exception-without-log` — un `except Exception` sans appel `log.*`
+  dans le bloc est un bug avalé en silence. Scope limité à
+  `fast_api_voter/api/` (pas tout le repo — voir le commentaire dans le
+  fichier de règles). Trouvé et corrigé : 18 sites muets sur 9 fichiers.
+
+Une troisième règle prévue au plan initial (« aucun worker n'importe
+`api.routes` ») n'a pas été dupliquée ici : `import-linter` (voir plus haut)
+l'applique déjà via une vraie analyse du graphe d'imports, plus précise
+qu'un pattern-match.
+
+### Fuzzing du contrat API (Schemathesis, Lot 3)
+
+`openapi.gen.json` a un gate de drift (`openapi-contract.yml`) contre ce que
+FastAPI *déclare*, mais rien ne vérifiait que l'implémentation tient
+réellement cette promesse. `api/tests/test_schema_contract.py` génère des
+requêtes valides pour chacune des 95 opérations et vérifie que la réponse
+correspond aux codes/schémas documentés :
+
+```bash
+cd fast_api_voter && python -m pytest api/tests/test_schema_contract.py -v -o addopts=""
+```
+
+`-o addopts=""` est nécessaire : par défaut ce fichier est exclu de
+`pytest api/tests` (voir `pyproject.toml`). Un run complet mesure ~220s (~3.5-4 min) en
+local (mode de génération POSITIVE uniquement, entiers lourds plafonnés à
+100, pas de phase de shrink — voir le docstring du fichier pour le détail de
+chaque choix), mais ce chiffre n'a pas été revérifié sur un vrai runner
+GitHub Actions — le fuzzing HTTP a plus de variance qu'un lint/typecheck
+déterministe. Par prudence il tourne dans son propre workflow,
+`schemathesis.yml`, jamais bloquant et jamais sur PR (même tradeoff que
+`mutation-testing.yml`).
+
+**`KNOWN_FAILURES` est un cliquet nommé, pas un silence.** Contrairement au
+cliquet générique (`.github/quality-baseline.json`, un simple compte par
+outil), chaque entrée est un couple `endpoint: raison`, classée
+`[timeout]`/`[loose-req]`/`[resp-shape]`/`[validator]` — un lecteur peut voir
+*quel* endpoint a de la dette et pourquoi, sans relancer l'outil. Écrire ce
+fichier a trouvé et corrigé 3 bugs réels en route (voir `CODE_AUDIT.md` pour
+le détail) avant qu'ils ne rejoignent la liste des exceptions.
 
 ### Score de mutation (informationnel)
 
@@ -317,7 +407,7 @@ de mutation ne peut bouger que si le code muté bouge.
   `# noqa: BLE001` dans `api/sockets/__init__.py` comme modèle).
 - Avant une PR volumineuse générée avec assistance LLM, lancer
   `./scripts/audit.sh --quality` et relire au moins les sections vulture /
-  radon / knip / jscpd du résumé.
+  radon / deptry / knip / jscpd du résumé.
 
 ---
 

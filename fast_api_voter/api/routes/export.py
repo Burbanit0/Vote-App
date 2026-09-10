@@ -18,18 +18,28 @@ import asyncio
 import csv
 import io
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
+from api.core.ratelimit import check_v2_rate_limit
 from api.domain.export import _generate_rows, CSV_COLUMNS   # noqa: F401
 from api.schemas import (
+    ErrorDetail,
     ExportDatasetJSON,
     ExportDatasetMeta,
     ExportDatasetRequest,
 )
 
 
-router = APIRouter(prefix="/api/v2/export", tags=["export"])
+router = APIRouter(
+    prefix="/api/v2/export",
+    tags=["export"],
+    dependencies=[Depends(check_v2_rate_limit)],
+    # Unlike election/simulations/tech/theory/public, this router's own code
+    # never returns a domain (body, 400) tuple — only 500 is reachable here,
+    # via api/main.py's catch-all Exception handler (same for every route).
+    responses={500: {"model": ErrorDetail}},
+)
 
 
 @router.post(

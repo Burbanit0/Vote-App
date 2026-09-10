@@ -9,6 +9,172 @@
 
 ---
 
+## 2026-09-06 — Revue de code full-stack en 14 PR, cascade de 13 PR Dependabot, et passe de correction de la documentation
+
+**Contexte du jour.** Suite de la consolidation du 04/09 (worktree Polity prêt,
+mais rien avancé dessus depuis). Objectif du jour : une revue de code complète
+de `develop` hors périmètre Polity (Polity ne se repère pas par le chemin des
+fichiers mais par leur contenu — plusieurs fichiers comme
+`fast_api_voter/scripts/*.md` ou `docs/adr/*` vivent sur `develop` sans que
+« polity » apparaisse dans leur chemin, et ont donc été exclus de cette passe).
+Un préalable, distinct de cette revue : `#272` avait basculé le backend de
+Python 3.11 à 3.14 le 05/09 au matin, débloquant une PR Dependabot scipy
+bloquée — ce changement s'avérera pertinent plus tard dans la journée.
+
+**Ce qui a avancé**
+- **Revue full-stack → 14 PR `feat/*`, toutes mergées sur `develop`** (#279,
+  #281, #282, #284, #286, #287, #288, #290, #291, #293, #294, #297, #311,
+  #312), couvrant frontend, backend, CI/CD et sécurité :
+  - Bornage des schémas `BandwagonRequest`/`MonteCarloRequest`/
+    `RealElectionRequest`, jusque-là sans limite sur `num_voters`/`num_rounds`/
+    `num_runs` — un risque de DoS sur des endpoints non authentifiés partageant
+    un pool de threads (#279).
+  - Logging structuré ajouté aux 21 sites de `except Exception` du moteur de
+    simulation (zéro appel `log.*` sous `api/domain/` avant), plus un handler
+    d'exception global en filet (#281).
+  - Rate-limiting de `/api/v2/simulations` et `/api/v2/election` — jusque-là
+    sans aucune limite alors que `/api/v1` en avait une. Valeur initiale
+    30/min, corrigée à 120/min **dans la même PR** après 2 échecs sur 3 runs
+    CI de `playground-strategy.spec.ts` : `profile-simulate` est un appel
+    debouncé déclenché à chaque changement de config dans le Playground, pas
+    une action explicite, et deux navigateurs Playwright × 25 tests e2e
+    dépassaient largement 30/min en usage normal (#284, commits `614238f` puis
+    `b30286f`).
+  - Bug de thread-safety sur `get_kemeny_young_winner` : le flag
+    `was_approx` était stocké sur l'objet fonction sous un commentaire le
+    disant thread-local, alors que chaque appel passe par
+    `asyncio.to_thread` — extrait en helper pur `kemeny_used_approximation`.
+    CORS Socket.IO câblé sur le même `CORS_ORIGINS` que le middleware HTTP, à
+    la place d'un `"*"` en dur laissé par un commentaire « à resserrer plus
+    tard » jamais suivi d'effet (#282).
+  - Suppression de l'arbre mort `voter-app/src/components/Simulation/` :
+    16 758 lignes supprimées (confirmé via un script de graphe d'imports
+    tracé depuis `src/index.tsx`, pas un simple grep — deux erreurs évitées de
+    justesse : trois composants réellement importés par le Laboratoire, et un
+    mock global câblé par alias Vitest, invisible pour `tsc`) (#286).
+  - Dépendance `react-router-dom` supprimée — le seul import restant
+    (`MemoryRouter` dans `Navbar.test.tsx`) est aussi exporté par
+    `react-router` v8, déjà le routeur réel de l'app (#287).
+  - Erreurs API typées (`ApiError` avec statut + corps préservés sur
+    `apiPost`/`apiGet`/`apiDelete`) (#288). Mémoïsation du contexte
+    `PlaygroundController` (#290).
+  - Navigation clavier ajoutée aux cartes SVG (`LeaderCanvas`,
+    `ParliamentCanvas`) — a fait remonter un vrai bug a11y au passage : les
+    deux `<svg>` portaient `role="img"` (contenu déclaré non interactif) tout
+    en devenant focusables, détecté par la règle `nested-interactive`
+    d'axe-core ; corrigé en `role="group"` (#291).
+  - Backfill de tests sur `services/{assembly,issues,profile,structural}Api.ts`
+    (0 % de couverture avant — exactement la frontière client/serveur que la
+    garantie de parité moteur du `CLAUDE.md` suppose surveillée) et sur les
+    panneaux Playground les plus faibles (`ReplayStage.tsx` 15→100 %,
+    `NonSpatialProfileMap.tsx` 29→100 %, `MethodsMatrix.tsx` 25→100 %) (#293).
+  - Côté CI/CD : suppression du workflow redondant `merge-to-main.yml`
+    (doublon de `branch-policy.yml`, vérifié non requis et `main` sans
+    protection de branche configurée), re-pin de `trivy-action` sur un tag de
+    release plutôt qu'un SHA de branche mouvante, ajout de l'écosystème
+    `docker` à Dependabot pour les 3 Dockerfiles du repo (#294) ;
+    `permissions: contents: read` et `timeout-minutes` ajoutés partout où ils
+    manquaient sur les 10 workflows (#297) ; job `image-scan` + génération de
+    SBOM (SPDX, via `anchore/sbom-action`) ajouté sur les images Docker
+    construites, jusque-là jamais scannées en tant qu'images (#312).
+- **Découverte en construisant réellement les images Docker (#312)** : les
+  deux Dockerfiles backend (`fast_api_voter/Dockerfile.prod`, `ci-local/` non
+  concerné) étaient restés silencieusement sur `python:3.11-slim` depuis la
+  migration `#272` — cassés parce que `scipy==1.18.1` (bumpé le même jour)
+  exige Python ≥ 3.12. `docker build` échouait net. Corrigé vers
+  `python:3.14-slim-bookworm`, build + `curl /api/v2/health` vérifiés
+  réellement, pas seulement en lisant le Dockerfile.
+- **Cascade de 13 PR Dependabot mergées** (#295, #296, #299–#309), apparues
+  automatiquement une fois l'écosystème `docker` ajouté à Dependabot dans
+  #294. La protection de branche (« doit être à jour avec `develop` »)
+  invalidait chaque PR restante à chaque merge, imposant une boucle
+  update-branch → attente CI → merge répétée plutôt qu'un lot en une passe.
+  Contrairement à la session du 04/09, l'agent a exécuté directement tous ces
+  merges (`gh pr merge`) sans blocage — le classifieur de sécurité qui avait
+  forcé l'utilisateur à fusionner lui-même `#255`/`#252`/`#254` ce jour-là ne
+  s'est pas manifesté ici.
+- **Vérification de clôture** : `ci-local/run-ci.sh all` exécuté contre
+  `develop` à jour avant la passe documentation, tous les gates verts —
+  Backend CI, Frontend CI, Playwright E2E, Security Audit (1789 tests
+  backend, 91 % de couverture, 0 vulnérabilité Trivy, 0 secret Gitleaks),
+  documenté directement dans le corps de PR #313.
+- **Passe de correction de la documentation, PR #313, mergée** (16 fichiers,
+  523 insertions / 335 suppressions) — 4 sous-agents en parallèle, chacun
+  vérifiant contre le code réel plutôt que contre les affirmations existantes
+  des docs. Corrections notables : `voter-app/README.md` était resté
+  intégralement le boilerplate Create-React-App par défaut sur un projet migré
+  vers Vite de longue date ; `SECURITY.md` décrivait une authentification JWT
+  et des identifiants Postgres qui n'existent pas dans l'app ; `CLAUDE.md`
+  annonçait 17 méthodes en parité moteur au lieu des 26 réelles ;
+  `docs/research/traceability.md` marquait 8 méthodes comme « prévues » alors
+  qu'elles sont déjà implémentées (démocratie liquide, tirage au sort, sondage
+  délibératif, chaos de Plott, etc.) ; `ci-local/README.md` décrivait des
+  étapes de CI comme non-bloquantes alors qu'elles bloquent réellement.
+  `CODE_AUDIT.md` et le plan d'amélioration CI/CD ont été re-datés avec les
+  chiffres du jour (recalcul vulture/knip/jscpd/radon) plutôt que réécrits,
+  pour rester une trace historique utile de ce qui a été corrigé depuis.
+
+**Points bloquants**
+- Le classifieur de sécurité qui bloquait `gh pr merge` pour l'agent le 04/09
+  ne s'est pas déclenché aujourd'hui — tous les merges de la session (14 PR de
+  revue, 13 PR Dependabot, PR doc) ont été exécutés directement par l'agent.
+  À confirmer si c'est un changement durable de configuration ou une
+  variation ponctuelle.
+- Deux échecs CI apparents pendant la cascade Dependabot (Dependency Review
+  « fetch failed », Playwright E2E) se sont révélés être des faux positifs sur
+  des commits déjà rendus obsolètes par le cycle d'update-branch suivant — pas
+  un vrai problème, mais un bruit qui a ralenti la boucle de merge et qu'il a
+  fallu diagnostiquer à chaque occurrence plutôt que réflexivement ignorer.
+- Deux vrais bugs (rate-limit à 30/min cassant l'usage normal du Playground,
+  Dockerfiles muets sur Python 3.11) n'ont été découverts qu'en exécutant
+  réellement le code concerné (CI e2e, `docker build`) — aucun des deux
+  n'était visible à la seule lecture du diff. Reste un signal à prendre au
+  sérieux : la revue statique seule ne suffit pas sur ce genre de changement.
+
+**Décisions prises**
+- Exécuter la revue de code en 14 PR séquentielles plutôt qu'un gros commit —
+  *pourquoi* : chaque correction est indépendamment vérifiable (tests, mypy,
+  lint) et review-able, cohérent avec le workflow `feat/*` déjà mandaté par
+  `CLAUDE.md`.
+- Corriger le rate-limit `/api/v2/*` à 120/min plutôt que garder 30/min ou
+  désactiver la limite — *pourquoi* : 120/min borne toujours un abus réel
+  (un attaquant envoyant des centaines de requêtes/s ne voit pas la
+  différence entre 30 et 120) tout en laissant l'usage interactif normal du
+  Playground respirer.
+- Rendre le job `image-scan` non-bloquant pour l'instant et scopé à
+  `schedule` + `push: develop` (jamais sur PR) — *pourquoi* : un premier run
+  ferait remonter des CVE de base d'image essentiellement à la charge de
+  l'amont, pas quelque chose qu'une seule PR peut corriger, et bloquer
+  immédiatement gèlerait `develop` indéfiniment (même logique déjà appliquée
+  au job `trivy` sur système de fichiers).
+- Re-dater `CODE_AUDIT.md` et le plan d'amélioration CI/CD plutôt que les
+  réécrire — *pourquoi* : ce sont des documents d'audit ponctuels, les garder
+  comme trace historique de ce qui a été corrigé depuis leur reste plus utile
+  qu'un lissage qui effacerait l'historique du diagnostic initial.
+- Exclure les fichiers Polity de la passe documentation par leur contenu et
+  non leur chemin — *pourquoi* : plusieurs fichiers Polity (`fast_api_voter/
+  scripts/*.md`, `docs/adr/*`) vivent sur `develop` sans que « polity »
+  apparaisse dans leur chemin ; un filtrage par chemin les aurait traités par
+  erreur.
+
+**Prochaines étapes**
+- [ ] Pas de tâche précise en attente à ce stade — la session s'est terminée
+      sur la passe de documentation (PR #313), en attente de la prochaine
+      demande de l'utilisateur.
+- [ ] Reprendre le projet Polity depuis le worktree `~/Vote-App-polity` reste
+      ouvert depuis le 04/09 — toujours rien avancé dessus.
+- [ ] Surveiller le premier run réel du job `image-scan` (#312) sur `push:
+      develop` — non gating pour l'instant, mais à regarder pour d'éventuelles
+      CVE de base d'image à traiter.
+
+**Pour aller plus loin** : PR #279, #281, #282, #284, #286, #287, #288, #290,
+#291, #293, #294, #297, #311, #312 (revue de code), #295–#309 (cascade
+Dependabot), #313 (documentation) ; commits `614238f`/`b30286f` (rate-limit) ;
+`CODE_AUDIT.md` (re-daté 2026-09-06) ; `CLAUDE.md` (parité moteur corrigée à
+26 méthodes) ; `docs/research/traceability.md`.
+
+---
+
 ## 2026-09-04 — Consolidation post-migration Ubuntu : trois PR de docs/outillage triées et fusionnées, projet Polity prêt à être repris (mais rien avancé dessus)
 
 **Contexte du jour.** Reprise du projet après la migration Windows/WSL2 → Ubuntu

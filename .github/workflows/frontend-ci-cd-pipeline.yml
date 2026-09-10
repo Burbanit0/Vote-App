@@ -1,39 +1,87 @@
 name: Frontend CI
 
+# No top-level `paths:` filter (moved to the `changes` job below, on purpose):
+# this workflow is a required status check, and a required check scoped by
+# `paths:` at trigger level never even creates a check run on a PR that
+# doesn't touch those paths — which blocks that PR's merge FOREVER (a required
+# check that never reports can't be satisfied). That's exactly what happened
+# to PR #205 (a docs/CI-only change) before this workflow was added to
+# required checks. The workflow now always triggers; the real job is skipped
+# instead, which GitHub treats as a passing required check.
 on:
   push:
     branches: [develop, main]
-    paths:
-      - 'voter-app/**'
-      # …and the pipeline definition itself: editing it must run it.
-      - '.github/workflows/frontend-ci-cd-pipeline.yml'
   pull_request:
     branches: [develop, main]
-    paths:
-      - 'voter-app/**'
-      # …and the pipeline definition itself: editing it must run it.
-      - '.github/workflows/frontend-ci-cd-pipeline.yml'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
+  changes:
+    name: Detect frontend changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'voter-app/**'
+              - '.github/workflows/frontend-ci-cd-pipeline.yml'
+
   test:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     # Prefixed to disambiguate from Backend CI's identically-named job: GitHub
     # matches required status checks on this literal name, and two check-runs
     # sharing one name are indistinguishable to branch protection.
     name: "Frontend: Tests + Coverage + Security"
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
+      # fetch-depth: 0 (full history) — needed by the diff-cover step below,
+      # which diffs against the PR's base branch.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          fetch-depth: 0
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      # diff-cover compares HEAD against this local branch (see below); a
+      # plain `origin/<base_ref>` isn't guaranteed to exist as a
+      # remote-tracking ref after actions/checkout's own fetch.
+      - name: Fetch base branch (for diff-cover)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: git fetch origin "$BASE_REF:$BASE_REF"
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: voter-app/package-lock.json
+
+      # Python only exists in this job for diff-cover below (Lot 1,
+      # PLAN_SOLIDITE_TECHNIQUE.md) — no other step here needs it. Paired with
+      # setup-uv the same way the backend workflows are: `uv pip install
+      # --system` needs a real, non-uv-managed interpreter, so no
+      # `python-version` input on setup-uv itself (see
+      # backend-ci-cd-pipeline.yml's comment on this same pairing).
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
 
       - name: Install dependencies
         run: npm ci
@@ -44,6 +92,15 @@ jobs:
       # and a11y debt is surfaced as non-failing warnings (burn-down backlog).
       - name: Lint (blocking — 0 errors)
         run: npm run lint
+        working-directory: ./voter-app
+
+      # Frontend equivalent of the backend's import-linter layering contract
+      # (Lot 2, PLAN_SOLIDITE_TECHNIQUE.md) — see .dependency-cruiser.json for
+      # exactly what's enforced (src/lib must stay framework-agnostic, per
+      # CLAUDE.md's Playground architecture section) and why type-only
+      # imports are exempt.
+      - name: Architecture boundaries (dependency-cruiser — blocking)
+        run: npm run depcruise
         working-directory: ./voter-app
 
       - name: Security — npm audit (high CVEs block)
@@ -57,6 +114,38 @@ jobs:
         working-directory: ./voter-app
         env:
           CI: 'true'
+
+      # Codecov (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md): PR coverage comment +
+      # trend over time. Purely informational — see codecov.yml
+      # (informational: true on both statuses); diff-cover below is the
+      # actual enforced gate. Runs on push too (not just pull_request), so
+      # the develop-branch trend graph stays populated. Raw lcov.info (not
+      # the diff-cover step's voter-app/-prefixed copy) — Codecov resolves
+      # paths against its own uploaded-from directory, unlike diff-cover's
+      # git-diff-path matching.
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: voter-app/coverage/lcov.info
+          flags: frontend
+
+      # diff-cover (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md): 100% coverage on lines
+      # *changed* by this PR — far more mordant than vitest.config.ts's global
+      # thresholds, which a large already-tested codebase dilutes.
+      - name: diff-cover — 100% coverage on changed lines
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          uv pip install --system diff-cover==10.5.1
+          # vitest writes lcov.info with SF: paths relative to voter-app/ (its
+          # own cwd), but `git diff` (and diff-cover's lcov reader) expects
+          # paths relative to the repo root — prefix them so the two line up.
+          sed 's|^SF:|SF:voter-app/|' voter-app/coverage/lcov.info > voter-app/coverage/lcov-diffcover.info
+          diff-cover voter-app/coverage/lcov-diffcover.info \
+            --compare-branch="$BASE_REF" \
+            --fail-under=100
 
       - name: Build
         run: npm run build

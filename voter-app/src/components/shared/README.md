@@ -10,18 +10,20 @@ thematic sub-folders:
 
 | Sub-folder       | What goes here                                                                                    |
 |------------------|---------------------------------------------------------------------------------------------------|
-| `lab/`           | The Election Lab central view ecosystem: `LabCentralView`, `LabOnboardingTour`, `ScenarioIO`, `PinToCentralButton`. |
 | `perturbers/`    | "Perturber" tabs that apply a single effect to a baseline election (Abstention, Cascade, BehavioralBias, ChoiceOverload, ShyVoter, ElectoralFatigue, NOTA, BallotComplexity, Deliberation, CompulsoryVoting, DemographicTurnout, ManipulationAnalysis, AffectivePolarization, AdaptiveVoting, BlankVoteDivergence, CampaignSensitivity). |
 | `theory/`        | Theory-page panels for paradoxes and impossibilities (MajorityTyranny, AgendaManipulation, JudgmentAggregation, SenParadox, Apportionment, IdentityVoting, Epistocracy, Intergenerational, DemocraticBacksliding, PowerIndices, CollectiveWill, AssumptionTester). |
 | `electoral/`     | Electoral system variants and their visualisations (Coalition, DistrictMap, GerrymanderMap, PrimarySimulator, STV, MultiwinnerCompare, LiquidDemocracy, ConvictionVoting, Sortition, JuryTheorem, Hotelling, Polarization, PartyDynamics). |
-| `ui/`            | Generic UI primitives (ToastNotification, LiveBadge, UpdatePrompt, OfflineBanner, ResponsiveTable, MetricTooltip, MethodTooltip, EmptyChart, SkeletonCard, ModelAssumptionsBanner). |
+| `ui/`            | Generic UI primitives (ToastNotification, LiveBadge, UpdatePrompt, OfflineBanner, ResponsiveTable, MetricTooltip, EmptyChart, SkeletonCard). |
 
 ## Migration status
 
-- ✅ `lab/` — migrated (3 files: LabCentralView, LabOnboardingTour, ScenarioIO).
 - ⏳ `perturbers/`, `theory/`, `electoral/`, `ui/` — created (empty), file moves
   to come in follow-up PRs. Each migration is a `git mv` plus updating the
   importers (typically 1–10 sites per file).
+- The Election Lab central view ecosystem this migration originally started
+  with (`LabCentralView`, `LabOnboardingTour`, `ScenarioIO`) was retired
+  outright, not migrated — that feature was folded into the Playground, so
+  there is no `lab/` sub-folder.
 
 ## Why incremental
 

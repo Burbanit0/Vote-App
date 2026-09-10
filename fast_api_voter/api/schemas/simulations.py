@@ -14,7 +14,7 @@ routes used.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Annotated, Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -24,6 +24,18 @@ _DEFAULT_PARTIES = ["Green", "Conservative", "Liberal", "Independent"]
 _DEFAULT_SEGMENTS = [
     "young_female", "old_male", "high_edu", "low_income", "urban", "rural",
 ]
+
+# Shared bounds for the three request fields that reached production with no
+# validation at all (schema or worker) — unlike every other num_voters/
+# num_rounds field in this module, which is at least clamped ad-hoc inside its
+# worker. Ranges mirror the existing convention in api/schemas/election.py and
+# api/schemas/perturbers.py (num_voters: ge=10, le=1000) and the num_rounds
+# bound already used at api/schemas/perturbers.py:441 and
+# api/schemas/election.py:623 (ge=1, le=10). NumRuns matches the cap
+# previously enforced only inside _monte_carlo_worker (min(..., 500)).
+NumVoters = Annotated[int, Field(ge=10, le=1000)]
+NumRounds = Annotated[int, Field(ge=1, le=10)]
+NumRuns = Annotated[int, Field(ge=1, le=500)]
 
 
 class LegacySimulateRequest(BaseModel):
@@ -210,8 +222,8 @@ class BandwagonRequest(BaseModel):
     """POST /simulations/bandwagon."""
     model_config = ConfigDict(extra="ignore")
 
-    num_voters:            int = 300
-    num_rounds:            int = 5
+    num_voters:            NumVoters = 300
+    num_rounds:            NumRounds = 5
     influence_strength:    float = 0.3
     ideology_distribution: str = "random"
     seed:                  Optional[int] = None
@@ -222,8 +234,8 @@ class MonteCarloRequest(BaseModel):
     """POST /simulations/monte-carlo (synchronous aggregation variant)."""
     model_config = ConfigDict(extra="ignore")
 
-    num_runs:              int = 100
-    num_voters:            int = 150
+    num_runs:              NumRuns = 100
+    num_voters:            NumVoters = 150
     ideology_distribution: str = "random"
     candidates:            List[Any] = Field(default_factory=lambda: list(_DEFAULT_CANDIDATES))
 
@@ -242,7 +254,7 @@ class RealElectionRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     election_name: str = ""
-    num_voters:    int = 1000
+    num_voters:    NumVoters = 1000
     blank_vote:    bool = False
     blank_rule:    str = "symbolic"
 

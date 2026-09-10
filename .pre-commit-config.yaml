@@ -1,5 +1,7 @@
 # Vote Lab — Pre-commit hooks
-# Install: pip install pre-commit && pre-commit install && pre-commit install --hook-type pre-push
+# Install: pip install pre-commit && pre-commit install \
+#          && pre-commit install --hook-type pre-push \
+#          && pre-commit install --hook-type post-commit
 # Run manually: pre-commit run --all-files
 
 # ── Default stages ────────────────────────────────────────────────────────────
@@ -39,11 +41,13 @@ repos:
         pass_filenames: false
 
   # ── Python linting ─────────────────────────────────────────────────────────
-  - repo: https://github.com/PyCQA/flake8
-    rev: 7.2.0
+  # Replaces flake8 (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md). Rule selection lives
+  # in fast_api_voter/pyproject.toml's [tool.ruff]/[tool.ruff.lint] — Ruff
+  # auto-discovers it from the target path, no --config flag needed here.
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.6
     hooks:
-      - id: flake8
-        args: ['--config=fast_api_voter/.flake8']
+      - id: ruff-check
         files: fast_api_voter/.*\.py$
 
   # ── Python type checking ───────────────────────────────────────────────────
@@ -94,3 +98,19 @@ repos:
         stages: [pre-push]
         env:
           FLASK_ENV: testing
+
+# ── Post-commit hooks (fire-and-forget, after the commit exists) ──────────────
+  - repo: local
+    hooks:
+      - id: git-commit-capture
+        name: Per-commit capture (Lot 0.5, polity worktree only)
+        language: system
+        entry: python3 scripts/git_commit_capture.py
+        pass_filenames: false
+        always_run: true
+        stages: [post-commit]
+        # Installed repo-wide (git hooks are shared across worktrees — see
+        # the script's own docstring) but a strict no-op outside the
+        # Vote-App-polity worktree. Never blocks: every failure path inside
+        # the script prints a warning and exits 0.
+        verbose: false

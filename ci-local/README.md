@@ -1,14 +1,14 @@
 # ci-local — GitHub CI mirror (run before every PR)
 
 A faithful local reproduction of the GitHub Actions pipeline, so failures surface
-here instead of on the PR. It mirrors the two gating jobs:
+here instead of on the PR. It mirrors the gating jobs:
 
 | Local target | Mirrors workflow | Environment |
 |---|---|---|
 | `frontend` | `.github/workflows/frontend-ci-cd-pipeline.yml` | **Ubuntu 24.04** (= `ubuntu-latest`), **Node 20** |
-| `backend`  | `.github/workflows/backend-ci-cd-pipeline.yml`  | **Python 3.11** |
-| `e2e`      | `.github/workflows/e2e.yml`                     | **Python 3.11** + **Node 20** + Playwright (chromium + firefox) |
-| `audit`    | `.github/workflows/audit.yml`                   | **Python 3.11** + Semgrep / Gitleaks / Trivy |
+| `backend`  | `.github/workflows/backend-ci-cd-pipeline.yml`  | **Python 3.14** |
+| `e2e`      | `.github/workflows/e2e.yml`                     | **Python 3.14** + **Node 20** + Playwright (chromium + firefox) |
+| `audit`    | `.github/workflows/audit.yml`                   | **Python 3.14** + Semgrep / Gitleaks / Trivy |
 
 Targets: `all` (default) = frontend + backend + e2e + audit (**run before each push**) ·
 `code` = frontend + backend only (quick iteration, skips the ~6 min e2e) · plus the
@@ -52,12 +52,25 @@ checks run as the container's `CMD`, so `docker run` failing == the PR failing.
 
 ## What each job runs (in order)
 
-**Frontend** — `npm run lint` (non-blocking, matches `continue-on-error`) →
-`npm audit --audit-level=high` → `npm run test:coverage` → `npm run build`.
+**Frontend** — `npm run lint` (gating — 0 errors) → `npm audit --audit-level=high`
+(gating on high/critical) → `npm run test:coverage` → `npm run build`. All four
+steps are blocking, matching the workflow (lint lost its `continue-on-error` once
+it reached 0 errors).
 
-**Backend** — `flake8` (non-blocking) → `bandit --exit-zero` (non-blocking) →
-`pip-audit` (non-blocking) → `mypy api/` (gating) →
-`pytest api/tests --cov=api --cov-fail-under=30` (gating).
+**Backend** — `ruff check fast_api_voter` (gating; replaces flake8 as of Lot 1,
+scoped to pyflakes `F` only — rule selection lives in `fast_api_voter/
+pyproject.toml`'s `[tool.ruff]`) → `lint-imports` (gating; enforces the
+`routes → domain → engine` layering the `voter-api` skill documents — Lot 2,
+`[tool.importlinter]` in the same `pyproject.toml`) →
+`bandit -r fast_api_voter/api -ll --skip B104,B311`
+(gating on medium+ severity — the `-ll` flag itself excludes low-severity findings,
+of which there are currently ~2,892, from failing the build; no `--exit-zero`) →
+`pip-audit` (non-blocking **in this local mirror only** — the actual GitHub
+workflow removed pip-audit's `continue-on-error` and now gates on it too; the
+local Dockerfile still swallows its failure for offline/flaky-network runs, a
+known fidelity gap) → `mypy api/` (gating) →
+`pytest api/tests --cov=api --cov-fail-under=85` (gating; the GitHub workflow and
+pre-commit hook both gate at 90% — see Fidelity caveats).
 
 **Audit** (strict) — `Semgrep` SAST → `Trivy` deps/containers/misconfig → `Gitleaks`
 secrets. **All three GATE**: any Semgrep finding, Trivy HIGH/CRITICAL, or secret fails
@@ -82,11 +95,69 @@ untracked/ignored. (This caught nothing in the end only because it was *added af
 the `src/lib/utils.ts` gitignore bug it was designed to prevent — commit before you
 validate, or it can't help.)
 
+## Beyond the 4 mirrored jobs — `act`
+
+The 4 targets above are hand-written Dockerfiles; they don't cover every
+workflow (`openapi-contract.yml`, `mutation-testing.yml`, `branch-policy.yml`,
+`dependency-review.yml`, `release.yml`, `scorecard.yml`). For those,
+[`act`](https://github.com/nektos/act) runs the *actual* workflow YAML locally
+via Docker — no separate Dockerfile to keep in sync.
+
+Install (no sudo needed — puts the binary in `~/.local/bin`):
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/nektos/act/master/install.sh | bash -s -- -b ~/.local/bin
+```
+
+The repo's `.actrc` already points `act` at a full-featured runner image
+(`catthehacker/ubuntu:act-latest` — act's own default is a minimal image
+missing tools most workflows need). Usage:
+
+```bash
+act --list                                    # every job act can see, and which trigger reaches it
+act push -W .github/workflows/mutation-testing.yml -j mutmut
+act pull_request -W .github/workflows/openapi-contract.yml -j drift-check -e ci-local/act-pr-event.json
+```
+
+`-e ci-local/act-pr-event.json` supplies a minimal `pull_request` event
+payload — act's own default event has no `pull_request.number`, which every
+`changes` job (`dorny/paths-filter`) needs to run at all, and which the new
+`diff-cover` steps (Lot 1) read via `github.base_ref`. Swap in a real, existing
+PR number before running a job whose `paths-filter` step needs an accurate
+file list: `paths-filter` queries the GitHub API for that PR's changed files
+rather than diffing locally, so a fake number just returns zero files.
+
+**Known limitations** (why this isn't a 5th Dockerfile target):
+
+- Actions that call the GitHub API (`paths-filter`'s file list, anything
+  needing `secrets.GITHUB_TOKEN` for real) need a real, reachable PR/repo — a
+  local-only simulation can't fully replace pushing to an actual PR.
+- Repo secrets (`CODECOV_TOKEN`, etc.) aren't available locally unless passed
+  explicitly (`act -s CODECOV_TOKEN=...` or a gitignored `.secrets` file).
+- CodeQL and OpenSSF Scorecard are GitHub-native and don't run under `act` at
+  all.
+
+Still useful for exactly the kind of failure that reaches CI but not this
+mirror: a workflow-YAML-level bug (wrong step order, a bad `if:` condition, a
+`run:` block that doesn't survive quoting) that no Dockerfile reproduces
+because it isn't *testing the app* — it's testing the workflow itself.
+
 ## Fidelity caveats
 
-- Backend base is Debian-slim (for the exact 3.11.x interpreter); the runner is
+- Backend base is Debian-slim (for the exact 3.14.x interpreter); the runner is
   Ubuntu. Irrelevant for pure-Python + manylinux wheels.
 - E2E downloads ~400 MB of browsers on the first build (cached with the lockfile
   layer afterwards) and takes ~6 min to run — hence `code` for quick iteration.
-  Its Python 3.11 backend is a fixture, not the job under test.
+  Its Python 3.14 backend is a fixture, not the job under test.
 - Networked steps (`npm audit`, `pip-audit`) need internet, same as CI.
+- Backend coverage gate: this mirror runs `--cov-fail-under=85`; the actual
+  GitHub workflow (and the repo's own pre-commit hook) gate at 90%. Measured
+  coverage is currently ~91%, comfortably above both, but a change that drops
+  coverage into the 85–90% band would pass here and fail on the PR.
+- `audit.yml` now has more jobs than this `audit` target reproduces: this
+  mirror covers Semgrep, Gitleaks and the filesystem Trivy scan only. It does
+  **not** run the `image-scan` job (Trivy image scan + SBOM on the two prod
+  Dockerfiles — schedule/`push`-to-`develop` only, non-gating for now), the
+  `code-quality` job (vulture/deptry/knip/jscpd/radon behind a ratchet — see
+  `.github/quality-baseline.json`), or CodeQL (GitHub-native, not runnable
+  locally).

@@ -62,6 +62,7 @@ def _get_redis_client() -> Any:
                 import redis
                 _redis_client = redis.from_url(url)
             except Exception:
+                log.warning("cache.redis_client_init_failed", exc_info=True)
                 _redis_client = None
     return _redis_client
 

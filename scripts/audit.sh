@@ -189,6 +189,16 @@ if [ "$MODE" != "security" ]; then
     note "⚠️ vulture not installed — \`pip install vulture\` (in requirements-dev.txt)."
   fi
 
+  # --- Python unused/undeclared deps: deptry ---
+  section "Python unused/undeclared deps (deptry, informational)"
+  if have_py deptry; then
+    ( cd "$PY_DIRS" && python -m deptry . ) \
+      > "$REPORT_DIR/deptry.txt" 2>&1
+    note "Findings: $(grep -cE 'DEP[0-9]{3}' "$REPORT_DIR/deptry.txt" 2>/dev/null || echo 0). See \`$REPORT_DIR/deptry.txt\`. Not gated — see CODE_AUDIT.md."
+  else
+    note "⚠️ deptry not installed — \`pip install deptry\` (in requirements-dev.txt)."
+  fi
+
   # --- TS/React dead code + unused exports + unused deps: knip ---
   if [ -f "$TS_DIR/package.json" ]; then
     section "TypeScript dead code & unused deps (knip, informational)"
@@ -197,6 +207,16 @@ if [ "$MODE" != "security" ]; then
       note "Unused files: $(count '[.issues[]|select(.files|length>0)]|length' "$REPORT_DIR/knip.json"). See \`$REPORT_DIR/knip.json\`. Not gated — see CODE_AUDIT.md."
     else
       note "⚠️ knip not found in $TS_DIR/node_modules (run \`npm install\` there)."
+    fi
+
+    # --- TS/React circular imports: madge ---
+    section "Circular imports (madge, informational)"
+    if ( cd "$TS_DIR" && npx --no-install madge --version >/dev/null 2>&1 ); then
+      ( cd "$TS_DIR" && npx --no-install madge --circular --extensions ts,tsx src ) \
+        > "$REPORT_DIR/madge.txt" 2>&1
+      note "$(grep -m1 '^✖ Found\|^No circular' "$REPORT_DIR/madge.txt" 2>/dev/null || echo 'see report'). See \`$REPORT_DIR/madge.txt\`. Not gated — see CODE_AUDIT.md. Graph image needs graphviz (\`dot\`) installed: \`npx madge --image graph.svg --extensions ts,tsx src\`."
+    else
+      note "⚠️ madge not found in $TS_DIR/node_modules (run \`npm install\` there)."
     fi
   fi
 

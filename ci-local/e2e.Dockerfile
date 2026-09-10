@@ -5,7 +5,7 @@
 # mirrors this one too.
 #
 # Fidelity choices:
-#  - python:3.11 == actions/setup-python '3.11' (same base as backend.Dockerfile),
+#  - python:3.14 == actions/setup-python '3.14' (same base as backend.Dockerfile),
 #    plus Node 20 via NodeSource == actions/setup-node '20'. One image, because the
 #    workflow runs backend + frontend + browsers on ONE runner.
 #  - `npx playwright install --with-deps chromium firefox` — the exact CI step, so
@@ -16,7 +16,11 @@
 #    server (reuseExistingServer is off under CI).
 #
 # CI checks run as CMD, so `docker run` exits non-zero exactly when the PR would fail.
-FROM python:3.11-slim-bookworm
+FROM python:3.14-slim-bookworm
+
+# uv (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md) — matches e2e.yml, which uses
+# astral-sh/setup-uv instead of pip.
+COPY --from=ghcr.io/astral-sh/uv:0.12.11 /uv /usr/local/bin/uv
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -34,7 +38,7 @@ WORKDIR /app
 
 # Backend deps — cached unless requirements.txt changes.
 COPY fast_api_voter/requirements.txt fast_api_voter/
-RUN pip install -r fast_api_voter/requirements.txt
+RUN uv pip install --system -r fast_api_voter/requirements.txt
 
 # Frontend deps — cached unless the lockfile changes.
 WORKDIR /app/voter-app

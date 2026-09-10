@@ -19,6 +19,7 @@ from typing import Any, AsyncIterator, Awaitable, Callable
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.types import Scope
@@ -82,6 +83,27 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
 
 
+# ── Catch-all exception handler ──────────────────────────────────────────────
+# Most domain workers already catch their own exceptions and return a (body,
+# 500) tuple, which never reaches this handler — see the `log.error(...,
+# exc_info=True)` calls added alongside each of those. This handler is the
+# backstop for anything that still escapes uncaught (a route or middleware bug,
+# not a worker's own try/except), so a genuinely unhandled exception is logged
+# with a traceback instead of surfacing only as a bare 500 in the access log.
+_unhandled_log = get_logger("api.unhandled")
+
+
+@app.exception_handler(Exception)
+async def _unhandled_exception_handler(request: Request, exc: Exception) -> Response:
+    _unhandled_log.error(
+        "http.unhandled_exception",
+        method=request.method,
+        path=request.url.path,
+        exc_info=True,
+    )
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+
+
 # ── CORS ────────────────────────────────────────────────────────────────────
 # Mirrors the Flask config — origins read from CORS_ORIGINS env var.
 _settings = get_settings()
@@ -91,6 +113,26 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type"],
 )
+
+
+# ── Rate-limit state default (Lot 3, PLAN_SOLIDITE_TECHNIQUE.md — "Résilience
+# Redis") ─────────────────────────────────────────────────────────────────────
+# Pairs with `swallow_errors=True` on the Limiter in api/core/ratelimit.py.
+# slowapi's own decorator always reads `request.state.view_rate_limit` after
+# the rate-limit check runs (to populate response headers) — normally that
+# attribute was just set by the check itself, but when the check's own
+# exception gets swallowed (Redis unreachable), it never was, and Starlette's
+# State.__getattr__ raises a bare AttributeError for a missing key. This
+# middleware runs before any route dependency (including check_v2_rate_limit),
+# so the attribute always exists — a real gap in slowapi's swallow_errors
+# path, not something fixable in api/core/ratelimit.py alone. Confirmed live:
+# without this, `swallow_errors=True` on its own still crashed every request.
+@app.middleware("http")
+async def default_rate_limit_state(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
+    request.state.view_rate_limit = None
+    return await call_next(request)
 
 
 # ── Access log middleware ───────────────────────────────────────────────────

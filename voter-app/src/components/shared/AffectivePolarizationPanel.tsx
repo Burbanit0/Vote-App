@@ -26,6 +26,8 @@ import { useElection } from '../../stores/useElectionStore';
 import PinToCentralButton from './PinToCentralButton';
 import { $api } from '../../api/hooks';
 
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+
 const DEBOUNCE_MS = 400;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -454,7 +456,9 @@ const AffectivePolarizationPanel: React.FC = () => {
                       tickFormatter={(v) => `${Math.round(v * 100)}%`}
                       tick={{ fontSize: 10 }}
                     />
-                    <Tooltip formatter={(v: number) => `${Math.round(v * 100)}%`} />
+                    <Tooltip
+                      formatter={numericTooltipFormatter((v: number) => `${Math.round(v * 100)}%`)}
+                    />
                     <Legend wrapperStyle={{ fontSize: '0.72rem' }} />
                     <ReferenceLine x={hostility} stroke="#adb5bd" strokeDasharray="3 2" />
                     <Line

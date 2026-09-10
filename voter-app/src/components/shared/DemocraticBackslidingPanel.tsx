@@ -23,6 +23,8 @@ import {
 } from 'recharts';
 import { $api } from '../../api/hooks';
 
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface ElectionResult {
@@ -50,10 +52,7 @@ interface BackslidingData {
 
 type Method = 'gerrymandering' | 'media_capture' | 'voter_suppression';
 type Guardrail =
-  | 'constitutional_court'
-  | 'opposition_media'
-  | 'international_pressure'
-  | 'supermajority_required';
+  'constitutional_court' | 'opposition_media' | 'international_pressure' | 'supermajority_required';
 
 const GUARDRAILS: Guardrail[] = [
   'constitutional_court',
@@ -417,12 +416,12 @@ const DemocraticBackslidingPanel: React.FC = () => {
                 }}
               />
               <Tooltip
-                formatter={(v: number, name: string) => [
+                formatter={numericTooltipFormatter((v: number, name: string) => [
                   `${Math.round(v * 100)}%`,
                   name === 'quality'
                     ? t('backsliding.simulationLabel')
                     : (HISTORICAL[name]?.label ?? name),
-                ]}
+                ])}
               />
               <Legend wrapperStyle={{ fontSize: '0.7rem' }} />
               <Line

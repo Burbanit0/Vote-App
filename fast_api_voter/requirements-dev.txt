@@ -2,7 +2,7 @@
 # Install with: pip install -r fast_api_voter/requirements-dev.txt
 
 # Tests
-pytest==9.0.3
+pytest==9.1.1
 pytest-cov==7.1.0
 pytest-xdist==3.8.0   # -n auto: ~14min sequential -> ~8min in CI, measured (see backend-ci-cd-pipeline.yml)
 # Phase 4.4 — async tests for the v2 Socket.IO server. Drives the FastAPI
@@ -14,12 +14,12 @@ pytest-asyncio==1.4.0
 aiohttp==3.14.3   # 3.14.3: GHSA-cq5v-8q36-5273 (chunked-response parser OOB read),
                   #         GHSA-mfx4-hv73-q22v (ws upgrade smuggling),
                   #         GHSA-mq44-7p77-q5h7 (ws permessage-deflate)
-hypothesis==6.165.10  # Property-based testing for the theoretical invariants
+hypothesis==6.167.1  # Property-based testing for the theoretical invariants
                       # (Condorcet, monotonicity, legitimacy bounds)
 
 # Security
 bandit==1.9.4        # Python SAST (static analysis)
-pip-audit==2.9.0     # Dependency CVE scan
+pip-audit==2.10.1     # Dependency CVE scan
 
 # Mutation testing (weekly CI job, non-blocking — scope limited to the
 # file(s) in [tool.mutmut] below). Native Windows isn't supported upstream
@@ -28,11 +28,26 @@ pip-audit==2.9.0     # Dependency CVE scan
 mutmut==3.7.0
 
 # Code quality
-flake8==7.3.0
+ruff==0.16.6         # Replaces flake8 (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md) — see
+                     # fast_api_voter/pyproject.toml's [tool.ruff]/[tool.ruff.lint]
+                     # for the deliberately narrow rule selection this carries over.
 mypy==2.3.1         # Static type checking
 vulture==2.16        # Dead-code detection (informational, see pyproject.toml [tool.vulture])
 radon==6.0.1          # Cyclomatic complexity report (informational, see CODE_AUDIT.md)
 xenon==0.9.3          # radon threshold runner — same report, informational here too
+deptry==0.25.1        # Unused/undeclared deps (Lot 2, PLAN_SOLIDITE_TECHNIQUE.md — knip's
+                       # Python equivalent, informational; see pyproject.toml [tool.deptry])
+import-linter==2.15    # Blocking routes -> domain -> engine layering (Lot 2,
+                       # PLAN_SOLIDITE_TECHNIQUE.md; see pyproject.toml [tool.importlinter])
+schemathesis==4.26.1   # OpenAPI contract fuzzing (Lot 3, PLAN_SOLIDITE_TECHNIQUE.md;
+                       # see api/tests/test_schema_contract.py + schemathesis.yml)
 types-redis==4.6.0.20241004  # Redis type stubs
-types-requests==2.32.0.20250328  # Requests type stubs
+types-requests==2.33.0.20260712  # Requests type stubs
 types-PyYAML==6.0.12.20260815  # domain/polity/config.py — polity_config.yaml loader
+
+# Diff coverage (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md) — 100% coverage required
+# on lines *changed* by a PR, read from coverage.xml (see
+# backend-ci-cd-pipeline.yml). Also installed standalone in
+# frontend-ci-cd-pipeline.yml (against lcov.info) since that job has no other
+# Python dependency of its own.
+diff-cover==10.5.1

@@ -13,55 +13,81 @@ name: Generated Artifacts Contract
 #     winners, leaving the parity test green against a frozen snapshot while the
 #     two engines diverged. See scripts/check_engine_parity_drift.sh.
 
+# No top-level `paths:` filter (moved to the `changes` job below, on purpose):
+# this workflow is a required status check, and a required check scoped by
+# `paths:` at trigger level never even creates a check run on a PR that
+# doesn't touch those paths — which blocks that PR's merge FOREVER (a required
+# check that never reports can't be satisfied). That's exactly what happened
+# to PR #205 (a docs/CI-only change) before this workflow was added to
+# required checks. The workflow now always triggers; the real job is skipped
+# instead, which GitHub treats as a passing required check.
 on:
   push:
     branches: [main, develop, polity]
-    paths:
-      - "fast_api_voter/api/**"
-      - "fast_api_voter/scripts/gen_openapi.py"
-      - "fast_api_voter/scripts/gen_engine_parity.py"
-      - "fast_api_voter/openapi.gen.json"
-      - "voter-app/src/api/types.gen.ts"
-      - "voter-app/src/lib/__fixtures__/**"
-      - "voter-app/package.json"
-      - "voter-app/package-lock.json"
-      - ".github/workflows/openapi-contract.yml"
-      - "scripts/check_*_drift.sh"
   pull_request:
     branches: [main, develop, polity]
-    paths:
-      - "fast_api_voter/api/**"
-      - "fast_api_voter/scripts/gen_openapi.py"
-      - "fast_api_voter/scripts/gen_engine_parity.py"
-      - "fast_api_voter/openapi.gen.json"
-      - "voter-app/src/api/types.gen.ts"
-      - "voter-app/src/lib/__fixtures__/**"
-      - "voter-app/package.json"
-      - "voter-app/package-lock.json"
-      - ".github/workflows/openapi-contract.yml"
-      - "scripts/check_*_drift.sh"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
+  changes:
+    name: Detect generated-artifact-relevant changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      relevant: ${{ steps.filter.outputs.relevant }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          filters: |
+            relevant:
+              - "fast_api_voter/api/**"
+              - "fast_api_voter/scripts/gen_openapi.py"
+              - "fast_api_voter/scripts/gen_engine_parity.py"
+              - "fast_api_voter/openapi.gen.json"
+              # A dependency bump can change the generated schema without
+              # touching api/** — confirmed live: fastapi 0.121.2 -> 0.141.1
+              # (#253) changed Pydantic's ValidationError shape (added
+              # ctx/input) and went uncaught on develop until this filter
+              # started watching this workflow file's own edits instead.
+              - "fast_api_voter/requirements.txt"
+              - "voter-app/src/api/types.gen.ts"
+              - "voter-app/src/lib/__fixtures__/**"
+              - "voter-app/package.json"
+              - "voter-app/package-lock.json"
+              - ".github/workflows/openapi-contract.yml"
+              - "scripts/check_*_drift.sh"
+
   drift-check:
+    needs: changes
+    if: needs.changes.outputs.relevant == 'true'
     name: Generated artifacts in sync
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.11"
-          cache: "pip"
-          cache-dependency-path: fast_api_voter/requirements.txt
+          python-version: "3.14"
+      # No `python-version` here — see backend-ci-cd-pipeline.yml's comment on
+      # this same pairing (`--system` rejects a uv-managed interpreter).
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+          cache-dependency-glob: "fast_api_voter/requirements*.txt"
 
       - name: Install backend dependencies
-        run: pip install -r fast_api_voter/requirements.txt
+        run: uv pip install --system -r fast_api_voter/requirements.txt
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "20"
           cache: "npm"

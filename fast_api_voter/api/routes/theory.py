@@ -13,9 +13,10 @@ from __future__ import annotations
 import asyncio
 from typing import Any, Callable, Dict, TypeVar
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
+from api.core.ratelimit import check_v2_rate_limit
 from api.schemas import (
     AgendaManipulationRequest,
     AgendaManipulationResponse,
@@ -31,6 +32,7 @@ from api.schemas import (
     DemocraticBacksliddingResponse,
     EpistocracyRequest,
     EpistocracyResponse,
+    ErrorDetail,
     IdentityVotingRequest,
     IdentityVotingResponse,
     IIARateRequest,
@@ -67,7 +69,13 @@ from api.domain.theory import (
     sen_paradox as sen_paradox_domain,
 )
 
-router = APIRouter(prefix="/api/v2/theory", tags=["theory"])
+router = APIRouter(
+    prefix="/api/v2/theory",
+    tags=["theory"],
+    dependencies=[Depends(check_v2_rate_limit)],
+    # See election.py's router for why 400/500 apply to every route here.
+    responses={400: {"model": ErrorDetail}, 500: {"model": ErrorDetail}},
+)
 
 
 # ── Shared helper ───────────────────────────────────────────────────────────

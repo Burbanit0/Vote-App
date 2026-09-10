@@ -14,9 +14,7 @@
 // A term with no clean demo simply omits seeInAction — never fake a link.
 
 export type SeeInAction =
-  | { kind: 'story'; ref: string }
-  | { kind: 'lab'; ref: string }
-  | { kind: 'route'; ref: string };
+  { kind: 'story'; ref: string } | { kind: 'lab'; ref: string } | { kind: 'route'; ref: string };
 
 export interface GlossaryCopy {
   /** Display term. */

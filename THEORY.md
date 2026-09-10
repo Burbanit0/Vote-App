@@ -11,7 +11,7 @@
 ## Table des matières
 
 1. [Fondements : la théorie du choix social](#1-fondements--la-théorie-du-choix-social)
-2. [Les méthodes de vote (29)](#2-les-méthodes-de-vote-17-playground--12-laboratoire--29)
+2. [Les méthodes de vote (29)](#2-les-méthodes-de-vote-29)
 3. [Les théorèmes d'impossibilité](#3-les-théorèmes-dimpossibilité)
 4. [Les paradoxes démocratiques](#4-les-paradoxes-démocratiques)
 5. [Modèles de comportement électoral](#5-modèles-de-comportement-électoral)
@@ -108,7 +108,7 @@ Beta(2,3)), `centrist` (Normal(0.5, 0.1)), `polarized` (bimodale 50/50),
 
 ---
 
-## 2. Les méthodes de vote (17 playground + 12 laboratoire = 29)
+## 2. Les méthodes de vote (29)
 
 ### 2.1 Méthodes de classement (Ranked)
 
@@ -436,12 +436,16 @@ d'électeurs. Redécouverte par la littérature contemporaine (Brill et al., 201
 
 ---
 
-### 2.4 Méthodes supplémentaires du laboratoire
+### 2.4 Méthodes supplémentaires
 
-Le playground expose les 17 méthodes ci-dessus. Le **laboratoire** (`/laboratoire`)
-ajoute 12 méthodes plus spécialisées, essentiellement des variantes Condorcet et
-des règles à propriété particulière. Elles partagent le même moteur de règles que
-le playground (parité client⇄backend, voir §9.1).
+Les 29 méthodes ci-dessus (2.1 à 2.4) sont toutes sélectionnables directement
+dans le **playground** — le rail Méthode les groupe en 5 familles (majoritaires,
+positionnelles, Condorcet, cardinales, autre). Le **laboratoire** (`/laboratoire`)
+ne rajoute pas de méthode : sa fiche « matrice complète des méthodes » lit le même
+jeu de règles pour les comparer plus en profondeur. Les 12 méthodes qui suivent
+partagent le même moteur (parité client⇄backend, voir §9.1) mais reçoivent ici un
+traitement plus bref qu'en 2.1-2.3, essentiellement des variantes Condorcet et des
+règles à propriété particulière.
 
 - **Ranked Pairs (Tideman, 1987)** — verrouille les duels pairwise du plus fort au
   plus faible en sautant ceux qui créeraient un cycle ; élit la source du graphe

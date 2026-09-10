@@ -1,7 +1,7 @@
 name: Security Audit
 
 # Supplementary SECURITY scanning only. The repo's lint/type/test gates already
-# live in backend-ci-cd-pipeline.yml + frontend-ci-cd-pipeline.yml (flake8, mypy,
+# live in backend-ci-cd-pipeline.yml + frontend-ci-cd-pipeline.yml (ruff, mypy,
 # pytest, bandit, pip-audit, eslint, tsc) — this workflow adds SAST / secret / CVE
 # coverage they don't have: Semgrep, Gitleaks, Trivy, CodeQL.
 #
@@ -43,10 +43,11 @@ jobs:
   semgrep:
     name: Semgrep SAST
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with: { python-version: "3.11" }
+        with: { python-version: "3.14", cache: "pip" }
       - run: pip install semgrep
       # Strict: --error makes Semgrep exit non-zero on any finding → the job fails.
       # The report is still uploaded (if: always()) so findings are downloadable.
@@ -56,6 +57,7 @@ jobs:
             --config=p/python --config=p/javascript --config=p/react \
             --config=p/security-audit --config=p/secrets \
             --config=p/sql-injection --config=p/owasp-top-ten \
+            --config=.semgrep/vote-app-rules.yml \
             --sarif-output=semgrep.sarif --json-output=semgrep.json \
             --error --metrics=off
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -80,11 +82,12 @@ jobs:
   gitleaks:
     name: Secret Scan
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           fetch-depth: 0
-      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_CONFIG: .gitleaks.toml # default ruleset + triaged FP allowlist
@@ -93,11 +96,12 @@ jobs:
   trivy:
     name: Dependencies, Containers & Misconfig
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
       # 1) Non-gating JSON report → uploaded as an artifact (always).
       - name: Trivy (JSON report artifact)
-        uses: aquasecurity/trivy-action@d2a0b60797ff03db6132bd4e2b293f9b37081297 # master
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
           scanners: vuln,secret,misconfig
@@ -116,7 +120,7 @@ jobs:
       # 1b) SARIF report → Security tab (non-gating).
       - name: Trivy (SARIF report)
         if: always()
-        uses: aquasecurity/trivy-action@d2a0b60797ff03db6132bd4e2b293f9b37081297 # master
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
           scanners: vuln,secret,misconfig
@@ -137,7 +141,7 @@ jobs:
       #    `if: always()` so the gate runs even if the best-effort upload above hiccups.
       - name: Trivy (gating)
         if: always()
-        uses: aquasecurity/trivy-action@d2a0b60797ff03db6132bd4e2b293f9b37081297 # master
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
           scanners: vuln,secret,misconfig
@@ -146,6 +150,96 @@ jobs:
           exit-code: "1"
           skip-dirs: voter-app/node_modules,.claude,graphify-out
           trivyignores: .trivyignore.yaml
+
+  # ---------------------------------------------------------------
+  # Built-image scan + SBOM. Neither Dockerfile is exercised by any other
+  # workflow — the `trivy` job above only scans the filesystem, never a built
+  # image, so the actual base images (python:3.11-slim, node:20,
+  # nginxinc/nginx-unprivileged:alpine) and whatever the multi-stage builds
+  # layer on top were previously unscanned and could silently bit-rot.
+  #
+  # Building + scanning 2 images adds several minutes, so this stays off the
+  # normal PR loop on purpose — only the weekly cron and pushes to `develop`
+  # pay for it (a code review or a hotfix PR shouldn't wait on a Node/Python
+  # base-image scan that has nothing to do with the diff).
+  #
+  # NON-GATING for now, unlike the filesystem trivy job above: a first run
+  # would immediately surface whatever base-image CVEs exist today, most of
+  # them the upstream image's problem, not something a single PR can fix —
+  # gating on day one would just block develop indefinitely. Findings land in
+  # the Security tab; promote to gating once a triage pass + .trivyignore
+  # entries (mirroring the fs job's existing pattern) clears the backlog.
+  image-scan:
+    name: Docker image scan & SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: github.event_name == 'schedule' || (github.event_name == 'push' && github.ref == 'refs/heads/develop')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: backend
+            dockerfile: fast_api_voter/Dockerfile.prod
+            context: fast_api_voter
+            tag: votelab-backend:scan
+          - name: frontend
+            dockerfile: voter-app/Dockerfile
+            context: voter-app
+            tag: votelab-frontend:scan
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      # GHA-backed layer cache (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md): this job
+      # only runs on the weekly cron + push-to-develop (see the job comment
+      # above), so a cold cache would otherwise redownload base images and
+      # reinstall every dependency on every run regardless of how little the
+      # Dockerfile changed week to week. `load: true` keeps the image in the
+      # local daemon (needed by Trivy/SBOM below) since this job only scans,
+      # it never pushes.
+      - name: Build ${{ matrix.name }} image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          tags: ${{ matrix.tag }}
+          load: true
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+      - name: Trivy (image scan, non-gating for now — see job comment)
+        if: always()
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ matrix.tag }}
+          scan-type: image
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          format: sarif
+          output: trivy-image-${{ matrix.name }}.sarif
+          exit-code: "0"
+      - name: Upload Trivy image SARIF
+        if: always()
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v3
+        with:
+          sarif_file: trivy-image-${{ matrix.name }}.sarif
+          category: trivy-image-${{ matrix.name }}
+
+      - name: Generate SBOM (SPDX)
+        if: always()
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        with:
+          image: ${{ matrix.tag }}
+          format: spdx-json
+          output-file: sbom-${{ matrix.name }}.spdx.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: sbom-${{ matrix.name }}
+          path: sbom-${{ matrix.name }}.spdx.json
+          if-no-files-found: ignore
 
   # ---------------------------------------------------------------
   # Code Quality — dead code, unused deps, cross-language duplication,
@@ -158,11 +252,12 @@ jobs:
   code-quality:
     name: Code Quality (dead code, duplication & complexity)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with: { python-version: "3.11" }
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with: { python-version: "3.14" }
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "20"
           cache: "npm"
@@ -189,6 +284,19 @@ jobs:
         # leave the ratchet with missing input files. The gate lives at the end of
         # the job instead.
         run: python -m xenon api/ -e "api/tests/*" -b F -m F -a F | tee xenon.txt
+
+      # deptry needs the actual dependencies installed (it maps import names
+      # to installed package metadata) — unlike vulture/radon/xenon above,
+      # which only need the source. Same install this job already runs, just
+      # for a different tool; not needed until this step.
+      - name: Install backend dependencies (for deptry)
+        working-directory: fast_api_voter
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Python unused/undeclared dependencies (deptry)
+        working-directory: fast_api_voter
+        continue-on-error: true
+        run: python -m deptry . | tee deptry.txt
 
       - name: Install frontend deps
         working-directory: voter-app
@@ -246,6 +354,9 @@ jobs:
             echo "<details><summary>knip (TS dead code / unused deps)</summary>"
             echo; echo '```'; cat voter-app/knip.txt 2>/dev/null || echo "(no output)"; echo '```'
             echo "</details>"
+            echo "<details><summary>deptry (Python unused/undeclared deps)</summary>"
+            echo; echo '```'; cat fast_api_voter/deptry.txt 2>/dev/null || echo "(no output)"; echo '```'
+            echo "</details>"
             echo "<details><summary>jscpd (duplication)</summary>"
             echo; echo '```'; cat jscpd.txt 2>/dev/null || echo "(no output)"; echo '```'
             echo "</details>"
@@ -259,6 +370,7 @@ jobs:
             fast_api_voter/radon.txt
             fast_api_voter/xenon.txt
             voter-app/knip.txt
+            fast_api_voter/deptry.txt
             jscpd.txt
           if-no-files-found: ignore
 
@@ -268,6 +380,7 @@ jobs:
   codeql:
     name: CodeQL
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:

@@ -67,8 +67,8 @@ together. Do not let them drift.
   simulation_ranked_utils.py` + `simulation_score_utils.py`.
 - Parity harness: `fast_api_voter/scripts/gen_engine_parity.py` generates golden
   winners → `voter-app/src/lib/__fixtures__/engineParity.json`; asserted by
-  `playgroundVoting.parity.test.ts`. 17 methods are locked identical (15 ordinal +
-  score + STAR). `KNOWN_DIVERGENT` is empty.
+  `playgroundVoting.parity.test.ts`. 26 methods are locked identical (21 ordinal +
+  5 cardinal: score, STAR, cumulative, maximin, nash). `KNOWN_DIVERGENT` is empty.
 
 **If you change a rule on either side**: re-run `python fast_api_voter/scripts/
 gen_engine_parity.py`, then run the parity test. A change that breaks parity is a
@@ -76,6 +76,9 @@ bug until proven otherwise (the harness has caught real bugs on both sides).
 
 `engineParity.json` is a **generated artifact** — never hand-edit it (not even to
 silence a failing parity test); always regenerate it via `gen_engine_parity.py`.
+This is enforced, not just written down: `.claude/settings.json`'s `PreToolUse`
+hook blocks any Edit/Write/MultiEdit targeting the file, and a `PostToolUse`
+hook reminds to regenerate parity whenever either side of the engine changes.
 
 ## Playground architecture
 

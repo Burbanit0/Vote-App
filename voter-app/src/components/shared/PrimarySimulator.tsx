@@ -10,6 +10,8 @@ import { Spinner } from '@/components/ui/spinner';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { $api } from '../../api/hooks';
 
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface PrimaryCandidate {
@@ -210,7 +212,7 @@ const PrimaryBar: React.FC<{ result: PrimaryResult; color: string }> = ({ result
         <BarChart data={chartData} margin={{ top: 4, right: 4, bottom: 4, left: -20 }}>
           <XAxis dataKey="name" tick={{ fontSize: 10 }} />
           <YAxis domain={[0, 100]} tick={{ fontSize: 9 }} unit="%" />
-          <Tooltip formatter={(v: number) => `${v}%`} />
+          <Tooltip formatter={numericTooltipFormatter((v: number) => `${v}%`)} />
           <Bar dataKey="pct" radius={[3, 3, 0, 0]}>
             {chartData.map((entry, i) => (
               <Cell key={i} fill={entry.isWinner ? color : `${color}55`} />
@@ -556,7 +558,7 @@ const PrimarySimulator: React.FC = () => {
                     >
                       <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                       <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} unit="%" />
-                      <Tooltip formatter={(v: number) => `${v}%`} />
+                      <Tooltip formatter={numericTooltipFormatter((v: number) => `${v}%`)} />
                       <Bar dataKey="pct" radius={[4, 4, 0, 0]}>
                         {data.general_ballot.map((name, i) => {
                           const pIdx = data.primaries.findIndex((p) => p.winner === name);

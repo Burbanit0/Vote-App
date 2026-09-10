@@ -16,7 +16,7 @@
 # ──────────────────────────────────────────────────────────────────────────────
 
 # ── Stage 1: build wheels ───────────────────────────────────────────────────
-FROM python:3.11-slim AS builder
+FROM python:3.14-slim-bookworm AS builder
 
 WORKDIR /build
 
@@ -33,7 +33,12 @@ RUN pip wheel --no-cache-dir --wheel-dir=/wheels -r requirements.txt
 
 
 # ── Stage 2: runtime ────────────────────────────────────────────────────────
-FROM python:3.11-slim AS runtime
+FROM python:3.14-slim-bookworm AS runtime
+
+# uv (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md): faster than pip for the wheelhouse
+# install below. The wheel-*building* step in the builder stage above stays on
+# `pip wheel` — uv has no equivalent subcommand.
+COPY --from=ghcr.io/astral-sh/uv:0.12.11 /uv /usr/local/bin/uv
 
 # Non-root runtime user (UID 1000 — matches most CI/dev environments).
 RUN groupadd --gid 1000 app && useradd --uid 1000 --gid app --shell /bin/bash app
@@ -49,7 +54,7 @@ WORKDIR /app
 # Install pre-built wheels from the builder stage.
 COPY --from=builder /wheels /wheels
 COPY requirements.txt .
-RUN pip install --no-cache-dir --no-index --find-links=/wheels -r requirements.txt \
+RUN uv pip install --system --no-cache --no-index --find-links=/wheels -r requirements.txt \
     && rm -rf /wheels
 
 # Copy app code (after deps so layers cache well).

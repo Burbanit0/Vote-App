@@ -3261,7 +3261,7 @@ export interface components {
              * Snapshot Days
              * @description Days at which to snapshot — strings ('final') and ints are both accepted.
              */
-            snapshot_days?: unknown[];
+            snapshot_days?: (number | "final")[];
         };
         /** CampaignSensitivityResponse */
         CampaignSensitivityResponse: {
@@ -4741,6 +4741,27 @@ export interface components {
             participates_pct: number;
             /** Winner */
             winner: string;
+        };
+        /**
+         * ErrorDetail
+         * @description Shape of a domain-level error response.
+         *
+         *     Every `routes/*.py` module's `_run_worker`/`_run_passthrough`/`_run_typed`
+         *     helper lifts a domain worker's `(body, status_code)` tuple into
+         *     `HTTPException(status_code=status_code, detail=body["error"])` when
+         *     `status_code != 200`; FastAPI serializes that as `{"detail": "<message>"}`.
+         *     `api/main.py`'s catch-all `Exception` handler uses the same shape for any
+         *     uncaught error, so it's also the 500 contract for every route in the app,
+         *     not just the ones that reach for it explicitly. Referenced via each
+         *     router's `responses=` (Schemathesis, Lot 3 of the plan, found these
+         *     codes were reachable but undocumented).
+         */
+        ErrorDetail: {
+            /**
+             * Detail
+             * @description Human-readable error message.
+             */
+            detail: string;
         };
         /**
          * ExportDatasetJSON
@@ -8025,6 +8046,10 @@ export interface components {
         };
         /** ValidationError */
         ValidationError: {
+            /** Context */
+            ctx?: Record<string, never>;
+            /** Input */
+            input?: unknown;
             /** Location */
             loc: (string | number)[];
             /** Message */
@@ -8184,6 +8209,15 @@ export interface operations {
                     "application/json": components["schemas"]["PublicCompareResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8191,6 +8225,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8215,6 +8258,15 @@ export interface operations {
                     "application/json": components["schemas"]["PublicMethodsResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8222,6 +8274,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8246,6 +8307,24 @@ export interface operations {
                     };
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     real_elections_api_v1_real_elections_get: {
@@ -8264,6 +8343,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PublicRealElectionsResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8290,6 +8387,15 @@ export interface operations {
                     "application/json": components["schemas"]["PublicSimulateResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8297,6 +8403,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8345,6 +8460,15 @@ export interface operations {
                     "application/json": components["schemas"]["AbstentionResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8352,6 +8476,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8378,6 +8511,15 @@ export interface operations {
                     "application/json": components["schemas"]["AdaptiveResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8385,6 +8527,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8411,6 +8562,15 @@ export interface operations {
                     "application/json": components["schemas"]["AffectivePolarizationResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8418,6 +8578,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8444,6 +8613,15 @@ export interface operations {
                     "application/json": components["schemas"]["AssemblyResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8451,6 +8629,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8477,6 +8664,15 @@ export interface operations {
                     "application/json": components["schemas"]["AssemblyScorecardResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8484,6 +8680,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8510,6 +8715,15 @@ export interface operations {
                     "application/json": components["schemas"]["BallotComplexityResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8517,6 +8731,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8543,6 +8766,15 @@ export interface operations {
                     "application/json": components["schemas"]["BehavioralBiasesResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8550,6 +8782,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8576,6 +8817,15 @@ export interface operations {
                     "application/json": components["schemas"]["CampaignSensitivityResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8583,6 +8833,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8609,6 +8868,15 @@ export interface operations {
                     "application/json": components["schemas"]["CascadeResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8616,6 +8884,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8642,6 +8919,15 @@ export interface operations {
                     "application/json": components["schemas"]["ChoiceOverloadResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8649,6 +8935,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8675,6 +8970,15 @@ export interface operations {
                     "application/json": components["schemas"]["CoalitionResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8682,6 +8986,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8708,6 +9021,15 @@ export interface operations {
                     "application/json": components["schemas"]["CombinedEffectsResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8715,6 +9037,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8741,6 +9072,15 @@ export interface operations {
                     "application/json": components["schemas"]["CompulsoryVotingResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8748,6 +9088,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8774,6 +9123,15 @@ export interface operations {
                     "application/json": components["schemas"]["ConvictionVotingResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8781,6 +9139,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8807,6 +9174,15 @@ export interface operations {
                     "application/json": components["schemas"]["DeliberationResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8814,6 +9190,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8840,6 +9225,15 @@ export interface operations {
                     "application/json": components["schemas"]["DemographicTurnoutResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8847,6 +9241,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8873,6 +9276,15 @@ export interface operations {
                     "application/json": components["schemas"]["DistrictsResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8880,6 +9292,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8906,6 +9327,15 @@ export interface operations {
                     "application/json": components["schemas"]["DivergenceResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8913,6 +9343,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8939,6 +9378,15 @@ export interface operations {
                     "application/json": components["schemas"]["ElectoralFatigueResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8946,6 +9394,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -8972,6 +9429,15 @@ export interface operations {
                     "application/json": components["schemas"]["GerrymanderResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -8979,6 +9445,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9005,6 +9480,15 @@ export interface operations {
                     "application/json": components["schemas"]["HistoricalReplayResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9012,6 +9496,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9038,6 +9531,15 @@ export interface operations {
                     "application/json": components["schemas"]["HotellingResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9045,6 +9547,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9071,6 +9582,15 @@ export interface operations {
                     "application/json": components["schemas"]["InterpretResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9078,6 +9598,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9104,6 +9633,15 @@ export interface operations {
                     "application/json": components["schemas"]["IssueVotingResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9111,6 +9649,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9137,6 +9684,15 @@ export interface operations {
                     "application/json": components["schemas"]["JuryResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9144,6 +9700,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9170,6 +9735,15 @@ export interface operations {
                     "application/json": components["schemas"]["LiquidDemocracyResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9177,6 +9751,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9203,6 +9786,15 @@ export interface operations {
                     "application/json": components["schemas"]["MultiwinnerCompareResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9210,6 +9802,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9236,6 +9837,15 @@ export interface operations {
                     "application/json": components["schemas"]["NotaResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9243,6 +9853,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9269,6 +9888,15 @@ export interface operations {
                     "application/json": components["schemas"]["PartyDynamicsResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9276,6 +9904,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9302,6 +9939,15 @@ export interface operations {
                     "application/json": components["schemas"]["PolarizationResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9309,6 +9955,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9335,6 +9990,15 @@ export interface operations {
                     "application/json": components["schemas"]["PowerIndicesResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9342,6 +10006,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9368,6 +10041,15 @@ export interface operations {
                     "application/json": components["schemas"]["PrimaryResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9375,6 +10057,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9401,6 +10092,15 @@ export interface operations {
                     "application/json": components["schemas"]["ProfileSimulateResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9408,6 +10108,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9434,6 +10143,15 @@ export interface operations {
                     "application/json": components["schemas"]["QuadraticFundingResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9441,6 +10159,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9467,6 +10194,15 @@ export interface operations {
                     "application/json": components["schemas"]["ShyVoterResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9474,6 +10210,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9500,6 +10245,15 @@ export interface operations {
                     "application/json": components["schemas"]["SimulateResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9507,6 +10261,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9533,6 +10296,15 @@ export interface operations {
                     "application/json": components["schemas"]["SimulatePipelineResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9540,6 +10312,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9566,6 +10347,15 @@ export interface operations {
                     "application/json": components["schemas"]["SortitionResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9573,6 +10363,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9599,6 +10398,15 @@ export interface operations {
                     "application/json": components["schemas"]["StructuralFairnessResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9606,6 +10414,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9632,6 +10449,15 @@ export interface operations {
                     "application/json": components["schemas"]["StvResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9639,6 +10465,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9665,6 +10500,15 @@ export interface operations {
                     "application/json": components["schemas"]["TemporalResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9672,6 +10516,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9707,6 +10560,15 @@ export interface operations {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     export_json_api_v2_export_simulation_dataset_json_post: {
@@ -9740,6 +10602,15 @@ export interface operations {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     health_api_v2_health_get: {
@@ -9761,6 +10632,13 @@ export interface operations {
                         [key: string]: unknown;
                     };
                 };
+            };
+            /** @description Degraded — one or more subsystem checks failed. Same body shape as 200 (status='degraded'), not an ErrorDetail. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -9786,6 +10664,24 @@ export interface operations {
                     "application/json": components["schemas"]["LegacySimulateResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9793,6 +10689,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9819,6 +10724,24 @@ export interface operations {
                     "application/json": components["schemas"]["ArrowCriteriaResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9826,6 +10749,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9852,6 +10784,24 @@ export interface operations {
                     "application/json": components["schemas"]["BandwagonResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9859,6 +10809,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9885,6 +10844,24 @@ export interface operations {
                     "application/json": components["schemas"]["BlankContagionResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9892,6 +10869,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9916,6 +10902,24 @@ export interface operations {
                     "application/json": components["schemas"]["BlankHistoryResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9923,6 +10927,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9949,6 +10962,24 @@ export interface operations {
                     "application/json": components["schemas"]["CalculateUtilityResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9956,6 +10987,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -9982,6 +11022,24 @@ export interface operations {
                     "application/json": components["schemas"]["CampaignResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9989,6 +11047,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10015,6 +11082,24 @@ export interface operations {
                     "application/json": components["schemas"]["CompareMethodsResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -10022,6 +11107,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10048,6 +11142,24 @@ export interface operations {
                     "application/json": components["schemas"]["CondorcetMatrixResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -10055,6 +11167,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10081,6 +11202,24 @@ export interface operations {
                     "application/json": components["schemas"]["ConstitutionalScenarioResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -10088,6 +11227,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10114,6 +11262,24 @@ export interface operations {
                     "application/json": components["schemas"]["ClosestCandidateResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -10121,6 +11287,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10147,6 +11322,24 @@ export interface operations {
                     "application/json": components["schemas"]["UtilityMatrixResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -10154,6 +11347,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10180,6 +11382,24 @@ export interface operations {
                     "application/json": components["schemas"]["VoterSegmentsResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -10187,6 +11407,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10213,6 +11442,24 @@ export interface operations {
                     "application/json": components["schemas"]["IdeologyMapResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -10220,6 +11467,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10248,6 +11504,24 @@ export interface operations {
                     "application/json": components["schemas"]["ManipulabilityResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -10255,6 +11529,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10281,6 +11564,24 @@ export interface operations {
                     "application/json": components["schemas"]["MonteCarloResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -10288,6 +11589,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10314,6 +11624,24 @@ export interface operations {
                     "application/json": components["schemas"]["MultiwinnerResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -10321,6 +11649,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10347,6 +11684,24 @@ export interface operations {
                     "application/json": components["schemas"]["RealElectionResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -10354,6 +11709,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10374,6 +11738,33 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RealElectionSummary"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10400,6 +11791,24 @@ export interface operations {
                     "application/json": components["schemas"]["ScenarioResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -10407,6 +11816,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10433,6 +11851,24 @@ export interface operations {
                     "application/json": components["schemas"]["SensitivityResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -10440,6 +11876,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10466,6 +11911,24 @@ export interface operations {
                     "application/json": components["schemas"]["SimulateCandidatesResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -10473,6 +11936,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10499,6 +11971,24 @@ export interface operations {
                     "application/json": components["schemas"]["SimulateUtilityResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -10506,6 +11996,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10532,6 +12031,24 @@ export interface operations {
                     "application/json": components["schemas"]["SimulateVotersResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -10539,6 +12056,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10565,6 +12091,24 @@ export interface operations {
                     "application/json": components["schemas"]["StrategicImpactResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -10572,6 +12116,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10598,6 +12151,24 @@ export interface operations {
                     "application/json": components["schemas"]["VoteStepsResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -10605,6 +12176,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10631,6 +12211,24 @@ export interface operations {
                     "application/json": components["schemas"]["WhatIfResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -10638,6 +12236,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10664,6 +12271,15 @@ export interface operations {
                     "application/json": components["schemas"]["E2EDemoResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -10671,6 +12287,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10697,6 +12322,15 @@ export interface operations {
                     "application/json": components["schemas"]["PolisWithCandidatesResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -10704,6 +12338,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10730,6 +12373,15 @@ export interface operations {
                     "application/json": components["schemas"]["PolisSimulationResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -10737,6 +12389,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10763,6 +12424,15 @@ export interface operations {
                     "application/json": components["schemas"]["AgendaManipulationResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -10770,6 +12440,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10796,6 +12475,15 @@ export interface operations {
                     "application/json": components["schemas"]["ApportionmentResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -10803,6 +12491,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10829,6 +12526,15 @@ export interface operations {
                     "application/json": components["schemas"]["ArrowResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -10836,6 +12542,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10862,6 +12577,15 @@ export interface operations {
                     "application/json": components["schemas"]["AssumptionTestingResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -10869,6 +12593,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10895,6 +12628,15 @@ export interface operations {
                     "application/json": components["schemas"]["CollectiveWillResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -10902,6 +12644,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10928,6 +12679,15 @@ export interface operations {
                     "application/json": components["schemas"]["DemocraticBacksliddingResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -10935,6 +12695,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10961,6 +12730,15 @@ export interface operations {
                     "application/json": components["schemas"]["EpistocracyResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -10968,6 +12746,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -10994,6 +12781,15 @@ export interface operations {
                     "application/json": components["schemas"]["IdentityVotingResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -11001,6 +12797,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -11027,6 +12832,15 @@ export interface operations {
                     "application/json": components["schemas"]["IIARateResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -11034,6 +12848,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -11060,6 +12883,15 @@ export interface operations {
                     "application/json": components["schemas"]["IntergenerationalResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -11067,6 +12899,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -11093,6 +12934,15 @@ export interface operations {
                     "application/json": components["schemas"]["JudgmentAggregationResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -11100,6 +12950,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -11126,6 +12985,15 @@ export interface operations {
                     "application/json": components["schemas"]["MajorityTyrannyResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -11133,6 +13001,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -11159,6 +13036,15 @@ export interface operations {
                     "application/json": components["schemas"]["ManipulationAnalysisResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -11166,6 +13052,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -11192,6 +13087,15 @@ export interface operations {
                     "application/json": components["schemas"]["PlottChaosResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -11199,6 +13103,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };
@@ -11225,6 +13138,15 @@ export interface operations {
                     "application/json": components["schemas"]["SenParadoxResponse"];
                 };
             };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -11232,6 +13154,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };

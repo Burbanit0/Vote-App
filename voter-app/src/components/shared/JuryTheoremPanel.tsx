@@ -17,6 +17,8 @@ import { Button } from '@/components/ui/button';
 import { Range } from '@/components/ui/form-controls';
 import { Col, Row } from '@/components/ui/grid';
 import { Spinner } from '@/components/ui/spinner';
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+
 import {
   LineChart,
   Line,
@@ -284,7 +286,10 @@ const JuryTheoremPanel: React.FC = () => {
                       width={40}
                     />
                     <Tooltip
-                      formatter={(v: number, name: string) => [`${Math.round(v * 100)}%`, name]}
+                      formatter={numericTooltipFormatter((v: number, name: string) => [
+                        `${Math.round(v * 100)}%`,
+                        name,
+                      ])}
                       labelFormatter={(v) => `P = ${Number(v).toFixed(2)}`}
                     />
                     <Legend wrapperStyle={{ fontSize: '0.72rem' }} />
@@ -342,7 +347,7 @@ const JuryTheoremPanel: React.FC = () => {
                   >
                     <XAxis type="number" domain={[0, 100]} unit="%" tick={{ fontSize: 9 }} />
                     <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={58} />
-                    <Tooltip formatter={(v: number) => `${v}%`} />
+                    <Tooltip formatter={numericTooltipFormatter((v: number) => `${v}%`)} />
                     <ReferenceLine
                       x={theoryPct}
                       stroke={METHOD_COLORS.theoretical}

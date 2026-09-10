@@ -15,23 +15,13 @@ export default defineConfig({
     'process.env.VITE_API_URL': JSON.stringify(process.env.VITE_API_URL || 'http://localhost:4434'),
   },
   resolve: {
-    // react-router v7 splits into react-router (context + hooks) and
-    // react-router-dom (re-export). Tests wrap in react-router-dom's
-    // MemoryRouter while components call react-router's useNavigate; dedupe so
-    // they share ONE module instance (else the Router context mismatches).
-    dedupe: ['react', 'react-dom', 'react-router', 'react-router-dom'],
+    dedupe: ['react', 'react-dom', 'react-router'],
     alias: [
       // shadcn/ui convention: `@/` → src (matches vite.config.ts). Must precede the
       // regex aliases below. NB: src/lib/ is force-tracked despite the Python `lib/`
       // pattern in .gitignore — if src/lib/utils.ts is ever missing on a fresh
       // checkout, EVERY `@/lib/utils` import fails under coverage (see git history).
       { find: '@', replacement: r('./src') },
-      // The app mixes `react-router` (65 files) and `react-router-dom` (re-export,
-      // 9 files) imports. Under Vitest those resolve to two module instances →
-      // two Router contexts → "useNavigate must be inside a Router". react-router-dom@7
-      // just re-exports react-router and the app only uses shared exports, so collapse
-      // them to ONE instance for tests.
-      { find: /^react-router-dom$/, replacement: 'react-router' },
       // virtual:pwa-register/react → no-op mock (was moduleNameMapper in Jest)
       { find: /^virtual:pwa-register\/react$/, replacement: r('./src/__mocks__/pwa-register.ts') },
       // useSimulationWorker uses `new Worker(new URL(..., import.meta.url))` →

@@ -30,6 +30,9 @@ from api.domain.simulations.helpers import (
     _PRESET_TO_DISTRIBUTION, _SCENARIO_METHODS,
 )
 from api.engine.constants import DEFAULT_ISSUES, ECONOMY_ISSUES, ENV_ISSUES, SOCIAL_ISSUES
+from api.engine.utils.logger import get_logger
+
+log = get_logger(__name__)
 
 
 
@@ -141,6 +144,7 @@ def _compare_methods_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
 
         return result, 200
     except Exception as e:
+        log.error("simulation.compare.failed", exc_info=True)
         return {"error": str(e)}, 500
 
 
@@ -212,6 +216,7 @@ def _strategic_impact_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]
 
         return {"results": results}, 200
     except Exception as e:
+        log.error("simulation.strategic_impact.failed", exc_info=True)
         return {"error": str(e)}, 500
 
 
@@ -234,6 +239,7 @@ def _condorcet_matrix_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]
         result = get_condorcet_matrix(voters, candidates, issues)
         return result, 200
     except Exception as e:
+        log.error("simulation.condorcet_matrix.failed", exc_info=True)
         return {"error": str(e)}, 500
 
 
@@ -319,6 +325,7 @@ def _sensitivity_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
             })
 
         except Exception as exc:
+            log.warning("simulation.sensitivity.value_failed", value=value, exc_info=True)
             results.append({
                 "value": value,
                 "condorcet_winner": None,
@@ -349,6 +356,7 @@ def _arrow_criteria_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
         result = check_all_criteria(voters, candidates, issues)
         return result, 200
     except Exception as e:
+        log.error("simulation.arrow_criteria.failed", exc_info=True)
         return {"error": str(e)}, 500
 
 
@@ -418,6 +426,7 @@ def _scenario_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
         result_no_blank   = compare_all_methods(voters, real_candidates, issues, blank_vote=False)
         result_with_blank = compare_all_methods(voters, real_candidates, issues, blank_vote=True)
     except Exception as e:
+        log.error("simulation.scenario.failed", exc_info=True)
         return {"error": f"Simulation failed: {e}"}, 500
 
     blank_pct = result_with_blank.get("blank_pct", 0.0)
@@ -477,6 +486,7 @@ def _manipulability_worker(params: Dict[str, Any]) -> Tuple[Dict[str, Any], int]
             candidate_configs, num_voters, ideology_dist
         )
     except Exception as exc:
+        log.error("simulation.manipulability.population_build_failed", exc_info=True)
         return {"error": f"Population build failed: {exc}"}, 500
 
     # ── Build sincere rankings ─────────────────────────────────────────────
@@ -509,6 +519,7 @@ def _manipulability_worker(params: Dict[str, Any]) -> Tuple[Dict[str, Any], int]
             result = compute_manipulability_index(method, rankings, num_trials=num_trials_arg)
             results.append(result)
         except Exception as exc:
+            log.warning("simulation.manipulability.method_failed", method=method, exc_info=True)
             results.append({
                 "method": method,
                 "manipulability_rate": None,

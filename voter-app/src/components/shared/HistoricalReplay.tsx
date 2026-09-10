@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useDragTouch } from '../../hooks/useDragTouch';
+import { useDragTouch, makeSvgToDomain } from '../../hooks/useDragTouch';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +11,8 @@ import { Spinner } from '@/components/ui/spinner';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { $api } from '../../api/hooks';
 import type { HistoricalReplayResponse } from '../../api';
+
+import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 // Source of truth is the generated `HistoricalReplayResponse` (Phase 6 response_model).
@@ -47,11 +49,7 @@ function domX(v: number) {
 function domY(v: number) {
   return PAD + ((1 - v) / 2) * (SVG_H - 2 * PAD);
 }
-function svgToDomain(px: number, py: number, rect: DOMRect) {
-  const x = ((((px - rect.left) / rect.width) * SVG_W - PAD) / (SVG_W - 2 * PAD)) * 2 - 1;
-  const y = 1 - ((((py - rect.top) / rect.height) * SVG_H - PAD) / (SVG_H - 2 * PAD)) * 2;
-  return { x: Math.max(-1, Math.min(1, x)), y: Math.max(-1, Math.min(1, y)) };
-}
+const svgToDomain = makeSvgToDomain({ width: SVG_W, height: SVG_H, pad: PAD });
 
 interface IdeologyMapProps {
   candidates: ReplayCandidate[];
@@ -408,7 +406,7 @@ const HistoricalReplay: React.FC = () => {
                   >
                     <XAxis type="number" domain={[0, 100]} unit="%" tick={{ fontSize: 9 }} />
                     <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={75} />
-                    <Tooltip formatter={(v: number) => `${v}%`} />
+                    <Tooltip formatter={numericTooltipFormatter((v: number) => `${v}%`)} />
                     <Bar dataKey="pct" radius={[0, 3, 3, 0]} isAnimationActive={false}>
                       {chartData.map((entry, i) => (
                         <Cell key={i} fill={candColor(entry.name, candidateNames)} />
