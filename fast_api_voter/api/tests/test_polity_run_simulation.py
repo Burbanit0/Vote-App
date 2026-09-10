@@ -14,11 +14,13 @@ import pytest
 
 import api.domain.polity.run_polity_simulation as run_polity_simulation_module
 from api.domain.polity.accountability import chamber_deviation, unified_mandate_deviation, update_street_pressure
+from api.domain.polity.checkpoint import load_checkpoint
+from api.domain.polity.snapshots import expected_snapshot_rows
 from api.domain.polity.citizen import Citizen, Office, Role, generate_population
 from api.domain.polity.codebook import EventType, ReactionMotif
 from api.domain.polity.config import PolityConfig, load_config
 from api.domain.polity.journal import Journal
-from api.domain.polity.llm_behavior_engine import _VOTE_CAST_RETRY_TEMPERATURE
+from api.domain.polity.llm_behavior_engine import _VOTE_CAST_RETRY_SEED_BASE, _VOTE_CAST_RETRY_TEMPERATURE
 from api.domain.polity.llm_client import LlmResponseError, OllamaJsonClient, VllmJsonClient
 from api.domain.polity.metrics import consultation_rate, mobilization_rate
 from api.domain.polity.parties import Party, initialize_parties
@@ -1829,6 +1831,14 @@ class _FakeLlmClient:
     exercise the integration plumbing (journal writes, reproducibility,
     error propagation) without needing real vote-quality logic."""
 
+    def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
+        # Small and fixed, matching test_polity_llm_behavior_engine.py's
+        # FakeLlmClient/FakeChamberLlmClient's own convention -- see their
+        # shared rationale: never binds against compute_max_tokens's own
+        # floor, so tests that don't assert on the exact dynamic max_tokens
+        # value are unaffected by _dynamic_max_tokens's vLLM-path probe.
+        return 500
+
     def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
         payload = json.loads(user_prompt)
         if "citizens" in payload:
@@ -2301,11 +2311,17 @@ def test_confidence_vote_keep_ratio_decouples_from_mandate_strength_once_the_pos
     assert mismatches > 0  # the identity deliberately breaks once the position has drifted
 
 
-def test_llm_batch_misalignment_aborts_the_run_with_no_partial_journal(tmp_path):
+def test_llm_batch_misalignment_falls_back_instead_of_aborting_the_run(tmp_path):
+    # Renamed and re-asserted 2026-09-06 (check_vllm_vote_cast_retry_is_
+    # inert_results.md): cast_votes no longer propagates LlmResponseError at
+    # all -- a real vLLM run crashed on exactly this exception type, which
+    # this project's own standing priority ("must not die mid-run") rules
+    # out. The run now completes; every vote_cast event this misalignment
+    # touches is journaled with llm_fallback=1 instead.
     class _ShortClient:
         """Answers candidacy calls in full (so nominees exist to vote on),
         but answers every vote call with a decision for a cid that was
-        never asked -- isolates the misalignment failure to cast_votes
+        never asked -- isolates the misalignment to cast_votes
         specifically. A wrong cid, not "drop all but the first" or an
         empty decisions list: cast_votes now chunks at
         _VOTE_CAST_MAX_CHUNK_SIZE=1, so a chunk's own expected_cids is
@@ -2313,7 +2329,11 @@ def test_llm_batch_misalignment_aborts_the_run_with_no_partial_journal(tmp_path)
         mismatch at that chunk size, it would coincidentally match; and
         VoteCastBatch's own min_length=1 would turn an empty list into a
         schema-validation LlmResponseError, not the "misaligned" one this
-        test asserts on."""
+        test exercises (both now land on the same fallback path, but this
+        one is the case that actually crashed a real run)."""
+
+        def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
+            return 500
 
         def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
             payload = json.loads(user_prompt)
@@ -2340,9 +2360,22 @@ def test_llm_batch_misalignment_aborts_the_run_with_no_partial_journal(tmp_path)
                 return json.dumps({"decisions": decisions})
             return json.dumps({"decisions": [{"cid": 999999, "blank": 1, "ranking": [], "motif": 101}]})
 
+    # duration_years=1 (4 ticks): stops the run before assembly_offset_years=2
+    # ever brings a legislative election (and therefore coalition
+    # negotiation) into play -- this fake only ever answered
+    # candidacy/nomination/campaign-positioning/vote shapes, matching its own
+    # "isolates the misalignment to cast_votes specifically" scope. Before
+    # this fix, the test never got far enough to notice: it crashed at tick
+    # 0's presidential election, the run's very first LLM call.
     config = _config_with_llm_enabled(tmp_path)
-    with pytest.raises(LlmResponseError, match="misaligned"):
-        run_simulation(config, run_id="r", llm_client=_ShortClient())
+    config = dataclasses.replace(config, run=dataclasses.replace(config.run, duration_years=1))
+    journal_path = run_simulation(config, run_id="r", llm_client=_ShortClient())
+
+    events = _events(journal_path)
+    vote_events = [e for e in events if e["event_type"] == "vote_cast"]
+    assert vote_events  # the run completed, it did not abort
+    assert all(e["payload"]["llm_fallback"] == 1 for e in vote_events)
+    assert all(e["payload"]["retry_sampling_varied"] == 0 for e in vote_events)
 
 
 # ── llm.max_batch_replays (v4 Lot 8) ─────────────────────────────────────
@@ -2357,6 +2390,9 @@ class _RecoveringClient:
     def __init__(self, inner):
         self._inner = inner
         self.calls = 0
+
+    def count_prompt_tokens(self, **kwargs):
+        return self._inner.count_prompt_tokens(**kwargs)
 
     def complete_json(self, **kwargs):
         self.calls += 1
@@ -2376,19 +2412,26 @@ def test_a_replayed_batch_lets_the_run_complete(tmp_path):
 class _FlakyVoteClient:
     """Wraps _FakeLlmClient but fails the FIRST vote_cast call only
     (detected by the "voters" fallback key -- see _FakeLlmClient's own
-    dispatch), recording the temperature kwarg each call receives.
-    Exercises cast_votes's own local, deliberate retry_temperature
-    exception (llm_behavior_engine._VOTE_CAST_RETRY_TEMPERATURE) at the
-    full run_simulation level, including the journal's own
-    retry_sampling_varied marker."""
+    dispatch), recording the temperature/seed kwargs each call receives.
+    Exercises cast_votes's own local, deliberate retry_temperature/
+    retry_seed_base exceptions (llm_behavior_engine._VOTE_CAST_RETRY_
+    TEMPERATURE/_VOTE_CAST_RETRY_SEED_BASE) at the full run_simulation
+    level, including the journal's own retry_sampling_varied marker."""
 
     def __init__(self, inner):
         self._inner = inner
         self._vote_calls = 0
         self.temperatures: list[float | None] = []
+        self.seeds: list[int | None] = []
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None):
+    def count_prompt_tokens(self, **kwargs):
+        return self._inner.count_prompt_tokens(**kwargs)
+
+    def complete_json(
+        self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None, seed=None
+    ):
         self.temperatures.append(temperature)
+        self.seeds.append(seed)
         payload = json.loads(user_prompt)
         is_vote_call = not any(k in payload for k in ("citizens", "parties", "nominees", "responders", "holders", "consulted", "reactors", "members"))
         if is_vote_call:
@@ -2409,14 +2452,20 @@ def test_vote_cast_retries_at_a_varied_temperature_and_journals_the_marker(tmp_p
     events = _events(journal_path)
     vote_events = [e for e in events if e["event_type"] == "vote_cast"]
     assert vote_events  # the run completed, the retry recovered it
-    # Exactly one voter's decision came from a retry -- the one whose
-    # first attempt this fake deliberately broke.
+    # cast_votes chunks at _vote_cast_chunk_size(config) -- 3 on the shipped
+    # vllm default -- and a chunk retries as a whole (a chunk-level failure,
+    # never a partial correction, per §3.6.10), so the FIRST chunk's own 3
+    # voters all carry the retry marker, not just the one whose own vote
+    # this fake's dispatch conceptually "broke" (it actually breaks the
+    # whole first vote_cast call, chunk-shaped, not a single voter).
     varied = [e for e in vote_events if e["payload"]["retry_sampling_varied"] == 1]
-    assert len(varied) == 1
+    assert len(varied) == 3
     # First attempt (the failure): no override. The recovering retry: the
-    # local exception's own temperature.
+    # local exception's own temperature and seed offset.
     assert client.temperatures[0] is None
+    assert client.seeds[0] is None
     assert _VOTE_CAST_RETRY_TEMPERATURE in client.temperatures
+    assert _VOTE_CAST_RETRY_SEED_BASE + 1 in client.seeds
 
 
 # ── pressure_action (v4 Lot 7, dt=10) ────────────────────────────────────
@@ -3090,7 +3139,9 @@ def test_chamber_deliberation_is_journalled_once_per_seated_member_per_tick(tmp_
     assert [e["citizen_id"] for e in tick0_events] == sorted(e["citizen_id"] for e in tick0_events)
     assert len(tick0_events) == 3  # seats
     for e in tick0_events:
-        assert set(e["payload"].keys()) == {"shifts", "ctx", "chamber_deviation", "motif_corrected"}
+        assert set(e["payload"].keys()) == {
+            "shifts", "ctx", "chamber_deviation", "motif_corrected", "retry_sampling_varied", "llm_fallback",
+        }
         assert set(e["payload"]["ctx"].keys()) == {"ticks_left"}
         assert e["motif"] in ("701", "702")
         assert e["codebook_version"] == config.llm.codebook_version
@@ -3115,6 +3166,9 @@ def test_chamber_deliberation_journals_chamber_deviation_after_the_shift_lands(t
     ]
 
     class _ShiftingClient:
+        def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
+            return 500
+
         def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
             payload = json.loads(user_prompt)
             decisions = [
@@ -3150,6 +3204,9 @@ def test_chamber_deviation_is_zero_when_the_model_returns_a_sincere_decision(tmp
     ]
 
     class _SincereClient:
+        def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
+            return 500
+
         def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
             payload = json.loads(user_prompt)
             decisions = [{"cid": m["cid"], "shifts": [], "motif": 701} for m in payload["members"]]
@@ -3261,6 +3318,9 @@ def test_chamber_deliberation_clamp_journals_clamped_at_bound_adjacent_to_the_de
     citizens = [_sortition_test_citizen(0, sortition_seat_until_tick=4, chamber_position=(0.9,))]
 
     class _BigShiftClient:
+        def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
+            return 500
+
         def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
             payload = json.loads(user_prompt)
             decisions = [
@@ -3294,6 +3354,9 @@ def test_chamber_deliberation_without_a_clamp_emits_no_clamped_at_bound_event(tm
     citizens = [_sortition_test_citizen(0, sortition_seat_until_tick=4, chamber_position=(0.5,))]
 
     class _SmallShiftClient:
+        def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
+            return 500
+
         def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
             payload = json.loads(user_prompt)
             decisions = [
@@ -3612,6 +3675,9 @@ def test_llm_path_all_decline_produces_coalition_failed(tmp_path):
         """Same dispatch as _FakeLlmClient for every decision type except
         coalition, where every responder refuses -- isolates
         assemble_coalition's all-decline None contract inside a full run."""
+
+        def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
+            return 500
 
         def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
             payload = json.loads(user_prompt)
@@ -4229,3 +4295,299 @@ def test_elected_never_carries_a_reason(tmp_path):
     assert elected
     for event in elected:
         assert "reason" not in event["payload"]
+
+
+# ── resume / checkpoint (Phase 3, plan-flagship-30y-run.md) ─────────────────
+
+class _SimulatedCrash(Exception):
+    """Marks an injected, deliberate interruption -- distinct from a real
+    bug's exception, so a test asserting "the run was interrupted" can never
+    be fooled by an unrelated failure inside the simulation itself."""
+
+
+def _resumable_config(output_dir) -> PolityConfig:
+    """Small and fast, but exercises every field Phase 3's checkpoint
+    captures: RNG-consuming phases (rupture, exogenous events, sortition),
+    citizen-mutating mechanisms (legitimacy, mandate, petition, street
+    pressure, awakening), a real social graph (so "the graph is safely
+    regenerated, never snapshotted" is actually exercised on resume, not
+    just asserted), and a sortition chamber (its own RNG stream plus
+    citizen sortition fields). llm.enabled stays False throughout (the
+    deterministic engine) -- this tests the checkpoint mechanism itself,
+    not anything LLM-path-specific."""
+    config = _config_with_output_dir(output_dir)
+    return dataclasses.replace(
+        config,
+        run=dataclasses.replace(config.run, population_size=30, duration_years=4),
+        candidacy=dataclasses.replace(config.candidacy, ambition_threshold=0.0, rupture_path_enabled=True),
+        legitimacy=dataclasses.replace(config.legitimacy, enabled=True),
+        mandate=dataclasses.replace(config.mandate, enabled=True),
+        petition=dataclasses.replace(config.petition, enabled=True),
+        street_pressure=dataclasses.replace(config.street_pressure, enabled=True),
+        social_graph=dataclasses.replace(config.social_graph, enabled=True),
+        events=dataclasses.replace(config.events, enabled=True, scandal_enabled=True, economic_shock_enabled=True),
+        awakening=dataclasses.replace(
+            config.awakening,
+            enabled=True,
+            context_modulation=dataclasses.replace(
+                config.awakening.context_modulation, event_salience=True, neighbors_acting=True,
+            ),
+        ),
+        sortition_chamber=dataclasses.replace(config.sortition_chamber, enabled=True, seats=5),
+        pressure_menu=dataclasses.replace(
+            config.pressure_menu, electoral_only=False, petition_enabled=True, mobilization_enabled=True,
+        ),
+    )
+
+
+def _events_ignoring_run_id(journal_path):
+    return [{k: v for k, v in e.items() if k != "run_id"} for e in _events(journal_path)]
+
+
+def test_resume_after_a_simulated_crash_mid_tick_matches_an_uninterrupted_run(tmp_path, monkeypatch):
+    config_a = _resumable_config(tmp_path / "uninterrupted")
+    journal_a = run_simulation(config_a, run_id="run")
+
+    config_b = _resumable_config(tmp_path / "crashed")
+    real_accountability_phase = run_polity_simulation_module._run_accountability_phase
+    crash_tick = 8
+
+    def _crash_partway_through_tick_8(citizens, config, journal, tick, llm_client=None, **kwargs):
+        if tick == crash_tick:
+            # The earlier phases for this SAME tick (rupture, exogenous
+            # events, elections, sortition) already ran and journaled --
+            # this only interrupts the LAST phase, so events.jsonl is left
+            # holding tick 8's own partial output, uncheckpointed.
+            raise _SimulatedCrash("simulated abrupt kill mid-tick")
+        return real_accountability_phase(citizens, config, journal, tick, llm_client, **kwargs)
+
+    monkeypatch.setattr(run_polity_simulation_module, "_run_accountability_phase", _crash_partway_through_tick_8)
+    with pytest.raises(_SimulatedCrash):
+        run_simulation(config_b, run_id="run", resume=False)
+    monkeypatch.undo()  # the resume call below must run the REAL phase, not the crash injector
+
+    crashed_dir = tmp_path / "crashed" / "run"
+    checkpoint = load_checkpoint(crashed_dir / "checkpoint.json")
+    assert checkpoint.tick == crash_tick - 1  # the last tick that finished AND got checkpointed
+    partial_events = _events(crashed_dir / "events.jsonl")
+    assert any(e["tick"] == crash_tick for e in partial_events)  # tick 8's own earlier phases did journal
+
+    journal_b = run_simulation(config_b, run_id="run", resume=True)
+
+    assert _events_ignoring_run_id(journal_a) == _events_ignoring_run_id(journal_b)
+
+
+def test_resume_after_a_clean_stop_between_ticks_matches_an_uninterrupted_run(tmp_path, monkeypatch):
+    # The simpler case Phase 3's own gate also names, and genuinely distinct
+    # from the mid-tick-crash test above: interrupted CLEANLY between two
+    # ticks, so tick 8 never started at all -- no partial-tick journal
+    # writes exist to truncate, unlike the mid-tick case. Same config/
+    # duration_years throughout, matching the actual use case Phase 7's own
+    # staged ramp needs (continue a run interrupted mid-flight), not
+    # "retroactively extend how long a finished run should have been" --
+    # config_hash deliberately treats duration_years as a real simulation
+    # parameter, so that second scenario is correctly refused, not this one.
+    config_a = _resumable_config(tmp_path / "uninterrupted")
+    journal_a = run_simulation(config_a, run_id="run")
+
+    config_b = _resumable_config(tmp_path / "stopped")
+    real_rupture_phase = run_polity_simulation_module._attempt_rupture_candidacies
+    stop_tick = 8
+
+    def _stop_before_tick_8(citizens, parties, config, journal, tick, rng, **kwargs):
+        if tick == stop_tick:
+            raise _SimulatedCrash("simulated clean stop between ticks")
+        return real_rupture_phase(citizens, parties, config, journal, tick, rng, **kwargs)
+
+    monkeypatch.setattr(run_polity_simulation_module, "_attempt_rupture_candidacies", _stop_before_tick_8)
+    with pytest.raises(_SimulatedCrash):
+        run_simulation(config_b, run_id="run", resume=False)
+    monkeypatch.undo()
+
+    checkpoint = load_checkpoint(tmp_path / "stopped" / "run" / "checkpoint.json")
+    assert checkpoint.tick == stop_tick - 1
+    stopped_events = _events(tmp_path / "stopped" / "run" / "events.jsonl")
+    assert not any(e["tick"] == stop_tick for e in stopped_events)  # nothing for tick 8 was ever written
+
+    journal_b = run_simulation(config_b, run_id="run", resume=True)
+
+    assert _events_ignoring_run_id(journal_a) == _events_ignoring_run_id(journal_b)
+
+
+def test_resume_false_refuses_when_a_checkpoint_already_exists(tmp_path):
+    config = _resumable_config(tmp_path)
+    run_simulation(config, run_id="run")
+
+    with pytest.raises(FileExistsError):
+        run_simulation(config, run_id="run", resume=False)
+
+
+def test_resume_true_raises_when_no_checkpoint_exists(tmp_path):
+    config = _resumable_config(tmp_path)
+
+    with pytest.raises(FileNotFoundError):
+        run_simulation(config, run_id="never-run-before", resume=True)
+
+
+def test_resume_true_raises_on_a_run_id_mismatch(tmp_path):
+    config = _resumable_config(tmp_path)
+    run_simulation(config, run_id="original")
+
+    # Point --resume at a DIFFERENT run_id sharing the same output_dir --
+    # not the crashed run's own checkpoint, a caller mistake this must
+    # catch loudly rather than resuming into someone else's state.
+    checkpoint_dir = tmp_path / "original"
+    wrong_dir = tmp_path / "wrong"
+    wrong_dir.mkdir()
+    (wrong_dir / "checkpoint.json").write_bytes((checkpoint_dir / "checkpoint.json").read_bytes())
+
+    with pytest.raises(ValueError, match="run_id"):
+        run_simulation(config, run_id="wrong", resume=True)
+
+
+def test_resume_true_raises_on_a_config_hash_mismatch(tmp_path):
+    config = _resumable_config(tmp_path)
+    run_simulation(config, run_id="run")
+
+    changed_config = dataclasses.replace(
+        config, candidacy=dataclasses.replace(config.candidacy, ambition_threshold=0.5)
+    )
+    with pytest.raises(ValueError, match="config"):
+        run_simulation(changed_config, run_id="run", resume=True)
+
+
+def test_checkpoint_is_written_after_every_tick(tmp_path):
+    config = _resumable_config(tmp_path)
+    run_simulation(config, run_id="run")
+
+    checkpoint = load_checkpoint(tmp_path / "run" / "checkpoint.json")
+    expected_last_tick = config.run.duration_years * config.run.ticks_per_year
+    assert checkpoint.tick == expected_last_tick
+
+
+def test_checkpoint_next_event_id_matches_the_final_journal_length(tmp_path):
+    config = _resumable_config(tmp_path)
+    journal_path = run_simulation(config, run_id="run")
+
+    checkpoint = load_checkpoint(tmp_path / "run" / "checkpoint.json")
+    assert checkpoint.next_event_id == len(_events(journal_path))
+
+
+# ── progress.json (Phase 4, plan-flagship-30y-run.md) ───────────────────────
+
+def test_run_simulation_writes_progress_json(tmp_path):
+    config = _resumable_config(tmp_path)
+    run_simulation(config, run_id="run")
+
+    progress = json.loads((tmp_path / "run" / "progress.json").read_text(encoding="utf-8"))
+    expected_last_tick = config.run.duration_years * config.run.ticks_per_year
+    assert progress["tick"] == expected_last_tick
+    assert progress["total_ticks"] == expected_last_tick
+    assert progress["last_checkpoint_tick"] == expected_last_tick
+    assert progress["eta_seconds"] == 0.0  # the run is done
+    assert progress["decisions_total"] == 0  # deterministic engine, no LLM decisions
+
+
+def test_progress_json_reflects_the_full_cumulative_history_after_resume(tmp_path, monkeypatch):
+    # The same property Phase 3's own resume tests check for events.jsonl,
+    # here for progress.json: cumulative counts must reflect the WHOLE run,
+    # not just what happened after the resume.
+    config = _resumable_config(tmp_path)
+    real_rupture_phase = run_polity_simulation_module._attempt_rupture_candidacies
+    stop_tick = 8
+
+    def _stop_before_tick_8(citizens, parties, config, journal, tick, rng, **kwargs):
+        if tick == stop_tick:
+            raise _SimulatedCrash("simulated stop")
+        return real_rupture_phase(citizens, parties, config, journal, tick, rng, **kwargs)
+
+    monkeypatch.setattr(run_polity_simulation_module, "_attempt_rupture_candidacies", _stop_before_tick_8)
+    with pytest.raises(_SimulatedCrash):
+        run_simulation(config, run_id="run", resume=False)
+    monkeypatch.undo()
+
+    progress_before_resume = json.loads((tmp_path / "run" / "progress.json").read_text(encoding="utf-8"))
+    assert progress_before_resume["tick"] == stop_tick - 1
+
+    run_simulation(config, run_id="run", resume=True)
+
+    progress_after = json.loads((tmp_path / "run" / "progress.json").read_text(encoding="utf-8"))
+    expected_last_tick = config.run.duration_years * config.run.ticks_per_year
+    assert progress_after["tick"] == expected_last_tick
+    assert progress_after["last_checkpoint_tick"] == expected_last_tick
+
+
+# ── snapshots.jsonl (Phase 6, plan-flagship-30y-run.md) ─────────────────────
+
+def _snapshot_rows(snapshots_path):
+    return [json.loads(line) for line in snapshots_path.read_text(encoding="utf-8").splitlines()]
+
+
+def test_run_simulation_writes_a_snapshot_at_tick_zero_and_every_year_boundary(tmp_path):
+    config = _resumable_config(tmp_path)  # population_size=30, duration_years=4, ticks_per_year=4
+    run_simulation(config, run_id="run")
+
+    rows = _snapshot_rows(tmp_path / "run" / "snapshots.jsonl")
+    years_present = sorted({row["year"] for row in rows})
+    assert years_present == [0, 1, 2, 3, 4]  # tick 0, 4, 8, 12, 16
+    assert len(rows) == 5 * config.run.population_size
+
+
+def test_snapshot_at_tick_zero_reflects_the_true_initial_population(tmp_path):
+    # Snapshotting happens BEFORE tick 0's own phases run -- the year-0
+    # snapshot must show issue_positions exactly as generate_population
+    # produced them, untouched by any simulated decision.
+    config = _resumable_config(tmp_path)
+    run_simulation(config, run_id="run")
+
+    initial_population = generate_population(config.citizens, config.run.population_size, config.run.seed)
+    rows = _snapshot_rows(tmp_path / "run" / "snapshots.jsonl")
+    year_zero = {row["citizen_id"]: row for row in rows if row["year"] == 0}
+
+    for citizen in initial_population:
+        assert year_zero[citizen.citizen_id]["issue_positions"] == list(citizen.issue_positions)
+
+
+def test_expected_snapshot_rows_matches_what_an_uninterrupted_run_actually_writes(tmp_path):
+    config = _resumable_config(tmp_path)
+    run_simulation(config, run_id="run")
+
+    rows = _snapshot_rows(tmp_path / "run" / "snapshots.jsonl")
+    last_tick = config.run.duration_years * config.run.ticks_per_year
+    assert len(rows) == expected_snapshot_rows(last_tick, config.run.ticks_per_year, config.run.population_size)
+
+
+def test_resume_after_a_crash_on_a_snapshot_tick_matches_an_uninterrupted_run(tmp_path, monkeypatch):
+    # The specific case is_snapshot_tick's own docstring calls out: a crash
+    # on a tick that is BOTH a snapshot tick AND never finishes must not
+    # leave a duplicated (or, worse, a stale-but-uncounted) snapshot row
+    # once the same tick restarts from scratch on resume.
+    config_a = _resumable_config(tmp_path / "uninterrupted")
+    run_simulation(config_a, run_id="run")
+
+    config_b = _resumable_config(tmp_path / "crashed")
+    real_rupture_phase = run_polity_simulation_module._attempt_rupture_candidacies
+    crash_tick = 8  # a snapshot tick: 8 % ticks_per_year(4) == 0
+
+    def _crash_at_tick_8(citizens, parties, config, journal, tick, rng, **kwargs):
+        if tick == crash_tick:
+            raise _SimulatedCrash("simulated crash on a snapshot tick")
+        return real_rupture_phase(citizens, parties, config, journal, tick, rng, **kwargs)
+
+    monkeypatch.setattr(run_polity_simulation_module, "_attempt_rupture_candidacies", _crash_at_tick_8)
+    with pytest.raises(_SimulatedCrash):
+        run_simulation(config_b, run_id="run", resume=False)
+    monkeypatch.undo()
+
+    # The crash happened AFTER tick 8's own snapshot write (snapshotting is
+    # the very first thing a tick does) but before tick 8 finished/got
+    # checkpointed -- confirm that premature row really is on disk before
+    # resuming, so this test is exercising truncation, not a no-op.
+    premature_rows = _snapshot_rows(tmp_path / "crashed" / "run" / "snapshots.jsonl")
+    assert any(row["tick"] == crash_tick for row in premature_rows)
+
+    run_simulation(config_b, run_id="run", resume=True)
+
+    rows_a = _snapshot_rows(tmp_path / "uninterrupted" / "run" / "snapshots.jsonl")
+    rows_b = _snapshot_rows(tmp_path / "crashed" / "run" / "snapshots.jsonl")
+    assert rows_a == rows_b

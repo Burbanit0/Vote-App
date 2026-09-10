@@ -4,6 +4,7 @@ Offline only: a FakeLlmClient stands in for OllamaJsonClient, no network.
 import dataclasses
 import json
 import math
+import time
 
 import pytest
 
@@ -13,7 +14,17 @@ from api.domain.polity.codebook import EventType, VoteMotif
 from api.domain.polity.config import PressureMenuConfig, load_config
 from api.domain.polity.llm_behavior_engine import (
     MIN_SAFE_BATCH_SIZE,
+    _CHAMBER_MAX_CHUNK_SIZE_OLLAMA,
+    _CHAMBER_MAX_CHUNK_SIZE_VLLM,
+    _CHAMBER_RETRY_SEED_BASE,
+    _CHAMBER_RETRY_TEMPERATURE,
+    _VOTE_CAST_MAX_CHUNK_SIZE_OLLAMA,
+    _VOTE_CAST_MAX_CHUNK_SIZE_VLLM,
+    _VOTE_CAST_RETRY_SEED_BASE,
     _VOTE_CAST_RETRY_TEMPERATURE,
+    _chamber_chunk_size,
+    _dynamic_max_tokens,
+    _vote_cast_chunk_size,
     ChamberContext,
     PressureContext,
     ReactionContext,
@@ -41,6 +52,7 @@ from api.domain.polity.llm_behavior_engine import (
     build_user_prompt,
     cast_votes,
     chunk_voters,
+    run_chunks,
     clamped_dimensions,
     compute_max_tokens,
     decide_campaign_positioning,
@@ -158,6 +170,74 @@ def test_min_safe_batch_size_is_20():
     assert MIN_SAFE_BATCH_SIZE == 20
 
 
+# ── run_chunks (Phase 2, plan-flagship-30y-run.md) ──────────────────────────
+# The shared execution strategy behind every chunked decide_* entry point.
+# These test run_chunks itself in isolation, against plain callables, not
+# against a full decide_* + fake LLM client -- the per-entry-point tests
+# above/below already cover that integration; this covers the mechanism's own
+# two claims: order preservation under concurrency, and unchanged-code-path
+# behavior at workers=1.
+
+def test_run_chunks_workers_one_runs_sequentially_in_order():
+    order: list[int] = []
+
+    def worker(chunk):
+        order.append(chunk[0])
+        return chunk[0] * 10
+
+    result = run_chunks([[1], [2], [3]], worker, workers=1)
+
+    assert result == [10, 20, 30]
+    assert order == [1, 2, 3]  # sequential, not just order-preserving
+
+
+def test_run_chunks_workers_many_preserves_chunk_order_regardless_of_completion_order():
+    # Chunk 0 sleeps longest, chunk 2 shortest -- if run_chunks returned
+    # completion order rather than submission order, this would come back
+    # [2, 1, 0], not [0, 1, 2]. This is the exact property Phase 2's own
+    # determinism proof depends on (see run_chunks's own docstring).
+    delays = {0: 0.06, 1: 0.03, 2: 0.0}
+
+    def worker(chunk):
+        time.sleep(delays[chunk[0]])
+        return chunk[0]
+
+    result = run_chunks([[0], [1], [2]], worker, workers=3)
+
+    assert result == [0, 1, 2]
+
+
+def test_run_chunks_workers_many_actually_overlaps_in_wall_clock():
+    # Not just "doesn't crash with workers>1" -- proves real concurrency
+    # happened: 5 chunks x 0.05s each would take >=0.25s sequentially, and
+    # comfortably under that concurrently.
+    def worker(chunk):
+        time.sleep(0.05)
+        return chunk[0]
+
+    start = time.monotonic()
+    result = run_chunks([[i] for i in range(5)], worker, workers=5)
+    elapsed = time.monotonic() - start
+
+    assert result == [0, 1, 2, 3, 4]
+    assert elapsed < 0.2  # well under the 0.25s a sequential run would need
+
+
+def test_run_chunks_propagates_a_single_chunks_exception():
+    def worker(chunk):
+        if chunk[0] == 1:
+            raise LlmResponseError("boom")
+        return chunk[0]
+
+    with pytest.raises(LlmResponseError, match="boom"):
+        run_chunks([[0], [1], [2]], worker, workers=3)
+
+
+def test_run_chunks_empty_chunk_list_returns_empty():
+    assert run_chunks([], lambda chunk: chunk[0], workers=1) == []
+    assert run_chunks([], lambda chunk: chunk[0], workers=4) == []
+
+
 # ── truncation_limit ──────────────────────────────────────────────────────
 
 def test_truncation_limit_none_at_or_below_six():
@@ -184,14 +264,116 @@ def test_compute_max_tokens_has_a_floor_for_tiny_chunks():
     assert compute_max_tokens(0) == 1536
 
 
+# ── _vote_cast_chunk_size / _chamber_chunk_size / _dynamic_max_tokens
+# (2026-09-08, check_vllm_chunk_size_throughput_results.md) ──────────────
+
+def test_vote_cast_chunk_size_is_provider_conditional():
+    config = _config_with_llm_enabled()
+    assert config.llm.provider == "vllm"
+    assert _vote_cast_chunk_size(config) == _VOTE_CAST_MAX_CHUNK_SIZE_VLLM == 3
+    ollama_config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, provider="ollama"))
+    assert _vote_cast_chunk_size(ollama_config) == _VOTE_CAST_MAX_CHUNK_SIZE_OLLAMA == 1
+
+
+def test_chamber_chunk_size_is_provider_conditional():
+    config = _config_with_llm_enabled()
+    assert config.llm.provider == "vllm"
+    assert _chamber_chunk_size(config) == _CHAMBER_MAX_CHUNK_SIZE_VLLM == 5
+    ollama_config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, provider="ollama"))
+    assert _chamber_chunk_size(ollama_config) == _CHAMBER_MAX_CHUNK_SIZE_OLLAMA == 1
+
+
+class _StubTokenCountingClient:
+    """Minimal LlmClientProtocol conformer for _dynamic_max_tokens's own
+    unit tests -- complete_json is never called (the function under test
+    only ever calls count_prompt_tokens), so it deliberately isn't
+    implemented; a test that reached it would fail loudly with an
+    AttributeError, which is the point."""
+
+    def __init__(self, prompt_tokens):
+        self._prompt_tokens = prompt_tokens
+        self.calls: list[tuple[str, str, bool]] = []
+
+    def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
+        self.calls.append((system_prompt, user_prompt, think))
+        return self._prompt_tokens
+
+
+def test_dynamic_max_tokens_uses_the_flat_allowance_on_ollama_without_probing():
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, provider="ollama"))
+    client = _StubTokenCountingClient(prompt_tokens=999999)  # would blow any real ceiling if ever used
+
+    result = _dynamic_max_tokens(
+        client, config, system_prompt="s", user_prompt="u", chunk_size=3, flat_allowance=12000
+    )
+
+    assert result == compute_max_tokens(3) + 12000
+    assert client.calls == []  # the ollama path never probes
+
+
+def test_dynamic_max_tokens_probes_and_maximizes_on_vllm():
+    config = _config_with_llm_enabled()
+    assert config.llm.provider == "vllm"
+    client = _StubTokenCountingClient(prompt_tokens=2000)
+
+    result = _dynamic_max_tokens(
+        client, config, system_prompt="sys", user_prompt="usr", chunk_size=3, flat_allowance=12000
+    )
+
+    assert result == 16384 - 2000 - 300
+    assert client.calls == [("sys", "usr", True)]  # probed with the real prompt, think=True
+
+
+def test_dynamic_max_tokens_floor_wins_when_headroom_is_smaller():
+    # A prompt so large that 16384 - prompt_tokens - margin would fall
+    # below compute_max_tokens's own floor -- the floor must still win
+    # rather than requesting a max_tokens too small to hold the visible
+    # answer alone.
+    config = _config_with_llm_enabled()
+    client = _StubTokenCountingClient(prompt_tokens=16000)
+
+    result = _dynamic_max_tokens(
+        client, config, system_prompt="s", user_prompt="u", chunk_size=5, flat_allowance=8000
+    )
+
+    assert result == compute_max_tokens(5)
+    assert compute_max_tokens(5) > 16384 - 16000 - 300  # confirms the floor branch was actually exercised
+
+
 # ── build_system_prompt / build_user_prompt ──────────────────────────────
 
-def test_system_prompt_enumerates_every_expected_cid():
+def test_system_prompt_references_expected_cids_by_name():
+    # 2026-09-10 (plan-llm-protocol-and-theory-program.md §3.B.7): the
+    # literal cid list moved to build_user_prompt's own `expected_cids`
+    # field so build_system_prompt's own output is identical across every
+    # chunk of the same election (prefix-cache continuity) -- the system
+    # prompt now REFERENCES that field by name instead of embedding the
+    # list itself. See test_user_prompt_carries_expected_cids_in_voter_order
+    # for where the literal list actually lives now.
     citizens = _population(3)
     candidates = [_candidate(10, (0.1,)), _candidate(11, (0.9,))]
     prompt = build_system_prompt(citizens, candidates)
-    assert "[0,1,2]" in prompt
-    assert "EXACTEMENT ces 3" in prompt
+    assert "[0,1,2]" not in prompt
+    assert "'expected_cids'" in prompt
+
+
+def test_system_prompt_is_identical_across_chunks_of_the_same_election():
+    # The direct pin for the prefix-cache fix's own premise: two DIFFERENT
+    # voter chunks of the same election must now produce the exact same
+    # system prompt (previously they diverged ~84% through, at the old
+    # embedded cid list -- see build_system_prompt's own correction note).
+    candidates = [_candidate(10, (0.1,)), _candidate(11, (0.9,))]
+    chunk_a = _population(3)
+    chunk_b = [_citizen(cid, (0.5,)) for cid in (100, 101, 102)]
+    assert build_system_prompt(chunk_a, candidates) == build_system_prompt(chunk_b, candidates)
+
+
+def test_user_prompt_carries_expected_cids_in_voter_order():
+    voters = _population(3)
+    candidates = [_candidate(10, (0.1,))]
+    payload = json.loads(build_user_prompt(voters, candidates))
+    assert payload["expected_cids"] == [0, 1, 2]
 
 
 def test_system_prompt_describes_candidates_by_position_not_cid():
@@ -245,6 +427,27 @@ def test_user_prompt_distances_match_weighted_distance_exactly():
     assert got == expected
 
 
+def test_user_prompt_uses_coarser_precision_for_holistic_vectors_only():
+    # plan-llm-protocol-and-theory-program.md §5.B (2026-09-09): positions/
+    # priorities/platform are read holistically, never compared against a
+    # fine-grained threshold, so they drop to _PROMPT_VECTOR_PRECISION (2)
+    # decimals -- but distances/blank_threshold stay at full precision,
+    # since that pairing IS a razor-thin accept/reject comparison (the exact
+    # computation test_user_prompt_distances_match_weighted_distance_exactly
+    # pins above). Not yet live-verified against a real model call -- see
+    # that plan's own verification section.
+    voters = [_citizen(0, (0.123456, 0.789012), priorities=(0.333333, 0.666666))]
+    voters[0].blank_threshold = 0.123456
+    candidates = [_candidate(10, (0.111111, 0.222222))]
+    payload = json.loads(build_user_prompt(voters, candidates))
+
+    voter = payload["voters"][0]
+    assert voter["positions"] == [0.12, 0.79]
+    assert voter["priorities"] == [0.33, 0.67]
+    assert voter["blank_threshold"] == 0.1235  # unchanged: 4 decimals
+    assert payload["candidates"][0]["platform"] == [0.11, 0.22]
+
+
 def test_user_prompt_distances_follow_the_same_position_order_as_candidates():
     voters = [_citizen(0, (0.5,))]
     a = _candidate(10, (0.9,))
@@ -288,6 +491,25 @@ def test_system_prompt_requires_every_acceptable_candidate_in_the_ranking():
     prompt = build_system_prompt(citizens, candidates)
     assert "CHAQUE candidat" in prompt
     assert "Ne te limite " in prompt
+
+
+def test_system_prompt_bounds_the_ranking_at_the_truncation_limit_above_six_candidates():
+    # 2026-09-10 correction (plan-flagship-30y-run.md Phase 7 Stage 3): the
+    # unconditional "CHAQUE candidat... Ne te limite JAMAIS" sentence above
+    # was, until this fix, sent even when truncate_at is not None --
+    # directly contradicting validate_decision's own truncation-limit
+    # rejection, and the dominant vote_cast failure mode at population 500
+    # (two election ticks, 494/500 and 476/500 fallback). This pins that the
+    # truncated branch states an explicit upper bound instead, so a later
+    # prompt tidy-up cannot silently reintroduce the unconditional wording
+    # for candidate_count > 6.
+    citizens = _population(2)
+    seven = [_candidate(i, (0.1,)) for i in range(7)]
+    prompt = build_system_prompt(citizens, seven)
+    assert "JUSQU'A 5" in prompt
+    assert "n'inclus JAMAIS plus de 5" in prompt
+    # the untruncated-case wording must NOT leak into the truncated prompt
+    assert "OBLIGATOIREMENT contenir CHAQUE candidat" not in prompt
 
 
 # ── validate_decision ─────────────────────────────────────────────────────
@@ -344,6 +566,17 @@ class FakeLlmClient:
             sum(w * (vx - px) ** 2 for vx, px, w in zip(voter.issue_positions, platform, voter.issue_priorities))
         )
 
+    def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
+        # Small and fixed on purpose: _dynamic_max_tokens's floor (compute_
+        # max_tokens's own return value, at most a few hundred tokens for
+        # any chunk size a test builds) never binds against this, so tests
+        # that don't care about the exact dynamic value stay unaffected --
+        # only test_decide_chamber_deliberation_uses_think_true_and_the_
+        # reasoning_token_allowance's own OLLAMA-provider variant asserts an
+        # exact max_tokens value, and that one pins the flat-allowance
+        # formula this probe is never reached for.
+        return 500
+
     def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
         payload = json.loads(user_prompt)
         cids = [v["cid"] for v in payload["voters"]]
@@ -391,13 +624,16 @@ def test_cast_votes_matches_build_ranking_when_nobody_votes_blank():
 
 
 def test_cast_votes_preserves_voter_order_across_chunk_boundaries():
-    # cast_votes chunks at its own dedicated _VOTE_CAST_MAX_CHUNK_SIZE (1),
+    # cast_votes chunks at its own dedicated _vote_cast_chunk_size(config),
     # never config.llm.max_batch_size (a real v6b acceptance run found
-    # multi-voter batches collapse the model's per-voter distance reasoning,
-    # and even chunk_size=3 kept hitting finish_reason='length' under a
-    # widened token budget -- see cast_votes's own docstring). 7 voters at
-    # chunk size 1: 7 chunks of exactly 1 voter each, one client call per
-    # voter, in order.
+    # multi-voter batches collapse the model's per-voter distance reasoning
+    # on Ollama -- see cast_votes's own docstring; re-tested on vLLM
+    # 2026-09-08, does not reproduce, chunk raised to 3 on that provider,
+    # see _VOTE_CAST_MAX_CHUNK_SIZE_VLLM's own docstring). 7 voters at the
+    # shipped default (provider=vllm, chunk size 3): chunk_voters balances
+    # chunk sizes rather than greedily filling to the ceiling, so 7 voters
+    # come out as 3, 2, 2 -- boundaries still land mid-population, so order
+    # preservation across them is still meaningfully exercised.
     voters = _population(7, dims=1)
     candidates = [_candidate(100, (0.5,))]
     config = _config_with_llm_enabled(max_batch_size=25)
@@ -405,7 +641,7 @@ def test_cast_votes_preserves_voter_order_across_chunk_boundaries():
 
     outcome = cast_votes(voters, candidates, config, client)
 
-    assert client.calls == [[0], [1], [2], [3], [4], [5], [6]]
+    assert client.calls == [[0, 1, 2], [3, 4], [5, 6]]
     assert len(outcome.ballots) == 7
     for ballot in outcome.ballots:
         assert BLANK_LABEL in ballot
@@ -471,6 +707,13 @@ def test_cast_votes_raises_for_intra_run_workers_above_one():
     voters = _population(20)
     candidates = [_candidate(100, (0.5,))]
     config = _config_with_llm_enabled()
+    # Phase 2 (plan-flagship-30y-run.md) tried making this provider-conditional
+    # (vllm exempted) and then reverted it: check_intra_run_concurrency_
+    # determinism_results.md found vLLM concurrency ALSO breaks reproducibility
+    # -- 20/497 events diverged between workers=1 and workers=8, confirmed via
+    # a workers=1-vs-workers=1 control (0 diffs) to rule out non-concurrency
+    # causes. The guard is unconditional again; this stays a plain workers>1
+    # check, not an ollama-specific one.
     config = dataclasses.replace(config, parallel=dataclasses.replace(config.parallel, intra_run_workers=2))
     with pytest.raises(NotImplementedError, match="intra_run_workers"):
         cast_votes(voters, candidates, config, FakeLlmClient({}, candidates))
@@ -485,17 +728,42 @@ def test_cast_votes_raises_for_codebook_version_mismatch():
         cast_votes(voters, candidates, config, FakeLlmClient({}, candidates))
 
 
-def test_cast_votes_propagates_llm_response_error_on_count_mismatch():
+def test_cast_votes_falls_back_to_the_deterministic_ballot_on_count_mismatch():
+    # cast_votes no longer propagates LlmResponseError under ANY circumstance
+    # (2026-09-06, check_vllm_vote_cast_retry_is_inert_results.md) -- a real
+    # vLLM run crashed on exactly this exception type after its replay budget
+    # was exhausted, which this project's own standing priority for that run
+    # ("must not die mid-run") rules out. ShortClient answers the chunk
+    # containing voter 0 correctly and completely (proving the fallback
+    # doesn't over-fire on a chunk that was never actually misaligned) and
+    # answers every OTHER chunk with a bogus single cid=0 decision, which
+    # never matches that chunk's own expected cids -- misaligned, fallback.
+    # At the shipped default (provider=vllm, chunk size 3), voter 0's own
+    # chunk is [0, 1, 2] (20 voters chunk as 3,3,3,3,3,3,2): all three of
+    # those succeed normally, every other voter (3..19) falls back.
     voters = _population(20)
     candidates = [_candidate(100, (0.5,))]
     config = _config_with_llm_enabled()
 
     class ShortClient:
-        def complete_json(self, **kwargs):
-            return json.dumps({"decisions": [{"cid": 0, "blank": 1, "ranking": [], "motif": 101}]})
+        def count_prompt_tokens(self, **kwargs):
+            return 500
 
-    with pytest.raises(LlmResponseError, match="misaligned"):
-        cast_votes(voters, candidates, config, ShortClient())
+        def complete_json(self, **kwargs):
+            payload = json.loads(kwargs["user_prompt"])
+            cids = [v["cid"] for v in payload["voters"]]
+            if 0 in cids:
+                decisions = [{"cid": cid, "blank": 1, "ranking": [], "motif": 101} for cid in cids]
+            else:
+                decisions = [{"cid": 0, "blank": 1, "ranking": [], "motif": 101}]
+            return json.dumps({"decisions": decisions})
+
+    outcome = cast_votes(voters, candidates, config, ShortClient())
+
+    assert len(outcome.decisions) == len(voters)
+    for v in voters:
+        expected_fallback = None if v.citizen_id in (0, 1, 2) else True
+        assert outcome.llm_fallback.get(v.citizen_id) == expected_fallback
 
 
 # ── build_candidacy_system_prompt / build_candidacy_user_prompt ─────────────
@@ -604,6 +872,13 @@ def test_decide_candidacies_raises_for_dynamic_batch_sharding():
 def test_decide_candidacies_raises_for_intra_run_workers_above_one():
     citizens = _population(20)
     config = _config_with_llm_enabled()
+    # Phase 2 (plan-flagship-30y-run.md) tried making this provider-conditional
+    # (vllm exempted) and then reverted it: check_intra_run_concurrency_
+    # determinism_results.md found vLLM concurrency ALSO breaks reproducibility
+    # -- 20/497 events diverged between workers=1 and workers=8, confirmed via
+    # a workers=1-vs-workers=1 control (0 diffs) to rule out non-concurrency
+    # causes. The guard is unconditional again; this stays a plain workers>1
+    # check, not an ollama-specific one.
     config = dataclasses.replace(config, parallel=dataclasses.replace(config.parallel, intra_run_workers=2))
     with pytest.raises(NotImplementedError, match="intra_run_workers"):
         decide_candidacies(citizens, config, FakeCandidacyLlmClient())
@@ -787,6 +1062,13 @@ def test_decide_party_nominations_raises_for_dynamic_batch_sharding():
 def test_decide_party_nominations_raises_for_intra_run_workers_above_one():
     citizens = _population(2)
     config = _config_with_llm_enabled()
+    # Phase 2 (plan-flagship-30y-run.md) tried making this provider-conditional
+    # (vllm exempted) and then reverted it: check_intra_run_concurrency_
+    # determinism_results.md found vLLM concurrency ALSO breaks reproducibility
+    # -- 20/497 events diverged between workers=1 and workers=8, confirmed via
+    # a workers=1-vs-workers=1 control (0 diffs) to rule out non-concurrency
+    # causes. The guard is unconditional again; this stays a plain workers>1
+    # check, not an ollama-specific one.
     config = dataclasses.replace(config, parallel=dataclasses.replace(config.parallel, intra_run_workers=2))
     with pytest.raises(NotImplementedError, match="intra_run_workers"):
         decide_party_nominations(citizens, [], set(), config, FakePartyNominationLlmClient())
@@ -1055,6 +1337,13 @@ def test_decide_campaign_positioning_raises_for_dynamic_batch_sharding():
 def test_decide_campaign_positioning_raises_for_intra_run_workers_above_one():
     citizens = _population(2)
     config = _config_with_llm_enabled()
+    # Phase 2 (plan-flagship-30y-run.md) tried making this provider-conditional
+    # (vllm exempted) and then reverted it: check_intra_run_concurrency_
+    # determinism_results.md found vLLM concurrency ALSO breaks reproducibility
+    # -- 20/497 events diverged between workers=1 and workers=8, confirmed via
+    # a workers=1-vs-workers=1 control (0 diffs) to rule out non-concurrency
+    # causes. The guard is unconditional again; this stays a plain workers>1
+    # check, not an ollama-specific one.
     config = dataclasses.replace(config, parallel=dataclasses.replace(config.parallel, intra_run_workers=2))
     with pytest.raises(NotImplementedError, match="intra_run_workers"):
         decide_campaign_positioning(citizens, citizens, {}, config, FakePositioningLlmClient())
@@ -1307,6 +1596,13 @@ def test_decide_representative_response_raises_for_intra_run_workers_above_one()
     holder = _holder(0, (0.5,))
     contexts = {0: _response_context(0)}
     config = _config_with_llm_enabled()
+    # Phase 2 (plan-flagship-30y-run.md) tried making this provider-conditional
+    # (vllm exempted) and then reverted it: check_intra_run_concurrency_
+    # determinism_results.md found vLLM concurrency ALSO breaks reproducibility
+    # -- 20/497 events diverged between workers=1 and workers=8, confirmed via
+    # a workers=1-vs-workers=1 control (0 diffs) to rule out non-concurrency
+    # causes. The guard is unconditional again; this stays a plain workers>1
+    # check, not an ollama-specific one.
     config = dataclasses.replace(config, parallel=dataclasses.replace(config.parallel, intra_run_workers=2))
     with pytest.raises(NotImplementedError, match="intra_run_workers"):
         decide_representative_response([holder], contexts, config, FakeResponseLlmClient())
@@ -1414,12 +1710,32 @@ def test_validate_chamber_decision_uses_sortition_bounds_not_mandate_bounds():
 
 # ── build_chamber_system_prompt / build_chamber_user_prompt ─────────────
 
-def test_chamber_system_prompt_enumerates_every_expected_cid():
+def test_chamber_system_prompt_references_expected_cids_by_name():
+    # 2026-09-10 (plan-llm-protocol-and-theory-program.md §3.B.7): mirrors
+    # vote_cast's own fix -- the literal cid list moved to build_chamber_
+    # user_prompt's own `expected_cids` field so build_chamber_system_
+    # prompt's own output is identical across every chunk (prefix-cache
+    # continuity). See test_chamber_system_prompt_is_identical_across_
+    # chunks and test_chamber_user_prompt_carries_expected_cids.
     members = [_member(0, (0.5,)), _member(1, (0.5,)), _member(2, (0.5,))]
     config = _config_with_llm_enabled()
     prompt = build_chamber_system_prompt(members, config)
-    assert "[0,1,2]" in prompt
-    assert "EXACTEMENT ces 3" in prompt
+    assert "[0,1,2]" not in prompt
+    assert "'expected_cids'" in prompt
+
+
+def test_chamber_system_prompt_is_identical_across_different_chunks():
+    config = _config_with_llm_enabled()
+    chunk_a = [_member(0, (0.5,)), _member(1, (0.5,)), _member(2, (0.5,))]
+    chunk_b = [_member(50, (0.5,)), _member(51, (0.5,))]
+    assert build_chamber_system_prompt(chunk_a, config) == build_chamber_system_prompt(chunk_b, config)
+
+
+def test_chamber_user_prompt_carries_expected_cids_in_member_order():
+    members = [_member(0, (0.5,)), _member(1, (0.5,)), _member(2, (0.5,))]
+    contexts = {m.citizen_id: _chamber_context(m.citizen_id) for m in members}
+    payload = json.loads(build_chamber_user_prompt(members, contexts))
+    assert payload["expected_cids"] == [0, 1, 2]
 
 
 def test_chamber_system_prompt_states_the_actual_numeric_bounds():
@@ -1479,6 +1795,23 @@ def test_chamber_user_prompt_ctx_matches_the_journalled_ctx_payload():
     assert payload["members"][0]["ctx"] == context.to_payload()
 
 
+def test_chamber_user_prompt_uses_coarser_precision_for_position_vectors():
+    # plan-llm-protocol-and-theory-program.md §5.B (2026-09-09): sincere_
+    # position/chamber_position/priorities are read holistically ("should I
+    # adjust, roughly how much"), so they drop to _PROMPT_VECTOR_PRECISION
+    # (2) decimals -- unlike vote_cast's distances/blank_threshold, there is
+    # no fine-grained threshold comparison here to protect. `ctx` (to_payload,
+    # shared with the journal) is untouched -- see the test above. Not yet
+    # live-verified against a real model call -- see that plan's own
+    # verification section.
+    member = _member(0, (0.123456, 0.789012), chamber=(0.333333, 0.666666))
+    contexts = {0: _chamber_context(0)}
+    payload = json.loads(build_chamber_user_prompt([member], contexts))
+    block = payload["members"][0]
+    assert block["sincere_position"] == [0.12, 0.79]
+    assert block["chamber_position"] == [0.33, 0.67]
+
+
 # ── decide_chamber_deliberation (FakeChamberLlmClient, v6b Lot 3) ───────
 
 class FakeChamberLlmClient:
@@ -1490,6 +1823,12 @@ class FakeChamberLlmClient:
         self.calls: list[list[int]] = []
         self.think_values: list[bool] = []
         self.max_tokens_values: list[int] = []
+
+    def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
+        # See FakeLlmClient.count_prompt_tokens's own comment -- same
+        # rationale, small and fixed so it never binds against
+        # compute_max_tokens's own floor.
+        return 500
 
     def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
         payload = json.loads(user_prompt)
@@ -1513,9 +1852,10 @@ def test_decide_chamber_deliberation_returns_empty_and_skips_the_client_when_no_
 
 
 def test_decide_chamber_deliberation_sorts_members_by_citizen_id_regardless_of_input_order():
-    # _CHAMBER_MAX_CHUNK_SIZE=1 means each member reaches the client as its
-    # own call -- the ordering guarantee (D-5) is now about CALL ORDER, not
-    # grouping within one call.
+    # At the shipped default (provider=vllm, _CHAMBER_MAX_CHUNK_SIZE_VLLM=5)
+    # 3 members fit in a single chunk/call -- the ordering guarantee (D-5)
+    # is about the order WITHIN that call's own cid list, since members are
+    # sorted by citizen_id before chunking regardless of input order.
     members = [_member(3, (0.5,)), _member(0, (0.5,)), _member(4, (0.5,))]
     contexts = {m.citizen_id: _chamber_context(m.citizen_id) for m in members}
     config = _config_with_llm_enabled()
@@ -1523,30 +1863,36 @@ def test_decide_chamber_deliberation_sorts_members_by_citizen_id_regardless_of_i
 
     decide_chamber_deliberation(members, contexts, config, client)
 
-    assert client.calls == [[0], [3], [4]]
+    assert client.calls == [[0, 3, 4]]
 
 
-def test_decide_chamber_deliberation_chunks_a_full_seats_sized_cohort_at_one():
+def test_decide_chamber_deliberation_chunks_a_full_seats_sized_cohort_at_one_on_ollama():
     # A 30-member cohort (sortition_chamber.seats shipped) must reach the
-    # client as THIRTY calls of 1 -- this lot's own pre-flight spike found
-    # one call of 30 (and even a chunk of 15) silently drops all but the
-    # last 6 decisions, so decide_chamber_deliberation chunks at its own
-    # measured ceiling (_CHAMBER_MAX_CHUNK_SIZE), not config.llm.max_batch_
-    # size (25). Cut from an original 10 -- via a tried-and-DISPROVEN
-    # intermediate of 5 -- to 1 (vote_cast's own endpoint) after a real v6b
-    # acceptance run (2026-08-21/22, GPU) hit finish_reason='length' on a
-    # chunk_size=10 call, 3/3 attempts, all landing exactly on
-    # n_decoded=10136 -- the deterministic "hits the configured ceiling"
-    # signature (Mode B), not unbounded reasoning collapse (Mode A) --
-    # fixed the same way _VOTE_CAST_MAX_CHUNK_SIZE's own history fixed an
-    # analogous overflow: cut the chunk size, not the budget. Halving to 5
-    # was tried first and reproduced the identical overflow on a different
-    # sub-chunk with zero margin; chunk_size=1 was validated directly
-    # against that same failing group before shipping -- see this
-    # constant's own docstring / scripts/lot3_chamber_reliability_results.md.
+    # client as THIRTY calls of 1 on Ollama -- this lot's own pre-flight
+    # spike found one call of 30 (and even a chunk of 15) silently drops
+    # all but the last 6 decisions, so decide_chamber_deliberation chunks
+    # at its own measured ceiling (_CHAMBER_MAX_CHUNK_SIZE_OLLAMA), not
+    # config.llm.max_batch_size (25). Cut from an original 10 -- via a
+    # tried-and-DISPROVEN intermediate of 5 -- to 1 (vote_cast's own
+    # endpoint) after a real v6b acceptance run (2026-08-21/22, GPU) hit
+    # finish_reason='length' on a chunk_size=10 call, 3/3 attempts, all
+    # landing exactly on n_decoded=10136 -- the deterministic "hits the
+    # configured ceiling" signature (Mode B), not unbounded reasoning
+    # collapse (Mode A) -- fixed the same way _VOTE_CAST_MAX_CHUNK_SIZE_
+    # OLLAMA's own history fixed an analogous overflow: cut the chunk size,
+    # not the budget. Halving to 5 was tried first and reproduced the
+    # identical overflow on a different sub-chunk with zero margin;
+    # chunk_size=1 was validated directly against that same failing group
+    # before shipping -- see this constant's own docstring /
+    # scripts/lot3_chamber_reliability_results.md. Explicitly pinned to
+    # provider=ollama: this whole history is Ollama-era and was never
+    # re-tested there -- see test_decide_chamber_deliberation_chunks_a_
+    # full_seats_sized_cohort_at_five_on_vllm below for the re-tested
+    # vLLM-era ceiling.
     members = [_member(i, (0.5,)) for i in range(30)]
     contexts = {m.citizen_id: _chamber_context(m.citizen_id) for m in members}
     config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, provider="ollama"))
     client = FakeChamberLlmClient()
 
     decide_chamber_deliberation(members, contexts, config, client)
@@ -1556,7 +1902,26 @@ def test_decide_chamber_deliberation_chunks_a_full_seats_sized_cohort_at_one():
     assert sorted(cid for call in client.calls for cid in call) == list(range(30))
 
 
-def test_decide_chamber_deliberation_uses_think_true_and_the_reasoning_token_allowance():
+def test_decide_chamber_deliberation_chunks_a_full_seats_sized_cohort_at_five_on_vllm():
+    # check_vllm_chunk_size_throughput_results.md (2026-09-08): raised to 5
+    # on vLLM once real ground-truth/throughput testing found chamber_
+    # deliberation's Ollama-era ceiling didn't transfer as a hard limit --
+    # see _CHAMBER_MAX_CHUNK_SIZE_VLLM's own docstring. 30 members chunk as
+    # six calls of exactly 5.
+    members = [_member(i, (0.5,)) for i in range(30)]
+    contexts = {m.citizen_id: _chamber_context(m.citizen_id) for m in members}
+    config = _config_with_llm_enabled()
+    assert config.llm.provider == "vllm"
+    client = FakeChamberLlmClient()
+
+    decide_chamber_deliberation(members, contexts, config, client)
+
+    assert len(client.calls) == 6
+    assert [len(c) for c in client.calls] == [5] * 6
+    assert sorted(cid for call in client.calls for cid in call) == list(range(30))
+
+
+def test_decide_chamber_deliberation_uses_think_true_and_the_flat_reasoning_token_allowance_on_ollama():
     # v6b Lot 4 correction: a real acceptance run (2026-08-17, GPU) found a
     # specific 10-cid chunk that think=False reproducibly (8/8) dropped to
     # 4/10, well-formed JSON, not a truncation; think=True fixed that exact
@@ -1567,12 +1932,15 @@ def test_decide_chamber_deliberation_uses_think_true_and_the_reasoning_token_all
     # corrected from an original 4000 after a real v6b acceptance run
     # (2026-08-20) hit finish_reason='length' on a chunk_size=10 call, 3/3,
     # deterministic budget exhaustion (not context truncation). 1 member
-    # (not 10) since _CHAMBER_MAX_CHUNK_SIZE was itself later cut to 1
-    # (via a disproven intermediate of 5) for the identical reason, two
-    # calls up.
+    # (not 10) since _CHAMBER_MAX_CHUNK_SIZE_OLLAMA was itself later cut to
+    # 1 (via a disproven intermediate of 5) for the identical reason, two
+    # calls up. Explicitly pinned to provider=ollama (2026-09-08): the flat
+    # allowance this test pins is now the OLLAMA-only formula --
+    # _dynamic_max_tokens replaced it on vLLM, see the companion test below.
     members = [_member(0, (0.5,))]
     contexts = {m.citizen_id: _chamber_context(m.citizen_id) for m in members}
     config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, provider="ollama"))
     client = FakeChamberLlmClient()
 
     decide_chamber_deliberation(members, contexts, config, client)
@@ -1581,12 +1949,35 @@ def test_decide_chamber_deliberation_uses_think_true_and_the_reasoning_token_all
     assert client.max_tokens_values == [compute_max_tokens(1) + 8000]
 
 
+def test_decide_chamber_deliberation_uses_the_dynamic_max_tokens_probe_on_vllm():
+    # _dynamic_max_tokens (2026-09-08, check_vllm_chunk_size_throughput_
+    # results.md): on vLLM, max_tokens is no longer the flat allowance the
+    # companion Ollama test above pins -- it's probed against the real
+    # prompt via count_prompt_tokens and maximized under the context
+    # ceiling. FakeChamberLlmClient.count_prompt_tokens returns a fixed 500
+    # (see its own comment), so the expected value is fully determined:
+    # max(compute_max_tokens(1), 16384 - 500 - 300).
+    members = [_member(0, (0.5,))]
+    contexts = {m.citizen_id: _chamber_context(m.citizen_id) for m in members}
+    config = _config_with_llm_enabled()
+    assert config.llm.provider == "vllm"
+    client = FakeChamberLlmClient()
+
+    decide_chamber_deliberation(members, contexts, config, client)
+
+    assert client.think_values == [True]
+    assert client.max_tokens_values == [max(compute_max_tokens(1), 16384 - 500 - 300)]
+
+
 def test_decide_chamber_deliberation_applies_shifts_on_top_of_chamber_position():
     member = _member(0, (0.2, 0.2), chamber=(0.4, 0.2))  # already drifted from the sincere position
     contexts = {0: _chamber_context(0)}
     config = _config_with_llm_enabled()
 
     class ShiftingClient:
+        def count_prompt_tokens(self, **kwargs):
+            return 500
+
         def complete_json(self, **kwargs):
             payload = json.loads(kwargs["user_prompt"])
             cid = payload["members"][0]["cid"]
@@ -1609,6 +2000,9 @@ def test_decide_chamber_deliberation_corrects_motif_702_with_empty_shifts_to_701
     config = _config_with_llm_enabled()
 
     class IncoherentClient:
+        def count_prompt_tokens(self, **kwargs):
+            return 500
+
         def complete_json(self, **kwargs):
             decision = {"cid": 0, "shifts": [], "motif": 702}
             return json.dumps({"decisions": [decision]})
@@ -1628,6 +2022,9 @@ def test_decide_chamber_deliberation_does_not_correct_a_coherent_702():
     config = _config_with_llm_enabled()
 
     class CoherentClient:
+        def count_prompt_tokens(self, **kwargs):
+            return 500
+
         def complete_json(self, **kwargs):
             decision = {"cid": 0, "shifts": [{"dimension": 0, "delta": 0.1}], "motif": 702}
             return json.dumps({"decisions": [decision]})
@@ -1648,6 +2045,9 @@ def test_decide_chamber_deliberation_does_not_correct_701_with_a_small_nonempty_
     config = _config_with_llm_enabled()
 
     class SmallShiftClient:
+        def count_prompt_tokens(self, **kwargs):
+            return 500
+
         def complete_json(self, **kwargs):
             decision = {"cid": 0, "shifts": [{"dimension": 0, "delta": 0.05}], "motif": 701}
             return json.dumps({"decisions": [decision]})
@@ -1664,6 +2064,9 @@ def test_decide_chamber_deliberation_leaves_issue_positions_untouched():
     config = _config_with_llm_enabled()
 
     class ShiftingClient:
+        def count_prompt_tokens(self, **kwargs):
+            return 500
+
         def complete_json(self, **kwargs):
             decision = {"cid": 0, "shifts": [{"dimension": 0, "delta": 0.1}], "motif": 702}
             return json.dumps({"decisions": [decision]})
@@ -1695,6 +2098,13 @@ def test_decide_chamber_deliberation_raises_for_intra_run_workers_above_one():
     member = _member(0, (0.5,))
     contexts = {0: _chamber_context(0)}
     config = _config_with_llm_enabled()
+    # Phase 2 (plan-flagship-30y-run.md) tried making this provider-conditional
+    # (vllm exempted) and then reverted it: check_intra_run_concurrency_
+    # determinism_results.md found vLLM concurrency ALSO breaks reproducibility
+    # -- 20/497 events diverged between workers=1 and workers=8, confirmed via
+    # a workers=1-vs-workers=1 control (0 diffs) to rule out non-concurrency
+    # causes. The guard is unconditional again; this stays a plain workers>1
+    # check, not an ollama-specific one.
     config = dataclasses.replace(config, parallel=dataclasses.replace(config.parallel, intra_run_workers=2))
     with pytest.raises(NotImplementedError, match="intra_run_workers"):
         decide_chamber_deliberation([member], contexts, config, FakeChamberLlmClient())
@@ -1709,17 +2119,96 @@ def test_decide_chamber_deliberation_raises_for_codebook_version_mismatch():
         decide_chamber_deliberation([member], contexts, config, FakeChamberLlmClient())
 
 
-def test_decide_chamber_deliberation_propagates_llm_response_error_on_count_mismatch():
+def test_decide_chamber_deliberation_falls_back_to_the_deterministic_decision_on_count_mismatch():
+    # Renamed and re-asserted 2026-09-08, mirroring cast_votes's own
+    # identical fix (2026-09-06, check_vllm_vote_cast_retry_is_inert_
+    # results.md): decide_chamber_deliberation no longer propagates
+    # LlmResponseError under any circumstance -- a real Phase 7 smoke run
+    # crashed on exactly this exception type (a deterministic vLLM
+    # truncation, byte-identical retries could never recover from it), which
+    # this project's own standing priority ("must not die mid-run") rules
+    # out. Both members share one chunk at the shipped default (chunk
+    # size 5 >= 2 members), so a misalignment falls the whole chunk back to
+    # the deterministic sincere decision (motif=701, shifts=[]).
     members = [_member(0, (0.5,)), _member(1, (0.5,))]
     contexts = {m.citizen_id: _chamber_context(m.citizen_id) for m in members}
     config = _config_with_llm_enabled()
 
     class ShortClient:
+        def count_prompt_tokens(self, **kwargs):
+            return 500
+
         def complete_json(self, **kwargs):
             return json.dumps({"decisions": [{"cid": 0, "shifts": [], "motif": 701}]})
 
-    with pytest.raises(LlmResponseError, match="misaligned"):
-        decide_chamber_deliberation(members, contexts, config, ShortClient())
+    outcome = decide_chamber_deliberation(members, contexts, config, ShortClient())
+
+    assert len(outcome.decisions) == 2
+    assert outcome.llm_fallback == {0: True, 1: True}
+    assert all(d.motif == 701 and d.shifts == [] for d in outcome.decisions)
+
+
+def test_decide_chamber_deliberation_falls_back_instead_of_raising_once_the_replay_budget_is_exhausted():
+    member = _member(0, (0.5,))
+    contexts = {0: _chamber_context(0)}
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, max_batch_replays=2))
+
+    class _AlwaysBadClient:
+        def __init__(self):
+            self.calls = 0
+
+        def count_prompt_tokens(self, **kwargs):
+            return 500
+
+        def complete_json(self, **kwargs):
+            self.calls += 1
+            return "not valid json"  # never recovers
+
+    client = _AlwaysBadClient()
+    outcome = decide_chamber_deliberation([member], contexts, config, client)
+
+    assert client.calls == 3  # 1 original + 2 replays, then fall back instead of raising
+    assert outcome.llm_fallback == {0: True}
+    assert outcome.decisions[0].motif == 701
+    assert outcome.decisions[0].shifts == []
+
+
+def test_decide_chamber_deliberation_retries_at_a_varied_temperature_and_marks_it():
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, max_batch_replays=1))
+    member = _member(0, (0.5,))
+    contexts = {0: _chamber_context(0)}
+    good_raw = json.dumps({"decisions": [{"cid": 0, "shifts": [], "motif": 701}]})
+
+    class _FlakyClient:
+        def __init__(self):
+            self.calls = 0
+            self.temperatures: list[float | None] = []
+            self.seeds: list[int | None] = []
+
+        def count_prompt_tokens(self, **kwargs):
+            return 500
+
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True,
+                           temperature=None, seed=None):
+            self.calls += 1
+            self.temperatures.append(temperature)
+            self.seeds.append(seed)
+            if self.calls == 1:
+                return "not valid json"
+            return good_raw
+
+    client = _FlakyClient()
+    outcome = decide_chamber_deliberation([member], contexts, config, client)
+
+    assert client.calls == 2
+    # First attempt: no override (preserves determinism). Retry: the local
+    # exception's own temperature and seed offset, never None.
+    assert client.temperatures == [None, _CHAMBER_RETRY_TEMPERATURE]
+    assert client.seeds == [None, _CHAMBER_RETRY_SEED_BASE + 1]
+    assert outcome.retry_sampling_varied == {0: True}
+    assert outcome.llm_fallback == {}
 
 
 def test_decide_chamber_deliberation_uses_replay():
@@ -1731,6 +2220,9 @@ def test_decide_chamber_deliberation_uses_replay():
     class FlakyThenGoodClient:
         def __init__(self):
             self.attempts = 0
+
+        def count_prompt_tokens(self, **kwargs):
+            return 500
 
         def complete_json(self, **kwargs):
             self.attempts += 1
@@ -2125,6 +2617,13 @@ def test_decide_coalition_raises_for_intra_run_workers_above_one():
     seats = {0: 30, 1: 25}
     votes = {0: 30.0, 1: 25.0}
     config = _config_with_llm_enabled()
+    # Phase 2 (plan-flagship-30y-run.md) tried making this provider-conditional
+    # (vllm exempted) and then reverted it: check_intra_run_concurrency_
+    # determinism_results.md found vLLM concurrency ALSO breaks reproducibility
+    # -- 20/497 events diverged between workers=1 and workers=8, confirmed via
+    # a workers=1-vs-workers=1 control (0 diffs) to rule out non-concurrency
+    # causes. The guard is unconditional again; this stays a plain workers>1
+    # check, not an ollama-specific one.
     config = dataclasses.replace(config, parallel=dataclasses.replace(config.parallel, intra_run_workers=2))
     with pytest.raises(NotImplementedError, match="intra_run_workers"):
         decide_coalition(_parties_from_seats(seats), seats, votes, config, FakeCoalitionLlmClient())
@@ -2614,6 +3113,13 @@ def test_decide_pressure_actions_raises_for_intra_run_workers_above_one():
     citizens = _pressure_population(3)
     contexts = _pressure_contexts(citizens)
     config = _config_with_llm_enabled()
+    # Phase 2 (plan-flagship-30y-run.md) tried making this provider-conditional
+    # (vllm exempted) and then reverted it: check_intra_run_concurrency_
+    # determinism_results.md found vLLM concurrency ALSO breaks reproducibility
+    # -- 20/497 events diverged between workers=1 and workers=8, confirmed via
+    # a workers=1-vs-workers=1 control (0 diffs) to rule out non-concurrency
+    # causes. The guard is unconditional again; this stays a plain workers>1
+    # check, not an ollama-specific one.
     config = dataclasses.replace(config, parallel=dataclasses.replace(config.parallel, intra_run_workers=2))
     with pytest.raises(NotImplementedError, match="intra_run_workers"):
         decide_pressure_actions(citizens, contexts, config, FakePressureLlmClient())
@@ -2886,6 +3392,13 @@ def test_decide_reaction_to_event_raises_for_intra_run_workers_above_one():
     citizens = _reaction_population(25)
     contexts = _reaction_contexts(citizens)
     config = _config_with_llm_enabled()
+    # Phase 2 (plan-flagship-30y-run.md) tried making this provider-conditional
+    # (vllm exempted) and then reverted it: check_intra_run_concurrency_
+    # determinism_results.md found vLLM concurrency ALSO breaks reproducibility
+    # -- 20/497 events diverged between workers=1 and workers=8, confirmed via
+    # a workers=1-vs-workers=1 control (0 diffs) to rule out non-concurrency
+    # causes. The guard is unconditional again; this stays a plain workers>1
+    # check, not an ollama-specific one.
     config = dataclasses.replace(config, parallel=dataclasses.replace(config.parallel, intra_run_workers=2))
     with pytest.raises(NotImplementedError, match="intra_run_workers"):
         decide_reaction_to_event(citizens, contexts, EventType.SCANDAL, config, FakeReactionLlmClient(), target=205)
@@ -2922,12 +3435,13 @@ class _FlakyClient:
     model. Records every (system_prompt, user_prompt) pair, so a test can
     assert the retried request is byte-identical to the original --
     "byte-identical" refers to the PROMPTS specifically; cast_votes's own
-    retry_temperature (a local, deliberate exception, see llm_behavior_
-    engine._VOTE_CAST_RETRY_TEMPERATURE) means the full request is not
-    byte-identical for that one entry point, covered by its own dedicated
-    test below. Also accepts and records `temperature` (defaulting like
-    the real client's own `complete_json`) so a caller opting into
-    retry_temperature doesn't raise a TypeError against this fake."""
+    retry_temperature/retry_seed_base (a local, deliberate exception, see
+    llm_behavior_engine._VOTE_CAST_RETRY_TEMPERATURE/_VOTE_CAST_RETRY_
+    SEED_BASE) means the full request is not byte-identical for that one
+    entry point, covered by its own dedicated test below. Also accepts and
+    records `temperature`/`seed` (defaulting like the real client's own
+    `complete_json`) so a caller opting into either retry override doesn't
+    raise a TypeError against this fake."""
 
     def __init__(self, fail_times, good_raw):
         self.fail_times = fail_times
@@ -2935,11 +3449,24 @@ class _FlakyClient:
         self.calls = 0
         self.prompts: list[tuple[str, str]] = []
         self.temperatures: list[float | None] = []
+        self.seeds: list[int | None] = []
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None):
+    def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
+        # Deliberately does NOT increment self.calls -- every test using
+        # this fake asserts self.calls against complete_json's own retry
+        # count specifically, and _dynamic_max_tokens's probe is a separate
+        # call outside _complete_and_decode_with_replay's retry loop (see
+        # that function's own docstring on why: the prompt cannot change
+        # between retries, so probing once per chunk is correct).
+        return 500
+
+    def complete_json(
+        self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None, seed=None
+    ):
         self.calls += 1
         self.prompts.append((system_prompt, user_prompt))
         self.temperatures.append(temperature)
+        self.seeds.append(seed)
         if self.calls <= self.fail_times:
             return "not valid json"
         return self.good_raw
@@ -2961,11 +3488,20 @@ class _FlakyResponseClient:
         self.calls = 0
         self.prompts: list[tuple[str, str]] = []
         self.temperatures: list[float | None] = []
+        self.seeds: list[int | None] = []
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None):
+    def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
+        # See _FlakyClient.count_prompt_tokens's own comment -- same
+        # rationale.
+        return 500
+
+    def complete_json(
+        self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None, seed=None
+    ):
         self.calls += 1
         self.prompts.append((system_prompt, user_prompt))
         self.temperatures.append(temperature)
+        self.seeds.append(seed)
         if self.calls <= self.fail_times:
             raise LlmResponseError("generation did not finish cleanly: done_reason='length'")
         return self.good_raw
@@ -2975,7 +3511,9 @@ class _AlwaysTransportFailingClient:
     def __init__(self):
         self.calls = 0
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None):
+    def complete_json(
+        self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None, seed=None
+    ):
         self.calls += 1
         raise LlmTransportError("connection refused")
 
@@ -3089,7 +3627,22 @@ def _replay_cases():
     ]
 
 
-@pytest.mark.parametrize("label,call,good_raw", _replay_cases(), ids=[c[0] for c in _replay_cases()])
+def _replay_cases_that_still_propagate():
+    # vote_cast is EXCLUDED here, not merely another parametrized case:
+    # since 2026-09-06 (check_vllm_vote_cast_retry_is_inert_results.md) it
+    # never propagates LlmResponseError under any replay budget -- it falls
+    # back to a deterministic ballot instead (VoteBatchOutcome.llm_fallback).
+    # The three "propagates"/"raises" tests below test the other 8 entry
+    # points, whose behavior is unchanged; vote_cast's own new behavior gets
+    # its own dedicated tests, same discipline as the existing negative case
+    # for retry_temperature (test_other_decide_entry_points_never_send_a_
+    # temperature_override_even_when_replayed).
+    return [c for c in _replay_cases() if c[0] != "vote_cast"]
+
+
+@pytest.mark.parametrize(
+    "label,call,good_raw", _replay_cases_that_still_propagate(), ids=[c[0] for c in _replay_cases_that_still_propagate()]
+)
 def test_max_batch_replays_zero_propagates_on_the_first_failure(label, call, good_raw):
     # Today's exact behavior, now explicitly pinned for every entry point --
     # the shipped default (0) must never retry.
@@ -3116,7 +3669,9 @@ def test_max_batch_replays_recovers_after_failures_within_the_budget(label, call
     assert client.prompts[0] == client.prompts[1] == client.prompts[2]
 
 
-@pytest.mark.parametrize("label,call,good_raw", _replay_cases(), ids=[c[0] for c in _replay_cases()])
+@pytest.mark.parametrize(
+    "label,call,good_raw", _replay_cases_that_still_propagate(), ids=[c[0] for c in _replay_cases_that_still_propagate()]
+)
 def test_max_batch_replays_still_raises_once_the_budget_is_exhausted(label, call, good_raw):
     config = _config_with_llm_enabled()
     config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, max_batch_replays=2))
@@ -3144,7 +3699,9 @@ def test_max_batch_replays_recovers_from_a_complete_json_raised_error(label, cal
     assert client.prompts[0] == client.prompts[1] == client.prompts[2]
 
 
-@pytest.mark.parametrize("label,call,good_raw", _replay_cases(), ids=[c[0] for c in _replay_cases()])
+@pytest.mark.parametrize(
+    "label,call,good_raw", _replay_cases_that_still_propagate(), ids=[c[0] for c in _replay_cases_that_still_propagate()]
+)
 def test_max_batch_replays_zero_propagates_a_complete_json_raised_error_on_the_first_attempt(label, call, good_raw):
     # Before the fix, this error skipped the retry loop entirely and
     # propagated silently (no WARNING logged) regardless of `replays` --
@@ -3166,6 +3723,74 @@ def test_max_batch_replays_never_catches_a_transport_error():
     with pytest.raises(LlmTransportError):
         decide_pressure_actions([citizen], contexts, config, client)
     assert client.calls == 1  # the client itself owns transport-level retries, not this layer
+
+
+# ── cast_votes's own deterministic fallback (2026-09-06) -- the one entry
+# point excluded from the three "propagates"/"raises" tests above, per
+# _replay_cases_that_still_propagate's own docstring. A real vLLM run
+# crashed with the replay budget exhausted for one voter
+# (check_vllm_vote_cast_retry_is_inert_results.md); cast_votes now falls
+# back to simple_rules.build_ranking for that voter instead of raising,
+# under EVERY replay budget including 0 -- the fallback is a separate,
+# zero-LLM-cost mechanism, not itself a replay, so it is not gated by how
+# many replays were configured. ──────────────────────────────────────────
+
+def test_cast_votes_falls_back_instead_of_propagating_when_replays_is_zero():
+    voters = _population(1, dims=1)
+    candidates = [_candidate(900, (0.5,))]
+    config = _config_with_llm_enabled()
+    assert config.llm.max_batch_replays == 0
+    client = _FlakyClient(fail_times=1, good_raw="ignored, never reached")
+
+    outcome = cast_votes(voters, candidates, config, client)
+
+    assert client.calls == 1  # no retry spent -- replays=0 means no LLM-side recovery attempt
+    assert outcome.llm_fallback == {voters[0].citizen_id: True}
+    assert outcome.ballots == [build_ranking(voters[0], candidates)]
+
+
+def test_cast_votes_falls_back_instead_of_raising_once_the_replay_budget_is_exhausted():
+    voters = _population(1, dims=1)
+    candidates = [_candidate(900, (0.5,))]
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, max_batch_replays=2))
+    client = _FlakyClient(fail_times=99, good_raw="ignored, never reached")  # never recovers
+
+    outcome = cast_votes(voters, candidates, config, client)
+
+    assert client.calls == 3  # 1 original + 2 replays, then fall back instead of raising
+    assert outcome.llm_fallback == {voters[0].citizen_id: True}
+
+
+def test_cast_votes_falls_back_on_a_complete_json_raised_error_too():
+    # The _FlakyResponseClient branch (complete_json itself raises, e.g. a
+    # truncated generation) -- same fallback, not just the decode-failure one.
+    voters = _population(1, dims=1)
+    candidates = [_candidate(900, (0.5,))]
+    config = _config_with_llm_enabled()
+    client = _FlakyResponseClient(fail_times=1, good_raw="ignored, never reached")
+
+    outcome = cast_votes(voters, candidates, config, client)
+
+    assert client.calls == 1
+    assert outcome.llm_fallback == {voters[0].citizen_id: True}
+
+
+def test_cast_votes_still_recovers_normally_when_a_retry_succeeds():
+    # The fallback must not shadow the ordinary, already-working recovery
+    # path -- a retry that actually succeeds is used as-is, no fallback.
+    voters = _population(1, dims=1)
+    candidates = [_candidate(900, (0.5,))]
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, max_batch_replays=2))
+    good_raw = json.dumps({"decisions": [{"cid": voters[0].citizen_id, "blank": 1, "ranking": [], "motif": 101}]})
+    client = _FlakyClient(fail_times=1, good_raw=good_raw)
+
+    outcome = cast_votes(voters, candidates, config, client)
+
+    assert client.calls == 2
+    assert outcome.llm_fallback == {}
+    assert outcome.retry_sampling_varied == {voters[0].citizen_id: True}
 
 
 # ── retry_temperature / retry_sampling_varied -- cast_votes's own local,
@@ -3201,8 +3826,9 @@ def test_cast_votes_retries_at_a_varied_temperature_and_marks_it():
 
     assert client.calls == 2
     # First attempt: no override (preserves determinism). Retry: the local
-    # exception's own temperature, never None.
+    # exception's own temperature and seed offset, never None.
     assert client.temperatures == [None, _VOTE_CAST_RETRY_TEMPERATURE]
+    assert client.seeds == [None, _VOTE_CAST_RETRY_SEED_BASE + 1]
     assert outcome.retry_sampling_varied == {0: True}
 
 
@@ -3229,9 +3855,9 @@ def test_cast_votes_retry_sampling_varied_defaults_to_an_empty_dict_when_unset()
 
 
 def test_other_decide_entry_points_never_send_a_temperature_override_even_when_replayed():
-    # The negative case for every OTHER decision type: retry_temperature
-    # defaults to None at every call site except cast_votes's own, so a
-    # replay never sends a temperature override for them -- byte-identical
+    # The negative case for every OTHER decision type: retry_temperature/
+    # retry_seed_base default to None at every call site except cast_votes's
+    # own, so a replay never sends either override for them -- byte-identical
     # retries, unchanged since v4 Lot 8.
     config = _config_with_llm_enabled()
     config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, max_batch_replays=1))
@@ -3244,3 +3870,4 @@ def test_other_decide_entry_points_never_send_a_temperature_override_even_when_r
 
     assert client.calls == 2
     assert client.temperatures == [None, None]
+    assert client.seeds == [None, None]

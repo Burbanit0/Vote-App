@@ -39,11 +39,12 @@ from __future__ import annotations
 import json
 import logging
 import subprocess
+import time
 from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator
+from typing import Any, Iterator
 
 import numpy as np
 
@@ -76,12 +77,15 @@ from api.domain.polity.ballot_and_aggregation import (
     get_presidential_winner,
     resolve_confidence_vote,
 )
+from api.domain.polity.checkpoint import config_hash, load_checkpoint, restore_rng, save_checkpoint
+from api.domain.polity.progress import ProgressTracker
+from api.domain.polity.snapshots import expected_snapshot_rows, is_snapshot_tick, write_snapshot
 from api.domain.polity.citizen import Citizen, Office, Role, generate_population
 from api.domain.polity.codebook import BallotFormat, EventType, PressureAct, ReactionMotif
 from api.domain.polity.compaction import compact_run
 from api.domain.polity.config import PolityConfig
 from api.domain.polity.institutional_clock import ElectionType, InstitutionalClock
-from api.domain.polity.journal import Journal
+from api.domain.polity.journal import Journal, truncate_journal
 from api.domain.polity.legitimacy import (
     compose_ecart,
     crosses_floor,
@@ -107,7 +111,12 @@ from api.domain.polity.llm_behavior_engine import (
     menu_acts,
     resolve_ranking_cids,
 )
-from api.domain.polity.llm_client import LlmClientProtocol, build_json_client
+from api.domain.polity.llm_client import (
+    _RECYCLE_WARM_UP_MAX_TOKENS,
+    _RECYCLE_WARM_UP_USER_PROMPT,
+    LlmClientProtocol,
+    build_json_client,
+)
 from api.domain.polity.llm_schemas import PositionShift, PressureDecision, ReactionDecision
 from api.domain.polity.metrics import mobilization_rate
 from api.domain.polity.parties import Party, initialize_parties
@@ -188,14 +197,39 @@ def _warm_up_llm_client(client: LlmClientProtocol) -> None:
     any reason) is logged and swallowed, not allowed to abort a run over
     what is not itself part of the simulation -- and never journaled, for
     the same reason LLM replay attempts aren't (v4 Lot 8): this is about
-    the inference host, not the polity."""
+    the inference host, not the polity.
+
+    **Budget and prompt shape are shared with the recycle re-warm**
+    (`_RECYCLE_WARM_UP_USER_PROMPT`/`_RECYCLE_WARM_UP_MAX_TOKENS`), rather
+    than the `"{}"` stub at `max_tokens=32` this function used until
+    2026-09-06. Two independent reasons, neither speculative:
+
+    - Those constants' own docstrings record that the tiny stub was tested
+      and made a live 5-call sequence WORSE (2/5 vs baseline), which is why
+      the recycle path moved off it. Having two warm-up implementations
+      where the better-evidenced one runs only on recycle, and the one that
+      runs at the start of EVERY run is the shape already known to be worse,
+      was an inconsistency, not a design.
+    - Under vLLM the old budget did not merely underperform, it hard-failed:
+      32 tokens cannot hold a Qwen3 reasoning pass, so the think=True
+      warm-up returned finish_reason='length' on every run
+      (`LLM warm-up call (think=True) failed, continuing anyway`, observed
+      on the first real vLLM arm) and that endpoint was never warmed at all
+      -- silently defeating this function's entire purpose on exactly the
+      path it exists to protect.
+
+    What this does NOT claim: the cold-start determinism result quoted above
+    was measured on Ollama at the old budget. Changing the budget keeps the
+    procedure CONSISTENT (which is what §4 reproducibility actually needs,
+    per the paragraph above) but does not re-establish that result under
+    vLLM/AWQ, which would need its own forced-cold protocol."""
     for think in (True, False):
         try:
             client.complete_json(
                 system_prompt="Reply with the required JSON object.",
-                user_prompt="{}",
+                user_prompt=_RECYCLE_WARM_UP_USER_PROMPT,
                 json_schema=_WARM_UP_SCHEMA,
-                max_tokens=32,
+                max_tokens=_RECYCLE_WARM_UP_MAX_TOKENS,
                 think=think,
             )
         except Exception as exc:  # noqa: BLE001
@@ -240,6 +274,32 @@ class PendingRerun:
     attempt: int
     next_tick: int
     barred_candidate_ids: frozenset[int]
+
+
+def _pending_rerun_to_dict(pending_rerun: PendingRerun | None) -> dict[str, Any] | None:
+    """Phase 3 (plan-flagship-30y-run.md): checkpoint.py's own save/load
+    functions take a plain dict for this field rather than importing
+    PendingRerun directly -- that class lives here, and checkpoint.py needs
+    to be importABLE from here, so the reverse import would be circular.
+    Three fields, trivial to convert at the one place that already owns
+    the class."""
+    if pending_rerun is None:
+        return None
+    return {
+        "attempt": pending_rerun.attempt,
+        "next_tick": pending_rerun.next_tick,
+        "barred_candidate_ids": sorted(pending_rerun.barred_candidate_ids),
+    }
+
+
+def _pending_rerun_from_dict(data: dict[str, Any] | None) -> PendingRerun | None:
+    if data is None:
+        return None
+    return PendingRerun(
+        attempt=data["attempt"],
+        next_tick=data["next_tick"],
+        barred_candidate_ids=frozenset(data["barred_candidate_ids"]),
+    )
 
 
 def _is_forced_attempt(pending_rerun: PendingRerun | None, config: PolityConfig) -> bool:
@@ -379,7 +439,11 @@ def _warn_if_no_candidate_is_possible(citizens: list[Citizen], config: PolityCon
 
 
 def run_simulation(
-    config: PolityConfig, run_id: str | None = None, llm_client: LlmClientProtocol | None = None
+    config: PolityConfig,
+    run_id: str | None = None,
+    llm_client: LlmClientProtocol | None = None,
+    *,
+    resume: bool = False,
 ) -> Path:
     """Run a full simulation and return the path to its journal.
 
@@ -404,6 +468,44 @@ def run_simulation(
     post-run, so the hot regime never reads, indexes, or queries the
     journal, and an interrupted run still leaves an exploitable JSONL with
     no half-written `.duckdb` beside it.
+
+    `resume` (Phase 3, plan-flagship-30y-run.md): a per-tick checkpoint
+    (`checkpoint.json`, beside `events.jsonl`) makes a multi-day sequential
+    run (Phase 2's own conclusion: this simulator does not run concurrent)
+    survivable across a crash or a deliberate interruption.
+
+    `resume=False` (every pre-Phase-3 caller, unaffected): builds fresh
+    state exactly as before. Additionally now refuses -- `FileExistsError`
+    -- if a checkpoint already exists at this run's path: silently ignoring
+    resumable progress and starting over would both discard it and, since
+    the journal opens in append mode, corrupt the existing `events.jsonl`
+    with a second, overlapping event_id sequence. The same "don't silently
+    clobber a resumable run" discipline `run_polity_flagship.py`'s own
+    collision guard already applies to a fresh run_id.
+
+    `resume=True`: requires a checkpoint to already exist (raises via
+    `checkpoint.load_checkpoint`'s own `Path.read_text` if not -- resuming
+    nothing is a caller error, not a fresh-run fallback). Verifies
+    `checkpoint.config_hash(config)` and `run_id` both match the checkpoint
+    -- a resume against a changed config or the wrong run directory is
+    exactly the mistake this loud check exists to catch, not paper over.
+    Truncates `events.jsonl` to the checkpoint's own `next_event_id`
+    (`journal.truncate_journal`) BEFORE opening it, discarding any events a
+    crash left behind from a tick that started but never got its own
+    checkpoint -- then restores citizens/parties/pending_rerun/economy_x/
+    mobilized_last_tick/the three RNG streams' exact bit_generator state,
+    and continues the tick loop at `checkpoint.tick + 1`. `graph` is
+    regenerated, never restored -- see checkpoint.py's own module docstring
+    for why that is exact, not an approximation.
+
+    Also writes `progress.json` (Phase 4) after every tick, beside
+    `checkpoint.json` -- a live status snapshot (tick, simulated year,
+    wall-clock elapsed, rolling ETA, decisions by type, retry/fallback
+    counts) an operator or a future UI can read at any moment without
+    touching the journal. See `api.domain.polity.progress` for the
+    resume-correctness argument (short version: it re-derives everything
+    from the journal itself, so it can never drift from what actually
+    happened, fresh run or resumed).
     """
     if config.institutions.presidential_method not in RANKED_METHODS:
         raise NotImplementedError(
@@ -412,67 +514,136 @@ def run_simulation(
         )
 
     run_id = run_id or config.run.run_label
-    _write_run_metadata(Path(config.journal.output_dir) / run_id, config, run_id)
-    citizens = generate_population(config.citizens, config.run.population_size, config.run.seed)
-    _warn_if_no_candidate_is_possible(citizens, config)
-    parties = initialize_parties(citizens, config.parties.initial_count, config.run.seed)
-    for citizen in citizens:
-        citizen.party_affiliation = assign_party_affiliation(citizen, parties)
+    run_dir = Path(config.journal.output_dir) / run_id
+    checkpoint_path = run_dir / "checkpoint.json"
+    journal_path = run_dir / "events.jsonl"
+    snapshots_path = run_dir / "snapshots.jsonl"
 
+    if resume and not checkpoint_path.exists():
+        raise FileNotFoundError(f"--resume requested but no checkpoint at {checkpoint_path} -- nothing to resume")
+    if not resume and checkpoint_path.exists():
+        raise FileExistsError(
+            f"{checkpoint_path} already exists -- resuming it requires resume=True; starting fresh here would "
+            "both discard that progress and corrupt events.jsonl (Journal appends, it does not overwrite)"
+        )
+
+    _write_run_metadata(run_dir, config, run_id)
     clock = InstitutionalClock.from_config(config.institutions, config.run, config.sortition_chamber)
-    # Independent stream from population/party generation (same pattern as
-    # Lot 2/3): a fresh default_rng per concern, so enabling rupture draws
-    # never perturbs the citizens/parties already generated above.
-    rupture_rng = np.random.default_rng(config.run.seed)
-    # v5 Lot 2 (§8): a third independent stream, never reusing rupture_rng --
-    # same "fresh default_rng per concern" reasoning as above. rupture_rng
-    # already draws unconditionally every tick for every elector (before the
-    # is_term_limited/barred-set check, specifically so a gated citizen
-    # never shifts the stream); coupling v5's draws into that stream would
-    # either entangle two unrelated mechanisms' RNG consumption for no
-    # benefit, or -- if inserted only when events.enabled -- violate
-    # rupture_rng's own existing, tested draw-position contract for every
-    # run that doesn't enable events. Fixed intra-stream draw order inside
-    # _run_exogenous_events: scandal arrival before the AR(1) innovation.
-    events_rng = np.random.default_rng(config.run.seed)
-    # v6b Lot 2 (§6bis.3): a fourth independent stream -- unlike `graph`
-    # below (generated once, no persistent stream name needed), sortition
-    # selection draws repeatedly, every rotation tick, so it needs the
-    # rupture_rng/events_rng-style persistent stream. Drawn from only
-    # inside select_sortition_chamber, only on a rotation tick, only when
-    # sortition_chamber.enabled -- undrawn otherwise.
-    sortition_rng = np.random.default_rng(config.run.seed)
-    # v4 Lot 9 (§6bis.2): None whenever blank_vote_competitive is off (the
-    # shipped default) or no cycle is currently open -- see PendingRerun's
-    # own docstring for why this is a plain local, not a Citizen field.
-    pending_rerun: PendingRerun | None = None
-    # v5 Lot 2 (§8): the AR(1) economic-climate variable, x(t) -- population-
-    # wide, no natural Citizen owner, so a bare local in the same register as
-    # rupture_rng/pending_rerun rather than a Citizen field. Reassigned from
-    # _run_exogenous_events's return value every tick. Deliberately
-    # unclamped -- see shock.economic_shock_step's own docstring.
-    economy_x: float = 0.0
     # v6 Lot 2/3 (§5): generated once, population-structural (evolving is
     # TRANCHÉ rejected at config-parse time, so this never changes mid-run).
     # None whenever social_graph.enabled is off (the shipped default) --
     # every reader below treats None as "no graph" and behaves identically
-    # to pre-v6-Lot-3 code.
+    # to pre-v6-Lot-3 code. Regenerated identically on resume too (never
+    # restored from the checkpoint) -- see checkpoint.py's own docstring.
     graph: SocialGraph | None = None
     if config.social_graph.enabled:
         graph = generate_social_graph(config.social_graph, config.run.population_size, config.run.seed)
-    # v6 Lot 3 (§5/§7bis.9c): citizen_id -> target citizen_id, for every
-    # citizen whose APPLIED pressure_action was MOBILIZE on the most
-    # recently completed tick -- a bare local in the same register as
-    # economy_x, fully REPLACED (never accumulated) every tick by
-    # _run_accountability_phase's own return value, so it always reflects
-    # exactly one completed tick. The one-tick lag mirrors dt=6's own
-    # street_pressure lag (v4 Lot 6): decide_pressure_actions batches an
-    # entire cohort's decisions in one frozen call, so a neighbor's SAME-
-    # tick decision cannot be seen by construction.
-    mobilized_last_tick: Mapping[int, int] = {}
 
-    with Journal.from_config(config.journal, run_id) as journal, _llm_client_scope(config, llm_client) as client:
-        for tick in range(clock.total_ticks + 1):
+    if resume:
+        checkpoint = load_checkpoint(checkpoint_path)
+        if checkpoint.run_id != run_id:
+            raise ValueError(f"checkpoint run_id {checkpoint.run_id!r} does not match requested run_id {run_id!r}")
+        if checkpoint.config_hash != config_hash(config):
+            raise ValueError(
+                f"checkpoint at {checkpoint_path} was taken under a different config (hash mismatch) -- "
+                "resuming a run under changed simulation rules is not supported"
+            )
+        truncate_journal(journal_path, checkpoint.next_event_id)
+        # Phase 6: a crash on a tick that is BOTH a snapshot tick (see
+        # is_snapshot_tick) AND never finished leaves a premature, never-
+        # checkpointed snapshot write on disk -- discard it the same way,
+        # to the row count the LAST COMPLETED tick accounts for (never the
+        # crashed one), so it is reproduced identically when that tick
+        # restarts from scratch rather than duplicated alongside it.
+        truncate_journal(
+            snapshots_path,
+            expected_snapshot_rows(checkpoint.tick, config.run.ticks_per_year, config.run.population_size),
+        )
+        citizens = checkpoint.citizens
+        parties = checkpoint.parties
+        pending_rerun = _pending_rerun_from_dict(checkpoint.pending_rerun)
+        economy_x = checkpoint.economy_x
+        mobilized_last_tick: Mapping[int, int] = dict(checkpoint.mobilized_last_tick)
+        rupture_rng = restore_rng(checkpoint.rupture_rng_state)
+        events_rng = restore_rng(checkpoint.events_rng_state)
+        sortition_rng = restore_rng(checkpoint.sortition_rng_state)
+        first_tick = checkpoint.tick + 1
+        start_event_id = checkpoint.next_event_id
+    else:
+        citizens = generate_population(config.citizens, config.run.population_size, config.run.seed)
+        _warn_if_no_candidate_is_possible(citizens, config)
+        parties = initialize_parties(citizens, config.parties.initial_count, config.run.seed)
+        for citizen in citizens:
+            citizen.party_affiliation = assign_party_affiliation(citizen, parties)
+        # Independent stream from population/party generation (same pattern as
+        # Lot 2/3): a fresh default_rng per concern, so enabling rupture draws
+        # never perturbs the citizens/parties already generated above.
+        rupture_rng = np.random.default_rng(config.run.seed)
+        # v5 Lot 2 (§8): a third independent stream, never reusing rupture_rng --
+        # same "fresh default_rng per concern" reasoning as above. rupture_rng
+        # already draws unconditionally every tick for every elector (before the
+        # is_term_limited/barred-set check, specifically so a gated citizen
+        # never shifts the stream); coupling v5's draws into that stream would
+        # either entangle two unrelated mechanisms' RNG consumption for no
+        # benefit, or -- if inserted only when events.enabled -- violate
+        # rupture_rng's own existing, tested draw-position contract for every
+        # run that doesn't enable events. Fixed intra-stream draw order inside
+        # _run_exogenous_events: scandal arrival before the AR(1) innovation.
+        events_rng = np.random.default_rng(config.run.seed)
+        # v6b Lot 2 (§6bis.3): a fourth independent stream -- unlike `graph`
+        # above (generated once, no persistent stream name needed), sortition
+        # selection draws repeatedly, every rotation tick, so it needs the
+        # rupture_rng/events_rng-style persistent stream. Drawn from only
+        # inside select_sortition_chamber, only on a rotation tick, only when
+        # sortition_chamber.enabled -- undrawn otherwise.
+        sortition_rng = np.random.default_rng(config.run.seed)
+        # v4 Lot 9 (§6bis.2): None whenever blank_vote_competitive is off (the
+        # shipped default) or no cycle is currently open -- see PendingRerun's
+        # own docstring for why this is a plain local, not a Citizen field.
+        pending_rerun = None
+        # v5 Lot 2 (§8): the AR(1) economic-climate variable, x(t) -- population-
+        # wide, no natural Citizen owner, so a bare local in the same register as
+        # rupture_rng/pending_rerun rather than a Citizen field. Reassigned from
+        # _run_exogenous_events's return value every tick. Deliberately
+        # unclamped -- see shock.economic_shock_step's own docstring.
+        economy_x = 0.0
+        # v6 Lot 3 (§5/§7bis.9c): citizen_id -> target citizen_id, for every
+        # citizen whose APPLIED pressure_action was MOBILIZE on the most
+        # recently completed tick -- a bare local in the same register as
+        # economy_x, fully REPLACED (never accumulated) every tick by
+        # _run_accountability_phase's own return value, so it always reflects
+        # exactly one completed tick. The one-tick lag mirrors dt=6's own
+        # street_pressure lag (v4 Lot 6): decide_pressure_actions batches an
+        # entire cohort's decisions in one frozen call, so a neighbor's SAME-
+        # tick decision cannot be seen by construction.
+        mobilized_last_tick = {}
+        first_tick = 0
+        start_event_id = 0
+
+    progress_tracker = ProgressTracker(
+        run_id=run_id,
+        total_ticks=clock.total_ticks,
+        ticks_per_year=config.run.ticks_per_year,
+        progress_path=run_dir / "progress.json",
+        llm_enabled=config.llm.enabled,
+    )
+    run_start_time = time.monotonic()
+
+    with (
+        Journal.from_config(config.journal, run_id, start_event_id=start_event_id) as journal,
+        _llm_client_scope(config, llm_client) as client,
+    ):
+        for tick in range(first_tick, clock.total_ticks + 1):
+            tick_start_time = time.monotonic()
+            # Phase 6: BEFORE this tick's own phases run, not after -- the
+            # tick-0 snapshot is then the true initial population, untouched
+            # by any simulated decision, and every later year's snapshot
+            # reflects state as of the START of that year (i.e. through the
+            # END of the year before it), matching a census-style reading.
+            # See is_snapshot_tick's own docstring for the resume-truncation
+            # consequence of this ordering.
+            if is_snapshot_tick(tick, config.run.ticks_per_year):
+                write_snapshot(snapshots_path, citizens, tick=tick, ticks_per_year=config.run.ticks_per_year)
             barred_ids = pending_rerun.barred_candidate_ids if pending_rerun is not None else frozenset()
             _attempt_rupture_candidacies(citizens, parties, config, journal, tick, rupture_rng, barred_candidate_ids=barred_ids)
             exogenous = _run_exogenous_events(citizens, config, journal, tick, events_rng, economy_x)
@@ -504,8 +675,39 @@ def run_simulation(
                 citizens, config, journal, tick, client,
                 exogenous=exogenous, graph=graph, mobilized_last_tick=mobilized_last_tick,
             )
+            # Phase 3: checkpoint AFTER every tick's phases are fully done and
+            # journaled, never mid-tick -- a resume always restarts a tick
+            # from its own beginning (see truncate_journal's own docstring),
+            # never partway through. Every value saved here is exactly what
+            # this same iteration just finished computing, at the position in
+            # the loop where nothing about `tick` has changed since.
+            save_checkpoint(
+                checkpoint_path,
+                run_id=run_id,
+                config=config,
+                tick=tick,
+                next_event_id=journal.next_event_id,
+                citizens=citizens,
+                parties=parties,
+                pending_rerun=_pending_rerun_to_dict(pending_rerun),
+                economy_x=economy_x,
+                mobilized_last_tick=mobilized_last_tick,
+                rupture_rng=rupture_rng,
+                events_rng=events_rng,
+                sortition_rng=sortition_rng,
+            )
+            # Phase 4 (plan-flagship-30y-run.md): same position as the
+            # checkpoint write above -- after this tick's own phases are
+            # fully journaled, so progress.json's own decision counts never
+            # reflect a partially-completed tick.
+            progress_tracker.record_tick(
+                tick=tick,
+                tick_duration=time.monotonic() - tick_start_time,
+                wall_clock_elapsed=time.monotonic() - run_start_time,
+                journal_path=journal_path,
+                checkpoint_tick=tick,
+            )
 
-    journal_path = Path(config.journal.output_dir) / run_id / "events.jsonl"
     if config.journal.enabled and config.journal.index_after_run:
         compact_run(journal_path, config)
     return journal_path
@@ -885,6 +1087,13 @@ def _hold_presidential_election(
                         # cannot mistake a varied-sampling retry's decision for
                         # an ordinary, deterministic first-attempt one.
                         "retry_sampling_varied": int(outcome.retry_sampling_varied.get(decision.cid, False)),
+                        # Same convention, marking the OTHER provenance this
+                        # journal must not silently mistake for a real LLM
+                        # answer: cast_votes's own last-resort deterministic
+                        # fallback (VoteBatchOutcome.llm_fallback's docstring)
+                        # after every recovery attempt was exhausted for this
+                        # voter. Mutually exclusive with retry_sampling_varied.
+                        "llm_fallback": int(outcome.llm_fallback.get(decision.cid, False)),
                     },
                     citizen_id=decision.cid,
                     motif=str(decision.motif),
@@ -1514,6 +1723,15 @@ def _run_chamber_deliberation(
                 # effect on chamber_deviation/simulation behavior. Journaled explicitly so a
                 # future reader cannot mistake a corrected label for a first-hand 701.
                 "motif_corrected": int(outcome.motif_corrected.get(member.citizen_id, False)),
+                # Same §3.7.1 booleans-as-0/1 convention as vote_cast's own journal payload
+                # (see that call site's own comment) -- added 2026-09-08 alongside
+                # decide_chamber_deliberation's own retry_temperature/deterministic fallback,
+                # after a real Phase 7 run crashed with neither in place. Mutually exclusive
+                # per cid: retry_sampling_varied marks a genuine, temperature-varied recovery;
+                # llm_fallback marks the model path being exhausted entirely (sincere, no
+                # shift) instead of aborting the run.
+                "retry_sampling_varied": int(outcome.retry_sampling_varied.get(member.citizen_id, False)),
+                "llm_fallback": int(outcome.llm_fallback.get(member.citizen_id, False)),
             },
             citizen_id=member.citizen_id,
             motif=str(decision.motif),

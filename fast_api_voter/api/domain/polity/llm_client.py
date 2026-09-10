@@ -60,6 +60,7 @@ import copy
 import json
 import logging
 import re
+from dataclasses import dataclass
 from types import TracebackType
 from typing import Any, Protocol, Sequence
 
@@ -158,7 +159,18 @@ class LlmClientProtocol(Protocol):
         max_tokens: int,
         think: bool = True,
         temperature: float | None = None,
+        seed: int | None = None,
     ) -> str: ...
+
+    # Prefill-only probe (`max_tokens=1`) returning the real token count of
+    # (system_prompt, user_prompt) as the backend's own chat template
+    # tokenizes it -- added for llm_behavior_engine._dynamic_max_tokens
+    # (2026-09-08, check_vllm_chunk_size_throughput_results.md). See each
+    # implementation's own docstring below for the verified-vs-unverified
+    # split (VllmJsonClient.count_prompt_tokens / OllamaJsonClient.count_
+    # prompt_tokens) -- this stub carries no doc of its own, matching
+    # complete_json's own convention on this Protocol.
+    def count_prompt_tokens(self, *, system_prompt: str, user_prompt: str, think: bool = True) -> int: ...
 
 
 SUPPORTED_PROVIDERS = frozenset({"ollama", "vllm"})
@@ -326,6 +338,7 @@ class OllamaJsonClient:
         max_tokens: int,
         think: bool = True,
         temperature: float | None = None,
+        seed: int | None = None,
     ) -> str:
         """Retries only a transport failure, up to _TRANSPORT_RETRY_ATTEMPTS
         total attempts, no backoff (no concurrency to jitter against -- see
@@ -336,20 +349,27 @@ class OllamaJsonClient:
         -- see the class docstring for why `think=False` needs an entirely
         different endpoint/request shape, not just one extra body field.
 
-        `temperature`, when given, overrides `self._temperature` (the
-        client's own, config-derived, always-0.0-when-llm.enabled value) for
-        THIS call only -- every other call on this same client instance is
-        unaffected. `None` (the default, and every call site's own default)
-        preserves this client's configured temperature exactly, unchanged
-        behavior. This exists for exactly one, deliberate, documented
-        exception to the project's own determinism requirement
-        (config._parse_llm's "temperature=0 is a hard determinism
-        requirement" rule, which governs the CONFIGURED value only, not a
-        per-call override this narrow) -- see
-        llm_behavior_engine._complete_and_decode_with_replay's own
-        `retry_temperature` parameter and cache_recycle_chunk_size_tension_
-        findings.md for the one call site that uses it. This mechanism
-        itself is general (any caller could pass a temperature override);
+        `temperature`/`seed`, when given, override `self._temperature`/
+        `self._seed` (the client's own, config-derived values) for THIS call
+        only -- every other call on this same client instance is unaffected.
+        `None` (the default, and every call site's own default) preserves
+        this client's configured values exactly, unchanged behavior. This
+        exists for exactly one, deliberate, documented exception to the
+        project's own determinism requirement (config._parse_llm's
+        "temperature=0 is a hard determinism requirement" rule, which
+        governs the CONFIGURED value only, not a per-call override this
+        narrow) -- see llm_behavior_engine._complete_and_decode_with_replay's
+        own `retry_temperature`/`retry_seed_base` parameters and
+        cache_recycle_chunk_size_tension_findings.md /
+        check_vllm_vote_cast_retry_is_inert_results.md for the one call site
+        that uses them. `seed` joined `temperature` here for a reason
+        `temperature` alone doesn't cover on Ollama either: this module's own
+        docstring already records that temperature=0 + a pinned seed is not
+        a reproducibility guarantee on this backend, so the ORIGINAL seed was
+        never a strong lock to begin with -- overriding it on retry is a
+        smaller step here than it is for VllmJsonClient, where the pinned
+        seed is normally binding (see that class's own finding). This
+        mechanism itself is general (any caller could pass either override);
         the fact that only one call site does is a policy choice made at
         that call site, not something enforced here.
 
@@ -361,21 +381,28 @@ class OllamaJsonClient:
         pool. The counter resets on recycle and is never incremented by
         the recycle's own internal calls (see _recycle)."""
         effective_temperature = temperature if temperature is not None else self._temperature
+        effective_seed = seed if seed is not None else self._seed
         if self._recycle_after_n_calls is not None and self._calls_since_recycle >= self._recycle_after_n_calls:
             self._recycle()
         try:
             if think:
                 return self._complete_json_openai_compat(
-                    system_prompt, user_prompt, json_schema, max_tokens, effective_temperature
+                    system_prompt, user_prompt, json_schema, max_tokens, effective_temperature, effective_seed
                 )
             return self._complete_json_native_no_think(
-                system_prompt, user_prompt, json_schema, max_tokens, effective_temperature
+                system_prompt, user_prompt, json_schema, max_tokens, effective_temperature, effective_seed
             )
         finally:
             self._calls_since_recycle += 1
 
     def _complete_json_openai_compat(
-        self, system_prompt: str, user_prompt: str, json_schema: dict[str, Any], max_tokens: int, temperature: float
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        json_schema: dict[str, Any],
+        max_tokens: int,
+        temperature: float,
+        seed: int,
     ) -> str:
         body = {
             "model": self._model,
@@ -384,7 +411,7 @@ class OllamaJsonClient:
                 {"role": "user", "content": user_prompt},
             ],
             "temperature": temperature,
-            "seed": self._seed,
+            "seed": seed,
             "max_tokens": max_tokens,
             "stream": False,
             "response_format": {
@@ -397,7 +424,13 @@ class OllamaJsonClient:
         return _extract_content(response)
 
     def _complete_json_native_no_think(
-        self, system_prompt: str, user_prompt: str, json_schema: dict[str, Any], max_tokens: int, temperature: float
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        json_schema: dict[str, Any],
+        max_tokens: int,
+        temperature: float,
+        seed: int,
     ) -> str:
         # `self._base_url` is documented as ending in `/v1` (the
         # OpenAI-compat convention) -- the native endpoint lives one level
@@ -412,11 +445,47 @@ class OllamaJsonClient:
             "stream": False,
             "think": False,
             "format": _inline_refs(json_schema),
-            "options": {"temperature": temperature, "seed": self._seed, "num_predict": max_tokens},
+            "options": {"temperature": temperature, "seed": seed, "num_predict": max_tokens},
         }
         payload = json.dumps(body, sort_keys=True, separators=(",", ":"))
         response = _post_with_transport_retry(self._client, f"{native_base}/api/chat", payload)
         return _extract_native_content(response)
+
+    def count_prompt_tokens(self, *, system_prompt: str, user_prompt: str, think: bool = True) -> int:
+        """UNVERIFIED against a live Ollama server, unlike VllmJsonClient's
+        own implementation -- this project's LLM investigation since the vLLM
+        switch (§15bis.6) has not touched Ollama at all, and this method is
+        never actually called against one in production: llm_behavior_engine.
+        _dynamic_max_tokens only invokes count_prompt_tokens behind a
+        `config.llm.provider == "vllm"` gate. Implemented anyway so
+        LlmClientProtocol has one real implementation per client rather than
+        a stub that would raise if ever reached, on the same OpenAI-compat
+        `/v1/chat/completions` shape `_complete_json_openai_compat` already
+        uses (Ollama's `usage.prompt_tokens` field is a standard part of that
+        same compat surface) -- but ollama_structured_output_results.md's own
+        finding that "temperature=0 + a pinned seed is not a reproducibility
+        guarantee on this backend" is reason enough not to assume this probe
+        is safe to actually wire into a chunk-size decision for Ollama
+        without first measuring it the way VllmJsonClient's own version was
+        measured. `think` intentionally does not route to the native
+        `think=False` endpoint the way complete_json does -- a max_tokens=1
+        probe on either endpoint returns the same usage.prompt_tokens for the
+        same input, so the extra complexity of a second code path here would
+        buy nothing."""
+        body = {
+            "model": self._model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "temperature": self._temperature,
+            "seed": self._seed,
+            "max_tokens": 1,
+            "stream": False,
+        }
+        payload = json.dumps(body, sort_keys=True, separators=(",", ":"))
+        response = _post_with_transport_retry(self._client, f"{self._base_url}/chat/completions", payload)
+        return _extract_prompt_tokens(response)
 
     def _recycle(self) -> None:
         """Forces a model unload (`keep_alive: 0` on the native endpoint,
@@ -467,12 +536,12 @@ class OllamaJsonClient:
                 if think:
                     self._complete_json_openai_compat(
                         "Reply with the required JSON object.", _RECYCLE_WARM_UP_USER_PROMPT,
-                        _RECYCLE_WARM_UP_SCHEMA, _RECYCLE_WARM_UP_MAX_TOKENS, self._temperature,
+                        _RECYCLE_WARM_UP_SCHEMA, _RECYCLE_WARM_UP_MAX_TOKENS, self._temperature, self._seed,
                     )
                 else:
                     self._complete_json_native_no_think(
                         "Reply with the required JSON object.", _RECYCLE_WARM_UP_USER_PROMPT,
-                        _RECYCLE_WARM_UP_SCHEMA, _RECYCLE_WARM_UP_MAX_TOKENS, self._temperature,
+                        _RECYCLE_WARM_UP_SCHEMA, _RECYCLE_WARM_UP_MAX_TOKENS, self._temperature, self._seed,
                     )
             except Exception as exc:  # noqa: BLE001
                 _logger.warning("LLM recycle: re-warm call (think=%s) failed, continuing anyway: %s", think, exc)
@@ -585,17 +654,27 @@ class VllmJsonClient:
         max_tokens: int,
         think: bool = True,
         temperature: float | None = None,
+        seed: int | None = None,
     ) -> str:
         """Retries only a transport failure, exactly like OllamaJsonClient
         -- see _post_with_transport_retry. A response-level failure
         propagates immediately, unretried -- see LlmResponseError.
 
-        `temperature` mirrors OllamaJsonClient's own per-call override
-        (None preserves this client's configured value) -- kept here only
-        for LlmClientProtocol parity; no vLLM call site uses a non-None
-        value as of this change, and this path remains unverified against
-        a live vLLM server regardless (see class docstring)."""
+        `temperature`/`seed` mirror OllamaJsonClient's own per-call override
+        (None preserves this client's configured value). `seed` is no longer
+        inert here the way the class docstring above once assumed: it
+        overrides `self._seed`, which -- unlike Ollama's -- IS a strong lock
+        on this backend at temperature=0 (see the class docstring's own
+        `check_vllm_batching_determinism.py` result). `cast_votes`'s
+        `retry_seed_base` is the one call site that uses it, for exactly the
+        finding `check_vllm_vote_cast_retry_is_inert_results.md` measured: a
+        `blank`/`ranking`-incoherent decision at temperature=0 is
+        deterministic on this backend, so an identical retry (same seed) only
+        reproduces it -- `_VOTE_CAST_RETRY_TEMPERATURE` alone was not enough
+        here, unlike on Ollama, because vLLM's pinned seed still constrains
+        the retry at the RETRY temperature too."""
         effective_temperature = temperature if temperature is not None else self._temperature
+        effective_seed = seed if seed is not None else self._seed
         body = {
             "model": self._model,
             "messages": [
@@ -603,7 +682,7 @@ class VllmJsonClient:
                 {"role": "user", "content": user_prompt},
             ],
             "temperature": effective_temperature,
-            "seed": self._seed,
+            "seed": effective_seed,
             "max_tokens": max_tokens,
             "stream": False,
             "chat_template_kwargs": {"enable_thinking": think},
@@ -615,6 +694,195 @@ class VllmJsonClient:
         payload = json.dumps(body, sort_keys=True, separators=(",", ":"))
         response = _post_with_transport_retry(self._client, f"{self._base_url}/chat/completions", payload)
         return _extract_content(response)
+
+    def count_prompt_tokens(self, *, system_prompt: str, user_prompt: str, think: bool = True) -> int:
+        """VERIFIED live (2026-09-08, GPU, check_vllm_chunk_size_throughput_
+        results.md): a `max_tokens=1` request against the real production
+        prompt builders returns `usage.prompt_tokens` matching the real
+        tokenized size at every chunk size measured (1/2/3/5), not an
+        estimate -- this is what makes llm_behavior_engine._dynamic_max_tokens
+        safe to size against `--max-model-len` (docker-compose.llm.yml)
+        precisely rather than guessing a flat allowance the way the naive
+        first attempt at this fix did (a chunk_size-scaled allowance guess
+        both contradicted compute_max_tokens's own flat-addend convention and
+        exceeded the ceiling outright once chunk_size>=3, a real 19716-token
+        request rejected outright).
+
+        `chat_template_kwargs: {"enable_thinking": think}` is sent exactly
+        as complete_json sends it, so the probed prompt is byte-identical
+        (via the chat template) to what the real call will send -- a probe
+        under a different `think` value could plausibly tokenize differently
+        (Qwen3's template may alter its own preamble based on the flag) and
+        would silently mis-size the real call's budget. temperature/seed are
+        this client's own configured values (never overridden here): they do
+        not affect prompt tokenization, only sampling, but are included for
+        the same reason complete_json always includes them -- a total
+        function of the call arguments, no hidden server-side default.
+        `response_format` is deliberately omitted: xgrammar-style structured
+        output constrains GENERATION via logit masking, not the prompt sent
+        to the model, so it should not affect `usage.prompt_tokens` -- this
+        specific equivalence (probe vs. real-call prompt_tokens) was not
+        separately isolated in the live investigation and remains an
+        assumption, not a measured claim, though it follows directly from
+        how vLLM's structured-output backends are documented to work."""
+        body = {
+            "model": self._model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "temperature": self._temperature,
+            "seed": self._seed,
+            "max_tokens": 1,
+            "stream": False,
+            "chat_template_kwargs": {"enable_thinking": think},
+        }
+        payload = json.dumps(body, sort_keys=True, separators=(",", ":"))
+        response = _post_with_transport_retry(self._client, f"{self._base_url}/chat/completions", payload)
+        return _extract_prompt_tokens(response)
+
+    def complete_with_logprobs(
+        self,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        max_tokens: int,
+        top_logprobs: int = 10,
+        think: bool = False,
+        temperature: float | None = None,
+        seed: int | None = None,
+    ) -> tuple[str, list[TokenLogprob]]:
+        """plan-llm-protocol-and-theory-program.md §5.C: a diagnostic
+        capability, deliberately NOT wired into any decide_* entry point yet
+        -- this reads a decision's own confidence, it does not decide
+        anything. VERIFIED live (2026-09-09) that vLLM 0.28.0 returns real,
+        calibrated-looking logprobs for a trivial forced-choice probe
+        (P(yes)=0.962 vs P(no)=0.038); NOT yet verified against a real
+        production, xgrammar-constrained decision schema, where the token
+        whose probability actually matters (e.g. an `"act":` field's value,
+        deep inside structured JSON) is not necessarily the FIRST generated
+        token the way it is for a bare forced-choice probe -- locating that
+        token inside a real completion's own token sequence is a real,
+        separate problem this method does not attempt to solve, only
+        exposes the raw material (`TokenLogprob`, one entry per generated
+        position) for a caller to solve it against.
+
+        No `json_schema`/`response_format` here, unlike complete_json --
+        the first live use case (§5.C: read P(act) for a decision this
+        project has already reduced to a forced binary choice in its own
+        prompt wording) does not need structured output, and xgrammar's
+        logit masking would only complicate reading a raw token
+        probability for no benefit. A schema-constrained variant, if one
+        is ever needed, is a distinct method, not a parameter here --
+        same reasoning complete_json/count_prompt_tokens already apply
+        (each call shape stays a total function of its own arguments, no
+        hidden per-caller branching).
+
+        2026-09-10 update: that schema-constrained variant now exists --
+        see `complete_json_with_logprobs` below, added to attack this
+        method's own "NOT yet verified" gap above (the real, xgrammar-
+        constrained, `think=True` decision shape) rather than adding a
+        branch here.
+
+        `think` defaults to False, unlike complete_json/count_prompt_tokens
+        -- a logprobs probe is normally a short, direct forced-choice
+        question (see this method's own module-level design note), and a
+        `<think>` block would sit between the prompt and the actual answer
+        token, consuming `max_tokens` on reasoning this diagnostic does not
+        currently parse out. Overridable per call for a future use case
+        that does want it.
+
+        `temperature`/`seed` mirror every other method on this class (None
+        preserves the client's own configured values) -- included for the
+        same reason count_prompt_tokens documents: a total function of the
+        call arguments, no hidden server-side default."""
+        effective_temperature = temperature if temperature is not None else self._temperature
+        effective_seed = seed if seed is not None else self._seed
+        body = {
+            "model": self._model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "temperature": effective_temperature,
+            "seed": effective_seed,
+            "max_tokens": max_tokens,
+            "stream": False,
+            "chat_template_kwargs": {"enable_thinking": think},
+            "logprobs": True,
+            "top_logprobs": top_logprobs,
+        }
+        payload = json.dumps(body, sort_keys=True, separators=(",", ":"))
+        response = _post_with_transport_retry(self._client, f"{self._base_url}/chat/completions", payload)
+        return _extract_content_and_logprobs(response)
+
+    def complete_json_with_logprobs(
+        self,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        json_schema: dict[str, Any],
+        max_tokens: int,
+        top_logprobs: int = 10,
+        think: bool = True,
+        temperature: float | None = None,
+        seed: int | None = None,
+    ) -> tuple[str, list[TokenLogprob]]:
+        """plan-llm-protocol-and-theory-program.md §5.C's "real hard
+        problem": complete_with_logprobs's own docstring names it and
+        deliberately does not attack it -- a real production decision is
+        xgrammar-constrained (`response_format`) and, for every decide_*
+        caller that matters here, generated under `think=True`, neither of
+        which that method's own trivial forced-choice probe exercises.
+        This is that call shape instead: complete_json's own body
+        (`response_format` with `_inline_refs(json_schema)`, same
+        `strict: True` schema envelope) plus `logprobs`/`top_logprobs`,
+        so the SAME completion a decide_* function would have decoded is
+        also returned with its own per-token log-probabilities attached.
+
+        A distinct method rather than a parameter on either complete_json
+        or complete_with_logprobs, same discipline both already apply:
+        each call shape stays a total function of its own arguments, no
+        hidden per-caller branching. `think` defaults to True here (unlike
+        complete_with_logprobs's own False default) because this method's
+        whole reason to exist is exercising the REAL production shape,
+        where every current vote_cast/chamber caller sends think=True --
+        a caller wanting the untouched, no-reasoning shape should still
+        reach for complete_with_logprobs instead of overriding this
+        default down.
+
+        Locating the field-relevant token inside the returned
+        (raw_text, tokens) pair -- e.g. `content` is the reasoning-
+        parser-stripped final JSON, but `tokens` covers the FULL raw
+        generation including any `<think>...</think>` block, so a naive
+        cumulative-offset walk against `content` misaligns under
+        think=True -- is llm_logprob_instrumentation.py's job, not this
+        method's; see that module's own docstring for the fix (locate
+        `content` as a substring of the reconstructed raw token stream,
+        then work in that raw offset space)."""
+        effective_temperature = temperature if temperature is not None else self._temperature
+        effective_seed = seed if seed is not None else self._seed
+        body = {
+            "model": self._model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "temperature": effective_temperature,
+            "seed": effective_seed,
+            "max_tokens": max_tokens,
+            "stream": False,
+            "chat_template_kwargs": {"enable_thinking": think},
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {"name": "polity_decision_batch", "strict": True, "schema": _inline_refs(json_schema)},
+            },
+            "logprobs": True,
+            "top_logprobs": top_logprobs,
+        }
+        payload = json.dumps(body, sort_keys=True, separators=(",", ":"))
+        response = _post_with_transport_retry(self._client, f"{self._base_url}/chat/completions", payload)
+        return _extract_content_and_logprobs(response)
 
     def close(self) -> None:
         self._client.close()
@@ -673,6 +941,101 @@ def _extract_content(response: httpx.Response) -> str:
         raise LlmResponseError(f"expected choices[0].message.content to be a string, got {message!r}")
 
     return str(message["content"])
+
+
+def _extract_prompt_tokens(response: httpx.Response) -> int:
+    """Shared by both count_prompt_tokens implementations -- the OpenAI-
+    compat `usage.prompt_tokens` field, present on the response regardless
+    of `finish_reason` (a max_tokens=1 probe always finishes at 'length',
+    never 'stop', so this deliberately does NOT go through _extract_content,
+    which would raise on exactly that)."""
+    try:
+        body = response.json()
+    except ValueError as exc:
+        raise LlmResponseError(f"response was not valid JSON: {exc}") from exc
+
+    if not isinstance(body, dict):
+        raise LlmResponseError(f"expected a JSON object, got {type(body).__name__}")
+    usage = body.get("usage")
+    if not isinstance(usage, dict) or not isinstance(usage.get("prompt_tokens"), int):
+        raise LlmResponseError(f"expected usage.prompt_tokens to be an int, got {usage!r}")
+    return int(usage["prompt_tokens"])
+
+
+@dataclass(frozen=True)
+class TokenLogprob:
+    """One generated token, its own log-probability, and the alternatives
+    the server considered at that same position -- vLLM's own OpenAI-compat
+    `choices[0].logprobs.content[i]` shape (`token`/`logprob`/`top_logprobs`),
+    reshaped into a plain dataclass so a caller never touches raw response
+    JSON. `alternatives` is `{token: logprob}`, always including this position's
+    own chosen token (vLLM includes it in `top_logprobs` too) -- so
+    `alternatives[token] == logprob` always holds, and a caller wanting
+    P(a specific candidate token), chosen or not, reads one dict."""
+
+    token: str
+    logprob: float
+    alternatives: dict[str, float]
+
+
+def _extract_content_and_logprobs(response: httpx.Response) -> tuple[str, list[TokenLogprob]]:
+    """VERIFIED live (2026-09-09): vLLM 0.28.0's `/v1/chat/completions`
+    returns `logprobs.content`, one entry per generated token, when the
+    request carries `logprobs: true` -- confirmed against a real trivial
+    yes/no probe (P(yes)=0.962, P(no)=0.038, read directly off this shape).
+
+    Deliberately does NOT require `finish_reason == 'stop'` the way
+    _extract_content does: plan-llm-protocol-and-theory-program.md §5.C's
+    whole point is reading the probability of a SPECIFIC early token (often
+    the first), so a tiny `max_tokens` budget legitimately ends in 'length'
+    on every call -- that is the expected, common case here, not a failure
+    mode to reject. Both 'stop' and 'length' are accepted; anything else
+    (e.g. a content filter) is not, since this project has never seen or
+    reasoned about what those would mean for the returned logprobs."""
+    try:
+        body = response.json()
+    except ValueError as exc:
+        raise LlmResponseError(f"response was not valid JSON: {exc}") from exc
+
+    if not isinstance(body, dict):
+        raise LlmResponseError(f"expected a JSON object, got {type(body).__name__}")
+    choices = body.get("choices")
+    if not isinstance(choices, list) or not choices:
+        raise LlmResponseError(f"expected a non-empty 'choices' list, got {choices!r}")
+    choice = choices[0]
+    if not isinstance(choice, dict):
+        raise LlmResponseError(f"expected choices[0] to be an object, got {type(choice).__name__}")
+
+    finish_reason = choice.get("finish_reason")
+    if finish_reason not in ("stop", "length"):
+        raise LlmResponseError(f"generation did not finish as expected: finish_reason={finish_reason!r}")
+
+    message = choice.get("message")
+    if not isinstance(message, dict) or not isinstance(message.get("content"), str):
+        raise LlmResponseError(f"expected choices[0].message.content to be a string, got {message!r}")
+
+    logprobs_obj = choice.get("logprobs")
+    if not isinstance(logprobs_obj, dict) or not isinstance(logprobs_obj.get("content"), list):
+        raise LlmResponseError(
+            f"expected choices[0].logprobs.content to be a list -- was `logprobs: true` sent? got {logprobs_obj!r}"
+        )
+
+    tokens: list[TokenLogprob] = []
+    for entry in logprobs_obj["content"]:
+        if not isinstance(entry, dict) or not isinstance(entry.get("token"), str) \
+                or not isinstance(entry.get("logprob"), (int, float)):
+            raise LlmResponseError(f"malformed logprobs.content entry: {entry!r}")
+        top = entry.get("top_logprobs")
+        alternatives: dict[str, float] = {}
+        if isinstance(top, list):
+            for alt in top:
+                if isinstance(alt, dict) and isinstance(alt.get("token"), str) \
+                        and isinstance(alt.get("logprob"), (int, float)):
+                    alternatives[alt["token"]] = float(alt["logprob"])
+        alternatives.setdefault(entry["token"], float(entry["logprob"]))
+        tokens.append(TokenLogprob(token=entry["token"], logprob=float(entry["logprob"]), alternatives=alternatives))
+
+    return str(message["content"]), tokens
 
 
 def _extract_native_content(response: httpx.Response) -> str:
@@ -883,11 +1246,11 @@ def decode_chamber_batch(raw: str, expected_cids: Sequence[int]) -> list[Chamber
 
     Like decode_pressure_batch/decode_reaction_batch, `expected_cids` here
     is a CHUNKED cohort -- decide_chamber_deliberation calls this once per
-    chunk_voters chunk, at its own measured ceiling of 10 members per call
-    (llm_behavior_engine._CHAMBER_MAX_CHUNK_SIZE), not
-    config.llm.max_batch_size: a real, measured correction after this
-    lot's own pre-flight spike found one call of 30 (and even a chunk of
-    15) silently drops all but the last 6 decisions."""
+    chunk_voters chunk, at its own measured, provider-conditional ceiling
+    (llm_behavior_engine._chamber_chunk_size(config): 1 on Ollama, 5 on
+    vLLM as of 2026-09-08), not config.llm.max_batch_size: a real, measured
+    correction after this lot's own pre-flight spike found one call of 30
+    (and even a chunk of 15) silently drops all but the last 6 decisions."""
     stripped = _THINK_TAG_RE.sub("", raw).strip()
     try:
         parsed = json.loads(stripped)

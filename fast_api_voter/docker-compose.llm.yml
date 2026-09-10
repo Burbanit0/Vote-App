@@ -161,6 +161,38 @@ services:
       - "8000"
       - "--seed"
       - "42"
+      - "--speculative-config"
+      - '{"method": "ngram", "num_speculative_tokens": 5, "prompt_lookup_max": 4, "prompt_lookup_min": 2}'
+                                    # plan-llm-protocol-and-theory-program.md
+                                    # §3.B.6, 2026-09-10: n-gram/prompt-lookup
+                                    # speculation, no separate draft model
+                                    # needed -- looks for repeated n-grams in
+                                    # the prompt/generated text so far and
+                                    # proposes the next few tokens from that
+                                    # match; the real model then verifies
+                                    # every proposal in one forward pass and
+                                    # only accepts matches. LOSSLESS BY
+                                    # CONSTRUCTION at temperature=0: an
+                                    # accepted token is one the real model
+                                    # would have emitted anyway, a rejected
+                                    # one falls back to normal decoding for
+                                    # that position -- verified live, not
+                                    # just assumed (check_vllm_speculative_
+                                    # decoding_results.md): byte-identical
+                                    # output to the pre-change baseline,
+                                    # both same-run and cross-run. Throughput
+                                    # gain is REAL but content-dependent, not
+                                    # a flat multiplier -- a highly uniform
+                                    # chamber fixture (5 members, identical
+                                    # "nothing to decide" state) measured
+                                    # ~2.5x faster once warm; a more varied
+                                    # vote_cast prompt measured roughly
+                                    # neutral. No downside-risk scenario
+                                    # either way: an unmatched speculation
+                                    # just falls back to ordinary decoding
+                                    # for that token, so low-repetition
+                                    # content sees close to zero benefit,
+                                    # never a regression.
     ports:
       - "8000:8000"
     ipc: host                      # vLLM's own recommendation, for its shared-memory tensor cache

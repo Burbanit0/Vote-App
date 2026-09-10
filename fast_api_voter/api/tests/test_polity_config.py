@@ -40,8 +40,10 @@ def test_loads_the_real_polity_config_with_expected_v0_values():
     assert config.llm.max_batch_replays == 0
     assert config.llm.recycle_after_n_calls is None
     assert config.llm.enabled is False
-    assert config.llm.provider == "ollama"
-    assert config.llm.base_url == "http://localhost:11434/v1"
+    # Switched 2026-09-06 (plan-flagship-30y-run.md phase 0); was "ollama"
+    # until the axis (a)/(b) checks and the xgrammar truncation fix landed.
+    assert config.llm.provider == "vllm"
+    assert config.llm.base_url == "http://localhost:8000/v1"
     assert config.llm.model == "qwen3:8b"
     assert config.llm.temperature == 0.0
     assert config.llm.max_batch_size == 25
@@ -202,9 +204,10 @@ def test_llm_provider_unknown_raises(tmp_path):
 
 
 def test_llm_provider_vllm_is_accepted(tmp_path):
-    # v4 vLLM switch (§15bis.6): "vllm" is a legal config.py value even
-    # though the shipped default stays "ollama" -- nothing pinned this
-    # loading successfully before this lot.
+    # v4 vLLM switch (§15bis.6): "vllm" is a legal config.py value --
+    # nothing pinned this loading successfully before this lot. It is also
+    # the shipped default since 2026-09-06, but this test stays independent
+    # of which of the two the shipped file happens to name.
     path = _write(tmp_path, lambda d: d["llm"].__setitem__("provider", "vllm"))
     config = load_config(path)
     assert config.llm.provider == "vllm"

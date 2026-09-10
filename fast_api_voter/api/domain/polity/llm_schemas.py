@@ -483,9 +483,10 @@ class ChamberDecision(BaseModel):
 class ChamberBatch(BaseModel):
     """§3.6.0's batch envelope, specialized to chamber_deliberation — one
     decision per CHUNK of currently seated sortition members
-    (llm_behavior_engine._CHAMBER_MAX_CHUNK_SIZE=1 per call, not the full
-    sortition_chamber.seats cohort at once — see decide_chamber_
-    deliberation's own docstring for the measured reason)."""
+    (llm_behavior_engine._chamber_chunk_size(config) per call, not the full
+    sortition_chamber.seats cohort at once — provider-conditional since
+    2026-09-08 (1 on Ollama, 5 on vLLM); see decide_chamber_deliberation's
+    own docstring for the measured reason)."""
 
     model_config = ConfigDict(extra="forbid")
 
