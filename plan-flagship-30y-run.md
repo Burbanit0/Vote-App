@@ -1132,3 +1132,49 @@ Newest last. One line per landed step, with the commit hash where there is one.
   is what Stage 3 (scale probe) exists to answer directly, so proceeding
   there rather than chasing a properly-scope-matched retrospective
   comparison further.
+- **2026-09-09/10** — Phase 7 Stage 3 (scale probe, 8y/pop500/75 seats)
+  completed after two more session-interruption/resume cycles (three
+  invocations total: ticks 0-7, 7-15, 15-32 -- the same checkpoint/resume
+  pattern as Stage 2, now proven across a third occurrence). Disk crept
+  down to 6.5-7.3G free from docker image/build-cache buildup each time;
+  pruned back to 17-19G before each resume. True total wall-clock across
+  all three invocations: 5754.0s + 2925.9s + 30531.6s = **39211.5s (~10.9h)**
+  for 32 ticks, 6474 decisions, 503 retries, **980 fallbacks (15.1% of all
+  decisions -- matches Stage 2's ~15% almost exactly in aggregate)**.
+
+  **Critical finding, not a throughput number: a real, previously-latent
+  vote_cast bug, found because this is the first time this project has ever
+  run an election at population 500.** Two ticks (16 and 32) each fell back
+  494/500 and 476/500 votes (~95-99% of the whole electorate) -- traced via
+  `replays.log` to `validate_decision`'s own rejection: "ranks N candidates,
+  exceeding the truncation limit of 5" (N observed up to 15). Root cause,
+  confirmed by reading `build_system_prompt`'s own docstring: the system
+  prompt explicitly instructs the model to rank **every** acceptable
+  candidate ("never just the closest one") -- design doc §3.6.1's top-5
+  truncation rule (`truncation_limit`/`_TRUNCATE_TO=5`, active once
+  `candidate_count > 6`) is enforced ONLY in the post-hoc validator, never
+  stated in the prompt at all. The model does exactly what it is told and
+  gets rejected by a rule it was never shown. Confirmed via
+  `candidacy_declared` counts spiking to 6-7 at exactly ticks 16/32 (every
+  other prior test of vote_cast in this project's history, including this
+  session's entire chunk-size investigation, used `parties.initial_count=5`
+  candidates -- the truncation branch has essentially never been exercised
+  before this run). Not a chunk-size regression, not a reasoning failure --
+  a prompt/validator inconsistency, narrow and low-risk to fix (state the
+  top-5 rule in the prompt whenever it applies).
+
+  **Runtime extrapolation, with an important caveat.** Naive linear scaling
+  (39211.5s / 32 ticks x 120 ticks) projects **~40.8h** for the 30-year
+  flagship -- but this is inflated by the truncation bug itself: each of the
+  ~980 fallback decisions burned a full failed-then-replayed-then-fallback
+  cycle (up to 3 wasted LLM attempts) before the near-instant deterministic
+  path took over, and tick 16 alone (9509.55s, ~2.64h) is almost entirely
+  this wasted cost. The real post-fix runtime is expected to be
+  meaningfully lower than 40.8h, not yet re-measured.
+
+  **Stage 4 (the flagship) is gated on this fix, not proceeding as-is.** At
+  30 years the run has far more elections and far more time for rupture
+  candidacy to accumulate past 6 -- unfixed, a large fraction of the
+  flagship's own presidential elections would silently run on the
+  deterministic fallback instead of the LLM, undermining a substantial part
+  of what the run exists to produce.
