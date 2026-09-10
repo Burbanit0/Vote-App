@@ -844,6 +844,88 @@ def test_vllm_complete_with_logprobs_multiple_tokens_in_order():
     assert [t.token for t in tokens] == ["no", " way"]
 
 
+# ── VllmJsonClient.complete_json_with_logprobs (2026-09-10, plan-llm-
+# protocol-and-theory-program.md §5.C) -- complete_json's own request shape
+# (response_format/xgrammar) plus complete_with_logprobs's own logprobs
+# reading, attacking complete_with_logprobs's own "NOT yet verified against
+# a real production, xgrammar-constrained decision schema" gap.
+
+def test_vllm_complete_json_with_logprobs_request_shape_is_correct():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return _logprobs_response("stop", '{"decisions":[]}', [_token_entry("x", -0.1, [("x", -0.1)])])
+
+    schema = {"type": "object", "properties": {"decisions": {"type": "array"}}}
+    client = _vllm_client(handler)
+    client.complete_json_with_logprobs(
+        system_prompt="sys", user_prompt="usr", json_schema=schema, max_tokens=64, top_logprobs=7,
+    )
+
+    body = captured["body"]
+    assert body["response_format"] == {
+        "type": "json_schema",
+        "json_schema": {"name": "polity_decision_batch", "strict": True, "schema": schema},
+    }
+    assert body["logprobs"] is True
+    assert body["top_logprobs"] == 7
+    # think defaults to True here, unlike complete_with_logprobs's own False
+    # default -- this method exists specifically to exercise the real
+    # production shape, where every current decide_* caller sends think=True.
+    assert body["chat_template_kwargs"] == {"enable_thinking": True}
+
+
+def test_vllm_complete_json_with_logprobs_think_is_overridable():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return _logprobs_response("stop", '{"decisions":[]}', [_token_entry("x", -0.1, [("x", -0.1)])])
+
+    client = _vllm_client(handler)
+    client.complete_json_with_logprobs(
+        system_prompt="s", user_prompt="u", json_schema={"type": "object"}, max_tokens=8, think=False,
+    )
+    assert captured["body"]["chat_template_kwargs"] == {"enable_thinking": False}
+
+
+def test_vllm_complete_json_with_logprobs_dereferences_nested_refs():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["schema"] = json.loads(request.content)["response_format"]["json_schema"]["schema"]
+        return _logprobs_response("stop", '{"decisions":[]}', [_token_entry("x", -0.1, [("x", -0.1)])])
+
+    schema = {
+        "$defs": {"Inner": {"type": "object", "properties": {"x": {"type": "integer"}}}},
+        "type": "object",
+        "properties": {"item": {"$ref": "#/$defs/Inner"}},
+    }
+    client = _vllm_client(handler)
+    client.complete_json_with_logprobs(system_prompt="s", user_prompt="u", json_schema=schema, max_tokens=8)
+
+    assert "$defs" not in captured["schema"]
+    assert captured["schema"]["properties"]["item"] == {"type": "object", "properties": {"x": {"type": "integer"}}}
+
+
+def test_vllm_complete_json_with_logprobs_returns_content_and_tokens():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return _logprobs_response(
+            "stop", '{"decisions":[{"cid":1,"blank":0}]}',
+            [_token_entry('{"decisions":[{"cid":1,"blank":', -0.0, [('{"decisions":[{"cid":1,"blank":', -0.0)]),
+             _token_entry("0", -0.02, [("0", -0.02), ("1", -3.1)]),
+             _token_entry("}]}", -0.0, [("}]}", -0.0)])],
+        )
+
+    client = _vllm_client(handler)
+    content, tokens = client.complete_json_with_logprobs(
+        system_prompt="s", user_prompt="u", json_schema={"type": "object"}, max_tokens=32,
+    )
+    assert content == '{"decisions":[{"cid":1,"blank":0}]}'
+    assert [t.token for t in tokens] == ['{"decisions":[{"cid":1,"blank":', "0", "}]}"]
+
+
 # ── build_json_client (provider dispatch) ─────────────────────────────────
 
 # Both dispatch tests name their provider explicitly rather than leaning on

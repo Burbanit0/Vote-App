@@ -430,9 +430,48 @@ sur un probe trivial, contre le vrai serveur, pas un mock. Une chose reste
    cette propriété : le token qui compte est enterré après le boilerplate
    du schéma, à une position qui varie par prompt. `complete_with_logprobs`
    expose la matière première (un `TokenLogprob` par position générée) mais
-   ne résout PAS cet alignement — c'est un problème séparé, pas encore
+   ne résout PAS cet alignement — c'était un problème séparé, pas encore
    attaqué, et la prochaine étape réelle avant d'instrumenter un type de
    décision de production.
+
+   **Résolu et vérifié en direct, 2026-09-10.** Deux ajouts : `VllmJsonClient.
+   complete_json_with_logprobs` (`llm_client.py`, une méthode distincte de
+   `complete_with_logprobs`, pas un paramètre — même discipline « une forme
+   d'appel = une fonction totale de ses propres arguments » déjà appliquée
+   partout ailleurs sur cette classe) envoie la VRAIE forme de production
+   (`response_format`/xgrammar, `think=True` par défaut) tout en demandant
+   `logprobs`/`top_logprobs` ; le nouveau module `llm_logprob_instrumentation.
+   py` (`locate_decision_field_logprobs`, `binary_probability`) résout
+   l'alignement lui-même en reconstruisant le texte brut généré (concaténation
+   de tous les tokens, PAS `content` seul — `content` est amputé du bloc
+   `<think>` par le reasoning parser, `tokens` non) puis en localisant `content`
+   comme sous-chaîne de ce texte brut avant de chercher, dans cet espace
+   d'offsets bruts, le token qui couvre la valeur du champ visé pour chaque
+   décision du batch (appariées à leur `cid` via `json.loads(content)`, même
+   ordre documentaire). 13 tests offline (`test_polity_llm_logprob_
+   instrumentation.py`) couvrent délibérément des frontières de token
+   adverses, y compris une qui chevauche `</think>` lui-même.
+
+   **Vérifié en direct contre le seul type avec vérité terrain**
+   (`check_logprob_blank_calibration.py`, §5.C's own Verification bar) :
+   16 votants réels (8 vérité-terrain blanc, 8 non-blanc, sélectionnés sans
+   biais dans un pool de 200), à travers les VRAIS `build_system_prompt`/
+   `build_user_prompt` de `vote_cast`, `think=True`, chunk_size=3 (la valeur
+   shippée). Alignement du localisateur : **16/16**, zéro `LogprobAlignmentError`
+   malgré un bloc `<think>` réel de longueur imprévisible à chaque appel.
+   Précision de l'appel à seuil (P(blank=1)>0.5) : **16/16**. Séparation
+   moyenne P(blank=1) : **0,997 (vérité=blanc) vs 0,049 (vérité=non-blanc)**.
+   Réserve honnête : cet échantillon est équilibré par résultat, pas par
+   difficulté — aucun des 16 votants n'est proche de son propre seuil
+   `blank_threshold`, donc cette séparation nette valide la technique
+   d'ALIGNEMENT et le SENS de la corrélation, pas encore la valeur du signal
+   gradué sur un cas limite genuinely ambigu (voir
+   `check_logprob_blank_calibration_results.md` pour le détail).
+
+   Le signal est donc licencié pour un usage sur des types sans vérité
+   terrain (`pressure_action`, la cible nommée par §5.C lui-même) —
+   **pas encore appliqué là**, prochaine étape distincte, pas supposée
+   par analogie.
 
 ### 5.E — TOON : bon outil, mais pas sur les prompts qu'on croit
 

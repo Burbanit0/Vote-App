@@ -778,6 +778,12 @@ class VllmJsonClient:
         (each call shape stays a total function of its own arguments, no
         hidden per-caller branching).
 
+        2026-09-10 update: that schema-constrained variant now exists --
+        see `complete_json_with_logprobs` below, added to attack this
+        method's own "NOT yet verified" gap above (the real, xgrammar-
+        constrained, `think=True` decision shape) rather than adding a
+        branch here.
+
         `think` defaults to False, unlike complete_json/count_prompt_tokens
         -- a logprobs probe is normally a short, direct forced-choice
         question (see this method's own module-level design note), and a
@@ -803,6 +809,74 @@ class VllmJsonClient:
             "max_tokens": max_tokens,
             "stream": False,
             "chat_template_kwargs": {"enable_thinking": think},
+            "logprobs": True,
+            "top_logprobs": top_logprobs,
+        }
+        payload = json.dumps(body, sort_keys=True, separators=(",", ":"))
+        response = _post_with_transport_retry(self._client, f"{self._base_url}/chat/completions", payload)
+        return _extract_content_and_logprobs(response)
+
+    def complete_json_with_logprobs(
+        self,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        json_schema: dict[str, Any],
+        max_tokens: int,
+        top_logprobs: int = 10,
+        think: bool = True,
+        temperature: float | None = None,
+        seed: int | None = None,
+    ) -> tuple[str, list[TokenLogprob]]:
+        """plan-llm-protocol-and-theory-program.md §5.C's "real hard
+        problem": complete_with_logprobs's own docstring names it and
+        deliberately does not attack it -- a real production decision is
+        xgrammar-constrained (`response_format`) and, for every decide_*
+        caller that matters here, generated under `think=True`, neither of
+        which that method's own trivial forced-choice probe exercises.
+        This is that call shape instead: complete_json's own body
+        (`response_format` with `_inline_refs(json_schema)`, same
+        `strict: True` schema envelope) plus `logprobs`/`top_logprobs`,
+        so the SAME completion a decide_* function would have decoded is
+        also returned with its own per-token log-probabilities attached.
+
+        A distinct method rather than a parameter on either complete_json
+        or complete_with_logprobs, same discipline both already apply:
+        each call shape stays a total function of its own arguments, no
+        hidden per-caller branching. `think` defaults to True here (unlike
+        complete_with_logprobs's own False default) because this method's
+        whole reason to exist is exercising the REAL production shape,
+        where every current vote_cast/chamber caller sends think=True --
+        a caller wanting the untouched, no-reasoning shape should still
+        reach for complete_with_logprobs instead of overriding this
+        default down.
+
+        Locating the field-relevant token inside the returned
+        (raw_text, tokens) pair -- e.g. `content` is the reasoning-
+        parser-stripped final JSON, but `tokens` covers the FULL raw
+        generation including any `<think>...</think>` block, so a naive
+        cumulative-offset walk against `content` misaligns under
+        think=True -- is llm_logprob_instrumentation.py's job, not this
+        method's; see that module's own docstring for the fix (locate
+        `content` as a substring of the reconstructed raw token stream,
+        then work in that raw offset space)."""
+        effective_temperature = temperature if temperature is not None else self._temperature
+        effective_seed = seed if seed is not None else self._seed
+        body = {
+            "model": self._model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "temperature": effective_temperature,
+            "seed": effective_seed,
+            "max_tokens": max_tokens,
+            "stream": False,
+            "chat_template_kwargs": {"enable_thinking": think},
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {"name": "polity_decision_batch", "strict": True, "schema": _inline_refs(json_schema)},
+            },
             "logprobs": True,
             "top_logprobs": top_logprobs,
         }
