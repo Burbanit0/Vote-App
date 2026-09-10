@@ -468,6 +468,25 @@ def test_system_prompt_requires_every_acceptable_candidate_in_the_ranking():
     assert "Ne te limite " in prompt
 
 
+def test_system_prompt_bounds_the_ranking_at_the_truncation_limit_above_six_candidates():
+    # 2026-09-10 correction (plan-flagship-30y-run.md Phase 7 Stage 3): the
+    # unconditional "CHAQUE candidat... Ne te limite JAMAIS" sentence above
+    # was, until this fix, sent even when truncate_at is not None --
+    # directly contradicting validate_decision's own truncation-limit
+    # rejection, and the dominant vote_cast failure mode at population 500
+    # (two election ticks, 494/500 and 476/500 fallback). This pins that the
+    # truncated branch states an explicit upper bound instead, so a later
+    # prompt tidy-up cannot silently reintroduce the unconditional wording
+    # for candidate_count > 6.
+    citizens = _population(2)
+    seven = [_candidate(i, (0.1,)) for i in range(7)]
+    prompt = build_system_prompt(citizens, seven)
+    assert "JUSQU'A 5" in prompt
+    assert "n'inclus JAMAIS plus de 5" in prompt
+    # the untruncated-case wording must NOT leak into the truncated prompt
+    assert "OBLIGATOIREMENT contenir CHAQUE candidat" not in prompt
+
+
 # ── validate_decision ─────────────────────────────────────────────────────
 
 def _decision(**overrides):

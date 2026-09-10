@@ -1094,10 +1094,63 @@ def build_system_prompt(citizens: Sequence[Citizen], candidates: Sequence[Citize
     by ascending distance, cid=8 going from 13 596 tokens with no answer
     to 58 tokens in 6.1s. Ollama at temperature=0 with a pinned seed is
     NOT deterministic (ollama_structured_output_results.md), so this is a
-    rate measurement, not a proof of impossibility."""
+    rate measurement, not a proof of impossibility.
+
+    Correction, 2026-09-10 (plan-flagship-30y-run.md Phase 7 Stage 3): the
+    "EVERY acceptable candidate, NEVER limit yourself" sentence above was,
+    until this date, sent UNCONDITIONALLY regardless of `truncate_at` --
+    directly contradicting the parenthetical truncate_note also present in
+    the REGLE sentence, and the model reliably followed the stronger,
+    unconditional sentence over the weaker parenthetical one. Found at
+    population 500 (`scaleprobe-8y-p500-chunked-v1`): two election ticks
+    each fell back 494/500 and 476/500 votes, traced via replays.log to
+    validate_decision's own truncation-limit rejection ("ranks N candidates,
+    exceeding the truncation limit of 5", N observed up to 15) -- not a
+    token-budget or reasoning failure, a prompt telling the model to do the
+    literal opposite of what the validator enforces. Never caught before
+    because every prior live test of vote_cast in this project's history,
+    including this session's own chunk-size investigation, used exactly 5
+    candidates (`parties.initial_count`), so `candidate_count > 6` (and
+    therefore `truncate_at is not None`) had essentially never been
+    exercised until a real population-500 election accumulated enough
+    rupture candidates to cross it. Fixed by branching the sentence on
+    `truncate_at` (see `ranking_scope_rule` below) -- the truncated case
+    keeps the same "don't just pick the closest one" guidance this
+    docstring's own Mode-A fix above depends on, but now bounds it at
+    `truncate_at` instead of leaving it unconditional."""
     candidate_count = len(candidates)
     truncate_at = truncation_limit(candidate_count)
     truncate_note = "" if truncate_at is None else f" (classer au plus les {truncate_at} meilleurs)"
+    if truncate_at is None:
+        ranking_scope_rule = (
+            "Le tableau 'ranking' doit OBLIGATOIREMENT contenir CHAQUE candidat "
+            "juge acceptable, classe par ordre de preference. Ne te limite "
+            "JAMAIS au seul candidat le plus proche si d'autres candidats "
+            "passent aussi le seuil de l'electeur.\n"
+        )
+    else:
+        # 2026-09-10 (plan-flagship-30y-run.md Phase 7 Stage 3): before this,
+        # the sentence below was the SAME unconditional "include EVERY
+        # acceptable candidate, NEVER limit yourself" text used when
+        # truncate_at is None -- directly contradicting the parenthetical
+        # truncate_note above it, which the model reliably lost to (see
+        # validate_decision's own truncation-limit rejection, the dominant
+        # vote_cast failure mode at population 500 once rupture candidacy
+        # pushes candidate_count past 6, a code path essentially never
+        # exercised before that run since every prior test of vote_cast in
+        # this project's history used exactly 5 candidates). Still states
+        # "don't just pick the single closest one" -- the exact ambiguity
+        # this sentence was originally added to resolve (see this function's
+        # own docstring, the Mode A non-convergent loop) -- but now bounds it
+        # at truncate_at instead of leaving it open-ended.
+        ranking_scope_rule = (
+            "Le tableau 'ranking' doit contenir les candidats acceptables "
+            f"classes par ordre de preference, JUSQU'A {truncate_at} au "
+            "maximum -- ne te limite pas au seul candidat le plus proche "
+            f"s'il y en a d'autres, MAIS n'inclus JAMAIS plus de "
+            f"{truncate_at} positions, meme si davantage de candidats sont "
+            f"acceptables : arrete-toi aux {truncate_at} plus proches.\n"
+        )
     cid_list = ",".join(str(c.citizen_id) for c in citizens)
     return (
         "Tu es un moteur de simulation. Pour chaque citoyen recu, decide son "
@@ -1117,10 +1170,7 @@ def build_system_prompt(citizens: Sequence[Citizen], candidates: Sequence[Citize
         "105 (ACCEPTABLE_MATCH) pour le cas usuel d'un vote sincere -- un "
         "candidat imparfait mais sous le seuil DOIT etre prefere au vote "
         "blanc, ce n'est pas un pis-aller.\n"
-        "Le tableau 'ranking' doit OBLIGATOIREMENT contenir CHAQUE candidat "
-        "juge acceptable, classe par ordre de preference. Ne te limite "
-        "JAMAIS au seul candidat le plus proche si d'autres candidats "
-        "passent aussi le seuil de l'electeur.\n"
+        f"{ranking_scope_rule}"
         "Le vote blanc (blank=1, ranking vide, motif 101) est reserve au cas "
         "ou AUCUN candidat ne passe ce seuil pour cet electeur -- ce n'est "
         "pas une option par defaut.\n"
