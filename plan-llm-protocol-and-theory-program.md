@@ -343,11 +343,12 @@ saga was a fight for context headroom. Two untouched levers:
 Why this compounds: smaller prompts → more context headroom → larger chunks
 legal → fewer calls. It multiplies with §3.B rather than adding to it.
 
-**Point 1 partiellement implémenté, 2026-09-09, scope volontairement restreint
-au moment de l'écriture** (`_PROMPT_VECTOR_PRECISION = 2`,
-`llm_behavior_engine.py`, offline-tested only — mypy/flake8/1306 tests green,
-**pas encore vérifié en direct contre le serveur**, bloqué par le run
-scale-probe de Phase 7 toujours en vol sur le même serveur partagé). Deux
+**Point 1 implémenté, 2026-09-09, scope volontairement restreint au moment de
+l'écriture** (`_PROMPT_VECTOR_PRECISION = 2`, `llm_behavior_engine.py`).
+**Vérifié en direct, 2026-09-10** — vote_cast via
+`check_vote_cast_truncation_fix.py` (3 runs indépendants, 0 échec attribuable
+à la précision) et le smoke run du flagship ; chamber via
+`check_precision_and_logprobs_live.py` (10/10 sincere, 0 fallback). Deux
 restrictions découvertes en implémentant, pas anticipées en écrivant ce
 paragraphe :
 
@@ -389,15 +390,14 @@ better instrumented than what it replaces.
 
 **Primitive implémenté, 2026-09-09** (`VllmJsonClient.complete_with_logprobs`,
 `llm_client.py`, offline-verified — mypy/flake8/1313 tests green, 7 new
-mocked-transport tests). Live-confirmé le même jour, avant le début de cette
-implémentation, contre le serveur réel : un probe forced-choice trivial
-("réponds oui/non") renvoie P(yes)=0.962, P(no)=0.038, exactement la forme
-attendue. Deux choses restent **non résolues, délibérément pas attaquées par
-ce premier incrément** :
+mocked-transport tests). Live-confirmé le même jour (avant l'implémentation),
+via un probe forced-choice brut : P(yes)=0.962, P(no)=0.038. **La méthode
+elle-même vérifiée en direct le 2026-09-10** une fois le serveur libéré
+(`check_precision_and_logprobs_live.py`) : P(oui)=0.999994 vs P(non)=5.1e-6
+sur un probe trivial, contre le vrai serveur, pas un mock. Une chose reste
+**non résolue, délibérément pas attaquée par ce premier incrément** :
 
-1. **Vérification en direct de la méthode elle-même** — bloquée par le run
-   scale-probe de Phase 7, toujours sur le même serveur partagé.
-2. **Le vrai problème dur : localiser le bon token dans une sortie JSON
+1. **Le vrai problème dur : localiser le bon token dans une sortie JSON
    contrainte par xgrammar.** Le probe déjà vérifié pose la question en
    forced-choice nu (le PREMIER token généré EST la réponse) — une décision
    de production réelle (`"act":3` quelque part dans un objet JSON) n'a pas
