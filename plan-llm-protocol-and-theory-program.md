@@ -168,6 +168,31 @@ eliminates the most plausible remaining candidate.
 > base était par ailleurs bonne (17/17 et 5/5 décisions structurellement valides) —
 > xgrammar a absorbé le problème exactement comme §2 le prévoyait.
 >
+> **Réplique faite, 2026-09-10** (`check_pressure_gap_tracking_geometry_b_results.md`) —
+> géométrie B (autres cids, autres valeurs de self_gap sur le même span, autre
+> mandate_dev/ticks/target, ordre de batch **inversé**), les DEUX bras testés.
+> Le signal du bras base ne se dissout pas, il se **renforce** (r passe de +0,378
+> p=0,135 à **+0,685 p=0,0024**). Mais le contrôle retire l'interprétation : le
+> bras **instruct** produit lui aussi une corrélation positive significative sous
+> géométrie B (r=**+0,494**, p=0,044). « Le base suit self_gap, l'instruct non »
+> n'est donc **pas** soutenu. Ce qui survit : le bras base est *un peu* plus
+> sensible que l'instruct dans les deux géométries (r et séparation), mais
+> **aucun bras ne franchit la barre pré-enregistrée de 0,10** et, dans les quatre
+> cellules, **la décision émise reste totalement collapsée** (toujours la même
+> constante) — seule la probabilité sous-jacente bouge.
+>
+> Contrôle offert par la paire de géométries : A batchait en ordre croissant, B en
+> décroissant, donc un artefact de position aurait **changé de signe**. Il n'en a
+> rien fait → la corrélation est un effet self_gap réel, pas un artefact de position.
+>
+> **Trouvaille latérale, plus intéressante que ce qui était cherché** : le NIVEAU
+> global de probabilité est dominé par les constantes de niveau appel, pas par le
+> signal par citoyen (P(act=4) ≈0,53-0,99 en géométrie A contre ≈0,007-0,47 en B
+> sur le même bras base ; jusqu'à deux ordres de grandeur d'écart), alors que
+> self_gap le déplace bien moins à l'intérieur d'un appel. Attribution prudente
+> (plusieurs constantes ont changé à la fois), mais cela caractérise l'échec plus
+> finement que « collapse » et pointe exactement là où §3.A.1/§3.A.2 pointent déjà.
+>
 > Conséquence pour la suite : `coalition_decision` qui collapse identiquement avec
 > et sans fine-tuning d'instruction pointe vers la construction du prompt/de la
 > tâche plutôt que vers le post-training. **§3.A.1 (échantillonnage déterministe
