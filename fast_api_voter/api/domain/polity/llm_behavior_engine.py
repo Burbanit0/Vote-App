@@ -2824,6 +2824,20 @@ def decide_reaction_to_event(
     plan-decision-quality-validation.md's own inventory) -- collapse-signature findings only,
     never an accuracy figure, on either backend.
 
+    ECONOMIC_SHOCK's categorical branch measured, 2026-09-10 (plan-llm-protocol-and-theory-
+    program.md §5.C, scripts/check_logprob_reaction_economic_shock_tracking_results.md): via
+    logprobs, P(motif=402, reacts) across 5 magnitude points (0.05-1.50, crossing
+    events.economy_shock_threshold=0.5), event_salience=0.0 fixed. Result: P(motif=402)=1.000000
+    at EVERY magnitude tested, including the smallest (0.05, an order of magnitude below the
+    "major" threshold) -- motif=403 (EVENT_PERSONALLY_IRRELEVANT) never chosen once. Narrows but
+    does not close the gap above: this measures only the categorical react/irrelevant choice, not
+    salience_delta's own graded intensity (a float field, out of this instrument's current
+    scope) -- whether REACTION INTENSITY scales with shock severity remains untested. Also:
+    unlike this project's other confirmed collapses (same action regardless of ctx), "always
+    personally relevant" for an economy-wide event is not obviously a defect the way "always
+    concede" is -- see that results doc's own "reading this carefully" section before treating
+    this as a fifth confirmed collapse.
+
     Population-wide, like decide_pressure_actions -- CHUNKS via
     chunk_voters, but at the DEFAULT MIN_SAFE_BATCH_SIZE floor, not dt=10's
     own min_batch_size=1 override: dt=8's cohort is the entire population

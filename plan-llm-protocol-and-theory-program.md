@@ -54,17 +54,26 @@ The project has 9 LLM decision types. Their measured reliability splits cleanly
 | `pressure_action` (dt=10) | **Citizen chooses a lever against an officeholder** | **60,0 % agreement (open menu), bar is 80 %** — every remediation lever exhausted; **collapse confirmed on the SHIPPED closed menu** (2026-09-10, logprobs: P(act=4) ≥0,976 for every self_gap tested, +0,004 separation, not a batching artifact) — the one config every real run ships |
 | `representative_response` (dt=6) | **Officeholder responds to citizen pressure** | **Collapse confirmed** (4/4 identical) — **sharpened 2026-09-10** (logprobs, 9-point continuous sweep across the same two poles): P(stance=1)=1,000000±0,000001 EVERYWHERE, no detectable gradient at all |
 | `coalition_decision` (dt=9) | **Party joins/refuses a coalition** | **Collapse confirmed** (6/6 identical) — **sharpened 2026-09-10** (logprobs, real batch size): P(action=1)=0,965-0,999 EVERYWHERE, batching does not rescue any signal |
-| `reaction_to_event` (dt=8, SCANDAL) | **Citizen reacts to a shared event** | **Collapse confirmed** (6/6 identical) |
+| `reaction_to_event` (dt=8) | **Citizen reacts to a shared event** | SCANDAL : **collapse RÉSOLU sur vLLM** (2026-09-06, avant cette session — la ligne « 6/6 identiques » était Ollama-only, obsolète) ; ECONOMIC_SHOCK : **mesuré 2026-09-10**, pas de collapse détecté sur le choix catégoriel (P(motif=402)=1,0 partout), intensité `salience_delta` non testée |
 | `chamber_deliberation` (dt=11) | Member adjusts own position | Non tranché |
 | `campaign_positioning` (dt=5) | Nominee adjusts own platform | No collapse (separate 50-66 % failure defect) |
 | `candidacy_considered` (dt=2) | Citizen evaluates own ambition | **No collapse** (5/5) |
 | `party_nomination_choice` (dt=4) | Party compares its own aspirants | **No collapse** (4/5) |
 | `vote_cast` (dt=1) | Citizen ranks candidates | **Reliable** — 23/24 at chunk=3, real ground truth |
 
-**The four compromised types are precisely the four inter-individual ones.** The
-three reliable ones are all self-referential or intra-group: *do I have enough
-ambition*, *which of our own members is strongest*, *how far is each candidate
-from me*.
+**Correction, 2026-09-10 (post-§5.C measurement):** this section originally claimed
+*"the four compromised types are precisely the four inter-individual ones"* — a clean
+biconditional that no longer holds as stated. `reaction_to_event`'s own row above was stale
+when this was first written: its SCANDAL branch was already RESOLVED on vLLM before this
+session started (2026-09-06, predating this document), and its ECONOMIC_SHOCK branch, now
+measured for the first time, shows no collapse on the tested categorical axis either. So only
+**three** of the four inter-individual types (`pressure_action`, `representative_response`,
+`coalition_decision`) carry a CONFIRMED collapse — `reaction_to_event` does not, on either
+branch, on what has been tested. The one-directional half still holds and is the part worth
+keeping: every CONFIRMED collapse found so far is inter-individual (no self-referential/
+intra-group type has ever collapsed) — but inter-individual does not, by itself, imply
+collapse. The three reliable self-referential/intra-group types remain: *do I have enough
+ambition*, *which of our own members is strongest*, *how far is each candidate from me*.
 
 The consequence is not abstract. §7bis.9's social-contagion thesis — the
 project's most ambitious claim, the Granovetter threshold mechanism, the
@@ -77,8 +86,10 @@ tranché).
 
 So: *"les comportements des individus entre eux"* is currently the least
 instrumented part of the simulation, not because it wasn't built, but because
-the LLM is measurably unreliable **exactly and only there**. That is why the two
-topics are one program — LLM decision quality is not an engineering concern
+every confirmed LLM unreliability found so far sits **exactly there** (see the
+correction above: inter-individual is necessary but not sufficient for a
+confirmed collapse). That is why the two topics are one program — LLM decision
+quality is not an engineering concern
 sitting beside the science, it is the binding constraint *on* the science.
 
 ---
@@ -538,6 +549,37 @@ sur un probe trivial, contre le vrai serveur, pas un mock. Une chose reste
    (`pressure_action`, `representative_response`, `coalition_decision`)
    sont maintenant mesurés en continu via logprobs ; `reaction_to_event`
    (branche SCANDAL) reste le seul non encore rejoué ainsi.
+
+   **Quatrième application, 2026-09-10**
+   (`check_logprob_reaction_economic_shock_tracking_results.md`) — PAS
+   une remesure de SCANDAL (déjà résolu sur vLLM avant cette session, une
+   remesure aurait eu la plus faible valeur des quatre types d'origine),
+   mais la lacune réellement ouverte que `decide_reaction_to_event`
+   nomme lui-même : la branche ECONOMIC_SHOCK, « still untested, either
+   backend ». Résultat : **P(motif=402, réagit) = 1,000000 à CHAQUE
+   magnitude testée** (0,05→1,50, traversant le seuil « majeur » à 0,5) —
+   motif=403 (non pertinent) jamais choisi une seule fois. Ne teste que
+   le choix catégoriel, pas l'intensité graduée de `salience_delta` (un
+   champ flottant, hors de portée de cette technique) ; et contrairement
+   aux trois autres, « toujours pertinent » pour un choc économique
+   systémique n'est pas manifestement un défaut de la même façon que
+   « toujours céder » en est un — voir le results doc pour la réserve
+   complète avant de compter ceci comme un cinquième collapse confirmé.
+
+   **Un bug d'instrumentation réel trouvé et corrigé au passage, à portée
+   générale** : la première tentative a donné `P(motif=402)=0,5` partout
+   — un signal plat suspect, pas une vraie mesure. Cause : le codebook de
+   motifs entier de ce projet groupe ses codes par chiffre de tête partagé
+   (401/402/403, 501/502/504/505, etc.) — l'ancrage « premier caractère de
+   la valeur » par défaut de `locate_decision_field_logprobs` localise
+   alors un token IDENTIQUE quelle que soit la valeur en cours de
+   génération, pas faux, juste non informatif, et `binary_probability`
+   retourne son propre 0,5 « ni candidat capturé » documenté — qui
+   RESSEMBLE à une vraie mesure. Corrigé par un nouveau paramètre
+   `value_char_offset` (défaut 0, rétrocompatible, 4 nouveaux tests
+   offline) permettant de cibler le chiffre réellement discriminant.
+   Disponible pour toute future instrumentation d'un champ motif
+   multi-chiffres.
 
 ### 5.E — TOON : bon outil, mais pas sur les prompts qu'on croit
 

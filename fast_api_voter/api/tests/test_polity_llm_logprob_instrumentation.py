@@ -96,6 +96,41 @@ def test_locates_the_act_field_among_several_scalar_fields_per_decision():
     assert probes == [DecisionTokenProbe(cid=4, token=_tok("3", logprob=-0.7))]
 
 
+def test_value_char_offset_zero_is_uninformative_for_a_shared_leading_digit_motif_field():
+    # Reproduces a real failure found live 2026-09-10: ReactionMotif's
+    # 401/402/403 all share the leading "40" -- offset=0 (the default)
+    # locates the SAME token regardless of which value follows.
+    content = '{"decisions":[{"cid":1,"motif":402}]}'
+    tokens = [_tok('{"decisions":[{"cid":1,"motif":'), _tok("4"), _tok("0"), _tok("2", logprob=-0.6), _tok("}]}")]
+    probes = locate_decision_field_logprobs(content, tokens, field="motif")
+    # The located token is "4" -- shared by 401/402/403, uninformative --
+    # not what a caller actually wants, but not a crash either.
+    assert probes[0].token.token == "4"
+
+
+def test_value_char_offset_locates_the_actually_discriminating_digit():
+    content = '{"decisions":[{"cid":1,"motif":402}]}'
+    tokens = [_tok('{"decisions":[{"cid":1,"motif":'), _tok("4"), _tok("0"), _tok("2", logprob=-0.6), _tok("}]}")]
+    probes = locate_decision_field_logprobs(content, tokens, field="motif", value_char_offset=2)
+    assert probes == [DecisionTokenProbe(cid=1, token=_tok("2", logprob=-0.6))]
+
+
+def test_value_char_offset_works_when_the_discriminating_digit_shares_a_token_with_others():
+    # "40" and "2" as two tokens (not one-digit-per-token like the test
+    # above) -- offset=2 must still land on the "2" token, not the "40" one.
+    content = '{"decisions":[{"cid":1,"motif":402}]}'
+    tokens = [_tok('{"decisions":[{"cid":1,"motif":'), _tok("40"), _tok("2", logprob=-0.6), _tok("}]}")]
+    probes = locate_decision_field_logprobs(content, tokens, field="motif", value_char_offset=2)
+    assert probes == [DecisionTokenProbe(cid=1, token=_tok("2", logprob=-0.6))]
+
+
+def test_value_char_offset_out_of_range_raises():
+    content = '{"decisions":[{"cid":1,"blank":1}]}'
+    tokens = [_tok(content)]
+    with pytest.raises(LogprobAlignmentError, match="value_char_offset"):
+        locate_decision_field_logprobs(content, tokens, field="blank", value_char_offset=2)
+
+
 def test_respects_a_custom_cid_field_and_decisions_key():
     content = '{"members":[{"mid":2,"stance":1}]}'
     tokens = [_tok('{"members":[{"mid":2,"stance":'), _tok("1", logprob=-0.4), _tok("}]}")]

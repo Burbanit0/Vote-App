@@ -118,15 +118,15 @@ def _find_field_value_spans(content: str, field: str) -> list[tuple[int, int]]:
 def _token_covering_offset(tokens: Sequence[TokenLogprob], raw_offset: int) -> TokenLogprob:
     """The single TokenLogprob whose own span in the raw text
     (reconstructed by walking cumulative token-string lengths, in
-    generation order) covers `raw_offset`. Deliberately the token
-    covering the VALUE'S FIRST character only -- sufficient for every
-    field this module targets today (single-digit Literal fields:
-    `blank` in {0,1}, `act` in {0..4}, `stance` in {1..4}, ...), where
-    the discriminating character is the first (and usually only) one and
-    is overwhelmingly likely to be its own single token immediately
-    after a JSON `:` -- a multi-character value needing more than its
-    first token's own probability is out of scope here, not silently
-    mishandled."""
+    generation order) covers `raw_offset`. `raw_offset` is usually a
+    value's first character (locate_decision_field_logprobs's own
+    `value_char_offset=0` default) -- correct whenever the discriminating
+    character IS the first one, which single-digit Literal fields
+    (`blank` in {0,1}, `act` in {0..4}, `stance` in {1..4}, `action` in
+    {1,2}) always satisfy. A multi-digit field whose legal values share a
+    leading digit (this codebook's motif families) needs a caller-chosen
+    non-zero `value_char_offset` instead -- see that parameter's own
+    docstring for the failure mode this covers."""
     cursor = 0
     for token in tokens:
         token_len = len(token.token)
@@ -145,6 +145,7 @@ def locate_decision_field_logprobs(
     field: str,
     decisions_key: str = "decisions",
     cid_field: str = "cid",
+    value_char_offset: int = 0,
 ) -> list[DecisionTokenProbe]:
     """The main entry point: given a real complete_json_with_logprobs
     result (`content`, `tokens`) for a `{"decisions": [...]}` batch
@@ -153,13 +154,35 @@ def locate_decision_field_logprobs(
     that decision's own `cid` and the TokenLogprob covering `field`'s
     value for that decision.
 
+    `value_char_offset` (default 0, the value's first character) exists
+    for a real failure mode found live 2026-09-10, applying this to a
+    3-digit motif field: this project's motif codebook groups codes by a
+    shared leading digit (401/402/403 all start "40" -- ReactionMotif;
+    501/502/504/505 -- CoalitionMotif; every codebook table follows the
+    same "family digit + variant digit(s)" shape). Offset 0 then locates
+    a token that is IDENTICAL regardless of which value the model is
+    about to complete -- not wrong, just uninformative, and the failure
+    is silent in exactly the wrong way: binary_probability/
+    candidate_probability still return a real-looking number (usually
+    0.5, "neither candidate captured", since neither full multi-digit
+    string appears in a single leading-digit token's own alternatives) --
+    a caller must recognize a SUSPICIOUSLY UNIFORM reading across an
+    entire probe as the symptom, this function cannot detect it
+    internally (a genuine, maximally-uninformative flat result and this
+    failure mode are indistinguishable from inside one call). Fields
+    where every legal value differs at position 0 (blank in {0,1}, act in
+    {0..4}, stance in {1..4}, action in {1,2}: this module's own
+    established use so far) are unaffected by this parameter; a
+    multi-digit field needs its caller to pass the offset of the FIRST
+    character position where its own legal values actually diverge.
+
     Raises LogprobAlignmentError (never returns a partial/best-effort
     result) if: `content` cannot be located inside the raw token stream,
     the count of `"<field>":` occurrences does not match the count of
-    parsed decisions, or a decision object is missing `cid_field`. Each
-    of those is a real, actionable signal that an assumption broke for
-    this specific completion -- not something a caller should have to
-    detect itself by noticing a suspiciously short result list."""
+    parsed decisions, a decision object is missing `cid_field`, or
+    `value_char_offset` falls outside a value's own span (a caller bug,
+    not a data problem -- e.g. offset=2 against a single-character
+    value)."""
     raw_text = "".join(token.token for token in tokens)
     base_offset = _locate_content_in_raw_text(raw_text, content)
 
@@ -176,10 +199,15 @@ def locate_decision_field_logprobs(
         )
 
     probes = []
-    for decision, (start, _end) in zip(decisions, spans):
+    for decision, (start, end) in zip(decisions, spans):
         if not isinstance(decision, dict) or cid_field not in decision:
             raise LogprobAlignmentError(f"decision {decision!r} is missing {cid_field!r}")
-        token = _token_covering_offset(tokens, base_offset + start)
+        if start + value_char_offset >= end:
+            raise LogprobAlignmentError(
+                f"value_char_offset={value_char_offset} falls outside the value span "
+                f"{content[start:end]!r} ({end - start} character(s) long) for {field!r}"
+            )
+        token = _token_covering_offset(tokens, base_offset + start + value_char_offset)
         probes.append(DecisionTokenProbe(cid=int(decision[cid_field]), token=token))
     return probes
 
