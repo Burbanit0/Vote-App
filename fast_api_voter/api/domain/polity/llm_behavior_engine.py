@@ -907,6 +907,24 @@ def compute_max_tokens(chunk_size: int) -> int:
     return max(chunk_size * 60 + 1536, 1536)
 
 
+_PROMPT_VECTOR_PRECISION = 2
+"""Decimal places for a position/priority/platform vector shown to the model
+HOLISTICALLY -- never for a field compared against another at a fine-grained
+threshold (see each call site's own comment for which category it is in).
+`sortition_chamber.max_deliberation_delta`/`mandate.max_response_delta`/
+`campaign.max_positioning_delta` are all shipped at 0.3 -- 30x coarser than
+this constant's own resolution (0.01) -- so no decision this project's config
+can express distinguishes two values this constant would conflate. Proposed
+2026-09-09 (plan-llm-protocol-and-theory-program.md §5.B, prompted by chamber's
+own 60-float-per-record payload); NOT yet live-verified against a real vLLM
+call at time of writing -- see that plan's own verification section before
+treating this as more than a well-reasoned, offline-tested default. Not
+applied to `distances`/`blank_threshold` (cast_votes's own accept/reject
+comparison, already once a 100%-blank collapse) or to any `to_payload()`-
+derived context (shared verbatim with the permanent journal record, where
+this project's own precision has never been questioned and reducing it would
+be a very different, much bigger decision than reducing what the model sees)."""
+
 _VLLM_CONTEXT_LIMIT = 16384
 """Matches `--max-model-len 16384` (docker-compose.llm.yml) -- vLLM's own
 hard ceiling on prompt_tokens + max_tokens together for one request. Used
@@ -1157,7 +1175,11 @@ def build_user_prompt(voters: Sequence[Citizen], candidates: Sequence[Citizen]) 
         {
             "position": i,
             "cid": c.citizen_id,
-            "platform": [round(x, 4) for x in platform],
+            # 2 decimals, not 4 -- see _PROMPT_VECTOR_PRECISION's own docstring:
+            # this vector is read holistically, never compared against a
+            # razor-thin threshold the way `distances`/`blank_threshold` below
+            # are, so the coarser precision carries no decision-boundary risk.
+            "platform": [round(x, _PROMPT_VECTOR_PRECISION) for x in platform],
             "party": c.party_affiliation,
         }
         for i, (c, platform) in enumerate(zip(sorted_c, candidate_platforms), start=1)
@@ -1165,8 +1187,14 @@ def build_user_prompt(voters: Sequence[Citizen], candidates: Sequence[Citizen]) 
     voter_blocks = [
         {
             "cid": v.citizen_id,
-            "positions": [round(x, 4) for x in v.issue_positions],
-            "priorities": [round(x, 4) for x in v.issue_priorities],
+            "positions": [round(x, _PROMPT_VECTOR_PRECISION) for x in v.issue_positions],
+            "priorities": [round(x, _PROMPT_VECTOR_PRECISION) for x in v.issue_priorities],
+            # `blank_threshold`/`distances` deliberately stay at full precision --
+            # this is the exact accept/reject comparison the module docstring
+            # above says was once a 100%-blank collapse; a live A/B on decision
+            # correctness is needed before ever coarsening it (plan-llm-
+            # protocol-and-theory-program.md §5.B), not assumed safe by analogy
+            # to the holistic vectors above.
             "blank_threshold": round(v.blank_threshold, 4),
             "distances": [round(weighted_distance(v, platform), 4) for platform in candidate_platforms],
         }
@@ -2927,9 +2955,16 @@ def build_chamber_user_prompt(members: Sequence[Citizen], contexts: Mapping[int,
         member_blocks.append(
             {
                 "cid": member.citizen_id,
-                "sincere_position": [round(x, 4) for x in member.issue_positions],
-                "chamber_position": [round(x, 4) for x in member.chamber_position],
-                "priorities": [round(x, 4) for x in member.issue_priorities],
+                # _PROMPT_VECTOR_PRECISION (2, not 4) -- read holistically for a
+                # "should I adjust, and by roughly how much" judgement, never
+                # compared against a fine-grained threshold the way cast_votes's
+                # own distances/blank_threshold are (see that constant's own
+                # docstring, and _PROMPT_VECTOR_PRECISION's for why exact
+                # equality between these two specific arrays survives rounding
+                # unchanged whenever it held before rounding).
+                "sincere_position": [round(x, _PROMPT_VECTOR_PRECISION) for x in member.issue_positions],
+                "chamber_position": [round(x, _PROMPT_VECTOR_PRECISION) for x in member.chamber_position],
+                "priorities": [round(x, _PROMPT_VECTOR_PRECISION) for x in member.issue_priorities],
                 "ctx": contexts[member.citizen_id].to_payload(),
             }
         )

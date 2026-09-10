@@ -402,6 +402,27 @@ def test_user_prompt_distances_match_weighted_distance_exactly():
     assert got == expected
 
 
+def test_user_prompt_uses_coarser_precision_for_holistic_vectors_only():
+    # plan-llm-protocol-and-theory-program.md §5.B (2026-09-09): positions/
+    # priorities/platform are read holistically, never compared against a
+    # fine-grained threshold, so they drop to _PROMPT_VECTOR_PRECISION (2)
+    # decimals -- but distances/blank_threshold stay at full precision,
+    # since that pairing IS a razor-thin accept/reject comparison (the exact
+    # computation test_user_prompt_distances_match_weighted_distance_exactly
+    # pins above). Not yet live-verified against a real model call -- see
+    # that plan's own verification section.
+    voters = [_citizen(0, (0.123456, 0.789012), priorities=(0.333333, 0.666666))]
+    voters[0].blank_threshold = 0.123456
+    candidates = [_candidate(10, (0.111111, 0.222222))]
+    payload = json.loads(build_user_prompt(voters, candidates))
+
+    voter = payload["voters"][0]
+    assert voter["positions"] == [0.12, 0.79]
+    assert voter["priorities"] == [0.33, 0.67]
+    assert voter["blank_threshold"] == 0.1235  # unchanged: 4 decimals
+    assert payload["candidates"][0]["platform"] == [0.11, 0.22]
+
+
 def test_user_prompt_distances_follow_the_same_position_order_as_candidates():
     voters = [_citizen(0, (0.5,))]
     a = _candidate(10, (0.9,))
@@ -1708,6 +1729,23 @@ def test_chamber_user_prompt_ctx_matches_the_journalled_ctx_payload():
     context = _chamber_context(0, ticks_left=9)
     payload = json.loads(build_chamber_user_prompt([member], {0: context}))
     assert payload["members"][0]["ctx"] == context.to_payload()
+
+
+def test_chamber_user_prompt_uses_coarser_precision_for_position_vectors():
+    # plan-llm-protocol-and-theory-program.md §5.B (2026-09-09): sincere_
+    # position/chamber_position/priorities are read holistically ("should I
+    # adjust, roughly how much"), so they drop to _PROMPT_VECTOR_PRECISION
+    # (2) decimals -- unlike vote_cast's distances/blank_threshold, there is
+    # no fine-grained threshold comparison here to protect. `ctx` (to_payload,
+    # shared with the journal) is untouched -- see the test above. Not yet
+    # live-verified against a real model call -- see that plan's own
+    # verification section.
+    member = _member(0, (0.123456, 0.789012), chamber=(0.333333, 0.666666))
+    contexts = {0: _chamber_context(0)}
+    payload = json.loads(build_chamber_user_prompt([member], contexts))
+    block = payload["members"][0]
+    assert block["sincere_position"] == [0.12, 0.79]
+    assert block["chamber_position"] == [0.33, 0.67]
 
 
 # ── decide_chamber_deliberation (FakeChamberLlmClient, v6b Lot 3) ───────

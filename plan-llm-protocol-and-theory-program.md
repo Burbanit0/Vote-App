@@ -343,6 +343,33 @@ saga was a fight for context headroom. Two untouched levers:
 Why this compounds: smaller prompts → more context headroom → larger chunks
 legal → fewer calls. It multiplies with §3.B rather than adding to it.
 
+**Point 1 partiellement implémenté, 2026-09-09, scope volontairement restreint
+au moment de l'écriture** (`_PROMPT_VECTOR_PRECISION = 2`,
+`llm_behavior_engine.py`, offline-tested only — mypy/flake8/1306 tests green,
+**pas encore vérifié en direct contre le serveur**, bloqué par le run
+scale-probe de Phase 7 toujours en vol sur le même serveur partagé). Deux
+restrictions découvertes en implémentant, pas anticipées en écrivant ce
+paragraphe :
+
+- **`distances`/`blank_threshold` (vote_cast) restent à 4 décimales.** Ce ne
+  sont pas des vecteurs lus holistiquement — c'est la comparaison seuil-à-seuil
+  exacte qui a déjà produit un collapse à 100 % blanc une fois ; coarsir cette
+  précision sans A/B en direct risquerait de déplacer des décisions
+  limitrophes sans que rien ne le détecte avant un run complet.
+- **Seuls `vote_cast` et `chamber_deliberation` sont touchés pour l'instant.**
+  `campaign_positioning` porte son propre défaut actif non résolu (50-66 %
+  d'échec, troncature + fuite motif→cid) ; `representative_response`,
+  `coalition_decision` et `reaction_to_event` (branche SCANDAL) ont un collapse
+  confirmé. Changer leur prompt maintenant contaminerait toute future
+  investigation sur CES défauts précis — même discipline « une variable à la
+  fois » que le projet applique déjà partout ailleurs. Ces trois/quatre types
+  restent candidats pour ce même changement, mais après que leurs propres
+  chantiers de fiabilité aient conclu, pas en même temps.
+
+Point 2 (`position_unchanged`) reste non implémenté — restructuration du
+format d'entrée plus profonde que la précision seule, à ne pas faire sans A/B
+en direct disponible dès le départ.
+
 ### 5.C — Lire les logprobs au lieu d'échantillonner (le vrai levier de format)
 
 For any binary decision, the model does not need to *emit* a token — vLLM
