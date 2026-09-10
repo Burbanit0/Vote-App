@@ -371,6 +371,47 @@ outil), chaque entrée est un couple `endpoint: raison`, classée
 fichier a trouvé et corrigé 3 bugs réels en route (voir `CODE_AUDIT.md` pour
 le détail) avant qu'ils ne rejoignent la liste des exceptions.
 
+### Matrice axiomatique de théorie du choix social (Lot 4.1)
+
+`api/tests/test_voting_criteria_matrix.py` vérifie, pour chacune des 21
+méthodes ordinales verrouillées en parité (voir CLAUDE.md — moteur de vote
+double), lesquels des 7 critères classiques de la théorie du choix social
+(Condorcet gagnant, Condorcet perdant, majorité, unanimité, Pareto,
+indépendance des clones, monotonie) elle satisfait et lesquels elle viole. Un
+test qui prouve qu'une méthode **viole** un critère est aussi précieux qu'un
+test de succès : il documente la théorie *et* détecte une implémentation
+devenue accidentellement plus « bien élevée » qu'elle ne le garantit
+réellement — `test_anonymity.py` en était déjà le germe, généralisé ici en
+matrice méthode × critère :
+
+```bash
+cd fast_api_voter && python -m pytest api/tests/test_voting_criteria_matrix.py -o addopts="" -q
+```
+
+**Méthodologie.** La classification n'est pas tirée de mémoire : chaque
+cellule vient d'abord d'une exploration empirique jetable (quelques centaines
+de profils aléatoires par méthode/critère), puis chaque « satisfait » est
+reformulé en test `@given` (Hypothesis, `derandomize=True` pour la
+reproductibilité — confirmé stable sur plusieurs process et plusieurs valeurs
+de `PYTHONHASHSEED`) qui fait foi en dernier ressort. Le premier passage
+d'exploration a sous-échantillonné 4 cellules : `ranked_pairs`, `river` et
+`smith_irv` semblaient satisfaire l'indépendance des clones, et `nanson`
+semblait satisfaire la monotonie. Les quatre échouent en réalité, mais
+seulement sur des profils dégénérés à égalité parfaite (marges pairwise ou
+votes de premier choix exactement à égalité) — assez rares pour n'être
+trouvés que par la recherche par réduction (« shrinking ») de Hypothesis sur
+le test complet, pas par un tirage aléatoire à quelques centaines d'essais.
+Les 4 contre-exemples ont été vérifiés à la main (script indépendant) avant
+d'être épinglés dans le fichier.
+
+Hors périmètre pour cette passe : participation et symétrie par renversement.
+Du signal réel existe pour les deux, mais aussi du bruit lié aux égalités de
+score (un profil avec un tie exact peut faire comparer deux résultats
+structurellement différents comme identiques, sans que ce soit une vraie
+violation d'axiome) — démêler « violation réelle » de « tie-break
+coïncidental » cellule par cellule demande une passe plus soigneuse que
+celle-ci. Suivi nommé, pas deviné.
+
 ### Score de mutation (informationnel)
 
 La couverture mesure les lignes *exécutées*, pas les lignes *assertées* — un
