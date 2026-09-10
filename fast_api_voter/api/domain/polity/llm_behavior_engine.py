@@ -3000,6 +3000,20 @@ def decide_pressure_actions(
     worse quality on the only available proxy -- NOT shipped, not recommended for this decision
     type despite the token win. One live run per format, not yet replicated with a second seed.
 
+    polity-decision-contracts.md's calibration matrix, 2026-09-10 (scripts/check_pressure_
+    calibration_matrix_results.md): the actual root cause was neither format nor model -- self_gap
+    is sent with NO scale reference at all (no blank_threshold, no history, no criterion), so the
+    question is unanswerable as posed. Four C4-compliant calibration signals (PressureCalibration
+    Signal: blank_threshold, 1-tick self_gap history, cohort percentile, distance to pledge -- see
+    build_pressure_system_prompt_calibrated) each score 100% (9/9 trials) on the unambiguous
+    subset at batch size 1, against BOTH the closed and the open menu. ALL FIVE FAIL at batch 5 and
+    25, collapsing uniformly to the ~52% a constant answer scores by construction -- not a graded
+    degradation, an on/off cliff at the first citizen added to the call. Calibration works; the
+    remaining open question is purely whether batch size 1 is affordable (§3.B.7's prefix-cache
+    fix was never applied to this decision type -- build_pressure_system_prompt still embeds
+    cid_list -- which matters most exactly at batch 1, where an unfixed system prompt differs on
+    every single call).
+
     Treat mobilization_rate/pressure metrics from any llm.enabled=True run with an OPEN menu as
     quality-unvalidated (not collapsed). Under the shipped closed menu no acting code can occur
     by design, so a zero mobilization rate there is the configuration, never a bug.

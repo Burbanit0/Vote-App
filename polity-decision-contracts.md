@@ -97,6 +97,15 @@ situations qui, selon lui, exigent des réponses différentes.
 - Note C4 : `deterministic_pressure_action` compare `gap < blank_threshold`. **Cette règle ne doit
   jamais être écrite dans le prompt** — ce serait exactement le « LLM décoratif » du §7bis.9d.
 
+**Vérifié en direct, 2026-09-10** (`fast_api_voter/scripts/check_pressure_calibration_matrix_results.md`) :
+l'énoncé ci-dessus tient — **à la taille de batch 1 seulement**. Les quatre véhicules calibrés (seuil,
+historique, rang de cohorte, écart à la promesse) obtiennent chacun 100 % (9/9 essais) sur le sous-
+ensemble non ambigu, contre le menu fermé ET le menu ouvert. **Aucun ne survit au-delà** : à taille 5
+et 25, les cinq variantes retombent au niveau d'une réponse constante (~52 %), de façon uniforme et
+totale, pas graduelle. Le mécanisme de calibration n'est donc pas en cause — c'est le partage d'un
+appel entre plusieurs citoyens qui detruit le signal, quelle que soit la donnée fournie. La taille de
+batch devient la seule question restante (Phase D).
+
 ### `candidacy_considered` (dt=2)
 
 > Un citoyen dont l'ambition est nettement supérieure à ce qui est nécessaire pour se présenter s'y
