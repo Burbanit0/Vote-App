@@ -39,15 +39,26 @@ Numbers, and why:
   *inside* the Monte Carlo worker itself
   (`api/domain/simulations/advanced.py`), so heavy requests aren't left to
   compete unbounded for CPU against each other on top of that.
-- `WORKER_TIMEOUT_SECONDS = 90.0` — measured live against the two heaviest
-  workers found during this session's Schemathesis pass (PR #346), each at
-  their documented max request bounds: Monte Carlo (`num_runs=500,
-  num_voters=1000`) took 34s, `/election/coalition` (`num_voters=1000,
-  total_seats=1000`, 8 candidates) took 57s. Neither is a bug this item
-  fixes (that's real, pre-existing compute cost at the product's own
-  documented bounds, not a hang) — 90s leaves real margin above the worst
-  measured case while still bounding a truly pathological worker (an actual
-  deadlock or infinite loop) rather than letting it run forever.
+- `WORKER_TIMEOUT_SECONDS = 180.0` — started at 90s, measured against the
+  two heaviest workers found during this session's Schemathesis pass (PR
+  #346) at their documented max request bounds: Monte Carlo
+  (`num_runs=500, num_voters=1000`) took 34s, `/election/coalition`
+  (`num_voters=1000, total_seats=1000`, 8 candidates) took 57s. That 90s
+  value then failed for real in CI: `/simulations/what-if` capped at its
+  documented 10 variant values took 71s **in isolation, on a local dev
+  machine, with zero contention** — GitHub Actions runners are both slower
+  per-core and run this suite under `pytest-xdist` (several worker
+  *processes* competing for the runner's few vCPUs), so the actual CI wall
+  clock for that same request exceeded 90s and failed the PR
+  (`test_caps_at_10_values`, PR #349). None of these are bugs this item
+  fixes — real, pre-existing compute cost at the product's own documented
+  bounds, not a hang — but a timeout calibrated only against an isolated
+  local measurement doesn't have enough headroom for CI's slower, shared,
+  parallel-worker reality. 180s leaves real margin above the worst *CI*
+  case observed so far while still bounding a truly pathological worker (an
+  actual deadlock or infinite loop) rather than letting it run forever, and
+  is still a small fraction of backend-ci-cd-pipeline.yml's own 20-minute
+  job timeout for the ~1800-test suite as a whole.
 
 **Known limitation, not a bug**: Python cannot forcibly kill a running OS
 thread. When `asyncio.wait_for` times out, the semaphore slot is released
@@ -74,7 +85,7 @@ _T = TypeVar("_T")
 
 # See module docstring for how these two numbers were chosen.
 MAX_CONCURRENT_WORKERS = 4
-WORKER_TIMEOUT_SECONDS = 90.0
+WORKER_TIMEOUT_SECONDS = 180.0
 
 _semaphore = asyncio.Semaphore(MAX_CONCURRENT_WORKERS)
 
