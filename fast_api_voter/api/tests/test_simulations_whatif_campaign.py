@@ -39,10 +39,17 @@ class TestWhatIf:
         assert r.status_code == 400, r.text
 
     def test_caps_at_10_values(self, client):
+        # Varying num_voters (not num_candidates): the cap logic doesn't
+        # care which parameter varies, and num_candidates compounds badly
+        # (each extra candidate multiplies pairwise-comparison cost across
+        # 26 methods) — varying it from 2 to 19 across 10 kept sub-runs
+        # took 71s+ locally and pushed past even a 180s worker timeout
+        # under CI contention (PR #352). num_voters scales ~linearly and
+        # keeps this well under a second while proving the exact same cap.
         r = client.post("/api/v2/simulations/what-if", json={
-            "base": {"num_candidates": 3, "num_voters": 120},
-            "variant_param": "num_candidates",
-            "variant_values": list(range(2, 20)),   # 18 values → capped to 10
+            "base": {"num_candidates": 3, "num_voters": 50},
+            "variant_param": "num_voters",
+            "variant_values": list(range(20, 200, 10)),   # 18 values → capped to 10
         })
         assert r.status_code == 200, r.text
         assert len(r.json()["results"]) == 10
