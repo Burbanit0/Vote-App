@@ -45,7 +45,9 @@ from api.domain.polity.llm_behavior_engine import (
     build_positioning_system_prompt,
     build_positioning_user_prompt,
     build_pressure_system_prompt,
+    build_pressure_system_prompt_toon,
     build_pressure_user_prompt,
+    build_pressure_user_prompt_toon,
     build_reaction_system_prompt,
     build_reaction_user_prompt,
     build_response_system_prompt,
@@ -3034,6 +3036,85 @@ def test_pressure_context_to_payload_rounds_a_real_neighbors_acting_fraction():
 def test_pressure_context_to_payload_keeps_neighbors_acting_none():
     context = _pressure_context(0, neighbors_acting=None)
     assert context.to_payload()["neighbors_acting"] is None
+
+
+# ── build_pressure_*_prompt_toon (§5.E, diagnostic-only) ─────────────────
+
+def _toon_pressure_context(cid, **overrides):
+    return _pressure_context(cid, available=(0, 4), **overrides)
+
+
+def test_pressure_user_prompt_toon_hoists_shared_facts_into_one_call_row():
+    citizens = [_pressure_citizen(0), _pressure_citizen(1)]
+    contexts = {
+        0: _toon_pressure_context(0, target=7, mandate_dev=0.15, ticks_to_election=12, self_gap=0.08),
+        1: _toon_pressure_context(1, target=7, mandate_dev=0.15, ticks_to_election=12, self_gap=1.42),
+    }
+    toon = build_pressure_user_prompt_toon(citizens, contexts)
+    lines = toon.splitlines()
+    assert lines[0] == "call[1]{target,mandate_dev,ticks_to_election}:"
+    assert lines[1] == "7,0.15,12"
+    assert lines[2] == "pressure[2]{cid,self_gap}:"
+    assert lines[3] == "0,0.08"
+    assert lines[4] == "1,1.42"
+
+
+def test_pressure_user_prompt_toon_rejects_a_heterogeneous_target():
+    citizens = [_pressure_citizen(0), _pressure_citizen(1)]
+    contexts = {
+        0: _toon_pressure_context(0, target=7),
+        1: _toon_pressure_context(1, target=8),  # different target -- not a call-level constant here
+    }
+    with pytest.raises(ValueError, match="call-level constants"):
+        build_pressure_user_prompt_toon(citizens, contexts)
+
+
+def test_pressure_user_prompt_toon_rejects_an_open_menu():
+    citizen = _pressure_citizen(0)
+    context = _pressure_context(0, available=(0, 1, 2, 3, 4))  # not the shipped closed menu
+    with pytest.raises(ValueError, match="closed menu"):
+        build_pressure_user_prompt_toon([citizen], {0: context})
+
+
+def test_pressure_user_prompt_toon_rejects_an_open_petition():
+    citizen = _pressure_citizen(0)
+    context = _toon_pressure_context(0, petition_open=True)
+    with pytest.raises(ValueError, match="petition"):
+        build_pressure_user_prompt_toon([citizen], {0: context})
+
+
+def test_pressure_user_prompt_toon_rejects_a_tracked_neighbors_acting():
+    citizen = _pressure_citizen(0)
+    context = _toon_pressure_context(0, neighbors_acting=0.3)
+    with pytest.raises(ValueError, match="neighbors_acting"):
+        build_pressure_user_prompt_toon([citizen], {0: context})
+
+
+def test_pressure_system_prompt_toon_still_enumerates_every_expected_cid():
+    consulted = [_pressure_citizen(0), _pressure_citizen(1)]
+    config = _config_with_llm_enabled()
+    prompt = build_pressure_system_prompt_toon(consulted, config)
+    assert "[0,1]" in prompt
+    assert "EXACTEMENT ces 2" in prompt
+
+
+def test_pressure_system_prompt_toon_explains_the_two_section_format():
+    prompt = build_pressure_system_prompt_toon([_pressure_citizen(0)], _config_with_llm_enabled())
+    assert "call[1]{target,mandate_dev,ticks_to_election}:" in prompt
+    assert "pressure[N]{cid,self_gap}:" in prompt
+    assert "7,0.15,12" in prompt  # the worked example
+
+
+def test_pressure_system_prompt_toon_differs_from_json_only_in_the_ctx_explanation():
+    # Isolates the format change: the menu constraint, legal-act table,
+    # motif table, and expected-cid self-check must survive unchanged.
+    consulted = [_pressure_citizen(0), _pressure_citizen(1)]
+    config = _config_with_llm_enabled()
+    json_lines = set(build_pressure_system_prompt(consulted, config).splitlines())
+    toon_lines = set(build_pressure_system_prompt_toon(consulted, config).splitlines())
+    shared = json_lines & toon_lines
+    assert "Motifs valides (code court obligatoire) :" in shared
+    assert any("CONTRAINTE ABSOLUE" in line for line in shared)
 
 
 # ── decide_pressure_actions (FakePressureLlmClient, v4 Lot 7) ───────────

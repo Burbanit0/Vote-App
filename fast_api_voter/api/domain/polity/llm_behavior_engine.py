@@ -2588,6 +2588,127 @@ def build_pressure_user_prompt(consulted: Sequence[Citizen], contexts: Mapping[i
     return json.dumps({"consulted": citizen_blocks}, sort_keys=True, separators=(",", ":"))
 
 
+def build_pressure_system_prompt_toon(consulted: Sequence[Citizen], config: PolityConfig) -> str:
+    """plan-llm-protocol-and-theory-program.md §5.E: NOT shipped, NOT wired
+    into decide_pressure_actions -- diagnostic-only, same "not wired into
+    any decide_* entry point" framing as every §5.C/§5.E primitive this
+    session. Output stays JSON (xgrammar/PRESSURE_JSON_SCHEMA, unchanged).
+
+    Pairs with build_pressure_user_prompt_toon's own hoisting: under the
+    architecture this project's shipped config actually has (a single
+    consulted officeholder per tick, config-derived `available`, no
+    social graph), `target`/`mandate_dev`/`ticks_to_election`/`available`
+    are call-level facts, not per-citizen ones -- build_pressure_user_
+    prompt's own JSON repeats them on every citizen block regardless, but
+    that repetition is not information, it is the SAME fact copied N
+    times. This system prompt explains the resulting two-section TOON
+    shape (a one-row 'call' section for the shared facts, then a
+    per-citizen 'pressure' section carrying only what genuinely varies:
+    cid and self_gap) with a worked, generic example -- not real values,
+    same discipline as build_candidacy_system_prompt_toon's own example.
+
+    Differs from build_pressure_system_prompt ONLY in replacing the ctx-
+    field explanations with the TOON-shape explanation covering the same
+    facts; the menu constraint, the legal-act table, the motif table, and
+    the verbatim expected-cid self-check are unchanged, so a live A/B
+    isolates the format change specifically."""
+    cid_list = ",".join(str(c.citizen_id) for c in consulted)
+    legal = menu_acts(config.pressure_menu)
+    legal_table = "\n".join(
+        line for line in PRESSURE_ACT_PROMPT_TABLE.splitlines() if int(line.split(" = ")[0]) in legal
+    )
+    return (
+        "Tu es un moteur de simulation. Pour chaque citoyen mecontent recu "
+        "(pressure_action), decide son action envers l'elu cible, en te "
+        "basant sur son propre ecart de mecontentement et le menu "
+        "constitutionnel actif.\n"
+        f"CONTRAINTE ABSOLUE : le champ act de CHAQUE decision doit valoir "
+        f"UN DES CODES SUIVANTS, et aucun autre : {list(legal)}. Tout autre "
+        "code invalide le batch entier.\n"
+        f"act (les seuls codes autorises ce tick) :\n{legal_table}\n"
+        "0 (ne rien faire) et 4 (attendre la prochaine election) sont des "
+        "resultats legitimes et journalises, jamais des echecs -- la part "
+        "des mecontents qui n'agissent pas est une mesure du modele, pas "
+        "une erreur a eviter.\n"
+        f"Motifs valides (code court obligatoire) :\n{PRESSURE_MOTIF_PROMPT_TABLE}\n"
+        "Le message utilisateur n'est PAS du JSON : il utilise le format "
+        "TOON, en DEUX sections. La premiere, 'call[1]{target,mandate_dev,"
+        "ticks_to_election}:', donne UNE seule ligne de faits partages par "
+        "TOUS les citoyens de cet appel : target (le cid de l'elu cible), "
+        "mandate_dev (ecart pondere entre la promesse de l'elu et sa "
+        "position actuelle -- une information sur l'elu, pas sur moi), et "
+        "ticks_to_election (nombre de ticks avant la prochaine election "
+        "presidentielle). La seconde, 'pressure[N]{cid,self_gap}:', donne "
+        "N lignes, une par citoyen, chacune son propre cid et son propre "
+        "self_gap (ecart pondere entre mes propres positions et la "
+        "position actuelle de l'elu cible). Exemple : 'call[1]{target,"
+        "mandate_dev,ticks_to_election}:\\n7,0.15,12\\npressure[2]{cid,"
+        "self_gap}:\\n0,0.08\\n1,1.42' decrit un appel ou l'elu cible est "
+        "le citoyen 7 (mandate_dev=0.15, 12 ticks avant l'election), et "
+        "deux citoyens consultes : cid=0 (self_gap=0.08) et cid=1 "
+        "(self_gap=1.42).\n"
+        "Aucune autre donnee n'est envoyee : aucune petition n'est ouverte "
+        "sous ce regime constitutionnel, et aucun voisinage social n'est "
+        "suivi dans cette simulation -- n'en deduis rien, ignore ces deux "
+        "aspects dans ton raisonnement.\n"
+        f"IMPORTANT : la liste decisions doit contenir EXACTEMENT ces "
+        f"{len(consulted)} cid, chacun une seule fois, dans cet ordre : "
+        f"[{cid_list}]. Verifie ta reponse avant de la finaliser : chaque "
+        "cid de cette liste doit apparaitre exactement une fois, et chaque "
+        f"act doit appartenir a {list(legal)}.\n"
+        "Reponds UNIQUEMENT avec un objet JSON conforme au schema fourni."
+    )
+
+
+def build_pressure_user_prompt_toon(consulted: Sequence[Citizen], contexts: Mapping[int, PressureContext]) -> str:
+    """The TOON-encoded twin of build_pressure_user_prompt -- hoists the
+    fields that are call-level constants under this project's SHIPPED
+    architecture (single consulted officeholder per tick, config-derived
+    `available`, no social graph, no open petitions under electoral_only)
+    out of the per-citizen rows entirely, into a single one-row 'call'
+    section; only `cid`/`self_gap` genuinely vary per citizen and get
+    their own 'pressure' rows. See build_pressure_system_prompt_toon's
+    own docstring for the full two-section shape this produces and why
+    it is not an artifact of any one test's own construction.
+
+    Raises ValueError (never silently drops real information) if any of
+    those assumed-constant fields is NOT actually constant across
+    `consulted`, or not at the exact shipped-regime value this encoding
+    assumes -- a future caller with a genuinely heterogeneous batch (a
+    social graph enabled, or an open petition) needs a different
+    encoding, not this one silently mis-describing its own input."""
+    ctxs = [contexts[c.citizen_id] for c in consulted]
+    targets = {ctx.target for ctx in ctxs}
+    mandate_devs = {ctx.mandate_dev for ctx in ctxs}
+    ticks = {ctx.ticks_to_election for ctx in ctxs}
+    if len(targets) != 1 or len(mandate_devs) != 1 or len(ticks) != 1:
+        raise ValueError(
+            "build_pressure_user_prompt_toon assumes target/mandate_dev/ticks_to_election are "
+            "call-level constants (true under the shipped architecture: one consulted officeholder "
+            "per tick) -- got heterogeneous values across this chunk"
+        )
+    target = targets.pop()
+    ticks_to_election = ticks.pop()
+    if ticks_to_election is None:
+        raise ValueError("build_pressure_user_prompt_toon does not support a null ticks_to_election")
+    for ctx in ctxs:
+        if ctx.available != (0, 4):
+            raise ValueError(f"build_pressure_user_prompt_toon assumes the shipped closed menu (0,4), got {ctx.available!r}")
+        if ctx.petition_open or ctx.already_signed or ctx.petition_expires_at_tick is not None:
+            raise ValueError("build_pressure_user_prompt_toon assumes no petition is open (shipped electoral_only)")
+        if ctx.neighbors_acting is not None:
+            raise ValueError("build_pressure_user_prompt_toon assumes neighbors_acting is untracked (shipped default)")
+    call_block = encode_toon_array(
+        "call", ("target", "mandate_dev", "ticks_to_election"),
+        [(target, round(ctxs[0].mandate_dev, 4), ticks_to_election)],
+    )
+    pressure_block = encode_toon_array(
+        "pressure", ("cid", "self_gap"),
+        [(c.citizen_id, round(contexts[c.citizen_id].self_gap, 4)) for c in consulted],
+    )
+    return f"{call_block}\n{pressure_block}"
+
+
 def decide_pressure_actions(
     consulted: Sequence[Citizen],
     contexts: Mapping[int, PressureContext],
@@ -2649,6 +2770,18 @@ def decide_pressure_actions(
     as an aggregate-metric anomaly, only in a citizen-level P(act) reading. Mechanism not
     established (see that results doc's own "reading this carefully" section for why this
     doesn't map cleanly onto §2's existing act/response hypothesis) -- that remains open.
+
+    §5.E TOON A/B, 2026-09-10 (scripts/check_toon_pressure_action_ab_results.md): re-ran the
+    exact same 17-point probe through a TOON-encoded prompt (build_pressure_system_prompt_toon/
+    build_pressure_user_prompt_toon, -44.0% prompt tokens, 1743->976) instead of JSON. Does NOT
+    restore self_gap sensitivity -- it flips WHICH constant the model collapses to (JSON: always
+    act=4, P>=0.976 everywhere; TOON: always act=0 by the same >0.5 threshold-call reading, every
+    single point falling below 0.5, non-monotonically between 0.003 and 0.30). Against the same
+    weak proxy this docstring already uses elsewhere: JSON's constant happens to match the
+    majority class in that 17-point sample (9/17=52.9%); TOON's constant is the minority class
+    (8/17=47.1%, worse than a trivial majority-class baseline). Real token savings, unclear-to-
+    worse quality on the only available proxy -- NOT shipped, not recommended for this decision
+    type despite the token win. One live run per format, not yet replicated with a second seed.
 
     Treat mobilization_rate/pressure metrics from any llm.enabled=True run with an OPEN menu as
     quality-unvalidated (not collapsed). Under the shipped closed menu no acting code can occur

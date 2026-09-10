@@ -643,6 +643,23 @@ lui-même (distincte du collapse), pas encore investiguée. Pas encore shippé d
 `pressure_action` est la prochaine cible, débloquée depuis que son propre baseline
 P(act) a été capturé (`check_logprob_pressure_action_gap_tracking_results.md`).
 
+**`pressure_action` fait et vérifié en direct, 2026-09-10**
+(`check_toon_pressure_action_ab_results.md`) — la même sonde à 17 points rejouée
+verbatim, appariée avec la lecture logprob comme exigé ci-dessus (réserve n°3).
+**Économie de tokens réelle et plus grande que candidacy_considered : -44,0 %
+(1743→976)**, cohérent avec l'estimation du plan (« TOON ~30-40% » pour ce type).
+Mais **la porte qualité NE tient PAS** : TOON ne restaure pas la sensibilité à
+self_gap — il fait basculer la constante vers laquelle le modèle collapse (JSON :
+toujours act=4, P≥0,976 partout ; TOON : toujours act=0 par la même lecture à
+seuil >0,5, chaque point tombant sous 0,5, de façon non-monotone entre 0,003 et
+0,30). Sur le même proxy faible déjà utilisé ailleurs dans ce docstring : la
+constante de JSON coïncide avec la classe majoritaire de cet échantillon
+(9/17=52,9%) ; celle de TOON est la classe minoritaire (8/17=47,1%, pire qu'une
+base triviale « toujours prédire la majorité »). Confirme concrètement la réserve
+n°2 écrite avant tout test live : le risque « token count ≠ comprehension » n'est
+pas hypothétique ici. **Pas shippé, pas recommandé pour ce type malgré le gain de
+tokens** — un seul run par format, pas encore répliqué avec une deuxième graine.
+
 ### 5.D — Autres axes de la littérature
 
 - **"Lost in the middle"** (Liu et al., 2023) — models attend unevenly across a
@@ -771,7 +788,7 @@ the flagship runs, precisely because none can perturb it:
 |---|---|---|---|
 | 0 | §5.B précision des flottants + payload redondant · §3.B.6/7 prefix-cache + speculative decoding | heures | Zéro risque, zéro dépendance, gain immédiat sur tous les runs suivants ; se fait pendant que le flagship tourne |
 | 1 | **§5.C logprobs — instrumenter la décision binaire** | 1 jour | **Passe avant tout le reste** : rend le collapse mesurable en continu au lieu d'inféré sur 4-6 cas construits à la main |
-| 1bis | §5.E TOON en **entrée seulement**, sur `pressure_action`/`candidacy_considered` | 1 jour | Là où les clés répétées dominent (jusqu'à 25 enregistrements scalaires par chunk) ; **après §5.C**, sinon on change le prompt du seul type dont on mesure le collapse sans baseline comparable |
+| 1bis | ~~§5.E TOON en **entrée seulement**, sur `pressure_action`/`candidacy_considered`~~ **FAIT 2026-09-10** | 1 jour | `candidacy_considered` : -6,9%, qualité identique (16/25=16/25) → non shippé (décision séparée). `pressure_action` : -44,0%, qualité pas au rendez-vous (bascule de collapse, pas de sensibilité restaurée) → non shippé |
 | 2 | §2 base-vs-instruct sur les 4 types collapsés | 1 après-midi GPU | Identifie ou élimine le mécanisme cherché depuis des semaines — et §5.C rend le verdict quantitatif |
 | 3 | §3.A.1 per-citizen deterministic sampling | 1-2 jours | Le levier le plus prometteur, compatible avec la reproductibilité |
 | 4 | §3.A.3 grammar-level invariants (`blank`/`ranking`) | 1 jour | Supprime une classe d'échec entière au lieu de la réessayer |
