@@ -315,6 +315,64 @@ Pacuit & Holliday) casse cette corrélation d'erreur. Tout écart est soit un bu
 chez moi, soit une divergence de convention à documenter — les deux sont du bon
 contenu.
 
+✅ **Fait.** `pref_voting` (Pacuit & Holliday) installé dans un venv jetable
+séparé (Python 3.11 — la lib dépend de `numba`, incompatible avec le Python
+3.14 du projet ; **pas** intégré en dépendance permanente ni en CI pour cette
+raison, contrairement à Schemathesis — passe exploratoire ponctuelle plutôt
+qu'un nouveau gate). Les 21 méthodes ordinales ont toutes un équivalent direct
+dans `pref_voting` (mapping documenté dans le script d'exploration) ; les 3
+cas ambigus (`bucklin`→`simplified_bucklin` pas `bucklin`, `nanson`→
+`strict_nanson` pas `weak_nanson`, `two_round`→`plurality_with_runoff_put`)
+ont été désambiguïsés en lisant le docstring/source de la lib avant de choisir.
+
+3000 profils aléatoires (3-4 candidats, 3-11 électeurs) × 21 méthodes, chaque
+gagnant de MON moteur comparé à l'ensemble des gagnants (avec égalités) de
+`pref_voting` — comparaison "mon gagnant ∈ l'ensemble oracle", pas égalité
+stricte, puisque les conventions de tie-break diffèrent légitimement entre
+implémentations indépendantes. **18/21 méthodes : 0 écart.** 4 écarts trouvés
+et intégralement investigués à la main :
+
+- **`dowdall`** (1 écart) : PAS un bug chez moi — un artefact de précision
+  flottante DANS l'oracle. Le profil trouvé a deux candidats exactement à
+  égalité (43/6 vérifié en fractions exactes), mais l'addition en flottant de
+  `pref_voting` (ordre de sommation différent du mien) casse l'égalité par un
+  epsilon et ne retourne qu'un seul gagnant au lieu des deux. Reproduit et
+  confirmé par un script indépendant ; rien à corriger côté Vote-App.
+- **`baldwin`** (11 écarts) et **`raynaud`** (27 écarts) : bugs réels,
+  corrigés. Les deux méthodes n'éliminaient qu'UN candidat par tour (le pire,
+  départage alphabétique) au lieu de TOUS les candidats à égalité pour le pire
+  score/pire défaite simultanément — contrairement à `get_irv_winner` et
+  `get_nanson_winner` dans ce même fichier, qui éliminaient déjà tout le
+  groupe à égalité. Corrigé pour aligner Baldwin et Raynaud sur cette
+  convention (déjà interne au projet, et celle de `pref_voting`) ; les deux
+  moteurs (backend + `playgroundVoting.ts`/`voteTrace.ts` pour le rejeu)
+  mis à jour, `engineParity.json` régénéré, parity test au vert.
+- **`smith_irv`** (75 écarts, le plus fréquent) : bug réel dans `_smith_set`
+  — son test de dominance ne vérifiait que « personne à l'extérieur ne bat
+  quelqu'un à l'intérieur », pas « tout le monde à l'intérieur bat tout le
+  monde à l'extérieur » (les deux coïncident sauf en présence d'égalités
+  pairwise, où le test bugué valide un ensemble de Smith trop petit). Second
+  bug indépendant : `get_smith_irv_winner` recalculait l'ensemble de Smith à
+  CHAQUE tour d'élimination au lieu de le calculer UNE FOIS sur le champ
+  complet (la vraie définition de Smith-IRV/Tideman's Alternative, confirmée
+  par le code source de `pref_voting`). Les deux corrigés ; effet de bord
+  intéressant, confirmé par recherche exhaustive (Hypothesis + recherche
+  aléatoire, 0 contre-exemple trouvé après correctif) : smith_irv **satisfait
+  bel et bien** l'indépendance aux clones une fois l'algorithme correct — le
+  contre-exemple épinglé en Lot 4.1 était un artefact du bug, pas une
+  propriété réelle de la méthode. `test_voting_criteria_matrix.py` mis à jour
+  en conséquence (classification ET docstring).
+
+Régression `jscpd` trouvée et corrigée en cours de route (33→34 clones) : le
+calcul de "pire défaite pairwise" dupliqué entre `winRaynaud` et sa trace de
+rejeu (`voteTrace.ts`) — factorisé dans `raynaudWorstLoss`, exportée et
+partagée, cliquet revenu à 33.
+
+`abcvoting` (méthodes multi-gagnants) non exploré dans cette passe — les 21
+méthodes verrouillées sont toutes mono-gagnant ; laissé pour une éventuelle
+extension si Vote-App verrouille un jour une méthode multi-gagnants dans le
+parity set.
+
 ### 4.3 — Vérification exhaustive des petits cas ⭐⭐⭐ 📝📝📝 · `M`
 
 Pour n ≤ 4 candidats et m ≤ 5 électeurs, l'espace des profils est **fini et

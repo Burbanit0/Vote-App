@@ -24,15 +24,22 @@ LOSER (confirmed: a candidate who loses every single pairwise contest) — a
 genuine, if under-cited, property of the Simpson-Kramer method, not a bug.
 (2) An initial low-sample exploration (~100-240 random profiles per
 method/criterion) wrongly classified ranked_pairs, river, and smith_irv as
-satisfying clone independence, and nanson as satisfying monotonicity —
-all four are degenerate-tie failures (an exact pairwise-margin or
-first-place-vote tie that a tie-breaking convention resolves differently
-once a clone or promotion disturbs it) rare enough that only Hypothesis's
-shrinking search over the full test suite surfaced them. This is the
-exercise's methodology working as intended: an under-sampled classification
-looked clean until a more thorough search found the counterexample, so the
+satisfying clone independence, and nanson as satisfying monotonicity — all
+four are degenerate-tie failures (an exact pairwise-margin or first-place-
+vote tie that a tie-breaking convention resolves differently once a clone
+or promotion disturbs it) rare enough that only Hypothesis's shrinking
+search over the full test suite surfaced them. This is the exercise's
+methodology working as intended: an under-sampled classification looked
+clean until a more thorough search found the counterexample, so the
 `@given`-based property tests below (not the exploration script) are the
-source of truth for every "satisfies" claim.
+source of truth for every "satisfies" claim. smith_irv's story didn't end
+there: cross-checking the whole engine against the independent
+`pref_voting` library (Lot 4.2) found that its clone-independence failure
+was itself downstream of a genuine bug in `_smith_set`/`get_smith_irv_winner`
+(a Smith-set tie-handling error, and recomputing the Smith set every
+elimination round instead of once) -- fixing that bug made every found
+clone-independence counterexample stop reproducing, so smith_irv moved back
+to the "satisfies" side once the underlying algorithm was corrected.
 
 **Scope.** 7 of the 8 criteria the plan names are covered here:
 Condorcet winner, Condorcet loser, majority, unanimity, Pareto, clone
@@ -389,7 +396,7 @@ def test_pareto_efficiency_anti_plurality_can_be_violated():
 CLONE_INDEPENDENCE_VIOLATES = {
     "borda", "coombs", "bucklin", "nanson", "kemeny", "black",
     "anti_plurality", "dowdall", "split_cycle",
-    "ranked_pairs", "river", "smith_irv",
+    "ranked_pairs", "river",
 }
 CLONE_INDEPENDENCE_SATISFIES = METHODS.keys() - CLONE_INDEPENDENCE_VIOLATES
 
@@ -470,23 +477,9 @@ def test_clone_independence_river_can_be_violated():
     assert get_river_winner(cloned) == "A"
 
 
-def test_clone_independence_smith_irv_can_be_violated():
-    """Pinned counterexample (found by Hypothesis shrinking, hand-verified):
-    a 4-voter profile with A and B exactly tied 2-2 on first-place votes (and
-    pairwise). Smith-IRV inherits IRV's clone sensitivity in this degenerate
-    tied case: original winner A, cloning non-winner B flips it to B."""
-    rankings = [
-        ["A", "B", "C", "D"], ["A", "B", "C", "D"],
-        ["B", "A", "C", "D"], ["B", "A", "C", "D"],
-    ]
-    assert get_smith_irv_winner(rankings) == "A"
-    cloned = _clone_after(rankings, "B", "A*")
-    assert get_smith_irv_winner(cloned) == "B"
-
-
 @pytest.mark.parametrize(
     "method_name",
-    sorted(CLONE_INDEPENDENCE_VIOLATES - {"borda", "ranked_pairs", "river", "smith_irv"}),
+    sorted(CLONE_INDEPENDENCE_VIOLATES - {"borda", "ranked_pairs", "river"}),
 )
 def test_clone_independence_can_be_violated(method_name):
     fn = METHODS[method_name]
