@@ -18,6 +18,7 @@ from api.domain.polity.llm_behavior_engine import (
     _CHAMBER_MAX_CHUNK_SIZE_VLLM,
     _CHAMBER_RETRY_SEED_BASE,
     _CHAMBER_RETRY_TEMPERATURE,
+    _PRESSURE_CALIBRATED_CHUNK_SIZE,
     _VOTE_CAST_MAX_CHUNK_SIZE_OLLAMA,
     _VOTE_CAST_MAX_CHUNK_SIZE_VLLM,
     _VOTE_CAST_RETRY_SEED_BASE,
@@ -3314,12 +3315,16 @@ def test_decide_pressure_actions_sorts_by_citizen_id_regardless_of_input_order()
 
     decide_pressure_actions(citizens, contexts, config, client)
 
-    assert client.calls == [[0, 3, 4]]
+    # One call per citizen (_PRESSURE_CALIBRATED_CHUNK_SIZE=1, Phase E) -- order across those
+    # singleton calls is still the observable proof of the sort.
+    assert client.calls == [[0], [3], [4]]
 
 
-def test_decide_pressure_actions_calls_once_for_a_cohort_of_three():
-    # The case MIN_SAFE_BATCH_SIZE's default floor would have aborted --
-    # the concrete reason decide_pressure_actions passes min_batch_size=1.
+def test_decide_pressure_actions_calls_once_per_citizen_for_a_cohort_of_three():
+    # Phase E (polity-decision-contracts.md): _PRESSURE_CALIBRATED_CHUNK_SIZE=1 is the only batch
+    # size that ever cleared the quality bar, so every real cohort now makes one call per citizen
+    # regardless of config.llm.max_batch_size -- min_batch_size=1 is still what keeps chunk_voters
+    # from raising (a chunk of 1 would otherwise be below MIN_SAFE_BATCH_SIZE's default floor).
     citizens = _pressure_population(3)
     contexts = _pressure_contexts(citizens)
     config = _config_with_pressure_llm_enabled()
@@ -3327,11 +3332,16 @@ def test_decide_pressure_actions_calls_once_for_a_cohort_of_three():
 
     outcome = decide_pressure_actions(citizens, contexts, config, client)
 
-    assert client.calls == [[0, 1, 2]]
+    assert client.calls == [[0], [1], [2]]
     assert [d.cid for d in outcome.decisions] == [0, 1, 2]
 
 
-def test_decide_pressure_actions_chunks_a_large_cohort_at_max_batch_size():
+def test_decide_pressure_actions_ignores_max_batch_size_and_chunks_at_one():
+    # Renamed from "..._chunks_a_large_cohort_at_max_batch_size": that was true before Phase E,
+    # when this function chunked at config.llm.max_batch_size like every other chunk_voters caller.
+    # It no longer does -- _PRESSURE_CALIBRATED_CHUNK_SIZE=1 overrides max_batch_size=25 the same
+    # way _vote_cast_chunk_size/_chamber_chunk_size already override it for their own decision
+    # types, just without the provider branch (see that constant's own docstring for why).
     citizens = _pressure_population(60)
     contexts = _pressure_contexts(citizens)
     config = _config_with_pressure_llm_enabled(max_batch_size=25)
@@ -3339,9 +3349,36 @@ def test_decide_pressure_actions_chunks_a_large_cohort_at_max_batch_size():
 
     outcome = decide_pressure_actions(citizens, contexts, config, client)
 
-    assert len(client.calls) == 3
+    assert len(client.calls) == 60
+    assert all(len(call) == _PRESSURE_CALIBRATED_CHUNK_SIZE for call in client.calls)
     assert sorted(cid for call in client.calls for cid in call) == list(range(60))
     assert [d.cid for d in outcome.decisions] == list(range(60))
+
+
+def test_decide_pressure_actions_sends_blank_threshold_as_the_shipped_calibration_signal():
+    # Phase E's own wiring: production now calls build_pressure_*_prompt_calibrated with
+    # PRESSURE_THRESHOLD_SIGNAL, sourced from each citizen's own blank_threshold -- not the
+    # uncalibrated build_pressure_*_prompt pair decide_pressure_actions used before Phase E.
+    citizens = [_citizen(0, (0.5,), blank_threshold=0.37)]
+    contexts = _pressure_contexts(citizens)
+    config = _config_with_pressure_llm_enabled()
+
+    class RecordingClient:
+        def __init__(self):
+            self.system_prompt = None
+            self.user_prompt = None
+
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+            self.system_prompt = system_prompt
+            self.user_prompt = user_prompt
+            return json.dumps({"decisions": [{"cid": 0, "target": 205, "act": 3, "motif": 301}]})
+
+    client = RecordingClient()
+    decide_pressure_actions(citizens, contexts, config, client)
+
+    assert PRESSURE_THRESHOLD_SIGNAL.definition.splitlines()[0] in client.system_prompt
+    payload = json.loads(client.user_prompt)
+    assert payload["consulted"][0]["ctx"]["blank_threshold"] == 0.37
 
 
 def test_decide_pressure_actions_raises_notimplementederror_for_unsupported_provider():
@@ -3403,16 +3440,22 @@ def test_decide_pressure_actions_raises_for_codebook_version_mismatch():
 
 
 def test_decide_pressure_actions_propagates_llm_response_error_on_count_mismatch():
+    # Phase E made every chunk a singleton (_PRESSURE_CALIBRATED_CHUNK_SIZE=1), so a fixed
+    # single-decision reply can no longer be used to fake a mismatch by returning too FEW
+    # decisions -- one decision is exactly what a singleton chunk expects, and an empty list fails
+    # PressureBatch's own min-length schema validation before the misalignment check ever runs. A
+    # cid that can never match any real chunk's own expected_cids still reliably misaligns,
+    # regardless of chunk size.
     citizens = _pressure_population(3)
     contexts = _pressure_contexts(citizens)
     config = _config_with_llm_enabled()
 
-    class ShortClient:
+    class WrongCidClient:
         def complete_json(self, **kwargs):
-            return json.dumps({"decisions": [{"cid": 0, "target": 205, "act": 3, "motif": 301}]})
+            return json.dumps({"decisions": [{"cid": 999, "target": 205, "act": 3, "motif": 301}]})
 
     with pytest.raises(LlmResponseError, match="misaligned"):
-        decide_pressure_actions(citizens, contexts, config, ShortClient())
+        decide_pressure_actions(citizens, contexts, config, WrongCidClient())
 
 
 # ── validate_reaction_decision (v5 Lot 4, §8) ────────────────────────────

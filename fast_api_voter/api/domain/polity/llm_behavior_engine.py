@@ -397,6 +397,34 @@ def _vote_cast_chunk_size(config: PolityConfig) -> int:
     why this stays a function rather than a value resolved once."""
     return _VOTE_CAST_MAX_CHUNK_SIZE_VLLM if config.llm.provider == "vllm" else _VOTE_CAST_MAX_CHUNK_SIZE_OLLAMA
 
+
+_PRESSURE_CALIBRATED_CHUNK_SIZE = 1
+"""polity-decision-contracts.md's Phase E: check_pressure_calibration_
+matrix_results.md measured every C4-compliant calibration signal
+(PRESSURE_THRESHOLD_SIGNAL and its siblings, see PressureCalibrationSignal)
+at 100% (9/9 trials) on the unambiguous subset at batch size 1, against
+both the closed and the open menu -- and ALL FIVE variants tested,
+calibrated or not, collapse uniformly to within a few points of the ~52%
+a constant answer scores by construction at batch 5 and batch 25 (act
+histograms there: 72-75/75 decisions landing on one code). Not a graded
+degradation the way _CHAMBER_MAX_CHUNK_SIZE_VLLM/_VOTE_CAST_MAX_CHUNK_
+SIZE_VLLM's own token-budget ceilings are -- an on/off cliff at the first
+citizen added to the call. Unlike those two constants, this is
+deliberately NOT provider-conditional: no batch size other than 1 has
+ever cleared the quality bar on any provider tested, so there is no
+larger value to switch to on vLLM the way vote_cast/chamber_deliberation
+have.
+
+check_pressure_batch_size_cost_results.md measured what shipping this
+costs on vLLM (polity_config.yaml's shipped llm.provider): 2.8-3.0x batch
+25's wall-clock, not the ~25x a naive call-count model predicts, because
+most of a call's latency at this prompt size is fixed per-request
+overhead rather than prompt-token processing. Extrapolated against the
+real 137-decisions/tick anchor (plan-flagship-30y-run.md's Phase 7
+scale-probe) and 120 ticks (30y x 4 ticks/year): +25.4s/tick, +0.85h over
+the ~35.6h whole-run baseline -- under 2.5% of total runtime. Not
+separately measured on Ollama, which is not the shipped provider."""
+
 # cache_recycle_chunk_size_tension_findings.md's own 3-condition harness
 # experiment (2026-08-22, GPU) found the chunk_size=1 fix above still
 # fails at a real, deterministic ~6.7% rate (2/30 across A_none/B_six/
@@ -2819,9 +2847,12 @@ def build_pressure_system_prompt_calibrated(
     (C3: self_gap is sent with no scale reference at all -- see plan-llm-
     protocol-and-theory-program.md §3.A.1's premise check and check_
     pressure_missing_threshold_results.md for the live evidence this
-    responds to). Diagnostic-only -- NOT wired into decide_pressure_
-    actions, same discipline every §5.C/§5.E primitive this session
-    followed; only the Phase C experiment matrix script calls this.
+    responds to). SHIPPED 2026-09-10 (Phase E): decide_pressure_actions
+    now calls this with (PRESSURE_THRESHOLD_SIGNAL,) -- no longer
+    diagnostic-only. check_pressure_calibration_matrix.py's own Phase C
+    matrix (all five signal combinations, several batch sizes) is still
+    the only caller that exercises the other three signals or any batch
+    size other than 1.
 
     `signals` composes which optional descriptive fields are added --
     zero, one, or several of PRESSURE_THRESHOLD_SIGNAL/_HISTORY_SIGNAL/
@@ -2937,7 +2968,11 @@ def build_pressure_user_prompt_calibrated(
     Correction, 2026-09-10 (plan-llm-protocol-and-theory-program.md
     §3.B.7): first written by copying build_pressure_user_prompt's OWN
     pre-fix payload, so it lacked `expected_cids`. Added in the same pass
-    as that function's own fix, for the same reason."""
+    as that function's own fix, for the same reason.
+
+    SHIPPED 2026-09-10 (Phase E): decide_pressure_actions now calls this
+    with {"blank_threshold": {cid: citizen.blank_threshold, ...}} -- no
+    longer diagnostic-only, see this function's system-prompt sibling."""
     citizen_blocks = []
     for citizen in consulted:
         context = contexts[citizen.citizen_id]
@@ -3051,6 +3086,20 @@ def decide_pressure_actions(
     cid_list -- which matters most exactly at batch 1, where an unfixed system prompt differs on
     every single call).
 
+    SHIPPED 2026-09-10 (Phase E, polity-decision-contracts.md): wired PRESSURE_THRESHOLD_SIGNAL
+    (blank_threshold -- the cheapest of the four signals that cleared the bar, and the one
+    check_pressure_batch_size_cost_results.md actually measured the cost of) into this function via
+    build_pressure_system_prompt_calibrated/build_pressure_user_prompt_calibrated, chunked at
+    _PRESSURE_CALIBRATED_CHUNK_SIZE=1 -- see that constant's own docstring for why this ignores
+    config.llm.max_batch_size and is not provider-conditional the way _vote_cast_chunk_size/
+    _chamber_chunk_size are. A real consulted cohort now makes one HTTP call per citizen instead of
+    per config.llm.max_batch_size citizens -- a deliberate, measured cost (+0.85h over the ~35.6h
+    flagship baseline), not an oversight. Only PRESSURE_THRESHOLD_SIGNAL ships: PRESSURE_HISTORY_
+    SIGNAL/_PERCENTILE_SIGNAL/_PLEDGE_SIGNAL also cleared 100% in Phase C but were never carried
+    through Phase D's own cost measurement, so shipping them would extrapolate a quality result
+    onto an unmeasured cost -- exactly the mistake Phase D's own "measure, don't model" mandate
+    exists to prevent. Revisit only by giving one of them its own cost measurement first.
+
     Treat mobilization_rate/pressure metrics from any llm.enabled=True run with an OPEN menu as
     quality-unvalidated (not collapsed). Under the shipped closed menu no acting code can occur
     by design, so a zero mobilization rate there is the configuration, never a bug.
@@ -3088,10 +3137,11 @@ def decide_pressure_actions(
 
     def _pressure_chunk(chunk: list[Citizen]) -> list[PressureDecision]:
         expected_cids = [c.citizen_id for c in chunk]
+        signal_values = {"blank_threshold": {c.citizen_id: c.blank_threshold for c in chunk}}
         chunk_decisions = _complete_and_decode_with_replay(
             client,
-            system_prompt=build_pressure_system_prompt(chunk, config),
-            user_prompt=build_pressure_user_prompt(chunk, contexts),
+            system_prompt=build_pressure_system_prompt_calibrated(chunk, config, (PRESSURE_THRESHOLD_SIGNAL,)),
+            user_prompt=build_pressure_user_prompt_calibrated(chunk, contexts, signal_values),
             json_schema=PRESSURE_JSON_SCHEMA,
             max_tokens=compute_max_tokens(len(chunk)),
             think=False,
@@ -3104,7 +3154,7 @@ def decide_pressure_actions(
         return chunk_decisions
 
     decisions: list[PressureDecision] = []
-    chunks = chunk_voters(consulted, config.llm.max_batch_size, min_batch_size=1)
+    chunks = chunk_voters(consulted, _PRESSURE_CALIBRATED_CHUNK_SIZE, min_batch_size=1)
     for chunk_decisions in run_chunks(chunks, _pressure_chunk, config.parallel.intra_run_workers):
         decisions.extend(chunk_decisions)
 

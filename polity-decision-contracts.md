@@ -114,6 +114,18 @@ sur les 120 ticks du run flagship (30 ans × 4 ticks/an) contre l'ancre réelle 
 mesurée en Phase 7 : **+25,4 s/tick, +0,85 h sur les ~35,6 h du run complet** — moins de 2,5 % du
 temps total. **La taille de batch 1 est abordable.**
 
+**Livré, 2026-09-10** (`fast_api_voter/scripts/check_pressure_shipped_wiring_results.md`) :
+`decide_pressure_actions` appelle désormais `build_pressure_*_prompt_calibrated` avec le seul
+véhicule seuil (`PRESSURE_THRESHOLD_SIGNAL` — le moins cher des quatre, et le seul dont la Phase D a
+mesuré le coût), en chunks de taille 1 (`_PRESSURE_CALIBRATED_CHUNK_SIZE`, indépendant de
+`config.llm.max_batch_size`). Historique/rang de cohorte/écart à la promesse ont eux aussi obtenu
+100 % en Phase C mais **ne sont pas livrés** : leur coût n'a jamais été mesuré, et l'expédier sur la
+seule foi d'un résultat de qualité serait exactement l'erreur que la Phase D interdit. Vérifié en
+direct de bout en bout (`check_pressure_shipped_wiring.py`, vrai serveur vLLM, 12 citoyens,
+`blank_threshold` hétérogène) : 12 appels HTTP (un par citoyen), `blank_threshold` confirmé sur le
+fil, 12/12 décodés légalement, 12/12 d'accord avec le critère non ambigu pré-enregistré. `pressure_action`
+satisfait maintenant les 5 clauses du contrat (§1). **Les 5 phases du plan sont closes pour ce type.**
+
 ### `candidacy_considered` (dt=2)
 
 > Un citoyen dont l'ambition est nettement supérieure à ce qui est nécessaire pour se présenter s'y
