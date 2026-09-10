@@ -12,6 +12,7 @@ from api.domain.polity.llm_client import (
     LlmResponseError,
     LlmTransportError,
     OllamaJsonClient,
+    TokenLogprob,
     VllmJsonClient,
     build_json_client,
     decode_candidacy_batch,
@@ -722,6 +723,125 @@ def test_vllm_count_prompt_tokens_missing_usage_raises_response_error():
     client = _vllm_client(lambda request: httpx.Response(200, json={"choices": []}))
     with pytest.raises(LlmResponseError, match="prompt_tokens"):
         client.count_prompt_tokens(system_prompt="s", user_prompt="u")
+
+
+# ── VllmJsonClient.complete_with_logprobs (2026-09-09, plan-llm-protocol-
+# and-theory-program.md §5.C) -- a diagnostic capability, not wired into any
+# decide_* entry point. Mock response shape mirrors a real live probe
+# (2026-09-09, GPU): P(yes)=0.962 vs P(no)=0.038 for a trivial forced choice.
+
+def _logprobs_response(finish_reason: str, content: str, token_entries: list[dict]) -> httpx.Response:
+    return httpx.Response(
+        200,
+        json={
+            "choices": [
+                {
+                    "finish_reason": finish_reason,
+                    "message": {"content": content},
+                    "logprobs": {"content": token_entries},
+                }
+            ]
+        },
+    )
+
+
+def _token_entry(token: str, logprob: float, alternatives: list[tuple[str, float]]) -> dict:
+    return {
+        "token": token,
+        "logprob": logprob,
+        "top_logprobs": [{"token": t, "logprob": lp} for t, lp in alternatives],
+    }
+
+
+def test_vllm_complete_with_logprobs_request_shape_is_correct():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["url"] = str(request.url)
+        captured["body"] = json.loads(request.content)
+        return _logprobs_response("length", "yes", [_token_entry("yes", -0.04, [("yes", -0.04), ("no", -3.26)])])
+
+    client = _vllm_client(handler)
+    client.complete_with_logprobs(system_prompt="sys", user_prompt="usr", max_tokens=1, top_logprobs=5)
+
+    assert captured["url"] == f"{VLLM_BASE_URL}/chat/completions"
+    body = captured["body"]
+    assert body["model"] == "qwen3:8b"
+    assert body["temperature"] == 0.0
+    assert body["seed"] == 42
+    assert body["max_tokens"] == 1
+    assert body["logprobs"] is True
+    assert body["top_logprobs"] == 5
+    assert body["messages"] == [{"role": "system", "content": "sys"}, {"role": "user", "content": "usr"}]
+    # think defaults to False here, unlike complete_json/count_prompt_tokens -- see the method's own docstring
+    assert body["chat_template_kwargs"] == {"enable_thinking": False}
+    assert "response_format" not in body
+
+
+def test_vllm_complete_with_logprobs_parses_content_and_token_logprobs():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return _logprobs_response("length", "yes", [_token_entry("yes", -0.04, [("yes", -0.04), ("no", -3.26)])])
+
+    client = _vllm_client(handler)
+    content, tokens = client.complete_with_logprobs(system_prompt="s", user_prompt="u", max_tokens=1)
+
+    assert content == "yes"
+    assert tokens == [TokenLogprob(token="yes", logprob=-0.04, alternatives={"yes": -0.04, "no": -3.26})]
+
+
+def test_vllm_complete_with_logprobs_accepts_finish_reason_length():
+    # The expected, common case here -- see _extract_content_and_logprobs's
+    # own docstring for why this differs from complete_json's strict 'stop'.
+    client = _vllm_client(lambda request: _logprobs_response(
+        "length", "a", [_token_entry("a", -0.01, [("a", -0.01)])]
+    ))
+    content, _tokens = client.complete_with_logprobs(system_prompt="s", user_prompt="u", max_tokens=1)
+    assert content == "a"
+
+
+def test_vllm_complete_with_logprobs_rejects_an_unexpected_finish_reason():
+    client = _vllm_client(lambda request: _logprobs_response(
+        "content_filter", "a", [_token_entry("a", -0.01, [("a", -0.01)])]
+    ))
+    with pytest.raises(LlmResponseError, match="finish_reason"):
+        client.complete_with_logprobs(system_prompt="s", user_prompt="u", max_tokens=1)
+
+
+def test_vllm_complete_with_logprobs_missing_logprobs_raises():
+    client = _vllm_client(lambda request: httpx.Response(
+        200, json={"choices": [{"finish_reason": "stop", "message": {"content": "a"}}]}
+    ))
+    with pytest.raises(LlmResponseError, match="logprobs"):
+        client.complete_with_logprobs(system_prompt="s", user_prompt="u", max_tokens=1)
+
+
+def test_vllm_complete_with_logprobs_alternatives_always_include_the_chosen_token():
+    # Edge case: if the server ever omitted the chosen token from its own
+    # top_logprobs list, the alternatives dict must still carry it --
+    # _extract_content_and_logprobs's own setdefault, not assumed server
+    # behavior.
+    def handler(request: httpx.Request) -> httpx.Response:
+        return _logprobs_response("length", "z", [_token_entry("z", -0.5, [("other", -1.0)])])
+
+    client = _vllm_client(handler)
+    _content, tokens = client.complete_with_logprobs(system_prompt="s", user_prompt="u", max_tokens=1)
+    assert tokens[0].alternatives == {"other": -1.0, "z": -0.5}
+
+
+def test_vllm_complete_with_logprobs_multiple_tokens_in_order():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return _logprobs_response(
+            "length", "no way",
+            [
+                _token_entry("no", -0.1, [("no", -0.1), ("yes", -2.3)]),
+                _token_entry(" way", -0.2, [(" way", -0.2)]),
+            ],
+        )
+
+    client = _vllm_client(handler)
+    content, tokens = client.complete_with_logprobs(system_prompt="s", user_prompt="u", max_tokens=2)
+    assert content == "no way"
+    assert [t.token for t in tokens] == ["no", " way"]
 
 
 # ── build_json_client (provider dispatch) ─────────────────────────────────

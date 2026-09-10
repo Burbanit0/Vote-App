@@ -60,6 +60,7 @@ import copy
 import json
 import logging
 import re
+from dataclasses import dataclass
 from types import TracebackType
 from typing import Any, Protocol, Sequence
 
@@ -740,6 +741,75 @@ class VllmJsonClient:
         response = _post_with_transport_retry(self._client, f"{self._base_url}/chat/completions", payload)
         return _extract_prompt_tokens(response)
 
+    def complete_with_logprobs(
+        self,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        max_tokens: int,
+        top_logprobs: int = 10,
+        think: bool = False,
+        temperature: float | None = None,
+        seed: int | None = None,
+    ) -> tuple[str, list[TokenLogprob]]:
+        """plan-llm-protocol-and-theory-program.md §5.C: a diagnostic
+        capability, deliberately NOT wired into any decide_* entry point yet
+        -- this reads a decision's own confidence, it does not decide
+        anything. VERIFIED live (2026-09-09) that vLLM 0.28.0 returns real,
+        calibrated-looking logprobs for a trivial forced-choice probe
+        (P(yes)=0.962 vs P(no)=0.038); NOT yet verified against a real
+        production, xgrammar-constrained decision schema, where the token
+        whose probability actually matters (e.g. an `"act":` field's value,
+        deep inside structured JSON) is not necessarily the FIRST generated
+        token the way it is for a bare forced-choice probe -- locating that
+        token inside a real completion's own token sequence is a real,
+        separate problem this method does not attempt to solve, only
+        exposes the raw material (`TokenLogprob`, one entry per generated
+        position) for a caller to solve it against.
+
+        No `json_schema`/`response_format` here, unlike complete_json --
+        the first live use case (§5.C: read P(act) for a decision this
+        project has already reduced to a forced binary choice in its own
+        prompt wording) does not need structured output, and xgrammar's
+        logit masking would only complicate reading a raw token
+        probability for no benefit. A schema-constrained variant, if one
+        is ever needed, is a distinct method, not a parameter here --
+        same reasoning complete_json/count_prompt_tokens already apply
+        (each call shape stays a total function of its own arguments, no
+        hidden per-caller branching).
+
+        `think` defaults to False, unlike complete_json/count_prompt_tokens
+        -- a logprobs probe is normally a short, direct forced-choice
+        question (see this method's own module-level design note), and a
+        `<think>` block would sit between the prompt and the actual answer
+        token, consuming `max_tokens` on reasoning this diagnostic does not
+        currently parse out. Overridable per call for a future use case
+        that does want it.
+
+        `temperature`/`seed` mirror every other method on this class (None
+        preserves the client's own configured values) -- included for the
+        same reason count_prompt_tokens documents: a total function of the
+        call arguments, no hidden server-side default."""
+        effective_temperature = temperature if temperature is not None else self._temperature
+        effective_seed = seed if seed is not None else self._seed
+        body = {
+            "model": self._model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "temperature": effective_temperature,
+            "seed": effective_seed,
+            "max_tokens": max_tokens,
+            "stream": False,
+            "chat_template_kwargs": {"enable_thinking": think},
+            "logprobs": True,
+            "top_logprobs": top_logprobs,
+        }
+        payload = json.dumps(body, sort_keys=True, separators=(",", ":"))
+        response = _post_with_transport_retry(self._client, f"{self._base_url}/chat/completions", payload)
+        return _extract_content_and_logprobs(response)
+
     def close(self) -> None:
         self._client.close()
 
@@ -816,6 +886,82 @@ def _extract_prompt_tokens(response: httpx.Response) -> int:
     if not isinstance(usage, dict) or not isinstance(usage.get("prompt_tokens"), int):
         raise LlmResponseError(f"expected usage.prompt_tokens to be an int, got {usage!r}")
     return int(usage["prompt_tokens"])
+
+
+@dataclass(frozen=True)
+class TokenLogprob:
+    """One generated token, its own log-probability, and the alternatives
+    the server considered at that same position -- vLLM's own OpenAI-compat
+    `choices[0].logprobs.content[i]` shape (`token`/`logprob`/`top_logprobs`),
+    reshaped into a plain dataclass so a caller never touches raw response
+    JSON. `alternatives` is `{token: logprob}`, always including this position's
+    own chosen token (vLLM includes it in `top_logprobs` too) -- so
+    `alternatives[token] == logprob` always holds, and a caller wanting
+    P(a specific candidate token), chosen or not, reads one dict."""
+
+    token: str
+    logprob: float
+    alternatives: dict[str, float]
+
+
+def _extract_content_and_logprobs(response: httpx.Response) -> tuple[str, list[TokenLogprob]]:
+    """VERIFIED live (2026-09-09): vLLM 0.28.0's `/v1/chat/completions`
+    returns `logprobs.content`, one entry per generated token, when the
+    request carries `logprobs: true` -- confirmed against a real trivial
+    yes/no probe (P(yes)=0.962, P(no)=0.038, read directly off this shape).
+
+    Deliberately does NOT require `finish_reason == 'stop'` the way
+    _extract_content does: plan-llm-protocol-and-theory-program.md §5.C's
+    whole point is reading the probability of a SPECIFIC early token (often
+    the first), so a tiny `max_tokens` budget legitimately ends in 'length'
+    on every call -- that is the expected, common case here, not a failure
+    mode to reject. Both 'stop' and 'length' are accepted; anything else
+    (e.g. a content filter) is not, since this project has never seen or
+    reasoned about what those would mean for the returned logprobs."""
+    try:
+        body = response.json()
+    except ValueError as exc:
+        raise LlmResponseError(f"response was not valid JSON: {exc}") from exc
+
+    if not isinstance(body, dict):
+        raise LlmResponseError(f"expected a JSON object, got {type(body).__name__}")
+    choices = body.get("choices")
+    if not isinstance(choices, list) or not choices:
+        raise LlmResponseError(f"expected a non-empty 'choices' list, got {choices!r}")
+    choice = choices[0]
+    if not isinstance(choice, dict):
+        raise LlmResponseError(f"expected choices[0] to be an object, got {type(choice).__name__}")
+
+    finish_reason = choice.get("finish_reason")
+    if finish_reason not in ("stop", "length"):
+        raise LlmResponseError(f"generation did not finish as expected: finish_reason={finish_reason!r}")
+
+    message = choice.get("message")
+    if not isinstance(message, dict) or not isinstance(message.get("content"), str):
+        raise LlmResponseError(f"expected choices[0].message.content to be a string, got {message!r}")
+
+    logprobs_obj = choice.get("logprobs")
+    if not isinstance(logprobs_obj, dict) or not isinstance(logprobs_obj.get("content"), list):
+        raise LlmResponseError(
+            f"expected choices[0].logprobs.content to be a list -- was `logprobs: true` sent? got {logprobs_obj!r}"
+        )
+
+    tokens: list[TokenLogprob] = []
+    for entry in logprobs_obj["content"]:
+        if not isinstance(entry, dict) or not isinstance(entry.get("token"), str) \
+                or not isinstance(entry.get("logprob"), (int, float)):
+            raise LlmResponseError(f"malformed logprobs.content entry: {entry!r}")
+        top = entry.get("top_logprobs")
+        alternatives: dict[str, float] = {}
+        if isinstance(top, list):
+            for alt in top:
+                if isinstance(alt, dict) and isinstance(alt.get("token"), str) \
+                        and isinstance(alt.get("logprob"), (int, float)):
+                    alternatives[alt["token"]] = float(alt["logprob"])
+        alternatives.setdefault(entry["token"], float(entry["logprob"]))
+        tokens.append(TokenLogprob(token=entry["token"], logprob=float(entry["logprob"]), alternatives=alternatives))
+
+    return str(message["content"]), tokens
 
 
 def _extract_native_content(response: httpx.Response) -> str:
