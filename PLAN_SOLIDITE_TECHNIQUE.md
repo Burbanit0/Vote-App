@@ -281,6 +281,32 @@ déjà ce germe, à généraliser en matrice méthode × critère.
 Sous-produit : cette matrice est **directement publiable** comme contenu
 pédagogique, et recoupe `THEORY.md`.
 
+✅ **Fait.** `fast_api_voter/api/tests/test_voting_criteria_matrix.py` — 21
+méthodes ordinales (le sous-ensemble du parity set de CLAUDE.md défini sur des
+classements ; les 5 méthodes cardinales — score/STAR/cumulative/maximin/nash —
+sont hors périmètre, ces critères étant définis sur des classements) × 7 des 8
+critères prévus (participation et symétrie par renversement reportés, voir
+plus bas). Méthodologie détaillée dans `CONTRIBUTING.md` et le docstring du
+fichier ; résumé : classification jamais tirée de mémoire, découverte par
+fuzzing puis verrouillée en tests `@given` (Hypothesis, `derandomize=True`,
+reproductibilité confirmée sur plusieurs process et plusieurs
+`PYTHONHASHSEED`). Trouvailles réelles, chacune vérifiée à la main avant
+d'être épinglée : (1) `minimax` est Condorcet-cohérent pour les gagnants mais
+peut élire un authentique perdant de Condorcet (candidat qui perd chaque
+duel pairwise) — propriété réelle mais peu citée de la méthode
+Simpson-Kramer, pas un bug ; (2) une première exploration sous-échantillonnée
+(~100-240 profils aléatoires par cellule) a classé à tort `ranked_pairs`,
+`river` et `smith_irv` comme satisfaisant l'indépendance des clones, et
+`nanson` comme satisfaisant la monotonie — les quatre violent en réalité leur
+critère, mais seulement sur des profils dégénérés à égalité parfaite (marges
+pairwise ou votes de premier choix exactement à égalité), assez rares pour
+n'être trouvés que par la recherche par réduction de Hypothesis sur le test
+`@given` complet, pas par l'exploration initiale à faible échantillon — la
+classification finale fait foi via les tests eux-mêmes, pas via le script
+d'exploration jetable. Reporté nommément (pas deviné) : participation et
+symétrie par renversement, où le signal réel se mélange à du bruit de
+tie-break qui demande une passe dédiée pour être démêlé cellule par cellule.
+
 ### 4.2 — Oracle tiers (`pref_voting` / `abcvoting`) ⭐⭐⭐ 📝📝📝 · `M`
 
 La parité actuelle compare *mes deux* implémentations — qui peuvent être fausses
