@@ -203,7 +203,7 @@ async def test_concurrent_sessions_do_not_cross_contaminate(live_server):
 async def test_disconnect_mid_run_leaves_the_server_healthy(live_server):
     """Disconnecting before completion must not crash the handler or leak
     state that breaks the next session (api/sockets/__init__.py's disconnect
-    handler pops the sid's stop flag for exactly this reason)."""
+    handler sets the sid's stop flag for exactly this reason)."""
     async with _connected(live_server) as client:
         await client.emit("start_monte_carlo", {
             "num_iterations": 10_000,  # long enough to still be running
@@ -234,6 +234,46 @@ async def test_disconnect_mid_run_leaves_the_server_healthy(live_server):
             await asyncio.sleep(0.1)
 
     assert complete_event, "Server did not recover after a mid-run disconnect"
+
+
+@pytest.mark.asyncio
+async def test_disconnect_stops_the_orphaned_run(live_server, monkeypatch):
+    """A disconnected client's Monte Carlo loop must actually stop, not run
+    to completion with nowhere to send its events (Lot 3,
+    PLAN_SOLIDITE_TECHNIQUE.md — the "run orphelin" case). Counts real
+    _run_one calls before/after disconnect: unbounded growth after
+    disconnect means the loop never noticed the client left."""
+    call_count = 0
+    real_run_one = sockets_module._run_one
+
+    def _counting_run_one(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        return real_run_one(*args, **kwargs)
+
+    monkeypatch.setattr(sockets_module, "_run_one", _counting_run_one)
+
+    async with _connected(live_server) as client:
+        await client.emit("start_monte_carlo", {
+            "num_iterations": 10_000,
+            "num_voters":     30,
+            "num_candidates": 3,
+            "ideology":       "random",
+        })
+        await asyncio.sleep(0.2)  # let it get into the loop
+    # Disconnects here, mid-run, on purpose.
+
+    count_at_disconnect = call_count
+    await asyncio.sleep(1.0)  # give the loop a real chance to notice and stop
+    count_after_wait = call_count
+
+    # A handful of iterations already dispatched before the disconnect was
+    # noticed is fine; thousands more (the un-fixed behaviour: the loop runs
+    # to num_iterations regardless) is the orphaned-run bug this pins.
+    assert count_after_wait - count_at_disconnect < 20, (
+        f"orphaned run kept iterating after disconnect: "
+        f"{count_at_disconnect} -> {count_after_wait} _run_one calls"
+    )
 
 
 @pytest.mark.asyncio
