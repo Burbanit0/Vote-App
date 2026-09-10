@@ -343,12 +343,37 @@ def test_dynamic_max_tokens_floor_wins_when_headroom_is_smaller():
 
 # ── build_system_prompt / build_user_prompt ──────────────────────────────
 
-def test_system_prompt_enumerates_every_expected_cid():
+def test_system_prompt_references_expected_cids_by_name():
+    # 2026-09-10 (plan-llm-protocol-and-theory-program.md §3.B.7): the
+    # literal cid list moved to build_user_prompt's own `expected_cids`
+    # field so build_system_prompt's own output is identical across every
+    # chunk of the same election (prefix-cache continuity) -- the system
+    # prompt now REFERENCES that field by name instead of embedding the
+    # list itself. See test_user_prompt_carries_expected_cids_in_voter_order
+    # for where the literal list actually lives now.
     citizens = _population(3)
     candidates = [_candidate(10, (0.1,)), _candidate(11, (0.9,))]
     prompt = build_system_prompt(citizens, candidates)
-    assert "[0,1,2]" in prompt
-    assert "EXACTEMENT ces 3" in prompt
+    assert "[0,1,2]" not in prompt
+    assert "'expected_cids'" in prompt
+
+
+def test_system_prompt_is_identical_across_chunks_of_the_same_election():
+    # The direct pin for the prefix-cache fix's own premise: two DIFFERENT
+    # voter chunks of the same election must now produce the exact same
+    # system prompt (previously they diverged ~84% through, at the old
+    # embedded cid list -- see build_system_prompt's own correction note).
+    candidates = [_candidate(10, (0.1,)), _candidate(11, (0.9,))]
+    chunk_a = _population(3)
+    chunk_b = [_citizen(cid, (0.5,)) for cid in (100, 101, 102)]
+    assert build_system_prompt(chunk_a, candidates) == build_system_prompt(chunk_b, candidates)
+
+
+def test_user_prompt_carries_expected_cids_in_voter_order():
+    voters = _population(3)
+    candidates = [_candidate(10, (0.1,))]
+    payload = json.loads(build_user_prompt(voters, candidates))
+    assert payload["expected_cids"] == [0, 1, 2]
 
 
 def test_system_prompt_describes_candidates_by_position_not_cid():

@@ -1038,11 +1038,14 @@ def sorted_candidates(candidates: Sequence[Citizen]) -> list[Citizen]:
 
 
 def build_system_prompt(citizens: Sequence[Citizen], candidates: Sequence[Citizen]) -> str:
-    """Enumerates the full expected voter cid list verbatim, not just a
+    """References the full expected voter cid list by name (the user
+    prompt's own `expected_cids` field, see build_user_prompt), not just a
     count -- ollama_structured_output_results.md Finding B: a bare 'return
     exactly N decisions' instruction was empirically insufficient, the
     model dropped the last citizen of a 25-item batch despite it. The
-    explicit list + self-check instruction fixed it on the first try.
+    explicit list + self-check instruction fixed it on the first try; only
+    WHERE the literal list lives moved since (see this function's own
+    2026-09-10 correction below), the instruction itself is unchanged.
 
     `ranking` uses candidate *positions* (1..N), never candidate cids: a
     live consolidation run found the model conflates a candidate-cid-based
@@ -1117,7 +1120,26 @@ def build_system_prompt(citizens: Sequence[Citizen], candidates: Sequence[Citize
     `truncate_at` (see `ranking_scope_rule` below) -- the truncated case
     keeps the same "don't just pick the closest one" guidance this
     docstring's own Mode-A fix above depends on, but now bounds it at
-    `truncate_at` instead of leaving it unconditional."""
+    `truncate_at` instead of leaving it unconditional.
+
+    Correction, 2026-09-10 (plan-llm-protocol-and-theory-program.md §5.D
+    turned §3.B.7, prefix-cache tuning): the per-chunk `cid_list` used to be
+    embedded literally in THIS string, near its very end (~84% through,
+    measured directly: two chunks' own system prompts diverge at that exact
+    point, byte-for-byte identical before it). Because this string precedes
+    `build_user_prompt`'s own output in the token sequence vLLM actually
+    sees, that late divergence broke prefix-cache continuity for
+    EVERYTHING after it too -- including build_user_prompt's `candidates`
+    section, which is byte-identical across every chunk of the same
+    election (same nominees) and would otherwise be a clean cache hit.
+    Moved the literal list to build_user_prompt's own `expected_cids` field
+    instead (chunk-specific data belongs in the data message, not the
+    instruction message) and replaced the embedded list here with a
+    reference to that field by name -- this function's own output is now
+    IDENTICAL across every chunk of the same election, restoring the full
+    shareable prefix (this string plus `candidates`) instead of only the
+    ~84% before the old divergence point. No semantic change to what the
+    model is told to do, only where the concrete cid values live."""
     candidate_count = len(candidates)
     truncate_at = truncation_limit(candidate_count)
     truncate_note = "" if truncate_at is None else f" (classer au plus les {truncate_at} meilleurs)"
@@ -1151,7 +1173,6 @@ def build_system_prompt(citizens: Sequence[Citizen], candidates: Sequence[Citize
             f"{truncate_at} positions, meme si davantage de candidats sont "
             f"acceptables : arrete-toi aux {truncate_at} plus proches.\n"
         )
-    cid_list = ",".join(str(c.citizen_id) for c in citizens)
     return (
         "Tu es un moteur de simulation. Pour chaque citoyen recu, decide son "
         f"vote parmi les candidats.\nIl y a {candidate_count} candidats. "
@@ -1175,15 +1196,15 @@ def build_system_prompt(citizens: Sequence[Citizen], candidates: Sequence[Citize
         "ou AUCUN candidat ne passe ce seuil pour cet electeur -- ce n'est "
         "pas une option par defaut.\n"
         f"Motifs valides (code court obligatoire) :\n{VOTE_MOTIF_PROMPT_TABLE}"
-        "\nIMPORTANT : la liste decisions doit contenir EXACTEMENT ces "
-        f"{len(citizens)} cid de CITOYENS-ELECTEURS (jamais un cid de "
-        f"candidat), chacun une seule fois, dans cet ordre : [{cid_list}]. "
-        "Verifie ta reponse avant de la finaliser : chaque cid de cette "
-        "liste doit apparaitre exactement une fois dans le champ "
-        f"'cid' des decisions, et chaque ranking ne doit contenir que des "
-        f"entiers entre 1 et {candidate_count} (des positions, jamais un "
-        "cid).\nReponds UNIQUEMENT avec un objet JSON conforme au schema "
-        "fourni."
+        "\nIMPORTANT : la liste decisions doit contenir EXACTEMENT les cid "
+        "de CITOYENS-ELECTEURS donnes par le champ 'expected_cids' du "
+        "message utilisateur (jamais un cid de candidat), chacun une seule "
+        "fois, dans le MEME ordre que ce champ. Verifie ta reponse avant de "
+        "la finaliser : chaque cid de 'expected_cids' doit apparaitre "
+        "exactement une fois dans le champ 'cid' des decisions, et chaque "
+        f"ranking ne doit contenir que des entiers entre 1 et {candidate_count} "
+        "(des positions, jamais un cid).\nReponds UNIQUEMENT avec un objet "
+        "JSON conforme au schema fourni."
     )
 
 
@@ -1218,7 +1239,18 @@ def build_user_prompt(voters: Sequence[Citizen], candidates: Sequence[Citizen]) 
     (compute the weighted-distance-derived quantity outside the model,
     hand it a plain float) -- this is that same pattern applied to
     cast_votes, which had never used it despite being the oldest
-    LLM-callable decision type in the codebase."""
+    LLM-callable decision type in the codebase.
+
+    `expected_cids` (2026-09-10, plan-llm-protocol-and-theory-program.md
+    §3.B.7): this chunk's own voter cid list, in the same order as
+    `voters` -- moved here from build_system_prompt's own output, which
+    used to embed it literally and, by doing so, broke vLLM's prefix cache
+    for every chunk of the same election (see that function's own
+    correction note). `sort_keys=True` places this key between `candidates`
+    and `voters` alphabetically, which is irrelevant to the caching
+    property this exists for: what matters is that `candidates` -- the
+    ONLY content shared byte-for-byte across every chunk of the same
+    election -- still sorts first, unaffected by this key's own presence."""
     sorted_c = sorted_candidates(candidates)
     candidate_platforms = [_platform(c) for c in sorted_c]
     candidate_blocks = [
@@ -1251,7 +1283,13 @@ def build_user_prompt(voters: Sequence[Citizen], candidates: Sequence[Citizen]) 
         for v in voters
     ]
     return json.dumps(
-        {"candidates": candidate_blocks, "voters": voter_blocks}, sort_keys=True, separators=(",", ":")
+        {
+            "candidates": candidate_blocks,
+            "expected_cids": [v.citizen_id for v in voters],
+            "voters": voter_blocks,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
     )
 
 
