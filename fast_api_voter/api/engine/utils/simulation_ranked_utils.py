@@ -128,7 +128,15 @@ def get_dowdall_winner(votes: list[Any], blank_candidate_name: str = "") -> Opti
     if not votes:
         return None
     is_dict = _is_dict_format(votes)
-    scores: "defaultdict[Any, float]" = defaultdict(float)
+    # defaultdict(Fraction), not defaultdict(float): the module docstring above
+    # explains why Fraction is used at all, but seeding each new key with a
+    # float 0.0 default defeats that -- `0.0 + Fraction(1, k)` immediately
+    # coerces back to float (Fraction.__radd__ on a float operand returns a
+    # float), silently reintroducing the exact bug this was meant to avoid.
+    # Caught by an exhaustive small-profile parity check against the frontend
+    # engine, which uses exact integer (LCM-scaled) arithmetic and doesn't
+    # have this bug (Lot 4.3, PLAN_SOLIDITE_TECHNIQUE.md).
+    scores: "defaultdict[Any, Fraction]" = defaultdict(Fraction)
     for vote in votes:
         ranking = _get_ranking(vote, is_dict)
         for position, candidate in enumerate(ranking):

@@ -74,6 +74,50 @@ describe('engine parity — client ruleWinnerFromRanks == backend golden winners
   }
 });
 
+// ── Exhaustive small-profile domain (Lot 4.3, PLAN_SOLIDITE_TECHNIQUE.md) ──────
+// Every possible ordinal profile for n<=3 candidates and m<=5 voters (481 total,
+// see gen_engine_parity.py's generate_exhaustive_scenarios) — a PROOF over that
+// whole bounded domain, not a sample of it. Unlike the random scenarios above,
+// winners here are raw (not strict_winner-filtered): backend `None` must match
+// client `-1` exactly, including every tied/degenerate case. That's deliberate —
+// strict_winner's relabel-robustness filter would silently skip exactly the
+// profiles where 4 of the 5 real bugs this exhaustive check found were hiding.
+const exhaustive = (fixtureJson as { exhaustiveScenarios: Scenario[] }).exhaustiveScenarios;
+
+const preparedExhaustive = exhaustive.map((sc) => {
+  const idxOf: Record<string, number> = {};
+  sc.candidates.forEach((name, i) => (idxOf[name] = i));
+  return {
+    m: sc.candidates.length,
+    candidates: sc.candidates,
+    ranks: sc.ballots.map((b) => b.map((name) => idxOf[name])),
+    winners: sc.winners,
+  };
+});
+
+const EXHAUSTIVE_RULES = Object.keys(exhaustive[0].winners) as Rule[];
+
+function exhaustiveMismatchesFor(rule: Rule): string[] {
+  const out: string[] = [];
+  preparedExhaustive.forEach((s, i) => {
+    const expected = s.winners[rule];
+    const idx = ruleWinnerFromRanks(s.ranks, s.m, rule);
+    const got = idx >= 0 ? s.candidates[idx] : null;
+    if (got !== expected) out.push(`#${i}: client=${got} backend=${expected}`);
+  });
+  return out;
+}
+
+describe('engine parity — EXHAUSTIVE small-profile domain (n<=3 candidates, m<=5 voters)', () => {
+  it('covers the full n<=3, m<=5 domain', () => {
+    expect(preparedExhaustive.length).toBe(481);
+  });
+
+  it.each(EXHAUSTIVE_RULES)('%s matches the backend on EVERY profile, ties and all', (rule) => {
+    expect(exhaustiveMismatchesFor(rule)).toEqual([]);
+  });
+});
+
 // ── Cardinal rules (score / STAR) — same per-voter score matrix on both engines.
 // Approval (different ballot model) and MJ (different grade quantisation) are out
 // of scope for an input-identical comparison; see gen_engine_parity.py.

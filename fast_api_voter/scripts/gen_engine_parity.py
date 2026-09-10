@@ -16,6 +16,7 @@ reasons unrelated to the algorithm.
 
 from __future__ import annotations
 
+import itertools
 import json
 import os
 import random
@@ -46,8 +47,8 @@ from api.engine.utils.simulation_ranked_utils import (  # noqa: E402
     get_black_winner,
     get_borda_winner,
     get_bucklin_winner,
-    get_condorcet_winner,
     get_coombs_winner,
+    get_copeland_winner,
     get_dowdall_winner,
     get_irv_winner,
     get_kemeny_young_winner,
@@ -78,7 +79,16 @@ RULES = {
     "borda": get_borda_winner,
     "irv": get_irv_winner,
     "coombs": get_coombs_winner,
-    "condorcet": get_condorcet_winner,
+    # The client's "condorcet" rule is labelled "Condorcet (Copeland)" in
+    # RULE_LABELS and always resolves to a winner (Copeland's method, which
+    # elects the Condorcet winner when one exists but doesn't return None
+    # otherwise) -- get_condorcet_winner is the wrong backend twin: it's the
+    # strict criterion (Optional[str], often None). Every scenario here that
+    # used to compare against it happened to have a real Condorcet winner
+    # (where the two functions necessarily agree), so this was masked until
+    # an exhaustive small-profile comparison checked cases with none too
+    # (Lot 4.3, PLAN_SOLIDITE_TECHNIQUE.md).
+    "condorcet": get_copeland_winner,
     "minimax": get_minimax_winner,
     "schulze": get_schulze_winner,
     "bucklin": get_bucklin_winner,
@@ -158,6 +168,41 @@ def strict_winner_cardinal(fn, ballots, cands, rng):
     return base
 
 
+def generate_exhaustive_scenarios() -> list[dict]:
+    """Every possible ordinal profile for n<=3 candidates and m<=5 voters --
+    an exhaustive proof of parity over that whole bounded domain, not a
+    sample of it (Lot 4.3, PLAN_SOLIDITE_TECHNIQUE.md). Anonymity (already
+    established by test_anonymity.py) means only the MULTISET of ballots
+    matters, so `combinations_with_replacement` over the n! ballot types
+    enumerates the space without redundant voter-relabellings -- 481 profiles
+    total (20 for n=2, 461 for n=3), fully deterministic (itertools order,
+    no dict/set iteration), no PYTHONHASHSEED dependency.
+
+    Unlike the random scenarios above, winners here are RAW -- not run
+    through strict_winner's relabel-robustness filter. That filter exists to
+    stop "no comparable winner" ballast, but on a handful of large random
+    profiles it also silently skips every tied/degenerate case, which is
+    exactly where 4 of the 5 real bugs this exhaustive check found were
+    hiding (a fifth, `condorcet`, was a wrong function mapping -- see RULES
+    above). n=4 (an additional 98,280 profiles, ~60MB of JSON) was also
+    verified this way as a one-time pass during development -- 0 mismatches
+    after the fixes below -- but isn't committed here: regenerating it on
+    every PR would be slow for a domain size a smaller committed slice
+    already exercises the same bug CLASS on.
+    """
+    scenarios = []
+    for n in (2, 3):
+        cands = NAMES[:n]
+        ballot_types = list(itertools.permutations(cands))
+        k = len(ballot_types)
+        for m in range(1, 6):
+            for combo in itertools.combinations_with_replacement(range(k), m):
+                ballots = [list(ballot_types[i]) for i in combo]
+                winners = {rule: fn(ballots) for rule, fn in RULES.items()}
+                scenarios.append({"candidates": cands, "ballots": ballots, "winners": winners})
+    return scenarios
+
+
 def main() -> None:
     rng = random.Random(SEED)
     scenarios = []
@@ -184,18 +229,24 @@ def main() -> None:
                     {"candidates": cands, "scores": matrix, "winners": winners}
                 )
 
+    exhaustive_scenarios = generate_exhaustive_scenarios()
+
     payload = {
         "_generatedBy": "fast_api_voter/scripts/gen_engine_parity.py",
         "_seed": SEED,
         "_note": "Authoritative winners from the Python backend. Asserted by playgroundVoting.parity.test.ts.",
         "scenarios": scenarios,
         "cardinalScenarios": cardinal_scenarios,
+        "exhaustiveScenarios": exhaustive_scenarios,
     }
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(payload, f, indent=0)
         f.write("\n")
-    print(f"wrote {len(scenarios)} ordinal + {len(cardinal_scenarios)} cardinal scenarios -> {OUT}")
+    print(
+        f"wrote {len(scenarios)} ordinal + {len(cardinal_scenarios)} cardinal + "
+        f"{len(exhaustive_scenarios)} exhaustive (n<=3) scenarios -> {OUT}"
+    )
 
 
 if __name__ == "__main__":
