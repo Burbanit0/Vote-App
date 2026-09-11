@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './coverageFixtures';
 import { AxeBuilder } from '@axe-core/playwright';
 import { SURFACES, ANCHORS, assertEverySurfaceAnchored } from './routes';
 

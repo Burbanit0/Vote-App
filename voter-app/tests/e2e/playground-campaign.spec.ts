@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './coverageFixtures';
 
 // Moment 4 — Campagne. The same electorate played over time: candidates drift
 // under a scenario, and the timeline replays round by round. The scrubber is the

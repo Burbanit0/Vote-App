@@ -214,6 +214,12 @@ htmlcov/
 coverage.xml
 voter-app/coverage/
 
+# Runtime (e2e) coverage — Lot 6, PLAN_SOLIDITE_TECHNIQUE.md: diagnostic
+# artifacts from scripts/e2e_coverage.sh, regenerated on demand, never committed.
+fast_api_voter/htmlcov-e2e/
+voter-app/.nyc_output/
+voter-app/coverage-e2e/
+
 # ── Build artifacts (regeneratable) ─────────────────────────────────────────
 voter-app/build/
 

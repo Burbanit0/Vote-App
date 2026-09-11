@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './coverageFixtures';
 import { SURFACES, ANCHORS } from './routes';
 
 // The app ships FR (source of truth) and EN, and i18next renders a missing key

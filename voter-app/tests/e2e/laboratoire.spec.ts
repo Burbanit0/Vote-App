@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './coverageFixtures';
 
 // The Laboratoire is a rail of six families → a catalogue of ~57 fiches → one
 // full-width bench. Every fiche is a lazily-loaded module, so the sweep below is

@@ -630,7 +630,7 @@ lancées pendant ce développement : 0 flake trouvé.**
 
 | Item | Pourquoi ici | Effort | Solidité | Récit | Statut |
 |---|---|---|---|---|---|
-| **Couverture *runtime*** (Istanbul sur e2e + `coverage.py`) | Trouve le code jamais exécuté **même en usage réel** — angle mort total de vulture/knip qui sont statiques. Après avoir supprimé 16 500 lignes mortes, la question « qu'est-ce qui reste inatteignable ? » est légitime. | M | ⭐⭐⭐ | 📝📝📝 | ⏳ |
+| **Couverture *runtime*** (Istanbul sur e2e + `coverage.py`) | Trouve le code jamais exécuté **même en usage réel** — angle mort total de vulture/knip qui sont statiques. Après avoir supprimé 16 500 lignes mortes, la question « qu'est-ce qui reste inatteignable ? » est légitime. | M | ⭐⭐⭐ | 📝📝📝 | ✅ backend 34,4 %, frontend 63,15 % en usage réel (voir §6.5) |
 | **`basedpyright`/pyright** | Moteur d'inférence différent de mypy → attrape d'autres choses. Combien, sur un code déjà mypy-strict-clean ? Bonne question d'expérience. | S | ⭐⭐ | 📝📝📝 | ✅ 2 vrais bugs trouvés et corrigés (voir §6.2) |
 | **`refurb`** + **`perflint`** | Modernisation Python et anti-patterns de perf — pertinent sur un moteur CPU-bound. | S | ⭐ | 📝📝 | ✅ 145 + 85 findings, informationnel (voir §6.3) |
 | **`type-coverage`** (TS) | % de code réellement typé (les `any` implicites que `tsc` laisse passer). | S | ⭐⭐ | 📝📝 | ✅ 99,58 % (voir §6.4) |
@@ -861,6 +861,50 @@ qui écrirait un seuil dans `package.json`) qui rendrait une régression
 future bloquante à coût quasi nul — noté ici comme suite possible plutôt
 qu'ajouté maintenant, pour rester à la hauteur de l'effort `S` annoncé par
 cet item.
+
+### 6.5 — Couverture *runtime* : ce qui reste inatteignable en usage réel · `M` · ⭐⭐⭐ 📝📝📝
+
+✅ **Fait**, en script manuel (pas un gate CI — voir la justification dans
+le carnet). Backend : `coverage.py` autour d'un petit point d'entrée dédié
+(`fast_api_voter/scripts/run_e2e_coverage_server.py`) plutôt qu'autour
+d'`uvicorn` directement — nécessaire car `uvicorn` se re-signale lui-même
+en fin d'arrêt gracieux (idiome délibéré pour un code de sortie correct),
+ce qui contourne l'`atexit` dont dépend la sauvegarde de `coverage.py`, un
+piège qui aurait rendu tout le chantier silencieusement inopérant sans
+vérification directe (fichier `.coverage` absent malgré des logs d'arrêt
+parfaitement propres). Frontend : Istanbul (`vite-plugin-istanbul@9.0.1`),
+qui s'installe et fonctionne sans réserve sur **Vite 8.2.2** malgré
+l'avertissement du plan — l'écosystème a rattrapé Vite 8 depuis, et
+Istanbul a l'avantage de fonctionner sur les deux projets Playwright
+(chromium **et** firefox), contrairement à l'API V8 de Playwright
+(`page.coverage`, Chromium seulement) prévue comme repli.
+
+**La mesure** : sous la vraie suite e2e, le backend n'exécute que **34 %**
+de ses lignes (contre 91,56 % en unitaire) et le frontend **63 %** (contre
+87,05 %). Deux trouvailles concrètes, vérifiées à la main plutôt que
+prises pour argent comptant :
+
+- `api/domain/polity/*` (2 813 lignes, ~19 % du backend, ~99 % unitaire) :
+  **0 % e2e**, et pour cause — `api/main.py` n'enregistre aucune route
+  `polity` (`grep` direct, zéro résultat) et le frontend n'y fait aucune
+  référence. Un sous-système de recherche entier, entièrement testé,
+  structurellement hors du produit qu'un utilisateur réel touche.
+- `/simulation/compare` (retiré du routage vers `/playground` depuis
+  `voter-app/src/routes.ts`) a toujours une route backend vivante
+  (`POST /compare`, la couverture unitaire la **plus basse** du backend à
+  65 %, 7 % en e2e) et un hook frontend (`useDebouncedSimulation.ts`) à
+  100 % de fonctions couvertes par son propre test — et **invisible à
+  `knip`**, dont le graphe de reachabilité considère un import depuis un
+  fichier de test comme un usage valide. Ni la détection statique ni la
+  couverture unitaire, seules ou combinées, ne pouvaient signaler ce cas ;
+  il a fallu la question « une route le monte-t-elle réellement ? ».
+
+Détail complet (protocole, deux pièges de mécanisme trouvés et corrigés
+en vérifiant plutôt qu'en faisant confiance, chiffres par fichier, coût de
+l'instrumentation et pourquoi ça reste manuel) dans
+[EXP-003](docs/exploration/EXP-003-couverture-runtime-e2e.md).
+`scripts/e2e_coverage.sh` reste disponible pour une prochaine passe de
+nettoyage, à la demande.
 
 ---
 
