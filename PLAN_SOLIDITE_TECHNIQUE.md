@@ -1419,8 +1419,13 @@ négatif de l'attestation, pas supposé : `cosign verify-blob-attestation
 --check-claims=false` renvoyait `Verified OK` même sur le fichier saboté —
 ce flag désactive silencieusement la correspondance de hash sujet↔fichier,
 pas seulement des métadonnées GitHub annexes comme son nom le suggère ; retiré,
-la même vérification échoue bien (code 1). Détail complet, protocole et
-piège : [`docs/exploration/EXP-008-cosign-slsa-provenance-signing-scope.md`](docs/exploration/EXP-008-cosign-slsa-provenance-signing-scope.md).
+la même vérification échoue bien (code 1). **Confirmé en vrai depuis** : le
+merge de cet item a lui-même déclenché le premier run réel du job
+(`push` sur `develop`) — les quatre étapes (SBOM, install cosign, signature,
+attestation SLSA) sont passées avec succès pour les deux images, jeton OIDC
+GitHub Actions réel inclus, plus besoin de la réserve initiale. Détail
+complet, protocole et piège :
+[`docs/exploration/EXP-008-cosign-slsa-provenance-signing-scope.md`](docs/exploration/EXP-008-cosign-slsa-provenance-signing-scope.md).
 
 ---
 

@@ -194,10 +194,12 @@ seulement), mais chaque étape de signature elle-même n'a pas de
 (jeton OIDC mal scopé, action cassée), pas de la dette CVE à mettre en
 liste d'attente comme le Trivy de ce même job. Le chemin OIDC ambiant
 spécifique à GitHub Actions n'a pu être vérifié que structurellement
-(`actionlint`, comparaison directe aux exemples officiels actuels) — sa
-première exécution réelle aura lieu au premier run après merge sur
-`develop`, documenté honnêtement plutôt que présenté comme déjà prouvé de
-bout en bout.
+(`actionlint`, comparaison directe aux exemples officiels actuels) au moment
+d'écrire ces lignes — **confirmé depuis** : le merge de cet item a
+déclenché le premier `push` réel sur `develop`, et les quatre étapes
+(SBOM, install cosign, signature keyless, attestation SLSA) sont passées
+avec succès pour les deux images, jeton OIDC GitHub Actions réel inclus.
+Le chemin bout en bout est maintenant prouvé, pas seulement structurel.
 
 Si ce repo commence un jour à publier ses images (GHCR ou autre), les deux
 étapes ajoutées ici n'ont pas besoin d'être réécrites : `subject-path`
