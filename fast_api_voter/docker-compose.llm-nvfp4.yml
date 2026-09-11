@@ -1,0 +1,114 @@
+# docker-compose.llm-nvfp4.yml — the precision probe (lets-build-a-solid-
+# spicy-otter.md Track 0a), NOT a production serving config.
+#
+# WHY THIS FILE EXISTS
+#
+# Four explanations for representative_response/coalition_decision's
+# collapses have been tried: adversarial framing (eliminated,
+# plan-adversarial-framing-collapse.md), alignment/RLHF (eliminated,
+# check_base_vs_instruct_results.md), C3 missing scale (fixed one type of
+# five, polity-decision-contracts.md), model size (never tested). There is a
+# fifth, sitting unnoticed in check_base_vs_instruct_results.md's own data:
+# the ONE configuration that ever got representative_response right was
+# Qwen3-4B **bf16** (no collapse at all) -- the production 8B path is
+# **AWQ 4-bit**. Holding size fixed and varying only precision is the clean
+# test: Qwen3-8B NVFP4A16 vs the shipped Qwen3-8B-AWQ, same weights lineage,
+# same prompts, same two collapse probes.
+#
+# Checkpoint choice, verified before pulling (2026-09-11): ELVISIO/Qwen3-8B-
+# NVFP4A16 -- quantized directly from Qwen/Qwen3-8B (base_model:quantized
+# tag), compressed-tensors format, config.json's own quantization_config
+# confirms weight-only (`input_activations: null`, num_bits=4,
+# format="nvfp4-pack-quantized") -- the same W4A16 shape as awq_marlin, so
+# precision is the only axis that moves. Apache-2.0. Rejected
+# cortecs/Qwen3-8B-NVFP4A16: tagged `2:4-sparsity`, a second confounded
+# variable this probe does not want.
+#
+# Sequential arm, same port as docker-compose.llm.yml and docker-compose.
+# llm-4b.yml's own arms -- this GPU does not have headroom for two servers
+# at once, and the project's own precedent (llm-4b.yml) is "stop one, start
+# the other," never concurrent.
+#
+# Usage:
+#   docker compose -f docker-compose.llm.yml down          # free the AWQ arm
+#   docker compose -f docker-compose.llm-nvfp4.yml up -d
+#   POLITY_PROBE_MODEL=qwen3:8b-nvfp4a16 \
+#     .venv/bin/python scripts/check_logprob_response_stance_tracking.py
+#   POLITY_PROBE_MODEL=qwen3:8b-nvfp4a16 \
+#     .venv/bin/python scripts/check_logprob_coalition_action_tracking.py
+#   docker compose -f docker-compose.llm-nvfp4.yml down
+#   docker compose -f docker-compose.llm.yml up -d          # restore production
+#
+# Every flag that is NOT the model identity or --quantization is copied
+# verbatim from docker-compose.llm.yml: xgrammar + disable_any_whitespace,
+# --reasoning-parser qwen3, max-model-len 16384 (load-bearing, not
+# conservative -- see that file's own comment; campaign_positioning's output
+# budget alone reaches 9836 tokens), gpu-memory-utilization 0.80, seed 42,
+# the ngram speculative-config already proven lossless at temperature=0.
+# No --quantization flag: compressed-tensors format is declared in the
+# checkpoint's own config.json (quant_method), which is what awq_marlin's own
+# comment says vLLM does NOT reliably do for AWQ -- check the startup log for
+# which kernel it selects on this card before trusting a result.
+#
+# House rule this project earned the hard way (docker-compose.llm.yml's own
+# --max-model-len 24576 history): verify >=3 consecutive clean restarts
+# before trusting any serve config, not just one successful start.
+
+services:
+  vllm-nvfp4:
+    image: vllm/vllm-openai:v0.28.0   # identical server build to the shipped
+                                      # stack -- the serving layer must not be
+                                      # a variable in this comparison
+    container_name: vllm-polity-nvfp4
+    ports:
+      - "8000:8000"
+    ipc: host
+    volumes:
+      - huggingface_cache:/root/.cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 180s
+    command:
+      - "--model"
+      - "ELVISIO/Qwen3-8B-NVFP4A16"
+      - "--revision"
+      - "4d814053d02e7b7dffa5f6789e798eda3e06711e"   # pinned via the HF API
+                                                      # directly, 2026-09-11
+      - "--served-model-name"
+      - "qwen3:8b-nvfp4a16"          # deliberately distinct from qwen3:8b so
+                                     # a probe pointed at the wrong server
+                                     # fails loudly (404) instead of silently
+                                     # measuring the AWQ arm again
+      - "--reasoning-parser"
+      - "qwen3"
+      - "--structured-outputs-config"
+      - '{"backend": "xgrammar", "disable_any_whitespace": true}'
+      - "--max-model-len"
+      - "16384"
+      - "--gpu-memory-utilization"
+      - "0.80"
+      - "--port"
+      - "8000"
+      - "--seed"
+      - "42"
+      - "--speculative-config"
+      - '{"method": "ngram", "num_speculative_tokens": 5, "prompt_lookup_max": 4, "prompt_lookup_min": 2}'
+
+volumes:
+  huggingface_cache:
+    external: true
+    name: polity-vllm_huggingface_cache   # reuse the existing named volume
+                                          # (docker-compose.llm.yml) so the
+                                          # 5.7GB Qwen3-8B-AWQ download is not
+                                          # duplicated on disk, and this
+                                          # checkpoint is added alongside it
