@@ -110,7 +110,7 @@ class TestCatchAllHandlerReportsToSentry:
         `Exception` handler. `raise_server_exceptions=False` is required to
         see what a real client over HTTP actually receives; confirmed live
         against an actual `uvicorn` process too (see docs/exploration/
-        EXP-012 for the full trace).
+        EXP-013 for the full trace).
         """
         client = TestClient(app, raise_server_exceptions=False)
 
