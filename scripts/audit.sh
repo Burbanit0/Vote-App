@@ -248,6 +248,16 @@ if [ "$MODE" != "security" ]; then
     else
       note "⚠️ madge not found in $TS_DIR/node_modules (run \`npm install\` there)."
     fi
+
+    # --- TS/React type coverage: type-coverage ---
+    section "TypeScript type coverage (type-coverage, informational)"
+    if ( cd "$TS_DIR" && npx --no-install type-coverage --version >/dev/null 2>&1 ); then
+      ( cd "$TS_DIR" && npx --no-install type-coverage --detail ) \
+        > "$REPORT_DIR/type-coverage.txt" 2>&1
+      note "$(grep -oE '\([0-9]+ / [0-9]+\) [0-9.]+%' "$REPORT_DIR/type-coverage.txt" 2>/dev/null || echo 'see report'). See \`$REPORT_DIR/type-coverage.txt\`. Not gated — see PLAN_SOLIDITE_TECHNIQUE.md §6.4 (run via project node_modules, not bare \`npx type-coverage\` — the isolated npx cache resolves its own mismatched typescript and crashes)."
+    else
+      note "⚠️ type-coverage not found in $TS_DIR/node_modules (run \`npm install\` there)."
+    fi
   fi
 
   # --- Cross-language duplication: jscpd ---
