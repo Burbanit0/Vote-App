@@ -237,7 +237,6 @@ const PolarizationPanel: React.FC = () => {
 
   const trend = linearRegression(scatterPoints.map((p) => ({ x: p.x, y: p.y })));
 
-  // Threshold where condorcet rate < 70%
   const threshold = sorted.find((r) => r.condorcet_rate < 0.7);
 
   return (

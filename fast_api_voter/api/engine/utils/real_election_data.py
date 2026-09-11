@@ -340,8 +340,6 @@ def _ranking_to_score_dict(ranking: List[str]) -> Dict[str, float]:
     }
 
 
-# ── Analysis ───────────────────────────────────────────────────────────────
-
 def _run_methods(
     ranked_methods: Dict[str, Any],
     score_methods: Dict[str, Any],
@@ -399,7 +397,6 @@ def analyze_real_election(
 
     rankings = convert_to_rankings(election_name, election_data, num_voters)
 
-    # Real plurality winner (most first-round votes)
     plurality_winner: str = max(first_round, key=lambda k: first_round[k])
 
     # Ranked methods — blank_candidate_name is passed when blank is active

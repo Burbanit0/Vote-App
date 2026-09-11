@@ -11,7 +11,7 @@ import { useElection } from '../../stores/useElectionStore';
 import MethodGroupDonut from './MethodGroupDonut';
 import { $api } from '../../api/hooks';
 
-// ── SVG constants (same coord system as IdeologyMapChart) ─────────────────────
+// ── SVG constants (same [-1,1]→SVG coordinate convention used elsewhere in the app) ──
 
 const SVG_W = 400;
 const SVG_H = 400;

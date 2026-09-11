@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import MethodGroupDonut from '../MethodGroupDonut';
 import type { MethodGroup } from '../../../services/electionApi';
 
-// Mock Recharts — expose Cell dataKey for assertions
+// Mock Recharts — Cell exposes its fill via data-fill (tests only count instances)
 vi.mock('recharts', () => ({
   PieChart: ({ children }: any) => <div data-testid="pie-chart">{children}</div>,
   Pie: ({ children, data }: any) => (

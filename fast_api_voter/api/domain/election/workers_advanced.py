@@ -576,7 +576,6 @@ def _sortition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     voter_age: Dict[int, int] = {v["id"]: _age_group(d_rng.random()) for v in voters}
     voter_edu: Dict[int, int] = {v["id"]: (0 if d_rng.random() < 0.40 else 1) for v in voters}
 
-    # ── Metric helpers ────────────────────────────────────────────────────
     def _representativity(asm: set[Any]) -> float:
         if not asm:
             return 0.0
@@ -644,7 +643,6 @@ def _sortition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             },
         }
 
-    # ── Assembly constructors ─────────────────────────────────────────────
     def _elected_asm(rng: _random.Random) -> set[Any]:
         cand_n = min(assembly_size * 3, num_voters)
         if realistic_cands:
@@ -713,7 +711,6 @@ def _sortition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         "sortition_stratified": _asm_metrics(stratified_ids),
     }
 
-    # ── Winner by assembly ────────────────────────────────────────────────
     def _asm_winner(asm: set[Any]) -> Optional[str]:
         rnk = [
             sorted(sincere_utilities[vid].keys(), key=lambda k: -sincere_utilities[vid][k])

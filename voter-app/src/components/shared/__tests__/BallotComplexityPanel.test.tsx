@@ -118,8 +118,8 @@ describe('BallotComplexityPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
-    // Accept either /api/election/* (Flask) or /api/v2/election/* (FastAPI v2,
-    // default since Phase 3 batch 3).
+    // Component hardcodes /api/v2/election/ballot-complexity; the regex just
+    // tolerates an optional /v2/ prefix.
     expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?election\/ballot-complexity/),
       expect.any(Object)

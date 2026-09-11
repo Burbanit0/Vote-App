@@ -337,7 +337,8 @@ def create_voter(
         "preferred_party": random.choice(
             ["Green", "Conservative", "Liberal", "Independent"]
         ),
-        # More extreme = more likely to vote
+        # Turnout likelihood: age- and income-driven base rate (sample_likelihood_to_vote)
+        # plus the education boost computed above.
         "likelihood_to_vote": float(
             min(0.95, sample_likelihood_to_vote(age) + education_vote_boost)
         ),
@@ -740,7 +741,6 @@ def run_bandwagon_simulation(
     ]
 
     def _compute_round_state(vts: List[Voter], rnd: int) -> Dict[str, Any]:
-        # Utilities and sincere rankings
         utilities: Dict[Any, Dict[str, float]] = {
             v["id"]: {
                 c["name"]: calculate_utility(v, c, issues)["utility"] for c in candidates
@@ -761,7 +761,6 @@ def run_bandwagon_simulation(
         total_fc = sum(first_choices.values()) or 1
         poll_standings = {k: round(v / total_fc, 4) for k, v in first_choices.items()}
 
-        # Winner + Bayesian regret per method
         methods_data: Dict[str, Dict[str, Any]] = {}
         for method_name, method_fn in _METHODS.items():
             winner = method_fn(rankings)

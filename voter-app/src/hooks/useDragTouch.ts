@@ -17,7 +17,6 @@ export interface DragCallbacks {
   onStart: (x: number, y: number) => void;
   /** Called on each move while dragging. */
   onMove: (x: number, y: number) => void;
-  /** Called when the drag ends. */
   onEnd: () => void;
 }
 

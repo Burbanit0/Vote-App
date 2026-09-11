@@ -101,7 +101,6 @@ export function useDebouncedSimulation(
     prevCandidateCount.current = currentCount;
 
     if (countChanged) {
-      // Candidate added or removed → clear results immediately
       runIdRef.current++; // invalidate any in-flight request
       setResults([]);
       setError(null);

@@ -8,8 +8,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 
-// ── Types ───────────────────────────────────────────────────────────────────
-
 export type VoteMethod =
   'plurality' | 'borda' | 'irv' | 'two-round' | 'approval' | 'schulze' | 'star';
 

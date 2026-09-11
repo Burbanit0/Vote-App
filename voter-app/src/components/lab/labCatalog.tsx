@@ -4,8 +4,8 @@ import { usePlaygroundCtx } from '../playground/PlaygroundController';
 import { useElection } from '../../stores/useElectionStore';
 
 // labCatalog — the Laboratoire's entire content as DATA. One entry per
-// experiment: 48 former anchor leaves + the strategy panel split into its five
-// modules + ballot + values + the methods matrix and gallery = 57 fiches.
+// experiment: 53 former anchor leaves + the strategy panel split into its four
+// modules + ballot + values + the methods duel, matrix and gallery = 62 fiches.
 // The page (LaboratoirePage) is a thin reader: a family rail, a catalogue of
 // chips, and one full-width bench ("établi") that renders the selected entry —
 // so no experiment ever stacks under another and nothing mounts unpicked.
@@ -19,7 +19,6 @@ import { useElection } from '../../stores/useElectionStore';
 
 // ── Lazy panels (formerly spread across 8 anchor files) ─────────────────────
 
-// Méthodes
 const MethodDuel = lazyWithPreload(() => import('./MethodDuel'));
 const MethodsMatrix = lazyWithPreload(() => import('./MethodsMatrix'));
 const MethodGallery = lazyWithPreload(() => import('./MethodGallery'));

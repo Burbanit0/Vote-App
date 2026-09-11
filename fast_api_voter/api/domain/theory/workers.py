@@ -518,7 +518,6 @@ def _judgment_aggregation_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], 
     yes_pcts       = [c / num_voters for c in yes_counts]
     collective: List[bool] = [pct > 0.5 for pct in yes_pcts]
 
-    # ── Constraint check helper ───────────────────────────────────────────
     def _check(votes: List[bool], cstr: tuple[Any, ...]) -> bool:
         """Return True if votes satisfy the constraint."""
         prem_ids, conc_id, rule = cstr

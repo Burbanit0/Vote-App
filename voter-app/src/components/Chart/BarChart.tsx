@@ -10,7 +10,6 @@ const BarChart: React.FC<BarChartProps> = ({ data }) => {
 
   useEffect(() => {
     if (data && ref.current) {
-      // Clear previous rendering
       d3.select(ref.current).selectAll('*').remove();
 
       const svg = d3.select(ref.current);
