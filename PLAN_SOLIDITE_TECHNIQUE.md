@@ -1002,14 +1002,29 @@ seulement une liste blanche assez large pour ne jamais mordre.
 
 ## Lot 7 — Surfaces perçues par l'utilisateur
 
-| Item | Pourquoi ici | Effort | Solidité | Récit |
-|---|---|---|---|---|
-| **a11y sur *toutes* les routes** | `routes.ts` est déjà « data » — boucler dessus et échouer si une surface n'est pas auditée, même mécanique que l'anti-rot e2e existant. | M | ⭐⭐⭐ | 📝📝 |
-| **Régression visuelle** (Playwright screenshots / Lost Pixel) | L'app est quasi entièrement visuelle (SVG, cartes, Recharts) et **rien** ne détecte qu'une carte s'affiche de travers. | M | ⭐⭐⭐ | 📝📝📝 |
-| **Viewport mobile en e2e** | App pédagogique → usage mobile probable, zéro test mobile aujourd'hui. | M | ⭐⭐ | 📝📝 |
-| **`i18next-parser`** + `eslint-plugin-i18next` | Clés orphelines/manquantes et chaînes en dur (5 encore trouvées à la main le 06/09). | M | ⭐⭐ | 📝📝 |
-| **Pseudo-locale à chaînes longues** | Casse les layouts avant que l'anglais ou une future langue ne le fasse. | S | ⭐⭐ | 📝📝📝 |
-| **Webkit en e2e** | Seuls chromium et firefox tournent aujourd'hui. | S | ⭐⭐ | 📝 |
+| Item | Pourquoi ici | Effort | Solidité | Récit | Statut |
+|---|---|---|---|---|---|
+| **a11y sur *toutes* les routes** | `routes.ts` est déjà « data » — boucler dessus et échouer si une surface n'est pas auditée, même mécanique que l'anti-rot e2e existant. | M | ⭐⭐⭐ | 📝📝 | ✅ déjà fait (voir sous le tableau) |
+| **Régression visuelle** (Playwright screenshots / Lost Pixel) | L'app est quasi entièrement visuelle (SVG, cartes, Recharts) et **rien** ne détecte qu'une carte s'affiche de travers. | M | ⭐⭐⭐ | 📝📝📝 | ⏳ |
+| **Viewport mobile en e2e** | App pédagogique → usage mobile probable, zéro test mobile aujourd'hui. | M | ⭐⭐ | 📝📝 | ⏳ |
+| **`i18next-parser`** + `eslint-plugin-i18next` | Clés orphelines/manquantes et chaînes en dur (5 encore trouvées à la main le 06/09). | M | ⭐⭐ | 📝📝 | ⏳ |
+| **Pseudo-locale à chaînes longues** | Casse les layouts avant que l'anglais ou une future langue ne le fasse. | S | ⭐⭐ | 📝📝📝 | ⏳ |
+| **Webkit en e2e** | Seuls chromium et firefox tournent aujourd'hui. | S | ⭐⭐ | 📝 | ⏳ |
+
+**a11y sur toutes les routes, détail.** Vérifié avant de commencer à
+construire quoi que ce soit (même discipline que le Lot 4.5) : le mécanisme
+décrit par cet item — boucler sur `routes.ts`, échouer si une surface n'a
+pas d'ancre — **existe déjà**, écrit le 2026-08-22
+(`test(e2e): make the route table the single source of truth`, avant même
+ce plan) et étendu le 2026-09-06. `tests/e2e/accessibility.spec.ts` audite
+avec `axe-core` (WCAG 2.1 AA) chacune des 5 `SURFACES` de `src/routes.ts`
+individuellement, plus `assertEverySurfaceAnchored()` qui fait échouer la
+suite si une route est ajoutée sans ancre `data-testid`, plus le mode sombre
+du playground et l'opérabilité clavier (rail des moments, candidats/partis
+déplaçables aux flèches). Rejoué en direct : **10/10 tests passent**
+(`npx playwright test tests/e2e/accessibility.spec.ts`, ~15s). Rien à
+construire — l'écart entre l'intitulé de cet item et l'état réel du code
+n'avait simplement jamais été vérifié.
 
 ---
 
