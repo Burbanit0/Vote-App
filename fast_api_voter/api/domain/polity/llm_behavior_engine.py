@@ -155,6 +155,7 @@ from api.domain.polity.codebook import (
     VOTE_MOTIF_PROMPT_TABLE,
     CoalitionAction,
     EventType,
+    PartyNominationMotif,
     ReactionMotif,
     VoteMotif,
     check_codebook_version,
@@ -203,6 +204,7 @@ from api.domain.polity.simple_rules import (
     build_ranking,
     candidate_label,
     citizen_id_from_label,
+    select_party_nominee_from_declared,
     sympathizer_ratio,
     tiebreak_key,
     weighted_distance,
@@ -1792,9 +1794,35 @@ def resolve_party_nomination_cid(decision: PartyNominationDecision, members: Seq
     """Translates decision.winner_position (1-indexed position into
     `members`, sorted by citizen_id) back to a real cid -- same purpose as
     resolve_ranking_cids, scoped to one contested party's own candidate
-    sub-list instead of the full candidate list."""
+    sub-list instead of the full candidate list. Caller must validate
+    decision.winner_position against len(members) first (validate_party_
+    nomination_decision) -- this function trusts its input and indexes
+    unconditionally, same discipline as resolve_ranking_cids."""
     ordered = sorted_candidates(members)
     return ordered[decision.winner_position - 1].citizen_id
+
+
+def validate_party_nomination_decision(decision: PartyNominationDecision, members: Sequence[Citizen]) -> None:
+    """PartyNominationDecision.winner_position's own schema only enforces
+    `>= 1` (Field(ge=1)) -- the upper bound is per-party and dynamic (each
+    contested party has its own candidate count), so it can't be encoded
+    in the static schema, same reasoning vote_cast's own truncation limit
+    (§3.6.1) needed a post-hoc check for. Found live, 2026-09-10
+    (plan-flagship-30y-run.md Phase 7 Stage 3, population 500): an
+    unguarded `resolve_party_nomination_cid` raised a raw IndexError and
+    crashed the whole run the first time a contested party's own
+    winner_position genuinely exceeded its candidate count -- never
+    exercised before at the shipped parties.initial_count=5 scale, where
+    contested parties rarely have enough declared candidates to trigger
+    it. Raises LlmResponseError (never lets the IndexError escape raw) so
+    decide_party_nominations's own caller can fall back instead of
+    aborting the run, mirroring cast_votes's "must not die mid-run"
+    priority for the exact same class of out-of-range-position failure."""
+    if not 1 <= decision.winner_position <= len(members):
+        raise LlmResponseError(
+            f"party {decision.party_id}: winner_position={decision.winner_position} is out of range for "
+            f"its own {len(members)} declared candidate(s)"
+        )
 
 
 def decide_party_nominations(
@@ -1825,7 +1853,18 @@ def decide_party_nominations(
     failure (finish_reason='length', zero visible content) regardless of
     batch size -- the bug tracks the *subjective, comparative-judgment*
     prompt shape ("which of these is best"), not batch size. See
-    ollama_structured_output_results.md's Finding E."""
+    ollama_structured_output_results.md's Finding E.
+
+    Falls back to select_party_nominee_from_declared's deterministic
+    highest-ambition tiebreak, for EVERY contested party in this call, if
+    ANY decision fails validate_party_nomination_decision (found live,
+    2026-09-10, plan-flagship-30y-run.md Phase 7 Stage 3 at population
+    500 -- see that validator's own docstring) -- same whole-batch-falls-
+    together granularity cast_votes already uses per chunk, not a
+    per-party retry. The fallback motif (HIGHEST_AMBITION) is not a
+    placeholder: it is the exact classification that tiebreak actually
+    used, computed structurally instead of by model judgment, same
+    honesty discipline as _deterministic_vote_fallback's own motif."""
     _check_supported(config)
 
     parties_by_id = {party.party_id: party for party in parties}
@@ -1853,8 +1892,27 @@ def decide_party_nominations(
         replays=config.llm.max_batch_replays,
         decision_type="party_nomination_choice",
     )
-    winners = {decision.party_id: resolve_party_nomination_cid(decision, contested[decision.party_id])
-               for decision in decisions}
+    try:
+        for decision in decisions:
+            validate_party_nomination_decision(decision, contested[decision.party_id])
+        winners = {decision.party_id: resolve_party_nomination_cid(decision, contested[decision.party_id])
+                   for decision in decisions}
+    except LlmResponseError as exc:
+        _logger.error(
+            "party_nomination_choice: winner_position out of range for party_id(s) %s, falling back to the "
+            "deterministic highest-ambition tiebreak for every contested party this tick instead of "
+            "aborting the run: %s", expected_party_ids, exc,
+        )
+        decisions = []
+        winners = {}
+        for party_id, members in contested.items():
+            nominee = select_party_nominee_from_declared(party_id, list(citizens), declared_cids)
+            assert nominee is not None  # contested parties always have >=2 declared members
+            position = sorted_candidates(members).index(nominee) + 1
+            decisions.append(
+                PartyNominationDecision(party_id=party_id, winner_position=position, motif=PartyNominationMotif.HIGHEST_AMBITION)
+            )
+            winners[party_id] = nominee.citizen_id
 
     return PartyNominationBatchOutcome(decisions=decisions, winners=winners)
 

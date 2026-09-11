@@ -1109,6 +1109,31 @@ def test_decide_party_nominations_resolves_winner_position_back_to_the_right_cid
     assert outcome.decisions[0].motif == 206
 
 
+def test_decide_party_nominations_falls_back_to_deterministic_tiebreak_on_an_out_of_range_position():
+    # Live finding, 2026-09-10 (plan-flagship-30y-run.md Phase 7 Stage 3, population 500): an
+    # unguarded resolve_party_nomination_cid raised a raw IndexError and crashed the whole run the
+    # first time winner_position genuinely exceeded a party's own candidate count -- never
+    # exercised before at the shipped parties.initial_count=5 scale. This pins the fix: fall back
+    # to select_party_nominee_from_declared's own highest-ambition tiebreak instead of crashing.
+    class BadPositionClient:
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+            payload = json.loads(user_prompt)
+            decisions = [{"party_id": p["party_id"], "winner_position": 99, "motif": 206} for p in payload["parties"]]
+            return json.dumps({"decisions": decisions})
+
+    citizens = [_citizen_with_ambition(0, 0.9), _citizen_with_ambition(1, 0.1), _citizen_with_ambition(2, 0.5)]
+    for c in citizens:
+        c.party_affiliation = 0
+    parties = [_party(0, (0.5,))]
+    config = _config_with_llm_enabled()
+
+    outcome = decide_party_nominations(citizens, parties, {0, 1, 2}, config, BadPositionClient())
+
+    assert outcome.winners == {0: 0}  # citizen 0 has the highest ambition_score
+    assert outcome.decisions[0].motif == 206  # HIGHEST_AMBITION -- the real classification, not a placeholder
+    assert outcome.decisions[0].winner_position == 1  # citizen 0's own real position, not the bogus 99
+
+
 def test_decide_party_nominations_raises_notimplementederror_for_unsupported_provider():
     citizens = _population(2)
     config = _config_with_llm_enabled()
