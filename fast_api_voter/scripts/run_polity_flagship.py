@@ -87,6 +87,7 @@ import dataclasses
 import json
 import logging
 import shutil
+import signal
 import sys
 import time
 from collections import Counter
@@ -97,6 +98,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from api.domain.polity.config import PolityConfig, load_config  # noqa: E402
 from api.domain.polity.indexer import RunMetrics, index_run  # noqa: E402
+from api.domain.polity.run_digest import write_digest  # noqa: E402
 from api.domain.polity.viz_export import export_run  # noqa: E402
 from api.domain.polity.run_polity_simulation import run_simulation  # noqa: E402
 
@@ -275,6 +277,67 @@ def _count_llm_decisions(journal_path: Path) -> dict[str, int]:
     return dict(sorted(counts.items()))
 
 
+def _write_digest_safely(
+    journal_path: Path,
+    config: PolityConfig,
+    *,
+    run_id: str,
+    outcome: str,
+    resume: bool,
+    elapsed_seconds: float,
+    error: BaseException | None,
+) -> None:
+    """A digest must never be the reason a run fails, and must never mask the
+    real error on the failure path -- the same guarantee scripts/
+    git_commit_capture.py gives a commit ("never blocks a commit over this",
+    prints a non-fatal line to stderr and returns). Note the failure path calls
+    this while an exception is already in flight, so a raise here would REPLACE
+    the real cause with a bookkeeping error: the single worst outcome
+    available."""
+    try:
+        digest_path = write_digest(
+            journal_path, config, run_id=run_id, outcome=outcome,
+            resume=resume, elapsed_seconds=elapsed_seconds, error=error,
+        )
+    except Exception as exc:  # never block or mask a run over bookkeeping
+        print(f"[run_digest] non-fatal: {exc}", file=sys.stderr, flush=True)
+        return
+    print(f"[run_digest] {outcome}: {digest_path}", file=sys.stderr, flush=True)
+
+
+class _Terminated(BaseException):
+    """Raised by the SIGTERM handler so a terminated run lands in the same
+    `except BaseException` as Ctrl-C. BaseException, not Exception, for the
+    same reason KeyboardInterrupt is one: this is not an error the simulation
+    should ever be tempted to catch and continue through."""
+
+
+_termination_requested = False
+"""Set by the SIGTERM handler, and the real basis for calling a run
+"interrupted" rather than "crashed".
+
+Classifying on the exception type alone is not enough, measured: a SIGTERM that
+lands while `compact_run` is inside DuckDB comes back out as
+`RuntimeError: Query interrupted` -- DuckDB catches the signal itself and
+converts it -- so the `_Terminated` never reaches us and an operator-requested
+stop would be filed as a crash. The flag says what actually happened (somebody
+asked this process to stop) independently of which exception the stack
+happened to surface."""
+
+
+def _raise_terminated(signum: int, frame: Any) -> None:
+    global _termination_requested
+    _termination_requested = True
+    raise _Terminated(f"received signal {signum}")
+
+
+def _interrupted(exc: BaseException) -> bool:
+    """A stop someone asked for (Ctrl-C or SIGTERM), as opposed to a genuine
+    failure -- see `_termination_requested` for why the flag, not the exception
+    type, is what settles it."""
+    return _termination_requested or isinstance(exc, (KeyboardInterrupt, _Terminated))
+
+
 def run_flagship(
     *,
     engine: str,
@@ -360,13 +423,34 @@ def run_flagship(
     )
 
     start = time.monotonic()
+    # run_simulation's own journal path, computed here so the failure path can
+    # still find it: on a crash the assignment below never happens, but the
+    # journal it was writing to is deterministic (run_polity_simulation.py:517-519).
+    expected_journal = Path(config.journal.output_dir) / run_id / "events.jsonl"
     try:
         journal_path = run_simulation(config, run_id=run_id, llm_client=None, resume=resume)
+    except BaseException as exc:
+        # BaseException, not Exception: KeyboardInterrupt (Ctrl-C) and the
+        # SIGTERM handler installed in main() both raise outside Exception, and
+        # an interrupted run is exactly the case a digest exists for. The
+        # digest is written, then the error re-raised untouched -- this changes
+        # what a failed run LEAVES BEHIND, never what it reports.
+        _write_digest_safely(
+            expected_journal, config, run_id=run_id,
+            outcome="interrupted" if _interrupted(exc) else "crashed",
+            resume=resume, elapsed_seconds=time.monotonic() - start, error=exc,
+        )
+        raise
     finally:
         elapsed = time.monotonic() - start
         if replay_handler is not None:
             logging.getLogger("api.domain.polity.llm_behavior_engine").removeHandler(replay_handler)
             replay_handler.close()
+
+    _write_digest_safely(
+        journal_path, config, run_id=run_id, outcome="completed",
+        resume=resume, elapsed_seconds=elapsed, error=None,
+    )
 
     replay_count = 0
     replays_log = run_dir / "replays.log"
@@ -455,6 +539,15 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.force and args.resume:
         parser.error("--force and --resume are mutually exclusive -- --force destroys the run --resume continues")
+
+    # SIGTERM's default disposition kills the process outright -- no `finally`
+    # runs, so without this a terminated run leaves nothing behind at all
+    # (exactly what happened to the 2026-09-11 scale probe). Raising instead
+    # routes it into run_flagship's own `except BaseException`, which writes
+    # the digest and re-raises. SIGKILL and a power cut remain uncatchable by
+    # anything, by design of the OS -- that gap is covered by the catch-up scan
+    # in .claude/hooks/notify_run_digest.py, not here.
+    signal.signal(signal.SIGTERM, _raise_terminated)
 
     run_flagship(
         engine=args.engine,
