@@ -1769,7 +1769,7 @@ existe déjà et dépasse même la cible.
 |---|---|---|---|---|---|
 | **Sentry ou GlitchTip** | Le handler global ajouté le 06/09 *logge* — mais personne ne lit les logs d'une app pédagogique. Sans collecteur, ce travail ne sert à rien en pratique. | M | ⭐⭐⭐ | 📝📝 | ✅ GlitchTip self-hébergé (`docker-compose.observability.yml`), `sentry-sdk` — voir détail sous le tableau |
 | **OpenTelemetry** | Traces par endpoint, temps réel par méthode de vote — alimente aussi le Lot 8. | L | ⭐⭐ | 📝📝📝 | — |
-| **`/metrics` Prometheus** + readiness/liveness distincts | `/health` existe mais reste binaire. | M | ⭐⭐ | 📝 | — |
+| **`/metrics` Prometheus** + readiness/liveness distincts | `/health` existe mais reste binaire. | M | ⭐⭐ | 📝 | ✅ `prometheus-fastapi-instrumentator` sur `/api/v2/metrics` + `/health/live`/`/health/ready` additifs (voir sous le tableau) |
 
 **GlitchTip, détail.** Choix explicite (self-hébergé, jamais Sentry SaaS) mis
 en service pour de vrai et vérifié contre une instance réelle — même
@@ -1798,6 +1798,55 @@ True)` masquant le comportement réel d'un handler `Exception` global :
 [`docs/exploration/EXP-013-glitchtip-self-hosted-error-tracking.md`](docs/exploration/EXP-013-glitchtip-self-hosted-error-tracking.md).
 Test de régression automatisé :
 `fast_api_voter/api/tests/test_error_tracking.py`.
+
+**`/metrics` Prometheus + readiness/liveness, détail.**
+`prometheus-fastapi-instrumentator` retenu sur `prometheus_client` nu après
+vérification de maintenance en direct (`gh api`, pas la notoriété du nom) :
+dépôt non archivé, dernier push 2026-09-08 (3 jours avant l'écriture de cet
+item), release PyPI 8.1.0 datée du 26/07/2026, 1 486 étoiles — dépend en
+interne du `prometheus_client` officiel, ne réinvente pas le format
+d'exposition. `/api/v2/metrics` expose les métriques HTTP par défaut de la
+bibliothèque (`http_requests_total`, `http_request_duration_seconds`, etc.)
+par template de chemin + méthode + statut — vérifié en direct que les
+compteurs bougent vraiment (`http_requests_total{handler="/api/v2/health"}`
+1.0 → 3.0 après deux appels supplémentaires), pas juste que l'endpoint
+répond.
+
+`/api/v2/health` **inchangé** (`fly.toml` le cible en dur pour son
+`[[http_service.checks]]` de production — non touché). `/api/v2/health/live`
+(zéro check, quasi jamais en échec) et `/api/v2/health/ready` (réutilise
+`_check_redis()` sans dupliquer sa logique) ajoutés à côté, additifs.
+Sémantique de readiness pensée contre la topologie réelle de cette app
+plutôt que le pattern k8s générique copié tel quel : Redis y est déjà conçu
+comme optionnel et dégradant gracieusement (`_check_redis()` distingue
+« non configuré » de « configuré mais injoignable ») — un `REDIS_URL` absent
+est précisément le déploiement de production documenté par `fly.toml`
+(« Stateless: no Redis... required »), donc la seule vraie panne que
+`/health/ready` peut détecter est celle que `_check_redis()` savait déjà
+nommer. Vérifié en direct contre une vraie panne simulée (`REDIS_URL` pointé
+sur un hôte injoignable) : `/health` et `/health/ready` passent à 503,
+`/health/live` reste 200 sans latence ajoutée — la séparation fait ce
+qu'elle est censée faire.
+
+Garde d'authentification optionnelle sur `/metrics` (`METRICS_AUTH_TOKEN`,
+même posture « non configuré = ouvert » que Redis) : le scan ZAP baseline du
+Lot 9 (EXP-010) cible `/api/v2/docs` avec le spider traditionnel, qui ne suit
+que les liens HTML bruts de la page rendue — `/metrics` n'y est jamais
+référencé, donc cette garde reste la seule vérification connue sur ce
+chemin, pas une doublure du DAST déjà en place.
+
+Deux trouvailles réelles avant la mise en service, toutes deux corrigées :
+un `Content-Type` non documenté sur `/metrics` capturé par le Schemathesis
+du Lot 3 (le handler construit sa propre `Response`, hors de l'inférence
+`response_model` habituelle de FastAPI — corrigé en déclarant
+`CONTENT_TYPE_LATEST`, importé de `prometheus_client`, dans les `responses`
+de la route) et un rejet du gate de licences du Lot 6.7 sur la nouvelle
+dépendance de production (`ISC` et `Apache-2.0 AND BSD-2-Clause`, deux
+graphies absentes de l'allow-list existante malgré des licences déjà
+individuellement acceptées — corrigé après vérification que ISC est bien
+une licence permissive approuvée OSI). Détail complet, protocole et
+raisonnement sur la sémantique readiness :
+[`docs/exploration/EXP-012-prometheus-metrics-and-health-split.md`](docs/exploration/EXP-012-prometheus-metrics-and-health-split.md).
 
 ---
 

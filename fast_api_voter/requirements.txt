@@ -12,6 +12,19 @@ pydantic-settings==2.15.0      # 12-factor env config for api/core/config.py (2.
 # ── Cache ────────────────────────────────────────────────────────────────────
 redis==8.1.0
 
+# ── Observability (Lot 10, PLAN_SOLIDITE_TECHNIQUE.md — "/metrics Prometheus")
+prometheus-fastapi-instrumentator==8.1.0  # FastAPI-specific wrapper around the
+                                # official prometheus_client (pulled in transitively) --
+                                # auto-registers default HTTP request-count/latency
+                                # metrics instead of hand-rolling a middleware.
+                                # Checked before adopting (not assumed from name
+                                # recognition): not archived, pushed 2026-09-08 (3 days
+                                # before this was written), 1486 stars, ISC license (OSI
+                                # permissive, added to scripts/check_license_compliance.sh's
+                                # allow-list alongside prometheus_client's own
+                                # "Apache-2.0 AND BSD-2-Clause"). See
+                                # docs/exploration/EXP-012-prometheus-metrics-and-health-split.md.
+
 # ── Utilities ────────────────────────────────────────────────────────────────
 python-dotenv==1.2.3          # 1.2.2: GHSA-mf9w-mj56-hr94 (set_key symlink-follow)
 structlog==26.1.0              # JSON structured logging (api/engine/utils/logger.py)
