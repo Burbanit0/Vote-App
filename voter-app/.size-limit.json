@@ -1,0 +1,7 @@
+[
+  {
+    "name": "Total bundle (JS + CSS, gzip)",
+    "path": ["build/assets/*.js", "build/assets/*.css"],
+    "limit": "1 MB"
+  }
+]
