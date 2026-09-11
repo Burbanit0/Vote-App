@@ -1765,11 +1765,39 @@ existe déjà et dépasse même la cible.
 
 ## Lot 10 — Observabilité
 
-| Item | Pourquoi ici | Effort | Solidité | Récit |
-|---|---|---|---|---|
-| **Sentry ou GlitchTip** | Le handler global ajouté le 06/09 *logge* — mais personne ne lit les logs d'une app pédagogique. Sans collecteur, ce travail ne sert à rien en pratique. | M | ⭐⭐⭐ | 📝📝 |
-| **OpenTelemetry** | Traces par endpoint, temps réel par méthode de vote — alimente aussi le Lot 8. | L | ⭐⭐ | 📝📝📝 |
-| **`/metrics` Prometheus** + readiness/liveness distincts | `/health` existe mais reste binaire. | M | ⭐⭐ | 📝 |
+| Item | Pourquoi ici | Effort | Solidité | Récit | Statut |
+|---|---|---|---|---|---|
+| **Sentry ou GlitchTip** | Le handler global ajouté le 06/09 *logge* — mais personne ne lit les logs d'une app pédagogique. Sans collecteur, ce travail ne sert à rien en pratique. | M | ⭐⭐⭐ | 📝📝 | ✅ GlitchTip self-hébergé (`docker-compose.observability.yml`), `sentry-sdk` — voir détail sous le tableau |
+| **OpenTelemetry** | Traces par endpoint, temps réel par méthode de vote — alimente aussi le Lot 8. | L | ⭐⭐ | 📝📝📝 | — |
+| **`/metrics` Prometheus** + readiness/liveness distincts | `/health` existe mais reste binaire. | M | ⭐⭐ | 📝 | — |
+
+**GlitchTip, détail.** Choix explicite (self-hébergé, jamais Sentry SaaS) mis
+en service pour de vrai et vérifié contre une instance réelle — même
+discipline que le reste de ce plan (EXP-004/EXP-006 : prouver, pas supposer).
+`fast_api_voter/docker-compose.observability.yml` (opt-in, même précédent que
+`docker-compose.llm.yml`) démarre postgres + valkey + `glitchtip/glitchtip:
+6.2.6` en `SERVER_ROLE=all_in_one` — l'architecture réelle de GlitchTip v6
+n'a plus de services `migrate`/`worker` séparés (les migrations et le worker
+tournent dans le même conteneur que le web), contrairement à l'hypothèse de
+départ de cet item, corrigée en vérifiant le compose officiel réel
+(`glitchtip.com/assets/compose.sample.yml`) plutôt qu'en la supposant. Côté
+app, `sentry_sdk.init()` (`fast_api_voter/api/main.py`) gated sur
+`GLITCHTIP_DSN` (vide = désactivé, même contrat que `REDIS_URL`) — sans
+intégration explicite `FastApiIntegration`/`StarletteIntegration` : sentry-sdk
+les auto-active en détectant les paquets installés, confirmé en lisant les
+tracebacks réels d'événements capturés. Vérifié en direct contre une vraie
+instance (créée via `./manage.py bootstrap_dev`, découvert en listant les
+commandes Django disponibles plutôt que de deviner signup UI ou
+`createsuperuser`) : le handler catch-all **et** une erreur déjà catchée en
+interne par un worker (`api/domain/public.py`) remontent tous les deux
+jusqu'à GlitchTip, confirmé via son API (`/api/0/organizations/<org>/
+issues/`, 4 issues réelles) — sans modifier le code d'erreur d'aucun worker.
+Détail complet, y compris la double-capture (LoggingIntegration + intégration
+framework auto-activée) et le piège `TestClient(raise_server_exceptions=
+True)` masquant le comportement réel d'un handler `Exception` global :
+[`docs/exploration/EXP-013-glitchtip-self-hosted-error-tracking.md`](docs/exploration/EXP-013-glitchtip-self-hosted-error-tracking.md).
+Test de régression automatisé :
+`fast_api_voter/api/tests/test_error_tracking.py`.
 
 ---
 

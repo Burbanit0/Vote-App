@@ -45,6 +45,14 @@ class Settings(BaseSettings):
     # ── Logging ─────────────────────────────────────────────────────────────
     log_level: str = Field(default="INFO")
 
+    # ── Error tracking (Lot 10.1, PLAN_SOLIDITE_TECHNIQUE.md) ─────────────────
+    # Self-hosted GlitchTip (docker-compose.observability.yml), never Sentry
+    # SaaS — an empty DSN means "disabled, no error", same optional-dependency
+    # pattern as redis_url above (see api/routes/health.py's _check_redis
+    # comment). sentry-sdk is the correct client either way: GlitchTip
+    # implements the same event-ingestion API, only the DSN host differs.
+    glitchtip_dsn: str = Field(default="")
+
     # ── Derived ─────────────────────────────────────────────────────────────
     @property
     def is_production(self) -> bool:

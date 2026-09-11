@@ -17,6 +17,7 @@ import time
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator, Awaitable, Callable
 
+import sentry_sdk
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -31,7 +32,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from api.engine.utils.logger import configure_logging, get_logger
-from api.core.config import get_settings
+from api.core.config import Settings, get_settings
 from api.core.ratelimit import limiter
 from api.routes import election as election_routes
 from api.routes import export as export_routes
@@ -59,6 +60,29 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     yield
     log.info("api.shutdown")
+
+
+# ── Error tracking (Lot 10.1, PLAN_SOLIDITE_TECHNIQUE.md) ────────────────────
+# Self-hosted GlitchTip (docker-compose.observability.yml), never Sentry SaaS.
+# Empty GLITCHTIP_DSN (the default) means "disabled, no error" — same
+# optional-dependency pattern as REDIS_URL (api/routes/health.py's
+# _check_redis comment). No explicit `integrations=[...]` needed: sentry-sdk
+# auto-detects installed frameworks ("auto-enabling integrations") and wires
+# up FastAPI + Starlette on its own — verified live against sentry-sdk
+# 2.69.1, not assumed. That, plus its default LoggingIntegration, means a
+# single call captures BOTH an exception that reaches this file's catch-all
+# handler below AND every already-existing `log.error(..., exc_info=True)`
+# call inside a domain worker's own try/except (api/domain/**), with zero
+# per-file changes — confirmed live (see api/tests/test_error_tracking.py and
+# docs/exploration/EXP-012).
+def _init_sentry(settings: Settings) -> None:
+    if settings.glitchtip_dsn:
+        sentry_sdk.init(dsn=settings.glitchtip_dsn, environment=settings.app_env)
+
+
+# Must run before `FastAPI(...)` so instrumentation is live for the very
+# first request.
+_init_sentry(get_settings())
 
 
 app = FastAPI(
