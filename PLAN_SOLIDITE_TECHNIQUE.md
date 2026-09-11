@@ -500,6 +500,50 @@ Paradoxe de Condorcet, exemples de manipulation Borda, profils de Saari…
 chaque exemple classique devient une fixture nommée et sourcée (clé BibTeX de
 `docs/research/`). Double emploi test + pédagogie.
 
+✅ **Fait.** Avant d'écrire quoi que ce soit, vérifié que le cas le plus
+évident (une élection réelle où méthode ⇒ vainqueur différent) était déjà
+couvert : le backtest Burlington 2009 / Alaska 2022 (`voter-app/src/lib/
+realElections.ts`, sourcé PrefLib 00005 et arXiv:2303.00108) existe déjà,
+testé, cité — refaire la même chose aurait été du travail en double. Le
+vrai trou était les **exemples synthétiques classiques**, absents des deux
+moteurs. Quatre ajoutés dans
+`fast_api_voter/api/tests/test_literature_counterexamples.py`, chacun
+vérifié à la main avant d'être committé, chacun sourcé (nouvelles clés
+BibTeX `saari1995`, `tideman1987`, `fishburn_brams1983` ajoutées à
+`docs/research/bibliography.bib` **et** à `THEORY.md` §11, qui les partage) :
+
+- **Paradoxe de Condorcet** (Condorcet, 1785, déjà cité) — le cycle
+  fondateur à 3 électeurs/3 candidats, déjà décrit en THEORY.md §4.1,
+  maintenant testé et lié depuis là.
+- **Désaccord des règles positionnelles** (Saari, 1995) — un profil minimal
+  de 4 bulletins (trouvé par recherche exhaustive sur tous les profils
+  jusqu'à 17 bulletins) où pluralité, Borda et anti-pluralité élisent
+  chacune un candidat différent sur les mêmes préférences. Nouvelle
+  sous-section THEORY.md §4.5.
+- **Motivation de Ranked Pairs** (Tideman, 1987) — réutilise le contre-
+  exemple de non-indépendance aux clones de Copeland déjà trouvé au
+  Lot 4.4, en le recadrant comme LE problème que Tideman a conçu Ranked
+  Pairs pour résoudre : même profil, même clonage, Copeland change de
+  vainqueur, Ranked Pairs non. Documenté sur la fiche Copeland de
+  THEORY.md §2.1.
+- **Paradoxe du non-vote** (Fishburn & Brams, 1983) — clôt une petite
+  tranche, nommée et sourcée, du critère de participation que le Lot 4.1
+  avait reporté en bloc (le fuzzing complet reste hors périmètre, mais au
+  moins UN exemple canonique, vérifié à la main tour par tour, est
+  maintenant permanent). Un électeur dont le bulletin sincère élit son
+  DERNIER choix, alors que s'abstenir aurait élu son 2e choix — trouvé par
+  recherche (2 millions de profils synthétiques), retenu pour sa taille
+  (8 bulletins) après avoir écarté des exemples plus grands. Nouvelle
+  sous-section THEORY.md §4.6.
+
+**Effet de bord** : en cherchant la formulation exacte de la propriété de
+Ranked Pairs/River pour cette fixture, une survivance de Lot 4.1/4.2 a été
+repérée dans THEORY.md — la fiche Ranked Pairs affirmait « indépendante des
+clones » sans la réserve du cas générique (marges non exactement égales),
+alors que le Lot 4.2 avait déjà trouvé et documenté l'exception dégénérée
+dans le fichier de tests. Corrigé au passage (§2.4), avec renvoi vers le
+test qui pin le contre-exemple.
+
 ### 4.6 — Z3 / model checking ⭐ 📝📝📝 · `L` *(expérience à risque assumé)*
 
 Prouver l'équivalence de deux implémentations sur des configurations bornées

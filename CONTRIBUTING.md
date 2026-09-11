@@ -542,6 +542,29 @@ flaky qui trouve parfois un vrai bug reste un run flaky). Seed fixée une
 fois l'exploration terminée, même leçon que `derandomize=True` pour
 Hypothesis (Lot 4.1/4.2).
 
+### Contre-exemples de la littérature (Lot 4.5)
+
+`fast_api_voter/api/tests/test_literature_counterexamples.py` — quatre
+résultats classiques de la théorie du choix social, chacun sourcé (clé
+BibTeX dans `docs/research/bibliography.bib`, prose pédagogique dans
+`THEORY.md` §4) et vérifié à la main sur ce moteur avant d'être committé :
+le paradoxe de Condorcet (1785), le désaccord des règles positionnelles
+(Saari, 1995), la motivation de Ranked Pairs contre la non-indépendance aux
+clones de Copeland (Tideman, 1987 — réutilise un contre-exemple déjà trouvé
+au Lot 4.4), et le paradoxe du non-vote (Fishburn & Brams, 1983), qui clôt
+une petite tranche nommée du critère de participation resté hors périmètre
+au Lot 4.1.
+
+```bash
+cd fast_api_voter && python -m pytest api/tests/test_literature_counterexamples.py -o addopts="" -v
+```
+
+Avant d'écrire quoi que ce soit ici : vérifié que le cas le plus évident (une
+vraie élection où la méthode change le vainqueur) n'était pas déjà couvert
+en double — il l'était déjà (`voter-app/src/lib/realElections.ts`,
+Burlington 2009 / Alaska 2022, sourcé PrefLib et arXiv). Le trou réel était
+les exemples synthétiques classiques, absents des deux moteurs jusqu'ici.
+
 ### Score de mutation (informationnel)
 
 La couverture mesure les lignes *exécutées*, pas les lignes *assertées* — un

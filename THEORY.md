@@ -288,6 +288,11 @@ permutations). Vote Lab utilise KwikSort pour approximer avec >6 candidats.
 - Élit le vainqueur de Condorcet s'il existe
 - Produit souvent des ex-æquo (départage nécessaire)
 - Simple à comprendre et à calculer
+- **Pas indépendant des clones** : un score net victoires-défaites se laisse
+  déplacer par un clonage stratégique (Tideman, 1987 — voir Ranked Pairs
+  plus loin, conçu précisément pour corriger ce défaut). Exemple concret,
+  vérifié sur ce moteur : `test_tideman_ranked_pairs_motivation` dans
+  `fast_api_voter/api/tests/test_literature_counterexamples.py`.
 
 ---
 
@@ -449,9 +454,14 @@ règles à propriété particulière.
 
 - **Ranked Pairs (Tideman, 1987)** — verrouille les duels pairwise du plus fort au
   plus faible en sautant ceux qui créeraient un cycle ; élit la source du graphe
-  obtenu. Méthode de Condorcet, monotone, indépendante des clones.
+  obtenu. Méthode de Condorcet, monotone, indépendante des clones **dans le cas
+  générique** — la preuve classique suppose des marges pairwise distinctes ;
+  sur ce moteur, un cas dégénéré à trois marges exactement égales fait
+  échouer ce critère (`test_clone_independence_ranked_pairs_can_be_violated`,
+  `api/tests/test_voting_criteria_matrix.py`, Lot 4.1/4.2).
 - **River (Heitzig, 2004)** — variante de Ranked Pairs n'autorisant qu'une arête
-  entrante par candidat ; plus rapide, mêmes garanties Condorcet.
+  entrante par candidat ; plus rapide, mêmes garanties Condorcet — et la même
+  exception sur marges exactement égales que Ranked Pairs ci-dessus.
 - **Split Cycle (Holliday & Pacuit, 2020)** — élimine, dans chaque cycle, l'arête
   de défaite la plus faible ; élit les candidats sans défaite restante. Résiste au
   spoiler (independence of clones + immunité aux « pertes » de section).
@@ -600,6 +610,10 @@ Résultat : A > B (majorité), B > C (majorité), C > A (majorité) — cycle.
 **Fréquence** : augmente avec le nombre de candidats et la polarisation de l'électorat.
 Pour 3 candidats et 3 électeurs avec préférences uniformes : probabilité ≈ 8.8%.
 
+Reproduit et vérifié sur ce moteur : `test_condorcet_paradox`,
+`fast_api_voter/api/tests/test_literature_counterexamples.py` (Lot 4.5,
+PLAN_SOLIDITE_TECHNIQUE.md).
+
 ---
 
 ### 4.2 Paradoxe d'Ostrogorski (1902)
@@ -633,6 +647,42 @@ un candidat perd PARCE QU'il a reçu plus de voix.
 
 **Mécanisme en IRV** : recevoir plus de voix au 1er tour peut modifier
 l'ordre d'élimination et créer un adversaire plus fort au duel final.
+
+---
+
+### 4.5 Le désaccord des règles positionnelles (Saari, 1995)
+
+Les règles positionnelles (pluralité, Borda, anti-pluralité…) forment une
+famille à un paramètre : le poids donné à la 2e place, entre 0 (pluralité)
+et le poids de la 1re place (anti-pluralité — chaque bulletin ne pénalise
+que le dernier). Saari a montré géométriquement que des points différents
+de cette famille peuvent élire des candidats différents sur le **même**
+profil — et que ce n'est pas rare, mais proche de la norme sur des profils
+génériques.
+
+**Exemple minimal** (4 bulletins, 3 candidats) : pluralité élit B, Borda élit
+C, anti-pluralité élit A — trois vainqueurs différents pour trois règles
+"raisonnables" sur exactement les mêmes préférences. Vérifié sur ce moteur :
+`test_saari_positional_rules_disagree`,
+`fast_api_voter/api/tests/test_literature_counterexamples.py` (Lot 4.5).
+
+---
+
+### 4.6 Le paradoxe du non-vote (Fishburn & Brams, 1983)
+
+Sous certaines méthodes (IRV compris), un électeur peut obtenir un résultat
+**pire** (selon ses propres préférences) en votant sincèrement qu'en
+s'abstenant complètement. Moulin (1988) a démontré qu'aucune méthode
+Condorcet-cohérente n'y échappe entièrement ; pour IRV, le mécanisme est
+plus direct encore : ajouter un bulletin peut changer l'ordre d'élimination
+des rounds précédents, et donc qui atteint le round final.
+
+**Exemple vérifié sur ce moteur** (8 bulletins, 4 candidats) :
+`test_no_show_paradox`,
+`fast_api_voter/api/tests/test_literature_counterexamples.py` (Lot 4.5).
+Un électeur dont le bulletin sincère classe B premier et A dernier élit A
+(son dernier choix) en votant, et D (son 2e choix) en s'abstenant — il
+aurait eu intérêt à rester chez lui.
 
 ---
 
@@ -1922,11 +1972,13 @@ chantier, non publié dans ce dépôt.
 - **Plott, C.R.** (1967). "A Notion of Equilibrium and Its Possibility Under Majority Rule". *American Economic Review*, 57(4), 787–806.
 - **Rawls, J.** (1971). *A Theory of Justice*. Harvard University Press.
 - **Rousseau, J.J.** (1762). *Du Contrat Social*. Amsterdam.
+- **Saari, D.G.** (1995). *Basic Geometry of Voting*. Springer-Verlag.
 - **Satterthwaite, M.A.** (1975). "Strategy-Proofness and Arrow's Conditions". *Journal of Economic Theory*, 10(2), 187–217.
 - **Schumpeter, J.A.** (1942). *Capitalism, Socialism and Democracy*. Harper & Brothers.
 - **Sen, A.K.** (1970). *Collective Choice and Social Welfare*. Holden-Day.
 - **Sen, A.K.** (1999). *Development as Freedom*. Oxford University Press.
 - **Shapley, L.S. & Shubik, M.** (1954). "A Method for Evaluating the Distribution of Power in a Committee System". *American Political Science Review*, 48(3), 787–792.
+- **Tideman, T.N.** (1987). "Independence of Clones as a Criterion for Voting Rules". *Social Choice and Welfare*, 4(3), 185–206.
 - **Tocqueville, A. de** (1835). *De la Démocratie en Amérique*. Paris.
 - **Van Reybrouck, D.** (2013). *Contre les élections*. Actes Sud.
 
@@ -1936,6 +1988,7 @@ chantier, non publié dans ce dépôt.
 - **Brams, S.J. & Fishburn, P.C.** (1978). "Approval Voting". *American Political Science Review*, 72(3), 831–847.
 - **Buterin, V., Hitzig, Z. & Weyl, E.G.** (2019). "A Flexible Design for Funding Public Goods". *Management Science*, 65(11), 5171–5187.
 - **Fiorina, M.** (1981). *Retrospective Voting in American National Elections*. Yale University Press.
+- **Fishburn, P.C. & Brams, S.J.** (1983). "Paradoxes of Preferential Voting". *Mathematics Magazine*, 56(4), 207–214.
 - **Fishkin, J.** (1988). "The Case for a National Caucus". *The Atlantic*, August 1988.
 - **Iyengar, S. et al.** (2019). "The Origins and Consequences of Affective Polarization in the United States". *Annual Review of Political Science*, 22, 129–146.
 - **Lalley, S. & Weyl, E.G.** (2018). "Quadratic Voting: How Mechanism Design Can Radicalize Democracy". *American Economic Association Papers & Proceedings*, 108, 33–37.
