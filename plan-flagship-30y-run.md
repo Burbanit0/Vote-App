@@ -10,12 +10,101 @@
 
 **Overall status: Phases 0, 0bis, 1, 3, 4, 5 and 6 DONE. Phase 2 FAILED its own
 gate (does not ship) — the flagship runs sequential, and Phases 3/4/6 are what
-make that survivable, watchable, and useful once it's done. Phase 7 IN PROGRESS:
-Stages 1-3 done, Stage 3 found a critical vote_cast bug (fixed, 246da0b) that
-was never re-verified at population-500 scale — Stage 3 needs re-running before
-Stage 4 (the actual flagship) can proceed. See the Risks section and the
-2026-09-10 execution log entries below.**
-(last updated 2026-09-10)
+make that survivable, watchable, and useful once it's done. Phase 7: Stages 1, 2
+and 3 ALL PASSED. Stage 3's re-run completed 2026-09-11 and cleared its gate —
+Stage 4 (the actual flagship) is unblocked, pending the decisions listed in the
+Stage 3 verdict below.**
+(last updated 2026-09-11)
+
+---
+
+## Stage 3 verdict — PASSED (2026-09-11)
+
+Run `scaleprobe-8y-p500-v2-postfix`, 8 simulated years, population 500, 75 chamber
+seats, engine=llm on vLLM/Qwen3-8B-AWQ. `outcome: "completed"`, 32/32 ticks, 8226
+events, **0 malformed lines**. Resumed (see "three deaths" below), so the digest's
+`elapsed_seconds` covers the final process only, not the whole history.
+
+**1. Did the `246da0b` truncation fix hold at population 500? YES — decisively.**
+`vote_cast` fallbacks per tick, previous probe vs this one:
+
+| run | tick 16 | tick 32 |
+|---|---|---|
+| `scaleprobe-8y-p500-chunked-v1` (pre-fix) | **494/500** | **476/500** |
+| `scaleprobe-8y-p500-v2-postfix` | **6/500** | **0/500** |
+
+Both presidential elections in v1 were decided in substance by the deterministic
+baseline while the journal recorded them as an LLM run. Neither is now. Tick 32
+is the stronger of the two confirmations (larger candidate field) and it came
+back clean.
+
+**2. Fallback rate: 19 / 7324 decisions = 0.26% overall — but the aggregate hides
+the real finding.**
+
+| decision type | decisions | fallbacks | rate |
+|---|---|---|---|
+| `party_nomination_choice` | 15 | **10** | **66.67%** |
+| `vote_cast` | 1500 | 9 | 0.60% |
+| `chamber_deliberation` | 2475 | 0 | 0% |
+| `pressure_action` | 1784 | 0 | 0% |
+| `candidacy_considered` | 1500 | 0 | 0% |
+| `representative_response` | 19 | 0 | 0% |
+| `coalition_decision` | 16 | 0 | 0% |
+| `campaign_positioning` | 15 | 0 | 0% |
+
+**3. Did the `party_nomination_choice` fallback trigger again? YES, and it is now
+the single worst-performing decision type in the simulator.** Nominations occur at
+ticks 0, 16 and 32, five contested parties each. Tick 0 was clean; **at ticks 16
+and 32 all five parties fell back**. Root cause, read verbatim from `replays.log`:
+party 3 returned `winner_position=26` against 18 (then 19) declared candidates —
+the *same wrong constant*, six times across retries, including retries that varied
+sampling. That is a content-blind signature, not a flaky parse: the model emits a
+fixed number regardless of how many candidates the party actually has.
+
+Two consequences worth acting on before Stage 4:
+- **The fallback's granularity amplifies it 5×.** It is whole-batch by design, so
+  one bad party drags the other four into the deterministic highest-ambition
+  tiebreak. Per-party granularity would have cost 2 decisions instead of 10.
+- **Two of this polity's three nomination rounds were decided by a tiebreak rule,
+  not by a model.** Any reading of party behaviour in this run must exclude them.
+
+The fallback itself did its job: without it (pre-`a8cf2f4`) this run would have
+died four times.
+
+**4. Wall clock and the 30-year projection.** 18851s for the final process's 17
+ticks (15 ordinary + 2 elections). Derived cost: **ordinary tick ~246s, election
+tick ~7580s — 31×**. Extrapolated to 120 ticks (30 years, 7 elections):
+
+> **~22.5 h** — against this plan's earlier ~35.6h (extrapolated from a single
+> point) and ~40.8h (inflated by the very bug `246da0b` fixed). Both prior figures
+> should be considered retired.
+
+Treat 22.5h as an estimate, not a measurement: it assumes ordinary-tick cost stays
+flat over 120 ticks and rests on only **two** election-tick samples.
+
+**5. Three deaths and one self-inflicted kill, all on the road to this result.**
+`chamber_deliberation` (08/09, Stage 1), `party_nomination_choice` and
+`representative_response` (11/09, Stage 3) each ended a multi-hour run on one bad
+batch. All three are closed: as of `9929651` no decision type can kill a run, and
+all nine vary sampling on retry. Separately, on 11/09 I misdiagnosed this very run
+as hung and had it SIGTERM'd — it was healthy, ~2h discarded. Fixed by the
+intra-tick heartbeat (`1a2093b`) plus `scripts/check_run_liveness.py`; **Stage 4
+will be the first run protected by both.**
+
+### What Stage 4 still needs a decision on — not blockers, but not to be discovered mid-run
+
+- `representative_response` and `coalition_decision` remain `unverified_decision_types`
+  in the digest, so `mandate_deviation`, `cohabitation_rate` and `coalition_lifespans`
+  from a 30-year run would be as unusable as they are today. Label them, or build
+  the calibration vehicles (`polity-decision-contracts.md` §3 — 5 of 6 still unbuilt).
+- `candidacy_considered` shows **202/500 citizens declaring (40.4%)**, the known C3
+  contract defect. 30 years amplifies it.
+- Nothing aggregates `llm_fallback` into a threshold or alert. At 0.26% that is fine;
+  a degraded flagship would finish looking like a success.
+- Disk: this plan records three drops to 6.5–7.3 GB free during Stages 2–3. Stage 4
+  is ~4× longer.
+
+---
 
 | Phase | What | Status |
 |---|---|---|
