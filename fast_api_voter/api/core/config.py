@@ -62,6 +62,16 @@ class Settings(BaseSettings):
     # api/routes/metrics.py's `_check_metrics_auth`.
     metrics_auth_token: Optional[str] = Field(default=None)
 
+    # ── Observability — tracing (Lot 10.2, PLAN_SOLIDITE_TECHNIQUE.md) ───────
+    # Same optional-dependency pattern as redis_url above: empty (the default)
+    # means tracing is fully disabled, no TracerProvider is installed, and the
+    # FastAPI auto-instrumentation is never applied. Point this at an OTLP/HTTP
+    # collector's base URL (e.g. "http://localhost:4318" for the Jaeger
+    # all-in-one in docker-compose.observability-tracing.yml) to enable it —
+    # "/v1/traces" is appended by api/core/tracing.py, don't include it here.
+    otel_exporter_otlp_endpoint: str = Field(default="")
+    otel_service_name: str = Field(default="vote-lab-api")
+
     # ── Derived ─────────────────────────────────────────────────────────────
     @property
     def is_production(self) -> bool:

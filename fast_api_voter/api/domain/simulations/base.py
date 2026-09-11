@@ -17,8 +17,9 @@ SPATIAL pipeline (simulation_voting_utils.py):
     POST /simulations/get_utility_matrix
     POST /simulations/get_voter_segments
 """
-from typing import Any, Dict
+from typing import Any, Callable, Dict
 
+from opentelemetry import trace
 
 # Legacy pipeline
 from api.engine.utils.simul import simulate_voters, simulate_score_voters, simulate_ranked_voters
@@ -44,7 +45,25 @@ from api.engine.utils.logger import get_logger
 
 log = get_logger(__name__)
 
+# Lot 10.2, PLAN_SOLIDITE_TECHNIQUE.md — "Observabilité": one explicit span
+# per voting-method computation below, so a trace shows real per-method
+# timing (not just per-HTTP-request timing from api/core/tracing.py's
+# FastAPI auto-instrumentation) — resolves to the no-op tracer when tracing
+# is disabled (OTEL_EXPORTER_OTLP_ENDPOINT unset), see that module's
+# docstring. `_simulate_votes_worker` is the traced call site: it's the one
+# place in this codebase where a real HTTP request (POST /api/v2/simulations)
+# reaches simulation_ranked_utils.py/simulation_score_utils.py through a
+# single, easy-to-follow dispatch point rather than being spread across a
+# dozen workers each computing one or two winners inline.
+_tracer = trace.get_tracer(__name__)
 
+
+def _traced_winner(method: str, fn: Callable[..., Any], *args: Any) -> Any:
+    """Call `fn(*args)` inside a span tagged `voting.method=method`."""
+    with _tracer.start_as_current_span(
+        f"voting_method.{method}", attributes={"voting.method": method}
+    ):
+        return fn(*args)
 
 
 # ── Pure-compute workers (shared by Flask + the FastAPI /api/v2/simulations router)
@@ -124,18 +143,18 @@ def _simulate_votes_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             population_size, candidates, demographics, influence_weights, turnout_rate
         )
         winners.update({
-            "condorcet_winner":    get_condorcet_winner(rankings),
-            "two_round_winner":    get_two_round_winner(rankings),
-            "borda_winner":        get_borda_winner(rankings),
-            "plurality_winner":    get_plurality_winner(rankings),
-            "approval_winner":     get_approval_winner(rankings),
-            "irv_winner":          get_irv_winner(rankings),
-            "coombs_winner":       get_coombs_winner(rankings),
-            "score_winner":        get_positional_score_winner(rankings),
-            "kemeny_young_winner": get_kemeny_young_winner(rankings),
-            "bucklin_winner":      get_bucklin_winner(rankings),
-            "minimax_winner":      get_minimax_winner(rankings),
-            "schulze_winner":      get_schulze_winner(rankings),
+            "condorcet_winner":    _traced_winner("condorcet", get_condorcet_winner, rankings),
+            "two_round_winner":    _traced_winner("two_round", get_two_round_winner, rankings),
+            "borda_winner":        _traced_winner("borda", get_borda_winner, rankings),
+            "plurality_winner":    _traced_winner("plurality", get_plurality_winner, rankings),
+            "approval_winner":     _traced_winner("approval", get_approval_winner, rankings),
+            "irv_winner":          _traced_winner("irv", get_irv_winner, rankings),
+            "coombs_winner":       _traced_winner("coombs", get_coombs_winner, rankings),
+            "score_winner":        _traced_winner("positional_score", get_positional_score_winner, rankings),
+            "kemeny_young_winner": _traced_winner("kemeny_young", get_kemeny_young_winner, rankings),
+            "bucklin_winner":      _traced_winner("bucklin", get_bucklin_winner, rankings),
+            "minimax_winner":      _traced_winner("minimax", get_minimax_winner, rankings),
+            "schulze_winner":      _traced_winner("schulze", get_schulze_winner, rankings),
         })
         response.update({
             "rankings": [
@@ -154,12 +173,12 @@ def _simulate_votes_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             population_size, candidates, demographics, influence_weights, turnout_rate
         )
         winners.update({
-            "mean_median_hybrid_winner":   get_mean_median_hybrid_winner(all_scores),
-            "median_voting_winner":        get_median_voting_winner(all_scores),
-            "score_distribution_analysis": get_score_distribution_analysis(all_scores),
-            "simple_score_winner":         get_simple_score_winner(all_scores),
-            "star_voting_winner":          get_star_voting_winner(all_scores),
-            "variance_based_winner":       get_variance_based_winner(all_scores),
+            "mean_median_hybrid_winner":   _traced_winner("mean_median_hybrid", get_mean_median_hybrid_winner, all_scores),
+            "median_voting_winner":        _traced_winner("median_voting", get_median_voting_winner, all_scores),
+            "score_distribution_analysis": _traced_winner("score_distribution_analysis", get_score_distribution_analysis, all_scores),
+            "simple_score_winner":         _traced_winner("simple_score", get_simple_score_winner, all_scores),
+            "star_voting_winner":          _traced_winner("star_voting", get_star_voting_winner, all_scores),
+            "variance_based_winner":       _traced_winner("variance_based", get_variance_based_winner, all_scores),
         })
         response.update({
             "all_scores": [
