@@ -948,7 +948,14 @@ def _declare_nominees_llm(
         journal.write(
             tick=tick,
             event_type="candidacy_considered",
-            payload={"outcome": decision.outcome, "path": "dominant"},
+            payload={
+                "outcome": decision.outcome,
+                "path": "dominant",
+                # Provenance, not a decision field -- see CandidacyBatchOutcome.
+                # llm_fallback. progress.py's generic `payload.llm_fallback`
+                # tally picks this up with no further wiring.
+                "llm_fallback": int(outcome.llm_fallback.get(decision.cid, False)),
+            },
             citizen_id=decision.cid,
             motif=str(decision.motif),
             codebook_version=config.llm.codebook_version,
@@ -971,7 +978,14 @@ def _declare_nominees_llm(
             journal.write(
                 tick=tick,
                 event_type="party_nomination_choice",
-                payload={"party_id": party.party_id, "contenders": sorted(party_declared_cids)},
+                payload={
+                    "party_id": party.party_id,
+                    "contenders": sorted(party_declared_cids),
+                    # Provenance, not a decision field -- see
+                    # PartyNominationBatchOutcome.llm_fallback. Keyed by
+                    # party_id, the decision unit for this type.
+                    "llm_fallback": int(nomination_outcome.llm_fallback.get(party.party_id, False)),
+                },
                 citizen_id=nominee.citizen_id,
                 motif=str(motif_by_party[party.party_id]),
                 codebook_version=config.llm.codebook_version,
@@ -1013,7 +1027,11 @@ def _declare_nominees_llm(
             payload={
                 "shifts": [
                     {"dimension": shift.dimension, "delta": shift.delta} for shift in positioning_decision.shifts
-                ]
+                ],
+                # Provenance, not a decision field -- see PositioningBatch
+                # Outcome.llm_fallback for why an empty `shifts` list with
+                # motif=601 is ambiguous without it.
+                "llm_fallback": int(positioning_outcome.llm_fallback.get(nominee.citizen_id, False)),
             },
             citizen_id=nominee.citizen_id,
             motif=str(positioning_decision.motif),
@@ -1497,6 +1515,7 @@ def _run_reaction_to_event(
         raise ValueError(f"unhandled EventType: {event_type!r}")
 
     reaction_decisions: dict[int, ReactionDecision] | None = None
+    reaction_fallback: dict[int, bool] = {}
     contexts: dict[int, ReactionContext] = {}
     if config.llm.enabled:
         assert llm_client is not None  # guaranteed by _llm_client_scope when llm.enabled
@@ -1505,6 +1524,7 @@ def _run_reaction_to_event(
             citizens, contexts, event_type, config, llm_client, target=target, magnitude=magnitude
         )
         reaction_decisions = {d.cid: d for d in outcome.decisions}
+        reaction_fallback = outcome.llm_fallback
 
     for citizen in citizens:
         if reaction_decisions is None:
@@ -1515,7 +1535,13 @@ def _run_reaction_to_event(
             decision = reaction_decisions[citizen.citizen_id]
             delta = decision.salience_delta
             motif = str(decision.motif)
-            extra = {"ctx": contexts[citizen.citizen_id].to_payload()}
+            extra = {
+                "ctx": contexts[citizen.citizen_id].to_payload(),
+                # Provenance, LLM path only (the deterministic path has no
+                # model decision to have fallen back FROM) -- see
+                # ReactionBatchOutcome.llm_fallback.
+                "llm_fallback": int(reaction_fallback.get(citizen.citizen_id, False)),
+            }
         citizen.event_salience = update_event_salience(citizen.event_salience, delta, config.events)
         payload: dict[str, object] = {"event_type": int(event_type), "target": target, "salience_delta": delta, **extra}
         if event_type is EventType.ECONOMIC_SHOCK:
@@ -1925,6 +1951,7 @@ def _run_accountability_phase(
                 neighbors_acting=neighbors_acting_by_cid,
             )
             decisions: dict[int, PressureDecision] | None = None
+            pressure_fallback: dict[int, bool] = {}
             contexts: dict[int, PressureContext] = {}
             if config.llm.enabled and consulted:  # §7bis.7 step 2 (v4 Lot 7)
                 assert llm_client is not None  # guaranteed by _llm_client_scope when llm.enabled
@@ -1944,6 +1971,7 @@ def _run_accountability_phase(
                 }
                 outcome = decide_pressure_actions([c for c, _ in consulted], contexts, config, llm_client)
                 decisions = {d.cid: d for d in outcome.decisions}
+                pressure_fallback = outcome.llm_fallback
             participants = 0
             for citizen, gap in consulted:
                 can_sign = _can_sign(holder, citizen, tick, config)  # LIVE, re-read per citizen
@@ -1959,7 +1987,13 @@ def _run_accountability_phase(
                     decision = decisions[citizen.citizen_id]
                     decided = PressureAct(decision.act)
                     act = applicable_pressure_act(decided, can_sign=can_sign, can_launch=can_launch)
-                    payload_extra = {"ctx": contexts[citizen.citizen_id].to_payload()}
+                    payload_extra = {
+                        "ctx": contexts[citizen.citizen_id].to_payload(),
+                        # Provenance, LLM path only -- see PressureBatch
+                        # Outcome.llm_fallback for why the §11.4 palier's own
+                        # comparison depends on being able to exclude these.
+                        "llm_fallback": int(pressure_fallback.get(citizen.citizen_id, False)),
+                    }
                     motif = str(decision.motif)
                 if act is PressureAct.MOBILIZE:
                     participants += 1

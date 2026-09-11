@@ -156,17 +156,24 @@ has, or deliberately lacks, a deterministic counterpart, and that choice is docu
 
 ### 4.1 Summary
 
-| decision | dt | unit | think | chunking | fallback if the model fails |
+| decision | dt | unit | think | chunking | degradation if the model fails |
 |---|---|---|---|---|---|
 | `vote_cast` | 1 | citizen | ✅ | 3 (vLLM) / 1 (Ollama) | ✅ deterministic ballot |
-| `candidacy_considered` | 2 | citizen | ❌ | 25 | ❌ **none — run dies** |
+| `candidacy_considered` | 2 | citizen | ❌ | 25 | ✅ ambition threshold |
 | `party_nomination_choice` | 4 | contested party | ❌ | none | ✅ highest-ambition tiebreak |
-| `campaign_positioning` | 5 | nominee | ✅ | none | ❌ **none — run dies** |
-| `representative_response` | 6 | officeholder | ❌ | none | ✅ silence *(added 2026-09-11)* |
-| `reaction_to_event` | 8 | citizen (pop-wide) | ❌ | 25 | ❌ **none — run dies** |
-| `coalition_decision` | 9 | party × round | ❌ | none | ⚠️ round ≥2 only |
-| `pressure_action` | 10 | consulted citizen | ❌ | **1** | ❌ **none — run dies** |
+| `campaign_positioning` | 5 | nominee | ✅ | none | ✅ sincere platform, no shift |
+| `representative_response` | 6 | officeholder | ❌ | none | ✅ silence |
+| `reaction_to_event` | 8 | citizen (pop-wide) | ❌ | 25 | ✅ flat baseline delta |
+| `coalition_decision` | 9 | party × round | ❌ | none | ⚠️ aborts the negotiation |
+| `pressure_action` | 10 | consulted citizen | ❌ | **1** | ✅ deterministic pressure rule |
 | `chamber_deliberation` | 11 | chamber member | ✅ | 5 (vLLM) / 1 (Ollama) | ✅ sincere, no shift |
+
+As of 2026-09-11 **no decision type can end a run on a bad batch**. Eight substitute their own §11.4
+deterministic baseline — the arm the LLM path was built to be compared against — and flag it in the
+journal as `payload.llm_fallback`. `coalition_decision` is the one that does not: it has no
+per-decision fallback and instead aborts the negotiation (`coalition_failed`, `aborted_at_round`),
+which is a real institutional outcome and *not* what "dt=9 did not run" means. That asymmetry is
+deliberate and documented at the code; see §10.
 
 ### 4.2 What each one asks
 
@@ -230,20 +237,36 @@ Three things are worth knowing about this pipeline:
 
 ### 4.4 Retry and fallback — the part that decides whether a run survives
 
-Two independent mechanisms, and the coverage is uneven:
+Two independent mechanisms. Both now cover all nine types; until 2026-09-11 neither did.
 
 **Retry sampling variation.** A retry at temperature 0 with the same seed is not a retry — it is the
-same request again. Only three types vary sampling on retry (`vote_cast`, `chamber_deliberation`,
-and `representative_response` since 2026-09-11): temperature 0.3 and a per-attempt seed offset, on
-retries only, never the first attempt.
+same request a second and third time. Six of the nine types were in exactly that state: they had a
+replay budget that could not possibly help, and it read like resilience. All nine now retry at
+temperature 0.3 with a per-attempt seed offset — **on retries only, never the first attempt**, so a
+run where nothing fails stays byte-identical and replayable.
 
-**Deterministic fallback.** When replays are exhausted: four types fall back cleanly and the run
-continues (`vote_cast`, `party_nomination_choice`, `representative_response`,
-`chamber_deliberation`); `coalition_decision` falls back only from round 2 onward, so a round-1
-failure still kills the run; and **four propagate outright**: `candidacy_considered`,
-`campaign_positioning`, `pressure_action`, `reaction_to_event`.
+How much this is worth, measured on the Stage 3 probe running while this was written (tick 15 of 32,
+population 500):
 
-This is not theoretical. Three separate multi-hour runs died this way in two days:
+| type | batches rejected | exhausted after varied retries | recovered |
+|---|---|---|---|
+| `vote_cast` | 115 | 7 | **93.9%** |
+| `chamber_deliberation` | 38 | 0 | 100% |
+| `representative_response` | 2 | 0 | 100% |
+
+Those 155 rejections are on the three types that already varied sampling. Without variation, every
+one of them would have been unrecoverable and gone straight to a fallback — or, before fallbacks
+existed, killed the run. The other six types recorded **zero** rejections across those 15 ticks,
+which is the honest shape of this: for them the change is insurance against a tail, not a fix for an
+observed rate. The tail is real — all three fatal crashes below were on types that had never failed
+until they did.
+
+**Deterministic fallback.** When replays are exhausted, eight types substitute their §11.4 baseline
+and continue. Granularity differs: `pressure_action` degrades one *citizen* (its chunk is 1),
+`vote_cast`/`candidacy_considered`/`reaction_to_event` degrade one chunk, and the unchunked types
+degrade their whole batch. `coalition_decision` aborts instead (see §4.1).
+
+Three separate multi-hour runs died before this was in place:
 
 | date | type | cause |
 |---|---|---|
@@ -251,8 +274,14 @@ This is not theoretical. Three separate multi-hour runs died this way in two day
 | 2026-09-11 | `party_nomination_choice` | `winner_position` exceeded the party's candidate count → raw `IndexError` |
 | 2026-09-11 | `representative_response` | two shifts on the same dimension; no fallback existed |
 
-All three are fixed. The remaining four gaps are a standing risk to any long run, and closing them
-is probably the highest-value reliability work available.
+**A fallback is a degraded run, not a free save.** Every substituted decision is the deterministic
+baseline — which for `pressure_action` is precisely the arm the §11.4 palier exists to measure
+*against*, and for `reaction_to_event` is a flat population-wide delta that looks exactly like the
+content-blind collapse this project's diagnostics hunt for. That is why provenance is journaled
+separately as `payload.llm_fallback` on every LLM-path decision: an analyst must subtract fallbacks
+before reading any motif or act distribution, or they are measuring the engine's failures as the
+population's choices. `progress.json`'s `fallback_count` is the run-level version of the same
+number, and a run with a high one should be investigated, not trusted.
 
 ---
 
@@ -453,9 +482,18 @@ reproduce on vLLM. Measured, not root-caused. The ECONOMIC_SHOCK branch is untes
 
 Ordered by how much they would change things.
 
-1. **Four decision types can still kill a multi-hour run** (`candidacy_considered`,
-   `campaign_positioning`, `pressure_action`, `reaction_to_event`). Three runs died this way in two
-   days. The fix pattern is established and mechanical.
+1. ~~**Four decision types can still kill a multi-hour run.**~~ **Closed 2026-09-11.** All nine now
+   degrade instead of dying, and all nine vary sampling on retry — §4.4. Two things the fix surfaced
+   are worth keeping in view, though:
+   - **`coalition_decision`'s degradation is not its baseline.** It aborts the negotiation
+     (`coalition_failed`) rather than falling back to `form_coalition`, so a polity ends that tick
+     with no government. That inherits v7 Lot 2's already-shipped round-≥2 semantics rather than
+     inventing a second rule, but it *is* a modelling choice, and the alternative (give both rounds a
+     `form_coalition` fallback) is a live option.
+   - **Fallbacks are silent degradation unless someone reads `llm_fallback`.** Nothing yet
+     *aggregates* it per run beyond `progress.json`'s raw `fallback_count` — no threshold, no
+     warning, no gate. A run that fell back on half its decisions and a run that fell back on none
+     both finish and both look finished.
 2. **`candidacy_considered` fails the C3 contract** — `ambition_score` is sent with no population
    reference, exactly the defect that caused `pressure_action`'s collapse. A real run shows **~40% of
    citizens declaring candidacy**, which is implausible against any real polity. The fix vehicle is

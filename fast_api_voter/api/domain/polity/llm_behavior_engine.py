@@ -153,9 +153,13 @@ from api.domain.polity.codebook import (
     RESPONSE_MOTIF_PROMPT_TABLE,
     STANCE_PROMPT_TABLE,
     VOTE_MOTIF_PROMPT_TABLE,
+    CampaignMotif,
+    CandidacyMotif,
     CoalitionAction,
     EventType,
     PartyNominationMotif,
+    PressureAct,
+    PressureMotif,
     ReactionMotif,
     ResponseMotif,
     Stance,
@@ -206,6 +210,9 @@ from api.domain.polity.simple_rules import (
     build_ranking,
     candidate_label,
     citizen_id_from_label,
+    decide_candidacy,
+    deterministic_pressure_action,
+    deterministic_reaction_to_event,
     select_party_nominee_from_declared,
     sympathizer_ratio,
     tiebreak_key,
@@ -523,6 +530,41 @@ _CHAMBER_RETRY_SEED_BASE = 900_000_101
 # reading a log.
 _RESPONSE_RETRY_TEMPERATURE = 0.3
 _RESPONSE_RETRY_SEED_BASE = 900_000_201
+
+# The remaining four decision types' pairs, added 2026-09-11 in one pass, so
+# that ALL NINE now vary sampling on a retry. Same values, same mechanism and
+# same rationale as the three pairs above -- which is exactly why they are
+# grouped under one comment instead of repeating that paragraph four more
+# times; read _VOTE_CAST_RETRY_TEMPERATURE/_VOTE_CAST_RETRY_SEED_BASE for the
+# measurement this all rests on (9 real production-shaped failures: temperature
+# alone left 1/9 stuck, temperature+seed 0/9).
+#
+# The point is narrow and worth stating plainly: without these, a "retry" is
+# not a retry. At temperature=0 against VllmJsonClient's pinned seed, replaying
+# a failed batch re-sends a byte-identical request and gets back a byte-
+# identical response, so config.llm.max_batch_replays buys nothing at all for
+# the decision types that lack them -- it just spends the same failure three
+# times before dying. That is not a theory: it is what the 2026-09-11 Stage 3
+# post-mortem found for representative_response, by replaying the dead run's
+# own recorded prompt.
+#
+# NOT independently re-measured per decision type (only vote_cast's recovery
+# rate ever was) -- applied by direct analogy to an identical mechanism, and
+# paired below with a deterministic fallback for the case where even a varied
+# retry fails. Distinct seed bases only so the seven are never confused reading
+# a log; all call sites are sequential, nothing depends on the values differing.
+_CANDIDACY_RETRY_TEMPERATURE = 0.3
+_CANDIDACY_RETRY_SEED_BASE = 900_000_301
+_POSITIONING_RETRY_TEMPERATURE = 0.3
+_POSITIONING_RETRY_SEED_BASE = 900_000_401
+_PRESSURE_RETRY_TEMPERATURE = 0.3
+_PRESSURE_RETRY_SEED_BASE = 900_000_501
+_REACTION_RETRY_TEMPERATURE = 0.3
+_REACTION_RETRY_SEED_BASE = 900_000_601
+_NOMINATION_RETRY_TEMPERATURE = 0.3
+_NOMINATION_RETRY_SEED_BASE = 900_000_701
+_COALITION_RETRY_TEMPERATURE = 0.3
+_COALITION_RETRY_SEED_BASE = 900_000_801
 
 # Mirrors _POSITIONING_THINK_TOKEN_ALLOWANCE's own reasoning: a shared
 # constant would either starve one caller or over-provision another, since
@@ -1563,6 +1605,51 @@ def cast_votes(
 @dataclass(frozen=True)
 class CandidacyBatchOutcome:
     decisions: list[CandidacyDecision]
+    llm_fallback: dict[int, bool] = field(default_factory=dict)
+    """cid -> whether this decision came from _deterministic_candidacy_fallback
+    rather than the model. Mirrors VoteBatchOutcome.llm_fallback exactly,
+    including why it has to exist separately from the motif: a fallback
+    AMBITION_THRESHOLD_MET and a model-chosen one are indistinguishable in the
+    journal payload otherwise, and dt=2's whole reason to be LLM-governed is
+    that a bare threshold cannot express the decline-nuances (CandidacyMotif's
+    own docstring) -- so an analyst reading a motif distribution that silently
+    contains threshold answers would be measuring the baseline while believing
+    they were measuring the model."""
+
+
+def _deterministic_candidacy_fallback(
+    chunk: Sequence[Citizen], config: PolityConfig
+) -> list[CandidacyDecision]:
+    """Last-resort decision for decide_candidacies when the LLM path is
+    exhausted for this one chunk.
+
+    Reuses simple_rules.decide_candidacy -- the exact ambition_score threshold
+    this decision type's own docstring says it REPLACED (v2 increment 2), and
+    the only rule that runs on the deterministic path. Not a new mechanism
+    invented for this fallback: the pre-existing v0/v1 baseline this codebase
+    already trusts, which is also what "dt=2 did not run" means.
+
+    Both motifs are structural classifications, not placeholders: the baseline
+    IS `ambition_score >= candidacy.ambition_threshold`, so 203
+    (AMBITION_THRESHOLD_MET) and 204 (AMBITION_INSUFFICIENT) describe exactly
+    the comparison that produced the outcome -- the same "computed
+    structurally instead of by model judgment, not a lie about provenance"
+    reading _deterministic_vote_fallback's own motif already follows. The two
+    codes a threshold genuinely cannot reach (201 INSUFFICIENT_PERCEIVED_
+    SUPPORT, 205 RISK_AVERSE_DEFERRAL) are correctly never emitted here."""
+    decisions = []
+    for citizen in chunk:
+        declares = decide_candidacy(citizen, config.candidacy)
+        decisions.append(
+            CandidacyDecision(
+                cid=citizen.citizen_id,
+                outcome=1 if declares else 0,
+                motif=int(
+                    CandidacyMotif.AMBITION_THRESHOLD_MET if declares else CandidacyMotif.AMBITION_INSUFFICIENT
+                ),
+            )
+        )
+    return decisions
 
 
 def build_candidacy_system_prompt(citizens: Sequence[Citizen]) -> str:
@@ -1718,26 +1805,51 @@ def decide_candidacies(
     population = list(citizens)
     support = {c.citizen_id: sympathizer_ratio(c, population) for c in population}
 
-    def _candidacy_chunk(chunk: list[Citizen]) -> list[CandidacyDecision]:
+    def _candidacy_chunk(chunk: list[Citizen]) -> tuple[list[CandidacyDecision], bool]:
         expected_cids = [c.citizen_id for c in chunk]
-        return _complete_and_decode_with_replay(
-            client,
-            system_prompt=build_candidacy_system_prompt_toon(chunk),
-            user_prompt=build_candidacy_user_prompt_toon(chunk, support),
-            json_schema=CANDIDACY_JSON_SCHEMA,
-            max_tokens=compute_max_tokens(len(chunk)),
-            think=False,
-            decode=lambda raw: decode_candidacy_batch(raw, expected_cids),
-            replays=config.llm.max_batch_replays,
-            decision_type="candidacy_considered",
-        )
+        is_fallback = False
+        try:
+            chunk_decisions = _complete_and_decode_with_replay(
+                client,
+                system_prompt=build_candidacy_system_prompt_toon(chunk),
+                user_prompt=build_candidacy_user_prompt_toon(chunk, support),
+                json_schema=CANDIDACY_JSON_SCHEMA,
+                max_tokens=compute_max_tokens(len(chunk)),
+                think=False,
+                decode=lambda raw: decode_candidacy_batch(raw, expected_cids),
+                replays=config.llm.max_batch_replays,
+                decision_type="candidacy_considered",
+                # A deliberate, local exception to temperature=0 determinism --
+                # see _CANDIDACY_RETRY_TEMPERATURE's own comment. Only ever
+                # applies to a genuine retry (never the first attempt).
+                retry_temperature=_CANDIDACY_RETRY_TEMPERATURE,
+                retry_seed_base=_CANDIDACY_RETRY_SEED_BASE,
+            )
+        except LlmResponseError as exc:
+            # Last resort, not a silent one -- see CandidacyBatchOutcome.llm_
+            # fallback and _deterministic_candidacy_fallback's own docstrings.
+            # Per CHUNK, not per run: one unrecoverable chunk degrades its own
+            # citizens to the threshold rule and leaves every other chunk's
+            # model decisions intact, exactly as cast_votes already does.
+            _logger.error(
+                "candidacy_considered: exhausted every recovery attempt for cid(s) %s, falling back "
+                "to the deterministic ambition threshold (simple_rules.decide_candidacy) instead of "
+                "aborting the run: %s", expected_cids, exc,
+            )
+            chunk_decisions = _deterministic_candidacy_fallback(chunk, config)
+            is_fallback = True
+        return chunk_decisions, is_fallback
 
     decisions: list[CandidacyDecision] = []
+    llm_fallback: dict[int, bool] = {}
     chunks = chunk_voters(citizens, config.llm.max_batch_size)
-    for chunk_decisions in run_chunks(chunks, _candidacy_chunk, config.parallel.intra_run_workers):
+    for chunk_decisions, is_fallback in run_chunks(chunks, _candidacy_chunk, config.parallel.intra_run_workers):
+        if is_fallback:
+            for decision in chunk_decisions:
+                llm_fallback[decision.cid] = True
         decisions.extend(chunk_decisions)
 
-    return CandidacyBatchOutcome(decisions=decisions)
+    return CandidacyBatchOutcome(decisions=decisions, llm_fallback=llm_fallback)
 
 
 @dataclass(frozen=True)
@@ -1749,6 +1861,14 @@ class PartyNominationBatchOutcome:
     per-party sub-list order), so resolution happens here, not in the
     caller, mirroring how cast_votes resolves positions into ballots
     internally rather than exposing raw positions."""
+    llm_fallback: dict[int, bool] = field(default_factory=dict)
+    """PARTY_ID -> whether this decision came from the deterministic
+    highest-ambition tiebreak rather than the model. The only outcome in this
+    engine keyed by party_id rather than cid, because the decision unit here
+    is a contested party. Same provenance role as every other outcome's own
+    field: the fallback emits motif=HIGHEST_AMBITION, which is also a real
+    answer the model can give, so without this the two are indistinguishable
+    in the journal."""
 
 
 def build_party_nomination_system_prompt(contested: dict[int, list[Citizen]]) -> str:
@@ -1895,25 +2015,41 @@ def decide_party_nominations(
     support = {c.citizen_id: sympathizer_ratio(c, list(citizens)) for c in all_contenders}
 
     expected_party_ids = list(contested.keys())
-    decisions = _complete_and_decode_with_replay(
-        client,
-        system_prompt=build_party_nomination_system_prompt(contested),
-        user_prompt=build_party_nomination_user_prompt(contested, parties_by_id, support),
-        json_schema=PARTY_NOMINATION_JSON_SCHEMA,
-        max_tokens=compute_max_tokens(len(contested)),
-        think=False,
-        decode=lambda raw: decode_party_nomination_batch(raw, expected_party_ids),
-        replays=config.llm.max_batch_replays,
-        decision_type="party_nomination_choice",
-    )
+    is_fallback = False
     try:
+        # The LLM call is INSIDE the try as of 2026-09-11. It used to sit
+        # outside it, so this function's own fallback covered only the
+        # out-of-range winner_position it was written for and an exhausted
+        # replay budget still killed the run -- a half-closed hole that read
+        # as closed. Both failure classes are one unrecoverable batch and take
+        # the same exit, exactly as cast_votes's own except block already did.
+        decisions = _complete_and_decode_with_replay(
+            client,
+            system_prompt=build_party_nomination_system_prompt(contested),
+            user_prompt=build_party_nomination_user_prompt(contested, parties_by_id, support),
+            json_schema=PARTY_NOMINATION_JSON_SCHEMA,
+            max_tokens=compute_max_tokens(len(contested)),
+            think=False,
+            decode=lambda raw: decode_party_nomination_batch(raw, expected_party_ids),
+            replays=config.llm.max_batch_replays,
+            decision_type="party_nomination_choice",
+            # A deliberate, local exception to temperature=0 determinism -- see
+            # _NOMINATION_RETRY_TEMPERATURE's own comment. Only ever applies to
+            # a genuine retry (never the first attempt). This decision type
+            # already had the fallback below (2026-09-10, after an out-of-range
+            # winner_position killed a Stage 3 run); what it lacked was any
+            # reason for the retry BEFORE that fallback to return anything
+            # different from the attempt that had just failed.
+            retry_temperature=_NOMINATION_RETRY_TEMPERATURE,
+            retry_seed_base=_NOMINATION_RETRY_SEED_BASE,
+        )
         for decision in decisions:
             validate_party_nomination_decision(decision, contested[decision.party_id])
         winners = {decision.party_id: resolve_party_nomination_cid(decision, contested[decision.party_id])
                    for decision in decisions}
     except LlmResponseError as exc:
         _logger.error(
-            "party_nomination_choice: winner_position out of range for party_id(s) %s, falling back to the "
+            "party_nomination_choice: exhausted every recovery attempt for party_id(s) %s, falling back to the "
             "deterministic highest-ambition tiebreak for every contested party this tick instead of "
             "aborting the run: %s", expected_party_ids, exc,
         )
@@ -1927,8 +2063,13 @@ def decide_party_nominations(
                 PartyNominationDecision(party_id=party_id, winner_position=position, motif=PartyNominationMotif.HIGHEST_AMBITION)
             )
             winners[party_id] = nominee.citizen_id
+        is_fallback = True
 
-    return PartyNominationBatchOutcome(decisions=decisions, winners=winners)
+    return PartyNominationBatchOutcome(
+        decisions=decisions,
+        winners=winners,
+        llm_fallback={party_id: is_fallback for party_id in expected_party_ids},
+    )
 
 
 @dataclass(frozen=True)
@@ -1940,6 +2081,48 @@ class PositioningBatchOutcome:
     sincere-position context needed to resolve a decision's sparse shifts
     into a full position tuple, mirroring how cast_votes resolves positions
     into ballots internally rather than exposing raw wire values."""
+    llm_fallback: dict[int, bool] = field(default_factory=dict)
+    """cid -> whether this decision came from _deterministic_positioning_
+    fallback rather than the model. Mirrors every other outcome's own
+    provenance field. It matters more here than almost anywhere else: a
+    fallback emits motif=601 SINCERE_CONVICTION with no shifts, which is
+    ALSO a perfectly ordinary real answer -- so without this field a run
+    that fell back on every nominee would be indistinguishable from a run
+    where every nominee genuinely chose to campaign sincerely, and
+    mandate_deviation (which measures drift away from the pledged platform)
+    would be read as a finding about strategy rather than an artifact of
+    the engine giving up."""
+
+
+def _deterministic_positioning_fallback(nominees: Sequence[Citizen]) -> list[PositioningDecision]:
+    """Last-resort decision for decide_campaign_positioning when the LLM path
+    is exhausted for the whole batch.
+
+    No shifts is not an arbitrary filler: it is exactly what NOT running dt=5
+    means. On the deterministic path this decision type does not exist at all
+    and simple_rules.declare_candidacy pins pledged_platform ==
+    revealed_position == issue_positions -- "v0 has no campaign strategizing:
+    a candidate runs on their own sincere position ... the deviation this
+    enables is a v2+ LLM effect, zero by construction here". An empty `shifts`
+    list resolves through apply_shifts to precisely that pin, so the fallback
+    reproduces the baseline rather than inventing a strategy the model never
+    chose.
+
+    The motif is forced, not chosen, the same way _deterministic_response_
+    fallback's is: PositioningDecision's schema admits only 601-604, and
+    PositioningDecision's own docstring already binds the empty-shifts case to
+    601 ("An empty list means the nominee runs on their sincere position
+    (motif=SINCERE_CONVICTION)"). But SINCERE_CONVICTION describes a nominee
+    who WEIGHED the electorate mean and their rivals and chose to stand on
+    their own position -- which is not what happened here. Nothing in the
+    codebook describes "the engine gave up", so the provenance lives in
+    PositioningBatchOutcome.llm_fallback instead, and an analyst reading a
+    motif distribution must subtract fallbacks before reading 601 as evidence
+    of sincere campaigning."""
+    return [
+        PositioningDecision(cid=nominee.citizen_id, shifts=[], motif=int(CampaignMotif.SINCERE_CONVICTION))
+        for nominee in nominees
+    ]
 
 
 def apply_shifts(sincere: tuple[float, ...], shifts: Sequence[PositionShift]) -> tuple[float, ...]:
@@ -2238,25 +2421,58 @@ def decide_campaign_positioning(
     nominees = sorted(nominees, key=lambda n: n.citizen_id)
     electorate_mean = tuple(float(x) for x in np.mean([c.issue_positions for c in citizens], axis=0))
     expected_cids = [n.citizen_id for n in nominees]
-    decisions = _complete_and_decode_with_replay(
-        client,
-        system_prompt=build_positioning_system_prompt(nominees, config),
-        user_prompt=build_positioning_user_prompt(nominees, parties_by_id, electorate_mean),
-        json_schema=POSITIONING_JSON_SCHEMA,
-        max_tokens=compute_max_tokens(len(nominees)) + _POSITIONING_THINK_TOKEN_ALLOWANCE,
-        think=True,
-        decode=lambda raw: decode_positioning_batch(raw, expected_cids),
-        replays=config.llm.max_batch_replays,
-        decision_type="campaign_positioning",
-    )
+    is_fallback = False
+    try:
+        decisions = _complete_and_decode_with_replay(
+            client,
+            system_prompt=build_positioning_system_prompt(nominees, config),
+            user_prompt=build_positioning_user_prompt(nominees, parties_by_id, electorate_mean),
+            json_schema=POSITIONING_JSON_SCHEMA,
+            max_tokens=compute_max_tokens(len(nominees)) + _POSITIONING_THINK_TOKEN_ALLOWANCE,
+            think=True,
+            decode=lambda raw: decode_positioning_batch(raw, expected_cids),
+            replays=config.llm.max_batch_replays,
+            decision_type="campaign_positioning",
+            # A deliberate, local exception to temperature=0 determinism --
+            # see _POSITIONING_RETRY_TEMPERATURE's own comment. Only ever
+            # applies to a genuine retry (never the first attempt). This
+            # decision type needs it more than most: its documented failure
+            # mode is a non-convergent reasoning loop hitting finish_reason=
+            # 'length' (see this function's own Mode A history), which at a
+            # fixed temperature and seed re-runs identically every time.
+            retry_temperature=_POSITIONING_RETRY_TEMPERATURE,
+            retry_seed_base=_POSITIONING_RETRY_SEED_BASE,
+        )
+        # Inside the try on purpose: a validate_positioning_decision failure is
+        # the SAME class of unrecoverable batch as an exhausted replay budget,
+        # and before this it killed the run just as reliably (cast_votes's own
+        # except block already covers both failure classes for the same reason).
+        for decision in decisions:
+            validate_positioning_decision(decision, config)
+    except LlmResponseError as exc:
+        # Last resort, not a silent one -- see PositioningBatchOutcome.llm_
+        # fallback and _deterministic_positioning_fallback's own docstrings.
+        # Whole-batch, not per-chunk: this function deliberately does not
+        # chunk (it batches a handful of nominees, not citizens), so there is
+        # no smaller unit to degrade.
+        _logger.error(
+            "campaign_positioning: exhausted every recovery attempt for cid(s) %s, falling back to "
+            "the sincere platform (no shifts, simple_rules.declare_candidacy's own pin) instead of "
+            "aborting the run: %s", expected_cids, exc,
+        )
+        decisions = _deterministic_positioning_fallback(nominees)
+        is_fallback = True
 
     nominees_by_id = {n.citizen_id: n for n in nominees}
     platforms: dict[int, tuple[float, ...]] = {}
     for decision in decisions:
-        validate_positioning_decision(decision, config)
         platforms[decision.cid] = apply_shifts(nominees_by_id[decision.cid].issue_positions, decision.shifts)
 
-    return PositioningBatchOutcome(decisions=decisions, platforms=platforms)
+    return PositioningBatchOutcome(
+        decisions=decisions,
+        platforms=platforms,
+        llm_fallback={cid: is_fallback for cid in expected_cids},
+    )
 
 
 @dataclass(frozen=True)
@@ -2615,6 +2831,74 @@ class PressureBatchOutcome:
     the CALLER resolves each act against LIVE petition state via
     accountability.applicable_pressure_act, because only the caller owns
     mutation. Same one-field shape as CandidacyBatchOutcome."""
+    llm_fallback: dict[int, bool] = field(default_factory=dict)
+    """cid -> whether this decision came from _deterministic_pressure_fallback
+    rather than the model. Mirrors every other outcome's own provenance field.
+    dt=10 is the decision type where this matters most, because the entire
+    §11.4 palier this simulator exists to measure is "rigid deterministic
+    preference vs. free LLM arbitration" -- a fallback silently substitutes
+    the FIRST arm into a run that is supposed to be measuring the second, and
+    mobilization_rate is computed from exactly these acts. An analyst
+    comparing the two arms must exclude fallback decisions or the comparison
+    is partly against itself."""
+
+
+def _deterministic_pressure_fallback(
+    chunk: Sequence[Citizen], contexts: Mapping[int, PressureContext], config: PolityConfig
+) -> list[PressureDecision]:
+    """Last-resort decision for decide_pressure_actions when the LLM path is
+    exhausted for this one chunk.
+
+    Reuses simple_rules.deterministic_pressure_action -- the exact §11.4
+    baseline this decision type's own docstring says it REPLACED, and which
+    "stays exactly as it is" precisely so it remains available as the
+    permanent comparison arm. Not a new mechanism invented for this fallback.
+
+    `gap` and the two petition-availability facts come from the FROZEN
+    PressureContext the model itself was shown, never from live state:
+    `can_sign`/`can_launch` are recovered from `context.available`, which the
+    caller built as menu_acts() minus the acts this citizen could not take at
+    freeze time (run_polity_simulation._pressure_context). So a fallback
+    decision is exactly as stale as a model decision would have been, and the
+    caller's own applicable_pressure_act re-resolution against live state
+    downgrades both identically -- this function must not quietly enjoy
+    fresher information than the path it replaces.
+
+    Because the baseline reads `menu` itself, the returned act is in-menu by
+    construction and validate_pressure_decision would accept it; it is not
+    re-validated here, matching every other fallback.
+
+    Motifs: 301 MANDATE_DEVIATION_HIGH for any acting code is a real
+    structural classification -- the baseline's one gate IS
+    `gap >= citizen.blank_threshold`, the citizen's perceived deviation
+    exceeding their own tolerance bar. 305 DEFERRED_TO_ELECTION for act=4 is
+    likewise literal (the baseline's final branch). 304 is the weak one, and
+    it is FORCED rather than chosen: it is the only code in the enum that
+    grounds act=0, but RESIGNATION_NO_LEVERAGE describes a citizen who wanted
+    to act and found no lever, whereas the baseline's act=0 means the
+    opposite -- the holder is still within this citizen's tolerance, so there
+    is nothing to be aggrieved about. Nothing legal expresses that, so
+    provenance lives in PressureBatchOutcome.llm_fallback instead."""
+    decisions = []
+    for citizen in chunk:
+        context = contexts[citizen.citizen_id]
+        act = deterministic_pressure_action(
+            citizen,
+            context.self_gap,
+            config.pressure_menu,
+            can_sign=int(PressureAct.SIGN_PETITION) in context.available,
+            can_launch=int(PressureAct.LAUNCH_PETITION) in context.available,
+        )
+        if act is PressureAct.NOTHING:
+            motif = PressureMotif.RESIGNATION_NO_LEVERAGE
+        elif act is PressureAct.WAIT_FOR_ELECTION:
+            motif = PressureMotif.DEFERRED_TO_ELECTION
+        else:
+            motif = PressureMotif.MANDATE_DEVIATION_HIGH
+        decisions.append(
+            PressureDecision(cid=citizen.citizen_id, target=context.target, act=int(act), motif=int(motif))
+        )
+    return decisions
 
 
 def menu_acts(menu: PressureMenuConfig) -> tuple[int, ...]:
@@ -3287,30 +3571,58 @@ def decide_pressure_actions(
     # rely on an incidental insertion order (D-5 precedent).
     consulted = sorted(consulted, key=lambda c: c.citizen_id)
 
-    def _pressure_chunk(chunk: list[Citizen]) -> list[PressureDecision]:
+    def _pressure_chunk(chunk: list[Citizen]) -> tuple[list[PressureDecision], bool]:
         expected_cids = [c.citizen_id for c in chunk]
         signal_values = {"blank_threshold": {c.citizen_id: c.blank_threshold for c in chunk}}
-        chunk_decisions = _complete_and_decode_with_replay(
-            client,
-            system_prompt=build_pressure_system_prompt_calibrated(chunk, config, (PRESSURE_THRESHOLD_SIGNAL,)),
-            user_prompt=build_pressure_user_prompt_calibrated(chunk, contexts, signal_values),
-            json_schema=PRESSURE_JSON_SCHEMA,
-            max_tokens=compute_max_tokens(len(chunk)),
-            think=False,
-            decode=lambda raw: decode_pressure_batch(raw, expected_cids),
-            replays=config.llm.max_batch_replays,
-            decision_type="pressure_action",
-        )
-        for decision in chunk_decisions:
-            validate_pressure_decision(decision, contexts[decision.cid], config)
-        return chunk_decisions
+        is_fallback = False
+        try:
+            chunk_decisions = _complete_and_decode_with_replay(
+                client,
+                system_prompt=build_pressure_system_prompt_calibrated(chunk, config, (PRESSURE_THRESHOLD_SIGNAL,)),
+                user_prompt=build_pressure_user_prompt_calibrated(chunk, contexts, signal_values),
+                json_schema=PRESSURE_JSON_SCHEMA,
+                max_tokens=compute_max_tokens(len(chunk)),
+                think=False,
+                decode=lambda raw: decode_pressure_batch(raw, expected_cids),
+                replays=config.llm.max_batch_replays,
+                decision_type="pressure_action",
+                # A deliberate, local exception to temperature=0 determinism --
+                # see _PRESSURE_RETRY_TEMPERATURE's own comment. Only ever
+                # applies to a genuine retry (never the first attempt).
+                retry_temperature=_PRESSURE_RETRY_TEMPERATURE,
+                retry_seed_base=_PRESSURE_RETRY_SEED_BASE,
+            )
+            # Inside the try on purpose: an out-of-menu act is a rejected batch
+            # exactly like an exhausted replay budget, and killed the run just
+            # as reliably (cast_votes's own except block covers both classes).
+            for decision in chunk_decisions:
+                validate_pressure_decision(decision, contexts[decision.cid], config)
+        except LlmResponseError as exc:
+            # Last resort, not a silent one -- see PressureBatchOutcome.llm_
+            # fallback and _deterministic_pressure_fallback's own docstrings.
+            # At _PRESSURE_CALIBRATED_CHUNK_SIZE=1 a chunk is ONE citizen, so
+            # this degrades a single citizen's act and leaves the rest of the
+            # consulted cohort's model decisions untouched -- the finest
+            # granularity any decision type in this engine falls back at.
+            _logger.error(
+                "pressure_action: exhausted every recovery attempt for cid(s) %s, falling back to "
+                "the deterministic pressure rule (simple_rules.deterministic_pressure_action) "
+                "instead of aborting the run: %s", expected_cids, exc,
+            )
+            chunk_decisions = _deterministic_pressure_fallback(chunk, contexts, config)
+            is_fallback = True
+        return chunk_decisions, is_fallback
 
     decisions: list[PressureDecision] = []
+    llm_fallback: dict[int, bool] = {}
     chunks = chunk_voters(consulted, _PRESSURE_CALIBRATED_CHUNK_SIZE, min_batch_size=1)
-    for chunk_decisions in run_chunks(chunks, _pressure_chunk, config.parallel.intra_run_workers):
+    for chunk_decisions, is_fallback in run_chunks(chunks, _pressure_chunk, config.parallel.intra_run_workers):
+        if is_fallback:
+            for decision in chunk_decisions:
+                llm_fallback[decision.cid] = True
         decisions.extend(chunk_decisions)
 
-    return PressureBatchOutcome(decisions=decisions)
+    return PressureBatchOutcome(decisions=decisions, llm_fallback=llm_fallback)
 
 
 @dataclass(frozen=True)
@@ -3344,12 +3656,78 @@ class ReactionBatchOutcome:
     accountability.update_event_salience, exactly as it already applies
     deterministic_reaction_to_event's own flat delta (v5 Lot 3) -- this
     lot only changes WHO computes the delta, never how it's applied."""
+    llm_fallback: dict[int, bool] = field(default_factory=dict)
+    """cid -> whether this decision came from _deterministic_reaction_fallback
+    rather than the model. Mirrors every other outcome's own provenance field.
+    The distinguishing fact dt=8 loses without it is per-citizen VARIANCE: the
+    baseline applies one flat delta to everybody by construction, so a chunk
+    that fell back appears in the journal as a block of citizens who all
+    reacted identically -- which is exactly the content-blind-collapse
+    signature this project's own diagnostics hunt for. Without this field a
+    fallback would read as evidence of the very defect it is not."""
 
 
 _EVENT_TYPE_GROUNDING_MOTIF: dict[EventType, ReactionMotif] = {
     EventType.SCANDAL: ReactionMotif.SCANDAL_TRUST_EROSION,
     EventType.ECONOMIC_SHOCK: ReactionMotif.ECONOMIC_SHOCK_REACTION,
 }
+
+
+def _deterministic_reaction_fallback(
+    chunk: Sequence[Citizen], event_type: EventType, config: PolityConfig, magnitude: float
+) -> list[ReactionDecision]:
+    """Last-resort decision for decide_reaction_to_event when the LLM path is
+    exhausted for this one chunk.
+
+    Reuses simple_rules.deterministic_reaction_to_event -- the exact §11.4
+    baseline this decision type's own docstring says it REPLACED, and which
+    "stays exactly as it is" precisely so it remains available. Not a new
+    mechanism invented for this fallback. Every citizen in the chunk gets the
+    same flat delta, because that is what the baseline does BY CONSTRUCTION
+    (it takes no Citizen parameter at all) and therefore what "dt=8 did not
+    run" means.
+
+    The motif is not forced here, unlike the other three fallbacks: it is the
+    only correct one. 403 EVENT_PERSONALLY_IRRELEVANT is structurally
+    unreachable on the deterministic path (ReactionMotif's own docstring says
+    so, since judging an event irrelevant to oneself requires the citizen-level
+    judgment the baseline has no input for), and ReactionDecision's schema-
+    level rule binds salience_delta == 0 to motif 403 and a positive delta to
+    the call's own grounding code. A flat positive delta therefore admits
+    exactly 401/402, and _EVENT_TYPE_GROUNDING_MOTIF picks the right one.
+
+    No cap is applied on top of the baseline's own arithmetic: SCANDAL returns
+    events.scandal_magnitude verbatim and deliberately NOT capped by
+    max_reaction_delta (EventsConfig's own docstring keeps the two analytically
+    separable), so capping here would make the fallback quietly disagree with
+    the baseline it claims to reproduce. Both fields are parsed through
+    config._get_ratio, so both are within [0, 1] and cannot breach
+    ReactionDecision's own structural ceiling.
+
+    CONSEQUENCE WORTH KNOWING: validate_reaction_decision rejects a decision
+    whose delta exceeds events.max_reaction_delta, and on the SCANDAL branch
+    the baseline can legitimately exceed it. A fallback decision is therefore
+    not re-validated (no fallback in this engine is), but it also means a
+    fallback can carry a delta the model would not have been allowed to
+    return. That asymmetry is deliberate: the baseline's own value is the
+    honest answer to "what would have happened without dt=8", and silently
+    clamping it would be a third behaviour that matches neither arm."""
+    delta = deterministic_reaction_to_event(event_type, config.events, magnitude=magnitude)
+    # A zero delta is reachable (events.scandal_magnitude is a configurable
+    # ratio and may legitimately be 0.0) and ReactionDecision's schema-level
+    # rule is an IFF, so a grounding motif on a zero delta raises a pydantic
+    # ValidationError -- inside an except block, which would kill the run in
+    # the exact way this whole fallback exists to prevent. 403 is then the
+    # only legal code, forced rather than chosen: it claims the citizen judged
+    # the event irrelevant, whereas what actually happened is that this polity
+    # is configured for an event of zero magnitude.
+    motif = (
+        ReactionMotif.EVENT_PERSONALLY_IRRELEVANT if delta == 0.0 else _EVENT_TYPE_GROUNDING_MOTIF[event_type]
+    )
+    return [
+        ReactionDecision(cid=citizen.citizen_id, salience_delta=delta, motif=int(motif))
+        for citizen in chunk
+    ]
 
 
 def validate_reaction_decision(decision: ReactionDecision, event_type: EventType, config: PolityConfig) -> None:
@@ -3529,29 +3907,54 @@ def decide_reaction_to_event(
     # rely on an incidental insertion order (D-5 precedent).
     citizens = sorted(citizens, key=lambda c: c.citizen_id)
 
-    def _reaction_chunk(chunk: list[Citizen]) -> list[ReactionDecision]:
+    def _reaction_chunk(chunk: list[Citizen]) -> tuple[list[ReactionDecision], bool]:
         expected_cids = [c.citizen_id for c in chunk]
-        chunk_decisions = _complete_and_decode_with_replay(
-            client,
-            system_prompt=build_reaction_system_prompt(chunk, event_type, config),
-            user_prompt=build_reaction_user_prompt(chunk, contexts, event_type=event_type, target=target, magnitude=magnitude),
-            json_schema=REACTION_JSON_SCHEMA,
-            max_tokens=compute_max_tokens(len(chunk)),
-            think=False,
-            decode=lambda raw: decode_reaction_batch(raw, expected_cids),
-            replays=config.llm.max_batch_replays,
-            decision_type="reaction_to_event",
-        )
-        for decision in chunk_decisions:
-            validate_reaction_decision(decision, event_type, config)
-        return chunk_decisions
+        is_fallback = False
+        try:
+            chunk_decisions = _complete_and_decode_with_replay(
+                client,
+                system_prompt=build_reaction_system_prompt(chunk, event_type, config),
+                user_prompt=build_reaction_user_prompt(chunk, contexts, event_type=event_type, target=target, magnitude=magnitude),
+                json_schema=REACTION_JSON_SCHEMA,
+                max_tokens=compute_max_tokens(len(chunk)),
+                think=False,
+                decode=lambda raw: decode_reaction_batch(raw, expected_cids),
+                replays=config.llm.max_batch_replays,
+                decision_type="reaction_to_event",
+                # A deliberate, local exception to temperature=0 determinism --
+                # see _REACTION_RETRY_TEMPERATURE's own comment. Only ever
+                # applies to a genuine retry (never the first attempt).
+                retry_temperature=_REACTION_RETRY_TEMPERATURE,
+                retry_seed_base=_REACTION_RETRY_SEED_BASE,
+            )
+            # Inside the try on purpose: an over-cap delta or a wrong-event
+            # grounding motif is a rejected batch exactly like an exhausted
+            # replay budget, and killed the run just as reliably (cast_votes's
+            # own except block covers both classes for the same reason).
+            for decision in chunk_decisions:
+                validate_reaction_decision(decision, event_type, config)
+        except LlmResponseError as exc:
+            # Last resort, not a silent one -- see ReactionBatchOutcome.llm_
+            # fallback and _deterministic_reaction_fallback's own docstrings.
+            _logger.error(
+                "reaction_to_event: exhausted every recovery attempt for cid(s) %s, falling back to "
+                "the flat deterministic salience delta (simple_rules."
+                "deterministic_reaction_to_event) instead of aborting the run: %s", expected_cids, exc,
+            )
+            chunk_decisions = _deterministic_reaction_fallback(chunk, event_type, config, magnitude)
+            is_fallback = True
+        return chunk_decisions, is_fallback
 
     decisions: list[ReactionDecision] = []
+    llm_fallback: dict[int, bool] = {}
     chunks = chunk_voters(citizens, config.llm.max_batch_size)
-    for chunk_decisions in run_chunks(chunks, _reaction_chunk, config.parallel.intra_run_workers):
+    for chunk_decisions, is_fallback in run_chunks(chunks, _reaction_chunk, config.parallel.intra_run_workers):
+        if is_fallback:
+            for decision in chunk_decisions:
+                llm_fallback[decision.cid] = True
         decisions.extend(chunk_decisions)
 
-    return ReactionBatchOutcome(decisions=decisions)
+    return ReactionBatchOutcome(decisions=decisions, llm_fallback=llm_fallback)
 
 
 @dataclass(frozen=True)
@@ -3997,8 +4400,13 @@ class CoalitionBatchOutcome:
     diagnostic visibility) but `coalition` is always None -- an aborted
     negotiation is never treated as equivalent to a concluded one, since the
     model might have been about to change its mind (that is the entire
-    reason to run more rounds); see decide_coalition's own docstring for why
-    only round >= 2 failures reach this path."""
+    reason to run more rounds).
+
+    2026-09-11: a ROUND 1 failure now reaches this path too (it used to raise
+    and kill the run). In that one case `rounds` is empty and `decisions` is
+    therefore `[]`, not "the last round that DID complete" -- there wasn't
+    one. `aborted_at_round == 1` is exactly the signal for that state, and the
+    journal carries it as `rounds_completed: 0`."""
 
 
 def build_coalition_system_prompt(
@@ -4320,7 +4728,11 @@ def decide_coalition(
     )
     if aborted_at_round is not None:
         return CoalitionBatchOutcome(
-            decisions=all_rounds[-1],
+            # Empty when the abort happened in round 1 -- nothing ever
+            # completed, so there is no last round to expose. Unguarded, this
+            # was an IndexError the moment round 1 stopped raising (see
+            # _run_coalition_negotiation's own except block).
+            decisions=all_rounds[-1] if all_rounds else [],
             initiator=initiator,
             coalition=None,
             rounds=all_rounds,
@@ -4377,10 +4789,35 @@ def _run_coalition_negotiation(
                 decode=lambda raw: decode_coalition_batch(raw, responders),
                 replays=config.llm.max_batch_replays,
                 decision_type="coalition_decision",
+                # A deliberate, local exception to temperature=0 determinism --
+                # see _COALITION_RETRY_TEMPERATURE's own comment. Only ever
+                # applies to a genuine retry (never the first attempt). With
+                # this, all nine decision types vary sampling on a retry.
+                retry_temperature=_COALITION_RETRY_TEMPERATURE,
+                retry_seed_base=_COALITION_RETRY_SEED_BASE,
             )
         except LlmResponseError:
-            if round_number == 1:
-                raise
+            # Round 1 used to `raise` here, which made coalition_decision the
+            # ninth and last decision type able to kill a multi-hour run on a
+            # single bad batch (2026-09-11). It now aborts exactly the way a
+            # round >= 2 failure already did since v7 Lot 2 -- this is not a
+            # new degradation semantics, it is the existing one stopped from
+            # having an arbitrary exception at round 1.
+            #
+            # NOTE what that means, because it is a real modelling choice and
+            # not a neutral one: the polity ends the tick with NO government
+            # (coalition_failed, aborted_at_round=1, rounds_completed=0), which
+            # is NOT what "dt=9 did not run" means -- the deterministic
+            # baseline, simple_rules.form_coalition, would have produced a real
+            # nearest-neighbour coalition. Every other fallback in this engine
+            # reproduces its own §11.4 baseline; this one deliberately does
+            # not, because v7 Lot 2 already chose abort-semantics for the
+            # identical failure one round later and having round 1 disagree
+            # with round 2 would be worse than either rule alone. The journal
+            # distinguishes the two cases (aborted_at_round is set only on an
+            # LLM failure, never on a genuine no-majority outcome), so an
+            # analyst can exclude them. Revisit by giving BOTH rounds a
+            # form_coalition fallback, never just this one.
             return all_rounds, round_number
 
         for decision in round_decisions:

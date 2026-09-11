@@ -10,7 +10,7 @@ import pytest
 
 from api.domain.polity.ballot_and_aggregation import get_presidential_winner
 from api.domain.polity.citizen import Citizen
-from api.domain.polity.codebook import EventType, VoteMotif
+from api.domain.polity.codebook import EventType, PartyNominationMotif, PressureAct, VoteMotif
 from api.domain.polity.config import PressureMenuConfig, load_config
 from api.domain.polity.llm_behavior_engine import (
     MIN_SAFE_BATCH_SIZE,
@@ -19,6 +19,8 @@ from api.domain.polity.llm_behavior_engine import (
     _CHAMBER_RETRY_SEED_BASE,
     _CHAMBER_RETRY_TEMPERATURE,
     _PRESSURE_CALIBRATED_CHUNK_SIZE,
+    _PRESSURE_RETRY_SEED_BASE,
+    _PRESSURE_RETRY_TEMPERATURE,
     _VOTE_CAST_MAX_CHUNK_SIZE_OLLAMA,
     _VOTE_CAST_MAX_CHUNK_SIZE_VLLM,
     _VOTE_CAST_RETRY_SEED_BASE,
@@ -102,6 +104,9 @@ from api.domain.polity.simple_rules import (
     BLANK_LABEL,
     build_ranking,
     declare_candidacy,
+    decide_candidacy,
+    deterministic_pressure_action,
+    deterministic_reaction_to_event,
     form_coalition,
     sympathizer_ratio,
     weighted_distance,
@@ -958,7 +963,11 @@ def test_decide_candidacies_raises_for_codebook_version_mismatch():
         decide_candidacies(citizens, config, FakeCandidacyLlmClient())
 
 
-def test_decide_candidacies_propagates_llm_response_error_on_count_mismatch():
+def test_decide_candidacies_falls_back_to_the_ambition_threshold_on_a_count_mismatch():
+    # The misalignment is still DETECTED (that part is unchanged); what
+    # changed on 2026-09-11 is what happens next. It used to propagate and
+    # kill the run; it now degrades to simple_rules.decide_candidacy -- the
+    # exact threshold dt=2 replaced -- for the affected chunk only.
     citizens = _population(20)
     config = _config_with_llm_enabled()
 
@@ -966,8 +975,18 @@ def test_decide_candidacies_propagates_llm_response_error_on_count_mismatch():
         def complete_json(self, **kwargs):
             return json.dumps({"decisions": [{"cid": 0, "outcome": 0, "motif": 201}]})
 
-    with pytest.raises(LlmResponseError, match="misaligned"):
-        decide_candidacies(citizens, config, ShortClient())
+    outcome = decide_candidacies(citizens, config, ShortClient())
+
+    assert outcome.llm_fallback == {c.citizen_id: True for c in citizens}
+    # Not merely "some decision": the baseline's decision, per citizen.
+    by_cid = {d.cid: d for d in outcome.decisions}
+    for citizen in citizens:
+        expected = 1 if decide_candidacy(citizen, config.candidacy) else 0
+        assert by_cid[citizen.citizen_id].outcome == expected
+    # And only the two motifs a threshold can actually justify -- never 201
+    # (INSUFFICIENT_PERCEIVED_SUPPORT) or 205 (RISK_AVERSE_DEFERRAL), which
+    # require judgment the baseline has no input for.
+    assert {d.motif for d in outcome.decisions} <= {203, 204}
 
 
 # ── build_party_nomination_system_prompt / build_party_nomination_user_prompt ──
@@ -1173,7 +1192,7 @@ def test_decide_party_nominations_raises_for_codebook_version_mismatch():
         decide_party_nominations(citizens, [], set(), config, FakePartyNominationLlmClient())
 
 
-def test_decide_party_nominations_propagates_llm_response_error_on_count_mismatch():
+def test_decide_party_nominations_falls_back_to_the_tiebreak_on_a_count_mismatch():
     citizens = [
         _citizen_with_ambition(0, 0.9),
         _citizen_with_ambition(1, 0.1),
@@ -1192,8 +1211,16 @@ def test_decide_party_nominations_propagates_llm_response_error_on_count_mismatc
         def complete_json(self, **kwargs):
             return json.dumps({"decisions": [{"party_id": 0, "winner_position": 1, "motif": 206}]})
 
-    with pytest.raises(LlmResponseError, match="misaligned"):
-        decide_party_nominations(citizens, parties, declared_cids, config, ShortClient())
+    outcome = decide_party_nominations(citizens, parties, declared_cids, config, ShortClient())
+
+    # This decision type had a fallback since 2026-09-10, but it only wrapped
+    # validation/resolution -- an exhausted or misaligned BATCH still went
+    # uncaught and killed the run, a half-closed hole that read as closed.
+    # The LLM call moved inside the same try on 2026-09-11.
+    assert outcome.llm_fallback == {0: True, 1: True}
+    # The highest-ambition contender per party, which is what the tiebreak does.
+    assert outcome.winners == {0: 0, 1: 2}
+    assert {d.motif for d in outcome.decisions} == {int(PartyNominationMotif.HIGHEST_AMBITION)}
 
 
 # ── apply_shifts ──────────────────────────────────────────────────────────
@@ -1448,7 +1475,10 @@ def test_decide_campaign_positioning_raises_for_codebook_version_mismatch():
         decide_campaign_positioning(citizens, citizens, {}, config, FakePositioningLlmClient())
 
 
-def test_decide_campaign_positioning_propagates_llm_response_error_on_count_mismatch():
+def test_decide_campaign_positioning_falls_back_to_the_sincere_platform_on_a_count_mismatch():
+    # Degrades instead of killing the run (2026-09-11). The substituted answer
+    # is declare_candidacy's own pin: no shifts, so the resolved platform IS
+    # the sincere position -- "dt=5 did not run", not an invented strategy.
     citizens = _population(2)
     config = _config_with_llm_enabled()
 
@@ -1456,8 +1486,13 @@ def test_decide_campaign_positioning_propagates_llm_response_error_on_count_mism
         def complete_json(self, **kwargs):
             return json.dumps({"decisions": [{"cid": 0, "shifts": [], "motif": 601}]})
 
-    with pytest.raises(LlmResponseError, match="misaligned"):
-        decide_campaign_positioning(citizens, citizens, {}, config, ShortClient())
+    outcome = decide_campaign_positioning(citizens, citizens, {}, config, ShortClient())
+
+    assert outcome.llm_fallback == {c.citizen_id: True for c in citizens}
+    assert all(d.shifts == [] for d in outcome.decisions)
+    assert {d.motif for d in outcome.decisions} == {601}
+    for citizen in citizens:
+        assert outcome.platforms[citizen.citizen_id] == citizen.issue_positions
 
 
 # ── validate_response_decision (v4 Lot 6) ────────────────────────────────
@@ -2771,7 +2806,7 @@ def test_decide_coalition_raises_for_codebook_version_mismatch():
         decide_coalition(_parties_from_seats(seats), seats, votes, config, FakeCoalitionLlmClient())
 
 
-def test_decide_coalition_propagates_llm_response_error_on_count_mismatch():
+def test_decide_coalition_aborts_gracefully_on_a_round_one_count_mismatch():
     seats = {0: 30, 1: 25, 2: 20}
     votes = {0: 30.0, 1: 25.0, 2: 20.0}
     parties = _parties_from_seats(seats)
@@ -2781,16 +2816,23 @@ def test_decide_coalition_propagates_llm_response_error_on_count_mismatch():
         def complete_json(self, **kwargs):
             return json.dumps({"decisions": [{"party_id": 1, "action": 1, "motif": 501}]})
 
-    with pytest.raises(LlmResponseError, match="misaligned"):
-        decide_coalition(parties, seats, votes, config, ShortClient())
+    outcome = decide_coalition(parties, seats, votes, config, ShortClient())
+
+    assert outcome.aborted_at_round == 1
+    assert outcome.coalition is None
+    # Round 1 is the ONE case where `rounds` is empty and `decisions` is
+    # therefore [] rather than "the last round that DID complete" -- there
+    # wasn't one. Unguarded, this was an IndexError.
+    assert outcome.rounds == []
+    assert outcome.decisions == []
 
 
-def test_decide_coalition_round_one_llm_error_propagates_like_the_pre_v7_single_call():
-    # Round 1's failure behavior must not change -- no new resilience claimed
-    # for a path nothing about v7 touches (see decide_coalition's own
-    # docstring). ShortClient above already covers a decode-time failure;
-    # this covers complete_json raising directly, the other source
-    # _complete_and_decode_with_replay's own docstring names.
+def test_decide_coalition_round_one_llm_error_aborts_instead_of_killing_the_run():
+    # Round 1 used to `raise` here, making coalition_decision the last of the
+    # nine decision types able to end a multi-hour run on one bad batch
+    # (2026-09-11). It now takes the same exit a round >= 2 failure has taken
+    # since v7 Lot 2. This covers complete_json raising directly; ShortClient
+    # above covers the decode-time failure.
     seats = {0: 45, 1: 25, 2: 30}
     votes = {0: 45.0, 1: 25.0, 2: 30.0}
     parties = [Party(party_id=0, platform=(0.0,)), Party(party_id=1, platform=(0.1,)), Party(party_id=2, platform=(0.9,))]
@@ -2800,8 +2842,13 @@ def test_decide_coalition_round_one_llm_error_propagates_like_the_pre_v7_single_
         def complete_json(self, **kwargs):
             raise LlmResponseError("generation did not finish cleanly: done_reason='length'")
 
-    with pytest.raises(LlmResponseError, match="did not finish cleanly"):
-        decide_coalition(parties, seats, votes, config, AlwaysFailsClient())
+    outcome = decide_coalition(parties, seats, votes, config, AlwaysFailsClient())
+
+    assert outcome.aborted_at_round == 1
+    assert outcome.coalition is None
+    # An abort is NOT a negotiated no-majority: the journal must be able to
+    # tell them apart, which is exactly what aborted_at_round is for.
+    assert outcome.initiator is not None
 
 
 def test_decide_coalition_aborts_gracefully_on_a_round_two_failure():
@@ -3522,7 +3569,7 @@ def test_decide_pressure_actions_raises_for_codebook_version_mismatch():
         decide_pressure_actions(citizens, contexts, config, FakePressureLlmClient())
 
 
-def test_decide_pressure_actions_propagates_llm_response_error_on_count_mismatch():
+def test_decide_pressure_actions_falls_back_to_the_deterministic_rule_on_a_count_mismatch():
     # Phase E made every chunk a singleton (_PRESSURE_CALIBRATED_CHUNK_SIZE=1), so a fixed
     # single-decision reply can no longer be used to fake a mismatch by returning too FEW
     # decisions -- one decision is exactly what a singleton chunk expects, and an empty list fails
@@ -3537,8 +3584,26 @@ def test_decide_pressure_actions_propagates_llm_response_error_on_count_mismatch
         def complete_json(self, **kwargs):
             return json.dumps({"decisions": [{"cid": 999, "target": 205, "act": 3, "motif": 301}]})
 
-    with pytest.raises(LlmResponseError, match="misaligned"):
-        decide_pressure_actions(citizens, contexts, config, WrongCidClient())
+    outcome = decide_pressure_actions(citizens, contexts, config, WrongCidClient())
+
+    # Degrades instead of killing the run (2026-09-11), to the §11.4 baseline
+    # this decision type exists to be compared AGAINST -- which is exactly why
+    # llm_fallback has to be readable: a run that silently substituted the
+    # rigid-preference arm into the free-arbitration arm would be comparing
+    # the palier against itself.
+    assert outcome.llm_fallback == {c.citizen_id: True for c in citizens}
+    by_cid = {d.cid: d for d in outcome.decisions}
+    for citizen in citizens:
+        context = contexts[citizen.citizen_id]
+        expected = deterministic_pressure_action(
+            citizen,
+            context.self_gap,
+            config.pressure_menu,
+            can_sign=int(PressureAct.SIGN_PETITION) in context.available,
+            can_launch=int(PressureAct.LAUNCH_PETITION) in context.available,
+        )
+        assert by_cid[citizen.citizen_id].act == int(expected)
+        assert by_cid[citizen.citizen_id].target == context.target
 
 
 # ── validate_reaction_decision (v5 Lot 4, §8) ────────────────────────────
@@ -3807,7 +3872,12 @@ def test_decide_reaction_to_event_raises_for_codebook_version_mismatch():
         decide_reaction_to_event(citizens, contexts, EventType.SCANDAL, config, FakeReactionLlmClient(), target=205)
 
 
-def test_decide_reaction_to_event_propagates_llm_response_error_on_count_mismatch():
+def test_decide_reaction_to_event_falls_back_to_the_flat_delta_on_a_count_mismatch():
+    # Degrades instead of killing the run (2026-09-11). The baseline takes no
+    # Citizen at all, so every citizen in the chunk necessarily gets the SAME
+    # delta -- which is also the content-blind-collapse signature this
+    # project's diagnostics hunt for, hence llm_fallback: a fallback must not
+    # be readable as evidence of the defect it is not.
     citizens = _reaction_population(25)
     contexts = _reaction_contexts(citizens)
     config = _config_with_llm_enabled()
@@ -3816,8 +3886,12 @@ def test_decide_reaction_to_event_propagates_llm_response_error_on_count_mismatc
         def complete_json(self, **kwargs):
             return json.dumps({"decisions": [{"cid": 0, "salience_delta": 0.1, "motif": 401}]})
 
-    with pytest.raises(LlmResponseError, match="misaligned"):
-        decide_reaction_to_event(citizens, contexts, EventType.SCANDAL, config, ShortClient(), target=205)
+    outcome = decide_reaction_to_event(citizens, contexts, EventType.SCANDAL, config, ShortClient(), target=205)
+
+    assert outcome.llm_fallback == {c.citizen_id: True for c in citizens}
+    expected = deterministic_reaction_to_event(EventType.SCANDAL, config.events)
+    assert {d.salience_delta for d in outcome.decisions} == {expected}
+    assert {d.motif for d in outcome.decisions} == {401}  # SCANDAL's grounding motif, never 402
 
 
 # ── _complete_and_decode_with_replay / llm.max_batch_replays (v4 Lot 8) ──
@@ -3973,6 +4047,12 @@ def _replay_cases():
         {"decisions": [{"cid": c.citizen_id, "salience_delta": 0.1, "motif": 401} for c in reaction_citizens]}
     )
 
+    chamber_members = [_member(0, (0.5,))]
+    chamber_contexts_ = {m.citizen_id: _chamber_context(m.citizen_id) for m in chamber_members}
+    chamber_good = json.dumps(
+        {"decisions": [{"cid": m.citizen_id, "shifts": [], "motif": 701} for m in chamber_members]}
+    )
+
     return [
         ("vote_cast", lambda config, client: cast_votes(voters, vote_candidates, config, client), vote_good),
         ("candidacy_considered", lambda config, client: decide_candidacies(candidacy_citizens, config, client), candidacy_good),
@@ -4018,39 +4098,56 @@ def _replay_cases():
             ),
             reaction_good,
         ),
+        (
+            # Added 2026-09-11. dt=11 has had its own fallback since 2026-09-08
+            # but was never in this matrix, so the parametrized invariants
+            # below covered eight of the nine decision types while reading as
+            # if they covered all of them. One member, which is one chunk at
+            # either provider's chunk size.
+            "chamber_deliberation",
+            lambda config, client: decide_chamber_deliberation(
+                chamber_members, chamber_contexts_, config, client
+            ),
+            chamber_good,
+        ),
     ]
 
 
-_FALLS_BACK_INSTEAD_OF_PROPAGATING = ("vote_cast", "representative_response")
+def _assert_degraded(label, outcome):
+    """THE invariant, as of 2026-09-11: no decision type kills the run on an
+    unrecoverable batch -- all nine degrade to something deterministic and
+    say so in their own provenance field.
+
+    This function used to be its own inverse. The three tests below were
+    written to assert that an exhausted batch PROPAGATES LlmResponseError, and
+    grew an exclusion list (_FALLS_BACK_INSTEAD_OF_PROPAGATING) as entry points
+    were fixed one crash at a time. That list reached all nine, so the
+    exclusion mechanism is gone and the assertion is inverted: what is pinned
+    now is that nothing propagates.
+
+    Eight types degrade by substituting their own §11.4 deterministic
+    baseline and flagging it in `llm_fallback`. coalition_decision is the one
+    exception and deliberately so: it has no per-decision fallback, it aborts
+    the negotiation (`aborted_at_round`), which is a real institutional
+    outcome rather than a substituted decision -- see
+    _run_coalition_negotiation's own except block for why that asymmetry is
+    intentional and what it costs."""
+    if label == "coalition_decision":
+        assert outcome.aborted_at_round is not None, "an exhausted coalition batch must abort, not raise"
+        return
+    assert outcome.llm_fallback, f"{label} must report its fallback in llm_fallback"
+    assert all(outcome.llm_fallback.values())
 
 
-def _replay_cases_that_still_propagate():
-    # These are EXCLUDED here, not merely other parametrized cases: neither
-    # propagates LlmResponseError under any replay budget any more, because
-    # both fall back to a deterministic decision instead.
-    #   - vote_cast since 2026-09-06 (check_vllm_vote_cast_retry_is_inert_
-    #     results.md) -> a deterministic ballot, VoteBatchOutcome.llm_fallback.
-    #   - representative_response since 2026-09-11, after it killed a real
-    #     2.5-hour Stage 3 run on a duplicate-dimension schema violation ->
-    #     silence, ResponseBatchOutcome.llm_fallback.
-    # The tests below pin the remaining entry points, whose behavior is
-    # unchanged; each fallback gets its own dedicated tests, the same
-    # discipline the retry_temperature negative case already follows.
-    return [c for c in _replay_cases() if c[0] not in _FALLS_BACK_INSTEAD_OF_PROPAGATING]
-
-
-@pytest.mark.parametrize(
-    "label,call,good_raw", _replay_cases_that_still_propagate(), ids=[c[0] for c in _replay_cases_that_still_propagate()]
-)
-def test_max_batch_replays_zero_propagates_on_the_first_failure(label, call, good_raw):
-    # Today's exact behavior, now explicitly pinned for every entry point --
-    # the shipped default (0) must never retry.
+@pytest.mark.parametrize("label,call,good_raw", _replay_cases(), ids=[c[0] for c in _replay_cases()])
+def test_max_batch_replays_zero_degrades_on_the_first_failure(label, call, good_raw):
+    # The shipped default (0) must never retry -- and must not die either.
     config = _config_with_llm_enabled()
     assert config.llm.max_batch_replays == 0
     client = _FlakyClient(fail_times=1, good_raw=good_raw)
-    with pytest.raises(LlmResponseError):
-        call(config, client)
+    outcome = call(config, client)  # must not raise
     assert client.calls == 1
+    _assert_degraded(label, outcome)
 
 
 @pytest.mark.parametrize("label,call,good_raw", _replay_cases(), ids=[c[0] for c in _replay_cases()])
@@ -4068,16 +4165,14 @@ def test_max_batch_replays_recovers_after_failures_within_the_budget(label, call
     assert client.prompts[0] == client.prompts[1] == client.prompts[2]
 
 
-@pytest.mark.parametrize(
-    "label,call,good_raw", _replay_cases_that_still_propagate(), ids=[c[0] for c in _replay_cases_that_still_propagate()]
-)
-def test_max_batch_replays_still_raises_once_the_budget_is_exhausted(label, call, good_raw):
+@pytest.mark.parametrize("label,call,good_raw", _replay_cases(), ids=[c[0] for c in _replay_cases()])
+def test_max_batch_replays_degrades_once_the_budget_is_exhausted(label, call, good_raw):
     config = _config_with_llm_enabled()
     config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, max_batch_replays=2))
     client = _FlakyClient(fail_times=99, good_raw=good_raw)  # never recovers
-    with pytest.raises(LlmResponseError):
-        call(config, client)
-    assert client.calls == 3  # 1 original + 2 replays, then give up
+    outcome = call(config, client)  # must not raise
+    assert client.calls == 3  # 1 original + 2 replays, then degrade instead of dying
+    _assert_degraded(label, outcome)
 
 
 @pytest.mark.parametrize("label,call,good_raw", _replay_cases(), ids=[c[0] for c in _replay_cases()])
@@ -4098,19 +4193,18 @@ def test_max_batch_replays_recovers_from_a_complete_json_raised_error(label, cal
     assert client.prompts[0] == client.prompts[1] == client.prompts[2]
 
 
-@pytest.mark.parametrize(
-    "label,call,good_raw", _replay_cases_that_still_propagate(), ids=[c[0] for c in _replay_cases_that_still_propagate()]
-)
-def test_max_batch_replays_zero_propagates_a_complete_json_raised_error_on_the_first_attempt(label, call, good_raw):
-    # Before the fix, this error skipped the retry loop entirely and
-    # propagated silently (no WARNING logged) regardless of `replays` --
-    # this pins the shipped default's own behavior post-fix.
+@pytest.mark.parametrize("label,call,good_raw", _replay_cases(), ids=[c[0] for c in _replay_cases()])
+def test_max_batch_replays_zero_degrades_on_a_complete_json_raised_error(label, call, good_raw):
+    # The _FlakyResponseClient branch -- complete_json itself raises (e.g. a
+    # truncated generation), rather than the response decoding badly. Both
+    # reach the same degradation path; this is the branch _FlakyClient never
+    # covers.
     config = _config_with_llm_enabled()
     assert config.llm.max_batch_replays == 0
     client = _FlakyResponseClient(fail_times=1, good_raw=good_raw)
-    with pytest.raises(LlmResponseError):
-        call(config, client)
+    outcome = call(config, client)  # must not raise
     assert client.calls == 1
+    _assert_degraded(label, outcome)
 
 
 def test_max_batch_replays_never_catches_a_transport_error():
@@ -4124,15 +4218,16 @@ def test_max_batch_replays_never_catches_a_transport_error():
     assert client.calls == 1  # the client itself owns transport-level retries, not this layer
 
 
-# ── cast_votes's own deterministic fallback (2026-09-06) -- the one entry
-# point excluded from the three "propagates"/"raises" tests above, per
-# _replay_cases_that_still_propagate's own docstring. A real vLLM run
-# crashed with the replay budget exhausted for one voter
-# (check_vllm_vote_cast_retry_is_inert_results.md); cast_votes now falls
-# back to simple_rules.build_ranking for that voter instead of raising,
-# under EVERY replay budget including 0 -- the fallback is a separate,
-# zero-LLM-cost mechanism, not itself a replay, so it is not gated by how
-# many replays were configured. ──────────────────────────────────────────
+# ── cast_votes's own deterministic fallback (2026-09-06) -- the FIRST of the
+# nine to get one, and for two years the only one. A real vLLM run crashed
+# with the replay budget exhausted for one voter
+# (check_vllm_vote_cast_retry_is_inert_results.md); cast_votes falls back to
+# simple_rules.build_ranking for that voter instead of raising, under EVERY
+# replay budget including 0 -- the fallback is a separate, zero-LLM-cost
+# mechanism, not itself a replay, so it is not gated by how many replays were
+# configured. The parametrized tests above now assert that shape for all nine
+# (see _assert_degraded); these keep cast_votes's own finer-grained
+# assertions, which the generic ones cannot make. ────────────────────────
 
 def test_cast_votes_falls_back_instead_of_propagating_when_replays_is_zero():
     voters = _population(1, dims=1)
@@ -4253,11 +4348,18 @@ def test_cast_votes_retry_sampling_varied_defaults_to_an_empty_dict_when_unset()
     assert outcome.retry_sampling_varied.get(999, False) is False
 
 
-def test_other_decide_entry_points_never_send_a_temperature_override_even_when_replayed():
-    # The negative case for every OTHER decision type: retry_temperature/
-    # retry_seed_base default to None at every call site except cast_votes's
-    # own, so a replay never sends either override for them -- byte-identical
-    # retries, unchanged since v4 Lot 8.
+def test_every_decide_entry_point_varies_sampling_on_a_retry_but_never_on_the_first_attempt():
+    # This test used to assert the exact opposite ("no other entry point opts
+    # into retry_temperature"), and that was the bug: at temperature=0 against
+    # a pinned seed, a replay re-sent a byte-identical request and got a
+    # byte-identical failure back, so max_batch_replays bought nothing at all
+    # for six of the nine types -- it just spent the same failure three times
+    # before dying. Proven on the 2026-09-11 Stage 3 post-mortem by replaying
+    # the dead run's own recorded prompt. All nine now vary sampling.
+    #
+    # The FIRST attempt must still be untouched (temperature=None, seed=None):
+    # that is what keeps a successful run byte-identical and replayable. Only
+    # a genuine retry deviates.
     config = _config_with_llm_enabled()
     config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, max_batch_replays=1))
     citizen = _pressure_citizen(0)
@@ -4268,5 +4370,21 @@ def test_other_decide_entry_points_never_send_a_temperature_override_even_when_r
     decide_pressure_actions([citizen], contexts, config, client)
 
     assert client.calls == 2
-    assert client.temperatures == [None, None]
-    assert client.seeds == [None, None]
+    assert client.temperatures == [None, _PRESSURE_RETRY_TEMPERATURE]
+    assert client.seeds == [None, _PRESSURE_RETRY_SEED_BASE + 1]
+
+
+@pytest.mark.parametrize("label,call,good_raw", _replay_cases(), ids=[c[0] for c in _replay_cases()])
+def test_no_entry_point_overrides_sampling_on_a_successful_first_attempt(label, call, good_raw):
+    # The determinism guarantee, pinned for all nine: a run where nothing
+    # fails sends temperature=None/seed=None on every call, so the journal
+    # stays byte-identical across replays of the same seed. The retry
+    # exception above must never leak into the ordinary path.
+    config = _config_with_llm_enabled()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, max_batch_replays=2))
+    client = _FlakyClient(fail_times=0, good_raw=good_raw)
+
+    call(config, client)
+
+    assert client.temperatures == [None] * client.calls
+    assert client.seeds == [None] * client.calls

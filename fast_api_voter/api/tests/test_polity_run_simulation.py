@@ -20,7 +20,11 @@ from api.domain.polity.citizen import Citizen, Office, Role, generate_population
 from api.domain.polity.codebook import EventType, ReactionMotif
 from api.domain.polity.config import PolityConfig, load_config
 from api.domain.polity.journal import Journal
-from api.domain.polity.llm_behavior_engine import _VOTE_CAST_RETRY_SEED_BASE, _VOTE_CAST_RETRY_TEMPERATURE
+from api.domain.polity.llm_behavior_engine import (
+    _VOTE_CAST_RETRY_SEED_BASE,
+    _VOTE_CAST_RETRY_TEMPERATURE,
+    menu_acts,
+)
 from api.domain.polity.llm_client import LlmResponseError, OllamaJsonClient, VllmJsonClient
 from api.domain.polity.metrics import consultation_rate, mobilization_rate
 from api.domain.polity.parties import Party, initialize_parties
@@ -39,7 +43,11 @@ from api.domain.polity.run_polity_simulation import (
     _warn_if_no_candidate_is_possible,
     run_simulation,
 )
-from api.domain.polity.simple_rules import assign_party_affiliation, declare_candidacy
+from api.domain.polity.simple_rules import (
+    assign_party_affiliation,
+    declare_candidacy,
+    deterministic_reaction_to_event,
+)
 from api.domain.polity.social_graph import SocialGraph
 
 _PETITION_LIFECYCLE_EVENT_TYPES = {
@@ -1855,7 +1863,14 @@ class _FakeLlmClient:
         # value are unaffected by _dynamic_max_tokens's vLLM-path probe.
         return 500
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+    # temperature/seed accepted and ignored: as of 2026-09-11 every decision
+    # type passes retry_temperature/retry_seed_base, so ANY retry against this
+    # fake now arrives with both kwargs set. The fake's answers do not depend
+    # on sampling, so it only needs to tolerate them -- but it must, or a
+    # retry raises TypeError instead of exercising the path under test.
+    def complete_json(
+        self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None, seed=None
+    ):
         if user_prompt.startswith("citizens["):
             # decide_candidacies ships TOON (§5.E), not JSON -- see
             # _parse_toon_citizens's own docstring. Every other decision
@@ -2555,7 +2570,11 @@ def test_pressure_action_is_journalled_once_per_consulted_citizen_with_its_ctx(t
     pressure_events = [e for e in events if e["event_type"] == "pressure_action"]
     assert pressure_events
     for e in pressure_events:
-        assert set(e["payload"].keys()) == {"target", "act", "ctx"}
+        # llm_fallback is provenance, not a decision field, and rides on every
+        # LLM-path pressure_action since 2026-09-11 -- 0 here, because this
+        # client answers cleanly.
+        assert set(e["payload"].keys()) == {"target", "act", "ctx", "llm_fallback"}
+        assert e["payload"]["llm_fallback"] == 0
         assert set(e["payload"]["ctx"].keys()) == {"self_gap", "mandate_dev", "neighbors_acting", "ticks_to_election"}
         assert e["payload"]["ctx"]["neighbors_acting"] is None
         assert e["motif"] == "301"
@@ -2606,15 +2625,32 @@ def test_a_second_launch_in_the_same_tick_is_journaled_as_act_2_then_petition_si
     assert holder.petition_signers == {1, 2, 3}
 
 
-def test_an_out_of_menu_act_aborts_the_run_with_no_partial_journal(tmp_path):
+def test_an_out_of_menu_act_degrades_instead_of_aborting_the_run(tmp_path):
+    # This test used to assert the opposite -- that the run DIED here, with no
+    # journal at all. That was the bug, not the contract: a model answering
+    # act=3 under a menu where only {0,4} are legal ended a multi-hour run and
+    # threw away everything it had already simulated. The batch is still
+    # rejected (nothing about validate_pressure_decision changed); what is
+    # pinned now is that the run survives it, end to end.
     config = _config_with_awakening_llm_enabled(tmp_path)  # shipped electoral_only menu, legal={0,4}
 
     class OutOfMenuClient(_ElectingFakeLlmClient):
         def _pressure_decisions(self, consulted):
             return [{"cid": c["cid"], "target": c["target"], "act": 3, "motif": 301} for c in consulted]
 
-    with pytest.raises(LlmResponseError, match="outside the active"):
-        run_simulation(config, run_id="out-of-menu", llm_client=OutOfMenuClient())
+    journal_path = run_simulation(config, run_id="out-of-menu", llm_client=OutOfMenuClient())
+
+    events = _events(journal_path)
+    assert events  # a complete journal, not an aborted run
+    pressure_events = [e for e in events if e["event_type"] == "pressure_action"]
+    assert pressure_events
+    legal = menu_acts(config.pressure_menu)
+    for e in pressure_events:
+        # Every single one is a fallback, and every single one is in-menu --
+        # the deterministic rule reads the menu itself, so it cannot reproduce
+        # the illegal act that triggered it.
+        assert e["payload"]["llm_fallback"] == 1
+        assert e["payload"]["act"] in legal
 
 
 def test_a_stale_sign_does_not_abort_the_run(tmp_path):
@@ -4129,7 +4165,10 @@ def test_reaction_to_event_is_journalled_once_per_citizen_per_firing_event_type_
     assert len(reactions) == config.run.population_size
     assert [e["citizen_id"] for e in reactions] == sorted(e["citizen_id"] for e in reactions)
     for e in reactions:
-        assert set(e["payload"]) == {"event_type", "target", "salience_delta", "ctx"}
+        # llm_fallback is provenance, LLM path only, since 2026-09-11 -- 0
+        # here, because this client answers cleanly.
+        assert set(e["payload"]) == {"event_type", "target", "salience_delta", "ctx", "llm_fallback"}
+        assert e["payload"]["llm_fallback"] == 0
         assert e["payload"]["event_type"] == int(EventType.SCANDAL)
         assert set(e["payload"]["ctx"]) == {"event_salience"}
         assert e["motif"] == str(ReactionMotif.SCANDAL_TRUST_EROSION)
@@ -4172,14 +4211,18 @@ def test_no_reaction_to_event_llm_call_on_a_vacancy_tick(tmp_path):
     assert all(e["payload"]["target"] is None for e in reactions)
 
 
-def test_an_out_of_bound_salience_delta_aborts_the_run_with_no_partial_journal(tmp_path):
+def test_an_out_of_bound_salience_delta_degrades_instead_of_aborting_the_run(tmp_path):
+    # Used to assert the run DIED here. The validator still rejects the batch
+    # (unchanged); what is pinned now is that the run survives it, falling
+    # back to the flat deterministic delta -- see _deterministic_reaction_
+    # fallback. 2026-09-11.
     config = _config_with_events_and_llm_enabled(tmp_path, scandal_rate_per_tick=1.0, economic_shock_enabled=False)
 
     class OverCapClient(_FakeLlmClient):
         """Behaves exactly like _FakeLlmClient for every other decision
         type (so candidacy/nomination/etc. still succeed), but returns an
         out-of-bound salience_delta for reaction_to_event specifically --
-        isolates the abort to this lot's own validator."""
+        isolates the failure to this lot's own validator."""
 
         def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
             # decide_candidacies ships TOON (§5.E), never a "reactors" call -- skip the JSON parse
@@ -4193,8 +4236,18 @@ def test_an_out_of_bound_salience_delta_aborts_the_run_with_no_partial_journal(t
                 max_tokens=max_tokens, think=think,
             )
 
-    with pytest.raises(LlmResponseError, match="max_reaction_delta"):
-        run_simulation(config, run_id="over-cap", llm_client=OverCapClient())
+    journal_path = run_simulation(config, run_id="over-cap", llm_client=OverCapClient())
+
+    events = _events(journal_path)
+    assert events  # a complete journal, not an aborted run
+    reactions = [e for e in events if e["event_type"] == "reaction_to_event"]
+    assert reactions
+    expected = deterministic_reaction_to_event(EventType.SCANDAL, config.events)
+    for e in reactions:
+        assert e["payload"]["llm_fallback"] == 1
+        # The baseline's own value -- NOT the 1.0 the client tried to return,
+        # and not a clamp of it either.
+        assert e["payload"]["salience_delta"] == expected
 
 
 def test_two_events_llm_runs_produce_byte_identical_journals(tmp_path):
