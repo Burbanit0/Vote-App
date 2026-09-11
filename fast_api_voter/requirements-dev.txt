@@ -46,6 +46,12 @@ ruff==0.16.6         # Replaces flake8 (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md) — s
                      # for the deliberately narrow rule selection this carries over.
 mypy==2.3.1         # Static type checking
 vulture==2.16        # Dead-code detection (informational, see pyproject.toml [tool.vulture])
+refurb==2.3.1         # Python modernization suggestions (Lot 6, PLAN_SOLIDITE_TECHNIQUE.md
+                       # — informational, see pyproject.toml [tool.refurb])
+perflint==0.8.1       # Pylint plugin: performance anti-patterns (Lot 6,
+pylint==3.3.9          # PLAN_SOLIDITE_TECHNIQUE.md — informational, see pyproject.toml
+                        # [tool.pylint.main]/["messages control"]; pylint itself is perflint's
+                        # runtime, not used directly for anything else in this repo)
 radon==6.0.1          # Cyclomatic complexity report (informational, see CODE_AUDIT.md)
 xenon==0.9.3          # radon threshold runner — same report, informational here too
 deptry==0.25.1        # Unused/undeclared deps (Lot 2, PLAN_SOLIDITE_TECHNIQUE.md — knip's

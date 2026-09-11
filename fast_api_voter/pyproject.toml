@@ -108,6 +108,15 @@ ignore_decorators = [
 ]
 exclude = ["api/tests/"]
 
+# Python modernization (Lot 6, PLAN_SOLIDITE_TECHNIQUE.md — informational
+# only, see scripts/audit.sh --quality). 145 findings, 77 of them the same
+# `dict(x)`/`list(x)` -> `.copy()` idiom (FURB123) — a real, if tiny, perf
+# win on a CPU-bound engine (`.copy()` skips the general dict/list
+# constructor's type dispatch) but purely mechanical, so left as a baseline
+# to fix incrementally rather than a one-shot mass edit across ~30 files.
+[tool.refurb]
+python_version = "3.14"
+
 [tool.mutmut]
 # First pass, scoped deliberately (see prompt-mutation-testing.md). The doc's
 # §1 scope named two files; api/domain/theory/workers.py was EXCLUDED here at
@@ -295,4 +304,26 @@ layers = [
     "api.routes",
     "api.domain",
     "api.engine",
+]
+
+# Performance anti-patterns on the CPU-bound simulation engine (Lot 6,
+# PLAN_SOLIDITE_TECHNIQUE.md — informational, see scripts/audit.sh
+# --quality). Everything except loop-invariant-statement disabled: that one
+# rule alone fires ~1,600 times on this codebase's dense per-voter/per-
+# candidate loops, the overwhelming majority on expressions pylint can't
+# prove are actually invariant across iterations (attribute lookups,
+# subscripts on mutable containers) -- real signal-to-noise ratio too low
+# to be useful at the whole-repo scale; left disabled rather than drowning
+# the handful of other, much rarer and much more concrete perflint checks
+# (unnecessary-list-cast, incorrect-dictionary-iterator, use-list-copy, ...).
+[tool.pylint.main]
+load-plugins = ["perflint"]
+
+[tool.pylint."messages control"]
+disable = ["all"]
+enable = [
+    "unnecessary-list-cast", "incorrect-dictionary-iterator",
+    "loop-global-usage", "memoryview-over-bytes", "dotted-import-in-loop",
+    "use-tuple-over-list", "use-list-comprehension", "use-list-copy",
+    "use-dict-comprehension", "loop-try-except-usage",
 ]

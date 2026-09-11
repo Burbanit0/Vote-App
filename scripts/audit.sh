@@ -189,6 +189,26 @@ if [ "$MODE" != "security" ]; then
     note "⚠️ vulture not installed — \`pip install vulture\` (in requirements-dev.txt)."
   fi
 
+  # --- Python modernization: refurb ---
+  section "Python modernization (refurb, informational)"
+  if have_py refurb; then
+    ( cd "$PY_DIRS" && python -m refurb api/ ) \
+      > "$REPORT_DIR/refurb.txt" 2>&1
+    note "Findings: $(grep -c '^api/' "$REPORT_DIR/refurb.txt" 2>/dev/null || echo 0). See \`$REPORT_DIR/refurb.txt\`. Not gated — see PLAN_SOLIDITE_TECHNIQUE.md §6.3."
+  else
+    note "⚠️ refurb not installed — \`pip install refurb\` (in requirements-dev.txt)."
+  fi
+
+  # --- Python performance anti-patterns: perflint (pylint plugin) ---
+  section "Python performance anti-patterns (perflint, informational)"
+  if have_py pylint; then
+    ( cd "$PY_DIRS" && python -m pylint api/ --ignore=tests ) \
+      > "$REPORT_DIR/perflint.txt" 2>&1
+    note "Findings: $(grep -cE '^api/.*\(use-|\(loop-|\(dotted-|\(memoryview-|\(unnecessary-|\(incorrect-' "$REPORT_DIR/perflint.txt" 2>/dev/null || echo 0). See \`$REPORT_DIR/perflint.txt\`. Not gated — see PLAN_SOLIDITE_TECHNIQUE.md §6.3 (loop-invariant-statement disabled — too noisy at whole-repo scale, see [tool.pylint] in pyproject.toml)."
+  else
+    note "⚠️ pylint/perflint not installed — \`pip install perflint pylint\` (in requirements-dev.txt)."
+  fi
+
   # --- Python unused/undeclared deps: deptry ---
   section "Python unused/undeclared deps (deptry, informational)"
   if have_py deptry; then
