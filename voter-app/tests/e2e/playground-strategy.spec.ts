@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './coverageFixtures';
 
 // Moment 3 — Stratégie. Tactical voting (who defects and does it pay), blank
 // votes under four legal regimes, and turnout models. These are the knobs that

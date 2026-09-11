@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './coverageFixtures';
 
 // Moment 1 — Électorat. The knobs that define WHO votes: presets, sample size,
 // seed, composition (communities), and the advanced space/source settings.

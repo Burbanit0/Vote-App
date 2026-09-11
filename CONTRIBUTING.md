@@ -705,6 +705,30 @@ migration révolu (Flask, Jest) — un signal à surveiller après toute
 migration future : chercher spécifiquement les commentaires qui hedgent
 encore pour l'ancien état une fois la migration terminée.
 
+### Couverture *runtime* sous e2e (Lot 6.5)
+
+La couverture unitaire (pytest-cov, Vitest) mesure ce qu'un test atteint en
+appelant une fonction directement — pas ce qu'un vrai parcours utilisateur
+déclenche jamais. `scripts/e2e_coverage.sh` fait tourner la vraie suite
+Playwright avec le backend sous `coverage.py` et le frontend instrumenté par
+Istanbul (`vite-plugin-istanbul`, actif seulement si `E2E_COVERAGE=true` —
+zéro effet sur un build/dev normal), et produit deux rapports séparés de la
+couverture unitaire :
+
+```bash
+./scripts/e2e_coverage.sh                # chromium + firefox
+./scripts/e2e_coverage.sh --chromium-only
+```
+
+Diagnostique seulement, jamais un gate (script manuel, pas de workflow CI —
+même non-bloquant) : l'instrumentation fait échouer de façon reproductible
+un test de simulation client CPU-intensif sous la parallélisation par défaut
+de la suite (timeout à 30 s sur firefox, 2/2 runs), un coût de stabilité qui
+n'a pas sa place dans une suite qui tourne à chaque nightly. Détail complet
+(les deux pièges de mécanisme trouvés en le construisant, les chiffres par
+fichier, le raisonnement complet derrière le choix "manuel") :
+[`docs/exploration/EXP-003-couverture-runtime-e2e.md`](docs/exploration/EXP-003-couverture-runtime-e2e.md).
+
 ---
 
 ## Commandes utiles

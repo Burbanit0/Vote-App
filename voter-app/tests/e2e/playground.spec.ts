@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './coverageFixtures';
 
 // The playground is a single instrument: a Dirigeant/Assemblée switch above a
 // rail of five moments (Électorat → Méthode → Stratégie → Campagne → Bilan).
