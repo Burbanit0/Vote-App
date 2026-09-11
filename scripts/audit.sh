@@ -270,6 +270,16 @@ if [ "$MODE" != "security" ]; then
       note "⚠️ madge not found in $TS_DIR/node_modules (run \`npm install\` there)."
     fi
 
+    # --- TS/React hardcoded strings & i18n key hygiene: i18next-cli lint ---
+    section "TypeScript i18n hardcoded strings (i18next-cli lint, informational)"
+    if [ -f "$TS_DIR/i18next.config.ts" ] && ( cd "$TS_DIR" && npx --no-install i18next-cli --version >/dev/null 2>&1 ); then
+      ( cd "$TS_DIR" && npx --no-install i18next-cli lint ) \
+        > "$REPORT_DIR/i18next-lint.txt" 2>&1
+      note "Findings: $(grep -c 'Error: Found hardcoded' "$REPORT_DIR/i18next-lint.txt" 2>/dev/null || echo 0). See \`$REPORT_DIR/i18next-lint.txt\`. Not gated — see PLAN_SOLIDITE_TECHNIQUE.md §7 (baseline is dominated by internal method-key literals like \"fptp\"/\"irv\", not user-facing text)."
+    else
+      note "⚠️ i18next-cli not found in $TS_DIR/node_modules (run \`npm install\` there)."
+    fi
+
     # --- TS/React type coverage: type-coverage ---
     section "TypeScript type coverage (type-coverage, informational)"
     if ( cd "$TS_DIR" && npx --no-install type-coverage --version >/dev/null 2>&1 ); then
