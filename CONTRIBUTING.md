@@ -268,6 +268,29 @@ dégrade en silence. `scripts/check-flaky.mjs` lit le rapport JSON de Playwright
 et fait échouer le job en nommant les tests concernés. Un test instable se
 répare ou se supprime ; il ne se tolère pas.
 
+### Régression visuelle (Lot 7)
+
+```bash
+cd fast_api_voter && uvicorn api.main:app --port 4434   # ParliamentCanvas en a besoin
+cd voter-app && npm run test:visual                     # comparaison rapide, environnement local
+cd voter-app && npm run test:visual:docker               # comparaison faisant foi (image Docker épinglée)
+cd voter-app && npm run test:visual:docker:update         # régénère les baselines dans cette même image
+```
+
+`tests/e2e/visual.spec.ts` (config séparée, `playwright.visual.config.ts`) —
+capture les 5 surfaces de `routes.ts` plus les deux types de carte
+(`LeaderCanvas`/`ParliamentCanvas`). **`npm run test:visual` local est une
+vérification rapide, pas la vérité** : les comparaisons de pixels ne sont
+fiables que si la baseline et la comparaison rendent dans le même
+environnement au bit près (polices, anti-aliasing) — la CI et les commandes
+`:docker` tournent toutes dans la même image Playwright officielle, épinglée
+à la version exacte de `@playwright/test`. Ne jamais committer une baseline
+générée hors de cette image ; `npm run test:visual:docker:update` la
+régénère correctement. Détail complet (pourquoi le serveur de dev est
+inutilisable ici, pourquoi `ParliamentCanvas` a besoin du backend, comment
+une tolérance de pixels mal calibrée a été détectée) :
+[`docs/exploration/EXP-004-regression-visuelle-playwright-screenshots.md`](docs/exploration/EXP-004-regression-visuelle-playwright-screenshots.md).
+
 ---
 
 ## Code mort, duplication & conventions "vibe coding"

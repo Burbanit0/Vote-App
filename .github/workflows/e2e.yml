@@ -146,3 +146,98 @@ jobs:
           name: playwright-report
           path: voter-app/playwright-report/
           retention-days: 7
+
+  visual-regression:
+    needs: changes
+    if: |
+      always() &&
+      (github.event_name == 'workflow_dispatch' ||
+       github.event_name == 'workflow_call' ||
+       needs.changes.outputs.relevant == 'true')
+    name: Visual regression (screenshots)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Pixel comparisons are only meaningful when the baseline PNGs (committed to
+    # the repo) and this run render with byte-identical fonts/AA/rasterization —
+    # the host runner's own OS image isn't a strong enough guarantee of that on
+    # its own (it can and does drift between CI runs with zero code change; see
+    # docs/exploration/EXP-004). Pinning the *exact* Playwright Docker image tag
+    # matching voter-app/package.json's @playwright/test version sidesteps that
+    # entirely: this job's rendering environment is the same byte-for-byte every
+    # time it runs, regardless of what `ubuntu-latest` itself resolves to. Keep
+    # this tag in lockstep with @playwright/test — a mismatch either fails to
+    # find the pre-installed browsers or silently compares against a different
+    # renderer than the one that generated the committed baselines.
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+      options: --ipc=host
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      # ── Python / backend ───────────────────────────────────────────────────
+      # Verified by hand before wiring this: without a live backend,
+      # ParliamentCanvas doesn't render a *slightly different* hemicycle, it
+      # renders its own "hémicycle indisponible" fallback banner instead of one
+      # — baselining that would lock in a permanently-broken-looking state that
+      # can never fail again, exactly the blind spot this item exists to close.
+      # (LeaderCanvas's default view was checked too and is unaffected — its
+      # win-region overlay isn't computed eagerly — but the assembly one
+      # genuinely needs this.) See docs/exploration/EXP-004.
+      #
+      # Same setup-python + setup-uv pairing as the `e2e` job above, same
+      # reason (`--system` rejects a uv-managed interpreter, so setup-python
+      # provides the real one uv installs into) — even though the container
+      # image ships its own python3.12, pinning 3.14 here keeps the backend's
+      # runtime identical to every other job that runs it.
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+          cache-dependency-glob: 'fast_api_voter/requirements*.txt'
+
+      - name: Install Python dependencies
+        run: uv pip install --system -r fast_api_voter/requirements.txt
+
+      - name: Start FastAPI backend (testing mode)
+        run: |
+          cd fast_api_voter
+          FLASK_ENV=testing \
+          uvicorn api.main:app --host 0.0.0.0 --port 4434 &
+          python - <<'EOF'
+          import urllib.request, time, sys
+          for _ in range(30):
+              try:
+                  urllib.request.urlopen('http://localhost:4434/api/v2/health')
+                  print('Backend is ready')
+                  sys.exit(0)
+              except Exception:
+                  time.sleep(1)
+          print('Backend did not start in time', file=sys.stderr)
+          sys.exit(1)
+          EOF
+
+      # No setup-node step: the pinned image already ships the Node/npm it was
+      # built with, and browsers are pre-installed to match — installing a
+      # different Node here wouldn't change that pairing, only risk drifting it.
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: ./voter-app
+
+      # No `playwright install` needed either — browsers are already present in
+      # the image at the exact version this config's @playwright/test expects.
+      - name: Run visual regression tests
+        run: npx playwright test --config=playwright.visual.config.ts
+        working-directory: ./voter-app
+        env:
+          CI: 'true'
+
+      - name: Upload visual regression report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: playwright-report-visual
+          path: voter-app/playwright-report-visual/
+          retention-days: 7

@@ -1005,7 +1005,7 @@ seulement une liste blanche assez large pour ne jamais mordre.
 | Item | Pourquoi ici | Effort | Solidité | Récit | Statut |
 |---|---|---|---|---|---|
 | **a11y sur *toutes* les routes** | `routes.ts` est déjà « data » — boucler dessus et échouer si une surface n'est pas auditée, même mécanique que l'anti-rot e2e existant. | M | ⭐⭐⭐ | 📝📝 | ✅ déjà fait (voir sous le tableau) |
-| **Régression visuelle** (Playwright screenshots / Lost Pixel) | L'app est quasi entièrement visuelle (SVG, cartes, Recharts) et **rien** ne détecte qu'une carte s'affiche de travers. | M | ⭐⭐⭐ | 📝📝📝 | ⏳ |
+| **Régression visuelle** (Playwright screenshots / Lost Pixel) | L'app est quasi entièrement visuelle (SVG, cartes, Recharts) et **rien** ne détecte qu'une carte s'affiche de travers. | M | ⭐⭐⭐ | 📝📝📝 | ✅ Playwright natif (Docker épinglé), gate CI (voir sous le tableau) |
 | **Viewport mobile en e2e** | App pédagogique → usage mobile probable, zéro test mobile aujourd'hui. | M | ⭐⭐ | 📝📝 | ✅ `tests/e2e/mobile.spec.ts` + projet `mobile` (voir sous le tableau) |
 | **`i18next-parser`** + `eslint-plugin-i18next` | Clés orphelines/manquantes et chaînes en dur (5 encore trouvées à la main le 06/09). | M | ⭐⭐ | 📝📝 | ⏳ |
 | **Pseudo-locale à chaînes longues** | Casse les layouts avant que l'anglais ou une future langue ne le fasse. | S | ⭐⭐ | 📝📝📝 | ✅ `pseudo.ts` + `tests/e2e/pseudo-locale.spec.ts` (voir sous le tableau) |
@@ -1026,27 +1026,53 @@ déplaçables aux flèches). Rejoué en direct : **10/10 tests passent**
 construire — l'écart entre l'intitulé de cet item et l'état réel du code
 n'avait simplement jamais été vérifié.
 
-**Viewport mobile en e2e, détail.** Nouveau fichier
-`tests/e2e/mobile.spec.ts`, scopé à un projet Playwright dédié (`mobile`,
-`devices['Galaxy S24']`) via `testMatch`/`testIgnore` réciproques avec les
-projets desktop — pas la suite entière rejouée à une largeur mobile (même
-logique que le fichier a11y séparé), plutôt un test ciblé sur ce qui change
-réellement à cette largeur : la navbar qui se replie derrière un bouton
-« ☰ » en dessous du seuil `lg`. Préset **Android** (moteur Chromium) et
-non iPhone délibérément : le moteur iOS (WebKit) nécessite les mêmes
-dépendances système bloquées pour l'item « Webkit en e2e » ci-dessus, et
-serait de toute façon une deuxième couverture du même moteur que ce projet
-webkit-desktop — hors budget pour cet item, qui porte sur la largeur/le
-tactile, pas sur un deuxième moteur de rendu. Un vrai bug d'ancrage trouvé
-et corrigé au passage : le sélecteur `getByRole('link', { name:
-/playground/i })` sans portée `nav` était ambigu (deux liens « Playground »
-sur la page d'accueil, un dans la navbar et un dans le corps) — corrigé en
-scopant au conteneur `[data-tour="navbar"]`, comme le fait déjà
-`navigation.spec.ts`. Bouton hamburger passé de zéro nom accessible à
-`aria-label`/`data-testid` explicites (`Navbar.tsx`), un vrai gain a11y
-repéré en construisant ce test, pas juste un ajout pour le rendre
-sélectionnable. Suite complète (chromium + firefox + mobile, 227 tests)
-rejouée trois fois : stable, ~55s.
+**Régression visuelle, détail.** Deux candidats évalués : le mécanisme natif
+de Playwright (`toHaveScreenshot`) contre Lost Pixel. Ce dernier écarté sans
+essai — vérification de maintenance faite *avant* d'installer quoi que ce
+soit (même réflexe que le fork `license-checker-rseidelsohn` au Lot 6.7) :
+Lost Pixel a annoncé le 22/04/2026 que l'équipe rejoignait Figma et
+arrêtait le produit, dépôt archivé le jour même. Le vrai travail n'était pas
+le choix de l'outil mais la stabilité : nouveau `playwright.visual.config.ts`
+(séparé de la config e2e existante), baselines générées et comparées
+**uniquement** dans l'image Docker officielle Playwright épinglée à la
+version exacte de `@playwright/test` (`mcr.microsoft.com/playwright:v1.62.1-
+noble`) — la seule façon trouvée de ne pas dépendre du hasard de ce que
+`ubuntu-latest` rend un jour donné. Quatre pièges réels trouvés et corrigés
+en le faisant échouer en vrai, pas en le supposant robuste : un flash de
+légende intermittent au montage (`FlipReveal.tsx`, ~1 échec/3 runs, tracé à
+un race dépendant de React Strict Mode) : réglé par une attente de son cycle
+de vie fixe plutôt qu'un polling optimiste ; un timeout du serveur de dev
+sans rapport avec le rendu (compilation à la demande d'un chunk lazy) : réglé
+en testant contre le vrai build de prod ; `ParliamentCanvas` qui, sans
+backend, n'affiche pas un hémicycle légèrement décalé mais son propre état
+d'erreur permanent (« hémicycle indisponible ») — aurait verrouillé un bug
+structurel incapable d'échouer un jour ; et surtout une tolérance
+`maxDiffPixelRatio: 0.01` choisie « par prudence » qui, vérifiée contre une
+régression injectée (couleur d'un marqueur changée en dur), s'est révélée
+laisser passer exactement ce genre de régression (0,07 % des pixels d'une
+carte) — supprimée, la même injection échoue alors proprement. Stabilité
+mesurée, pas supposée : 8/8 runs natifs et 6/6 runs Docker consécutifs à
+zéro échec sous la config finale. Câblé en job CI séparé
+(`visual-regression` dans `e2e.yml`, backend + frontend, aucun besoin de la
+suite e2e fonctionnelle) — réserve honnête : le mécanisme `container:`
+GitHub Actions n'a pas pu être observé sur un vrai run (pas de droit de push
+dans ce worktree), donc recommandé de ne l'ajouter aux *required status
+checks* qu'après son premier run réel. Deux pièges supplémentaires trouvés
+en rebasant sur `develop` juste avant le merge (donc après la rédaction
+initiale de cette fiche, pas hypothétiques) : le `testIgnore` de
+`playwright.visual.config.ts` posé au niveau racine de
+`playwright.config.ts` ne s'appliquait en réalité jamais — chaque projet
+(`chromium`/`firefox`) déclare son propre `testIgnore` (pour
+`mobile.spec.ts`, ajouté par un autre item de ce même Lot 7 mergé entre-
+temps) qui **remplace** celui de la racine au lieu de s'y ajouter ; confirmé
+en rejouant `npx playwright test` après rebase (241 tests au lieu de 227,
+`visual.spec.ts` exécuté hors Docker). Et `scripts/test-visual-docker.sh`
+laissait des fichiers appartenant à `root` dans le dépôt (conteneur lancé
+sans `--user`), cassant silencieusement la commande suivante lancée en tant
+qu'utilisateur normal. Les deux corrigés, suite par défaut revérifiée à 227
+tests et suite Docker à 7/7. Carnet complet (les six pièges, le détail de la
+vérification du détecteur) :
+[`docs/exploration/EXP-004-regression-visuelle-playwright-screenshots.md`](docs/exploration/EXP-004-regression-visuelle-playwright-screenshots.md).
 
 **Viewport mobile en e2e, détail.** Nouveau fichier
 `tests/e2e/mobile.spec.ts`, scopé à un projet Playwright dédié (`mobile`,
