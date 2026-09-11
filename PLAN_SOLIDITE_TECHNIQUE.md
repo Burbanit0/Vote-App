@@ -1187,9 +1187,11 @@ vrai serveur, chromium + firefox (10 tests) après ce correctif.
 Kemeny-Young exact/approximation séparés, les 5 méthodes cardinales), tous
 mesurés à 1000 électeurs / 8 candidats (le vrai plafond de production,
 `api/schemas/election.py`), pas des tailles arbitraires. Deux faits vérifiés
-avant de choisir le design, pas supposés : `pytest-benchmark` se désactive
-silencieusement sous `pytest-xdist` (utilisé par la suite normale via
-`-n auto`, `backend-ci-cd-pipeline.yml`) — donc invocation dédiée, comme
+avant de choisir le design, pas supposés : `pytest-benchmark` désactive sa
+mesure de temps sous `pytest-xdist` (utilisé par la suite normale via
+`-n auto`, `backend-ci-cd-pipeline.yml`) — vérifié en direct que ça fait
+planter chaque test (`AttributeError`) plutôt que de passer sans rien
+mesurer, mais reste la mauvaise invocation dans les deux cas — donc invocation dédiée, comme
 `test_schema_contract.py`/Schemathesis (`--ignore` dans `pyproject.toml`,
 son propre step CI, mirroré dans `ci-local/backend.Dockerfile`) ; et la
 comparaison relative à une baseline stockée

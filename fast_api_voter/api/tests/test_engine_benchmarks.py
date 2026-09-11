@@ -42,11 +42,13 @@ pytest-benchmark auto-disables itself when pytest-xdist is active ("Benchmarks
 are automatically disabled because xdist plugin is active" -- confirmed via
 pytest-benchmark's own source/docs), and this repo's default backend test job
 runs `pytest api/tests -n auto` (backend-ci-cd-pipeline.yml). Running this
-file inside that invocation would silently skip every real measurement (the
-`benchmark` fixture still calls the function once but records no timing
-data), which is worse than not running it at all -- a green check that
-proves nothing. So this file is excluded from pyproject.toml's default
-`addopts` (`--ignore=api/tests/test_engine_benchmarks.py`, same mechanism
+file inside that invocation doesn't silently no-op -- confirmed directly:
+every test crashes with `AttributeError: 'NoneType' object has no attribute
+'stats'` in `_assert_under_ceiling`, since the `benchmark` fixture never
+populates `.stats` when xdist has disabled the timing machinery underneath
+it. Loud, not silent -- but still the wrong invocation for this file, so it
+is excluded from pyproject.toml's default `addopts` the same way
+(`--ignore=api/tests/test_engine_benchmarks.py`, same mechanism
 already used for test_schema_contract.py) and given its own CI step that
 invokes it explicitly, without `-n auto`:
 

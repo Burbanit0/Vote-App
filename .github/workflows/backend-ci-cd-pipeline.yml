@@ -179,10 +179,10 @@ jobs:
       # makes relative comparisons a known flakiness trap; this repo has
       # already been burned by a related category of problem once, see
       # api/core/worker_dispatch.py's 180s timeout). Its own invocation, NOT
-      # folded into the `-n auto` run above: pytest-benchmark silently
-      # disables itself under xdist, which would make this step pass without
-      # ever measuring anything (confirmed — see pyproject.toml's addopts
-      # comment on the matching --ignore).
+      # folded into the `-n auto` run above: pytest-benchmark disables its
+      # timing machinery under xdist, which makes every test in this file
+      # crash rather than silently pass (confirmed — see pyproject.toml's
+      # addopts comment on the matching --ignore).
       - name: Engine perf ceilings (pytest-benchmark, blocking)
         run: |
           cd fast_api_voter
