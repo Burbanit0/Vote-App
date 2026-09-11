@@ -1372,11 +1372,106 @@ commande, sans pipe, avant de faire confiance au signal.
 |---|---|---|---|---|---|
 | **DAST — ZAP baseline** | SAST (Semgrep/CodeQL) ne voit que le code, jamais le comportement de l'app qui tourne. | M | ⭐⭐ | 📝📝 | |
 | **Fuzzing à couverture** (`atheris` ou `hypofuzz`) | Bien plus profond qu'Hypothesis seul sur le moteur et les parseurs. | L | ⭐⭐ | 📝📝📝 | |
-| **`guarddog`** (Datadog) | Détecte les paquets *malveillants* (typosquatting, install-scripts hostiles) — angle mort de pip-audit/Trivy qui ne voient que les CVE connues. | S | ⭐⭐ | 📝📝📝 | |
-| **`trufflehog`** | Secrets **vérifiés actifs**, pas juste des motifs (complète gitleaks + detect-secrets). | S | ⭐ | 📝 | |
-| **OSV-Scanner** | Base de vulnérabilités différente de Trivy, recouvrement imparfait. Mesurer l'écart réel est une bonne expérience. | S | ⭐ | 📝📝📝 | |
+| **`guarddog`** (Datadog) | Détecte les paquets *malveillants* (typosquatting, install-scripts hostiles) — angle mort de pip-audit/Trivy qui ne voient que les CVE connues. | S | ⭐⭐ | 📝📝📝 | ✅ CI (cron + push develop, informational — voir sous le tableau) |
+| **`trufflehog`** | Secrets **vérifiés actifs**, pas juste des motifs (complète gitleaks + detect-secrets). | S | ⭐ | 📝 | ✅ local + CI, informational (voir sous le tableau) |
+| **OSV-Scanner** | Base de vulnérabilités différente de Trivy, recouvrement imparfait. Mesurer l'écart réel est une bonne expérience. | S | ⭐ | 📝📝📝 | ✅ local + CI, informational (voir sous le tableau) |
 | **Signature d'images + provenance SLSA** (cosign/sigstore) | Suite logique du SBOM + Scorecard déjà en place. | M | ⭐⭐ | 📝📝📝 | ✅ SBOM signé (cosign, keyless) + provenance SLSA (`attest-build-provenance`), pas l'image (voir sous le tableau) |
-| **`minimumReleaseAge`** (via Renovate) | Attendre 3-7 j avant d'adopter une release : vraie défense contre les paquets compromis. | S | ⭐⭐⭐ | 📝📝 | |
+| **`minimumReleaseAge`** (via Renovate) | Attendre 3-7 j avant d'adopter une release : vraie défense contre les paquets compromis. | S | ⭐⭐⭐ | 📝📝 | ✅ déjà satisfait (Dependabot `cooldown`, sans migration — voir sous le tableau) |
+
+**`guarddog` + `trufflehog` + OSV-Scanner, détail.** Les trois exécutés pour de
+vrai contre l'état réel de ce dépôt (pas juste `--help`), avec vérification
+manuelle d'un échantillon de trouvailles — même discipline que le reste de ce
+plan (EXP-004/EXP-006 : faire échouer/confirmer le détecteur avant de lui
+faire confiance).
+
+*TruffleHog* : scan filesystem scopé au code source réel (`api/`, `scripts/`,
+`src/`, `tests/`, `docs/` — 1297 chunks, 10,3 Mo) — **0 secret vérifié-actif,
+0 même non-vérifié**, 66,9 ms. Câblé en `--results=verified` uniquement (le
+`--results` par défaut inclut aussi unverified/unknown, du bruit que Gitleaks
++ detect-secrets couvrent déjà par motif) : complète Gitleaks avec une
+vérification live contre l'API du fournisseur plutôt qu'un second passage
+regex. Local (`scripts/audit.sh`) + CI (`trufflesecurity/trufflehog`,
+nouveau step non-bloquant dans le job `gitleaks` existant de `audit.yml`).
+
+*OSV-Scanner* : comparaison réelle avec Trivy — [`docs/exploration/
+EXP-009-osv-scanner-vs-trivy-overlap.md`](docs/exploration/EXP-009-osv-scanner-vs-trivy-overlap.md)
+pour le protocole et les chiffres complets. Verdict court : **0 vs 0** sur
+l'état actuel des dépendances (cross-vérifié aussi avec pip-audit, 0) — pas un
+écart nul par construction, un écart nul *mesuré*, confirmé par un détecteur
+dont la sensibilité a été vérifiée en direct (deux paquets sciemment
+obsolètes, `urllib3==1.26.4`/`Jinja2==2.4.1`, remontent chacun 18 CVE réels).
+Piège d'environnement trouvé et contourné, pas contourné en silence : la
+source de données par défaut d'OSV-Scanner (`deps.dev`, résolution gRPC) a
+timeout dans cette session sandboxée alors que l'API REST du même service
+répond en 200 ms — `--data-source native` évite ce chemin gRPC (utilisé ici
+en local ET en CI, pour que les deux restent comparables). Un deuxième piège,
+propre à un *worktree* git (pas au dépôt) : `osv-scanner scan source -r .`
+trouve silencieusement 0 source de paquets depuis ce worktree, alors que les
+mêmes lockfiles sont trouvés sans problème via `-L` explicite ou depuis une
+copie hors-worktree — `scripts/audit.sh` utilise `-L` par fichier pour cette
+raison (plus rapide de toute façon, pas besoin d'exclure `node_modules`/`.venv`).
+Local + CI (job `osv-scanner`, workflow réutilisable officiel des
+mainteneurs, non-bloquant).
+
+*`guarddog`* : pas de carnet d'expérience dédié (item bas-cérémonie — un
+outil trouve quelque chose ou pas contre un dépôt propre), mais vérifié pour
+de vrai contre l'état réel de ce dépôt, pas juste `--help`. **Quatre
+trouvailles réelles**, aucune un paquet malveillant :
+
+- Le parseur de `guarddog pypi verify` rejette silencieusement toute ligne
+  `requirements.txt` dont le commentaire inline suit un nombre de espaces
+  interprété comme faisant partie du spécificateur de version — **11 lignes
+  sur 15** de `fast_api_voter/requirements.txt` (le style de commentaire
+  documentant chaque CVE/raison de pin, voir n'importe quelle ligne du
+  fichier) échouaient silencieusement (`This entry will be ignored`) avant
+  correctif. `scripts/audit.sh` et le job CI passent désormais par une copie
+  temporaire des commentaires inline retirés (`sed`), jamais le fichier
+  source lui-même — **15/15** lignes analysées après correctif, vérifié.
+- Sur les 15 paquets de production analysés (après correctif), **7 signaux**
+  de la catégorie `threat-*` (la seule qui compte réellement — les
+  `capability-*`, bien plus nombreux — ~50 au total — ne sont que des
+  patterns de code normaux comme "ouvre un socket" ou "supprime un fichier")
+  sont sortis, sur 5 paquets (`python-dotenv`, `PyYAML`, `slowapi`, `scipy`,
+  `numpy`) — **les 7 vérifiés à la main sur le vrai code source, tous de
+  vrais faux positifs** : `threat-filesystem-read` sur `python-dotenv` et
+  `slowapi` matche la chaîne littérale `".env"` — le fichier que ces
+  bibliothèques ont pour rôle explicite de lire ; `threat-runtime-dynamic-loader`
+  sur `PyYAML` matche `__import__(` dans le constructeur `!!python/object`
+  de son propre loader — une fonctionnalité connue de la bibliothèque, pas un
+  ajout suspect ; `threat-filesystem-read` sur `numpy` matche `/etc/shadow`
+  dans `numpy/lib/tests/test__datasource.py` — une liste de **chemins de
+  test négatif** (`malicious_files = [...]`) que le code est censé *rejeter*,
+  pas lire ; `threat-runtime-obfuscation-unicode` sur `numpy` et `scipy`
+  matche le caractère unicode légitime `µs` (microseconde) — un stub de
+  types (`numpy/__init__.pyi`) et un docstring d'exemple `%timeit`
+  (`scipy/optimize/_numdiff.py`), confondus avec un homoglyphe d'obfuscation ;
+  `threat-runtime-system-info` sur `scipy` matche `platform.machine()`/
+  `platform.uname()` dans son propre test suite (`test_distributions.py`),
+  utilisés pour un skip conditionnel par OS, pas une collecte télémétrique.
+- Piège d'environnement sans rapport avec le paquet, trouvé deux fois : la
+  première tentative PyPI (avant diagnostic) est restée bloquée **18+
+  minutes à 0 % CPU** — `/proc/<pid>/net/tcp` a montré une connexion
+  `SYN-SENT` figée vers une adresse IPv6 de pypi.org (confirmée par
+  résolution inverse), le trafic IPv4 vers le même hôte fonctionnant
+  normalement ; contourné en forçant IPv4 au niveau de `socket.getaddrinfo`
+  pour le diagnostic PyPI (qui a ensuite abouti, chiffres ci-dessus). Le même
+  piège est réapparu côté `guarddog npm verify` (`voter-app/package.json`,
+  28 dépendances de prod) malgré ce correctif — `ss` a montré une seconde
+  connexion IPv6 `SYN-SENT` distincte, cohérent avec un client HTTP
+  asynchrone (`aiohttp`/`aiodns`) qui résout ses propres DNS sans passer par
+  `socket.getaddrinfo` — non contourné faute de temps ; le côté npm de cet
+  item reste donc **vérifié sur l'interface CLI et le format de sortie
+  uniquement**, pas sur un run complet réussi dans cette session. Sans
+  confirmation que GitHub Actions partage cette pathologie réseau (peu
+  probable — c'est un symptôme de sandbox, pas du paquet ni du dépôt), le job
+  CI reste par prudence hors de la boucle PR normale (cron + push `develop`
+  seulement, même raisonnement que le job `image-scan` déjà dans ce
+  fichier), non-bloquant dans tous les cas.
+- `pygit2<1.19` (dépendance de `guarddog`) n'a pas de wheel `cp314` (vérifié
+  contre l'index PyPI — les wheels `cp314` n'existent qu'à partir de
+  `pygit2==1.20.0`) : installer `guarddog` dans le venv 3.14 réel de ce dépôt
+  échouerait. Pas ajouté à `requirements-dev.txt` pour cette raison ; job CI
+  dédié avec son propre `actions/setup-python` (3.13).
 
 **Signature d'images + provenance SLSA, détail.** Avant d'écrire la moindre
 ligne de YAML : les deux images Docker du repo sont-elles publiées quelque
@@ -1426,6 +1521,34 @@ attestation SLSA) sont passées avec succès pour les deux images, jeton OIDC
 GitHub Actions réel inclus, plus besoin de la réserve initiale. Détail
 complet, protocole et piège :
 [`docs/exploration/EXP-008-cosign-slsa-provenance-signing-scope.md`](docs/exploration/EXP-008-cosign-slsa-provenance-signing-scope.md).
+
+**`minimumReleaseAge`, détail — déjà satisfait, pas de migration Renovate.**
+Vérification avant tout travail (le point de décision signalé explicitement
+pour cet item) : `.github/dependabot.yml` porte déjà `cooldown:
+default-days: 7` sur les **6** blocs d'écosystème (pip, npm, github-actions,
+3× docker) — ajouté au commit `5c8e2f3` (27/08/2026), *avant* ce Lot 9,
+poussé par un finding Semgrep (`dependabot-missing-cooldown`), pas en
+réponse à cet item. `cooldown` est la fonctionnalité native de Dependabot
+équivalente au `minimumReleaseAge` de Renovate — vérifié contre la doc
+officielle GitHub et le changelog du 14/07/2026 (attendre N jours après la
+publication d'une release avant de proposer une mise à jour de *version*,
+jamais les mises à jour de *sécurité* qui restent immédiates) : GitHub a
+rendu un cooldown de **3 jours le défaut global** pour tous les repos
+Dependabot sans configuration explicite à partir du 14/07/2026 — le
+`cooldown: default-days: 7` de ce dépôt, ajouté le 27/08/2026 (six semaines
+*après*, en réaction à un finding Semgrep indépendant, pas en anticipation de
+ce défaut), est déjà **plus conservateur** que ce défaut global (7 jours,
+dans la fourchette "3-7 j" demandée par cet item lui-même).
+Migrer vers Renovate pour la seule granularité par-`packageRule` (l'avantage
+réel restant de Renovate sur ce point précis) remplacerait une intégration
+Dependabot existante et qui fonctionne — groupement patch/minor par
+écosystème (Lot 1), labels, et surtout l'auto-merge Mergify qui détecte
+spécifiquement la protection de branche Dependabot (`.mergify.yml`) — par une
+migration bien plus disruptive que l'effort `S` annoncé pour cet item ne le
+laisse supposer, pour un gain marginal (le dépôt n'a pas de paquet nécessitant
+une fenêtre différente des autres). **Rejeté comme migration, satisfait comme
+besoin** : aucun changement de configuration nécessaire, le mécanisme demandé
+existe déjà et dépasse même la cible.
 
 ---
 
