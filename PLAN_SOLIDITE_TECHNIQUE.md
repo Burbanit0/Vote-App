@@ -633,7 +633,7 @@ lancées pendant ce développement : 0 flake trouvé.**
 | **Couverture *runtime*** (Istanbul sur e2e + `coverage.py`) | Trouve le code jamais exécuté **même en usage réel** — angle mort total de vulture/knip qui sont statiques. Après avoir supprimé 16 500 lignes mortes, la question « qu'est-ce qui reste inatteignable ? » est légitime. | M | ⭐⭐⭐ | 📝📝📝 | ⏳ |
 | **`basedpyright`/pyright** | Moteur d'inférence différent de mypy → attrape d'autres choses. Combien, sur un code déjà mypy-strict-clean ? Bonne question d'expérience. | S | ⭐⭐ | 📝📝📝 | ✅ 2 vrais bugs trouvés et corrigés (voir §6.2) |
 | **`refurb`** + **`perflint`** | Modernisation Python et anti-patterns de perf — pertinent sur un moteur CPU-bound. | S | ⭐ | 📝📝 | ✅ 145 + 85 findings, informationnel (voir §6.3) |
-| **`type-coverage`** (TS) | % de code réellement typé (les `any` implicites que `tsc` laisse passer). | S | ⭐⭐ | 📝📝 | ⏳ |
+| **`type-coverage`** (TS) | % de code réellement typé (les `any` implicites que `tsc` laisse passer). | S | ⭐⭐ | 📝📝 | ✅ 99,58 % (voir §6.4) |
 | **`eslint-plugin-sonarjs`** | Complexité cognitive (≠ cyclomatique, déjà mesurée par radon) + bugs courants. | S | ⭐⭐ | 📝 | ⏳ |
 | **`pip-licenses` / `license-checker`** | Conformité de licences sur un repo public MIT. | S | ⭐ | 📝 | ⏳ |
 
@@ -837,6 +837,30 @@ campagne de correction aurait dépassé de très loin l'effort `S` annoncé).
 
 Les deux tournent via `./scripts/audit.sh --quality` (sections dédiées),
 comme vulture/radon/deptry — aucun gate ajouté.
+
+### 6.4 — `type-coverage` ⭐⭐ 📝📝 · `S`
+
+✅ **Fait, informationnel.** `npx type-coverage` nu plante sur ce dépôt
+(`Cannot read properties of undefined (reading 'Unknown')`) — le cache
+isolé de `npx` résout sa **propre** copie de `typescript`, incompatible
+avec le paquet lui-même ; installé comme vraie devDependency de
+`voter-app` (résout alors le `typescript@5.9.3` du projet), le problème
+disparaît. Piège suffisamment non-évident pour être noté explicitement
+dans `scripts/audit.sh` (commentaire inline) plutôt que redécouvert plus
+tard.
+
+**Résultat mesuré : 99,58 %** (146 940 / 147 548 positions typées), 608
+`any` implicites au total — 328 dans des fichiers de test (essentiellement
+des mocks Recharts/fetch typés `any` par choix, un idiome de test
+standard, pas une lacune), **280 dans du code source réel**, réparties sur
+28 fichiers. Aucun fichier généré (`src/api/types.gen.ts`) dans la liste —
+déjà 100 % typé. Câblé dans `./scripts/audit.sh --quality`, pas de gate
+bloquant ajouté (même traitement que le reste du Lot 6) ; l'outil expose
+nativement un mécanisme de cliquet (`--at-least`/`--update-if-higher`,
+qui écrirait un seuil dans `package.json`) qui rendrait une régression
+future bloquante à coût quasi nul — noté ici comme suite possible plutôt
+qu'ajouté maintenant, pour rester à la hauteur de l'effort `S` annoncé par
+cet item.
 
 ---
 
