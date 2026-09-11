@@ -29,6 +29,20 @@ syrupy==6.0.0           # Snapshot testing (Lot 5, PLAN_SOLIDITE_TECHNIQUE.md) -
                         # reviewable diffs for compare_all_methods' rich nested output instead
                         # of hand-written field-by-field assertions. See
                         # api/tests/test_compare_all_methods_snapshot.py.
+pytest-benchmark==5.3.0  # Wall-clock ceilings on the voting engine (Lot 8.1,
+                         # PLAN_SOLIDITE_TECHNIQUE.md) -- catches a perf regression on
+                         # simulation_ranked_utils.py/simulation_score_utils.py that was
+                         # previously invisible. Own invocation, not -n auto (pytest-xdist
+                         # auto-disables it) -- see api/tests/test_engine_benchmarks.py.
+locust==2.46.5           # Manual load test for /api/v2 (Lot 8.2, PLAN_SOLIDITE_TECHNIQUE.md)
+                         # -- finds the real thread-pool ceiling the 120/min rate limit was
+                         # guessed against. Python-based (no new language toolchain beyond
+                         # this venv, unlike k6/JS), a local/manual tool only, never wired
+                         # into CI (load tests are slow and machine-dependent -- see
+                         # scripts/loadtest_v2_engine.py and CONTRIBUTING.md's "Charge"
+                         # section). Pulls in Flask as its own internal web UI dependency --
+                         # unrelated to this app (which migrated OFF Flask, see CLAUDE.md);
+                         # dev-only, never imported by api/.
 
 # Security
 bandit==1.9.4        # Python SAST (static analysis)

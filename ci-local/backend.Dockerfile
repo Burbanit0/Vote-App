@@ -41,4 +41,5 @@ echo '=== pip-audit (non-blocking) ==='; pip-audit --requirement fast_api_voter/
 cd fast_api_voter; \
 echo '=== Mypy (gating) ===';           python -m mypy api/ --config-file mypy.ini; \
 echo '=== Pytest + coverage (gating) ==='; python -m pytest api/tests -v --cov=api --cov-report=term-missing --cov-report=xml --cov-fail-under=85; \
+echo '=== Engine perf ceilings (pytest-benchmark, gating) ==='; python -m pytest api/tests/test_engine_benchmarks.py -v -o addopts=''; \
 echo '=== Backend CI: PASS ==='"]

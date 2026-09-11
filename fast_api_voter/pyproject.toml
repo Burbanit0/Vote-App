@@ -13,7 +13,17 @@ asyncio_mode = "strict"
 # there via `pytest api/tests/test_schema_contract.py -o addopts=""` — naming
 # the file explicitly bypasses this --ignore (it only affects directory
 # discovery, confirmed live), so that invocation still collects it.
-addopts = "--cov=api --cov-report=term --cov-report=html --cov-fail-under=90 -v --ignore=api/tests/test_schema_contract.py"
+#
+# test_engine_benchmarks.py (Lot 8.1, PLAN_SOLIDITE_TECHNIQUE.md) is ignored
+# for a different reason: pytest-benchmark auto-disables itself when
+# pytest-xdist is active (confirmed — "Benchmarks are automatically disabled
+# because xdist plugin is active"), and backend-ci-cd-pipeline.yml runs this
+# suite via `-n auto`. Running the file there wouldn't fail loudly, it would
+# just silently record no timing data — worse than not running it. It has its
+# own blocking CI step, invoked explicitly without -n auto (see
+# backend-ci-cd-pipeline.yml's "Engine perf ceilings" step and the module
+# docstring for the full design rationale).
+addopts = "--cov=api --cov-report=term --cov-report=html --cov-fail-under=90 -v --ignore=api/tests/test_schema_contract.py --ignore=api/tests/test_engine_benchmarks.py"
 
 [tool.coverage.run]
 source = ["api"]

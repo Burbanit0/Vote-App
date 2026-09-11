@@ -169,3 +169,21 @@ jobs:
           diff-cover fast_api_voter/coverage.xml \
             --compare-branch="$BASE_REF" \
             --fail-under=100
+
+      # ── Performance ──────────────────────────────────────────────────────
+      # Lot 8.1, PLAN_SOLIDITE_TECHNIQUE.md: a perf regression on the voting
+      # engine was previously invisible to CI. Blocking, but on GENEROUS
+      # absolute wall-clock ceilings (15-500x the measured baseline), not a
+      # stored-baseline comparison — see test_engine_benchmarks.py's module
+      # docstring and docs/exploration/EXP-006 for why (shared-runner noise
+      # makes relative comparisons a known flakiness trap; this repo has
+      # already been burned by a related category of problem once, see
+      # api/core/worker_dispatch.py's 180s timeout). Its own invocation, NOT
+      # folded into the `-n auto` run above: pytest-benchmark silently
+      # disables itself under xdist, which would make this step pass without
+      # ever measuring anything (confirmed — see pyproject.toml's addopts
+      # comment on the matching --ignore).
+      - name: Engine perf ceilings (pytest-benchmark, blocking)
+        run: |
+          cd fast_api_voter
+          python -m pytest api/tests/test_engine_benchmarks.py -v -o addopts=""
