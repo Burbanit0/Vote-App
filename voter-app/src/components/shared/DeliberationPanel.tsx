@@ -292,7 +292,7 @@ const DeliberationPanel: React.FC = () => {
                 variant={effect.regret_improvement > 0 ? 'success' : 'danger'}
                 data-testid="regret-badge"
               >
-                {t('delib.regret')}: {effect.regret_improvement >= 0 ? '' : ''}
+                {t('delib.regret')}: {effect.regret_improvement >= 0 ? '+' : ''}
                 {effect.regret_improvement.toFixed(1)}%
               </Badge>
               <Badge variant="info" data-testid="convergence-badge">

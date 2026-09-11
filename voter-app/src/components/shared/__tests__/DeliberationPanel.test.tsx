@@ -31,7 +31,7 @@ vi.mock('recharts', () => {
 
 // ── Fixture ───────────────────────────────────────────────────────────────────
 
-function makeData(winnerChanged = false, polarPos = false) {
+function makeData(winnerChanged = false, polarPos = false, regretNeg = false) {
   return {
     data: {
       pre_deliberation: {
@@ -57,7 +57,7 @@ function makeData(winnerChanged = false, polarPos = false) {
         opinion_shift_mean: 0.08,
         convergence_rate: 0.38,
         polarization_change: polarPos ? 0.13 : -0.12,
-        regret_improvement: 33.3,
+        regret_improvement: regretNeg ? -12.5 : 33.3,
       },
       per_round: Array.from({ length: 5 }, (_, i) => ({
         round: i + 1,
@@ -198,6 +198,18 @@ describe('DeliberationPanel', () => {
     await waitFor(() => {
       const badge = screen.getByTestId('polarization-badge');
       expect(badge.className).toContain('bg-[#dc3545]');
+    });
+    vi.runAllTimers();
+  });
+
+  it('regret badge shows no plus sign when regret improvement is negative', async () => {
+    apiClient.POST.mockResolvedValue(makeData(false, false, true));
+    renderPanel();
+    fireEvent.click(screen.getByTestId('simulate-btn'));
+    await waitFor(() => {
+      const badge = screen.getByTestId('regret-badge');
+      expect(badge.textContent).not.toContain('+');
+      expect(badge.textContent).toContain('-12.5');
     });
     vi.runAllTimers();
   });
