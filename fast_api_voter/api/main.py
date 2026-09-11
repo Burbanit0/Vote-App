@@ -34,6 +34,7 @@ from slowapi.errors import RateLimitExceeded
 from api.engine.utils.logger import configure_logging, get_logger
 from api.core.config import Settings, get_settings
 from api.core.ratelimit import limiter
+from api.core.tracing import configure_tracing, instrument_app
 from api.routes import election as election_routes
 from api.routes import export as export_routes
 from api.routes import health as health_routes
@@ -75,7 +76,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 # handler below AND every already-existing `log.error(..., exc_info=True)`
 # call inside a domain worker's own try/except (api/domain/**), with zero
 # per-file changes — confirmed live (see api/tests/test_error_tracking.py and
-# docs/exploration/EXP-012).
+# docs/exploration/EXP-013).
 def _init_sentry(settings: Settings) -> None:
     if settings.glitchtip_dsn:
         sentry_sdk.init(dsn=settings.glitchtip_dsn, environment=settings.app_env)
@@ -138,6 +139,17 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type"],
 )
+
+
+# ── Tracing (Lot 10.2, PLAN_SOLIDITE_TECHNIQUE.md — "Observabilité") ────────
+# No-op unless OTEL_EXPORTER_OTLP_ENDPOINT is set — see api/core/tracing.py's
+# module docstring for the Jaeger-vs-hosted-APM reasoning and the full
+# no-op-by-default contract. `app` is still the raw FastAPI instance here
+# (the socket.io ASGI wrap that reassigns `app` happens at the bottom of this
+# file, well after this point) — instrument_app() must run against the real
+# FastAPI object, not that wrapper, since it patches FastAPI's own routing.
+configure_tracing()
+instrument_app(app)
 
 
 # ── Security headers ──────────────────────────────────────────────────────

@@ -1768,7 +1768,7 @@ existe déjà et dépasse même la cible.
 | Item | Pourquoi ici | Effort | Solidité | Récit | Statut |
 |---|---|---|---|---|---|
 | **Sentry ou GlitchTip** | Le handler global ajouté le 06/09 *logge* — mais personne ne lit les logs d'une app pédagogique. Sans collecteur, ce travail ne sert à rien en pratique. | M | ⭐⭐⭐ | 📝📝 | ✅ GlitchTip self-hébergé (`docker-compose.observability.yml`), `sentry-sdk` — voir détail sous le tableau |
-| **OpenTelemetry** | Traces par endpoint, temps réel par méthode de vote — alimente aussi le Lot 8. | L | ⭐⭐ | 📝📝📝 | — |
+| **OpenTelemetry** | Traces par endpoint, temps réel par méthode de vote — alimente aussi le Lot 8. | L | ⭐⭐ | 📝📝📝 | ✅ Jaeger auto-hébergé (v2, `docker-compose.observability-tracing.yml`) + spans par méthode sur `POST /api/v2/simulations`, périmètre réduit (voir sous le tableau) |
 | **`/metrics` Prometheus** + readiness/liveness distincts | `/health` existe mais reste binaire. | M | ⭐⭐ | 📝 | ✅ `prometheus-fastapi-instrumentator` sur `/api/v2/metrics` + `/health/live`/`/health/ready` additifs (voir sous le tableau) |
 
 **GlitchTip, détail.** Choix explicite (self-hébergé, jamais Sentry SaaS) mis
@@ -1798,6 +1798,32 @@ True)` masquant le comportement réel d'un handler `Exception` global :
 [`docs/exploration/EXP-013-glitchtip-self-hosted-error-tracking.md`](docs/exploration/EXP-013-glitchtip-self-hosted-error-tracking.md).
 Test de régression automatisé :
 `fast_api_voter/api/tests/test_error_tracking.py`.
+
+**OpenTelemetry, détail.** `docs/exploration/EXP-014` pour le protocole et
+les chiffres complets — résumé court : Jaeger auto-hébergé retenu par
+cohérence avec le choix déjà fait pour GlitchTip (auto-hébergé plutôt que
+SaaS), pas une validation explicite du propriétaire du dépôt *pour le
+tracing* spécifiquement. `jaegertracing/all-in-one` (le nom suggéré par
+l'item) vérifié gelé depuis ~9 mois sur Docker Hub — `jaegertracing/
+jaeger:2.20.0` (Jaeger v2, toujours "all-in-one" par défaut) utilisé à la
+place. Le moteur de vote n'a **pas** de dispatcher central par méthode : 15
+sites d'appel distincts de `simulation_ranked_utils.py`/
+`simulation_score_utils.py` trouvés par grep, pas un seul comme l'item le
+suggérait implicitement — décision de périmètre explicite : un seul point
+instrumenté (`_simulate_votes_worker`, qui sert `POST /api/v2/simulations`
+et calcule déjà les 12 vainqueurs ordinaux + 6 cardinaux par requête), les
+14 autres sites restant non tracés, cohérent avec l'effort `L`/récit ⭐⭐ que
+l'item s'attribue lui-même. Vraie trace capturée contre un Jaeger
+réellement démarré (pas juste le code relu) : span racine `POST /api/v2/
+simulations` (9,37 ms) avec 12 spans enfants `voting_method.<règle>` (8-69
+µs chacun, attribut `voting.method` renseigné), correctement imbriqués sous
+le span de requête malgré la traversée d'un `asyncio.to_thread`
+(`contextvars` propagées, vérifié dans le code source de `to_thread` avant
+de committer le design). Test de régression avec l'exportateur de spans en
+mémoire d'`opentelemetry-sdk` (`api/tests/test_tracing.py`), pas de
+dépendance à un collecteur réel pour ce test. No-op par défaut
+(`OTEL_EXPORTER_OTLP_ENDPOINT` vide) — même contrat que Redis/GlitchTip
+ailleurs dans `api/core/config.py`.
 
 **`/metrics` Prometheus + readiness/liveness, détail.**
 `prometheus-fastapi-instrumentator` retenu sur `prometheus_client` nu après
