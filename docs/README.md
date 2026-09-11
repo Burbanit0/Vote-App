@@ -12,6 +12,8 @@ manque de discipline, est ce qui les faisait dériver.
 | `docs/exploration/README.md` | Index de tous les verdicts — le livrable partageable du projet. | Mis à jour à chaque expérience close | ✅ (ce lot) |
 | `docs/adr/` | Décisions d'architecture engageantes, avec alternatives écartées. | Rare | ✅ (polity + application — ADR-004 à 007, Lot 0.6) |
 | `docs/journal/commits.jsonl` | Trace machine exhaustive, générée — archéologie et alimentation des autres surfaces. | Par commit (auto, worktree polity uniquement — `scripts/git_commit_capture.py` se garde sur le nom du worktree) | ✅ (Lot 0.5, tier 1 ; script générique sur `develop`, activation via `pre-commit install --hook-type post-commit`) |
+| `…/flagship_runs/<run>/run/<run>/digest.json` + `digest.jsonl` | Trace machine d'un run de simulation : issue (terminé/crashé/interrompu), ticks atteints, comptage complet des 30 types d'événements par année, impact population. Générée, jamais rédigée. | À **chaque** fin de run, y compris crash et interruption (`api/domain/polity/run_digest.py`, appelé par le runner) | ✅ |
+| `…/flagship_runs/<run>/run/<run>/TIMELINE.md` | Le récit lisible d'un run : ce qu'a vécu cette société simulée, et ce que la population a fait. Rédigé à partir du digest, jamais des logs bruts. | Par run terminé (`/log-run` → sub-agent `run-narrator`) ; les runs non racontés sont signalés au démarrage de session | ✅ |
 | Mémoire Claude polity | Écueils rechargés d'office à chaque session — le seul support qui empêche *réellement* la répétition. | Par écueil rencontré | ✅ côté polity uniquement — hors périmètre de ce dépôt ; alimentation automatique (Lot 0.5, tier 3) pas encore branchée |
 | `CODE_AUDIT.md` (racine) | État de santé daté du code, rejouable. | Par passe de nettoyage | ✅ |
 
@@ -24,6 +26,9 @@ manque de discipline, est ce qui les faisait dériver.
   `docs/exploration/README.md`.
 - **Une décision structurante a été prise, avec des alternatives écartées, et
   elle doit rester compréhensible dans un an** → un ADR dans `docs/adr/`.
+- **Un run de simulation vient de se terminer (ou de mourir) et je veux savoir
+  ce qui s'y est passé** → `/log-run` → `TIMELINE.md` à côté du `events.jsonl`
+  du run, rédigé depuis son `digest.json`.
 - **Je veux savoir où en est la qualité du code, dans l'ensemble** →
   `CODE_AUDIT.md`.
 

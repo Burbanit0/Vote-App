@@ -39,6 +39,16 @@
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR}/.claude/hooks/notify_run_digest.py\""
+          }
+        ]
+      }
     ]
   },
   "enabledPlugins": {
