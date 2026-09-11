@@ -1598,14 +1598,17 @@ payload can never silently drift to a different field order."""
 
 
 def build_candidacy_system_prompt_toon(citizens: Sequence[Citizen]) -> str:
-    """plan-llm-protocol-and-theory-program.md §5.E: NOT shipped, NOT
-    wired into decide_candidacies -- a diagnostic variant of
-    build_candidacy_system_prompt for check_toon_candidacy_ab.py's live
-    A/B only, same "not wired into any decide_* entry point" framing
-    complete_with_logprobs's own docstring already established for §5.C's
-    primitive. Output stays JSON (xgrammar/CANDIDACY_JSON_SCHEMA,
-    unchanged) -- §5.E's own scope is input-only, by design (see
-    llm_toon_encoding.py's own module docstring for why).
+    """plan-llm-protocol-and-theory-program.md §5.E: SHIPPED 2026-09-10 --
+    decide_candidacies now calls this instead of build_candidacy_system_
+    prompt (see that function's own docstring for the token/quality gate
+    that cleared it). Originally written as a diagnostic variant for
+    check_toon_candidacy_ab.py's live A/B only, same "not wired into any
+    decide_* entry point" framing complete_with_logprobs's own docstring
+    established for §5.C's primitive -- that script remains the only
+    place this has been measured against a live model, not a claim this
+    docstring can update on its own. Output stays JSON (xgrammar/
+    CANDIDACY_JSON_SCHEMA, unchanged) -- §5.E's own scope is input-only,
+    by design (see llm_toon_encoding.py's own module docstring for why).
 
     Differs from build_candidacy_system_prompt ONLY in the added TOON-
     format paragraph (with a concrete worked example, not just naming the
@@ -1643,7 +1646,9 @@ def build_candidacy_user_prompt_toon(chunk: Sequence[Citizen], support: dict[int
     """The TOON-encoded twin of build_candidacy_user_prompt -- same
     values, same rounding, same field set, only the wire shape differs.
     See that function's own docstring for why `support` is precomputed
-    once against the full population rather than recomputed per chunk."""
+    once against the full population rather than recomputed per chunk.
+    SHIPPED 2026-09-10 -- decide_candidacies calls this now, see its own
+    docstring."""
     rows = [
         (c.citizen_id, round(c.ambition_score, 4), round(support[c.citizen_id], 4))
         for c in chunk
@@ -1675,7 +1680,23 @@ def decide_candidacies(
     (compute_max_tokens's flat allowance), which stays unaffected since
     cast_votes never sets this flag. See OllamaJsonClient's class docstring
     for why this needs an entirely different transport, not just a body
-    flag."""
+    flag.
+
+    SHIPPED TOON input, 2026-09-10 (plan-llm-protocol-and-theory-program.md
+    §5.E, check_toon_candidacy_ab_results.md): this decision type is the
+    one place §5.E's own two-gate bar cleared cleanly -- real token savings
+    (853->794 prompt tokens, -6.9%) with IDENTICAL accuracy against ground
+    truth (16/25 both formats, not just a similar count), on the shipped
+    llm.max_batch_size=25 chunk. Output stays JSON (CANDIDACY_JSON_SCHEMA,
+    unchanged) -- §5.E's own input-only constraint; only the user/system
+    prompt encoding changed, via build_candidacy_system_prompt_toon/
+    build_candidacy_user_prompt_toon (previously diagnostic-only, called
+    only by check_toon_candidacy_ab.py). pressure_action's own TOON A/B
+    (check_toon_pressure_action_ab_results.md) found the opposite --
+    real token savings but a real quality regression -- and is NOT shipped
+    for that reason; the two are independent decisions, not a blanket
+    "TOON everywhere" policy. Single-run result, not yet replicated with a
+    second seed."""
     _check_supported(config)
 
     population = list(citizens)
@@ -1685,8 +1706,8 @@ def decide_candidacies(
         expected_cids = [c.citizen_id for c in chunk]
         return _complete_and_decode_with_replay(
             client,
-            system_prompt=build_candidacy_system_prompt(chunk),
-            user_prompt=build_candidacy_user_prompt(chunk, support),
+            system_prompt=build_candidacy_system_prompt_toon(chunk),
+            user_prompt=build_candidacy_user_prompt_toon(chunk, support),
             json_schema=CANDIDACY_JSON_SCHEMA,
             max_tokens=compute_max_tokens(len(chunk)),
             think=False,

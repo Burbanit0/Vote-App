@@ -836,27 +836,43 @@ def test_candidacy_system_prompt_toon_differs_from_json_only_in_the_format_parag
 
 # ── decide_candidacies (FakeCandidacyLlmClient) ──────────────────────────────
 
+def _parse_toon_citizens(user_prompt: str) -> list[dict[str, float]]:
+    """Minimal reader for encode_toon_array's own output shape
+    (`<key>[N]{f1,f2,...}:` + one comma-separated row per record) -- the
+    inverse this project never needed in production (§5.E is input-only,
+    llm_toon_encoding.py has no decoder), but a fake test client standing
+    in for "the model reads TOON" needs one to assert on what it received,
+    now that decide_candidacies sends TOON instead of JSON."""
+    header, *rows = user_prompt.splitlines()
+    fields = header.split("{", 1)[1].rstrip("}:").split(",")
+    records = []
+    for row in rows:
+        values = dict(zip(fields, row.split(","), strict=True))
+        records.append({"cid": int(values["cid"]), **{f: float(values[f]) for f in fields if f != "cid"}})
+    return records
+
+
 class FakeCandidacyLlmClient:
     """Declares whenever ambition_score >= 0.5, mirroring how a real model
-    would use the two signals build_candidacy_user_prompt actually sends --
-    lets tests assert on chunking/order/support-signal behavior without a
-    live model."""
+    would use the two signals build_candidacy_user_prompt_toon actually
+    sends -- lets tests assert on chunking/order/support-signal behavior
+    without a live model."""
 
     def __init__(self):
         self.calls: list[list[int]] = []
         self.received_support: dict[int, float] = {}
 
     def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
-        payload = json.loads(user_prompt)
-        cids = [c["cid"] for c in payload["citizens"]]
+        citizens = _parse_toon_citizens(user_prompt)
+        cids = [c["cid"] for c in citizens]
         self.calls.append(cids)
-        for c in payload["citizens"]:
+        for c in citizens:
             self.received_support[c["cid"]] = c["perceived_support"]
         decisions = [
             {"cid": c["cid"], "outcome": 1, "motif": 203}
             if c["ambition_score"] >= 0.5
             else {"cid": c["cid"], "outcome": 0, "motif": 201}
-            for c in payload["citizens"]
+            for c in citizens
         ]
         return json.dumps({"decisions": decisions})
 

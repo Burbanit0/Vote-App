@@ -1791,6 +1791,22 @@ def test_confidence_vote_keep_ratio_equals_mandate_strength_on_the_deterministic
 
 # ── LLM-enabled path (v2 increments 1-2) ─────────────────────────────────
 
+def _parse_toon_citizens(user_prompt: str) -> list[dict[str, float]]:
+    """Minimal reader for encode_toon_array's own output shape
+    (`citizens[N]{cid,ambition_score,perceived_support}:` + one
+    comma-separated row per record) -- decide_candidacies sends TOON, not
+    JSON, since its own §5.E shipping decision (llm_behavior_engine.py),
+    so _FakeLlmClient needs this to dispatch on it. Same helper as
+    test_polity_llm_behavior_engine.py's own FakeCandidacyLlmClient."""
+    header, *rows = user_prompt.splitlines()
+    fields = header.split("{", 1)[1].rstrip("}:").split(",")
+    records = []
+    for row in rows:
+        values = dict(zip(fields, row.split(","), strict=True))
+        records.append({"cid": int(values["cid"]), **{f: float(values[f]) for f in fields if f != "cid"}})
+    return records
+
+
 class _FakeLlmClient:
     """Deterministic fake dispatching on user_prompt shape, since one client
     instance now serves decide_candidacies ("citizens" key),
@@ -1840,15 +1856,18 @@ class _FakeLlmClient:
         return 500
 
     def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
-        payload = json.loads(user_prompt)
-        if "citizens" in payload:
+        if user_prompt.startswith("citizens["):
+            # decide_candidacies ships TOON (§5.E), not JSON -- see
+            # _parse_toon_citizens's own docstring. Every other decision
+            # type below is still plain JSON, dispatched by its own key.
             decisions = [
                 {"cid": c["cid"], "outcome": 1, "motif": 203}
                 if c["ambition_score"] >= 0.1
                 else {"cid": c["cid"], "outcome": 0, "motif": 201}
-                for c in payload["citizens"]
+                for c in _parse_toon_citizens(user_prompt)
             ]
             return json.dumps({"decisions": decisions})
+        payload = json.loads(user_prompt)
         if "parties" in payload:
             decisions = [
                 {
@@ -2239,10 +2258,10 @@ def test_no_representative_response_while_the_presidency_is_vacant(tmp_path):
         empty decisions list."""
 
         def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
-            payload = json.loads(user_prompt)
-            if "citizens" in payload:
-                decisions = [{"cid": c["cid"], "outcome": 0, "motif": 201} for c in payload["citizens"]]
+            if user_prompt.startswith("citizens["):  # decide_candidacies ships TOON (§5.E)
+                decisions = [{"cid": c["cid"], "outcome": 0, "motif": 201} for c in _parse_toon_citizens(user_prompt)]
                 return json.dumps({"decisions": decisions})
+            payload = json.loads(user_prompt)
             if "responders" in payload:
                 decisions = [{"party_id": r["party_id"], "action": 2, "motif": 504} for r in payload["responders"]]
                 return json.dumps({"decisions": decisions})
@@ -2336,15 +2355,15 @@ def test_llm_batch_misalignment_falls_back_instead_of_aborting_the_run(tmp_path)
             return 500
 
         def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
-            payload = json.loads(user_prompt)
-            if "citizens" in payload:
+            if user_prompt.startswith("citizens["):  # decide_candidacies ships TOON (§5.E)
                 decisions = [
                     {"cid": c["cid"], "outcome": 1, "motif": 203}
                     if c["ambition_score"] >= 0.1
                     else {"cid": c["cid"], "outcome": 0, "motif": 201}
-                    for c in payload["citizens"]
+                    for c in _parse_toon_citizens(user_prompt)
                 ]
                 return json.dumps({"decisions": decisions})
+            payload = json.loads(user_prompt)
             if "parties" in payload:
                 decisions = [
                     {
@@ -2432,8 +2451,11 @@ class _FlakyVoteClient:
     ):
         self.temperatures.append(temperature)
         self.seeds.append(seed)
-        payload = json.loads(user_prompt)
-        is_vote_call = not any(k in payload for k in ("citizens", "parties", "nominees", "responders", "holders", "consulted", "reactors", "members"))
+        # decide_candidacies ships TOON (§5.E), never a vote_cast call -- checked by shape before
+        # ever attempting json.loads, rather than teaching this negative membership test to read TOON.
+        is_vote_call = not user_prompt.startswith("citizens[") and not any(
+            k in json.loads(user_prompt) for k in ("parties", "nominees", "responders", "holders", "consulted", "reactors", "members")
+        )
         if is_vote_call:
             self._vote_calls += 1
             if self._vote_calls == 1:
@@ -2770,8 +2792,9 @@ def test_no_pressure_action_llm_call_while_the_presidency_is_vacant(tmp_path):
             self.pressure_calls = 0
 
         def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
-            payload = json.loads(user_prompt)
-            if "consulted" in payload:
+            # decide_candidacies ships TOON (§5.E), never a "consulted" pressure call -- skip the
+            # JSON parse entirely for that shape rather than teaching this check to read TOON too.
+            if not user_prompt.startswith("citizens[") and "consulted" in json.loads(user_prompt):
                 self.pressure_calls += 1
             return super().complete_json(
                 system_prompt=system_prompt, user_prompt=user_prompt, json_schema=json_schema,
@@ -3427,13 +3450,13 @@ def test_campaign_positioning_clamp_journals_clamped_at_bound(tmp_path):
 
     class _BigShiftClient:
         def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
-            payload = json.loads(user_prompt)
-            if "citizens" in payload:
+            if user_prompt.startswith("citizens["):  # decide_candidacies ships TOON (§5.E)
                 decisions = [
                     {"cid": c["cid"], "outcome": 1 if c["cid"] == 0 else 0, "motif": 203 if c["cid"] == 0 else 201}
-                    for c in payload["citizens"]
+                    for c in _parse_toon_citizens(user_prompt)
                 ]
                 return json.dumps({"decisions": decisions})
+            payload = json.loads(user_prompt)
             if "nominees" in payload:
                 decisions = [
                     {"cid": n["cid"], "shifts": [{"dimension": 0, "delta": 0.3}], "motif": 602}
@@ -3620,8 +3643,10 @@ class _CoalitionRoundTwoFailsClient(_FakeLlmClient):
         self._coalition_calls = 0
 
     def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
-        payload = json.loads(user_prompt)
-        if "responders" in payload:
+        # decide_candidacies ships TOON (§5.E), never a "responders" coalition call -- skip the
+        # JSON parse entirely for that shape, matching every other fake client's own guard above.
+        payload = None if user_prompt.startswith("citizens[") else json.loads(user_prompt)
+        if payload is not None and "responders" in payload:
             self._coalition_calls += 1
             if self._coalition_calls > 1:
                 return "not json"
@@ -3680,15 +3705,15 @@ def test_llm_path_all_decline_produces_coalition_failed(tmp_path):
             return 500
 
         def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
-            payload = json.loads(user_prompt)
-            if "citizens" in payload:
+            if user_prompt.startswith("citizens["):  # decide_candidacies ships TOON (§5.E)
                 decisions = [
                     {"cid": c["cid"], "outcome": 1, "motif": 203}
                     if c["ambition_score"] >= 0.1
                     else {"cid": c["cid"], "outcome": 0, "motif": 201}
-                    for c in payload["citizens"]
+                    for c in _parse_toon_citizens(user_prompt)
                 ]
                 return json.dumps({"decisions": decisions})
+            payload = json.loads(user_prompt)
             if "parties" in payload:
                 decisions = [
                     {
@@ -4151,8 +4176,10 @@ def test_an_out_of_bound_salience_delta_aborts_the_run_with_no_partial_journal(t
         isolates the abort to this lot's own validator."""
 
         def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
-            payload = json.loads(user_prompt)
-            if "reactors" in payload:
+            # decide_candidacies ships TOON (§5.E), never a "reactors" call -- skip the JSON parse
+            # entirely for that shape, matching every other fake client's own guard above.
+            payload = None if user_prompt.startswith("citizens[") else json.loads(user_prompt)
+            if payload is not None and "reactors" in payload:
                 decisions = [{"cid": r["cid"], "salience_delta": 1.0, "motif": 401} for r in payload["reactors"]]
                 return json.dumps({"decisions": decisions})
             return super().complete_json(

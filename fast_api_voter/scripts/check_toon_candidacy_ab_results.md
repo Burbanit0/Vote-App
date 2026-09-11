@@ -55,8 +55,22 @@ follow-up, not conflated with the TOON verdict here.
 
 ## Disposition
 
-**§5.E's own bar is cleared for `candidacy_considered`.** Not yet shipped into
-`decide_candidacies` (still diagnostic-only, matching every other §5.C/§5.E primitive this
-session) — a separate decision, not automatic from a single clean A/B. Per the plan's own
-ordering, `pressure_action` is the next candidate, now unblocked since its own P(act) baseline
-was captured in `check_logprob_pressure_action_gap_tracking_results.md`.
+**§5.E's own bar is cleared for `candidacy_considered`.** Per the plan's own ordering,
+`pressure_action` was the next candidate tested (`check_toon_pressure_action_ab_results.md`) —
+opposite result there: real token savings but a real quality regression (TOON flips which
+constant the model collapses to), so it is NOT shipped. The two decisions are independent, not a
+blanket "TOON everywhere" policy — see `check_pressure_shipped_wiring_results.md` for what
+`pressure_action` shipped instead (calibration, not a format change).
+
+**SHIPPED, 2026-09-10.** `decide_candidacies` now calls `build_candidacy_system_prompt_toon`/
+`build_candidacy_user_prompt_toon` instead of the JSON pair — output stays JSON
+(`CANDIDACY_JSON_SCHEMA`, unchanged), only the input encoding changed. Live-reconfirmed against
+the actual wired function (not just the standalone builders) on a 20-citizen population spanning
+the ambition range: 20/20 decoded cleanly, non-constant outcomes tracking ambition_score as
+expected. Offline: `mypy api/` clean, `ruff check .` clean, full polity suite 1379/1379 (six
+fake LLM clients across `test_polity_llm_behavior_engine.py`/`test_polity_run_simulation.py`
+needed a small TOON-parsing fix, since `decide_candidacies`'s own user_prompt is no longer JSON —
+mechanical, no behavior change). Still a single live A/B run at the diagnostic-builder level, not
+yet replicated with a second seed — the risk this leaves open is narrow (a JSON-vs-TOON format
+difference on a type with no known collapse, not a fresh quality question), but worth naming
+rather than silently treating as fully closed.
