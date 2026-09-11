@@ -2044,7 +2044,13 @@ def test_representative_response_is_journalled_once_per_presided_tick(tmp_path):
 
     for e in response_events:
         assert e["payload"]["office"] == Office.PRESIDENT.value
-        assert set(e["payload"].keys()) == {"office", "stance", "shifts", "ctx", "unified_deviation"}
+        # llm_fallback added 2026-09-11 alongside dt=6's own deterministic
+        # fallback: without it a fallback silence and a real one are the same
+        # event, and a stance distribution would count engine failures as
+        # choices the representative made.
+        assert set(e["payload"].keys()) == {
+            "office", "stance", "shifts", "ctx", "unified_deviation", "llm_fallback",
+        }
         assert set(e["payload"]["ctx"].keys()) == {"L", "mandate_dev", "street", "lame_duck", "ticks_left"}
         assert e["payload"]["ctx"]["lame_duck"] in (0, 1)
         assert e["motif"] == "301"

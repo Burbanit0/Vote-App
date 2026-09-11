@@ -1607,6 +1607,9 @@ def _run_representative_responses(
                 "shifts": [{"dimension": s.dimension, "delta": s.delta} for s in decision.shifts],
                 "ctx": contexts[holder.citizen_id].to_payload(),
                 "unified_deviation": unified_deviation,
+                # Provenance: a fallback silence and a real one are otherwise
+                # identical here -- see ResponseBatchOutcome.llm_fallback.
+                "llm_fallback": int(outcome.llm_fallback.get(holder.citizen_id, False)),
             },
             citizen_id=holder.citizen_id,
             motif=str(decision.motif),

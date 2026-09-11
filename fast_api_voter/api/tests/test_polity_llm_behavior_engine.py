@@ -1665,6 +1665,42 @@ def test_decide_representative_response_leaves_pledged_platform_untouched():
     assert holder.pledged_platform == (0.2,)  # decide_representative_response never resolves a pledge
 
 
+def test_decide_representative_response_falls_back_to_silence_instead_of_dying(caplog):
+    # Live finding, 2026-09-11: a Stage 3 scale-probe run (2.5h of compute) was
+    # killed outright when the model returned two shifts on the SAME dimension --
+    # ResponseDecision's own _check_no_duplicate_dimensions rejected the batch and
+    # dt=6 had no fallback at all. Silence with no shifts is exactly what not
+    # running dt=6 means, so the holder simply does not move this tick.
+    holder = _holder(0, (0.2,), revealed=(0.4,))
+    contexts = {0: _response_context(0)}
+    config = _config_with_llm_enabled()
+
+    class DuplicateDimensionClient:
+        def complete_json(self, **kwargs):
+            decision = {
+                "cid": 0, "stance": 1, "motif": 301,
+                "shifts": [{"dimension": 0, "delta": 0.1}, {"dimension": 0, "delta": 0.2}],
+            }
+            return json.dumps({"decisions": [decision]})
+
+    outcome = decide_representative_response([holder], contexts, config, DuplicateDimensionClient())
+
+    assert [d.stance for d in outcome.decisions] == [3]  # SILENCE
+    assert outcome.decisions[0].shifts == []
+    assert outcome.positions[0] == (0.4,)  # unchanged: a silence moves nothing
+    assert outcome.llm_fallback == {0: True}  # provenance, not a real silence
+
+
+def test_decide_representative_response_marks_a_real_answer_as_not_a_fallback():
+    holder = _holder(0, (0.2,), revealed=(0.2,))
+    contexts = {0: _response_context(0)}
+    config = _config_with_llm_enabled()
+
+    outcome = decide_representative_response([holder], contexts, config, FakeResponseLlmClient())
+
+    assert outcome.llm_fallback == {0: False}
+
+
 def test_decide_representative_response_raises_notimplementederror_for_unsupported_provider():
     holder = _holder(0, (0.5,))
     contexts = {0: _response_context(0)}
@@ -1708,7 +1744,10 @@ def test_decide_representative_response_raises_for_codebook_version_mismatch():
         decide_representative_response([holder], contexts, config, FakeResponseLlmClient())
 
 
-def test_decide_representative_response_propagates_llm_response_error_on_count_mismatch():
+def test_decide_representative_response_falls_back_rather_than_raising_on_a_misaligned_batch():
+    # Was "propagates LlmResponseError" until 2026-09-11. A misaligned batch is
+    # the same unrecoverable class as a schema violation, and dt=6 now treats
+    # both the same way every other must-not-die-mid-run entry point does.
     holders = [_holder(0, (0.5,)), _holder(1, (0.5,))]
     contexts = {h.citizen_id: _response_context(h.citizen_id) for h in holders}
     config = _config_with_llm_enabled()
@@ -1717,8 +1756,11 @@ def test_decide_representative_response_propagates_llm_response_error_on_count_m
         def complete_json(self, **kwargs):
             return json.dumps({"decisions": [{"cid": 0, "shifts": [], "stance": 3, "motif": 308}]})
 
-    with pytest.raises(LlmResponseError, match="misaligned"):
-        decide_representative_response(holders, contexts, config, ShortClient())
+    outcome = decide_representative_response(holders, contexts, config, ShortClient())
+
+    assert [d.cid for d in outcome.decisions] == [0, 1]  # every holder still gets a decision
+    assert all(d.stance == 3 and not d.shifts for d in outcome.decisions)
+    assert outcome.llm_fallback == {0: True, 1: True}
 
 
 def test_decide_representative_response_ignores_a_later_street_pressure_mutation():
@@ -3979,17 +4021,22 @@ def _replay_cases():
     ]
 
 
+_FALLS_BACK_INSTEAD_OF_PROPAGATING = ("vote_cast", "representative_response")
+
+
 def _replay_cases_that_still_propagate():
-    # vote_cast is EXCLUDED here, not merely another parametrized case:
-    # since 2026-09-06 (check_vllm_vote_cast_retry_is_inert_results.md) it
-    # never propagates LlmResponseError under any replay budget -- it falls
-    # back to a deterministic ballot instead (VoteBatchOutcome.llm_fallback).
-    # The three "propagates"/"raises" tests below test the other 8 entry
-    # points, whose behavior is unchanged; vote_cast's own new behavior gets
-    # its own dedicated tests, same discipline as the existing negative case
-    # for retry_temperature (test_other_decide_entry_points_never_send_a_
-    # temperature_override_even_when_replayed).
-    return [c for c in _replay_cases() if c[0] != "vote_cast"]
+    # These are EXCLUDED here, not merely other parametrized cases: neither
+    # propagates LlmResponseError under any replay budget any more, because
+    # both fall back to a deterministic decision instead.
+    #   - vote_cast since 2026-09-06 (check_vllm_vote_cast_retry_is_inert_
+    #     results.md) -> a deterministic ballot, VoteBatchOutcome.llm_fallback.
+    #   - representative_response since 2026-09-11, after it killed a real
+    #     2.5-hour Stage 3 run on a duplicate-dimension schema violation ->
+    #     silence, ResponseBatchOutcome.llm_fallback.
+    # The tests below pin the remaining entry points, whose behavior is
+    # unchanged; each fallback gets its own dedicated tests, the same
+    # discipline the retry_temperature negative case already follows.
+    return [c for c in _replay_cases() if c[0] not in _FALLS_BACK_INSTEAD_OF_PROPAGATING]
 
 
 @pytest.mark.parametrize(

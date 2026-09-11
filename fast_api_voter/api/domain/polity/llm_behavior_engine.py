@@ -157,6 +157,8 @@ from api.domain.polity.codebook import (
     EventType,
     PartyNominationMotif,
     ReactionMotif,
+    ResponseMotif,
+    Stance,
     VoteMotif,
     check_codebook_version,
 )
@@ -509,6 +511,18 @@ _CHAMBER_RETRY_TEMPERATURE = 0.3
 # confused reading a log -- both call sites always run sequentially, one
 # client, never concurrently, so nothing depends on the values differing.
 _CHAMBER_RETRY_SEED_BASE = 900_000_101
+
+# representative_response's own pair, added 2026-09-11 after a real Stage 3
+# scale-probe run died on it: the model returned two shifts targeting the same
+# dimension, ResponseDecision's own _check_no_duplicate_dimensions rejected the
+# batch, and BOTH replays reproduced the identical response byte-for-byte --
+# because without these two constants a retry re-sends the same prompt at
+# temperature=0 with the same seed, which is not a retry at all, it is the same
+# request three times. Same values and same rationale as the vote_cast and
+# chamber pairs above; distinct seed base only so the three are never confused
+# reading a log.
+_RESPONSE_RETRY_TEMPERATURE = 0.3
+_RESPONSE_RETRY_SEED_BASE = 900_000_201
 
 # Mirrors _POSITIONING_THINK_TOKEN_ALLOWANCE's own reasoning: a shared
 # constant would either starve one caller or over-provision another, since
@@ -2285,12 +2299,46 @@ class ResponseContext:
 class ResponseBatchOutcome:
     decisions: list[ResponseDecision]
     positions: dict[int, tuple[float, ...]]
+    llm_fallback: dict[int, bool] = field(default_factory=dict)
+    """cid -> whether this decision came from _deterministic_response_fallback
+    rather than the model. Mirrors ChamberBatchOutcome/VoteBatchOutcome's own
+    provenance field, and for the same reason: a fallback SILENCE and a real
+    SILENCE are indistinguishable in the journal payload otherwise, and an
+    analyst reading a stance distribution would be counting the engine's
+    failures as the representative's choices. The caller writes it into the
+    event payload, where progress.py's own generic `payload.llm_fallback`
+    tally picks it up with no further wiring."""
     """cid -> resolved new revealed_position (the holder's CURRENT
     revealed_position with validated shifts applied, so drift accumulates
     across ticks -- see validate_response_decision/apply_shifts). Unlike
     PositioningBatchOutcome's `platforms`, pledged_platform is never
     resolved here: the promise is immutable for the term, which is the
     only reason mandate_deviation means anything (§7bis.5)."""
+
+
+def _deterministic_response_fallback(holders: Sequence[Citizen]) -> list[ResponseDecision]:
+    """Last-resort decision for decide_representative_response when the LLM
+    path is exhausted for the whole batch.
+
+    SILENCE with no shifts is not an arbitrary filler: it is exactly what NOT
+    running dt=6 means. On the deterministic path this decision type does not
+    exist at all, and a holder's `revealed_position` simply stays where it was
+    -- `declare_candidacy` pins revealed == pledged, and only dt=6 and
+    campaign_positioning ever diverge them. So the fallback reproduces the
+    baseline behaviour rather than inventing a stance the model never took.
+
+    The motif is forced, not chosen: ResponseDecision's own stance/motif
+    validator requires 308 for stance=3, and 308 is STRATEGIC_AMBIGUITY -- a
+    name that describes a representative's deliberate reticence, which is NOT
+    what happened here. Nothing legal describes "the engine gave up", so the
+    provenance lives in ResponseBatchOutcome.llm_fallback instead, and an
+    analyst reading motif distributions must subtract fallbacks before reading
+    308 as a behavioural signal."""
+    return [
+        ResponseDecision(cid=holder.citizen_id, shifts=[], stance=Stance.SILENCE,
+                         motif=ResponseMotif.STRATEGIC_AMBIGUITY)
+        for holder in holders
+    ]
 
 
 def validate_response_decision(decision: ResponseDecision, config: PolityConfig) -> None:
@@ -2463,27 +2511,52 @@ def decide_representative_response(
     # rely on an incidental insertion order (D-5 precedent).
     holders = sorted(holders, key=lambda h: h.citizen_id)
     expected_cids = [h.citizen_id for h in holders]
-    decisions = _complete_and_decode_with_replay(
-        client,
-        system_prompt=build_response_system_prompt(holders, config),
-        user_prompt=build_response_user_prompt(holders, contexts),
-        json_schema=RESPONSE_JSON_SCHEMA,
-        max_tokens=compute_max_tokens(len(holders)),
-        think=False,
-        decode=lambda raw: decode_response_batch(raw, expected_cids),
-        replays=config.llm.max_batch_replays,
-        decision_type="representative_response",
-    )
+    is_fallback = False
+    try:
+        decisions = _complete_and_decode_with_replay(
+            client,
+            system_prompt=build_response_system_prompt(holders, config),
+            user_prompt=build_response_user_prompt(holders, contexts),
+            json_schema=RESPONSE_JSON_SCHEMA,
+            max_tokens=compute_max_tokens(len(holders)),
+            think=False,
+            decode=lambda raw: decode_response_batch(raw, expected_cids),
+            replays=config.llm.max_batch_replays,
+            decision_type="representative_response",
+            # A deliberate, local exception to temperature=0 determinism --
+            # see _RESPONSE_RETRY_TEMPERATURE's own comment. Only ever applies
+            # to a genuine retry (never the first attempt).
+            retry_temperature=_RESPONSE_RETRY_TEMPERATURE,
+            retry_seed_base=_RESPONSE_RETRY_SEED_BASE,
+        )
+        for decision in decisions:
+            validate_response_decision(decision, config)
+    except LlmResponseError as exc:
+        # Last resort, not a silent one. Added 2026-09-11 after this exact path
+        # killed a real 2.5-hour scale-probe run: dt=6 was one of five decision
+        # types with no fallback at all, so a single schema-invalid batch --
+        # here, two shifts on the same dimension -- aborted everything. Same
+        # "must not die mid-run" priority cast_votes and chamber_deliberation
+        # already follow.
+        _logger.error(
+            "representative_response: exhausted every recovery attempt for cid(s) %s, falling back "
+            "to silence (no position change) instead of aborting the run: %s", expected_cids, exc,
+        )
+        decisions = _deterministic_response_fallback(holders)
+        is_fallback = True
 
     holders_by_id = {h.citizen_id: h for h in holders}
     positions: dict[int, tuple[float, ...]] = {}
     for decision in decisions:
-        validate_response_decision(decision, config)
         holder = holders_by_id[decision.cid]
         assert holder.revealed_position is not None  # guaranteed by the caller's own filter
         positions[decision.cid] = apply_shifts(holder.revealed_position, decision.shifts)
 
-    return ResponseBatchOutcome(decisions=decisions, positions=positions)
+    return ResponseBatchOutcome(
+        decisions=decisions,
+        positions=positions,
+        llm_fallback={cid: is_fallback for cid in expected_cids},
+    )
 
 
 @dataclass(frozen=True)
