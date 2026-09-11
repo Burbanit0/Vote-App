@@ -41,6 +41,10 @@ import-linter==2.15    # Blocking routes -> domain -> engine layering (Lot 2,
                        # PLAN_SOLIDITE_TECHNIQUE.md; see pyproject.toml [tool.importlinter])
 schemathesis==4.26.1   # OpenAPI contract fuzzing (Lot 3, PLAN_SOLIDITE_TECHNIQUE.md;
                        # see api/tests/test_schema_contract.py + schemathesis.yml)
+z3-solver==5.1.0.0     # SMT proofs over symbolic vote counts, ALL electorates at once
+                       # rather than sampled ones (Lot 4.6, PLAN_SOLIDITE_TECHNIQUE.md;
+                       # see api/tests/test_z3_formal_proofs.py and
+                       # docs/exploration/EXP-002-z3-formal-voting-proofs.md)
 types-redis==4.6.0.20241004  # Redis type stubs
 types-requests==2.33.0.20260712  # Requests type stubs
 types-PyYAML==6.0.12.20260815  # domain/polity/config.py — polity_config.yaml loader

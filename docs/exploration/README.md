@@ -12,3 +12,4 @@ rédigée via `/log-experiment`.
 | EXP | Outil | Domaine | Verdict | Trouvailles réelles | Coût |
 |---|---|---|---|---|---|
 | [001](./EXP-001-audit-commentaires-heuristique-git-blame.md) | Heuristique `git blame` (staleness) | Audit de commentaires (Lot 6.1) | Adopté (comme filtre) | 329/~5 200 blocs présélectionnés (écarts jusqu'à 379j) ; 5 vérifiés à la main, 5/5 vrai décalage temporel mais 0/5 péremption réelle — bon proxy pour « à relire », mauvais pour « c'est faux » | ~1h30 |
+| [002](./EXP-002-z3-formal-voting-proofs.md) | Z3 (solveur SMT) | Preuves formelles du moteur de vote (Lot 4.6) | Adopté (partiel) | Minimax/Schulze : critère de Condorcet prouvé pour TOUS les électorats jusqu'à n=7 (pas un échantillon). IRV : 1er encodage silencieusement faux (règle de départage omise), corrigé seulement en croisant un contre-exemple déjà connu — puis a trouvé un contre-exemple à 7 bulletins prouvé minimal | ~3h |

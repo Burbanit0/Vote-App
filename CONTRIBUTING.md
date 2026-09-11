@@ -565,6 +565,27 @@ en double — il l'était déjà (`voter-app/src/lib/realElections.ts`,
 Burlington 2009 / Alaska 2022, sourcé PrefLib et arXiv). Le trou réel était
 les exemples synthétiques classiques, absents des deux moteurs jusqu'ici.
 
+### Preuves formelles Z3 (Lot 4.6, expérience à risque assumé)
+
+`fast_api_voter/api/tests/test_z3_formal_proofs.py` (`z3-solver` en
+dépendance de dev) — au lieu d'échantillonner des profils concrets, encode
+les décomptes de voix comme des variables entières **symboliques** et
+demande au solveur SMT s'il existe un contre-exemple. `unsat` = preuve
+qu'aucun n'existe, pour **tous** les électorats possibles à un nombre de
+candidats donné, pas un échantillon aussi grand soit-il :
+
+```bash
+cd fast_api_voter && python -m pytest api/tests/test_z3_formal_proofs.py -o addopts="" -v
+```
+
+Deux méthodes seulement (minimax, Schulze), un seul critère (Condorcet
+gagnant) — le fichier prouve littéralement tout électorat jusqu'à n=7
+candidats, en quelques secondes en CI. Une troisième cible (IRV) a produit
+un résultat silencieusement **faux** avant d'être corrigée — encodage plus
+fragile pour un gain déjà obtenu autrement, donc non committé. Carnet
+complet (le faux résultat, comment il a été détecté, ce qui a fini par
+marcher) : [`docs/exploration/EXP-002-z3-formal-voting-proofs.md`](docs/exploration/EXP-002-z3-formal-voting-proofs.md).
+
 ### Score de mutation (informationnel)
 
 La couverture mesure les lignes *exécutées*, pas les lignes *assertées* — un

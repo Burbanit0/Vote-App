@@ -551,6 +551,40 @@ plutôt que d'échantillonner. **Peut très bien échouer** (encodage trop lourd
 explosion combinatoire) — et un échec documenté « voilà pourquoi le SMT ne passe
 pas à l'échelle sur ce problème » est un excellent carnet d'expérience.
 
+✅ **Fait — verdict : adopté partiellement.** Carnet complet dans
+[`docs/exploration/EXP-002-z3-formal-voting-proofs.md`](docs/exploration/EXP-002-z3-formal-voting-proofs.md).
+Résumé : `z3-solver` encode les décomptes de voix comme des variables
+entières symboliques (pas des profils concrets) et prouve — au lieu
+d'échantillonner — qu'aucun électorat, quelle que soit sa taille, ne peut
+violer une propriété donnée. **Minimax et Schulze respectent le critère de
+Condorcet pour TOUS les électorats possibles** jusqu'à n=7 candidats
+(`unsat` en moins d'une minute) — plus fort que tout ce que les Lots
+4.1-4.4 avaient établi sur ce point précis, puisque ceux-ci vérifient
+toujours un nombre *fini* de profils, aussi grand soit-il.
+
+**Le risque assumé par le plan s'est matérialisé, mais pas comme prévu**
+— pas une explosion combinatoire (Z3 n'a jamais peiné à raisonner), mais
+un encodage IRV **silencieusement faux** : un premier essai a "prouvé"
+qu'IRV ne peut jamais élire un perdant de Condorcet, ce qui contredit un
+contre-exemple déjà vérifié à la main au Lot 4.4
+(`test_condorcet_loser_irv_can_be_violated`). La cause : la règle de
+départage de ce moteur (éliminer TOUS les candidats à égalité au minimum,
+pas un minimum strict unique) manquait dans l'encodage — Z3 a fidèlement
+prouvé une propriété vraie d'une règle *différente* de la vraie
+`get_irv_winner`. Une fois corrigé (revérifié contre le contre-exemple
+connu avant de refaire confiance à quoi que ce soit), Z3 a aussi trouvé un
+contre-exemple à 7 bulletins **prouvé minimal** — une garantie
+qu'aucun échantillonnage ne peut offrir par construction.
+
+**Ce qui est committé** : `fast_api_voter/api/tests/test_z3_formal_proofs.py`
+(minimax + Schulze uniquement, ~5s en CI) et `z3-solver` en dépendance de
+dev (aucun conflit de version Python, contrairement à `pref_voting` au
+Lot 4.2). L'encodage IRV corrigé n'est **pas** committé — plus fragile
+(plus de branchements, plus de façons de mal représenter une règle réelle)
+pour un gain déjà obtenu autrement par les Lots 4.1-4.4 ; documenté en
+détail dans le carnet d'expérience plutôt que maintenu comme code
+permanent.
+
 ---
 
 ## Lot 5 — Robustesse des tests eux-mêmes
