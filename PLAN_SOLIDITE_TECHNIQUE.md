@@ -1175,12 +1175,123 @@ vrai serveur, chromium + firefox (10 tests) après ce correctif.
 
 ## Lot 8 — Performance
 
-| Item | Pourquoi ici | Effort | Solidité | Récit |
-|---|---|---|---|---|
-| **`pytest-benchmark` + seuils** | Une régression de perf sur `simulation_ranked_utils` est aujourd'hui totalement invisible. | M | ⭐⭐⭐ | 📝📝 |
-| **Charge (k6 ou Locust)** | Le rate-limit 120/min a été calibré au jugé ; un test de charge donne le vrai plafond du pool de threads. | M | ⭐⭐⭐ | 📝📝📝 |
-| **Invariant de perf du form-lock** | Documenté dans le skill `voter-ui`, jamais mesuré. React Profiler + assertion. | M | ⭐⭐ | 📝📝📝 |
-| **Budget de bundle** | Seuil de taille sur le build Vite, échec si dépassement. | S | ⭐⭐ | 📝 |
+| Item | Pourquoi ici | Effort | Solidité | Récit | Statut |
+|---|---|---|---|---|---|
+| **`pytest-benchmark` + seuils** | Une régression de perf sur `simulation_ranked_utils` est aujourd'hui totalement invisible. | M | ⭐⭐⭐ | 📝📝 | ⏳ |
+| **Charge (k6 ou Locust)** | Le rate-limit 120/min a été calibré au jugé ; un test de charge donne le vrai plafond du pool de threads. | M | ⭐⭐⭐ | 📝📝📝 | ⏳ |
+| **Invariant de perf du form-lock** | Documenté dans le skill `voter-ui`, jamais mesuré. React Profiler + assertion. | M | ⭐⭐ | 📝📝📝 | ✅ `PlaygroundPage.perf.test.tsx` (voir sous le tableau) |
+| **Budget de bundle** | Seuil de taille sur le build Vite, échec si dépassement. | S | ⭐⭐ | 📝 | ✅ `size-limit` câblé dans `npm run build` (voir sous le tableau) |
+
+**Invariant de perf du form-lock, détail.** Le skill `voter-ui` documente le
+form-lock depuis longtemps (« à first paint, seuls les `*-toggle` sont dans le
+DOM ») et `PlaygroundPage.test.tsx` en vérifie déjà la **forme** (des testids
+précis absents du DOM) — mais rien ne le mesurait. Avant d'écrire une seule
+assertion, deux approches naïves ont été essayées contre le vrai environnement
+de test (Vitest + jsdom) et **rejetées avec des chiffres réels**, pas par
+principe :
+
+- **Un plafond en millisecondes absolues sur le premier rendu** : sur 8 runs
+  consécutifs du même code inchangé, le premier commit va de **58 ms (à froid,
+  JIT/modules pas encore chauds) à ~13 ms (à chaud)** — un facteur ×4.5 de pur
+  bruit d'environnement, qui noierait n'importe quelle régression assez petite
+  pour être plausible. Ce projet s'est déjà fait piéger une fois par exactement
+  cette catégorie d'erreur (calibration des timeouts CI, Lot 3 « Timeouts &
+  backpressure ») ; pas la peine de recommencer.
+- **Mesurer une régression injectée** (monter `ElectorateComposer` sans son
+  `Collapsible`, en double) montre la même chose autrement : la fenêtre de
+  durée observée (13,5-20,7 ms) **chevauche entièrement** la fenêtre de la
+  baseline (12,4-23,2 ms) — un vrai doublon de panneau, mesuré honnêtement, ne
+  ressort pas du bruit.
+
+Ce qui a survécu, vérifié en injectant de vraies régressions puis en confirmant
+un retour au vert après retrait (même discipline que EXP-004 « Lost Pixel » du
+Lot 7) :
+
+- **Invariant de comptage de commits** : à first paint, exactement **2**
+  commits synchrones (le montage, puis le passage `loading: true` du hook de
+  diagnostics live) — stable sur 8+ runs, y compris avec la régression
+  d'ElectorateComposer ci-dessus injectée (toujours 2 : monter un panneau en
+  trop n'ajoute pas de commit, il alourdit juste le premier). Ce que ce
+  compteur détecte réellement, prouvé par une seconde injection : une chaîne
+  d'effets eager non liés à une interaction (`useEffect` → `setState` → un
+  second `useEffect` qui en dépend) fait bien passer le compte à **3**,
+  détecté par l'assertion, confirmé revenir à 2 après retrait.
+- **Comparaison relative de coût** : ouvrir un panneau `Collapsible` trivial
+  (formulaire, pas de calcul) coûte 0,7-3,1 ms ; ouvrir la lentille de
+  probabilité (vrai calcul client, attendu comme le fait déjà
+  `PlaygroundPage.test.tsx`) coûte 7,5-16,8 ms — un ratio de **×5,4 à ×11,7**
+  sur 6 mesures indépendantes. Le seuil retenu (×3) est délibérément sous la
+  pire valeur observée, pas calé sur la moyenne — même marge de sécurité que
+  les seuils CI du Lot 3.
+
+Trouvaille méthodologique, documentée dans le fichier de test et dans
+EXP-004 : **le Profiler de React ne mesure que la phase de rendu/commit,
+jamais le corps d'un effet** — un calcul lourd glissé dans un `useEffect` (pas
+dans le rendu lui-même) est invisible au Profiler, quel que soit son coût CPU
+réel. Vérifié en injectant une boucle de 20M itérations dans un effet de
+montage : zéro changement mesurable sur `actualDuration`. C'est pour ça que
+l'invariant de comptage de commits (qui, lui, réagit à un effet qui déclenche
+un état) et le test de forme déjà existant (qui réagit à un DOM qui apparaît)
+restent complémentaires du Profiler, pas redondants avec lui.
+
+**Budget de bundle, détail.** Baseline mesurée sur un vrai `npm run build`
+avant de choisir un chiffre (jamais inventé) : 121 chunks JS, **3 004 492
+octets bruts**, **938 786 octets gzip** (mesure manuelle `gzip -c | wc -c`,
+pour comparaison) — le rapport Vite signale déjà, sans y toucher, que 2 chunks
+dépassent son `chunkSizeWarningLimit` par défaut (500 kB) : `recharts`
+(590 kB) et le chunk vendor principal `index` (580 kB), tous deux attendus
+(une lib de graphiques + React/router/zustand/tanstack-query, pas du code
+applicatif ballonné). `build.chunkSizeWarningLimit` seul ne fait qu'avertir,
+jamais échouer — donc pas suffisant tel quel pour « échec si dépassement »
+demandé par l'item.
+
+Outillage : `bundlesize` (dernier publié 2024-03, **>2 ans**, abandonné —
+écarté) et `vite-plugin-bundlesize` (dernier publié il y a ~1 an, mainteneur
+seul, signal modeste) rejetés sur la fraîcheur, même réflexe que le rejet de
+Lost Pixel (EXP-004, Lot 7) et le remplacement `license-checker` →
+`license-checker-rseidelsohn` (Lot 6.7). `rollup-plugin-visualizer` et
+`vite-bundle-analyzer` sont bien maintenus (publiés il y a 4-6 semaines) mais
+sont des outils de **visualisation**, pas de gate à seuil. **`size-limit`**
+(Andrey Sitnik — mainteneur connu de l'écosystème PostCSS/Autoprefixer),
+publié il y a ~6 semaines, `@size-limit/file` en plugin (mesure par glob sur
+des fichiers déjà construits, indépendant du bundler — exactement le besoin
+ici puisque `build/` est déjà produit par Vite) : adopté.
+
+**Piège de version trouvé en l'installant, pas juste supposé** : `npm install`
+sans épingler résout `size-limit@12.1.0` alors que `@size-limit/file@13.0.3`
+(la dernière version publiée du plugin) déclare une peer-dependency **exacte**
+sur `size-limit@13.0.3` — un `npm ls` après coup confirme l'arbre invalide
+(`ELSPROBLEMS`). Cause trouvée en creusant : `size-limit@13.0.3` a relevé son
+exigence Node à `^22.18.0 || ^24.0.0 || >=26.0.0`, laissant tomber le Node 20
+sur lequel ce dépôt tourne encore (même contrainte, déjà rencontrée et déjà
+documentée pour `dependency-cruiser` au Lot 2 — « 18.x exige Node ≥22 »).
+Résolu en épinglant la **paire exacte compatible** `size-limit@12.1.0` +
+`@size-limit/file@12.1.0` (peer-dependency exacte vérifiée, aucune version en
+caret) plutôt que la dernière publiée — aucune règle Dependabot `ignore`
+ajoutée (le dépôt n'en a pour aucun autre pin de ce type non plus ; ce
+paragraphe sert la même fonction que le commentaire du Lot 2 pour
+dependency-cruiser, à relire si Dependabot propose la bascule 13.x).
+
+**Le budget retenu : 1 MB (brotli), mesuré à 810,88 kB aujourd'hui — une marge
+de ~23 %.** `size-limit` mesure en brotli par défaut (pas gzip) ; sur ce
+build, brotli descend à 810,88 kB contre 951,57 kB en gzip (~15 % de mieux),
+cohérent avec l'écart habituel entre les deux algorithmes. 1 MB laisse de la
+place à une vraie croissance de fonctionnalités sans être assez large pour ne
+jamais mordre — même logique de marge que le Lot 3 (« pas si juste que la
+croissance légitime casse la CI en boucle, pas si large que ça ne veuille rien
+dire »). Câblé dans `npm run build` lui-même
+(`tsc --noEmit && vite build && npm run build:size`, `build:size` = `size-limit`)
+plutôt qu'en étape CI séparée : `frontend-ci-cd-pipeline.yml` appelle déjà
+`npm run build` sans modification, donc le gate est actif sur chaque PR sans
+toucher au workflow.
+
+**Vérifié en injectant une vraie régression** (deux chunks dupliqués dans
+`build/assets/`, portant le total mesuré à 1,1 MB) : `size-limit` échoue avec
+`exit 1` et un message précis (« Package size limit has exceeded by 99.25 kB »)
+— retiré, retour au vert confirmé (`exit 0`, 810,88 kB). Piège opérationnel
+noté en le vérifiant : `npx size-limit | tail` masque le vrai code de sortie
+derrière celui de `tail` dans le pipeline — vérifié avec `$?` juste après la
+commande, sans pipe, avant de faire confiance au signal.
 
 ---
 
