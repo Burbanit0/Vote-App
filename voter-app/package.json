@@ -50,6 +50,9 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:a11y": "playwright test tests/e2e/accessibility.spec.ts",
+    "test:visual": "playwright test --config=playwright.visual.config.ts",
+    "test:visual:docker": "bash scripts/test-visual-docker.sh",
+    "test:visual:docker:update": "bash scripts/test-visual-docker.sh --update-snapshots",
     "test:mutation": "stryker run",
     "gen:api": "openapi-typescript ../fast_api_voter/openapi.gen.json -o src/api/types.gen.ts",
     "gen:pseudo-locale": "jiti scripts/gen-pseudo-locale.ts"
