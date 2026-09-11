@@ -27,6 +27,16 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    ignore:
+      # perflint==0.8.1 (its latest release, checked on PyPI) declares
+      # `pylint>=3.0.0,<4.0.0` -- pylint 4.x is real, unresolvable
+      # incompatibility, not a stale-branch artifact: `uv pip install -r
+      # requirements-dev.txt` (this repo's actual CI install step) hard-fails
+      # with "No solution found when resolving dependencies" on the combo,
+      # confirmed live against PR #371. Re-open the bump once perflint ships
+      # a pylint-4-compatible release (check its PyPI page), not before.
+      - dependency-name: "pylint"
+        versions: [">=4.0.0"]
 
   - package-ecosystem: "npm"
     directory: "/voter-app"
