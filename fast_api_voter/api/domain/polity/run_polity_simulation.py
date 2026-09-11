@@ -756,7 +756,14 @@ def _declare_nominees_llm(
     motif_by_party = {decision.party_id: decision.motif for decision in nomination_outcome.decisions}
     citizens_by_id = {c.citizen_id: c for c in citizens}
 
-    nominees = []
+    # Explicit element type: without it, type checkers infer `nominees`' type
+    # from every value `nominee` could hold anywhere in this function (including
+    # `Citizen | None`, from before the `is None: continue` guard below), not
+    # from the narrowed type actually passed to `.append()` — which made the
+    # second loop below look like it could dereference None on every attribute
+    # access (basedpyright's reportOptionalMemberAccess; see PLAN_SOLIDITE_TECHNIQUE.md
+    # Lot 6). The guard means only non-None `Citizen` values are ever appended.
+    nominees: list[Citizen] = []
     for party in parties:
         party_declared_cids = {
             c.citizen_id for c in citizens

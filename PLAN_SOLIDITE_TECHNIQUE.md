@@ -724,6 +724,87 @@ changé, jamais le code qu'ils décrivaient. Détail complet (fichier, ligne,
 avant/après) dans l'historique de la PR ; [`docs/comment-audit/README.md`](
 docs/comment-audit/README.md) porte le verdict de synthèse des deux phases.
 
+### 6.2 — `basedpyright` comme second avis ⭐⭐ 📝📝📝 · `S`
+
+✅ **Fait.** Scope aligné sur celui de `mypy` (`api/` hors `api/tests/`,
+config dans `[tool.basedpyright]` de `pyproject.toml`, mode `standard` —
+le mode `strict`/`all` de basedpyright est nettement plus agressif que
+`mypy --strict` sur la propagation des types `Unknown`, ce qui aurait noyé
+le signal sous ~15 000 avertissements rien que sur les stubs manquants de
+`z3` dans les tests). Résultat brut : **50 erreurs**, qui se répartissent
+en 3 groupes très inégaux — 2 vrais bugs (corrigés, cf. ci-dessous, ce qui
+ramène le compte définitif à **34**), 32 faux positifs pydantic et 2 faux
+positifs isolés :
+
+- **2 vrais bugs, trouvés et corrigés** — invisibles à `mypy --strict` par
+  construction : `reportPossiblyUnboundVariable` n'a pas d'équivalent
+  activé par défaut dans le bundle `--strict` de mypy (il faudrait
+  `--enable-error-code possibly-undefined` explicitement, absent de
+  `mypy.ini`).
+  - `api/domain/simulations/base.py` (`_simulate_votes_worker`, endpoint
+    legacy `POST /api/v2/simulations`) : `simulationType` est testé par
+    sous-chaîne (`"votes" in simulation_type`, etc.), pas par enum. Un
+    premier `if/elif/elif` mutuellement exclusif calcule les données, mais
+    un second groupe de `if` indépendants (pas `elif`) retestait les mêmes
+    sous-chaînes pour assembler la réponse — une valeur contenant plusieurs
+    mots-clés à la fois (`"ranked_scores"`, `"votes_scores"`, …) entrait
+    dans une deuxième branche dont les variables n'avaient jamais été
+    assignées. **Confirmé en direct** : une requête HTTP réelle avec
+    `simulationType: "ranked_scores"` plantait avec
+    `UnboundLocalError: cannot access local variable 'voters_n'`, 500 non
+    géré. Corrigé en assemblant chaque bloc de réponse directement dans la
+    branche qui calcule ses données (plus de second test indépendant
+    possible) ; test de non-régression paramétré ajouté
+    (`test_multi_keyword_simulation_type_does_not_crash`). Cet endpoint est
+    exactement celui que Schemathesis (Lot 3) ne peut pas fuzzer utilement
+    — `KNOWN_FAILURES` le liste `[loose-req]`, schéma volontairement peu
+    typé — donc un angle mort réel du filet Lot 3, comblé ici par un outil
+    différent.
+  - `api/domain/polity/run_polity_simulation.py` : une liste `nominees = []`
+    sans annotation, remplie sous garde `if nominee is None: continue`
+    puis relue plus loin avec accès `.citizen_id`/`.pledged_platform`/etc. —
+    basedpyright infère `list[Citizen | None]` faute d'annotation explicite
+    et signale un accès possible sur `None`. Corrigé par une annotation
+    `nominees: list[Citizen] = []` documentant l'invariant déjà garanti par
+    la garde.
+- **32 faux positifs pydantic, tous de la même origine** : `mypy.ini`
+  déclare `plugins = pydantic.mypy`, qui comprend `Field(default, ge=, le=)`
+  et `Field(default_factory=SomeModel)` comme fournissant un défaut réel.
+  basedpyright n'a pas d'équivalent — son support natif de
+  `@dataclass_transform` (PEP 681) ne résout pas systématiquement les
+  surcharges de `Field()` combinant un défaut positionnel et des
+  contraintes de validation (`ge=`/`le=`/`min_length=`/…). Résultat :
+  18× `reportArgumentType` sur `Field(default_factory=SomeConfigClass)`
+  (idiome pydantic standard pour une config imbriquée entièrement
+  optionnelle) et 14× `reportCallIssue` sur des paramètres qui ont
+  pourtant un défaut (`BacksliddingCandidate(name=..., x=...)` sans `y`
+  signalé comme argument manquant alors que
+  `y: float = Field(0.0, ge=-1.0, le=1.0)`). Vérifié à la main sur
+  plusieurs cas : aucun n'est un vrai défaut de valeur manquant, tous
+  fonctionnent correctement à l'exécution.
+- **2 faux positifs isolés, même famille de cause** (le vérificateur ne
+  peut pas prouver une invariante garantie par du code qu'il a bien vu,
+  mais dont il ne fait pas la synthèse jusqu'au point d'usage) :
+  - `active` possiblement non lié dans `workers_mechanisms.py`
+    (`_abstention_worker`) — `num_rounds` y est borné en dur
+    (`max(1, min(5, ...))`) avant la boucle qui l'utilise, donc toujours
+    ≥ 1 en pratique ; basedpyright ne peut pas prouver cette invariante
+    arithmétique locale.
+  - `theory/workers.py`'s `_irv` helper : `remaining.remove(last)` où
+    `last` vient de `Counter[str | None].most_common()[-1][0]` — le
+    `None` a pourtant déjà été retiré juste avant par
+    `tally.pop(None, None)`, mais basedpyright ne réduit pas le type
+    `Counter[str | None]` après un `.pop()` sur une clé précise (aucun
+    vérificateur de type Python courant ne le fait — ce n'est pas
+    spécifique à basedpyright).
+  Les deux laissés tels quels (pas de `# pyright: ignore` ajouté pour des
+  cas isolés et bien compris individuellement).
+
+Outil informationnel (comme vulture/radon/deptry), pas un nouveau gate
+bloquant — `./scripts/audit.sh --quality` le lance et publie le compte
+dans son rapport. Les 34 faux positifs restants (32 pydantic + 2 isolés)
+sont un baseline connu, documenté ici plutôt que supprimé ligne par ligne.
+
 ### 6.3 — `refurb` + `perflint` ⭐ 📝📝 · `S`
 
 ✅ **Fait, informationnel uniquement** — l'item le moins prioritaire du lot

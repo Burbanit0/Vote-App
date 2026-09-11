@@ -45,6 +45,9 @@ ruff==0.16.6         # Replaces flake8 (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md) — s
                      # fast_api_voter/pyproject.toml's [tool.ruff]/[tool.ruff.lint]
                      # for the deliberately narrow rule selection this carries over.
 mypy==2.3.1         # Static type checking
+basedpyright==1.40.1  # Second static-analysis opinion alongside mypy (Lot 6.2,
+                      # PLAN_SOLIDITE_TECHNIQUE.md — informational, see
+                      # pyproject.toml [tool.basedpyright])
 vulture==2.16        # Dead-code detection (informational, see pyproject.toml [tool.vulture])
 refurb==2.3.1         # Python modernization suggestions (Lot 6, PLAN_SOLIDITE_TECHNIQUE.md
                        # — informational, see pyproject.toml [tool.refurb])
