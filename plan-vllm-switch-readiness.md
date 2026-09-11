@@ -8,6 +8,16 @@ exécutés faute de serveur vLLM réel. Ce document scope l'**exécution** —
 dans quel ordre, avec quels critères d'arrêt, avec quelle valeur de
 modèle — pas le code.
 
+> **DÉBLOQUÉ ET TERMINÉ — mis à jour le 2026-09-11.** Les sections 0 et 0bis ci-dessous sont
+> conservées pour l'historique mais **ne décrivent plus l'état du dépôt**. Le blocage plateforme
+> (`RuntimeError: UVA is not available` sous WSL2) a sauté par l'une des deux conditions de
+> réouverture que ce document nommait lui-même : le passage à Linux natif (2026-09-05).
+> Aujourd'hui : `polity_config.yaml` porte `provider: vllm`, le serveur tourne via
+> `docker-compose.llm.yml` (image épinglée `vllm/vllm-openai:v0.28.0`, modèle `Qwen3-8B-AWQ`
+> épinglé au SHA HF, `--served-model-name qwen3:8b` conservé comme le §6 l'exigeait), les deux
+> axes sont PASS (`scripts/vllm_switch_results.md`), et **tous les runs depuis le 2026-09-06
+> portent `"llm_provider": "vllm"`**. Ne pas planifier à partir des sections 0/0bis.
+
 ## 0. BLOQUÉ 2026-08-30 — avant même l'axe (a)
 
 **Le conteneur ne démarre pas du tout, sur cette plateforme, indépendamment

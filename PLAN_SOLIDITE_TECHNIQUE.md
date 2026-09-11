@@ -609,3 +609,24 @@ Lot 12 (économie de tokens)     ← TRANSVERSAL : 12.1 et 12.2 dès maintenant,
   branche invalide les PR entre elles (leçon du 06/09).
 - Chiffrer avant/après quand c'est possible — un plan d'exploration sans mesure
   ne produit pas de récit crédible.
+
+---
+
+> ## ⚠️ CETTE COPIE EST PÉRIMÉE — ne pas s'y fier (constaté 2026-09-11)
+>
+> Le fichier faisant autorité est sur **`develop`** : **1597 lignes** contre **611 ici**,
+> soit ~1000 lignes de Lots et de verdicts absents de cette copie. Le plan a été tenu à
+> jour PR par PR sur `develop` pendant que le worktree polity suivait son propre chantier.
+>
+> Pour le lire :
+> ```
+> git show origin/develop:PLAN_SOLIDITE_TECHNIQUE.md | less
+> ```
+>
+> État réel constaté sur `develop` le 2026-09-11 : **Lots 0 à 8 livrés** (sauf Webkit e2e,
+> bloqué sur `sudo`, et l'étage 3 du Lot 0.5), **Lots 9 à 14 non commencés** — sécurité
+> approfondie, observabilité, outillage Claude, économie de tokens, synthèse, dette du Lot 6.
+>
+> Piège de lecture à connaître : le Lot 0.1 affiche encore `❌ à créer` pour
+> `docs/exploration/EXP-*.md` et `docs/journal/commits.jsonl`. **Les deux existent et
+> tournent** depuis le 8 septembre. Une case non cochée n'est pas une preuve d'inaction.

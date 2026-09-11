@@ -1,7 +1,14 @@
 # v7 — négociation multi-tours pour la coalition (§3.4 Cas 2) : document de scoping
 
-**Statut** : scoping écrit, **Lot 1 (config + codebook) pas encore autorisé** — ce document
-répond aux quatre points soulevés avant le feu vert, rien n'est implémenté.
+**Statut** : ~~scoping écrit, Lot 1 (config + codebook) pas encore autorisé~~ → **TERMINÉ. Les
+trois lots sont livrés** (constaté le 2026-09-11 ; cet en-tête est resté périmé ~2 semaines).
+Lot 1 : `polity_config.yaml` `coalition_max_negotiation_rounds: 3` (commit `dcd7700`). Lot 2 :
+`llm_behavior_engine._run_coalition_negotiation` (commit `7c40a8c`), payload journal
+`rounds_used`/`aborted_at_round` pinné par tests. Lot 3 : `coalition_negotiation_v7_lot3_
+reliability_results.md` (commit `6edcf47`), acceptance `acceptance_v7_results.md`. Vérifié dans un
+vrai run pop 500 : `coalition_formed` avec `rounds_used: 2`.
+Reste hors périmètre de ce document : le maintien/rupture à travers les ticks (§2 ci-dessous,
+`MAINTAIN=3` et motif `503` réservés dans `codebook.py`, jamais implémentés).
 **Date** : 2026-08-29
 **Palier** : v7, §13 point 8 — le seul item que §13 assigne à v7 est "négociation multi-tours
 pour la coalition (§3.4, Cas 2)". Le "maintien et rupture" d'une coalition existante à travers

@@ -195,6 +195,16 @@ implicitement — d'où, vraisemblablement, sa fiabilité.
   barème de `plan-decision-quality-validation.md` (≥ 90 % sur les cas non ambigus) avant d'être
   traité comme le comportement réel du simulateur.
 
-**Statut** : audit établi ; corrections non commencées. `pressure_action` est le pilote, conformément
-à `plan-decision-quality-validation.md` qui prescrit de valider la méthode sur ce type avant de
-construire les sondes restantes.
+**Statut** (mis à jour 2026-09-11) : audit établi ; **une correction sur six construite**.
+`pressure_action` était le pilote, conformément à `plan-decision-quality-validation.md` qui prescrit
+de valider la méthode sur ce type avant de construire les sondes restantes — c'est fait, et la
+méthode a tenu (Phases B→E, livré le 2026-09-10, commit `da83b28`).
+
+Les cinq autres véhicules décrits au §3 restent **écrits et non construits** :
+`candidacy_considered`, `representative_response`, `coalition_decision`, `chamber_deliberation`,
+`reaction_to_event`. Aucun builder « calibrated » n'existe hors de `pressure_action`.
+
+Et pour `pressure_action` lui-même, **un signal sur quatre est shippé** : seul
+`PRESSURE_THRESHOLD_SIGNAL` est câblé en production. `PRESSURE_HISTORY_SIGNAL`,
+`PRESSURE_PERCENTILE_SIGNAL` et `PRESSURE_PLEDGE_SIGNAL` sont définis dans le moteur mais n'ont
+aucun appelant de production — ils ont passé la Phase C (qualité) et jamais la Phase D (coût).

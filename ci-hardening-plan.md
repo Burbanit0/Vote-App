@@ -1,3 +1,8 @@
+> **SUPERSÉDÉ par [`cihardeningplanv2.md`](./cihardeningplanv2.md)** (même jour, 2026-08-25).
+> v2 conserve A et B1-B6 mot pour mot et ajoute B7-B9, C5-C6, la section D et une
+> checklist E plus longue. Ne rien planifier depuis ce fichier — il est conservé
+> pour l'historique. Constaté et marqué le 2026-09-11.
+
 # Plan de durcissement CI — Vote-App / La Fourmilière
 
 > État vérifié directement sur `develop` (tarball `codeload.github.com`, commit HEAD au

@@ -1,4 +1,4 @@
-# EXP-002 — Hook `TaskCompleted` pour générer automatiquement le récit d'un run
+# EXP-008 — Hook `TaskCompleted` pour générer automatiquement le récit d'un run
 
 - **Date** : 2026-09-11 · **Statut** : rejeté (pour `TaskCompleted` — nuance : `SessionStart` adopté comme jambe de confort, voir « Verdict ») · **Coût réel** : ~30-45 min pour la sonde elle-même (estimation imprécise, non chronométrée isolément), à l'intérieur d'un chantier « récit de run » d'environ 4h
 - **Verdict en une phrase** : le hook `TaskCompleted` ne se déclenche pas pour une tâche Bash lancée en arrière-plan (`run_in_background: true`) — confirmé comme vrai négatif grâce à un hook témoin qui, lui, s'est déclenché dans la même session — donc la garantie de durabilité a été déplacée hors du système de hooks, dans du Python autonome, et `SessionStart` n'a gardé qu'un rôle de confort.
