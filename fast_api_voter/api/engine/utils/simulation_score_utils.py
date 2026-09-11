@@ -316,6 +316,27 @@ def get_score_distribution_analysis(all_scores: Any) -> Dict[str, Any]:
     return {"method": "Score Distribution Analysis", "details": results}
 
 
+def _regret_for_candidate(
+    candidate: Any, scored_ballots: List[Dict[Any, Any]], utilities: "defaultdict[Any, list[Any]]"
+) -> Dict[str, Any]:
+    """One candidate's average regret + average utility over the ballots that
+    actually rated someone. Split out of `calculate_bayesian_regret` to keep
+    that function's own branching (empty-input guards) legible on its own."""
+    total_regret = 0.0
+    for vote in scored_ballots:
+        # Find the utility of the voter's most preferred candidate
+        best_utility = max(vote.values()) / 5
+        current_utility = vote.get(candidate, 0) / 5
+        # Regret is the difference between best possible and current
+        total_regret += best_utility - current_utility
+
+    avg_regret = total_regret / len(scored_ballots) if scored_ballots else 0
+    avg_utility = (
+        sum(utilities[candidate]) / len(utilities[candidate]) if utilities[candidate] else 0
+    )
+    return {"candidate": candidate, "avg_utility": avg_utility, "avg_regret": avg_regret}
+
+
 def calculate_bayesian_regret(all_scores: Any) -> Dict[str, Any]:
     candidate_set: set[Any] = set()
     for vote in all_scores:
@@ -339,32 +360,7 @@ def calculate_bayesian_regret(all_scores: Any) -> Dict[str, Any]:
     scored_ballots = [vote for vote in all_scores if vote]
 
     # Calculate expected regret for each candidate
-    regrets = []
-    for candidate in candidates:
-        total_regret = 0
-
-        for vote in scored_ballots:
-            # Find the utility of the voter's most preferred candidate
-            best_utility = max(vote.values()) / 5
-            current_utility = vote.get(candidate, 0) / 5
-
-            # Regret is the difference between best possible and current
-            total_regret += best_utility - current_utility
-
-        avg_regret = total_regret / len(scored_ballots) if scored_ballots else 0
-        avg_utility = (
-            sum(utilities[candidate]) / len(utilities[candidate])
-            if utilities[candidate]
-            else 0
-        )
-
-        regrets.append(
-            {
-                "candidate": candidate,
-                "avg_utility": avg_utility,
-                "avg_regret": avg_regret,
-            }
-        )
+    regrets = [_regret_for_candidate(c, scored_ballots, utilities) for c in candidates]
 
     # Sort by average regret (ascending - lower regret is better)
     regrets.sort(key=lambda x: x["avg_regret"])

@@ -4,6 +4,7 @@ handling (URL, headers, body shape, retry policy) without a live model.
 """
 import dataclasses
 import json
+from unittest.mock import patch
 
 import httpx
 import pytest
@@ -656,12 +657,22 @@ def test_decode_vote_batch_rejects_deeply_nested_json_without_crashing():
     repetition loop emitting `[[[[[...` is exactly this shape, and the
     original `except json.JSONDecodeError` alone let a bare RecursionError
     escape decode_vote_batch (and all 8 sibling decode_*_batch functions,
-    which share the identical parse step) uncaught. 100_000 nested `[`
-    reproduced it reliably from a fresh interpreter; well beyond CPython's
-    default recursion machinery regardless of ambient call-stack depth."""
-    raw = "[" * 100_000 + "]" * 100_000
-    with pytest.raises(LlmResponseError, match="too deeply nested"):
-        decode_vote_batch(raw, expected_cids=[1])
+    which share the identical parse step) uncaught.
+
+    Triggering a REAL stack overflow from a fixed nesting count turned out to
+    be environment-dependent, not a fixed constant: 100_000 nested `[`
+    reliably raised RecursionError on the machine this was found on, but
+    parsed as valid (if schema-invalid) JSON on a GitHub Actions runner with
+    a larger default C stack -- caught by a real CI failure, not assumed.
+    Rather than chase an ever-larger nesting count against an unknown ceiling
+    on every possible runner, mock json.loads to raise RecursionError
+    directly: what's actually under test is decode_vote_batch's `except
+    RecursionError` handler, not CPython's own stack-depth implementation
+    detail (which the fuzzing campaign already demonstrated is reachable in
+    practice)."""
+    with patch("json.loads", side_effect=RecursionError("Stack overflow (used 8192 kB)")):
+        with pytest.raises(LlmResponseError, match="too deeply nested"):
+            decode_vote_batch("[1]", expected_cids=[1])
 
 
 # ── decode_candidacy_batch ────────────────────────────────────────────────

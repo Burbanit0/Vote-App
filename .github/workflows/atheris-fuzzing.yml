@@ -110,19 +110,27 @@ jobs:
       - name: Fuzz the voting engine
         id: fuzz_engine
         continue-on-error: true
+        env:
+          # `inputs.*` is workflow_dispatch user input, same untrusted-context
+          # category as `github.*` — never interpolate ${{ }} directly into a
+          # `run:` shell block (Semgrep's run-shell-injection rule gates this
+          # repo's CI on exactly that pattern); route it through env: instead.
+          SECONDS_PER_HARNESS: ${{ inputs.seconds_per_harness || '900' }}
         run: |
           cd fast_api_voter
           python scripts/fuzz_engine.py fuzz_corpus/engine \
-            -max_total_time="${{ inputs.seconds_per_harness || '900' }}" \
+            -max_total_time="$SECONDS_PER_HARNESS" \
             -artifact_prefix=fuzz_corpus/engine/
 
       - name: Fuzz the LLM response parsers
         id: fuzz_llm_parsers
         continue-on-error: true
+        env:
+          SECONDS_PER_HARNESS: ${{ inputs.seconds_per_harness || '900' }}
         run: |
           cd fast_api_voter
           python scripts/fuzz_llm_parsers.py fuzz_corpus/llm_parsers \
-            -max_total_time="${{ inputs.seconds_per_harness || '900' }}" \
+            -max_total_time="$SECONDS_PER_HARNESS" \
             -artifact_prefix=fuzz_corpus/llm_parsers/
 
       # A crashing input that only lives in a transient CI log is exactly
