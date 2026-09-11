@@ -15906,7 +15906,7 @@
     },
     "/api/v2/health": {
       "get": {
-        "description": "Return 200 when healthy, 503 when degraded — same contract as\n`/api/health` on the Flask side.",
+        "description": "Return 200 when healthy, 503 when degraded — same contract as\n`/api/health` on the Flask side.\n\nKept exactly as-is (fly.toml's [[http_service.checks]] hits this exact\npath). `/health/live` and `/health/ready` below are ADDITIVE — a\nconflated liveness+readiness signal on one endpoint is exactly the \"reste\nbinaire\" gap Lot 10 names, but this one has a real deploy dependency, so\nit isn't worth rewriting when adding beside it is just as effective.",
         "operationId": "health_api_v2_health_get",
         "responses": {
           "200": {
@@ -15926,6 +15926,110 @@
           }
         },
         "summary": "Health",
+        "tags": [
+          "meta"
+        ]
+      }
+    },
+    "/api/v2/health/live": {
+      "get": {
+        "description": "Liveness only: can this process respond to HTTP at all?\n\nZero dependency checks, on purpose — this must basically never fail\nunless the process itself is dead, so an orchestrator reading only this\nendpoint never restarts a perfectly-alive process over a transient Redis\nblip (a real gap `/health` alone has: a platform that treats any non-2xx\nfrom its one health endpoint as \"kill and restart\" can't tell \"the\nprocess is dead\" from \"an optional cache is briefly unreachable\" apart).",
+        "operationId": "liveness_api_v2_health_live_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Liveness Api V2 Health Live Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Liveness",
+        "tags": [
+          "meta"
+        ]
+      }
+    },
+    "/api/v2/health/ready": {
+      "get": {
+        "description": "Readiness: should this instance receive traffic right now?\n\nReuses `_check_redis()` — no new dependency logic. This app has exactly\none optional backing service, and its own degrade-gracefully design\n(see the comment on `_check_redis`) means an UNCONFIGURED Redis is not a\n\"required dependency down\" case at all: the documented production deploy\n(fly.toml: \"Stateless: no Redis... required\") runs with no REDIS_URL set,\nand that is the fully-ready, fully-functional state, not a degraded one.\nThe only state this can meaningfully call \"not ready\" is the one where an\noperator explicitly configured Redis (set REDIS_URL) and it is\nunreachable — exactly what `_check_redis()` already encodes as\n`{\"ok\": False, ...}` vs. `{\"ok\": True, \"configured\": False}` for the\nunset case. So today this has the same pass/fail shape as `/health`\n(there is only one checkable dependency, and it's optional) — the value\nof a separate endpoint is semantic, not behavioural yet: a platform that\nunderstands the liveness/readiness split can route around a degraded\ninstance without restarting it, which `/health` alone (conflated with\nliveness) can't express.",
+        "operationId": "readiness_api_v2_health_ready_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Readiness Api V2 Health Ready Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "503": {
+            "description": "Not ready — see the module docstring on `_check_redis` for why an UNCONFIGURED Redis never lands here, only a configured-but-unreachable one."
+          }
+        },
+        "summary": "Readiness",
+        "tags": [
+          "meta"
+        ]
+      }
+    },
+    "/api/v2/metrics": {
+      "get": {
+        "description": "Endpoint that serves Prometheus metrics.",
+        "operationId": "metrics_api_v2_metrics_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              },
+              "text/plain; version=1.0.0; charset=utf-8": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Metrics",
         "tags": [
           "meta"
         ]

@@ -1072,8 +1072,98 @@ export interface paths {
          * Health
          * @description Return 200 when healthy, 503 when degraded — same contract as
          *     `/api/health` on the Flask side.
+         *
+         *     Kept exactly as-is (fly.toml's [[http_service.checks]] hits this exact
+         *     path). `/health/live` and `/health/ready` below are ADDITIVE — a
+         *     conflated liveness+readiness signal on one endpoint is exactly the "reste
+         *     binaire" gap Lot 10 names, but this one has a real deploy dependency, so
+         *     it isn't worth rewriting when adding beside it is just as effective.
          */
         get: operations["health_api_v2_health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/health/live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Liveness
+         * @description Liveness only: can this process respond to HTTP at all?
+         *
+         *     Zero dependency checks, on purpose — this must basically never fail
+         *     unless the process itself is dead, so an orchestrator reading only this
+         *     endpoint never restarts a perfectly-alive process over a transient Redis
+         *     blip (a real gap `/health` alone has: a platform that treats any non-2xx
+         *     from its one health endpoint as "kill and restart" can't tell "the
+         *     process is dead" from "an optional cache is briefly unreachable" apart).
+         */
+        get: operations["liveness_api_v2_health_live_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/health/ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Readiness
+         * @description Readiness: should this instance receive traffic right now?
+         *
+         *     Reuses `_check_redis()` — no new dependency logic. This app has exactly
+         *     one optional backing service, and its own degrade-gracefully design
+         *     (see the comment on `_check_redis`) means an UNCONFIGURED Redis is not a
+         *     "required dependency down" case at all: the documented production deploy
+         *     (fly.toml: "Stateless: no Redis... required") runs with no REDIS_URL set,
+         *     and that is the fully-ready, fully-functional state, not a degraded one.
+         *     The only state this can meaningfully call "not ready" is the one where an
+         *     operator explicitly configured Redis (set REDIS_URL) and it is
+         *     unreachable — exactly what `_check_redis()` already encodes as
+         *     `{"ok": False, ...}` vs. `{"ok": True, "configured": False}` for the
+         *     unset case. So today this has the same pass/fail shape as `/health`
+         *     (there is only one checkable dependency, and it's optional) — the value
+         *     of a separate endpoint is semantic, not behavioural yet: a platform that
+         *     understands the liveness/readiness split can route around a degraded
+         *     instance without restarting it, which `/health` alone (conflated with
+         *     liveness) can't express.
+         */
+        get: operations["readiness_api_v2_health_ready_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Metrics
+         * @description Endpoint that serves Prometheus metrics.
+         */
+        get: operations["metrics_api_v2_metrics_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -11071,6 +11161,89 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    liveness_api_v2_health_live_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    readiness_api_v2_health_ready_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Not ready — see the module docstring on `_check_redis` for why an UNCONFIGURED Redis never lands here, only a configured-but-unreachable one. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    metrics_api_v2_metrics_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                    "text/plain; version=1.0.0; charset=utf-8": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
             };
         };
     };
