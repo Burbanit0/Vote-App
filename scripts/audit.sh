@@ -167,6 +167,15 @@ if [ "$MODE" != "security" ]; then
       ( cd "$TS_DIR" && npx --no-install tsc --noEmit > "../$REPORT_DIR/tsc.txt" 2>&1 )
       note "Type errors: $(grep -c 'error TS' "$REPORT_DIR/tsc.txt" 2>/dev/null || echo 0). See \`$REPORT_DIR/tsc.txt\`."
     fi
+
+    # --- TS/React cognitive complexity + bug patterns: eslint-plugin-sonarjs ---
+    section "TypeScript cognitive complexity & bug patterns (sonarjs, informational)"
+    if [ -f "$TS_DIR/eslint.sonarjs.config.js" ] && ( cd "$TS_DIR" && npx --no-install eslint --version >/dev/null 2>&1 ); then
+      ( cd "$TS_DIR" && npx --no-install eslint -c eslint.sonarjs.config.js . --format json -o "../$REPORT_DIR/sonarjs.json" 2>/dev/null )
+      note "Findings: $(count '[.[].messages[]]|length' "$REPORT_DIR/sonarjs.json"). See \`$REPORT_DIR/sonarjs.json\`. Not gated — see PLAN_SOLIDITE_TECHNIQUE.md §6.6 (dominated by cognitive-load style suggestions, not correctness bugs)."
+    else
+      note "⚠️ eslint.sonarjs.config.js not found in $TS_DIR (run \`npm install\` there)."
+    fi
   else
     note "⚠️ No package.json in $TS_DIR/."
   fi

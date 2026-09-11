@@ -634,7 +634,7 @@ lancées pendant ce développement : 0 flake trouvé.**
 | **`basedpyright`/pyright** | Moteur d'inférence différent de mypy → attrape d'autres choses. Combien, sur un code déjà mypy-strict-clean ? Bonne question d'expérience. | S | ⭐⭐ | 📝📝📝 | ✅ 2 vrais bugs trouvés et corrigés (voir §6.2) |
 | **`refurb`** + **`perflint`** | Modernisation Python et anti-patterns de perf — pertinent sur un moteur CPU-bound. | S | ⭐ | 📝📝 | ✅ 145 + 85 findings, informationnel (voir §6.3) |
 | **`type-coverage`** (TS) | % de code réellement typé (les `any` implicites que `tsc` laisse passer). | S | ⭐⭐ | 📝📝 | ✅ 99,58 % (voir §6.4) |
-| **`eslint-plugin-sonarjs`** | Complexité cognitive (≠ cyclomatique, déjà mesurée par radon) + bugs courants. | S | ⭐⭐ | 📝 | ⏳ |
+| **`eslint-plugin-sonarjs`** | Complexité cognitive (≠ cyclomatique, déjà mesurée par radon) + bugs courants. | S | ⭐⭐ | 📝 | ✅ 2 bugs d'affichage corrigés, 304 findings informationnels (voir §6.6) |
 | **`pip-licenses` / `license-checker`** | Conformité de licences sur un repo public MIT. | S | ⭐ | 📝 | ⏳ |
 
 ### 6.1 — Audit de pertinence des commentaires · `L` · ⭐⭐ 📝📝📝
@@ -905,6 +905,56 @@ l'instrumentation et pourquoi ça reste manuel) dans
 [EXP-003](docs/exploration/EXP-003-couverture-runtime-e2e.md).
 `scripts/e2e_coverage.sh` reste disponible pour une prochaine passe de
 nettoyage, à la demande.
+
+### 6.6 — `eslint-plugin-sonarjs` ⭐⭐ 📝 · `S`
+
+✅ **Fait, informationnel + 2 vrais bugs corrigés au passage.**
+`jsx-a11y`/`unused-imports` sont bloquants dans `eslint.config.js`
+aujourd'hui, mais seulement parce que leur backlog a été ramené à zéro
+avant de les activer (commentaires du fichier lui-même) — le même chemin
+n'est pas praticable ici à l'échelle de l'effort `S` annoncé : **307
+findings** sur la première passe (`voter-app/eslint.sonarjs.config.js`,
+config séparée de la config bloquante, lancée via `npm run lint:sonarjs` /
+`./scripts/audit.sh --quality`), dominés par des suggestions de charge
+cognitive plutôt que des bugs : `no-nested-conditional` (103),
+`parameterized-tests` (39, suggère `it.each` plutôt que des `it()`
+répétés), `cognitive-complexity` (38), `prefer-specific-assertions` (33,
+ex. `toHaveLength(n)` plutôt que `toBe(n)` sur un `.length`).
+
+Les 5 occurrences de `no-all-duplicated-branches` (un opérateur ternaire
+dont les deux branches renvoient la même valeur) vérifiées une par une
+plutôt que classées en bloc — **2 étaient de vrais bugs d'affichage,
+corrigés** :
+
+- `DeliberationPanel.tsx:295` — `regret_improvement >= 0 ? '' : ''`
+  n'affichait jamais de signe « + », alors que la ligne parallèle juste
+  au-dessus (`polarization_change >= 0 ? '+' : ''`) le fait pour la même
+  famille de badges. Corrigé (`'+' : ''`) ; le test existant
+  (`DeliberationPanel.test.tsx`) ne vérifie que la présence du badge, pas
+  son texte exact, donc rien à mettre à jour côté tests.
+- `AnimatedVoteCount.tsx:449` — `isEliminated ? '#dc3545' : isWinner ?
+  color : color` : la branche `isWinner` ne changeait jamais rien (les
+  deux issues valent `color`), en plus d'être imbriquée
+  (`no-nested-conditional` sur la même ligne). Simplifié en `isEliminated
+  ? '#dc3545' : color` — comportement de rendu strictement identique (le
+  vainqueur reste déjà signalé par le 🏆 et le libellé « (vainqueur) »
+  juste à côté), juste le code mort retiré.
+
+Les 3 autres `no-all-duplicated-branches` sont dans des fixtures de test
+(`PartyDynamicsPanel.test.tsx`, `PrimarySimulator.test.tsx`,
+`SortitionPanel.test.tsx`) — un champ de mock à valeur constante des deux
+côtés d'un ternaire vestige, sans effet sur ce que le test vérifie
+réellement. `no-identical-functions` (1) : un vrai doublon de fermeture
+`reaches` entre Ranked Pairs et River dans `playgroundVoting.ts` — réel,
+mais dédupliquer un helper dans ce fichier précis exige de re-passer la
+suite de parité moteur (`CLAUDE.md` — « the dual voting engine, keep it in
+sync ») pour un gain cosmétique ; laissé en baseline, hors budget `S`.
+`no-trivial-assertions` (1) : un `expect(true).toBe(true)` déjà commenté
+comme placeholder assumé (`IdeologyHeatmap.test.tsx`) — pas un oubli.
+
+**304 findings restants** après les deux corrections. Câblé dans
+`./scripts/audit.sh --quality`, pas de gate ajouté à `eslint.config.js` —
+même traitement informationnel que le reste du Lot 6.
 
 ---
 
