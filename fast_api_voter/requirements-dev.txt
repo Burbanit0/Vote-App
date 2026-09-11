@@ -16,6 +16,15 @@ aiohttp==3.14.3   # 3.14.3: GHSA-cq5v-8q36-5273 (chunked-response parser OOB rea
                   #         GHSA-mq44-7p77-q5h7 (ws permessage-deflate)
 hypothesis==6.167.1  # Property-based testing for the theoretical invariants
                       # (Condorcet, monotonicity, legitimacy bounds)
+pytest-randomly==5.0.0  # Randomizes test order every run (Lot 5, PLAN_SOLIDITE_TECHNIQUE.md)
+                        # -- surfaces tests coupled by shared/module-level state that a
+                        # fixed collection order hides. See scripts/check_flaky_backend.py
+                        # and .github/workflows/flaky-check-backend.yml for the nightly
+                        # job that actually acts on this (a lone randomized run just
+                        # shows ONE order; the flakiness signal is in comparing several).
+defusedxml==0.7.1       # Safe (non-XXE) JUnit XML parsing in scripts/check_flaky_backend.py --
+                        # was already present transitively (py-serializable), declared directly
+                        # now that this repo's own code imports it.
 
 # Security
 bandit==1.9.4        # Python SAST (static analysis)

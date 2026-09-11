@@ -1,0 +1,71 @@
+name: Backend Flaky Test Hunt
+
+# Lot 5, PLAN_SOLIDITE_TECHNIQUE.md ("Chasse au flake nocturne"): the e2e
+# suite already fails on any test that passes only on retry
+# (voter-app/scripts/check-flaky.mjs, driven by Playwright's built-in
+# retry+flaky reporting). The backend had no equivalent.
+#
+# scripts/check_flaky_backend.py runs the whole suite N times, each a
+# genuinely independent process with pytest-randomly's own fresh random
+# order (installed as a dev dependency — see requirements-dev.txt), and
+# diffs every test's outcome across runs. A test whose outcome depends on
+# execution order shares mutable state with another test and is flaky by
+# definition, regardless of which single run happened to look green.
+#
+# Deliberately its own workflow, not a step in backend-ci-cd-pipeline.yml:
+# N full suite passes cost N times the normal run, which has no place
+# gating every PR (mirrors schemathesis.yml/mutation-testing.yml's existing
+# precedent for exactly this tradeoff).
+#
+# `schedule`/`workflow_dispatch` resolve against the DEFAULT branch (main),
+# not the ref that owns the file — mutation-testing.yml and schemathesis.yml
+# both hit this already (their cron silently never fired while main lagged
+# develop). Included below for when a develop -> main release makes them
+# live; `push: develop` is what actually runs this today.
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'fast_api_voter/api/**'
+      - 'fast_api_voter/requirements*.txt'
+      - 'scripts/check_flaky_backend.py'
+      - '.github/workflows/flaky-check-backend.yml'
+  workflow_dispatch: {}
+  schedule:
+    - cron: '13 3 * * *'  # nightly, 03:13 UTC — off-peak, arbitrary offset
+
+concurrency:
+  group: flaky-check-backend-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  flaky-hunt:
+    name: Rerun the backend suite 3x, diff outcomes across runs
+    runs-on: ubuntu-latest
+    # 3 full passes at ~80s each locally + CI overhead; generous margin since
+    # CI runners measure slower than local dev machines (see the "CI timeouts
+    # need CI measurement, not local" lesson from Lot 3's worker-dispatch
+    # timeout tuning).
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+          cache-dependency-glob: 'fast_api_voter/requirements*.txt'
+
+      - name: Install production + dev dependencies
+        run: |
+          uv pip install --system -r fast_api_voter/requirements.txt
+          uv pip install --system -r fast_api_voter/requirements-dev.txt
+
+      - name: Run the suite 3x and diff outcomes
+        run: python scripts/check_flaky_backend.py --runs 3
