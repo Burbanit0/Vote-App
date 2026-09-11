@@ -186,6 +186,23 @@ class TestLegacySimulate:
         assert "rankings" in body
         assert "condorcet_winner" in body
 
+    def test_scores_happy_path(self, client):
+        r = client.post("/api/v2/simulations", json={
+            "formData": {
+                "simulationType": "scores",
+                "populationSize": 10,
+                "candidates": ["Alice", "Bob", "Carol"],
+                "demographics": _LEGACY_DEMOGRAPHICS,
+                "turnoutRate": 0.8,
+                "influenceWeights": {"family": 0.3, "peers": 0.5, "media": 0.2},
+            },
+        })
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert "all_scores" in body
+        assert "avg_scores" in body
+        assert "simple_score_winner" in body
+
     @pytest.mark.parametrize(
         "simulation_type", ["ranked_scores", "votes_ranked", "votes_scores"]
     )
