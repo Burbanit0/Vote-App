@@ -1180,6 +1180,28 @@ un chiffre que personne ne publie.
 
 ---
 
+## Lot 14 — Rembourser la dette trouvée par le Lot 6 *(pas urgent, peut attendre)*
+
+Le Lot 6 a délibérément **mesuré et documenté** sans corriger en masse — chaque
+item y est resté à la hauteur de son propre budget `S`/`M`, avec les vrais
+bugs trouvés (basedpyright, sonarjs) fixés individuellement mais le gros de
+la dette laissé en baseline chiffrée. Ce lot referme la boucle : transformer
+les cinq mesures en réduction réelle, avec le même niveau d'exigence que le
+reste du plan (rien de mécanique commité sans vérifier que ça reste vert).
+Contrairement aux autres lots, **aucun élément ici n'est bloquant ou urgent**
+— chaque ligne peut attendre indéfiniment sans risque, elle référence un
+outil déjà câblé et un chiffre déjà mesuré, pas une lacune de détection.
+
+| Item | Pourquoi ici | Effort | Solidité | Récit |
+|---|---|---|---|---|
+| **Typer les `any` restants + activer le cliquet** (280 dans le code source, Lot 6.4) | Seul item du groupe avec un vrai gain de sûreté de typage, pas juste de lisibilité — `type-coverage` expose déjà `--at-least`/`--update-if-higher` mais rien n'est câblé, faute d'une baseline assez haute pour que ça vaille le coût. Réduire d'abord, gater ensuite. | M | ⭐⭐⭐ | 📝📝 |
+| **Statuer sur les zones mortes trouvées par le Lot 6.5** (`api/domain/polity/*`, 2 813 lignes 0 % e2e ; `/simulation/compare`, invisible à knip) | Le Lot 6.5 a mesuré l'inatteignabilité, pas décidé quoi en faire. Deux vraies trouvailles qui méritent une décision explicite — réintégrer dans le produit ou supprimer — pas rester indéfiniment dans un angle mort connu. | M | ⭐⭐⭐ | 📝📝📝 |
+| **Réduire la dette sonarjs** (304 findings restants, Lot 6.6) | 2 vrais bugs y avaient déjà été trouvés en vérifiant à la main les 5 cas `no-all-duplicated-branches` — les autres catégories (`no-nested-conditional` ×102, `cognitive-complexity` ×38, `parameterized-tests` ×39, `prefer-specific-assertions` ×33) n'ont pas reçu le même traitement individuel, faute de budget. Simplifier les fonctions à plus forte complexité cognitive en particulier est le genre de nettoyage qui prévient le prochain bug de cette famille. | L | ⭐⭐ | 📝📝 |
+| **Réduire la dette refurb/perflint** (145 + 85 findings, Lot 6.3) | Le Lot 6.3 a mesuré et documenté sans corriger, hors budget de l'item lui-même. Transformations mécaniques, risque quasi nul (`dict(x)`→`x.copy()`, `lambda`→`operator.itemgetter`, `list`→`tuple` non mutés) — le genre de dette qui ne s'aggrave pas mais ne se résorbe pas non plus toute seule. | M | ⭐⭐ | 📝 |
+| **Faire taire les faux positifs basedpyright** (34 restants, Lot 6.2) | Déjà vérifiés faux un par un (32 liés à l'absence d'équivalent du plugin `pydantic.mypy` côté pyright, 2 isolés où le vérificateur ne peut pas prouver une invariante locale) — pas de vraie dette ici, juste du bruit dans le rapport pour un futur contributeur. Le moins prioritaire des cinq ; à ne faire que si `basedpyright` reste consulté régulièrement. | S | ⭐ | 📝 |
+
+---
+
 ## Séquencement recommandé
 
 ```
@@ -1202,6 +1224,10 @@ Lot 13 (synthèse & partage)
 
 Lot 12 (économie de tokens)     ← TRANSVERSAL : 12.1 et 12.2 dès maintenant,
                                    le reste s'installe au fil des autres lots
+
+Lot 14 (dette du Lot 6)         ← HORS FLUX : après Lot 6, sinon jamais —
+                                   aucune urgence, peut se faire n'importe
+                                   quand, y compris après Lot 13
 ```
 
 **Dépendances dures** (le reste est librement réordonnable) :
@@ -1212,6 +1238,9 @@ Lot 12 (économie de tokens)     ← TRANSVERSAL : 12.1 et 12.2 dès maintenant,
 - Lot 12.1 (mesure) avant les lots coûteux, sinon on n'a pas de point de
   comparaison pour chiffrer ce qu'ils économisent (§12.6).
 - Lot 13 en dernier par construction.
+- Lot 14 après Lot 6 (il en réduit les chiffres) — mais sans échéance ; ne
+  bloque rien d'autre, y compris Lot 13 (la synthèse peut noter la dette du
+  Lot 6 comme « mesurée, pas encore remboursée »).
 
 ## Règles d'exécution
 
