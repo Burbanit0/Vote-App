@@ -72,6 +72,7 @@ git push origin feature/ma-feature
 | npm audit | CVE haute détectée |
 | E2E (Playwright) | Un parcours utilisateur casse sur Chromium ou Firefox — **ou passe seulement au second essai** (voir « Tests E2E » plus bas) |
 | Generated Artifacts Contract | `openapi.gen.json` / `types.gen.ts` **ou** `engineParity.json` désynchronisés du code (voir `scripts/check_openapi_drift.sh` et `scripts/check_engine_parity_drift.sh`) |
+| Engine perf ceilings | Une règle de vote (`simulation_ranked_utils.py`/`simulation_score_utils.py`) dépasse son plafond de temps absolu — généreux exprès (100-500 ms, 15-500x la mesure réelle), pensé pour attraper une régression algorithmique, pas du bruit machine (voir `fast_api_voter/api/tests/test_engine_benchmarks.py`) |
 | Quality ratchet | La dette vulture/radon/deptry/knip/jscpd a augmenté (voir « Code mort » plus bas) |
 | Dependency Review | La PR introduit une dépendance vulnérable (sévérité high+) — complète Dependabot, qui ne scanne que l'existant, pas ce qu'une PR ajoute |
 
@@ -226,6 +227,7 @@ Types valides : `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `ci`, `secur
 | npm audit severity | high | `npm audit --audit-level=high` |
 | Bandit severity | medium+ | `-ll` dans args bandit |
 | Licence des dépendances de *production* | allow-list MIT/BSD/Apache/MPL-2.0/PSF-2.0-like, 0 exception | `fast_api_voter/scripts/check_license_compliance.sh` (backend, venv isolé) ; `license-checker-rseidelsohn --production --onlyAllow` (frontend, `frontend-ci-cd-pipeline.yml`) |
+| Perf moteur de vote (pytest-benchmark) | plafond absolu par palier de complexité : 100 ms (tallies O(n)/cardinal), 500 ms (élimination/appariement/Kemeny) — pas une comparaison à une baseline stockée (voir `docs/exploration/EXP-006-pytest-benchmark-engine-perf.md`) | `fast_api_voter/api/tests/test_engine_benchmarks.py` |
 
 > Ces seuils sont ceux appliqués par la CI. Le tableau a déjà menti pendant
 > plusieurs mois (il annonçait 30 % et un `jest.config.cjs` supprimé lors du
@@ -752,6 +754,31 @@ n'a pas sa place dans une suite qui tourne à chaque nightly. Détail complet
 (les deux pièges de mécanisme trouvés en le construisant, les chiffres par
 fichier, le raisonnement complet derrière le choix "manuel") :
 [`docs/exploration/EXP-003-couverture-runtime-e2e.md`](docs/exploration/EXP-003-couverture-runtime-e2e.md).
+
+### Charge — le vrai plafond du pool de threads (Lot 8.2)
+
+`fast_api_voter/scripts/loadtest_v2_engine.py` (Locust) répond à une
+question précise : le rate-limit `/api/v2` (120/min, `api/core/
+ratelimit.py`) a été calibré au jugé contre un flake e2e, pas contre une
+mesure de charge — que se passe-t-il *vraiment* quand plusieurs simulations
+lourdes tournent en même temps ?
+
+```bash
+cd fast_api_voter
+uvicorn api.main:app --port 4436 &          # un port dédié — vérifiez qu'il
+curl -X POST http://localhost:4436/api/v2/simulations/monte-carlo -d '{}'  # est bien le vôtre avant de faire confiance aux résultats
+locust -f scripts/loadtest_v2_engine.py --headless \
+    -u 16 -r 4 -t 30s --host http://localhost:4436 --csv=/tmp/loadtest
+```
+
+Diagnostique seulement, jamais un gate (même raisonnement que la couverture
+runtime ci-dessus : un test de charge est cher, lent, et sa mesure dépend de
+la machine — un seuil calibré ici n'aurait aucun sens sur un runner GitHub
+partagé). Verdict et chiffres réels (le pool de 4 workers partagés
+`api/core/worker_dispatch.py` sature bien avant le rate-limit dès qu'un
+endpoint fait un calcul non-trivial, et la dégradation se voit d'abord en
+latence — pas en erreurs) :
+[`docs/exploration/EXP-007-locust-v2-thread-pool-ceiling.md`](docs/exploration/EXP-007-locust-v2-thread-pool-ceiling.md).
 
 ---
 

@@ -1177,10 +1177,81 @@ vrai serveur, chromium + firefox (10 tests) après ce correctif.
 
 | Item | Pourquoi ici | Effort | Solidité | Récit | Statut |
 |---|---|---|---|---|---|
-| **`pytest-benchmark` + seuils** | Une régression de perf sur `simulation_ranked_utils` est aujourd'hui totalement invisible. | M | ⭐⭐⭐ | 📝📝 | ⏳ |
-| **Charge (k6 ou Locust)** | Le rate-limit 120/min a été calibré au jugé ; un test de charge donne le vrai plafond du pool de threads. | M | ⭐⭐⭐ | 📝📝📝 | ⏳ |
+| **`pytest-benchmark` + seuils** | Une régression de perf sur `simulation_ranked_utils` est aujourd'hui totalement invisible. | M | ⭐⭐⭐ | 📝📝 | ✅ gate CI bloquant, seuils absolus (voir sous le tableau) |
+| **Charge (k6 ou Locust)** | Le rate-limit 120/min a été calibré au jugé ; un test de charge donne le vrai plafond du pool de threads. | M | ⭐⭐⭐ | 📝📝📝 | ✅ script manuel Locust, pas de gate CI (voir sous le tableau) |
 | **Invariant de perf du form-lock** | Documenté dans le skill `voter-ui`, jamais mesuré. React Profiler + assertion. | M | ⭐⭐ | 📝📝📝 | ✅ `PlaygroundPage.perf.test.tsx` (voir sous le tableau) |
 | **Budget de bundle** | Seuil de taille sur le build Vite, échec si dépassement. | S | ⭐⭐ | 📝 | ✅ `size-limit` câblé dans `npm run build` (voir sous le tableau) |
+
+**`pytest-benchmark` + seuils, détail.** `api/tests/test_engine_benchmarks.py`
+— 27 cas (les 21 méthodes ordinales du set de parité `gen_engine_parity.py`,
+Kemeny-Young exact/approximation séparés, les 5 méthodes cardinales), tous
+mesurés à 1000 électeurs / 8 candidats (le vrai plafond de production,
+`api/schemas/election.py`), pas des tailles arbitraires. Deux faits vérifiés
+avant de choisir le design, pas supposés : `pytest-benchmark` désactive sa
+mesure de temps sous `pytest-xdist` (utilisé par la suite normale via
+`-n auto`, `backend-ci-cd-pipeline.yml`) — vérifié en direct que ça fait
+planter chaque test (`AttributeError`) plutôt que de passer sans rien
+mesurer, mais reste la mauvaise invocation dans les deux cas — donc invocation dédiée, comme
+`test_schema_contract.py`/Schemathesis (`--ignore` dans `pyproject.toml`,
+son propre step CI, mirroré dans `ci-local/backend.Dockerfile`) ; et la
+comparaison relative à une baseline stockée
+(`--benchmark-autosave`/`--benchmark-compare-fail`) est un piège de
+flakiness connu sur un runner CI partagé — confirmé, pas assumé, par
+recherche des modes de défaillance documentés de l'outil. D'où le choix :
+**plafonds absolus généreux** (100 ms pour les tallies O(n)/le scoring
+cardinal, 500 ms pour l'élimination/l'appariement/Kemeny), même philosophie
+que le `timeout: 30_000` de la suite e2e — toutes les méthodes mesurées
+tiennent en moins de 14 ms au plafond de production, laissant 15-160x de
+marge. Détecteur vérifié en direct (même discipline que ce plan applique
+systématiquement, EXP-002/EXP-004) : une régression O(n²) injectée dans
+`get_copeland_winner` (boucle redondante sur l'électorat) a fait passer sa
+moyenne de 3,7 ms à 1101,6 ms — détectée, puis le code retiré et revérifié
+vert. Effet de bord trouvé pendant ce travail : en relançant les benchmarks
+pendant qu'un serveur + Locust tournaient en parallèle (item suivant), les
+mêmes mesures ont varié de 20-50 % — une preuve directe, sur cette machine,
+que le bruit d'exécution est réel et qu'un plafond absolu large l'absorbe
+sans discussion, là où une comparaison relative à pourcentage serré en
+aurait fait un faux positif. Détail complet, y compris le protocole de
+recherche sur la fragilité CI de l'outil :
+[`docs/exploration/EXP-006-pytest-benchmark-engine-perf.md`](docs/exploration/EXP-006-pytest-benchmark-engine-perf.md).
+
+**Charge (Locust), détail.** Python retenu sur k6 : le backend est un
+projet Python de bout en bout, `locust` s'installe dans le même venv que le
+reste des dépendances de dev (`requirements-dev.txt`) sans nouveau langage
+ni toolchain — k6 (JS/Go) aurait été défendable mais sans bénéfice net ici.
+Lecture du code AVANT tout scénario de charge
+(`api/core/worker_dispatch.py`) : chaque route `/api/v2` est `async def`
+mais délègue son calcul via `asyncio.to_thread` derrière un **sémaphore
+partagé unique** (`MAX_CONCURRENT_WORKERS = 4`), pas l'exécuteur par défaut
+— et ce sémaphore est global au process, alors que le rate-limit
+(`check_v2_rate_limit`, 120/min) est **par chemin** (`key_style="url"`) et
+par IP. C'est cette asymétrie que le test de charge devait vraiment
+mesurer, pas juste « ça tient à combien de req/s ». `scripts/
+loadtest_v2_engine.py` : une classe de trafic léger réaliste
+(`profile-simulate`, l'endpoint que 120/min a explicitement été calibré
+contre, cf. le docstring de `ratelimit.py`) + une classe Monte-Carlo dont le
+temps de service (~1 s) s'auto-limite naturellement sous 120/min même en
+boucle fermée — ce qui permet de monter en concurrence sans jamais déclencher
+LE rate-limit de ce chemin, isolant ainsi la saturation du sémaphore de
+celle du rate-limit. Quatre paliers réels (`-u` doublé à chaque fois) :
+latence médiane 3,0 s (4 utilisateurs) → 7,2 s (10) → 14,0 s (20) → 25-30 s
+(40) — croissance quasi linéaire avec la concurrence au-delà des 4 slots du
+sémaphore, **zéro 429/503 sur toute la plage testée**. La vraie trouvaille :
+le rate-limit par-chemin ne protège structurellement pas une ressource
+VRAIMENT partagée entre chemins — aucun réglage du chiffre 120 n'aurait pu
+corriger ça, et le premier symptôme visible d'une vraie surcharge ici est
+une page qui semble geler, pas une erreur. Deux pièges de méthode trouvés et
+corrigés avant de faire confiance aux chiffres : un premier jet tournait
+sans le savoir contre un process tiers déjà présent sur le port `:4434`
+(collision de port silencieuse, un quasi-doublon du même piège déjà
+documenté par EXP-003 dans ce repo) ; un deuxième calibrage (les deux
+classes en boucle quasi fermée) mesurait en réalité le rate-limit, pas le
+sémaphore (45 % d'échecs, 100 % des 429), corrigé en s'appuyant sur l'ordre
+réel des dépendances FastAPI (rate-limit avant le sémaphore) confirmé en
+lisant le code. **Script manuel, pas de gate CI** — même raisonnement
+qu'EXP-003 (coût réel, chiffre spécifique à la machine qui l'exécute,
+documenté dans `CONTRIBUTING.md` § « Charge »). Détail complet, chiffres et
+protocole : [`docs/exploration/EXP-007-locust-v2-thread-pool-ceiling.md`](docs/exploration/EXP-007-locust-v2-thread-pool-ceiling.md).
 
 **Invariant de perf du form-lock, détail.** Le skill `voter-ui` documente le
 form-lock depuis longtemps (« à first paint, seuls les `*-toggle` sont dans le
