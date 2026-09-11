@@ -103,3 +103,34 @@ def test_bayesian_regret_empty_ballots_have_no_winner():
 
     assert out["details"] == []
     assert out["winner"] is None
+
+
+def test_bayesian_regret_skips_a_ballot_that_rated_nobody():
+    """Regression test (Lot 9, PLAN_SOLIDITE_TECHNIQUE.md — atheris fuzzing
+    campaign against this function, found within the first 13 executions).
+    A voter who rated nobody (an empty dict -- e.g. a blank/abstaining
+    ballot) has no "most preferred candidate", so `max(vote.values())`
+    raised an uncaught ValueError for EVERY candidate's regret, not just
+    that one voter's contribution -- one empty ballot crashed the whole
+    calculation. It must instead be excluded from both the sum and its
+    denominator, same as `vote.get(candidate, 0)` already treats a MISSING
+    candidate as zero utility rather than raising (see the sibling test
+    above) -- consistent handling of "no information", not a crash."""
+    votes = [{"A": 5}, {}]
+    out = calculate_bayesian_regret(votes)
+
+    by_name = {r["candidate"]: r for r in out["details"]}
+    # Only the scored ballot counts: A is its own top pick, so its regret
+    # over the ONE ballot that rated anyone is exactly 0 -- not diluted by
+    # (and not crashing on) the empty second ballot.
+    assert by_name["A"]["avg_regret"] == pytest.approx(0.0)
+    assert out["winner"] == "A"
+
+
+def test_bayesian_regret_all_ballots_empty_is_safe():
+    """Every ballot empty is the degenerate extreme of the case above --
+    still must not divide by zero or crash on max() of nothing."""
+    out = calculate_bayesian_regret([{}, {}])
+
+    assert out["details"] == []
+    assert out["winner"] is None

@@ -16,6 +16,19 @@ aiohttp==3.14.3   # 3.14.3: GHSA-cq5v-8q36-5273 (chunked-response parser OOB rea
                   #         GHSA-mq44-7p77-q5h7 (ws permessage-deflate)
 hypothesis==6.167.1  # Property-based testing for the theoretical invariants
                       # (Condorcet, monotonicity, legitimacy bounds)
+atheris==3.1.0         # Coverage-guided fuzzing on top of Hypothesis's own narrow
+                        # strategies (Lot 9, PLAN_SOLIDITE_TECHNIQUE.md) -- targets
+                        # the voting engine + the LLM response parsers
+                        # (api/domain/polity/llm_client.py's decode_*_batch). Chosen
+                        # over hypofuzz (the more Hypothesis-native alternative):
+                        # hypofuzz's free tier is non-commercial-use ONLY under a
+                        # non-OSI custom license, and its last PyPI release trailed
+                        # its own repo's last commit by ~6 months at the time of
+                        # checking -- atheris is Apache-2.0, Google-maintained, and
+                        # ships wheels for 3.11-3.14 (confirmed against this repo's
+                        # pinned 3.14). See scripts/fuzz_engine.py / fuzz_llm_
+                        # parsers.py and docs/exploration/EXP-009-atheris-coverage-
+                        # fuzzing.md for the full campaign and what it found.
 pytest-randomly==5.0.0  # Randomizes test order every run (Lot 5, PLAN_SOLIDITE_TECHNIQUE.md)
                         # -- surfaces tests coupled by shared/module-level state that a
                         # fixed collection order hides. See scripts/check_flaky_backend.py

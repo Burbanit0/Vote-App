@@ -32,6 +32,16 @@ def test_baldwin_single_and_empty():
     assert get_baldwin_winner([["A"]]) == "A"
 
 
+def test_baldwin_every_ballot_empty_has_no_winner():
+    """Regression test (Lot 9, PLAN_SOLIDITE_TECHNIQUE.md — atheris fuzzing
+    campaign) -- same bug shape as test_nanson_every_ballot_empty_has_no_winner:
+    `votes` non-empty but every ballot ranks zero candidates, so the
+    fallback `return min(all_cands)` raised an uncaught ValueError on an
+    empty list instead of None."""
+    assert get_baldwin_winner([[]]) is None
+    assert get_baldwin_winner([[], []]) is None
+
+
 def test_compare_all_methods_registers_baldwin():
     names = ["A", "B", "C"]
     matrix = {

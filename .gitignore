@@ -353,3 +353,14 @@ INTERVIEW_PREP.md
 # Obsidian vault config (personal, machine-local — the repo root doubles as the vault
 # for JOURNAL_DE_BORD.md / docs/research/ rendering)
 /.obsidian/
+
+# atheris fuzzing corpus (Lot 9, PLAN_SOLIDITE_TECHNIQUE.md — scripts/fuzz_engine.py,
+# scripts/fuzz_llm_parsers.py): hash-named files atheris/libFuzzer discovers and
+# writes into fuzz_corpus/<harness>/ during a run — regenerated every campaign,
+# persisted across CI runs via actions/cache (atheris-fuzzing.yml), not git. The
+# hand-written seed_* files in the same directories ARE tracked (see the
+# `!seed_*` exceptions) — they're the committed floor every run starts from.
+/fast_api_voter/fuzz_corpus/*/*
+!/fast_api_voter/fuzz_corpus/*/seed_*
+# libFuzzer/atheris crash artifacts, wherever a manual local run leaves them
+/fast_api_voter/crash-*

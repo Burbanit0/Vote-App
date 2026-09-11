@@ -334,6 +334,21 @@ def test_majority_judgment_empty_ballots_have_no_winner():
     assert out["medians"] == {}
 
 
+def test_majority_judgment_a_later_voters_extra_candidate_does_not_crash():
+    """Regression test (Lot 9, PLAN_SOLIDITE_TECHNIQUE.md — atheris fuzzing
+    campaign, found within the first ~85 executions). The candidate set used
+    to come from voter 0 alone (`list(utility_scores[0].keys())`); a second
+    voter rating a candidate voter 0 never mentioned (a candidate who
+    entered the race after voter 0's ballot, say) raised an uncaught
+    KeyError building `all_grades[c]`, which was only pre-seeded with voter
+    0's own keys. Both candidates must be present and gradeable."""
+    votes = [{"A": 0.9}, {"B": 0.1}]
+    out = get_majority_judgment_winner(votes)
+
+    assert set(out["grades"].keys()) == {"A", "B"}
+    assert out["winner"] == "A"  # A's one grade (Excellent) beats B's (À Rejeter)
+
+
 # ---------------------------------------------------------------- evaluative
 
 
@@ -414,3 +429,17 @@ def test_evaluative_breaks_a_real_tie_alphabetically():
 def test_evaluative_empty_ballots_have_no_winner():
     assert get_evaluative_winner([])["winner"] is None
     assert get_evaluative_winner([{}])["winner"] is None
+
+
+def test_evaluative_a_later_voters_extra_candidate_is_not_silently_dropped():
+    """Regression test (Lot 9, PLAN_SOLIDITE_TECHNIQUE.md — atheris fuzzing
+    campaign, found alongside the majority-judgment KeyError above). Unlike
+    that one this didn't crash (the per-voter lookup already reads
+    `voter_utils.get(c, 0.0)`), but deriving the candidate set from voter 0
+    alone meant a candidate ONLY a later voter rated never entered `candidates`
+    in the first place -- silently absent from `scores`/`distribution`
+    entirely, on every run, not just this ballot's."""
+    votes = [{"A": 0.9}, {"B": 0.9}]
+    out = get_evaluative_winner(votes)
+
+    assert set(out["scores"].keys()) == {"A", "B"}
