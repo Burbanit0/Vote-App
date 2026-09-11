@@ -1368,15 +1368,59 @@ commande, sans pipe, avant de faire confiance au signal.
 
 ## Lot 9 — Sécurité approfondie
 
-| Item | Pourquoi ici | Effort | Solidité | Récit |
-|---|---|---|---|---|
-| **DAST — ZAP baseline** | SAST (Semgrep/CodeQL) ne voit que le code, jamais le comportement de l'app qui tourne. | M | ⭐⭐ | 📝📝 |
-| **Fuzzing à couverture** (`atheris` ou `hypofuzz`) | Bien plus profond qu'Hypothesis seul sur le moteur et les parseurs. | L | ⭐⭐ | 📝📝📝 |
-| **`guarddog`** (Datadog) | Détecte les paquets *malveillants* (typosquatting, install-scripts hostiles) — angle mort de pip-audit/Trivy qui ne voient que les CVE connues. | S | ⭐⭐ | 📝📝📝 |
-| **`trufflehog`** | Secrets **vérifiés actifs**, pas juste des motifs (complète gitleaks + detect-secrets). | S | ⭐ | 📝 |
-| **OSV-Scanner** | Base de vulnérabilités différente de Trivy, recouvrement imparfait. Mesurer l'écart réel est une bonne expérience. | S | ⭐ | 📝📝📝 |
-| **Signature d'images + provenance SLSA** (cosign/sigstore) | Suite logique du SBOM + Scorecard déjà en place. | M | ⭐⭐ | 📝📝📝 |
-| **`minimumReleaseAge`** (via Renovate) | Attendre 3-7 j avant d'adopter une release : vraie défense contre les paquets compromis. | S | ⭐⭐⭐ | 📝📝 |
+| Item | Pourquoi ici | Effort | Solidité | Récit | Statut |
+|---|---|---|---|---|---|
+| **DAST — ZAP baseline** | SAST (Semgrep/CodeQL) ne voit que le code, jamais le comportement de l'app qui tourne. | M | ⭐⭐ | 📝📝 | |
+| **Fuzzing à couverture** (`atheris` ou `hypofuzz`) | Bien plus profond qu'Hypothesis seul sur le moteur et les parseurs. | L | ⭐⭐ | 📝📝📝 | |
+| **`guarddog`** (Datadog) | Détecte les paquets *malveillants* (typosquatting, install-scripts hostiles) — angle mort de pip-audit/Trivy qui ne voient que les CVE connues. | S | ⭐⭐ | 📝📝📝 | |
+| **`trufflehog`** | Secrets **vérifiés actifs**, pas juste des motifs (complète gitleaks + detect-secrets). | S | ⭐ | 📝 | |
+| **OSV-Scanner** | Base de vulnérabilités différente de Trivy, recouvrement imparfait. Mesurer l'écart réel est une bonne expérience. | S | ⭐ | 📝📝📝 | |
+| **Signature d'images + provenance SLSA** (cosign/sigstore) | Suite logique du SBOM + Scorecard déjà en place. | M | ⭐⭐ | 📝📝📝 | ✅ SBOM signé (cosign, keyless) + provenance SLSA (`attest-build-provenance`), pas l'image (voir sous le tableau) |
+| **`minimumReleaseAge`** (via Renovate) | Attendre 3-7 j avant d'adopter une release : vraie défense contre les paquets compromis. | S | ⭐⭐⭐ | 📝📝 | |
+
+**Signature d'images + provenance SLSA, détail.** Avant d'écrire la moindre
+ligne de YAML : les deux images Docker du repo sont-elles publiées quelque
+part ? Grep exhaustif de tous les workflows pour un push de registre
+(`docker/login-action`, `docker push`, `ghcr`) — une seule occurrence de
+`docker/build-push-action`, dans `audit.yml`'s job `image-scan`, avec
+`load: true` (démon local du runner, jamais publié) ; `release.yml` lu en
+entier ne construit ni ne pousse aucune image (bump de version, tag git,
+GitHub Release). **Aucune des deux images n'existe jamais en dehors du job
+qui la construit pour la scanner** — signer « l'image » au sens OCI natif
+(`cosign sign`, qui pousse un artefact de signature *dans le même registre
+que l'image*) n'a donc aucune destination. Le seul artefact réellement
+publié par ce job est le SBOM (`actions/upload-artifact`, déjà en place
+depuis le Lot 6) — c'est lui qui devient le sujet : `cosign sign-blob`
+(keyless, jeton OIDC du job, aucune clé à gérer) pour la signature,
+`actions/attest-build-provenance` (`subject-path`, aucun registre requis)
+pour la provenance SLSA. `slsa-framework/slsa-github-generator` — l'autre
+chemin nommé — écarté après lecture directe de son propre README : *« no
+longer actively maintained… we are working on guidance and simpler tooling
+to replace it »*, dernière release février 2025, pointant lui-même vers les
+GitHub artifact attestations comme remplacement ; sa garantie la plus forte
+(SLSA Build L3) exige en plus un workflow réutilisable isolé que ce job
+(un `docker build` ordinaire) n'est pas, restructuration non justifiée pour
+un item `M`. Les deux actions ajoutées épinglées au commit comme le reste du fichier :
+`sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2`,
+`actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2`.
+Permissions
+ajoutées **au niveau du job** (`id-token: write`, `attestations: write`),
+même précédent que `scorecard.yml` — ce qui a obligé à réécrire aussi les
+permissions déjà héritées du workflow (`contents`, `security-events`,
+`actions: read`), non additives au niveau job. Vérifié en direct en local
+avant le câblage CI (cette session n'a pas le droit de pousser de branche,
+donc le jeton OIDC ambiant de GitHub Actions ne peut s'exercer pour de vrai
+qu'au premier run après merge) : `cosign` v3.1.3 et `syft` v1.51.1 installés
+sans sudo, vraie image frontend construite (95,2 MB), vrai SBOM généré
+(1 038 650 octets, 71 paquets), signature + `verify-blob` réussis (code 0),
+puis **sabotage réel du SBOM signé** (paquet falsifié injecté) →
+`verify-blob` échoue correctement (code 1). Piège trouvé en testant le cas
+négatif de l'attestation, pas supposé : `cosign verify-blob-attestation
+--check-claims=false` renvoyait `Verified OK` même sur le fichier saboté —
+ce flag désactive silencieusement la correspondance de hash sujet↔fichier,
+pas seulement des métadonnées GitHub annexes comme son nom le suggère ; retiré,
+la même vérification échoue bien (code 1). Détail complet, protocole et
+piège : [`docs/exploration/EXP-008-cosign-slsa-provenance-signing-scope.md`](docs/exploration/EXP-008-cosign-slsa-provenance-signing-scope.md).
 
 ---
 

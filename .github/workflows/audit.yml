@@ -174,6 +174,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     if: github.event_name == 'schedule' || (github.event_name == 'push' && github.ref == 'refs/heads/develop')
+    # Job-level permissions REPLACE the workflow-level block above for this job
+    # alone (GitHub Actions semantics: job `permissions:` is not additive), so
+    # the first three restate exactly what this job already had by inheritance
+    # (`security-events: write` for the Trivy image-SARIF upload a few steps
+    # down, `actions: read` from the workflow default, unrelated to signing).
+    # `id-token: write` + `attestations: write` are the two new grants, same
+    # minimal-scoped-to-the-job pattern scorecard.yml already uses for its own
+    # `id-token: write` (there: publish to the public Scorecard API; here: mint
+    # a short-lived OIDC token for cosign keyless signing, and let
+    # attest-build-provenance write to this repo's Attestations API).
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+      id-token: write
+      attestations: write
     strategy:
       fail-fast: false
       matrix:
@@ -234,11 +250,67 @@ jobs:
           image: ${{ matrix.tag }}
           format: spdx-json
           output-file: sbom-${{ matrix.name }}.spdx.json
+
+      # Signature + SLSA provenance (Lot 9, PLAN_SOLIDITE_TECHNIQUE.md) — the
+      # logical next step after the SBOM above. Neither image is ever pushed
+      # to a registry (`docker/build-push-action` above uses `load: true`,
+      # confirmed by grepping every workflow in this repo for a registry
+      # login/push step: there is none), so signing "the image" in the
+      # OCI-native sense (`cosign sign`, which pushes a `.sig` artifact next
+      # to the image *in a registry*) has no destination to sign into — it
+      # would sign something nobody can ever pull and verify. What IS
+      # actually published outside this job is the SBOM file itself (the
+      # `upload-artifact` step below, downloadable from the run). So that's
+      # what gets signed: `cosign sign-blob` (not `cosign attest`, which is
+      # for typed in-toto predicates about a subject, not signing the
+      # artifact's own bytes) over the SBOM, keyless via this job's OIDC
+      # token (no key material to manage or leak) — proving the SBOM
+      # downloaded from this run is byte-for-byte what this workflow, at this
+      # commit, produced. See docs/exploration/EXP-008 for the full
+      # investigation (why the image can't be the subject, the sign-vs-attest
+      # distinction, and a real tamper test against a local key run by hand
+      # before wiring this in) and PLAN_SOLIDITE_TECHNIQUE.md's Lot 9 détail
+      # for the "is anything actually published here" finding.
+      - name: Install cosign
+        if: always()
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Sign SBOM (cosign, keyless via OIDC)
+        if: always()
+        run: |
+          cosign sign-blob --yes \
+            --bundle sbom-${{ matrix.name }}.spdx.json.cosign.bundle \
+            sbom-${{ matrix.name }}.spdx.json
+
+      # SLSA build provenance for the SBOM (which build, which commit, which
+      # workflow produced it) — GitHub's own attestation action, not the
+      # `slsa-framework/slsa-github-generator` reusable-workflow builder: that
+      # project's own README now says "no longer actively maintained... we
+      # are working on guidance and simpler tooling to replace it" (last
+      # release Feb 2025) and points at GitHub artifact attestations as that
+      # replacement — confirmed by reading the README directly before
+      # choosing, not assumed. It also only reaches its strongest (SLSA v1
+      # Build L3) guarantee by moving the build into an isolated reusable
+      # workflow it controls, which this job — a plain `docker build` inside
+      # a normal job — isn't, and restructuring it for that guarantee isn't
+      # worth the disruption for an M-effort item. `attest-build-provenance`
+      # auto-generates a correct SLSA predicate from the real run context
+      # (no hand-written predicate to keep in sync, unlike a manual `cosign
+      # attest-blob`), and needs no registry either — `subject-path` hashes
+      # the file directly.
+      - name: Attest SLSA build provenance (SBOM)
+        if: always()
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: sbom-${{ matrix.name }}.spdx.json
+
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: sbom-${{ matrix.name }}
-          path: sbom-${{ matrix.name }}.spdx.json
+          path: |
+            sbom-${{ matrix.name }}.spdx.json
+            sbom-${{ matrix.name }}.spdx.json.cosign.bundle
           if-no-files-found: ignore
 
   # ---------------------------------------------------------------
