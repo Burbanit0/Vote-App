@@ -506,6 +506,42 @@ violation d'axiome) — démêler « violation réelle » de « tie-break
 coïncidental » cellule par cellule demande une passe plus soigneuse que
 celle-ci. Suivi nommé, pas deviné.
 
+### Matrice axiomatique côté client (`fast-check`, Lot 4.4)
+
+`voter-app/src/lib/playgroundVoting.axioms.test.ts` reporte les 7 mêmes
+critères contre `ruleWinnerFromRanks` — l'autre moitié du contrat de parité,
+qui n'avait aucun test à propriétés. Domaine volontairement plus large que
+la matrice Python : n ∈ [3,6] candidats (`_profiles4` fige n=4) et m ∈
+[3,25] électeurs — hors de la boîte n≤4/m≤5 déjà prouvée exhaustive par le
+Lot 4.3, pour que ce fichier gagne sa place sur du terrain neuf plutôt que
+de re-prouver ce qui l'est déjà :
+
+```bash
+cd voter-app && npx vitest run src/lib/playgroundVoting.axioms.test.ts
+```
+
+La classification n'est pas recopiée aveuglément de Python — rejouée
+réellement sur ce domaine plus large, ce qui a trouvé **6 corrections
+réelles**, toutes vérifiées à la main contre le backend (détail complet
+dans `PLAN_SOLIDITE_TECHNIQUE.md`, § 4.4) : `baldwin` échoue l'indépendance
+aux clones mais seulement à n=6 (hors de portée de la stratégie Python figée
+à 4 candidats) ; `condorcet` (Copeland côté client — une fonction différente
+de la clé Python du même nom, voir le fichier) échoue aussi l'indépendance
+aux clones, un cas d'école pour un score net victoires-défaites ; `irv`,
+`coombs`, `benham` et `raynaud` élisent chacun un perdant de Condorcet dans
+des profils que les 200 exemples Hypothesis fixes de Python n'avaient
+jamais échantillonnés. Ce dernier groupe a révélé le critère « perdant de
+Condorcet » plus fuyant que prévu, d'où un balayage Python direct à plus
+gros volume (~15-24k profils/méthode) qui a tranché une septième cellule
+(`dowdall` × majorité) et confirmé le reste de la matrice.
+
+**Reproductibilité.** `fast-check` tire une seed aléatoire par défaut à
+chaque run — exactement ce qui a permis de trouver ces 6 corrections
+pendant le développement, mais inacceptable pour un test committé (un échec
+flaky qui trouve parfois un vrai bug reste un run flaky). Seed fixée une
+fois l'exploration terminée, même leçon que `derandomize=True` pour
+Hypothesis (Lot 4.1/4.2).
+
 ### Score de mutation (informationnel)
 
 La couverture mesure les lignes *exécutées*, pas les lignes *assertées* — un

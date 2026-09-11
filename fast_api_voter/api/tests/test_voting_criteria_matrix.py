@@ -41,6 +41,56 @@ elimination round instead of once) -- fixing that bug made every found
 clone-independence counterexample stop reproducing, so smith_irv moved back
 to the "satisfies" side once the underlying algorithm was corrected.
 
+**A known, now-largely-closed gap in this file's own methodology.** Every
+random-search helper in this file (`_profiles4`, and every inline
+`cands = [...]` fixture in the "can be violated" fallback tests) fixes the
+CANDIDATE COUNT at exactly 4 -- only the ballot count varies, and the
+Hypothesis property tests cap at 200 fixed examples. Lot 4.4 ported this
+matrix's satisfies/violates split to the client engine using fast-check
+(n in [3,6] candidates, wider than 4, and a bigger/differently-shaped
+search than 200 fixed Hypothesis examples), and its non-deterministic
+exploration turned up five real counterexamples during development, all
+hand-verified against this backend and corrected here, not treated as
+frontend-only findings:
+
+- `baldwin` fails clone independence, but only at n=6
+  (`test_clone_independence_baldwin_can_be_violated`) -- a candidate count
+  this file's own fixtures (capped at 4) never generate.
+- `irv`, `coombs`, `benham`, and `raynaud` each elect a Condorcet loser in
+  specific profiles (`test_condorcet_loser_{irv,coombs,benham,raynaud}_
+  can_be_violated`) that needed no new candidate count -- just a specific
+  ballot combination the fixed 200-example Hypothesis run never sampled.
+
+Neither kind of miss was ever a false signal: a property test that passes
+200 times answers a true, narrower question than "for all profiles",
+which is the only promise `@given` can make given a finite budget. A
+broader or differently-shaped search can always find something a
+narrower one didn't.
+
+Given how much the Condorcet loser criterion alone had drifted (4 of 21
+methods misclassified), the rest of this file was re-swept once, directly
+in Python rather than via the client engine, at higher volume (~15,000-
+24,000 trials per method/criterion, n in {3,4} for Condorcet winner/loser/
+majority/Pareto, n in {3,4,5,6} for clone independence/monotonicity) to
+check whether the other five criteria had similar gaps. They didn't:
+Condorcet winner, Pareto, and monotonicity's classifications matched this
+file's existing sets exactly, and clone independence's did too aside from
+`baldwin` above. Majority had one more real, very rare miss: `dowdall`
+(`test_majority_criterion_dowdall_can_be_violated`) can tie a majority
+winner's score exactly and lose the alphabetical tie-break -- the same
+family of failure as Borda's already-known majority weakness, just rarer
+(an exact score tie, not just "second choices are weak"), which is exactly
+why 200 fixed Hypothesis examples never hit it either.
+
+This higher-volume Python re-sweep is reasonably thorough but still not
+exhaustive proof the way Lot 4.3's small-profile check is -- it's a bigger
+random search, not a different kind of guarantee. Whether a search wider
+still (more trials, or candidate counts beyond 6) would find a seventh gap
+is consequently still an open question, named as follow-up rather than
+chased further here (matches the participation/reversal-symmetry deferral
+below: there's a point where a widening search is its own open-ended
+project, not a bounded fix).
+
 **Scope.** 7 of the 8 criteria the plan names are covered here:
 Condorcet winner, Condorcet loser, majority, unanimity, Pareto, clone
 independence, monotonicity. Participation and reversal symmetry are
@@ -221,9 +271,11 @@ def test_condorcet_winner_criterion_can_be_violated(method_name):
 
 CONDORCET_LOSER_SATISFIES = METHODS.keys() - {
     "plurality", "minimax", "bucklin", "anti_plurality", "dowdall",
+    "irv", "coombs", "raynaud", "benham",
 }
 CONDORCET_LOSER_VIOLATES = {
     "plurality", "minimax", "bucklin", "anti_plurality", "dowdall",
+    "irv", "coombs", "raynaud", "benham",
 }
 
 
@@ -241,7 +293,71 @@ def test_condorcet_loser_criterion_satisfied(method_name, rankings):
     )
 
 
-@pytest.mark.parametrize("method_name", sorted(CONDORCET_LOSER_VIOLATES))
+def test_condorcet_loser_irv_can_be_violated():
+    """Pinned counterexample (found by fast-check on the client engine, Lot
+    4.4, PLAN_SOLIDITE_TECHNIQUE.md; hand-verified against this backend
+    too): a 3-candidate, 7-ballot profile where C loses both of its pairwise
+    contests (a genuine Condorcet loser) but wins under IRV anyway. A and B
+    tie for fewest first-preferences and are eliminated TOGETHER, leaving C
+    — who nobody's second choice could rescue A or B ahead of — as the sole
+    survivor. This needed exactly 3 candidates to show up, a candidate count
+    this file's own `_profiles4`/`cands` fixtures never generate (both are
+    hardcoded to exactly 4) — a real, named gap in this file's own
+    methodology, not just an IRV quirk. See the module docstring."""
+    rankings = [
+        ["C", "B", "A"], ["C", "A", "B"], ["A", "B", "C"], ["C", "A", "B"],
+        ["B", "A", "C"], ["B", "A", "C"], ["A", "B", "C"],
+    ]
+    assert _condorcet_loser(rankings) == "C"
+    assert get_irv_winner(rankings) == "C"
+
+
+def test_condorcet_loser_coombs_can_be_violated():
+    """Pinned counterexample (found by fast-check on the client engine, Lot
+    4.4, PLAN_SOLIDITE_TECHNIQUE.md; hand-verified against this backend
+    too): unlike the irv/baldwin findings above, this one needed no new
+    candidate count -- 4 candidates, exactly what `_profiles4` already
+    covers -- just an 11-ballot profile Hypothesis's 200 fixed examples
+    happened not to sample. `test_condorcet_loser_criterion_satisfied`
+    passed for coombs many times before this; it wasn't wrong to trust that
+    the same way the shrinking-driven finds above were, it just hadn't been
+    asked this particular question yet. Property-based testing narrows the
+    odds of a bug surviving, not to zero."""
+    rankings = [
+        ["B", "D", "C", "A"], ["A", "D", "C", "B"], ["B", "C", "D", "A"],
+        ["D", "A", "C", "B"], ["B", "D", "A", "C"], ["C", "B", "D", "A"],
+        ["A", "D", "C", "B"], ["A", "B", "C", "D"], ["D", "A", "B", "C"],
+        ["A", "B", "C", "D"], ["C", "D", "B", "A"],
+    ]
+    assert _condorcet_loser(rankings) == "C"
+    assert get_coombs_winner(rankings) == "C"
+
+
+def test_condorcet_loser_benham_can_be_violated():
+    """Pinned counterexample (found by fast-check, Lot 4.4; hand-verified
+    against this backend), same class as the coombs finding above: a
+    6-ballot, 4-candidate profile Hypothesis's fixed 200 examples never
+    sampled."""
+    rankings = [
+        ["C", "A", "D", "B"], ["B", "D", "A", "C"], ["D", "C", "A", "B"],
+        ["C", "A", "D", "B"], ["B", "C", "D", "A"], ["D", "C", "A", "B"],
+    ]
+    assert _condorcet_loser(rankings) == "B"
+    assert get_benham_winner(rankings) == "B"
+
+
+def test_condorcet_loser_raynaud_can_be_violated():
+    """Pinned counterexample (found by fast-check, Lot 4.4; hand-verified
+    against this backend), same class as the coombs/benham findings above."""
+    rankings = [["D", "B", "A", "C"], ["B", "C", "D", "A"], ["C", "A", "D", "B"]]
+    assert _condorcet_loser(rankings) == "A"
+    assert get_raynaud_winner(rankings) == "A"
+
+
+@pytest.mark.parametrize(
+    "method_name",
+    sorted(CONDORCET_LOSER_VIOLATES - {"irv", "coombs", "benham", "raynaud"}),
+)
 def test_condorcet_loser_criterion_can_be_violated(method_name):
     """minimax's case is the interesting one: it IS Condorcet-consistent
     for winners, but that does not imply it avoids the Condorcet loser —
@@ -267,7 +383,7 @@ def test_condorcet_loser_criterion_can_be_violated(method_name):
 # ── 3. Majority criterion ───────────────────────────────────────────────────
 # "A candidate ranked first by a strict majority of voters must win."
 
-MAJORITY_VIOLATES = {"borda", "anti_plurality"}
+MAJORITY_VIOLATES = {"borda", "anti_plurality", "dowdall"}
 MAJORITY_SATISFIES = METHODS.keys() - MAJORITY_VIOLATES
 
 
@@ -295,7 +411,29 @@ def test_majority_criterion_satisfied(method_name, rankings):
     )
 
 
-@pytest.mark.parametrize("method_name", sorted(MAJORITY_VIOLATES))
+def test_majority_criterion_dowdall_can_be_violated():
+    """Pinned counterexample (found by fast-check on the client engine, Lot
+    4.4, PLAN_SOLIDITE_TECHNIQUE.md; hand-verified against this backend
+    too): B has an outright majority of first-place votes (5 of 9 ballots),
+    but ties A exactly on Dowdall score (19/3 each, verified in exact
+    fractions) and loses the alphabetical tie-break. Same family as Borda's
+    already-known majority failure -- both are positional scoring rules
+    that weigh every rank, not just first place, so a "thin" majority can
+    be outweighed by a rival's strength elsewhere. Needed an exact score
+    tie to show up, rare enough (2 in ~6500 random trials during
+    exploration) that this file's existing 20000-trial generic search
+    (fixed at 4 candidates and voter counts {3,5,7,9}, like every other
+    fallback here) might not reliably re-find it -- pinned instead."""
+    rankings = [
+        ["A", "C", "B"], ["B", "A", "C"], ["A", "C", "B"], ["B", "A", "C"],
+        ["A", "C", "B"], ["B", "A", "C"], ["A", "C", "B"], ["B", "A", "C"],
+        ["B", "C", "A"],
+    ]
+    assert _majority_first_choice(rankings) == "B"
+    assert get_dowdall_winner(rankings) == "A"
+
+
+@pytest.mark.parametrize("method_name", sorted(MAJORITY_VIOLATES - {"dowdall"}))
 def test_majority_criterion_can_be_violated(method_name):
     """Borda's classic weakness: a majority's first choice can still lose
     if the majority's second choices are weak relative to a broadly-liked
@@ -396,7 +534,7 @@ def test_pareto_efficiency_anti_plurality_can_be_violated():
 CLONE_INDEPENDENCE_VIOLATES = {
     "borda", "coombs", "bucklin", "nanson", "kemeny", "black",
     "anti_plurality", "dowdall", "split_cycle",
-    "ranked_pairs", "river",
+    "ranked_pairs", "river", "baldwin",
 }
 CLONE_INDEPENDENCE_SATISFIES = METHODS.keys() - CLONE_INDEPENDENCE_VIOLATES
 
@@ -477,9 +615,31 @@ def test_clone_independence_river_can_be_violated():
     assert get_river_winner(cloned) == "A"
 
 
+def test_clone_independence_baldwin_can_be_violated():
+    """Pinned counterexample (found by fast-check on the client engine, Lot
+    4.4, PLAN_SOLIDITE_TECHNIQUE.md; hand-verified against this backend
+    too): a 6-candidate, 9-ballot profile where cloning non-winner D changes
+    the winner from C to D. This needed 6 candidates to show up — this
+    file's own clone-independence fixtures (`_profiles4`'s 4 and this
+    section's generic search's 3) never generate that many, so nothing here
+    could have found it. Baldwin was classified as clone-independent by Lot
+    4.1/4.2 on exactly that narrower search; this is a real correction, not
+    a new bug introduced since. See the module docstring."""
+    rankings = [
+        ["A", "B", "D", "E", "C", "F"], ["C", "F", "D", "B", "A", "E"],
+        ["D", "A", "C", "F", "E", "B"], ["A", "C", "E", "D", "F", "B"],
+        ["C", "D", "E", "B", "F", "A"], ["C", "F", "D", "B", "E", "A"],
+        ["D", "B", "A", "C", "F", "E"], ["D", "B", "A", "E", "F", "C"],
+        ["B", "A", "C", "E", "F", "D"],
+    ]
+    assert get_baldwin_winner(rankings) == "C"
+    cloned = _clone_after(rankings, "D", "G")
+    assert get_baldwin_winner(cloned) == "D"
+
+
 @pytest.mark.parametrize(
     "method_name",
-    sorted(CLONE_INDEPENDENCE_VIOLATES - {"borda", "ranked_pairs", "river"}),
+    sorted(CLONE_INDEPENDENCE_VIOLATES - {"borda", "ranked_pairs", "river", "baldwin"}),
 )
 def test_clone_independence_can_be_violated(method_name):
     fn = METHODS[method_name]

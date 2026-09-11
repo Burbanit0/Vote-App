@@ -444,6 +444,56 @@ détecte déjà.
 Hypothesis couvre le Python ; `playgroundVoting.ts` — l'autre moitié du contrat
 de parité — n'a aucun test à propriétés.
 
+✅ **Fait — et le plus rentable des quatre premiers items du Lot 4 en
+rapport trouvailles/effort.** `voter-app/src/lib/playgroundVoting.axioms.test.ts`
+(nouveau, `fast-check` en devDependency) reporte les 7 critères de la matrice
+Python contre `ruleWinnerFromRanks`, mais sur un domaine plus large que
+l'exhaustif du Lot 4.3 : n ∈ [3,6] candidats, m ∈ [3,25] électeurs (Python
+`_profiles4` fige n=4 exactement). La classification satisfait/viole n'est
+**pas recopiée aveuglément** — vérifiée en la rejouant réellement sur ce
+domaine plus large, seed fixe pour la reproductibilité (même leçon que
+Lot 4.1/4.2 : `derandomize`/seed non fixé retrouve des choses différentes à
+chaque run — littéralement observé ici avant de fixer la seed, voir plus bas).
+
+**Six corrections réelles trouvées, toutes vérifiées à la main contre le
+backend et corrigées dans `test_voting_criteria_matrix.py`** (donc pas des
+particularités du seul moteur front) :
+
+- **`baldwin`** échoue l'indépendance aux clones, mais seulement à partir de
+  n=6 — un nombre de candidats que la stratégie Hypothesis de Python (figée
+  à exactement 4) ne génère structurellement jamais.
+- **`condorcet` (Copeland sur le front)** échoue aussi l'indépendance aux
+  clones — mais ceci n'est PAS une correction de la classification Python :
+  la clé `"condorcet"` du fichier Python désigne `get_condorcet_winner` (le
+  critère strict), une fonction différente de la règle front `condorcet`
+  (Copeland, étiquetée « Condorcet (Copeland) » dans `RULE_LABELS`). Un
+  score net victoires-défaites comme celui de Copeland est un cas d'école de
+  méthode manipulable par clonage — confirmé indépendamment côté backend
+  (`get_copeland_winner`), classification propre à ce fichier TS.
+- **`irv`, `coombs`, `benham`, `raynaud`** élisent chacun un perdant de
+  Condorcet dans des profils spécifiques — pas un problème de nombre de
+  candidats cette fois, juste des profils que les 200 exemples Hypothesis
+  figés de Python n'avaient jamais échantillonnés.
+
+**Effet de bord important : ce dernier groupe a révélé que le critère
+« perdant de Condorcet » était bien plus fuyant que prévu.** Plutôt que de
+corriger au coup par coup à chaque nouvelle seed `fast-check`, un balayage
+systématique direct en Python (~15 000-24 000 profils par méthode/critère,
+au lieu des 200 exemples Hypothesis fixes) a permis de trancher les 7
+critères une bonne fois : Condorcet gagnant, Pareto et monotonie
+correspondent exactement à la classification existante ; indépendance aux
+clones aussi, à `baldwin` près (déjà trouvé) ; majorité avait UNE cellule de
+plus à corriger — `dowdall` (même famille que la faiblesse déjà connue de
+Borda : une règle positionnelle peut perdre face à une majorité si son score
+s'égalise exactement avec un rival, un cas assez rare — 2 sur ~6500 essais
+— pour avoir échappé aux 200 exemples Hypothesis aussi).
+
+Ce balayage plus volumineux reste un échantillon plus large, pas une preuve
+exhaustive comme celle du Lot 4.3 — si une recherche encore plus large
+trouverait une 7e cellule reste une question ouverte, nommée plutôt que
+poursuivie indéfiniment (même logique que le report de participation/
+symétrie par renversement au Lot 4.1).
+
 ### 4.5 — Contre-exemples de la littérature comme fixtures nommées ⭐⭐ 📝📝📝 · `M`
 
 Paradoxe de Condorcet, exemples de manipulation Borda, profils de Saari…
