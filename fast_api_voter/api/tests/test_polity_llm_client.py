@@ -648,6 +648,22 @@ def test_decode_vote_batch_strips_think_tags():
     assert decisions[0].cid == 1
 
 
+def test_decode_vote_batch_rejects_deeply_nested_json_without_crashing():
+    """Regression test (Lot 9, PLAN_SOLIDITE_TECHNIQUE.md — atheris fuzzing
+    campaign against this function). json.loads' recursive-descent parser
+    overflows the interpreter's C stack on pathologically deep nesting
+    *before* it can raise JSONDecodeError -- an LLM stuck in a degenerate
+    repetition loop emitting `[[[[[...` is exactly this shape, and the
+    original `except json.JSONDecodeError` alone let a bare RecursionError
+    escape decode_vote_batch (and all 8 sibling decode_*_batch functions,
+    which share the identical parse step) uncaught. 100_000 nested `[`
+    reproduced it reliably from a fresh interpreter; well beyond CPython's
+    default recursion machinery regardless of ambient call-stack depth."""
+    raw = "[" * 100_000 + "]" * 100_000
+    with pytest.raises(LlmResponseError, match="too deeply nested"):
+        decode_vote_batch(raw, expected_cids=[1])
+
+
 # ── decode_candidacy_batch ────────────────────────────────────────────────
 
 def _candidacy_decision(**overrides):

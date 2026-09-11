@@ -712,6 +712,15 @@ def decode_vote_batch(raw: str, expected_cids: Sequence[int]) -> list[VoteCastDe
         parsed = json.loads(stripped)
     except json.JSONDecodeError as exc:
         raise LlmResponseError(f"response is not valid JSON after stripping reasoning tags: {exc}") from exc
+    except RecursionError as exc:
+        # json.loads' recursive-descent parser overflows the C stack on
+        # pathologically deep nesting (confirmed: ~1e5 nested `[` from a
+        # fresh interpreter) *before* reaching JSONDecodeError's own checks
+        # -- an LLM stuck in a degenerate repetition loop can emit exactly
+        # this shape. Found fuzzing this function with atheris (Lot 9,
+        # PLAN_SOLIDITE_TECHNIQUE.md); every decode_*_batch below shares
+        # this same parse step and the same fix.
+        raise LlmResponseError(f"response is too deeply nested to parse as JSON: {exc}") from exc
 
     try:
         batch = VoteCastBatch.model_validate(parsed)
@@ -741,6 +750,8 @@ def decode_party_nomination_batch(raw: str, expected_party_ids: Sequence[int]) -
         parsed = json.loads(stripped)
     except json.JSONDecodeError as exc:
         raise LlmResponseError(f"response is not valid JSON after stripping reasoning tags: {exc}") from exc
+    except RecursionError as exc:  # same overflow, same fix as decode_vote_batch's
+        raise LlmResponseError(f"response is too deeply nested to parse as JSON: {exc}") from exc
 
     try:
         batch = PartyNominationBatch.model_validate(parsed)
@@ -769,6 +780,8 @@ def decode_positioning_batch(raw: str, expected_cids: Sequence[int]) -> list[Pos
         parsed = json.loads(stripped)
     except json.JSONDecodeError as exc:
         raise LlmResponseError(f"response is not valid JSON after stripping reasoning tags: {exc}") from exc
+    except RecursionError as exc:  # same overflow, same fix as decode_vote_batch's
+        raise LlmResponseError(f"response is too deeply nested to parse as JSON: {exc}") from exc
 
     try:
         batch = PositioningBatch.model_validate(parsed)
@@ -796,6 +809,8 @@ def decode_response_batch(raw: str, expected_cids: Sequence[int]) -> list[Respon
         parsed = json.loads(stripped)
     except json.JSONDecodeError as exc:
         raise LlmResponseError(f"response is not valid JSON after stripping reasoning tags: {exc}") from exc
+    except RecursionError as exc:  # same overflow, same fix as decode_vote_batch's
+        raise LlmResponseError(f"response is too deeply nested to parse as JSON: {exc}") from exc
 
     try:
         batch = ResponseBatch.model_validate(parsed)
@@ -829,6 +844,8 @@ def decode_pressure_batch(raw: str, expected_cids: Sequence[int]) -> list[Pressu
         parsed = json.loads(stripped)
     except json.JSONDecodeError as exc:
         raise LlmResponseError(f"response is not valid JSON after stripping reasoning tags: {exc}") from exc
+    except RecursionError as exc:  # same overflow, same fix as decode_vote_batch's
+        raise LlmResponseError(f"response is too deeply nested to parse as JSON: {exc}") from exc
 
     try:
         batch = PressureBatch.model_validate(parsed)
@@ -860,6 +877,8 @@ def decode_reaction_batch(raw: str, expected_cids: Sequence[int]) -> list[Reacti
         parsed = json.loads(stripped)
     except json.JSONDecodeError as exc:
         raise LlmResponseError(f"response is not valid JSON after stripping reasoning tags: {exc}") from exc
+    except RecursionError as exc:  # same overflow, same fix as decode_vote_batch's
+        raise LlmResponseError(f"response is too deeply nested to parse as JSON: {exc}") from exc
 
     try:
         batch = ReactionBatch.model_validate(parsed)
@@ -893,6 +912,8 @@ def decode_chamber_batch(raw: str, expected_cids: Sequence[int]) -> list[Chamber
         parsed = json.loads(stripped)
     except json.JSONDecodeError as exc:
         raise LlmResponseError(f"response is not valid JSON after stripping reasoning tags: {exc}") from exc
+    except RecursionError as exc:  # same overflow, same fix as decode_vote_batch's
+        raise LlmResponseError(f"response is too deeply nested to parse as JSON: {exc}") from exc
 
     try:
         batch = ChamberBatch.model_validate(parsed)
@@ -919,6 +940,8 @@ def decode_coalition_batch(raw: str, expected_party_ids: Sequence[int]) -> list[
         parsed = json.loads(stripped)
     except json.JSONDecodeError as exc:
         raise LlmResponseError(f"response is not valid JSON after stripping reasoning tags: {exc}") from exc
+    except RecursionError as exc:  # same overflow, same fix as decode_vote_batch's
+        raise LlmResponseError(f"response is too deeply nested to parse as JSON: {exc}") from exc
 
     try:
         batch = CoalitionBatch.model_validate(parsed)
@@ -948,6 +971,8 @@ def decode_candidacy_batch(raw: str, expected_cids: Sequence[int]) -> list[Candi
         parsed = json.loads(stripped)
     except json.JSONDecodeError as exc:
         raise LlmResponseError(f"response is not valid JSON after stripping reasoning tags: {exc}") from exc
+    except RecursionError as exc:  # same overflow, same fix as decode_vote_batch's
+        raise LlmResponseError(f"response is too deeply nested to parse as JSON: {exc}") from exc
 
     try:
         batch = CandidacyBatch.model_validate(parsed)

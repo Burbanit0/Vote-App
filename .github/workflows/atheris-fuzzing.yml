@@ -1,0 +1,150 @@
+name: Coverage-Guided Fuzzing (atheris)
+
+# Lot 9, PLAN_SOLIDITE_TECHNIQUE.md: "Bien plus profond qu'Hypothesis seul sur
+# le moteur et les parseurs" -- the existing property tests
+# (test_hypothesis_condorcet.py, test_hypothesis_monotonicity.py) already
+# cover the voting engine, but narrowly: fixed 4-candidate permutations only.
+# atheris coverage-guided fuzzing explores the malformed/adversarial input
+# shapes those strategies structurally can't generate. See
+# fast_api_voter/scripts/fuzz_engine.py and fuzz_llm_parsers.py's own module
+# docstrings for the full harness rationale, and
+# docs/exploration/EXP-011-atheris-coverage-fuzzing.md for the campaign this
+# was actually run with and what it found (4 real bugs, all fixed with
+# regression tests, before this workflow's first run).
+#
+# A real coverage-guided campaign needs minutes, not seconds, to be worth
+# more than Hypothesis already gives for free -- a 10s PR-gate run would add
+# CI time for negligible extra depth. Deliberately its own workflow, never
+# on `pull_request`, non-blocking: same tradeoff as mutation-testing.yml and
+# schemathesis.yml (see either's own comment for the reasoning this mirrors).
+#
+# `schedule`/`workflow_dispatch` are resolved against the DEFAULT branch
+# (main) by GitHub, not the ref that owns the file -- mutation-testing.yml
+# hit this already. Included below for when a develop -> main release makes
+# them live; `push: develop` is what actually runs this today.
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'fast_api_voter/api/engine/utils/simulation_ranked_utils.py'
+      - 'fast_api_voter/api/engine/utils/simulation_score_utils.py'
+      - 'fast_api_voter/api/domain/polity/llm_client.py'
+      - 'fast_api_voter/scripts/fuzz_engine.py'
+      - 'fast_api_voter/scripts/fuzz_llm_parsers.py'
+      - 'fast_api_voter/requirements*.txt'
+      - '.github/workflows/atheris-fuzzing.yml'
+  workflow_dispatch:
+    inputs:
+      seconds_per_harness:
+        description: 'Fuzzing budget per harness, in seconds'
+        required: false
+        default: '900'
+  schedule:
+    - cron: '44 4 * * 4'  # Thursday 04:44 UTC — the existing Monday-morning
+                           # cluster (mutation-testing 04:17, schemathesis
+                           # 05:38, audit 06:00) is already three heavy jobs
+                           # deep; a different day spreads runner load rather
+                           # than adding a fourth to the same window.
+
+concurrency:
+  group: atheris-fuzzing-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    name: Coverage-guided fuzzing (engine + LLM parsers)
+    runs-on: ubuntu-latest
+    # 15 min/harness budget (below) + setup/install overhead; generous
+    # margin over that so a real hang fails loudly rather than idling
+    # toward GitHub's 360min default and looking like "just slow".
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      # No `python-version` here — see backend-ci-cd-pipeline.yml's comment on
+      # this same pairing (`--system` rejects a uv-managed interpreter).
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: true
+          cache-dependency-glob: 'fast_api_voter/requirements*.txt'
+
+      - name: Install production + dev dependencies
+        run: |
+          uv pip install --system -r fast_api_voter/requirements.txt
+          uv pip install --system -r fast_api_voter/requirements-dev.txt
+
+      # A fuzzer's value compounds across runs if its discovered corpus
+      # persists -- a handful of small seed files are committed under
+      # fast_api_voter/fuzz_corpus/ (the floor every run starts from even
+      # on a cache miss), but the inputs atheris actually DISCOVERS during
+      # a run are the interesting part to keep. Restore-keys fall back to
+      # the nearest prior corpus on any miss (never a hard requirement --
+      # same tradeoff Stryker's incremental-state cache in
+      # mutation-testing.yml already makes here), so this never blocks a
+      # run, only makes each one start a little further along than empty.
+      - name: Restore discovered fuzzing corpus
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            fast_api_voter/fuzz_corpus/engine
+            fast_api_voter/fuzz_corpus/llm_parsers
+          key: atheris-corpus-${{ github.sha }}
+          restore-keys: |
+            atheris-corpus-
+
+      # Each harness gets its own timed campaign, not a single combined one
+      # -- keeps a crash in one from masking a corpus that never even
+      # started building in the other, and lines up with how the harnesses
+      # are invoked and reported on locally (see both scripts' own
+      # docstrings). continue-on-error: an actual crash here is a genuine
+      # uncaught-exception finding, not something to silently skip past --
+      # the "upload crash artifact" step below is what makes it
+      # reproducible, and the job is still meant to go red on it.
+      - name: Fuzz the voting engine
+        id: fuzz_engine
+        continue-on-error: true
+        run: |
+          cd fast_api_voter
+          python scripts/fuzz_engine.py fuzz_corpus/engine \
+            -max_total_time="${{ inputs.seconds_per_harness || '900' }}" \
+            -artifact_prefix=fuzz_corpus/engine/
+
+      - name: Fuzz the LLM response parsers
+        id: fuzz_llm_parsers
+        continue-on-error: true
+        run: |
+          cd fast_api_voter
+          python scripts/fuzz_llm_parsers.py fuzz_corpus/llm_parsers \
+            -max_total_time="${{ inputs.seconds_per_harness || '900' }}" \
+            -artifact_prefix=fuzz_corpus/llm_parsers/
+
+      # A crashing input that only lives in a transient CI log is exactly
+      # the failure mode this repo already rejects for flaky tests
+      # (scripts/check_flaky_backend.py's whole premise) -- so the raw
+      # bytes atheris found go up as a downloadable artifact. Replay
+      # locally with the same harness script (see its docstring's Usage
+      # section) to turn it into a committed regression test, the same way
+      # every finding in EXP-011 was handled.
+      - name: Upload crashing inputs (if any)
+        if: steps.fuzz_engine.outcome == 'failure' || steps.fuzz_llm_parsers.outcome == 'failure'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: atheris-crashes
+          path: |
+            fast_api_voter/fuzz_corpus/engine/crash-*
+            fast_api_voter/fuzz_corpus/llm_parsers/crash-*
+          retention-days: 90
+          if-no-files-found: ignore
+
+      - name: Fail the job if either campaign crashed
+        if: steps.fuzz_engine.outcome == 'failure' || steps.fuzz_llm_parsers.outcome == 'failure'
+        run: |
+          echo "::error::atheris found an uncaught exception -- download the atheris-crashes artifact and replay it locally (see fuzz_engine.py/fuzz_llm_parsers.py's Usage docstring) to reproduce, then turn it into a regression test."
+          exit 1

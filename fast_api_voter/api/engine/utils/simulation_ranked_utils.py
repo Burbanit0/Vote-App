@@ -761,6 +761,13 @@ def get_nanson_winner(votes: list[Any], blank_candidate_name: str = "") -> Optio
         for c in _get_ranking(v, is_dict):
             if c not in all_cands:
                 all_cands.append(c)
+    # votes non-empty but every ballot ranks zero candidates (e.g. [[]]) is
+    # distinct from votes itself being empty (already handled above) --
+    # `min(all_cands)` a few lines down assumes a non-empty fallback list,
+    # same guard get_benham_winner/get_smith_irv_winner already use. Found
+    # fuzzing this function with atheris (Lot 9, PLAN_SOLIDITE_TECHNIQUE.md).
+    if not all_cands:
+        return None
 
     active = set(all_cands)
 
@@ -824,6 +831,12 @@ def get_baldwin_winner(votes: list[Any], blank_candidate_name: str = "") -> Opti
         for c in _get_ranking(v, is_dict):
             if c not in all_cands:
                 all_cands.append(c)
+    # Same "votes non-empty but every ballot ranks nobody" guard as
+    # get_nanson_winner just above, and for the same reason: `min(all_cands)`
+    # a few lines down assumes a non-empty fallback list. Found fuzzing this
+    # function with atheris (Lot 9, PLAN_SOLIDITE_TECHNIQUE.md).
+    if not all_cands:
+        return None
 
     active = set(all_cands)
 

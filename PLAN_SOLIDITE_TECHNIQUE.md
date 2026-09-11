@@ -1371,7 +1371,7 @@ commande, sans pipe, avant de faire confiance au signal.
 | Item | Pourquoi ici | Effort | Solidité | Récit | Statut |
 |---|---|---|---|---|---|
 | **DAST — ZAP baseline** | SAST (Semgrep/CodeQL) ne voit que le code, jamais le comportement de l'app qui tourne. | M | ⭐⭐ | 📝📝 | ✅ `.github/workflows/dast.yml`, nightly + push:develop, non-gating (voir sous le tableau) |
-| **Fuzzing à couverture** (`atheris` ou `hypofuzz`) | Bien plus profond qu'Hypothesis seul sur le moteur et les parseurs. | L | ⭐⭐ | 📝📝📝 | |
+| **Fuzzing à couverture** (`atheris` ou `hypofuzz`) | Bien plus profond qu'Hypothesis seul sur le moteur et les parseurs. | L | ⭐⭐ | 📝📝📝 | ✅ `atheris`, 2 harnais + workflow CI planifié, 4 bugs réels trouvés et corrigés (voir sous le tableau) |
 | **`guarddog`** (Datadog) | Détecte les paquets *malveillants* (typosquatting, install-scripts hostiles) — angle mort de pip-audit/Trivy qui ne voient que les CVE connues. | S | ⭐⭐ | 📝📝📝 | ✅ CI (cron + push develop, informational — voir sous le tableau) |
 | **`trufflehog`** | Secrets **vérifiés actifs**, pas juste des motifs (complète gitleaks + detect-secrets). | S | ⭐ | 📝 | ✅ local + CI, informational (voir sous le tableau) |
 | **OSV-Scanner** | Base de vulnérabilités différente de Trivy, recouvrement imparfait. Mesurer l'écart réel est une bonne expérience. | S | ⭐ | 📝📝📝 | ✅ local + CI, informational (voir sous le tableau) |
@@ -1562,6 +1562,127 @@ rejouer en local lance `gh workflow run dast.yml` ou reproduit les deux
 commandes `docker run` documentées dans le workflow lui-même. Détail complet,
 protocole et pièges :
 [`docs/exploration/EXP-010-zap-baseline-dast.md`](docs/exploration/EXP-010-zap-baseline-dast.md).
+
+**Fuzzing à couverture, détail.** `atheris` vs `hypofuzz` tranché sur l'état
+réel des deux outils, pas sur la réputation — même discipline que le rejet de
+Lost Pixel (EXP-004) et le remplacement `license-checker` →
+`license-checker-rseidelsohn` (Lot 6.7) :
+
+- **`hypofuzz`** réutiliserait directement les stratégies Hypothesis déjà
+  écrites ici (`test_hypothesis_condorcet.py` etc.) — le fit technique le
+  plus naturel sur le papier. Écarté après vérification en direct : sa
+  licence (`LicenseRef-HypoFuzz`, pas une licence OSI) restreint l'usage
+  gratuit aux projets « non commercialement supportés », interdit toute
+  modification/redistribution sans permission écrite, et sa dernière release
+  PyPI (25.11.1, novembre 2025) traîne de ~6 mois derrière le dernier commit
+  du dépôt (mai 2026) — dépôt non archivé, mais rythme clairement ralenti.
+  Rien de disqualifiant en soi pour un usage personnel/pédagogique non
+  commercial, mais une ambiguïté que ce dépôt évite déjà systématiquement
+  pour ses dépendances de PRODUCTION (`scripts/check_license_compliance.sh`)
+  — pas de raison de l'accepter côté dev quand une alternative propre existe.
+- **`atheris`** : Apache-2.0 (licence OSI standard), toujours maintenu par
+  Google (dépôt non archivé, dernier commit 2026-06-17, `pushedAt` vérifié
+  en direct via `gh api`), wheels publiées pour Python 3.11-3.14 —
+  **téléchargées et installées avec succès sur le 3.14.7 exact que pin ce
+  dépôt**, pas juste lu dans un changelog. Retenu.
+
+**Cible : le moteur (26 règles) + les parseurs LLM (9 fonctions
+`decode_*_batch`), pas autre chose.** Grep de tout ce qui ressemble à un
+parseur dans `api/` avant d'écrire une ligne de harnais : la quasi-totalité
+des hits sont soit de la validation Pydantic sur le corps de requête (déjà
+couverte par le Schemathesis du Lot 3), soit du chargement de config/logs
+**de confiance** (repo-controlled). Un seul point du backend décode du texte
+qui n'est ni l'un ni l'autre : la réponse brute d'un LLM
+(`api/domain/polity/llm_client.py`'s `decode_vote_batch` et ses 8 sœurs
+quasi-identiques — regex `<think>` strip → `json.loads` → validation
+Pydantic → alignement des cid) — c'est le seul « parseur » réel de ce
+backend, et la cible exacte que l'item vise.
+
+- `scripts/fuzz_engine.py` — génère des profils de vote délibérément
+  malformés (bulletins vides/dupliqués, candidats unicode/vides, enveloppes
+  dict sans clé `ranking`, scores NaN/inf) qu'`st.permutations(["A","B","C","D"])`
+  (les tests Hypothesis existants) ne peut structurellement jamais produire.
+  Pool de candidats volontairement petit et FIXE pour ne pas faire exploser
+  le chemin exact O(n!) de Kemeny-Young.
+- `scripts/fuzz_llm_parsers.py` — mutation directe des octets bruts d'une
+  réponse LLM, corpus de départ (`fuzz_corpus/llm_parsers/seed_*`, committé)
+  = quelques payloads réalistes (batch valide, `<think>`-wrappé, JSON
+  invalide, prose brute).
+
+**Trois crashes réels trouvés, tous corrigés avec un test de régression
+minimal — pas fabriqués pour justifier l'outil :**
+
+1. `calculate_bayesian_regret` : un bulletin vide (`{}`, un votant qui n'a
+   noté personne) fait planter `max(vote.values())` avec un `ValueError`
+   pour TOUS les candidats, pas juste ce votant — trouvé en 13 exécutions.
+   Corrigé : les bulletins vides sont exclus du calcul (numérateur et
+   dénominateur), même logique que `vote.get(candidate, 0)` traite déjà un
+   candidat absent comme 0 ailleurs dans ce fichier.
+2. `get_nanson_winner` / `get_baldwin_winner` : `votes` non vide mais dont
+   *chaque* bulletin classe zéro candidat (`[[]]`) fait planter le fallback
+   `min(all_cands)` sur une liste vide — trouvé en ~92 exécutions. Corrigé en
+   ajoutant la même garde que `get_benham_winner`/`get_smith_irv_winner`
+   utilisent déjà juste à côté (`if not all_cands: return None`) —
+   incohérence entre fonctions sœurs du même fichier, pas un bug isolé.
+3. `get_majority_judgment_winner` : l'ensemble des candidats était dérivé du
+   PREMIER votant seulement (`utility_scores[0].keys()`) ; un votant suivant
+   notant un candidat que le premier n'avait pas noté faisait planter
+   `all_grades[c]` avec un `KeyError` — trouvé en ~85 exécutions. Corrigé en
+   réutilisant `_score_candidates` (déjà utilisé par `get_cumulative_winner`/
+   `get_maximin_score_winner`/`get_nash_winner` dans le même fichier) pour
+   prendre l'union de tous les votants. `get_evaluative_winner` avait
+   exactement le même défaut de conception sans planter (un candidat non vu
+   par le premier votant disparaissait silencieusement du résultat, jamais
+   une exception) — corrigé par cohérence avec la même fonction utilitaire.
+
+Un quatrième bug trouvé en amont du harnais, en lisant le code plutôt qu'en
+fuzzant (le premier grep des « parseurs » avant d'écrire quoi que ce soit) :
+`decode_vote_batch` et ses 8 sœurs ne rattrapaient que `json.JSONDecodeError`
+autour de `json.loads` — un JSON profondément imbriqué (~10⁵ `[` imbriqués,
+confirmé reproductible depuis un interpréteur neuf) fait déborder la pile C
+du parseur récursif de `json` avec un `RecursionError` NON rattrapé, *avant*
+que `json.JSONDecodeError` n'ait sa chance — un LLM bloqué dans une boucle de
+répétition dégénérée peut produire exactement cette forme. Corrigé (`except
+RecursionError` ajouté aux 9 fonctions) avec un test de régression dédié.
+Note méthodologique honnête : une campagne de fuzzing par mutation de bytes
+n'aurait probablement pas trouvé ce cas-là seule dans un budget de temps
+raisonnable — la couverture d'`atheris` est au niveau du bytecode Python, et
+le parseur JSON en C exécute le même bytecode à chaque niveau
+d'imbrication, donc rien ne récompense le mutateur pour empiler des
+crochets plus profondément.
+
+**Campagne réelle, chiffres mesurés (pas une estimation) :** 5 min par
+harnais après les 4 corrections ci-dessus, machine de dev locale. Moteur :
+**242 108 exécutions** (804 exec/s), couverture stabilisée à `cov: 1160`
+(`ft: 4831`), **zéro nouveau crash**. Parseurs LLM : **44 410 242
+exécutions** (147 542 exec/s — beaucoup plus rapide, l'essentiel du temps
+se passe dans un `json.loads` qui échoue en microsecondes sur du texte
+aléatoire plutôt que dans jusqu'à 25 fonctions de vote), couverture
+stabilisée à `cov: 48`, **zéro nouveau crash**. Verdict honnête : sur la taille actuelle de ce code (26 fonctions pures,
+~1700 lignes cumulées pour le moteur ; 9 fonctions quasi-identiques pour les
+parseurs), la surface explorable sature vite — les 3+1 bugs réels sont
+apparus dans les toutes premières secondes de chaque campagne, et 5 minutes
+supplémentaires n'ont rien trouvé de nouveau. C'est un résultat cohérent
+avec la prémisse de l'item (« plus profond qu'Hypothesis seul ») : les
+Hypothesis existants n'auraient structurellement pas pu générer ces 3
+formes d'entrée (bulletin vide, candidat asymétrique entre votants,
+bulletins tous vides) — mais ça reste modeste en volume de trouvailles, pas
+un gisement inépuisable.
+
+**CI : planifié, jamais bloquant, jamais sur PR** — même arbitrage que
+`mutation-testing.yml`/`schemathesis.yml` (voir leurs commentaires propres) :
+une campagne de fuzzing à couverture n'a de sens qu'avec un vrai budget
+temps (minutes, pas secondes), donc pas un gate de PR. `atheris-fuzzing.yml`
+: 15 min/harnais, `workflow_dispatch` avec un budget configurable, cron
+jeudi 04:44 UTC (le créneau lundi matin a déjà 3 jobs lourds). Corpus
+découvert persisté via `actions/cache` (même logique que le cache
+incrémental de Stryker) — un crash trouvé en CI est uploadé comme artefact
+(90 jours) et rejoue localement avec le même script (`python
+scripts/fuzz_engine.py <fichier-crash>`), même discipline de reproductibilité
+que `scripts/check_flaky_backend.py`.
+
+Détail complet, harnais, et chiffres :
+[`docs/exploration/EXP-011-atheris-coverage-fuzzing.md`](docs/exploration/EXP-011-atheris-coverage-fuzzing.md).
 
 **Signature d'images + provenance SLSA, détail.** Avant d'écrire la moindre
 ligne de YAML : les deux images Docker du repo sont-elles publiées quelque
