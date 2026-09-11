@@ -209,6 +209,16 @@ if [ "$MODE" != "security" ]; then
     note "⚠️ pylint/perflint not installed — \`pip install perflint pylint\` (in requirements-dev.txt)."
   fi
 
+  # --- Python second type-checker opinion: basedpyright ---
+  section "Python second type-checker opinion (basedpyright, informational)"
+  if have_py basedpyright; then
+    ( cd "$PY_DIRS" && python -m basedpyright ) \
+      > "$REPORT_DIR/basedpyright.txt" 2>&1
+    note "$(grep -m1 -E '^[0-9]+ errors?, [0-9]+ warnings?' "$REPORT_DIR/basedpyright.txt" 2>/dev/null || echo 'see report'). See \`$REPORT_DIR/basedpyright.txt\`. Not gated — see PLAN_SOLIDITE_TECHNIQUE.md §6.2 (baseline is ~32 known pydantic/pyright false positives, not zero)."
+  else
+    note "⚠️ basedpyright not installed — \`pip install basedpyright\` (in requirements-dev.txt)."
+  fi
+
   # --- Python unused/undeclared deps: deptry ---
   section "Python unused/undeclared deps (deptry, informational)"
   if have_py deptry; then

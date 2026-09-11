@@ -185,3 +185,26 @@ class TestLegacySimulate:
         body = r.json()
         assert "rankings" in body
         assert "condorcet_winner" in body
+
+    @pytest.mark.parametrize(
+        "simulation_type", ["ranked_scores", "votes_ranked", "votes_scores"]
+    )
+    def test_multi_keyword_simulation_type_does_not_crash(self, client, simulation_type):
+        # `simulationType` is matched by substring ("votes"/"ranked"/"scores" `in`
+        # the value), not by an enum -- a value containing more than one of
+        # those keywords used to reach a second, independent set of `in`
+        # checks that tried to use locals only the FIRST matching branch had
+        # set, crashing with UnboundLocalError (found via basedpyright,
+        # PLAN_SOLIDITE_TECHNIQUE.md Lot 6). Only the first keyword's branch
+        # should ever run; this must return 200, not 500.
+        r = client.post("/api/v2/simulations", json={
+            "formData": {
+                "simulationType": simulation_type,
+                "populationSize": 10,
+                "candidates": ["Alice", "Bob", "Carol"],
+                "demographics": _LEGACY_DEMOGRAPHICS,
+                "turnoutRate": 0.8,
+                "influenceWeights": {"family": 0.3, "peers": 0.5, "media": 0.2},
+            },
+        })
+        assert r.status_code == 200, r.text

@@ -77,10 +77,48 @@ def _simulate_votes_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     # Accumulate the method winners here instead of introspecting locals().
     winners: Dict[str, Any] = {}
 
+    deprecation_warning = (
+        "This legacy endpoint will be removed in a future version. "
+        "Use /simulations/compare or the spatial pipeline endpoints."
+    )
+    response: Dict[str, Any] = {
+        "simulation_type": simulation_type,
+        "deprecation_warning": deprecation_warning,
+        "metadata": {
+            "population_size": population_size,
+            "candidates": candidates,
+            "turnout_rate": turnout_rate,
+            "demographics": demographics,
+            "influence_weights": influence_weights,
+        },
+    }
+
+    # Each branch's response fields are assembled right where its data is
+    # computed (rather than in a later pass re-testing `simulation_type`
+    # independently): a value containing more than one keyword (e.g. a
+    # crafted "ranked_scores") used to match more than one of those later
+    # re-checks even though only one branch here ever ran, crashing with
+    # UnboundLocalError on the branch that never set its locals
+    # (basedpyright's reportPossiblyUnboundVariable caught this class of bug
+    # on this legacy, loosely-typed endpoint; see PLAN_SOLIDITE_TECHNIQUE.md
+    # Lot 6). Co-locating the response assembly with the computation makes
+    # that class of bug structurally impossible instead of just fixed once.
     if "votes" in simulation_type:
         voters, votes, tally = simulate_voters(
             population_size, candidates, demographics, influence_weights, turnout_rate
         )
+        response.update({
+            "votes": [
+                {"voter_id": voter["id"], "preference": voter["preference"]}
+                for voter in voters if voter["turnout"]
+            ],
+            "tally": tally,
+            "voters_sample": [
+                {k: v for k, v in voter.items() if k != "scores" and k != "ranking"}
+                for voter in voters
+            ],
+        })
+
     elif "ranked" in simulation_type:
         voters_r, rankings, first_choice_tally = simulate_ranked_voters(
             population_size, candidates, demographics, influence_weights, turnout_rate
@@ -99,6 +137,17 @@ def _simulate_votes_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             "minimax_winner":      get_minimax_winner(rankings),
             "schulze_winner":      get_schulze_winner(rankings),
         })
+        response.update({
+            "rankings": [
+                {"voter_id": voter["id"], "ranking": voter["ranking"]}
+                for voter in voters_r if voter["turnout"]
+            ],
+            "first_choice_tally": first_choice_tally,
+            "voters_sample": [
+                {k: v for k, v in voter.items() if k != "scores" and k != "preference"}
+                for voter in voters_r
+            ],
+        })
 
     elif "scores" in simulation_type:
         voters_n, all_scores, avg_scores = simulate_score_voters(
@@ -112,50 +161,6 @@ def _simulate_votes_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             "star_voting_winner":          get_star_voting_winner(all_scores),
             "variance_based_winner":       get_variance_based_winner(all_scores),
         })
-
-    deprecation_warning = (
-        "This legacy endpoint will be removed in a future version. "
-        "Use /simulations/compare or the spatial pipeline endpoints."
-    )
-    response = {
-        "simulation_type": simulation_type,
-        "deprecation_warning": deprecation_warning,
-        "metadata": {
-            "population_size": population_size,
-            "candidates": candidates,
-            "turnout_rate": turnout_rate,
-            "demographics": demographics,
-            "influence_weights": influence_weights,
-        },
-    }
-
-    if "votes" in simulation_type:
-        response.update({
-            "votes": [
-                {"voter_id": voter["id"], "preference": voter["preference"]}
-                for voter in voters if voter["turnout"]
-            ],
-            "tally": tally,
-            "voters_sample": [
-                {k: v for k, v in voter.items() if k != "scores" and k != "ranking"}
-                for voter in voters
-            ],
-        })
-
-    if "ranked" in simulation_type:
-        response.update({
-            "rankings": [
-                {"voter_id": voter["id"], "ranking": voter["ranking"]}
-                for voter in voters_r if voter["turnout"]
-            ],
-            "first_choice_tally": first_choice_tally,
-            "voters_sample": [
-                {k: v for k, v in voter.items() if k != "scores" and k != "preference"}
-                for voter in voters_r
-            ],
-        })
-
-    if "scores" in simulation_type:
         response.update({
             "all_scores": [
                 {"voter_id": voter["id"], "scores": voter["scores"]}
