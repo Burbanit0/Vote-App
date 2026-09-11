@@ -506,12 +506,21 @@ Ordered by how much they would change things.
    showed 94% GPU, and the completion rate was a steady **84 requests in 30 minutes** with our
    process as the only client. There is no hang bug. There never was.
 
-   **The real gap is observability**: at population 500 a run can legitimately go an hour with no
-   journal write, no `progress.json` update, and near-zero CPU — and nothing distinguishes that from
-   a genuine freeze. `progress.json` needs an **in-tick heartbeat** (decisions completed, current
-   phase, last LLM response time), not just a per-tick write. Until it has one, the only honest
-   liveness check is the LLM server's own logs, and any "the run is stuck" claim that has not
-   consulted them should be disbelieved — including your own.
+   **The real gap was observability, and it is now closed.** `progress.json` carries an
+   **intra-tick heartbeat**: `ProgressTracker.record_llm_activity` fires on every completed LLM
+   response (via `HeartbeatClient`, which wraps the client in `_llm_client_scope` so none of the
+   nine decision types — nor a tenth — has to remember to report), writing `last_llm_response_at`,
+   `llm_calls_completed` and `tick_in_progress` independently of tick boundaries.
+
+   **Ask `scripts/check_run_liveness.py <run-dir>`, never your own judgement.** It reads the
+   heartbeat, consults the inference server, and refuses to convict on client-side evidence alone:
+   given exactly the picture that fooled me — a stale-looking client and a busy server — it returns
+   ALIVE and says to suspect the heartbeat rather than the run. It also exits 2 ("cannot tell")
+   rather than guessing on a pre-heartbeat run.
+
+   The standing rule this leaves behind: **CPU time and socket age are not evidence** for this
+   workload, and any "the run is stuck" claim that has not asked the server should be disbelieved —
+   including your own.
 
    (One thing did work as designed: SIGTERM produced a correct `digest.json` — `outcome:
    interrupted`, 16/32 ticks, 4624 events, 0 malformed lines. The operator-kill path is sound. It

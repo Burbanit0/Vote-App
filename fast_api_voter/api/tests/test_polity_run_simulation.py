@@ -4574,6 +4574,38 @@ def test_run_simulation_writes_progress_json(tmp_path):
     assert progress["decisions_total"] == 0  # deterministic engine, no LLM decisions
 
 
+def test_progress_json_carries_an_llm_heartbeat_end_to_end(tmp_path):
+    # The intra-tick heartbeat (2026-09-11) proven through the REAL wiring,
+    # not just unit-tested: _llm_client_scope wraps whatever client it yields,
+    # so an injected fake beats exactly like a live vLLM client would.
+    #
+    # This exists because a healthy run was killed for looking dead. The file
+    # must now carry positive evidence of life that does not depend on CPU
+    # time, socket state, or journal chatter -- all three misled.
+    config = _config_with_llm_enabled(tmp_path)
+    run_simulation(config, run_id="hb", llm_client=_FakeLlmClient())
+
+    progress = json.loads((tmp_path / "hb" / "progress.json").read_text(encoding="utf-8"))
+    assert progress["llm_calls_completed"] > 0
+    assert progress["last_llm_response_at"] is not None
+    assert progress["last_llm_response_timestamp"] is not None
+    # Cleared at the end: the run finished, nothing is mid-flight.
+    assert progress["tick_in_progress"] is None
+
+
+def test_progress_json_has_no_heartbeat_on_the_deterministic_path(tmp_path):
+    # A deterministic run makes no LLM call at all, so "no heartbeat" is the
+    # correct report -- not a stalled one. check_run_liveness.py reads this as
+    # "cannot tell" and tells the operator to ask the server, rather than
+    # guessing. Mirrors decisions_by_type == {} being correct, not empty.
+    config = _resumable_config(tmp_path)
+    run_simulation(config, run_id="det")
+
+    progress = json.loads((tmp_path / "det" / "progress.json").read_text(encoding="utf-8"))
+    assert progress["llm_calls_completed"] == 0
+    assert progress["last_llm_response_at"] is None
+
+
 def test_progress_json_reflects_the_full_cumulative_history_after_resume(tmp_path, monkeypatch):
     # The same property Phase 3's own resume tests check for events.jsonl,
     # here for progress.json: cumulative counts must reflect the WHOLE run,

@@ -78,7 +78,7 @@ from api.domain.polity.ballot_and_aggregation import (
     resolve_confidence_vote,
 )
 from api.domain.polity.checkpoint import config_hash, load_checkpoint, restore_rng, save_checkpoint
-from api.domain.polity.progress import ProgressTracker
+from api.domain.polity.progress import HeartbeatClient, ProgressTracker
 from api.domain.polity.snapshots import expected_snapshot_rows, is_snapshot_tick, write_snapshot
 from api.domain.polity.citizen import Citizen, Office, Role, generate_population
 from api.domain.polity.codebook import BallotFormat, EventType, PressureAct, ReactionMotif
@@ -631,10 +631,17 @@ def run_simulation(
 
     with (
         Journal.from_config(config.journal, run_id, start_event_id=start_event_id) as journal,
-        _llm_client_scope(config, llm_client) as client,
+        _llm_client_scope(config, llm_client, progress_tracker) as client,
     ):
         for tick in range(first_tick, clock.total_ticks + 1):
             tick_start_time = time.monotonic()
+            # Publishes "tick N is being computed" before any phase runs, so a
+            # reader can distinguish an in-flight tick from a finished one --
+            # the pair (tick, tick_in_progress) is what makes a pop-500
+            # election tick's legitimate hour of silence legible instead of
+            # looking like a freeze. Paired with record_tick below, which
+            # clears it.
+            progress_tracker.begin_tick(tick)
             # Phase 6: BEFORE this tick's own phases run, not after -- the
             # tick-0 snapshot is then the true initial population, untouched
             # by any simulated decision, and every later year's snapshot
@@ -714,7 +721,11 @@ def run_simulation(
 
 
 @contextmanager
-def _llm_client_scope(config: PolityConfig, llm_client: LlmClientProtocol | None) -> Iterator[LlmClientProtocol | None]:
+def _llm_client_scope(
+    config: PolityConfig,
+    llm_client: LlmClientProtocol | None,
+    progress_tracker: ProgressTracker | None = None,
+) -> Iterator[LlmClientProtocol | None]:
     """v4 vLLM switch (§15bis.6): dispatch on config.llm.provider via
     llm_client.build_json_client, rather than always constructing an
     OllamaJsonClient. Ordering unchanged and still load-bearing: an
@@ -730,16 +741,40 @@ def _llm_client_scope(config: PolityConfig, llm_client: LlmClientProtocol | None
     fake client, which must never make a real HTTP call) -- and always
     before the caller's first real decision, so a cold-model non-
     determinism (see that function's own docstring) never lands on
-    something journaled."""
+    something journaled.
+
+    Whatever is yielded is wrapped for the intra-tick heartbeat when a
+    progress tracker is supplied -- see _with_heartbeat."""
     if llm_client is not None:
-        yield llm_client
+        yield _with_heartbeat(llm_client, progress_tracker)
         return
     if not config.llm.enabled:
         yield None
         return
     with build_json_client(config.llm, seed=config.run.seed) as owned_client:
+        # The warm-up deliberately runs BEFORE wrapping, so a warm-up response
+        # can never make a run look like it is producing decisions.
         _warm_up_llm_client(owned_client)
-        yield owned_client
+        yield _with_heartbeat(owned_client, progress_tracker)
+
+
+def _with_heartbeat(
+    client: LlmClientProtocol, progress_tracker: ProgressTracker | None
+) -> LlmClientProtocol:
+    """Intra-tick heartbeat (2026-09-11). Wrapping at this single point rather
+    than inside llm_behavior_engine is what keeps all nine decision types
+    unaware of the heartbeat -- and what makes it impossible for a tenth to
+    forget to report.
+
+    Applied to an INJECTED client too, not just an owned one. Wrapping adds no
+    HTTP call of its own, so the rule that a fake client must never touch the
+    network is untouched; what this buys is that tests exercise the real
+    wiring instead of a path that only production takes. Given the heartbeat
+    exists because a monitoring gap cost a real run, a version of it that
+    could only be verified in production would be a poor trade."""
+    if progress_tracker is None:
+        return client
+    return HeartbeatClient(client, progress_tracker.record_llm_activity)
 
 
 def _attempt_rupture_candidacies(

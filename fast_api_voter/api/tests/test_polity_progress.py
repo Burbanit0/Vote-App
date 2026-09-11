@@ -8,7 +8,7 @@ the same discipline `checkpoint.py`'s own round-trip tests use.
 import json
 
 from api.domain.polity.journal import Journal
-from api.domain.polity.progress import ProgressTracker, write_progress
+from api.domain.polity.progress import HeartbeatClient, ProgressTracker, write_progress
 
 
 def _write_event(journal, *, event_type, codebook_version="", payload=None, tick=0):
@@ -228,3 +228,206 @@ def test_rolling_window_averages_only_the_most_recent_ticks(tmp_path):
 
     payload = json.loads(progress_path.read_text(encoding="utf-8"))
     assert payload["avg_recent_tick_duration_seconds"] == 1.0
+
+
+# ── Intra-tick heartbeat (2026-09-11) ────────────────────────────────────
+#
+# This whole block exists because per-tick writes alone made a healthy run
+# indistinguishable from a dead one, and a working Stage 3 run was killed on
+# that ambiguity (~2h of GPU compute discarded). See progress.py's module
+# docstring for the four misleading symptoms.
+
+
+def _tracker(tmp_path, **overrides):
+    kwargs = dict(run_id="r1", total_ticks=32, ticks_per_year=4,
+                  progress_path=tmp_path / "progress.json", llm_enabled=True)
+    kwargs.update(overrides)
+    return ProgressTracker(**kwargs)
+
+
+def _progress(tmp_path):
+    return json.loads((tmp_path / "progress.json").read_text(encoding="utf-8"))
+
+
+def test_write_progress_still_valid_without_any_heartbeat_argument(tmp_path):
+    # Back-compat: the three heartbeat parameters default, so a caller that
+    # predates them still produces a well-formed file.
+    write_progress(
+        tmp_path / "progress.json", run_id="r1", tick=1, total_ticks=4, ticks_per_year=4,
+        wall_clock_elapsed_seconds=1.0, last_tick_duration_seconds=1.0,
+        avg_recent_tick_duration_seconds=1.0, decisions_by_type={}, retry_count=0,
+        fallback_count=0, last_checkpoint_tick=1,
+    )
+    payload = _progress(tmp_path)
+    assert payload["tick_in_progress"] is None
+    assert payload["llm_calls_completed"] == 0
+    assert payload["last_llm_response_at"] is None
+    assert payload["last_llm_response_timestamp"] is None
+
+
+def test_begin_tick_publishes_the_tick_being_computed(tmp_path):
+    tracker = _tracker(tmp_path)
+    tracker.begin_tick(16)
+    payload = _progress(tmp_path)
+    assert payload["tick_in_progress"] == 16
+    assert payload["tick"] == 0  # nothing has COMPLETED yet
+
+
+def test_record_tick_clears_tick_in_progress(tmp_path):
+    # The pair (tick, tick_in_progress) is the whole signal: "16 in progress"
+    # and "16 done, nothing started" were indistinguishable before this.
+    tracker = _tracker(tmp_path)
+    tracker.begin_tick(16)
+    tracker.record_tick(tick=16, tick_duration=1.0, wall_clock_elapsed=1.0,
+                        journal_path=tmp_path / "events.jsonl", checkpoint_tick=16)
+    payload = _progress(tmp_path)
+    assert payload["tick"] == 16
+    assert payload["tick_in_progress"] is None
+
+
+def _no_throttle(monkeypatch):
+    """Makes every beat write, for tests about the COUNTER rather than the
+    throttle. Without this they would assert the file is never stale, which
+    is not the contract -- see test_the_file_may_lag_but_only_by_the_throttle."""
+    import api.domain.polity.progress as progress_module
+    monkeypatch.setattr(progress_module, "_HEARTBEAT_MIN_WRITE_INTERVAL_SECONDS", 0.0)
+
+
+def test_record_llm_activity_counts_every_call(tmp_path, monkeypatch):
+    _no_throttle(monkeypatch)
+    tracker = _tracker(tmp_path)
+    tracker.begin_tick(16)
+    for _ in range(50):
+        tracker.record_llm_activity()
+    payload = _progress(tmp_path)
+    assert payload["llm_calls_completed"] == 50
+    assert payload["last_llm_response_at"] is not None
+
+
+def test_the_file_may_lag_but_only_by_the_throttle(tmp_path):
+    # The real contract, stated as a test: the counter is exact IN MEMORY and
+    # the file is a snapshot at most _HEARTBEAT_MIN_WRITE_INTERVAL_SECONDS
+    # stale. That bound is what makes the file trustworthy for liveness -- a
+    # few seconds of lag is irrelevant to a question asked on a minute scale.
+    tracker = _tracker(tmp_path)
+    for _ in range(50):
+        tracker.record_llm_activity()
+    assert tracker._llm_calls_completed == 50          # exact in memory
+    assert _progress(tmp_path)["llm_calls_completed"] == 1  # file lags within the window
+
+
+def test_record_llm_activity_throttles_the_rewrite(tmp_path, monkeypatch):
+    import api.domain.polity.progress as progress_module
+
+    writes = []
+    real_write = progress_module.write_progress
+    monkeypatch.setattr(
+        progress_module, "write_progress",
+        lambda *a, **k: (writes.append(1), real_write(*a, **k))[1],
+    )
+    tracker = _tracker(tmp_path)
+    for _ in range(20):
+        tracker.record_llm_activity()
+    # 20 back-to-back beats inside the 5s window: the first writes, the rest
+    # are suppressed. Rewriting a ~1KB file 20 times for the same second of
+    # information is pure I/O waste.
+    assert len(writes) == 1
+
+
+def test_heartbeat_survives_a_tick_boundary_and_keeps_counting(tmp_path, monkeypatch):
+    _no_throttle(monkeypatch)
+    tracker = _tracker(tmp_path)
+    tracker.begin_tick(1)
+    tracker.record_llm_activity()
+    tracker.record_tick(tick=1, tick_duration=1.0, wall_clock_elapsed=1.0,
+                        journal_path=tmp_path / "events.jsonl", checkpoint_tick=1)
+    tracker.begin_tick(2)
+    tracker.record_llm_activity()
+    assert _progress(tmp_path)["llm_calls_completed"] == 2
+
+
+def test_the_scenario_that_caused_the_incident_is_now_legible(tmp_path, monkeypatch):
+    # 2026-09-11, reconstructed: an election tick mid-flight, journal silent
+    # for an hour because cast_votes decides the whole population before its
+    # caller journals anything, ~0% CPU because the process is blocked on a
+    # GPU server. Previously every visible artifact was frozen and the run
+    # looked dead. Now the file itself says otherwise.
+    _no_throttle(monkeypatch)
+    tracker = _tracker(tmp_path)
+    tracker.record_tick(tick=15, tick_duration=60.0, wall_clock_elapsed=900.0,
+                        journal_path=tmp_path / "events.jsonl", checkpoint_tick=15)
+    tracker.begin_tick(16)
+    tracker.record_llm_activity()
+
+    payload = _progress(tmp_path)
+    assert payload["tick"] == 15            # last COMPLETED tick, unchanged for an hour
+    assert payload["tick_in_progress"] == 16  # ...but tick 16 is being worked on
+    assert payload["llm_calls_completed"] == 1
+    # And the one fact that settles "alive or stuck", with no reference to CPU
+    # time, socket age, or journal silence -- all three of which misled.
+    assert payload["last_llm_response_at"] is not None
+
+
+# ── HeartbeatClient ──────────────────────────────────────────────────────
+
+class _RecordingClient:
+    def __init__(self, raises=None):
+        self.complete_calls = []
+        self.count_calls = 0
+        self._raises = raises
+
+    def complete_json(self, **kwargs):
+        self.complete_calls.append(kwargs)
+        if self._raises is not None:
+            raise self._raises
+        return '{"decisions": []}'
+
+    def count_prompt_tokens(self, **kwargs):
+        self.count_calls += 1
+        return 42
+
+
+def test_heartbeat_client_forwards_kwargs_and_result_untouched():
+    inner = _RecordingClient()
+    beats = []
+    client = HeartbeatClient(inner, lambda: beats.append(1))
+
+    result = client.complete_json(system_prompt="s", user_prompt="u", json_schema={},
+                                  max_tokens=10, think=False, temperature=0.3, seed=7)
+
+    assert result == '{"decisions": []}'
+    # Every kwarg survives -- retry_temperature/retry_seed_base ride on these,
+    # and a wrapper that dropped them would silently disable retry sampling
+    # variation for all nine decision types.
+    assert inner.complete_calls[0]["temperature"] == 0.3
+    assert inner.complete_calls[0]["seed"] == 7
+    assert len(beats) == 1
+
+
+def test_heartbeat_client_does_not_beat_on_a_token_count_probe():
+    # count_prompt_tokens is a max_tokens=1 prefill probe, not a decision.
+    # Counting it would let a run look busy while producing nothing.
+    inner = _RecordingClient()
+    beats = []
+    client = HeartbeatClient(inner, lambda: beats.append(1))
+
+    assert client.count_prompt_tokens(system_prompt="s", user_prompt="u") == 42
+    assert inner.count_calls == 1
+    assert beats == []
+
+
+def test_heartbeat_client_does_not_beat_when_the_call_never_returns():
+    # THE point of the whole mechanism. A request that fails (or, in
+    # production, one that never comes back) must not refresh the heartbeat --
+    # otherwise a stuck run would keep reporting itself alive, which is
+    # exactly the false reassurance this was built to prevent.
+    inner = _RecordingClient(raises=RuntimeError("connection died"))
+    beats = []
+    client = HeartbeatClient(inner, lambda: beats.append(1))
+
+    try:
+        client.complete_json(system_prompt="s", user_prompt="u", json_schema={}, max_tokens=10)
+    except RuntimeError:
+        pass
+
+    assert beats == []
