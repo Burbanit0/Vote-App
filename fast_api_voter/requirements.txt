@@ -16,6 +16,10 @@ redis==8.1.0
 python-dotenv==1.2.3          # 1.2.2: GHSA-mf9w-mj56-hr94 (set_key symlink-follow)
 structlog==26.1.0              # JSON structured logging (api/engine/utils/logger.py)
 PyYAML==6.0.3                  # domain/polity/config.py — polity_config.yaml loader
+sentry-sdk==2.69.1             # Lot 10.1 — error tracking client, points at a
+                                # self-hosted GlitchTip DSN (GLITCHTIP_DSN),
+                                # never Sentry SaaS; GlitchTip speaks the same
+                                # ingestion API so this is the correct package
 
 # ── Data / science (the simulation engine) ───────────────────────────────────
 numpy==2.5.2
