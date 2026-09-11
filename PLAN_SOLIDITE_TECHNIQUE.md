@@ -1006,10 +1006,10 @@ seulement une liste blanche assez large pour ne jamais mordre.
 |---|---|---|---|---|---|
 | **a11y sur *toutes* les routes** | `routes.ts` est déjà « data » — boucler dessus et échouer si une surface n'est pas auditée, même mécanique que l'anti-rot e2e existant. | M | ⭐⭐⭐ | 📝📝 | ✅ déjà fait (voir sous le tableau) |
 | **Régression visuelle** (Playwright screenshots / Lost Pixel) | L'app est quasi entièrement visuelle (SVG, cartes, Recharts) et **rien** ne détecte qu'une carte s'affiche de travers. | M | ⭐⭐⭐ | 📝📝📝 | ⏳ |
-| **Viewport mobile en e2e** | App pédagogique → usage mobile probable, zéro test mobile aujourd'hui. | M | ⭐⭐ | 📝📝 | ⏳ |
+| **Viewport mobile en e2e** | App pédagogique → usage mobile probable, zéro test mobile aujourd'hui. | M | ⭐⭐ | 📝📝 | ✅ `tests/e2e/mobile.spec.ts` + projet `mobile` (voir sous le tableau) |
 | **`i18next-parser`** + `eslint-plugin-i18next` | Clés orphelines/manquantes et chaînes en dur (5 encore trouvées à la main le 06/09). | M | ⭐⭐ | 📝📝 | ⏳ |
 | **Pseudo-locale à chaînes longues** | Casse les layouts avant que l'anglais ou une future langue ne le fasse. | S | ⭐⭐ | 📝📝📝 | ⏳ |
-| **Webkit en e2e** | Seuls chromium et firefox tournent aujourd'hui. | S | ⭐⭐ | 📝 | ⏳ |
+| **Webkit en e2e** | Seuls chromium et firefox tournent aujourd'hui. | S | ⭐⭐ | 📝 | ⏳ bloqué — dépendances système manquantes (`sudo npx playwright install-deps` requis, pas de sudo sans mot de passe dans cet environnement) |
 
 **a11y sur toutes les routes, détail.** Vérifié avant de commencer à
 construire quoi que ce soit (même discipline que le Lot 4.5) : le mécanisme
@@ -1025,6 +1025,50 @@ déplaçables aux flèches). Rejoué en direct : **10/10 tests passent**
 (`npx playwright test tests/e2e/accessibility.spec.ts`, ~15s). Rien à
 construire — l'écart entre l'intitulé de cet item et l'état réel du code
 n'avait simplement jamais été vérifié.
+
+**Viewport mobile en e2e, détail.** Nouveau fichier
+`tests/e2e/mobile.spec.ts`, scopé à un projet Playwright dédié (`mobile`,
+`devices['Galaxy S24']`) via `testMatch`/`testIgnore` réciproques avec les
+projets desktop — pas la suite entière rejouée à une largeur mobile (même
+logique que le fichier a11y séparé), plutôt un test ciblé sur ce qui change
+réellement à cette largeur : la navbar qui se replie derrière un bouton
+« ☰ » en dessous du seuil `lg`. Préset **Android** (moteur Chromium) et
+non iPhone délibérément : le moteur iOS (WebKit) nécessite les mêmes
+dépendances système bloquées pour l'item « Webkit en e2e » ci-dessus, et
+serait de toute façon une deuxième couverture du même moteur que ce projet
+webkit-desktop — hors budget pour cet item, qui porte sur la largeur/le
+tactile, pas sur un deuxième moteur de rendu. Un vrai bug d'ancrage trouvé
+et corrigé au passage : le sélecteur `getByRole('link', { name:
+/playground/i })` sans portée `nav` était ambigu (deux liens « Playground »
+sur la page d'accueil, un dans la navbar et un dans le corps) — corrigé en
+scopant au conteneur `[data-tour="navbar"]`, comme le fait déjà
+`navigation.spec.ts`. Bouton hamburger passé de zéro nom accessible à
+`aria-label`/`data-testid` explicites (`Navbar.tsx`), un vrai gain a11y
+repéré en construisant ce test, pas juste un ajout pour le rendre
+sélectionnable. Suite complète (chromium + firefox + mobile, 227 tests)
+rejouée trois fois : stable, ~55s.
+
+**Viewport mobile en e2e, détail.** Nouveau fichier
+`tests/e2e/mobile.spec.ts`, scopé à un projet Playwright dédié (`mobile`,
+`devices['Galaxy S24']`) via `testMatch`/`testIgnore` réciproques avec les
+projets desktop — pas la suite entière rejouée à une largeur mobile (même
+logique que le fichier a11y séparé), plutôt un test ciblé sur ce qui change
+réellement à cette largeur : la navbar qui se replie derrière un bouton
+« ☰ » en dessous du seuil `lg`. Préset **Android** (moteur Chromium) et
+non iPhone délibérément : le moteur iOS (WebKit) nécessite les mêmes
+dépendances système bloquées pour l'item « Webkit en e2e » ci-dessus, et
+serait de toute façon une deuxième couverture du même moteur que ce projet
+webkit-desktop — hors budget pour cet item, qui porte sur la largeur/le
+tactile, pas sur un deuxième moteur de rendu. Un vrai bug d'ancrage trouvé
+et corrigé au passage : le sélecteur `getByRole('link', { name:
+/playground/i })` sans portée `nav` était ambigu (deux liens « Playground »
+sur la page d'accueil, un dans la navbar et un dans le corps) — corrigé en
+scopant au conteneur `[data-tour="navbar"]`, comme le fait déjà
+`navigation.spec.ts`. Bouton hamburger passé de zéro nom accessible à
+`aria-label`/`data-testid` explicites (`Navbar.tsx`), un vrai gain a11y
+repéré en construisant ce test, pas juste un ajout pour le rendre
+sélectionnable. Suite complète (chromium + firefox + mobile, 227 tests)
+rejouée trois fois : stable, ~55s.
 
 ---
 

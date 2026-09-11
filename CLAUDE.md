@@ -21,7 +21,7 @@ npx vitest run             # unit tests
 npm run lint               # eslint . --ext .js,.jsx,.ts,.tsx  (0 errors is gating)
 npx prettier --config .prettierrc --write <files>
 npm run build              # tsc --noEmit && vite build
-npm run test:e2e           # Playwright, chromium + firefox (~1.5 min)
+npm run test:e2e           # Playwright, chromium + firefox + mobile (~1.5 min)
 ```
 
 **The e2e suite is a gate on every PR** (`.github/workflows/e2e.yml`), not just at

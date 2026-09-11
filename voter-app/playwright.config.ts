@@ -25,10 +25,24 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+      testIgnore: /mobile\.spec\.ts$/,
     },
     {
       name: 'firefox',
       use: { ...devices['Desktop Firefox'] },
+      testIgnore: /mobile\.spec\.ts$/,
+    },
+    // Android (chromium-based), not an iPhone preset: iOS emulation needs
+    // WebKit, whose *rendering engine* is already covered by a desktop pass
+    // elsewhere — this project is about the mobile *viewport + touch
+    // interaction model* (narrow width, collapsed navbar), not a second
+    // engine. Scoped to mobile.spec.ts only via testMatch — running the full
+    // desktop-oriented suite at this width would assert the wrong things
+    // about UI (like the navbar) that only differs below the lg breakpoint.
+    {
+      name: 'mobile',
+      use: { ...devices['Galaxy S24'] },
+      testMatch: /mobile\.spec\.ts$/,
     },
   ],
 
