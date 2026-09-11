@@ -591,13 +591,38 @@ permanent.
 
 *Qui teste les tests ?* Angle de récit fort : la couverture à 91 % ment-elle ?
 
-| Item | Pourquoi ici | Effort | Solidité | Récit |
-|---|---|---|---|---|
-| **Score de mutation ciblé + gating** | mutmut/Stryker tournent mais sont informatifs. Un seuil *par module critique* (le moteur uniquement) vaut mieux qu'un score global mou. | M | ⭐⭐⭐ | 📝📝📝 |
-| **`pytest-randomly`** | Ordre d'exécution aléatoire → révèle les tests couplés par effet de bord (déjà rencontré avec le limiter partagé). | S | ⭐⭐ | 📝📝 |
-| **Chasse au flake nocturne** | Relancer la suite N fois et tracker l'instabilité. Le « flaky check » existe en e2e, rien côté backend. | M | ⭐⭐ | 📝📝 |
-| **Régénérabilité de `engineParity.json`** | Un job qui régénère et diffe prouverait que le fichier n'a pas été édité à la main — aujourd'hui c'est une règle écrite, rien ne l'applique. | S | ⭐⭐⭐ | 📝📝 |
-| **`syrupy`** (snapshots pytest) | Sorties de simulation riches, plus lisibles qu'des assertions à la main. | S | ⭐ | 📝 |
+| Item | Pourquoi ici | Effort | Solidité | Récit | Statut |
+|---|---|---|---|---|---|
+| **Score de mutation ciblé + gating** | mutmut/Stryker tournent mais sont informatifs. Un seuil *par module critique* (le moteur uniquement) vaut mieux qu'un score global mou. | M | ⭐⭐⭐ | 📝📝📝 | ✅ déjà fait (chantier antérieur au présent plan, PR #177/#187/#214 et suivantes) — `mutmut` scopé à `simulation_ranked_utils.py`/`simulation_score_utils.py` (plancher 70%, `[tool.mutmut]` dans `pyproject.toml`), Stryker scopé à `playgroundVoting.ts` (`thresholds.break: 80`, `stryker.config.json`) ; les deux gatent réellement (`continue-on-error` retiré, confirmé dans `mutation-testing.yml`) |
+| **`pytest-randomly`** | Ordre d'exécution aléatoire → révèle les tests couplés par effet de bord (déjà rencontré avec le limiter partagé). | S | ⭐⭐ | 📝📝 | ✅ `pytest-randomly==5.0.0` en dépendance de dev, actif sur chaque run local/CI dès l'installation (aucune config requise) |
+| **Chasse au flake nocturne** | Relancer la suite N fois et tracker l'instabilité. Le « flaky check » existe en e2e, rien côté backend. | M | ⭐⭐ | 📝📝 | ✅ `scripts/check_flaky_backend.py` + `.github/workflows/flaky-check-backend.yml` (nightly + push develop + `workflow_dispatch`) — détail sous le tableau |
+| **Régénérabilité de `engineParity.json`** | Un job qui régénère et diffe prouverait que le fichier n'a pas été édité à la main — aujourd'hui c'est une règle écrite, rien ne l'applique. | S | ⭐⭐⭐ | 📝📝 | ✅ déjà fait (chantier antérieur, PR #172) — `scripts/check_engine_parity_drift.sh`, gate CI (`openapi-contract.yml`'s « Generated artifacts in sync » job), vérifié en vrai à chaque PR de ce plan touchant le moteur (Lots 4.2-4.4) |
+| **`syrupy`** (snapshots pytest) | Sorties de simulation riches, plus lisibles qu'des assertions à la main. | S | ⭐ | 📝 | |
+
+**Chasse au flake nocturne, détail.** `scripts/check_flaky_backend.py` relance
+la suite 3× (chacune un process indépendant, un ordre `pytest-randomly`
+différent à chaque fois — pas des retries dans le même process, qui ne
+verraient pas un couplage lié à l'ordre de *collecte*), et diffe le résultat
+de chaque test entre les 3 exécutions. Détecteur vérifié en direct sur un
+couplage synthétique injecté (un test qui lit un état de module écrit par
+un autre) avant de lui faire confiance — le genre de vérification que ce
+projet applique systématiquement à ses propres détecteurs.
+
+Piège rencontré en le construisant : la première version passait
+`-o addopts=""` sans rien d'autre, ce qui supprime aussi bien le
+`--ignore` du fichier Schemathesis lent que la parallélisation `-n auto` du
+`addopts` par défaut — un run séquentiel de la suite complète (avec le
+fichier lent en plus) est passé de ~80s à ~1000s, soit ~50 minutes pour 3
+runs. Corrigé en réinjectant explicitement les deux. Effet de bord accepté,
+documenté dans le script : avec `-n auto`, un couplage qui n'existe qu'au
+sein d'un même *worker* peut atterrir sur des workers différents à chaque
+run et donc échouer (ou réussir) de façon constante plutôt que de varier —
+ce script ne le détecterait pas comme flaky, mais un échec constant est de
+toute façon déjà attrapé par la suite normale à chaque PR, donc rien ne
+reste durablement invisible.
+
+**3 exécutions réelles de la suite complète (1974 tests, ~16-18s chacune)
+lancées pendant ce développement : 0 flake trouvé.**
 
 ---
 

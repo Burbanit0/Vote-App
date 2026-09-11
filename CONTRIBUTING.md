@@ -156,6 +156,7 @@ ou un gate, mettez cette table à jour dans la même PR.
 | `audit.yml` (Security Audit) | push/PR + cron lundi 06:00 UTC + `merge_group` | Semgrep/Trivy/Secret Scan : oui · CodeQL : le job doit terminer mais ne bloque pas sur ses trouvailles (elles atterrissent dans l'onglet Security) · code mort/duplication/complexité (vulture/radon/deptry/knip/jscpd) : non-bloquant sauf régression du cliquet (`quality-baseline.json`) · scan d'image Docker + SBOM (`image-scan`) : non-bloquant, et ne tourne que sur push `develop`/cron — jamais sur une PR (build de 2 images, coûte plusieurs minutes) | Oui (les 4 jobs gating + les 2 jobs CodeQL du matrix — `image-scan` n'est pas requis) | ~2-3 min sur PR (le run cron/push `develop`, qui inclut `image-scan`, est plus long et indépendant d'une PR) |
 | `mutation-testing.yml` (Mutation Testing) | push sur `develop` (paths engine uniquement) + `workflow_dispatch` + cron lundi 04:17 UTC | Non — jamais bloquant | Non — ne se déclenche jamais sur PR | mutmut ~40 min-3h · Stryker jusqu'à ~2h30 en cold-cache (`timeout-minutes: 240`), moins avec le cache `--incremental` une fois chaud |
 | `schemathesis.yml` (Schemathesis Contract Fuzzing) | push sur `develop` (paths `fast_api_voter/api/**`) + `workflow_dispatch` + cron lundi 05:38 UTC | Non — jamais bloquant | Non — ne se déclenche jamais sur PR | ~220s (~3.5-4 min) en local, non re-mesuré sur un runner GitHub réel (`timeout-minutes: 45` par prudence) |
+| `flaky-check-backend.yml` (Backend Flaky Test Hunt) | push sur `develop` (paths `fast_api_voter/api/**`) + `workflow_dispatch` + cron quotidien 03:13 UTC | Non — jamais bloquant | Non — ne se déclenche jamais sur PR | ~1 min en local (3 exécutions parallélisées `-n auto`, ~16-18s chacune) |
 | `release.yml` (🚀 Release Vote Lab) | `workflow_dispatch` uniquement | N/A — pas de PR, gate lui-même sur CI+E2E avant de taguer `main` | N/A | dépend de `ci-frontend`/`ci-backend`/`e2e` + publication |
 | `scorecard.yml` (OpenSSF Scorecard) | push `develop` + cron mardi 07:30 UTC + changement de règle de protection + `workflow_dispatch` | Non — score publié dans l'onglet Security, jamais bloquant | Non | ~1-2 min |
 
@@ -608,6 +609,40 @@ de mutation ne peut bouger que si le code muté bouge.
 > `pull_request`, eux, utilisent le fichier de la branche poussée. Un nouveau
 > workflow qui ne serait déclenché que par `schedule`/`workflow_dispatch` sera
 > inerte tant que `main` n'aura pas rattrapé `develop`.
+
+### Ordre de test aléatoire et chasse au flake (Lot 5)
+
+`pytest-randomly` (dépendance de dev) mélange l'ordre des tests à **chaque**
+run, local ou CI, sans configuration — un ordre de collecte figé masque les
+tests couplés par un état partagé (global de module, fixture mal isolée),
+exactement le genre de piège déjà rencontré une fois avec le rate limiter
+partagé entre tests.
+
+Un run isolé ne montre qu'**un seul** ordre parmi des millions possibles ;
+le signal de flakiness vient de comparer plusieurs runs entre eux, pas d'un
+run réussi. `scripts/check_flaky_backend.py` relance la suite complète 3
+fois (process indépendants, seed `pytest-randomly` différente à chaque
+fois) et diffe le résultat de chaque test entre les 3 runs :
+
+```bash
+python scripts/check_flaky_backend.py --runs 3
+```
+
+`.github/workflows/flaky-check-backend.yml` l'exécute nightly + sur push
+`develop` touchant le moteur + `workflow_dispatch`, jamais bloquant sur PR
+(coût de 3 passes complètes, pas de place dans un gate par PR). Détecteur
+vérifié en direct sur un couplage synthétique injecté avant de lui faire
+confiance ; 3 exécutions réelles de la suite complète pendant le
+développement de ce script : 0 flake trouvé.
+
+**Limite assumée** : le script tourne avec `-n auto` (comme la suite
+normale) pour rester à l'échelle de la minute plutôt que de la dizaine de
+minutes. Un couplage qui n'existe qu'entre deux tests d'un même *worker*
+xdist peut, selon la façon dont xdist les répartit, échouer (ou réussir) de
+façon constante au lieu de varier d'un run à l'autre — ce script ne le
+détecterait pas comme flaky. Un échec constant reste néanmoins visible : il
+est attrapé par la suite normale à la prochaine PR qui touche ce code,
+donc rien ne reste durablement invisible, juste classé différemment.
 
 **Règles de processus pour limiter la dérive à l'usage d'un LLM :**
 
