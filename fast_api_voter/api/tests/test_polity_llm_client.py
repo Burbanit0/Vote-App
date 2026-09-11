@@ -649,15 +649,43 @@ def test_decode_vote_batch_strips_think_tags():
     assert decisions[0].cid == 1
 
 
-def test_decode_vote_batch_rejects_deeply_nested_json_without_crashing():
+@pytest.mark.parametrize(
+    "decode_fn",
+    [
+        lambda raw: decode_vote_batch(raw, expected_cids=[1]),
+        lambda raw: decode_party_nomination_batch(raw, expected_party_ids=[1]),
+        lambda raw: decode_positioning_batch(raw, expected_cids=[1]),
+        lambda raw: decode_response_batch(raw, expected_cids=[1]),
+        lambda raw: decode_pressure_batch(raw, expected_cids=[1]),
+        lambda raw: decode_reaction_batch(raw, expected_cids=[1]),
+        lambda raw: decode_chamber_batch(raw, expected_cids=[1]),
+        lambda raw: decode_coalition_batch(raw, expected_party_ids=[1]),
+        lambda raw: decode_candidacy_batch(raw, expected_cids=[1]),
+    ],
+    ids=[
+        "decode_vote_batch",
+        "decode_party_nomination_batch",
+        "decode_positioning_batch",
+        "decode_response_batch",
+        "decode_pressure_batch",
+        "decode_reaction_batch",
+        "decode_chamber_batch",
+        "decode_coalition_batch",
+        "decode_candidacy_batch",
+    ],
+)
+def test_decode_batch_rejects_deeply_nested_json_without_crashing(decode_fn):
     """Regression test (Lot 9, PLAN_SOLIDITE_TECHNIQUE.md — atheris fuzzing
-    campaign against this function). json.loads' recursive-descent parser
+    campaign against decode_vote_batch). json.loads' recursive-descent parser
     overflows the interpreter's C stack on pathologically deep nesting
     *before* it can raise JSONDecodeError -- an LLM stuck in a degenerate
     repetition loop emitting `[[[[[...` is exactly this shape, and the
     original `except json.JSONDecodeError` alone let a bare RecursionError
-    escape decode_vote_batch (and all 8 sibling decode_*_batch functions,
-    which share the identical parse step) uncaught.
+    escape decode_vote_batch uncaught. All 9 decode_*_batch functions share
+    the identical parse step and fix (each has its own `except
+    RecursionError` block, not one shared helper) -- parametrized over all 9
+    rather than just decode_vote_batch, since diff-cover's 100%-changed-lines
+    gate treats each function's own except block as its own uncovered lines.
 
     Triggering a REAL stack overflow from a fixed nesting count turned out to
     be environment-dependent, not a fixed constant: 100_000 nested `[`
@@ -666,13 +694,13 @@ def test_decode_vote_batch_rejects_deeply_nested_json_without_crashing():
     a larger default C stack -- caught by a real CI failure, not assumed.
     Rather than chase an ever-larger nesting count against an unknown ceiling
     on every possible runner, mock json.loads to raise RecursionError
-    directly: what's actually under test is decode_vote_batch's `except
+    directly: what's actually under test is each function's own `except
     RecursionError` handler, not CPython's own stack-depth implementation
     detail (which the fuzzing campaign already demonstrated is reachable in
     practice)."""
     with patch("json.loads", side_effect=RecursionError("Stack overflow (used 8192 kB)")):
         with pytest.raises(LlmResponseError, match="too deeply nested"):
-            decode_vote_batch("[1]", expected_cids=[1])
+            decode_fn("[1]")
 
 
 # ── decode_candidacy_batch ────────────────────────────────────────────────
