@@ -99,7 +99,12 @@ const Navbar: React.FC = () => {
           </Badge>
         </BootstrapNavbar.Brand>
 
-        <BootstrapNavbar.Toggle aria-controls="votelab-nav" aria-expanded={navExpanded} />
+        <BootstrapNavbar.Toggle
+          aria-controls="votelab-nav"
+          aria-expanded={navExpanded}
+          aria-label={t('nav.toggleLabel')}
+          data-testid="navbar-toggle"
+        />
 
         <BootstrapNavbar.Collapse id="votelab-nav">
           {/* ── Main nav — Playground → Laboratoire → À vous de jouer ── */}

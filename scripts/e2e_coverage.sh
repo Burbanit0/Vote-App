@@ -31,7 +31,7 @@
 #     aggregate report.
 #
 # Usage:
-#   ./scripts/e2e_coverage.sh              # both chromium + firefox projects
+#   ./scripts/e2e_coverage.sh              # all Playwright projects (chromium, firefox, mobile)
 #   ./scripts/e2e_coverage.sh --chromium-only
 #
 # Requires: backend deps installed (fast_api_voter, coverage.py is already a

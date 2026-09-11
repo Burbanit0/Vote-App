@@ -238,7 +238,7 @@ Types valides : `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `ci`, `secur
 
 ```bash
 cd fast_api_voter && uvicorn api.main:app --port 4434   # Assemblée + 2 fiches du Lab en ont besoin
-cd voter-app && npm run test:e2e                        # chromium + firefox, ~1,5 min
+cd voter-app && npm run test:e2e                        # chromium + firefox + mobile, ~1 min
 ```
 
 La suite a déjà pourri une fois : 5 specs figées sur une UI qui avait bougé

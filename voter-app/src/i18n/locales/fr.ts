@@ -34,6 +34,7 @@ const fr = {
     darkModeTip: 'Mode sombre',
     guidedTour: 'Tour guidé',
     tourLabel: 'Tour guidé',
+    toggleLabel: 'Menu de navigation',
     logout: 'Déconnexion',
     login: 'Connexion',
     register: 'Créer un compte',
