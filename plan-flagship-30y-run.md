@@ -10,8 +10,12 @@
 
 **Overall status: Phases 0, 0bis, 1, 3, 4, 5 and 6 DONE. Phase 2 FAILED its own
 gate (does not ship) — the flagship runs sequential, and Phases 3/4/6 are what
-make that survivable, watchable, and useful once it's done. Starting Phase 7.**
-(last updated 2026-09-07)
+make that survivable, watchable, and useful once it's done. Phase 7 IN PROGRESS:
+Stages 1-3 done, Stage 3 found a critical vote_cast bug (fixed, 246da0b) that
+was never re-verified at population-500 scale — Stage 3 needs re-running before
+Stage 4 (the actual flagship) can proceed. See the Risks section and the
+2026-09-10 execution log entries below.**
+(last updated 2026-09-10)
 
 | Phase | What | Status |
 |---|---|---|
@@ -934,10 +938,19 @@ code Phases 2-3 touch.
   `replays=0`** — they are testing the concurrency and resume machinery, not the
   flagship's own configuration.
 - **Scientific validity, not just throughput.** Several decision types are
-  quality-unvalidated against ground truth (`pressure_action` sits at 52.9-60%
-  vs an ≥80% bar). A longer run produces more of the same unverified numbers.
-  This plan labels rather than fixes that — worth an explicit decision if the UI
-  intends to present those metrics as findings.
+  quality-unvalidated against ground truth. **`pressure_action` is RESOLVED**
+  (2026-09-10, `polity-decision-contracts.md` Phases A-E,
+  `fast_api_voter/scripts/check_pressure_shipped_wiring_results.md`): the root
+  cause was a missing scale reference, not the model or the format;
+  `decide_pressure_actions` now sends `blank_threshold` and chunks at batch
+  size 1 (the only size that clears the quality bar), verified at four
+  independent levels including a real small run. Cost: +0.85h over this plan's
+  own ~35.6h baseline (`check_pressure_batch_size_cost_results.md`) — folded
+  into whatever Stage 3's re-run measures next. **Still open**:
+  `coalition_decision` and `representative_response` show the identical
+  collapse signature and have a written (but unbuilt) calibration vehicle each
+  in `polity-decision-contracts.md` §3 — this plan still labels rather than
+  fixes those two, an explicit decision for whoever runs Stage 4.
 - **Population 1000 is not just 2× of 500.** `sortition_chamber.seats` at 3%,
   ~40-way party nomination arbitration, and `max_candidates_hard_cap` binding all
   get worse. Re-run Phase 5 before the 1000 run rather than assuming it scales.
@@ -1178,3 +1191,35 @@ Newest last. One line per landed step, with the commit hash where there is one.
   flagship's own presidential elections would silently run on the
   deterministic fallback instead of the LLM, undermining a substantial part
   of what the run exists to produce.
+- **2026-09-10** — The truncation fix above (`246da0b`) landed the same day,
+  verified only offline (mypy/tests green, one regression test) -- its own
+  live-verification script (`check_vote_cast_truncation_fix.py`) was written
+  but never run, and **Stage 3 has not been re-run since**. Work pivoted
+  instead to a separate, real finding: `pressure_action`'s content-blind
+  collapse (this Risks section's own "52.9-60% vs an ≥80% bar" line) turned
+  out to have a diagnosable, fixable root cause -- see
+  `polity-decision-contracts.md` and `plan-llm-protocol-and-theory-program.md`
+  §5.C/§3.B.7. That work (Phases A-E, a separate session) shipped
+  `pressure_action`'s own calibration fix, folded into the Risks section
+  above. It does not touch or substitute for this plan's own Stage 3 gate --
+  the vote_cast truncation fix still needs a real population-500 re-run
+  before Stage 4 can proceed, exactly as stated above.
+
+  Incidentally found and fixed while re-verifying pressure_action's own live
+  tests: `test_polity_vllm_live.py::test_structured_output_is_honored_on_a_
+  full_size_vote_batch` reliably hit `finish_reason='length'` against the
+  real server. Root cause, confirmed live in two steps (not assumed): (1) the
+  test sized `max_tokens` via plain `compute_max_tokens`, not `cast_votes`'s
+  own `_dynamic_max_tokens` -- fixed, and it STILL failed identically with an
+  ample maximized budget (7254 tokens against an 8830-token prompt), so this
+  was not a sizing bug; (2) the test sent `config.llm.max_batch_size` (25)
+  citizens **unchunked**, a shape `cast_votes` never produces in production
+  (it always chunks at `_vote_cast_chunk_size`, 3 on vLLM) specifically
+  because an oversized batch triggers the "Mode A" non-convergent reasoning
+  loop `build_system_prompt`'s own docstring already documents. Fixed by
+  testing at the real production chunk size instead -- now passes live, and
+  as a side effect gives the `246da0b` truncation fix its first live
+  confirmation (10 candidates, crossing the `>6` truncation threshold, at the
+  batch size that actually ships). Confirmed this was a test-harness shape
+  mismatch, not a real risk to the flagship: `cast_votes` was never at risk
+  since it never sends this shape.

@@ -47,7 +47,10 @@ from api.domain.polity.codebook import PressureMotif
 from api.domain.polity.config import load_config
 from api.domain.polity.journal import Journal
 from api.domain.polity.llm_behavior_engine import (
+    _VOTE_THINK_TOKEN_ALLOWANCE,
     PressureContext,
+    _dynamic_max_tokens,
+    _vote_cast_chunk_size,
     build_system_prompt,
     build_user_prompt,
     compute_max_tokens,
@@ -104,17 +107,48 @@ def test_vllm_serves_the_configured_model_id():
 def test_structured_output_is_honored_on_a_full_size_vote_batch(client):
     """Mirrors test_polity_llm_live.py's Ollama equivalent -- the first
     question is simply whether vLLM's response_format/json_schema honors
-    this project's real, $ref-bearing schema at all."""
+    this project's real, $ref-bearing schema at all.
+
+    Correction, 2026-09-10, in two steps -- both confirmed live, not
+    assumed. Step 1: the original call sized max_tokens via plain
+    compute_max_tokens(chunk_size), with no reasoning allowance --
+    think=True defaults on, and cast_votes (the real production call
+    site) NEVER sizes a think=True call that way, always adding
+    _dynamic_max_tokens's own probe-and-maximize budget. Fixed that, and
+    it STILL failed identically (finish_reason='length'), with real
+    prompt_tokens=8830 and a maximized budget of 7254 -- ample room, not
+    a sizing problem. Step 2, the actual root cause: `config.llm.
+    max_batch_size` (25) citizens in ONE unchunked call is a shape
+    cast_votes NEVER sends -- production always chunks at
+    _vote_cast_chunk_size(config) (3 on vLLM), specifically because an
+    oversized batch is documented elsewhere in this module (build_
+    system_prompt's own docstring) to trigger a real, non-convergent
+    "Mode A" reasoning loop that burns the entire budget re-quoting the
+    prompt's own ranking rule without ever emitting JSON. This test's own
+    10 candidates (crossing the >6 truncation threshold, §3.6.1) at 25
+    unchunked citizens was exactly that trigger -- a test-harness shape
+    mismatch, not a real vLLM or cast_votes issue (cast_votes was never
+    at risk; it never sends this shape). Fixed by testing at cast_votes's
+    own real chunk size instead, which still exercises the same $ref
+    schema and the same >6-candidate truncation path the 2026-09-10
+    truncation-limit fix (246da0b) specifically targets -- just at the
+    batch size that actually ships."""
     config = load_config()
     dims = config.citizens.issue_count
-    citizens = [_citizen(i, dims) for i in range(config.llm.max_batch_size)]
+    citizens = [_citizen(i, dims) for i in range(_vote_cast_chunk_size(config))]
     candidates = [_candidate(i, dims) for i in range(10)]
+    system_prompt = build_system_prompt(citizens, candidates)
+    user_prompt = build_user_prompt(citizens, candidates)
 
     raw = client.complete_json(
-        system_prompt=build_system_prompt(citizens, candidates),
-        user_prompt=build_user_prompt(citizens, candidates),
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
         json_schema=VOTE_CAST_JSON_SCHEMA,
-        max_tokens=compute_max_tokens(config.llm.max_batch_size),
+        max_tokens=_dynamic_max_tokens(
+            client, config, system_prompt=system_prompt, user_prompt=user_prompt,
+            chunk_size=len(citizens), flat_allowance=_VOTE_THINK_TOKEN_ALLOWANCE,
+        ),
+        think=True,
     )
     decisions = decode_vote_batch(raw, expected_cids=[c.citizen_id for c in citizens])
     assert len(decisions) == len(citizens)
