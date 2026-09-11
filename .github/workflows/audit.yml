@@ -91,6 +91,19 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_CONFIG: .gitleaks.toml # default ruleset + triaged FP allowlist
+      # TruffleHog (Lot 9, PLAN_SOLIDITE_TECHNIQUE.md): complements Gitleaks'
+      # pattern match with LIVE credential verification against the
+      # provider's own API — a secret that doesn't actually work is a much
+      # lower-priority finding than one that does. Non-gating on purpose
+      # (Solidité rating in the plan is the lowest of this Lot's four items):
+      # `continue-on-error` rather than the action's own default `--fail`
+      # behavior, matching the informational framing of the item.
+      - name: TruffleHog (verified-active secrets, informational)
+        if: always()
+        continue-on-error: true
+        uses: trufflesecurity/trufflehog@363923b901c911a9164f50b6c423f47c15372b1c # v3.97.4
+        with:
+          extra_args: --results=verified
 
   # ---------------------------------------------------------------
   trivy:
@@ -150,6 +163,87 @@ jobs:
           exit-code: "1"
           skip-dirs: voter-app/node_modules,.claude,graphify-out
           trivyignores: .trivyignore.yaml
+
+  # ---------------------------------------------------------------
+  # OSV-Scanner (Lot 9, PLAN_SOLIDITE_TECHNIQUE.md): a different vulnerability
+  # database than Trivy above, imperfect overlap by design (see
+  # docs/exploration/ for the measured gap on this repo's actual deps — both
+  # currently agree at zero HIGH/CRITICAL, cross-checked against pip-audit).
+  # Non-gating (`fail-on-vuln: false`) — this item's whole value is the
+  # SECOND OPINION, not a new gate duplicating Trivy's. Uses the maintainers'
+  # own reusable workflow (recommended over the standalone action, whose
+  # per-step behavior the README warns can change on a minor bump).
+  osv-scanner:
+    name: Dependency vulnerabilities — second opinion
+    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@6e4298ebc4db23e847df9b2e2de2939d6f066c67 # v2.5.1
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    with:
+      fail-on-vuln: false
+      scan-args: |-
+        --recursive
+        --data-source=native
+        ./
+
+  # ---------------------------------------------------------------
+  # GuardDog (Lot 9, PLAN_SOLIDITE_TECHNIQUE.md): detects MALICIOUS packages
+  # (typosquatting, hostile install scripts) — a blind spot of every CVE
+  # scanner above, which only sees already-disclosed vulnerabilities.
+  # Own job, own setup-python: guarddog pins pygit2<1.19, and pygit2 only
+  # ships cp314 wheels from 1.20.0 onward (verified against PyPI's own file
+  # index) — installing it against this repo's real 3.14-pinned backend venv
+  # would force a from-source pygit2 build. 3.13 is the newest version with a
+  # compatible pygit2 wheel.
+  # Cron + push-to-develop only, same reasoning as the image-scan job below:
+  # a real per-package download + static-analysis pass (not a local pattern
+  # match, unlike everything else in this file) — verified locally at ~90s
+  # wall-clock for 4 packages via its own 16-way worker-thread concurrency,
+  # but that run only succeeded after working around an IPv6 connectivity
+  # hang specific to the sandboxed dev session that found this (a stuck TCP
+  # SYN to pypi.org's IPv6 address, confirmed via /proc; GitHub Actions
+  # runners are not expected to hit this). Real per-PR timing on this repo's
+  # full dependency set is unmeasured from that session — kept off the
+  # normal PR loop out of the same caution as EXP-004's container: recommend
+  # observing a clean scheduled/develop-push run before ever considering it
+  # for the PR path. Non-gating regardless.
+  guarddog:
+    name: Malicious packages (GuardDog, informational)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: github.event_name == 'schedule' || (github.event_name == 'push' && github.ref == 'refs/heads/develop')
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with: { python-version: "3.13", cache: "pip" }
+      - run: pip install guarddog
+      # guarddog's requirements parser silently drops any line whose inline
+      # `#` comment follows extra whitespace (this repo's convention for
+      # documenting *why* a version is pinned — see any line of
+      # requirements.txt) -- verified: 11/15 lines were silently ignored
+      # before this fix (scripts/audit.sh does the same, kept in sync).
+      # Comment-stripped TEMP copy, never the real file (those comments are
+      # load-bearing documentation, not scanned).
+      - name: GuardDog (PyPI, production deps)
+        continue-on-error: true
+        run: |
+          sed -E 's/[[:space:]]+#.*$//' fast_api_voter/requirements.txt > /tmp/requirements-stripped.txt
+          guarddog pypi verify /tmp/requirements-stripped.txt \
+            --output-format json > guarddog-pypi.json
+      - name: GuardDog (npm, production deps)
+        continue-on-error: true
+        run: |
+          guarddog npm verify voter-app/package.json \
+            --output-format json > guarddog-npm.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: guarddog-report
+          path: |
+            guarddog-pypi.json
+            guarddog-npm.json
+          if-no-files-found: ignore
 
   # ---------------------------------------------------------------
   # Built-image scan + SBOM. Neither Dockerfile is exercised by any other

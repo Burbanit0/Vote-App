@@ -79,6 +79,25 @@ if [ "$MODE" != "quality" ]; then
     note "⚠️ gitleaks not installed — runs in CI (.github/workflows/audit.yml)."
   fi
 
+  # --- Secrets, verified-active only: TruffleHog (Lot 9, PLAN_SOLIDITE_TECHNIQUE.md
+  # — complements Gitleaks above: live credential verification against the
+  # provider's own API, not just a regex match. Output is NDJSON, one finding
+  # per line, hence `wc -l` rather than the jq-based `count` helper.) ---
+  section "Secrets — verified-active only (TruffleHog, informational)"
+  if have trufflehog; then
+    trufflehog filesystem --no-update --results=verified --json \
+      "$PY_DIRS/api" "$PY_DIRS/scripts" "$TS_DIR/src" "$TS_DIR/tests" scripts docs \
+      > "$REPORT_DIR/trufflehog.json" 2> "$REPORT_DIR/trufflehog.log"
+    TH_COUNT=$(wc -l < "$REPORT_DIR/trufflehog.json" 2>/dev/null | tr -d ' ')
+    if [ "${TH_COUNT:-0}" = "0" ]; then
+      note "✅ No verified-active secrets. See \`$REPORT_DIR/trufflehog.json\` (empty)."
+    else
+      note "🔴 $TH_COUNT verified-active secret(s). See \`$REPORT_DIR/trufflehog.json\`. Not gated — see PLAN_SOLIDITE_TECHNIQUE.md §9."
+    fi
+  else
+    note "⚠️ trufflehog not installed — runs in CI. Local: https://github.com/trufflesecurity/trufflehog#installation."
+  fi
+
   # --- SAST: Semgrep (multi-lang security rulesets) ---
   section "SAST (Semgrep)"
   if have semgrep; then
@@ -110,6 +129,63 @@ if [ "$MODE" != "quality" ]; then
       note "🔴 $(count '[.Results[]?.Vulnerabilities[]?]|length' "$REPORT_DIR/trivy.json") HIGH/CRITICAL vuln(s). See \`$REPORT_DIR/trivy.json\`."
   else
     note "⚠️ trivy not installed — runs in CI."
+  fi
+
+  # --- Dependency vulnerabilities, second opinion: OSV-Scanner (Lot 9,
+  # PLAN_SOLIDITE_TECHNIQUE.md — a different vuln DB than Trivy above; see
+  # docs/exploration/ for the measured overlap). Explicit -L per lockfile
+  # rather than `-r .`: a recursive directory scan silently finds zero
+  # package sources when run from inside a git *worktree* (confirmed
+  # reproducible — the same lockfiles are found fine via -L, or via -r in a
+  # plain non-worktree checkout; likely irrelevant to CI's normal checkout,
+  # but -L sidesteps it either way and is faster). --data-source native
+  # avoids a deps.dev gRPC resolution call that timed out in this sandboxed
+  # dev environment (plain HTTPS to both osv.dev and deps.dev is reachable —
+  # the gRPC transport specifically was the problem); detection verified
+  # against known-CVE pins (urllib3==1.26.4, Jinja2==2.4.1 -> 18 real
+  # findings each) before trusting a clean result on this repo's real deps.
+  section "Dependency vulnerabilities — second opinion (OSV-Scanner, informational)"
+  if have osv-scanner; then
+    osv-scanner scan source \
+      -L "$PY_DIRS/requirements.txt" -L "$PY_DIRS/requirements-dev.txt" \
+      -L "$TS_DIR/package-lock.json" \
+      --data-source native \
+      --format json --output-file "$REPORT_DIR/osv-scanner.json" >/dev/null 2>&1
+    note "$(count '[.results[]?.packages[]?.vulnerabilities[]?]|length' "$REPORT_DIR/osv-scanner.json") vulnerability finding(s) (any severity). See \`$REPORT_DIR/osv-scanner.json\`. Not gated — see PLAN_SOLIDITE_TECHNIQUE.md §9."
+  else
+    note "⚠️ osv-scanner not installed — runs in CI. Local: download a release binary from https://github.com/google/osv-scanner/releases."
+  fi
+
+  # --- Malicious packages (not just known CVEs): GuardDog (Lot 9,
+  # PLAN_SOLIDITE_TECHNIQUE.md — typosquatting, hostile install scripts; a
+  # blind spot of pip-audit/Trivy/OSV-Scanner above, which only see already-
+  # disclosed CVEs). NOT in requirements-dev.txt: guarddog pins
+  # pygit2<1.19, and pygit2 only shipped cp314 wheels from 1.20.0 onward
+  # (verified against PyPI's file index) — installing it into this repo's
+  # actual 3.14-pinned backend venv would force a from-source pygit2 build
+  # (needs libgit2 headers, not guaranteed present) or fail outright.
+  # `have` (PATH binary), not `have_py`, matches the Semgrep pattern above:
+  # install guarddog into its own venv (Python <=3.13) or via `pipx`, not
+  # into fast_api_voter/.venv. Scoped to requirements.txt (production) only
+  # for the local run — requirements-dev.txt roughly doubles the wall time
+  # for lower-priority (non-shipped) risk; CI's own job covers both.
+  # guarddog's requirements parser silently drops any line whose inline `#`
+  # comment follows extra whitespace (this repo's convention for documenting
+  # *why* a version is pinned, e.g. a CVE ID -- see any line of
+  # requirements.txt) -- verified: 11/15 lines of this repo's real
+  # requirements.txt were silently ignored before this fix. Feed it a
+  # comment-stripped TEMP copy instead of editing the real file (those
+  # comments are load-bearing documentation, not scanned).
+  section "Malicious packages (GuardDog, informational)"
+  if have guarddog; then
+    GUARDDOG_TMP="$(mktemp)"
+    sed -E 's/[[:space:]]+#.*$//' "$PY_DIRS/requirements.txt" > "$GUARDDOG_TMP"
+    guarddog pypi verify "$GUARDDOG_TMP" --output-format json \
+      > "$REPORT_DIR/guarddog-pypi.json" 2> "$REPORT_DIR/guarddog-pypi.log"
+    rm -f "$GUARDDOG_TMP"
+    note "See \`$REPORT_DIR/guarddog-pypi.json\` (\`$REPORT_DIR/guarddog-pypi.log\` for any requirements lines it still couldn't parse). Not gated — see PLAN_SOLIDITE_TECHNIQUE.md §9. Slow (real per-package download + static analysis, not a local pattern match) — expect at least a couple of minutes even for the ~15 production deps."
+  else
+    note "⚠️ guarddog not installed — runs in CI. Local (Python <=3.13 only, see comment above): \`pip install guarddog\` or \`pipx install guarddog\`."
   fi
 
   # --- Python-specific SAST: Bandit (same invocation as backend CI) ---
