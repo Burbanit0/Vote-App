@@ -644,6 +644,25 @@ détecterait pas comme flaky. Un échec constant reste néanmoins visible : il
 est attrapé par la suite normale à la prochaine PR qui touche ce code,
 donc rien ne reste durablement invisible, juste classé différemment.
 
+### Snapshots de sortie riche (`syrupy`, Lot 5)
+
+`api/tests/test_compare_all_methods_snapshot.py` — le rapport de
+`compare_all_methods` (26 méthodes × 5 champs chacune) capturé en un seul
+snapshot lisible (`api/tests/__snapshots__/*.ambr`) plutôt qu'en
+assertions champ par champ, incomplètes par construction (on ne teste que
+les champs auxquels on a pensé) ou illisibles à l'échelle (26 méthodes à
+la main). Le diff d'un futur changement est exactement ce qui a changé,
+relu par un humain au moment du commit :
+
+```bash
+cd fast_api_voter && python -m pytest api/tests/test_compare_all_methods_snapshot.py -o addopts="" --snapshot-update  # régénérer après un changement voulu
+```
+
+`create_voter`/`create_candidate` tirent de `random`/`numpy.random`
+globaux sans paramètre de seed propre — indispensable de fixer les deux
+explicitement avant de construire l'électorat, sinon le snapshot ne
+capture rien de stable (vérifié sur 3 runs consécutifs avant de committer).
+
 **Règles de processus pour limiter la dérive à l'usage d'un LLM :**
 
 - Avant de créer un nouveau fichier du type `xxx_v2.py`, `workers_yyy.py` ou
