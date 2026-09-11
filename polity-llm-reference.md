@@ -266,22 +266,28 @@ and continue. Granularity differs: `pressure_action` degrades one *citizen* (its
 `vote_cast`/`candidacy_considered`/`reaction_to_event` degrade one chunk, and the unchunked types
 degrade their whole batch. `coalition_decision` aborts instead (see §4.1).
 
-Three separate multi-hour runs died before this was in place:
+Three separate multi-hour runs were killed outright by a missing fallback:
 
-| date | type | cause |
-|---|---|---|
-| 2026-09-10 | `vote_cast` | prompt told the model to rank *every* acceptable candidate while the validator enforced top-5 |
-| 2026-09-11 | `party_nomination_choice` | `winner_position` exceeded the party's candidate count → raw `IndexError` |
-| 2026-09-11 | `representative_response` | two shifts on the same dimension; no fallback existed |
+| date | type | run | cause |
+|---|---|---|---|
+| 2026-09-08 | `chamber_deliberation` | Stage 1 smoke, pop 100 | a `finish_reason='length'` Mode-A loop exhausted every replay identically and propagated out of `run_simulation` |
+| 2026-09-11 | `party_nomination_choice` | Stage 3, pop 500 | `winner_position=26` against a party holding 18 declared candidates → raw `IndexError` |
+| 2026-09-11 | `representative_response` | Stage 3, pop 500 | two shifts on the same dimension, 2.5h in |
 
-**A fallback is a degraded run, not a free save.** Every substituted decision is the deterministic
-baseline — which for `pressure_action` is precisely the arm the §11.4 palier exists to measure
-*against*, and for `reaction_to_event` is a flat population-wide delta that looks exactly like the
-content-blind collapse this project's diagnostics hunt for. That is why provenance is journaled
-separately as `payload.llm_fallback` on every LLM-path decision: an analyst must subtract fallbacks
-before reading any motif or act distribution, or they are measuring the engine's failures as the
-population's choices. `progress.json`'s `fallback_count` is the run-level version of the same
-number, and a run with a high one should be investigated, not trusted.
+**A fallback is a degraded run, not a free save**, and there is a measured illustration. On
+2026-09-10 the Stage 3 probe *survived* a `vote_cast` defect — the prompt told the model to rank
+every acceptable candidate while the validator enforced top-5 — precisely because `vote_cast` had
+had a fallback since 2026-09-06. It survived by falling back on **494 of 500 and 476 of 500 votes
+across two election ticks**. Those two elections were, in substance, decided by the deterministic
+baseline while the journal recorded them as an LLM run.
+
+That is what every substituted decision costs. For `pressure_action` the substitute is precisely
+the arm the §11.4 palier exists to measure *against*; for `reaction_to_event` it is a flat
+population-wide delta that looks exactly like the content-blind collapse this project's diagnostics
+hunt for. Hence provenance journaled separately as `payload.llm_fallback` on every LLM-path
+decision: an analyst must subtract fallbacks before reading any motif or act distribution, or they
+are measuring the engine's failures as the population's choices. `progress.json`'s `fallback_count`
+is the run-level version, and a run with a high one should be investigated, not trusted.
 
 ---
 
@@ -482,7 +488,28 @@ reproduce on vLLM. Measured, not root-caused. The ECONOMIC_SHOCK branch is untes
 
 Ordered by how much they would change things.
 
-1. ~~**Four decision types can still kill a multi-hour run.**~~ **Closed 2026-09-11.** All nine now
+1. **A run can hang forever on one LLM call, and nothing fires.** Observed live 2026-09-11 on the
+   Stage 3 probe: **1.92 s of CPU in 1 h 59 min**, journal untouched for ~2 h, an ESTABLISHED but
+   completely idle socket to a vLLM that was answering `/v1/models` in 4 ms. `progress.json`'s ETA
+   was stale (it is written per completed tick), so the run looked alive and on schedule from every
+   artifact.
+
+   This is a **worse failure class than the one closed below**, and none of that work touches it: no
+   exception is raised, so no fallback triggers, no digest is written, no crash is recorded. A run
+   that dies at least leaves a trace; a run that hangs silently burns the wall-clock budget of a
+   30-year flagship and leaves nothing.
+
+   What makes it a real bug rather than a slow model: `llm_client.py` sets
+   `httpx.Client(timeout=600.0)` and `_TRANSPORT_RETRY_ATTEMPTS = 3`, so the documented worst case
+   is 30 minutes before an `LlmTransportError`. The observed hang exceeded that by ~3.4× with
+   nothing raised. **Mechanism not established** — do not assume it is understood.
+
+   Two things are needed and neither exists: find out why the timeout does not fire, and add a
+   watchdog on *tick progress* rather than trusting any single HTTP timeout. (The one piece that did
+   work: SIGTERM produced a correct `digest.json` — `outcome: interrupted`, 16/32 ticks, 4624
+   events, 0 malformed lines — so the operator-kill path is sound even when the run is wedged.)
+
+2. ~~**Four decision types can still kill a multi-hour run.**~~ **Closed 2026-09-11.** All nine now
    degrade instead of dying, and all nine vary sampling on retry — §4.4. Two things the fix surfaced
    are worth keeping in view, though:
    - **`coalition_decision`'s degradation is not its baseline.** It aborts the negotiation
@@ -494,22 +521,21 @@ Ordered by how much they would change things.
      *aggregates* it per run beyond `progress.json`'s raw `fallback_count` — no threshold, no
      warning, no gate. A run that fell back on half its decisions and a run that fell back on none
      both finish and both look finished.
-2. **`candidacy_considered` fails the C3 contract** — `ambition_score` is sent with no population
+3. **`candidacy_considered` fails the C3 contract** — `ambition_score` is sent with no population
    reference, exactly the defect that caused `pressure_action`'s collapse. A real run shows **~40% of
    citizens declaring candidacy**, which is implausible against any real polity. The fix vehicle is
    already written down in `polity-decision-contracts.md` and unbuilt.
-3. **`representative_response` and `coalition_decision` have written calibration vehicles and no
+4. **`representative_response` and `coalition_decision` have written calibration vehicles and no
    implementation.** They are the two confirmed collapses left.
-4. **A known metric design bug**: `mandate_deviation` weights only the top-5 priorities, so drift in
+5. **A known metric design bug**: `mandate_deviation` weights only the top-5 priorities, so drift in
    any other dimension reads as exactly 0.0. Live-verified: a term drifted three dimensions to the
    clamp ceiling while the metric read 0.0 throughout. `unified_mandate_deviation` exists as the
    honest measurement but deliberately feeds nothing.
-5. **A ctx/journal divergence introduced by the dt=10 calibration fix**: the prompt now sends
+6. **A ctx/journal divergence introduced by the dt=10 calibration fix**: the prompt now sends
    `blank_threshold` inside ctx, but the journal writes the older four-key payload. The invariant
    "the ctx an analyst reads is the ctx the model saw" no longer holds exactly for dt=10.
-6. **Only 3 of 9 types vary sampling on retry**, so for the other six a "retry" re-sends an identical
-   request and reproduces the identical failure.
-7. **Published results predate two calibration changes** (`position_dist`, `ambition_threshold`) and
+7. ~~**Only 3 of 9 types vary sampling on retry.**~~ **Closed 2026-09-11** — all nine do; see §4.4.
+8. **Published results predate two calibration changes** (`position_dist`, `ambition_threshold`) and
    were never re-baselined.
 
 ---

@@ -9,6 +9,174 @@
 
 ---
 
+## 2026-09-10 (soir) → 2026-09-11 — `pressure_action` calibré livré, trois runs tués sur quatre jours par un repli manquant, et un run figé qui avait l'air vivant
+
+**Contexte du jour.** Session continue, ouverte pour livrer la Phase E du plan de calibration de
+`pressure_action` (signal `blank_threshold`, taille de batch 1) — la dernière étape de
+`polity-decision-contracts.md`. Elle a fini par toucher presque tout le protocole LLM de la
+polity : vérification en conditions réelles, adoption sélective de TOON, la clôture d'une série de
+pannes fatales du run Stage 3 (scale probe population 500) étalée sur quatre jours, un document de
+référence complet, la fermeture de la vulnérabilité « un batch invalide tue le run » sur les neuf
+types de décision — et, en clôturant la journée, la découverte d'une panne plus grave que toutes
+celles corrigées : un run qui se fige sans rien déclencher.
+
+**Ce qui a avancé**
+- **Phase E livrée** (`da83b28`) : `decide_pressure_actions` bascule sur les builders calibrés
+  (`PRESSURE_THRESHOLD_SIGNAL`), chunké à 1 citoyen par appel. Les deux barres du plan étaient
+  déjà franchies — Phase C : 100 % d'accord à batch 1 ; Phase D : coût réel 2,8-3,0x le batch 25,
+  pas ~25x supposé. 14 tests réécrits, vérification live 12/12 sur le fil.
+- **« A-t-on testé en conditions réelles ? » a fait remonter deux trous** (`1ada806`, `448b72d`) :
+  le fichier de tests live `pressure_action` pour Ollama ne peut par construction pas tourner
+  contre le vrai serveur vLLM (404 sur `/api/chat`, jamais servi par vLLM — un problème structurel
+  de provider, pas une fixture devenue obsolète) ; les tests manquants recopiés dans
+  `test_polity_vllm_live.py`, tous deux verts en direct. Et le test `vote_cast` qui échouait en
+  direct depuis longtemps envoyait 25 citoyens en un seul batch, une forme que `cast_votes` ne
+  produit jamais en production (toujours chunké à 3) — corrigé en testant à la vraie taille de
+  production, ce qui donne au passage la première confirmation live du correctif de troncature du
+  10/09.
+- **Petit run réel de bout en bout** (`11aebdd`) : `run_simulation()` complet, 20 citoyens, 4 ans,
+  contre le vrai serveur vLLM. Premier essai : zéro décision `pressure_action` malgré de vraies
+  élections — `awakening.enabled`/`legitimacy.enabled` étaient à `false` dans le yaml livré (la
+  porte de consultation de `pressure_action` elle-même), donc personne n'était jamais consulté.
+  Corrigé en les activant. Résultat : 64 décisions réelles, histogramme `{0: 42, 4: 22}` — pas une
+  constante — et un `self_gap` moyen matériellement plus élevé pour ceux qui choisissent le levier
+  le plus affirmé (0,382 vs 0,234), même sens que la matrice de calibration.
+- **TOON adopté, mais seulement pour `candidacy_considered`** (`1223c3c`) : 853→794 tokens de
+  prompt (-6,9 %), précision IDENTIQUE contre la vérité terrain (16/25 dans les deux formats).
+  `pressure_action` avait montré l'inverse (vraies économies, vraie régression de qualité) et reste
+  sur JSON — pas de politique « TOON partout », chaque type tranche son propre A/B.
+- **Trois runs multi-heures tués net par un repli manquant, sur quatre jours** : `chamber_deliberation`
+  (08/09, Stage 1 smoke pop 100 — une boucle Mode-A `finish_reason='length'` épuise chaque replay à
+  l'identique et remonte hors de `run_simulation`, réparée ce jour-là) ; `party_nomination_choice`
+  (11/09, Stage 3 pop 500, `a8cf2f4`) — un `winner_position=26` hors bornes, contre **deux partis
+  contestés distincts, l'un à 18 candidats déclarés, l'autre à 19** (vérifié verbatim dans le
+  `replays.log` du run : `grep -o "winner_position=[0-9]* is out of range for its own [0-9]*
+  declared" replays.log`) ; `representative_response` (11/09, Stage 3 pop 500, `a691e29`), 2,5h
+  dans le run, sur deux shifts ciblant la même dimension. Un quatrième arrêt le même jour n'était
+  pas un bug : un reboot de l'hôte a tué le process en cours à 07:14 (`0454010`).
+- **Et une illustration mesurée que « repli » ne veut pas dire « sauvetage gratuit »** : le 10/09
+  (`246da0b`), ce même Stage 3 a *survécu* à un défaut `vote_cast` (le prompt disait de classer
+  tout candidat acceptable, le validateur imposait un top-5) précisément parce que `vote_cast` a un
+  repli depuis le 06/09 — en basculant 494/500 puis 476/500 votes sur deux scrutins. Ces deux
+  élections ont, dans les faits, été tranchées par la ligne de base déterministe pendant que le
+  journal les enregistrait comme un run LLM.
+- **De la lecture manuelle de ces arrêts est né le besoin d'un récit lisible par run** (`658b3e7`,
+  `0454010`) : mesuré, pas supposé — seuls 3 des 8 répertoires de run flagship avaient un
+  `viz_export.json`, écrit après le `try/finally` et donc sauté par toute exception. Nouveau
+  `run_digest.py` écrit un `digest.json` à CHAQUE fin de run (succès, crash, SIGTERM), classifié
+  sur si l'arrêt a été *demandé* plutôt que sur le type d'exception. Vérifié d'abord en synthétique
+  (3/3 SIGTERM en cours de run produisent `outcome=interrupted` avec des comptes de ticks honnêtes),
+  puis, en toute fin de journée, **en conditions réelles sur un vrai run de ~2h** — voir plus bas.
+  Agent `run-narrator` + commande `/log-run` + hook `SessionStart` ajoutés pour transformer ce
+  digest en `TIMELINE.md` — le hook `TaskCompleted` a été testé en premier et ne se déclenche pas
+  pour les tâches Bash en arrière-plan (vérifié comme un vrai négatif : un hook `PostToolUse`
+  ajouté dans le même changement, lui, s'est déclenché dans la même session).
+- **Document de référence écrit** (`bdc2e4f`, `polity-llm-reference.md`, ~500 lignes) : demandé
+  pour pouvoir conseiller sur l'état réel du simulateur sans relire 4000 lignes de moteur. Deux
+  affirmations contradictoires d'agents de recherche vérifiées contre le code avant publication :
+  la négociation de coalition EST une vraie boucle multi-tours, et la config flagship OUVRE bien
+  le menu de pression (`electoral_only=False`, pétitions et mobilisation actives) — confirmé
+  contre le journal d'un run réel dont des citoyens ont signé des pétitions. Ça décide si
+  l'effondrement documenté de `pressure_action` en menu fermé s'applique aux vrais runs : non,
+  c'est le bras de contrôle du palier §11.4.
+- **Les neuf types de décision LLM ne peuvent plus tuer un run** (`9929651`) : les quatre qui
+  pouvaient encore mourir ont chacun un repli déterministe reproduisant leur propre ligne de base
+  §11.4 — `candidacy_considered` → `simple_rules.decide_candidacy` (seuil d'ambition),
+  `campaign_positioning` → l'épingle sincère de `declare_candidacy` (aucun shift),
+  `pressure_action` → `deterministic_pressure_action` à partir du contexte figé déjà vu par le
+  modèle, `reaction_to_event` → le delta plat de `deterministic_reaction_to_event`. Deux trous
+  trouvés en chemin, refermés : `party_nomination_choice` avait déjà un repli, mais son `try`
+  n'entourait que la validation, pas l'appel LLM — un budget de replays épuisé passait à travers, un
+  trou à moitié fermé qui se lisait comme fermé ; `coalition_decision` relançait l'exception au
+  tour 1 alors qu'un échec au tour ≥2 dégradait proprement depuis v7 Lot 2 — aligné sur le même
+  repli, mais explicitement PAS sa ligne de base (le polity finit sans gouvernement là où
+  `form_coalition` en aurait produit un réel, choix de modélisation assumé et révisable). Les neuf
+  types varient désormais l'échantillonnage en cas de retry (température 0,3 + décalage de seed
+  par tentative, jamais au premier essai). Mesuré sur le run Stage 3 en cours pendant l'écriture :
+  155 batches rejetés, `vote_cast` en a récupéré 108/115 et `chamber_deliberation` 38/38 grâce à
+  cette variation — sans elle, ces 155 étaient irrécupérables par construction. Honnêteté
+  nécessaire : les six types tout juste corrigés n'ont enregistré aucun rejet sur ces 15 ticks —
+  une assurance contre une queue de distribution, pas un correctif pour un taux observé. Suite
+  verte : 2146 passed, 43 skipped, mypy/ruff propres (les 2 erreurs mypy restantes sont
+  préexistantes, dans `api/domain/election/workers_playground.py`, vérifié en stashant).
+- **Incident mineur en fin de session** (`e947472`) : le hook de capture pre-commit a écrasé
+  l'entrée de `bdc2e4f` dans `docs/journal/commits.jsonl` (son stash/restore est entré en conflit
+  avec sa propre écriture fraîche). Récupérée verbatim depuis le patch laissé dans le cache
+  pre-commit, réinsérée dans l'ordre chronologique, chaque ligne re-parsée en JSON avant écriture
+  — `--no-verify` sur ce seul commit correctif pour ne pas retomber dans la même course.
+- **Le run Stage 3 lui-même a fourni la première validation en conditions réelles de la chaîne
+  SIGTERM → digest de `658b3e7`.** Il n'avançait pas lentement, il était bloqué : diagnostiqué
+  après coup (1,92s de CPU en 1h59, journal inchangé depuis 09:57:51, une socket ESTABLISHED vers
+  vLLM ouverte avec Recv-Q et Send-Q à 0 pendant que vLLM lui-même répondait normalement à
+  `/v1/models` en 4 ms) — l'`eta_min` de `progress.json` était simplement périmé, écrit au dernier
+  tick complété deux heures plus tôt. Tué proprement par SIGTERM sur décision de l'utilisateur :
+  `digest.json` obtenu avec `outcome: interrupted`, `error: {"type": "_Terminated", "message":
+  "received signal 15"}`, 7447,8s écoulées, 16/32 ticks journalisés, checkpoint au tick 15, 4624
+  événements, **0 ligne malformée**, 3 replis, 240 retries, 1 mandat, 7 entrées de chronologie
+  institutionnelle — vérifié directement dans le fichier. Relancé depuis ce checkpoint, désormais
+  sur le code de `9929651`.
+
+**Points bloquants**
+- **Le plus grave de la journée : le simulateur peut se figer indéfiniment sur un appel LLM sans
+  que rien ne se déclenche.** Découvert en clôturant le run Stage 3 ci-dessus. Le timeout httpx de
+  600s (`_TRANSPORT_RETRY_ATTEMPTS = 3` dans `llm_client.py`, donc 30 min au maximum en théorie) a
+  été dépassé d'un facteur ~3,4 sans rien déclencher — aucune exception, donc aucun repli, aucun
+  digest, aucun crash enregistré : le run cessait d'être un run tout en ayant l'air vivant. Plus
+  grave que toutes les pannes corrigées aujourd'hui, parce qu'un run qui meurt laisse au moins un
+  digest et une trace, alors qu'un run figé ne laisse rien et consomme le mur d'horloge d'un run de
+  30 ans. Mécanisme non compris à ce stade.
+- `candidacy_considered` échoue à la même clause de contrat (C3, état perceptible) qui avait causé
+  l'effondrement de `pressure_action` : `ambition_score` est envoyé sans aucune référence de
+  population. Un run réel montre ~40 % des citoyens se déclarant candidats, invraisemblable face à
+  une vraie polity. Le véhicule de correction est déjà écrit dans `polity-decision-contracts.md`,
+  non construit.
+- Rien n'agrège encore `payload.llm_fallback` en alerte lisible — seul `progress.json` porte un
+  `fallback_count` brut, sans seuil ni porte. Un run dégradé sur la moitié de ses décisions et un
+  run qui n'a jamais basculé finissent tous les deux et se ressemblent.
+- Question ouverte, nommée mais non tranchée : donner aux DEUX tours de `coalition_decision` un
+  repli `form_coalition`, ou garder la sémantique d'abandon actuelle du tour 1.
+
+**Décisions prises**
+- Adopter TOON pour `candidacy_considered` seul, pas pour `pressure_action` — *pourquoi* : chaque
+  type de décision tranche son propre A/B (gain de tokens ET précision inchangée pour l'un, gain
+  de tokens mais régression de qualité pour l'autre) plutôt qu'une politique uniforme.
+- Faire dégrader les neuf types de décision au lieu d'en laisser mourir quatre — *pourquoi* :
+  trois pannes fatales sur quatre jours, toutes sur des types qui n'avaient jamais échoué
+  jusque-là, montrent qu'un run de plusieurs heures ne peut pas dépendre de l'absence historique
+  d'échec pour rester en vie.
+- Garder la sémantique d'abandon de `coalition_decision` au tour 1, alignée sur le tour ≥2 déjà en
+  place depuis v7, plutôt que d'inventer un repli `form_coalition` pour ce cas précis —
+  *pourquoi* : hérite d'une règle déjà livrée plutôt que d'improviser une deuxième règle pour un
+  échec à un round d'écart ; documenté au code comme choix révisable.
+- Utiliser `SessionStart` plutôt que `TaskCompleted` pour le hook de narration de run —
+  *pourquoi* : `TaskCompleted` ne se déclenche pas pour les tâches Bash en arrière-plan (vérifié,
+  pas supposé), et un reboot hôte qui tue un run en cours ne laisse justement rien tourner en
+  session pour le détecter autrement.
+- Tuer le run Stage 3 figé par SIGTERM plutôt que d'attendre plus longtemps — *pourquoi* : aucun
+  signal disponible (progression, repli, crash) n'indiquait qu'il avançait encore, et la reprise
+  depuis le checkpoint du tick 15 récupère de toute façon les correctifs de `9929651`.
+
+**Prochaines étapes**
+- [ ] Comprendre pourquoi le timeout httpx (600s × 3 tentatives) ne se déclenche pas sur un appel
+      LLM figé, et poser un garde-fou (watchdog sur l'avancement des ticks, ou timeout effectif
+      vérifié) — priorité avant tout nouveau run de plusieurs heures.
+- [ ] Attendre la fin du Stage 3 (relancé depuis le tick 15), narrer son `TIMELINE.md`, et mettre à
+      jour `plan-flagship-30y-run.md` avec le verdict Stage 3 — porte d'entrée du Stage 4 (le run
+      flagship de 30 ans).
+- [ ] Construire le véhicule de correction C3 de `candidacy_considered` déjà écrit dans
+      `polity-decision-contracts.md`.
+- [ ] Agréger `payload.llm_fallback` en quelque chose de visible (seuil, avertissement, ou porte)
+      plutôt que de laisser un run dégradé ressembler à un run réussi.
+
+**Pour aller plus loin** : `polity-llm-reference.md` (référence complète, §4.4 pour la table des
+runs tués et l'illustration `vote_cast`, §10 pour les lacunes connues), `polity-decision-contracts.md`
+(véhicule de correction C3), `plan-flagship-30y-run.md` (Phase 7 Stage 3),
+`fast_api_voter/scripts/flagship_runs/scaleprobe-8y-p500-v2-postfix/run/scaleprobe-8y-p500-v2-postfix/digest.json`,
+`fast_api_voter/scripts/check_pressure_shipped_wiring_results.md`,
+`check_pressure_small_run_results.md`, `check_toon_candidacy_ab_results.md`.
+
+---
+
 ## 2026-09-06 — Revue de code full-stack en 14 PR, cascade de 13 PR Dependabot, et passe de correction de la documentation
 
 **Contexte du jour.** Suite de la consolidation du 04/09 (worktree Polity prêt,
