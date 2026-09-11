@@ -40,8 +40,6 @@ import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
 
 const CANDIDATE_PALETTE = ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948'];
 
-// ── Helpers ────────────────────────────────────────────────────────────────
-
 function cellStyle(rate: number, isDark: boolean): React.CSSProperties {
   if (isDark) {
     if (rate >= 0.8) return { backgroundColor: '#1a3a2a', color: '#75b798' };

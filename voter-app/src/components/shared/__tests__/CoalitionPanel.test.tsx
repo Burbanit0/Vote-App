@@ -84,8 +84,8 @@ describe('CoalitionPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /coalition|simuler/i }));
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
-    // Accept either /api/election/coalition (Flask v1) or
-    // /api/v2/election/coalition (FastAPI v2 — default since Phase 3 batch 2).
+    // Component hardcodes /api/v2/election/coalition; the regex just
+    // tolerates an optional /v2/ prefix.
     expect(apiClient.POST).toHaveBeenCalledWith(
       expect.stringMatching(/\/api\/(v2\/)?election\/coalition/),
       expect.any(Object)

@@ -21,8 +21,6 @@ import {
   type HeatmapMetrics,
 } from '../../lib/simulationKernels';
 
-// ── Constants ─────────────────────────────────────────────────────────────────
-
 const SVG_W = 480;
 const SVG_H = 480;
 const MARGIN = 40;

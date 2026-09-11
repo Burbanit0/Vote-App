@@ -32,7 +32,7 @@ from api.core.ratelimit import check_v2_rate_limit
 from api.core.worker_dispatch import raise_for_status, run_worker_bounded
 
 # Re-uses the Pydantic models defined in Phase 1. Single source of truth
-# shared with the Flask side via the openapi-typescript pipeline.
+# shared with the frontend via the openapi-typescript pipeline.
 from api.schemas import (
     AbstentionRequest,
     AbstentionResponse,

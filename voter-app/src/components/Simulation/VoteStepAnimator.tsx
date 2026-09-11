@@ -504,7 +504,6 @@ const VoteStepAnimator: React.FC<Props> = ({
     }
   })();
 
-  // ── Fetch data
   const fetchSteps = useCallback(
     async (m: string, cands: VoteStepsParams['candidates']) => {
       if (cands.length < 2) return;

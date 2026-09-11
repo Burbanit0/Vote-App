@@ -2693,7 +2693,6 @@ const fr = {
     pageSubtitle:
       "Comment E2E-V, Pol.is et la blockchain peuvent améliorer l'intégrité et l'inclusion des systèmes électoraux.",
     error: 'Erreur lors de la simulation.',
-    // Section 1
     whyHardTitle: 'Pourquoi le vote électronique est difficile',
     whyHardDesc:
       "Le vote électronique doit simultanément garantir l'anonymat, l'intégrité et la vérifiabilité — trois propriétés souvent contradictoires. Les incidents historiques montrent les conséquences d'un système mal conçu.",

@@ -4,15 +4,11 @@ api.domain.election — pure election compute, no Flask, no FastAPI, no DB.
 All functions accept a `data: dict` and return `(body, http_status)`.
 They are pure: same input = same output (modulo any `seed` field).
 
-The bodies of these functions were already extracted as workers in
-Sprint A2 (combined-effects / campaign-sensitivity / simulate-pipeline)
-and Sprint C1 (simulate). This module re-exports them under the
-`api.domain` namespace so the FastAPI side can import them without
-reaching back into `app.routes.election` (Flask-era namespace).
-
-When Phase 4 retires Flask, these aliases will be replaced with the
-canonical implementations moved here for real, and the corresponding
-Flask workers will be deleted.
+The actual worker implementations live in this package's sibling
+`workers*.py` modules (workers.py plus the mechanisms/dynamics/behavioral/
+playground/advanced decompositions). This `__init__.py` re-exports them
+under the `api.domain.election` namespace and wraps each one in a small
+typed function for the FastAPI routes to call.
 """
 from typing import Any
 

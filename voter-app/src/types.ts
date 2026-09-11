@@ -1,5 +1,3 @@
-// src/types.ts
-
 // --- Simulation types ---
 
 export interface CandidateSimu {

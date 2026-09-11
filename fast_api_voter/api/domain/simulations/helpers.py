@@ -1,7 +1,7 @@
 """
-Shared route-level helpers used by simulation_compare.py and simulation_advanced.py.
+Shared route-level helpers used by compare.py and advanced.py.
 
-These are not simulation logic (that lives in app/utils/) — they are
+These are not simulation logic (that lives in api/engine/utils/) — they are
 request-parsing and population-building helpers specific to the route layer.
 """
 import random as _rng

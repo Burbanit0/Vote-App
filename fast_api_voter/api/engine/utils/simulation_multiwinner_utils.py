@@ -385,7 +385,6 @@ def compare_multiwinner_methods(
     pv = _normalise_votes(party_votes)
     results: Dict[str, Any] = {}
 
-    # Party-list methods
     party_list_methods: List[tuple[str, Callable[[], Any]]] = [
         ("dhondt",                  lambda: get_dhondt_winners(pv, num_seats)),
         ("sainte_lague",            lambda: get_sainte_lague_winners(pv, num_seats)),

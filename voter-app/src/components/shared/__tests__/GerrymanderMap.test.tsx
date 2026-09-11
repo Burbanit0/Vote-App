@@ -91,7 +91,6 @@ describe('GerrymanderMap', () => {
     const cell = container.querySelectorAll('[data-testid="grid-cell"]')[0];
     const initialDistrict = cell.getAttribute('data-district');
     fireEvent.click(cell);
-    // After one click, district should be (initialDistrict + 1) % numDist
     const newDistrict = container
       .querySelectorAll('[data-testid="grid-cell"]')[0]
       .getAttribute('data-district');

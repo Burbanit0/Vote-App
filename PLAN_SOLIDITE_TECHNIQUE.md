@@ -679,6 +679,51 @@ nettement plus ancienne que celle des lignes de code qu'il surplombe ;
 (b) passe LLM par lot sur des blocs `(commentaire, code)`. Le contraste entre
 les deux est lui-même un bon contenu.
 
+✅ **Fait.** Phase 1 (heuristique `git blame`, [EXP-001](docs/exploration/
+EXP-001-audit-commentaires-heuristique-git-blame.md)) avait présélectionné
+**329 candidats** sur ~5 200 blocs scrutés. Phase 2 (passe sémantique) : 6
+agents en parallèle, un par tranche de ~55 candidats, chacun lisant le
+commentaire **et** le code environnant (pas seulement les dates) pour
+trancher entre les quatre catégories du plan — aucune classification prise
+pour argent comptant sans vérification du contenu réel (grep de la fonction
+citée, comptage manuel d'un décompte annoncé, relecture de la formule
+décrite), dans la continuité de la méthode du Lot 4.
+
+**Résultat, sur les 329 candidats** :
+
+| Catégorie | Nombre | Traitement |
+|---|---|---|
+| **Périmé** (factuellement faux) | 15 | Corrigé |
+| **Redondant** (paraphrase pure) | 59 | Supprimé |
+| **Archéologique** (récit de session) | 0 | — |
+| **Pourquoi** (contrainte/rationale) | 45 | Gardé tel quel |
+| **Toujours-valide** (vrai négatif) | 210 | Aucune action |
+
+**La mesure demandée par le plan** : sur les candidats déjà présélectionnés
+comme suspects par l'heuristique temporelle, **4,6 % (15/329) étaient
+effectivement faux** — le reste du signal temporel de phase 1 était du bruit
+(code qui bouge sans rapport, cf. le 0/5 de phase 1). Rapporté à l'ensemble
+des ~5 200 blocs de commentaires du dépôt, ça descend sous 0,3 % de
+commentaires confirmés menteurs — la très large majorité des commentaires de
+ce dépôt décrit fidèlement le code qu'elle surplombe. Le vrai motif commun
+aux 15 Périmé n'est pas l'usure ordinaire mais la **migration non
+nettoyée** : 5 commentaires évoquaient encore Flask (retiré depuis, cf.
+CLAUDE.md) ou Jest (jamais utilisé ici, le projet tourne sous Vitest) comme
+s'ils étaient encore d'actualité — un mode de péremption bien plus
+systématique qu'un simple oubli isolé. Les autres étaient des erreurs
+factuelles ponctuelles (une formule mal décrite, un décompte de "fiches"
+resté à 57 alors que le fichier en contient 62, une référence à un composant
+supprimé). **0 Archéologique** : ce dépôt n'a jamais laissé de récit de
+session dans son code source — cohérent avec la discipline déjà en place
+(carnet d'expérience séparé depuis le Lot 0.2).
+
+74 commentaires corrigés/supprimés au total, sur 44 fichiers (11 backend,
+33 frontend). `ruff`/`mypy`/pytest (1975 tests) et `tsc`/`vitest` (1697
+tests)/`eslint` restent verts après coup — seuls des commentaires ont
+changé, jamais le code qu'ils décrivaient. Détail complet (fichier, ligne,
+avant/après) dans l'historique de la PR ; [`docs/comment-audit/README.md`](
+docs/comment-audit/README.md) porte le verdict de synthèse des deux phases.
+
 ---
 
 ## Lot 7 — Surfaces perçues par l'utilisateur

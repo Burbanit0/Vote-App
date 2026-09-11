@@ -141,7 +141,6 @@ describe('NOTAPanel', () => {
   });
 
   it('does NOT show invalid alert when threshold is low (election valid)', async () => {
-    // Slider at 0 / low nota_pct → no invalid badge
     apiClient.POST.mockResolvedValue(makeData(true, 0.0, 'Alice'));
     renderPanel();
     // Set slider to 0

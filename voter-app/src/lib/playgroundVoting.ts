@@ -879,8 +879,6 @@ function winRaynaud(ranks: number[][], m: number): number {
   return alive.findIndex((a) => a);
 }
 
-// ── Public API ────────────────────────────────────────────────────────────────
-
 /**
  * Winning candidate INDEX under the given rule from pre-computed ballots —
  * lets the scorecard inject *modified* ballots (e.g. a strategic-compression
@@ -903,7 +901,6 @@ export function ruleWinnerFromRanks(
       return scores ? winMajorityJudgment(scores, m) : winPlurality(ranks, m);
     case 'score':
       return scores ? winScore(scores, m) : winPlurality(ranks, m);
-    // Ordinal rules.
     case 'plurality':
       return winPlurality(ranks, m);
     case 'two_round':

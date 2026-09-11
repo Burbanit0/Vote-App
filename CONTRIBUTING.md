@@ -678,6 +678,33 @@ capture rien de stable (vérifié sur 3 runs consécutifs avant de committer).
   `./scripts/audit.sh --quality` et relire au moins les sections vulture /
   radon / deptry / knip / jscpd du résumé.
 
+### Audit des commentaires — heuristique + passe sémantique (Lot 6.1)
+
+Un commentaire est du code non compilé, non testé, jamais vérifié — la seule
+zone du dépôt où une affirmation fausse peut survivre indéfiniment sans que
+rien ne la signale. Deux outils, complémentaires, pas concurrents :
+
+```bash
+python scripts/audit_stale_comments.py                       # régénère docs/comment-audit/candidates.md
+python scripts/audit_stale_comments.py --threshold-days 90    # seuil plus large
+```
+
+`audit_stale_comments.py` compare la date `git blame` d'un bloc de
+commentaire à celle du code qui le suit — un écart significatif *présélectionne*
+les candidats à relire, il ne prouve rien à lui seul (sur l'échantillon
+vérifié en phase 1, seuls 15 des 329 candidats présélectionnés se sont
+révélés effectivement faux une fois le contenu relu). Le tri final entre
+**périmé** (corriger/supprimer), **redondant** (supprimer), **archéologique**
+(migrer vers `docs/exploration/`) et **pourquoi** (garder, non négociable)
+exige de lire le commentaire et le code, pas seulement leurs dates — voir
+[`docs/exploration/EXP-001-audit-commentaires-heuristique-git-blame.md`](docs/exploration/EXP-001-audit-commentaires-heuristique-git-blame.md)
+et [`docs/comment-audit/README.md`](docs/comment-audit/README.md) pour le
+détail des deux passes et leur verdict chiffré. Le motif dominant trouvé en
+2026-09 n'était pas l'usure isolée mais des commentaires figés à un stade de
+migration révolu (Flask, Jest) — un signal à surveiller après toute
+migration future : chercher spécifiquement les commentaires qui hedgent
+encore pour l'ancien état une fois la migration terminée.
+
 ---
 
 ## Commandes utiles

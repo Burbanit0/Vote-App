@@ -226,10 +226,8 @@ const BlankVoteTimeSeries: React.FC = () => {
     return row;
   });
 
-  // Visible events for selected countries
   const visibleEvents = EVENTS.filter((e) => !e.country || selected.has(e.country));
 
-  // Trend analyses
   const trends = COUNTRIES.filter(({ key }) => selected.has(key) && loaded[key]).map(({ key }) =>
     computeTrend(loaded[key]!)
   );
