@@ -635,7 +635,7 @@ lancées pendant ce développement : 0 flake trouvé.**
 | **`refurb`** + **`perflint`** | Modernisation Python et anti-patterns de perf — pertinent sur un moteur CPU-bound. | S | ⭐ | 📝📝 | ✅ 145 + 85 findings, informationnel (voir §6.3) |
 | **`type-coverage`** (TS) | % de code réellement typé (les `any` implicites que `tsc` laisse passer). | S | ⭐⭐ | 📝📝 | ✅ 99,58 % (voir §6.4) |
 | **`eslint-plugin-sonarjs`** | Complexité cognitive (≠ cyclomatique, déjà mesurée par radon) + bugs courants. | S | ⭐⭐ | 📝 | ✅ 2 bugs d'affichage corrigés, 304 findings informationnels (voir §6.6) |
-| **`pip-licenses` / `license-checker`** | Conformité de licences sur un repo public MIT. | S | ⭐ | 📝 | ⏳ |
+| **`pip-licenses` / `license-checker`** | Conformité de licences sur un repo public MIT. | S | ⭐ | 📝 | ✅ 0 violation, promu en **gate bloquant** (voir §6.7) |
 
 ### 6.1 — Audit de pertinence des commentaires · `L` · ⭐⭐ 📝📝📝
 
@@ -955,6 +955,48 @@ comme placeholder assumé (`IdeologyHeatmap.test.tsx`) — pas un oubli.
 **304 findings restants** après les deux corrections. Câblé dans
 `./scripts/audit.sh --quality`, pas de gate ajouté à `eslint.config.js` —
 même traitement informationnel que le reste du Lot 6.
+
+### 6.7 — `pip-licenses` / `license-checker` ⭐ 📝 · `S`
+
+✅ **Fait — le seul item du Lot 6 promu en gate CI bloquant**, pas
+informationnel : contrairement à refurb/perflint/sonarjs (des centaines de
+findings de style), la conformité de licence part d'une **baseline déjà à
+zéro** une fois correctement scopée aux dépendances de *production* — le
+même chemin que `jsx-a11y`/`unused-imports` (backlog nul avant activation),
+mais atteint directement plutôt qu'à corriger.
+
+**Le scope compte tout** : un premier passage sur l'environnement complet
+(prod + dev mélangés) trouvait 4 paquets GPL/LGPL (`pylint`, `refurb`,
+leur dépendance `astroid`, et `semgrep`) — tous des outils de dev ajoutés
+pendant ce Lot 6 ou déjà présents, jamais distribués avec l'application.
+Confirmé en isolant un venv propre avec `pip install -r requirements.txt`
+seul (39 paquets, aucune dépendance de dev) : **zéro** licence GPL/AGPL/
+LGPL, uniquement MIT/BSD/Apache/MPL-2.0/PSF-2.0. Côté frontend, `license-
+checker-rseidelsohn` (fork maintenu — l'original `license-checker` est
+abandonné) avec `--production` (exclut les devDependencies nativement,
+contrairement à Python qui n'a pas cette distinction) : 283 paquets, même
+verdict, aucune licence restrictive. Deux faux signaux vérifiés à la main
+avant d'être écartés : `pip-licenses` classait `face`/`peewee` (dépendances
+transitives de `semgrep`) en « UNKNOWN » — lu directement le fichier
+`LICENSE` installé de chacun (BSD et MIT respectivement) plutôt que de
+laisser planer le doute ; `license-checker-rseidelsohn` classait
+`voter-app` lui-même en « UNLICENSED » alors que son `package.json` déclare
+`"license": "MIT"` — un artefact du scan sur le paquet racine, exclu
+explicitement (`--excludePackages`).
+
+**Le gate** (`fast_api_voter/scripts/check_license_compliance.sh`,
+backend ; une invocation `license-checker-rseidelsohn --production
+--onlyAllow` en CI, frontend) tourne dans un venv **isolé**, pas le venv
+combiné prod+dev partagé par le reste de la CI — sinon les 4 paquets GPL/
+LGPL des outils de dev feraient échouer le gate à chaque run, ou pire,
+forceraient à les allow-lister explicitement et à perdre tout le sens du
+contrôle. Câblé en étape bloquante dans `backend-ci-cd-pipeline.yml` et
+`frontend-ci-cd-pipeline.yml`, et dans `scripts/audit.sh` (section
+gating, pas informationnelle comme le reste du Lot 6). Vérifié à la main
+avec un test négatif (`--allow-only="MIT"` seul) avant de faire confiance
+au code de sortie : `slowapi` (MIT License, orthographe différente de
+`MIT`) fait bien échouer le gate — confirmant qu'il a des dents et pas
+seulement une liste blanche assez large pour ne jamais mordre.
 
 ---
 
