@@ -113,6 +113,13 @@ jobs:
       - name: pip-audit (dependency CVEs)
         run: pip-audit --requirement fast_api_voter/requirements.txt
 
+      - name: License compliance — production dependencies (gating)
+        run: bash fast_api_voter/scripts/check_license_compliance.sh
+        # Isolated venv, requirements.txt only — dev tooling (pylint/refurb,
+        # semgrep) pulls in GPL/LGPL packages never distributed with the app;
+        # checking the shared dev+prod venv here would false-positive on
+        # those every run. See PLAN_SOLIDITE_TECHNIQUE.md §6.7.
+
       # ── Type checking ─────────────────────────────────────────────────────
       - name: Mypy (strict type checking on api/)
         run: |

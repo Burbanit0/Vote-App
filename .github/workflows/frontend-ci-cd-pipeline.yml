@@ -107,6 +107,19 @@ jobs:
         run: npm audit --audit-level=high
         working-directory: ./voter-app
 
+      - name: License compliance — production dependencies (gating)
+        # --production scopes to what's actually shipped, excluding
+        # devDependencies (eslint plugins, type-coverage, etc. never reach a
+        # user); --excludePackages drops voter-app's own package.json entry,
+        # which the tool otherwise reports as "UNLICENSED" despite its real
+        # "license": "MIT" field. See PLAN_SOLIDITE_TECHNIQUE.md §6.7.
+        run: |
+          SELF="$(node -p "require('./package.json').name")@$(node -p "require('./package.json').version")"
+          npx license-checker-rseidelsohn --production \
+            --onlyAllow "MIT;ISC;Apache-2.0;BSD-2-Clause;BSD-3-Clause;BlueOak-1.0.0;MPL-2.0;CC0-1.0;MIT-0;Python-2.0;Unlicense;0BSD;(MIT OR CC0-1.0);MIT AND ISC" \
+            --excludePackages "$SELF"
+        working-directory: ./voter-app
+
       - name: Tests with coverage
         # Vitest (post Jest→Vitest migration): coverage reporters are configured
         # in vitest.config.ts (text, lcov, html). test:coverage = `vitest run --coverage`.

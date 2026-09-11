@@ -122,6 +122,18 @@ if [ "$MODE" != "quality" ]; then
     note "⚠️ bandit not installed — \`pip install bandit\` (already in backend CI)."
   fi
 
+  # --- License compliance: production dependencies (same gate as backend CI) ---
+  section "Python license compliance — production deps (same invocation as backend CI, gating)"
+  if [ -x "$PY_DIRS/scripts/check_license_compliance.sh" ] && have python3; then
+    if bash "$PY_DIRS/scripts/check_license_compliance.sh" > "$REPORT_DIR/license-py.txt" 2>&1; then
+      note "✅ All production dependency licenses allow-listed. See \`$REPORT_DIR/license-py.txt\`."
+    else
+      note "🔴 A production dependency license is NOT allow-listed — this gates CI. See \`$REPORT_DIR/license-py.txt\`. Not a Lot-6-informational item; see PLAN_SOLIDITE_TECHNIQUE.md §6.7."
+    fi
+  else
+    note "⚠️ $PY_DIRS/scripts/check_license_compliance.sh not found or not executable."
+  fi
+
   # --- CodeQL: deep semantic analysis ---
   if [ "$MODE" = "full" ] || [ "$MODE" = "security" ]; then
     section "Deep SAST (CodeQL)"
@@ -266,6 +278,23 @@ if [ "$MODE" != "security" ]; then
       note "$(grep -oE '\([0-9]+ / [0-9]+\) [0-9.]+%' "$REPORT_DIR/type-coverage.txt" 2>/dev/null || echo 'see report'). See \`$REPORT_DIR/type-coverage.txt\`. Not gated — see PLAN_SOLIDITE_TECHNIQUE.md §6.4 (run via project node_modules, not bare \`npx type-coverage\` — the isolated npx cache resolves its own mismatched typescript and crashes)."
     else
       note "⚠️ type-coverage not found in $TS_DIR/node_modules (run \`npm install\` there)."
+    fi
+
+    # --- License compliance: production dependencies (same gate as frontend CI) ---
+    section "TypeScript license compliance — production deps (same invocation as frontend CI, gating)"
+    # `--version` alone exits 1 on this tool regardless of success (checked
+    # directly) -- detect via the installed binary instead of exit code.
+    if [ -x "$TS_DIR/node_modules/.bin/license-checker-rseidelsohn" ]; then
+      SELF="$( (cd "$TS_DIR" && node -p "require('./package.json').name") )@$( (cd "$TS_DIR" && node -p "require('./package.json').version") )"
+      if ( cd "$TS_DIR" && npx --no-install license-checker-rseidelsohn --production \
+            --onlyAllow "MIT;ISC;Apache-2.0;BSD-2-Clause;BSD-3-Clause;BlueOak-1.0.0;MPL-2.0;CC0-1.0;MIT-0;Python-2.0;Unlicense;0BSD;(MIT OR CC0-1.0);MIT AND ISC" \
+            --excludePackages "$SELF" ) > "$REPORT_DIR/license-ts.txt" 2>&1; then
+        note "✅ All production dependency licenses allow-listed. See \`$REPORT_DIR/license-ts.txt\`."
+      else
+        note "🔴 A production dependency license is NOT allow-listed — this gates CI. See \`$REPORT_DIR/license-ts.txt\`. Not a Lot-6-informational item; see PLAN_SOLIDITE_TECHNIQUE.md §6.7."
+      fi
+    else
+      note "⚠️ license-checker-rseidelsohn not found in $TS_DIR/node_modules (run \`npm install\` there)."
     fi
   fi
 

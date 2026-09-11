@@ -33,6 +33,12 @@ syrupy==6.0.0           # Snapshot testing (Lot 5, PLAN_SOLIDITE_TECHNIQUE.md) -
 # Security
 bandit==1.9.4        # Python SAST (static analysis)
 pip-audit==2.10.1     # Dependency CVE scan
+pip-licenses==5.5.5   # License compliance on a public MIT repo (Lot 6.7,
+                       # PLAN_SOLIDITE_TECHNIQUE.md) -- for ad-hoc local
+                       # inspection of the CURRENT (dev+prod) venv; the actual
+                       # gate (scripts/check_license_compliance.sh, also run
+                       # by scripts/audit.sh) installs its own copy into an
+                       # isolated venv scoped to requirements.txt only.
 
 # Mutation testing (weekly CI job, non-blocking — scope limited to the
 # file(s) in [tool.mutmut] below). Native Windows isn't supported upstream
