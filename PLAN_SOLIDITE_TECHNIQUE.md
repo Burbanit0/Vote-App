@@ -1370,7 +1370,7 @@ commande, sans pipe, avant de faire confiance au signal.
 
 | Item | Pourquoi ici | Effort | Solidité | Récit | Statut |
 |---|---|---|---|---|---|
-| **DAST — ZAP baseline** | SAST (Semgrep/CodeQL) ne voit que le code, jamais le comportement de l'app qui tourne. | M | ⭐⭐ | 📝📝 | |
+| **DAST — ZAP baseline** | SAST (Semgrep/CodeQL) ne voit que le code, jamais le comportement de l'app qui tourne. | M | ⭐⭐ | 📝📝 | ✅ `.github/workflows/dast.yml`, nightly + push:develop, non-gating (voir sous le tableau) |
 | **Fuzzing à couverture** (`atheris` ou `hypofuzz`) | Bien plus profond qu'Hypothesis seul sur le moteur et les parseurs. | L | ⭐⭐ | 📝📝📝 | |
 | **`guarddog`** (Datadog) | Détecte les paquets *malveillants* (typosquatting, install-scripts hostiles) — angle mort de pip-audit/Trivy qui ne voient que les CVE connues. | S | ⭐⭐ | 📝📝📝 | ✅ CI (cron + push develop, informational — voir sous le tableau) |
 | **`trufflehog`** | Secrets **vérifiés actifs**, pas juste des motifs (complète gitleaks + detect-secrets). | S | ⭐ | 📝 | ✅ local + CI, informational (voir sous le tableau) |
@@ -1472,6 +1472,96 @@ trouvailles réelles**, aucune un paquet malveillant :
   `pygit2==1.20.0`) : installer `guarddog` dans le venv 3.14 réel de ce dépôt
   échouerait. Pas ajouté à `requirements-dev.txt` pour cette raison ; job CI
   dédié avec son propre `actions/setup-python` (3.13).
+
+**DAST — ZAP baseline, détail.** `.github/workflows/dast.yml`, nouveau
+workflow dédié (pas un job dans `audit.yml` : c'est le seul scanner du plan
+qui a besoin d'une app **réellement démarrée**, backend uvicorn + build/preview
+frontend, comme `e2e`/`visual-regression` dans `e2e.yml` — un besoin
+structurellement différent des jobs `audit.yml`, qui scannent tous des
+fichiers). Mode `baseline` (spider + scan **passif uniquement**, zéro payload
+d'attaque) choisi et vérifié avant tout câblage, pas supposé : lu le `--help`
+réel de `zap-baseline.py` et la doc zaproxy.org avant d'écrire une ligne de
+YAML. `zap-api-scan.py` (mode piloté par `openapi.gen.json`, déjà présent)
+a été sérieusement considéré — un import OpenAPI est en théorie plus exhaustif
+qu'un spider sur une API pure — mais rejeté : sa propre doc dit qu'il
+« imports the definition… and then runs an Active Scan against the URLs
+found » et « attempt[s] exploitation » (SQLi, etc.) — exactement le mode
+agressif que cet item du plan exclut explicitement, pas une nuance. Action
+officielle `zaproxy/action-baseline` (v0.15.0, dernier commit sur `master`
+daté du 06/09/2026 — dependabot mergé activement, dépôt non abandonné),
+épinglée au SHA du tag comme toutes les autres actions tierces de ce dépôt.
+
+Ciblé sur les **deux** surfaces, dans le même job : le frontend
+(`localhost:3000`, build + `vite preview` réel — mêmes commandes que le job
+`visual-regression`, pas le serveur de dev) et le backend directement
+(`localhost:4434/api/v2/docs`, l'entrée Swagger UI) plutôt qu'un seul scan du
+frontend en espérant que le spider découvre l'API par ricochet — vérifié en
+direct que ce n'est pas fiable : `EXP-004` avait déjà documenté que la
+plupart des pages de l'app ne font aucun appel réseau au montage, et le
+spider du frontend seul n'a déclenché **aucune** requête backend observée
+dans les logs d'accès pendant tout le run. Cible backend directe = couverture
+déterministe, indépendante de ce que le spider frontend explore ou non.
+
+Piège réel trouvé en vérifiant, pas supposé : le spider "moderne" (`-j`,
+navigateur headless réel) a **bloqué indéfiniment** sur la SPA (~59 min,
+tué à la main, CPU à 0 % après une `TimeoutException` Selenium jamais
+récupérée) — retiré. Le spider traditionnel seul suffit : sans exécuter le
+moindre JS, il découvre déjà 25 URLs réelles (tous les chunks JS/CSS
+référencés en dur dans le HTML brut de `index.html`, `sitemap.xml`,
+`robots.txt`, les icônes PWA) et termine en **28,6 s**. Contre le backend
+(`/api/v2/docs`), le scan couvre 7 URLs (Swagger UI + ses ressources) en
+**~27 s**. Les deux scans + démarrage des deux serveurs tiennent largement
+dans le budget CI de 20 min posé (mesuré en local, jamais encore observé sur
+un vrai runner GitHub Actions — même réserve honnête qu'EXP-004 pour le job
+`container:`).
+
+**Vérifié en injectant une vraie régression**, même discipline que EXP-004/006 :
+avant tout correctif, les deux scans trouvaient déjà, sans rien forcer,
+`X-Content-Type-Options Header Missing` (l'app n'envoyait strictement aucun
+header de sécurité — confirmé par `curl -I` avant d'écrire le moindre test).
+Un middleware minimal (`api/main.py`, une ligne, `X-Content-Type-Options:
+nosniff`) ajouté comme correctif réel et sert de bascule de vérification :
+scan backend re-joué → alerte disparue (WARN-NEW 9→8, PASS 58→59) ; middleware
+commenté et backend redémarré → alerte réapparue à l'identique (WARN-NEW de
+retour à 9) ; middleware restauré comme état final commité. Cycle complet
+détection→disparition→réapparition→retour au vert, prouvé en direct trois
+fois, pas supposé après la première. Le reste des alertes trouvées (CSP,
+Permissions-Policy, anti-clickjacking, Cross-Origin-*-Policy, SRI — 8 sur le
+backend, 9 sur le frontend) reste **non corrigé, documenté** : corriger
+l'intégralité de la posture de headers de sécurité est hors du périmètre de
+« câbler le scanner DAST », et risquerait de casser des choses (une CSP mal
+réglée peut bloquer Tailwind/le service worker/RegimeGlobe) sans le temps de
+le vérifier composant par composant — laissé en backlog informationnel
+explicite, même traitement que refurb/perflint/sonarjs au Lot 6.
+
+Non-gating (`fail_action: false`) : c'est le seul scanner de sécurité de ce
+dépôt qui dépend d'une app réellement démarrée — un vrai nouveau mode de
+panne (port déjà pris, serveur lent à démarrer, pull d'image ZAP) qu'aucun
+des scanners purement fichiers n'a. Déclenché sur `push: develop` (filtré aux
+chemins `voter-app/**`/`fast_api_voter/**`) + `schedule` nightly (02:42 UTC)
++ `workflow_dispatch`, jamais sur `pull_request` — même arbitrage que
+`schemathesis.yml`/`mutation-testing.yml`, mêmes raisons (variance de timing
+non mesurée sur un vrai runner). Pas de SARIF : l'action officielle n'en
+produit pas (issue ouverte non résolue côté `zaproxy/actions-common`), les
+convertisseurs tiers trouvés (`action-zap2sarif`, `zaproxy-to-ghas`) n'ont pas
+de statut de maintenance vérifié — écartés sans essai, même réflexe que
+Lost Pixel/`license-checker` (vérifier avant d'adopter, pas après). Rapport
+HTML/JSON/MD téléchargé en artifact CI (2 par run, un par cible) +
+comptage récapitulatif dans le step summary (`jq` sur `report_json.json`),
+pas de SARIF ni d'issue GitHub auto-créée (`allow_issue_writing: false` —
+tous les autres scanners de ce dépôt remontent par artifact/onglet
+Security/step-summary, jamais par une issue créée automatiquement).
+`scripts/audit.sh` reste inchangé : c'est le seul scanner de sécurité de ce
+plan qui a besoin de deux serveurs réellement démarrés (uvicorn + un build
+frontend), à l'opposé du principe du script (« déterministe, rapide, sans
+état, pour un hook ou une passe locale de quelques secondes ») — ajouter un
+scan de plusieurs dizaines de secondes avec deux ports à gérer localement
+casserait cette promesse pour tout le monde à chaque appel du script, pas
+seulement pour qui veut vérifier la sécurité DAST. Un développeur qui veut le
+rejouer en local lance `gh workflow run dast.yml` ou reproduit les deux
+commandes `docker run` documentées dans le workflow lui-même. Détail complet,
+protocole et pièges :
+[`docs/exploration/EXP-010-zap-baseline-dast.md`](docs/exploration/EXP-010-zap-baseline-dast.md).
 
 **Signature d'images + provenance SLSA, détail.** Avant d'écrire la moindre
 ligne de YAML : les deux images Docker du repo sont-elles publiées quelque

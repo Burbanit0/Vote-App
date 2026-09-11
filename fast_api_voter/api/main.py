@@ -115,6 +115,28 @@ app.add_middleware(
 )
 
 
+# ── Security headers ──────────────────────────────────────────────────────
+# Lot 9, PLAN_SOLIDITE_TECHNIQUE.md ("DAST — ZAP baseline"): confirmed live via
+# a real OWASP ZAP baseline scan (docs/exploration/EXP-009) that every response
+# was missing this header — a real, previously-invisible finding, not a
+# hypothetical one (SAST tools never look at response headers, only source).
+# `nosniff` stops a browser from MIME-sniffing a response into a more
+# dangerous content-type than the one this API actually declares — zero
+# behavioural risk (every route already sets an explicit Content-Type) so
+# there is nothing to verify beyond "the header is present". The remaining
+# baseline findings (CSP, Permissions-Policy, anti-clickjacking, …) are left
+# as documented, non-blocking backlog — see EXP-009 — deliberately not
+# addressed here to keep this change reviewable as the single, narrow fix the
+# ZAP verification loop targets, not a full header-hardening pass.
+@app.middleware("http")
+async def security_headers(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
 # ── Rate-limit state default (Lot 3, PLAN_SOLIDITE_TECHNIQUE.md — "Résilience
 # Redis") ─────────────────────────────────────────────────────────────────────
 # Pairs with `swallow_errors=True` on the Limiter in api/core/ratelimit.py.
