@@ -57,6 +57,34 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    ignore:
+      # 2026-09-11: vitest@5.0.0 and jsdom@30.0.1 both declare
+      # `engines.node: >=22.x` -- every CI workflow here pins Node 20
+      # (frontend-ci-cd-pipeline.yml, e2e.yml, audit.yml, etc.). Confirmed
+      # locally: jsdom 30 crashes every jsdom-pool test under Node 20
+      # ("TypeError: webidl.util.markAsUncloneable is not a function",
+      # PR #324's real CI failure); vitest 5 + @vitest/coverage-v8 5
+      # install and run under Node 20 despite the EBADENGINE warning, but
+      # break `tsc --noEmit` because @testing-library/jest-dom@7.0.1 (its
+      # own latest release) hasn't updated its matcher typings for
+      # vitest 5's new `Assertion` generic shape (PR #370). Unblocking
+      # these needs a deliberate, repo-wide Node 20->22 CI bump, not a
+      # routine dependency PR -- ignored until that happens.
+      - dependency-name: "vitest"
+        versions: [">=5.0.0"]
+      - dependency-name: "@vitest/coverage-v8"
+        versions: [">=5.0.0"]
+      - dependency-name: "jsdom"
+        versions: [">=30.0.0"]
+      # eslint@10.x: eslint-plugin-jsx-a11y's latest release (6.10.2, no
+      # newer one on npm as of 2026-09-11) still declares
+      # `peer eslint@"^3 || ... || ^9"` -- npm ci hard-fails with ERESOLVE
+      # (PR #327/#325's real CI failure). Re-open once jsx-a11y ships an
+      # eslint-10-compatible release.
+      - dependency-name: "eslint"
+        versions: [">=10.0.0"]
+      - dependency-name: "@eslint/js"
+        versions: [">=10.0.0"]
 
   # Actions are pinned by commit hash (see any workflow's `# v4`-style
   # comments) — Dependabot proposes hash bumps for these, not just version tags.
