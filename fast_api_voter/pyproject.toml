@@ -93,6 +93,26 @@ DEP003 = [
                   # place that pin can drift out of sync.
 ]
 
+# Second static-analysis opinion alongside mypy (Lot 6.2, PLAN_SOLIDITE_
+# TECHNIQUE.md — informational only, not a gate; see scripts/audit.sh
+# --quality). "standard" (not "strict"/"all"): basedpyright's stricter modes
+# propagate `Unknown` far more aggressively than `mypy --strict` and drown
+# the signal — e.g. ~15k warnings from z3-solver alone lacking type stubs.
+# api/tests/ excluded to match mypy.ini's own `exclude = (tests)` scope, so
+# the two tools are compared on the same code, not different codebases.
+[tool.basedpyright]
+include = ["api"]
+exclude = ["api/tests"]
+typeCheckingMode = "standard"
+pythonVersion = "3.14"
+# mypy.ini's `plugins = pydantic.mypy` understands `Field(default, ge=, ...)`
+# and `Field(default_factory=SomeModel)` as providing real defaults;
+# basedpyright's PEP 681 (dataclass_transform) support doesn't fully resolve
+# that overload combination and reports phantom missing-argument/type errors
+# on otherwise-correct pydantic models — a known, documented baseline
+# (~32 findings, all verified false positives), not something to chase to
+# zero. See PLAN_SOLIDITE_TECHNIQUE.md §6.2 for the full breakdown.
+
 # Dead-code detection (informational only — see CODE_AUDIT.md for the
 # rationale and how this feeds scripts/audit.sh / CI). min_confidence=80 keeps
 # the signal-to-noise ratio usable: below that threshold Enum members and
