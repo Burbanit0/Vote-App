@@ -1,7 +1,7 @@
 # EXP-004 — Régression visuelle : Playwright screenshots, et pourquoi l'environnement compte plus que l'outil
 
-- **Date** : 2026-09-11 · **Statut** : adopté (gate CI, job séparé — voir réserve sur le *required check* GitHub en fin de fiche) · **Coût réel** : ~5h (recherche outillage, trois pièges de stabilité trouvés et corrigés, vérification du détecteur contre une régression injectée, une mauvaise config de tolérance trouvée et corrigée)
-- **Verdict en une phrase** : le mécanisme natif de Playwright (`toHaveScreenshot`) suffit largement — Lost Pixel a été écarté sans essai pour une raison qui ne laisse pas le choix (dépôt archivé, équipe partie chez Figma) — mais le faire tenir en CI a exigé de trouver et corriger trois pièges réels (un flash d'UI intermittent au montage, un faux négatif de tolérance qui laissait passer une régression visible, une carte qui rend un état d'erreur permanent sans le backend), pas seulement de brancher l'API.
+- **Date** : 2026-09-11 · **Statut** : adopté (gate CI, job séparé — voir réserve sur le *required check* GitHub en fin de fiche) · **Coût réel** : ~5h30 (recherche outillage, quatre pièges de stabilité trouvés et corrigés, vérification du détecteur contre une régression injectée, une mauvaise config de tolérance trouvée et corrigée, plus deux pièges d'intégration trouvés en rebasant sur `develop` juste avant merge)
+- **Verdict en une phrase** : le mécanisme natif de Playwright (`toHaveScreenshot`) suffit largement — Lost Pixel a été écarté sans essai pour une raison qui ne laisse pas le choix (dépôt archivé, équipe partie chez Figma) — mais le faire tenir en CI a exigé de trouver et corriger quatre pièges réels (un flash d'UI intermittent au montage, un faux négatif de tolérance qui laissait passer une régression visible, une carte qui rend un état d'erreur permanent sans le backend, un timeout de serveur de dev sans rapport avec le rendu), plus deux pièges d'intégration (un `testIgnore` de config qui ne s'appliquait jamais réellement, des fichiers Docker orphelins appartenant à `root`) trouvés seulement au moment de rebaser sur `develop` avant le merge — pas seulement de brancher l'API.
 
 ## Hypothèse de départ
 
@@ -168,6 +168,37 @@ affectés (`/playground` et `playground-leader-canvas`) — les 5 autres,
 non affectés par ce composant, restent verts. Restauré au vert après retour
 du code.
 
+### Piège 5 (trouvé en rebasant sur `develop` avant merge) — le `testIgnore` de niveau racine ne s'appliquait jamais réellement
+
+Ce fichier avait ajouté `testIgnore: '**/visual.spec.ts'` au niveau racine de
+`playwright.config.ts`. Ça avait l'air correct isolément, mais le rebase sur
+`develop` (qui avait entre-temps mergé l'item « Viewport mobile en e2e » du
+même Lot 7) a exposé une interaction non testée : les projets `chromium` et
+`firefox` déclarent chacun leur propre `testIgnore` (pour `mobile.spec.ts`)
+— et un `testIgnore`/`testMatch` de niveau *projet* **remplace** celui de la
+racine pour ce projet au lieu de s'y ajouter. Résultat vérifié en relançant
+`npx playwright test` (sans `--config`, la commande par défaut) après le
+rebase : 241 tests au lieu de 227, `visual.spec.ts` exécuté contre le
+serveur de dev natif (pas l'image Docker), échecs de comparaison de pixels
+en environnement non fiable — exactement le problème que ce fichier existe
+pour éviter. Corrigé en fusionnant les deux exclusions dans un seul motif
+partagé (`EXCLUDED_FROM_DEFAULT = /(mobile|visual)\.spec\.ts$/`) posé sur
+chaque projet plutôt qu'à la racine. Reconfirmé : suite par défaut à 227
+tests (pas 241), suite Docker toujours à 7/7.
+
+### Piège 6 (trouvé au même moment) — le script Docker laissait des fichiers appartenant à `root` dans le dépôt
+
+`scripts/test-visual-docker.sh` lançait le conteneur sans `--user`, donc
+`npm ci` à l'intérieur écrivait `node_modules/`, `build/`, `test-results/`
+et `playwright-report-visual/` (tous bind-montés depuis l'hôte) en tant que
+`root` — invisibles jusqu'à la commande suivante lancée en tant
+qu'utilisateur normal (`npx vitest run`, `npm run build`), qui échouait avec
+`EACCES`. Corrigé en ajoutant `--user "$(id -u):$(id -g)"` (et
+`-e HOME=/tmp`, l'uid hôte n'ayant pas d'entrée `/etc/passwd` dans l'image)
+— vérifié : le script tourne désormais sans laisser un seul fichier
+appartenant à `root` dans l'arbre (`find . -not -user "$(whoami)"` vide
+après coup), et la suite reste à 7/7.
+
 ## Ce que ça a coûté
 
 ~5h : ~30 min de recherche/vérification d'outillage (statut Lost Pixel,
@@ -178,7 +209,10 @@ intermittent) ; ~1h à découvrir et corriger le piège de tolérance (deux
 cycles complets d'injection/vérification, un avant et un après correctif) ;
 ~1h de vérification finale (8 runs natifs + 6 runs Docker, suite e2e
 fonctionnelle complète rejouée pour confirmer l'absence de régression,
-`tsc`/`vitest`/`lint`). Aucune nouvelle dépendance de production ni de dev
+`tsc`/`vitest`/`lint`) ; ~30 min supplémentaires au moment du rebase sur
+`develop` avant merge pour trouver et corriger les pièges 5-6 (relire la
+suite par défaut après rebase plutôt que supposer qu'un rebase propre =
+comportement inchangé). Aucune nouvelle dépendance de production ni de dev
 (`@playwright/test` déjà présent) ; une image Docker (`mcr.microsoft.com/
 playwright`, ~1,5 Go, tirée une fois, réutilisée).
 
@@ -243,3 +277,12 @@ tourné une seule fois sur ce dépôt.
    équipe partie chez Figma) sans qu'un seul test ait été nécessaire — le
    même réflexe que `license-checker-rseidelsohn` au Lot 6.7, appliqué ici
    à un choix d'outil plutôt qu'à une licence.
+5. **Un branch testé isolément et un branch qui se comporte pareil une fois
+   rebasé sur `develop` sont deux affirmations différentes — un rebase
+   propre (sans conflit `git`) ne garantit rien sur le comportement runtime.**
+   Le piège 5 (`testIgnore` de projet qui écrase silencieusement celui de la
+   racine) n'existait pas au moment où ce fichier a été écrit : il est
+   apparu seulement après que `develop` a reçu, entre-temps, un autre item
+   du même Lot 7 touchant le même fichier de config. La suite par défaut
+   (`npx playwright test`) a dû être rejouée *après* le rebase, pas supposée
+   inchangée parce que `git rebase` n'avait rien signalé.

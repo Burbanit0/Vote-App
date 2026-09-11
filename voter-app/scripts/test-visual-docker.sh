@@ -36,11 +36,19 @@ IMAGE="mcr.microsoft.com/playwright:v${PW_VERSION}-noble"
 
 echo "Running visual regression suite in ${IMAGE}"
 
+# --user + HOME=/tmp: the image's default user is root, which would leave
+# root-owned files under the bind-mounted node_modules/ (npm ci runs inside
+# the container) — silently breaking every host-side npm/vitest command
+# afterwards until manually chown'd back. Running as the host uid avoids that
+# entirely; HOME is overridden because that uid has no matching /etc/passwd
+# home directory to write npm's cache into otherwise.
 docker run --rm \
   --ipc=host \
   --network=host \
+  --user "$(id -u):$(id -g)" \
   -v "$(pwd)":/work \
   -w /work \
   -e CI=true \
+  -e HOME=/tmp \
   "${IMAGE}" \
   bash -c "npm ci && npx playwright test --config=playwright.visual.config.ts $*"

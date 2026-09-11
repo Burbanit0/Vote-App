@@ -1057,8 +1057,21 @@ zéro échec sous la config finale. Câblé en job CI séparé
 suite e2e fonctionnelle) — réserve honnête : le mécanisme `container:`
 GitHub Actions n'a pas pu être observé sur un vrai run (pas de droit de push
 dans ce worktree), donc recommandé de ne l'ajouter aux *required status
-checks* qu'après son premier run réel. Carnet complet (les quatre pièges, le
-détail de la vérification du détecteur) :
+checks* qu'après son premier run réel. Deux pièges supplémentaires trouvés
+en rebasant sur `develop` juste avant le merge (donc après la rédaction
+initiale de cette fiche, pas hypothétiques) : le `testIgnore` de
+`playwright.visual.config.ts` posé au niveau racine de
+`playwright.config.ts` ne s'appliquait en réalité jamais — chaque projet
+(`chromium`/`firefox`) déclare son propre `testIgnore` (pour
+`mobile.spec.ts`, ajouté par un autre item de ce même Lot 7 mergé entre-
+temps) qui **remplace** celui de la racine au lieu de s'y ajouter ; confirmé
+en rejouant `npx playwright test` après rebase (241 tests au lieu de 227,
+`visual.spec.ts` exécuté hors Docker). Et `scripts/test-visual-docker.sh`
+laissait des fichiers appartenant à `root` dans le dépôt (conteneur lancé
+sans `--user`), cassant silencieusement la commande suivante lancée en tant
+qu'utilisateur normal. Les deux corrigés, suite par défaut revérifiée à 227
+tests et suite Docker à 7/7. Carnet complet (les six pièges, le détail de la
+vérification du détecteur) :
 [`docs/exploration/EXP-004-regression-visuelle-playwright-screenshots.md`](docs/exploration/EXP-004-regression-visuelle-playwright-screenshots.md).
 
 **Viewport mobile en e2e, détail.** Nouveau fichier

@@ -1,5 +1,11 @@
 import { defineConfig, devices } from '@playwright/test';
 
+// mobile.spec.ts has its own dedicated `mobile` project (testMatch below);
+// visual.spec.ts only runs via playwright.visual.config.ts's pinned Docker
+// image (see that file's header). Neither belongs to the default chromium/
+// firefox projects.
+const EXCLUDED_FROM_DEFAULT = /(mobile|visual)\.spec\.ts$/;
+
 export default defineConfig({
   testDir: './tests/e2e',
   // Visual regression has its own config (playwright.visual.config.ts) and its
@@ -7,7 +13,16 @@ export default defineConfig({
   // — see that file's header. Running it here too would compare Docker-
   // generated baselines against this native project's rendering, which is
   // exactly the cross-environment mismatch that setup avoids.
-  testIgnore: '**/visual.spec.ts',
+  //
+  // NOT set here as a top-level `testIgnore`: each project below already
+  // defines its own `testIgnore` (for mobile.spec.ts), and Playwright's
+  // project-level testMatch/testIgnore *replaces* the top-level one for that
+  // project rather than merging with it — a top-level-only entry here would
+  // silently stop applying the moment any project sets its own (confirmed by
+  // running `npx playwright test` and finding visual.spec.ts executing
+  // against the wrong, non-Docker environment despite this line). Both
+  // exclusions are combined in EXCLUDED_FROM_DEFAULT below instead, one
+  // shared pattern for every project.
   fullyParallel: false, // simulations are CPU-heavy
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
@@ -31,12 +46,12 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
-      testIgnore: /mobile\.spec\.ts$/,
+      testIgnore: EXCLUDED_FROM_DEFAULT,
     },
     {
       name: 'firefox',
       use: { ...devices['Desktop Firefox'] },
-      testIgnore: /mobile\.spec\.ts$/,
+      testIgnore: EXCLUDED_FROM_DEFAULT,
     },
     // Android (chromium-based), not an iPhone preset: iOS emulation needs
     // WebKit, whose *rendering engine* is already covered by a desktop pass
