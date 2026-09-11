@@ -13,16 +13,23 @@ import pgFr from './locales/playground.fr';
 // into a separate asset automatically.
 const lazyLoaders: Record<string, () => Promise<{ default: Record<string, unknown> }>> = {
   en: () => import('./locales/en'),
+  // Pseudo-locale (Lot 7, PLAN_SOLIDITE_TECHNIQUE.md): every string accented
+  // and ~35% longer, to catch layout overflow/truncation before a real
+  // second language does. Never surfaced in the UI's own language switcher —
+  // only reachable via `?lng=pseudo` / `localStorage.votelab_lang`, e2e's
+  // `tests/e2e/pseudo-locale.spec.ts` uses the latter.
+  pseudo: () => import('./locales/pseudo'),
 };
 // The playground namespace is code-split the same way (its own large vocabulary).
 const pgLazyLoaders: Record<string, () => Promise<{ default: Record<string, unknown> }>> = {
   en: () => import('./locales/playground.en'),
+  pseudo: () => import('./locales/playground.pseudo'),
 };
 
 /** Ensure a language's bundles (translation + playground) are registered (no-op
  *  for `fr` and for already-loaded languages). Safe to call repeatedly. */
 export async function loadLanguage(lng: string): Promise<void> {
-  const base = lng.startsWith('en') ? 'en' : 'fr';
+  const base = lng.startsWith('en') ? 'en' : lng.startsWith('pseudo') ? 'pseudo' : 'fr';
   if (base === 'fr') return; // fr (and anything bundled) is already present
   if (!i18n.hasResourceBundle(base, 'translation') && lazyLoaders[base]) {
     const mod = await lazyLoaders[base]();
@@ -48,7 +55,7 @@ const initPromise = i18n
       fr: { translation: fr, playground: pgFr },
     },
     fallbackLng: 'fr',
-    supportedLngs: ['fr', 'en'],
+    supportedLngs: ['fr', 'en', 'pseudo'],
     // Allows registering a language's bundle AFTER init (via addResourceBundle).
     partialBundledLanguages: true,
     detection: {

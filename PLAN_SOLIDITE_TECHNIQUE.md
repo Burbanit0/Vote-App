@@ -1008,7 +1008,7 @@ seulement une liste blanche assez large pour ne jamais mordre.
 | **Régression visuelle** (Playwright screenshots / Lost Pixel) | L'app est quasi entièrement visuelle (SVG, cartes, Recharts) et **rien** ne détecte qu'une carte s'affiche de travers. | M | ⭐⭐⭐ | 📝📝📝 | ⏳ |
 | **Viewport mobile en e2e** | App pédagogique → usage mobile probable, zéro test mobile aujourd'hui. | M | ⭐⭐ | 📝📝 | ✅ `tests/e2e/mobile.spec.ts` + projet `mobile` (voir sous le tableau) |
 | **`i18next-parser`** + `eslint-plugin-i18next` | Clés orphelines/manquantes et chaînes en dur (5 encore trouvées à la main le 06/09). | M | ⭐⭐ | 📝📝 | ⏳ |
-| **Pseudo-locale à chaînes longues** | Casse les layouts avant que l'anglais ou une future langue ne le fasse. | S | ⭐⭐ | 📝📝📝 | ⏳ |
+| **Pseudo-locale à chaînes longues** | Casse les layouts avant que l'anglais ou une future langue ne le fasse. | S | ⭐⭐ | 📝📝📝 | ✅ `pseudo.ts` + `tests/e2e/pseudo-locale.spec.ts` (voir sous le tableau) |
 | **Webkit en e2e** | Seuls chromium et firefox tournent aujourd'hui. | S | ⭐⭐ | 📝 | ⏳ bloqué — dépendances système manquantes (`sudo npx playwright install-deps` requis, pas de sudo sans mot de passe dans cet environnement) |
 
 **a11y sur toutes les routes, détail.** Vérifié avant de commencer à
@@ -1069,6 +1069,50 @@ scopant au conteneur `[data-tour="navbar"]`, comme le fait déjà
 repéré en construisant ce test, pas juste un ajout pour le rendre
 sélectionnable. Suite complète (chromium + firefox + mobile, 227 tests)
 rejouée trois fois : stable, ~55s.
+
+**Pseudo-locale à chaînes longues, détail.** `src/i18n/pseudoize.ts` accentue
+chaque chaîne, la rallonge d'environ 35 % (motif `~~~`) et l'encadre de
+`⟦…⟧` — les marqueurs de crochets servent à la fois de repère visuel de
+troncature et d'ancre pour qu'un test e2e sache que le bundle pseudo est
+bien actif (pas juste le fallback français). Les tokens `{{interpolation}}`
+sont préservés tels quels. `pseudo.ts` / `playground.pseudo.ts` sont des
+artefacts générés (même statut que `src/api/types.gen.ts`) — `scripts/
+gen-pseudo-locale.ts` (exécuté via `npx jiti`, ajouté en dépendance
+explicite plutôt que de compter sur sa présence transitive via
+tailwindcss ; `npm run gen:pseudo-locale`) les régénère depuis `fr.ts`/
+`playground.fr.ts`, et `src/i18n/pseudoize.test.ts` regénère l'arbre en
+mémoire et le compare à ce qui est commité — échoue bruyamment si `fr.ts`
+change sans régénération, même rôle que les tests de parité fr/en
+existants.
+
+Le locale `pseudo` est câblé dans `src/i18n/index.ts` avec le même
+mécanisme de lazy-loading que `en` (jamais dans le bundle principal),
+mais **jamais exposé dans le sélecteur de langue de l'app** — seulement
+atteignable en écrivant `pseudo` dans `localStorage.votelab_lang` (la même
+clé que lit déjà `i18next-browser-languagedetector`), ce que fait
+`tests/e2e/pseudo-locale.spec.ts` via `page.addInitScript` avant chaque
+navigation. Les 5 `SURFACES` de `routes.ts` sont balayées et chacune est
+vérifiée sans dépassement horizontal de page
+(`document.documentElement.scrollWidth` vs `clientWidth`, tolérance 2px) —
+un test qui a effectivement pris deux round-trips pour être fiable.
+D'abord une fausse piste : une première exécution donnait de faux échecs à
+cause d'un `vite preview` déjà présent sur le port 3000 de cet
+environnement, que `reuseExistingServer` réutilisait silencieusement au
+lieu de démarrer le vrai serveur de dev — diagnostiqué en traçant
+`localStorage` et `i18next` directement dans le navigateur avant de
+conclure à un bug applicatif ; identifié après coup comme le propre
+conteneur Docker de l'item « Régression visuelle » ci-dessus (`--network=
+host`), tournant en parallèle dans le même environnement, pas un processus
+extérieur à cette session. Ensuite un vrai bug, trouvé seulement en CI (pas
+reproductible en local, fonts différentes) : `/decouvrir` dépassait de 62px
+en largeur sous firefox. Cause réelle, indépendante de l'environnement :
+`padFor()` collait tout le padding `~~~~` en un seul bloc à la fin de la
+phrase entière plutôt que par mot — un unique « mot » artificiellement
+long et non-sécable, un mode de défaillance qu'aucune vraie langue ne
+produit (les langues plus longues ont des mots plus longs, pas un mot
+géant en fin de phrase). Corrigé en distribuant le padding mot par mot
+(`pseudoizeSegment` découpe sur les espaces). Les 5 tests passent contre le
+vrai serveur, chromium + firefox (10 tests) après ce correctif.
 
 ---
 
