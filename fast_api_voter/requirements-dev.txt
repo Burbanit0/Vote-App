@@ -25,6 +25,10 @@ pytest-randomly==5.0.0  # Randomizes test order every run (Lot 5, PLAN_SOLIDITE_
 defusedxml==0.7.1       # Safe (non-XXE) JUnit XML parsing in scripts/check_flaky_backend.py --
                         # was already present transitively (py-serializable), declared directly
                         # now that this repo's own code imports it.
+syrupy==6.0.0           # Snapshot testing (Lot 5, PLAN_SOLIDITE_TECHNIQUE.md) -- readable,
+                        # reviewable diffs for compare_all_methods' rich nested output instead
+                        # of hand-written field-by-field assertions. See
+                        # api/tests/test_compare_all_methods_snapshot.py.
 
 # Security
 bandit==1.9.4        # Python SAST (static analysis)
