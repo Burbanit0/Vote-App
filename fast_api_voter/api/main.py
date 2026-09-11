@@ -75,7 +75,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 # handler below AND every already-existing `log.error(..., exc_info=True)`
 # call inside a domain worker's own try/except (api/domain/**), with zero
 # per-file changes — confirmed live (see api/tests/test_error_tracking.py and
-# docs/exploration/EXP-012).
+# docs/exploration/EXP-013).
 def _init_sentry(settings: Settings) -> None:
     if settings.glitchtip_dsn:
         sentry_sdk.init(dsn=settings.glitchtip_dsn, environment=settings.app_env)
