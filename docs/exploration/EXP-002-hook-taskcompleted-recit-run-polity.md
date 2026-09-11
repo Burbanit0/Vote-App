@@ -111,27 +111,41 @@ message de commit (`0454010`) :
   Claude Code et skill `/update-config` se contredisent sur ce point, donc
   jugé non porteur sans sonde supplémentaire.
 
-**Confirmation a posteriori, 2026-09-11 — observation opportuniste, pas une
-mesure prévue par le protocole initial.** Pendant la rédaction même de ce
-carnet, un run Stage 3 en cours (`scaleprobe-8y-p500-v2-postfix`) s'est
-révélé bloqué : 1,92 s de CPU consommée en 1h59 d'horloge murale, une socket
-établie mais inerte vers un vLLM par ailleurs parfaitement sain (répondant
-en 4 ms), largement au-delà de son propre timeout (600 s × 3 tentatives).
-Aucune exception n'a été levée, donc aucun repli ne s'est déclenché et aucun
-crash n'a été enregistré — le run avait cessé d'être un run tout en ayant
-l'air vivant. Il a été arrêté par SIGTERM ; la jambe Python a fonctionné
-exactement comme conçu : `digest.json` écrit avec `"outcome": "interrupted"`,
+**Mise à l'épreuve en conditions réelles, 2026-09-11 — et une erreur de
+diagnostic qui vaut d'être consignée telle quelle.** Pendant la rédaction de
+ce carnet, j'ai conclu qu'un run Stage 3 en cours
+(`scaleprobe-8y-p500-v2-postfix`) était bloqué, sur la foi de quatre indices :
+1,92 s de CPU en 1h59, aucun événement journalisé depuis ~2h, une socket
+ESTABLISHED ouverte 1h41 plus tôt vers vLLM, et un ETA de `progress.json`
+périmé. Le run a été arrêté par SIGTERM sur cette base.
+
+**Le diagnostic était faux : le run travaillait.** Vérification faite après
+coup sur le serveur lui-même — `docker logs vllm-polity` montrait
+`Running: 1 reqs` à 130-170 tokens/s en continu, `nvidia-smi` 94 % de GPU, et
+un débit stable de 84 requêtes en 30 minutes avec ce processus pour seul
+client. Chaque indice avait une explication innocente : un processus bloqué
+sur un serveur GPU ne consomme quasiment pas de CPU ; `cast_votes` décide
+toute la population avant que l'appelant ne journalise, soit ~1 h de silence
+légitime à population 500 ; httpx réutilise une seule connexion keep-alive,
+donc l'âge de la socket ne dit rien de l'âge de la requête ; et
+`progress.json` n'est écrit qu'à chaque tick complété. ~2 h de calcul jetées.
+
+Ce que cet incident apporte quand même à cette expérience, et c'est réel : la
+**jambe Python a fonctionné exactement comme conçu** sous un SIGTERM non
+planifié — `digest.json` écrit avec `"outcome": "interrupted"`,
 `"error": {"type": "_Terminated", "message": "received signal 15"}`, 7447,8 s
 écoulées, 16/32 ticks journalisés, checkpoint au tick 15, 4624 événements, 0
 ligne malformée — vérifié directement dans
 `fast_api_voter/scripts/flagship_runs/scaleprobe-8y-p500-v2-postfix/run/scaleprobe-8y-p500-v2-postfix/digest.json`.
+C'est sa première épreuve hors des 3/3 tests SIGTERM synthétiques, et un
+arrêt décidé par un opérateur — précisément le cas qu'un hook `TaskCompleted`
+ne couvre pas, puisqu'il n'écoute que les fins de tâche normales.
 
-C'est la première mise à l'épreuve en conditions réelles de la conception
-issue de cette expérience, et elle en valide le point central d'une manière
-que le protocole initial n'avait pas anticipée : un hook `TaskCompleted`
-n'aurait de toute façon rien produit ici, puisque la tâche ne s'est jamais
-*terminée* — elle s'est figée, socket ouverte, sans exception et sans fin
-observable par un mécanisme qui n'écoute que les fins.
+Et une leçon qui n'était pas dans le protocole : **quand on soupçonne qu'un
+processus est bloqué sur un service externe, la première vérification doit
+être de demander au service s'il travaille**, pas d'interpréter les symptômes
+côté client. Tous les symptômes côté client étaient ici compatibles avec un
+fonctionnement normal.
 
 ## Ce que ça a coûté
 

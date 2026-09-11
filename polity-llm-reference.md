@@ -488,26 +488,34 @@ reproduce on vLLM. Measured, not root-caused. The ECONOMIC_SHOCK branch is untes
 
 Ordered by how much they would change things.
 
-1. **A run can hang forever on one LLM call, and nothing fires.** Observed live 2026-09-11 on the
-   Stage 3 probe: **1.92 s of CPU in 1 h 59 min**, journal untouched for ~2 h, an ESTABLISHED but
-   completely idle socket to a vLLM that was answering `/v1/models` in 4 ms. `progress.json`'s ETA
-   was stale (it is written per completed tick), so the run looked alive and on schedule from every
-   artifact.
+1. **A healthy run is indistinguishable from a hung one, and that cost a real run.** On 2026-09-11 I
+   diagnosed the Stage 3 probe as wedged and killed it. **It was not wedged. It was working.** ~2h
+   of compute discarded on a misread; only the checkpoint at tick 15 limited the loss to one tick.
 
-   This is a **worse failure class than the one closed below**, and none of that work touches it: no
-   exception is raised, so no fallback triggers, no digest is written, no crash is recorded. A run
-   that dies at least leaves a trace; a run that hangs silently burns the wall-clock budget of a
-   30-year flagship and leaves nothing.
+   The evidence that looked damning, and the innocent explanation for every piece of it:
 
-   What makes it a real bug rather than a slow model: `llm_client.py` sets
-   `httpx.Client(timeout=600.0)` and `_TRANSPORT_RETRY_ATTEMPTS = 3`, so the documented worst case
-   is 30 minutes before an `LlmTransportError`. The observed hang exceeded that by ~3.4× with
-   nothing raised. **Mechanism not established** — do not assume it is understood.
+   | observation | what it actually means |
+   |---|---|
+   | 1.92 s of CPU in 1 h 59 min | correct and expected — the process is ~100% blocked on a GPU server; parsing a small JSON batch costs well under one 10 ms jiffy |
+   | journal untouched for ~2 h | correct and expected — `cast_votes` decides the **entire population** before the caller journals anything. At pop 500 chunked at 3 that is ~167 sequential calls at ~3/min ≈ **1 hour of legitimate silence**, and tick 16 is an *election* tick (§5: 8–10× an ordinary one) |
+   | an ESTABLISHED, idle socket opened 1 h 41 min earlier | **my worst inference.** httpx reuses one keep-alive connection for every request, so socket age says nothing whatever about request age |
+   | `progress.json` ETA stale | correct and expected — it is written once per completed tick |
 
-   Two things are needed and neither exists: find out why the timeout does not fire, and add a
-   watchdog on *tick progress* rather than trusting any single HTTP timeout. (The one piece that did
-   work: SIGTERM produced a correct `digest.json` — `outcome: interrupted`, 16/32 ticks, 4624
-   events, 0 malformed lines — so the operator-kill path is sound even when the run is wedged.)
+   The check I never ran, which settles it in ten seconds: **ask the server whether it is working.**
+   `docker logs vllm-polity` showed `Running: 1 reqs` with 130–170 tok/s throughout, `nvidia-smi`
+   showed 94% GPU, and the completion rate was a steady **84 requests in 30 minutes** with our
+   process as the only client. There is no hang bug. There never was.
+
+   **The real gap is observability**: at population 500 a run can legitimately go an hour with no
+   journal write, no `progress.json` update, and near-zero CPU — and nothing distinguishes that from
+   a genuine freeze. `progress.json` needs an **in-tick heartbeat** (decisions completed, current
+   phase, last LLM response time), not just a per-tick write. Until it has one, the only honest
+   liveness check is the LLM server's own logs, and any "the run is stuck" claim that has not
+   consulted them should be disbelieved — including your own.
+
+   (One thing did work as designed: SIGTERM produced a correct `digest.json` — `outcome:
+   interrupted`, 16/32 ticks, 4624 events, 0 malformed lines. The operator-kill path is sound. It
+   just should not have been used here.)
 
 2. ~~**Four decision types can still kill a multi-hour run.**~~ **Closed 2026-09-11.** All nine now
    degrade instead of dying, and all nine vary sampling on retry — §4.4. Two things the fix surfaced

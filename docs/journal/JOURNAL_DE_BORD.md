@@ -117,14 +117,29 @@ celles corrigées : un run qui se fige sans rien déclencher.
   sur le code de `9929651`.
 
 **Points bloquants**
-- **Le plus grave de la journée : le simulateur peut se figer indéfiniment sur un appel LLM sans
-  que rien ne se déclenche.** Découvert en clôturant le run Stage 3 ci-dessus. Le timeout httpx de
-  600s (`_TRANSPORT_RETRY_ATTEMPTS = 3` dans `llm_client.py`, donc 30 min au maximum en théorie) a
-  été dépassé d'un facteur ~3,4 sans rien déclencher — aucune exception, donc aucun repli, aucun
-  digest, aucun crash enregistré : le run cessait d'être un run tout en ayant l'air vivant. Plus
-  grave que toutes les pannes corrigées aujourd'hui, parce qu'un run qui meurt laisse au moins un
-  digest et une trace, alors qu'un run figé ne laisse rien et consomme le mur d'horloge d'un run de
-  30 ans. Mécanisme non compris à ce stade.
+- **L'erreur de la journée, et elle est de moi : j'ai diagnostiqué le run Stage 3 comme figé et je
+  l'ai fait tuer. Il ne l'était pas. Il travaillait.** ~2h de calcul jetées sur une mauvaise
+  lecture ; seul le checkpoint au tick 15 a limité la perte à un tick. Les quatre indices qui
+  semblaient accablants ont tous une explication innocente : (1) 1,92s de CPU en 1h59 — normal, le
+  processus est bloqué ~100 % du temps sur un serveur GPU et parser un petit batch JSON coûte moins
+  d'un jiffy de 10 ms ; (2) journal muet pendant ~2h — normal, `cast_votes` décide **toute la
+  population** avant que l'appelant ne journalise quoi que ce soit, soit ~167 appels séquentiels à
+  ~3/min à population 500, donc ~1h de silence légitime, et le tick 16 est un tick d'élection (8 à
+  10× un tick ordinaire, ce que je savais déjà) ; (3) une socket ESTABLISHED ouverte 1h41 plus tôt
+  — ma pire inférence : httpx réutilise une seule connexion keep-alive, l'âge de la socket ne dit
+  strictement rien sur l'âge de la requête ; (4) ETA de `progress.json` périmé — normal, il n'est
+  écrit qu'à chaque tick complété.
+  **La vérification que je n'ai pas faite et qui tranche en dix secondes : demander au serveur s'il
+  travaille.** `docker logs vllm-polity` montrait `Running: 1 reqs` à 130-170 tok/s en continu,
+  `nvidia-smi` 94 % de GPU, et un débit stable de 84 requêtes en 30 min avec notre processus pour
+  seul client. Il n'y a pas de bug de gel. Il n'y en a jamais eu.
+- **La vraie lacune, elle, est réelle : rien ne permet de distinguer un run lent d'un run figé.** À
+  population 500, un run peut légitimement passer une heure sans une seule écriture de journal,
+  sans mise à jour de `progress.json` et à ~0 % de CPU. Il faut un **battement de cœur intra-tick**
+  dans `progress.json` (décisions complétées, phase courante, date de la dernière réponse LLM),
+  pas seulement une écriture par tick. D'ici là, le seul test de vivacité honnête est le log du
+  serveur LLM — et toute affirmation « le run est bloqué » qui ne l'a pas consulté doit être tenue
+  pour fausse, y compris la mienne.
 - `candidacy_considered` échoue à la même clause de contrat (C3, état perceptible) qui avait causé
   l'effondrement de `pressure_action` : `ambition_score` est envoyé sans aucune référence de
   population. Un run réel montre ~40 % des citoyens se déclarant candidats, invraisemblable face à
@@ -157,9 +172,9 @@ celles corrigées : un run qui se fige sans rien déclencher.
   depuis le checkpoint du tick 15 récupère de toute façon les correctifs de `9929651`.
 
 **Prochaines étapes**
-- [ ] Comprendre pourquoi le timeout httpx (600s × 3 tentatives) ne se déclenche pas sur un appel
-      LLM figé, et poser un garde-fou (watchdog sur l'avancement des ticks, ou timeout effectif
-      vérifié) — priorité avant tout nouveau run de plusieurs heures.
+- [ ] Ajouter un battement de cœur intra-tick à `progress.json` (décisions complétées, phase
+      courante, horodatage de la dernière réponse LLM), pour qu'un run lent soit distinguable d'un
+      run figé sans avoir à lire les logs du serveur — la lacune qui m'a fait tuer un run sain.
 - [ ] Attendre la fin du Stage 3 (relancé depuis le tick 15), narrer son `TIMELINE.md`, et mettre à
       jour `plan-flagship-30y-run.md` avec le verdict Stage 3 — porte d'entrée du Stage 4 (le run
       flagship de 30 ans).
