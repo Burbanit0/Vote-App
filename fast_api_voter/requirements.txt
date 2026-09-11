@@ -34,6 +34,16 @@ sentry-sdk==2.69.1             # Lot 10.1 — error tracking client, points at a
                                 # never Sentry SaaS; GlitchTip speaks the same
                                 # ingestion API so this is the correct package
 
+# ── Observability — tracing (Lot 10.2, PLAN_SOLIDITE_TECHNIQUE.md) ───────────
+# OTLP/HTTP, not gRPC: no functional gap for a local Jaeger (both receivers are
+# on by default since Jaeger v2), and this avoids a grpcio dependency — see
+# api/core/tracing.py's module docstring. Disabled by default (empty
+# OTEL_EXPORTER_OTLP_ENDPOINT); see docs/exploration/EXP-012.
+opentelemetry-api==1.44.0
+opentelemetry-sdk==1.44.0
+opentelemetry-exporter-otlp-proto-http==1.44.0
+opentelemetry-instrumentation-fastapi==0.65b0  # matching contrib pre-release line for core 1.44.0
+
 # ── Data / science (the simulation engine) ───────────────────────────────────
 numpy==2.5.2
 scipy==1.18.1                  # 1.15.3 has no Python 3.14 wheel (cp314); this is the version
