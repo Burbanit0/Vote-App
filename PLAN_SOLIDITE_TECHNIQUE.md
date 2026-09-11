@@ -628,14 +628,14 @@ lancées pendant ce développement : 0 flake trouvé.**
 
 ## Lot 6 — Ce que l'analyse statique ne voit pas
 
-| Item | Pourquoi ici | Effort | Solidité | Récit |
-|---|---|---|---|---|
-| **Couverture *runtime*** (Istanbul sur e2e + `coverage.py`) | Trouve le code jamais exécuté **même en usage réel** — angle mort total de vulture/knip qui sont statiques. Après avoir supprimé 16 500 lignes mortes, la question « qu'est-ce qui reste inatteignable ? » est légitime. | M | ⭐⭐⭐ | 📝📝📝 |
-| **`basedpyright`/pyright** | Moteur d'inférence différent de mypy → attrape d'autres choses. Combien, sur un code déjà mypy-strict-clean ? Bonne question d'expérience. | S | ⭐⭐ | 📝📝📝 |
-| **`refurb`** + **`perflint`** | Modernisation Python et anti-patterns de perf — pertinent sur un moteur CPU-bound. | S | ⭐ | 📝📝 |
-| **`type-coverage`** (TS) | % de code réellement typé (les `any` implicites que `tsc` laisse passer). | S | ⭐⭐ | 📝📝 |
-| **`eslint-plugin-sonarjs`** | Complexité cognitive (≠ cyclomatique, déjà mesurée par radon) + bugs courants. | S | ⭐⭐ | 📝 |
-| **`pip-licenses` / `license-checker`** | Conformité de licences sur un repo public MIT. | S | ⭐ | 📝 |
+| Item | Pourquoi ici | Effort | Solidité | Récit | Statut |
+|---|---|---|---|---|---|
+| **Couverture *runtime*** (Istanbul sur e2e + `coverage.py`) | Trouve le code jamais exécuté **même en usage réel** — angle mort total de vulture/knip qui sont statiques. Après avoir supprimé 16 500 lignes mortes, la question « qu'est-ce qui reste inatteignable ? » est légitime. | M | ⭐⭐⭐ | 📝📝📝 | ⏳ |
+| **`basedpyright`/pyright** | Moteur d'inférence différent de mypy → attrape d'autres choses. Combien, sur un code déjà mypy-strict-clean ? Bonne question d'expérience. | S | ⭐⭐ | 📝📝📝 | ✅ 2 vrais bugs trouvés et corrigés (voir §6.2) |
+| **`refurb`** + **`perflint`** | Modernisation Python et anti-patterns de perf — pertinent sur un moteur CPU-bound. | S | ⭐ | 📝📝 | ✅ 145 + 85 findings, informationnel (voir §6.3) |
+| **`type-coverage`** (TS) | % de code réellement typé (les `any` implicites que `tsc` laisse passer). | S | ⭐⭐ | 📝📝 | ⏳ |
+| **`eslint-plugin-sonarjs`** | Complexité cognitive (≠ cyclomatique, déjà mesurée par radon) + bugs courants. | S | ⭐⭐ | 📝 | ⏳ |
+| **`pip-licenses` / `license-checker`** | Conformité de licences sur un repo public MIT. | S | ⭐ | 📝 | ⏳ |
 
 ### 6.1 — Audit de pertinence des commentaires · `L` · ⭐⭐ 📝📝📝
 
@@ -723,6 +723,39 @@ tests)/`eslint` restent verts après coup — seuls des commentaires ont
 changé, jamais le code qu'ils décrivaient. Détail complet (fichier, ligne,
 avant/après) dans l'historique de la PR ; [`docs/comment-audit/README.md`](
 docs/comment-audit/README.md) porte le verdict de synthèse des deux phases.
+
+### 6.3 — `refurb` + `perflint` ⭐ 📝📝 · `S`
+
+✅ **Fait, informationnel uniquement** — l'item le moins prioritaire du lot
+(⭐ solitaire), traité à la hauteur de son propre budget : câblé, mesuré,
+documenté, **pas** corrigé ligne par ligne (145 + 85 findings, une
+campagne de correction aurait dépassé de très loin l'effort `S` annoncé).
+
+- **`refurb`** (`[tool.refurb]`, `pyproject.toml`) : **145 findings**, dont
+  77 (plus de la moitié) une seule et même suggestion `FURB123` —
+  `dict(x)`/`list(x)` → `x.copy()`. Un vrai gain, même minuscule, sur un
+  moteur CPU-bound (`.copy()` évite le dispatch générique du constructeur
+  `dict`/`list`) mais purement mécanique et réparti sur ~30 fichiers —
+  laissé en baseline à corriger incrémentalement plutôt qu'en un seul
+  diff géant. Le reste (14× `lambda x: x[k]` → `operator.itemgetter(k)`,
+  quelques `in [x, y, z]` → `in (x, y, z)`, …) est du même ordre :
+  correct, sans risque, mais zéro urgence.
+- **`perflint`** (plugin pylint, `[tool.pylint.main]`/`["messages
+  control"]`) : la règle par défaut la plus bruyante,
+  `loop-invariant-statement`, désactivée après l'avoir laissée tourner une
+  fois — **1 593 occurrences à elle seule** sur les boucles denses
+  par-électeur/par-candidat de ce moteur, très majoritairement des accès
+  d'attribut/indexation que pylint ne peut pas prouver invariants,
+  pas de vraies invariantes de boucle déplaçables. Avec ce seul filtre
+  retiré : **85 findings** exploitables (55 `use-tuple-over-list`, 12
+  `use-list-copy`, 9 `use-list-comprehension`, 9
+  `use-dict-comprehension`) ; zéro occurrence des règles les plus
+  concrètes (`unnecessary-list-cast`, `incorrect-dictionary-iterator`,
+  `memoryview-over-bytes`, `dotted-import-in-loop`,
+  `loop-global-usage`) — déjà propre sur ces axes-là.
+
+Les deux tournent via `./scripts/audit.sh --quality` (sections dédiées),
+comme vulture/radon/deptry — aucun gate ajouté.
 
 ---
 
