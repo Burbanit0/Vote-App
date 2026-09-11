@@ -22,6 +22,9 @@ pytest-randomly==5.0.0  # Randomizes test order every run (Lot 5, PLAN_SOLIDITE_
                         # and .github/workflows/flaky-check-backend.yml for the nightly
                         # job that actually acts on this (a lone randomized run just
                         # shows ONE order; the flakiness signal is in comparing several).
+defusedxml==0.7.1       # Safe (non-XXE) JUnit XML parsing in scripts/check_flaky_backend.py --
+                        # was already present transitively (py-serializable), declared directly
+                        # now that this repo's own code imports it.
 
 # Security
 bandit==1.9.4        # Python SAST (static analysis)

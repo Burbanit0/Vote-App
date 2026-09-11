@@ -36,8 +36,13 @@ import re
 import subprocess
 import sys
 import tempfile
-import xml.etree.ElementTree as ET
 from pathlib import Path
+
+import defusedxml.ElementTree as ET  # stdlib xml.etree is XXE-vulnerable on
+                                      # untrusted input; the JUnit report here
+                                      # is our own pytest's output, not
+                                      # untrusted, but the drop-in-safe
+                                      # replacement costs nothing to use.
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 BACKEND_DIR = REPO_ROOT / "fast_api_voter"
