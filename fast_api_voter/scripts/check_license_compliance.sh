@@ -22,7 +22,7 @@ python3 -m venv "$VENV_DIR"
 "$VENV_DIR/bin/pip" install --quiet pip-licenses
 
 # Permissive licenses actually in use by production dependencies today
-# (checked 2026-09, 39 packages) — MIT/BSD/Apache/MPL-2.0/PSF-2.0 variants,
+# (checked 2026-09, 43 packages) — MIT/BSD/Apache/MPL-2.0/PSF-2.0/ISC variants,
 # spelled out because pip-licenses doesn't normalize SPDX vs. classifier-text
 # forms of the same license (e.g. "MIT" vs. "MIT License").
 "$VENV_DIR/bin/pip-licenses" --allow-only="\
@@ -32,4 +32,5 @@ Apache Software License;Apache-2.0;Apache License 2.0;\
 Apache Software License; MIT License;Apache-2.0 OR BSD-2-Clause;MIT OR Apache-2.0;\
 Mozilla Public License 2.0 (MPL 2.0);MPL-2.0;\
 PSF-2.0;Python Software Foundation License;\
-BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0"
+BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0;\
+ISC;Apache-2.0 AND BSD-2-Clause"

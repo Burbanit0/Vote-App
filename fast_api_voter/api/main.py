@@ -37,6 +37,7 @@ from api.core.ratelimit import limiter
 from api.routes import election as election_routes
 from api.routes import export as export_routes
 from api.routes import health as health_routes
+from api.routes.metrics import setup_metrics
 from api.routes import public as public_routes
 from api.routes import simulations as simulations_routes
 from api.routes import tech as tech_routes
@@ -222,8 +223,16 @@ def root() -> dict[str, Any]:
         "version": "2.0.0-alpha",
         "docs":    "/api/v2/docs",
         "health":  "/api/v2/health",
+        "metrics": "/api/v2/metrics",
         "socketio": "/api/v2/socket.io",
     }
+
+
+# ── Metrics (Lot 10, PLAN_SOLIDITE_TECHNIQUE.md — "/metrics Prometheus") ────
+# Must run BEFORE the catch-all SPA mount below: Instrumentator.expose() adds
+# a plain route, and a "/" mount registered first would shadow it (Starlette
+# matches routes in registration order). See api/routes/metrics.py.
+setup_metrics(app)
 
 
 # ── Static frontend (single-container deploy) ───────────────────────────────

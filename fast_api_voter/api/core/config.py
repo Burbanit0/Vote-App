@@ -11,7 +11,7 @@ works for both — see fast_api_voter/.env.example.
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import List
+from typing import List, Optional
 
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -52,6 +52,15 @@ class Settings(BaseSettings):
     # comment). sentry-sdk is the correct client either way: GlitchTip
     # implements the same event-ingestion API, only the DSN host differs.
     glitchtip_dsn: str = Field(default="")
+
+    # ── Metrics (Lot 10, PLAN_SOLIDITE_TECHNIQUE.md — "/metrics Prometheus") ──
+    # Optional shared secret gating GET /api/v2/metrics. Unset (default) =
+    # unauthenticated, matching this app's overall posture (no auth system
+    # exists anywhere else either) — fine for local/dev. Set it in production
+    # to require `Authorization: Bearer <token>` and avoid handing anyone on
+    # the public internet a live view of endpoint traffic. See
+    # api/routes/metrics.py's `_check_metrics_auth`.
+    metrics_auth_token: Optional[str] = Field(default=None)
 
     # ── Derived ─────────────────────────────────────────────────────────────
     @property
