@@ -2,6 +2,12 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests/e2e',
+  // Visual regression has its own config (playwright.visual.config.ts) and its
+  // own CI job, pinned to a specific Docker image for stable pixel comparisons
+  // — see that file's header. Running it here too would compare Docker-
+  // generated baselines against this native project's rendering, which is
+  // exactly the cross-environment mismatch that setup avoids.
+  testIgnore: '**/visual.spec.ts',
   fullyParallel: false, // simulations are CPU-heavy
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
