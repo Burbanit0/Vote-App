@@ -30,9 +30,20 @@ function accentize(segment: string): string {
 // Padding character repeated to simulate a ~35% longer language (German,
 // Finnish, ... routinely run 30-40% longer than English/French for the same
 // meaning) — visually distinct from real text so it can't be mistaken for it.
-function padFor(segment: string): string {
-  const len = Math.ceil(segment.length * 0.35);
+function padFor(word: string): string {
+  const len = Math.ceil(word.length * 0.35);
   return len > 0 ? '~'.repeat(len) : '';
+}
+
+// Pads EACH WORD, not the whole segment: a single suffix glued onto the last
+// word of a multi-word sentence produces one long unbroken token with no
+// space to wrap at — an overflow risk no real language actually creates
+// (longer languages have longer *words*, not one giant word at the end).
+// Found by a real firefox-only CI failure on /decouvrir (62px overflow) that
+// didn't reproduce locally — traced to exactly this, not a font/environment
+// difference worth chasing instead.
+function pseudoizeSegment(segment: string): string {
+  return segment.replace(/\S+/g, (word) => `${accentize(word)}${padFor(word)}`);
 }
 
 /**
@@ -46,7 +57,7 @@ export function pseudoizeString(value: string): string {
   if (value === '') return value;
   const parts = value.split(/(\{\{[^}]+\}\})/g);
   const body = parts
-    .map((part) => (part.startsWith('{{') ? part : `${accentize(part)}${padFor(part)}`))
+    .map((part) => (part.startsWith('{{') ? part : pseudoizeSegment(part)))
     .join('');
   return `⟦${body}⟧`;
 }

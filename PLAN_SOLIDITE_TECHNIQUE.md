@@ -1094,16 +1094,25 @@ clé que lit déjà `i18next-browser-languagedetector`), ce que fait
 navigation. Les 5 `SURFACES` de `routes.ts` sont balayées et chacune est
 vérifiée sans dépassement horizontal de page
 (`document.documentElement.scrollWidth` vs `clientWidth`, tolérance 2px) —
-un test qui a effectivement pris un round-trip pour être fiable : une
-première exécution donnait de faux échecs à cause d'un service `vite
-preview` sans rapport tournant déjà sur le port 3000 de cet environnement
-(process externe, non lancé par cette session) que `reuseExistingServer`
-réutilisait silencieusement au lieu de démarrer le vrai serveur de dev —
-diagnostiqué en traçant `localStorage` et `i18next` directement dans le
-navigateur avant de conclure à un bug applicatif. Les 5 tests passent
-contre le vrai serveur, chromium + firefox (10 tests), aucun dépassement
-détecté aujourd'hui — la valeur de ce test est d'empêcher une régression
-future, pas d'avoir trouvé un bug latent.
+un test qui a effectivement pris deux round-trips pour être fiable.
+D'abord une fausse piste : une première exécution donnait de faux échecs à
+cause d'un `vite preview` déjà présent sur le port 3000 de cet
+environnement, que `reuseExistingServer` réutilisait silencieusement au
+lieu de démarrer le vrai serveur de dev — diagnostiqué en traçant
+`localStorage` et `i18next` directement dans le navigateur avant de
+conclure à un bug applicatif ; identifié après coup comme le propre
+conteneur Docker de l'item « Régression visuelle » ci-dessus (`--network=
+host`), tournant en parallèle dans le même environnement, pas un processus
+extérieur à cette session. Ensuite un vrai bug, trouvé seulement en CI (pas
+reproductible en local, fonts différentes) : `/decouvrir` dépassait de 62px
+en largeur sous firefox. Cause réelle, indépendante de l'environnement :
+`padFor()` collait tout le padding `~~~~` en un seul bloc à la fin de la
+phrase entière plutôt que par mot — un unique « mot » artificiellement
+long et non-sécable, un mode de défaillance qu'aucune vraie langue ne
+produit (les langues plus longues ont des mots plus longs, pas un mot
+géant en fin de phrase). Corrigé en distribuant le padding mot par mot
+(`pseudoizeSegment` découpe sur les espaces). Les 5 tests passent contre le
+vrai serveur, chromium + firefox (10 tests) après ce correctif.
 
 ---
 

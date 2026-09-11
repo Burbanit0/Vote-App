@@ -3,6 +3,7 @@ import fr from './locales/fr';
 import pseudo from './locales/pseudo';
 import pgFr from './locales/playground.fr';
 import pgPseudo from './locales/playground.pseudo';
+import i18n, { loadLanguage } from './index';
 
 describe('pseudoizeString', () => {
   test('wraps the result in brackets', () => {
@@ -34,6 +35,19 @@ describe('pseudoizeTree', () => {
     expect(Object.keys(result)).toEqual(['a', 'b']);
     expect(Object.keys(result.b)).toEqual(['c']);
   });
+
+  test('pseudoizes every string in an array leaf', () => {
+    const result = pseudoizeTree(['a', 'b']);
+    expect(result).toEqual([pseudoizeString('a'), pseudoizeString('b')]);
+  });
+
+  test('passes through a non-string, non-object leaf unchanged', () => {
+    // Defensive branch: fr.ts/playground.fr.ts never contain these, but
+    // pseudoizeTree is a shared, exported utility (also used by
+    // scripts/gen-pseudo-locale.ts) typed over unknown input shapes.
+    expect(pseudoizeTree(null)).toBeNull();
+    expect(pseudoizeTree(42)).toBe(42);
+  });
 });
 
 // Drift check: `pseudo.ts` / `playground.pseudo.ts` are generated artifacts
@@ -48,5 +62,20 @@ describe('pseudo-locale is in sync with fr.ts', () => {
 
   test('playground namespace matches what regenerating now would produce', () => {
     expect(pgPseudo).toEqual(pseudoizeTree(pgFr));
+  });
+});
+
+// loadLanguage('pseudo') exercises the same lazy-load path as 'en' (already
+// covered by setupTests.ts's global `await loadLanguage('en')`), but nothing
+// else calls it with 'pseudo' — the app's own language switcher never offers
+// it (see src/i18n/index.ts's comment on `lazyLoaders.pseudo`).
+describe('loadLanguage("pseudo")', () => {
+  test('registers both the translation and playground pseudo bundles', async () => {
+    await loadLanguage('pseudo');
+    expect(i18n.hasResourceBundle('pseudo', 'translation')).toBe(true);
+    expect(i18n.hasResourceBundle('pseudo', 'playground')).toBe(true);
+    expect(i18n.getResourceBundle('pseudo', 'translation').nav.simulator).toBe(
+      pseudo.nav.simulator
+    );
   });
 });
