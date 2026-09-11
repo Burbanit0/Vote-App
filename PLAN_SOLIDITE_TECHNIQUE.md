@@ -1007,7 +1007,7 @@ seulement une liste blanche assez large pour ne jamais mordre.
 | **a11y sur *toutes* les routes** | `routes.ts` est déjà « data » — boucler dessus et échouer si une surface n'est pas auditée, même mécanique que l'anti-rot e2e existant. | M | ⭐⭐⭐ | 📝📝 | ✅ déjà fait (voir sous le tableau) |
 | **Régression visuelle** (Playwright screenshots / Lost Pixel) | L'app est quasi entièrement visuelle (SVG, cartes, Recharts) et **rien** ne détecte qu'une carte s'affiche de travers. | M | ⭐⭐⭐ | 📝📝📝 | ⏳ |
 | **Viewport mobile en e2e** | App pédagogique → usage mobile probable, zéro test mobile aujourd'hui. | M | ⭐⭐ | 📝📝 | ✅ `tests/e2e/mobile.spec.ts` + projet `mobile` (voir sous le tableau) |
-| **`i18next-parser`** + `eslint-plugin-i18next` | Clés orphelines/manquantes et chaînes en dur (5 encore trouvées à la main le 06/09). | M | ⭐⭐ | 📝📝 | ⏳ |
+| **`i18next-parser`** + `eslint-plugin-i18next` | Clés orphelines/manquantes et chaînes en dur (5 encore trouvées à la main le 06/09). | M | ⭐⭐ | 📝📝 | ✅ `i18next-cli lint` (voir sous le tableau) |
 | **Pseudo-locale à chaînes longues** | Casse les layouts avant que l'anglais ou une future langue ne le fasse. | S | ⭐⭐ | 📝📝📝 | ✅ `pseudo.ts` + `tests/e2e/pseudo-locale.spec.ts` (voir sous le tableau) |
 | **Webkit en e2e** | Seuls chromium et firefox tournent aujourd'hui. | S | ⭐⭐ | 📝 | ⏳ bloqué — dépendances système manquantes (`sudo npx playwright install-deps` requis, pas de sudo sans mot de passe dans cet environnement) |
 
@@ -1048,27 +1048,58 @@ repéré en construisant ce test, pas juste un ajout pour le rendre
 sélectionnable. Suite complète (chromium + firefox + mobile, 227 tests)
 rejouée trois fois : stable, ~55s.
 
-**Viewport mobile en e2e, détail.** Nouveau fichier
-`tests/e2e/mobile.spec.ts`, scopé à un projet Playwright dédié (`mobile`,
-`devices['Galaxy S24']`) via `testMatch`/`testIgnore` réciproques avec les
-projets desktop — pas la suite entière rejouée à une largeur mobile (même
-logique que le fichier a11y séparé), plutôt un test ciblé sur ce qui change
-réellement à cette largeur : la navbar qui se replie derrière un bouton
-« ☰ » en dessous du seuil `lg`. Préset **Android** (moteur Chromium) et
-non iPhone délibérément : le moteur iOS (WebKit) nécessite les mêmes
-dépendances système bloquées pour l'item « Webkit en e2e » ci-dessus, et
-serait de toute façon une deuxième couverture du même moteur que ce projet
-webkit-desktop — hors budget pour cet item, qui porte sur la largeur/le
-tactile, pas sur un deuxième moteur de rendu. Un vrai bug d'ancrage trouvé
-et corrigé au passage : le sélecteur `getByRole('link', { name:
-/playground/i })` sans portée `nav` était ambigu (deux liens « Playground »
-sur la page d'accueil, un dans la navbar et un dans le corps) — corrigé en
-scopant au conteneur `[data-tour="navbar"]`, comme le fait déjà
-`navigation.spec.ts`. Bouton hamburger passé de zéro nom accessible à
-`aria-label`/`data-testid` explicites (`Navbar.tsx`), un vrai gain a11y
-repéré en construisant ce test, pas juste un ajout pour le rendre
-sélectionnable. Suite complète (chromium + firefox + mobile, 227 tests)
-rejouée trois fois : stable, ~55s.
+**`i18next-parser` + `eslint-plugin-i18next`, détail.** `i18next-parser`
+est officiellement déprécié (avertissement npm à l'installation : « use
+i18next-cli instead ») — jamais adopté, même règle que
+`license-checker` → `license-checker-rseidelsohn`. Bascule vers
+`i18next-cli`, ce qui a demandé trois correctifs successifs avant d'avoir
+un outil qui tourne réellement en CI :
+1. Les versions récentes exigent Node ≥22 (`execa` récent dépend de
+   `Set.prototype.union`, ES2024) — or `frontend-ci-cd-pipeline.yml` épingle
+   Node 20, comme le poste local. Épinglé sur `i18next-cli@1.0.0` (la
+   première version, sans `execa` en dépendance directe).
+2. `npm audit` a quand même signalé `glob@11.0.0-11.0.3` (injection de
+   commande, GHSA-5j98-mcp5-4vw2) dans les dépendances transitives de cette
+   version. `npm audit fix` naïf réintroduisait le blocage Node 22 (bump
+   d'`execa`) — corrigé en ciblant `glob` seul via `overrides` (même motif
+   déjà en place pour `typescript`/`ws`/`js-yaml`/…), vérifié 0
+   vulnérabilité **et** CLI toujours fonctionnel sur Node 20.
+3. Le pattern d'exclusion `'!src/**/*.test.{ts,tsx}'` était silencieusement
+   ignoré (le `glob()` interne à `i18next-cli` ne route pas les entrées
+   `!`-préfixées comme des exclusions depuis glob v9+) — remplacé par un
+   extglob POSIX dans un seul motif (`!(*.test|*.d)`), vérifié directement
+   via un script Node ad-hoc avant de faire confiance à la config.
+
+`i18next.config.ts` (nouveau, racine `voter-app/`) configure `lint` — la
+détection de chaînes en dur, pas l'extraction/écriture de fichiers de
+ressources (voir ci-dessous pourquoi). Bruit de fond énorme au départ (2927
+trouvailles) : l'app étant SVG-native (skill `voter-ui`), l'écrasante
+majorité était des attributs de présentation SVG (`fill`, `stroke`,
+`textAnchor`, `viewBox`, …), pas du texte utilisateur. `ignoredAttributes`
+réduit ça à 714 en deux passes (props génériques, puis ~40 attributs SVG).
+Deux vraies trouvailles corrigées dans le lot : `aria-label="Close"` en dur
+(anglais, alors que l'app démarre en français) dans les primitives
+partagées `components/ui/modal.tsx` et `components/ui/alert.tsx` — jamais
+`useTranslation`, remplacées par `t('common.close')`, la même clé déjà
+utilisée par `DatasetExportModal.tsx`. Les 714 restants sont dominés par du
+bruit générique et des littéraux de clé interne (`"fptp"`, `"irv"`,
+`"module-electorate"`, …) — informationnel via `scripts/audit.sh`, même
+statut que sonarjs/refurb/perflint (Lot 6).
+
+**Périmètre explicitement réduit : pas de détection clés
+orphelines/manquantes.** Les commandes `status`/`extract`/`types` de
+`i18next-cli` supposent toutes un `output` uniforme
+`{{namespace}}.{{language}}.ts` (confirmé en lisant `node_modules/
+i18next-cli/types/types.d.ts` directement) — incompatible avec la
+convention réelle du projet, où le namespace par défaut n'a pas de préfixe
+(`src/i18n/locales/fr.ts`) alors qu'un namespace nommé en a un
+(`playground.fr.ts`). `status` tourne mais rapporte des chiffres non
+fiables (cherche `translation.fr.ts`, qui n'existe pas). Réorganiser la
+disposition des fichiers i18n du projet pour coller à l'outil a été jugé
+hors périmètre de cet item — même discipline que « ne pas adopter un outil
+qui force à casser une convention du projet ». La détection de chaînes en
+dur (la moitié qui a trouvé les 2 vraies erreurs ci-dessus) reste la
+livraison de cet item.
 
 **Pseudo-locale à chaînes longues, détail.** `src/i18n/pseudoize.ts` accentue
 chaque chaîne, la rallonge d'environ 35 % (motif `~~~`) et l'encadre de
