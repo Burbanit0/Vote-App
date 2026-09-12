@@ -122,7 +122,7 @@ jobs:
           key: playwright-${{ runner.os }}-${{ hashFiles('voter-app/package-lock.json') }}
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium firefox
+        run: npx playwright install --with-deps chromium firefox webkit
         working-directory: ./voter-app
 
       - name: Run E2E tests
