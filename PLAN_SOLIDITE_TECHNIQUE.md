@@ -1885,7 +1885,7 @@ retours concrets.
 
 | Item | Pourquoi ici | Effort | Solidité | Récit | Statut |
 |---|---|---|---|---|---|
-| **Agent `parity-guardian`** | Dès qu'une règle de vote bouge : régénère la parité, lance le test, explique tout écart. | M | ⭐⭐⭐ | 📝📝📝 | |
+| **Agent `parity-guardian`** | Dès qu'une règle de vote bouge : régénère la parité, lance le test, explique tout écart. | M | ⭐⭐⭐ | 📝📝📝 | ✅ `.claude/agents/parity-guardian.md`, vérifié en direct sur les deux scénarios (voir sous le tableau) |
 | **Agent `dep-triage`** | Lit les PR Dependabot, classe patch/mineur/majeur, lit les changelogs, propose l'ordre de merge. Répond pile à la douleur du 06/09. | M | ⭐⭐ | 📝📝📝 | ✅ `.claude/agents/dep-triage.md` — voir détail sous le tableau |
 | **Agent `axiom-checker`** | Vérifie qu'une nouvelle méthode de vote arrive avec ses tests axiomatiques (Lot 4.1). | M | ⭐⭐ | 📝📝 | |
 | **Agent `flake-hunter`** | Isole les tests instables, propose un correctif. | M | ⭐⭐ | 📝📝 | |
@@ -1895,6 +1895,56 @@ retours concrets.
 | **Skill `release`** | Checklist `develop → main`. | S | ⭐⭐ | 📝 | |
 | **Agents planifiés** | Revue hebdo du diff de la semaine, audit doc mensuel, veille de dépendances. | M | ⭐⭐ | 📝📝📝 | |
 | **`/code-review ultra`** sur les PR du moteur | Existe déjà, sous-utilisé sur les changements sensibles. | S | ⭐⭐ | 📝📝 | |
+
+**Agent `parity-guardian`, détail.** Version active du rappel passif qui
+existait déjà (`remind_engine_parity_regen.py`, hook `PostToolUse`, Lot 2) :
+au lieu d'un `systemMessage` qui compte sur un humain pour lire CLAUDE.md et
+lancer les deux commandes lui-même, l'agent régénère `engineParity.json`
+(`PYTHONHASHSEED=0 python fast_api_voter/scripts/gen_engine_parity.py`),
+lance `playgroundVoting.parity.test.ts`, et — seulement si un vrai écart
+apparaît — lit les deux implémentations de la règle en cause pour expliquer
+la cause racine plutôt que de rapporter juste « le test échoue ». Deux choix
+explicites, documentés dans le fichier d'agent lui-même :
+
+- **Anglais**, pas français comme `experiment-writer`/`journal-writer` : ces
+  deux agents rédigent de la prose pour des documents humains en français
+  (journal, index d'expérience) ; `parity-guardian` diagnostique du code, et
+  tout ce avec quoi il travaille (CLAUDE.md, les deux hooks de parité,
+  `gen_engine_parity.py`, `check_engine_parity_drift.sh`, le test lui-même)
+  est déjà entièrement en anglais — rester dans cette même couche plutôt que
+  d'importer la convention française des documents narratifs.
+- **`Read, Grep, Glob, Bash` seulement, pas `Edit`/`Write`** : il propose un
+  correctif en texte, ne l'applique jamais, même « évident ». Le moteur de
+  vote est l'invariant sur lequel repose toute l'app pédagogique — un
+  mauvais correctif appliqué seul serait pire qu'un écart bien expliqué
+  laissé ouvert. Même posture que les deux agents existants (qui n'ont pas
+  non plus `Edit`/`Write`), renforcée ici par l'enjeu plus élevé.
+- **`model: sonnet`**, au-dessus du niveau que la note de la §12.4 réserve
+  aux agents *mécaniques* du Lot 11 (`doc-drift`, `dep-triage`) : expliquer
+  pourquoi deux implémentations indépendantes divergent est un vrai exercice
+  de lecture de code (ordre de départage, arrondi, gestion des cycles), pas
+  de la classification.
+
+Vérifié en conditions réelles, deux scénarios, dans un worktree jetable
+(jamais sur `develop`) :
+
+1. **Scénario propre** — aucun changement moteur en attente : régénère la
+   fixture (identique au bit près au commit), lance le test → 49/49, rapporte
+   un bilan propre concis.
+2. **Divergence injectée** — un vrai bug d'un caractère dans
+   `get_anti_plurality_winner` (`simulation_ranked_utils.py`) : véto sur
+   l'avant-dernier candidat classé au lieu du dernier. Régénère la fixture
+   (diff énorme en apparence, 12 724 lignes — dû à une RNG partagée entre
+   règles dans `gen_engine_parity.py`, documentée comme fragile dans son
+   propre en-tête), lance le test → 2 échecs, tous deux sur `anti_plurality`
+   uniquement. L'agent isole correctement les deux vrais échecs du bruit RNG
+   (confirmé en comparant la section exhaustive du fixture, indépendante de
+   la RNG : seul `anti_plurality` y bouge), lit les deux implémentations,
+   identifie que c'est le **backend** qui est faux malgré la règle « le
+   backend fait foi par défaut » de CLAUDE.md — vérifié sur le code, pas
+   supposé par convention — et propose le correctif d'une ligne sans jamais
+   toucher au fichier. Divergence ensuite révertée, état propre reconfirmé
+   (49/49, fixture inchangée) avant de committer quoi que ce soit.
 
 **Détail `dep-triage`** (2026-09-11) — `.claude/agents/dep-triage.md`, `model: sonnet`
 (le plan lui-même exclut le modèle le plus cher pour les agents mécaniques du
