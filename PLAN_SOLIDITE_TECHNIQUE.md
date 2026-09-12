@@ -1899,7 +1899,7 @@ retours concrets.
 | **Skill `voter-ci`** | Diagnostiquer un échec CI, où sont les gates, que faire quand le ratchet casse. | M | ⭐⭐ | 📝📝 | |
 | **Skill `release`** | Checklist `develop → main`. | S | ⭐⭐ | 📝 | |
 | **Agents planifiés** | Revue hebdo du diff de la semaine, audit doc mensuel, veille de dépendances. | M | ⭐⭐ | 📝📝📝 | |
-| **`/code-review ultra`** sur les PR du moteur | Existe déjà, sous-utilisé sur les changements sensibles. | S | ⭐⭐ | 📝📝 | |
+| **`/code-review ultra`** sur les PR du moteur | Existe déjà, sous-utilisé sur les changements sensibles. | S | ⭐⭐ | 📝📝 | ✅ rappel ajouté à CLAUDE.md — voir détail sous le tableau |
 
 **Agent `parity-guardian`, détail.** Version active du rappel passif qui
 existait déjà (`remind_engine_parity_regen.py`, hook `PostToolUse`, Lot 2) :
@@ -2036,6 +2036,15 @@ déjà rencontré en local) et de rapporter ses trouvailles sans jamais committe
 ni ouvrir de PR. Premier déclenchement prévu le 2026-10-01. Suivre ses
 exécutions : `claude.ai/code/routines/trig_0183HpsWHKnLz8EFfFQgS6qA` ou
 `RemoteTrigger` (`list_runs`/`get_run_log`).
+
+**`/code-review ultra`, détail.** Rien à construire — l'outil existe déjà
+(commande native, pas un artefact `.claude/`), le problème était l'usage.
+Rappel ajouté à la section « Workflow (mandated) » de `CLAUDE.md` : le lancer
+avant de merger une PR touchant le moteur de vote ou une autre surface à
+fort rayon d'impact (config CI/CD, harnais de parité/axiomes) — les gates CI
+standard attrapent une régression sur ce qui est déjà testé, pas une
+implémentation de règle subtilement fausse ou une erreur de logique qu'une
+relecture humaine (ou par agent) aurait vue.
 
 ---
 
