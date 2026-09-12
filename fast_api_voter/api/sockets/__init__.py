@@ -21,9 +21,11 @@ from __future__ import annotations
 
 import asyncio
 import math
+import random
 from collections import defaultdict
 from typing import Any
 
+import numpy as np
 import socketio
 
 from api.core.config import get_settings
@@ -57,13 +59,24 @@ _EMIT_EVERY      = 50
 
 def _run_one(candidate_configs: list[dict[str, Any]],
              num_voters: int, ideology: str) -> dict[str, Any]:
-    """Execute one Monte Carlo iteration and return raw method results."""
+    """Execute one Monte Carlo iteration and return raw method results.
+
+    Deliberately unseeded (this streaming Monte Carlo has no reproducibility
+    contract), but draws from a fresh local RNG pair rather than the shared
+    random/np.random singletons: each call runs in its own worker thread
+    (via asyncio.to_thread), and the old module-level-singleton draws meant
+    this loop could both perturb, and be perturbed by, any other concurrent
+    request in the same process (e.g. a seeded ElectionService.simulate()
+    call elsewhere) — unrelated to whether this loop itself needs a seed.
+    """
+    rng        = random.Random()
+    np_rng     = np.random.RandomState()
     issues     = DEFAULT_ISSUES
     candidates = [
-        create_candidate(issues, i, cfg["name"], _PARTY_CYCLE[i % len(_PARTY_CYCLE)])
+        create_candidate(issues, i, cfg["name"], _PARTY_CYCLE[i % len(_PARTY_CYCLE)], rng=rng)
         for i, cfg in enumerate(candidate_configs)
     ]
-    voters = [create_voter(issues, i, ideology_distribution=ideology)
+    voters = [create_voter(issues, i, ideology_distribution=ideology, rng=rng, np_rng=np_rng)
               for i in range(num_voters)]
     return compare_all_methods_mc(voters, candidates, issues)
 

@@ -33,7 +33,9 @@ def assign_issue_priorities(
     family_status: str,
     ethnicity_immigration: str,
     religion: str,
+    rng: Optional[random.Random] = None,
 ) -> Tuple[Dict[str, float], float, Dict[str, float]]:
+    r = rng if rng is not None else random
     issue_priorities = {
         "economy": 0.5,
         "environment": 0.5,
@@ -62,135 +64,135 @@ def assign_issue_priorities(
 
     # Age influence
     if age < 30:
-        issue_priorities["environment"] = random.uniform(0.7, 1.0)
-        issue_priorities["education"] = random.uniform(0.6, 0.9)
-        issue_priorities["climate_change"] = random.uniform(0.6, 0.9)
-        issue_priorities["gender_equality"] = random.uniform(0.6, 0.9)
-        issue_priorities["public_transport"] = random.uniform(0.5, 0.8)
-        political_lean *= random.uniform(
+        issue_priorities["environment"] = r.uniform(0.7, 1.0)
+        issue_priorities["education"] = r.uniform(0.6, 0.9)
+        issue_priorities["climate_change"] = r.uniform(0.6, 0.9)
+        issue_priorities["gender_equality"] = r.uniform(0.6, 0.9)
+        issue_priorities["public_transport"] = r.uniform(0.5, 0.8)
+        political_lean *= r.uniform(
             0.8, 0.9
         )  # Younger voters tend to be more progressive
     elif age > 60:
-        issue_priorities["healthcare"] = random.uniform(0.7, 1.0)
-        issue_priorities["pensions"] = random.uniform(0.6, 0.9)
-        political_lean *= random.uniform(
+        issue_priorities["healthcare"] = r.uniform(0.7, 1.0)
+        issue_priorities["pensions"] = r.uniform(0.6, 0.9)
+        political_lean *= r.uniform(
             1.1, 1.2
         )  # Older voters tend to be more conservative
     else:
-        issue_priorities["economy"] = random.uniform(0.6, 0.9)
-        issue_priorities["jobs"] = random.uniform(0.5, 0.8)
+        issue_priorities["economy"] = r.uniform(0.6, 0.9)
+        issue_priorities["jobs"] = r.uniform(0.5, 0.8)
 
     # Gender influence
     if gender == "female":
-        issue_priorities["healthcare"] *= random.uniform(1.1, 1.3)
-        issue_priorities["education"] *= random.uniform(1.1, 1.2)
-        issue_priorities["gender_equality"] *= random.uniform(1.1, 1.3)
-        issue_priorities["social_welfare"] *= random.uniform(1.0, 1.2)
-        issue_priorities["crime_safety"] *= random.uniform(1.0, 1.2)
-        political_lean *= random.uniform(
+        issue_priorities["healthcare"] *= r.uniform(1.1, 1.3)
+        issue_priorities["education"] *= r.uniform(1.1, 1.2)
+        issue_priorities["gender_equality"] *= r.uniform(1.1, 1.3)
+        issue_priorities["social_welfare"] *= r.uniform(1.0, 1.2)
+        issue_priorities["crime_safety"] *= r.uniform(1.0, 1.2)
+        political_lean *= r.uniform(
             0.8, 0.95
         )  # Females may lean slightly more progressive
     else:
-        issue_priorities["economy"] *= random.uniform(1.1, 1.3)
-        issue_priorities["defense"] *= random.uniform(1.1, 1.3)
-        political_lean *= random.uniform(
+        issue_priorities["economy"] *= r.uniform(1.1, 1.3)
+        issue_priorities["defense"] *= r.uniform(1.1, 1.3)
+        political_lean *= r.uniform(
             1.05, 1.15
         )  # Males may lean slightly more conservative
 
     # Region influence
     if region == "urban":
-        issue_priorities["public_transport"] = random.uniform(0.7, 1.0)
-        issue_priorities["environment"] = random.uniform(0.6, 0.9)
-        issue_priorities["housing"] = random.uniform(0.6, 0.9)
-        issue_priorities["climate_change"] = random.uniform(0.6, 0.9)
+        issue_priorities["public_transport"] = r.uniform(0.7, 1.0)
+        issue_priorities["environment"] = r.uniform(0.6, 0.9)
+        issue_priorities["housing"] = r.uniform(0.6, 0.9)
+        issue_priorities["climate_change"] = r.uniform(0.6, 0.9)
     elif region == "rural":
-        issue_priorities["agriculture"] = random.uniform(0.7, 1.0)
-        issue_priorities["infrastructure"] = random.uniform(0.6, 0.9)
-        issue_priorities["defense"] = random.uniform(0.6, 0.9)
+        issue_priorities["agriculture"] = r.uniform(0.7, 1.0)
+        issue_priorities["infrastructure"] = r.uniform(0.6, 0.9)
+        issue_priorities["defense"] = r.uniform(0.6, 0.9)
     else:  # suburban
-        issue_priorities["education"] = random.uniform(0.7, 1.0)
-        issue_priorities["taxes"] = random.uniform(0.5, 0.8)
-        issue_priorities["housing"] = random.uniform(0.6, 0.9)
+        issue_priorities["education"] = r.uniform(0.7, 1.0)
+        issue_priorities["taxes"] = r.uniform(0.5, 0.8)
+        issue_priorities["housing"] = r.uniform(0.6, 0.9)
 
     # Education influence
     if education in ("none", "high_school"):
-        issue_priorities["social_welfare"] *= random.uniform(1.1, 1.4)
-        issue_priorities["economy"] *= random.uniform(1.1, 1.3)
+        issue_priorities["social_welfare"] *= r.uniform(1.1, 1.4)
+        issue_priorities["economy"] *= r.uniform(1.1, 1.3)
         if age > 50:
-            political_lean *= random.uniform(
+            political_lean *= r.uniform(
                 1.05, 1.2
             )  # Less educated older voters tend to be more conservative
     elif education in ("master", "phd"):
-        issue_priorities["environment"] *= random.uniform(1.1, 1.4)
-        issue_priorities["education"] *= random.uniform(1.2, 1.5)
-        issue_priorities["technology_innovation"] = random.uniform(0.7, 1.0)
-        issue_priorities["climate_change"] *= random.uniform(1.1, 1.4)
-        political_lean *= random.uniform(
+        issue_priorities["environment"] *= r.uniform(1.1, 1.4)
+        issue_priorities["education"] *= r.uniform(1.2, 1.5)
+        issue_priorities["technology_innovation"] = r.uniform(0.7, 1.0)
+        issue_priorities["climate_change"] *= r.uniform(1.1, 1.4)
+        political_lean *= r.uniform(
             0.8, 0.95
         )  # More educated voters tend to be more progressive
 
     # Income influence
     if income == "low":
-        issue_priorities["social_welfare"] = random.uniform(0.8, 1.0)
-        issue_priorities["minimum_wage"] = random.uniform(0.7, 0.9)
-        issue_priorities["healthcare"] *= random.uniform(1.1, 1.3)
-        issue_priorities["housing"] = random.uniform(0.7, 1.0)
-        political_lean *= random.uniform(
+        issue_priorities["social_welfare"] = r.uniform(0.8, 1.0)
+        issue_priorities["minimum_wage"] = r.uniform(0.7, 0.9)
+        issue_priorities["healthcare"] *= r.uniform(1.1, 1.3)
+        issue_priorities["housing"] = r.uniform(0.7, 1.0)
+        political_lean *= r.uniform(
             0.8, 0.95
         )  # Lower income voters tend to be more progressive
     elif income == "high":
-        issue_priorities["taxes"] = random.uniform(0.7, 1.0)
-        issue_priorities["business_regulation"] = random.uniform(0.5, 0.8)
-        issue_priorities["economy"] *= random.uniform(1.1, 1.3)
-        political_lean *= random.uniform(
+        issue_priorities["taxes"] = r.uniform(0.7, 1.0)
+        issue_priorities["business_regulation"] = r.uniform(0.5, 0.8)
+        issue_priorities["economy"] *= r.uniform(1.1, 1.3)
+        political_lean *= r.uniform(
             1.05, 1.2
         )  # Higher income voters tend to be more conservative
 
     # Employment status influence
     if employment_status == "unemployed":
-        issue_priorities["social_welfare"] *= random.uniform(1.2, 1.5)
-        issue_priorities["jobs"] = random.uniform(0.8, 1.0)
-        issue_priorities["minimum_wage"] = random.uniform(0.8, 1.0)
-        political_lean *= random.uniform(
+        issue_priorities["social_welfare"] *= r.uniform(1.2, 1.5)
+        issue_priorities["jobs"] = r.uniform(0.8, 1.0)
+        issue_priorities["minimum_wage"] = r.uniform(0.8, 1.0)
+        political_lean *= r.uniform(
             0.8, 0.95
         )  # Unemployed voters tend to be more progressive
     elif employment_status == "employed":
-        issue_priorities["economy"] *= random.uniform(1.1, 1.3)
-        issue_priorities["taxes"] *= random.uniform(1.0, 1.2)
+        issue_priorities["economy"] *= r.uniform(1.1, 1.3)
+        issue_priorities["taxes"] *= r.uniform(1.0, 1.2)
 
     # Family status influence
     if family_status == "with_children":
-        issue_priorities["education"] *= random.uniform(1.2, 1.5)
-        issue_priorities["healthcare"] *= random.uniform(1.1, 1.3)
-        issue_priorities["housing"] *= random.uniform(1.1, 1.3)
+        issue_priorities["education"] *= r.uniform(1.2, 1.5)
+        issue_priorities["healthcare"] *= r.uniform(1.1, 1.3)
+        issue_priorities["housing"] *= r.uniform(1.1, 1.3)
     elif family_status == "single":
-        issue_priorities["social_welfare"] *= random.uniform(1.0, 1.2)
-        issue_priorities["taxes"] *= random.uniform(1.0, 1.2)
+        issue_priorities["social_welfare"] *= r.uniform(1.0, 1.2)
+        issue_priorities["taxes"] *= r.uniform(1.0, 1.2)
 
     # Ethnicity/Immigration influence
     if ethnicity_immigration == "immigrant":
-        issue_priorities["immigration"] = random.uniform(0.8, 1.0)
-        issue_priorities["social_welfare"] *= random.uniform(1.1, 1.3)
-        issue_priorities["gender_equality"] *= random.uniform(1.1, 1.3)
-        political_lean *= random.uniform(
+        issue_priorities["immigration"] = r.uniform(0.8, 1.0)
+        issue_priorities["social_welfare"] *= r.uniform(1.1, 1.3)
+        issue_priorities["gender_equality"] *= r.uniform(1.1, 1.3)
+        political_lean *= r.uniform(
             0.8, 0.95
         )  # Immigrants may lean more progressive
     else:
-        issue_priorities["defense"] *= random.uniform(1.0, 1.2)
-        issue_priorities["immigration"] *= random.uniform(0.8, 1.0)
+        issue_priorities["defense"] *= r.uniform(1.0, 1.2)
+        issue_priorities["immigration"] *= r.uniform(0.8, 1.0)
 
     # Religion influence
     if religion == "religious":
-        issue_priorities["gender_equality"] *= random.uniform(0.8, 1.0)
-        issue_priorities["social_welfare"] *= random.uniform(1.0, 1.2)
-        issue_priorities["education"] *= random.uniform(0.9, 1.1)
-        political_lean *= random.uniform(
+        issue_priorities["gender_equality"] *= r.uniform(0.8, 1.0)
+        issue_priorities["social_welfare"] *= r.uniform(1.0, 1.2)
+        issue_priorities["education"] *= r.uniform(0.9, 1.1)
+        political_lean *= r.uniform(
             1.1, 1.2
         )  # Religious voters tend to be more conservative
     else:
-        issue_priorities["gender_equality"] *= random.uniform(1.1, 1.3)
-        issue_priorities["climate_change"] *= random.uniform(1.0, 1.2)
-        political_lean *= random.uniform(
+        issue_priorities["gender_equality"] *= r.uniform(1.1, 1.3)
+        issue_priorities["climate_change"] *= r.uniform(1.0, 1.2)
+        political_lean *= r.uniform(
             0.8, 0.95
         )  # Non-religious voters tend to be more progressive
 
@@ -199,7 +201,7 @@ def assign_issue_priorities(
     # >1 = conservative). Convert to [0,1] so it aligns with candidate policy scale.
     political_lean_normalized = max(0.0, min(1.0, (political_lean - 0.5) / 1.5))
     issue_positions = {
-        issue: max(0.0, min(1.0, political_lean_normalized + random.uniform(-0.15, 0.15)))
+        issue: max(0.0, min(1.0, political_lean_normalized + r.uniform(-0.15, 0.15)))
         for issue in issue_priorities
     }
 
@@ -211,23 +213,27 @@ def assign_issue_priorities(
 _IDEOLOGY_DISTRIBUTIONS = {"random", "centrist", "polarized", "left_skewed", "right_skewed"}
 
 
-def _sample_ideology_position(distribution: str) -> Optional[float]:
+def _sample_ideology_position(
+    distribution: str,
+    np_rng: Optional[np.random.RandomState] = None,
+) -> Optional[float]:
     """
     Return a political lean position in [0,1] drawn from the requested
     distribution, or None for "random" (keep the demographically-derived value).
 
       0 = fully progressive   1 = fully conservative
     """
+    r = np_rng if np_rng is not None else np.random
     if distribution == "centrist":
-        return float(np.clip(np.random.normal(0.5, 0.1), 0.0, 1.0))
+        return float(np.clip(r.normal(0.5, 0.1), 0.0, 1.0))
     if distribution == "polarized":
-        if np.random.random() < 0.5:
-            return float(np.clip(np.random.normal(0.2, 0.08), 0.0, 1.0))
-        return float(np.clip(np.random.normal(0.8, 0.08), 0.0, 1.0))
+        if r.random() < 0.5:
+            return float(np.clip(r.normal(0.2, 0.08), 0.0, 1.0))
+        return float(np.clip(r.normal(0.8, 0.08), 0.0, 1.0))
     if distribution == "left_skewed":
-        return float(np.random.beta(2, 5))
+        return float(r.beta(2, 5))
     if distribution == "right_skewed":
-        return float(np.random.beta(5, 2))
+        return float(r.beta(5, 2))
     return None  # "random" — keep the value derived from demographics
 
 
@@ -235,16 +241,28 @@ def create_voter(
     issues: List[str],
     voter_id: int,
     ideology_distribution: str = "random",
+    rng: Optional[random.Random] = None,
+    np_rng: Optional[np.random.RandomState] = None,
 ) -> Voter:
-    age = sample_age()
-    gender = sample_gender()
-    region = sample_region()
-    income = sample_income()
-    education = sample_education(age)
-    employment_status = sample_employment_status()
-    family_status = sample_family_status()
-    religion = sample_religion()
-    ethnicity_immigration = sample_ethnicity_immigration()
+    """Build one voter.
+
+    rng/np_rng: optional local RNG instances (random.Random / np.random.RandomState)
+    to draw from instead of the shared random/np.random module-level singletons.
+    Callers that need reproducible-under-concurrency output (any seeded entry
+    point) must pass their own local instances here — see election_service.py
+    for the canonical pattern. When omitted, falls back to the global
+    singletons (unseeded/legacy callers only).
+    """
+    r  = rng if rng is not None else random
+    age = sample_age(rng)
+    gender = sample_gender(np_rng)
+    region = sample_region(np_rng)
+    income = sample_income(np_rng)
+    education = sample_education(age, np_rng)
+    employment_status = sample_employment_status(rng)
+    family_status = sample_family_status(rng)
+    religion = sample_religion(rng)
+    ethnicity_immigration = sample_ethnicity_immigration(rng)
 
     issue_priorities, political_lean, issue_positions = assign_issue_priorities(
         age,
@@ -256,6 +274,7 @@ def create_voter(
         family_status,
         ethnicity_immigration,
         religion,
+        rng,
     )
 
     # Normalize so priorities sum to ~1
@@ -268,11 +287,11 @@ def create_voter(
 
     # Override the demographic-derived lean with a controlled distribution when
     # requested, then recompute issue_positions from the new base value.
-    overridden_lean = _sample_ideology_position(ideology_distribution)
+    overridden_lean = _sample_ideology_position(ideology_distribution, np_rng)
     if overridden_lean is not None:
         political_lean_normalized = overridden_lean
         issue_positions = {
-            issue: max(0.0, min(1.0, political_lean_normalized + random.uniform(-0.15, 0.15)))
+            issue: max(0.0, min(1.0, political_lean_normalized + r.uniform(-0.15, 0.15)))
             for issue in issue_positions
         }
 
@@ -289,7 +308,7 @@ def create_voter(
     if age > 60 and education in ("master", "phd"):
         education_vote_boost += 0.1
 
-    party_loyalty = random.uniform(0, 1)
+    party_loyalty = r.uniform(0, 1)
 
     # Strategic propensity: educated, older, and party-loyal voters are more
     # likely to vote tactically rather than by pure conviction.
@@ -299,13 +318,14 @@ def create_voter(
     if age > 45:
         strategic_propensity += 0.1
     strategic_propensity += 0.15 * party_loyalty
-    strategic_propensity += random.uniform(-0.05, 0.05)
+    strategic_propensity += r.uniform(-0.05, 0.05)
     strategic_propensity = max(0.0, min(0.8, strategic_propensity))
-    voting_style = "strategic" if random.random() < strategic_propensity else "sincere"
+    voting_style = "strategic" if r.random() < strategic_propensity else "sincere"
 
     # Social conformity: susceptibility to bandwagon / poll-driven preference shift.
     # Beta(2,3) → peak near 0.25, most values between 0.1 and 0.6.
-    social_conformity = float(np.random.beta(2, 3))
+    nr = np_rng if np_rng is not None else np.random
+    social_conformity = float(nr.beta(2, 3))
     if age < 30:
         social_conformity += 0.1
     if education in ("none", "high_school"):
@@ -316,7 +336,7 @@ def create_voter(
     # voter to rank them above "none of the above".  Beta(3, 5) → mean ≈ 0.375,
     # most values in [0.15, 0.65] — the majority of voters only cast a blank
     # when genuinely unsatisfied with every real candidate.
-    blank_threshold = float(np.random.beta(3, 5))
+    blank_threshold = float(nr.beta(3, 5))
 
     return {
         "id": voter_id,
@@ -334,15 +354,15 @@ def create_voter(
         "issue_positions": issue_positions,
         "issue_priorities": issue_priorities,
         "party_loyalty": party_loyalty,
-        "preferred_party": random.choice(
+        "preferred_party": r.choice(
             ["Green", "Conservative", "Liberal", "Independent"]
         ),
         # Turnout likelihood: age- and income-driven base rate (sample_likelihood_to_vote)
         # plus the education boost computed above.
         "likelihood_to_vote": float(
-            min(0.95, sample_likelihood_to_vote(age) + education_vote_boost)
+            min(0.95, sample_likelihood_to_vote(age, np_rng) + education_vote_boost)
         ),
-        "mood": random.uniform(-1, 1),
+        "mood": r.uniform(-1, 1),
         "strategic_propensity": round(strategic_propensity, 4),
         "voting_style": voting_style,
         "social_conformity": round(social_conformity, 4),
@@ -357,6 +377,7 @@ def create_candidate(
     party: str,
     ideology_position: Optional[float] = None,
     position_variance: float = 0.1,
+    rng: Optional[random.Random] = None,
 ) -> Dict[str, Any]:
     """
     Create a candidate with policy positions.
@@ -368,7 +389,11 @@ def create_candidate(
 
     When ideology_position is None the position is derived from the party
     lean as before, using the wider default variance of 0.2.
+
+    rng: optional local random.Random instance — see create_voter() for why
+    this matters under concurrent/seeded callers.
     """
+    r = rng if rng is not None else random
     party_leans = {
         "Green": -0.8,
         "Liberal": -0.3,
@@ -390,7 +415,7 @@ def create_candidate(
         effective_party_lean = raw_lean
 
     policies = {
-        issue: max(0.0, min(1.0, base_position + random.uniform(-effective_variance, effective_variance)))
+        issue: max(0.0, min(1.0, base_position + r.uniform(-effective_variance, effective_variance)))
         for issue in issues
     }
 
@@ -401,11 +426,11 @@ def create_candidate(
         "party_lean": effective_party_lean,
         "ideology_position": base_position,
         "policies": policies,
-        "charisma": random.uniform(0.5, 1.0),
-        "scandals": random.randint(0, 2),
-        "campaign_funds": random.uniform(100000, 1000000),
-        "experience": random.randint(1, 20),
-        "popularity": random.uniform(0.3, 0.9),
+        "charisma": r.uniform(0.5, 1.0),
+        "scandals": r.randint(0, 2),
+        "campaign_funds": r.uniform(100000, 1000000),
+        "experience": r.randint(1, 20),
+        "popularity": r.uniform(0.3, 0.9),
     }
 
 

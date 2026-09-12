@@ -597,7 +597,7 @@ permanent.
 | **`pytest-randomly`** | Ordre d'exécution aléatoire → révèle les tests couplés par effet de bord (déjà rencontré avec le limiter partagé). | S | ⭐⭐ | 📝📝 | ✅ `pytest-randomly==5.0.0` en dépendance de dev, actif sur chaque run local/CI dès l'installation (aucune config requise) |
 | **Chasse au flake nocturne** | Relancer la suite N fois et tracker l'instabilité. Le « flaky check » existe en e2e, rien côté backend. | M | ⭐⭐ | 📝📝 | ✅ `scripts/check_flaky_backend.py` + `.github/workflows/flaky-check-backend.yml` (nightly + push develop + `workflow_dispatch`) — détail sous le tableau |
 | **Régénérabilité de `engineParity.json`** | Un job qui régénère et diffe prouverait que le fichier n'a pas été édité à la main — aujourd'hui c'est une règle écrite, rien ne l'applique. | S | ⭐⭐⭐ | 📝📝 | ✅ déjà fait (chantier antérieur, PR #172) — `scripts/check_engine_parity_drift.sh`, gate CI (`openapi-contract.yml`'s « Generated artifacts in sync » job), vérifié en vrai à chaque PR de ce plan touchant le moteur (Lots 4.2-4.4) |
-| **`syrupy`** (snapshots pytest) | Sorties de simulation riches, plus lisibles qu'des assertions à la main. | S | ⭐ | 📝 | ✅ `api/tests/test_compare_all_methods_snapshot.py` — le rapport `compare_all_methods` (26 méthodes × 5 champs) capturé en un seul snapshot `.ambr` lisible (345 lignes), plutôt que des assertions champ par champ. `random.seed`/`np.random.seed` fixées explicitement avant construction de l'électorat (`create_voter`/`create_candidate` n'ont pas de paramètre de seed propre) — stabilité vérifiée sur 3 runs consécutifs |
+| **`syrupy`** (snapshots pytest) | Sorties de simulation riches, plus lisibles qu'des assertions à la main. | S | ⭐ | 📝 | ✅ `api/tests/test_compare_all_methods_snapshot.py` — le rapport `compare_all_methods` (26 méthodes × 5 champs) capturé en un seul snapshot `.ambr` lisible (345 lignes), plutôt que des assertions champ par champ. `random.seed`/`np.random.seed` fixées explicitement avant construction de l'électorat — stabilité vérifiée sur 3 runs consécutifs (ce test appelle `create_voter`/`create_candidate` sans `rng`/`np_rng`, donc retombe sur le fallback singleton documenté ci-dessous ; correct ici puisqu'il tourne seul, sans accès concurrent) |
 
 **Chasse au flake nocturne, détail.** `scripts/check_flaky_backend.py` relance
 la suite 3× (chacune un process indépendant, un ordre `pytest-randomly`
@@ -623,6 +623,109 @@ reste durablement invisible.
 
 **3 exécutions réelles de la suite complète (1974 tests, ~16-18s chacune)
 lancées pendant ce développement : 0 flake trouvé.**
+
+**Mise à jour (2026-09-12) — 3 flakes réels trouvés et corrigés, mécanisme
+racine identifié.** Une session `flake-hunter` (l'agent décrit au Lot 11)
+invoquée sur `test_election_simulate.py::TestDeterminism::
+test_same_seed_yields_identical_methods` et deux tests de
+`test_export.py` (`TestJSON::test_reproducibility`,
+`TestCSV::test_csv_happy_path`) — tous verts en isolation, tous rouges de
+façon imprévisible sous l'ordre aléatoire `pytest-randomly` de la suite
+complète — a trouvé la vraie cause : `ElectionService.simulate()` et une
+douzaine d'autres workers (`api/domain/election/workers.py`,
+`api/domain/export.py`) « seedaient » `random`/`np.random` en appelant
+`random.seed(seed)`/`np.random.seed(seed)` — ce qui reseed le singleton
+**partagé au niveau du process**, pas une instance locale à l'appel. « Même
+seed → même résultat » ne tenait donc que si rien d'autre ne touchait ces
+singletons entre le reseed et les tirages de `create_voter`/
+`create_candidate` juste après — faux dès qu'un accès concurrent existe
+dans le même process (le cas normal d'un serveur qui sert plusieurs
+requêtes), et pas seulement sous xdist : `pytest-randomly` réordonne aussi
+la *collecte*, donc deux tests sans rapport peuvent interagir via ce même
+singleton dans un seul worker.
+
+Preuve par la démonstration, pas par la théorie : un script autonome
+appelle `ElectionService.simulate()` depuis deux threads avec le même seed
+pendant qu'un troisième thread ne fait qu'appeler `random.random()`/
+`np.random.random()` en boucle (aucun rapport avec l'élection) — sur la
+baseline `develop`, **1 tentative sur 30 seulement produisait un résultat
+identique entre les deux appels** (`voters_snapshot`/`methods` divergent
+dans les 29 autres) ; en séquentiel (sans le troisième thread), **30/30
+correspondent** — la signature exacte d'une interférence inter-appels, pas
+d'un vrai non-déterminisme algorithmique. Même protocole sur
+`api.domain.export._generate_rows` (chemin de `test_export.py`) et
+directement sur `_build_base_electorate` (le point de passage partagé par
+`_divergence_worker`, `_campaign_sensitivity_worker`,
+`_combined_effects_worker`, `_simulate_pipeline_worker`, `_coalition_worker`
+et par `theory/workers.py`) : **2/30 et 0/30 sur la baseline**,
+respectivement.
+
+Corrigé en remplaçant le reseed du singleton partagé par une paire de
+générateurs **locaux à l'appel**, explicitement enfilés à travers
+`create_voter`/`create_candidate` (nouveaux paramètres optionnels `rng`/
+`np_rng`, `None` → fallback sur le singleton global pour les appelants non
+touchés) et jusqu'aux `sample_*` de `demographic_data.py` :
+
+```python
+# au lieu de :
+random.seed(seed); np.random.seed(seed)
+# :
+rng    = random.Random(seed)
+np_rng = np.random.RandomState(seed)   # PAS np.random.default_rng(seed) —
+                                        # algorithme différent (PCG64 vs
+                                        # MT19937), même seed → valeurs
+                                        # différentes ; piège réel rencontré
+                                        # ici : un test à seed figé
+                                        # (`test_theory_batch2.py::
+                                        # TestManipulationAnalysis`) a
+                                        # d'abord cassé avec `default_rng`,
+                                        # confirmant que RandomState est la
+                                        # seule substitution bit-identique.
+```
+
+Corrigé sur les ~10 sites de `ElectionService.simulate()` et
+`api/domain/election/workers.py`, sur `api/domain/export._generate_rows`
+(cause directe des 2 flakes `test_export.py`), et sur les deux boucles
+Monte-Carlo délibérément non seedées mais qui tiraient quand même du
+singleton partagé (`api/sockets/__init__.py::_run_one`,
+`api/domain/simulations/advanced.py::_monte_carlo_worker`) — celles-ci
+gardent un tirage non seedé (pas de contrat de reproductibilité), juste
+plus sur le singleton global. Après correctif : les mêmes démonstrations
+concurrentes donnent **30/30** sur les trois points de mesure ci-dessus.
+`~8 autres fichiers` du même domaine (`workers_mechanisms.py`,
+`workers_advanced.py`, `workers_dynamics.py`, `workers_behavioral.py`,
+`tech.py`, `domain/simulations/compare.py`, `domain/theory/workers.py`)
+reproduisent le même anti-pattern de reseed mais restent **hors périmètre
+de ce correctif** (aucun flake confirmé ne leur est attribué, et forcer
+`create_voter`/`create_candidate` à des paramètres obligatoires aurait
+élargi le blast radius d'un fix de concurrence en un refactor de ~13k
+lignes non planifié) — signalé ici comme dette de suivi, même famille de
+bug, à traiter dans un lot séparé.
+
+`create_voter`/`create_candidate` changent de signature (paramètres
+optionnels ajoutés) : `python fast_api_voter/scripts/gen_engine_parity.py`
+régénéré → **`engineParity.json` byte-identique** (aucune diff), confirmant
+que seule l'interférence inter-appels a été supprimée, pas l'algorithme par
+seed lui-même ; `playgroundVoting.parity.test.ts` reste vert (49/49).
+`mypy api/` reste clean (92 fichiers), `ruff check fast_api_voter` aussi.
+Suite complète (`python -m pytest api/tests`, hors benchmarks) :
+**2126 passed, 41 skipped, 0 failed**.
+
+`scripts/check_flaky_backend.py --runs 5` lancé sur les deux états (`develop`
+et corrigé) : **27 échecs identiques et constants dans les 10 runs (5+5)**,
+mais dans `test_engine_benchmarks.py` uniquement — l'incompatibilité connue
+`pytest-benchmark`/`xdist` (`benchmark.stats` reste `None` sous `-n auto`,
+sans rapport avec ce correctif ; c'est pourquoi la commande de gate rapide
+de CLAUDE.md exclut déjà ce fichier). En dehors de ce fichier : **0 test
+instable dans les deux états**, sur cet échantillon de 5 tirages — cet
+outil n'a pas capturé les 3 flakes connus dans cet échantillon, ni avant ni
+après (la fenêtre de reproduction d'une interférence probabiliste sur 5
+tirages n'est pas garantie ; le flake-hunter d'origine les avait trouvés
+sous une suite complète, pas ce script). La preuve avant/après faisant
+autorité reste la démonstration concurrente ciblée ci-dessus (0-1/30 sur
+`develop` → 30/30 corrigé, sur les 4 points de mesure), qui isole
+directement le mécanisme plutôt que d'attendre qu'il se manifeste par
+hasard dans l'ordre `pytest-randomly`.
 
 ---
 
