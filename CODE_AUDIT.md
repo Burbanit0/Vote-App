@@ -103,6 +103,29 @@ rejeu (`voteTrace.ts`), auparavant trop différents structurellement pour que
 `jscpd` les détecte. Factorisé dans `raynaudWorstLoss`, exportée et partagée
 par les deux — cliquet revenu à 33 sans rien laisser en dette.*
 
+*Mise à jour du 2026-09-12 : le lot "code mort frontend" resté ouvert depuis
+le 2026-09-06 (§3/§7) est traité — les 9 fichiers inutilisés
+(`components/research/BlankVoteTimeSeries.tsx`, `components/shared/EmptyChart.tsx`,
+`components/ui/{accordion,bootstrap-tabs,pagination,tabs,tooltip-overlay}.tsx`,
+`data/methodReferences.ts`, `services/index.ts`), la dépendance
+`@radix-ui/react-tabs` et l'export inutilisé `CardTitle`
+(`components/ui/card.tsx` — le composant lui-même n'était référencé nulle
+part ailleurs, supprimé en entier plutôt que juste dé-exporté) sont
+supprimés. Même passe : l'orphelin trouvé par le Lot 6.5 du plan de
+solidité technique, le hook `hooks/useDebouncedSimulation.ts` (+ son test) —
+plus aucun appelant vivant depuis que sa route `/simulation/compare` a été
+retirée (voir Lot 14 du plan de solidité technique pour le détail des deux
+zones mortes tranchées dans ce lot, dont celle-ci n'est qu'une moitié).
+`npm run knip` passe de 104 à 93 trouvailles (uniquement des "unused exported
+types" du kit UI et des fichiers de types larges, déjà notés en §3 comme
+faux positifs structurels) ; `.github/quality-baseline.json` mis à jour en
+conséquence (`knip: 104 → 93`) — le cliquet `check_quality_ratchet.sh` fait
+échouer une baisse non enregistrée tout autant qu'une hausse, il faut donc
+la committer explicitement, pas seulement laisser passer. `vulture`/`radon`/
+`deptry`/`jscpd` inchangés (0/137/0/33). Gate frontend complet
+(`tsc --noEmit`, `vitest run` — 168 fichiers/1707 tests, `lint`, `build` +
+`size-limit`) vérifié vert après suppression.*
+
 ## Résumé exécutif
 
 Le repo `Vote-App` (backend FastAPI `fast_api_voter/`, frontend React/TS
@@ -268,26 +291,24 @@ pas résoudre ce pattern. Le reste à 60 % contient un mélange de :
 
 ### Frontend (knip)
 
-**Mise à jour 2026-09-06 — chiffres recalculés (`npm run knip`, total 104,
-== `.github/quality-baseline.json`).** Toutes les lignes de l'édition d'août
-ont été traitées (voir §7) ; le tableau ci-dessous est un nouvel état, pas
-une correction du précédent — la composition a changé (nouveaux fichiers
-inutilisés apparus depuis, indépendants de cette passe de nettoyage) :
+**Mise à jour 2026-09-12 — chiffres recalculés (`npm run knip`, total 93,
+== `.github/quality-baseline.json`).** Le lot de 9 fichiers/1 dépendance/1
+export signalé le 2026-09-06 est supprimé (voir la note de mise à jour en
+tête de fichier) ; il ne reste plus que les types exportés jamais réimportés
+ailleurs :
 
 | Catégorie | Compte | Détail |
 |---|---|---|
-| Fichiers inutilisés | 9 | `components/research/BlankVoteTimeSeries.tsx`, `components/shared/EmptyChart.tsx`, `components/ui/{accordion,bootstrap-tabs,pagination,tabs,tooltip-overlay}.tsx`, `data/methodReferences.ts`, `services/index.ts` |
-| Dépendances déclarées jamais importées | 1 | `@radix-ui/react-tabs` |
+| Fichiers inutilisés | 0 | Corrigé le 2026-09-12 : les 9 fichiers (`components/research/BlankVoteTimeSeries.tsx`, `components/shared/EmptyChart.tsx`, `components/ui/{accordion,bootstrap-tabs,pagination,tabs,tooltip-overlay}.tsx`, `data/methodReferences.ts`, `services/index.ts`) sont supprimés |
+| Dépendances déclarées jamais importées | 0 | Corrigé le 2026-09-12 : `@radix-ui/react-tabs` retiré de `package.json` |
 | Dépendances utilisées mais absentes de `package.json` | 0 | Corrigé : `d3-delaunay` est déclaré (`package.json`), `@eslint/js`/`globals` aussi — les 3 findings de l'édition d'août sont résolus |
-| Exports jamais importés ailleurs | 1 valeur + 93 types | La valeur : `CardTitle` (`components/ui/card.tsx`). Les types viennent toujours majoritairement de `components/ui/*` (kit shadcn/ui) et de `src/api/index.ts`/`src/types.ts` (types larges générés/partagés, partiellement utilisés par construction) |
+| Exports jamais importés ailleurs | 0 valeur + 93 types | Corrigé le 2026-09-12 : la valeur `CardTitle` (`components/ui/card.tsx`) était non seulement non exportée ailleurs mais aussi jamais utilisée en interne au fichier — composant supprimé en entier, pas seulement dé-exporté. Les 93 types viennent toujours majoritairement de `components/ui/*` (kit shadcn/ui) et de `src/api/index.ts`/`src/types.ts` (types larges générés/partagés, partiellement utilisés par construction) |
 | Export dupliqué | 0 | Corrigé : `src/components/ui/instrument.tsx` n'exporte plus que `Instrument` en nommé |
 
-**Priorité d'action suggérée :** aucun finding "risque réel" cette fois-ci
-(la catégorie dépendance-non-déclarée est vide) — les 9 fichiers inutilisés
-et la dépendance `@radix-ui/react-tabs` sont des suppressions sûres et
-rapides. Les exports/types "inutilisés" du kit UI et des fichiers de types
-larges restent à laisser tels quels sauf audit plus fin — faux positifs
-structurels d'un pattern "bibliothèque de composants", comme en août.
+**Priorité d'action suggérée :** plus aucun finding "risque réel" — la seule
+catégorie non vide (93 types exportés jamais réimportés) reste à laisser
+telle quelle sauf audit plus fin — faux positifs structurels d'un pattern
+"bibliothèque de composants", comme en août et en septembre.
 
 ---
 
@@ -476,6 +497,11 @@ refactor) — à traiter dans une passe de nettoyage dédiée.
    `run_all_score_voting_methods`, `bucklin_voting`, `two_round_system`,
    `schulze_method`) — fait, les 9 fonctions ont été supprimées (aucune
    trace dans `api/` au 2026-09-06).
+6. ✅ Supprimer le nouveau lot de 9 fichiers frontend inutilisés + la
+   dépendance `@radix-ui/react-tabs` + l'export `CardTitle` signalés en §3
+   (apparus indépendamment après le 2026-09-06) — fait le 2026-09-12, avec
+   au passage l'orphelin `useDebouncedSimulation` du Lot 6.5 (voir Lot 14 du
+   plan de solidité technique) ; `npm run knip` 104 → 93.
 
 **Chantiers plus lourds (à planifier, pas à improviser en une PR) :**
 1. Factoriser les blocs dupliqués identifiés en §4 entre les fichiers
