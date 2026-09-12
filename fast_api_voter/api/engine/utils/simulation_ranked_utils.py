@@ -636,7 +636,12 @@ def get_schulze_winner(votes: list[Any], blank_candidate_name: str = "") -> Opti
     for cand in sorted(candidates):
         if all(p[cand][other] >= p[other][cand] for other in candidates if other != cand):
             return str(cand)
-    return str(min(candidates))
+    # Unreachable on a finite candidate set: Schulze's beatpath matrix is always
+    # transitive and strict, so a maximal (undominated) candidate always exists
+    # and the loop above always returns first. Verified empirically against
+    # 500k random ballot profiles + 300k synthetic pairwise matrices with zero
+    # counterexamples (PLAN_SOLIDITE_TECHNIQUE.md Lot 14.4).
+    return str(min(candidates))  # pragma: no cover
 
 
 # ── New methods ────────────────────────────────────────────────────────────────
@@ -1016,7 +1021,10 @@ def _smith_set(pw: dict[str, dict[str, int]], members: list[str]) -> list[str]:
         outside = [m for m in members if m not in top]
         if all(pw[i][j] > pw[j][i] for i in top for j in outside):
             return sorted(top)
-    return members.copy()
+    # Unreachable: at k == len(order), `outside` is empty, so `all(...)` over
+    # an empty generator is vacuously True and the loop always returns above
+    # on its last iteration (PLAN_SOLIDITE_TECHNIQUE.md Lot 14.4).
+    return members.copy()  # pragma: no cover
 
 
 def get_smith_irv_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
