@@ -29,6 +29,8 @@ import os
 from functools import wraps
 from typing import Any, Callable, Dict, Tuple
 
+from api.engine.utils.error_handling import safe_call
+
 # Use a module-level logger, NOT current_app.logger — workers wrapped here may
 # run inside eventlet.tpool (a real OS thread) where the Flask app context is
 # not available. current_app would raise RuntimeError there.
@@ -58,12 +60,14 @@ def _get_redis_client() -> Any:
         _redis_tried = True
         url = os.environ.get("REDIS_URL")
         if url:
-            try:
+            def _connect() -> Any:
                 import redis
-                _redis_client = redis.from_url(url)
-            except Exception:
-                log.warning("cache.redis_client_init_failed", exc_info=True)
-                _redis_client = None
+                return redis.from_url(url)
+
+            _redis_client = safe_call(
+                _connect, lambda: None,
+                log=log, event="cache.redis_client_init_failed",
+            )
     return _redis_client
 
 

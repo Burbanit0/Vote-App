@@ -2,6 +2,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
+import api.domain.simulations.base as base_module
 from api.main import app
 
 
@@ -81,6 +82,17 @@ class TestCalculateUtility:
                         json={"voter": {"id": 0}})
         assert r.status_code == 400, r.text
 
+    def test_500_and_logs_on_compute_failure(self, client, monkeypatch, caplog):
+        def _boom(*a, **kw):
+            raise RuntimeError("engine exploded")
+        monkeypatch.setattr(base_module, "calculate_utility", _boom)
+        with caplog.at_level("WARNING"):
+            r = client.post("/api/v2/simulations/calculate_utility",
+                            json={"voter": VOTER, "candidate": CANDIDATE})
+        assert r.status_code == 500
+        assert "engine exploded" in r.json()["detail"]
+        assert "simulation.calculate_utility.failed" in caplog.text
+
 
 # ── /simulate_utility & /get_utility_matrix ──────────────────────────────────
 
@@ -90,6 +102,17 @@ class TestUtility:
                         json={"voters": [VOTER, VOTER2], "candidates": [CANDIDATE]})
         assert r.status_code == 200, r.text
         assert len(r.json()["utility_results"]) == 2   # 2 voters × 1 candidate
+
+    def test_500_and_logs_on_compute_failure(self, client, monkeypatch, caplog):
+        def _boom(*a, **kw):
+            raise RuntimeError("engine exploded")
+        monkeypatch.setattr(base_module, "calculate_utility", _boom)
+        with caplog.at_level("WARNING"):
+            r = client.post("/api/v2/simulations/simulate_utility",
+                            json={"voters": [VOTER], "candidates": [CANDIDATE]})
+        assert r.status_code == 500
+        assert "engine exploded" in r.json()["detail"]
+        assert "simulation.simulate_utility.failed" in caplog.text
 
     def test_utility_matrix(self, client):
         r = client.post("/api/v2/simulations/get_utility_matrix",
@@ -104,6 +127,17 @@ class TestUtility:
         r = client.post("/api/v2/simulations/get_utility_matrix",
                         json={"voters": [], "candidates": [CANDIDATE]})
         assert r.status_code == 400, r.text
+
+    def test_utility_matrix_500_and_logs_on_compute_failure(self, client, monkeypatch, caplog):
+        def _boom(*a, **kw):
+            raise RuntimeError("engine exploded")
+        monkeypatch.setattr(base_module, "calculate_utility", _boom)
+        with caplog.at_level("WARNING"):
+            r = client.post("/api/v2/simulations/get_utility_matrix",
+                            json={"voters": [VOTER, VOTER2], "candidates": [CANDIDATE]})
+        assert r.status_code == 500
+        assert "engine exploded" in r.json()["detail"]
+        assert "simulation.utility_matrix.failed" in caplog.text
 
 
 # ── /get_voter_segments ──────────────────────────────────────────────────────
@@ -125,6 +159,17 @@ class TestSegments:
         r = client.post("/api/v2/simulations/get_voter_segments",
                         json={"voters": [], "candidates": [CANDIDATE]})
         assert r.status_code == 400, r.text
+
+    def test_500_and_logs_on_compute_failure(self, client, monkeypatch, caplog):
+        def _boom(*a, **kw):
+            raise RuntimeError("engine exploded")
+        monkeypatch.setattr(base_module, "calculate_utility", _boom)
+        with caplog.at_level("WARNING"):
+            r = client.post("/api/v2/simulations/get_voter_segments",
+                            json={"voters": [VOTER, VOTER2], "candidates": [CANDIDATE]})
+        assert r.status_code == 500
+        assert "engine exploded" in r.json()["detail"]
+        assert "simulation.voter_segments.failed" in caplog.text
 
 
 # ── /get_closest_candidate ───────────────────────────────────────────────────

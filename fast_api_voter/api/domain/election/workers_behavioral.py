@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional  # noqa: F401
 import numpy as _np
 
 from api.engine.constants import DEFAULT_ISSUES
+from api.engine.utils.error_handling import safe_call
 from api.engine.utils.logger import get_logger
 from api.engine.utils.simulation_voting_utils import calculate_utility, create_voter
 from api.engine.utils.simulation_ranked_utils import (
@@ -239,24 +240,29 @@ def _behavioral_biases_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
                            ("borda",    _borda),
                            ("irv",      _irv),
                            ("schulze",  _schulze)):
-            try:
-                out[mname] = fn(rnk)
-            except Exception:
-                log.warning("workers_behavioral.method_failed", method=mname, exc_info=True)
-                out[mname] = None
-        try:
+            out[mname] = safe_call(
+                lambda: fn(rnk), lambda: None,
+                log=log, event="workers_behavioral.method_failed", method=mname,
+            )
+
+        def _star_winner() -> Optional[str]:
             raw = _star(sv)
-            out["star_voting"] = raw.get("winner") if isinstance(raw, dict) else raw
-        except Exception:
-            log.warning("workers_behavioral.method_failed", method="star_voting", exc_info=True)
-            out["star_voting"] = None
-        try:
+            return raw.get("winner") if isinstance(raw, dict) else raw
+
+        out["star_voting"] = safe_call(
+            _star_winner, lambda: None,
+            log=log, event="workers_behavioral.method_failed", method="star_voting",
+        )
+
+        def _mj_winner() -> Optional[str]:
             mj_utils = [utils[v["id"]].copy() for v in voters]
             mj_raw   = _mj(mj_utils)
-            out["majority_judgment"] = str(mj_raw["winner"]) if mj_raw.get("winner") else None
-        except Exception:
-            log.warning("workers_behavioral.method_failed", method="majority_judgment", exc_info=True)
-            out["majority_judgment"] = None
+            return str(mj_raw["winner"]) if mj_raw.get("winner") else None
+
+        out["majority_judgment"] = safe_call(
+            _mj_winner, lambda: None,
+            log=log, event="workers_behavioral.method_failed", method="majority_judgment",
+        )
         return out
 
     # ── Approval with bullet voting ───────────────────────────────────────
@@ -952,13 +958,15 @@ def _nota_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
                         tally[cname] += 1
             return max(tally, key=tally.__getitem__) if tally else cand_names[0]
         if method == "majority_judgment":
-            mj_utils = [sincere_utilities[v["id"]].copy() for v in voters]
-            try:
-                mj_raw = _mj(mj_utils)
+            def _mj_winner() -> Optional[str]:
+                mj_utils = [sincere_utilities[v["id"]].copy() for v in voters]
+                mj_raw   = _mj(mj_utils)
                 return str(mj_raw["winner"]) if mj_raw.get("winner") else None
-            except Exception:
-                log.warning("workers_behavioral.method_failed", method="majority_judgment", exc_info=True)
-                return None
+
+            return safe_call(
+                _mj_winner, lambda: None,
+                log=log, event="workers_behavioral.method_failed", method="majority_judgment",
+            )
         return get_plurality_winner(rnk)
 
     # ── Main computation ──────────────────────────────────────────────────
@@ -1136,20 +1144,24 @@ def _ballot_complexity_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
                         tally[cname] += 1
             return max(tally, key=tally.__getitem__) if tally else cand_names[0]
         if method == "star_voting":
-            try:
+            def _star_winner() -> Optional[str]:
                 raw = _star_w(sv)
                 return raw.get("winner") if isinstance(raw, dict) else raw
-            except Exception:
-                log.warning("workers_behavioral.method_failed", method="star_voting", exc_info=True)
-                return get_plurality_winner(rnk)
+
+            return safe_call(
+                _star_winner, lambda: get_plurality_winner(rnk),
+                log=log, event="workers_behavioral.method_failed", method="star_voting",
+            )
         if method == "majority_judgment":
-            try:
+            def _mj_winner() -> Optional[str]:
                 mj_u = [sincere_utilities[v["id"]].copy() for v in vlist]
                 raw  = _mj_w(mj_u)
                 return str(raw["winner"]) if raw.get("winner") else None
-            except Exception:
-                log.warning("workers_behavioral.method_failed", method="majority_judgment", exc_info=True)
-                return get_plurality_winner(rnk)
+
+            return safe_call(
+                _mj_winner, lambda: get_plurality_winner(rnk),
+                log=log, event="workers_behavioral.method_failed", method="majority_judgment",
+            )
         return get_plurality_winner(rnk)
 
     # ── Per-method simulation ─────────────────────────────────────────────
@@ -1552,12 +1564,14 @@ def _co_majority_judgment(
 ) -> Optional[str]:
     """Majority judgment over the utility grades, falling back to plurality when
     the grade profile is one the MJ implementation cannot resolve."""
-    try:
+    def _resolve() -> Optional[str]:
         r = get_majority_judgment_winner([utils[v["id"]].copy() for v in v_list])
-    except Exception:  # pylint: disable=broad-except
-        log.warning("workers_behavioral.method_failed", method="majority_judgment", exc_info=True)
-        return get_plurality_winner(rnk)
-    return str(r["winner"]) if r.get("winner") else cnames[0]
+        return str(r["winner"]) if r.get("winner") else cnames[0]
+
+    return safe_call(
+        _resolve, lambda: get_plurality_winner(rnk),
+        log=log, event="workers_behavioral.method_failed", method="majority_judgment",
+    )
 
 
 def _co_winner(

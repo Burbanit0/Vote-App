@@ -2,6 +2,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
+import api.domain.simulations.advanced as advanced_module
 from api.main import app
 
 CANDS = ["Alice", "Bob", "Charlie"]
@@ -22,6 +23,17 @@ class TestBandwagon:
         r = client.post("/api/v2/simulations/bandwagon",
                         json={"num_voters": 60, "candidates": ["Solo"]})
         assert r.status_code == 400, r.text
+
+    def test_500_and_logs_on_compute_failure(self, client, monkeypatch, caplog):
+        def _boom(*a, **kw):
+            raise RuntimeError("engine exploded")
+        monkeypatch.setattr(advanced_module, "run_bandwagon_simulation", _boom)
+        with caplog.at_level("WARNING"):
+            r = client.post("/api/v2/simulations/bandwagon",
+                            json={"num_voters": 60, "candidates": CANDS, "seed": 1})
+        assert r.status_code == 500
+        assert "engine exploded" in r.json()["detail"]
+        assert "simulation.bandwagon.failed" in caplog.text
 
     def test_same_seed_reproducible_end_to_end(self, client):
         """Complement (2026-09-12, second `/code-review ultra` pass): this is
@@ -137,6 +149,17 @@ class TestMonteCarlo:
                         json={"num_runs": 5, "candidates": ["Solo"]})
         assert r.status_code == 400, r.text
 
+    def test_500_and_logs_on_compute_failure(self, client, monkeypatch, caplog):
+        def _boom(*a, **kw):
+            raise RuntimeError("engine exploded")
+        monkeypatch.setattr(advanced_module, "compare_all_methods_mc", _boom)
+        with caplog.at_level("WARNING"):
+            r = client.post("/api/v2/simulations/monte-carlo",
+                            json={"num_runs": 5, "num_voters": 50, "candidates": CANDS})
+        assert r.status_code == 500
+        assert "engine exploded" in r.json()["detail"]
+        assert "simulation.monte_carlo.failed" in caplog.text
+
 
 class TestMultiwinner:
     def test_happy_path(self, client):
@@ -148,6 +171,17 @@ class TestMultiwinner:
     def test_empty_party_votes_400(self, client):
         r = client.post("/api/v2/simulations/multiwinner", json={"party_votes": {}, "num_seats": 10})
         assert r.status_code == 400, r.text
+
+    def test_500_and_logs_on_compute_failure(self, client, monkeypatch, caplog):
+        def _boom(*a, **kw):
+            raise RuntimeError("engine exploded")
+        monkeypatch.setattr(advanced_module, "compare_multiwinner_methods", _boom)
+        with caplog.at_level("WARNING"):
+            r = client.post("/api/v2/simulations/multiwinner",
+                            json={"party_votes": {"A": 40, "B": 35, "C": 25}, "num_seats": 10})
+        assert r.status_code == 500
+        assert "engine exploded" in r.json()["detail"]
+        assert "simulation.multiwinner.failed" in caplog.text
 
     def test_stv_mode_runs_single_transferable_vote(self, client):
         """mode='stv' synthesizes ranked ballots and elects via STV, in
@@ -193,6 +227,18 @@ class TestRealElection:
     def test_missing_name_400(self, client):
         r = client.post("/api/v2/simulations/real-election", json={"num_voters": 200})
         assert r.status_code == 400, r.text
+
+    def test_500_and_logs_on_compute_failure(self, client, monkeypatch, caplog):
+        def _boom(*a, **kw):
+            raise RuntimeError("engine exploded")
+        monkeypatch.setattr(advanced_module, "analyze_real_election", _boom)
+        key = client.get("/api/v2/simulations/real-elections").json()[0]["key"]
+        with caplog.at_level("WARNING"):
+            r = client.post("/api/v2/simulations/real-election",
+                            json={"election_name": key, "num_voters": 200})
+        assert r.status_code == 500
+        assert "engine exploded" in r.json()["detail"]
+        assert "simulation.real_election.failed" in caplog.text
 
     def test_unknown_election_404(self, client):
         r = client.post("/api/v2/simulations/real-election",
@@ -297,3 +343,19 @@ class TestBlankContagion:
         r = client.post("/api/v2/simulations/blank-contagion",
                         json={"num_voters": 60, "num_rounds": 5, "seed": 1})
         assert r.status_code == 200, r.text
+
+    def test_500_and_logs_on_compute_failure(self, client, monkeypatch, caplog):
+        # simulate_blank_contagion is imported *inside* _blank_contagion_worker
+        # (`from api.engine.utils.blank_contagion import simulate_blank_contagion`),
+        # re-resolved from its source module on every call -- patch it there.
+        import api.engine.utils.blank_contagion as blank_contagion_module
+
+        def _boom(*a, **kw):
+            raise RuntimeError("engine exploded")
+        monkeypatch.setattr(blank_contagion_module, "simulate_blank_contagion", _boom)
+        with caplog.at_level("WARNING"):
+            r = client.post("/api/v2/simulations/blank-contagion",
+                            json={"num_voters": 60, "num_rounds": 5, "seed": 1})
+        assert r.status_code == 500
+        assert "engine exploded" in r.json()["detail"]
+        assert "simulation.blank_contagion.failed" in caplog.text

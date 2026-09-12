@@ -2,6 +2,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
+import api.domain.simulations.campaign as campaign_module
 from api.main import app
 
 
@@ -81,3 +82,14 @@ class TestCampaign:
         r = client.post("/api/v2/simulations/campaign", json={"num_voters": 60, "num_days": 5})
         assert r.status_code == 200, r.text
         assert len(r.json()["candidates"]) == 4   # default num_candidates
+
+    def test_500_and_logs_on_compute_failure(self, client, monkeypatch, caplog):
+        def _boom(*a, **kw):
+            raise RuntimeError("engine exploded")
+        monkeypatch.setattr(campaign_module, "simulate_campaign", _boom)
+        with caplog.at_level("WARNING"):
+            r = client.post("/api/v2/simulations/campaign",
+                            json={"num_voters": 60, "num_days": 5})
+        assert r.status_code == 500
+        assert "engine exploded" in r.json()["detail"]
+        assert "simulation.campaign.failed" in caplog.text

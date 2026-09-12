@@ -12,6 +12,7 @@ from typing import Any, Dict
 
 from fastapi import APIRouter, Response
 
+from api.engine.utils.error_handling import safe_call
 from api.engine.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -33,16 +34,19 @@ def _check_redis() -> Dict[str, Any]:
         # gate on /health, e.g. Fly.io single-container deploys).
         return {"ok": True, "configured": False}
     t0 = time.perf_counter()
-    try:
+
+    def _ping() -> Dict[str, Any]:
         import redis
         client = redis.StrictRedis.from_url(url)
         client.ping()
         return {"ok": True, "latency_ms": round((time.perf_counter() - t0) * 1000, 2)}
-    except Exception:
-        # Don't surface the raw exception text to callers (info exposure); the
-        # health contract only needs ok/not-ok. Details stay in server logs.
-        log.warning("health.redis_check_failed", exc_info=True)
-        return {"ok": False, "error": "unreachable"}
+
+    # Don't surface the raw exception text to callers (info exposure); the
+    # health contract only needs ok/not-ok. Details stay in server logs.
+    return safe_call(
+        _ping, lambda: {"ok": False, "error": "unreachable"},
+        log=log, event="health.redis_check_failed",
+    )
 
 
 @router.get(

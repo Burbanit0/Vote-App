@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import Any, Dict
 
 from api.engine.utils.campaign_dynamics import simulate_campaign
+from api.engine.utils.error_handling import log_and_error_response
 from api.engine.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -40,5 +41,4 @@ def _campaign_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         )
         return result, 200
     except Exception as exc:
-        log.error("simulation.campaign.failed", exc_info=True)
-        return {"error": str(exc)}, 500
+        return log_and_error_response(log, "simulation.campaign.failed", {"error": str(exc)})

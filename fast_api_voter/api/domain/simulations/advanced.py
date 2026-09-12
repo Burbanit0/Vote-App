@@ -28,6 +28,7 @@ from api.engine.utils.real_election_data import analyze_real_election, list_elec
 from api.engine.utils.blank_vote_rules import BlankVoteRule
 from api.engine.utils.demographic_data import _seeded_rng_pair
 from api.engine.constants import DEFAULT_ISSUES
+from api.engine.utils.error_handling import log_and_error_response
 from api.domain.simulations.helpers import (
     _parse_candidate_configs, _build_population,
     _build_scenario_candidates, _build_scenario_voters, _run_five_methods,
@@ -94,8 +95,7 @@ def _bandwagon_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
         )
         return result, 200
     except Exception as e:
-        log.error("simulation.bandwagon.failed", exc_info=True)
-        return {"error": str(e)}, 500
+        return log_and_error_response(log, "simulation.bandwagon.failed", {"error": str(e)})
 
 
 
@@ -232,8 +232,7 @@ def _monte_carlo_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
         }, 200
 
     except Exception as e:
-        log.error("simulation.monte_carlo.failed", exc_info=True)
-        return {"error": str(e)}, 500
+        return log_and_error_response(log, "simulation.monte_carlo.failed", {"error": str(e)})
 
 
 
@@ -273,8 +272,7 @@ def _multiwinner_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
         result["num_seats"]   = num_seats
         return result, 200
     except Exception as e:
-        log.error("simulation.multiwinner.failed", exc_info=True)
-        return {"error": str(e)}, 500
+        return log_and_error_response(log, "simulation.multiwinner.failed", {"error": str(e)})
 
 
 
@@ -336,8 +334,7 @@ def _real_election_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
     except ValueError as e:
         return {"error": str(e)}, 404
     except Exception as e:
-        log.error("simulation.real_election.failed", exc_info=True)
-        return {"error": str(e)}, 500
+        return log_and_error_response(log, "simulation.real_election.failed", {"error": str(e)})
 
 
 
@@ -521,7 +518,6 @@ def _blank_contagion_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
     except ValueError as exc:
         return {"error": str(exc)}, 400
     except Exception as exc:
-        log.error("simulation.blank_contagion.failed", exc_info=True)
-        return {"error": str(exc)}, 500
+        return log_and_error_response(log, "simulation.blank_contagion.failed", {"error": str(exc)})
 
 
