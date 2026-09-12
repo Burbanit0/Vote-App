@@ -2452,13 +2452,43 @@ un chiffre que personne ne publie.
 
 ## Lot 13 — Synthèse & partage *(à faire en dernier, il consomme tout le reste)*
 
-| Item | Contenu | Effort | Récit |
-|---|---|---|---|
-| **Index des verdicts complété** | Le tableau du Lot 0.3, rempli par ~25 expériences réelles. | S | 📝📝📝 |
-| **Rétrospective du plan** | Ce plan a-t-il survécu au contact ? Quels items abandonnés, lesquels ajoutés en route, lesquels ont déçu. | M | 📝📝📝 |
-| **Les 3-4 histoires les plus partageables** | Candidats naturels : « la couverture à 91 % ment-elle ? » (Lot 5) · « 25 outils de qualité sur un vrai projet, le tableau des verdicts » (Lot 0.3) · « tester une théorie mathématique comme on teste du code » (Lot 4) · « combien de mes conventions écrites étaient déjà violées » (Lot 2). | L | 📝📝📝 |
-| **`CODE_AUDIT.md` rejoué** | Nouvelle édition datée après tous les lots, comparaison avec l'édition du 2026-09-06. | S | 📝📝 |
-| **README qui raconte** | Le repo est public : rendre visible la double exploration (méthodes de vote *et* pratiques de dev). | M | 📝📝📝 |
+| Item | Contenu | Effort | Récit | Statut |
+|---|---|---|---|---|
+| **Index des verdicts complété** | Le tableau du Lot 0.3, rempli par ~25 expériences réelles. | S | 📝📝📝 | ✅ voir détail sous le tableau |
+| **Rétrospective du plan** | Ce plan a-t-il survécu au contact ? Quels items abandonnés, lesquels ajoutés en route, lesquels ont déçu. | M | 📝📝📝 | |
+| **Les 3-4 histoires les plus partageables** | Candidats naturels : « la couverture à 91 % ment-elle ? » (Lot 5) · « 25 outils de qualité sur un vrai projet, le tableau des verdicts » (Lot 0.3) · « tester une théorie mathématique comme on teste du code » (Lot 4) · « combien de mes conventions écrites étaient déjà violées » (Lot 2). | L | 📝📝📝 | |
+| **`CODE_AUDIT.md` rejoué** | Nouvelle édition datée après tous les lots, comparaison avec l'édition du 2026-09-06. | S | 📝📝 | ✅ voir détail sous le tableau |
+| **README qui raconte** | Le repo est public : rendre visible la double exploration (méthodes de vote *et* pratiques de dev). | M | 📝📝📝 | |
+
+**Index des verdicts, détail.** `docs/exploration/README.md` tient déjà à
+jour : 14 expériences formelles closes (EXP-001 à EXP-014), chacune avec un
+verdict argumenté et des trouvailles réelles citées, zéro backlog d'expérience
+terminée sans carnet. Écart honnête avec l'intitulé de l'item : ~25 outils ont
+été *essayés* au total sur l'ensemble du plan, mais une partie (GuardDog,
+TruffleHog, `madge`, `type-coverage`, `ccusage`, `nbstripout`, quelques
+décisions Dependabot/CI mineures) a été tranchée directement en paragraphe
+« détail » dans ce document plutôt que via le rituel complet `/log-experiment`
+— proportionné à des essais courts, pas d'incohérence de méthode. Le
+mécanisme lui-même (index tenu à jour à chaque clôture) fonctionne comme
+prévu ; le chiffre final est 14 formelles, pas ~25, et c'est très bien ainsi.
+
+**`CODE_AUDIT.md` rejoué, détail** (2026-09-12). Comparé à l'édition du
+2026-09-06 : `vulture`/`radon`/`jscpd` identiques au chiffre près malgré un
+volume de changement important entre les deux dates (Lots 7 à 12 complets).
+`deptry` et `knip` ont montré 2 régressions réelles chacun, toutes les deux
+du Lot 10, corrigées dans la même passe plutôt que laissées en dette pour le
+Lot 14 : `prometheus_client` importé directement mais jamais déclaré
+explicitement dans `requirements.txt` (reposait sur le pin transitif de
+`prometheus-fastapi-instrumentator`) ; `opentelemetry-instrumentation-fastapi`
+signalé à tort "inutilisé" par `deptry` (faux positif de résolution de nom de
+module, corrigé via `package_module_name_map`, pas masqué) ; deux entrées
+`ignore`/`ignoreDependencies` de `voter-app/knip.json` (`scripts/
+gen-pseudo-locale.ts`, `jiti`) devenues inutiles depuis que le Lot 7 leur a
+donné un vrai script `npm run gen:pseudo-locale` que knip reconnaît tout
+seul. `./scripts/check_quality_ratchet.sh` confirmé vert après correctif :
+dette tenue exactement à la baseline sur les 5 métriques. Détail complet et
+raisonnement dans `CODE_AUDIT.md` lui-même (section « Mise à jour du
+2026-09-12 »).
 
 ---
 
