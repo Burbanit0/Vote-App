@@ -19,6 +19,8 @@ from api.domain.polity.run_digest import (
     event_counts_by_year,
     institutional_timeline,
     legitimacy_trajectory,
+    llm_fallback_alerts,
+    llm_fallback_rates,
     population_impact_by_year,
     read_journal_tolerant,
     write_digest,
@@ -278,6 +280,61 @@ def test_build_digest_on_a_deterministic_run_reports_no_llm_decisions(tmp_path):
     assert digest["llm_decisions"] == {}
     assert digest["journal"]["total_events"] == 2
     assert digest["metadata"]["unverified_decision_types"] == []
+    assert digest["llm_fallback_rates"] == {}
+    assert digest["llm_fallback_alerts"] == {}
+
+
+# ── llm_fallback_rates / llm_fallback_alerts (Track C2, 2026-09-11) ─────────
+
+def test_llm_fallback_rates_computes_per_type_ratio():
+    rates = llm_fallback_rates(
+        decisions_by_type={"vote_cast": 100, "party_nomination_choice": 15},
+        fallback_by_type={"vote_cast": 1, "party_nomination_choice": 10},
+    )
+    assert rates == {"vote_cast": 0.01, "party_nomination_choice": 0.6667}
+
+
+def test_llm_fallback_rates_omits_types_never_decided_this_run():
+    # A type absent from decisions_by_type never appeared this run at all --
+    # a rate over zero decisions would not measure anything real.
+    rates = llm_fallback_rates(decisions_by_type={"vote_cast": 100}, fallback_by_type={})
+    assert rates == {"vote_cast": 0.0}
+    assert "party_nomination_choice" not in rates
+
+
+def test_llm_fallback_rates_treats_a_type_with_no_fallback_key_as_zero():
+    rates = llm_fallback_rates(decisions_by_type={"vote_cast": 100}, fallback_by_type={"other_type": 5})
+    assert rates == {"vote_cast": 0.0}
+
+
+def test_llm_fallback_alerts_flags_only_types_above_the_threshold():
+    # Stage 3's own real numbers: 0.26% overall hid party_nomination_choice's
+    # 67% -- an aggregate check would have missed exactly this.
+    rates = {"vote_cast": 0.0026, "party_nomination_choice": 0.6667}
+    alerts = llm_fallback_alerts(rates, threshold=0.10)
+    assert alerts == {"party_nomination_choice": 0.6667}
+
+
+def test_llm_fallback_alerts_is_empty_when_everything_is_under_the_threshold():
+    rates = {"vote_cast": 0.01, "party_nomination_choice": 0.05}
+    assert llm_fallback_alerts(rates, threshold=0.10) == {}
+
+
+def test_build_digest_surfaces_a_fallback_alert_from_a_real_progress_json(tmp_path):
+    config = load_config()
+    journal = _write_journal(tmp_path / "events.jsonl", [_e(0, "elected", {"office": "president"}, citizen_id=5)])
+    (tmp_path / "progress.json").write_text(
+        json.dumps({
+            "decisions_by_type": {"vote_cast": 100, "party_nomination_choice": 15},
+            "fallback_by_type": {"vote_cast": 1, "party_nomination_choice": 10},
+        }),
+        encoding="utf-8",
+    )
+
+    digest = build_digest(journal, config, run_id="r", outcome="completed", resume=False)
+
+    assert digest["llm_fallback_rates"] == {"vote_cast": 0.01, "party_nomination_choice": 0.6667}
+    assert digest["llm_fallback_alerts"] == {"party_nomination_choice": 0.6667}
 
 
 def test_write_digest_appends_one_line_per_attempt_and_overwrites_the_latest(tmp_path):

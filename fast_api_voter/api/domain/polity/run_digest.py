@@ -247,6 +247,44 @@ def _ratio(numerator: int, denominator: int) -> float | None:
     return round(numerator / denominator, 4) if denominator else None
 
 
+FALLBACK_ALERT_THRESHOLD = 0.10
+"""Track C2 (2026-09-11, lets-build-a-solid-spicy-otter.md): Stage 3's own
+overall fallback rate was 0.26% -- reassuring on its face -- while
+`party_nomination_choice` alone fell back 67% of the time (10/15). An
+aggregate-only number cannot distinguish "healthy run" from "one decision
+type quietly broken"; per-type rates can. 10% is a first cut, not a
+measured optimum: comfortably above the occasional single-chunk fallback
+this project's own retry/fallback design already treats as normal and
+harmless (a transient decode failure that recovers via
+`_deterministic_*_fallback`), comfortably below the 67% that actually
+happened. Revisit with real multi-seed data (Track D) once one exists --
+this is a pre-registered bar in the same spirit as B3's <5% candidacy
+bar, not a value derived from a distribution nobody has measured yet."""
+
+
+def llm_fallback_rates(decisions_by_type: Mapping[str, int], fallback_by_type: Mapping[str, int]) -> dict[str, float]:
+    """Per-type fallback rate -- `progress.json`'s own `decisions_by_type`/
+    `fallback_by_type`, never recomputed from the journal (this module's own
+    "not a second source of truth" rule, see module docstring). A type with
+    zero decisions this run is OMITTED, not given a 0.0 -- indexer.py's own
+    "0.0 is a claim, absent is untracked" convention, since a rate over zero
+    decisions is not a real measurement of anything."""
+    return {
+        event_type: rate
+        for event_type, count in decisions_by_type.items()
+        if count and (rate := _ratio(fallback_by_type.get(event_type, 0), count)) is not None
+    }
+
+
+def llm_fallback_alerts(fallback_rates: Mapping[str, float], *, threshold: float = FALLBACK_ALERT_THRESHOLD) -> dict[str, float]:
+    """Which decision types exceeded the alert threshold this run, and by
+    how much -- a dict (not just a list of names) so the digest itself
+    carries the number that tripped the alert, not just its verdict. Empty,
+    not absent, when nothing is flagged: a reader must be able to tell
+    "checked, all clear" from "the check never ran"."""
+    return {event_type: rate for event_type, rate in sorted(fallback_rates.items()) if rate > threshold}
+
+
 def legitimacy_trajectory(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Every `legitimacy_updated` event, in order -- the officeholder's own
     standing over time, which is the closest thing this simulation has to "how
@@ -317,6 +355,9 @@ def build_digest(
     # See "terms"/"office_occupancy" below for why this is computed once,
     # here, rather than inline in each of those two places.
     terms = segment_terms(events, last_tick or 0)
+    decisions_by_type = (progress or {}).get("decisions_by_type", {})
+    fallback_by_type = (progress or {}).get("fallback_by_type", {})
+    fallback_rates = llm_fallback_rates(decisions_by_type, fallback_by_type)
 
     return {
         "run_id": run_id,
@@ -386,9 +427,14 @@ def build_digest(
         "event_counts_by_year": event_counts_by_year(events, config.run.ticks_per_year),
         "population_impact_by_year": population_impact_by_year(events, config),
         "legitimacy_trajectory": legitimacy_trajectory(events),
-        "llm_decisions": (progress or {}).get("decisions_by_type", {}),
+        "llm_decisions": decisions_by_type,
         "llm_retries": (progress or {}).get("retry_count"),
         "llm_fallbacks": (progress or {}).get("fallback_count"),
+        # Track C2 (2026-09-11): the aggregate above hid Stage 3's real
+        # problem (0.26% overall, 67% on one type) -- per-type rates plus an
+        # explicit alert make that impossible to miss silently again.
+        "llm_fallback_rates": fallback_rates,
+        "llm_fallback_alerts": llm_fallback_alerts(fallback_rates),
         # Carried through so a narrator flags these rather than presenting them
         # as findings -- see viz_export.export_metadata's own docstring.
         "metadata": export_metadata(config),

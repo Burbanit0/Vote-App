@@ -21,7 +21,7 @@ def test_write_progress_computes_simulated_year(tmp_path):
         path, run_id="r1", tick=52, total_ticks=120, ticks_per_year=4,
         wall_clock_elapsed_seconds=100.0, last_tick_duration_seconds=5.0,
         avg_recent_tick_duration_seconds=5.0, decisions_by_type={}, retry_count=0,
-        fallback_count=0, last_checkpoint_tick=52,
+        fallback_count=0, fallback_by_type={}, last_checkpoint_tick=52,
     )
     payload = json.loads(path.read_text(encoding="utf-8"))
     assert payload["simulated_year"] == 13.0
@@ -33,7 +33,7 @@ def test_write_progress_computes_eta_from_remaining_ticks_and_avg_duration(tmp_p
         path, run_id="r1", tick=10, total_ticks=20, ticks_per_year=4,
         wall_clock_elapsed_seconds=50.0, last_tick_duration_seconds=5.0,
         avg_recent_tick_duration_seconds=5.0, decisions_by_type={}, retry_count=0,
-        fallback_count=0, last_checkpoint_tick=10,
+        fallback_count=0, fallback_by_type={}, last_checkpoint_tick=10,
     )
     payload = json.loads(path.read_text(encoding="utf-8"))
     assert payload["eta_seconds"] == 50.0  # 10 remaining ticks x 5.0s avg
@@ -45,7 +45,7 @@ def test_write_progress_eta_is_zero_at_the_final_tick(tmp_path):
         path, run_id="r1", tick=20, total_ticks=20, ticks_per_year=4,
         wall_clock_elapsed_seconds=200.0, last_tick_duration_seconds=5.0,
         avg_recent_tick_duration_seconds=5.0, decisions_by_type={}, retry_count=0,
-        fallback_count=0, last_checkpoint_tick=20,
+        fallback_count=0, fallback_by_type={}, last_checkpoint_tick=20,
     )
     payload = json.loads(path.read_text(encoding="utf-8"))
     assert payload["eta_seconds"] == 0.0
@@ -58,7 +58,7 @@ def test_write_progress_decisions_total_sums_the_type_breakdown(tmp_path):
         wall_clock_elapsed_seconds=1.0, last_tick_duration_seconds=1.0,
         avg_recent_tick_duration_seconds=1.0,
         decisions_by_type={"vote_cast": 100, "chamber_deliberation": 270}, retry_count=0,
-        fallback_count=0, last_checkpoint_tick=1,
+        fallback_count=0, fallback_by_type={}, last_checkpoint_tick=1,
     )
     payload = json.loads(path.read_text(encoding="utf-8"))
     assert payload["decisions_total"] == 370
@@ -71,7 +71,7 @@ def test_write_progress_is_atomic_no_tmp_file_left_behind(tmp_path):
         path, run_id="r1", tick=1, total_ticks=10, ticks_per_year=4,
         wall_clock_elapsed_seconds=1.0, last_tick_duration_seconds=1.0,
         avg_recent_tick_duration_seconds=1.0, decisions_by_type={}, retry_count=0,
-        fallback_count=0, last_checkpoint_tick=1,
+        fallback_count=0, fallback_by_type={}, last_checkpoint_tick=1,
     )
     assert path.exists()
     assert not path.with_suffix(path.suffix + ".tmp").exists()
@@ -112,6 +112,36 @@ def test_record_tick_counts_retry_and_fallback_from_payload_flags(tmp_path):
 
     assert tracker.retry_count == 1
     assert tracker.fallback_count == 1
+
+
+def test_record_tick_buckets_fallback_count_by_decision_type(tmp_path):
+    # Track C2 (2026-09-11, lets-build-a-solid-spicy-otter.md): the aggregate
+    # fallback_count alone hid a real problem in Stage 3 -- 0.26% overall
+    # concealed a single decision type failing 67% of the time. Per-type
+    # tracking is what a rate alert needs to actually catch that.
+    journal_path = tmp_path / "events.jsonl"
+    with Journal(journal_path, run_id="r1") as journal:
+        _write_event(journal, event_type="vote_cast", codebook_version="1.6", payload={"llm_fallback": 1})
+        _write_event(journal, event_type="vote_cast", codebook_version="1.6", payload={"llm_fallback": 0})
+        _write_event(journal, event_type="party_nomination_choice", codebook_version="1.6", payload={"llm_fallback": 1})
+
+    tracker = ProgressTracker(run_id="r1", total_ticks=10, ticks_per_year=4, progress_path=tmp_path / "progress.json")
+    tracker.record_tick(tick=0, tick_duration=1.0, wall_clock_elapsed=1.0, journal_path=journal_path, checkpoint_tick=0)
+
+    assert tracker.fallback_count == 2
+    assert tracker.fallback_by_type == {"vote_cast": 1, "party_nomination_choice": 1}
+
+
+def test_write_progress_serializes_fallback_by_type_sorted(tmp_path):
+    path = tmp_path / "progress.json"
+    write_progress(
+        path, run_id="r1", tick=1, total_ticks=10, ticks_per_year=4,
+        wall_clock_elapsed_seconds=1.0, last_tick_duration_seconds=1.0,
+        avg_recent_tick_duration_seconds=1.0, decisions_by_type={}, retry_count=0,
+        fallback_count=2, fallback_by_type={"vote_cast": 1, "party_nomination_choice": 1}, last_checkpoint_tick=1,
+    )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert payload["fallback_by_type"] == {"party_nomination_choice": 1, "vote_cast": 1}
 
 
 def test_record_tick_is_incremental_not_a_full_rescan(tmp_path):
@@ -256,7 +286,7 @@ def test_write_progress_still_valid_without_any_heartbeat_argument(tmp_path):
         tmp_path / "progress.json", run_id="r1", tick=1, total_ticks=4, ticks_per_year=4,
         wall_clock_elapsed_seconds=1.0, last_tick_duration_seconds=1.0,
         avg_recent_tick_duration_seconds=1.0, decisions_by_type={}, retry_count=0,
-        fallback_count=0, last_checkpoint_tick=1,
+        fallback_count=0, fallback_by_type={}, last_checkpoint_tick=1,
     )
     payload = _progress(tmp_path)
     assert payload["tick_in_progress"] is None

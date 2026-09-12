@@ -79,6 +79,7 @@ def write_progress(
     decisions_by_type: dict[str, int],
     retry_count: int,
     fallback_count: int,
+    fallback_by_type: dict[str, int],
     last_checkpoint_tick: int,
     tick_in_progress: int | None = None,
     llm_calls_completed: int = 0,
@@ -115,6 +116,7 @@ def write_progress(
         "decisions_total": sum(decisions_by_type.values()),
         "retry_count": retry_count,
         "fallback_count": fallback_count,
+        "fallback_by_type": dict(sorted(fallback_by_type.items())),
         "last_checkpoint_tick": last_checkpoint_tick,
         # `tick` above is the last tick that COMPLETED; this is the one being
         # computed right now. During a pop-500 election tick the two differ
@@ -160,6 +162,7 @@ class ProgressTracker:
         self.decisions_by_type: dict[str, int] = {}
         self.retry_count = 0
         self.fallback_count = 0
+        self.fallback_by_type: dict[str, int] = {}
         self._tick_durations: Deque[float] = deque(maxlen=_ROLLING_WINDOW_SIZE)
         self._wall_clock_start: float | None = None
         # --- intra-tick heartbeat state (2026-09-11) ---
@@ -226,6 +229,7 @@ class ProgressTracker:
                         self.retry_count += 1
                     if payload.get("llm_fallback"):
                         self.fallback_count += 1
+                        self.fallback_by_type[event_type] = self.fallback_by_type.get(event_type, 0) + 1
             self._byte_offset = handle.tell()
 
     def record_tick(
@@ -322,6 +326,7 @@ class ProgressTracker:
             decisions_by_type=self.decisions_by_type,
             retry_count=self.retry_count,
             fallback_count=self.fallback_count,
+            fallback_by_type=self.fallback_by_type,
             last_checkpoint_tick=self._last_checkpoint_tick,
             tick_in_progress=self._tick_in_progress,
             llm_calls_completed=self._llm_calls_completed,
