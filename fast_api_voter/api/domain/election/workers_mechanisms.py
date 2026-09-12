@@ -17,6 +17,7 @@ from typing import Any, Dict, List, Optional, Tuple  # noqa: F401
 import numpy as _np
 
 from api.engine.constants import DEFAULT_ISSUES
+from api.engine.utils.error_handling import safe_call
 from api.engine.utils.logger import get_logger
 from api.engine.utils.simulation_metrics import compare_all_methods
 from api.engine.utils.simulation_ranked_utils import (
@@ -777,25 +778,22 @@ def _abstention_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     # ── Per-method winners (with and without abstention) ──────────────────
     # Enables the LabCentralView pinned matrix to show how abstention
     # affects every voting method, not just plurality.
-    try:
+    def _compute_winners_by_method() -> Tuple[Dict[str, Any], Dict[str, Any]]:
         sincere_compare = compare_all_methods(voters, candidates, issues)
         # num_rounds >= 0 is enforced by Pydantic validation before this runs,
         # so the loop above always executes >= 1 time and `active` is always
         # assigned; not provable locally by pyright (PLAN_SOLIDITE_TECHNIQUE.md
         # Lot 14.5)
-        final_compare   = compare_all_methods(active, candidates, issues)  # pyright: ignore[reportPossiblyUnboundVariable]
-        sincere_winners_by_method = {
-            m: data.get("winner")
-            for m, data in sincere_compare.get("methods", {}).items()
-        }
-        winners_by_method = {
-            m: data.get("winner")
-            for m, data in final_compare.get("methods", {}).items()
-        }
-    except Exception:  # pylint: disable=broad-except
-        log.warning("workers_mechanisms.abstention_winners_by_method_failed", exc_info=True)
-        sincere_winners_by_method = {}
-        winners_by_method = {}
+        final_compare = compare_all_methods(active, candidates, issues)  # pyright: ignore[reportPossiblyUnboundVariable]
+        return (
+            {m: data.get("winner") for m, data in sincere_compare.get("methods", {}).items()},
+            {m: data.get("winner") for m, data in final_compare.get("methods", {}).items()},
+        )
+
+    sincere_winners_by_method, winners_by_method = safe_call(
+        _compute_winners_by_method, lambda: ({}, {}),
+        log=log, event="workers_mechanisms.abstention_winners_by_method_failed",
+    )
 
     return {
         "rounds":          rounds_out,

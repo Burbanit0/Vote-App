@@ -2,6 +2,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
+import api.domain.simulations.base as base_module
 from api.main import app
 
 
@@ -90,6 +91,17 @@ class TestUtility:
                         json={"voters": [VOTER, VOTER2], "candidates": [CANDIDATE]})
         assert r.status_code == 200, r.text
         assert len(r.json()["utility_results"]) == 2   # 2 voters × 1 candidate
+
+    def test_500_and_logs_on_compute_failure(self, client, monkeypatch, caplog):
+        def _boom(*a, **kw):
+            raise RuntimeError("engine exploded")
+        monkeypatch.setattr(base_module, "calculate_utility", _boom)
+        with caplog.at_level("WARNING"):
+            r = client.post("/api/v2/simulations/simulate_utility",
+                            json={"voters": [VOTER], "candidates": [CANDIDATE]})
+        assert r.status_code == 500
+        assert "engine exploded" in r.json()["detail"]
+        assert "simulation.simulate_utility.failed" in caplog.text
 
     def test_utility_matrix(self, client):
         r = client.post("/api/v2/simulations/get_utility_matrix",

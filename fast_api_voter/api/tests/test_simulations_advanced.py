@@ -2,6 +2,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
+import api.domain.simulations.advanced as advanced_module
 from api.main import app
 
 CANDS = ["Alice", "Bob", "Charlie"]
@@ -22,6 +23,17 @@ class TestBandwagon:
         r = client.post("/api/v2/simulations/bandwagon",
                         json={"num_voters": 60, "candidates": ["Solo"]})
         assert r.status_code == 400, r.text
+
+    def test_500_and_logs_on_compute_failure(self, client, monkeypatch, caplog):
+        def _boom(*a, **kw):
+            raise RuntimeError("engine exploded")
+        monkeypatch.setattr(advanced_module, "run_bandwagon_simulation", _boom)
+        with caplog.at_level("WARNING"):
+            r = client.post("/api/v2/simulations/bandwagon",
+                            json={"num_voters": 60, "candidates": CANDS, "seed": 1})
+        assert r.status_code == 500
+        assert "engine exploded" in r.json()["detail"]
+        assert "simulation.bandwagon.failed" in caplog.text
 
     def test_same_seed_reproducible_end_to_end(self, client):
         """Complement (2026-09-12, second `/code-review ultra` pass): this is

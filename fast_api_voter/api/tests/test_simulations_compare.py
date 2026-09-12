@@ -2,6 +2,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
+import api.domain.simulations.compare as compare_module
 from api.main import app
 
 CANDS = ["Alice", "Bob", "Charlie"]
@@ -55,6 +56,17 @@ class TestCondorcetMatrix:
         r = client.post("/api/v2/simulations/condorcet-matrix",
                         json={"num_voters": 60, "candidates": CANDS})
         assert r.status_code == 200, r.text
+
+    def test_500_and_logs_on_compute_failure(self, client, monkeypatch, caplog):
+        def _boom(*a, **kw):
+            raise RuntimeError("engine exploded")
+        monkeypatch.setattr(compare_module, "get_condorcet_matrix", _boom)
+        with caplog.at_level("WARNING"):
+            r = client.post("/api/v2/simulations/condorcet-matrix",
+                            json={"num_voters": 60, "candidates": CANDS})
+        assert r.status_code == 500
+        assert "engine exploded" in r.json()["detail"]
+        assert "simulation.condorcet_matrix.failed" in caplog.text
 
 
 class TestSensitivity:

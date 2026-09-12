@@ -18,6 +18,7 @@ from typing import Any
 from api.engine.utils.simulation_voting_utils import create_voter, create_candidate
 from api.engine.utils.simulation_metrics import compare_all_methods
 from api.engine.constants import DEFAULT_ISSUES
+from api.engine.utils.error_handling import log_and_error_response
 from api.engine.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -108,8 +109,9 @@ def _simulate_worker(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
         voters, candidates, issues = _build_simple_population(num_voters, num_candidates, ideology)
         result = compare_all_methods(voters, candidates, issues)
     except Exception as exc:
-        log.error("public.simulate.failed", exc_info=True)
-        return {"error": f"Simulation failed: {exc}"}, 500
+        return log_and_error_response(
+            log, "public.simulate.failed", {"error": f"Simulation failed: {exc}"},
+        )
 
     # Filter requested methods
     if methods_req != "all" and isinstance(methods_req, list):
@@ -152,8 +154,9 @@ def _compare_worker(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
         voters, candidates, issues = _build_simple_population(num_voters, num_candidates, ideology)
         result = compare_all_methods(voters, candidates, issues, blank_vote=blank_vote)
     except Exception as exc:
-        log.error("public.compare.failed", exc_info=True)
-        return {"error": f"Simulation failed: {exc}"}, 500
+        return log_and_error_response(
+            log, "public.compare.failed", {"error": f"Simulation failed: {exc}"},
+        )
 
     if blank_vote:
         blank_pct = result.get("blank_pct", 0.0)

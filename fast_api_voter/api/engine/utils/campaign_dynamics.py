@@ -17,6 +17,7 @@ import math
 import random
 from typing import Any, Optional
 
+from api.engine.utils.error_handling import safe_call
 from api.engine.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -110,12 +111,11 @@ def _balloted_winner(
         ranking = sorted(names, key=lambda n: -voter_utils[n])
         ballots.append(ranking)
 
-    try:
-        winner = fn(ballots)
-        return winner or _plurality_winner(utilities)
-    except Exception:
-        log.warning("campaign_dynamics.balloted_winner_failed", method=method, exc_info=True)
-        return _plurality_winner(utilities)
+    return safe_call(
+        lambda: fn(ballots) or _plurality_winner(utilities),
+        lambda: _plurality_winner(utilities),
+        log=log, event="campaign_dynamics.balloted_winner_failed", method=method,
+    )
 
 
 # ── Public API ────────────────────────────────────────────────────────────────

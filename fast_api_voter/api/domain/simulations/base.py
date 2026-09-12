@@ -42,6 +42,7 @@ from api.engine.utils.simulation_score_utils import (
 # Spatial pipeline
 from api.engine.utils.simulation_voting_utils import calculate_utility, create_voter, create_candidate
 from api.engine.constants import DEFAULT_ISSUES
+from api.engine.utils.error_handling import log_and_error_response
 from api.engine.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -244,9 +245,10 @@ def _simulate_utility_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
         ]
         return {"success": True, "utility_results": utility_results}, 200
     except Exception as e:
-        log.error("simulation.simulate_utility.failed", exc_info=True)
-        return {"success": False, "error": str(e),
-                "message": "Failed to simulate utility scores"}, 500
+        return log_and_error_response(log, "simulation.simulate_utility.failed", {
+            "success": False, "error": str(e),
+            "message": "Failed to simulate utility scores",
+        })
 
 
 def _calculate_utility_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
@@ -261,9 +263,10 @@ def _calculate_utility_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
         return {"success": True, "result": result,
                 "message": "Utility calculated successfully"}, 200
     except Exception as e:
-        log.error("simulation.calculate_utility.failed", exc_info=True)
-        return {"success": False, "error": str(e),
-                "message": "Failed to calculate utility"}, 500
+        return log_and_error_response(log, "simulation.calculate_utility.failed", {
+            "success": False, "error": str(e),
+            "message": "Failed to calculate utility",
+        })
 
 
 def _utility_matrix_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
@@ -312,9 +315,10 @@ def _utility_matrix_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             "message": f"Utility matrix calculated for {len(voters)} voters and {len(candidates)} candidates",
         }, 200
     except Exception as e:
-        log.error("simulation.utility_matrix.failed", exc_info=True)
-        return {"success": False, "error": str(e),
-                "message": "Failed to calculate utility matrix"}, 500
+        return log_and_error_response(log, "simulation.utility_matrix.failed", {
+            "success": False, "error": str(e),
+            "message": "Failed to calculate utility matrix",
+        })
 
 
 def _voter_segments_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
@@ -383,8 +387,9 @@ def _voter_segments_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         return {"success": True, "segments": segments,
                 "message": f"Segment analysis completed for {len(segments)} segments"}, 200
     except Exception as e:
-        log.error("simulation.voter_segments.failed", exc_info=True)
-        return {"success": False, "error": str(e),
-                "message": "Failed to calculate voter segments"}, 500
+        return log_and_error_response(log, "simulation.voter_segments.failed", {
+            "success": False, "error": str(e),
+            "message": "Failed to calculate voter segments",
+        })
 
 

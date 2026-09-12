@@ -3086,6 +3086,25 @@ d'un test dédié (`get_borda_winner`, `get_positional_score_winner`,
 item préparait n'a pas d'item dédié dans ce plan ni dans `CODE_AUDIT.md`
 §7 — reste à planifier séparément le moment venu.
 
+**Suivi, `CODE_AUDIT.md` §7 item 5** (2026-09-12, `except Exception` nus).
+Comme pour l'item 6 ci-dessus, pas de Lot dédié dans ce plan — détail complet
+dans `CODE_AUDIT.md` lui-même (sa mise à jour datée "ter"). Pour mémoire :
+deux formes dominantes sur les 42 sites (`safe_call` pour "compute with
+fallback", 15 sites ; `log_and_error_response` pour "handler wrapping"
+`(body, status)`, 18 sites — appelée *depuis* le `except` existant, jamais à
+sa place, un décorateur enveloppant toute la fonction ayant été écarté après
+lecture réelle des sites : la plupart valide/parse hors du `try`, un
+décorateur global aurait élargi silencieusement la portée interceptée), 9
+sites laissés tels quels avec raison propre à chacun. 42 → 29 clauses
+`except Exception` réelles (35 en comptage brut, 6 mentions de prose dans le
+docstring du nouveau module). Découverte incidente : 3 des 9 sites laissés
+de côté logguent sans `exc_info=True` (gap d'observabilité, pas traité ici —
+distinct d'un refactor de duplication). La règle Semgrep custom
+`except-exception-without-log` (Lot 2) a dû être mise à jour dans la même
+passe pour reconnaître les deux nouveaux appels comme un log valide, sans
+quoi le job Semgrep gating de `audit.yml` aurait régressé sur les 18 sites
+"handler wrapping".
+
 **README qui raconte, détail** (2026-09-12). Nouvelle section « A second
 thing being explored here » ajoutée à [`README.md`](README.md), en anglais
 comme le reste de la façade publique du dépôt, placée après « Architecture »

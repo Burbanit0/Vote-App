@@ -13,11 +13,12 @@ import math
 import random as _random
 from collections import Counter
 from operator import itemgetter
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as _np
 
 from api.engine.constants import DEFAULT_ISSUES
+from api.engine.utils.error_handling import safe_call
 from api.engine.utils.logger import get_logger
 from api.engine.utils.simulation_voting_utils import calculate_utility, create_voter
 from api.engine.utils.simulation_metrics import compare_all_methods
@@ -209,11 +210,16 @@ def _dt_winners_by_method(
     """Winner per method for each voter subset. All-or-nothing on failure, kept
     from before the split: the two subsets must never disagree about whether the
     comparison ran at all, or the caller would read one as a real change."""
-    try:
-        compares = [compare_all_methods(vs, candidates, issues) for vs in subsets]
-    except Exception:  # pylint: disable=broad-except
-        log.warning("workers_advanced.dt_winners_by_method_failed", exc_info=True)
+    def _compare_subsets() -> List[Dict[str, Any]]:
+        return [compare_all_methods(vs, candidates, issues) for vs in subsets]
+
+    def _empty_subsets() -> List[Dict[str, Any]]:
         return [{} for _ in subsets]
+
+    compares = safe_call(
+        _compare_subsets, _empty_subsets,
+        log=log, event="workers_advanced.dt_winners_by_method_failed",
+    )
     return [
         {m: d.get("winner") for m, d in c.get("methods", {}).items()}
         for c in compares
@@ -475,21 +481,20 @@ def _compulsory_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
     )
 
     # ── Per-method winners for both voter subsets (for central matrix diff) ──
-    try:
+    def _compute_winners_by_method() -> Tuple[Dict[str, Any], Dict[str, Any]]:
         vol_voters  = [v for v in voters if v["id"] in voluntary_ids]
         comp_voters = [v for v in voters if v["id"] in compulsory_ids]
         vol_compare  = compare_all_methods(vol_voters,  candidates, issues)
         comp_compare = compare_all_methods(comp_voters, candidates, issues)
-        vol_winners_by_method = {
-            m: d.get("winner") for m, d in vol_compare.get("methods", {}).items()
-        }
-        comp_winners_by_method = {
-            m: d.get("winner") for m, d in comp_compare.get("methods", {}).items()
-        }
-    except Exception:  # pylint: disable=broad-except
-        log.warning("workers_advanced.compulsory_voting_winners_by_method_failed", exc_info=True)
-        vol_winners_by_method = {}
-        comp_winners_by_method = {}
+        return (
+            {m: d.get("winner") for m, d in vol_compare.get("methods", {}).items()},
+            {m: d.get("winner") for m, d in comp_compare.get("methods", {}).items()},
+        )
+
+    vol_winners_by_method, comp_winners_by_method = safe_call(
+        _compute_winners_by_method, lambda: ({}, {}),
+        log=log, event="workers_advanced.compulsory_voting_winners_by_method_failed",
+    )
 
     return {
         "voluntary": {

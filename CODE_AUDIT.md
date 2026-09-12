@@ -226,6 +226,86 @@ trouvé dans l'implémentation existante par cette passe. Détail complet
 (liste re-dérivée, gap "axiome" flagué séparément) dans le rapport de la
 session correspondante ; §7 lui-même annoté "✅" ci-dessous.*
 
+*Mise à jour du 2026-09-12 (ter) — §7 "chantiers plus lourds" item 5 traité
+(centraliser les `except Exception` nus). Liste re-dérivée à la main (grep +
+lecture du contexte réel, pas juste la ligne `except`) plutôt que réutiliser
+le chiffre "42" tel quel : deux formes dominantes se sont dégagées, ni
+identiques ni couvrant tout le lot.
+- **"Compute with fallback"** (15 sites) — une valeur est calculée, et un
+  défaut la remplace en cas d'échec pendant que l'appelant continue (ou
+  retourne le défaut directement) : `gibbard_satterthwaite.py` (×2),
+  `cache.py` (×1 sur 3), `campaign_dynamics.py`, `routes/health.py`,
+  `workers_mechanisms.py`, `workers_advanced.py` (×2),
+  `workers_behavioral.py` (×7). Centralisé dans une fonction utilitaire
+  `safe_call(fn, fallback, *, log, event, level="warning", **log_kwargs)`
+  (nouveau module `api/engine/utils/error_handling.py`) — `fn` et `fallback`
+  sont deux callables sans argument (typiquement des `lambda:`) : le
+  fallback n'est **jamais évalué en cas de succès**, ce que le code
+  d'origine faisait déjà à plusieurs endroits (ex. `campaign_dynamics.py`,
+  où le fallback est un second appel réel au moteur, pas une simple
+  constante) et qu'une valeur par défaut passée telle quelle aurait cassé.
+- **"Handler wrapping"** (18 sites) — le contrat `(body, status)` des
+  workers (convention `voter-api`) : sur échec, la même exception log +
+  réponse d'erreur. Centralisé dans `log_and_error_response(log, event,
+  body, *, level="error", status=500, **log_kwargs)`, appelée **depuis
+  l'intérieur** du `except Exception as exc:` déjà existant — elle ne
+  remplace que le duo log-call + return, jamais le try/except lui-même.
+  Un décorateur enveloppant toute la fonction (suggestion initiale de cet
+  item) a été essayé puis abandonné après lecture attentive des sites
+  réels : la quasi-totalité de ces workers valide/parse des paramètres
+  *avant* le `try` (avec parfois son propre `except (TypeError, ValueError)`
+  séparé) ou exécute du code *après* le `except` — un décorateur enveloppant
+  toute la fonction aurait élargi silencieusement la portée de ce qui est
+  intercepté (un `ValueError` de parsing aujourd'hui non couvert deviendrait
+  couvert), un vrai changement de comportement, pas un refactor pur. D'où
+  une fonction plus modeste appelée *depuis* le bloc `except` existant,
+  jamais à sa place. `body` est fourni tel quel par l'appelant (pas
+  reconstruit par l'utilitaire) : certains sites retournent `{"error":
+  ...}`, d'autres un triplet `{"success": False, "error": ..., "message":
+  ...}` (`domain/simulations/base.py`) — préserver le contenu exact prime
+  sur une signature plus générique.
+- **Laissés tels quels (9 sites), avec raison** — aucun des deux utilitaires
+  ne leur va sans soit changer le comportement, soit ajouter plus de code
+  qu'il n'en retire : `cache.py` (2 des 3 sites — l'un enchaîne un retour
+  anticipé en cas de succès et un `except` partagé entre deux instructions,
+  l'autre est un `try/except` de 3 lignes déjà minimal, écrire le `lambda`
+  n'aurait rien réduit) ; `sockets/__init__.py` (boucle async qui notifie le
+  client ET arrête la boucle — pas juste une valeur de repli) ;
+  `domain/polity/llm_client.py` (×2) et `domain/polity/run_polity_simulation.py`
+  (×1) — style "best-effort, log et continue" déjà documenté comme
+  volontaire, mais via `logging.getLogger` %-style embarquant l'exception
+  dans le message plutôt que le style structlog `event, **kwargs` du reste
+  de `api/` ; **découverte incidente** : ces 3 sites logguent bien (la règle
+  Semgrep `except-exception-without-log` les voit), mais **sans**
+  `exc_info=True` — contrairement à ce que l'énoncé de cet item supposait
+  ("tous les 42 sites logguent déjà avec exc_info=True"), ce n'est vrai que
+  pour 39/42. Non corrigé ici (refactor de duplication, pas de gap
+  d'observabilité — distinct, à traiter séparément) ; `domain/simulations/
+  whatif.py` (1 site) et `domain/simulations/compare.py` (2 sites) —
+  accumulation de résultat partiel dans une boucle (`log.warning` +
+  `results.append(<repli propre au site>)` + `continue`), avec une forme de
+  repli différente à chaque site : ni `safe_call` (le repli n'est pas une
+  valeur réutilisée, c'est un item de liste au format bespoke) ni
+  `log_and_error_response` (pas de `return`) ne réduisent quoi que ce soit
+  ici sans forcer la forme.
+- **Chiffres avant/après** : `grep -rn "except Exception" fast_api_voter/api/
+  --include="*.py" | grep -v "/tests/" | wc -l` donne **35** après (42 avant)
+  — mais ce chiffre brut compte aussi 6 mentions de prose dans le docstring
+  du nouveau module (qui *documente* le motif "except Exception", donc le
+  contient littéralement). Le compte réel de clauses `except Exception`
+  fonctionnelles est **29** (35 − 6) : les 18 sites "handler wrapping" et les
+  9 sites laissés tels quels gardent chacun leur propre clause (27), plus
+  **une seule** clause partagée à l'intérieur de `safe_call` — qui remplace
+  ce qui était 15 clauses dupliquées. Nouveau module + tests dédiés
+  (`api/tests/test_error_handling.py`, 16 tests) ; 4 sites parmi les 18
+  "handler wrapping" n'avaient aucun test exerçant leur chemin d'erreur
+  (`domain/simulations/advanced.py`, `base.py`, `compare.py`, `campaign.py`)
+  — un test de repli par fichier touché ajouté, pas les 18 (refactor, pas
+  chantier de couverture). Suite backend complète, mypy, ruff et la règle
+  Semgrep custom (mise à jour pour reconnaître les deux nouveaux appels comme
+  un "log call" valide — sinon le job Semgrep gating de `audit.yml` aurait
+  régressé sur les 18 sites "handler wrapping") tous verts.*
+
 ---
 
 ## 1. Garde-fous déjà en place (avant cet audit)
@@ -586,9 +666,12 @@ refactor) — à traiter dans une passe de nettoyage dédiée.
    size-limit respecté, même compte `knip`).
 4. Reprendre `polity_v2_consolidation_handoff.md` comme point de départ pour
    la consolidation de `domain/polity/`.
-5. Centraliser la gestion d'erreurs pour réduire les `except Exception` nus
+5. ✅ Centraliser la gestion d'erreurs pour réduire les `except Exception` nus
    (backend, 42 au 2026-09-06 — voir §6) — probablement via un décorateur ou
    un context manager partagé plutôt qu'un correctif fichier par fichier.
+   Fait le 2026-09-12 : voir la mise à jour datée ci-dessus pour le détail
+   (42 → 29 clauses réelles, deux formes partagées plutôt qu'un décorateur
+   unique, 9 sites laissés tels quels avec justification au cas par cas).
 6. ✅ Ajouter les tests manquants pour les fonctions `get_*_winner` de
    `simulation_ranked_utils.py` sans couverture dédiée (recoupement §5 /
    PR #157) avant de refactorer ce fichier — éviter de casser une méthode de
