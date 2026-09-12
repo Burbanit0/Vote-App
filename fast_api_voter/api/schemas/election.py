@@ -118,8 +118,11 @@ class ProfileSimulateRequest(BaseModel):
     handcrafted_matrix: Optional[List[List[float]]] = Field(
         None, description="Rows = voters, cols = candidates (aligned), for source=handcrafted."
     )
-    ballot: BallotConfig = Field(default_factory=BallotConfig)
-    turnout: TurnoutConfig = Field(default_factory=TurnoutConfig)
+    # pydantic default_factory=<Model> / omitted-default arg: basedpyright has
+    # no pydantic.mypy-equivalent plugin, false positive (see
+    # PLAN_SOLIDITE_TECHNIQUE.md Lot 14.5)
+    ballot: BallotConfig = Field(default_factory=BallotConfig)  # pyright: ignore[reportArgumentType]
+    turnout: TurnoutConfig = Field(default_factory=TurnoutConfig)  # pyright: ignore[reportArgumentType]
     electorate: Optional[ElectorateConfig] = Field(
         None, description="Composed electorate (community mixture); shapes the spatial "
                           "voter cloud and the paradox rate when mode='composed'.",
@@ -212,7 +215,7 @@ class AssemblyRequest(BaseModel):
                     "(FPTP: outside the district top-2; PR/MMP: below the threshold) "
                     "for their nearest viable party.",
     )
-    turnout: TurnoutConfig = Field(default_factory=TurnoutConfig)
+    turnout: TurnoutConfig = Field(default_factory=TurnoutConfig)  # pyright: ignore[reportArgumentType]
     electorate: Optional[ElectorateConfig] = Field(
         None, description="Composed electorate (community mixture); overrides `ideology` when mode='composed'."
     )
@@ -307,7 +310,7 @@ class AssemblyScorecardRequest(BaseModel):
     threshold: float = Field(0.05, ge=0.0, le=0.15)
     apportionment: Literal["dhondt", "sainte_lague"] = Field("dhondt")
     strategic_desertion: bool = Field(False)
-    turnout: TurnoutConfig = Field(default_factory=TurnoutConfig)
+    turnout: TurnoutConfig = Field(default_factory=TurnoutConfig)  # pyright: ignore[reportArgumentType]
     electorate: Optional[ElectorateConfig] = Field(
         None, description="Composed electorate (community mixture); overrides `ideology` when mode='composed'."
     )
@@ -542,9 +545,9 @@ class SimulateRequest(BaseModel):
                               description="Voter distribution: 'random' | 'centrist' | 'polarized' | 'left_skewed' | 'right_skewed'.")
     seed:       int   = Field(42, ge=0, description="PRNG seed for reproducibility.")
 
-    blank_vote:        BlankVoteConfig         = Field(default_factory=BlankVoteConfig)
-    information_model: InformationModelConfig  = Field(default_factory=InformationModelConfig)
-    campaign:          CampaignConfig          = Field(default_factory=CampaignConfig)
+    blank_vote:        BlankVoteConfig         = Field(default_factory=BlankVoteConfig)  # pyright: ignore[reportArgumentType]
+    information_model: InformationModelConfig  = Field(default_factory=InformationModelConfig)  # pyright: ignore[reportArgumentType]
+    campaign:          CampaignConfig          = Field(default_factory=CampaignConfig)  # pyright: ignore[reportArgumentType]
 
 
 class SimulateResponse(BaseModel):
@@ -573,9 +576,9 @@ class CombinedEffectsRequest(BaseModel):
     ideology:   str = Field("random")
     seed:       int = Field(42, ge=0)
 
-    blank_vote:        BlankVoteConfig         = Field(default_factory=BlankVoteConfig)
-    information_model: InformationModelConfig  = Field(default_factory=InformationModelConfig)
-    campaign:          CampaignConfig          = Field(default_factory=CampaignConfig)
+    blank_vote:        BlankVoteConfig         = Field(default_factory=BlankVoteConfig)  # pyright: ignore[reportArgumentType]
+    information_model: InformationModelConfig  = Field(default_factory=InformationModelConfig)  # pyright: ignore[reportArgumentType]
+    campaign:          CampaignConfig          = Field(default_factory=CampaignConfig)  # pyright: ignore[reportArgumentType]
 
 
 class CombinedEffectsCombination(BaseModel):
@@ -628,8 +631,8 @@ class CampaignSensitivityRequest(BaseModel):
         description="Days at which to snapshot — strings ('final') and ints are both accepted.",
     )
 
-    blank_vote: BlankVoteConfig = Field(default_factory=BlankVoteConfig)
-    campaign:   CampaignConfig  = Field(default_factory=CampaignConfig)
+    blank_vote: BlankVoteConfig = Field(default_factory=BlankVoteConfig)  # pyright: ignore[reportArgumentType]
+    campaign:   CampaignConfig  = Field(default_factory=CampaignConfig)  # pyright: ignore[reportArgumentType]
 
 
 class CampaignSnapshot(BaseModel):
