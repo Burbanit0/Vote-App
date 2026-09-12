@@ -2583,13 +2583,38 @@ Contrairement aux autres lots, **aucun élément ici n'est bloquant ou urgent**
 — chaque ligne peut attendre indéfiniment sans risque, elle référence un
 outil déjà câblé et un chiffre déjà mesuré, pas une lacune de détection.
 
-| Item | Pourquoi ici | Effort | Solidité | Récit |
-|---|---|---|---|---|
-| **Typer les `any` restants + activer le cliquet** (280 dans le code source, Lot 6.4) | Seul item du groupe avec un vrai gain de sûreté de typage, pas juste de lisibilité — `type-coverage` expose déjà `--at-least`/`--update-if-higher` mais rien n'est câblé, faute d'une baseline assez haute pour que ça vaille le coût. Réduire d'abord, gater ensuite. | M | ⭐⭐⭐ | 📝📝 |
-| **Statuer sur les zones mortes trouvées par le Lot 6.5** (`api/domain/polity/*`, 2 813 lignes 0 % e2e ; `/simulation/compare`, invisible à knip) | Le Lot 6.5 a mesuré l'inatteignabilité, pas décidé quoi en faire. Deux vraies trouvailles qui méritent une décision explicite — réintégrer dans le produit ou supprimer — pas rester indéfiniment dans un angle mort connu. | M | ⭐⭐⭐ | 📝📝📝 |
-| **Réduire la dette sonarjs** (304 findings restants, Lot 6.6) | 2 vrais bugs y avaient déjà été trouvés en vérifiant à la main les 5 cas `no-all-duplicated-branches` — les autres catégories (`no-nested-conditional` ×102, `cognitive-complexity` ×38, `parameterized-tests` ×39, `prefer-specific-assertions` ×33) n'ont pas reçu le même traitement individuel, faute de budget. Simplifier les fonctions à plus forte complexité cognitive en particulier est le genre de nettoyage qui prévient le prochain bug de cette famille. | L | ⭐⭐ | 📝📝 |
-| **Réduire la dette refurb/perflint** (145 + 85 findings, Lot 6.3) | Le Lot 6.3 a mesuré et documenté sans corriger, hors budget de l'item lui-même. Transformations mécaniques, risque quasi nul (`dict(x)`→`x.copy()`, `lambda`→`operator.itemgetter`, `list`→`tuple` non mutés) — le genre de dette qui ne s'aggrave pas mais ne se résorbe pas non plus toute seule. | M | ⭐⭐ | 📝 |
-| **Faire taire les faux positifs basedpyright** (34 restants, Lot 6.2) | Déjà vérifiés faux un par un (32 liés à l'absence d'équivalent du plugin `pydantic.mypy` côté pyright, 2 isolés où le vérificateur ne peut pas prouver une invariante locale) — pas de vraie dette ici, juste du bruit dans le rapport pour un futur contributeur. Le moins prioritaire des cinq ; à ne faire que si `basedpyright` reste consulté régulièrement. | S | ⭐ | ✅ voir détail sous le tableau |
+| Item | Pourquoi ici | Effort | Solidité | Récit | Statut |
+|---|---|---|---|---|---|
+| **Typer les `any` restants + activer le cliquet** (280 dans le code source, Lot 6.4) | Seul item du groupe avec un vrai gain de sûreté de typage, pas juste de lisibilité — `type-coverage` expose déjà `--at-least`/`--update-if-higher` mais rien n'est câblé, faute d'une baseline assez haute pour que ça vaille le coût. Réduire d'abord, gater ensuite. | M | ⭐⭐⭐ | 📝📝 | |
+| **Statuer sur les zones mortes trouvées par le Lot 6.5** (`api/domain/polity/*`, 2 813 lignes 0 % e2e ; `/simulation/compare`, invisible à knip) | Le Lot 6.5 a mesuré l'inatteignabilité, pas décidé quoi en faire. Deux vraies trouvailles qui méritent une décision explicite — réintégrer dans le produit ou supprimer — pas rester indéfiniment dans un angle mort connu. | M | ⭐⭐⭐ | 📝📝📝 | ✅ voir détail sous le tableau |
+| **Réduire la dette sonarjs** (304 findings restants, Lot 6.6) | 2 vrais bugs y avaient déjà été trouvés en vérifiant à la main les 5 cas `no-all-duplicated-branches` — les autres catégories (`no-nested-conditional` ×102, `cognitive-complexity` ×38, `parameterized-tests` ×39, `prefer-specific-assertions` ×33) n'ont pas reçu le même traitement individuel, faute de budget. Simplifier les fonctions à plus forte complexité cognitive en particulier est le genre de nettoyage qui prévient le prochain bug de cette famille. | L | ⭐⭐ | 📝📝 | |
+| **Réduire la dette refurb/perflint** (145 + 85 findings, Lot 6.3) | Le Lot 6.3 a mesuré et documenté sans corriger, hors budget de l'item lui-même. Transformations mécaniques, risque quasi nul (`dict(x)`→`x.copy()`, `lambda`→`operator.itemgetter`, `list`→`tuple` non mutés) — le genre de dette qui ne s'aggrave pas mais ne se résorbe pas non plus toute seule. | M | ⭐⭐ | 📝 | |
+| **Faire taire les faux positifs basedpyright** (34 restants, Lot 6.2) | Déjà vérifiés faux un par un (32 liés à l'absence d'équivalent du plugin `pydantic.mypy` côté pyright, 2 isolés où le vérificateur ne peut pas prouver une invariante locale) — pas de vraie dette ici, juste du bruit dans le rapport pour un futur contributeur. Le moins prioritaire des cinq ; à ne faire que si `basedpyright` reste consulté régulièrement. | S | ⭐ | 📝 | ✅ voir détail sous le tableau |
+
+**Statuer sur les zones mortes trouvées par le Lot 6.5, détail (2026-09-12).**
+Les deux trouvailles ont reçu une décision explicite et indépendante l'une de
+l'autre :
+
+- **`api/domain/polity/*`** (2 813 lignes, 0 % e2e) — **laissé tel quel,
+  volontairement**. Ce n'est pas du code mort : il est développé activement
+  dans un worktree/branche séparé (`Vote-App-polity`), pas encore routé sur
+  `develop` par construction de cette séparation, pas par oubli. Aucun
+  changement de code ici ; seule cette entrée de plan documente la décision.
+- **`/simulation/compare`** — la route elle-même reste une redirection
+  legacy vivante (`voter-app/src/routes.ts` la fait pointer vers
+  `/playground`), et son endpoint backend (`POST
+  /api/v2/simulations/compare`) reste appelé par du code produit bien vivant
+  (`services/simulationCompareApi.ts`, consommé par
+  `components/Simulation/VoteStepAnimator.tsx` et
+  `MonteCarloResults.tsx`, rendus depuis `components/lab/labCatalog.tsx` —
+  la fiche Laboratoire correspondante). Seul `hooks/useDebouncedSimulation.ts`
+  (+ son test) s'est retrouvé sans plus aucun appelant vivant après le retrait
+  de l'ancienne page de comparaison — confirmé par recherche exhaustive
+  (aucune référence non-test dans `src/`) avant suppression. Supprimé avec
+  son test, en même temps que le lot de code mort frontend signalé par
+  `knip` dans `CODE_AUDIT.md` §3/§7 (9 fichiers inutilisés, la dépendance
+  `@radix-ui/react-tabs`, l'export `CardTitle`) — même nature de nettoyage,
+  même vérification (gate frontend complet vert après coup), même commit.
 
 **Faire taire les faux positifs basedpyright, détail (2026-09-12).** Les 34
 trouvailles restantes du Lot 6.2 ont été revérifiées une par une (relecture du
