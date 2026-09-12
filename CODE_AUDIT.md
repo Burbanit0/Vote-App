@@ -193,6 +193,39 @@ cliquet lui-même, relancé avec les mêmes fichiers de rapport que la CI
 (`fast_api_voter/{vulture,radon,deptry}.txt`, `voter-app/knip.txt`,
 `jscpd.txt`), donne un nombre directement comparable à la baseline.*
 
+*Mise à jour du 2026-09-12 (bis) — §7 "chantiers plus lourds" item 6 traité
+(tests manquants pour la famille `get_*_winner`). Le chiffre "9" cité dans
+cet item (et en §5) s'est révélé stale : il correspondait à une heuristique
+par nom de fichier (`test_<méthode>.py` existe-t-il ?), qui compte à tort
+`irv`/`coombs` (`test_irv_coombs_elimination.py`), `bucklin`
+(`test_bucklin_cumulative.py`), `schulze` (`test_schulze_beatpath.py`) et
+`ranked_pairs`/`random_ballot` (`test_ranked_pairs_random_ballot.py`) comme
+non couverts alors que chacun a un vrai test dédié (appel direct, assertion
+sur un gagnant précis), juste sous un nom de fichier différent ou partagé
+entre deux méthodes apparentées. Re-dérivé fonction par fonction (grep
+croisé sur `api/tests/`, plus `--cov-report=term-missing` sur
+`simulation_ranked_utils.py`) : seules **3** fonctions n'avaient réellement
+aucun test dédié — `get_borda_winner` (seulement exercée en comparaison
+incidentelle dans `test_black.py`/`test_dowdall.py` et dans l'axiome §5),
+`get_positional_score_winner` (alias `get_score_winner` — zéro test de
+toute nature, y compris dans `test_voting_criteria_matrix.py`, alors que
+c'est du code de production réel utilisé par `domain/simulations/base.py`,
+`gibbard_satterthwaite.py` et `arrow_criteria.py`), et
+`get_approval_winner_sincere` (le mode de vote sincère par seuil
+d'utilité — la branche correspondante dans `get_approval_winner`,
+lignes ~276-298, n'avait elle-même aucune couverture, pas seulement le
+wrapper). Tests ajoutés : `api/tests/test_borda.py` et
+`api/tests/test_positional_score.py` (nouveaux), plus une classe
+`TestGetApprovalWinnerSincere` dans `api/tests/test_approval.py` — majorité
+claire, égalité alphabétique, ballots vides/à un candidat, et pour Borda et
+positional-score un cas construit à la main qui les distingue explicitement
+l'un de l'autre (et de la pluralité) plutôt que de se contenter de vérifier
+"retourne une string". Couverture de `simulation_ranked_utils.py` : 94 % →
+96 % (`--cov-report=term-missing`, 41 → 28 lignes manquantes). Aucun bug
+trouvé dans l'implémentation existante par cette passe. Détail complet
+(liste re-dérivée, gap "axiome" flagué séparément) dans le rapport de la
+session correspondante ; §7 lui-même annoté "✅" ci-dessous.*
+
 ---
 
 ## 1. Garde-fous déjà en place (avant cet audit)
@@ -521,10 +554,16 @@ refactor) — à traiter dans une passe de nettoyage dédiée.
 5. Centraliser la gestion d'erreurs pour réduire les `except Exception` nus
    (backend, 42 au 2026-09-06 — voir §6) — probablement via un décorateur ou
    un context manager partagé plutôt qu'un correctif fichier par fichier.
-6. Ajouter les tests manquants pour les 9 fonctions `get_*_winner` de
+6. ✅ Ajouter les tests manquants pour les fonctions `get_*_winner` de
    `simulation_ranked_utils.py` sans couverture dédiée (recoupement §5 /
    PR #157) avant de refactorer ce fichier — éviter de casser une méthode de
-   vote silencieusement pendant le découpage.
+   vote silencieusement pendant le découpage. Fait le 2026-09-12 : le chiffre
+   "9" était stale (voir la mise à jour datée ci-dessus) — seules 3 fonctions
+   manquaient réellement d'un test dédié (`get_borda_winner`,
+   `get_positional_score_winner`, `get_approval_winner_sincere`), désormais
+   couvertes. Le découpage de `simulation_ranked_utils.py` que ce filet de
+   sécurité prépare n'a, lui, pas d'item dédié dans cette liste — reste à
+   planifier séparément le moment venu.
 
 ---
 

@@ -3068,6 +3068,24 @@ dette tenue exactement à la baseline sur les 5 métriques. Détail complet et
 raisonnement dans `CODE_AUDIT.md` lui-même (section « Mise à jour du
 2026-09-12 »).
 
+**Suivi, `CODE_AUDIT.md` §7 item 6** (2026-09-12, après ce rejeu). La liste
+"chantiers plus lourds" de `CODE_AUDIT.md` §7 n'a pas de Lot dédié dans ce
+plan (distincte de la dette *mesurée par le Lot 6* que rembourse le Lot 14
+ci-dessous) — son item 6, tests manquants pour la famille `get_*_winner` de
+`simulation_ranked_utils.py` avant un futur découpage de ce fichier, est
+donc documenté directement dans `CODE_AUDIT.md` (sa propre mise à jour du
+2026-09-12 "bis") plutôt que dupliqué ici. Pour mémoire : le chiffre "9"
+de cet item était stale (heuristique par nom de fichier `test_<méthode>.py`,
+qui ratait les tests dédiés déjà réels mais nommés/partagés différemment,
+ex. `test_schulze_beatpath.py`) ; seules 3 fonctions manquaient vraiment
+d'un test dédié (`get_borda_winner`, `get_positional_score_winner`,
+`get_approval_winner_sincere`), désormais couvertes par
+`fast_api_voter/api/tests/test_borda.py`,
+`fast_api_voter/api/tests/test_positional_score.py` et une classe ajoutée à
+`test_approval.py`. Le découpage de `simulation_ranked_utils.py` que cet
+item préparait n'a pas d'item dédié dans ce plan ni dans `CODE_AUDIT.md`
+§7 — reste à planifier séparément le moment venu.
+
 **README qui raconte, détail** (2026-09-12). Nouvelle section « A second
 thing being explored here » ajoutée à [`README.md`](README.md), en anglais
 comme le reste de la façade publique du dépôt, placée après « Architecture »
