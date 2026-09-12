@@ -1892,7 +1892,7 @@ retours concrets.
 |---|---|---|---|---|---|
 | **Agent `parity-guardian`** | Dès qu'une règle de vote bouge : régénère la parité, lance le test, explique tout écart. | M | ⭐⭐⭐ | 📝📝📝 | ✅ `.claude/agents/parity-guardian.md`, vérifié en direct sur les deux scénarios (voir sous le tableau) |
 | **Agent `dep-triage`** | Lit les PR Dependabot, classe patch/mineur/majeur, lit les changelogs, propose l'ordre de merge. Répond pile à la douleur du 06/09. | M | ⭐⭐ | 📝📝📝 | ✅ `.claude/agents/dep-triage.md` — voir détail sous le tableau |
-| **Agent `axiom-checker`** | Vérifie qu'une nouvelle méthode de vote arrive avec ses tests axiomatiques (Lot 4.1). | M | ⭐⭐ | 📝📝 | |
+| **Agent `axiom-checker`** | Vérifie qu'une nouvelle méthode de vote arrive avec ses tests axiomatiques (Lot 4.1). | M | ⭐⭐ | 📝📝 | ✅ `.claude/agents/axiom-checker.md` — voir détail sous le tableau |
 | **Agent `flake-hunter`** | Isole les tests instables, propose un correctif. | M | ⭐⭐ | 📝📝 | |
 | **Agent `doc-drift`** | Celui improvisé le 06/09, figé en agent réutilisable + cron mensuel. | S | ⭐⭐ | 📝📝📝 | ✅ agent + premier run réel fait + routine cloud mensuelle câblée (voir détail sous le tableau) |
 | **Skill `voter-testing`** | Comment tester ici : Hypothesis, fixtures de parité, testids e2e, pièges connus. | M | ⭐⭐ | 📝📝 | |
@@ -2036,6 +2036,68 @@ déjà rencontré en local) et de rapporter ses trouvailles sans jamais committe
 ni ouvrir de PR. Premier déclenchement prévu le 2026-10-01. Suivre ses
 exécutions : `claude.ai/code/routines/trig_0183HpsWHKnLz8EFfFQgS6qA` ou
 `RemoteTrigger` (`list_runs`/`get_run_log`).
+
+**Agent `axiom-checker`, détail** (2026-09-11) — `.claude/agents/axiom-checker.md`,
+`model: sonnet` (cohérent avec les quatre autres agents Lot 11 — voir §12.4 :
+tous excluent le modèle le plus cher, aucun ne va jusqu'à un modèle bon
+marché), outils `Read, Grep, Glob, Bash` (aucun `Write`/`Edit` — même posture
+« propose, n'applique jamais » que `parity-guardian`/`dep-triage`/`doc-drift` ;
+renforcée ici par le fait que la vraie méthodologie de classification, per le
+Lot 4.1, ne peut de toute façon pas tourner de façon fiable et automatique —
+elle demande du fuzzing puis une vérification humaine à la main). **Anglais**,
+comme `parity-guardian`/`doc-drift` et pour la même raison : tout ce que
+l'agent lit et manipule (`test_voting_criteria_matrix.py`, `simulation_ranked_
+utils.py`/`simulation_score_utils.py`, `gen_engine_parity.py`, `playgroundVoting.ts`,
+CLAUDE.md) est déjà entièrement en anglais — seule `CONTRIBUTING.md` documente
+la méthodologie en français, en référence secondaire, pas comme objet de
+travail principal.
+
+Forme différente des trois agents précédents parce que le problème est un
+autre genre de travail : `parity-guardian` diagnostique un désaccord entre
+deux implémentations existantes ; `axiom-checker` vérifie une *couverture* —
+une méthode nouvellement ajoutée a-t-elle sa ligne dans la matrice, et
+chacun des 7 critères a-t-il été *réellement* tranché pour elle, pas juste
+hérité par défaut. Ce dernier point est la vraie trouvaille de conception :
+6 des 7 critères du fichier définissent `SATISFIES = METHODS.keys() -
+VIOLATES`, donc ajouter une méthode à `METHODS` sans rien d'autre la fait
+retomber silencieusement du côté « satisfait » de ces 6 critères sans qu'un
+humain ait jamais vraiment tranché — exactement le défaut que cet agent
+existe pour attraper. L'instruction du fichier est explicite : ne jamais
+proposer un côté sat/violates soi-même, seulement signaler « pas encore
+classé, fuzzing réel requis » — la même discipline « classification jamais
+tirée de mémoire » que le Lot 4.1 lui-même a établie (et qui, historiquement,
+a déjà pris en défaut une classification sous-échantillonnée sur 4 méthodes).
+
+Vérifié en conditions réelles, dans ce même worktree jetable (jamais sur
+`develop`) : l'invocation directe (`subagent_type: "axiom-checker"`) a échoué
+avec « Agent type not found » — même limitation déjà rencontrée par
+`dep-triage`/`doc-drift` (liste des sous-agents figée au démarrage de la
+session). Contournement identique : un agent `general-purpose` a reçu le
+corps de `axiom-checker.md` verbatim, avec l'instruction explicite de rester
+dans son `tools:` déclaré (jamais d'édition) malgré un accès plus large en
+pratique. Scénario réel : une fonction `get_plurality_clone_winner` ajoutée
+temporairement dans `simulation_ranked_utils.py` (copie conforme de
+`get_plurality_winner` sous un autre nom, non câblée dans `RULES`/`METHODS`/
+`playgroundVoting.ts` — un scaffold jetable, jamais destiné à rester). L'agent
+a construit l'inventaire par grep des fonctions `get_*_winner` réelles (pas
+seulement les dicts déjà câblés, puisqu'une méthode neuve n'y figure par
+définition pas encore), correctement écarté les vraies exclusions déjà
+documentées (`get_approval_winner`, `get_positional_score_winner`,
+`get_random_ballot_winner`, le jumeau condorcet/Copeland) sans en signaler
+aucune à tort, puis identifié la fonction scratch comme absente de `METHODS`
+et des 6 critères classifiables — avec, en particulier, la bonne distinction
+entre le critère Condorcet gagnant (assertion de module qui casserait la
+collecte entière du fichier si non traité) et les 5 autres (balayage
+silencieux côté « satisfait » sans assertion qui casse rien). Proposition
+produite : ligne d'import, entrée `METHODS`, bump du compteur de
+`test_the_method_registry_is_not_stale`, et pour chaque critère classifiable
+un « pas encore classé » explicite plutôt qu'une classification devinée —
+avec, en bonus, la remarque que le commentaire de la fonction scratch
+suggérait lui-même la suppression plutôt que la promotion, une nuance que
+l'agent a correctement relayée comme décision humaine plutôt que de trancher
+seul. Aucune écriture réelle constatée pendant le test ; fonction scratch
+retirée ensuite, `git diff` sur `simulation_ranked_utils.py` revenu vide
+avant de committer quoi que ce soit.
 
 **`/code-review ultra`, détail.** Rien à construire — l'outil existe déjà
 (commande native, pas un artefact `.claude/`), le problème était l'usage.
