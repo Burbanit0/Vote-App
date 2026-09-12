@@ -1,5 +1,6 @@
 import random
-from typing import Optional
+from types import ModuleType
+from typing import Optional, Union
 
 import numpy as np
 
@@ -81,18 +82,37 @@ _age_probabilities = [count / _total_population for count in age_data.values()]
 _ages = list(age_data.keys())
 
 
+def _resolve_rng(rng: Optional[random.Random]) -> Union[random.Random, ModuleType]:
+    """Local `random.Random` instance if provided, else the shared `random`
+    module (the legacy unseeded fallback).
+
+    Shared by every `sample_*` helper here and by `simulation_voting_utils.py`
+    (imported from there) so the `x if x is not None else <module>` fallback
+    used across both files — a source of RNG-singleton reseed bugs when a
+    call site is missed during a future migration — exists in exactly one
+    place. See `create_voter()` in `simulation_voting_utils.py` for why
+    passing a real instance matters under concurrent/seeded callers.
+    """
+    return rng if rng is not None else random
+
+
+def _resolve_np_rng(np_rng: Optional[np.random.RandomState]) -> Union[np.random.RandomState, ModuleType]:
+    """`np.random.RandomState` equivalent of `_resolve_rng()`."""
+    return np_rng if np_rng is not None else np.random
+
+
 def sample_age(rng: Optional[random.Random] = None) -> int:
-    r = rng if rng is not None else random
+    r = _resolve_rng(rng)
     return r.choices(_ages, weights=_age_probabilities, k=1)[0]
 
 
 def sample_region(np_rng: Optional[np.random.RandomState] = None) -> str:
-    r = np_rng if np_rng is not None else np.random
+    r = _resolve_np_rng(np_rng)
     return str(r.choice(["urban", "suburban", "rural"], p=[0.8, 0.15, 0.05]))
 
 
 def sample_income(np_rng: Optional[np.random.RandomState] = None) -> str:
-    r = np_rng if np_rng is not None else np.random
+    r = _resolve_np_rng(np_rng)
     income_score = r.gamma(shape=2, scale=0.2)
     if income_score < 0.3:
         return "low"
@@ -109,7 +129,7 @@ def sample_likelihood_to_vote(age: int, np_rng: Optional[np.random.RandomState] 
 
 
 def sample_employment_status(rng: Optional[random.Random] = None) -> str:
-    r = rng if rng is not None else random
+    r = _resolve_rng(rng)
     return r.choices(
         population=["employed", "unemployed", "self_employed", "retired"],
         weights=[0.6, 0.1, 0.1, 0.2],
@@ -118,7 +138,7 @@ def sample_employment_status(rng: Optional[random.Random] = None) -> str:
 
 
 def sample_family_status(rng: Optional[random.Random] = None) -> str:
-    r = rng if rng is not None else random
+    r = _resolve_rng(rng)
     return r.choices(
         population=["single", "with_children", "retired"],
         weights=[0.3, 0.4, 0.3],
@@ -127,7 +147,7 @@ def sample_family_status(rng: Optional[random.Random] = None) -> str:
 
 
 def sample_ethnicity_immigration(rng: Optional[random.Random] = None) -> str:
-    r = rng if rng is not None else random
+    r = _resolve_rng(rng)
     return r.choices(
         population=["native", "immigrant"],
         weights=[0.8, 0.2],
@@ -136,7 +156,7 @@ def sample_ethnicity_immigration(rng: Optional[random.Random] = None) -> str:
 
 
 def sample_religion(rng: Optional[random.Random] = None) -> str:
-    r = rng if rng is not None else random
+    r = _resolve_rng(rng)
     return r.choices(
         population=["religious", "non_religious"],
         weights=[0.6, 0.4],
@@ -145,12 +165,12 @@ def sample_religion(rng: Optional[random.Random] = None) -> str:
 
 
 def sample_gender(np_rng: Optional[np.random.RandomState] = None) -> str:
-    r = np_rng if np_rng is not None else np.random
+    r = _resolve_np_rng(np_rng)
     return str(r.choice(["male", "female"], p=[0.49, 0.51]))
 
 
 def sample_education(age: int, np_rng: Optional[np.random.RandomState] = None) -> str:
-    r = np_rng if np_rng is not None else np.random
+    r = _resolve_np_rng(np_rng)
     if age < 22:
         return str(r.choice(["high_school", "bachelor"], p=[0.7, 0.3]))
     if age < 25:

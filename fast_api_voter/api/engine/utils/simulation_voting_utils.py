@@ -15,6 +15,8 @@ from .demographic_data import (
     sample_religion,
     sample_ethnicity_immigration,
     sample_likelihood_to_vote,
+    _resolve_rng,
+    _resolve_np_rng,
 )
 
 # --- Define types for clarity ---
@@ -35,7 +37,7 @@ def assign_issue_priorities(
     religion: str,
     rng: Optional[random.Random] = None,
 ) -> Tuple[Dict[str, float], float, Dict[str, float]]:
-    r = rng if rng is not None else random
+    r = _resolve_rng(rng)
     issue_priorities = {
         "economy": 0.5,
         "environment": 0.5,
@@ -223,7 +225,7 @@ def _sample_ideology_position(
 
       0 = fully progressive   1 = fully conservative
     """
-    r = np_rng if np_rng is not None else np.random
+    r = _resolve_np_rng(np_rng)
     if distribution == "centrist":
         return float(np.clip(r.normal(0.5, 0.1), 0.0, 1.0))
     if distribution == "polarized":
@@ -253,7 +255,8 @@ def create_voter(
     for the canonical pattern. When omitted, falls back to the global
     singletons (unseeded/legacy callers only).
     """
-    r  = rng if rng is not None else random
+    r  = _resolve_rng(rng)
+    nr = _resolve_np_rng(np_rng)
     age = sample_age(rng)
     gender = sample_gender(np_rng)
     region = sample_region(np_rng)
@@ -324,7 +327,6 @@ def create_voter(
 
     # Social conformity: susceptibility to bandwagon / poll-driven preference shift.
     # Beta(2,3) → peak near 0.25, most values between 0.1 and 0.6.
-    nr = np_rng if np_rng is not None else np.random
     social_conformity = float(nr.beta(2, 3))
     if age < 30:
         social_conformity += 0.1
@@ -393,7 +395,7 @@ def create_candidate(
     rng: optional local random.Random instance — see create_voter() for why
     this matters under concurrent/seeded callers.
     """
-    r = rng if rng is not None else random
+    r = _resolve_rng(rng)
     party_leans = {
         "Green": -0.8,
         "Liberal": -0.3,
@@ -747,22 +749,32 @@ def run_bandwagon_simulation(
         "positional_score": get_positional_score_winner,
     }
 
+    # Local RNG pair, scoped to this call — NOT `random.seed(seed)` /
+    # `np.random.seed(seed)`, which reseed the shared process-wide
+    # singletons: "same seed -> same result" would then only hold if
+    # nothing else touched random/np.random between the reseed and the
+    # create_voter/create_candidate draws below, false under any concurrent
+    # access to this process. See election_service.py for the full
+    # writeup and the empirical demonstration of the failure mode.
+    rng:    Optional[random.Random]        = None
+    np_rng: Optional[np.random.RandomState] = None
     if seed is not None:
-        random.seed(seed)
-        np.random.seed(seed)
+        rng    = random.Random(seed)
+        np_rng = np.random.RandomState(seed)
 
     if issues is None:
         issues = ["economy", "environment", "healthcare", "taxes", "social_welfare"]
 
     if candidates is None:
         candidates = [
-            create_candidate(issues, 0, "Alice", "Green"),
-            create_candidate(issues, 1, "Bob",   "Conservative"),
-            create_candidate(issues, 2, "Carol",  "Liberal"),
+            create_candidate(issues, 0, "Alice", "Green", rng=rng),
+            create_candidate(issues, 1, "Bob",   "Conservative", rng=rng),
+            create_candidate(issues, 2, "Carol",  "Liberal", rng=rng),
         ]
 
     current_voters: List[Voter] = [
-        create_voter(issues, i, ideology_distribution) for i in range(num_voters)
+        create_voter(issues, i, ideology_distribution, rng=rng, np_rng=np_rng)
+        for i in range(num_voters)
     ]
 
     def _compute_round_state(vts: List[Voter], rnd: int) -> Dict[str, Any]:
@@ -957,11 +969,19 @@ def run_simulation(
     ideology_distribution: str = "random",
     seed: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
+    # Local RNG pair, scoped to this call — see run_bandwagon_simulation()
+    # just above (and election_service.py) for why NOT
+    # `random.seed(seed)`/`np.random.seed(seed)`.
+    rng:    Optional[random.Random]        = None
+    np_rng: Optional[np.random.RandomState] = None
     if seed is not None:
-        random.seed(seed)
-        np.random.seed(seed)
+        rng    = random.Random(seed)
+        np_rng = np.random.RandomState(seed)
     voters = [
-        create_voter(DEFAULT_ISSUES, voter_id=i, ideology_distribution=ideology_distribution)
+        create_voter(
+            DEFAULT_ISSUES, voter_id=i, ideology_distribution=ideology_distribution,
+            rng=rng, np_rng=np_rng,
+        )
         for i in range(num_voters)
     ]
     _party_cycle = ("Green", "Conservative", "Liberal", "Independent")
@@ -971,6 +991,7 @@ def run_simulation(
             candidate_id=i,
             name=f"Candidate {i + 1}",
             party=_party_cycle[i % len(_party_cycle)],
+            rng=rng,
         )
         for i in range(num_candidates)
     ]
