@@ -2455,7 +2455,7 @@ un chiffre que personne ne publie.
 | Item | Contenu | Effort | Récit | Statut |
 |---|---|---|---|---|
 | **Index des verdicts complété** | Le tableau du Lot 0.3, rempli par ~25 expériences réelles. | S | 📝📝📝 | ✅ voir détail sous le tableau |
-| **Rétrospective du plan** | Ce plan a-t-il survécu au contact ? Quels items abandonnés, lesquels ajoutés en route, lesquels ont déçu. | M | 📝📝📝 | |
+| **Rétrospective du plan** | Ce plan a-t-il survécu au contact ? Quels items abandonnés, lesquels ajoutés en route, lesquels ont déçu. | M | 📝📝📝 | ✅ voir détail sous le tableau |
 | **Les 3-4 histoires les plus partageables** | Candidats naturels : « la couverture à 91 % ment-elle ? » (Lot 5) · « 25 outils de qualité sur un vrai projet, le tableau des verdicts » (Lot 0.3) · « tester une théorie mathématique comme on teste du code » (Lot 4) · « combien de mes conventions écrites étaient déjà violées » (Lot 2). | L | 📝📝📝 | ✅ voir détail sous le tableau |
 | **`CODE_AUDIT.md` rejoué** | Nouvelle édition datée après tous les lots, comparaison avec l'édition du 2026-09-06. | S | 📝📝 | ✅ voir détail sous le tableau |
 | **README qui raconte** | Le repo est public : rendre visible la double exploration (méthodes de vote *et* pratiques de dev). | M | 📝📝📝 | |
@@ -2471,6 +2471,30 @@ décisions Dependabot/CI mineures) a été tranchée directement en paragraphe
 — proportionné à des essais courts, pas d'incohérence de méthode. Le
 mécanisme lui-même (index tenu à jour à chaque clôture) fonctionne comme
 prévu ; le chiffre final est 14 formelles, pas ~25, et c'est très bien ainsi.
+
+**Rétrospective du plan, détail** (2026-09-11). Carnet séparé plutôt qu'un
+paragraphe ici, pour la même raison qu'un carnet d'expérience vit hors du
+code : une rétrospective qui ne cite que des impressions ne se vérifie pas.
+[`RETROSPECTIVE.md`](RETROSPECTIVE.md) (racine du dépôt, à côté de ce plan et
+de `CODE_AUDIT.md`) croise le plan lot par lot contre `git log`, l'index des
+verdicts et le journal de bord pour répondre aux trois questions posées par
+cet item, chacune avec des commits/dates à l'appui plutôt qu'un souvenir :
+6 jours calendaires réels (203 commits, 86 PR) pour un plan dont le rythme
+d'exécution ne suit pas les efforts `S`/`M`/`L` annoncés (le Lot 4 entier,
+coté jusqu'à `L`, livré en une seule journée) ; le Lot 14 ajouté en cours de
+route (2026-09-11, quatre jours après l'ouverture, ~17 min après le dernier
+item du Lot 6) et toujours **entièrement** à l'état de plan à la date de ce
+document, vérifié par une recherche exhaustive dans l'historique des commits
+plutôt que supposé depuis son propre cadrage ;
+deux collisions de numérotation `EXP-*` entre agents/branches concurrents ;
+et six rejets d'outils (`hypofuzz`, `slsa-github-generator`, Lost Pixel,
+`bundlesize`, `license-checker`, `zap-api-scan.py`) dont chacun a évité un
+coût d'adoption réel plutôt que d'être un simple aveu d'échec. Trouvaille la
+plus inattendue : `docs/journal/JOURNAL_DE_BORD.md` n'a aucune entrée entre
+le 09-06 et la clôture de ce Lot — les six jours les plus denses du plan ont
+été racontés par les messages de commit et les paragraphes « détail » du
+plan lui-même, pas par le dispositif de journal que le Lot 0 avait prévu
+pour ce rôle.
 
 **Les 3-4 histoires les plus partageables, détail.** Les quatre candidats
 proposés par l'item se sont tous confirmés, à la lecture complète du
