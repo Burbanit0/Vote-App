@@ -57,14 +57,29 @@ the single worst-performing decision type in the simulator.** Nominations occur 
 ticks 0, 16 and 32, five contested parties each. Tick 0 was clean; **at ticks 16
 and 32 all five parties fell back**. Root cause, read verbatim from `replays.log`:
 party 3 returned `winner_position=26` against 18 (then 19) declared candidates —
-the *same wrong constant*, six times across retries, including retries that varied
-sampling. That is a content-blind signature, not a flaky parse: the model emits a
-fixed number regardless of how many candidates the party actually has.
+the *same wrong constant*, six times. **Correction, 2026-09-11**: this is NOT six
+times across retries with varied sampling as first reported here —
+`validate_party_nomination_decision` sat outside `_complete_and_decode_with_replay`'s
+own replay loop at the time, so these were six independent FIRST attempts, at
+temperature 0, on an identical prompt (`polity-decision-contracts.md`'s own dt=4
+entry and `lets-build-a-solid-spicy-otter.md` Track C1 have the full diagnosis).
+That is a content-blind signature, not a flaky parse: the model emits a fixed
+number regardless of how many candidates the party actually has. Confirmed live,
+2026-09-11, via an exact reproduction from this run's own checkpoint
+(`check_party_nomination_position_logprobs_results.md`): both digits of "26" are
+confident (P("2")=0.994, P("6"|"2")=0.892) — a repeatable comprehension error, not
+decoding noise a retry at different sampling would have been likely to shake loose
+anyway (though the already-wired retry now gets a real chance to, see below).
 
 Two consequences worth acting on before Stage 4:
 - **The fallback's granularity amplifies it 5×.** It is whole-batch by design, so
   one bad party drags the other four into the deterministic highest-ambition
   tiebreak. Per-party granularity would have cost 2 decisions instead of 10.
+  **Done, 2026-09-11** (Track C1 steps A+B): validation now runs inside the replay
+  loop (giving the wired sampling variation a genuine chance before any fallback),
+  and a whole-batch failure now retries each contested party individually before
+  falling back only the ones that still fail — one bad party no longer sinks the
+  other four.
 - **Two of this polity's three nomination rounds were decided by a tiebreak rule,
   not by a model.** Any reading of party behaviour in this run must exclude them.
 

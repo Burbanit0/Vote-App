@@ -1200,6 +1200,51 @@ def test_decide_party_nominations_falls_back_to_deterministic_tiebreak_on_an_out
     assert outcome.decisions[0].winner_position == 1  # citizen 0's own real position, not the bogus 99
 
 
+def test_decide_party_nominations_per_party_retry_rescues_a_good_party_from_a_bad_batchmate():
+    # Track C1 steps A+B (2026-09-11, lets-build-a-solid-spicy-otter.md): before this fix, ANY
+    # decision failing validation sank the WHOLE tick's batch to the deterministic tiebreak, even
+    # for parties whose own answer was fine (Stage 3, population 500: 10/15 nominations fell back,
+    # i.e. every party on every election tick that had at least one bad answer among the five).
+    # This client answers out-of-range for party 1 whenever asked together with party 0 (2
+    # decisions requested), but answers correctly when asked about either party ALONE (1 decision
+    # requested) -- isolating exactly the scenario stage 2's per-party retry exists for.
+    class BatchDependentClient:
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+            payload = json.loads(user_prompt)
+            party_blocks = payload["parties"]
+            if len(party_blocks) == 2:
+                decisions = [
+                    {"party_id": 0, "winner_position": 1, "motif": 206},
+                    {"party_id": 1, "winner_position": 99, "motif": 206},  # out of range
+                ]
+            else:
+                decisions = [{"party_id": p["party_id"], "winner_position": 1, "motif": 206} for p in party_blocks]
+            return json.dumps({"decisions": decisions})
+
+    citizens = [
+        _citizen_with_ambition(0, 0.9), _citizen_with_ambition(1, 0.1),
+        _citizen_with_ambition(2, 0.1), _citizen_with_ambition(3, 0.9),
+    ]
+    citizens[0].party_affiliation = 0
+    citizens[1].party_affiliation = 0
+    citizens[2].party_affiliation = 1
+    citizens[3].party_affiliation = 1
+    parties = [_party(0, (0.5,)), _party(1, (0.5,))]
+    config = _config_with_llm_enabled()
+
+    outcome = decide_party_nominations(citizens, parties, {0, 1, 2, 3}, config, BatchDependentClient())
+
+    # Neither party falls back: party 0 was already fine in the whole-batch attempt, party 1 is
+    # rescued by its own individual retry -- one bad batchmate no longer sinks a good one.
+    assert outcome.llm_fallback == {0: False, 1: False}
+    # winner_position=1 -> the first sorted (by citizen_id) candidate in each party. Party 1's
+    # winner (cid=2) is the LOWER-ambition contender -- the deterministic tiebreak would have
+    # picked cid=3 instead, so this value can only have come from the model's own retried answer,
+    # not an accidental match with what the fallback would have produced anyway.
+    assert outcome.winners == {0: 0, 1: 2}
+    assert {d.motif for d in outcome.decisions} == {206}  # both real LLM motifs, no HIGHEST_AMBITION fallback
+
+
 def test_decide_party_nominations_raises_notimplementederror_for_unsupported_provider():
     citizens = _population(2)
     config = _config_with_llm_enabled()
@@ -1264,10 +1309,20 @@ def test_decide_party_nominations_falls_back_to_the_tiebreak_on_a_count_mismatch
     # validation/resolution -- an exhausted or misaligned BATCH still went
     # uncaught and killed the run, a half-closed hole that read as closed.
     # The LLM call moved inside the same try on 2026-09-11.
-    assert outcome.llm_fallback == {0: True, 1: True}
-    # The highest-ambition contender per party, which is what the tiebreak does.
+    #
+    # Track C1 steps A+B (2026-09-11): the whole-batch attempt (both
+    # parties) still misaligns, since ShortClient always answers party 0's
+    # question regardless of what it is asked -- but stage 2's per-party
+    # retry then asks about party 0 ALONE, which ShortClient's canned
+    # response genuinely satisfies, so party 0 is rescued by its own
+    # individual retry while party 1 (whose question ShortClient can never
+    # answer) still falls back. One bad party no longer sinks the other.
+    assert outcome.llm_fallback == {0: False, 1: True}
+    # party 0: resolved from the LLM's own real answer (winner_position=1 ->
+    # the higher-ambition citizen 0, sorted first). party 1: the highest-
+    # ambition contender, which is what the tiebreak does.
     assert outcome.winners == {0: 0, 1: 2}
-    assert {d.motif for d in outcome.decisions} == {int(PartyNominationMotif.HIGHEST_AMBITION)}
+    assert {d.motif for d in outcome.decisions} == {206, int(PartyNominationMotif.HIGHEST_AMBITION)}
 
 
 # ── apply_shifts ──────────────────────────────────────────────────────────

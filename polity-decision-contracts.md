@@ -47,7 +47,7 @@ montre jamais. On corrige une copie sur un barème que l'élève n'a pas vu.
 |---|:--:|:--:|:--:|:--:|:--:|---|
 | `vote_cast` | ✅ | ✅ | ✅ | ⚠️ | ✅ | **Fiable** (23/24) |
 | `campaign_positioning` | ✅ | ✅ | ✅ | ✅ | n/a | Pas de collapse (autre défaut : 50-66 % d'échec) |
-| `party_nomination_choice` | ✅ | ✅ | ⚠️ | ✅ | n/a | Pas de collapse (4/5) |
+| `party_nomination_choice` | ✅ | ❌ | ⚠️ | ✅ | n/a | Pas de collapse, mais échec C2 confirmé -- récupération par-parti livrée |
 | `candidacy_considered` | ✅ | ✅ | ❌ | ✅ | ❌ | Pas de collapse, 64 % de justesse, calibration C3 essayée et négative |
 | `coalition_decision` | ✅ | ✅ | ⚠️ | ✅ | n/a | **Collapse confirmé, calibration C3 essayée et négative** |
 | `representative_response` | ✅ | ✅ | ✅ | ✅ | n/a | **Collapse fixé (partiel)**, voir §3 |
@@ -215,10 +215,29 @@ historique électoral et sur-déclare quand même.
 
 ### Types conformes — à ne pas modifier
 
-`vote_cast`, `campaign_positioning`, `party_nomination_choice` satisfont le contrat et ne montrent
-pas de collapse. `party_nomination_choice` porte un ⚠️ en C3 (`platform_distance` sans référence)
-mais compare des candidats **entre eux** dans un même enregistrement, ce qui fournit l'échelle
-implicitement — d'où, vraisemblablement, sa fiabilité.
+`vote_cast`, `campaign_positioning` satisfont le contrat et ne montrent pas de collapse.
+
+`party_nomination_choice` ne collapse pas non plus, mais échoue réellement C2 : le prompt ne
+formule jamais la borne haute de `winner_position`, propre à chaque parti (« position (1 a N) »
+sans jamais dire N). **Confirmé en direct, 2026-09-11** (Track C1 step E,
+`fast_api_voter/scripts/check_party_nomination_position_logprobs_results.md`) — reproduction
+EXACTE du run Stage 3 (`checkpoint.json`, mêmes 5 partis, mêmes candidats déclarés) : le parti 3
+(19 candidats) répond de nouveau `winner_position=26`, et les deux chiffres sont pris avec
+confiance (P("2")=0,994, P("6"|"2")=0,892 — les alternatives ne sont pas le jeton de fin de
+nombre). **Ce n'est pas un accident de décodage, c'est une erreur de comprehension confiante** —
+verdict pré-enregistré tranché avant de corriger. `platform_distance` porte toujours un ⚠️ en C3
+(sans référence propre) mais compare des candidats **entre eux** dans un même enregistrement, ce
+qui fournit l'échelle implicitement.
+
+**Livré, 2026-09-11** (Track C1 steps A+B) : `validate_party_nomination_decision` tourne désormais
+À L'INTÉRIEUR du `decode=` de `_complete_and_decode_with_replay`, donnant au budget de replay déjà
+câblé (température/seed variés) une vraie chance de produire une réponse différente avant tout
+repli. Si le lot entier épuise son budget, chaque parti contesté est ensuite retenté
+INDIVIDUELLEMENT (même prompt, restreint à ce seul parti) avant de basculer au tiebreak
+déterministe — un seul parti mal répondu ne fait plus couler les quatre autres. Stage 3 tombait à
+10/15 (67 %) ; ce mécanisme ne change rien à la confiance du modèle sur un cas comme le parti 3
+(l'erreur est reproductible, pas du bruit d'échantillonnage), mais isole désormais son coût aux
+partis réellement fautifs.
 
 ---
 

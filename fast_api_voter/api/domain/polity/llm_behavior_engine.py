@@ -758,6 +758,28 @@ def _complete_and_decode_with_replay(
     unwinding to retry safely -- unlike a truncated/misaligned response,
     which produces no such side effect to unwind.
 
+    ONE DOCUMENTED EXCEPTION, 2026-09-11 (Track C1 step A,
+    lets-build-a-solid-spicy-otter.md): `decide_party_nominations` moves its
+    own `validate_party_nomination_decision` call INSIDE `decode=`. Both
+    reasons above fail to apply to it specifically. First, its retry is
+    NOT byte-identical at temperature=0 -- it already passes
+    `retry_temperature`/`retry_seed_base`, so "an identical retry is not
+    expected to fix it" is not this caller's situation; a genuine retry
+    here samples differently, and `check_party_nomination_position_
+    logprobs_results.md` found the failure to be a confident, repeatable
+    comprehension error (P(2)=0.994, P(6|2)=0.892), not noise a same-
+    sampling retry could shake loose anyway -- varied sampling is the one
+    lever with a real chance to land on a different answer. Second, it
+    builds no side effect before validation -- `winners` is resolved from
+    `decisions` only after the whole batch already validated, so there is
+    nothing to unwind. Found live, 2026-09-10 (Stage 3, population 500):
+    `validate_party_nomination_decision` ran post-hoc, outside this
+    function entirely, so an out-of-range `winner_position` skipped the
+    already-wired replay budget completely and fell straight to the
+    whole-batch deterministic fallback on its very first occurrence --
+    10 of 15 nominations in that run (67%), for one out-of-range answer
+    among five parties' worth of decisions each time.
+
     This softens, and deliberately does not overturn,
     LlmResponseError's own "NOT retried" ruling (llm_client.py): that
     ruling's operative objection is SILENT laundering of a real problem. A
@@ -2082,15 +2104,48 @@ def decide_party_nominations(
     ollama_structured_output_results.md's Finding E.
 
     Falls back to select_party_nominee_from_declared's deterministic
-    highest-ambition tiebreak, for EVERY contested party in this call, if
-    ANY decision fails validate_party_nomination_decision (found live,
-    2026-09-10, plan-flagship-30y-run.md Phase 7 Stage 3 at population
-    500 -- see that validator's own docstring) -- same whole-batch-falls-
-    together granularity cast_votes already uses per chunk, not a
-    per-party retry. The fallback motif (HIGHEST_AMBITION) is not a
-    placeholder: it is the exact classification that tiebreak actually
-    used, computed structurally instead of by model judgment, same
-    honesty discipline as _deterministic_vote_fallback's own motif."""
+    highest-ambition tiebreak, PER CONTESTED PARTY, only for whichever
+    party(ies) still fail after their own individual retry (Track C1 steps
+    A+B, 2026-09-11, see below) -- not for the whole tick's batch, unlike
+    this function's own shape before that date. The fallback motif
+    (HIGHEST_AMBITION) is not a placeholder: it is the exact classification
+    that tiebreak actually used, computed structurally instead of by model
+    judgment, same honesty discipline as _deterministic_vote_fallback's own
+    motif.
+
+    TWO-STAGE RECOVERY, 2026-09-11 (Track C1 steps A+B,
+    lets-build-a-solid-spicy-otter.md): found live, 2026-09-10 (Stage 3,
+    population 500) -- `validate_party_nomination_decision` used to run
+    AFTER `_complete_and_decode_with_replay` returned, so an out-of-range
+    `winner_position` skipped the already-wired replay budget entirely and
+    fell straight to a WHOLE-BATCH fallback (every contested party this
+    tick, not just the one that actually erred) on its very first
+    occurrence -- 10 of 15 nominations in that run (67%), for one bad
+    answer among five parties' worth of decisions each time.
+    `check_party_nomination_position_logprobs_results.md` (Track C1 step E)
+    then established the failure is a confident, repeatable comprehension
+    error (P("2")=0.994, P("6"|"2")=0.892 for the party-3/19-candidate case
+    that produced `winner_position=26`), not sampling noise -- which is
+    exactly why giving the already-wired `retry_temperature`/
+    `retry_seed_base` a genuine chance to land on a different answer (by
+    validating INSIDE `decode=`, so a bad answer now triggers this
+    function's own replay loop instead of skipping it) is a real lever,
+    not a formality.
+
+    Stage 1: the whole-tick batch, exactly as before, except `decode=` now
+    validates every decision before returning -- an out-of-range
+    `winner_position` is a decode failure the replay loop can act on, with
+    varied sampling on each retry attempt.
+
+    Stage 2, only reached if stage 1 exhausts its replay budget: instead of
+    falling back for every contested party at once, retry EACH contested
+    party INDIVIDUALLY, as its own one-party batch (same system/user prompt
+    builders, `contested` restricted to `{party_id: members}` -- no new
+    prompt shape; a tick with exactly one contested party is already a
+    normal, already-supported case). Only a party whose own individual
+    retry budget also exhausts falls back to the deterministic tiebreak;
+    every other contested party keeps an LLM-informed answer even when one
+    of its peers this tick did not."""
     _check_supported(config)
 
     parties_by_id = {party.party_id: party for party in parties}
@@ -2106,48 +2161,57 @@ def decide_party_nominations(
     all_contenders = [c for members in contested.values() for c in members]
     support = {c.citizen_id: sympathizer_ratio(c, list(citizens)) for c in all_contenders}
 
+    def _decode_and_validate(raw: str, batch: dict[int, list[Citizen]], party_ids: list[int]) -> list[PartyNominationDecision]:
+        batch_decisions = decode_party_nomination_batch(raw, party_ids)
+        for decision in batch_decisions:
+            validate_party_nomination_decision(decision, batch[decision.party_id])
+        return batch_decisions
+
     expected_party_ids = list(contested.keys())
-    is_fallback = False
+    decisions: list[PartyNominationDecision] = []
+    winners: dict[int, int] = {}
+    llm_fallback: dict[int, bool] = {}
     try:
-        # The LLM call is INSIDE the try as of 2026-09-11. It used to sit
-        # outside it, so this function's own fallback covered only the
-        # out-of-range winner_position it was written for and an exhausted
-        # replay budget still killed the run -- a half-closed hole that read
-        # as closed. Both failure classes are one unrecoverable batch and take
-        # the same exit, exactly as cast_votes's own except block already did.
-        decisions = _complete_and_decode_with_replay(
+        batch_decisions = _complete_and_decode_with_replay(
             client,
             system_prompt=build_party_nomination_system_prompt(contested),
             user_prompt=build_party_nomination_user_prompt(contested, parties_by_id, support),
             json_schema=PARTY_NOMINATION_JSON_SCHEMA,
             max_tokens=compute_max_tokens(len(contested)),
             think=False,
-            decode=lambda raw: decode_party_nomination_batch(raw, expected_party_ids),
+            decode=lambda raw: _decode_and_validate(raw, contested, expected_party_ids),
             replays=config.llm.max_batch_replays,
             decision_type="party_nomination_choice",
-            # A deliberate, local exception to temperature=0 determinism -- see
-            # _NOMINATION_RETRY_TEMPERATURE's own comment. Only ever applies to
-            # a genuine retry (never the first attempt). This decision type
-            # already had the fallback below (2026-09-10, after an out-of-range
-            # winner_position killed a Stage 3 run); what it lacked was any
-            # reason for the retry BEFORE that fallback to return anything
-            # different from the attempt that had just failed.
+            # A deliberate, local exception to temperature=0 determinism --
+            # see _NOMINATION_RETRY_TEMPERATURE's own comment.
             retry_temperature=_NOMINATION_RETRY_TEMPERATURE,
             retry_seed_base=_NOMINATION_RETRY_SEED_BASE,
         )
-        for decision in decisions:
-            validate_party_nomination_decision(decision, contested[decision.party_id])
-        winners = {decision.party_id: resolve_party_nomination_cid(decision, contested[decision.party_id])
-                   for decision in decisions}
+        for decision in batch_decisions:
+            decisions.append(decision)
+            winners[decision.party_id] = resolve_party_nomination_cid(decision, contested[decision.party_id])
+            llm_fallback[decision.party_id] = False
     except LlmResponseError as exc:
-        _logger.error(
-            "party_nomination_choice: exhausted every recovery attempt for party_id(s) %s, falling back to the "
-            "deterministic highest-ambition tiebreak for every contested party this tick instead of "
-            "aborting the run: %s", expected_party_ids, exc,
-        )
-        decisions = []
-        winners = {}
-        for party_id, members in contested.items():
+        retry_targets = {} if len(contested) == 1 else contested
+        # A single contested party's own stage-1 whole-batch attempt is
+        # already byte-for-byte the same request stage 2 would repeat (same
+        # system/user prompt, same schema, same retry cycle) -- skip
+        # straight to the deterministic tiebreak instead of wasting an
+        # identical, already-exhausted retry cycle on the only party there
+        # is to isolate.
+        if retry_targets:
+            _logger.warning(
+                "party_nomination_choice: whole-batch replay exhausted for party_id(s) %s, retrying each "
+                "contested party individually before falling back: %s", expected_party_ids, exc,
+            )
+        else:
+            _logger.error(
+                "party_nomination_choice: exhausted every recovery attempt for the only contested party_id "
+                "%s, falling back to the deterministic highest-ambition tiebreak instead of aborting the "
+                "run: %s", expected_party_ids[0], exc,
+            )
+            party_id = expected_party_ids[0]
+            members = contested[party_id]
             nominee = select_party_nominee_from_declared(party_id, list(citizens), declared_cids)
             assert nominee is not None  # contested parties always have >=2 declared members
             position = sorted_candidates(members).index(nominee) + 1
@@ -2155,13 +2219,49 @@ def decide_party_nominations(
                 PartyNominationDecision(party_id=party_id, winner_position=position, motif=PartyNominationMotif.HIGHEST_AMBITION)
             )
             winners[party_id] = nominee.citizen_id
-        is_fallback = True
+            llm_fallback[party_id] = True
 
-    return PartyNominationBatchOutcome(
-        decisions=decisions,
-        winners=winners,
-        llm_fallback={party_id: is_fallback for party_id in expected_party_ids},
-    )
+        for party_id, members in retry_targets.items():
+            single = {party_id: members}
+
+            def _decode_single(raw: str, single: dict[int, list[Citizen]] = single, party_id: int = party_id) -> list[PartyNominationDecision]:
+                return _decode_and_validate(raw, single, [party_id])
+
+            try:
+                single_decisions = _complete_and_decode_with_replay(
+                    client,
+                    system_prompt=build_party_nomination_system_prompt(single),
+                    user_prompt=build_party_nomination_user_prompt(single, parties_by_id, support),
+                    json_schema=PARTY_NOMINATION_JSON_SCHEMA,
+                    max_tokens=compute_max_tokens(1),
+                    think=False,
+                    decode=_decode_single,
+                    replays=config.llm.max_batch_replays,
+                    decision_type="party_nomination_choice",
+                    retry_temperature=_NOMINATION_RETRY_TEMPERATURE,
+                    retry_seed_base=_NOMINATION_RETRY_SEED_BASE,
+                )
+                decision = single_decisions[0]
+                decisions.append(decision)
+                winners[party_id] = resolve_party_nomination_cid(decision, members)
+                llm_fallback[party_id] = False
+            except LlmResponseError as single_exc:
+                _logger.error(
+                    "party_nomination_choice: exhausted every recovery attempt for party_id %s, falling back "
+                    "to the deterministic highest-ambition tiebreak for this party instead of aborting the "
+                    "run: %s", party_id, single_exc,
+                )
+                nominee = select_party_nominee_from_declared(party_id, list(citizens), declared_cids)
+                assert nominee is not None  # contested parties always have >=2 declared members
+                position = sorted_candidates(members).index(nominee) + 1
+                decision = PartyNominationDecision(
+                    party_id=party_id, winner_position=position, motif=PartyNominationMotif.HIGHEST_AMBITION,
+                )
+                decisions.append(decision)
+                winners[party_id] = nominee.citizen_id
+                llm_fallback[party_id] = True
+
+    return PartyNominationBatchOutcome(decisions=decisions, winners=winners, llm_fallback=llm_fallback)
 
 
 @dataclass(frozen=True)
