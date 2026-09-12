@@ -2286,6 +2286,14 @@ pas supposés :
   d'inspection de l'historique local de l'utilisateur, hors du contrôle de
   version du projet).
 
+✅ **Fait pour le dernier sous-point.** Ligne « Coût en tokens » ajoutée au
+gabarit (`docs/exploration/TEMPLATE.md`, en-tête, à côté de « Coût réel »)
+et à l'étape de collecte d'`experiment-writer.md` — future uniquement, les
+14 `EXP-0XX-*.md` existants ne sont pas retouchés (hors périmètre
+explicite). Avec le détail ci-dessus (télémétrie OTel + `ccusage`, vérifiés
+dans une session concurrente le même jour), il ne reste de 12.1 que le
+réflexe `/cost` en séance — une habitude, pas un livrable.
+
 ### 12.2 — Ne jamais charger ce qui ne doit pas l'être · `M` · ⭐⭐⭐ 📝📝
 
 Mesure réelle sur ce repo (estimation à ~4 octets/token) :
@@ -2315,6 +2323,60 @@ Actions :
   croît à chaque session. Archiver par année, sinon **le dispositif
   anti-répétition devient lui-même le poste de dépense** — exactement le piège
   identifié au Lot 0.5.
+
+✅ **Fait — avec un écart assumé sur le premier point.** `.claudeignore`
+n'est **pas** un mécanisme réel de Claude Code : absent de la documentation
+actuelle des permissions (`code.claude.com/docs/en/permissions`, aucune
+occurrence du mot), et objet d'une demande upstream toujours ouverte
+(`github.com/anthropics/claude-code` issue #579) — plusieurs autres issues
+confirment qu'un fichier `.claudeignore` posé dans un repo est simplement
+ignoré, sans avertissement. Un `permissions.deny` avec des règles
+`Read(<glob>)` existe bien, lui, et est documenté — mais il bloquerait
+aussi les lectures `offset`/`limit` ciblées qu'on veut au contraire laisser
+passer sans friction, donc écarté pour ce cas précis. Aucun fichier
+`.claudeignore` n'a été créé ; le vrai levier est le hook d'avertissement
+ci-dessous.
+
+Hook `PreToolUse` ajouté (`.claude/hooks/warn_generated_file_full_read.py`),
+calqué sur la garde `graphify` déjà en service : il pousse un
+`additionalContext` (jamais un `permissionDecision: deny` — le mot du plan
+est bien « avertissement ») sur une lecture intégrale de
+`package-lock.json` / `openapi.gen.json` / `types.gen.ts` /
+`engineParity.json`, sauf si `limit` est posé sur l'appel `Read` (un
+`offset` seul, sans `limit`, ne compte pas comme ciblé — il lit quand même
+jusqu'à la fin du fichier). Testé de façon exhaustive par simulation directe
+du payload `PreToolUse` réel (lecture intégrale d'une cible → avertissement ;
+`offset`+`limit`, ou `limit` seul → silencieux ; `offset` seul sans `limit`
+→ avertissement ; fichier hors périmètre, y compris le notebook → silencieux).
+Un test de bout en bout dans la session d'implémentation elle-même n'a en
+revanche pas pu confirmer le déclenchement réel du hook nouvellement ajouté
+sur un vrai appel `Read` — alors qu'un test témoin sur le hook *préexistant*
+(blocage d'`Edit` sur `engineParity.json`) s'est bien déclenché dans la même
+session. Explication la plus probable : le câblage des hooks se charge au
+démarrage de la session, pas à chaud après une édition de `settings.json` —
+à confirmer dans une session fraîche.
+
+`nbstripout` (0.9.1, hook officiel `kynan/nbstripout`) ajouté à
+`.pre-commit-config.yaml` et exécuté pour de vrai — au binaire nu puis via
+`pre-commit run nbstripout` sur une copie restaurée depuis `git show HEAD:`,
+pas juste supposé fonctionner — sur `Electors simulation.ipynb` :
+608 731 → 24 937 octets (**-95,9 %**), JSON toujours valide (`nbformat`
+4.5, 22 cellules), source de chaque cellule vérifiée identique octet pour
+octet avant/après (seules les sorties stockées ont disparu).
+
+`JOURNAL_DE_BORD.md` passe de 167 392 à 107 773 octets. Coupure choisie au
+seul endroit du fichier qui porte déjà une frontière de contenu explicite :
+les 10 entrées écrites en temps réel (2026-08-17 → 2026-09-06) restent dans
+le fichier actif ; l'historique reconstruit rétroactivement (mars 2025 →
+2026-08-19, chaque entrée porte littéralement la mention « reconstruite a
+posteriori ») part dans `docs/journal/archive/JOURNAL_2026.md` (58 633
+octets) et `JOURNAL_2025.md` (2 944 octets). Split vérifié sans perte par
+script, pas à l'œil : retirer l'en-tête ajouté à chacun des trois nouveaux
+fichiers et concaténer le résultat reproduit `JOURNAL_DE_BORD.md` original
+**octet pour octet**. Règle de rotation posée pour la suite, au lieu d'un
+découpage ponctuel : au-delà de ~100 Ko, déplacer les entrées les plus
+anciennes du fichier actif vers l'archive de l'année correspondante (créée
+au besoin).
 
 ### 12.3 — Lire moins cher ce qu'on lit quand même · `M` · ⭐⭐ 📝📝📝
 
