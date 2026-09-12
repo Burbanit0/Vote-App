@@ -33,6 +33,10 @@ Vote-App — la charge utile du partage du
    - **Le coût réel** : temps d'installation, temps CI ajouté, faux
      positifs rencontrés, charge de maintenance — pas une estimation a
      priori.
+   - **Le coût en tokens** (Lot 12.1) : `/cost` en séance si disponible,
+     sinon une estimation à partir du transcript de la session
+     (`~/.claude/projects/**/*.jsonl`). Une estimation grossière assumée
+     comme telle vaut mieux qu'un champ vide.
 3. Rédige le carnet suivant le gabarit de `docs/exploration/TEMPLATE.md`.
 
 ## Règles de rédaction
