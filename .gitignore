@@ -309,6 +309,10 @@ graphify-out/
 # verdict d'un outil essayé n'a de valeur que partagé, pas laissé sur un
 # disque.
 !/docs/exploration/
+# Histoires partageables (Lot 13) : contenu explicitement destiné à un
+# lecteur externe au dépôt — la raison d'être même de ce dossier disparaît
+# s'il ne survit que sur un seul disque.
+!/docs/stories/
 # docs/README.md oriente vers la bonne surface (Lot 0.1) ; /docs/* ignore
 # aussi les fichiers directement sous docs/, pas seulement les
 # sous-dossiers, d'où cette ligne séparée des `!/docs/<dir>/` ci-dessus.

@@ -2456,7 +2456,7 @@ un chiffre que personne ne publie.
 |---|---|---|---|---|
 | **Index des verdicts complété** | Le tableau du Lot 0.3, rempli par ~25 expériences réelles. | S | 📝📝📝 | ✅ voir détail sous le tableau |
 | **Rétrospective du plan** | Ce plan a-t-il survécu au contact ? Quels items abandonnés, lesquels ajoutés en route, lesquels ont déçu. | M | 📝📝📝 | |
-| **Les 3-4 histoires les plus partageables** | Candidats naturels : « la couverture à 91 % ment-elle ? » (Lot 5) · « 25 outils de qualité sur un vrai projet, le tableau des verdicts » (Lot 0.3) · « tester une théorie mathématique comme on teste du code » (Lot 4) · « combien de mes conventions écrites étaient déjà violées » (Lot 2). | L | 📝📝📝 | |
+| **Les 3-4 histoires les plus partageables** | Candidats naturels : « la couverture à 91 % ment-elle ? » (Lot 5) · « 25 outils de qualité sur un vrai projet, le tableau des verdicts » (Lot 0.3) · « tester une théorie mathématique comme on teste du code » (Lot 4) · « combien de mes conventions écrites étaient déjà violées » (Lot 2). | L | 📝📝📝 | ✅ voir détail sous le tableau |
 | **`CODE_AUDIT.md` rejoué** | Nouvelle édition datée après tous les lots, comparaison avec l'édition du 2026-09-06. | S | 📝📝 | ✅ voir détail sous le tableau |
 | **README qui raconte** | Le repo est public : rendre visible la double exploration (méthodes de vote *et* pratiques de dev). | M | 📝📝📝 | |
 
@@ -2471,6 +2471,46 @@ décisions Dependabot/CI mineures) a été tranchée directement en paragraphe
 — proportionné à des essais courts, pas d'incohérence de méthode. Le
 mécanisme lui-même (index tenu à jour à chaque clôture) fonctionne comme
 prévu ; le chiffre final est 14 formelles, pas ~25, et c'est très bien ainsi.
+
+**Les 3-4 histoires les plus partageables, détail.** Les quatre candidats
+proposés par l'item se sont tous confirmés, à la lecture complète du
+matériau source, comme les plus solides — aucun 5e candidat (la campagne
+`atheris` du Lot 9, le récit d'agents du Lot 11) ne les dépassait assez pour
+justifier de dépasser 4 pièces sur un effort déjà noté `L`. Quatre récits
+autonomes rédigés dans [`docs/stories/`](docs/stories/README.md), en
+anglais (`README.md` — la façade publique du dépôt — est déjà entièrement en
+anglais ; `GUIDE_UTILISATEUR.md`, orienté utilisateur final de
+l'application, reste en français : la convention observée sépare le public
+applicatif du public technique/GitHub, et ce contenu vise le second) :
+
+- [`is-91-percent-coverage-lying-to-you.md`](docs/stories/is-91-percent-coverage-lying-to-you.md)
+  — Lot 5/6.5 + [EXP-003](docs/exploration/EXP-003-couverture-runtime-e2e.md) :
+  couverture *runtime* e2e (backend 34,4 % vs 91,56 % unitaire), le
+  sous-système `polity` à 0 % e2e malgré ~99 % unitaire, et `/simulation/
+  compare` invisible à `knip` autant qu'à la couverture unitaire à la fois.
+- [`25-tools-the-verdicts-table.md`](docs/stories/25-tools-the-verdicts-table.md)
+  — Lot 0.3 : la méthodologie du dépôt (vérifier avant d'adopter/rejeter),
+  illustrée par Lost Pixel (archivé), `hypofuzz` (licence non-OSI malgré un
+  meilleur fit technique), `.claudeignore` (confirmé ne pas exister comme
+  mécanisme réel) et OSV-Scanner vs Trivy (écart nul mesuré, pas supposé).
+- [`testing-a-mathematical-theory-like-code.md`](docs/stories/testing-a-mathematical-theory-like-code.md)
+  — Lot 4.1/4.2/4.6 : la matrice d'axiomes, la mauvaise classification de 4
+  méthodes par une exploration sous-échantillonnée que seul le rétrécissement
+  Hypothesis a corrigée, les 4 écarts trouvés contre l'oracle `pref_voting`,
+  et la preuve Z3 qui a débusqué une erreur dans son propre premier encodage.
+- [`how-many-written-rules-were-already-broken.md`](docs/stories/how-many-written-rules-were-already-broken.md)
+  — Lot 2 : la règle de layering la plus structurante s'est révélée déjà
+  respectée (0 violation), tandis que les règles Semgrep nées d'un incident
+  réel ont immédiatement trouvé de la vraie dette (3 routers sans
+  rate-limit, 18 `except Exception` muets).
+
+Emplacement choisi après avoir pesé les alternatives : un fichier par
+histoire sous `docs/stories/` (plutôt qu'un unique `STORIES.md` à la racine)
+pour que chaque récit reste lié et partagé individuellement — l'objectif
+même du mot « partageable » — avec un `README.md` d'index qui reprend le
+même patron que celui de `docs/exploration/`. Item « README qui raconte »
+(item distinct de ce tableau) laissé intact : ce travail ne modifie pas
+`README.md` lui-même, il produit le matériau que ce futur item pourra lier.
 
 **`CODE_AUDIT.md` rejoué, détail** (2026-09-12). Comparé à l'édition du
 2026-09-06 : `vulture`/`radon`/`jscpd` identiques au chiffre près malgré un
