@@ -42,6 +42,7 @@ from api.domain.polity.llm_behavior_engine import (
     build_chamber_system_prompt,
     build_chamber_user_prompt,
     build_coalition_system_prompt,
+    build_coalition_system_prompt_calibrated,
     build_coalition_user_prompt,
     build_party_nomination_system_prompt,
     build_party_nomination_user_prompt,
@@ -60,6 +61,7 @@ from api.domain.polity.llm_behavior_engine import (
     build_reaction_system_prompt,
     build_reaction_user_prompt,
     build_response_system_prompt,
+    build_response_system_prompt_calibrated,
     build_response_user_prompt,
     build_system_prompt,
     build_user_prompt,
@@ -1589,6 +1591,65 @@ def test_response_system_prompt_states_the_stance_motif_pairing_rule():
     assert "stance=3" in prompt and "308" in prompt
 
 
+# ── build_response_system_prompt_calibrated (Track B1, 2026-09-11) ──────
+
+def test_calibrated_response_prompt_states_mandate_dev_as_a_fixed_0_to_1_bound():
+    holders = [_holder(0, (0.5,))]
+    config = _config_with_llm_enabled()
+    prompt = build_response_system_prompt_calibrated(holders, config)
+    # A mathematical certainty (pledge_weights always renormalizes to sum to
+    # 1; positions live in [0,1]) -- never derived from config, unlike street.
+    assert "dans [0, 1.0]" in prompt
+    assert "1.0 = ecart maximal geometriquement possible" in prompt
+
+
+def test_calibrated_response_prompt_derives_streets_ceiling_from_config_decay():
+    holders = [_holder(0, (0.5,))]
+    config = _config_with_llm_enabled()  # shipped street_pressure.decay=0.85 -> 1/(1-0.85)=6.67
+    prompt = build_response_system_prompt_calibrated(holders, config)
+    assert "6.67" in prompt
+
+    # Not hardcoded: a different decay must move the stated ceiling.
+    config_slow_decay = dataclasses.replace(
+        config, street_pressure=dataclasses.replace(config.street_pressure, decay=0.5)
+    )
+    prompt_slow = build_response_system_prompt_calibrated(holders, config_slow_decay)
+    assert "6.67" not in prompt_slow
+    assert "2.00" in prompt_slow  # 1/(1-0.5)
+
+
+def test_calibrated_response_prompt_is_additive_not_a_replacement():
+    # Track B1's own design note: unlike pressure_action's signal menu, this
+    # has no "zero signals" baseline to fall back to (both facts are always
+    # stated) -- but everything the uncalibrated prompt states must still be
+    # there: cid enumeration, numeric bounds, stance/motif tables and their
+    # pairing rule.
+    holders = [_holder(0, (0.5,)), _holder(1, (0.5,))]
+    config = _config_with_llm_enabled()
+    prompt = build_response_system_prompt_calibrated(holders, config)
+    assert "[0,1]" in prompt and "EXACTEMENT ces 2" in prompt
+    assert "3 ajustements" in prompt and "0.3" in prompt
+    assert "1 = CONCESSION" in prompt and "301 = MANDATE_DEVIATION_HIGH" in prompt
+    assert "stance=1" in prompt and "301" in prompt
+    assert "stance=3" in prompt and "308" in prompt
+
+
+def test_calibrated_response_prompt_states_no_prescribed_action():
+    # C4: the calibration sentences must describe what a number MEANS, never
+    # what to do about it. Checked directly against the two new sentences
+    # this builder adds, not a heuristic scan (which would also catch the
+    # pre-existing, unrelated null-handling sentences on the same fields).
+    holders = [_holder(0, (0.5,))]
+    config = _config_with_llm_enabled()
+    prompt = build_response_system_prompt_calibrated(holders, config)
+    mandate_dev_sentence = "distance dans [0, 1.0] : 0 = promesse parfaitement tenue"
+    street_sentence = "plafond realiste dans cette simulation est environ"
+    assert mandate_dev_sentence in prompt
+    assert street_sentence in prompt
+    for prescriptive in ("doit reagir", "devrait", "reponds par", "concede si", "alors stance"):
+        assert prescriptive not in prompt.lower()
+
+
 def test_response_user_prompt_carries_pledged_revealed_and_ctx():
     holder = _holder(0, (0.2, 0.4), revealed=(0.3, 0.4))
     contexts = {0: _response_context(0, legitimacy=0.6, mandate_dev=0.1, street=0.2, lame_duck=True, ticks_left=3)}
@@ -2543,6 +2604,70 @@ def test_coalition_system_prompt_contains_no_coalition_theory_framing():
     lowered = prompt.lower()
     for term in forbidden:
         assert term not in lowered
+
+
+# ── build_coalition_system_prompt_calibrated (Track B2, 2026-09-11) ─────
+
+def test_calibrated_coalition_prompt_states_the_mean_inter_party_distance():
+    # 3 seated parties (initiator + 2 responders) on a single dimension:
+    # 0.0, 0.3, 0.9. Pairwise distances: |0-0.3|=0.3, |0-0.9|=0.9,
+    # |0.3-0.9|=0.6 -- mean = (0.3+0.9+0.6)/3 = 0.6.
+    platforms = {0: (0.0,), 1: (0.3,), 2: (0.9,)}
+    prompt = build_coalition_system_prompt_calibrated(
+        [1, 2], initiator=0, initiator_seats=30, total_seats=100, majority_seats_threshold=50.0,
+        party_platforms=platforms,
+    )
+    assert "0.6000" in prompt
+
+
+def test_calibrated_coalition_prompt_includes_the_initiator_in_the_mean():
+    # Verifies the mean is over {initiator} | responders, not responders
+    # alone: with the initiator EXCLUDED the mean of a single pair (1, 2)
+    # would be a different, wrong number (0.6) than the true 3-party mean
+    # (0.6 coincidentally matches above; use an asymmetric case here so a
+    # bug that drops the initiator cannot pass by accident).
+    platforms = {0: (0.0,), 1: (1.0,), 2: (1.0,)}
+    # Correct (initiator included): pairs (0,1)=1.0, (0,2)=1.0, (1,2)=0.0 -> mean=0.6667
+    # Wrong (initiator excluded): only pair (1,2)=0.0 -> mean=0.0
+    prompt = build_coalition_system_prompt_calibrated(
+        [1, 2], initiator=0, initiator_seats=30, total_seats=100, majority_seats_threshold=50.0,
+        party_platforms=platforms,
+    )
+    assert "0.6667" in prompt
+    assert "0.0000" not in prompt
+
+
+def test_calibrated_coalition_prompt_is_additive_not_a_replacement():
+    platforms = {0: (0.0,), 1: (0.3,), 2: (0.9,)}
+    prompt = build_coalition_system_prompt_calibrated(
+        [1, 2], initiator=0, initiator_seats=30, total_seats=100, majority_seats_threshold=50.0,
+        party_platforms=platforms,
+    )
+    assert "[1,2]" in prompt and "EXACTEMENT ces 2 party_id" in prompt
+    assert "100" in prompt and "50.0" in prompt and "30" in prompt
+    assert "1 = JOIN" in prompt and "501 = IDEOLOGICAL_PROXIMITY" in prompt
+    assert "501" in prompt and "502" in prompt and "504" in prompt and "505" in prompt
+
+
+def test_calibrated_coalition_prompt_contains_no_coalition_theory_framing():
+    platforms = {0: (0.0,), 1: (0.3,), 2: (0.9,)}
+    prompt = build_coalition_system_prompt_calibrated(
+        [1, 2], initiator=0, initiator_seats=30, total_seats=100, majority_seats_threshold=50.0,
+        party_platforms=platforms,
+    )
+    forbidden = ["minimal", "minimale", "stable", "small coalition", "petite coalition", "prefer", "privilegie"]
+    lowered = prompt.lower()
+    for term in forbidden:
+        assert term not in lowered
+
+
+def test_calibrated_coalition_prompt_round_one_is_byte_identical_to_omitting_round_number():
+    platforms = {0: (0.0,), 1: (0.3,), 2: (0.9,)}
+    args = ([1, 2], 0, 30, 100, 50.0, platforms)
+    assert (
+        build_coalition_system_prompt_calibrated(*args, round_number=1)
+        == build_coalition_system_prompt_calibrated(*args)
+    )
 
 
 def test_coalition_user_prompt_carries_distance_seats_and_votes_per_responder():

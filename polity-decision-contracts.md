@@ -49,8 +49,8 @@ montre jamais. On corrige une copie sur un barème que l'élève n'a pas vu.
 | `campaign_positioning` | ✅ | ✅ | ✅ | ✅ | n/a | Pas de collapse (autre défaut : 50-66 % d'échec) |
 | `party_nomination_choice` | ✅ | ✅ | ⚠️ | ✅ | n/a | Pas de collapse (4/5) |
 | `candidacy_considered` | ✅ | ✅ | ❌ | ✅ | ❌ | Pas de collapse, mais 64 % de justesse mesurée |
-| `coalition_decision` | ✅ | ✅ | ⚠️ | ✅ | n/a | **Collapse confirmé** |
-| `representative_response` | ✅ | ✅ | ❌ | ✅ | n/a | **Collapse confirmé** (8B) |
+| `coalition_decision` | ✅ | ✅ | ⚠️ | ✅ | n/a | **Collapse confirmé, calibration C3 essayée et négative** |
+| `representative_response` | ✅ | ✅ | ✅ | ✅ | n/a | **Collapse fixé (partiel)**, voir §3 |
 | `chamber_deliberation` | ✅ | ✅ | ❌ | ✅ | n/a | Non tranché |
 | `reaction_to_event` | ✅ | ✅ | ❌ | ✅ | n/a | Pas de collapse détecté sur l'axe testé |
 | `pressure_action` | ✅ | ✅ | ❌ | ✅ | ❌ | **Collapse confirmé** |
@@ -143,10 +143,16 @@ satisfait maintenant les 5 clauses du contrat (§1). **Les 5 phases du plan sont
 > différemment d'un élu en position confortable.
 
 - Libre : la stance choisie, l'ampleur et la direction des ajustements.
-- À calibrer : `L`, `mandate_dev` et `street` sont décrits en prose (« accumulateur NON BORNE ») mais
-  jamais normalisés. Le véhicule le plus simple et incontestablement légal (C2, « règles du jeu ») :
-  les constantes shippées qui bornent ces grandeurs — `mandate.max_response_delta`, le plancher de
-  légitimité.
+- **Construit et livré, 2026-09-11** (Track B1, `lets-build-a-solid-spicy-otter.md`,
+  `scripts/check_response_calibration_results.md`) : `build_response_system_prompt_calibrated`
+  énonce désormais l'échelle de `mandate_dev` (borne géométrique exacte [0,1] — `pledge_weights`
+  renormalise toujours à somme 1, jamais une constante shippée choisie à la main) et de `street`
+  (asymptote `1/(1-decay)` dérivée de `street_pressure.decay`, ≈6,67 à la config livrée).
+  Résultat mesuré : `P(stance=1)` n'est plus plat — au pôle zéro-pression exact (mandate_dev=0,
+  street=0), le modèle bascule en stance=3 (SILENCE), `P(stance=1)` chutant de ~1,0 à 0,12.
+  **Lire précisément** : c'est une distinction zéro/non-zéro réelle, pas un gradient lisse — tous
+  les points au-dessus de zéro restent à `P(stance=1)≈1,0`. Le collapse est cassé, pas lissé ;
+  la sensibilité à l'AMPLEUR de la pression une fois qu'elle existe reste non établie.
 
 ### `coalition_decision` (dt=9)
 
@@ -154,8 +160,19 @@ satisfait maintenant les 5 clauses du contrat (§1). **Les 5 phases du plan sont
 > éloigné, à situation institutionnelle égale.
 
 - Libre : tout l'arbitrage — c'est le type où le §3.3 est le plus explicitement invoqué.
-- À calibrer : `distance_to_initiator` n'a aucune référence. Une échelle non prescriptive existe et
-  est déjà calculée ailleurs : la distance moyenne entre partis de l'assemblée.
+- **Essayé et NÉGATIF, 2026-09-11** (Track B2, `lets-build-a-solid-spicy-otter.md`,
+  `scripts/check_coalition_calibration_results.md`) : `build_coalition_system_prompt_calibrated`
+  énonce exactement la référence proposée ci-dessus (distance moyenne entre partis sièges,
+  formateur compris). Résultat sur la même sonde à 5 points : **aucune amélioration** —
+  différence pôle-à-pôle -0,0004 (référence : -0,0026, donc plus petite, pas plus grande),
+  étalement complet 0,047 (référence : 0,035), même creux au même point médian dans les deux
+  cas. **Non livré** — `decide_coalition` continue d'appeler la version non calibrée. C3 n'est
+  donc pas l'explication ici, contrairement à `pressure_action` (corrigé) et
+  `representative_response` (corrigé partiellement, B1). Deux lectures possibles, aucune
+  tranchée : la référence choisie ne correspond peut-être pas à ce qu'un parti pèse réellement,
+  ou « rejoindre quand on est invité » est peut-être une politique institutionnellement plausible
+  et largement indépendante de la distance idéologique — voir le doc de résultats avant de
+  trancher dans un sens ou l'autre.
 
 ### `chamber_deliberation` (dt=11)
 

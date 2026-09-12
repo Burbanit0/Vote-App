@@ -91,6 +91,26 @@ alongside `election_invalidated` -- both are "the calendar just got
 suspended" events, journaled from the exact same tick-loop position."""
 
 # Phase 1 (plan-flagship-30y-run.md): re-tested under vLLM, still collapse.
+#
+# `representative_response` got a partial fix 2026-09-11 (Track B1, lets-
+# build-a-solid-spicy-otter.md, scripts/check_response_calibration_
+# results.md) -- build_response_system_prompt_calibrated states mandate_
+# dev/street's own scales, and stance is no longer flat: P(stance=1) drops
+# to 0.12 at the genuine zero-pressure point. STILL LISTED HERE, on
+# purpose: that result is a real zero/nonzero distinction, not a validated
+# gradient -- every interpolated point ABOVE zero pressure still reads
+# P(stance=1)~=1.0, so mandate_deviation's own distribution above that one
+# point remains exactly as unverified as before the fix. Remove from this
+# tuple only once a probe establishes real sensitivity to the MAGNITUDE of
+# pressure once pressure exists, not merely to its presence.
+#
+# `coalition_decision`'s own C3 calibration attempt FAILED, same day (Track
+# B2, scripts/check_coalition_calibration_results.md): stating the mean
+# pairwise inter-party distance produced no improvement on the same 5-point
+# probe (pole-to-pole -0.0004 vs baseline -0.0026, full spread 0.047 vs
+# 0.035 -- both negligible, same shape). Not shipped. Unlike representative_
+# response, C3 does not explain this collapse -- see that results doc's own
+# two unresolved readings before assuming why.
 _UNVERIFIED_DECISION_TYPES = ("representative_response", "coalition_decision")
 
 # Maps a RunMetrics field name to the decision type indexer.py's own

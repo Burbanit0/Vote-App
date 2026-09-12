@@ -43,7 +43,7 @@ import httpx
 import pytest
 
 from api.domain.polity.citizen import Citizen, Office, Role
-from api.domain.polity.codebook import PressureMotif
+from api.domain.polity.codebook import PressureMotif, ResponseMotif, Stance
 from api.domain.polity.config import load_config
 from api.domain.polity.journal import Journal
 from api.domain.polity.llm_behavior_engine import (
@@ -413,3 +413,57 @@ def test_pressure_action_wiring_against_the_real_client_in_a_live_tick(client, t
         assert e["payload"]["act"] in legal
         assert e["motif"] in {str(m.value) for m in PressureMotif}
         assert e["codebook_version"] == config.llm.codebook_version
+
+
+def test_representative_response_wiring_against_the_real_client_in_a_live_tick(client, tmp_path):
+    """Track B1's own vLLM twin, same discipline as the dt10 test above:
+    proves run_polity_simulation.py's OWN wiring -- the frozen
+    ResponseContext, the calibrated system prompt (build_response_system_
+    prompt_calibrated, wired into decide_representative_response
+    2026-09-11), the journal write -- against a real client and a real
+    tick, not decide_representative_response in isolation. legitimacy.
+    enabled=True clears _run_accountability_phase's own early-return gate;
+    mandate.enabled=True is the SEPARATE, narrower gate `if config.llm.
+    enabled and config.mandate.enabled:` directly in front of _run_
+    representative_responses's own call site -- both are required,
+    legitimacy alone is not enough (confirmed the hard way: this test
+    asserted 0 events before mandate.enabled was added here)."""
+    config = _vllm_config()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=True))
+    config = dataclasses.replace(config, legitimacy=dataclasses.replace(config.legitimacy, enabled=True))
+    config = dataclasses.replace(config, mandate=dataclasses.replace(config.mandate, enabled=True))
+    dims = config.citizens.issue_count
+    holder = Citizen(
+        citizen_id=1,
+        issue_positions=tuple(0.5 for _ in range(dims)),
+        issue_priorities=tuple(1.0 / dims for _ in range(dims)),
+        blank_threshold=0.5,
+        ambition_score=0.5,
+        role=Role.ELECTED,
+        office=Office.PRESIDENT,
+        term_end_tick=16,
+        mandates_served=1,
+        legitimacy_capital=0.5,
+        mandate_strength=0.5,
+    )
+    holder.pledged_platform = holder.issue_positions
+    holder.revealed_position = holder.issue_positions
+
+    journal_path = tmp_path / "dt6-vllm-live.jsonl"
+    with Journal(journal_path, run_id="dt6-vllm-live") as journal:
+        _run_accountability_phase([holder], config, journal, tick=0, llm_client=client)
+
+    events = [json.loads(line) for line in journal_path.read_text(encoding="utf-8").splitlines()]
+    response_events = [e for e in events if e["event_type"] == "representative_response"]
+    assert len(response_events) == 1
+    e = response_events[0]
+    assert e["payload"]["office"] == Office.PRESIDENT.value
+    assert e["motif"] in {str(m.value) for m in ResponseMotif}
+    assert e["codebook_version"] == config.llm.codebook_version
+    # The one fact this Track B1 fix specifically claims: at genuinely zero
+    # deviation and zero street pressure (this holder's exact starting
+    # state -- pledged==revealed, street_pressure defaults to 0.0), the
+    # calibrated prompt's own live measurement was P(stance=1)=0.12, a
+    # sample from a real, non-degenerate distribution -- so any stance is a
+    # legal outcome here, never asserted to be exactly one value.
+    assert e["payload"]["stance"] in {int(s.value) for s in Stance}

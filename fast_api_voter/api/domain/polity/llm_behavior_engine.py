@@ -2642,6 +2642,99 @@ def build_response_system_prompt(holders: Sequence[Citizen], config: PolityConfi
     )
 
 
+def build_response_system_prompt_calibrated(holders: Sequence[Citizen], config: PolityConfig) -> str:
+    """Track B1 (2026-09-11, lets-build-a-solid-spicy-otter.md): C3 (state
+    must be perceptible) for dt=6. `check_logprob_response_stance_
+    tracking_results.md` measured P(stance=1)=1.000000 flat across the
+    entire crisis<->no-problem spectrum (L 0.95->0.05, mandate_dev
+    0.0->0.8, street 0.0->3.0) -- the same content-blind signature C3
+    diagnosed and fixed for pressure_action. `build_response_system_
+    prompt`'s own ctx explanation already states each field's UNITS
+    ("street: un accumulateur NON BORNE") but never its own SCALE -- a
+    number with no reference the model can calibrate against, exactly
+    the gap check_pressure_missing_threshold_results.md first named.
+
+    Deliberately NOT built as PressureCalibrationSignal's own "pick N
+    signals from a menu" shape: that menu exists because pressure_action's
+    four candidate signals are genuinely optional and mutually
+    substitutable (Phase C measured all four, Phase D costed only one).
+    Here there is no menu -- both missing scales are unconditional,
+    closed-form constants derived from `config`, always both true,
+    never a choice:
+
+      ctx.mandate_dev is a weighted Euclidean distance in issue space
+      where positions live in [0,1] and pledge_weights (accountability.py)
+      always renormalizes to sum to 1 regardless of mandate.pledge_scope
+      -- so unlike pressure_action's self_gap (which needed a config value,
+      blank_threshold, because it has no universal bound), mandate_dev's
+      ceiling is a mathematical fact, exactly 1.0, true for every run this
+      project can produce.
+
+      ctx.street is `decay * street(t-1) + rate` with rate in [0,1]
+      (accountability.update_street_pressure) -- a geometric series whose
+      worst-case asymptote is `1 / (1 - decay)`, computed here from
+      config.street_pressure.decay rather than hand-picked, so a future
+      config change keeps the stated ceiling honest without anyone
+      remembering to update a hardcoded sentence.
+
+    Because both facts are the same for every holder in every call, they
+    are stated ONCE here, in the system prompt -- unlike pressure_action's
+    per-citizen blank_threshold, there is no companion "_calibrated" user
+    prompt: build_response_user_prompt's own ctx payload already carries
+    the raw values these two sentences give a scale to, so it is reused
+    unchanged.
+
+    C4-compliant: both sentences state what a number MEANS, never what to
+    do about it -- no threshold, no "if X then concede" rule."""
+    mandate_dev_ceiling = 1.0
+    street_ceiling = 1.0 / (1.0 - config.street_pressure.decay)
+    cid_list = ",".join(str(h.citizen_id) for h in holders)
+    return (
+        "Tu es un moteur de simulation. Pour chaque elu recu "
+        "(representative_response), decide sa reaction a la pression "
+        "citoyenne et institutionnelle percue, a partir de sa promesse "
+        "electorale, de sa position actuelle, et du contexte ctx.\n"
+        "ctx.L : legitimite actuelle dans [0,1], null si non suivie.\n"
+        "ctx.mandate_dev : ecart pondere entre la promesse et la position "
+        "actuelle, deja accumule -- distance dans [0, "
+        f"{mandate_dev_ceiling:.1f}] : 0 = promesse parfaitement tenue sur "
+        "les dimensions qui comptent pour cet elu, "
+        f"{mandate_dev_ceiling:.1f} = ecart maximal geometriquement "
+        "possible sur ces memes dimensions (aucun ecart plus grand n'est "
+        "atteignable).\n"
+        "ctx.street : pression de rue, un accumulateur NON BORNE en "
+        "theorie (0 = aucune mobilisation, >=1 = mobilisation soutenue), "
+        f"mais dont le plafond realiste dans cette simulation est environ "
+        f"{street_ceiling:.2f} (mobilisation totale et continue, tick "
+        "apres tick, compte tenu de sa propre decroissance) ; null si non "
+        "suivie ou non visible.\n"
+        "ctx.lame_duck : 1 si l'elu a atteint la limite de mandats, "
+        "sinon 0.\nctx.ticks_left : nombre de ticks avant la prochaine "
+        "election presidentielle, null si aucune election prevue.\n"
+        "Un champ ctx a null signifie que cette grandeur n'est pas suivie "
+        "dans cette simulation, jamais qu'elle vaut zero.\n"
+        f"stance : {STANCE_PROMPT_TABLE}\n"
+        "shifts : au plus "
+        f"{config.mandate.max_response_shifts} ajustements de position, "
+        f"chaque delta strictement compris entre "
+        f"-{config.mandate.max_response_delta} et "
+        f"{config.mandate.max_response_delta} inclus. stance=1 "
+        "(concession) exige au moins un ajustement ; stance=3 (silence) "
+        "exige une liste vide.\n"
+        f"Motifs valides (code court obligatoire) :\n{RESPONSE_MOTIF_PROMPT_TABLE}\n"
+        "REGLE DE COHERENCE stance/motif obligatoire : stance=1 (concession) "
+        "exige motif 301, 302 ou 303 ; stance=2 (defiance) exige motif "
+        "307 ; stance=3 (silence) exige motif 308 ; stance=4 "
+        "(counter_mobilization) exige motif 309. Toute decision hors de "
+        "ces regles sera rejetee.\n"
+        f"IMPORTANT : la liste decisions doit contenir EXACTEMENT ces "
+        f"{len(holders)} cid, chacun une seule fois, dans cet ordre : "
+        f"[{cid_list}]. Verifie ta reponse avant de la finaliser : chaque "
+        "cid de cette liste doit apparaitre exactement une fois.\n"
+        "Reponds UNIQUEMENT avec un objet JSON conforme au schema fourni."
+    )
+
+
 def build_response_user_prompt(holders: Sequence[Citizen], contexts: Mapping[int, ResponseContext]) -> str:
     """Canonical JSON (sort_keys, compact separators, rounded floats), same
     reproducibility discipline as every prior prompt builder. `holders` is
@@ -2704,8 +2797,22 @@ def decide_representative_response(
     gradient anywhere between "near-perfect legitimacy, zero street pressure" and "near-zero
     legitimacy, deep mandate deviation, sustained mass mobilization". More extreme than
     pressure_action's own analogous reading (P(act=4) ranged 0.976-1.0, a small but real
-    gradient) -- this one shows none at all. Still no established mechanism, and still no
-    remediation attempted.
+    gradient) -- this one shows none at all.
+
+    ROOT-CAUSED AND SHIPPED 2026-09-11 (lets-build-a-solid-spicy-otter.md Track B1,
+    scripts/check_response_calibration_results.md): the mechanism is C3 (polity-decision-
+    contracts.md), the same defect diagnosed for pressure_action -- ctx.mandate_dev/ctx.street
+    were sent with their UNITS stated but never their SCALE, no reference the model could
+    calibrate against. build_response_system_prompt_calibrated states both: mandate_dev's own
+    [0,1] geometric bound (a mathematical certainty, not a config guess -- pledge_weights always
+    renormalizes to sum to 1) and street's decay-derived asymptote (1/(1-decay)). Re-ran the
+    EXACT same 9-point probe with only that one line changed: P(stance=1) is no longer flat --
+    0.1225 at the true zero-pressure pole (mandate_dev=0, street=0, chosen stance flips to 3
+    SILENCE), still ~1.0 at every other point. Read this precisely: the collapse is BROKEN, not
+    SMOOTHED -- this establishes a real zero/nonzero distinction, not a graded sensitivity to
+    the MAGNITUDE of pressure once pressure exists at all. stance_distribution/mandate_deviation
+    from an llm.enabled=True run are no longer a flat constant, but treat any claim of smooth
+    gradient sensitivity above the zero point as unestablished.
 
     Deliberately does NOT use chunk_voters/MIN_SAFE_BATCH_SIZE, same
     reasoning as decide_party_nominations/decide_campaign_positioning:
@@ -2731,7 +2838,7 @@ def decide_representative_response(
     try:
         decisions = _complete_and_decode_with_replay(
             client,
-            system_prompt=build_response_system_prompt(holders, config),
+            system_prompt=build_response_system_prompt_calibrated(holders, config),
             user_prompt=build_response_user_prompt(holders, contexts),
             json_schema=RESPONSE_JSON_SCHEMA,
             max_tokens=compute_max_tokens(len(holders)),
@@ -4471,6 +4578,92 @@ def build_coalition_system_prompt(
     )
 
 
+def build_coalition_system_prompt_calibrated(
+    responder_party_ids: Sequence[int],
+    initiator: int,
+    initiator_seats: int,
+    total_seats: int,
+    majority_seats_threshold: float,
+    party_platforms: dict[int, tuple[float, ...]],
+    round_number: int = 1,
+) -> str:
+    """Track B2 (2026-09-11, lets-build-a-solid-spicy-otter.md): C3 for
+    dt=9. check_logprob_coalition_action_tracking_results.md measured
+    P(action=1, JOIN) staying within 0.965-0.999 across the entire
+    join-obvious<->decline-obvious spectrum -- `distance_to_initiator`
+    (build_coalition_user_prompt) is sent with no reference at all,
+    polity-decision-contracts.md's own dt=9 entry names the gap exactly:
+    "distance_to_initiator n'a aucune reference."
+
+    Unlike mandate_dev's exact [0,1] geometric bound (Track B1):
+    `distance_to_initiator` is `math.dist` (form_coalition's own UNWEIGHTED
+    convention, no priority weighting), whose geometric maximum is
+    sqrt(issue_count) -- a real number, but not an informative one, for the
+    same reason pressure_action's own calibration work rejected an abstract
+    bound in favour of an empirical one: two real citizen-generated
+    platforms essentially never land at that theoretical extreme (every
+    dimension differing maximally), so stating it would be true but
+    useless. polity-decision-contracts.md's own §3 already names the
+    better reference: "la distance moyenne entre partis de l'assemblee" --
+    an empirical, in-context anchor, the same shape as campaign_
+    positioning's own non-collapsing electorate_mean (a population
+    reality, not a geometric ceiling).
+
+    Computed here, from `party_platforms` restricted to the SEATED parties
+    this call actually knows about (`{initiator} | responder_party_ids` --
+    decide_coalition's own `responders = [pid for pid in seated if pid !=
+    initiator]` makes this exactly the seated set, never a superset
+    including unseated parties who have no bearing on this negotiation).
+    One number for the whole call, like mandate_dev/street in Track B1 --
+    not a per-responder value, so (like B1) no companion "_calibrated" user
+    prompt is needed: build_coalition_user_prompt's existing
+    distance_to_initiator values are unchanged, this just gives them a
+    scale to be read against."""
+    seated_ids = [initiator, *responder_party_ids]
+    pairwise_distances = [
+        math.dist(party_platforms[a], party_platforms[b])
+        for i, a in enumerate(seated_ids)
+        for b in seated_ids[i + 1:]
+    ]
+    mean_distance = sum(pairwise_distances) / len(pairwise_distances) if pairwise_distances else 0.0
+    party_id_list = ",".join(str(pid) for pid in responder_party_ids)
+    round_sentence = (
+        ""
+        if round_number == 1
+        else (
+            f"Ceci est le tour {round_number} d'une negociation multi-tours : ta reponse au "
+            "tour precedent et l'etat provisoire de la coalition te sont rappeles ci-dessous. "
+            "Tu peux maintenir ta decision precedente ou en changer, a la lumiere de cet etat.\n"
+        )
+    )
+    return (
+        f"Tu es un moteur de simulation. Le parti {initiator} (avec "
+        f"{initiator_seats} sieges) vient d'etre designe formateur et "
+        "cherche a former une coalition gouvernementale. Pour chaque parti "
+        "recu, decide s'il rejoint cette coalition (action=1) ou refuse "
+        "(action=2), a partir de sa propre position, de sa proximite avec "
+        "le formateur, de son nombre de sieges, et de ce qu'il manque au "
+        f"formateur pour la majorite.\n{round_sentence}L'assemblee compte {total_seats} "
+        "sieges au total ; la coalition doit depasser strictement "
+        f"{majority_seats_threshold} sieges pour atteindre la majorite.\n"
+        f"distance_to_initiator (donnee dans le contexte de chaque parti) : distance non "
+        "ponderee entre les positions -- la distance MOYENNE entre partis de cette assemblee "
+        f"(tous partis sieges confondus, formateur compris) est d'environ {mean_distance:.4f}. "
+        "Ce nombre ne prescrit aucune reaction ; il situe seulement chaque distance individuelle "
+        "par rapport a la dispersion reelle de cette assemblee.\n"
+        f"Actions valides :\n{COALITION_ACTION_PROMPT_TABLE}\nMotifs "
+        f"valides (code court obligatoire) :\n{COALITION_MOTIF_PROMPT_TABLE}\n"
+        "CONTRAINTE STRICTE : le motif doit correspondre a l'action -- 501 "
+        "ou 502 si action=1, 504 ou 505 si action=2. Toute autre "
+        "combinaison sera rejetee.\nIMPORTANT : la liste decisions doit "
+        f"contenir EXACTEMENT ces {len(responder_party_ids)} party_id, "
+        f"chacun une seule fois, dans cet ordre : [{party_id_list}]. "
+        "Verifie ta reponse avant de la finaliser : chaque party_id de "
+        "cette liste doit apparaitre exactement une fois.\nReponds "
+        "UNIQUEMENT avec un objet JSON conforme au schema fourni."
+    )
+
+
 def build_coalition_user_prompt(
     responder_party_ids: Sequence[int],
     initiator: int,
@@ -4645,8 +4838,23 @@ def decide_coalition(
     within 0.965-0.999 at every point, including both original poles (pole-to-pole difference
     -0.0026, negligible; full spread 0.0345, non-monotonic). The batched shape did not rescue any
     signal a real, content-sensitive decision would show -- confirms and extends the original
-    6/6-identical finding rather than narrowing it. Still no established mechanism, and still no
-    remediation attempted.
+    6/6-identical finding rather than narrowing it.
+
+    C3 CALIBRATION ATTEMPTED AND FAILED, 2026-09-11 (lets-build-a-solid-spicy-otter.md Track B2,
+    scripts/check_coalition_calibration_results.md): unlike pressure_action (fixed) and
+    representative_response (partially fixed, Track B1), the C3 hypothesis does not explain this
+    collapse. build_coalition_system_prompt_calibrated states the one scale
+    polity-decision-contracts.md's own §3 names -- the mean pairwise distance among every seated
+    party -- and re-running the EXACT same 5-point probe with only that one line changed produced
+    NO improvement: pole-to-pole difference -0.000391 (baseline: -0.0026, smaller in magnitude,
+    not larger), full spread 0.046613 (baseline: 0.0345, marginally wider, still negligible), same
+    dip at the same t=0.5 midpoint in both runs. NOT SHIPPED -- this function still calls the
+    uncalibrated build_coalition_system_prompt. Two unresolved readings, neither established: the
+    chosen reference (assembly-wide dispersion) may not be what a party actually weighs, or "join
+    when invited" may be a policy the model converges to for institutionally plausible reasons
+    largely independent of platform distance -- see the results doc's own "what this means, and
+    what it does not" section before assuming either. Still no established mechanism, and C3 is
+    now a tested, not just suspected, non-explanation for this specific type.
 
     Formation only: design doc §3.1's "maintien et rupture" of a coalition
     across subsequent ticks is out of scope for this increment. Reasons: no
