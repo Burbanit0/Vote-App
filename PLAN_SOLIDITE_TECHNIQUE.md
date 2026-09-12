@@ -2458,7 +2458,7 @@ un chiffre que personne ne publie.
 | **Rétrospective du plan** | Ce plan a-t-il survécu au contact ? Quels items abandonnés, lesquels ajoutés en route, lesquels ont déçu. | M | 📝📝📝 | ✅ voir détail sous le tableau |
 | **Les 3-4 histoires les plus partageables** | Candidats naturels : « la couverture à 91 % ment-elle ? » (Lot 5) · « 25 outils de qualité sur un vrai projet, le tableau des verdicts » (Lot 0.3) · « tester une théorie mathématique comme on teste du code » (Lot 4) · « combien de mes conventions écrites étaient déjà violées » (Lot 2). | L | 📝📝📝 | ✅ voir détail sous le tableau |
 | **`CODE_AUDIT.md` rejoué** | Nouvelle édition datée après tous les lots, comparaison avec l'édition du 2026-09-06. | S | 📝📝 | ✅ voir détail sous le tableau |
-| **README qui raconte** | Le repo est public : rendre visible la double exploration (méthodes de vote *et* pratiques de dev). | M | 📝📝📝 | |
+| **README qui raconte** | Le repo est public : rendre visible la double exploration (méthodes de vote *et* pratiques de dev). | M | 📝📝📝 | ✅ voir détail sous le tableau |
 
 **Index des verdicts, détail.** `docs/exploration/README.md` tient déjà à
 jour : 14 expériences formelles closes (EXP-001 à EXP-014), chacune avec un
@@ -2553,6 +2553,21 @@ seul. `./scripts/check_quality_ratchet.sh` confirmé vert après correctif :
 dette tenue exactement à la baseline sur les 5 métriques. Détail complet et
 raisonnement dans `CODE_AUDIT.md` lui-même (section « Mise à jour du
 2026-09-12 »).
+
+**README qui raconte, détail** (2026-09-12). Nouvelle section « A second
+thing being explored here » ajoutée à [`README.md`](README.md), en anglais
+comme le reste de la façade publique du dépôt, placée après « Architecture »
+et avant « Workflow » — le produit et sa stack d'abord, la double
+exploration ensuite plutôt qu'en tête, pour ne pas retarder le lecteur venu
+pour l'app. Quatre liens, un par pièce déjà produite par ce Lot plutôt qu'un
+résumé qui les duplique : les [quatre récits](docs/stories/README.md), l'
+[index des 14 verdicts](docs/exploration/README.md), `RETROSPECTIVE.md` et
+le couple `CODE_AUDIT.md`/`PLAN_SOLIDITE_TECHNIQUE.md` — ces deux derniers
+et `RETROSPECTIVE.md` marqués explicitement « French » dans le README
+lui-même, seule entorse à sa convention 100 % anglaise, pour ne pas prétendre
+qu'un lecteur non francophone peut les lire tels quels. Item volontairement
+tenu au format lien-plus-une-phrase : le contenu narratif vit déjà dans les
+documents cités, pas dans une nouvelle paraphrase.
 
 ---
 

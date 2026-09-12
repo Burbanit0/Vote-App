@@ -224,6 +224,34 @@ the playground architecture.
 
 ---
 
+## A second thing being explored here
+
+Vote Lab runs two explorations side by side: the mathematics of voting methods,
+and — visible directly in this repo — a real hardening effort on how the
+project itself is built and tested. Both are treated as things that need
+evidence, not just a claim.
+
+- **[Four narrative write-ups](docs/stories/README.md)** — a green coverage
+  badge that turns out to measure execution, not reachability; a table of
+  quality tools that tracks the rejects with the same rigor as the adoptions;
+  voting theory's own axioms (Condorcet, monotonicity, independence of
+  clones…) turned into fuzzed executable tests; four documented-but-unenforced
+  conventions turned into blocking gates, two of which caught real, unfixed
+  debt.
+- **[14 tool trials, each closed with an argued verdict](docs/exploration/README.md)**
+  — adopt, reject, or suspend, backed by real findings and real cost rather
+  than "we added X."
+- **[`RETROSPECTIVE.md`](RETROSPECTIVE.md)** (French) — did the plan behind
+  all this survive contact with the actual work? What got added mid-flight,
+  what disappointed, what two independent `EXP-*` numbering collisions
+  revealed about running concurrent agents against the same repo.
+- **[`CODE_AUDIT.md`](CODE_AUDIT.md)** and
+  **[`PLAN_SOLIDITE_TECHNIQUE.md`](PLAN_SOLIDITE_TECHNIQUE.md)** (French) —
+  the quantified baseline and the lot-by-lot plan behind all of the above,
+  both still maintained as the work continues.
+
+---
+
 ## Workflow
 
 ```
