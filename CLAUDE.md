@@ -102,3 +102,9 @@ libs in `src/lib/` with a thin component each.
 - Open a PR per step against `develop`. Merge with `--no-ff`. `develop → main` for
   releases.
 - Repo is public (MIT). Commit author email is the `noreply` form for new commits.
+- **Run `/code-review ultra` before merging a PR that touches the voting engine**
+  (`simulation_ranked_utils.py`, `simulation_score_utils.py`, `playgroundVoting.ts`)
+  or any other high-blast-radius surface (auth-adjacent config, CI/CD workflows,
+  the parity/axiom test harnesses). It exists and is underused — standard CI gates
+  catch regressions in what's already tested, not a subtly-wrong new rule
+  implementation or a logic error a human reviewer would have caught.
