@@ -8,7 +8,8 @@ representational proportionality rather than a single collective choice.
 """
 import math
 from collections import defaultdict
-from itertools import combinations
+from itertools import combinations, chain
+from operator import itemgetter
 from typing import Callable, Dict, List, Optional, Any
 
 
@@ -45,7 +46,7 @@ def get_stv_winners(votes: list[Any], num_winners: int) -> List[str]:
     droop_quota = n // (num_winners + 1) + 1
 
     # Pool: list of (weight, remaining_ranking)
-    pool: List[tuple[float, List[str]]] = [(1.0, r[:]) for r in ballots]
+    pool: List[tuple[float, List[str]]] = [(1.0, r.copy()) for r in ballots]
 
     elected: List[str] = []
     eliminated: set[str] = set()
@@ -151,7 +152,7 @@ def get_stv_result(
         quota = n // (num_seats + 1) + 1
 
     # Pool: each entry is (weight: float, ranking: List[str])
-    pool: List[tuple[float, List[str]]] = [(1.0, list(r)) for r in votes]
+    pool: List[tuple[float, List[str]]] = [(1.0, r.copy()) for r in votes]
 
     elected:   List[str] = []
     eliminated: set[str] = set()
@@ -177,7 +178,7 @@ def get_stv_result(
         remaining_seats = num_seats - len(elected)
 
         # All active candidates (with or without current votes)
-        all_candidate_names = sorted({c for r in votes for c in r})
+        all_candidate_names = sorted(set(chain.from_iterable(votes)))
         active_candidates   = [c for c in all_candidate_names if c not in excluded]
 
         # Auto-elect when active candidates ≤ remaining seats
@@ -188,7 +189,7 @@ def get_stv_result(
                         "round":     round_num,
                         "action":    "auto_elect",
                         "candidate": c,
-                        "tallies":   dict(counts),
+                        "tallies":   counts.copy(),
                         "transfers": {},
                     })
                     elected.append(c)
@@ -231,7 +232,7 @@ def get_stv_result(
                 "round":     round_num,
                 "action":    "elect",
                 "candidate": winner,
-                "tallies":   dict(new_counts),
+                "tallies":   new_counts.copy(),
                 "transfers": dict(transfers),
             })
             round_num += 1
@@ -247,7 +248,7 @@ def get_stv_result(
                 "round":     round_num,
                 "action":    "eliminate",
                 "candidate": loser,
-                "tallies":   dict(new_counts),
+                "tallies":   new_counts.copy(),
                 "transfers": {},
             })
             round_num += 1
@@ -330,7 +331,7 @@ def compute_proportionality_metrics(
     total_votes = sum(party_votes.values())
     total_seats = sum(seats_won.values())
 
-    if total_votes == 0 or total_seats == 0:
+    if 0 in (total_votes, total_seats):
         return {
             "gallagher_index": None,
             "largest_deviation": None,
@@ -413,7 +414,7 @@ def compare_multiwinner_methods(
             for key in ("dhondt", "sainte_lague", "largest_remainder_hare", "largest_remainder_droop")
             if results[key]["metrics"].get("gallagher_index") is not None
         ],
-        key=lambda x: x[1],
+        key=itemgetter(1),
     )
 
     results["comparison"] = {
@@ -536,7 +537,7 @@ def get_phragmen_result(
 
         best_candidate: Optional[str] = None
         best_max_load  = math.inf
-        best_new_loads: List[float] = loads[:]
+        best_new_loads: List[float] = loads.copy()
 
         for c in remaining:
             supporters = [i for i, b in enumerate(approval_ballots) if c in b]
@@ -556,7 +557,7 @@ def get_phragmen_result(
             ):
                 best_max_load   = new_max
                 best_candidate  = c
-                best_new_loads  = loads[:]
+                best_new_loads  = loads.copy()
                 for i in supporters:
                     best_new_loads[i] += load_increment
 
@@ -632,7 +633,7 @@ def get_equal_shares_result(
 
     elected: List[str] = []
     rounds: List[Dict[str, Any]] = []
-    remaining = list(all_cands)
+    remaining = all_cands.copy()
 
     while len(elected) < k:
         best_c: Optional[str] = None
@@ -695,7 +696,7 @@ def check_justified_representation(
     W = set(committee)
     quota = n / k
     sets = [set(b) for b in approval_ballots]
-    cands = sorted({c for b in approval_ballots for c in b} | W)
+    cands = sorted(set(chain.from_iterable(approval_ballots)) | W)
     max_l = min(k, len(cands))
 
     jr = pjr = ejr = True

@@ -154,7 +154,7 @@ def _e2e_demo_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
 # ── Pol.is simulation ─────────────────────────────────────────────────────────
 
-_DEFAULT_STATEMENTS = [
+_DEFAULT_STATEMENTS = (
     "Les plateformes de location courte durée doivent être réglementées.",
     "Les hôtes devraient payer des taxes identiques aux hôtels.",
     "Les VTC doivent respecter les mêmes obligations que les taxis.",
@@ -165,7 +165,7 @@ _DEFAULT_STATEMENTS = [
     "Les gouvernements locaux devraient contrôler les plateformes.",
     "La concurrence entre plateformes bénéficie aux consommateurs.",
     "Les données des utilisateurs appartiennent aux utilisateurs, pas aux plateformes.",
-]
+)
 
 
 def _polis_simulation_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
@@ -271,7 +271,7 @@ def _polis_simulation_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
     # ── Participant positions for scatter ─────────────────────────────────
     participant_positions = [
         {
-            "id":         int(i),
+            "id":         i,
             "x_pca":      round(float(coords_2d[i, 0]), 3),
             "y_pca":      round(float(coords_2d[i, 1]), 3),
             "cluster_id": int(labels[i]),

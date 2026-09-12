@@ -75,9 +75,9 @@ def _build_simple_population(
 
 def _methods_payload(family: str = "") -> dict[str, Any]:
     """Build the GET /methods response body. `family` filters by method family."""
-    family = (family or "").strip().lower()
+    family = family.strip().lower()
     methods = [
-        {"key": k, **v}
+        {"key": k} | v
         for k, v in METHODS_CATALOG.items()
         if not family or v["family"] == family
     ]
@@ -172,9 +172,8 @@ def _real_elections_payload() -> dict[str, Any]:
     """Build the GET /real-elections response body."""
     from api.engine.utils.real_election_data import REAL_ELECTIONS
 
-    elections = []
-    for key, data in REAL_ELECTIONS.items():
-        elections.append({
+    elections = [
+        {
             "key":                  key,
             "name":                 data["name"],
             "year":                 data["year"],
@@ -182,7 +181,9 @@ def _real_elections_payload() -> dict[str, Any]:
             "num_candidates":       len(data["candidates"]),
             "estimated_blank_pct":  data.get("estimated_blank_pct", 0),
             "source":               data.get("source", ""),
-        })
+        }
+        for key, data in REAL_ELECTIONS.items()
+    ]
 
     return {"count": len(elections), "elections": elections}
 

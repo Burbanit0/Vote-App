@@ -17,6 +17,7 @@ SPATIAL pipeline (simulation_voting_utils.py):
     POST /simulations/get_utility_matrix
     POST /simulations/get_voter_segments
 """
+from operator import itemgetter
 from typing import Any, Callable, Dict
 
 from opentelemetry import trace
@@ -206,7 +207,7 @@ def _simulate_voters_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 def _simulate_candidates_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     num_candidates = data.get("num_candidates", 4)
     issues = data.get("issues") or DEFAULT_ISSUES
-    default_parties = ["Green", "Conservative", "Liberal", "Independent"]
+    default_parties = ("Green", "Conservative", "Liberal", "Independent")
     parties = data.get("parties") or default_parties
     if num_candidates > len(parties):
         parties = parties * (num_candidates // len(parties) + 1)
@@ -331,7 +332,7 @@ def _voter_segments_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         segment_definitions: dict[str, dict[str, Any]] = {
             "young_female": {"test": lambda v: v["age"] <= 30 and v["gender"] == "female", "label": "Jeunes femmes (18-30)"},
             "old_male":     {"test": lambda v: v["age"] > 60 and v["gender"] == "male",   "label": "Hommes âgés (60+)"},
-            "high_edu":     {"test": lambda v: v["education"] in ["master", "phd"],        "label": "Éducation élevée"},
+            "high_edu":     {"test": lambda v: v["education"] in ("master", "phd"),        "label": "Éducation élevée"},
             "low_income":   {"test": lambda v: v["income"] == "low",                       "label": "Faible revenu"},
             "urban":        {"test": lambda v: v["region"] == "urban",                     "label": "Urbains"},
             "rural":        {"test": lambda v: v["region"] == "rural",                     "label": "Ruraux"},
@@ -352,7 +353,7 @@ def _voter_segments_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             for voter in segment_voters:
                 voter_utilities = [r for r in utility_results if r["voter_id"] == voter["id"]]
                 if voter_utilities:
-                    segment_utilities.append(max(voter_utilities, key=lambda x: x["utility"]))
+                    segment_utilities.append(max(voter_utilities, key=itemgetter("utility")))
             if not segment_utilities:
                 continue
             avg_utility = sum(u["utility"] for u in segment_utilities) / len(segment_utilities)

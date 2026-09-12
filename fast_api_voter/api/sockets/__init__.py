@@ -49,7 +49,7 @@ _stop_flags: dict[str, bool] = {}
 
 
 _CANDIDATE_NAMES = ["Alice", "Bob", "Carol", "Dave", "Eve", "Frank", "Grace", "Hugo"]
-_PARTY_CYCLE     = ["Green", "Conservative", "Liberal", "Independent"]
+_PARTY_CYCLE     = ("Green", "Conservative", "Liberal", "Independent")
 _EMIT_EVERY      = 50
 
 
@@ -210,7 +210,7 @@ async def start_monte_carlo(sid: str, data: dict[str, Any]) -> None:
             completed_runs = i + 1
             partial: dict[str, Any] = {}
             for m in method_names:
-                wc          = dict(winner_counts[m])
+                wc          = winner_counts[m].copy()
                 most_common = max(wc, key=wc.get) if wc else None   # type: ignore[arg-type]
                 partial[m]  = {
                     "winner_distribution": {
@@ -239,11 +239,11 @@ async def start_monte_carlo(sid: str, data: dict[str, Any]) -> None:
                 "total":                 num_iterations,
                 "partial_results":       partial,
                 "condorcet_exists_rate": round(condorcet_exists / completed_runs, 4),
-                "regret_history":        {m: list(regret_history_pts[m])
+                "regret_history":        {m: regret_history_pts[m].copy()
                                           for m in method_names},
                 "agreement_rate":        agreement_rate,
                 "regret_ci_half":        {m: ci_half_now[m] for m in method_names},
-                "iteration_checkpoints": list(iteration_checkpoints),
+                "iteration_checkpoints": iteration_checkpoints.copy(),
             }, to=sid)
             # No explicit yield needed — emit is awaited and asyncio.to_thread
             # is naturally yielding.
@@ -251,7 +251,7 @@ async def start_monte_carlo(sid: str, data: dict[str, Any]) -> None:
     # ── Final result ──────────────────────────────────────────────────────
     final: dict[str, Any] = {}
     for m in method_names:
-        wc          = dict(winner_counts[m])
+        wc          = winner_counts[m].copy()
         most_common = max(wc, key=wc.get) if wc else None   # type: ignore[arg-type]
         final[m]    = {
             "winner_distribution": {

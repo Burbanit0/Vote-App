@@ -20,10 +20,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from api.engine.constants import DEFAULT_ISSUES
 
-_DEFAULT_PARTIES = ["Green", "Conservative", "Liberal", "Independent"]
-_DEFAULT_SEGMENTS = [
+_DEFAULT_PARTIES = ("Green", "Conservative", "Liberal", "Independent")
+_DEFAULT_SEGMENTS = (
     "young_female", "old_male", "high_edu", "low_income", "urban", "rural",
-]
+)
 
 # Shared bounds for the three request fields that reached production with no
 # validation at all (schema or worker) — unlike every other num_voters/
@@ -57,7 +57,7 @@ class SimulateCandidatesRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     num_candidates: int = 4
-    issues:  List[str] = Field(default_factory=lambda: list(DEFAULT_ISSUES))
+    issues:  List[str] = Field(default_factory=DEFAULT_ISSUES.copy)
     parties: List[str] = Field(default_factory=lambda: list(_DEFAULT_PARTIES))
 
 
@@ -75,7 +75,7 @@ class SimulateUtilityRequest(BaseModel):
 
     voters:     List[Dict[str, Any]] = Field(default_factory=list)
     candidates: List[Dict[str, Any]] = Field(default_factory=list)
-    issues:     List[str] = Field(default_factory=lambda: list(DEFAULT_ISSUES))
+    issues:     List[str] = Field(default_factory=DEFAULT_ISSUES.copy)
 
 
 class CalculateUtilityRequest(BaseModel):
@@ -84,7 +84,7 @@ class CalculateUtilityRequest(BaseModel):
 
     voter:     Dict[str, Any] = Field(default_factory=dict)
     candidate: Dict[str, Any] = Field(default_factory=dict)
-    issues:    List[str] = Field(default_factory=lambda: list(DEFAULT_ISSUES))
+    issues:    List[str] = Field(default_factory=DEFAULT_ISSUES.copy)
 
 
 class UtilityMatrixRequest(BaseModel):
@@ -93,7 +93,7 @@ class UtilityMatrixRequest(BaseModel):
 
     voters:     List[Dict[str, Any]] = Field(default_factory=list)
     candidates: List[Dict[str, Any]] = Field(default_factory=list)
-    issues:     List[str] = Field(default_factory=lambda: list(DEFAULT_ISSUES))
+    issues:     List[str] = Field(default_factory=DEFAULT_ISSUES.copy)
 
 
 class VoterSegmentsRequest(BaseModel):
@@ -102,7 +102,7 @@ class VoterSegmentsRequest(BaseModel):
 
     voters:     List[Dict[str, Any]] = Field(default_factory=list)
     candidates: List[Dict[str, Any]] = Field(default_factory=list)
-    issues:     List[str] = Field(default_factory=lambda: list(DEFAULT_ISSUES))
+    issues:     List[str] = Field(default_factory=DEFAULT_ISSUES.copy)
     segments:   List[str] = Field(default_factory=lambda: list(_DEFAULT_SEGMENTS))
 
 
@@ -131,7 +131,7 @@ class CampaignRequest(BaseModel):
 # Responses stay Dict (passthrough). `candidates` is a union of name strings and
 # {name,x,y,…} dicts depending on the tab, so we keep it List[Any] + extra=ignore.
 
-_DEFAULT_CANDIDATES = ["Alice", "Bob", "Charlie"]
+_DEFAULT_CANDIDATES = ("Alice", "Bob", "Charlie")
 
 
 class CompareMethodsRequest(BaseModel):

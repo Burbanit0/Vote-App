@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import random as _random
 from collections import Counter
+from operator import itemgetter
 from typing import Any, Dict, Optional
 
 import numpy as _np
@@ -251,9 +252,10 @@ def _campaign_sensitivity_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], 
     # negative index — for a large enough magnitude that overflows CPython's
     # ssize_t, crashing with IndexError instead of wrapping or 400ing
     # (found by Schemathesis, Lot 3).
-    resolved: list[int] = []
-    for d in raw_snaps:
-        resolved.append(num_days if d == "final" else max(0, min(int(d), num_days)))
+    resolved: list[int] = [
+        num_days if d == "final" else max(0, min(int(d), num_days))
+        for d in raw_snaps
+    ]
     snapshot_days = sorted(set(resolved))
 
     # ── Snapshot loop ─────────────────────────────────────────────────────
@@ -502,7 +504,7 @@ def _combined_effects_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
     most_disruptive  = min(factor_deltas, key=lambda k: factor_deltas[k])
     least_disruptive = max(factor_deltas, key=lambda k: factor_deltas[k])
     max_disrup_combo = min(
-        combinations, key=lambda c: c["inter_method_agreement"]
+        combinations, key=itemgetter("inter_method_agreement")
     )["id"]
 
     return {
@@ -643,10 +645,11 @@ def _interpret_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
           else condorcet_analysis
 
     # ── 5. Best / worst method by Bayesian Regret ─────────────────────────
-    regrets: Dict[str, float] = {}
-    for m, md in methods_raw.items():
-        if isinstance(md, dict) and md.get("bayesian_regret") is not None:
-            regrets[m] = float(md["bayesian_regret"])
+    regrets: Dict[str, float] = {
+        m: float(md["bayesian_regret"])
+        for m, md in methods_raw.items()
+        if isinstance(md, dict) and md.get("bayesian_regret") is not None
+    }
 
     best_by_regret  = min(regrets, key=lambda k: regrets[k]) if regrets else None
     worst_by_regret = max(regrets, key=lambda k: regrets[k]) if regrets else None
@@ -777,7 +780,7 @@ def _simulate_pipeline_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
 
     steps:    list[Dict[str, Any]] = []
     prev_snap: list[Dict[str, Any]] = []
-    current_utilities: Dict[Any, Dict[str, float]] = dict(true_utilities)
+    current_utilities: Dict[Any, Dict[str, float]] = true_utilities.copy()
 
     # ── Step 1: Base electorate ───────────────────────────────────────────
     base_snap = _voter_snap(voters, true_utilities, blank_enabled)
@@ -1021,12 +1024,11 @@ def _coalition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         for c in candidates
     }
 
-    result_mc = compare_all_methods(
+    methods_data: Dict[str, Any] = compare_all_methods(
         voters, candidates, issues,
         blank_vote=False,
         override_utilities=true_utilities,
-    )
-    methods_data: Dict[str, Any] = result_mc.get("methods", {})
+    ).get("methods", {})
 
     seat_threshold = int(_np.ceil(total_seats * government_threshold))
 
@@ -1256,8 +1258,7 @@ def _build_primary_candidate(
     i: int, name: str, ideology_pos: float, issues: list[str]
 ) -> Dict[str, Any]:
     """Build a candidate dict from a 1-D ideology position in [-1, 1]."""
-    x = float(ideology_pos)
-    return _build_candidate_from_xy(i, name, x, 0.0, issues)
+    return _build_candidate_from_xy(i, name, ideology_pos, 0.0, issues)
 
 
 def _run_primary(

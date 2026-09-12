@@ -627,7 +627,7 @@ class CampaignSensitivityRequest(BaseModel):
     # dicts/floats/null that crashed _campaign_sensitivity_worker's `int(d)`
     # with a raw TypeError instead of a 422 (found by Schemathesis, Lot 3).
     snapshot_days: List[Union[int, Literal["final"]]] = Field(
-        default_factory=lambda: list(_DEFAULT_SNAPSHOT_DAYS),
+        default_factory=_DEFAULT_SNAPSHOT_DAYS.copy,
         description="Days at which to snapshot — strings ('final') and ints are both accepted.",
     )
 

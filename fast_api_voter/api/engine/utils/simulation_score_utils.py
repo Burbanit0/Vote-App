@@ -1,4 +1,5 @@
 from collections import defaultdict
+from operator import itemgetter
 from typing import Any, Dict, List, Optional
 import math
 import statistics
@@ -21,7 +22,7 @@ def get_simple_score_winner(all_scores: Any) -> Dict[str, Any]:
         averages.append((candidate, avg))
 
     # Sort by average score (descending)
-    averages.sort(key=lambda x: x[1], reverse=True)
+    averages.sort(key=itemgetter(1), reverse=True)
 
     return {
         "method": "Simple Score",
@@ -50,7 +51,7 @@ def get_star_voting_winner(all_scores: Any) -> Dict[str, Any]:
         averages.append((candidate, avg))
 
     # Sort by average score (descending)
-    averages.sort(key=lambda x: x[1], reverse=True)
+    averages.sort(key=itemgetter(1), reverse=True)
 
     # Take top two candidates for runoff
     if len(averages) < 2:
@@ -180,7 +181,7 @@ def get_median_voting_winner(all_scores: Any) -> Dict[str, Any]:
         medians.append((candidate, median))
 
     # Sort by median score (descending)
-    medians.sort(key=lambda x: x[1], reverse=True)
+    medians.sort(key=itemgetter(1), reverse=True)
 
     return {
         "method": "Median Voting",
@@ -217,7 +218,7 @@ def get_mean_median_hybrid_winner(all_scores: Any) -> Dict[str, Any]:
             }
         )
 
-    results.sort(key=lambda x: x["combined"], reverse=True)
+    results.sort(key=itemgetter("combined"), reverse=True)
 
     return {
         "method": "Mean-Median Hybrid",
@@ -261,7 +262,7 @@ def get_variance_based_winner(all_scores: Any) -> Dict[str, Any]:
             }
         )
 
-    results.sort(key=lambda x: x["weighted_score"], reverse=True)
+    results.sort(key=itemgetter("weighted_score"), reverse=True)
 
     return {
         "method": "Variance-Based",
@@ -311,7 +312,7 @@ def get_score_distribution_analysis(all_scores: Any) -> Dict[str, Any]:
             }
         )
 
-    results.sort(key=lambda x: x["total"], reverse=True)
+    results.sort(key=itemgetter("total"), reverse=True)
 
     return {"method": "Score Distribution Analysis", "details": results}
 
@@ -363,7 +364,7 @@ def calculate_bayesian_regret(all_scores: Any) -> Dict[str, Any]:
     regrets = [_regret_for_candidate(c, scored_ballots, utilities) for c in candidates]
 
     # Sort by average regret (ascending - lower regret is better)
-    regrets.sort(key=lambda x: x["avg_regret"])
+    regrets.sort(key=itemgetter("avg_regret"))
 
     return {
         "method": "Bayesian Regret",

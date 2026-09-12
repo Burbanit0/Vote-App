@@ -112,7 +112,7 @@ def _balloted_winner(
 
     try:
         winner = fn(ballots)
-        return winner if winner else _plurality_winner(utilities)
+        return winner or _plurality_winner(utilities)
     except Exception:
         log.warning("campaign_dynamics.balloted_winner_failed", method=method, exc_info=True)
         return _plurality_winner(utilities)
@@ -195,7 +195,7 @@ def simulate_campaign(
             daily_scores[name].append(round(share * 100, 2))
 
         # 3. Daily leader (method-specific)
-        if method in ("plurality",):
+        if method == "plurality":
             leader = _plurality_winner(utilities)
         elif method == "borda":
             leader = _borda_winner(utilities, names)
@@ -218,7 +218,7 @@ def simulate_campaign(
     # Annotate events with measured impact direction
     annotated: list[dict[str, Any]] = []
     for ev in events:
-        ev_copy = dict(ev)
+        ev_copy = ev.copy()
         etype   = str(ev.get("type", "scandal"))
         mag     = float(ev.get("magnitude", 0.2))
         # Positive for boosts, negative for penalties

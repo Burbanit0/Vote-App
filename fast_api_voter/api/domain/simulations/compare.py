@@ -12,6 +12,8 @@ functions (return `(body, status)`) so the FastAPI sibling
 (api/routes/simulations.py) can reuse it. The Flask routes below are thin
 delegates kept as a rollback target.
 """
+from contextlib import suppress
+from itertools import chain
 from typing import Any, Dict, List, Optional, Tuple
 
 
@@ -443,7 +445,7 @@ def _scenario_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
 
     return {
         "without_blank": _filter(result_no_blank),
-        "with_blank":    {**_filter(result_with_blank), "blank_pct": blank_pct},
+        "with_blank":    _filter(result_with_blank) | {"blank_pct": blank_pct},
     }, 200
 
 
@@ -549,7 +551,7 @@ def _manipulability_worker(params: Dict[str, Any]) -> Tuple[Dict[str, Any], int]
 # ── Vote-steps (step-by-step counting animation) ──────────────────────────────
 
 _VOTE_STEPS_METHODS = {"irv", "borda", "plurality", "schulze", "approval"}
-_PARTY_CYCLE_STEPS  = ["Green", "Conservative", "Liberal", "Independent"]
+_PARTY_CYCLE_STEPS  = ("Green", "Conservative", "Liberal", "Independent")
 
 
 def _irv_steps(rankings: list[list[str]], n_voters: int) -> list[dict[str, Any]]:
@@ -567,7 +569,7 @@ def _irv_steps(rankings: list[list[str]], n_voters: int) -> list[dict[str, Any]]
     from collections import Counter
 
     rounds: list[dict[str, Any]] = []
-    active: set[str]             = {c for r in rankings for c in r}
+    active: set[str]             = set(chain.from_iterable(rankings))
     last_eliminated: Optional[str]                  = None
     last_transfers:  Optional[dict[str, float]]     = None
 
@@ -587,9 +589,11 @@ def _irv_steps(rankings: list[list[str]], n_voters: int) -> list[dict[str, Any]]
         winner = next((c for c, v in counts.items() if v * 2 > total), None)
         if winner or len(active) == 1:
             winner = winner or next(iter(active))
-            rounds.append({"round": rnum, "scores": scores,
-                           "eliminated": last_eliminated, "transfers": last_transfers})
-            rounds.append({"round": rnum + 1, "winner": winner})
+            rounds.extend((
+                {"round": rnum, "scores": scores,
+                 "eliminated": last_eliminated, "transfers": last_transfers},
+                {"round": rnum + 1, "winner": winner},
+            ))
             break
 
         # Find ALL candidates at the minimum count (canonical IRV: eliminate
@@ -637,7 +641,7 @@ def _borda_steps(
     rankings: list[list[str]],
 ) -> tuple[list[dict[str, Any]], Optional[str]]:
     """Return (steps_list, winner) for Borda animation (one step per rank)."""
-    all_candidates = sorted({c for r in rankings for c in r})
+    all_candidates = sorted(set(chain.from_iterable(rankings)))
     n = max((len(r) for r in rankings), default=0)
     cumulative: dict[str, int] = {c: 0 for c in all_candidates}
     steps: list[dict[str, Any]] = []
@@ -650,7 +654,7 @@ def _borda_steps(
         steps.append({
             "rank":           rank_idx + 1,
             "points_awarded": points,
-            "tally":          dict(cumulative),
+            "tally":          cumulative.copy(),
         })
 
     winner: Optional[str] = max(cumulative, key=lambda k: cumulative[k]) if cumulative else None
@@ -670,14 +674,12 @@ def _schulze_matrices(
     pref: dict[str, dict[str, int]] = {c1: {c2: 0 for c2 in cands if c2 != c1} for c1 in cands}
     for c1, c2 in combinations(cands, 2):
         for r in rankings:
-            try:
+            with suppress(ValueError):
                 p1, p2 = r.index(c1), r.index(c2)
                 if p1 < p2:
                     pref[c1][c2] += 1
                 else:
                     pref[c2][c1] += 1
-            except ValueError:
-                pass
 
     duel_pct = {c1: {c2: round(pref[c1][c2] / n, 4) for c2 in cands if c2 != c1} for c1 in cands}
 
@@ -825,7 +827,7 @@ def _vote_steps_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
 
 # ── Ideology map ──────────────────────────────────────────────────────────────
 
-_IDEOLOGY_MAP_PARTIES = ["Green", "Liberal", "Conservative", "Independent"]
+_IDEOLOGY_MAP_PARTIES = ("Green", "Liberal", "Conservative", "Independent")
 
 
 def _build_map_candidate(

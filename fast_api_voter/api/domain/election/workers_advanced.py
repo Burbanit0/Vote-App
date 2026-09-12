@@ -12,6 +12,7 @@ import itertools
 import math
 import random as _random
 from collections import Counter
+from operator import itemgetter
 from typing import Any, Callable, Dict, List, Optional
 
 import numpy as _np
@@ -32,8 +33,8 @@ log = get_logger(__name__)
 
 # ── Demographic Turnout ───────────────────────────────────────────────────────
 
-_AGE_LABELS  = ["jeunes (18-34)", "adultes (35-64)", "seniors (65+)"]
-_EDU_LABELS  = ["faible éducation", "éducation élevée"]
+_AGE_LABELS  = ("jeunes (18-34)", "adultes (35-64)", "seniors (65+)")
+_EDU_LABELS  = ("faible éducation", "éducation élevée")
 
 _DT_RULES = {
     "borda":   get_borda_winner,
@@ -41,11 +42,11 @@ _DT_RULES = {
     "schulze": get_schulze_winner,
 }
 
-_DT_DEFAULT_CANDIDATES = [
+_DT_DEFAULT_CANDIDATES = (
     {"name": "Alice", "x": -0.5, "y": -0.2},
     {"name": "Bob",   "x":  0.5, "y":  0.2},
     {"name": "Carol", "x":  0.0, "y":  0.1},
-]
+)
 
 
 def _dt_floats(raw: Any, default: List[float], keep: int) -> List[float]:
@@ -586,7 +587,7 @@ def _sortition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         if not asm:
             return 0.0
         ideos = [voter_ideo[vid] for vid in asm]
-        bins  = [-1.0, -0.5, 0.0, 0.5, 1.01]
+        bins  = (-1.0, -0.5, 0.0, 0.5, 1.01)
         counts = [0] * 4
         for ideo in ideos:
             for i in range(4):
@@ -613,7 +614,7 @@ def _sortition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             return 0.0
         pop_s = sorted(voter_ideo.values())
         q     = max(1, num_voters // 4)
-        bounds = [pop_s[0], pop_s[q], pop_s[2 * q], pop_s[3 * q], pop_s[-1] + 0.01]
+        bounds = (pop_s[0], pop_s[q], pop_s[2 * q], pop_s[3 * q], pop_s[-1] + 0.01)
         ideos  = [voter_ideo[vid] for vid in asm]
         n_asm  = len(ideos)
         ratios = []
@@ -1425,7 +1426,7 @@ def _pi_note(party_results: List[Dict[str, Any]]) -> str:
     if not party_results:
         return "Aucun parti fourni."
 
-    top = max(party_results, key=lambda x: x["shapley_index"])
+    top = max(party_results, key=itemgetter("shapley_index"))
     note = (
         f"Shapley-Shubik 1954 : le parti '{top['name']}' détient "
         f"{round(top['shapley_index']*100, 1)}% du pouvoir de coalition "

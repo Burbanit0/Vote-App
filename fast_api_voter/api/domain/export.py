@@ -17,18 +17,18 @@ from api.engine.utils.simulation_metrics import compare_all_methods_mc
 from api.engine.utils.simulation_voting_utils import create_candidate, create_voter
 
 _CANDIDATE_NAMES = ["Alice", "Bob", "Carol", "Dave", "Eve", "Frank", "Grace", "Hugo"]
-_PARTY_CYCLE     = ["Green", "Conservative", "Liberal", "Independent"]
-_KEY_METHODS     = ["plurality", "borda", "irv", "schulze", "approval"]
+_PARTY_CYCLE     = ("Green", "Conservative", "Liberal", "Independent")
+_KEY_METHODS     = ("plurality", "borda", "irv", "schulze", "approval")
 _MAX_SCENARIOS   = 1_000
 
-CSV_COLUMNS = [
+CSV_COLUMNS = (
     "scenario_id", "num_candidates", "num_voters",
     "method", "winner", "winner_score",
     "condorcet_exists", "condorcet_winner",
     "bayesian_regret", "blank_rate", "blank_rule",
     "plurality_winner", "borda_winner", "irv_winner",
     "schulze_winner", "approval_winner", "methods_agree",
-]
+)
 
 
 def _generate_rows(

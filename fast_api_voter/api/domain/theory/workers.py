@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import random as _rnd
 from collections import Counter
+from operator import itemgetter
 from typing import Any, Dict, List, Optional
 
 
@@ -744,7 +745,7 @@ import math as _math_ap
 
 def _hamilton(votes: Dict[str, int], n: int) -> Dict[str, int]:
     total = sum(votes.values())
-    if total == 0 or n == 0:
+    if 0 in (total, n):
         return {p: 0 for p in votes}
     quotas = {p: v * n / total for p, v in votes.items()}
     seats  = {p: int(q) for p, q in quotas.items()}
@@ -812,7 +813,7 @@ def _population_paradox(votes: Dict[str, int], fn: Any, n: int) -> bool:
     for p in votes:
         if votes[p] == 0:
             continue
-        nv = dict(votes)
+        nv = votes.copy()
         nv[p] = int(votes[p] * 1.01) + 1
         sn = fn(nv, n)
         if sn.get(p, 0) < s0.get(p, 0):
@@ -886,7 +887,7 @@ def _apportionment_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
 # ── Sen's Impossibility of a Paretian Liberal ────────────────────────────────
 
-_SEN_ALTS = ["x", "y", "z"]
+_SEN_ALTS = ("x", "y", "z")
 _SEN_ALT_NAMES = {
     "x": "Personne 1 lit le livre",
     "y": "Personne 2 lit le livre",
@@ -905,7 +906,7 @@ def _check_sen(pref1: List[str], pref2: List[str],
     # ── Liberal order from private spheres ────────────────────────────────
     lib: Dict[tuple[Any, ...], bool] = {}   # (a, b): a ≻L b
 
-    for (a, b), pref in [(sphere1, pref1), (sphere2, pref2)]:
+    for (a, b), pref in ((sphere1, pref1), (sphere2, pref2)):
         if pref.index(a) < pref.index(b):
             lib[(a, b)] = True
         else:
@@ -1034,7 +1035,7 @@ def _sen_paradox_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     paradox_examples  = ([canon_example] if canon_res["conflict"] else []) + rand_examples
 
     # ── Resolution options ────────────────────────────────────────────────
-    resolution_options = [
+    resolution_options = (
         {
             "name":     "Pareto prioritaire",
             "outcome":  "Efficacité collective garantie",
@@ -1059,7 +1060,7 @@ def _sen_paradox_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             "cost":     "Nécessite une définition précise des droits inviolables",
             "theorist": "Sugden (1978)",
         },
-    ]
+    )
 
     note = (
         f"Sen (1970) prouve qu'il est impossible de satisfaire simultanément "
@@ -1171,11 +1172,10 @@ def _manipulation_analysis_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
 
     def _burying(sr: List[str]) -> List[tuple[Any, ...]]:
         # Push each non-top candidate to the bottom
-        res = []
-        for to_bury in cand_names:
-            if to_bury != sr[0]:
-                res.append(([c for c in sr if c != to_bury] + [to_bury], "burying"))
-        return res
+        return [
+            ([c for c in sr if c != to_bury] + [to_bury], "burying")
+            for to_bury in cand_names if to_bury != sr[0]
+        ]
 
     def _pushover(sr: List[str]) -> List[tuple[Any, ...]]:
         # Elevate the weakest (last) candidate to second place to create spoiler
@@ -1191,10 +1191,7 @@ def _manipulation_analysis_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
     def _truncating(sr: List[str]) -> List[tuple[Any, ...]]:
         if method not in ("irv", "two_round", "approval"):
             return []
-        res = []
-        for length in range(1, len(sr)):  # partial rankings
-            res.append((sr[:length], "truncating"))
-        return res
+        return [(sr[:length], "truncating") for length in range(1, len(sr))]  # partial rankings
 
     _strat_fns: Dict[str, Any] = {
         "compromising": _compromising,
@@ -1221,7 +1218,7 @@ def _manipulation_analysis_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
             for alt_r, s_type in gen(sr):
                 if alt_r == sr:
                     continue
-                mod     = list(sincere_rankings)
+                mod     = sincere_rankings.copy()
                 mod[v_idx] = alt_r
                 strat_w = _run(mod)
 
@@ -1249,7 +1246,7 @@ def _manipulation_analysis_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
     # ── Key manipulator ───────────────────────────────────────────────────
     key_m: Optional[Dict[str, Any]] = None
     if manipulators:
-        km = max(manipulators, key=lambda m: m["utility_gain"])
+        km = max(manipulators, key=itemgetter("utility_gain"))
         key_m = {"voter_id": km["voter_id"],
                  "strategy": km["strategy_type"],
                  "gain":     km["utility_gain"]}
@@ -1750,14 +1747,15 @@ def _intergenerational_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
     pct_young, pct_adult, pct_senior = age_dist
 
     # Validate decisions
-    decisions: List[Dict[str, Any]] = []
-    for d in raw_decisions[:8]:
-        decisions.append({
+    decisions: List[Dict[str, Any]] = [
+        {
             "name":               str(d.get("name", "?")),
             "cost_present":       max(-1.0, min(1.0, float(d.get("cost_present", 0.0)))),
             "benefit_future":     max(-1.0, min(1.0, float(d.get("benefit_future", 0.0)))),
             "time_horizon_years": max(1, min(50, int(d.get("time_horizon_years", 10)))),
-        })
+        }
+        for d in raw_decisions[:8]
+    ]
 
     # ── Voter population ──────────────────────────────────────────────────────
     # For each cohort, base preference = f(cost_present, benefit_future, age)
@@ -1905,7 +1903,7 @@ def _intergenerational_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
         future_welfare_gain = avg_w_future - avg_w_fut_none
 
         # Intergenerational Gini: inequality between present & future welfare
-        incomes = [avg_w_present, avg_w_future]
+        incomes = (avg_w_present, avg_w_future)
         mean_i  = sum(incomes) / 2 or 1.0
         gini    = sum(abs(a - b) for a in incomes for b in incomes) / (2 * 2 * mean_i)
 
@@ -2005,7 +2003,7 @@ def _epistocracy_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             for c in competences
         ]
     else:
-        biased_competences = list(competences)
+        biased_competences = competences.copy()
 
     actual_mean        = _stats_ep.mean(competences)
     biased_mean        = _stats_ep.mean(biased_competences)
@@ -2020,7 +2018,7 @@ def _epistocracy_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     # ── Simulate multiple elections per scheme across many trials ─────────────
     n_trials = 40   # Monte Carlo over voter preference noise
 
-    schemes = ["equal", "competence_weighted", "epistocratic", "lottery"]
+    schemes = ("equal", "competence_weighted", "epistocratic", "lottery")
     results: Dict[str, Any] = {}
 
     for scheme in schemes:
@@ -2406,7 +2404,7 @@ def _assumption_testing_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], in
             positions = _voter_positions(seed + t, num_voters, ideology)
             votes: List[str] = []
 
-            for i, pos in enumerate(positions):
+            for pos in positions:
                 if assumption == "stable_preferences":
                     # Add noise: preference drifts ±0.2 between poll and vote
                     noisy_pos = pos + t_rng.gauss(0, 0.15)
@@ -2469,7 +2467,7 @@ def _assumption_testing_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], in
         # 95% CI for the leading candidate's win rate
         p_lead = winner_counts[most_common] / n_t
         margin = 1.96 * _math_t.sqrt(p_lead * (1 - p_lead) / max(n_t, 1))
-        ci     = [round(max(0, p_lead - margin), 4), round(min(1, p_lead + margin), 4)]
+        ci     = (round(max(0, p_lead - margin), 4), round(min(1, p_lead + margin), 4))
 
         relaxed_results[assumption] = {
             "winner":              most_common,
@@ -2617,7 +2615,7 @@ def _collective_will_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     # ── IRV helper ────────────────────────────────────────────────────────────
     def _irv(rankings: List[List[str]]) -> str:
         remaining = list(cand_names)
-        current   = [list(r) for r in rankings]
+        current   = [r.copy() for r in rankings]
         while len(remaining) > 1:
             from collections import Counter as _C2
             tally = _C2(
@@ -2677,7 +2675,7 @@ def _collective_will_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             return max(scores, key=scores.get)  # type: ignore[arg-type]
         if method in ("schulze", "kemeny_young", "condorcet"):
             cw = _condorcet_winner(rankings)
-            return cw if cw else _borda(rankings)
+            return cw or _borda(rankings)
         if method == "minimax":
             return _minimax(rankings)
         if method in ("star", "median"):
@@ -2747,8 +2745,8 @@ def _collective_will_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
                              key=lambda k, sp=sp: -_utility(sp, candidates_raw[k]))]  # type: ignore
             for sp in sim_pos
         ]
-        for method in methods_used[:3]:  # lightweight: top 3 methods only
-            all_results.append(_run_method(method, sim_rankings))
+        # lightweight: top 3 methods only
+        all_results.extend(_run_method(method, sim_rankings) for method in methods_used[:3])
 
     # ── Aggregate ─────────────────────────────────────────────────────────────
     from collections import Counter as _Cfinal

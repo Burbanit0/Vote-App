@@ -94,11 +94,9 @@ def _monte_carlo_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
         return compare_all_methods_mc(voters, candidates, issues)
 
     try:
-        run_results = []
         with ThreadPoolExecutor(max_workers=min(4, num_runs)) as executor:
             futures = [executor.submit(_single_run, i) for i in range(num_runs)]
-            for f in as_completed(futures):
-                run_results.append(f.result())
+            run_results = [f.result() for f in as_completed(futures)]
 
         method_names = list(run_results[0]["methods"].keys())
         n_candidates = len(candidate_configs)
@@ -335,8 +333,7 @@ def _conclude_provisional(before: Dict[str, Any], after: Dict[str, Any], drift: 
 
 
 def _conclude_dissolution(multi: Dict[str, Any], plural_winner: str, num_seats: int) -> str:
-    comp = multi.get("comparison", {})
-    most_prop = comp.get("most_proportional", "sainte_lague")
+    most_prop = multi.get("comparison", {}).get("most_proportional", "sainte_lague")
     gallagher = multi.get(most_prop, {}).get("metrics", {}).get("gallagher_index")
     dhondt_seats = multi.get("dhondt", {}).get("seats", {}).get(plural_winner, 0)
     g_str = f"{gallagher:.3f}" if gallagher is not None else "?"
@@ -448,8 +445,7 @@ def _constitutional_scenario_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any
             "conclusion":      _conclude_dissolution(multi, plural_winner or "?", num_seats),
         }, 200
 
-    else:
-        return {"error": f"Unknown scenario_type '{scenario_type}'"}, 400
+    return {"error": f"Unknown scenario_type '{scenario_type}'"}, 400
 
 
 

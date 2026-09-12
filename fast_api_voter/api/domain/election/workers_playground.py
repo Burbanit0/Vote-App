@@ -189,7 +189,7 @@ def _profile_simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
         score_levels=score_lv,
     )
     first_vid = next(iter(projected))
-    sample_ballot = {n: round(float(v), 3) for n, v in projected[first_vid].items()}
+    sample_ballot = {n: round(v, 3) for n, v in projected[first_vid].items()}
 
     # Paradox rate: for a COMPOSED spatial electorate, compute a real spatial
     # cycle rate by re-sampling the mixture (a multimodal electorate can produce
@@ -678,8 +678,7 @@ def _structural_fairness_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
     # can be below the request — use the actual count for the district splits and
     # the vote shares (otherwise over-scaled cuts leave empty trailing districts).
     num_voters = int(voters.shape[0])
-    d2 = ((voters[:, None, :] - pts[None, :, :]) ** 2).sum(axis=2)
-    choice = d2.argmin(axis=1)
+    choice = ((voters[:, None, :] - pts[None, :, :]) ** 2).sum(axis=2).argmin(axis=1)
     order = _np.argsort(voters[:, 0], kind="stable")
 
     # ── District splits: equal vs skewed populations (bands along x) ───────
@@ -766,12 +765,11 @@ def _structural_fairness_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
     # Cumulative with poll-informed nomination: party i fields k_i candidates,
     # voters spread their M votes evenly → per-candidate strength share/k.
     k = _np.maximum(1, _np.round(shares * m_seats).astype(int))
-    candidates = []
-    for i, n in enumerate(names):
-        if shares[i] <= 0:
-            continue
-        for _c in range(int(k[i])):
-            candidates.append((shares[i] / k[i], n))
+    candidates = [
+        (shares[i] / k[i], n)
+        for i, n in enumerate(names) if shares[i] > 0
+        for _c in range(int(k[i]))
+    ]
     candidates.sort(key=lambda t: -t[0])
     seats_cum = {n: 0 for n in names}
     for _strength, n in candidates[:m_seats]:
@@ -856,8 +854,7 @@ def _issue_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     n_voters = stances.shape[0]
     # Bundled vote: closest platform by issue agreement (ties → first party).
-    agreement = (stances[:, None, :] == platforms[None, :, :]).sum(axis=2)
-    choice = agreement.argmax(axis=1)
+    choice = (stances[:, None, :] == platforms[None, :, :]).sum(axis=2).argmax(axis=1)
     votes = _np.bincount(choice, minlength=len(names))
     winner_idx = int(votes.argmax())
 

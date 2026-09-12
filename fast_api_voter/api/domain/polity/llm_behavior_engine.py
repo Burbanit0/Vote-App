@@ -132,6 +132,7 @@ import json
 import logging
 import math
 from dataclasses import dataclass, field
+from itertools import chain
 from typing import Any, Callable, Mapping, Sequence, TypeVar
 
 import numpy as np
@@ -1186,7 +1187,7 @@ def decide_party_nominations(
     if not contested:
         return PartyNominationBatchOutcome(decisions=[], winners={})
 
-    all_contenders = [c for members in contested.values() for c in members]
+    all_contenders = list(chain.from_iterable(contested.values()))
     support = {c.citizen_id: sympathizer_ratio(c, list(citizens)) for c in all_contenders}
 
     expected_party_ids = list(contested.keys())
@@ -1973,11 +1974,11 @@ def validate_reaction_decision(decision: ReactionDecision, event_type: EventType
             f"events.max_reaction_delta={config.events.max_reaction_delta}"
         )
     grounding_motif = _EVENT_TYPE_GROUNDING_MOTIF[event_type]
-    if decision.motif not in (int(grounding_motif), int(ReactionMotif.EVENT_PERSONALLY_IRRELEVANT)):
+    if decision.motif not in (int(grounding_motif), ReactionMotif.EVENT_PERSONALLY_IRRELEVANT):
         raise LlmResponseError(
             f"decision for cid={decision.cid} motif={decision.motif} is not valid for "
             f"event_type={event_type.name} (expected {int(grounding_motif)} or "
-            f"{int(ReactionMotif.EVENT_PERSONALLY_IRRELEVANT)})"
+            f"{ReactionMotif.EVENT_PERSONALLY_IRRELEVANT})"
         )
 
 
@@ -1996,7 +1997,7 @@ def build_reaction_system_prompt(citizens: Sequence[Citizen], event_type: EventT
     awareness of past events, 0.0 if untouched so far."""
     cid_list = ",".join(str(c.citizen_id) for c in citizens)
     grounding_motif = _EVENT_TYPE_GROUNDING_MOTIF[event_type]
-    legal_motifs = (int(grounding_motif), int(ReactionMotif.EVENT_PERSONALLY_IRRELEVANT))
+    legal_motifs = (int(grounding_motif), ReactionMotif.EVENT_PERSONALLY_IRRELEVANT)
     legal_table = "\n".join(
         line for line in REACTION_MOTIF_PROMPT_TABLE.splitlines() if int(line.split(" = ")[0]) in legal_motifs
     )
@@ -2010,7 +2011,7 @@ def build_reaction_system_prompt(citizens: Sequence[Citizen], event_type: EventT
         "invalide le batch entier.\n"
         f"Motifs valides pour cet evenement (code court obligatoire) :\n{legal_table}\n"
         "REGLE DE COHERENCE : salience_delta == 0 si et seulement si motif == "
-        f"{int(ReactionMotif.EVENT_PERSONALLY_IRRELEVANT)} "
+        f"{ReactionMotif.EVENT_PERSONALLY_IRRELEVANT} "
         "(EVENT_PERSONALLY_IRRELEVANT) -- un citoyen indifferent a l'evenement choisit "
         "ce motif et une variation nulle ; toute autre reaction utilise "
         f"{int(grounding_motif)} avec une variation strictement positive.\n"

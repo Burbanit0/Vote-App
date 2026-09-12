@@ -80,7 +80,7 @@ _ages = list(age_data.keys())
 
 
 def sample_age() -> int:
-    return int(random.choices(_ages, weights=_age_probabilities, k=1)[0])
+    return random.choices(_ages, weights=_age_probabilities, k=1)[0]
 
 
 def sample_region() -> str:

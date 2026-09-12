@@ -21,7 +21,7 @@ _PRESET_TO_DISTRIBUTION = {
     "random":    "random",
 }
 
-_SCENARIO_METHODS = ["plurality", "irv", "borda", "schulze", "approval"]
+_SCENARIO_METHODS = ("plurality", "irv", "borda", "schulze", "approval")
 
 
 def _build_scenario_candidates(
@@ -106,7 +106,7 @@ def _run_five_methods(
     return filtered
 
 
-_PARTY_CYCLE = ["Green", "Conservative", "Liberal", "Independent"]
+_PARTY_CYCLE = ("Green", "Conservative", "Liberal", "Independent")
 
 
 def _parse_candidate_configs(raw: list[Any]) -> list[dict[str, Any]]:
