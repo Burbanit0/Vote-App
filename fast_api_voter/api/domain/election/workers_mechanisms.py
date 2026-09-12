@@ -779,7 +779,11 @@ def _abstention_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     # affects every voting method, not just plurality.
     try:
         sincere_compare = compare_all_methods(voters, candidates, issues)
-        final_compare   = compare_all_methods(active, candidates, issues)
+        # num_rounds >= 0 is enforced by Pydantic validation before this runs,
+        # so the loop above always executes >= 1 time and `active` is always
+        # assigned; not provable locally by pyright (PLAN_SOLIDITE_TECHNIQUE.md
+        # Lot 14.5)
+        final_compare   = compare_all_methods(active, candidates, issues)  # pyright: ignore[reportPossiblyUnboundVariable]
         sincere_winners_by_method = {
             m: data.get("winner")
             for m, data in sincere_compare.get("methods", {}).items()

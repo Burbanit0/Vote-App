@@ -2634,7 +2634,12 @@ def _collective_will_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
                 return leader
             # Eliminate last
             last = tally.most_common()[-1][0]
-            remaining.remove(last)
+            # None was already removed via tally.pop(None, None) above (and
+            # the `if not tally: break` guard rules out an empty Counter);
+            # basedpyright doesn't narrow Counter[str | None] after a
+            # targeted key pop, so it can't see this is unreachable
+            # (PLAN_SOLIDITE_TECHNIQUE.md Lot 14.5)
+            remaining.remove(last)  # pyright: ignore[reportArgumentType]
         return str(remaining[0]) if remaining else cand_names[0]
 
     # ── Minimax helper ────────────────────────────────────────────────────────

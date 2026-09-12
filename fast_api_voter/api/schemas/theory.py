@@ -385,10 +385,13 @@ class DemocraticBacksliddingRequest(BaseModel):
     """Path toward autocracy across successive elections."""
     model_config = ConfigDict(extra="forbid")
 
+    # pydantic default_factory=<Model> / omitted-default arg: basedpyright has
+    # no pydantic.mypy-equivalent plugin, false positive (see
+    # PLAN_SOLIDITE_TECHNIQUE.md Lot 14.5)
     candidates:             List[BacksliddingCandidate] = Field(
         default_factory=lambda: [
-            BacksliddingCandidate(name="Incumbent",  x=0.2),
-            BacksliddingCandidate(name="Opposition", x=-0.4),
+            BacksliddingCandidate(name="Incumbent",  x=0.2),  # pyright: ignore[reportCallIssue]
+            BacksliddingCandidate(name="Opposition", x=-0.4),  # pyright: ignore[reportCallIssue]
         ],
         min_length=2, max_length=8,
     )
@@ -399,7 +402,7 @@ class DemocraticBacksliddingRequest(BaseModel):
     backsliding_method:     str   = Field("gerrymandering",
                                           description="gerrymandering | media_capture | voter_suppression.")
     backsliding_intensity:  float = Field(0.5, ge=0.0, le=1.0)
-    guardrails:             Optional[Guardrails] = Field(default_factory=Guardrails)
+    guardrails:             Optional[Guardrails] = Field(default_factory=Guardrails)  # pyright: ignore[reportArgumentType]
 
 
 class BacksliddingElection(BaseModel):
@@ -485,9 +488,9 @@ class EpistocracyRequest(BaseModel):
 
     candidates:                      List[EpistCandidate] = Field(
         default_factory=lambda: [
-            EpistCandidate(name="A", x=-0.5),
-            EpistCandidate(name="B", x= 0.0),
-            EpistCandidate(name="C", x= 0.5),
+            EpistCandidate(name="A", x=-0.5),  # pyright: ignore[reportCallIssue]
+            EpistCandidate(name="B", x= 0.0),  # pyright: ignore[reportCallIssue]
+            EpistCandidate(name="C", x= 0.5),  # pyright: ignore[reportCallIssue]
         ],
         min_length=2, max_length=8,
     )
@@ -499,7 +502,7 @@ class EpistocracyRequest(BaseModel):
                                                  description="Currently always reports all 4 schemes "
                                                              "(equal/competence_weighted/epistocratic/lottery).")
     epistocracy_threshold:           float = Field(0.7, ge=0.1, le=0.99)
-    competence_params:               Optional[CompetenceParams] = Field(default_factory=CompetenceParams)
+    competence_params:               Optional[CompetenceParams] = Field(default_factory=CompetenceParams)  # pyright: ignore[reportArgumentType]
 
 
 class EpistocracySchemeResult(BaseModel):
@@ -553,9 +556,9 @@ class IdentityVotingRequest(BaseModel):
 
     candidates:       List[IDCandidate] = Field(
         default_factory=lambda: [
-            IDCandidate(name="Alice", x=-0.5),
-            IDCandidate(name="Bob",   x= 0.0),
-            IDCandidate(name="Carol", x= 0.5),
+            IDCandidate(name="Alice", x=-0.5),  # pyright: ignore[reportCallIssue]
+            IDCandidate(name="Bob",   x= 0.0),  # pyright: ignore[reportCallIssue]
+            IDCandidate(name="Carol", x= 0.5),  # pyright: ignore[reportCallIssue]
         ],
         # min_length=3, not 2: the worker's default identity groups (Groupe
         # A/B/C) each pin to one of candidates[0..2] unconditionally — found
@@ -616,9 +619,9 @@ class ATBaseSimulation(BaseModel):
     model_config = ConfigDict(extra="forbid")
     candidates: List[ATBaseCandidate] = Field(
         default_factory=lambda: [
-            ATBaseCandidate(name="Alice", x=-0.4),
-            ATBaseCandidate(name="Bob",   x= 0.1),
-            ATBaseCandidate(name="Carol", x= 0.5),
+            ATBaseCandidate(name="Alice", x=-0.4),  # pyright: ignore[reportCallIssue]
+            ATBaseCandidate(name="Bob",   x= 0.1),  # pyright: ignore[reportCallIssue]
+            ATBaseCandidate(name="Carol", x= 0.5),  # pyright: ignore[reportCallIssue]
         ],
         min_length=2, max_length=6,
     )
@@ -631,7 +634,7 @@ class AssumptionTestingRequest(BaseModel):
     """Test model robustness by relaxing core spatial-model assumptions."""
     model_config = ConfigDict(extra="forbid")
 
-    base_simulation:       Optional[ATBaseSimulation] = Field(default_factory=ATBaseSimulation)
+    base_simulation:       Optional[ATBaseSimulation] = Field(default_factory=ATBaseSimulation)  # pyright: ignore[reportArgumentType]
     assumptions_to_relax:  Optional[List[str]] = Field(None,
                                                        description="Subset of single_peaked / "
                                                                    "stable_preferences / "
@@ -677,9 +680,9 @@ class CollectiveWillRequest(BaseModel):
 
     candidates:      List[CWCandidate] = Field(
         default_factory=lambda: [
-            CWCandidate(name="Alice", x=-0.4),
-            CWCandidate(name="Bob",   x= 0.1),
-            CWCandidate(name="Carol", x= 0.5),
+            CWCandidate(name="Alice", x=-0.4),  # pyright: ignore[reportCallIssue]
+            CWCandidate(name="Bob",   x= 0.1),  # pyright: ignore[reportCallIssue]
+            CWCandidate(name="Carol", x= 0.5),  # pyright: ignore[reportCallIssue]
         ],
         min_length=2, max_length=8,
     )

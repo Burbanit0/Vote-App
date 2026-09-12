@@ -2589,7 +2589,59 @@ outil déjà câblé et un chiffre déjà mesuré, pas une lacune de détection.
 | **Statuer sur les zones mortes trouvées par le Lot 6.5** (`api/domain/polity/*`, 2 813 lignes 0 % e2e ; `/simulation/compare`, invisible à knip) | Le Lot 6.5 a mesuré l'inatteignabilité, pas décidé quoi en faire. Deux vraies trouvailles qui méritent une décision explicite — réintégrer dans le produit ou supprimer — pas rester indéfiniment dans un angle mort connu. | M | ⭐⭐⭐ | 📝📝📝 |
 | **Réduire la dette sonarjs** (304 findings restants, Lot 6.6) | 2 vrais bugs y avaient déjà été trouvés en vérifiant à la main les 5 cas `no-all-duplicated-branches` — les autres catégories (`no-nested-conditional` ×102, `cognitive-complexity` ×38, `parameterized-tests` ×39, `prefer-specific-assertions` ×33) n'ont pas reçu le même traitement individuel, faute de budget. Simplifier les fonctions à plus forte complexité cognitive en particulier est le genre de nettoyage qui prévient le prochain bug de cette famille. | L | ⭐⭐ | 📝📝 |
 | **Réduire la dette refurb/perflint** (145 + 85 findings, Lot 6.3) | Le Lot 6.3 a mesuré et documenté sans corriger, hors budget de l'item lui-même. Transformations mécaniques, risque quasi nul (`dict(x)`→`x.copy()`, `lambda`→`operator.itemgetter`, `list`→`tuple` non mutés) — le genre de dette qui ne s'aggrave pas mais ne se résorbe pas non plus toute seule. | M | ⭐⭐ | 📝 |
-| **Faire taire les faux positifs basedpyright** (34 restants, Lot 6.2) | Déjà vérifiés faux un par un (32 liés à l'absence d'équivalent du plugin `pydantic.mypy` côté pyright, 2 isolés où le vérificateur ne peut pas prouver une invariante locale) — pas de vraie dette ici, juste du bruit dans le rapport pour un futur contributeur. Le moins prioritaire des cinq ; à ne faire que si `basedpyright` reste consulté régulièrement. | S | ⭐ | 📝 |
+| **Faire taire les faux positifs basedpyright** (34 restants, Lot 6.2) | Déjà vérifiés faux un par un (32 liés à l'absence d'équivalent du plugin `pydantic.mypy` côté pyright, 2 isolés où le vérificateur ne peut pas prouver une invariante locale) — pas de vraie dette ici, juste du bruit dans le rapport pour un futur contributeur. Le moins prioritaire des cinq ; à ne faire que si `basedpyright` reste consulté régulièrement. | S | ⭐ | ✅ voir détail sous le tableau |
+
+**Faire taire les faux positifs basedpyright, détail (2026-09-12).** Les 34
+trouvailles restantes du Lot 6.2 ont été revérifiées une par une (relecture du
+code réel à chaque site, pas une simple relecture du rapport) avant tout
+changement, puis silencées par un `# pyright: ignore[<règle exacte>]` ciblé
+ligne par ligne — jamais un désactivateur de fichier ou de règle global.
+Répartition confirmée :
+
+- **18× `reportArgumentType`** — `Field(default_factory=SomeConfigClass)` où
+  `SomeConfigClass` est une classe pydantic entièrement à défauts, utilisée
+  directement comme factory. Idiome valide (`SomeConfigClass()` fonctionne),
+  mais basedpyright n'a pas d'équivalent du plugin mypy `pydantic.mypy` et ne
+  résout pas cette combinaison de surcharges de `Field()`. Sites :
+  `api/schemas/common.py` (1), `api/schemas/election.py` (12),
+  `api/schemas/perturbers.py` (2), `api/schemas/theory.py` (3 :
+  `Guardrails`, `CompetenceParams`, `ATBaseSimulation`).
+- **14× `reportCallIssue`** — des constructeurs `XCandidate(name=..., x=...)`
+  (`BacksliddingCandidate`, `EpistCandidate`, `IDCandidate`,
+  `ATBaseCandidate`, `CWCandidate`, toutes dans `api/schemas/theory.py`,
+  même forme à trois champs `name`/`x`/`y`) omettant `y`, qui a pourtant un
+  vrai défaut (`y: float = Field(0.0, ge=-1.0, le=1.0)`) — même cause racine
+  que ci-dessus, basedpyright ne voit pas au travers du `__init__` généré par
+  pydantic.
+- **2 isolés, même famille (une invariante réelle que le vérificateur ne
+  peut pas prouver localement)**, déjà documentés dans le détail du §6.2 mais
+  jamais silencés à l'époque (« laissés tels quels ») :
+  - `reportPossiblyUnboundVariable` sur `active` dans
+    `api/domain/election/workers_mechanisms.py` (`_abstention_worker`) —
+    `num_rounds` est validé `>= 0` par le schéma Pydantic avant l'exécution
+    de la fonction, donc la boucle qui assigne `active` s'exécute toujours
+    au moins une fois ; invisible à l'analyse statique locale.
+  - `reportArgumentType` sur `remaining.remove(last)` dans
+    `api/domain/theory/workers.py` (`_irv`) — `last` vient de
+    `Counter[str | None].most_common()[-1][0]`, mais la clé `None` a déjà
+    été retirée juste avant par `tally.pop(None, None)` ; basedpyright ne
+    réduit pas `Counter[str | None]` après un `.pop()` ciblé.
+
+  Ce deuxième cas isolé ne figurait pas dans le compte initial de cette
+  tâche (19 + 14 + 1 = 34 attendus au lieu de 18 + 14 + 2 = 34 réels) — un
+  écart d'un dans chaque sens qui se compense, découvert en relançant
+  `basedpyright api/` à froid plutôt qu'en faisant confiance au compte
+  fourni : le total réel restait bien 34, mais réparti différemment. Les
+  deux isolés correspondent exactement aux « 2 faux positifs isolés » déjà
+  détaillés au §6.2 ci-dessus.
+
+  Résultat final, revérifié après coup : `basedpyright api/` → **0 errors,
+  0 warnings, 0 notes**. `mypy api/` reste clean (`Success: no issues found
+  in 92 source files` — aucun `# pyright: ignore[...]` ne perturbe mypy, qui
+  les traite comme de simples commentaires). `python -m pytest api/tests`
+  reste vert (**2139 passed, 41 skipped**, aucun échec) et `ruff check
+  fast_api_voter` aussi (`All checks passed!`) — changements strictement
+  limités à des commentaires, aucune ligne de logique modifiée.
 
 ---
 
