@@ -21,7 +21,12 @@ import numpy as np
 
 from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.simulation_metrics import compare_all_methods
-from api.engine.utils.simulation_voting_utils import create_candidate, create_voter
+from api.engine.utils.simulation_voting_utils import (
+    apply_social_influence,
+    create_candidate,
+    create_voter,
+    run_simulation,
+)
 
 
 def test_compare_all_methods_snapshot(snapshot):
@@ -38,3 +43,35 @@ def test_compare_all_methods_snapshot(snapshot):
     report = compare_all_methods(voters, candidates, issues)
 
     assert report == snapshot
+
+
+# ── apply_social_influence / run_simulation (pure functions, no HTTP route) ──
+
+def test_apply_social_influence_is_a_no_op_without_poll_standings_or_candidates():
+    """No poll leader can be identified without poll_standings, and no
+    candidate position to drift toward without candidates -- both guard
+    clauses short-circuit to an (unmutated) copy of the input voters."""
+    issues = DEFAULT_ISSUES
+    voters = [create_voter(issues, i) for i in range(5)]
+    candidate = create_candidate(issues, 0, "Alice", "Green")
+
+    no_poll = apply_social_influence(voters, {}, [candidate])
+    no_candidates = apply_social_influence(voters, {"Alice": 1.0}, [])
+
+    for result in (no_poll, no_candidates):
+        assert result == voters
+        assert result is not voters  # a copy, per the docstring's contract
+
+
+def test_run_simulation_returns_one_ballot_record_per_voter():
+    """run_simulation (the plain single-shot engine helper, distinct from the
+    polity run_simulation) builds a fixed party cycle for its candidates and
+    returns one {voter, vote, utilities} record per voter, utilities keyed
+    by every candidate name."""
+    results = run_simulation(num_voters=20, num_candidates=3, method="plurality", seed=42)
+
+    assert len(results) == 20
+    expected_candidates = {"Candidate 1", "Candidate 2", "Candidate 3"}
+    for record in results:
+        assert set(record.keys()) == {"voter", "vote", "utilities"}
+        assert set(record["utilities"]) == expected_candidates
