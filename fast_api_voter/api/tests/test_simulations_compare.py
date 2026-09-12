@@ -41,6 +41,17 @@ class TestCompare:
         })
         assert r.status_code == 400, r.text
 
+    def test_500_and_logs_on_compute_failure(self, client, monkeypatch, caplog):
+        def _boom(*a, **kw):
+            raise RuntimeError("engine exploded")
+        monkeypatch.setattr(compare_module, "compare_all_methods", _boom)
+        with caplog.at_level("WARNING"):
+            r = client.post("/api/v2/simulations/compare",
+                            json={"num_voters": 60, "candidates": CANDS})
+        assert r.status_code == 500
+        assert "engine exploded" in r.json()["detail"]
+        assert "simulation.compare.failed" in caplog.text
+
 
 class TestStrategicImpact:
     def test_happy_path(self, client):
@@ -49,6 +60,18 @@ class TestStrategicImpact:
         })
         assert r.status_code == 200, r.text
         assert len(r.json()["results"]) == 2
+
+    def test_500_and_logs_on_compute_failure(self, client, monkeypatch, caplog):
+        def _boom(*a, **kw):
+            raise RuntimeError("engine exploded")
+        monkeypatch.setattr(compare_module, "_build_population", _boom)
+        with caplog.at_level("WARNING"):
+            r = client.post("/api/v2/simulations/strategic-impact", json={
+                "num_voters": 60, "candidates": CANDS, "strategic_percentages": [0, 50],
+            })
+        assert r.status_code == 500
+        assert "engine exploded" in r.json()["detail"]
+        assert "simulation.strategic_impact.failed" in caplog.text
 
 
 class TestCondorcetMatrix:
@@ -91,6 +114,17 @@ class TestArrowCriteria:
                         json={"num_voters": 60, "candidates": CANDS})
         assert r.status_code == 200, r.text
 
+    def test_500_and_logs_on_compute_failure(self, client, monkeypatch, caplog):
+        def _boom(*a, **kw):
+            raise RuntimeError("engine exploded")
+        monkeypatch.setattr(compare_module, "_build_population", _boom)
+        with caplog.at_level("WARNING"):
+            r = client.post("/api/v2/simulations/arrow-criteria",
+                            json={"num_voters": 60, "candidates": CANDS})
+        assert r.status_code == 500
+        assert "engine exploded" in r.json()["detail"]
+        assert "simulation.arrow_criteria.failed" in caplog.text
+
 
 class TestScenario:
     payload = {
@@ -112,6 +146,16 @@ class TestScenario:
         r = client.post("/api/v2/simulations/scenario", json=bad)
         assert r.status_code == 400, r.text
 
+    def test_500_and_logs_on_compute_failure(self, client, monkeypatch, caplog):
+        def _boom(*a, **kw):
+            raise RuntimeError("engine exploded")
+        monkeypatch.setattr(compare_module, "compare_all_methods", _boom)
+        with caplog.at_level("WARNING"):
+            r = client.post("/api/v2/simulations/scenario", json=self.payload)
+        assert r.status_code == 500
+        assert "engine exploded" in r.json()["detail"]
+        assert "simulation.scenario.failed" in caplog.text
+
 
 class TestManipulability:
     def test_happy_path(self, client):
@@ -127,6 +171,17 @@ class TestManipulability:
                        params={"num_voters": 60, "num_trials": 10, "methods": "plurality,borda"})
         assert r.status_code == 200, r.text
         assert {m["method"] for m in r.json()["results"]} == {"plurality", "borda"}
+
+    def test_500_and_logs_on_population_build_failure(self, client, monkeypatch, caplog):
+        def _boom(*a, **kw):
+            raise RuntimeError("engine exploded")
+        monkeypatch.setattr(compare_module, "_build_population", _boom)
+        with caplog.at_level("WARNING"):
+            r = client.get("/api/v2/simulations/manipulability",
+                           params={"num_candidates": 3, "num_voters": 60, "num_trials": 10})
+        assert r.status_code == 500
+        assert "engine exploded" in r.json()["detail"]
+        assert "simulation.manipulability.population_build_failed" in caplog.text
 
 
 class TestVoteSteps:
