@@ -1878,12 +1878,15 @@ raisonnement sur la sémantique readiness :
 
 ## Lot 11 — Outillage Claude avancé
 
-Le `.claude/` actuel reste mince : 2 skills, 5 agents (`experiment-writer`,
-`journal-writer`, `dep-triage`, `parity-guardian`, `doc-drift`), 2 commandes,
-et des hooks déjà en place (`PreToolUse`/`PostToolUse` sur `engineParity.json`
-— la ligne « Hooks Claude » du Lot 6 ci-dessus corrige déjà l'ancienne
-affirmation « 0 hook », trouvaille du premier run réel de l'agent `doc-drift`
-ci-dessous, qui n'avait jamais été répercutée ici).
+Le `.claude/` de départ était mince : 2 skills, 1 agent, 1 commande, 0 hook
+documenté. Ce lot l'a étoffé à 5 skills (`voter-api`, `voter-ui`,
+`voter-testing`, `voter-ci`, `release`), 7 agents (`experiment-writer`,
+`journal-writer`, `parity-guardian`, `dep-triage`, `axiom-checker`,
+`doc-drift`, `flake-hunter`), 2 commandes, et des hooks déjà en place
+(`PreToolUse`/`PostToolUse` sur `engineParity.json` — la ligne « Hooks
+Claude » du Lot 6 ci-dessus corrige déjà l'ancienne affirmation « 0 hook »,
+trouvaille du premier run réel de l'agent `doc-drift` ci-dessous, qui
+n'avait jamais été répercutée ici).
 Angle de récit : *« à quoi ressemble un repo réellement outillé pour le
 développement assisté par agent ? »* — sujet sur lequel il existe très peu de
 retours concrets.
