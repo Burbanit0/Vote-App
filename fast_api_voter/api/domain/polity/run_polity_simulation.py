@@ -678,10 +678,50 @@ def run_simulation(
                 _run_sortition_rotation(citizens, config, journal, tick, sortition_rng)
             if config.sortition_chamber.enabled:
                 _run_chamber_deliberation(citizens, config, journal, tick, client)
+            president_before_accountability = current_office_holders(citizens, Office.PRESIDENT)
             mobilized_last_tick = _run_accountability_phase(
                 citizens, config, journal, tick, client,
                 exogenous=exogenous, graph=graph, mobilized_last_tick=mobilized_last_tick,
             )
+            # Track A3 (2026-09-11, lets-build-a-solid-spicy-otter.md): the
+            # snap election. Deliberately keyed on "the office is vacant and
+            # nothing is already scheduled to fill it" rather than "a recall
+            # fired this tick" -- engine-agnostic (the vacancy is structural
+            # to simple_rules.py's own recall logic, not an LLM artifact --
+            # measured directly, Track 0b), self-healing on resume (a run
+            # that vacated the office before this flag existed schedules one
+            # the first tick it is checked), and it never fights a genuine
+            # blank-vote-invalidation cycle already in progress
+            # (pending_rerun is None guards both). `president_before_
+            # accountability` is captured only for the journal event below
+            # -- it plays no role in the trigger condition itself.
+            if (
+                config.institutions.snap_election_on_recall
+                and pending_rerun is None
+                and not current_office_holders(citizens, Office.PRESIDENT)
+            ):
+                pending_rerun = PendingRerun(
+                    attempt=1, next_tick=tick + config.institutions.reelection_delay_ticks,
+                    # barred_from_immediate_rerun does NOT apply here -- see
+                    # _parse_institutions's own comment on why a recall has
+                    # no candidate SET to bar the way an invalidated
+                    # election does.
+                    barred_candidate_ids=frozenset(),
+                )
+                journal.write(
+                    tick=tick,
+                    event_type="snap_election_triggered",
+                    payload={
+                        "office": Office.PRESIDENT.value,
+                        "recalled_citizen_id": (
+                            president_before_accountability[0].citizen_id
+                            if president_before_accountability
+                            else None
+                        ),
+                        "next_attempt_tick": pending_rerun.next_tick,
+                    },
+                    citizen_id=None,
+                )
             # Phase 3: checkpoint AFTER every tick's phases are fully done and
             # journaled, never mid-tick -- a resume always restarts a tick
             # from its own beginning (see truncate_journal's own docstring),
@@ -2116,6 +2156,23 @@ def _run_accountability_phase(
                 )
                 ballots = [build_confidence_ballot(c, holder) for c in citizens]
                 retained = resolve_confidence_vote(ballots, config.petition.confidence_vote_format)
+                keep_ratio = confidence_keep_ratio(ballots)
+                # A won vote vetoes a same-tick floor trip. §7bis.7 step 6's
+                # "the floor wins the attribution" (legitimacy.py's own
+                # module docstring) was written to arbitrate two TRIGGERS --
+                # the legitimacy floor vs the petition signature threshold --
+                # never a trigger against a RESULT. It was applied here to
+                # both regardless, and a real run demonstrated the gap: a
+                # president won retention 69.2% and was recalled the same
+                # tick anyway, because `floor_fires` was computed from L
+                # BEFORE this vote resolved and `retained` had no reader on
+                # that path at all (2026-09-11). A LOST vote never needs
+                # this: `lost_confidence` recalls unconditionally below, so
+                # the two recall paths never disagree when the vote fails --
+                # the veto only ever fires in the one case that was wrong.
+                averted_recall = retained and floor_fires
+                if averted_recall:
+                    floor_fires = False
                 journal.write(
                     tick=tick,
                     event_type="confidence_vote_result",
@@ -2124,11 +2181,28 @@ def _run_accountability_phase(
                         "bf": int(BallotFormat.BINARY),
                         "ballots": len(ballots),
                         "keep": sum(ballots),
-                        "keep_ratio": confidence_keep_ratio(ballots),
+                        "keep_ratio": keep_ratio,
                         "retained": retained,
+                        "averted_recall": averted_recall,
                     },
                     citizen_id=holder.citizen_id,
                 )
+                if retained:
+                    # support(t), §7.1's own admitted gap ("bloquant pour
+                    # v4", shipped without it): a demonstrated referendum
+                    # result is the freshest available measurement of "what
+                    # fraction of the population supports this
+                    # officeholder" -- the exact same quantity, in the same
+                    # units, from the same population-wide-ballot method as
+                    # the mandate_strength computed once at election time
+                    # (legitimacy.mandate_strength). Replaced, not blended:
+                    # both numbers measure the identical thing, so there is
+                    # no principled weight that would justify discounting
+                    # the newer, more relevant one toward the staler one.
+                    # Takes effect from the NEXT tick's update_legitimacy
+                    # call onward -- this tick's own L (step 4) already ran
+                    # before the vote resolved (step 5), unchanged by design.
+                    holder.mandate_strength = keep_ratio
                 resolve_petition(holder, tick, config.petition)
                 lost_confidence = not retained
             elif petition_has_expired(holder, tick, config.petition):

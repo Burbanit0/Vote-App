@@ -127,8 +127,8 @@ def _flagship_config(
         ),
         journal=dataclasses.replace(config.journal, output_dir=str(output_dir)),
         # --- full richness: every substantive mechanism on ---
-        # Two flags here are shipped `false` and are NOT merely defaults left
-        # alone -- both are implemented, consequential mechanisms, and the
+        # Three flags here are shipped `false` and are NOT merely defaults left
+        # alone -- all three are implemented, consequential mechanisms, and the
         # flagship is the run that is supposed to exercise them:
         #   * candidacy.rupture_path_enabled -- the §2.4 rare path by which a
         #     citizen declares against their own party. Without it the candidate
@@ -140,12 +140,26 @@ def _flagship_config(
         #     letting a blank plurality invalidate a presidential election and
         #     force a rerun with the previous field barred. It is bounded by
         #     reelection_max_attempts=2, so it cannot loop.
+        #   * institutions.snap_election_on_recall -- Track A3 (2026-09-11,
+        #     lets-build-a-solid-spicy-otter.md). Without it Stage 3's own scale
+        #     probe sat vacant 15 of 32 ticks (office_occupancy=0.5152) after a
+        #     single recall, and its deterministic twin sat vacant WORSE
+        #     (0.2727, two recalls) -- the vacancy is structural to
+        #     simple_rules.py's own recall logic, not an LLM artifact, so a
+        #     flagship run with this left off would spend a large fraction of
+        #     its wall-clock on a polity with no accountability layer running
+        #     at all (pressure_action/representative_response/petitions all
+        #     require a sitting president). Bounded the same way blank-vote
+        #     reruns already are: reuses PendingRerun, capped by
+        #     reelection_max_attempts, cannot loop.
         # Deliberately still OFF: parties.birth_enabled/death_enabled, which are
         # parsed but not implemented (parties.py's own module docstring), and
         # social_graph.evolving / sortition_chamber.renewable, which load_config
         # rejects outright as designs this codebase decided against.
         candidacy=dataclasses.replace(config.candidacy, rupture_path_enabled=True),
-        institutions=dataclasses.replace(config.institutions, blank_vote_competitive=True),
+        institutions=dataclasses.replace(
+            config.institutions, blank_vote_competitive=True, snap_election_on_recall=True
+        ),
         legitimacy=dataclasses.replace(config.legitimacy, enabled=True),
         mandate=dataclasses.replace(config.mandate, enabled=True),
         petition=dataclasses.replace(config.petition, enabled=True),

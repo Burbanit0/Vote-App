@@ -68,6 +68,7 @@ _INSTITUTIONAL_EVENT_TYPES = frozenset({
     "elected",
     "election_no_winner",
     "election_invalidated",
+    "snap_election_triggered",
     "legislative_result",
     "coalition_formed",
     "coalition_failed",
@@ -84,7 +85,10 @@ codebase actually journals (grepped from run_polity_simulation.py's own
 journal.write call sites -- not assumed from the design doc's prose list).
 `economic_shock_tick` is included alongside `scandal_occurred`: both are v5's
 exogenous-events family, journaled by the same phase, and the plan's own
-"scandals" wording does not imply excluding the other half of that family."""
+"scandals" wording does not imply excluding the other half of that family.
+`snap_election_triggered` (Track A3, 2026-09-11) joins the election family
+alongside `election_invalidated` -- both are "the calendar just got
+suspended" events, journaled from the exact same tick-loop position."""
 
 # Phase 1 (plan-flagship-30y-run.md): re-tested under vLLM, still collapse.
 _UNVERIFIED_DECISION_TYPES = ("representative_response", "coalition_decision")

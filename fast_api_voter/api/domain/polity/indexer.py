@@ -97,6 +97,7 @@ from api.domain.polity.metrics import (
     is_cohabitation,
     lame_duck_deviation_delta as _lame_duck_deviation_delta_fn,
     mean_legitimacy as _mean_legitimacy_fn,
+    office_occupancy as _office_occupancy_fn,
     petition_success_rate as _petition_success_rate_fn,
     pressure_lever_mix as _pressure_lever_mix_fn,
     recall_frequency as _recall_frequency_fn,
@@ -168,6 +169,13 @@ class RunMetrics:
     # v6b: the sortition side of §6bis.3's own comparison. One entry per
     # (tick, seated member), gated on sortition_chamber.enabled.
     chamber_deviation: tuple[tuple[int, float], ...] | None
+
+    # Track A5 (2026-09-11): unconditional, like `terms` itself -- every
+    # config has a presidency, so this needs no governing flag. Engine-
+    # agnostic BY DESIGN (see metrics.office_occupancy's own docstring for
+    # why the old ad-hoc formula could not measure the deterministic path
+    # at all).
+    office_occupancy: float
 
 
 def read_journal(path: Path) -> Iterator[dict[str, Any]]:
@@ -272,6 +280,13 @@ def index_events(events: Iterable[Mapping[str, Any]], config: PolityConfig, *, r
     events = list(events)
     total_ticks = config.run.total_ticks
     terms = segment_terms(events, total_ticks)
+    # Same term-length convention mandate_deviation_coverage's own
+    # "recorded" branch already uses (`presided_estimate`, below) --
+    # computed once, here, unconditionally: unlike that branch this is
+    # never gated on metrics.mandate_deviation, since every config has a
+    # presidency regardless of whether that flag is on.
+    presided_ticks = sum(term.end_tick - term.start_tick for term in terms)
+    office_occupancy_value = _office_occupancy_fn(presided_ticks, total_ticks)
 
     # ── v0 rows ────────────────────────────────────────────────────────
     effective_parties = None
@@ -378,10 +393,10 @@ def index_events(events: Iterable[Mapping[str, Any]], config: PolityConfig, *, r
             mandate_deviation = tuple((tick, dev) for tick, _cid, dev in recorded_series)
             mandate_deviation_source = "recorded"
             # No dt=6 ctx series exists to give an exact presided-tick count
-            # -- approximated from term length, the same quantity Lot 6
-            # proved is >= 1 and never 0 for a sitting holder.
-            presided_estimate = sum(term.end_tick - term.start_tick for term in terms)
-            mandate_deviation_coverage = recorded_count / presided_estimate if presided_estimate > 0 else None
+            # -- approximated from term length, the same `presided_ticks`
+            # office_occupancy already computes above (Track A5), the same
+            # quantity Lot 6 proved is >= 1 and never 0 for a sitting holder.
+            mandate_deviation_coverage = recorded_count / presided_ticks if presided_ticks > 0 else None
             deviation_by_holder = recorded_series
             unified_recorded = [
                 (event["tick"], event["payload"]["unified_deviation"])
@@ -490,6 +505,7 @@ def index_events(events: Iterable[Mapping[str, Any]], config: PolityConfig, *, r
         stance_distribution=stance_dist,
         mandate_deviation_unified=mandate_deviation_unified,
         chamber_deviation=chamber_deviation_series,
+        office_occupancy=office_occupancy_value,
     )
 
 

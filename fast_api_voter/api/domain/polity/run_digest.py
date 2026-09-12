@@ -49,6 +49,7 @@ from typing import Any, Mapping
 from api.domain.polity.codebook import PressureAct
 from api.domain.polity.config import PolityConfig
 from api.domain.polity.indexer import segment_terms
+from api.domain.polity.metrics import office_occupancy
 from api.domain.polity.viz_export import _INSTITUTIONAL_EVENT_TYPES, export_metadata
 
 DIGEST_FILENAME = "digest.json"
@@ -60,7 +61,7 @@ ALL_EVENT_TYPES: frozenset[str] = frozenset({
     "nomination_lost", "campaign_positioning", "clamped_at_bound",
     # presidential election
     "vote_cast", "election_invalidated", "elected", "election_no_winner",
-    "mandate_pledge_declared",
+    "mandate_pledge_declared", "snap_election_triggered",
     # legislative / coalition
     "legislative_result", "coalition_formed", "coalition_failed", "coalition_decision",
     # exogenous events
@@ -75,10 +76,13 @@ ALL_EVENT_TYPES: frozenset[str] = frozenset({
     "sortition_rotation", "chamber_deliberation",
 })
 """Every event_type run_polity_simulation.py can journal -- grepped from its
-own `journal.write` call sites, not taken from the design doc's prose. 29 are
+own `journal.write` call sites, not taken from the design doc's prose. 30 are
 written as literals; `election_no_winner` is the false branch of the ternary at
 run_polity_simulation.py:1184 (`"elected" if winner is not None else ...`),
-which is why a naive literal grep finds only 29.
+which is why a naive literal grep finds only 30. `snap_election_triggered`
+(Track A3, 2026-09-11) is design §16.3's own reserved name, wired for the
+first time -- see PendingRerun's own docstring for why it reuses that
+mechanism rather than a new one.
 
 The digest reports a count for EVERY one of these per year, including zeros.
 That is the point: a reader must be able to tell "this did not happen" apart
@@ -310,6 +314,9 @@ def build_digest(
     last_tick = max(ticks_seen) if ticks_seen else None
     progress = _read_json(journal_path.with_name("progress.json"))
     checkpoint = _read_json(journal_path.with_name("checkpoint.json"))
+    # See "terms"/"office_occupancy" below for why this is computed once,
+    # here, rather than inline in each of those two places.
+    terms = segment_terms(events, last_tick or 0)
 
     return {
         "run_id": run_id,
@@ -348,7 +355,9 @@ def build_digest(
         # planned total: its own contract is that "the run's own end closes
         # whatever term is still open", and for an interrupted run the real end
         # is where it stopped. Passing the planned total would silently extend
-        # a term the run never actually lived through.
+        # a term the run never actually lived through. Called once, here, and
+        # reused for office_occupancy below -- never a second, potentially
+        # divergent call over the same events.
         "terms": [
             {
                 "holder_id": term.holder_id,
@@ -358,8 +367,21 @@ def build_digest(
                 "mandate_strength": term.mandate_strength,
                 "ended_by": term.ended_by,
             }
-            for term in segment_terms(events, last_tick or 0)
+            for term in terms
         ],
+        # Track A5 (2026-09-11): the same metrics.office_occupancy formula
+        # RunMetrics carries, computed here too because digest.json is what
+        # an interrupted or still-running attempt actually has -- metrics.json
+        # only exists on a clean completion (index_after_run), and this is the
+        # number that would have caught the 2026-09-11 misdiagnosis on sight
+        # (a run that looks "stuck" with a long-vacant presidency is instead
+        # just a run with low office_occupancy, a fact this makes visible
+        # without reading the journal by hand). Engine-agnostic like the
+        # metric itself -- see that function's own docstring.
+        "office_occupancy": office_occupancy(
+            sum(term.end_tick - term.start_tick for term in terms),
+            last_tick or 0,
+        ),
         "institutional_timeline": institutional_timeline(events),
         "event_counts_by_year": event_counts_by_year(events, config.run.ticks_per_year),
         "population_impact_by_year": population_impact_by_year(events, config),

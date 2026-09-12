@@ -1217,6 +1217,64 @@ def test_same_tick_election_recall_is_reachable(tmp_path):
     assert elected_ticks == recalled_ticks
 
 
+# ── Track A3 (2026-09-11, lets-build-a-solid-spicy-otter.md): the snap
+# election. Both tests share `test_same_tick_election_recall_is_reachable`'s
+# own recall_floor=0.99 trick (guarantees every winner is recalled the tick
+# they take office) over a run shorter than one presidential term
+# (duration_years=2 -> 8 ticks, president_term_years shipped at 4 -> 16
+# ticks) -- the calendar's own NEXT scheduled election never falls inside
+# the run, so any re-election at all can only be this mechanism's doing. ──
+
+def test_snap_election_on_recall_refills_the_office_continuously(tmp_path):
+    config = _config_with_legitimacy_enabled_and_guaranteed_winners(tmp_path, recall_floor=0.99)
+    config = dataclasses.replace(
+        config,
+        run=dataclasses.replace(config.run, duration_years=2, population_size=20),
+        institutions=dataclasses.replace(config.institutions, snap_election_on_recall=True),
+    )
+    journal_path = run_simulation(config, run_id="snap-refill")
+    events = _events(journal_path)
+
+    elected_ticks = [e["tick"] for e in events if e["event_type"] == "elected"]
+    recalled_ticks = [e["tick"] for e in events if e["event_type"] == "recalled"]
+    snap_events = [e for e in events if e["event_type"] == "snap_election_triggered"]
+
+    # Every single tick of the run re-elects and re-recalls -- the office is
+    # never left vacant for longer than reelection_delay_ticks (1). The tick
+    # loop is inclusive of total_ticks (duration_years*ticks_per_year), so a
+    # 2-year run at the shipped 4 ticks/year iterates ticks 0..8, nine ticks.
+    total_ticks = config.run.duration_years * config.run.ticks_per_year
+    all_ticks = list(range(total_ticks + 1))
+    assert elected_ticks == all_ticks
+    assert recalled_ticks == all_ticks
+    assert [e["tick"] for e in snap_events] == all_ticks
+    for tick, e in enumerate(snap_events):
+        assert e["payload"]["office"] == "president"
+        assert e["payload"]["next_attempt_tick"] == tick + config.institutions.reelection_delay_ticks
+        # The recalled citizen is named, and (see _parse_institutions's own
+        # comment) never barred from immediately winning again -- confirmed
+        # here by the SAME citizen id recurring across the whole run.
+        assert e["payload"]["recalled_citizen_id"] == 0
+
+
+def test_snap_election_on_recall_defaults_to_false_and_preserves_the_long_vacancy(tmp_path):
+    # The exact contrast: same guaranteed-recall setup, feature left at its
+    # shipped default -- the pre-existing behaviour every calibrated run
+    # depends on must be untouched by this mechanism's mere existence.
+    config = _config_with_legitimacy_enabled_and_guaranteed_winners(tmp_path, recall_floor=0.99)
+    config = dataclasses.replace(
+        config, run=dataclasses.replace(config.run, duration_years=2, population_size=20),
+    )
+    assert config.institutions.snap_election_on_recall is False  # the shipped default itself
+
+    journal_path = run_simulation(config, run_id="snap-off")
+    events = _events(journal_path)
+
+    assert [e["tick"] for e in events if e["event_type"] == "elected"] == [0]
+    assert [e["tick"] for e in events if e["event_type"] == "recalled"] == [0]
+    assert not [e for e in events if e["event_type"] == "snap_election_triggered"]
+
+
 def test_passive_erosion_applies_without_mandate_tracking_enabled(tmp_path):
     # Guards the gating design's own silent-zero gap: passive_erosion_weight
     # must still erode L even when mandate.enabled is False, since
@@ -1598,6 +1656,58 @@ def test_the_hard_floor_beats_the_petition_on_a_same_tick_collision(tmp_path):
     assert holder.petition_cooldown_until_tick == 5 + config.petition.cooldown_ticks
 
 
+def test_a_won_confidence_vote_vetoes_a_same_tick_floor_collision(tmp_path):
+    # The intersection the two neighbouring tests each excluded by
+    # construction: the collision test above votes REMOVE (retained=False),
+    # and the survived-vote test uses recall_floor=0.0 so the floor
+    # structurally never fires. Neither exercises "the vote is WON the same
+    # tick the floor crosses" -- exactly the real case that recalled a
+    # president who had just won retention 69.2% (2026-09-11). Same
+    # floor-crossing holder as the collision test above (m=0.1, below the
+    # shipped recall_floor=0.2); only the voters change, to the survived
+    # test's own KEEP setup.
+    config = _config_with_legitimacy_enabled(tmp_path)
+    config = dataclasses.replace(
+        config,
+        run=dataclasses.replace(config.run, population_size=4),
+        petition=dataclasses.replace(config.petition, enabled=True),
+    )
+    holder = _legitimacy_test_citizen(0, legitimacy_capital=0.1, mandate_strength_value=0.1)
+    holder.revealed_position = (0.5,)
+    holder.petition_open_since_tick = 0
+    holder.petition_signers = frozenset({1, 2, 3})  # 3/4 = 0.75 >= signature_threshold (0.25)
+    voters = [
+        Citizen(citizen_id=i, issue_positions=(0.5,), issue_priorities=(1.0,), blank_threshold=0.5, ambition_score=0.5)
+        for i in (1, 2, 3)
+    ]  # each sits exactly on holder.revealed_position -> votes keep, unanimously
+
+    journal_path = tmp_path / "vetoed-collision.jsonl"
+    with Journal(journal_path, run_id="vetoed-collision") as journal:
+        _run_accountability_phase([holder] + voters, config, journal, tick=5)
+
+    events = _events(journal_path)
+    # No "recalled" event at all -- floor_fires was true from L alone, and
+    # the won vote vetoed it before the recall decision ran.
+    assert [e["event_type"] for e in events] == [
+        "legitimacy_updated", "confidence_vote_triggered", "confidence_vote_result",
+    ]
+    result = events[2]
+    assert result["payload"]["retained"] is True
+    assert result["payload"]["averted_recall"] is True
+    assert result["payload"]["keep_ratio"] == pytest.approx(1.0)
+
+    # The office survives, still held by the same citizen.
+    assert holder.role == Role.ELECTED
+    assert holder.office == Office.PRESIDENT
+    # support(t): mandate_strength is now the demonstrated 1.0, not the
+    # election-day 0.1 that put L below the floor in the first place --
+    # from the NEXT tick onward this term is no longer on a collision
+    # course with the same fixed point.
+    assert holder.mandate_strength == pytest.approx(1.0)
+    assert holder.petition_open_since_tick is None
+    assert holder.petition_cooldown_until_tick == 5 + config.petition.cooldown_ticks
+
+
 def test_a_lost_confidence_vote_recalls_and_vacates_the_office(tmp_path):
     config = _config_with_legitimacy_enabled(tmp_path, recall_floor=0.0)
     config = dataclasses.replace(
@@ -1659,11 +1769,16 @@ def test_a_survived_confidence_vote_leaves_legitimacy_untouched_and_opens_the_co
     assert not [e for e in events if e["event_type"] == "recalled"]
     result = next(e for e in events if e["event_type"] == "confidence_vote_result")
     assert result["payload"]["retained"] is True
+    assert result["payload"]["averted_recall"] is False  # no collision: recall_floor=0.0 never fires
 
     update_event = next(e for e in events if e["event_type"] == "legitimacy_updated")
-    # No L change attributable to surviving -- legitimacy_updated (step 4)
-    # already ran before the vote resolved (step 5).
+    # No L change attributable to surviving THIS tick -- legitimacy_updated
+    # (step 4) already ran before the vote resolved (step 5).
     assert holder.legitimacy_capital == pytest.approx(update_event["payload"]["legitimacy"])
+    # But support(t) DOES change, from the NEXT tick onward: a unanimous
+    # keep (3/3) replaces the election-day mandate_strength (0.9) with the
+    # freshly demonstrated one (1.0).
+    assert holder.mandate_strength == pytest.approx(1.0)
     assert holder.petition_open_since_tick is None
     assert holder.petition_cooldown_until_tick == 7 + config.petition.cooldown_ticks
 
@@ -3194,6 +3309,35 @@ def test_sortition_chamber_enabled_without_the_llm_never_moves_chamber_position(
     # to issue_positions forever, zero code, zero events.
     assert not [e for e in events if e["event_type"] == "chamber_deliberation"]
     assert [e for e in events if e["event_type"] == "sortition_rotation"]  # the chamber IS seated
+
+
+def test_sortition_chamber_occupancy_never_drops_below_seats(tmp_path):
+    # Track A4 (2026-09-11, lets-build-a-solid-spicy-otter.md): the
+    # continuity contrast the presidency's own chronic vacancy is measured
+    # against. A real Stage 3 run showed this chamber seated 75/75 on every
+    # single tick, 0 through 32, no gaps -- while the presidency sat empty
+    # 15 of those 32 ticks. Nothing new is built here (the chamber already
+    # rotates seated/vacated atomically within one journal event, so
+    # occupancy never has a tick to be caught short in); this pins that as
+    # an invariant so a future change to the rotation cadence cannot
+    # silently reopen the gap. Deterministic engine -- rotation is
+    # independent of llm.enabled (see the test above this one).
+    config = _config_with_output_dir(tmp_path)
+    config = dataclasses.replace(
+        config,
+        run=dataclasses.replace(config.run, duration_years=4, population_size=50),
+        sortition_chamber=dataclasses.replace(config.sortition_chamber, enabled=True, seats=10),
+    )
+    journal_path = run_simulation(config, run_id="chamber-continuity")
+    events = _events(journal_path)
+
+    rotations = [e for e in events if e["event_type"] == "sortition_rotation"]
+    assert len(rotations) > 1  # more than the first seating -- real turnover happened
+
+    occupancy = 0
+    for rotation in rotations:
+        occupancy += len(rotation["payload"]["seated"]) - len(rotation["payload"]["vacated"])
+        assert occupancy == config.sortition_chamber.seats
 
 
 def test_chamber_deliberation_is_journalled_once_per_seated_member_per_tick(tmp_path):

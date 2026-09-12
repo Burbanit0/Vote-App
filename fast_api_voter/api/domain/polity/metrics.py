@@ -116,6 +116,45 @@ def mean_legitimacy(values: Sequence[float]) -> float:
     return sum(values) / len(values)
 
 
+def office_occupancy(presided_ticks: int, total_ticks: int) -> float:
+    """Track A5 (2026-09-11, lets-build-a-solid-spicy-otter.md): fraction of
+    the run's own ticks with a sitting president. Promoted from an ad-hoc,
+    LLM-path-only computation in scripts/run_v6b_acceptance.py (which could
+    only read it off mandate_deviation's own "ctx" series, so it was null
+    on every deterministic-engine run) to a real metric derived from
+    `terms` directly -- Track 0b's own finding is exactly why this needed
+    to work on both engines: a deterministic-engine control run showed
+    WORSE occupancy (0.273) than its LLM twin (0.515) on the same seed, and
+    the ad-hoc formula could not have measured the deterministic side at
+    all.
+
+    `total_ticks + 1` is the denominator, not `total_ticks`: the tick loop
+    is inclusive of `total_ticks` (`range(0, total_ticks + 1)`), so a run
+    configured for `total_ticks` actually executes `total_ticks + 1`
+    distinct ticks (0 through total_ticks) -- the same convention
+    run_v6b_acceptance.py's own formula already used. `presided_ticks` is
+    the caller's job (indexer.py sums `term.end_tick - term.start_tick`
+    across `segment_terms`'s own output, the same quantity mandate_
+    deviation_coverage's "recorded" branch already computes as
+    `presided_estimate` -- reused, not reinvented).
+
+    KNOWN, ACCEPTED IMPRECISION at one boundary: `segment_terms` closes a
+    still-open term at the run's own end with `end_tick=total_ticks`
+    (exclusive, the SAME convention every other term uses), so a president
+    who holds office for the entire run without ever being recalled reports
+    `total_ticks / (total_ticks + 1)`, not a clean 1.0 -- the accountability
+    phase genuinely runs for tick `total_ticks` too, and this formula does
+    not count it. Not fixed here: `segment_terms`'s own exclusive-end
+    convention is shared by every metric and by run_digest.py, and correcting
+    one caller's boundary without touching the function every other reader
+    depends on would make this metric agree with none of them. The error is
+    always exactly one tick, always in the same direction (undercount, never
+    over), and vanishes at any real total_ticks scale that matters here."""
+    if total_ticks < 0:
+        raise ValueError("office_occupancy requires total_ticks >= 0")
+    return presided_ticks / (total_ticks + 1)
+
+
 def recall_frequency(recalls: int, terms: int) -> float:
     """§10's "fréquence de rappel": recalls ÷ terms observed (a term that
     ends by a scheduled election, not a recall, still counts in the

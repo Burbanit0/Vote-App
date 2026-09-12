@@ -139,6 +139,27 @@ def test_segment_terms_carries_mandate_strength_from_legitimacy_updated():
 
 # ── mean_legitimacy / recalls (implied by legitimacy.enabled) ────────────
 
+def test_index_events_office_occupancy_is_unconditional_like_terms():
+    # Track A5 (2026-09-11): unlike mean_legitimacy/recalls_*, this needs no
+    # governing flag -- every config has a presidency, and it must be
+    # computable on the deterministic engine too (Track 0b's own finding is
+    # exactly why: a deterministic run showed WORSE occupancy than its LLM
+    # twin on the same seed, and the old ad-hoc formula in
+    # run_v6b_acceptance.py could only ever read it off an LLM-only ctx
+    # series). No legitimacy/mandate events at all in this journal -- only
+    # elected/recalled -- and it still computes.
+    events = [
+        _e(0, "elected", {"office": 1}, citizen_id=1),
+        _e(6, "recalled", {"office": 1, "legitimacy": 0.1, "recall_floor": 0.2, "trigger": "legitimacy_floor"}, citizen_id=1),
+    ]
+    config = _config()  # legitimacy_enabled=False, the deterministic-run shape
+    config = dataclasses.replace(
+        config, run=dataclasses.replace(config.run, duration_years=8, ticks_per_year=4)
+    )  # total_ticks=32, so 33 distinct ticks (0..32) -- see office_occupancy's own docstring
+    metrics = index_events(events, config)
+    assert metrics.office_occupancy == pytest.approx(6 / 33)
+
+
 def test_mean_legitimacy_skips_vacant_ticks_entirely():
     events = [
         _e(0, "elected", {"office": 1}, citizen_id=1),

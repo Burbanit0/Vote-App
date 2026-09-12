@@ -16,6 +16,7 @@ from api.domain.polity.metrics import (
     lame_duck_deviation_delta,
     mean_legitimacy,
     mobilization_rate,
+    office_occupancy,
     petition_success_rate,
     pressure_lever_mix,
     recall_frequency,
@@ -154,6 +155,38 @@ def test_recall_frequency_is_recalls_over_terms():
 
 def test_recall_frequency_with_zero_terms_is_zero():
     assert recall_frequency(0, 0) == 0.0
+
+
+# ── office_occupancy (Track A5, 2026-09-11) ────────────────────────────────
+
+def test_office_occupancy_denominator_is_total_ticks_plus_one():
+    # The tick loop runs range(0, total_ticks+1) inclusive -- a run configured
+    # for total_ticks=32 executes 33 distinct ticks (0..32). The exact live
+    # figures this formula was built to reproduce, from the same seed: the
+    # LLM-path scale probe presided 17/33 ticks, its deterministic twin only
+    # 9/33 -- worse, not better, confirming the vacancy is structural to
+    # simple_rules.py's own recall logic, not an LLM artifact (Track 0b).
+    assert office_occupancy(17, 32) == pytest.approx(17 / 33)
+    assert office_occupancy(9, 32) == pytest.approx(9 / 33)
+
+
+def test_office_occupancy_a_never_recalled_full_run_term_undercounts_by_one_tick():
+    # Documents the known, accepted boundary imprecision (see office_
+    # occupancy's own docstring) rather than asserting a clean 1.0 that the
+    # real formula cannot produce: segment_terms closes a still-open term at
+    # end_tick=total_ticks (exclusive, like every other term), so the tick
+    # the run actually ends ON is never counted as presided, even though the
+    # accountability phase genuinely ran for it.
+    assert office_occupancy(32, 32) == pytest.approx(32 / 33)
+
+
+def test_office_occupancy_never_presided_is_0_0():
+    assert office_occupancy(0, 32) == 0.0
+
+
+def test_office_occupancy_rejects_a_negative_total_ticks():
+    with pytest.raises(ValueError):
+        office_occupancy(0, -1)
 
 
 # ── inaction_rate (v4 Lot 8) ───────────────────────────────────────────────

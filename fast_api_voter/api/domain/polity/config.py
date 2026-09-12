@@ -151,6 +151,7 @@ class InstitutionsConfig:
     reelection_delay_ticks: int
     reelection_max_attempts: int
     barred_from_immediate_rerun: bool
+    snap_election_on_recall: bool
 
 
 @dataclass(frozen=True)
@@ -551,6 +552,17 @@ def _parse_institutions(raw: dict[str, Any]) -> InstitutionsConfig:
         reelection_delay_ticks=_get_positive_int(s, "institutions", "reelection_delay_ticks"),
         reelection_max_attempts=_get_positive_int(s, "institutions", "reelection_max_attempts"),
         barred_from_immediate_rerun=_get(s, "institutions", "barred_from_immediate_rerun", bool),
+        # 2026-09-11 (lets-build-a-solid-spicy-otter.md Track A3): reuses the
+        # SAME PendingRerun/reelection_delay_ticks/reelection_max_attempts
+        # machinery §6bis.2 already built for blank-vote invalidation --
+        # never a second mechanism. §16.3's own event taxonomy reserves
+        # `snap_election_triggered` and never wires it; this is that wire.
+        # Deliberately does NOT apply barred_from_immediate_rerun to the
+        # just-recalled officeholder: that flag's own semantics bar an
+        # INVALIDATED election's candidate set, and a recall has no
+        # candidate set to bar -- conflating the two would silently change
+        # what the flag means for its original caller.
+        snap_election_on_recall=_get(s, "institutions", "snap_election_on_recall", bool),
     )
 
 

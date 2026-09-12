@@ -69,6 +69,15 @@ institutions:
                                       #      ça le mécanisme n'a aucun effet.
                                       #      Bascule indépendante de
                                       #      blank_vote_competitive.
+  snap_election_on_recall: false      # [v9, Track A3] un scrutin anticipé,
+                                      #      reelection_delay_ticks après un
+                                      #      rappel (floor ou vote de
+                                      #      confiance), au lieu d'attendre
+                                      #      le prochain scrutin calendaire.
+                                      #      false par défaut : ne change pas
+                                      #      un run déjà calibré ; le run
+                                      #      flagship l'active explicitement
+                                      #      (run_polity_flagship.py).
 
 # =============================================================================
 # PARTIS (§A2 de l'audit)
