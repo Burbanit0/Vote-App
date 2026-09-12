@@ -48,7 +48,7 @@ montre jamais. On corrige une copie sur un barème que l'élève n'a pas vu.
 | `vote_cast` | ✅ | ✅ | ✅ | ⚠️ | ✅ | **Fiable** (23/24) |
 | `campaign_positioning` | ✅ | ✅ | ✅ | ✅ | n/a | Pas de collapse (autre défaut : 50-66 % d'échec) |
 | `party_nomination_choice` | ✅ | ✅ | ⚠️ | ✅ | n/a | Pas de collapse (4/5) |
-| `candidacy_considered` | ✅ | ✅ | ❌ | ✅ | ❌ | Pas de collapse, mais 64 % de justesse mesurée |
+| `candidacy_considered` | ✅ | ✅ | ❌ | ✅ | ❌ | Pas de collapse, 64 % de justesse, calibration C3 essayée et négative |
 | `coalition_decision` | ✅ | ✅ | ⚠️ | ✅ | n/a | **Collapse confirmé, calibration C3 essayée et négative** |
 | `representative_response` | ✅ | ✅ | ✅ | ✅ | n/a | **Collapse fixé (partiel)**, voir §3 |
 | `chamber_deliberation` | ✅ | ✅ | ❌ | ✅ | n/a | Non tranché |
@@ -133,9 +133,23 @@ satisfait maintenant les 5 clauses du contrat (§1). **Les 5 phases du plan sont
 
 - Libre : le point de bascule, le poids relatif d'`ambition_score` et de `perceived_support`.
 - À calibrer : `ambition_score` est envoyé nu. `config.ambition_threshold` n'apparaît nulle part.
-  ⚠️ Ce seuil n'est **pas** une vérité terrain valide (ADR-002 : la valeur shippée rend le chemin
-  déterministe inerte) — préférer une référence de population, dans la forme qu'a déjà
-  `perceived_support`.
+  ⚠️ Ce seuil n'est **pas** une vérité terrain valide pour ce chemin (ADR-002 : `decide_candidacies`
+  ne le lit jamais — seul le chemin déterministe et son fallback le consultent).
+
+**Essayé et NÉGATIF, 2026-09-11** (Track B3, `lets-build-a-solid-spicy-otter.md`,
+`scripts/check_candidacy_calibration_results.md`) : `build_candidacy_system_prompt_toon_calibrated`
+énonce la MOYENNE d'`ambition_score` dans la population, calculée une fois par l'appelant comme
+`support`. Vérifié en direct sur une vraie population p500 (`generate_population`, config shippée,
+non filtrée, même découpage/schéma/think=False que la production) : le taux déclaré **augmente**
+(202/500, 40,4 % → 238/500, 47,6 %) et la justesse **baisse** (63,6 % → 58,4 %). **Non livré** —
+`decide_candidacies` appelle toujours le prompt non calibré. Deuxième cas confirmé (après
+`coalition_decision`, Track B2) où C3 n'explique pas le défaut : énoncer la moyenne donne au modèle
+un point de comparaison qui argumente dans le mauvais sens (« ambition supérieure à la moyenne » se
+lit comme une raison de se présenter, alors que la candidature réelle exige une combinaison bien
+plus rare que la simple moyenne supérieure). Règle également en négatif la piste du renoncement/
+cooldown après défaite proposée par le plan comme réponse à CETTE barre précise : un tel mécanisme
+ne peut supprimer que la candidature répétée, or cette population fraîchement générée n'a aucun
+historique électoral et sur-déclare quand même.
 
 ### `representative_response` (dt=6)
 

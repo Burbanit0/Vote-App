@@ -37,6 +37,7 @@ from api.domain.polity.llm_behavior_engine import (
     assemble_coalition,
     build_candidacy_system_prompt,
     build_candidacy_system_prompt_toon,
+    build_candidacy_system_prompt_toon_calibrated,
     build_candidacy_user_prompt,
     build_candidacy_user_prompt_toon,
     build_chamber_system_prompt,
@@ -839,6 +840,50 @@ def test_candidacy_system_prompt_toon_differs_from_json_only_in_the_format_parag
     toon_lines = set(build_candidacy_system_prompt_toon(citizens).splitlines())
     assert json_lines - toon_lines == set()
     assert json_lines <= toon_lines
+
+
+# ── build_candidacy_system_prompt_toon_calibrated (Track B3, 2026-09-11) ────
+
+def test_calibrated_candidacy_prompt_states_the_population_mean_ambition():
+    prompt = build_candidacy_system_prompt_toon_calibrated(_population(3), mean_ambition=0.2013)
+    assert "0.2013" in prompt
+
+
+def test_calibrated_candidacy_prompt_is_additive_not_a_replacement():
+    # Same "enumerate the full expected cid list verbatim + self-check" and
+    # same TOON worked example as the uncalibrated version -- only the
+    # population-mean sentence is new.
+    citizens = _population(3)
+    prompt = build_candidacy_system_prompt_toon_calibrated(citizens, mean_ambition=0.2)
+    assert "[0,1,2]" in prompt and "EXACTEMENT ces 3" in prompt
+    assert "citizens[N]{cid,ambition_score,perceived_support}:" in prompt
+    assert "0,0.52,0.31" in prompt  # the worked example, unchanged
+
+
+def test_calibrated_candidacy_prompt_differs_from_uncalibrated_only_in_the_added_sentence():
+    citizens = _population(3)
+    uncalibrated_lines = set(build_candidacy_system_prompt_toon(citizens).splitlines())
+    calibrated_lines = set(build_candidacy_system_prompt_toon_calibrated(citizens, mean_ambition=0.2).splitlines())
+    assert uncalibrated_lines <= calibrated_lines
+    added = calibrated_lines - uncalibrated_lines
+    assert len(added) == 1
+    assert "0.2000" in next(iter(added))
+
+
+def test_calibrated_candidacy_prompt_states_no_prescribed_action():
+    # C4: the ADDED sentence must situate a score against the population,
+    # never tell the model what that should mean for the decision -- no
+    # threshold, no "declare only if above this". Scoped to the added
+    # sentence alone (not the whole prompt): the pre-existing motif table
+    # legitimately contains "ambition_threshold_met", which is a real motif
+    # code, not a prescribed rule this fix introduces.
+    citizens = _population(1)
+    uncalibrated_lines = set(build_candidacy_system_prompt_toon(citizens).splitlines())
+    calibrated_lines = set(build_candidacy_system_prompt_toon_calibrated(citizens, mean_ambition=0.2).splitlines())
+    added_sentence = next(iter(calibrated_lines - uncalibrated_lines)).lower()
+    forbidden = ["seuil", "threshold", "si superieur", "si le score", "declare seulement", "ne te presente que"]
+    for term in forbidden:
+        assert term not in added_sentence
 
 
 # ── decide_candidacies (FakeCandidacyLlmClient) ──────────────────────────────

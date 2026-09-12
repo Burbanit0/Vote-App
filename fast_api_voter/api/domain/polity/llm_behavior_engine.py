@@ -1745,6 +1745,81 @@ def build_candidacy_system_prompt_toon(citizens: Sequence[Citizen]) -> str:
     )
 
 
+def build_candidacy_system_prompt_toon_calibrated(citizens: Sequence[Citizen], mean_ambition: float) -> str:
+    """Track B3 (2026-09-11, lets-build-a-solid-spicy-otter.md): C3 for
+    dt=2. `candidacy_considered` is not a content-blind collapse like B1/B2
+    -- 202/500 (40.4%) declared against a pre-registered bar of <5%, real
+    differentiation (64% accuracy against ground truth), just far too
+    permissive. `ambition_score` (`citizens.ambition_dist`, shipped
+    beta(2,8)) is sent as a bare float in [0,1] with no reference at all --
+    `perceived_support` is already self-scaling (a sympathizer_ratio, a
+    population fraction by construction), so it is not this fix's target.
+
+    Unlike mandate_dev's exact geometric ceiling (B1) or distance_to_
+    initiator's empirical dispersion (B2): ambition_score's distribution
+    is not fixed by this module -- `citizens.ambition_dist` is a config
+    string (ADR-002, `_parse_beta_params`), so no constant can be
+    hardcoded here. `mean_ambition` is computed once by the caller, over
+    the SAME `population` used for `support` (decide_candidacies's own
+    "never recomputed per-chunk" discipline, so this number cannot drift
+    across chunk boundaries either) -- the same empirical-reference shape
+    as B2's mean pairwise distance, not a mathematical bound like B1's.
+
+    C4-compliant: states where a score sits relative to the population,
+    never what that should mean for the decision -- no threshold, no
+    "declare only if above this".
+
+    C3 CALIBRATION ATTEMPTED AND FAILED, verified live 2026-09-11
+    (`scripts/check_candidacy_calibration_results.md`): a real p500
+    population (`generate_population` against the shipped config,
+    unfiltered -- matching `_declare_nominees_llm`'s own call site)
+    declared MORE with this prompt (238/500, 47.6%) than the uncalibrated
+    baseline (202/500, 40.4%, which reproduces Stage 3's real production
+    figure exactly), and LESS accurately against ground truth (58.4% vs
+    63.6%). Both are an order of magnitude above the pre-registered <5%
+    bar. NOT wired into `decide_candidacies` for this reason -- it still
+    calls the uncalibrated `build_candidacy_system_prompt_toon`. Reading:
+    stating the population MEAN gives the model a comparison point that
+    argues in the wrong direction ("above-average ambition" reads as a
+    reason TO run, when real candidacy needs a far rarer combination of
+    traits than merely above-average) -- unlike B1's exact geometric
+    ceiling, a mean is the wrong reference shape here. See that results
+    doc for why an ambition-feedback/cooldown mechanism (the plan's other
+    proposed fix) was also ruled out as an answer to this specific bar:
+    it can only suppress REPEAT candidacy, and this probe's population
+    has no election history to have lost anything from, yet still
+    over-declares."""
+    cid_list = ",".join(str(c.citizen_id) for c in citizens)
+    return (
+        "Tu es un moteur de simulation. Pour chaque citoyen recu, decide "
+        "s'il se presente comme candidat (outcome=1) ou renonce "
+        "(outcome=0), a partir de son ambition et du soutien qu'il "
+        "percoit.\n"
+        "Le message utilisateur n'est PAS du JSON : il utilise le format "
+        "TOON. La premiere ligne 'citizens[N]{cid,ambition_score,"
+        "perceived_support}:' annonce le nombre d'enregistrements (N) et "
+        "l'ordre des champs. Chaque ligne suivante est UN enregistrement, "
+        "ses valeurs separees par des virgules, dans cet ordre exact. "
+        "Exemple : 'citizens[2]{cid,ambition_score,perceived_support}:\\n"
+        "0,0.52,0.31\\n1,0.68,0.44' decrit exactement 2 citoyens : "
+        "cid=0 (ambition_score=0.52, perceived_support=0.31) et "
+        "cid=1 (ambition_score=0.68, perceived_support=0.44).\n"
+        f"ambition_score : intensite personnelle a se presenter -- pour "
+        f"reference, l'ambition MOYENNE dans la population actuelle de "
+        f"citoyens est d'environ {mean_ambition:.4f}. Ce nombre ne "
+        "prescrit aucune decision ; il situe seulement chaque score "
+        "individuel par rapport au niveau d'ambition reel de cette "
+        "population, plutot que sur l'echelle abstraite [0,1].\n"
+        "Motifs valides (code court obligatoire) :\n"
+        f"{CANDIDACY_MOTIF_PROMPT_TABLE}\nIMPORTANT : la liste decisions "
+        f"doit contenir EXACTEMENT ces {len(citizens)} cid, chacun une "
+        f"seule fois, dans cet ordre : [{cid_list}]. Verifie ta reponse "
+        "avant de la finaliser : chaque cid de cette liste doit apparaitre "
+        "exactement une fois.\nReponds UNIQUEMENT avec un objet JSON "
+        "conforme au schema fourni."
+    )
+
+
 def build_candidacy_user_prompt_toon(chunk: Sequence[Citizen], support: dict[int, float]) -> str:
     """The TOON-encoded twin of build_candidacy_user_prompt -- same
     values, same rounding, same field set, only the wire shape differs.
@@ -1799,7 +1874,24 @@ def decide_candidacies(
     real token savings but a real quality regression -- and is NOT shipped
     for that reason; the two are independent decisions, not a blanket
     "TOON everywhere" policy. Single-run result, not yet replicated with a
-    second seed."""
+    second seed.
+
+    C3 CALIBRATION ATTEMPTED AND FAILED, 2026-09-11 (lets-build-a-solid-spicy-otter.md Track B3,
+    scripts/check_candidacy_calibration_results.md): not a collapse like pressure_action/coalition_
+    decision -- this type differentiates for real (64% accuracy against simple_rules.decide_
+    candidacy's ground truth in Stage 3) -- but 202/500 (40.4%) declared against a pre-registered
+    bar of <5%. build_candidacy_system_prompt_toon_calibrated states the population's own MEAN
+    ambition_score (the one missing scale polity-decision-contracts.md's own §3 names). Live-
+    verified against a real p500 population, unfiltered, same chunking/schema/think=False as
+    production: the calibrated arm declared MORE (238/500, 47.6%) and LESS accurately (58.4% vs
+    63.6%) than the uncalibrated baseline. NOT SHIPPED -- this function still calls the uncalibrated
+    build_candidacy_system_prompt_toon. Reading: stating the population mean gives the model a
+    comparison point that argues in the wrong direction ("above-average ambition" reads as a reason
+    TO run) -- unlike B1's exact geometric ceiling, a mean is the wrong reference shape for this
+    type. Also settles the plan's own ambition-feedback question in the negative as an answer to
+    THIS bar specifically: a decay-on-defeat/cooldown mechanism can only suppress repeat candidacy,
+    and this probe's freshly-generated population has no election history to have lost anything
+    from, yet still over-declares -- see the results doc for the full reasoning."""
     _check_supported(config)
 
     population = list(citizens)
