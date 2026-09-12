@@ -516,9 +516,17 @@ ci-dessous restent utiles comme prochaine étape (un seuil absolu plutôt
 qu'un ratchet relatif), et certains sont déjà atteints en pratique :
 
 - **vulture** : critère (0 finding à `--min-confidence 80`) **atteint** au
-  2026-09-06 (voir §3) — pas encore promu en hook pre-commit bloquant (même
-  modèle que `flake8`/`mypy` existants), qui reste l'étape suivante logique
-  maintenant que le critère est rempli.
+  2026-09-06 (voir §3) et **promu en hook pre-commit bloquant le
+  2026-09-12** (`.pre-commit-config.yaml`, même modèle local que `mypy`).
+  Portée vérifiée en injectant du vrai code mort de chaque classe plutôt que
+  supposée : à ce seuil, vulture attrape bien un paramètre inutilisé (100 %),
+  du code inatteignable après `return` (100 %) et un import inutilisé
+  (90 %) — exactement les deux classes de ses trouvailles d'origine. Il
+  n'attrape **pas** une fonction top-level inutilisée ni une variable locale
+  inutilisée (toutes deux plafonnées à 60 % de confiance, quel que soit le
+  code) — celles-là restent informationnelles (`--min-confidence 60` dans
+  `scripts/audit.sh`), dominées par les faux positifs Enum/décorateurs déjà
+  documentés en §3, pas sûres à gater telles quelles.
 - **knip** : critère visé = dépendances "unused"/"unlisted" à 0. Au
   2026-09-06 : "unlisted" (utilisées mais non déclarées) est à 0 — corrigé
   depuis août ; "unused" (déclarées mais jamais importées) est à 1
