@@ -1883,18 +1883,48 @@ Angle de récit : *« à quoi ressemble un repo réellement outillé pour le
 développement assisté par agent ? »* — sujet sur lequel il existe très peu de
 retours concrets.
 
-| Item | Pourquoi ici | Effort | Solidité | Récit |
-|---|---|---|---|---|
-| **Agent `parity-guardian`** | Dès qu'une règle de vote bouge : régénère la parité, lance le test, explique tout écart. | M | ⭐⭐⭐ | 📝📝📝 |
-| **Agent `dep-triage`** | Lit les PR Dependabot, classe patch/mineur/majeur, lit les changelogs, propose l'ordre de merge. Répond pile à la douleur du 06/09. | M | ⭐⭐ | 📝📝📝 |
-| **Agent `axiom-checker`** | Vérifie qu'une nouvelle méthode de vote arrive avec ses tests axiomatiques (Lot 4.1). | M | ⭐⭐ | 📝📝 |
-| **Agent `flake-hunter`** | Isole les tests instables, propose un correctif. | M | ⭐⭐ | 📝📝 |
-| **Agent `doc-drift`** | Celui improvisé le 06/09, figé en agent réutilisable + cron mensuel. | S | ⭐⭐ | 📝📝📝 |
-| **Skill `voter-testing`** | Comment tester ici : Hypothesis, fixtures de parité, testids e2e, pièges connus. | M | ⭐⭐ | 📝📝 |
-| **Skill `voter-ci`** | Diagnostiquer un échec CI, où sont les gates, que faire quand le ratchet casse. | M | ⭐⭐ | 📝📝 |
-| **Skill `release`** | Checklist `develop → main`. | S | ⭐⭐ | 📝 |
-| **Agents planifiés** | Revue hebdo du diff de la semaine, audit doc mensuel, veille de dépendances. | M | ⭐⭐ | 📝📝📝 |
-| **`/code-review ultra`** sur les PR du moteur | Existe déjà, sous-utilisé sur les changements sensibles. | S | ⭐⭐ | 📝📝 |
+| Item | Pourquoi ici | Effort | Solidité | Récit | Statut |
+|---|---|---|---|---|---|
+| **Agent `parity-guardian`** | Dès qu'une règle de vote bouge : régénère la parité, lance le test, explique tout écart. | M | ⭐⭐⭐ | 📝📝📝 | |
+| **Agent `dep-triage`** | Lit les PR Dependabot, classe patch/mineur/majeur, lit les changelogs, propose l'ordre de merge. Répond pile à la douleur du 06/09. | M | ⭐⭐ | 📝📝📝 | ✅ `.claude/agents/dep-triage.md` — voir détail sous le tableau |
+| **Agent `axiom-checker`** | Vérifie qu'une nouvelle méthode de vote arrive avec ses tests axiomatiques (Lot 4.1). | M | ⭐⭐ | 📝📝 | |
+| **Agent `flake-hunter`** | Isole les tests instables, propose un correctif. | M | ⭐⭐ | 📝📝 | |
+| **Agent `doc-drift`** | Celui improvisé le 06/09, figé en agent réutilisable + cron mensuel. | S | ⭐⭐ | 📝📝📝 | |
+| **Skill `voter-testing`** | Comment tester ici : Hypothesis, fixtures de parité, testids e2e, pièges connus. | M | ⭐⭐ | 📝📝 | |
+| **Skill `voter-ci`** | Diagnostiquer un échec CI, où sont les gates, que faire quand le ratchet casse. | M | ⭐⭐ | 📝📝 | |
+| **Skill `release`** | Checklist `develop → main`. | S | ⭐⭐ | 📝 | |
+| **Agents planifiés** | Revue hebdo du diff de la semaine, audit doc mensuel, veille de dépendances. | M | ⭐⭐ | 📝📝📝 | |
+| **`/code-review ultra`** sur les PR du moteur | Existe déjà, sous-utilisé sur les changements sensibles. | S | ⭐⭐ | 📝📝 | |
+
+**Détail `dep-triage`** (2026-09-11) — `.claude/agents/dep-triage.md`, `model: sonnet`
+(le plan lui-même exclut le modèle le plus cher pour les agents mécaniques du
+Lot 11, cf. §12.4 ; `sonnet` reste cohérent avec `experiment-writer`/
+`journal-writer` et laisse la marge de jugement nécessaire pour distinguer une
+incompatibilité amont réelle d'une simplement plausible), outils `Read, Grep,
+Glob, Bash` (aucun `Write`/`Edit` — c'est un agent de triage/recommandation,
+il ne merge, ne ferme ni ne modifie jamais rien lui-même). Corps en français
+comme ses deux pairs, avec une règle explicite : tout texte destiné à
+GitHub qu'il rédige (commentaire de fermeture de PR, commentaire inline dans
+`dependabot.yml`) doit être en anglais, la convention réellement observée sur
+ce repo pour ce type de contenu (vérifié sur les fermetures de #371/#389 et
+sur les commentaires `ignore:` déjà en place), qui tranche avec le français
+des docs internes.
+
+Validation : le harness de cette session ne recharge pas la liste des
+sous-agents en cours de session (un nouveau fichier `.claude/agents/*.md` créé
+pendant la conversation n'apparaît pas dans les types invocables, même après
+commit) — limitation d'environnement, pas un défaut du fichier. À défaut de
+pouvoir invoquer `subagent_type: dep-triage` littéralement, la procédure
+décrite dans le fichier a été rejouée pour de vrai par un agent
+`general-purpose` à qui on a demandé de l'adopter mot pour mot, contre deux
+PR Dependabot fermées le 11/09 (#371 pylint, #324 jsdom) traitées comme si
+elles étaient encore ouvertes — vraies commandes `gh`/`curl`/`npm view`, vrais
+logs CI, vraie requête PyPI/npm, aucune écriture. Les deux essais retrouvent
+indépendamment le même paquet coupable, la même preuve CI et une
+recommandation de fermeture + règle `ignore:` quasi mot pour mot identique
+aux commentaires de fermeture et aux règles déjà mergées (#386, #390) —
+confirmation que le processus décrit reproduit fidèlement la démarche
+d'investigation réelle du 06-11/09, pas seulement en théorie.
 
 ---
 
