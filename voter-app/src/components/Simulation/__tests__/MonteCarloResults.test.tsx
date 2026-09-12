@@ -14,10 +14,10 @@ vi.mock('recharts', () => ({
   YAxis: () => <div />,
 }));
 
-vi.mock('../../shared/ResponsiveTable', () => ({
+vi.mock('../../shared/ui/ResponsiveTable', () => ({
   default: ({ children, className }: any) => <div className={className}>{children}</div>,
 }));
-vi.mock('../../shared/SkeletonCard', () => ({
+vi.mock('../../shared/ui/SkeletonCard', () => ({
   default: ({ height }: any) => <div style={{ height }} />,
 }));
 vi.mock('../../../hooks/useChartTheme', () => ({

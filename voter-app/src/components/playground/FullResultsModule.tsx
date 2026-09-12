@@ -5,9 +5,9 @@ import { Alert } from '@/components/ui/alert';
 import { Spinner } from '@/components/ui/spinner';
 import { useElection } from '../../stores/useElectionStore';
 import { simulateElection, type ElectionResult } from '../../services/electionApi';
-import ResultsMethodTable from '../shared/ResultsMethodTable';
-import ElectionInsightPanel from '../shared/ElectionInsightPanel';
-import HistoricalReferencePanel from '../shared/HistoricalReferencePanel';
+import ResultsMethodTable from '../shared/results/ResultsMethodTable';
+import ElectionInsightPanel from '../shared/results/ElectionInsightPanel';
+import HistoricalReferencePanel from '../shared/results/HistoricalReferencePanel';
 
 // FullResultsModule — the Lab's core "results" view absorbed into the playground:
 // run a full simulation on the shared electorate, then show the per-method winner

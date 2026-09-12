@@ -18,10 +18,10 @@ const AVousDeJouerPage = React.lazy(() => import('./pages/AVousDeJouerPage'));
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage'));
 
 import { useTheme } from './stores/useUIStore';
-import { ToastProvider } from './components/shared/ToastNotification';
+import { ToastProvider } from './components/shared/ui/ToastNotification';
 import { ElectionProvider } from './stores/useElectionStore';
-import UpdatePrompt from './components/shared/UpdatePrompt';
-import OfflineBanner from './components/shared/OfflineBanner';
+import UpdatePrompt from './components/shared/ui/UpdatePrompt';
+import OfflineBanner from './components/shared/ui/OfflineBanner';
 
 import './styles/tailwind.css';
 

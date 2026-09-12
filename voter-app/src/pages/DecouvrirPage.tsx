@@ -5,7 +5,7 @@ import { ArrowRight, ListOrdered, Star, CheckSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useMetaTags } from '../hooks/useMetaTags';
-import CuriosityQuestions from '../components/shared/CuriosityQuestions';
+import CuriosityQuestions from '../components/shared/common/CuriosityQuestions';
 import { ruleWinnerFromRanks, type Rule } from '../lib/playgroundVoting';
 import {
   GROUPS,
