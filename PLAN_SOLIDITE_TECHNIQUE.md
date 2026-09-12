@@ -1878,7 +1878,12 @@ raisonnement sur la sémantique readiness :
 
 ## Lot 11 — Outillage Claude avancé
 
-Le `.claude/` actuel est mince : 2 skills, 1 agent, 1 commande, **0 hook**.
+Le `.claude/` actuel reste mince : 2 skills, 5 agents (`experiment-writer`,
+`journal-writer`, `dep-triage`, `parity-guardian`, `doc-drift`), 2 commandes,
+et des hooks déjà en place (`PreToolUse`/`PostToolUse` sur `engineParity.json`
+— la ligne « Hooks Claude » du Lot 6 ci-dessus corrige déjà l'ancienne
+affirmation « 0 hook », trouvaille du premier run réel de l'agent `doc-drift`
+ci-dessous, qui n'avait jamais été répercutée ici).
 Angle de récit : *« à quoi ressemble un repo réellement outillé pour le
 développement assisté par agent ? »* — sujet sur lequel il existe très peu de
 retours concrets.
@@ -1889,7 +1894,7 @@ retours concrets.
 | **Agent `dep-triage`** | Lit les PR Dependabot, classe patch/mineur/majeur, lit les changelogs, propose l'ordre de merge. Répond pile à la douleur du 06/09. | M | ⭐⭐ | 📝📝📝 | ✅ `.claude/agents/dep-triage.md` — voir détail sous le tableau |
 | **Agent `axiom-checker`** | Vérifie qu'une nouvelle méthode de vote arrive avec ses tests axiomatiques (Lot 4.1). | M | ⭐⭐ | 📝📝 | |
 | **Agent `flake-hunter`** | Isole les tests instables, propose un correctif. | M | ⭐⭐ | 📝📝 | |
-| **Agent `doc-drift`** | Celui improvisé le 06/09, figé en agent réutilisable + cron mensuel. | S | ⭐⭐ | 📝📝📝 | |
+| **Agent `doc-drift`** | Celui improvisé le 06/09, figé en agent réutilisable + cron mensuel. | S | ⭐⭐ | 📝📝📝 | ✅ agent + premier run réel fait, cron mensuel documenté mais pas câblé (voir détail sous le tableau) |
 | **Skill `voter-testing`** | Comment tester ici : Hypothesis, fixtures de parité, testids e2e, pièges connus. | M | ⭐⭐ | 📝📝 | |
 | **Skill `voter-ci`** | Diagnostiquer un échec CI, où sont les gates, que faire quand le ratchet casse. | M | ⭐⭐ | 📝📝 | |
 | **Skill `release`** | Checklist `develop → main`. | S | ⭐⭐ | 📝 | |
@@ -1975,6 +1980,85 @@ recommandation de fermeture + règle `ignore:` quasi mot pour mot identique
 aux commentaires de fermeture et aux règles déjà mergées (#386, #390) —
 confirmation que le processus décrit reproduit fidèlement la démarche
 d'investigation réelle du 06-11/09, pas seulement en théorie.
+
+**Agent `doc-drift`, détail.** Construit dans `.claude/agents/doc-drift.md` —
+Read/Grep/Glob/Bash seulement, jamais d'édition. Vérifie dans l'ordre : les
+chemins de fichiers cités dans `CLAUDE.md`/`README.md`/`.claude/skills/*/
+SKILL.md`/ce plan (existence réelle), les commandes de gate documentées
+(le script/sous-commande visé existe toujours, échantillon exécuté sans
+lancer la suite complète), les marqueurs ✅ du plan (l'artefact cité tient
+toujours ce qu'il promet), et les chiffres qui vieillissent vite (compteurs,
+« N méthodes verrouillées ») — filtrés par l'écart `git blame`
+(`docs/exploration/EXP-001-...`) mais jamais tranchés par lui seul : un
+écart ancien déclenche une vérification réelle, pas une affirmation. Rédigé
+en anglais (les 3 des 4 surfaces qu'il audite le sont déjà ; c'est de la
+vérification mécanique, pas le carnet narratif des deux agents existants).
+
+**Premier run réel, pas un scénario.** L'invocation directe
+(`subagent_type: "doc-drift"`) a échoué deux fois de suite avec « Agent type
+not found » alors que le fichier existait déjà sur disque et était commité :
+la liste des agents disponibles pour l'outil Agent est fixée au démarrage de
+la session et ne se recharge pas en cours de route quand on ajoute un
+nouveau `.claude/agents/*.md` — pas testé si une session fraîche le
+ramasserait au démarrage suivant, aucun moyen d'en lancer une depuis ce
+contexte. Contournement : un agent `general-purpose` a reçu le corps de
+`doc-drift.md` verbatim comme instructions, avec les mêmes restrictions
+d'outils, pour un test grandeur nature fidèle. Trouvailles réelles,
+vérifiées à la main après coup : (1) le paragraphe d'ouverture de ce Lot 11
+lui-même affirmait « 0 hook » alors que les garde-fous `graphify` existaient
+déjà à la date du commit qui a écrit cette phrase (`617807a1`,
+2026-09-07) — et la ligne 247 de ce même plan avait déjà corrigé cette
+exacte erreur ailleurs, sans que ça remonte ici (corrigé dans ce commit) ;
+(2) `README.md` affirmait « three real destinations » alors que le tableau
+juste en dessous et `voter-app/src/routes.ts` en listent cinq (corrigé dans
+ce commit). Zéro écart trouvé sur un échantillon de marqueurs ✅ du Lot 9/10
+et sur les comptages de parité (26 méthodes, 29 règles) — vérifiés
+directement contre `engineParity.json`/`playgroundVoting.ts`, pas supposés.
+
+**Cron mensuel : documenté, pas câblé.** `CronCreate` existe bien (vérifié
+depuis la session interactive principale après coup — introuvable seulement
+depuis ce sous-agent d'arrière-plan, qui n'y a pas accès), mais ne convient
+structurellement pas à une cadence mensuelle : ses tâches sont **propres à
+la session** (en mémoire, rien sur disque) et **expirent après 7 jours** même
+en mode récurrent — bien en-deçà d'un mois. Le mécanisme réel pour une tâche
+durable est une **routine cloud** — skill `schedule` + outil `RemoteTrigger`
+(`job_config.ccr`, `cron_expression` 5 champs en UTC, intervalle minimum 1 h,
+ex. `0 8 1 * *` pour le 1er du mois) — mais `RemoteTrigger` s'est lui aussi
+révélé absent de la liste d'outils différés accessible à ce sous-agent
+d'arrière-plan : recherché sous plusieurs formulations, jamais trouvé.
+Blocage structurel indépendant, en plus : une routine cloud tire un
+**checkout git frais depuis l'URL GitHub du dépôt** — tant que cette branche
+n'est pas mergée sur `develop`, une routine créée maintenant tournerait
+contre un dépôt sans `doc-drift.md`, donc pour rien. Corps `RemoteTrigger`
+prêt à l'emploi pour une session qui y a accès (l'interactive principale),
+une fois la PR mergée :
+
+```json
+{
+  "name": "doc-drift-monthly",
+  "cron_expression": "0 8 1 * *",
+  "enabled": true,
+  "job_config": {
+    "ccr": {
+      "environment_id": "<voir schedule skill, env par défaut>",
+      "session_context": {
+        "model": "claude-sonnet-5",
+        "sources": [{"git_repository": {"url": "https://github.com/Burbanit0/Vote-App"}}],
+        "allowed_tools": ["Bash", "Read", "Grep", "Glob"]
+      },
+      "events": [{"data": {
+        "uuid": "<uuid v4>", "session_id": "", "type": "user",
+        "parent_tool_use_id": null,
+        "message": {"role": "user", "content": "Invoke the doc-drift subagent (Task tool, subagent_type: doc-drift) against this repo's develop branch and report its findings in full."}
+      }}]
+    }
+  }
+}
+```
+
+À faire par un humain : merger cette PR sur `develop`, puis créer cette
+routine depuis une session avec accès à `RemoteTrigger` (interface
+claude.ai/code ou session interactive avec le skill `schedule`).
 
 ---
 

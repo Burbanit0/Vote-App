@@ -136,7 +136,7 @@ and privacy posture: [`analytics/README.md`](analytics/README.md).
 
 ## Routes
 
-The app is anonymous (no accounts), with three real destinations:
+The app is anonymous (no accounts), with five real destinations:
 
 | Route | Description |
 |---|---|
