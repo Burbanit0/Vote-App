@@ -70,6 +70,16 @@ repos:
         files: voter-app/src/.*\.(ts|tsx|js|jsx)$
         pass_filenames: false
 
+  # ── Notebook output hygiene ────────────────────────────────────────────────
+  # Strips stored cell outputs before commit (Lot 12.2, PLAN_SOLIDITE_TECHNIQUE.md):
+  # outputs are regenerable and were ~96% of `Electors simulation.ipynb`'s weight
+  # (608 731 -> 24 937 bytes measured directly, verified still valid JSON with
+  # every code cell's source untouched).
+  - repo: https://github.com/kynan/nbstripout
+    rev: 0.9.1
+    hooks:
+      - id: nbstripout
+
   # ── Dependency security audit ──────────────────────────────────────────────
   - repo: local
     hooks:
