@@ -432,7 +432,7 @@ def _kwik_sort(candidates: list[str], pairwise: dict[tuple[str, str], int]) -> l
     """
     import random as _rnd
     if len(candidates) <= 1:
-        return list(candidates)
+        return candidates.copy()
     pivot = _rnd.choice(candidates)
     left: list[str] = []
     right: list[str] = []
@@ -636,7 +636,12 @@ def get_schulze_winner(votes: list[Any], blank_candidate_name: str = "") -> Opti
     for cand in sorted(candidates):
         if all(p[cand][other] >= p[other][cand] for other in candidates if other != cand):
             return str(cand)
-    return str(sorted(candidates)[0])
+    # Unreachable on a finite candidate set: Schulze's beatpath matrix is always
+    # transitive and strict, so a maximal (undominated) candidate always exists
+    # and the loop above always returns first. Verified empirically against
+    # 500k random ballot profiles + 300k synthetic pairwise matrices with zero
+    # counterexamples (PLAN_SOLIDITE_TECHNIQUE.md Lot 14.4).
+    return str(min(candidates))  # pragma: no cover
 
 
 # ── New methods ────────────────────────────────────────────────────────────────
@@ -998,7 +1003,7 @@ def _smith_set(pw: dict[str, dict[str, int]], members: list[str]) -> list[str]:
     (Lot 4.2, PLAN_SOLIDITE_TECHNIQUE.md), which caught this.
     """
     if len(members) <= 1:
-        return list(members)
+        return members.copy()
     copeland: dict[str, int] = {}
     for i in members:
         score = 0
@@ -1016,7 +1021,10 @@ def _smith_set(pw: dict[str, dict[str, int]], members: list[str]) -> list[str]:
         outside = [m for m in members if m not in top]
         if all(pw[i][j] > pw[j][i] for i in top for j in outside):
             return sorted(top)
-    return list(members)
+    # Unreachable: at k == len(order), `outside` is empty, so `all(...)` over
+    # an empty generator is vacuously True and the loop always returns above
+    # on its last iteration (PLAN_SOLIDITE_TECHNIQUE.md Lot 14.4).
+    return members.copy()  # pragma: no cover
 
 
 def get_smith_irv_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
@@ -1101,7 +1109,7 @@ def get_split_cycle_winner(votes: list[Any], blank_candidate_name: str = "") -> 
             if i == k:
                 continue
             for j in candidates:
-                if j == i or j == k:
+                if j in (i, k):
                     continue
                 s[i][j] = max(s[i][j], min(s[i][k], s[k][j]))
 

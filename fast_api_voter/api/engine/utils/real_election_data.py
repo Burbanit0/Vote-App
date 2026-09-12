@@ -5,6 +5,7 @@ Real historical election data and analysis tools.
 Empirical demonstration: the same real population, different winners
 depending on the voting method used.
 """
+from operator import itemgetter
 from typing import Dict, List, Optional, Any
 
 from .simulation_ranked_utils import (
@@ -323,8 +324,7 @@ def convert_to_rankings(
                 else abs(positions.get(c, 0.5) - c_pos)
             ),
         )
-        for _ in range(n):
-            rankings.append(ranking)
+        rankings.extend([ranking] * n)
 
     return rankings
 
@@ -348,12 +348,10 @@ def _run_methods(
 ) -> Dict[str, Optional[str]]:
     """Execute all methods on rankings and return {method_name: winner}."""
     all_scores = [_ranking_to_score_dict(r) for r in rankings]
-    winners: Dict[str, Optional[str]] = {}
-    for name, fn in ranked_methods.items():
-        # Ranked methods compute directly on the rankings; blank (when
-        # active) is just another candidate name in that list — no method
-        # reads blank_candidate_name itself, it's inert on these functions.
-        winners[name] = fn(rankings)
+    # Ranked methods compute directly on the rankings; blank (when active) is
+    # just another candidate name in that list — no method reads
+    # blank_candidate_name itself, it's inert on these functions.
+    winners: Dict[str, Optional[str]] = {name: fn(rankings) for name, fn in ranked_methods.items()}
     for name, fn in score_methods.items():
         # Score methods run on real candidates only (blank is rank-based by nature).
         # Rebuild scores excluding blank from the mapping to avoid division artefacts.
@@ -451,7 +449,7 @@ def analyze_real_election(
         n_blank    = min(round(num_voters * blank_pct), len(rankings))
 
         # Deep-copy rankings and insert blank
-        blank_rankings = [list(r) for r in rankings]
+        blank_rankings = [r.copy() for r in rankings]
 
         if n_blank > 0:
             first_indices = set(_rng.sample(range(len(blank_rankings)), n_blank))
@@ -784,7 +782,7 @@ def get_blank_history(country_key: str) -> Optional[Dict[str, Any]]:
         return None
 
     data = BLANK_VOTE_HISTORY[canonical]
-    sorted_series = sorted(data["series"], key=lambda p: p["year"])
+    sorted_series = sorted(data["series"], key=itemgetter("year"))
 
     return {
         "country":      canonical,

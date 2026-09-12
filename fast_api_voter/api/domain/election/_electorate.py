@@ -182,7 +182,7 @@ def _snapshot_election_winners(
     }
 
     methods_out: Dict[str, Dict[str, Any]] = {}
-    for method, winner in {**ranked, **scored}.items():
+    for method, winner in (ranked | scored).items():
         # score methods may return dicts
         if isinstance(winner, dict):
             winner = winner.get("winner")

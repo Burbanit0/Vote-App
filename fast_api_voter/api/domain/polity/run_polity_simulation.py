@@ -1198,9 +1198,9 @@ def _pressure_context(
     per this project's own established rule)."""
     available = set(menu_acts(config.pressure_menu))
     if not can_sign:
-        available.discard(int(PressureAct.SIGN_PETITION))
+        available.discard(PressureAct.SIGN_PETITION)
     if not can_launch:
-        available.discard(int(PressureAct.LAUNCH_PETITION))
+        available.discard(PressureAct.LAUNCH_PETITION)
     return PressureContext(
         cid=citizen.citizen_id,
         target=holder.citizen_id,
@@ -1287,7 +1287,7 @@ def _run_reaction_to_event(
             motif = str(decision.motif)
             extra = {"ctx": contexts[citizen.citizen_id].to_payload()}
         citizen.event_salience = update_event_salience(citizen.event_salience, delta, config.events)
-        payload: dict[str, object] = {"event_type": int(event_type), "target": target, "salience_delta": delta, **extra}
+        payload: dict[str, object] = {"event_type": int(event_type), "target": target, "salience_delta": delta} | extra
         if event_type is EventType.ECONOMIC_SHOCK:
             payload["magnitude"] = magnitude
         journal.write(
@@ -1718,7 +1718,7 @@ def _run_accountability_phase(
                 journal.write(
                     tick=tick,
                     event_type="pressure_action",
-                    payload={"target": holder.citizen_id, "act": int(decided), **payload_extra},
+                    payload={"target": holder.citizen_id, "act": int(decided)} | payload_extra,
                     citizen_id=citizen.citizen_id,
                     motif=motif,
                     codebook_version=config.llm.codebook_version if motif else "",
@@ -1803,7 +1803,7 @@ def _run_accountability_phase(
                     event_type="confidence_vote_result",
                     payload={
                         "office": Office.PRESIDENT.value,
-                        "bf": int(BallotFormat.BINARY),
+                        "bf": BallotFormat.BINARY,
                         "ballots": len(ballots),
                         "keep": sum(ballots),
                         "keep_ratio": confidence_keep_ratio(ballots),

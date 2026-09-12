@@ -25,7 +25,7 @@ _VARIANT_PARAMS: dict[str, dict[str, Any]] = {
     "polarization":  {"min": 0.1,  "max": 2.0,    "cast": lambda v: max(0.1, min(2.0, float(v)))},
 }
 
-_PARTY_CYCLE = ["Green", "Conservative", "Liberal", "Independent", "Social", "National"]
+_PARTY_CYCLE = ("Green", "Conservative", "Liberal", "Independent", "Social", "National")
 
 # Polarization value → ideology distribution string
 def _polarization_to_dist(p: float) -> str:
@@ -38,8 +38,8 @@ def _polarization_to_dist(p: float) -> str:
 
 def _generate_candidate_names(n: int) -> list[str]:
     """Return n candidate names: Alice, Bob, Carol, Dave, …"""
-    names = ["Alice", "Bob", "Carol", "Dave", "Eve", "Frank", "Grace", "Hugo"]
-    return names[:n]
+    names = ("Alice", "Bob", "Carol", "Dave", "Eve", "Frank", "Grace", "Hugo")
+    return list(names[:n])
 
 
 def _build_what_if_population(

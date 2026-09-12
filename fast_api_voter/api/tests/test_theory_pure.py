@@ -561,6 +561,21 @@ def test_collective_will_rousseau_score_is_exactly_the_reciprocal_of_unique_winn
     assert body["most_frequent_pct"] == 0.7143
 
 
+def test_collective_will_includes_condorcet_family_methods_when_pool_widens() -> None:
+    """_method_pool's first 4 entries (plurality/borda/irv/approval, used by
+    both tests above) never reach the `method in ("schulze", "kemeny_young",
+    "condorcet")` dispatch branch -- only widening num_methods past 4 does.
+    This exercises that branch for real rather than just the earlier
+    positional methods."""
+    body, status = _collective_will_worker({
+        "candidates": CANDS_3, "num_voters": 60, "seed": 42,
+        "num_methods": 7, "num_agendas": 3, "num_simulations": 1,
+    })
+
+    assert status == 200
+    assert body["unique_winner_count"] >= 1
+
+
 def test_collective_will_two_candidates_only_one_possible_winner_forces_rousseau_score_1() -> None:
     """With exactly 2 candidates there is exactly one non-tied outcome every
     method/agenda can produce, so unique_winner_count must be 1 and

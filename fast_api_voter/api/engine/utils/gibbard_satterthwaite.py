@@ -153,14 +153,14 @@ def compute_manipulability_index(
         # Generate alternative ballots (up to 3) by swapping adjacent pairs.
         manipulated = False
         for swap_pos in range(min(3, len(sincere_ballot) - 1)):
-            alt_ballot = list(sincere_ballot)
+            alt_ballot = sincere_ballot.copy()
             alt_ballot[swap_pos], alt_ballot[swap_pos + 1] = (
                 alt_ballot[swap_pos + 1],
                 alt_ballot[swap_pos],
             )
 
             # Replace voter's ballot and re-run the election.
-            test_ballots = list(ballots)
+            test_ballots = ballots.copy()
             test_ballots[voter_idx] = alt_ballot
 
             try:

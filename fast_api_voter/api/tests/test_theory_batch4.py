@@ -123,3 +123,15 @@ class TestCollectiveWill:
         bad = {**self.payload, "candidates": [CANDS[0]]}
         assert client.post("/api/v2/theory/collective-will",
                            json=bad).status_code == 422
+
+    def test_multi_simulation_variance_widens_the_sample(self, client):
+        """num_simulations > 1 re-draws the electorate and re-runs only the
+        top-3 methods each extra simulation, folding those winners into the
+        aggregate -- so the same seed/candidates produce a different
+        most_frequent_pct than the single-simulation baseline."""
+        baseline = client.post("/api/v2/theory/collective-will",
+                               json={**self.payload, "num_simulations": 1}).json()
+        widened = client.post("/api/v2/theory/collective-will",
+                              json={**self.payload, "num_simulations": 3}).json()
+        assert widened["winner_by_method"] == baseline["winner_by_method"]
+        assert widened["most_frequent_pct"] != baseline["most_frequent_pct"]

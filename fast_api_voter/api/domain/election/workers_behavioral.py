@@ -185,7 +185,7 @@ def _behavioral_biases_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
     name_set = set(cand_names)
     ordered_names: list[str] = [n for n in candidate_order if n in name_set]
     if len(ordered_names) != len(cand_names):
-        ordered_names = list(cand_names)
+        ordered_names = cand_names.copy()
     first_listed = ordered_names[0]
 
     # ── Select affected voter subsets ─────────────────────────────────────
@@ -235,10 +235,10 @@ def _behavioral_biases_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
             for v in voters
         ]
         out: Dict[str, Optional[str]] = {}
-        for mname, fn in [("plurality", get_plurality_winner),
+        for mname, fn in (("plurality", get_plurality_winner),
                            ("borda",    _borda),
                            ("irv",      _irv),
-                           ("schulze",  _schulze)]:
+                           ("schulze",  _schulze)):
             try:
                 out[mname] = fn(rnk)
             except Exception:
@@ -251,7 +251,7 @@ def _behavioral_biases_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
             log.warning("workers_behavioral.method_failed", method="star_voting", exc_info=True)
             out["star_voting"] = None
         try:
-            mj_utils = [dict(utils[v["id"]]) for v in voters]
+            mj_utils = [utils[v["id"]].copy() for v in voters]
             mj_raw   = _mj(mj_utils)
             out["majority_judgment"] = str(mj_raw["winner"]) if mj_raw.get("winner") else None
         except Exception:
@@ -284,8 +284,8 @@ def _behavioral_biases_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
     biased_winners["approval"]  = _approval_winner(biased_utilities,  bullet_ids)
 
     # ── Method sensitivity table ──────────────────────────────────────────
-    TRACKED = ["plurality", "approval", "borda", "irv",
-               "schulze", "star_voting", "majority_judgment"]
+    TRACKED = ("plurality", "approval", "borda", "irv",
+               "schulze", "star_voting", "majority_judgment")
     method_sensitivity: Dict[str, Dict[str, Optional[str]]] = {
         m: {"sincere": sincere_winners.get(m), "biased": biased_winners.get(m)}
         for m in TRACKED
@@ -340,11 +340,11 @@ def _behavioral_biases_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
 
 # ── Liquid Democracy ──────────────────────────────────────────────────────────
 
-_LD_DEFAULT_CANDIDATES = [
+_LD_DEFAULT_CANDIDATES = (
     {"name": "Alice", "x": -0.5, "y": -0.2},
     {"name": "Bob",   "x":  0.5, "y":  0.2},
     {"name": "Carol", "x":  0.0, "y":  0.1},
-]
+)
 
 _Delegations = Dict[int, int]
 
@@ -399,8 +399,7 @@ def _ld_detect_cycles(delg: _Delegations) -> set[int]:
             path.append(cur)
             cur = delg[cur]
         if cur in path_pos:
-            for node in path[path_pos[cur]:]:
-                in_cycle.add(node)
+            in_cycle.update(path[path_pos[cur]:])
         visited.update(path)
     return in_cycle
 
@@ -609,11 +608,11 @@ def _liquid_democracy_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
 _CV_LOCK_OPTIONS: list[int]    = [0, 7, 14, 28, 56, 112, 224]
 _CV_MULTIPLIERS:  Dict[int, float] = {0: 0.1, 7: 1.0, 14: 2.0, 28: 3.0,
                                        56: 4.0, 112: 5.0, 224: 6.0}
-_CV_DEFAULT_PROPOSALS = [
+_CV_DEFAULT_PROPOSALS = (
     {"name": "Proposition A", "x": -0.5},
     {"name": "Proposition B", "x":  0.5},
     {"name": "Proposition C", "x":  0.0},
-]
+)
 
 
 def _cv_tokens_and_locks(
@@ -864,9 +863,9 @@ _NOTA_ADJ: Dict[str, float] = {
     "quadratic":          0.75,
 }
 
-_NOTA_TRACKED = [
+_NOTA_TRACKED = (
     "plurality", "approval", "borda", "irv", "schulze", "majority_judgment",
-]
+)
 
 
 def _nota_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
@@ -953,7 +952,7 @@ def _nota_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
                         tally[cname] += 1
             return max(tally, key=tally.__getitem__) if tally else cand_names[0]
         if method == "majority_judgment":
-            mj_utils = [dict(sincere_utilities[v["id"]]) for v in voters]
+            mj_utils = [sincere_utilities[v["id"]].copy() for v in voters]
             try:
                 mj_raw = _mj(mj_utils)
                 return str(mj_raw["winner"]) if mj_raw.get("winner") else None
@@ -1046,10 +1045,10 @@ _BALLOT_ERROR_BASE: Dict[str, float] = {
     "kemeny_young":       0.060,
 }
 
-_DEFAULT_BALLOT_METHODS = [
+_DEFAULT_BALLOT_METHODS = (
     "plurality", "approval", "irv", "borda",
     "star_voting", "majority_judgment", "schulze",
-]
+)
 
 
 def _ballot_complexity_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
@@ -1145,7 +1144,7 @@ def _ballot_complexity_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
                 return get_plurality_winner(rnk)
         if method == "majority_judgment":
             try:
-                mj_u = [dict(sincere_utilities[v["id"]]) for v in vlist]
+                mj_u = [sincere_utilities[v["id"]].copy() for v in vlist]
                 raw  = _mj_w(mj_u)
                 return str(raw["winner"]) if raw.get("winner") else None
             except Exception:
@@ -1317,7 +1316,7 @@ def _shy_voter_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             c: real_results.get(c, 0) + real_shy_rate * f * (real_results.get(c, 0) / other_total)
             for c in other_cands
         }
-        poll_f          = {shy_candidate: poll_shy, **poll_others}
+        poll_f          = {shy_candidate: poll_shy} | poll_others
         poll_win_f      = max(poll_f, key=poll_f.__getitem__)
         winner_wrong_f  = 1.0 if poll_win_f != real_winner else 0.0
         curve.append({
@@ -1513,8 +1512,8 @@ def _electoral_fatigue_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
 
 # ── Choice Overload ───────────────────────────────────────────────────────────
 
-_CO_DEFAULT_METHODS = ["plurality", "approval", "borda", "majority_judgment"]
-_CO_DEFAULT_COUNTS  = [2, 3, 5, 7, 10]
+_CO_DEFAULT_METHODS = ("plurality", "approval", "borda", "majority_judgment")
+_CO_DEFAULT_COUNTS  = (2, 3, 5, 7, 10)
 _CO_RANKED_RULES = {
     "borda":   get_borda_winner,
     "irv":     get_irv_winner,
@@ -1554,7 +1553,7 @@ def _co_majority_judgment(
     """Majority judgment over the utility grades, falling back to plurality when
     the grade profile is one the MJ implementation cannot resolve."""
     try:
-        r = get_majority_judgment_winner([dict(utils[v["id"]]) for v in v_list])
+        r = get_majority_judgment_winner([utils[v["id"]].copy() for v in v_list])
     except Exception:  # pylint: disable=broad-except
         log.warning("workers_behavioral.method_failed", method="majority_judgment", exc_info=True)
         return get_plurality_winner(rnk)

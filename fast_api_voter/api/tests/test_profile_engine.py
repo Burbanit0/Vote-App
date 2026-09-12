@@ -19,6 +19,7 @@ from api.engine.utils.profile_engine import (
     plackett_luce_profile,
     didi_profile,
     stratification_profile,
+    polya_urn_profile,
 )
 from api.engine.utils.simulation_metrics import compare_all_methods
 
@@ -122,6 +123,20 @@ def test_plackett_luce_quality_gradient_favours_first_candidate():
     """A steep quality gradient makes candidate A the runaway Condorcet winner."""
     matrix = plackett_luce_profile(_CULT_NAMES, 400, 4.0, 3)
     assert condorcet_winner(matrix, _CULT_NAMES) == "A"
+
+
+def test_polya_urn_profile_herds_with_small_alpha():
+    """Small alpha => voters overwhelmingly copy a previously-drawn ranking
+    instead of drawing fresh (the reuse branch), so far fewer unique
+    rankings appear than voters -- the herding this sampler is meant to
+    model. (For contrast, Impartial Culture at the same size produces up
+    to num_voters distinct rankings.)"""
+    matrix = polya_urn_profile(_CULT_NAMES, 200, 0.01, 7)
+    _valid_profile(matrix, 200, _CULT_NAMES)
+    unique_rankings = {
+        tuple(sorted(utils, key=lambda k: -utils[k])) for utils in matrix.values()
+    }
+    assert len(unique_rankings) < 10
 
 
 def test_stratification_upper_tier_beats_lower_tier():
@@ -293,6 +308,14 @@ def test_compatibility_whitelists():
     assert "borda" in compatible_methods("rank_truncated")
     assert "star_voting" not in compatible_methods("rank_full")
     assert compatible_methods("approve") == {"approval"}
+
+
+def test_compatible_methods_defaults_to_all_for_unrecognised_ballot_type():
+    """Any ballot_type outside the known whitelist falls back to the full
+    method set (ordinal + cardinal + approval) -- distinct from every other
+    branch's narrower result."""
+    result = compatible_methods("some_future_ballot_type_nobody_wrote_yet")
+    assert "borda" in result and "star_voting" in result and "approval" in result
 
 
 def test_endpoint_truncation_flips_a_winner(client: TestClient):

@@ -113,14 +113,14 @@ def assign_issue_priorities(
         issue_priorities["housing"] = random.uniform(0.6, 0.9)
 
     # Education influence
-    if education in ["none", "high_school"]:
+    if education in ("none", "high_school"):
         issue_priorities["social_welfare"] *= random.uniform(1.1, 1.4)
         issue_priorities["economy"] *= random.uniform(1.1, 1.3)
         if age > 50:
             political_lean *= random.uniform(
                 1.05, 1.2
             )  # Less educated older voters tend to be more conservative
-    elif education in ["master", "phd"]:
+    elif education in ("master", "phd"):
         issue_priorities["environment"] *= random.uniform(1.1, 1.4)
         issue_priorities["education"] *= random.uniform(1.2, 1.5)
         issue_priorities["technology_innovation"] = random.uniform(0.7, 1.0)
@@ -286,7 +286,7 @@ def create_voter(
     }[education]
 
     # Les personnes âgées éduquées votent encore plus
-    if age > 60 and education in ["master", "phd"]:
+    if age > 60 and education in ("master", "phd"):
         education_vote_boost += 0.1
 
     party_loyalty = random.uniform(0, 1)
@@ -294,7 +294,7 @@ def create_voter(
     # Strategic propensity: educated, older, and party-loyal voters are more
     # likely to vote tactically rather than by pure conviction.
     strategic_propensity = 0.2
-    if education in ["master", "phd"]:
+    if education in ("master", "phd"):
         strategic_propensity += 0.1
     if age > 45:
         strategic_propensity += 0.1
@@ -308,7 +308,7 @@ def create_voter(
     social_conformity = float(np.random.beta(2, 3))
     if age < 30:
         social_conformity += 0.1
-    if education in ["none", "high_school"]:
+    if education in ("none", "high_school"):
         social_conformity += 0.05
     social_conformity = max(0.0, min(0.8, social_conformity))
 
@@ -652,7 +652,7 @@ def apply_social_influence(
     Returns a new list of voter dicts (originals are never mutated).
     """
     if not poll_standings or not candidates:
-        return list(voters)
+        return voters.copy()
 
     leader_name: str = max(poll_standings, key=lambda k: poll_standings[k])
     leader_position: float = next(
@@ -939,7 +939,7 @@ def run_simulation(
         create_voter(DEFAULT_ISSUES, voter_id=i, ideology_distribution=ideology_distribution)
         for i in range(num_voters)
     ]
-    _party_cycle = ["Green", "Conservative", "Liberal", "Independent"]
+    _party_cycle = ("Green", "Conservative", "Liberal", "Independent")
     candidates = [
         create_candidate(
             DEFAULT_ISSUES,

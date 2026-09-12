@@ -2588,7 +2588,7 @@ outil déjà câblé et un chiffre déjà mesuré, pas une lacune de détection.
 | **Typer les `any` restants + activer le cliquet** (280 dans le code source, Lot 6.4) | Seul item du groupe avec un vrai gain de sûreté de typage, pas juste de lisibilité — `type-coverage` expose déjà `--at-least`/`--update-if-higher` mais rien n'est câblé, faute d'une baseline assez haute pour que ça vaille le coût. Réduire d'abord, gater ensuite. | M | ⭐⭐⭐ | 📝📝 | |
 | **Statuer sur les zones mortes trouvées par le Lot 6.5** (`api/domain/polity/*`, 2 813 lignes 0 % e2e ; `/simulation/compare`, invisible à knip) | Le Lot 6.5 a mesuré l'inatteignabilité, pas décidé quoi en faire. Deux vraies trouvailles qui méritent une décision explicite — réintégrer dans le produit ou supprimer — pas rester indéfiniment dans un angle mort connu. | M | ⭐⭐⭐ | 📝📝📝 | ✅ voir détail sous le tableau |
 | **Réduire la dette sonarjs** (304 findings restants, Lot 6.6) | 2 vrais bugs y avaient déjà été trouvés en vérifiant à la main les 5 cas `no-all-duplicated-branches` — les autres catégories (`no-nested-conditional` ×102, `cognitive-complexity` ×38, `parameterized-tests` ×39, `prefer-specific-assertions` ×33) n'ont pas reçu le même traitement individuel, faute de budget. Simplifier les fonctions à plus forte complexité cognitive en particulier est le genre de nettoyage qui prévient le prochain bug de cette famille. | L | ⭐⭐ | 📝📝 | |
-| **Réduire la dette refurb/perflint** (145 + 85 findings, Lot 6.3) | Le Lot 6.3 a mesuré et documenté sans corriger, hors budget de l'item lui-même. Transformations mécaniques, risque quasi nul (`dict(x)`→`x.copy()`, `lambda`→`operator.itemgetter`, `list`→`tuple` non mutés) — le genre de dette qui ne s'aggrave pas mais ne se résorbe pas non plus toute seule. | M | ⭐⭐ | 📝 | |
+| **Réduire la dette refurb/perflint** (145 + 85 findings, Lot 6.3) | Le Lot 6.3 a mesuré et documenté sans corriger, hors budget de l'item lui-même. Transformations mécaniques, risque quasi nul (`dict(x)`→`x.copy()`, `lambda`→`operator.itemgetter`, `list`→`tuple` non mutés) — le genre de dette qui ne s'aggrave pas mais ne se résorbe pas non plus toute seule. | M | ⭐⭐ | 📝 | ✅ voir détail sous le tableau |
 | **Faire taire les faux positifs basedpyright** (34 restants, Lot 6.2) | Déjà vérifiés faux un par un (32 liés à l'absence d'équivalent du plugin `pydantic.mypy` côté pyright, 2 isolés où le vérificateur ne peut pas prouver une invariante locale) — pas de vraie dette ici, juste du bruit dans le rapport pour un futur contributeur. Le moins prioritaire des cinq ; à ne faire que si `basedpyright` reste consulté régulièrement. | S | ⭐ | 📝 | ✅ voir détail sous le tableau |
 
 **Statuer sur les zones mortes trouvées par le Lot 6.5, détail (2026-09-12).**
@@ -2615,6 +2615,52 @@ l'autre :
   `knip` dans `CODE_AUDIT.md` §3/§7 (9 fichiers inutilisés, la dépendance
   `@radix-ui/react-tabs`, l'export `CardTitle`) — même nature de nettoyage,
   même vérification (gate frontend complet vert après coup), même commit.
+
+**Réduire la dette refurb/perflint — détail (2026-09-12)** : refurb passe de **145 → 6** findings,
+perflint (au sens `scripts/audit.sh`) de **85 → 37**. Chaque correction applique la réécriture
+suggérée par l'outil lui-même (`dict(x)`→`x.copy()`, `lambda`→`operator.itemgetter`,
+`list`→`tuple` littéral non muté, `{**a, **b}`→`a | b`, `x == y or z == y`→`y in (x, z)`,
+`try/except: pass`→`contextlib.suppress`, boucle `for`+`append` unique→compréhension,
+nid de boucles→`itertools.chain.from_iterable`) — vérifiée à chaque fois par lecture du site
+d'appel, `mypy api/` en local sur le fichier touché, et la suite de tests pertinente ; `mypy
+api/`, `ruff check`, et la suite complète `pytest api/tests` restent verts après coup. Le
+reste (43 findings, tous documentés en commentaire ou via ce paragraphe) est **volontairement
+non corrigé** parce qu'appliquer la réécriture littérale changerait un comportement réel,
+pas juste du style :
+
+- **Faux positifs du checker perflint lui-même (30 sur 37)**, confirmés en lisant sa propre
+  implémentation (`perflint/comprehension_checker.py`) : `use-list-comprehension`/
+  `use-list-copy`/`use-dict-comprehension` ne regardent que la première instruction de la
+  boucle, sans vérifier qu'elle n'est pas en réalité (a) un dédoublonnage préservant l'ordre
+  où la liste-cible est relue dans sa propre condition d'appartenance
+  (`simulation_ranked_utils.py:761,831`, `simulation_multiwinner_utils.py:457,524,624` —
+  convertir dépendrait d'un détail d'implémentation de `list.extend()`, pas d'une garantie du
+  langage), (b) un compteur/regroupement par clé across plusieurs itérations d'une boucle
+  englobante (`arrow_criteria.py:210`, `simulations/base.py:361`, `campaign_dynamics.py:194`,
+  `simulation_voting_utils.py:758`, `simulation_score_utils.py:175,349,470`,
+  `sockets/__init__.py:227`, `polity/indexer.py:324`, `theory/workers.py:369` — ce dernier est
+  en fait une reconstruction de chemin BFS, pas une copie), ou (c) une boucle à plusieurs
+  instructions dont il ne voit que la première (`simulation_multiwinner_utils.py:186`, qui
+  incrémente aussi `round_num` et alimente `rounds`).
+- **Conversions liste→tuple qui casseraient un vrai contrat de type (13 findings)**, vérifié
+  en convertissant puis en relançant `mypy` (jamais laissé au jugement seul) : la constante
+  visée est soit explicitement annotée `List[...]`/`Optional[List[...]]` côté consommateur,
+  soit réassignée à une variable déjà `List[...]`, soit combinée via `data.get(k) or DEFAULT`
+  — cas où `mypy` garde `Any | tuple[...]` dans l'union au lieu de l'effondrer en `Any`,
+  contrairement à `data.get(k, DEFAULT)` (2 arguments) sur un `Dict[str, Any]` qui, lui,
+  retourne bien `Any` (vérifié empiriquement, cf. `workers_advanced.py:269` corrigé sans
+  souci). Exemples : `engine/constants.py:8` (`DEFAULT_ISSUES`, testé — 107 erreurs mypy sur
+  ~15 fichiers si converti), `theory/workers.py:986-987,1499,1677,1719,1744,1967,2168,2366-
+  2367,2449,2541-2542`, `workers_mechanisms.py:1105`, `workers_advanced.py:784`,
+  `workers_playground.py:30,474`, `simulations/compare.py:456`.
+- **`refurb` (6 findings)** : `dict(x)`→`.copy()` refusé quand `x` est un `Counter`/
+  `defaultdict` vivant (`tech.py:133`, `simulation_multiwinner_utils.py:169,236`) — `.copy()`
+  préserverait le comportement « clé manquante → 0 » au lieu de normaliser en `dict` avant de
+  sérialiser, exactement la distinction que CLAUDE.md/l'énoncé de cette tâche demandait de
+  vérifier ; et `float(v)`→`v` refusé quand `v` provient d'un champ Pydantic `Dict[str, Any]`
+  non validé côté type — `information_model.py:107` (`media_bias`, un vrai appelant
+  `simulations/compare.py:85` passe le dict brut sans cast), `simulation_multiwinner_utils.py
+  :20` (`party_votes` de `MultiwinnerRequest`, lui aussi `Dict[str, Any]`).
 
 **Faire taire les faux positifs basedpyright, détail (2026-09-12).** Les 34
 trouvailles restantes du Lot 6.2 ont été revérifiées une par une (relecture du

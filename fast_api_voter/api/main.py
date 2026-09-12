@@ -15,6 +15,7 @@ from __future__ import annotations
 import os
 import time
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any, AsyncIterator, Awaitable, Callable
 
 import sentry_sdk
@@ -253,7 +254,7 @@ setup_metrics(app)
 # websockets). Unset (dev / tests) → API-only, unchanged. Mounted LAST so every
 # /api route and the docs win over this catch-all mount.
 _frontend_dir = os.environ.get("FRONTEND_DIR", "")
-if _frontend_dir and os.path.isdir(_frontend_dir):
+if _frontend_dir and Path(_frontend_dir).is_dir():
 
     class _SPAStaticFiles(StaticFiles):
         """Serve the built bundle (assets, icons, manifest, service worker) and

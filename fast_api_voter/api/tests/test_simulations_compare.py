@@ -130,6 +130,26 @@ class TestVoteSteps:
         assert r.status_code == 200, r.text
         assert "rounds" in r.json()
 
+    def test_borda(self, client):
+        r = client.post("/api/v2/simulations/vote-steps",
+                        json={"method": "borda", "num_voters": 50, "candidates": CANDS})
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["method"] == "borda"
+        # One step per rank, cumulative tally grows to cover every candidate.
+        assert len(body["steps"]) == len(CANDS)
+        assert set(body["steps"][-1]["tally"]) == set(CANDS)
+        assert body["winner"] in CANDS
+
+    def test_schulze(self, client):
+        r = client.post("/api/v2/simulations/vote-steps",
+                        json={"method": "schulze", "num_voters": 50, "candidates": CANDS})
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["method"] == "schulze"
+        assert set(body["duel_matrix"]) == set(CANDS)
+        assert body["winner"] in CANDS
+
     def test_invalid_method_400(self, client):
         r = client.post("/api/v2/simulations/vote-steps",
                         json={"method": "nonsense", "num_voters": 50, "candidates": CANDS})

@@ -49,6 +49,17 @@ class TestMultiwinner:
         r = client.post("/api/v2/simulations/multiwinner", json={"party_votes": {}, "num_seats": 10})
         assert r.status_code == 400, r.text
 
+    def test_stv_mode_runs_single_transferable_vote(self, client):
+        """mode='stv' synthesizes ranked ballots and elects via STV, in
+        addition to the party-list methods run for every mode."""
+        r = client.post("/api/v2/simulations/multiwinner",
+                        json={"party_votes": {"A": 40, "B": 35, "C": 25}, "num_seats": 3, "mode": "stv"})
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert "stv" in body
+        assert len(body["stv"]["winners"]) == 3
+        assert set(body["stv"]["winners"]) <= {"A", "B", "C"}
+
 
 class TestRealElections:
     def test_list(self, client):
@@ -166,6 +177,19 @@ class TestConstitutionalScenario:
         r = client.post("/api/v2/simulations/constitutional-scenario",
                         json={"initial_election": bad, "scenario_type": "new_election"})
         assert r.status_code == 400, r.text
+
+    def test_dissolution(self, client):
+        """Dissolution derives party votes from first-choice utilities, runs the
+        multiwinner comparison, and writes a conclusion naming the most
+        proportional method and the uninominal (plurality) winner."""
+        r = client.post("/api/v2/simulations/constitutional-scenario",
+                        json={"initial_election": self.initial, "scenario_type": "dissolution"})
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["scenario_type"] == "dissolution"
+        assert body["uninominal_winner"] in {"A", "B"}
+        assert body["uninominal_winner"] in body["conclusion"]
+        assert str(body["num_seats"]) in body["conclusion"]
 
 
 class TestBlankContagion:
