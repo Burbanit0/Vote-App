@@ -460,6 +460,11 @@ envisagée.
   fichiers de ce dossier qui ne servaient qu'à la page morte. Le
   sous-dossier lui-même n'a pas été réorganisé par thème pour autant — le
   chantier §7 reste valable, juste sur un périmètre plus petit qu'en août.
+  **Traité le 2026-09-12** (voir la mise à jour en tête de §7, item 3) : les
+  63 fichiers restants (le chiffre a légèrement bougé depuis le 2026-09-06,
+  suppressions/ajouts normaux) sont répartis en 11 sous-dossiers
+  thématiques ; `components/shared/` lui-même ne contient plus de fichier à
+  plat, seulement `README.md` et les sous-dossiers.
 - **Dette déjà documentée par l'équipe** :
   `fast_api_voter/scripts/polity_v2_consolidation_handoff.md` montre qu'une
   passe de consolidation sur `domain/polity/` a déjà été identifiée comme
@@ -514,8 +519,38 @@ refactor) — à traiter dans une passe de nettoyage dédiée.
    `_liquid_democracy_worker` — voir §5) ; les 6 restants (dont 4 dans cette
    même famille de fichiers élargie) restent un bon point de départ concret
    pour prioriser la suite.
-3. Réorganiser `components/shared/` (66 fichiers au 2026-09-06, en forte
-   baisse depuis les 123 d'août — voir §6) en sous-dossiers thématiques.
+3. ✅ Réorganiser `components/shared/` (66 fichiers au 2026-09-06, en forte
+   baisse depuis les 123 d'août — voir §6) en sous-dossiers thématiques —
+   fait le 2026-09-12. Les 63 fichiers actuels sont répartis en 11
+   sous-dossiers : `mechanisms/` (8, mécanismes alternatifs — jury,
+   liquide, tirage au sort, délibération, conviction, épistocratie,
+   identité, E2E-V), `systems/` (8, systèmes électoraux et leurs
+   visualisations — coalition, multi-gagnant, cartes de circonscriptions/
+   gerrymander, STV, complexité du bulletin, pipeline électoral),
+   `campaign/` (5, dynamiques de campagne — Hotelling, sensibilité,
+   polarisation, dynamiques de partis), `temporal/` (5, mécanismes
+   temporels — vote adaptatif, rejeu historique, primaires, cascade,
+   fatigue électorale), `behavioral/` (6, réalisme comportemental — biais,
+   vote timide, surcharge de choix, vote obligatoire, participation
+   démographique, polarisation affective), `theory/` (9, théorie et
+   paradoxes — Sen, agrégation de jugements, manipulation de l'agenda,
+   tyrannie de la majorité, répartition des sièges, indices de pouvoir,
+   recul démocratique, intergénérationnel, Polis), `analysis/` (4, analyse
+   approfondie — manipulation, volonté collective, testeur d'hypothèses,
+   matrice d'effets combinés), `blank/` (3, famille du vote blanc — NOTA,
+   divergence, abstention), `results/` (4, aides de rendu des résultats
+   utilisées par `FullResultsModule`), `ui/` (8, primitives génériques
+   réutilisées dans toute l'app — toast, badge live, bannière hors-ligne,
+   etc.) et `common/` (3, composants transverses non thématiques —
+   questions de curiosité, export de jeu de données, visite guidée).
+   Classification faite en lisant le contenu de chaque fichier et en
+   croisant avec le regroupement déjà fait par `labCatalog.tsx` (la source
+   de vérité testée du catalogue du Laboratoire) plutôt qu'en devinant sur
+   le nom de fichier seul ; les ~150 imports (statiques et dynamiques
+   `import()` pour le code-splitting) ont été mis à jour et `tsc`/`vitest`/
+   `lint`/`build`/`knip` restent tous verts avec les mêmes compteurs
+   qu'avant (0 erreur tsc, même nombre de tests, 0 erreur lint, budget
+   size-limit respecté, même compte `knip`).
 4. Reprendre `polity_v2_consolidation_handoff.md` comme point de départ pour
    la consolidation de `domain/polity/`.
 5. Centraliser la gestion d'erreurs pour réduire les `except Exception` nus
