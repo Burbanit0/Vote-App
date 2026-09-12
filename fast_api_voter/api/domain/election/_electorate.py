@@ -8,14 +8,12 @@ method-comparison wrapper, and a lightweight winners-only snapshot.
 """
 from __future__ import annotations
 
-import random
 from typing import Any, Dict, List, Optional  # noqa: F401
-
-import numpy as np
 
 from api.engine.utils.simulation_voting_utils import calculate_utility, create_voter
 from api.engine.utils.simulation_metrics import compare_all_methods
 from api.engine.utils.blank_vote_rules import BlankVoteRule, apply_blank_rule
+from api.engine.utils.demographic_data import _seeded_rng_pair
 from ._helpers import (
     build_candidate_from_xy as _build_candidate_from_xy,
     inter_method_agreement as _inter_method_agreement,
@@ -42,8 +40,7 @@ def _build_base_electorate(
     """
     import copy  # noqa: F401 — kept for symmetry, not actually needed here
 
-    rng    = random.Random(seed)
-    np_rng = np.random.RandomState(seed)
+    rng, np_rng = _seeded_rng_pair(seed)
 
     cand_names = [str(s.get("name", f"C{i}")) for i, s in enumerate(cand_specs)]
 

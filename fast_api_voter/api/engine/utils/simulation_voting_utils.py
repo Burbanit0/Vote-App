@@ -15,6 +15,9 @@ from .demographic_data import (
     sample_religion,
     sample_ethnicity_immigration,
     sample_likelihood_to_vote,
+    _resolve_rng,
+    _resolve_np_rng,
+    _seeded_rng_pair,
 )
 
 # --- Define types for clarity ---
@@ -35,7 +38,7 @@ def assign_issue_priorities(
     religion: str,
     rng: Optional[random.Random] = None,
 ) -> Tuple[Dict[str, float], float, Dict[str, float]]:
-    r = rng if rng is not None else random
+    r = _resolve_rng(rng)
     issue_priorities = {
         "economy": 0.5,
         "environment": 0.5,
@@ -223,7 +226,7 @@ def _sample_ideology_position(
 
       0 = fully progressive   1 = fully conservative
     """
-    r = np_rng if np_rng is not None else np.random
+    r = _resolve_np_rng(np_rng)
     if distribution == "centrist":
         return float(np.clip(r.normal(0.5, 0.1), 0.0, 1.0))
     if distribution == "polarized":
@@ -253,7 +256,8 @@ def create_voter(
     for the canonical pattern. When omitted, falls back to the global
     singletons (unseeded/legacy callers only).
     """
-    r  = rng if rng is not None else random
+    r  = _resolve_rng(rng)
+    nr = _resolve_np_rng(np_rng)
     age = sample_age(rng)
     gender = sample_gender(np_rng)
     region = sample_region(np_rng)
@@ -324,7 +328,6 @@ def create_voter(
 
     # Social conformity: susceptibility to bandwagon / poll-driven preference shift.
     # Beta(2,3) → peak near 0.25, most values between 0.1 and 0.6.
-    nr = np_rng if np_rng is not None else np.random
     social_conformity = float(nr.beta(2, 3))
     if age < 30:
         social_conformity += 0.1
@@ -393,7 +396,7 @@ def create_candidate(
     rng: optional local random.Random instance — see create_voter() for why
     this matters under concurrent/seeded callers.
     """
-    r = rng if rng is not None else random
+    r = _resolve_rng(rng)
     party_leans = {
         "Green": -0.8,
         "Liberal": -0.3,
@@ -669,15 +672,27 @@ def apply_social_influence(
     poll_standings: Dict[str, float],
     candidates: List[Candidate],
     influence_strength: float = 0.3,
+    rng: Optional[random.Random] = None,
 ) -> List[Voter]:
     """
     Shift each voter's ideological position slightly toward the poll leader,
     proportional to their social_conformity and influence_strength.
 
     Returns a new list of voter dicts (originals are never mutated).
+
+    rng: optional local random.Random instance — see create_voter() for why
+    this matters under concurrent/seeded callers. Its only caller,
+    run_bandwagon_simulation(), threads its own call-scoped rng through here
+    so rounds 1+ stay reproducible under the same seed (see
+    PLAN_SOLIDITE_TECHNIQUE.md's Lot 5 addendum: before this parameter
+    existed, this function drew from the bare global singleton regardless of
+    what run_bandwagon_simulation() itself did, which broke "same seed ->
+    same result" even single-threaded, for every round after round 0).
     """
     if not poll_standings or not candidates:
         return voters.copy()
+
+    r = _resolve_rng(rng)
 
     leader_name: str = max(poll_standings, key=lambda k: poll_standings[k])
     leader_position: float = next(
@@ -701,7 +716,7 @@ def apply_social_influence(
             continue
 
         new_positions = {
-            issue: max(0.0, min(1.0, new_lean + random.uniform(-0.15, 0.15)))
+            issue: max(0.0, min(1.0, new_lean + r.uniform(-0.15, 0.15)))
             for issue in voter["issue_positions"]
         }
         influenced.append({**voter, "political_lean_normalized": new_lean, "issue_positions": new_positions})
@@ -717,6 +732,8 @@ def run_bandwagon_simulation(
     influence_strength: float = 0.3,
     ideology_distribution: str = "random",
     seed: Optional[int] = None,
+    rng: Optional[random.Random] = None,
+    np_rng: Optional[np.random.RandomState] = None,
 ) -> Dict[str, Any]:
     """
     Simulate N rounds of bandwagon influence and track how each voting method
@@ -724,6 +741,20 @@ def run_bandwagon_simulation(
 
     Round 0 is the sincere baseline; each subsequent round applies
     apply_social_influence() using the previous round's poll standings.
+
+    rng/np_rng: optional pre-built, call-scoped RNG pair. Pass these when the
+    caller has already built candidates itself (e.g. `_bandwagon_worker`,
+    which must pre-build candidates via `_build_population` before calling
+    here) so voter draws continue the SAME stream as the candidate draws,
+    instead of restarting a second, independently-constructed
+    `random.Random(seed)`/`np.random.RandomState(seed)` pair from the
+    identical seed value — two instances built from the same seed produce
+    byte-identical draw sequences, so without this the candidate stream and
+    the voter stream were two clones of each other rather than independent
+    (real bug, code-review ultra, 2026-09-12 — see PLAN_SOLIDITE_TECHNIQUE.md's
+    Lot 5 addendum). When not provided (every other caller, including every
+    existing test that passes `seed=` alone with `candidates=None`), a fresh
+    pair is derived from `seed` here, exactly as before.
     """
     # Lazy-import to avoid circular dependency
     from .simulation_ranked_utils import (
@@ -747,22 +778,34 @@ def run_bandwagon_simulation(
         "positional_score": get_positional_score_winner,
     }
 
-    if seed is not None:
-        random.seed(seed)
-        np.random.seed(seed)
+    # Local RNG pair, scoped to this call — NOT `random.seed(seed)` /
+    # `np.random.seed(seed)`, which reseed the shared process-wide
+    # singletons: "same seed -> same result" would then only hold if
+    # nothing else touched random/np.random between the reseed and the
+    # create_voter/create_candidate draws below, false under any concurrent
+    # access to this process. See election_service.py for the full
+    # writeup and the empirical demonstration of the failure mode.
+    #
+    # Only derive a fresh pair when the caller didn't hand one in: a caller
+    # that pre-built candidates itself (see the `rng`/`np_rng` docstring
+    # above) needs voters to continue that SAME stream, not restart a second
+    # `_seeded_rng_pair(seed)` clone of it.
+    if rng is None or np_rng is None:
+        rng, np_rng = _seeded_rng_pair(seed)
 
     if issues is None:
         issues = ["economy", "environment", "healthcare", "taxes", "social_welfare"]
 
     if candidates is None:
         candidates = [
-            create_candidate(issues, 0, "Alice", "Green"),
-            create_candidate(issues, 1, "Bob",   "Conservative"),
-            create_candidate(issues, 2, "Carol",  "Liberal"),
+            create_candidate(issues, 0, "Alice", "Green", rng=rng),
+            create_candidate(issues, 1, "Bob",   "Conservative", rng=rng),
+            create_candidate(issues, 2, "Carol",  "Liberal", rng=rng),
         ]
 
     current_voters: List[Voter] = [
-        create_voter(issues, i, ideology_distribution) for i in range(num_voters)
+        create_voter(issues, i, ideology_distribution, rng=rng, np_rng=np_rng)
+        for i in range(num_voters)
     ]
 
     def _compute_round_state(vts: List[Voter], rnd: int) -> Dict[str, Any]:
@@ -833,6 +876,7 @@ def run_bandwagon_simulation(
             rounds_data[-1]["poll_standings"],
             candidates,
             influence_strength,
+            rng=rng,
         )
         state = _compute_round_state(current_voters, rnd)
         rounds_data.append(state)
@@ -907,8 +951,17 @@ def simulate_vote(
     issues: List[str],
     method: str = "plurality",
     poll_standings: Optional[Dict[str, float]] = None,
+    rng: Optional[random.Random] = None,
 ) -> Union[Optional[str], List[str], Dict[str, int]]:
-    if random.random() > voter["likelihood_to_vote"]:
+    """rng: optional local random.Random instance — see create_voter() for why
+    this matters under concurrent/seeded callers. Its only caller,
+    run_simulation(), threads its own call-scoped rng through here so the
+    turnout gate below stays reproducible under the same seed (see
+    PLAN_SOLIDITE_TECHNIQUE.md's Lot 5 addendum: before this parameter
+    existed, this draw came from the bare global singleton regardless of
+    what run_simulation() itself did)."""
+    r = _resolve_rng(rng)
+    if r.random() > voter["likelihood_to_vote"]:
         return None
 
     is_strategic = voter.get("voting_style") == "strategic"
@@ -957,11 +1010,15 @@ def run_simulation(
     ideology_distribution: str = "random",
     seed: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
-    if seed is not None:
-        random.seed(seed)
-        np.random.seed(seed)
+    # Local RNG pair, scoped to this call — see run_bandwagon_simulation()
+    # just above (and election_service.py) for why NOT
+    # `random.seed(seed)`/`np.random.seed(seed)`.
+    rng, np_rng = _seeded_rng_pair(seed)
     voters = [
-        create_voter(DEFAULT_ISSUES, voter_id=i, ideology_distribution=ideology_distribution)
+        create_voter(
+            DEFAULT_ISSUES, voter_id=i, ideology_distribution=ideology_distribution,
+            rng=rng, np_rng=np_rng,
+        )
         for i in range(num_voters)
     ]
     _party_cycle = ("Green", "Conservative", "Liberal", "Independent")
@@ -971,13 +1028,14 @@ def run_simulation(
             candidate_id=i,
             name=f"Candidate {i + 1}",
             party=_party_cycle[i % len(_party_cycle)],
+            rng=rng,
         )
         for i in range(num_candidates)
     ]
 
     results = []
     for voter in voters:
-        vote = simulate_vote(voter, candidates, DEFAULT_ISSUES, method)
+        vote = simulate_vote(voter, candidates, DEFAULT_ISSUES, method, rng=rng)
         results.append(
             {
                 "voter": voter,

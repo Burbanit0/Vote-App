@@ -13,7 +13,6 @@ logical order:
 """
 from __future__ import annotations
 
-import random as _random
 from collections import Counter
 from operator import itemgetter
 from typing import Any, Dict, Optional
@@ -22,6 +21,7 @@ import numpy as _np
 
 from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.simulation_voting_utils import calculate_utility, create_voter
+from api.engine.utils.demographic_data       import _seeded_rng_pair
 from api.engine.utils.simulation_metrics      import compare_all_methods
 from api.engine.utils.simulation_ranked_utils import (
     get_plurality_winner,
@@ -1093,8 +1093,11 @@ def _run_district_fptp(
     the caller) instead of reseeding the shared random/np.random singletons,
     so concurrent districts/runs can't perturb each other's output.
     """
-    rng    = _random.Random(seed)
-    np_rng = _np.random.RandomState(seed)
+    # `seed` is a required `int` here (not Optional) — _seeded_rng_pair's
+    # @overload for an `int` argument returns a non-Optional pair directly,
+    # so no runtime narrowing is needed even though its general signature
+    # accepts `Optional[int]` for other, optional-seed callers.
+    rng, np_rng = _seeded_rng_pair(seed)
 
     voters = [
         create_voter(issues, i, ideology_distribution="random", rng=rng, np_rng=np_rng)
@@ -1347,8 +1350,7 @@ def _primary_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         cand_offset += len(prim_specs)
 
     # ── Build the general electorate (local RNG pair) ───────────────────────
-    rng    = _random.Random(seed)
-    np_rng = _np.random.RandomState(seed)
+    rng, np_rng = _seeded_rng_pair(seed)
     general_voters = [
         create_voter(issues, i, ideology_distribution=general_ideology, rng=rng, np_rng=np_rng)
         for i in range(general_num_voters)
