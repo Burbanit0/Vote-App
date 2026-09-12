@@ -89,9 +89,17 @@ class ElectionService:
         if len(cand_specs) < 2:
             return {"error": "At least 2 candidates required"}, 400
 
-        # ── Seed both PRNGs ───────────────────────────────────────────────
-        _random.seed(seed)
-        _np.random.seed(seed)
+        # ── Local RNG pair, scoped to this call ─────────────────────────────
+        # Deliberately NOT `_random.seed(seed)` / `_np.random.seed(seed)`: those
+        # reseed the shared process-wide singletons, so "same seed -> same
+        # result" only held if nothing else touched random/np.random between
+        # the reseed and the voter/candidate draws below — false under any
+        # concurrent access to this process (demonstrated: two threads calling
+        # simulate() with the same seed while a third thread merely called
+        # random.random() produced different winners/voters_snapshot in 22/30
+        # attempts). A local instance can't be perturbed by anything else.
+        rng    = _random.Random(seed)
+        np_rng = _np.random.RandomState(seed)
 
         issues     = DEFAULT_ISSUES
         cand_names = [str(s.get("name", f"C{i}")) for i, s in enumerate(cand_specs)]
@@ -110,7 +118,7 @@ class ElectionService:
 
         # ── 2. Build electorate ───────────────────────────────────────────
         voters = [
-            create_voter(issues, i, ideology_distribution=ideology)
+            create_voter(issues, i, ideology_distribution=ideology, rng=rng, np_rng=np_rng)
             for i in range(num_voters)
         ]
 

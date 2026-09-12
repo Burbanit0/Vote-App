@@ -41,23 +41,27 @@ def _generate_rows(
     """
     Generate one row per (scenario, method) deterministically from *seed*.
 
-    The global random state is seeded once at the start so that the same
+    A local RNG pair is seeded once at the start from *seed* — NOT the shared
+    random/np.random module-level singletons — so that the same
     (num_scenarios, num_candidates, num_voters, seed) triple always produces
-    identical output — important for research reproducibility.
+    identical output, including under concurrent access from other requests
+    in the same process (reseeding the shared globals doesn't have this
+    property: any other code touching random/np.random between the reseed
+    and the draws below changes the result for the same seed).
     """
-    _random.seed(seed)
-    _np.random.seed(seed)
+    rng    = _random.Random(seed)
+    np_rng = _np.random.RandomState(seed)
     issues = DEFAULT_ISSUES
     rows: list[dict[str, Any]] = []
 
     for s_id in range(1, num_scenarios + 1):
         cand_names = _CANDIDATE_NAMES[:num_candidates]
         candidates = [
-            create_candidate(issues, i, name, _PARTY_CYCLE[i % len(_PARTY_CYCLE)])
+            create_candidate(issues, i, name, _PARTY_CYCLE[i % len(_PARTY_CYCLE)], rng=rng)
             for i, name in enumerate(cand_names)
         ]
         voters = [
-            create_voter(issues, i, ideology_distribution=ideology)
+            create_voter(issues, i, ideology_distribution=ideology, rng=rng, np_rng=np_rng)
             for i in range(num_voters)
         ]
 
