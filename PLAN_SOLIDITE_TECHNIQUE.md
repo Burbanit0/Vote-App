@@ -1894,7 +1894,7 @@ retours concrets.
 | **Agent `dep-triage`** | Lit les PR Dependabot, classe patch/mineur/majeur, lit les changelogs, propose l'ordre de merge. Répond pile à la douleur du 06/09. | M | ⭐⭐ | 📝📝📝 | ✅ `.claude/agents/dep-triage.md` — voir détail sous le tableau |
 | **Agent `axiom-checker`** | Vérifie qu'une nouvelle méthode de vote arrive avec ses tests axiomatiques (Lot 4.1). | M | ⭐⭐ | 📝📝 | |
 | **Agent `flake-hunter`** | Isole les tests instables, propose un correctif. | M | ⭐⭐ | 📝📝 | |
-| **Agent `doc-drift`** | Celui improvisé le 06/09, figé en agent réutilisable + cron mensuel. | S | ⭐⭐ | 📝📝📝 | ✅ agent + premier run réel fait, cron mensuel documenté mais pas câblé (voir détail sous le tableau) |
+| **Agent `doc-drift`** | Celui improvisé le 06/09, figé en agent réutilisable + cron mensuel. | S | ⭐⭐ | 📝📝📝 | ✅ agent + premier run réel fait + routine cloud mensuelle câblée (voir détail sous le tableau) |
 | **Skill `voter-testing`** | Comment tester ici : Hypothesis, fixtures de parité, testids e2e, pièges connus. | M | ⭐⭐ | 📝📝 | |
 | **Skill `voter-ci`** | Diagnostiquer un échec CI, où sont les gates, que faire quand le ratchet casse. | M | ⭐⭐ | 📝📝 | |
 | **Skill `release`** | Checklist `develop → main`. | S | ⭐⭐ | 📝 | |
@@ -2015,50 +2015,27 @@ ce commit). Zéro écart trouvé sur un échantillon de marqueurs ✅ du Lot 9/1
 et sur les comptages de parité (26 méthodes, 29 règles) — vérifiés
 directement contre `engineParity.json`/`playgroundVoting.ts`, pas supposés.
 
-**Cron mensuel : documenté, pas câblé.** `CronCreate` existe bien (vérifié
-depuis la session interactive principale après coup — introuvable seulement
-depuis ce sous-agent d'arrière-plan, qui n'y a pas accès), mais ne convient
-structurellement pas à une cadence mensuelle : ses tâches sont **propres à
-la session** (en mémoire, rien sur disque) et **expirent après 7 jours** même
-en mode récurrent — bien en-deçà d'un mois. Le mécanisme réel pour une tâche
-durable est une **routine cloud** — skill `schedule` + outil `RemoteTrigger`
-(`job_config.ccr`, `cron_expression` 5 champs en UTC, intervalle minimum 1 h,
-ex. `0 8 1 * *` pour le 1er du mois) — mais `RemoteTrigger` s'est lui aussi
-révélé absent de la liste d'outils différés accessible à ce sous-agent
-d'arrière-plan : recherché sous plusieurs formulations, jamais trouvé.
-Blocage structurel indépendant, en plus : une routine cloud tire un
-**checkout git frais depuis l'URL GitHub du dépôt** — tant que cette branche
-n'est pas mergée sur `develop`, une routine créée maintenant tournerait
-contre un dépôt sans `doc-drift.md`, donc pour rien. Corps `RemoteTrigger`
-prêt à l'emploi pour une session qui y a accès (l'interactive principale),
-une fois la PR mergée :
+**Cron mensuel : câblé pour de vrai** (2026-09-11, après le merge de la PR).
+`CronCreate` existe bien mais ne convient structurellement pas à une cadence
+mensuelle : ses tâches sont **propres à la session** (en mémoire, rien sur
+disque) et **expirent après 7 jours** même en mode récurrent. Le mécanisme
+durable est une **routine cloud** (skill `schedule` + outil `RemoteTrigger`),
+accessible uniquement depuis la session interactive principale (introuvable
+depuis un sous-agent d'arrière-plan, sous plusieurs formulations) — cohérent
+avec le fait qu'une routine tire un **checkout git frais depuis l'URL GitHub
+du dépôt**, donc devait de toute façon attendre que `doc-drift.md` soit
+réellement sur `develop`.
 
-```json
-{
-  "name": "doc-drift-monthly",
-  "cron_expression": "0 8 1 * *",
-  "enabled": true,
-  "job_config": {
-    "ccr": {
-      "environment_id": "<voir schedule skill, env par défaut>",
-      "session_context": {
-        "model": "claude-sonnet-5",
-        "sources": [{"git_repository": {"url": "https://github.com/Burbanit0/Vote-App"}}],
-        "allowed_tools": ["Bash", "Read", "Grep", "Glob"]
-      },
-      "events": [{"data": {
-        "uuid": "<uuid v4>", "session_id": "", "type": "user",
-        "parent_tool_use_id": null,
-        "message": {"role": "user", "content": "Invoke the doc-drift subagent (Task tool, subagent_type: doc-drift) against this repo's develop branch and report its findings in full."}
-      }}]
-    }
-  }
-}
-```
-
-À faire par un humain : merger cette PR sur `develop`, puis créer cette
-routine depuis une session avec accès à `RemoteTrigger` (interface
-claude.ai/code ou session interactive avec le skill `schedule`).
+Routine `doc-drift-monthly` (`trig_0183HpsWHKnLz8EFfFQgS6qA`) créée une fois
+la PR mergée : `cron_expression: "0 8 1 * *"` (1er du mois, 8h UTC),
+`environment_id` par défaut, `model: claude-sonnet-5`, outils `Bash, Read,
+Grep, Glob` seulement, prompt demandant d'invoquer `doc-drift` (avec repli
+explicite — relire `.claude/agents/doc-drift.md` verbatim si `subagent_type`
+n'est pas reconnu dans la session cloud — sur le même doute de rechargement
+déjà rencontré en local) et de rapporter ses trouvailles sans jamais committer
+ni ouvrir de PR. Premier déclenchement prévu le 2026-10-01. Suivre ses
+exécutions : `claude.ai/code/routines/trig_0183HpsWHKnLz8EFfFQgS6qA` ou
+`RemoteTrigger` (`list_runs`/`get_run_log`).
 
 ---
 
