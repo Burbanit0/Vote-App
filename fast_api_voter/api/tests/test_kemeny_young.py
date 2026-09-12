@@ -49,6 +49,21 @@ def test_kemeny_young_single_and_empty():
     assert get_kemeny_young_winner([["A"]]) == "A"
 
 
+def test_kemeny_young_approximation_path_actually_runs_kwiksort():
+    """kemeny_used_approximation() only checks the candidate-count predicate --
+    it never calls get_kemeny_young_winner, so it doesn't exercise _kwik_sort
+    itself. This test drives the real approximation path (> 6 candidates,
+    the >_KY_EXACT_CAP branch in get_kemeny_young_winner) end to end, which a
+    coordinated seven-way sweep found had zero coverage in the non-benchmark
+    suite despite the predicate having its own test above."""
+    ballots = [list("ABCDEFG")] * 3 + [list("GFEDCBA")] * 2  # 7 candidates > cap
+    assert kemeny_used_approximation(ballots) is True
+
+    winner = get_kemeny_young_winner(ballots)
+
+    assert winner in "ABCDEFG"
+
+
 def test_compare_all_methods_registers_kemeny_young():
     names = ["A", "B", "C"]
     matrix = {
