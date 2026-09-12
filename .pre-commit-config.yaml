@@ -60,6 +60,28 @@ repos:
         files: fast_api_voter/.*\.py$
         pass_filenames: false
 
+  # ── Python dead code ───────────────────────────────────────────────────────
+  # Promoted from informational-only (scripts/audit.sh --quality) to blocking
+  # (CODE_AUDIT.md §8): the "0 findings at --min-confidence 80" criterion was
+  # met on 2026-09-06 and has held since. Same local-hook pattern as mypy above.
+  # Scope, verified by injecting real dead code at each class (2026-09-12):
+  # at this threshold vulture DOES catch an unused parameter (100%),
+  # unreachable code after `return` (100%), and an unused import (90%) — the
+  # exact classes its two original findings were. It does NOT catch an
+  # unused top-level function or an unused local variable (both only ever
+  # 60% confidence, whatever the code) — those stay informational-only,
+  # `--min-confidence 60` in scripts/audit.sh, for a human to triage (the
+  # 60%-confidence report is dominated by Enum/decorator false positives,
+  # see CODE_AUDIT.md §3 — not safe to gate on as-is).
+  - repo: local
+    hooks:
+      - id: vulture
+        name: vulture (dead code)
+        language: system
+        entry: bash -c 'cd fast_api_voter && python -m vulture api/ .vulture_whitelist.py --config pyproject.toml'
+        files: fast_api_voter/.*\.py$
+        pass_filenames: false
+
   # ── Frontend linting ───────────────────────────────────────────────────────
   - repo: local
     hooks:
