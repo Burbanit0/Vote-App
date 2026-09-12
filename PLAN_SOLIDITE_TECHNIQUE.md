@@ -1009,7 +1009,7 @@ seulement une liste blanche assez large pour ne jamais mordre.
 | **Viewport mobile en e2e** | App pédagogique → usage mobile probable, zéro test mobile aujourd'hui. | M | ⭐⭐ | 📝📝 | ✅ `tests/e2e/mobile.spec.ts` + projet `mobile` (voir sous le tableau) |
 | **`i18next-parser`** + `eslint-plugin-i18next` | Clés orphelines/manquantes et chaînes en dur (5 encore trouvées à la main le 06/09). | M | ⭐⭐ | 📝📝 | ✅ `i18next-cli lint` (voir sous le tableau) |
 | **Pseudo-locale à chaînes longues** | Casse les layouts avant que l'anglais ou une future langue ne le fasse. | S | ⭐⭐ | 📝📝📝 | ✅ `pseudo.ts` + `tests/e2e/pseudo-locale.spec.ts` (voir sous le tableau) |
-| **Webkit en e2e** | Seuls chromium et firefox tournent aujourd'hui. | S | ⭐⭐ | 📝 | ⏳ bloqué — dépendances système manquantes (`sudo npx playwright install-deps` requis, pas de sudo sans mot de passe dans cet environnement) |
+| **Webkit en e2e** | Seuls chromium et firefox tournent aujourd'hui. | S | ⭐⭐ | 📝 | ✅ projet `webkit` ajouté, CI câblée — voir détail sous le tableau |
 
 **a11y sur toutes les routes, détail.** Vérifié avant de commencer à
 construire quoi que ce soit (même discipline que le Lot 4.5) : le mécanisme
@@ -1170,6 +1170,36 @@ produit (les langues plus longues ont des mots plus longs, pas un mot
 géant en fin de phrase). Corrigé en distribuant le padding mot par mot
 (`pseudoizeSegment` découpe sur les espaces). Les 5 tests passent contre le
 vrai serveur, chromium + firefox (10 tests) après ce correctif.
+
+**Webkit en e2e, détail** (2026-09-11/12). Rouvert une fois le blocage sudo
+levé par l'utilisateur (`sudo env "PATH=$PATH" npx playwright install-deps
+webkit` — la forme nue échouait avec `npx: command not found`, `sudo`
+n'héritant pas du `PATH` géré par nvm de l'utilisateur). Une fois les
+dépendances installées, `npx playwright test --project=webkit` en local a
+échoué à 100 % avec `WebKit encountered an internal error` sur *toute*
+navigation HTTP réelle (mais pas sur une URL `data:`) — un faux négatif
+d'environnement, pas un vrai bug applicatif, diagnostiqué avant de conclure
+quoi que ce soit : `DEBUG=pw:browser` a montré la cause exacte,
+`WPENetworkProcess: symbol lookup error: /snap/core20/current/lib/
+x86_64-linux-gnu/libpthread.so.0: undefined symbol: __libc_pthread_init` —
+le terminal de développement tourne confiné dans le cgroup du **snap VS
+Code** (`snap.code.code-*.scope`), qui court-circuite la résolution de
+`libpthread` vers une version incompatible embarquée dans `core20` pour tout
+binaire GTK/WPE lancé depuis ce shell. Confirmé que ni `LD_LIBRARY_PATH` ni
+`WEBKIT_DISABLE_SANDBOX=1` ne suffisent à contourner ça depuis l'intérieur du
+shell confiné. Vérifié à la place — même principe que la régression visuelle
+du Lot 7 (image Docker épinglée pour l'environnement de rendu) — dans un
+conteneur `mcr.microsoft.com/playwright:v1.62.1-noble` non confiné,
+`--network host` vers les serveurs déjà démarrés sur l'hôte :
+**114/114 tests passent (59,6 s)**, preuve que ni l'app ni la config webkit
+n'ont de défaut réel — le runner GitHub Actions (Ubuntu non confiné,
+identique au conteneur) ne rencontrera jamais ce problème, propre à ce poste
+de dev précis. `webkit` ajouté comme troisième projet dans
+`playwright.config.ts` (`devices['Desktop Safari']`, même `testIgnore` que
+chromium/firefox) et `.github/workflows/e2e.yml`'s `Install Playwright
+browsers` étendu (`chromium firefox webkit`). Sur ce poste, préférer le
+conteneur Docker ci-dessus pour rejouer `--project=webkit` en local plutôt
+que le terminal intégré VS Code.
 
 ---
 
