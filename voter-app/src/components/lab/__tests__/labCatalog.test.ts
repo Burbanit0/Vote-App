@@ -131,4 +131,22 @@ describe('labCatalog — nothing was lost in the redesign', () => {
   it('every experiment exposes a preload for hover-prefetch', () => {
     for (const e of ALL_EXPERIMENTS) expect(typeof e.preload, e.id).toBe('function');
   });
+
+  it("every experiment's dynamic import actually resolves to a component", async () => {
+    // Exercises the real `import('../shared/<folder>/<Name>')` call behind
+    // each lazyWithPreload entry, one per fiche -- the exact risk a
+    // components/shared/ reorganization carries (a typo'd path fails
+    // silently at runtime, on first render, not at build time). `.preload()`
+    // is the same factory `lazyWithPreload` wraps, so awaiting it here
+    // forces every one of the 64 dynamic imports in this file to execute.
+    const results = await Promise.all(
+      ALL_EXPERIMENTS.map(async (e) => {
+        const mod = await e.preload();
+        return [e.id, mod] as const;
+      })
+    );
+    for (const [id, mod] of results) {
+      expect(mod, id).toBeDefined();
+    }
+  });
 });
