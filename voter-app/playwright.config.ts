@@ -53,6 +53,11 @@ export default defineConfig({
       use: { ...devices['Desktop Firefox'] },
       testIgnore: EXCLUDED_FROM_DEFAULT,
     },
+    {
+      name: 'webkit',
+      use: { ...devices['Desktop Safari'] },
+      testIgnore: EXCLUDED_FROM_DEFAULT,
+    },
     // Android (chromium-based), not an iPhone preset: iOS emulation needs
     // WebKit, whose *rendering engine* is already covered by a desktop pass
     // elsewhere — this project is about the mobile *viewport + touch
