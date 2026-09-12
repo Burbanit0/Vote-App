@@ -237,6 +237,7 @@ fast_api_voter/scripts/sortition_calibration_runs/
 fast_api_voter/scripts/acceptance_cascade_runs/
 fast_api_voter/scripts/acceptance_v7_runs/
 fast_api_voter/scripts/flagship_runs/
+fast_api_voter/scripts/seed_sweep_runs/
 voter-app/dist/
 
 # ── OS junk ──────────────────────────────────────────────────────────────────

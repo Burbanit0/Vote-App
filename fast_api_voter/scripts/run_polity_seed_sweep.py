@@ -94,8 +94,18 @@ def _run_one_seed(
         "--output-dir", str(output_dir),
         "--max-batch-replays", str(max_batch_replays),
     ]
+    checkpoint_path = run_dir / "run" / run_id / "checkpoint.json"
     if resume_sweep and run_dir.exists():
-        args.append("--resume")
+        if checkpoint_path.exists():
+            args.append("--resume")
+        else:
+            # A run_dir with no checkpoint yet means an earlier attempt was
+            # interrupted before its first per-tick checkpoint -- run_flagship
+            # itself refuses --resume in that case (FileNotFoundError), and
+            # there is nothing worth resuming anyway. --force clears it and
+            # starts this seed clean, mirroring run_flagship's own "an empty
+            # or half-started run_dir is not worth preserving" judgment.
+            args.append("--force")
 
     log_path = output_dir / f"{run_id}.log"
     output_dir.mkdir(parents=True, exist_ok=True)
