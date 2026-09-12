@@ -1895,9 +1895,9 @@ retours concrets.
 | **Agent `axiom-checker`** | Vérifie qu'une nouvelle méthode de vote arrive avec ses tests axiomatiques (Lot 4.1). | M | ⭐⭐ | 📝📝 | ✅ `.claude/agents/axiom-checker.md` — voir détail sous le tableau |
 | **Agent `flake-hunter`** | Isole les tests instables, propose un correctif. | M | ⭐⭐ | 📝📝 | |
 | **Agent `doc-drift`** | Celui improvisé le 06/09, figé en agent réutilisable + cron mensuel. | S | ⭐⭐ | 📝📝📝 | ✅ agent + premier run réel fait + routine cloud mensuelle câblée (voir détail sous le tableau) |
-| **Skill `voter-testing`** | Comment tester ici : Hypothesis, fixtures de parité, testids e2e, pièges connus. | M | ⭐⭐ | 📝📝 | |
-| **Skill `voter-ci`** | Diagnostiquer un échec CI, où sont les gates, que faire quand le ratchet casse. | M | ⭐⭐ | 📝📝 | |
-| **Skill `release`** | Checklist `develop → main`. | S | ⭐⭐ | 📝 | |
+| **Skill `voter-testing`** | Comment tester ici : Hypothesis, fixtures de parité, testids e2e, pièges connus. | M | ⭐⭐ | 📝📝 | ✅ `.claude/skills/voter-testing/SKILL.md` — voir détail sous le tableau |
+| **Skill `voter-ci`** | Diagnostiquer un échec CI, où sont les gates, que faire quand le ratchet casse. | M | ⭐⭐ | 📝📝 | ✅ `.claude/skills/voter-ci/SKILL.md` — voir détail sous le tableau |
+| **Skill `release`** | Checklist `develop → main`. | S | ⭐⭐ | 📝 | ✅ `.claude/skills/release/SKILL.md` — voir détail sous le tableau |
 | **Agents planifiés** | Revue hebdo du diff de la semaine, audit doc mensuel, veille de dépendances. | M | ⭐⭐ | 📝📝📝 | |
 | **`/code-review ultra`** sur les PR du moteur | Existe déjà, sous-utilisé sur les changements sensibles. | S | ⭐⭐ | 📝📝 | ✅ rappel ajouté à CLAUDE.md — voir détail sous le tableau |
 
@@ -2107,6 +2107,88 @@ fort rayon d'impact (config CI/CD, harnais de parité/axiomes) — les gates CI
 standard attrapent une régression sur ce qui est déjà testé, pas une
 implémentation de règle subtilement fausse ou une erreur de logique qu'une
 relecture humaine (ou par agent) aurait vue.
+
+**Skill `voter-testing`, détail** (2026-09-11) — `.claude/skills/voter-testing/SKILL.md`,
+anglais et registre technique structuré (même forme que `voter-api`/`voter-ui` :
+frontmatter `description` orientée routage, sections à commandes exactes, une
+« Recipe » finale), pas la prose narrative française des agents
+`experiment-writer`/`journal-writer`. Contenu tiré des fichiers réels, pas
+paraphrasé : les trois fichiers Hypothesis nommés par cet item
+(`test_hypothesis_condorcet.py`, `test_hypothesis_monotonicity.py`,
+`test_voting_criteria_matrix.py`) lus en entier pour en extraire la forme
+réelle des stratégies, la distinction entre les tests `@given` proprement dits
+et le motif « peut être violé » (recherche aléatoire seedée à budget fixe, pas
+du tout du Hypothesis) et le gap de méthodologie que le fichier documente
+lui-même (candidats fixés à 4, comblé partiellement par Lot 4.4). Un détail a
+été vérifié en conditions réelles plutôt que cité de mémoire, et la vérification
+a corrigé une erreur avant publication : un bug d'un caractère injecté dans
+`get_plurality_winner` (`simulation_ranked_utils.py`) puis reverté a montré que
+la version de Hypothesis épinglée ici (6.167.1) affiche un bloc
+`Failing test case: test_xxx(votes=,)` à la valeur vide — un vrai artefact de
+cette combinaison de versions — et que le contre-exemple minimisé réel se lit
+une ligne plus haut, dans le dump de variables locales de la trace pytest ; la
+première rédaction affirmait le format `Falsifying example: ...` (l'ancien
+format Hypothesis, plausible mais faux ici), corrigée après ce test dans le
+worktree, jamais sur `develop`. Deux pièges Hypothesis supplémentaires, hors du
+périmètre strict des trois fichiers nommés mais directement pertinents et
+vérifiés par lecture réelle de `test_schema_contract.py`
+(`derandomize=True` seul insuffisant d'un processus à l'autre, un `try/except`
+incapable d'avaler un échec interne au moteur Hypothesis) : le second recoupe
+exactement le même défaut de reproductibilité que `gen_engine_parity.py`
+documente pour `PYTHONHASHSEED=0`, cité comme tel plutôt que traité comme un
+fait isolé. Les pièges e2e/perf cités viennent de `docs/exploration/EXP-004`
+(piège 5 : `testIgnore` de projet qui écrase celui de la racine ; piège 6 :
+script Docker sans `--user`) et `EXP-005` (Profiler React aveugle aux effets ;
+seuil de perf en ms absolu, bruit ×4,5 mesuré ; pipeline `| tail` qui masque
+`$?`) avec leur numéro de piège d'origine quand il existe, jamais reformulés en
+conseil générique.
+
+**Skill `voter-ci`, détail** (2026-09-11) — `.claude/skills/voter-ci/SKILL.md`,
+anglais, même registre. Les 14 fichiers de `.github/workflows/` lus (au moins
+l'essentiel, en entier pour les quatre qui gatent réellement une PR) pour
+cartographier gate/non-gate et le fichier de config propriétaire de chaque
+règle, plutôt que de paraphraser CLAUDE.md ou de deviner depuis le nom du
+fichier : confirmé en lisant les YAML que `audit.yml` porte à la fois Semgrep,
+Gitleaks, Trivy **et** CodeQL (pas un fichier `codeql.yml` séparé), et que
+`openapi-contract.yml` porte le job « Generated artifacts in sync », qui gate
+à la fois le contrat OpenAPI et la fixture de parité moteur. La commande de
+reproduction locale de diff-cover donnée par la tâche
+(`--cov-report=xml`, absent des `addopts` par défaut de
+`fast_api_voter/pyproject.toml`) a été exécutée pour de vrai dans le worktree
+(`pytest api/tests/test_hypothesis_condorcet.py --cov-report=xml` puis
+`diff-cover coverage.xml --compare-branch=origin/develop --fail-under=100`,
+sortie confirmée, fichiers de test nettoyés après coup) plutôt que documentée
+de mémoire. Trouvaille non demandée par la tâche mais tombée en lisant les
+workflows un par un : `mutation-testing.yml`, `schemathesis.yml`,
+`flaky-check-backend.yml` et `atheris-fuzzing.yml` documentent chacun, dans
+leur propre en-tête, que leurs déclencheurs `schedule`/`workflow_dispatch`
+résolvent contre la branche par défaut du dépôt (`main`) et non contre la
+branche qui possède le fichier — `main` étant à cette date 757 commits derrière
+`develop` (`git log origin/main..origin/develop --oneline`, vérifié), ces
+quatre workflows sont donc réellement inertes hors de leur déclencheur
+`push: develop` tant qu'une release n'a pas eu lieu. Repris dans le skill
+`release` plutôt que laissé seulement ici, pour que la conséquence (une
+release réveille des cron qui n'ont jamais tourné) soit visible au bon moment.
+
+**Skill `release`, détail** (2026-09-11) — `.claude/skills/release/SKILL.md`,
+anglais, volontairement court (`S`, une checklist, pas un essai d'exhaustivité
+comme les deux skills ci-dessus). `release.yml` lu en entier : son job
+`release` fait un `checkout` **explicite** de `main`, quel que soit le ref
+depuis lequel le workflow est déclenché, et ne fusionne jamais `develop`
+lui-même — seul un merge PR develop→main (déjà pratiqué manuellement par le
+passé, PR #57/#67/#70, convention de titre « Release: ... », confirmé via
+`gh pr view`) fait réellement transiter les commits ; le workflow se contente
+de bump/tag/push sur ce qui est déjà sur `main`. Vérifié aussi que ce mécanisme
+d'automatisation n'a, à ce jour, jamais tourné pour de vrai sur ce dépôt :
+aucun tag git n'existe (`git tag -l` vide après `git fetch --tags`),
+`voter-app/package.json` est toujours à sa version par défaut `0.1.0` — le
+skill le dit explicitement en tête de fichier plutôt que de présenter la
+checklist comme un chemin déjà rodé. Un risque de conflit sur le champ
+`version` de `package.json` lors d'un futur merge develop→main (le commit de
+bump de la release précédente ne serait jamais remonté sur `develop`) est
+signalé comme un raisonnement déduit de la lecture du workflow, explicitement
+qualifié comme tel — pas comme un incident déjà vécu, puisqu'aucune release
+n'a encore eu lieu pour le confirmer.
 
 ---
 
