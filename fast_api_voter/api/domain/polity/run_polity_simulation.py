@@ -109,6 +109,7 @@ from api.domain.polity.llm_behavior_engine import (
     decide_reaction_to_event,
     decide_representative_response,
     menu_acts,
+    pressure_shipped_signal_values,
     resolve_ranking_cids,
 )
 from api.domain.polity.llm_client import (
@@ -2063,7 +2064,13 @@ def _run_accountability_phase(
                     decided = PressureAct(decision.act)
                     act = applicable_pressure_act(decided, can_sign=can_sign, can_launch=can_launch)
                     payload_extra = {
-                        "ctx": contexts[citizen.citizen_id].to_payload(),
+                        # Track C3 fix (2026-09-11): merges dt=10's shipped
+                        # calibration signal(s) in via the SAME function
+                        # decide_pressure_actions itself calls to build the
+                        # prompt -- to_payload() alone used to under-report
+                        # what the model actually saw (blank_threshold was
+                        # sent but never journaled).
+                        "ctx": {**contexts[citizen.citizen_id].to_payload(), **pressure_shipped_signal_values(citizen)},
                         # Provenance, LLM path only -- see PressureBatch
                         # Outcome.llm_fallback for why the §11.4 palier's own
                         # comparison depends on being able to exclude these.

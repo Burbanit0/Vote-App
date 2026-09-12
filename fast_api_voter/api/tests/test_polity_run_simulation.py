@@ -2690,13 +2690,36 @@ def test_pressure_action_is_journalled_once_per_consulted_citizen_with_its_ctx(t
         # client answers cleanly.
         assert set(e["payload"].keys()) == {"target", "act", "ctx", "llm_fallback"}
         assert e["payload"]["llm_fallback"] == 0
-        assert set(e["payload"]["ctx"].keys()) == {"self_gap", "mandate_dev", "neighbors_acting", "ticks_to_election"}
+        # blank_threshold rides on the ctx since Track C3 (2026-09-11): decide_pressure_actions'
+        # calibrated prompt merges it in via pressure_shipped_signal_values, and the journal
+        # write now merges the same function's output so the two can never diverge again.
+        assert set(e["payload"]["ctx"].keys()) == {"self_gap", "mandate_dev", "neighbors_acting", "ticks_to_election", "blank_threshold"}
         assert e["payload"]["ctx"]["neighbors_acting"] is None
         assert e["motif"] == "301"
         assert e["codebook_version"] == config.llm.codebook_version
     for tick in {e["tick"] for e in pressure_events}:
         cids = [e["citizen_id"] for e in pressure_events if e["tick"] == tick]
         assert cids == sorted(cids)
+
+
+def test_pressure_action_ctx_blank_threshold_matches_the_real_citizens_own_value(tmp_path):
+    # Track C3 (2026-09-11): pins the actual bug, not just the key's presence -- before the
+    # fix, this key was simply absent; a stale/wrong VALUE under the same key would have been an
+    # equally silent, equally real divergence between "the ctx the model saw" and "the ctx the
+    # journal recorded".
+    config = _config_with_awakening_llm_enabled(tmp_path)
+    config = dataclasses.replace(
+        config, pressure_menu=dataclasses.replace(config.pressure_menu, electoral_only=False, mobilization_enabled=True)
+    )
+    citizens = generate_population(config.citizens, config.run.population_size, config.run.seed)
+    blank_threshold_by_cid = {c.citizen_id: round(c.blank_threshold, 4) for c in citizens}
+
+    journal_path = run_simulation(config, run_id="dt10-blank-threshold", llm_client=_ElectingFakeLlmClient())
+    events = _events(journal_path)
+    pressure_events = [e for e in events if e["event_type"] == "pressure_action"]
+    assert pressure_events
+    for e in pressure_events:
+        assert e["payload"]["ctx"]["blank_threshold"] == blank_threshold_by_cid[e["citizen_id"]]
 
 
 def test_a_second_launch_in_the_same_tick_is_journaled_as_act_2_then_petition_signed(tmp_path):
@@ -2861,7 +2884,9 @@ def test_pressure_action_ctx_never_carries_street_pressure(tmp_path):
     assert response_events
     assert any(e["payload"]["ctx"]["street"] is not None for e in response_events)
     for e in pressure_events:
-        assert set(e["payload"]["ctx"].keys()) == {"self_gap", "mandate_dev", "neighbors_acting", "ticks_to_election"}
+        # blank_threshold rides on the ctx since Track C3 (2026-09-11) -- the point this test
+        # pins (street never leaks into pressure_action's ctx) is unaffected by that addition.
+        assert set(e["payload"]["ctx"].keys()) == {"self_gap", "mandate_dev", "neighbors_acting", "ticks_to_election", "blank_threshold"}
 
 
 def test_two_awakening_llm_runs_produce_byte_identical_journals(tmp_path):

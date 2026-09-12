@@ -3140,10 +3140,23 @@ class PressureContext:
     neighbors_acting: float | None = None
 
     def to_payload(self) -> dict[str, float | int | None]:
-        """§3.6.6's exact four ctx keys, rounded like every other prompt
-        builder. Used by BOTH build_pressure_user_prompt and the journal
-        write, so the ctx an analyst reads is provably the ctx the model
-        saw."""
+        """§3.6.6's exact four BASE ctx keys, rounded like every other
+        prompt builder. Used by build_pressure_user_prompt (the
+        uncalibrated builder, which sends only these four) and by the
+        journal write.
+
+        NOT the whole story on the calibrated (shipped) path: `decide_
+        pressure_actions` calls `build_pressure_user_prompt_calibrated`
+        instead, which merges `pressure_shipped_signal_values`'s own
+        key(s) (`blank_threshold`) on top of this dict before sending it.
+        The journal write merges the SAME function's output on top too
+        (run_polity_simulation.py) -- so the "ctx an analyst reads is the
+        ctx the model saw" invariant this docstring used to claim for
+        `to_payload()` ALONE is actually only true for the pair of them
+        together; a docstring correction, not a behavior change (Track C3,
+        2026-09-11, found this claim had gone stale the moment Phase E
+        shipped `blank_threshold` through the separate `signal_values`
+        argument without updating this sentence)."""
         return {
             "self_gap": round(self.self_gap, 4),
             "mandate_dev": round(self.mandate_dev, 4),
@@ -3547,6 +3560,26 @@ PRESSURE_THRESHOLD_SIGNAL = PressureCalibrationSignal(
         "pour moi personnellement. Ce nombre ne prescrit aucune reaction.\n"
     ),
 )
+
+
+def pressure_shipped_signal_values(citizen: Citizen) -> dict[str, float]:
+    """The single source of truth for dt=10's shipped calibration signal
+    (`PRESSURE_THRESHOLD_SIGNAL` only -- see `decide_pressure_actions`'s own
+    docstring for why the other three Phase-C signals never shipped).
+    Called by `decide_pressure_actions` itself (to build `signal_values` for
+    `build_pressure_user_prompt_calibrated`) AND by `run_polity_simulation`'s
+    own `pressure_action` journal write -- so the ctx an analyst reads can
+    never again silently diverge from the ctx the model actually saw.
+
+    Track C3 fix, 2026-09-11 (lets-build-a-solid-spicy-otter.md): found live
+    that `PressureContext.to_payload()`'s own docstring claim ("used by BOTH
+    the prompt and the journal write") had gone stale the moment Phase E
+    shipped `blank_threshold` -- the prompt started merging it in via
+    `build_pressure_user_prompt_calibrated`'s separate `signal_values`
+    argument, but the journal write (`run_polity_simulation.py`) still
+    called `to_payload()` alone, on a high-volume type (dt=10 fires on
+    every consulted citizen, every tick `mandate.enabled`)."""
+    return {PRESSURE_THRESHOLD_SIGNAL.field: round(citizen.blank_threshold, 4)}
 """polity-decision-contracts.md §3 pressure_action: `deterministic_
 pressure_action` (simple_rules.py) compares `gap < citizen.blank_
 threshold` to score every measurement this decision type has ever been
@@ -3902,7 +3935,10 @@ def decide_pressure_actions(
 
     def _pressure_chunk(chunk: list[Citizen]) -> tuple[list[PressureDecision], bool]:
         expected_cids = [c.citizen_id for c in chunk]
-        signal_values = {"blank_threshold": {c.citizen_id: c.blank_threshold for c in chunk}}
+        per_citizen_signals = {c.citizen_id: pressure_shipped_signal_values(c) for c in chunk}
+        signal_values = {
+            PRESSURE_THRESHOLD_SIGNAL.field: {cid: values[PRESSURE_THRESHOLD_SIGNAL.field] for cid, values in per_citizen_signals.items()}
+        }
         is_fallback = False
         try:
             chunk_decisions = _complete_and_decode_with_replay(
