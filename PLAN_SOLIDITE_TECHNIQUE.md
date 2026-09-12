@@ -2258,6 +2258,34 @@ On n'optimise pas ce qu'on ne mesure pas.
   et le tableau des verdicts (0.3) devient *« ce que chaque outil a trouvé, et
   ce qu'il a coûté »*, ce qui est nettement plus intéressant à partager.
 
+**12.1, détail** (2026-09-12) — les deux premiers points vérifiés pour de vrai,
+pas supposés :
+
+- **Télémétrie OpenTelemetry de Claude Code** : fonctionnalité réelle et
+  documentée (`docs.claude.com`/`code.claude.com`), pas une extrapolation —
+  `CLAUDE_CODE_ENABLE_TELEMETRY=1` + `OTEL_EXPORTER_OTLP_ENDPOINT=...` exporte
+  des métriques nommées (`claude_code.session.count`, `claude_code.cost.usage`,
+  `claude_code.token.usage` par type input/output/cache) et des événements
+  (`claude_code.user_prompt`, `claude_code.api_request`, …) au format OTLP
+  standard. Synergie directe avec le Lot 10 : la même stack self-hébergée déjà
+  montée pour l'app (Jaeger, `fast_api_voter/docker-compose.observability-
+  tracing.yml`) peut recevoir ces exports sans nouvelle infrastructure — il
+  s'agit de config d'environnement côté développeur (variables de session),
+  pas de code applicatif, donc rien à committer dans ce repo au-delà de cette
+  note ; un futur item pourrait documenter la config recommandée dans une
+  skill dédiée si l'usage se généralise.
+- **`ccusage`** : évalué en conditions réelles (`npx ccusage@latest daily`)
+  contre les transcripts JSONL réels de cette session — fonctionne sans
+  compte, sans appel réseau, lit uniquement `~/.claude/projects/**/*.jsonl`
+  en local. Rapport journalier confirmé fonctionnel : rien que la journée du
+  11/09/2026 (la session qui a exécuté les Lots 9 à 12 de ce plan) totalise
+  10 936 requêtes API et l'équivalent de 628,47 $ de consommation modèle —
+  un chiffre concret qui valide à lui seul la prémisse de ce Lot (« on
+  n'optimise pas ce qu'on ne mesure pas »). Adopté comme outil d'analyse
+  ponctuelle (`npx ccusage@latest`), pas intégré au repo (c'est un outil
+  d'inspection de l'historique local de l'utilisateur, hors du contrôle de
+  version du projet).
+
 ### 12.2 — Ne jamais charger ce qui ne doit pas l'être · `M` · ⭐⭐⭐ 📝📝
 
 Mesure réelle sur ce repo (estimation à ~4 octets/token) :
