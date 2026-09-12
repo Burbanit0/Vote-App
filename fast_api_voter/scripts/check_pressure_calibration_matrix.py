@@ -267,8 +267,20 @@ def main() -> int:
                 combined_histogram: dict[str, int] = {}
                 for trial in range(_TRIALS):
                     rng = random.Random(f"{config.run.seed}|{variant_name}|{size}|{trial}")
+                    # Real defect fixed 2026-09-11 (Track B6, lets-build-a-solid-spicy-otter.md):
+                    # `half = size // 2` gave the odd remainder to `above` unconditionally, so at
+                    # size=1 (half=0) every trial sampled ONLY from the unambiguous-HIGH pole,
+                    # never `below` -- a constant "act" answer scores 100% there by construction,
+                    # which is not evidence of calibration working. Randomize which pole gets the
+                    # remainder instead of hardcoding it, so size=1 actually alternates poles
+                    # across trials rather than being structurally one-sided.
                     half = size // 2
-                    chosen = rng.sample(below, min(half, len(below))) + rng.sample(above, min(size - half, len(above)))
+                    remainder = size - half
+                    if size % 2 == 1 and rng.random() < 0.5:
+                        below_n, above_n = remainder, half
+                    else:
+                        below_n, above_n = half, remainder
+                    chosen = rng.sample(below, min(below_n, len(below))) + rng.sample(above, min(above_n, len(above)))
                     if len(chosen) < size:
                         chosen += rng.sample([c for c in unambiguous if c not in chosen], size - len(chosen))
                     rng.shuffle(chosen)

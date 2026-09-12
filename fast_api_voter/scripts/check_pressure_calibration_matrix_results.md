@@ -80,3 +80,22 @@ can ship at the production batch sizes measured. Whether batch 1 is viable depen
 its real cost — Phase D, next — since `pressure_action` still carries the §3.B.7 prefix-cache
 gap (`build_pressure_system_prompt` still embeds `cid_list`, unlike `vote_cast` and
 `chamber_deliberation`), which is exactly the fix that would matter most at batch 1 specifically.
+
+## Correction, 2026-09-11 (Track B6, `lets-build-a-solid-spicy-otter.md`)
+
+A real defect in the script this result came from: at `size=1`, `half = size // 2 = 0`, so
+`chosen = rng.sample(below, 0) + rng.sample(above, 1)` sampled **exclusively from the
+unambiguous-HIGH pole**, every trial, for every variant — never `below`. A constant "act" answer
+scores 100% there by construction; the batch-1 9/9 result above was never actually testing
+sensitivity to `self_gap`'s sign, only to its magnitude on one side. Fixed by randomizing which
+pole receives the odd-size remainder per trial instead of hardcoding it to `above`; sizes 5 and 25
+are unaffected (an even split has no remainder to misassign).
+
+**The disposition above is unchanged.** The batch-5/25 FAIL verdicts rest on the constant-answer
+floor, which this bug cannot explain away (it does not touch those sizes). The batch-1 100%
+result is downgraded from "confirmed both-directions" to "confirmed on the HIGH pole only, `below`
+untested" — independently corroborated regardless: `check_pressure_shipped_wiring_results.md`'s
+own live wiring test used 12 alternating citizens (both sides of `blank_threshold` by
+construction) and got 12/12, which the size=1 bug could not have produced by accident. Not
+re-run: the fix changes what future runs of this script measure, not what this document's own
+already-corroborated conclusion was.

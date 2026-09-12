@@ -106,6 +106,12 @@ totale, pas graduelle. Le mécanisme de calibration n'est donc pas en cause — 
 appel entre plusieurs citoyens qui detruit le signal, quelle que soit la donnée fournie. La taille de
 batch devient la seule question restante (Phase D).
 
+**Correction, 2026-09-11** : un vrai défaut du script (`half = size // 2 = 0` à `size=1`) faisait
+échantillonner uniquement le pôle HIGH non ambigu à cette taille — le 9/9 ci-dessus confirme la
+sensibilité côté HIGH, pas les deux sens. Corrigé (répartition du reste aléatoire, pas fixée au pôle
+HIGH) ; conclusion inchangée, corroborée indépendamment par `check_pressure_shipped_wiring_results.md`
+(12 citoyens alternant les deux côtés, 12/12).
+
 **Coût mesuré, 2026-09-10** (`fast_api_voter/scripts/check_pressure_batch_size_cost_results.md`) :
 la taille de batch 1 coûte **2,8-3,0× le temps de la taille 25 — pas 25×**. La plupart de la latence
 d'un appel à cette taille de prompt est un coût fixe par requête, pas le traitement des tokens du
