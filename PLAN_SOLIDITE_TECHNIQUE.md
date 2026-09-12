@@ -1893,7 +1893,7 @@ retours concrets.
 | **Agent `parity-guardian`** | Dès qu'une règle de vote bouge : régénère la parité, lance le test, explique tout écart. | M | ⭐⭐⭐ | 📝📝📝 | ✅ `.claude/agents/parity-guardian.md`, vérifié en direct sur les deux scénarios (voir sous le tableau) |
 | **Agent `dep-triage`** | Lit les PR Dependabot, classe patch/mineur/majeur, lit les changelogs, propose l'ordre de merge. Répond pile à la douleur du 06/09. | M | ⭐⭐ | 📝📝📝 | ✅ `.claude/agents/dep-triage.md` — voir détail sous le tableau |
 | **Agent `axiom-checker`** | Vérifie qu'une nouvelle méthode de vote arrive avec ses tests axiomatiques (Lot 4.1). | M | ⭐⭐ | 📝📝 | ✅ `.claude/agents/axiom-checker.md` — voir détail sous le tableau |
-| **Agent `flake-hunter`** | Isole les tests instables, propose un correctif. | M | ⭐⭐ | 📝📝 | |
+| **Agent `flake-hunter`** | Isole les tests instables, propose un correctif. | M | ⭐⭐ | 📝📝 | ✅ `.claude/agents/flake-hunter.md` — voir détail sous le tableau |
 | **Agent `doc-drift`** | Celui improvisé le 06/09, figé en agent réutilisable + cron mensuel. | S | ⭐⭐ | 📝📝📝 | ✅ agent + premier run réel fait + routine cloud mensuelle câblée (voir détail sous le tableau) |
 | **Skill `voter-testing`** | Comment tester ici : Hypothesis, fixtures de parité, testids e2e, pièges connus. | M | ⭐⭐ | 📝📝 | ✅ `.claude/skills/voter-testing/SKILL.md` — voir détail sous le tableau |
 | **Skill `voter-ci`** | Diagnostiquer un échec CI, où sont les gates, que faire quand le ratchet casse. | M | ⭐⭐ | 📝📝 | ✅ `.claude/skills/voter-ci/SKILL.md` — voir détail sous le tableau |
@@ -2189,6 +2189,43 @@ bump de la release précédente ne serait jamais remonté sur `develop`) est
 signalé comme un raisonnement déduit de la lecture du workflow, explicitement
 qualifié comme tel — pas comme un incident déjà vécu, puisqu'aucune release
 n'a encore eu lieu pour le confirmer.
+
+**Agent `flake-hunter`, détail** (2026-09-11) — `.claude/agents/flake-hunter.md`,
+anglais, `model: sonnet`, `Read, Grep, Glob, Bash` seulement (même posture
+« propose, n'applique jamais » que les quatre autres agents Lot 11 — un
+correctif d'isolation touche souvent du code de *production*, pas juste le
+test, comme le cas RNG ci-dessous le montre). Distingue explicitement un test
+réellement instable d'un test simplement cassé (échoue 100 % du temps même
+isolé — pas son problème, retour au triage normal) et interdit
+« ajouter un retry » ou `@pytest.mark.flaky` comme correctif proposé.
+
+Cas réel utilisé pour la vérification :
+`test_election_perturbers5.py::TestDistricts::
+test_ideology_variance_is_wired_into_the_district_simulation`, repéré plus
+tôt dans cette même session comme un échec isolé sur run complet. Protocole
+rejoué pour de vrai, deux fois (l'agent lui-même, puis un second passage de
+vérification indépendant demandé après une première tentative restée
+incomplète) : 20/20 lancements isolés passent, 12 lancements complets et
+sériés (~78 s chacun sur ~2014 tests, pas les ~1000 s qu'un vieux commentaire
+suggérait) reproduisent `2014 passed, 41 skipped` à l'identique à chaque
+fois — **l'échec réel n'a pas pu être reproduit en direct dans cette
+session**, rapporté honnêtement comme tel plutôt que forcé. Le mécanisme
+suspecté (`random`/`np.random` globaux réensemencés puis consommés dans
+`_run_district_fptp` et `create_voter`/`demographic_data.py`, jamais une
+instance locale) a en revanche été **démontré directement, pas simplement
+allégué** : un script autonome fait tourner deux threads appelant
+`_run_district_fptp(seed=7, ...)` en concurrence (plus un troisième thread
+qui brasse les RNG globaux pour favoriser l'entrelacement) — 28/30 essais
+produisent des résultats différents pour un seed identique. Cause la plus
+plausible identifiée dans ce dépôt : le fixture `live_server`
+(`test_sockets.py`, `scope="module"`, un vrai serveur uvicorn sur thread
+démon qui exécute de vraies simulations Monte-Carlo) comme consommateur
+concurrent des mêmes RNG globaux, sans qu'un chevauchement réel avec le test
+cible ait pu être surpris sur les 12 runs sériés de cette session. Correctif
+proposé (jamais appliqué) : remplacer le réensemencement des singletons
+globaux par un `np.random.default_rng(seed)`/`random.Random(seed)` local
+passé en paramètre à travers `_run_district_fptp`/`create_voter`/les
+échantillonneurs démographiques.
 
 ---
 
