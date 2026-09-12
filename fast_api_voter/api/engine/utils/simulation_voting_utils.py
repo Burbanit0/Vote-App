@@ -732,6 +732,8 @@ def run_bandwagon_simulation(
     influence_strength: float = 0.3,
     ideology_distribution: str = "random",
     seed: Optional[int] = None,
+    rng: Optional[random.Random] = None,
+    np_rng: Optional[np.random.RandomState] = None,
 ) -> Dict[str, Any]:
     """
     Simulate N rounds of bandwagon influence and track how each voting method
@@ -739,6 +741,20 @@ def run_bandwagon_simulation(
 
     Round 0 is the sincere baseline; each subsequent round applies
     apply_social_influence() using the previous round's poll standings.
+
+    rng/np_rng: optional pre-built, call-scoped RNG pair. Pass these when the
+    caller has already built candidates itself (e.g. `_bandwagon_worker`,
+    which must pre-build candidates via `_build_population` before calling
+    here) so voter draws continue the SAME stream as the candidate draws,
+    instead of restarting a second, independently-constructed
+    `random.Random(seed)`/`np.random.RandomState(seed)` pair from the
+    identical seed value — two instances built from the same seed produce
+    byte-identical draw sequences, so without this the candidate stream and
+    the voter stream were two clones of each other rather than independent
+    (real bug, code-review ultra, 2026-09-12 — see PLAN_SOLIDITE_TECHNIQUE.md's
+    Lot 5 addendum). When not provided (every other caller, including every
+    existing test that passes `seed=` alone with `candidates=None`), a fresh
+    pair is derived from `seed` here, exactly as before.
     """
     # Lazy-import to avoid circular dependency
     from .simulation_ranked_utils import (
@@ -769,7 +785,13 @@ def run_bandwagon_simulation(
     # create_voter/create_candidate draws below, false under any concurrent
     # access to this process. See election_service.py for the full
     # writeup and the empirical demonstration of the failure mode.
-    rng, np_rng = _seeded_rng_pair(seed)
+    #
+    # Only derive a fresh pair when the caller didn't hand one in: a caller
+    # that pre-built candidates itself (see the `rng`/`np_rng` docstring
+    # above) needs voters to continue that SAME stream, not restart a second
+    # `_seeded_rng_pair(seed)` clone of it.
+    if rng is None or np_rng is None:
+        rng, np_rng = _seeded_rng_pair(seed)
 
     if issues is None:
         issues = ["economy", "environment", "healthcare", "taxes", "social_welfare"]

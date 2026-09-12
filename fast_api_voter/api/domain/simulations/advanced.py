@@ -64,6 +64,18 @@ def _bandwagon_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
         # the live /simulations/bandwagon endpoint were still drawing from
         # the bare global singleton regardless of `seed`. See
         # PLAN_SOLIDITE_TECHNIQUE.md's Lot 5 addendum.
+        #
+        # Build exactly ONE (rng, np_rng) pair from seed_int and thread it
+        # through BOTH candidate creation (_build_population, below) AND
+        # voter creation (run_bandwagon_simulation's rng=/np_rng=, below) so
+        # both draw from one continuous stream. Passing `seed=seed_int` alone
+        # to run_bandwagon_simulation (as a prior version of this fix did)
+        # made it derive its OWN, independently-constructed pair from the
+        # SAME seed value — `random.Random(13)` built twice yields
+        # byte-identical draws, so candidates and voters were two clones of
+        # the same sequence restarted from position zero, not independent
+        # streams (real bug, second code-review ultra pass, 2026-09-12; see
+        # PLAN_SOLIDITE_TECHNIQUE.md's Lot 5 addendum).
         seed_int = int(seed) if seed is not None else None
         rng, np_rng = _seeded_rng_pair(seed_int)
         _, candidates, issues = _build_population(
@@ -77,6 +89,8 @@ def _bandwagon_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
             influence_strength=influence_strength,
             ideology_distribution=ideology_dist,
             seed=seed_int,
+            rng=rng,
+            np_rng=np_rng,
         )
         return result, 200
     except Exception as e:

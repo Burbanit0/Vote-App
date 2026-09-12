@@ -63,7 +63,19 @@ from api.engine.constants import DEFAULT_ISSUES
 
 def _perturb_global_rng() -> None:
     """Stand-in for "a concurrent caller touched the shared random/np.random
-    singletons" — deterministic, no threads or timing needed."""
+    singletons" — deterministic, no threads or timing needed.
+
+    Deliberately no save/restore of prior global state (`random.getstate()`/
+    `setstate()`, `np.random.get_state()`/`set_state()`): checked (2026-09-12,
+    third `/code-review ultra` pass) whether that could leak perturbation
+    into a later test. It can't, here — `pytest-randomly` (requirements-dev.txt)
+    unconditionally reseeds both `random` and `np.random` in its own
+    `pytest_runtest_setup`/`pytest_runtest_call` hooks before every single
+    test, function-scoped, with no opt-out configured in this repo (no
+    `--randomly-dont-reset-seed`, no `-p no:randomly`). Whatever this leaves
+    the globals as is therefore always overwritten before the next test ever
+    runs. Restoring state here would be inert, not incorrect — left out to
+    avoid implying a real leak risk that isn't there."""
     random.seed(20260913)
     for _ in range(37):
         random.random()

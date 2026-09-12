@@ -68,6 +68,61 @@ class TestBandwagon:
         assert second.status_code == 200, second.text
         assert second.json() == first.json()
 
+    def test_candidate_and_voter_streams_share_one_rng_pair(self, client, monkeypatch):
+        """MUST FIX (third `/code-review ultra` pass, 2026-09-12; essentially
+        all 7 independent review agents converged on this): before this fix,
+        `_bandwagon_worker` built its own `(rng, np_rng)` pair from
+        `seed_int` to seed candidate creation via `_build_population(...)`,
+        then called `run_bandwagon_simulation(candidates=candidates,
+        seed=seed_int, ...)` — passing the bare *seed integer*, not the RNG
+        instances. `run_bandwagon_simulation` unconditionally derived its OWN
+        SECOND `(rng, np_rng)` pair from that same seed value for voter
+        creation. `random.Random(N)` instantiated twice produces
+        byte-identical draw sequences (verified directly:
+        `random.Random(13)` built twice yields the same first three
+        `.random()` values), so the live endpoint's candidate-draw stream and
+        voter-draw stream were two clones of the same sequence restarted from
+        position zero, not independent — invisible to every reproducibility
+        test (same seed -> same result held either way, including the test
+        directly above this one) but a real bug for anything assuming
+        candidate/voter randomness is independent (e.g. a seed-sweep
+        sensitivity analysis).
+
+        This targets the root cause directly rather than trying to prove the
+        statistical independence property indirectly: `_seeded_rng_pair` is
+        imported separately into both `api.domain.simulations.advanced` (for
+        candidates) and `api.engine.utils.simulation_voting_utils` (for
+        voters, when not given a pre-built pair) — this test spies on both
+        bindings and asserts the combined call count is exactly ONE per
+        request when a seed is supplied, i.e. one continuous pair is built
+        and threaded through both candidate and voter creation, not two
+        independently-constructed clones.
+
+        Confirmed red against the pre-fix code (2 calls: one in
+        `_bandwagon_worker`, one inside `run_bandwagon_simulation`); green
+        after (1 call — `_bandwagon_worker` builds it once and passes
+        `rng=`/`np_rng=` into `run_bandwagon_simulation`, which then skips
+        deriving its own).
+        """
+        import api.domain.simulations.advanced as advanced_mod
+        import api.engine.utils.simulation_voting_utils as svu_mod
+        from api.engine.utils.demographic_data import _seeded_rng_pair as real_seeded_rng_pair
+
+        calls = {"count": 0}
+
+        def _counting_wrapper(seed):
+            calls["count"] += 1
+            return real_seeded_rng_pair(seed)
+
+        monkeypatch.setattr(advanced_mod, "_seeded_rng_pair", _counting_wrapper)
+        monkeypatch.setattr(svu_mod, "_seeded_rng_pair", _counting_wrapper)
+
+        r = client.post("/api/v2/simulations/bandwagon",
+                        json={"num_voters": 40, "candidates": CANDS, "num_rounds": 1, "seed": 13})
+
+        assert r.status_code == 200, r.text
+        assert calls["count"] == 1
+
 
 class TestMonteCarlo:
     def test_happy_path(self, client):

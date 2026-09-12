@@ -989,6 +989,155 @@ complète (`python -m pytest api/tests`, hors benchmarks) : **2137 passed, 41
 skipped, 0 failed** (2134 + les 3 nouveaux tests, aucune régression
 ailleurs).
 
+**Troisième passe (2026-09-12) — `_bandwagon_worker` reconstruisait deux
+paires RNG indépendantes à partir du même seed, plus 2 sites `workers.py`
+non migrés, trouvés par une 7ᵉ revue `/code-review ultra` convergente.**
+Cette passe suit deux `/code-review ultra` complètes déjà appliquées à ce
+correctif (celle documentée juste au-dessus, et une précédente) — 7 agents
+de revue indépendants ont convergé sur un même défaut réel, plus deux écarts
+plus étroits confirmés par plusieurs agents.
+
+1. **MUST FIX, réel.** `_bandwagon_worker` (`api/domain/simulations/
+   advanced.py`) construisait `rng, np_rng = _seeded_rng_pair(seed_int)` et
+   ne s'en servait QUE pour seeder `_build_population(...)` (candidats),
+   puis appelait `run_bandwagon_simulation(candidates=candidates,
+   seed=seed_int, ...)` — en passant l'entier `seed_int`, pas les instances
+   RNG. `run_bandwagon_simulation` (`simulation_voting_utils.py`)
+   construisait alors sa PROPRE paire, `_seeded_rng_pair(seed)`, à partir de
+   ce même entier, pour les électeurs et `apply_social_influence`.
+   `random.Random(N)` instancié deux fois produit une séquence de tirages
+   strictement identique (vérifié directement :
+   `random.Random(13)` construit deux fois donne les 3 mêmes premiers
+   `.random()`) — donc le flux de tirage des candidats et celui des
+   électeurs, sur l'endpoint live `/simulations/bandwagon`, n'étaient PAS
+   indépendants : deux clones du même flux, redémarré depuis la position
+   zéro. Ça ne casse pas « même seed → même résultat » (les tests de
+   reproductibilité existants restaient tous verts — exactement pourquoi 2
+   passes `/code-review ultra` et la suite de tests existante ne l'avaient
+   pas attrapé), mais biaise silencieusement tout ce qui suppose l'aléa
+   candidats/électeurs indépendant (ex. une analyse de sensibilité par
+   balayage de seeds).
+
+   **Corrigé** en donnant à `run_bandwagon_simulation` la même forme que
+   `_build_population` (`api/domain/simulations/helpers.py`) a déjà :
+   paramètres optionnels `rng`/`np_rng`, utilisés s'ils sont fournis, sinon
+   dérivés de `seed` comme avant (`if rng is None or np_rng is None:
+   rng, np_rng = _seeded_rng_pair(seed)` — inchangé pour tout appelant qui
+   ne fournit que `seed=`, y compris tous les tests existants et le branch
+   `candidates is None` de `run_bandwagon_simulation` lui-même).
+   `_bandwagon_worker` construit désormais UNE SEULE paire `rng`/`np_rng`
+   depuis `seed_int` et la passe à `_build_population(...)` (candidats) ET à
+   `run_bandwagon_simulation(..., rng=rng, np_rng=np_rng)` (électeurs) — un
+   seul flux continu au lieu de deux clones indépendants.
+
+   **Test ajouté**, preuve rouge/vert directe sur la cause racine plutôt
+   qu'une propriété statistique indirecte (jugée trop fragile à démontrer
+   proprement) : `TestBandwagon::
+   test_candidate_and_voter_streams_share_one_rng_pair`
+   (`test_simulations_advanced.py`) espionne `_seeded_rng_pair` — importé
+   séparément dans `api.domain.simulations.advanced` et
+   `api.engine.utils.simulation_voting_utils`, donc les deux bindings sont
+   patchés — et vérifie qu'il n'est appelé qu'UNE fois par requête HTTP
+   `POST /simulations/bandwagon` avec un `seed` fourni. Rouge sur le code
+   pré-correctif (2 appels — un dans `_bandwagon_worker`, un dans
+   `run_bandwagon_simulation`) ; vert après (1 appel). Confirmé en vrai par
+   bascule de fichier (`git stash` scopé aux deux fichiers sources, pas une
+   simple relecture du diff), pas supposé.
+
+2. **SHOULD FIX, réel — le compte « 5 sites dupliqués » / « passe de
+   fermeture exhaustive » ci-dessus était inexact.** `api/domain/election/
+   workers.py` avait DEUX sites de plus (`_run_district_fptp`, live via
+   `POST /districts` ; `_primary_worker`, live via `POST /primary`) qui
+   inlinaient encore verbatim `rng = random.Random(seed); np_rng =
+   np.random.RandomState(seed)` au lieu d'utiliser `_seeded_rng_pair()`.
+   Fonctionnellement identique à l'existant (déjà correctement enfilé dans
+   `create_voter`/`create_candidate` sur ces deux sites — donc PAS un bug de
+   reproductibilité, juste une duplication non fermée), mais ça contredit
+   le compte « 5 sites » et la « passe de fermeture exhaustive n'a rien
+   trouvé d'autre » écrits plus haut : le vrai total est **7 sites**, deux
+   d'entre eux manqués par la passe de grep de la revue précédente. Corrigé
+   en remplaçant les deux constructions inline par `_seeded_rng_pair(seed)`
+   (import ajouté depuis `demographic_data.py`) ; `import random as _random`
+   devenu inutilisé dans `workers.py` a été retiré. `_run_district_fptp`
+   appelle `np_rng.normal(...)` directement (pas seulement via
+   `create_voter`/`create_candidate`, qui acceptent déjà `Optional[...]`) —
+   ça a fait apparaître une vraie erreur mypy (`np_rng` redevient
+   `Optional[RandomState]` du point de vue du type de retour général de
+   `_seeded_rng_pair`), réglée par un `assert rng is not None and np_rng is
+   not None` juste après l'appel, commenté : le `seed: int` de cette
+   fonction est obligatoire (pas `Optional`), donc la paire retournée n'est
+   jamais `(None, None)` en pratique — le narrowing mypy est donc correct,
+   pas un contournement. `mypy api/` et `ruff check fast_api_voter` restent
+   clean après ; les tests existants des deux endpoints live (`/districts`,
+   `/primary`) restent verts sans modification.
+
+3. **Hygiène de tests, vérifiée plutôt que supposée.**
+   `test_seeded_rng_isolation.py::_perturb_global_rng()` reseed
+   `random`/`np.random` et brûle des tirages, sans sauvegarder/restaurer
+   l'état antérieur. Les 7 agents de revue étaient partagés sur la gravité.
+   Vérifié directement : `requirements-dev.txt` installe
+   `pytest-randomly==5.0.0` (déjà en jeu au Lot 5, tableau ci-dessus) dont
+   les hooks `pytest_runtest_setup`/`pytest_runtest_call`
+   (`pytest_randomly/__init__.py`) reseedent *inconditionnellement*
+   `random.seed(...)` et `np.random.seed(...)` avant CHAQUE test, sans
+   option de désactivation configurée dans ce repo (pas de
+   `--randomly-dont-reset-seed` dans `addopts`, pas de `-p no:randomly`) —
+   confirmé en lisant `pyproject.toml`. Donc quoi que `_perturb_global_rng`
+   laisse dans les singletons globaux est de toute façon écrasé avant que
+   le test suivant ne démarre : l'absence de restauration est réellement
+   inerte, pas juste probablement inoffensive. Laissé tel quel, avec un
+   commentaire d'une dizaine de lignes ajouté à la fonction expliquant
+   pourquoi, pour qu'un futur lecteur n'ait pas à re-dériver cette
+   vérification.
+
+**Divulgué, explicitement PAS corrigé dans cette PR** — deux écarts réels
+mais plus étroits/pré-existants, plus un point architectural, trouvés par
+la même revue :
+
+- `simulate_campaign()`, `apply_information_asymmetry()`,
+  `simulate_blank_contagion()` (respectivement `campaign_dynamics.py`,
+  `information_model.py`, `blank_contagion.py`) construisent chacun leur
+  propre paire `random.Random(seed)`/`np.random.RandomState(seed)` à partir
+  du MÊME `seed` déjà utilisé pour l'électorat. Le point de vérification
+  précédent (ci-dessus, « `simulate_campaign()`, … : vérifiés ») s'arrêtait
+  à « pas de reseed du singleton partagé » et classait ça hors de la
+  famille de bug — correct pour cette famille précise, mais incomplet : ces
+  trois modules reproduisent la MÊME forme que le bug bandwagon corrigé au
+  point 1 ci-dessus (plusieurs instances RNG indépendantes construites à
+  partir de la valeur de seed identique), donc activer plusieurs de ces
+  fonctionnalités optionnelles ensemble (ex. campagne + asymétrie
+  d'information) corrèle leur aléa. Réel, mais **pré-existant** (pas
+  introduit par cette branche) et une propriété de conception des trois
+  modules, pas une régression de ce correctif — réenfiler les trois serait
+  un chantier séparé, plus large, hors du périmètre de ce fix.
+- `create_voter()`'s `likelihood_to_vote` : `sample_likelihood_to_vote`
+  re-tire `income` une seconde fois en interne au lieu de réutiliser le
+  champ `income` déjà tiré du voter — un bug de cohérence de données
+  pré-existant (le `income` stocké d'un électeur peut contredire le boost
+  basé sur le revenu déjà intégré dans son `likelihood_to_vote`), sans
+  rapport avec la famille de bug RNG-singleton, simplement remarqué en
+  relisant ce fichier pendant cette passe.
+- Point architectural récurrent (plusieurs agents de revue, sur plusieurs
+  passes maintenant) : un RNG ambiant basé sur un `contextvar`, lié une
+  fois par requête et lu implicitement par chaque helper, fermerait toute
+  cette famille de bug structurellement au lieu du threading manuel
+  paramètre-par-paramètre qui, sur 3 passes de revue successives, a
+  toujours fini par manquer un site. Noté comme recommandation légitime
+  pour un futur refactor, explicitement PAS entrepris dans cette PR compte
+  tenu du rapport effort/risque à ce stade d'une chaîne de correctifs déjà
+  longue.
+
+Vérification finale de cette troisième passe : `mypy api/` clean (92
+fichiers) ; `ruff check fast_api_voter` clean ; `./scripts/
+check_engine_parity_drift.sh` byte-identique ; `cd voter-app && npx vitest
+run src/lib/playgroundVoting.parity.test.ts` vert (49/49) ; suite complète
+(`python -m pytest api/tests`, hors benchmarks) comparée à la baseline
+2137/41 skip de la passe précédente — voir le résultat exact rapporté avec
+ce correctif. Cette troisième passe est censée être la **dernière** sur
+cette famille de défaut précise (reseed/duplication du RNG partagé) ; tout
+nouveau défaut sans rapport trouvé en cours de route serait signalé comme
+une découverte séparée, pas absorbé silencieusement dans ce périmètre.
+
 ---
 
 ## Lot 6 — Ce que l'analyse statique ne voit pas
