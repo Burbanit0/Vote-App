@@ -5,8 +5,7 @@
     "src/api/types.gen.ts",
     "vitest.stryker.config.ts",
     "scripts/check-flaky.mjs",
-    "scripts/gen-pseudo-locale.ts",
     "i18next.config.ts"
   ],
-  "ignoreDependencies": ["nyc", "license-checker-rseidelsohn", "jiti", "i18next-cli"]
+  "ignoreDependencies": ["nyc", "license-checker-rseidelsohn", "i18next-cli"]
 }

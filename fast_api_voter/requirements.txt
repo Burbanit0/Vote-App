@@ -13,17 +13,22 @@ pydantic-settings==2.15.0      # 12-factor env config for api/core/config.py (2.
 redis==8.1.0
 
 # ── Observability (Lot 10, PLAN_SOLIDITE_TECHNIQUE.md — "/metrics Prometheus")
-prometheus-fastapi-instrumentator==8.1.0  # FastAPI-specific wrapper around the
-                                # official prometheus_client (pulled in transitively) --
-                                # auto-registers default HTTP request-count/latency
-                                # metrics instead of hand-rolling a middleware.
-                                # Checked before adopting (not assumed from name
-                                # recognition): not archived, pushed 2026-09-08 (3 days
-                                # before this was written), 1486 stars, ISC license (OSI
-                                # permissive, added to scripts/check_license_compliance.sh's
-                                # allow-list alongside prometheus_client's own
-                                # "Apache-2.0 AND BSD-2-Clause"). See
-                                # docs/exploration/EXP-012-prometheus-metrics-and-health-split.md.
+prometheus-fastapi-instrumentator==8.1.0  # FastAPI-specific wrapper around
+                                # prometheus_client below -- auto-registers default
+                                # HTTP request-count/latency metrics instead of
+                                # hand-rolling a middleware. Checked before adopting
+                                # (not assumed from name recognition): not archived,
+                                # pushed 2026-09-08 (3 days before this was written),
+                                # 1486 stars, ISC license (OSI permissive, added to
+                                # scripts/check_license_compliance.sh's allow-list
+                                # alongside prometheus_client's own "Apache-2.0 AND
+                                # BSD-2-Clause"). See docs/exploration/
+                                # EXP-012-prometheus-metrics-and-health-split.md.
+prometheus_client==0.26.0      # api/routes/metrics.py imports CONTENT_TYPE_LATEST
+                                # directly -- pinned explicitly (CI's `deptry`, Lot
+                                # 13's CODE_AUDIT.md refresh, caught it as DEP001
+                                # "imported but missing" when it was left implicit
+                                # via prometheus-fastapi-instrumentator's own pin).
 
 # ── Utilities ────────────────────────────────────────────────────────────────
 python-dotenv==1.2.3          # 1.2.2: GHSA-mf9w-mj56-hr94 (set_key symlink-follow)

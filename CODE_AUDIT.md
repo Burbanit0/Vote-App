@@ -134,6 +134,42 @@ plusieurs familles de fichiers parallèles (`workers*.py`, `components/shared/`
 à plat) qui grossissent indépendamment plutôt que de s'étendre — un
 symptôme classique d'ajouts LLM successifs sans passe de consolidation.
 
+*Mise à jour du 2026-09-12 (Lot 13, [plan de solidité technique](PLAN_SOLIDITE_TECHNIQUE.md)
+— rejeu après les Lots 7 à 12) : outils relancés à l'identique de l'édition
+du 2026-09-06 pour comparaison directe. Verdict : **stable, malgré un volume
+de changement important** entre les deux éditions (WebKit e2e, perf backend/
+frontend, sécurité approfondie — fuzzing, SBOM, DAST —, observabilité complète
+— GlitchTip, OpenTelemetry, Prometheus —, 5 nouveaux agents et 3 nouvelles
+skills Claude Code, hygiène de contexte). Sur les 5 métriques du cliquet
+(`scripts/check_quality_ratchet.sh`) : `vulture` (0), `radon` fonctions C+
+(137), `jscpd` (33 clones) strictement identiques ; `deptry` et `knip`
+momentanément régressés puis corrigés dans la même passe, pas laissés en
+dette :
+- **`deptry`** : 2 trouvailles réelles, toutes deux du Lot 10. `prometheus_client`
+  importé directement dans `api/routes/metrics.py` mais jamais déclaré
+  explicitement (reposait sur le pin transitif de `prometheus-fastapi-
+  instrumentator`) — corrigé en l'ajoutant à `requirements.txt` avec sa
+  version réellement résolue (`0.26.0`). `opentelemetry-instrumentation-
+  fastapi` signalé "défini mais inutilisé" — faux positif confirmé (deptry
+  ne résout pas le mapping du nom PyPI vers le module imbriqué
+  `opentelemetry.instrumentation.fastapi`) — corrigé via
+  `[tool.deptry.package_module_name_map]`, pas par un `per_rule_ignores`
+  qui aurait juste caché le signal.
+- **`knip`** : 2 "Configuration hints" (pas du code mort) — `scripts/
+  gen-pseudo-locale.ts` et `jiti` n'avaient plus besoin d'être dans
+  `ignore`/`ignoreDependencies` de `voter-app/knip.json` : la commande
+  `npm run gen:pseudo-locale` (ajoutée au Lot 7) suffit à elle seule à ce
+  que knip les reconnaisse comme utilisés. Entrées retirées, revérifié
+  qu'aucun des deux ne réapparaît comme trouvaille réelle après coup.
+
+Aucune des deux régressions n'était visible dans `scripts/audit.sh
+--quality`'s propre synthèse (`audit-reports/SUMMARY.md`) : ce script
+rapporte des sous-métriques différentes (ex. "Unused files" plutôt que la
+somme totale que `check_quality_ratchet.sh` calcule) — seul le script de
+cliquet lui-même, relancé avec les mêmes fichiers de rapport que la CI
+(`fast_api_voter/{vulture,radon,deptry}.txt`, `voter-app/knip.txt`,
+`jscpd.txt`), donne un nombre directement comparable à la baseline.*
+
 ---
 
 ## 1. Garde-fous déjà en place (avant cet audit)

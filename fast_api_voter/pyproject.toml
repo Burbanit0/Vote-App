@@ -82,6 +82,16 @@ extend_exclude = [
                    # (DEP004), it's exactly where a dev dependency belongs.
 ]
 
+# deptry can't derive this one from the PyPI name on its own: the package
+# installs into the nested opentelemetry.instrumentation.fastapi namespace
+# path (see api/core/tracing.py's import) rather than a flat opentelemetry_
+# instrumentation_fastapi module — without this mapping it wrongly reports
+# DEP002 ("defined as a dependency but not used"), confirmed via its own
+# "Assuming the corresponding module name..." warning during Lot 13's
+# CODE_AUDIT.md refresh.
+[tool.deptry.package_module_name_map]
+"opentelemetry-instrumentation-fastapi" = "opentelemetry"
+
 [tool.deptry.per_rule_ignores]
 # Each of these is a real, deliberate case deptry's static import-scanning
 # can't see, not an unfixed finding — see PR that introduced this section for
