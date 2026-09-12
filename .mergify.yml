@@ -19,6 +19,16 @@ queue_rules:
     # session (see CLAUDE.md's workflow section) — a real merge commit, not a
     # squash or rebase.
     merge_method: merge
+    # Explicit, not `auto` (the default): `auto` derives the timeout from
+    # this queue's own recent CI runtime, which broke live on 2026-09-12 —
+    # a run of small, mostly-skipped-check doc/config PRs pulled the derived
+    # timeout down to ~1 minute, so the next PR needing a real Playwright
+    # E2E run (~10-13 min observed) got dequeued as "checks timed out" while
+    # every one of its checks was still green and simply still running.
+    # 25 minutes comfortably covers the slowest job in this repo's CI
+    # (mutation-testing.yml's stryker job is the only one over this, and it
+    # doesn't gate the merge queue).
+    checks_timeout: "25 minutes"
 
 merge_protections_settings:
   # Every PR whose (injected) required checks pass is queued and merged
