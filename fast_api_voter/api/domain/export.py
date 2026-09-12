@@ -7,12 +7,10 @@ blueprint in app/routes/export.py and the FastAPI router both import from here.
 """
 from __future__ import annotations
 
-import random as _random
 from typing import Any
 
-import numpy as _np
-
 from api.engine.constants import DEFAULT_ISSUES
+from api.engine.utils.demographic_data import _seeded_rng_pair
 from api.engine.utils.simulation_metrics import compare_all_methods_mc
 from api.engine.utils.simulation_voting_utils import create_candidate, create_voter
 
@@ -49,8 +47,7 @@ def _generate_rows(
     property: any other code touching random/np.random between the reseed
     and the draws below changes the result for the same seed).
     """
-    rng    = _random.Random(seed)
-    np_rng = _np.random.RandomState(seed)
+    rng, np_rng = _seeded_rng_pair(seed)
     issues = DEFAULT_ISSUES
     rows: list[dict[str, Any]] = []
 

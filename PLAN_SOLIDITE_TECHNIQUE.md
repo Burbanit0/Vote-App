@@ -831,6 +831,164 @@ complète (`python -m pytest api/tests`, hors benchmarks) : **2134 passed,
 ailleurs — le flake connu de `test_export.py` sous ordre aléatoire, déjà
 documenté plus haut, reste sans rapport avec ce complément).
 
+**Complément 2 (2026-09-12, suite à un second `/code-review ultra`
+obligatoire) — le complément ci-dessus était lui-même incomplet, d'une façon
+qui est une vraie régression et pas seulement un angle mort de concurrence
+manqué.** CLAUDE.md impose une revue `/code-review ultra` avant de merger
+toute PR touchant `simulation_voting_utils.py` ; cette seconde passe, sur la
+branche portant le complément ci-dessus, a confirmé trois défauts avant
+correction :
+
+1. **`run_bandwagon_simulation` n'était plus reproductible aux rounds 1+,
+   même sans aucune concurrence** — strictement pire que `develop`
+   pré-complément pour le cas mono-thread, où `random.seed(seed)` au moins
+   reseedait avant chaque appel. Supprimer `random.seed(seed)`/
+   `np.random.seed(seed)` sans enfiler `rng` jusque dans
+   `apply_social_influence()` (même fichier, appelée aux rounds 1+) laissait
+   son tirage `random.uniform(-0.15, 0.15)` lire le singleton global nu,
+   plus jamais reseedé. Vérifié directement : deux appels séquentiels
+   `run_bandwagon_simulation(num_voters=20, num_rounds=2, seed=7)`
+   produisaient `rounds[0]` identique (déjà corrigé par le complément 1) mais
+   `rounds[1]`/`rounds[2]` différents à chaque fois.
+2. **Même classe de régression dans `run_simulation`** : `simulate_vote()`
+   (même fichier, `random.random() > voter["likelihood_to_vote"]`) tirait
+   elle aussi du singleton nu, sans paramètre `rng`, inconditionnellement,
+   avant même de regarder la méthode de vote — silencieux aujourd'hui (seul
+   `test_compare_all_methods_snapshot.py` appelle `run_simulation`, sans
+   jamais lire `vote`), mais même défaut, et le paramètre `seed` de la
+   fonction implique un contrat de reproductibilité que ça viole.
+3. **L'endpoint réel `/simulations/bandwagon` n'exerçait jamais le correctif
+   de seeding des candidats du complément 1.** `_bandwagon_worker`
+   (`api/domain/simulations/advanced.py`) appelait `_build_population
+   (candidate_configs, 0, ideology_dist)` sans `rng=`/`np_rng=`, puis passait
+   la liste `candidates` déjà construite à `run_bandwagon_simulation
+   (candidates=candidates, ...)`. `candidates` n'étant pas `None`, la branche
+   `if candidates is None:` de `run_bandwagon_simulation` — où vit tout le
+   threading `rng`/`np_rng` du complément 1 pour la création des candidats —
+   était entièrement court-circuitée sur le seul chemin d'appel réel. Les
+   électeurs n'étaient pas affectés (construits inconditionnellement avec
+   `rng`/`np_rng`, indépendamment de cette branche) ; seuls les candidats du
+   endpoint live tiraient encore du singleton partagé.
+
+**Corrigé** : paramètre `rng: Optional[random.Random] = None` ajouté à
+`apply_social_influence()` et `simulate_vote()`, enfilé via `_resolve_rng()`
+(déjà utilisé partout ailleurs dans ce fichier) et passé par leurs deux
+appelants, chacun ayant **exactly one non-test caller** — vérifié par grep,
+pas supposé (`apply_social_influence` : uniquement
+`run_bandwagon_simulation`, plus les tests de
+`test_compare_all_methods_snapshot.py` ; `simulate_vote` : uniquement
+`run_simulation`, aucun autre appelant nulle part dans le repo).
+`_bandwagon_worker` corrigé à la source : construit désormais sa propre
+paire `rng`/`np_rng` à partir de sa variable `seed` déjà extraite
+(`seed = data.get("seed")`) et la passe à `_build_population(...,
+rng=rng, np_rng=np_rng)`.
+
+**Extraction supplémentaire, demandée par la revue** : le bloc `if seed is
+not None: rng = random.Random(seed); np_rng = np.random.RandomState(seed)`
+était dupliqué **verbatim sur 5 sites** (`_electorate.py`,
+`election_service.py`, `export.py`, et les deux nouveaux sites de
+`simulation_voting_utils.py`) — la revue a noté que c'est exactement le
+genre de dérive que l'extraction `_resolve_rng`/`_resolve_np_rng` du
+complément 1 devait déjà réduire, et que c'est la **3ᵉ fois** que ce même
+fichier révèle cette même famille de défaut sur des revues successives.
+Extrait en un helper unique, `_seeded_rng_pair(seed) -> tuple[Optional[
+random.Random], Optional[np.random.RandomState]]`, retournant `(None,
+None)` si `seed is None`. Placé dans `demographic_data.py` — pas dans
+`simulation_voting_utils.py` — pour exactement la raison qui a fait placer
+`_resolve_rng`/`_resolve_np_rng` là-bas au complément 1 : ce module n'a
+aucune dépendance interne au package, donc chacun des 5 sites (y compris
+`simulation_voting_utils.py`, qui importe déjà `_resolve_rng`/
+`_resolve_np_rng` depuis `demographic_data.py`) peut l'importer sans risquer
+un cycle. Les 3 sites à `seed: int` obligatoire (`_electorate.py`,
+`election_service.py`, `export.py`) passent par le même helper sans
+changement de comportement : `_seeded_rng_pair` accepte `Optional[int]`,
+donc un `seed` toujours fourni y produit toujours la paire non-`None` —
+`rng`/`np_rng` deviennent `Optional[...]` du point de vue de mypy, ce qui ne
+casse rien puisque `create_voter`/`create_candidate` acceptaient déjà ce
+type.
+
+**Passe de fermeture exhaustive** (demandée par la revue) : le graphe
+d'appel complet a été tracé statiquement depuis chacun des 5 points d'entrée
+(`ElectionService.simulate()`, `_build_base_electorate()`,
+`export._generate_rows()`, `run_bandwagon_simulation()`, `run_simulation()`),
+avec un grep de tout `random.`/`np.random.` nu (hors construction du
+`rng`/`np_rng` lui-même) dans `api/engine` et `api/domain` pour vérifier
+qu'aucun autre site atteignable n'avait été manqué :
+
+- `apply_social_influence()` et `simulate_vote()` : confirmés **un seul
+  appelant non-test** chacun (ci-dessus) — corrigés, comme prévu par la
+  revue.
+- `calculate_utility()` (`will_vote = random.random() < ...`) et
+  `compare_all_methods()`'s `random.sample(perms, _MAX_STRATEGIC_PERMS)`
+  (stratégie sur >4 candidats) : toujours atteints depuis ces 5 points
+  d'entrée (`calculate_utility` par les 5 ; `compare_all_methods` par
+  `ElectionService.simulate()` via `compare_all_methods`, et indirectement
+  par `export._generate_rows()` via `compare_all_methods_mc()` — mais cette
+  variante Monte-Carlo saute délibérément la recherche de vulnérabilité
+  stratégique, donc n'atteint **pas** `random.sample`), mais restent
+  **partagées par pratiquement tous les appelants du fichier**, corrigés ou
+  non — reclasser l'une ou l'autre en "à corriger" élargirait le périmètre
+  exactement comme documenté au complément 1 ; toujours divulguées, pas
+  corrigées, classification inchangée après vérification.
+- `simulate_campaign()`, `apply_information_asymmetry()`,
+  `simulate_blank_contagion()` (tous trois atteints depuis
+  `ElectionService.simulate()`) : vérifiés — chacun construit déjà sa **propre**
+  paire `rng`/`np_rng` locale à partir de **son propre** paramètre `seed`
+  (reçu de `ElectionService.simulate()` via `seed=seed`), donc hors de la
+  famille de bug (pas de reseed du singleton partagé, pas de dépendance à un
+  seeding externe) — confirmé, pas supposé, en lisant chaque fonction.
+- `simulation_ranked_utils.py` et `simulation_score_utils.py` (les fonctions
+  `get_*_winner` utilisées par les 5 points d'entrée) : aucun usage de
+  `random`/`np.random` du tout — départage déterministe.
+- Les `~8 autres fichiers` déjà divulgués au complément 1
+  (`workers_mechanisms.py`, `workers_advanced.py`, `workers_dynamics.py`,
+  `workers_behavioral.py`, `tech.py`, `domain/simulations/compare.py`,
+  `domain/theory/workers.py`, `domain/polity/*`) : toujours hors de portée
+  — non atteints par les 5 points d'entrée de ce lot (chemins d'appel
+  disjoints), confirmé par grep, classification inchangée.
+
+**Aucun nouveau site non divulgué trouvé** par cette passe — les seuls
+défauts réels étaient les 3 confirmés ci-dessus, déjà connus de la revue.
+
+**Tests ajoutés**, chacun avec preuve rouge/vert (bascule de fichier, pas
+supposition) :
+
+- `TestRunBandwagonSimulationFullReproducibility`
+  (`test_seeded_rng_isolation.py`) : `run_bandwagon_simulation(num_voters=20,
+  num_rounds=2, seed=7)` appelée deux fois de suite, sans thread ni mock —
+  juste une vérification de reproductibilité séquentielle. Rouge sur le code
+  pré-correctif (`rounds[1:]` diffère à chaque exécution) ; vert après.
+- `TestRunSimulationVoteReproducibility` (même fichier) : même idée pour le
+  champ `vote` de `run_simulation`, exclu par construction de l'ancienne
+  classe `TestRunSimulationIsolatedFromMidCallInterference` (qui ne compare
+  que `voter`/`utilities`). Rouge avant, vert après.
+- `TestBandwagon::test_same_seed_reproducible_end_to_end`
+  (`test_simulations_advanced.py`) : appelle le vrai endpoint HTTP `POST
+  /simulations/bandwagon` deux fois avec le même payload (`seed`,
+  `num_rounds=2`, `candidates` explicites — la forme exacte que
+  `BandwagonRequest` attend), et compare le corps de réponse entier. C'est
+  le seul des trois tests capable d'attraper le bug n°3 (le court-circuit de
+  la branche candidats) : appeler `run_bandwagon_simulation` directement
+  avec `candidates=None` (ce que font tous les autres tests de ce fichier)
+  ne peut jamais l'exercer, puisque le bug n'existe que quand l'appelant
+  pré-construit `candidates` comme le fait `_bandwagon_worker`. Rouge avant
+  (le corps de réponse différait à chaque appel), vert après.
+
+Les docstrings des deux classes existantes qui excluaient explicitement
+`apply_social_influence`/`simulate_vote` comme « lacune connue, hors
+périmètre » (`TestRunBandwagonSimulationIsolatedFromMidCallInterference`,
+`TestRunSimulationIsolatedFromMidCallInterference`) ont été mises à jour
+pour pointer vers les nouvelles classes ci-dessus plutôt que de rester
+figées sur une classification qui n'est plus vraie.
+
+`mypy api/` reste clean (92 fichiers) ; `ruff check fast_api_voter` aussi ;
+`python fast_api_voter/scripts/gen_engine_parity.py` régénéré →
+`engineParity.json` de nouveau byte-identique ; `cd voter-app && npx vitest
+run src/lib/playgroundVoting.parity.test.ts` reste vert (49/49). Suite
+complète (`python -m pytest api/tests`, hors benchmarks) : **2137 passed, 41
+skipped, 0 failed** (2134 + les 3 nouveaux tests, aucune régression
+ailleurs).
+
 ---
 
 ## Lot 6 — Ce que l'analyse statique ne voit pas

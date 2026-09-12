@@ -23,6 +23,51 @@ class TestBandwagon:
                         json={"num_voters": 60, "candidates": ["Solo"]})
         assert r.status_code == 400, r.text
 
+    def test_same_seed_reproducible_end_to_end(self, client):
+        """Complement (2026-09-12, second `/code-review ultra` pass): this is
+        the test that catches the live-path gap that
+        `run_bandwagon_simulation()`-only tests (test_seeded_rng_isolation.py)
+        cannot — `_bandwagon_worker` used to call `_build_population
+        (candidate_configs, 0, ideology_dist)` with no `rng`/`np_rng`, then
+        pass the resulting, already-built `candidates` list into
+        `run_bandwagon_simulation(candidates=candidates, ...)`. Because
+        `candidates` was not `None`, `run_bandwagon_simulation`'s own
+        `if candidates is None:` branch — where its `rng`/`np_rng` threading
+        for candidate creation lives — was skipped entirely on this, the only
+        real call path (POST /simulations/bandwagon). Voters were unaffected
+        (built unconditionally, with `rng`/`np_rng`, regardless of that
+        branch), so calling `run_bandwagon_simulation` directly with
+        `candidates=None` (as every existing test does) could never surface
+        this: only a caller that pre-builds candidates the way
+        `_bandwagon_worker` does can.
+
+        Goes through the real HTTP endpoint (not just `_bandwagon_worker`
+        directly) with `num_rounds >= 1` and explicit `candidates`, matching
+        the exact request shape `POST /simulations/bandwagon` sends
+        (`BandwagonRequest`'s fields) — the two rounds also exercise the
+        `apply_social_influence()` reproducibility fix from the same pass.
+
+        Confirmed red against the pre-fix `_bandwagon_worker` (no `rng`/
+        `np_rng` passed to `_build_population`): injecting a simulated
+        concurrent caller's draws on the shared `random`/`np.random`
+        singletons between the two requests changed the response body every
+        time. Green after threading `rng`/`np_rng` through.
+        """
+        payload = {
+            "num_voters": 40,
+            "num_rounds": 2,
+            "influence_strength": 0.3,
+            "ideology_distribution": "random",
+            "seed": 13,
+            "candidates": CANDS,
+        }
+        first = client.post("/api/v2/simulations/bandwagon", json=payload)
+        second = client.post("/api/v2/simulations/bandwagon", json=payload)
+
+        assert first.status_code == 200, first.text
+        assert second.status_code == 200, second.text
+        assert second.json() == first.json()
+
 
 class TestMonteCarlo:
     def test_happy_path(self, client):

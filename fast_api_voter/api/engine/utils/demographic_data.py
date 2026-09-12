@@ -101,6 +101,42 @@ def _resolve_np_rng(np_rng: Optional[np.random.RandomState]) -> Union[np.random.
     return np_rng if np_rng is not None else np.random
 
 
+def _seeded_rng_pair(
+    seed: Optional[int],
+) -> tuple[Optional[random.Random], Optional[np.random.RandomState]]:
+    """Build a call-scoped `(random.Random, np.random.RandomState)` pair from
+    *seed*, or `(None, None)` when *seed* is `None`.
+
+    Centralises the `if seed is not None: rng = random.Random(seed); np_rng =
+    np.random.RandomState(seed)` block that was duplicated verbatim across 5
+    call sites (`_electorate.py::_build_base_electorate`,
+    `election_service.py::ElectionService.simulate`, `export.py::
+    _generate_rows`, `simulation_voting_utils.py::run_bandwagon_simulation`
+    and `::run_simulation`) — flagged by a `/code-review ultra` pass as a real
+    drift risk, not just style: the same class of bug (a reseeded shared
+    singleton instead of a local instance) was found independently on three
+    separate review rounds in this file's history, and hand-copying this
+    block to a 6th site would silently reintroduce it if a future edit
+    touched the copy but not the original. See PLAN_SOLIDITE_TECHNIQUE.md's
+    Lot 5 addendum for the full writeup.
+
+    Deliberately `np.random.RandomState(seed)`, not `np.random.default_rng
+    (seed)` — different algorithm (MT19937 vs PCG64), so the same seed
+    produces different values; see `create_voter()` in
+    `simulation_voting_utils.py` for the concrete incident this caused.
+
+    Placed here rather than in `simulation_voting_utils.py`, for the same
+    reason as `_resolve_rng`/`_resolve_np_rng` above: this module has no
+    internal-package imports, so every call site — including
+    `simulation_voting_utils.py`, which already imports `_resolve_rng`/
+    `_resolve_np_rng` from here — can import this too without risking a
+    circular import.
+    """
+    if seed is None:
+        return None, None
+    return random.Random(seed), np.random.RandomState(seed)
+
+
 def sample_age(rng: Optional[random.Random] = None) -> int:
     r = _resolve_rng(rng)
     return r.choices(_ages, weights=_age_probabilities, k=1)[0]

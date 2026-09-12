@@ -17,6 +17,7 @@ from .demographic_data import (
     sample_likelihood_to_vote,
     _resolve_rng,
     _resolve_np_rng,
+    _seeded_rng_pair,
 )
 
 # --- Define types for clarity ---
@@ -671,15 +672,27 @@ def apply_social_influence(
     poll_standings: Dict[str, float],
     candidates: List[Candidate],
     influence_strength: float = 0.3,
+    rng: Optional[random.Random] = None,
 ) -> List[Voter]:
     """
     Shift each voter's ideological position slightly toward the poll leader,
     proportional to their social_conformity and influence_strength.
 
     Returns a new list of voter dicts (originals are never mutated).
+
+    rng: optional local random.Random instance — see create_voter() for why
+    this matters under concurrent/seeded callers. Its only caller,
+    run_bandwagon_simulation(), threads its own call-scoped rng through here
+    so rounds 1+ stay reproducible under the same seed (see
+    PLAN_SOLIDITE_TECHNIQUE.md's Lot 5 addendum: before this parameter
+    existed, this function drew from the bare global singleton regardless of
+    what run_bandwagon_simulation() itself did, which broke "same seed ->
+    same result" even single-threaded, for every round after round 0).
     """
     if not poll_standings or not candidates:
         return voters.copy()
+
+    r = _resolve_rng(rng)
 
     leader_name: str = max(poll_standings, key=lambda k: poll_standings[k])
     leader_position: float = next(
@@ -703,7 +716,7 @@ def apply_social_influence(
             continue
 
         new_positions = {
-            issue: max(0.0, min(1.0, new_lean + random.uniform(-0.15, 0.15)))
+            issue: max(0.0, min(1.0, new_lean + r.uniform(-0.15, 0.15)))
             for issue in voter["issue_positions"]
         }
         influenced.append({**voter, "political_lean_normalized": new_lean, "issue_positions": new_positions})
@@ -756,11 +769,7 @@ def run_bandwagon_simulation(
     # create_voter/create_candidate draws below, false under any concurrent
     # access to this process. See election_service.py for the full
     # writeup and the empirical demonstration of the failure mode.
-    rng:    Optional[random.Random]        = None
-    np_rng: Optional[np.random.RandomState] = None
-    if seed is not None:
-        rng    = random.Random(seed)
-        np_rng = np.random.RandomState(seed)
+    rng, np_rng = _seeded_rng_pair(seed)
 
     if issues is None:
         issues = ["economy", "environment", "healthcare", "taxes", "social_welfare"]
@@ -845,6 +854,7 @@ def run_bandwagon_simulation(
             rounds_data[-1]["poll_standings"],
             candidates,
             influence_strength,
+            rng=rng,
         )
         state = _compute_round_state(current_voters, rnd)
         rounds_data.append(state)
@@ -919,8 +929,17 @@ def simulate_vote(
     issues: List[str],
     method: str = "plurality",
     poll_standings: Optional[Dict[str, float]] = None,
+    rng: Optional[random.Random] = None,
 ) -> Union[Optional[str], List[str], Dict[str, int]]:
-    if random.random() > voter["likelihood_to_vote"]:
+    """rng: optional local random.Random instance — see create_voter() for why
+    this matters under concurrent/seeded callers. Its only caller,
+    run_simulation(), threads its own call-scoped rng through here so the
+    turnout gate below stays reproducible under the same seed (see
+    PLAN_SOLIDITE_TECHNIQUE.md's Lot 5 addendum: before this parameter
+    existed, this draw came from the bare global singleton regardless of
+    what run_simulation() itself did)."""
+    r = _resolve_rng(rng)
+    if r.random() > voter["likelihood_to_vote"]:
         return None
 
     is_strategic = voter.get("voting_style") == "strategic"
@@ -972,11 +991,7 @@ def run_simulation(
     # Local RNG pair, scoped to this call — see run_bandwagon_simulation()
     # just above (and election_service.py) for why NOT
     # `random.seed(seed)`/`np.random.seed(seed)`.
-    rng:    Optional[random.Random]        = None
-    np_rng: Optional[np.random.RandomState] = None
-    if seed is not None:
-        rng    = random.Random(seed)
-        np_rng = np.random.RandomState(seed)
+    rng, np_rng = _seeded_rng_pair(seed)
     voters = [
         create_voter(
             DEFAULT_ISSUES, voter_id=i, ideology_distribution=ideology_distribution,
@@ -998,7 +1013,7 @@ def run_simulation(
 
     results = []
     for voter in voters:
-        vote = simulate_vote(voter, candidates, DEFAULT_ISSUES, method)
+        vote = simulate_vote(voter, candidates, DEFAULT_ISSUES, method, rng=rng)
         results.append(
             {
                 "voter": voter,

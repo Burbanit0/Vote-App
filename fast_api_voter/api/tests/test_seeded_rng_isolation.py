@@ -2,7 +2,10 @@
 test_seeded_rng_isolation.py — regression coverage for the RNG-singleton-race
 fix (PLAN_SOLIDITE_TECHNIQUE.md addendum, Lot 5), extended to close the
 `run_bandwagon_simulation`/`run_simulation` gaps found by the mandatory
-`/code-review ultra` pass that followed it.
+`/code-review ultra` pass that followed it, and extended again (2026-09-12)
+to close `apply_social_influence()`/`simulate_vote()`/`_bandwagon_worker`'s
+live-path gap, found by a second `/code-review ultra` pass on that same
+follow-up.
 
 The bug: several entry points used to "seed" the electorate by calling
 `random.seed(seed)`/`np.random.seed(seed)` once, then drawing
@@ -34,6 +37,17 @@ candidates built *after* that point are unaffected.
 
 Confirmed red against the pre-fix `run_bandwagon_simulation`/`run_simulation`
 (restoring their pre-fix content reproduces the failure) and green after.
+
+`TestRunBandwagonSimulationFullReproducibility` and
+`TestRunSimulationVoteReproducibility` below are a different shape on
+purpose: they call the SAME seed twice in a row with no interference at all.
+That would be a weak test for the create_voter/create_candidate bug above
+(a fully-fixed-or-not-at-all reseed at call entry makes plain sequential
+calls trivially identical either way — see the previous paragraph) but it is
+exactly the right test for `apply_social_influence()`/`simulate_vote()`:
+those two functions never reseed anything themselves, so even two
+back-to-back calls with zero concurrency and zero interference exposed the
+bug directly — no thread, no mid-call patch needed.
 """
 import random
 from unittest.mock import patch
@@ -129,11 +143,12 @@ class TestRunBandwagonSimulationIsolatedFromMidCallInterference:
     `num_rounds=0` throughout: round 0 (the sincere baseline, computed
     directly from the freshly-built electorate) is what create_voter/
     create_candidate feed. Rounds 1+ additionally call
-    `apply_social_influence()`, which draws from the bare global
-    `random.uniform()` with no rng parameter of its own — a separate,
-    narrower, already-disclosed gap (same family as `calculate_utility`'s
-    turnout gate, see PLAN_SOLIDITE_TECHNIQUE.md), not the
-    create_voter/create_candidate threading this test locks in.
+    `apply_social_influence()`, which used to draw from the bare global
+    `random.uniform()` with no rng parameter of its own — that gap (found by
+    a second, later `/code-review ultra` pass) is now fixed and covered
+    separately by `TestRunBandwagonSimulationFullReproducibility` below,
+    which is why this class stays scoped to round 0 / create_voter /
+    create_candidate rather than being widened.
     """
 
     def test_create_voter_draws_are_isolated(self) -> None:
@@ -157,6 +172,34 @@ class TestRunBandwagonSimulationIsolatedFromMidCallInterference:
         assert interfered["rounds"][0] == baseline["rounds"][0]
 
 
+class TestRunBandwagonSimulationFullReproducibility:
+    """Complement (2026-09-12, second `/code-review ultra` pass): plain
+    sequential reproducibility check, no threads/mocking/mid-call
+    interference at all — the class above hardcodes `num_rounds=0`
+    throughout, which never reaches `apply_social_influence()` (only called
+    at rounds 1+), so it could never have caught the bug this class targets:
+    `apply_social_influence()` used to draw `random.uniform()` from the bare,
+    never-reseeded global singleton regardless of what
+    `run_bandwagon_simulation()` itself did with its own `seed` — a strictly
+    worse regression than pre-fix `develop` for the single-threaded case,
+    since there `random.seed(seed)` at least reseeded before every call.
+
+    Confirmed red against the pre-fix `apply_social_influence()` (no `rng`
+    parameter, drawing from the bare global): two sequential calls with the
+    same seed and `num_rounds=2` produced identical `rounds[0]` (built
+    entirely by the already-threaded create_voter/create_candidate) but
+    DIFFERENT `rounds[1]`/`rounds[2]` every time. Green after threading
+    `rng` through `apply_social_influence()` and its call site.
+    """
+
+    def test_full_result_identical_across_two_sequential_calls(self) -> None:
+        kwargs = dict(num_voters=20, num_rounds=2, seed=7)
+        first = svu.run_bandwagon_simulation(**kwargs)
+        second = svu.run_bandwagon_simulation(**kwargs)
+
+        assert second == first
+
+
 class TestRunSimulationIsolatedFromMidCallInterference:
     """MUST FIX per the code-review-ultra pass: same unfixed
     `random.seed(seed)`/`np.random.seed(seed)` pattern as
@@ -167,11 +210,12 @@ class TestRunSimulationIsolatedFromMidCallInterference:
 
     Compares `voter` (built by create_voter) and `utilities` (a pure
     function of voter+candidate, no RNG of its own), but deliberately not
-    `vote`: `simulate_vote()` itself draws `random.random()` against the
-    bare global singleton with no rng parameter, unconditionally, before it
-    even looks at the method — a separate, narrower, already-disclosed gap
-    (same family as `calculate_utility`'s turnout gate), not what this test
-    locks in.
+    `vote`: `simulate_vote()` used to draw `random.random()` against the bare
+    global singleton with no rng parameter, unconditionally, before it even
+    looks at the method — that gap (found by a second, later
+    `/code-review ultra` pass) is now fixed and covered separately by
+    `TestRunSimulationVoteReproducibility` below, which is why this class
+    stays scoped to `voter`/`utilities` rather than being widened.
     """
 
     def test_create_voter_draws_are_isolated(self) -> None:
@@ -196,6 +240,28 @@ class TestRunSimulationIsolatedFromMidCallInterference:
             interfered = svu.run_simulation(**kwargs)
 
         assert [r["utilities"] for r in interfered] == [r["utilities"] for r in baseline]
+
+
+class TestRunSimulationVoteReproducibility:
+    """Complement (2026-09-12, second `/code-review ultra` pass): plain
+    sequential reproducibility check for the `vote` field, which the class
+    above deliberately excludes (see its docstring) because `vote` is
+    produced by `simulate_vote()`, a separate un-threaded bare-global draw
+    that create_voter/create_candidate interference can't exercise.
+
+    Confirmed red against the pre-fix `simulate_vote()` (no `rng` parameter,
+    `random.random() > voter["likelihood_to_vote"]` against the bare global):
+    two sequential calls with the same seed produced different `vote` values
+    for the same voters every time. Green after threading `rng` through
+    `simulate_vote()` and `run_simulation()`.
+    """
+
+    def test_vote_field_identical_across_two_sequential_calls(self) -> None:
+        kwargs = dict(num_voters=30, num_candidates=3, method="plurality", seed=7)
+        first = svu.run_simulation(**kwargs)
+        second = svu.run_simulation(**kwargs)
+
+        assert [r["vote"] for r in second] == [r["vote"] for r in first]
 
 
 class TestGenerateRowsIsolatedFromMidCallInterference:

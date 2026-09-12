@@ -26,6 +26,7 @@ from api.engine.utils.simulation_metrics import compare_all_methods_mc
 from api.engine.utils.simulation_multiwinner_utils import compare_multiwinner_methods
 from api.engine.utils.real_election_data import analyze_real_election, list_elections
 from api.engine.utils.blank_vote_rules import BlankVoteRule
+from api.engine.utils.demographic_data import _seeded_rng_pair
 from api.engine.constants import DEFAULT_ISSUES
 from api.domain.simulations.helpers import (
     _parse_candidate_configs, _build_population,
@@ -54,7 +55,20 @@ def _bandwagon_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
         return {"error": "At least 2 candidates required"}, 400
 
     try:
-        _, candidates, issues = _build_population(candidate_configs, 0, ideology_dist)
+        # Candidates are built here (num_voters=0 — run_bandwagon_simulation
+        # builds its own voters below) and passed in, which means
+        # run_bandwagon_simulation's own `if candidates is None:` rng/np_rng
+        # threading for candidate creation never runs on this path — this
+        # call is the one that must seed _build_population itself. Missing
+        # this was a real bug (code-review ultra, 2026-09-12): candidates on
+        # the live /simulations/bandwagon endpoint were still drawing from
+        # the bare global singleton regardless of `seed`. See
+        # PLAN_SOLIDITE_TECHNIQUE.md's Lot 5 addendum.
+        seed_int = int(seed) if seed is not None else None
+        rng, np_rng = _seeded_rng_pair(seed_int)
+        _, candidates, issues = _build_population(
+            candidate_configs, 0, ideology_dist, rng=rng, np_rng=np_rng
+        )
         result = run_bandwagon_simulation(
             num_voters=num_voters,
             candidates=candidates,
@@ -62,7 +76,7 @@ def _bandwagon_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
             num_rounds=num_rounds,
             influence_strength=influence_strength,
             ideology_distribution=ideology_dist,
-            seed=int(seed) if seed is not None else None,
+            seed=seed_int,
         )
         return result, 200
     except Exception as e:
