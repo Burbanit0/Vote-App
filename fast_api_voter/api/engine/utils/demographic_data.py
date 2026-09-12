@@ -1,6 +1,6 @@
 import random
 from types import ModuleType
-from typing import Optional, Union
+from typing import Optional, Union, overload
 
 import numpy as np
 
@@ -101,6 +101,10 @@ def _resolve_np_rng(np_rng: Optional[np.random.RandomState]) -> Union[np.random.
     return np_rng if np_rng is not None else np.random
 
 
+@overload
+def _seeded_rng_pair(seed: int) -> tuple[random.Random, np.random.RandomState]: ...
+@overload
+def _seeded_rng_pair(seed: None) -> tuple[None, None]: ...
 def _seeded_rng_pair(
     seed: Optional[int],
 ) -> tuple[Optional[random.Random], Optional[np.random.RandomState]]:

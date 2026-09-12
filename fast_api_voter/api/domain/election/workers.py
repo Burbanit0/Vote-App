@@ -1093,12 +1093,11 @@ def _run_district_fptp(
     the caller) instead of reseeding the shared random/np.random singletons,
     so concurrent districts/runs can't perturb each other's output.
     """
+    # `seed` is a required `int` here (not Optional) — _seeded_rng_pair's
+    # @overload for an `int` argument returns a non-Optional pair directly,
+    # so no runtime narrowing is needed even though its general signature
+    # accepts `Optional[int]` for other, optional-seed callers.
     rng, np_rng = _seeded_rng_pair(seed)
-    # `seed` is a required `int` here (not Optional), so _seeded_rng_pair
-    # (whose signature accepts Optional[int] for its other, optional-seed
-    # callers) always returns a real pair — narrow for mypy, which otherwise
-    # sees `np_rng` as Optional from _seeded_rng_pair's general signature.
-    assert rng is not None and np_rng is not None
 
     voters = [
         create_voter(issues, i, ideology_distribution="random", rng=rng, np_rng=np_rng)
