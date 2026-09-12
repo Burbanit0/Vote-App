@@ -1059,6 +1059,15 @@ def test_party_nomination_system_prompt_describes_candidates_by_position_not_cid
     assert "cid" in prompt
 
 
+def test_party_nomination_system_prompt_states_the_candidate_count_bound():
+    # Track C1 step C, 2026-09-11: the C2 fix for winner_position's per-party
+    # upper bound, never stated before (check_party_nomination_position_
+    # logprobs_results.md's own diagnosis, party 3/19 candidates -> 26).
+    contested = {0: [_citizen(0, (0.5,)), _citizen(1, (0.5,))]}
+    prompt = build_party_nomination_system_prompt(contested)
+    assert "candidate_count" in prompt
+
+
 def test_party_nomination_user_prompt_carries_signals_per_candidate():
     citizens = [_citizen_with_ambition(0, 0.8), _citizen_with_ambition(1, 0.2)]
     contested = {0: citizens}
@@ -1075,6 +1084,21 @@ def test_party_nomination_user_prompt_carries_signals_per_candidate():
     assert by_cid[1]["perceived_support"] == 0.7
     assert by_cid[0]["position"] == 1  # sorted by citizen_id ascending, not input order
     assert by_cid[1]["position"] == 2
+
+
+def test_party_nomination_user_prompt_states_each_partys_own_candidate_count():
+    # Track C1 step C: candidate_count is per PARTY, not a single global N --
+    # two contested parties of different sizes must each carry their own.
+    contested = {
+        0: [_citizen(0, (0.5,)), _citizen(1, (0.5,))],
+        2: [_citizen(2, (0.5,)), _citizen(3, (0.5,)), _citizen(4, (0.5,))],
+    }
+    parties_by_id = {0: _party(0, (0.5,)), 2: _party(2, (0.5,))}
+    support = {0: 0.5, 1: 0.5, 2: 0.5, 3: 0.5, 4: 0.5}
+    payload = json.loads(build_party_nomination_user_prompt(contested, parties_by_id, support))
+    by_party = {p["party_id"]: p for p in payload["parties"]}
+    assert by_party[0]["candidate_count"] == 2
+    assert by_party[2]["candidate_count"] == 3
 
 
 def test_party_nomination_user_prompt_platform_distance_is_zero_at_the_platform():

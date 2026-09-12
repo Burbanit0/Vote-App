@@ -1988,7 +1988,25 @@ class PartyNominationBatchOutcome:
 def build_party_nomination_system_prompt(contested: dict[int, list[Citizen]]) -> str:
     """Mirrors build_candidacy_system_prompt's "enumerate the full expected
     id list verbatim + self-check" fix (Finding B) -- keyed on party_id,
-    since the decision unit here is a contested party, not a citizen."""
+    since the decision unit here is a contested party, not a citizen.
+
+    C2 FIX, 2026-09-11 (Track C1 step C, lets-build-a-solid-spicy-otter.md):
+    the "position (1 a N)" phrase never said what N was PER PARTY -- a
+    direct C2 violation (legal options/bounds/valid codes must be stated)
+    on a type the original audit had incorrectly ticked compliant for.
+    `check_party_nomination_position_logprobs_results.md` (step E)
+    established the resulting failure (party 3, 19 candidates,
+    winner_position=26) is a confident comprehension error, not a decoding
+    accident -- stating the bound is the content-level fix that verdict
+    calls for, not a grammar constraint (D1). `candidate_count` is now
+    given per party block in the user prompt (build_party_nomination_
+    user_prompt); this sentence just tells the model that field IS the
+    bound, once, since a single N cannot be stated here for a batch of
+    differently-sized contested parties. C4-compliant: this states the
+    LEGAL RANGE of an index, a structural fact about the response shape,
+    never which candidate to prefer -- the same "calibrate the mechanical
+    part, leave the judgment free" distinction vote_cast's own blank_
+    threshold already relies on."""
     party_id_list = ",".join(str(party_id) for party_id in contested)
     return (
         "Tu es un moteur de simulation. Pour chaque parti recu, plusieurs "
@@ -1997,15 +2015,19 @@ def build_party_nomination_system_prompt(contested: dict[int, list[Citizen]]) ->
         "de son ambition, du soutien qu'il percoit, et de sa proximite "
         "avec la plateforme du parti. Chaque candidat est identifie par "
         "son champ 'position' (1 a N) dans la liste 'candidates' de CE "
-        "parti -- PAS par son cid.\nMotifs valides (code court "
-        f"obligatoire) :\n{PARTY_NOMINATION_MOTIF_PROMPT_TABLE}\nIMPORTANT "
-        f": la liste decisions doit contenir EXACTEMENT ces {len(contested)} "
-        f"party_id, chacun une seule fois, dans cet ordre : [{party_id_list}]. "
-        "Verifie ta reponse avant de la finaliser : chaque party_id de "
-        "cette liste doit apparaitre exactement une fois, et chaque "
-        "winner_position doit etre une position valide (jamais un cid) "
-        "parmi les candidats de ce parti.\nReponds UNIQUEMENT avec un "
-        "objet JSON conforme au schema fourni."
+        "parti -- PAS par son cid. N est donne par le champ "
+        "'candidate_count' de CE MEME parti dans le message utilisateur : "
+        "winner_position doit etre un entier entre 1 et candidate_count "
+        "INCLUS pour ce parti precis, jamais au-dela, quel que soit le "
+        "nombre de candidats des AUTRES partis de ce lot.\nMotifs valides "
+        f"(code court obligatoire) :\n{PARTY_NOMINATION_MOTIF_PROMPT_TABLE}\n"
+        f"IMPORTANT : la liste decisions doit contenir EXACTEMENT ces "
+        f"{len(contested)} party_id, chacun une seule fois, dans cet ordre : "
+        f"[{party_id_list}]. Verifie ta reponse avant de la finaliser : "
+        "chaque party_id de cette liste doit apparaitre exactement une "
+        "fois, et chaque winner_position doit etre une position valide "
+        "(jamais un cid) parmi les candidats de ce parti.\nReponds "
+        "UNIQUEMENT avec un objet JSON conforme au schema fourni."
     )
 
 
@@ -2018,10 +2040,18 @@ def build_party_nomination_user_prompt(
     (decide_party_nominations), same discipline as decide_candidacies'
     `support` -- never recomputed here. `platform_distance` reuses
     assign_party_affiliation's unweighted math.dist convention (simple_rules.py),
-    not the voter-tolerance-specific weighted_distance."""
+    not the voter-tolerance-specific weighted_distance.
+
+    `candidate_count` (Track C1 step C, 2026-09-11): `len(members)`, the
+    same N `sorted_candidates`'s own enumeration already bounds `position`
+    to below -- stated explicitly per party block rather than left for the
+    model to infer by counting `candidates`, since
+    build_party_nomination_system_prompt's own added sentence points here
+    by name."""
     party_blocks = [
         {
             "party_id": party_id,
+            "candidate_count": len(members),
             "candidates": [
                 {
                     "position": i,

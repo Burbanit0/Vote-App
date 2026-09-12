@@ -47,7 +47,7 @@ montre jamais. On corrige une copie sur un barème que l'élève n'a pas vu.
 |---|:--:|:--:|:--:|:--:|:--:|---|
 | `vote_cast` | ✅ | ✅ | ✅ | ⚠️ | ✅ | **Fiable** (23/24) |
 | `campaign_positioning` | ✅ | ✅ | ✅ | ✅ | n/a | Pas de collapse (autre défaut : 50-66 % d'échec) |
-| `party_nomination_choice` | ✅ | ❌ | ⚠️ | ✅ | n/a | Pas de collapse, mais échec C2 confirmé -- récupération par-parti livrée |
+| `party_nomination_choice` | ✅ | ✅ | ⚠️ | ✅ | n/a | Pas de collapse ; échec C2 confirmé, corrigé et vérifié en direct |
 | `candidacy_considered` | ✅ | ✅ | ❌ | ✅ | ❌ | Pas de collapse, 64 % de justesse, calibration C3 essayée et négative |
 | `coalition_decision` | ✅ | ✅ | ⚠️ | ✅ | n/a | **Collapse confirmé, calibration C3 essayée et négative** |
 | `representative_response` | ✅ | ✅ | ✅ | ✅ | n/a | **Collapse fixé (partiel)**, voir §3 |
@@ -238,6 +238,19 @@ déterministe — un seul parti mal répondu ne fait plus couler les quatre autr
 10/15 (67 %) ; ce mécanisme ne change rien à la confiance du modèle sur un cas comme le parti 3
 (l'erreur est reproductible, pas du bruit d'échantillonnage), mais isole désormais son coût aux
 partis réellement fautifs.
+
+**Livré et vérifié en direct, 2026-09-11** (Track C1 step C) : `candidate_count` (`len(members)`)
+ajouté à chaque bloc parti du prompt utilisateur, et le prompt système énonce désormais que
+`winner_position` doit rester entre 1 et cette valeur POUR CE PARTI précis — un fait structurel sur
+le format de réponse (C2), jamais une règle de jugement (C4 intact). Re-exécution de la même
+reproduction exacte (step E, script inchangé) : le parti 3 répond maintenant `19` (légal, sur 19
+candidats) au lieu de `26`, avec une confiance au moins égale (P("1")=0,9999, P("9"|"1")=0,9985).
+**Portée honnête** : ceci corrige la légalité (C2), pas nécessairement la qualité du jugement — les
+5 réponses de cette même exécution (`19,36,1,19,73` contre des effectifs `43,40,31,19,73`) excluent
+un simple réflexe « répéter candidate_count » (le parti 2 répond le MINIMUM), mais personne n'a
+vérifié que `winner_position` suit réellement `ambition_score`/`perceived_support`/
+`platform_distance` comme l'exige la clause comportementale de dt=4 ci-dessus — question restée
+ouverte avant comme après cette correction.
 
 ---
 

@@ -67,3 +67,24 @@ fallback, so one bad party's confidently-wrong answer no longer sinks the other 
 ones). Then C (state the per-party bound explicitly) as the content-level response this verdict
 argues for — D1 is not ruled out as a later defense-in-depth backstop, but is not the fix this
 specific verdict calls for on its own.
+
+## Step C verified live, 2026-09-11
+
+Re-ran this exact script (unchanged) after shipping `candidate_count` per party block plus the
+system-prompt sentence pointing to it. Party 3's answer moved from `26` (out of range) to `19` —
+the maximum LEGAL position for its own 19 candidates, now in range, and just as confidently chosen
+(P("1")=0.99994, P("9"|"1")=0.9985 — if anything more confident than the original wrong answer).
+
+**Read carefully: this fix's scope is legality (C2), not judgment quality, and this run cannot
+distinguish "genuinely selected the last candidate for a real reason" from "learned to echo
+`candidate_count` back as a habit."** The five parties' answers this run were `(0:19, 1:36, 2:1,
+3:19, 4:73)` against candidate counts `(43, 40, 31, 19, 73)` — only 2 of 5 (parties 3 and 4)
+happened to equal their own party's candidate_count exactly, and party 2's answer (`1`, the
+MINIMUM) rules out a simple "always pick the max" reflex outright. This is real variation, not a
+constant, but it is not proof of genuine per-candidate judgment either — nobody has checked whether
+`winner_position` tracks `ambition_score`/`perceived_support`/`platform_distance` content the way
+`polity-decision-contracts.md`'s own dt=4 behavioural clause requires. That question was already
+open before this fix (the type was never confirmed collapse-free by content-sensitivity, only by
+its 4/5-tick accuracy against ground truth) and stays open after it — worth a dedicated probe
+before trusting this type's judgment quality the way `pressure_action`'s content-sensitivity was
+explicitly verified.
