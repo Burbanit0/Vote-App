@@ -65,6 +65,15 @@ class Checkpoint:
     rupture_rng_state: dict[str, Any]
     events_rng_state: dict[str, Any]
     sortition_rng_state: dict[str, Any]
+    staggered_declared_cids: list[int] | None
+    """Track E (2026-09-11): who declared candidacy at this cycle's
+    declaration tick (`institutions.staggered_election`), still awaiting
+    the nomination tick 1 tick later. `None` whenever no declaration is
+    pending -- every tick except the single one between a staggered
+    declaration and its own nomination -- same "bare local, not a Citizen
+    field" register as `pending_rerun`/`economy_x`/`mobilized_last_tick`,
+    for the same reason: this is institutional/cycle-scoped state, not a
+    citizen's own durable property."""
 
 
 def config_hash(config: PolityConfig) -> str:
@@ -148,6 +157,7 @@ def save_checkpoint(
     rupture_rng: np.random.Generator,
     events_rng: np.random.Generator,
     sortition_rng: np.random.Generator,
+    staggered_declared_cids: list[int] | None = None,
 ) -> None:
     """Atomic write (temp file + `os.replace`, same discipline `run_
     polity_flagship.py`'s own convention docs elsewhere in this project use
@@ -174,6 +184,7 @@ def save_checkpoint(
         "rupture_rng_state": rupture_rng.bit_generator.state,
         "events_rng_state": events_rng.bit_generator.state,
         "sortition_rng_state": sortition_rng.bit_generator.state,
+        "staggered_declared_cids": staggered_declared_cids,
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_suffix(path.suffix + ".tmp")
@@ -201,6 +212,10 @@ def load_checkpoint(path: Path) -> Checkpoint:
         rupture_rng_state=payload["rupture_rng_state"],
         events_rng_state=payload["events_rng_state"],
         sortition_rng_state=payload["sortition_rng_state"],
+        # .get, not [] -- a checkpoint written before Track E shipped has no
+        # such key at all; absent means "no declaration was ever pending",
+        # the same as an explicit null would.
+        staggered_declared_cids=payload.get("staggered_declared_cids"),
     )
 
 

@@ -73,6 +73,28 @@ class InstitutionalClock:
             return ElectionType.LEGISLATIVE
         return ElectionType.NONE
 
+    def is_presidential_declaration_tick(self, tick: int) -> bool:
+        """Track E (2026-09-11): true exactly 2 ticks before a presidential
+        election that has room to stagger into. The tick-0 election never
+        has that room -- there is no tick -2 -- so it is excluded here
+        rather than left for a caller to special-case; `_hold_presidential_
+        election`'s own fallback (declare+nominate+position+vote in one
+        tick, unchanged since v0) is what actually runs that election, the
+        same as it always has. An election whose own tick would fall past
+        `total_ticks` is excluded too -- it will never actually happen, so
+        nothing should declare for it. Only meaningful when `institutions.
+        staggered_election` is on; callers are expected to gate on that
+        config flag themselves (this method has no config access)."""
+        election_tick = tick + 2
+        return election_tick >= 2 and election_tick <= self.total_ticks and self.is_presidential_election(election_tick)
+
+    def is_presidential_nomination_tick(self, tick: int) -> bool:
+        """Track E's own second stage -- true exactly 1 tick before the same
+        elections `is_presidential_declaration_tick` covers, same
+        exclusions, same reasoning."""
+        election_tick = tick + 1
+        return election_tick >= 2 and election_tick <= self.total_ticks and self.is_presidential_election(election_tick)
+
     def presidential_election_ticks(self) -> list[int]:
         return [t for t in range(self.total_ticks + 1) if self.is_presidential_election(t)]
 

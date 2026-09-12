@@ -164,6 +164,40 @@ def test_round_trip_preserves_pending_rerun_none(tmp_path):
     assert load_checkpoint(path).pending_rerun is None
 
 
+def test_round_trip_preserves_staggered_declared_cids(tmp_path):
+    # Track E, 2026-09-11: the cross-tick gap between a staggered
+    # declaration and its own nomination tick, one tick later.
+    config = load_config()
+    path = tmp_path / "checkpoint.json"
+    _save(path, config, staggered_declared_cids=[7, 3, 1])
+
+    assert load_checkpoint(path).staggered_declared_cids == [7, 3, 1]
+
+
+def test_round_trip_preserves_staggered_declared_cids_none(tmp_path):
+    config = load_config()
+    path = tmp_path / "checkpoint.json"
+    _save(path, config, staggered_declared_cids=None)
+
+    assert load_checkpoint(path).staggered_declared_cids is None
+
+
+def test_a_checkpoint_written_before_track_e_shipped_loads_as_none(tmp_path):
+    # A checkpoint from a crashed run predating this field has no such key
+    # at all -- .get() must read that the same as an explicit null, not
+    # raise KeyError.
+    import json
+
+    config = load_config()
+    path = tmp_path / "checkpoint.json"
+    _save(path, config)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    del payload["staggered_declared_cids"]
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    assert load_checkpoint(path).staggered_declared_cids is None
+
+
 def test_round_trip_preserves_mobilized_last_tick_with_int_keys(tmp_path):
     # JSON object keys are always strings on the wire -- this is the one
     # field genuinely at risk of coming back with str keys instead of int.

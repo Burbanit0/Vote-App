@@ -563,6 +563,13 @@ def run_simulation(
         citizens = checkpoint.citizens
         parties = checkpoint.parties
         pending_rerun = _pending_rerun_from_dict(checkpoint.pending_rerun)
+        # Track E (2026-09-11): None on every checkpoint except the single
+        # tick between a staggered declaration and its own nomination one
+        # tick later -- see Checkpoint.staggered_declared_cids's own
+        # docstring.
+        staggered_declared_cids: set[int] | None = (
+            set(checkpoint.staggered_declared_cids) if checkpoint.staggered_declared_cids is not None else None
+        )
         economy_x = checkpoint.economy_x
         mobilized_last_tick: Mapping[int, int] = dict(checkpoint.mobilized_last_tick)
         rupture_rng = restore_rng(checkpoint.rupture_rng_state)
@@ -602,6 +609,12 @@ def run_simulation(
         # shipped default) or no cycle is currently open -- see PendingRerun's
         # own docstring for why this is a plain local, not a Citizen field.
         pending_rerun = None
+        # Track E (2026-09-11): the staggered-election declaration/nomination
+        # gap -- see Checkpoint.staggered_declared_cids's own docstring. Same
+        # bare-local register as pending_rerun; None whenever no declaration
+        # is currently pending (always, unless institutions.staggered_
+        # election is on and this is the single tick after a declaration).
+        staggered_declared_cids = None
         # v5 Lot 2 (§8): the AR(1) economic-climate variable, x(t) -- population-
         # wide, no natural Citizen owner, so a bare local in the same register as
         # rupture_rng/pending_rerun rather than a Citizen field. Reassigned from
@@ -666,8 +679,31 @@ def run_simulation(
             # blank_vote_competitive is off.
             if pending_rerun is not None:
                 hold_president = tick == pending_rerun.next_tick
+                # Track E (2026-09-11): any staggered declaration still
+                # awaiting its own nomination tick is abandoned the instant
+                # a rerun interrupts the calendar -- otherwise a stale
+                # declared set from a cycle the calendar never finished
+                # could resurface at a LATER, unrelated election's own
+                # nomination tick once the rerun eventually resolves.
+                # already_staggered's own fallback in _hold_presidential_
+                # election recovers the abandoned cycle atomically, exactly
+                # like the tick-0/no-staggering case.
+                staggered_declared_cids = None
             else:
                 hold_president = election in (ElectionType.PRESIDENTIAL, ElectionType.BOTH)
+                # Track E's own staggered calendar, fixed-election-only (a
+                # rerun never reaches this branch -- see above). Declaration
+                # and nomination are never the SAME tick as the vote they
+                # feed (both fire strictly before it), so this cannot
+                # collide with `hold_president` below.
+                if config.institutions.staggered_election and config.llm.enabled:
+                    if clock.is_presidential_declaration_tick(tick):
+                        staggered_declared_cids = _consider_candidacies_llm(citizens, config, journal, tick, client)
+                    if clock.is_presidential_nomination_tick(tick) and staggered_declared_cids is not None:
+                        _nominate_and_position_llm(
+                            citizens, parties, staggered_declared_cids, config, journal, tick, client
+                        )
+                        staggered_declared_cids = None
             if hold_president:
                 pending_rerun = _hold_presidential_election(
                     citizens, parties, config, journal, tick, client, pending_rerun
@@ -743,6 +779,9 @@ def run_simulation(
                 rupture_rng=rupture_rng,
                 events_rng=events_rng,
                 sortition_rng=sortition_rng,
+                staggered_declared_cids=(
+                    sorted(staggered_declared_cids) if staggered_declared_cids is not None else None
+                ),
             )
             # Phase 4 (plan-flagship-30y-run.md): same position as the
             # checkpoint write above -- after this tick's own phases are
@@ -996,28 +1035,29 @@ def _journal_clamped_dimensions(
         )
 
 
-def _declare_nominees_llm(
+def _consider_candidacies_llm(
     citizens: list[Citizen],
-    parties: list[Party],
     config: PolityConfig,
     journal: Journal,
     tick: int,
     llm_client: LlmClientProtocol | None,
-) -> list[Citizen]:
-    """v2 increment 2/3's LLM path: decide_candidacies replaces
-    decide_candidacy's bare threshold for the dominant-path eligibility
-    filter; decide_party_nominations replaces select_party_nominee_from_declared's
-    deterministic tiebreak, but only for *contested* parties (2+ declared
-    candidates this tick) -- a party with 0 or 1 declared candidate has
-    nothing to arbitrate, so it keeps using the deterministic tiebreak
-    exactly as before (also the only path when llm.enabled=False).
+) -> set[int]:
+    """v2 increment 2/3's LLM path, candidacy half: decide_candidacies
+    replaces decide_candidacy's bare threshold for the dominant-path
+    eligibility filter. Journals candidacy_considered for every evaluated
+    citizen (declared or not) -- the deterministic path never records
+    non-candidacies at all.
 
-    Journals candidacy_considered for every evaluated citizen (declared or
-    not) -- the deterministic path above never records non-candidacies at
-    all. Journals party_nomination_choice for every contested party.
-    Journals nomination_lost for every LLM-approved citizen who doesn't win
-    their party's nomination, so their story isn't silently absent from the
-    journal (design doc §16.3)."""
+    Extracted from what was a single `_declare_nominees_llm` function,
+    2026-09-11 (Track E, lets-build-a-solid-spicy-otter.md): staggering the
+    election across ticks needs candidacy consideration and party
+    nomination to be two independently callable steps, with the declared
+    set surviving the one-tick gap between them (`run_simulation`'s own
+    `staggered_declared_cids`, checkpointed the same way `pending_rerun`
+    is). `_declare_nominees_llm` below still calls this and `_nominate_and_
+    position_llm` back to back with no gap, for the non-staggered (default)
+    calendar -- this split changes nothing about that atomic path's own
+    behavior, only how its code is organized."""
     assert llm_client is not None  # guaranteed by _llm_client_scope when llm.enabled
     outcome = decide_candidacies(citizens, config, llm_client)
     for decision in outcome.decisions:
@@ -1036,8 +1076,34 @@ def _declare_nominees_llm(
             motif=str(decision.motif),
             codebook_version=config.llm.codebook_version,
         )
-    declared_cids = {decision.cid for decision in outcome.decisions if decision.outcome == 1}
+    return {decision.cid for decision in outcome.decisions if decision.outcome == 1}
 
+
+def _nominate_and_position_llm(
+    citizens: list[Citizen],
+    parties: list[Party],
+    declared_cids: set[int],
+    config: PolityConfig,
+    journal: Journal,
+    tick: int,
+    llm_client: LlmClientProtocol | None,
+) -> list[Citizen]:
+    """v2 increment 2/3's LLM path, nomination + positioning half:
+    decide_party_nominations replaces select_party_nominee_from_declared's
+    deterministic tiebreak, but only for *contested* parties (2+ declared
+    candidates this tick) -- a party with 0 or 1 declared candidate has
+    nothing to arbitrate, so it keeps using the deterministic tiebreak
+    exactly as before (also the only path when llm.enabled=False).
+
+    Journals party_nomination_choice for every contested party. Journals
+    nomination_lost for every LLM-approved citizen who doesn't win their
+    party's nomination, so their story isn't silently absent from the
+    journal (design doc §16.3).
+
+    `declared_cids` is a parameter here, not computed internally -- see
+    `_consider_candidacies_llm`'s own docstring for why this split exists
+    (Track E, 2026-09-11)."""
+    assert llm_client is not None  # guaranteed by _llm_client_scope when llm.enabled
     nomination_outcome = decide_party_nominations(citizens, parties, declared_cids, config, llm_client)
     motif_by_party = {decision.party_id: decision.motif for decision in nomination_outcome.decisions}
     citizens_by_id = {c.citizen_id: c for c in citizens}
@@ -1122,6 +1188,25 @@ def _declare_nominees_llm(
     return nominees
 
 
+def _declare_nominees_llm(
+    citizens: list[Citizen],
+    parties: list[Party],
+    config: PolityConfig,
+    journal: Journal,
+    tick: int,
+    llm_client: LlmClientProtocol | None,
+) -> list[Citizen]:
+    """The ATOMIC (non-staggered) LLM path -- candidacy, nomination, and
+    positioning all in the same tick, exactly as this project has always
+    done it, unchanged since before Track E existed. `institutions.
+    staggered_election` (default false) is what makes `run_simulation`'s
+    own tick loop call `_consider_candidacies_llm` and `_nominate_and_
+    position_llm` separately, from two different tick-loop positions,
+    instead of through this one thin wrapper."""
+    declared_cids = _consider_candidacies_llm(citizens, config, journal, tick, llm_client)
+    return _nominate_and_position_llm(citizens, parties, declared_cids, config, journal, tick, llm_client)
+
+
 def _hold_presidential_election(
     citizens: list[Citizen],
     parties: list[Party],
@@ -1148,13 +1233,40 @@ def _hold_presidential_election(
             vacate_office(outgoing)
 
     barred_ids = pending_rerun.barred_candidate_ids if pending_rerun is not None else frozenset()
-    nominees = _declare_nominees(citizens, parties, config, journal, tick, llm_client, barred_candidate_ids=barred_ids)
-    nominee_ids = {c.citizen_id for c in nominees}
-    standing_rupture_candidates = sorted(
-        (c for c in citizens if c.role == Role.CANDIDATE and c.citizen_id not in nominee_ids),
-        key=lambda c: c.citizen_id,
+    # Track E (2026-09-11): a rerun (pending_rerun is not None -- blank-vote
+    # invalidation or a snap election) always stays atomic, on purpose --
+    # see InstitutionalClock.is_presidential_declaration_tick's own
+    # docstring for why staggering is a fixed-calendar-only mechanic. Only
+    # the regular calendar's own election checks for already-staggered
+    # nominees.
+    already_staggered = (
+        config.institutions.staggered_election
+        and pending_rerun is None
+        and any(c.role == Role.CANDIDATE for c in citizens)
     )
-    nominees = nominees + standing_rupture_candidates
+    if already_staggered:
+        # Declaration + nomination + positioning already ran at this
+        # cycle's own staggered ticks (_consider_candidacies_llm /
+        # _nominate_and_position_llm, called directly from run_simulation's
+        # tick loop, 2/1 ticks before this one) -- calling _declare_nominees
+        # again here would re-run decide_candidacies/decide_party_
+        # nominations/decide_campaign_positioning a second time this cycle,
+        # double-journaling and double-spending GPU for nothing. Every
+        # citizen already holding Role.CANDIDATE at this point -- the LLM-
+        # nominated winners AND any standing rupture candidate, genuinely
+        # indistinguishable by the time we get here -- IS this election's
+        # full candidate field; the separate standing_rupture_candidates
+        # merge below exists only for the non-staggered branch, which
+        # computes nominees fresh and needs to add rupture candidates on top.
+        nominees = sorted((c for c in citizens if c.role == Role.CANDIDATE), key=lambda c: c.citizen_id)
+    else:
+        nominees = _declare_nominees(citizens, parties, config, journal, tick, llm_client, barred_candidate_ids=barred_ids)
+        nominee_ids = {c.citizen_id for c in nominees}
+        standing_rupture_candidates = sorted(
+            (c for c in citizens if c.role == Role.CANDIDATE and c.citizen_id not in nominee_ids),
+            key=lambda c: c.citizen_id,
+        )
+        nominees = nominees + standing_rupture_candidates
 
     winner: Citizen | None = None
     invalidated = False

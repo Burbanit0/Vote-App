@@ -78,6 +78,15 @@ institutions:
                                       #      un run déjà calibré ; le run
                                       #      flagship l'active explicitement
                                       #      (run_polity_flagship.py).
+  staggered_election: false           # [Track E] scrutin présidentiel étalé sur
+                                      #      3 ticks (déclaration, investiture +
+                                      #      positionnement, vote) au lieu d'un
+                                      #      seul — jamais pour un scrutin
+                                      #      anticipé (rappel/invalidation), qui
+                                      #      reste atomique. false par défaut :
+                                      #      ne change pas un run déjà calibré ;
+                                      #      change l'ordre de tirage RNG quand
+                                      #      actif (frontière de version).
 
 # =============================================================================
 # PARTIS (§A2 de l'audit)
