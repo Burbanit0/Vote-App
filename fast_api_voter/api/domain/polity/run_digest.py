@@ -303,9 +303,13 @@ def institutional_timeline(events: list[dict[str, Any]]) -> list[dict[str, Any]]
     one definition of "what institutionally happened", not two that can drift.
     Note `coalition_failed` carries three different payload shapes and
     `elected`/`election_no_winner` have conditional keys, so the payload is
-    passed through whole rather than reshaped into a fixed schema here."""
+    passed through whole rather than reshaped into a fixed schema here.
+
+    `event_id` (S5.3) is what a TIMELINE.md claim anchors to, so
+    scripts/check_timeline_claims.py can check the claim against the journal."""
     return [
         {
+            "event_id": e.get("event_id"),
             "tick": e["tick"],
             "event_type": e["event_type"],
             "citizen_id": e.get("citizen_id"),
