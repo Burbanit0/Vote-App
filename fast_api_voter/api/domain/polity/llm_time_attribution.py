@@ -111,6 +111,51 @@ def attribute(calls: Sequence[dict[str, Any]], wall_clock_seconds: float | None)
     }
 
 
+def _tick_spans(starts: dict[int, float], ends: dict[int, float]) -> dict[int, float]:
+    """Each tick's wall-clock: from its first call to the next tick-with-calls' first
+    call (the last tick ends at its last call). A tick that made no call has no anchor,
+    so its time is counted in the tick before it."""
+    ticks = sorted(starts)
+    spans = {tick: starts[following] - starts[tick] for tick, following in zip(ticks, ticks[1:])}
+    if ticks:
+        spans[ticks[-1]] = ends[ticks[-1]] - starts[ticks[-1]]
+    return spans
+
+
+def by_tick(calls: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
+    """S1.1: where each tick's wall-clock went. `span_seconds` is the tick's wall-clock
+    (see _tick_spans); `model_seconds` the part covered by calls (overlaps merged);
+    `outside_model_seconds` the rest -- engine work between calls, and whatever a tick
+    without calls did after it. Per decision type and per category, latency sums."""
+    superseded = superseded_call_indexes(calls)
+    grouped: dict[int, list[tuple[int, dict[str, Any]]]] = {}
+    for index, call in enumerate(calls):
+        if call.get("tick") is not None and call.get("started_at") is not None:
+            grouped.setdefault(int(call["tick"]), []).append((index, call))
+    starts = {tick: min(float(c["started_at"]) for _, c in members) for tick, members in grouped.items()}
+    ends = {tick: max(float(c["started_at"]) + float(c.get("latency_ms") or 0.0) / 1000 for _, c in members) for tick, members in grouped.items()}
+    spans = _tick_spans(starts, ends)
+    return [_tick_row(tick, grouped[tick], superseded, spans[tick]) for tick in sorted(grouped)]
+
+
+def _tick_row(tick: int, members: list[tuple[int, dict[str, Any]]], superseded: set[int], span: float) -> dict[str, Any]:
+    by_type: dict[str, float] = {}
+    by_category: dict[str, float] = {}
+    for index, call in members:
+        seconds = float(call.get("latency_ms") or 0.0) / 1000
+        decision_type = str(call.get("decision_type") or call.get("kind") or "unknown")
+        category = call_category(call, index in superseded)
+        by_type[decision_type] = by_type.get(decision_type, 0.0) + seconds
+        by_category[category] = by_category.get(category, 0.0) + seconds
+    model = covered_seconds(call for _, call in members)
+    return {
+        "tick": tick, "calls": len(members), "span_seconds": span, "model_seconds": model,
+        "outside_model_seconds": max(0.0, span - model),
+        "by_decision_type": dict(sorted(by_type.items(), key=lambda item: -item[1])),
+        "by_category": {category: by_category[category] for category in CATEGORIES if category in by_category},
+    }
+
+
 def attribute_run(run_dir: Path) -> dict[str, Any]:
     """Attribution for a run directory: its llm_calls.jsonl over progress.json's
     wall-clock (null when the run never wrote progress)."""

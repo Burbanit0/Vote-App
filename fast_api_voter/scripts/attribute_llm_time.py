@@ -6,6 +6,7 @@ for how calls are categorised.
 Usage (from fast_api_voter/):
     python scripts/attribute_llm_time.py scripts/flagship_runs/<run>/run/<run>
     python scripts/attribute_llm_time.py <run_dir> --json
+    python scripts/attribute_llm_time.py <run_dir> --by-tick     # S1.1: each tick's wall-clock, inside and outside the model
 """
 from __future__ import annotations
 
@@ -16,7 +17,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from api.domain.polity.llm_time_attribution import CATEGORIES, attribute_run  # noqa: E402
+from api.domain.polity.llm_call_log import CALL_LOG_FILENAME, read_calls  # noqa: E402
+from api.domain.polity.llm_time_attribution import CATEGORIES, attribute_run, by_tick  # noqa: E402
 
 
 def _row(label: str, bucket: dict[str, float]) -> str:
@@ -48,14 +50,34 @@ def render(report: dict[str, object], run_dir: Path) -> str:
     return "\n".join(lines)
 
 
+def render_by_tick(rows: list[dict[str, object]], run_dir: Path) -> str:
+    lines = [f"# LLM time by tick: {run_dir.name}", "",
+             "| tick | calls | span s | model s | outside model s | top decision types (s) | categories (s) |",
+             "|---:|---:|---:|---:|---:|---|---|"]
+    for row in rows:
+        types = row["by_decision_type"]
+        categories = row["by_category"]
+        assert isinstance(types, dict) and isinstance(categories, dict)
+        top = ", ".join(f"{name} {seconds:.0f}" for name, seconds in list(types.items())[:3])
+        split = ", ".join(f"{name} {seconds:.0f}" for name, seconds in categories.items())
+        lines.append(f"| {row['tick']} | {row['calls']} | {row['span_seconds']:.0f} | {row['model_seconds']:.0f} "
+                     f"| {row['outside_model_seconds']:.0f} | {top} | {split} |")
+    return "\n".join(lines)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("run_dir", type=Path, help="the directory holding events.jsonl and llm_calls.jsonl")
     parser.add_argument("--json", action="store_true", help="print the raw report as JSON")
+    parser.add_argument("--by-tick", action="store_true", help="each tick's wall-clock, inside and outside the model")
     args = parser.parse_args(argv)
     if not (args.run_dir / "llm_calls.jsonl").exists():
         print(f"no llm_calls.jsonl in {args.run_dir}", file=sys.stderr)
         return 1
+    if args.by_tick:
+        rows = by_tick(read_calls(args.run_dir / CALL_LOG_FILENAME))
+        print(json.dumps(rows, indent=2) if args.json else render_by_tick(rows, args.run_dir))
+        return 0
     report = attribute_run(args.run_dir)
     print(json.dumps(report, indent=2) if args.json else render(report, args.run_dir))
     return 0
