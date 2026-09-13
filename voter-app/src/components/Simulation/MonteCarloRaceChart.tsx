@@ -15,7 +15,9 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import type { TooltipContentProps } from 'recharts';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { useChartTheme } from '../../hooks/useChartTheme';
 import { MethodStreamStats } from '../../hooks/useMonteCarloStream';
 
@@ -52,7 +54,7 @@ interface Props {
 
 // ── Tooltip ───────────────────────────────────────────────────────────────────
 
-const RaceTooltip = ({ active, payload, label, t }: any) => {
+const RaceTooltip = ({ active, payload, label, t }: TooltipContentProps & { t: TFunction }) => {
   if (!active || !payload?.length) return null;
   return (
     <div
@@ -66,9 +68,9 @@ const RaceTooltip = ({ active, payload, label, t }: any) => {
       <strong>
         {t('simulation.convergenceIter')} {label}
       </strong>
-      {payload.map((p: any) => (
-        <div key={p.dataKey} style={{ color: p.color }}>
-          {p.dataKey}: <strong>{Math.round(p.value * 100)}%</strong>
+      {payload.map((p) => (
+        <div key={String(p.dataKey)} style={{ color: p.color }}>
+          {String(p.dataKey)}: <strong>{Math.round(Number(p.value) * 100)}%</strong>
         </div>
       ))}
     </div>
@@ -269,7 +271,7 @@ const MonteCarloRaceChart: React.FC<Props> = ({
                   tick={{ fontSize: 10, fill: ct.tickFill }}
                   width={42}
                 />
-                <Tooltip content={<RaceTooltip t={t} />} />
+                <Tooltip content={(props) => <RaceTooltip {...props} t={t} />} />
                 <ReferenceLine
                   y={50}
                   stroke={ct.gridStroke}

@@ -24,6 +24,7 @@ import {
   ReferenceLine,
   ResponsiveContainer,
 } from 'recharts';
+import type { DotItemDotProps } from 'recharts';
 import { useElection } from '../../../stores/useElectionStore';
 import PinToCentralButton from '../ui/PinToCentralButton';
 import { $api } from '../../../api/hooks';
@@ -312,12 +313,13 @@ const ShyVoterPanel: React.FC = () => {
                     stroke={candColor(c, candidateNames)}
                     strokeWidth={c === data.shy_candidate ? 2.5 : 1.5}
                     strokeDasharray={c === data.shy_candidate ? undefined : '4 2'}
-                    dot={(props: any) => {
-                      const isReal = props.payload?.type === 'real';
+                    dot={(props: DotItemDotProps) => {
+                      const payload = props.payload as { type?: 'poll' | 'real' } | undefined;
+                      const isReal = payload?.type === 'real';
                       if (!isReal)
                         return (
                           <circle
-                            key={props.key}
+                            key={props.index}
                             cx={props.cx}
                             cy={props.cy}
                             r={2}
@@ -326,7 +328,7 @@ const ShyVoterPanel: React.FC = () => {
                         );
                       return (
                         <circle
-                          key={props.key}
+                          key={props.index}
                           cx={props.cx}
                           cy={props.cy}
                           r={5}
