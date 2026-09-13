@@ -18,7 +18,7 @@ from api.domain.polity.checkpoint import load_checkpoint
 from api.domain.polity.snapshots import expected_snapshot_rows
 from api.domain.polity.citizen import Citizen, Office, Role, generate_population
 from api.domain.polity.codebook import EventType, ReactionMotif
-from api.domain.polity.config import PolityConfig, load_config
+from api.domain.polity.config import PolityConfig, PolityConfigError, load_config
 from api.domain.polity.journal import Journal
 from api.domain.polity.llm_behavior_engine import (
     _VOTE_CAST_RETRY_SEED_BASE,
@@ -2681,8 +2681,12 @@ def test_awakening_without_the_llm_still_uses_the_deterministic_baseline(tmp_pat
 
 def test_pressure_action_is_journalled_once_per_consulted_citizen_with_its_ctx(tmp_path):
     config = _config_with_awakening_llm_enabled(tmp_path)
+    # street_pressure.enabled with it: the menu flag and the lever describe one fact, and
+    # validate_config (S1.5) now refuses a run where they disagree, as load_config always did.
     config = dataclasses.replace(
-        config, pressure_menu=dataclasses.replace(config.pressure_menu, electoral_only=False, mobilization_enabled=True)
+        config,
+        pressure_menu=dataclasses.replace(config.pressure_menu, electoral_only=False, mobilization_enabled=True),
+        street_pressure=dataclasses.replace(config.street_pressure, enabled=True),
     )
     journal_path = run_simulation(config, run_id="dt10", llm_client=_ElectingFakeLlmClient())
     events = _events(journal_path)
@@ -2713,8 +2717,12 @@ def test_pressure_action_ctx_blank_threshold_matches_the_real_citizens_own_value
     # equally silent, equally real divergence between "the ctx the model saw" and "the ctx the
     # journal recorded".
     config = _config_with_awakening_llm_enabled(tmp_path)
+    # street_pressure.enabled with it: the menu flag and the lever describe one fact, and
+    # validate_config (S1.5) now refuses a run where they disagree, as load_config always did.
     config = dataclasses.replace(
-        config, pressure_menu=dataclasses.replace(config.pressure_menu, electoral_only=False, mobilization_enabled=True)
+        config,
+        pressure_menu=dataclasses.replace(config.pressure_menu, electoral_only=False, mobilization_enabled=True),
+        street_pressure=dataclasses.replace(config.street_pressure, enabled=True),
     )
     citizens = generate_population(config.citizens, config.run.population_size, config.run.seed)
     blank_threshold_by_cid = {c.citizen_id: round(c.blank_threshold, 4) for c in citizens}
@@ -4285,8 +4293,12 @@ def test_event_salience_never_writes_legitimacy_or_ecart_directly(tmp_path):
     # petition_pressure never move, proving event_salience's only channel
     # into ecart(t)/L(t) is the pre-existing pressure_action path.
     def _config(output_dir, scandal_enabled):
+        # events.enabled follows its generators: a control arm with none enabled is
+        # events.enabled=False (validate_config, S1.5). Nothing in the run reads the flag
+        # itself, so the control arm's behaviour is unchanged.
         config = _config_with_events_and_awakening_enabled(
-            output_dir, scandal_enabled=scandal_enabled, scandal_rate_per_tick=1.0, economic_shock_enabled=False
+            output_dir, enabled=scandal_enabled, scandal_enabled=scandal_enabled, scandal_rate_per_tick=1.0,
+            economic_shock_enabled=False,
         )
         return dataclasses.replace(config, legitimacy=dataclasses.replace(config.legitimacy, enabled=True))
 
@@ -5072,3 +5084,20 @@ def test_staggered_election_self_heals_when_a_recall_interrupts_the_window(tmp_p
     # Some presidential election eventually still produces a winner despite
     # the interruption -- the run does not deadlock into permanent vacancy.
     assert any(e["event_type"] == "elected" for e in events)
+
+
+# ── S1.5: run_simulation validates, and the client is the engine switch ──
+
+def test_run_simulation_refuses_an_incoherent_config_before_writing_anything(tmp_path):
+    config = _config_with_output_dir(tmp_path)
+    config = dataclasses.replace(config, petition=dataclasses.replace(config.petition, enabled=True))
+    with pytest.raises(PolityConfigError, match="'pressure_menu.petition_enabled' and 'petition.enabled' disagree"):
+        run_simulation(config, run_id="incoherent")
+    assert not (tmp_path / "incoherent").exists()
+
+
+def test_run_simulation_refuses_a_client_injected_into_a_deterministic_config(tmp_path):
+    # The phases switch on "is there a client"; a fake passed to an llm.enabled=false run
+    # would otherwise silently turn the LLM path on.
+    with pytest.raises(PolityConfigError, match="'llm.enabled' is false"):
+        run_simulation(_config_with_output_dir(tmp_path), run_id="mismatch", llm_client=_FakeLlmClient())

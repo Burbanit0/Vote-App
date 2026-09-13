@@ -4,11 +4,12 @@ Contract (dev-plan-v0-worktree.md §3, Lot 1): an invalid config file fails
 explicitly, never silently.
 """
 import copy
+import dataclasses
 
 import pytest
 import yaml
 
-from api.domain.polity.config import PolityConfigError, load_config
+from api.domain.polity.config import PolityConfigError, load_config, validate_config
 
 
 def test_loads_the_real_polity_config_with_expected_v0_values():
@@ -754,3 +755,26 @@ def test_missing_sortition_max_deliberation_shifts_raises_and_names_it(tmp_path)
     path = _write(tmp_path, lambda d: d["sortition_chamber"].pop("max_deliberation_shifts"))
     with pytest.raises(PolityConfigError, match="sortition_chamber.max_deliberation_shifts"):
         load_config(path)
+
+
+# ── validate_config (S1.5): one place for every cross-setting rule ───────
+
+def test_the_shipped_config_passes_validate_config():
+    validate_config(load_config())
+
+
+def test_validate_config_holds_a_config_built_in_code_to_the_yaml_rules():
+    # dataclasses.replace never passes through load_config's parsing; before S1.5 only the
+    # flagship runner re-checked a hand-copied subset of these rules.
+    config = load_config()
+    incoherent = dataclasses.replace(config, pressure_menu=dataclasses.replace(
+        config.pressure_menu, electoral_only=False, mobilization_enabled=True,
+    ))
+    with pytest.raises(PolityConfigError, match="'pressure_menu.mobilization_enabled' and 'street_pressure.enabled' disagree"):
+        validate_config(incoherent)
+    shock_without_generator = dataclasses.replace(config, events=dataclasses.replace(config.events, enabled=True))
+    with pytest.raises(PolityConfigError, match="'events.enabled' must equal"):
+        validate_config(shock_without_generator)
+    sampled = dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=True, temperature=0.7))
+    with pytest.raises(PolityConfigError, match="'llm.temperature': must be 0.0 when llm.enabled is true, got 0.7"):
+        validate_config(sampled)
