@@ -50,39 +50,16 @@ from api.domain.polity.codebook import PressureAct
 from api.domain.polity.config import PolityConfig
 from api.domain.polity.indexer import segment_terms
 from api.domain.polity.metrics import office_occupancy
+from api.domain.polity.events import ALL_EVENT_TYPES as REGISTERED_EVENT_TYPES
 from api.domain.polity.viz_export import _INSTITUTIONAL_EVENT_TYPES, export_metadata
 
 DIGEST_FILENAME = "digest.json"
 ATTEMPTS_FILENAME = "digest.jsonl"
 
-ALL_EVENT_TYPES: frozenset[str] = frozenset({
-    # candidacy / nomination / campaign
-    "candidacy_declared", "candidacy_considered", "party_nomination_choice",
-    "nomination_lost", "campaign_positioning", "clamped_at_bound",
-    # presidential election
-    "vote_cast", "election_invalidated", "elected", "election_no_winner",
-    "mandate_pledge_declared", "snap_election_triggered",
-    # legislative / coalition
-    "legislative_result", "coalition_formed", "coalition_failed", "coalition_decision",
-    # exogenous events
-    "scandal_occurred", "economic_shock_tick", "reaction_to_event",
-    # accountability / pressure / petitions
-    "representative_response", "mandate_deviation_recorded", "pressure_action",
-    "petition_launched", "petition_signed",
-    # legitimacy / confidence / recall
-    "legitimacy_updated", "confidence_vote_triggered", "confidence_vote_result",
-    "petition_expired", "recalled",
-    # sortition chamber
-    "sortition_rotation", "chamber_deliberation",
-})
-"""Every event_type run_polity_simulation.py can journal -- grepped from its
-own `journal.write` call sites, not taken from the design doc's prose. 30 are
-written as literals; `election_no_winner` is the false branch of the ternary at
-run_polity_simulation.py:1184 (`"elected" if winner is not None else ...`),
-which is why a naive literal grep finds only 30. `snap_election_triggered`
-(Track A3, 2026-09-11) is design §16.3's own reserved name, wired for the
-first time -- see PendingRerun's own docstring for why it reuses that
-mechanism rather than a new one.
+ALL_EVENT_TYPES: frozenset[str] = REGISTERED_EVENT_TYPES
+"""Every event_type the simulation can journal -- events.py's registry (S3.3), which
+the write sites construct, so it cannot miss one the way the grep this set used to
+be built from missed `election_no_winner` (a ternary branch).
 
 The digest reports a count for EVERY one of these per year, including zeros.
 That is the point: a reader must be able to tell "this did not happen" apart

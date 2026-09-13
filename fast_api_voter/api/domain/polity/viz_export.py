@@ -59,30 +59,16 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 from api.domain.polity.config import PolityConfig
+from api.domain.polity.events import INSTITUTIONAL_EVENT_TYPES
 from api.domain.polity.indexer import RunMetrics, index_run, read_journal
 from api.domain.polity.social_graph import generate_social_graph
 
 DEFAULT_EXPORT_FILENAME = "viz_export.json"
 
-_INSTITUTIONAL_EVENT_TYPES = frozenset({
-    "elected",
-    "election_no_winner",
-    "election_invalidated",
-    "snap_election_triggered",
-    "legislative_result",
-    "coalition_formed",
-    "coalition_failed",
-    "petition_launched",
-    "petition_expired",
-    "confidence_vote_triggered",
-    "confidence_vote_result",
-    "recalled",
-    "scandal_occurred",
-    "economic_shock_tick",
-})
-"""Every election/coalition/petition/recall/scandal event_type this project's
-codebase actually journals (grepped from run_polity_simulation.py's own
-journal.write call sites -- not assumed from the design doc's prose list).
+_INSTITUTIONAL_EVENT_TYPES = INSTITUTIONAL_EVENT_TYPES
+"""Every election/coalition/petition/recall/scandal event_type -- the events flagged
+INSTITUTIONAL in events.py's registry (S3.3); this set used to be grepped by hand from
+run_polity_simulation.py's journal.write call sites.
 `economic_shock_tick` is included alongside `scandal_occurred`: both are v5's
 exogenous-events family, journaled by the same phase, and the plan's own
 "scandals" wording does not imply excluding the other half of that family.
