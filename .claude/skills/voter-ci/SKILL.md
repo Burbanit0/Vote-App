@@ -104,11 +104,13 @@ not a separate `codeql.yml`.
   + cron + `workflow_dispatch` only), deliberately not required checks
   (`scripts/setup-branch-protection.sh`'s own comment: a required check under
   a workflow that never triggers on a PR blocks that PR forever — the exact
-  failure PR #205 hit). **Their `schedule`/`workflow_dispatch` triggers
-  currently resolve against `main` as the default branch, which is ~750+
-  commits behind `develop`** — until a real release lands, only their
-  `push: develop` trigger actually fires; the cron/dispatch paths are
-  configured but dormant. See the `release` skill.
+  failure PR #205 hit). Their `schedule`/`workflow_dispatch` triggers resolve
+  against GitHub's **default branch**, which used to be `main` (hundreds of
+  commits behind `develop`) and made these four inert outside their
+  `push: develop` trigger — **that's fixed**: the repo's default branch is
+  now `develop`, confirmed by live successful runs (`flaky-check-backend.yml`'s
+  cron on 2026-09-12, `atheris-fuzzing.yml`'s dispatch on 2026-09-11). See each
+  workflow's own `on:` comment for the fuller history.
 - `scorecard.yml`, `dast.yml` — informational, non-gating, results in the
   Security tab.
 

@@ -14,12 +14,12 @@ name: Schemathesis Contract Fuzzing
 # and non-blocking — mirrors mutation-testing.yml's existing precedent for
 # exactly this tradeoff (also not on `pull_request`).
 #
-# `schedule`/`workflow_dispatch` are resolved by GitHub against the DEFAULT
-# branch (main), not the ref that owns the file — mutation-testing.yml hit
-# this already (its cron silently never fired because this repo's main was
-# hundreds of commits behind develop). They're included below for when a
-# develop -> main release makes them live, but `push: develop` is what
-# actually runs this today.
+# `schedule`/`workflow_dispatch` resolve against GitHub's DEFAULT branch, not
+# necessarily the ref that owns the file — mutation-testing.yml hit exactly
+# this while the default branch was still `main` (hundreds of commits behind
+# `develop`, so its cron silently never fired; see that file's comment for
+# the full history). That's fixed now: the repo's default branch is
+# `develop`, so `schedule`/`workflow_dispatch` resolve correctly here too.
 on:
   push:
     branches: [develop]
