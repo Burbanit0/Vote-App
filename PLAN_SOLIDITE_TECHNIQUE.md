@@ -256,8 +256,8 @@ avec un chiffre réel à la clé.
 | **Schemathesis** | `openapi.gen.json` est versionné avec un gate de drift, mais **le contrat n'est jamais vérifié contre l'implémentation**. Schemathesis génère des centaines de requêtes depuis le schéma, fuzze, et vérifie la conformité des réponses. Chaînon manquant le plus évident du projet. | M | ⭐⭐⭐ | 📝📝📝 | ✅ `api/tests/test_schema_contract.py` + workflow dédié `schemathesis.yml` (pas dans `backend-ci-cd-pipeline.yml` par prudence — un run complet mesure ~220s (~3.5-4 min) en local mais n'a pas été revérifié sur un runner GitHub réel). Génération `derandomize=True` + `seed=` fixe pour la reproductibilité (une première tentative avec `derandomize=True` seul ne suffisait pas d'un process à l'autre — `PYTHONHASHSEED` non fixé fausse la dérivation de graine de Hypothesis ; un `seed=` explicite au niveau du `Config` schemathesis, qui ne passe pas par `hash()`, règle le problème). A trouvé et corrigé 6 bugs réels avant d'être mergé : (1) codes de statut atteignables mais jamais documentés (400/404/500/503) sur les 7 routers — corrigé via `responses=` + schéma `ErrorDetail` partagé ; (2) crash `IndexError` sur `/theory/identity-voting` (le schéma acceptait 2 candidats, le worker en exige 3) — corrigé en remontant `min_length` ; (3) crash `max() iterable argument is empty` sur `/assembly`, `/assembly-scorecard`, `/temporal`, `/structural-fairness` quand deux partis partagent un nom (collision de clé dict) — corrigé par un `field_validator` rejetant les doublons ; (4) crash `TypeError`/`IndexError` sur `/campaign-sensitivity` (`snapshot_days` mal typé `List[Any]` + bornes non vérifiées, un jour négatif de grande magnitude débordait l'indexation Python) — corrigé en typant `List[Union[int, Literal["final"]]]` et en bornant des deux côtés (`max(0, min(...))`) ; (5) crash `AttributeError` sur `/choice-overload` (`heuristic_weights` explicitement `null` contournait le défaut de `.get()`) — corrigé en `or {}` ; (6) crash `AttributeError` sur `/tech/polis` (le schéma promet `List[str]`, le worker traitait chaque élément comme un dict) — corrigé pour accepter les deux formes. Le reste (~40 endpoints) est de la dette pré-existante trackée nommément dans `KNOWN_FAILURES` (requêtes délibérément peu typées, timeouts sur des simulations lourdes — recoupe directement l'item "Timeouts & backpressure" ci-dessous), pas noyée dans un chiffre global |
 | **Test du rate-limit (429)** | La valeur 120/min a été calibrée après deux échecs e2e — mais rien ne teste que la limite se déclenche vraiment. | S | ⭐⭐ | 📝📝 | ✅ `api/tests/test_ratelimit_v2.py` — 122 requêtes vers `/api/v2/simulations/get_closest_candidate` (corps par défaut valide, donc pas de bruit lié à la validation), assertion qu'un 429 apparaît. Le v1 (`/simulate` 10/min, `/compare` 5/min) avait déjà ses tests dans `test_public_v1.py::TestRateLimits` ; seul le v2 (120/min, `check_v2_rate_limit`) manquait |
 | **Résilience Redis** | Le rate-limiter dépend de Redis. Que se passe-t-il quand il tombe ? Aujourd'hui : inconnu. | M | ⭐⭐⭐ | 📝📝📝 | ✅ Testé en direct contre un Redis injoignable : sans correctif, `redis.exceptions.ConnectionError` remontait non attrapée hors des internals de `slowapi`, transformée par le handler générique en 500 — Redis indisponible mettait hors service toute la surface `/api/v2` (tous les routers partagent `check_v2_rate_limit`) et `/api/v1`, pas seulement la protection anti-abus. Corrigé par `swallow_errors=True` sur le `Limiter` (fail *open*, pas *closed*) + un vrai gap découvert dans `slowapi` : même avec `swallow_errors=True`, l'injection des en-têtes de réponse lit `request.state.view_rate_limit` sans condition, qui n'est jamais posé si le check a été avalé — corrigé par un middleware `main.py` qui le pré-initialise à `None` avant toute dépendance de route. Cache Redis (`api/engine/utils/cache.py`) déjà résilient de son côté (try/except déjà en place à l'écriture, aucun changement nécessaire). Régression épinglée par `api/tests/test_ratelimit_resilience.py`, confirmée en échouant sans le correctif |
-| **Timeouts & backpressure** | Sémaphore limitant les simulations concurrentes + `asyncio.wait_for` sur les workers, au lieu de saturer le pool de threads. | M | ⭐⭐⭐ | 📝📝 | |
-| **Déconnexion Socket.IO en plein run** | Partiellement testé le 06/09, à compléter (client qui coupe, run orphelin). | S | ⭐⭐ | 📝 | |
+| **Timeouts & backpressure** | Sémaphore limitant les simulations concurrentes + `asyncio.wait_for` sur les workers, au lieu de saturer le pool de threads. | M | ⭐⭐⭐ | 📝📝 | ✅ `api/core/worker_dispatch.py` — `run_bounded`/`run_worker_bounded` bornent tout `asyncio.to_thread` de l'app derrière UN sémaphore partagé (4, aligné sur le `ThreadPoolExecutor(max_workers=min(4, num_runs))` déjà utilisé en interne par le worker Monte Carlo) + un timeout de **180s** (aucun bug, juste le vrai coût de calcul aux bornes déjà documentées). Calibré deux fois : une première valeur de 90s (mesurée en local isolé sur Monte Carlo à bornes max = 34s et `/election/coalition` à bornes max = 57s) a **échoué en CI réelle** — `/simulations/what-if` plafonné à ses 10 valeurs documentées prend 71s en local isolé, sans contention, et a dépassé 90s sous `pytest-xdist` sur un runner GitHub Actions plus lent et partagé (PR #349, `test_caps_at_10_values`). 180s laisse une vraie marge au-dessus du pire cas observé *en CI*, pas seulement en local. Limitation connue et documentée, pas un bug : Python ne peut pas tuer un vrai thread OS — le slot du sémaphore se libère immédiatement au timeout, mais le thread orphelin continue en arrière-plan jusqu'à sa fin naturelle. Les 6 routers ont été migrés (`election.py`, `simulations.py`, `tech.py`, `theory.py`, `public.py`, `export.py`) ; la logique de mapping `(body, status) → HTTPException`, dupliquée dans 4 fichiers, a été factorisée dans `raise_for_status` (évite une régression jscpd que la duplication aurait sinon introduite). Effet de bord : `election.py` avait un `_run_passthrough` mort (0 appelant) — supprimé. Testé : `test_worker_dispatch.py` (sémaphore + timeout en isolation, y compris une preuve directe que la concurrence est bornée) + `test_worker_timeout_routes.py` (un timeout traverse bien chaque router jusqu'à un 503 propre) |
+| **Déconnexion Socket.IO en plein run** | Partiellement testé le 06/09, à compléter (client qui coupe, run orphelin). | S | ⭐⭐ | 📝 | ✅ Le « run orphelin » était un vrai bug, pas juste un trou de test : le handler `disconnect` ne faisait que `.pop()` le flag d'arrêt (l'effacer), sans jamais le mettre à `True` — la boucle Monte Carlo d'un client déconnecté continuait donc à tourner jusqu'à `num_iterations` (jusqu'à 10 000 itérations de calcul réel), sans plus personne à qui envoyer les événements. Corrigé en une ligne (`_stop_flags[sid] = True` au lieu de `.pop()`) — la boucle a déjà son propre check `if _stop_flags.get(sid):` à chaque itération, il ne recevait juste jamais le signal. `test_disconnect_stops_the_orphaned_run` (nouveau) compte les vrais appels `_run_one` avant/après déconnexion pour le prouver — rejoué contre le code d'avant le correctif pour confirmer une vraie régression (595 appels au lieu de <20) |
 
 ---
 
@@ -281,6 +281,32 @@ déjà ce germe, à généraliser en matrice méthode × critère.
 Sous-produit : cette matrice est **directement publiable** comme contenu
 pédagogique, et recoupe `THEORY.md`.
 
+✅ **Fait.** `fast_api_voter/api/tests/test_voting_criteria_matrix.py` — 21
+méthodes ordinales (le sous-ensemble du parity set de CLAUDE.md défini sur des
+classements ; les 5 méthodes cardinales — score/STAR/cumulative/maximin/nash —
+sont hors périmètre, ces critères étant définis sur des classements) × 7 des 8
+critères prévus (participation et symétrie par renversement reportés, voir
+plus bas). Méthodologie détaillée dans `CONTRIBUTING.md` et le docstring du
+fichier ; résumé : classification jamais tirée de mémoire, découverte par
+fuzzing puis verrouillée en tests `@given` (Hypothesis, `derandomize=True`,
+reproductibilité confirmée sur plusieurs process et plusieurs
+`PYTHONHASHSEED`). Trouvailles réelles, chacune vérifiée à la main avant
+d'être épinglée : (1) `minimax` est Condorcet-cohérent pour les gagnants mais
+peut élire un authentique perdant de Condorcet (candidat qui perd chaque
+duel pairwise) — propriété réelle mais peu citée de la méthode
+Simpson-Kramer, pas un bug ; (2) une première exploration sous-échantillonnée
+(~100-240 profils aléatoires par cellule) a classé à tort `ranked_pairs`,
+`river` et `smith_irv` comme satisfaisant l'indépendance des clones, et
+`nanson` comme satisfaisant la monotonie — les quatre violent en réalité leur
+critère, mais seulement sur des profils dégénérés à égalité parfaite (marges
+pairwise ou votes de premier choix exactement à égalité), assez rares pour
+n'être trouvés que par la recherche par réduction de Hypothesis sur le test
+`@given` complet, pas par l'exploration initiale à faible échantillon — la
+classification finale fait foi via les tests eux-mêmes, pas via le script
+d'exploration jetable. Reporté nommément (pas deviné) : participation et
+symétrie par renversement, où le signal réel se mélange à du bruit de
+tie-break qui demande une passe dédiée pour être démêlé cellule par cellule.
+
 ### 4.2 — Oracle tiers (`pref_voting` / `abcvoting`) ⭐⭐⭐ 📝📝📝 · `M`
 
 La parité actuelle compare *mes deux* implémentations — qui peuvent être fausses
@@ -289,6 +315,64 @@ Pacuit & Holliday) casse cette corrélation d'erreur. Tout écart est soit un bu
 chez moi, soit une divergence de convention à documenter — les deux sont du bon
 contenu.
 
+✅ **Fait.** `pref_voting` (Pacuit & Holliday) installé dans un venv jetable
+séparé (Python 3.11 — la lib dépend de `numba`, incompatible avec le Python
+3.14 du projet ; **pas** intégré en dépendance permanente ni en CI pour cette
+raison, contrairement à Schemathesis — passe exploratoire ponctuelle plutôt
+qu'un nouveau gate). Les 21 méthodes ordinales ont toutes un équivalent direct
+dans `pref_voting` (mapping documenté dans le script d'exploration) ; les 3
+cas ambigus (`bucklin`→`simplified_bucklin` pas `bucklin`, `nanson`→
+`strict_nanson` pas `weak_nanson`, `two_round`→`plurality_with_runoff_put`)
+ont été désambiguïsés en lisant le docstring/source de la lib avant de choisir.
+
+3000 profils aléatoires (3-4 candidats, 3-11 électeurs) × 21 méthodes, chaque
+gagnant de MON moteur comparé à l'ensemble des gagnants (avec égalités) de
+`pref_voting` — comparaison "mon gagnant ∈ l'ensemble oracle", pas égalité
+stricte, puisque les conventions de tie-break diffèrent légitimement entre
+implémentations indépendantes. **18/21 méthodes : 0 écart.** 4 écarts trouvés
+et intégralement investigués à la main :
+
+- **`dowdall`** (1 écart) : PAS un bug chez moi — un artefact de précision
+  flottante DANS l'oracle. Le profil trouvé a deux candidats exactement à
+  égalité (43/6 vérifié en fractions exactes), mais l'addition en flottant de
+  `pref_voting` (ordre de sommation différent du mien) casse l'égalité par un
+  epsilon et ne retourne qu'un seul gagnant au lieu des deux. Reproduit et
+  confirmé par un script indépendant ; rien à corriger côté Vote-App.
+- **`baldwin`** (11 écarts) et **`raynaud`** (27 écarts) : bugs réels,
+  corrigés. Les deux méthodes n'éliminaient qu'UN candidat par tour (le pire,
+  départage alphabétique) au lieu de TOUS les candidats à égalité pour le pire
+  score/pire défaite simultanément — contrairement à `get_irv_winner` et
+  `get_nanson_winner` dans ce même fichier, qui éliminaient déjà tout le
+  groupe à égalité. Corrigé pour aligner Baldwin et Raynaud sur cette
+  convention (déjà interne au projet, et celle de `pref_voting`) ; les deux
+  moteurs (backend + `playgroundVoting.ts`/`voteTrace.ts` pour le rejeu)
+  mis à jour, `engineParity.json` régénéré, parity test au vert.
+- **`smith_irv`** (75 écarts, le plus fréquent) : bug réel dans `_smith_set`
+  — son test de dominance ne vérifiait que « personne à l'extérieur ne bat
+  quelqu'un à l'intérieur », pas « tout le monde à l'intérieur bat tout le
+  monde à l'extérieur » (les deux coïncident sauf en présence d'égalités
+  pairwise, où le test bugué valide un ensemble de Smith trop petit). Second
+  bug indépendant : `get_smith_irv_winner` recalculait l'ensemble de Smith à
+  CHAQUE tour d'élimination au lieu de le calculer UNE FOIS sur le champ
+  complet (la vraie définition de Smith-IRV/Tideman's Alternative, confirmée
+  par le code source de `pref_voting`). Les deux corrigés ; effet de bord
+  intéressant, confirmé par recherche exhaustive (Hypothesis + recherche
+  aléatoire, 0 contre-exemple trouvé après correctif) : smith_irv **satisfait
+  bel et bien** l'indépendance aux clones une fois l'algorithme correct — le
+  contre-exemple épinglé en Lot 4.1 était un artefact du bug, pas une
+  propriété réelle de la méthode. `test_voting_criteria_matrix.py` mis à jour
+  en conséquence (classification ET docstring).
+
+Régression `jscpd` trouvée et corrigée en cours de route (33→34 clones) : le
+calcul de "pire défaite pairwise" dupliqué entre `winRaynaud` et sa trace de
+rejeu (`voteTrace.ts`) — factorisé dans `raynaudWorstLoss`, exportée et
+partagée, cliquet revenu à 33.
+
+`abcvoting` (méthodes multi-gagnants) non exploré dans cette passe — les 21
+méthodes verrouillées sont toutes mono-gagnant ; laissé pour une éventuelle
+extension si Vote-App verrouille un jour une méthode multi-gagnants dans le
+parity set.
+
 ### 4.3 — Vérification exhaustive des petits cas ⭐⭐⭐ 📝📝📝 · `M`
 
 Pour n ≤ 4 candidats et m ≤ 5 électeurs, l'espace des profils est **fini et
@@ -296,16 +380,169 @@ petit**. On passe de « 60 scénarios aléatoires » à une **preuve exhaustive*
 front/back sur tout le domaine borné. Gain de confiance considérable pour un
 coût dérisoire.
 
+✅ **Fait — et le plus rentable des trois items du Lot 4 jusqu'ici.** Grâce à
+l'anonymat des règles (déjà établi par `test_anonymity.py`), l'espace des
+profils se réduit à des multi-ensembles de bulletins
+(`itertools.combinations_with_replacement` sur les n! bulletins possibles) :
+118 754 profils pour n=4/m≤5, calculables en ~28s côté backend seul — l'idée
+du plan (« coût dérisoire ») était juste. Comparaison directe **backend Python
+↔ frontend `ruleWinnerFromRanks`**, gagnant exact (y compris `None`/tie),
+`npx tsx` pour exécuter le TS côté script (pas de dépendance ajoutée).
+
+**2 503 935 comparaisons (119 235 profils × 21 méthodes), 5 méthodes en
+écart réel — chacune investiguée et corrigée à la main :**
+
+- **`condorcet`** (23 840 écarts — le plus fréquent, invisible jusqu'ici) :
+  `gen_engine_parity.py` comparait la mauvaise fonction backend.
+  `RULE_LABELS` du front étiquette explicitement cette règle « Condorcet
+  (Copeland) » — elle résout toujours un gagnant (méthode de Copeland) —
+  alors que le script comparait contre `get_condorcet_winner`, le critère
+  **strict** (`Optional[str]`, souvent `None`). Les deux ne peuvent diverger
+  que quand `get_condorcet_winner` retourne `None` — un cas que le fixture
+  historique (échantillon aléatoire + filtre `strict_winner` qui saute
+  justement les gagnants `None`) ne testait jamais. Remappé sur
+  `get_copeland_winner`, la vraie fonction jumelle.
+- **Même écart, deuxième couche** (5 821 restants après le remappage) :
+  `get_copeland_winner` départage les égalités par total de victoires puis
+  alphabétique ; `winCondorcet` (front) départageait par Borda — deux choix
+  légitimes mais différents. Front aligné sur le départage du backend
+  (autoritaire, CLAUDE.md).
+- **`two_round`** (3036 écarts) : sur une égalité EXACTE au second tour,
+  `av >= bv ? a : b` favorisait silencieusement le leader du premier tour
+  plutôt que de départager alphabétiquement comme le backend. Corrigé.
+- **`benham`** et **`smith_irv`** (4217 et 5075 écarts) : sur une égalité
+  totale (plus aucune élimination possible), le front retournait -1 (« pas de
+  gagnant ») alors que le backend retombe sur le survivant alphabétiquement
+  premier — un choix documenté explicitement dans le docstring de chacune de
+  ces deux fonctions backend, différent (et non partagé) de celui d'IRV/Coombs
+  qui, eux, retournent bien `None`. Front aligné sur ce fallback backend ;
+  `playgroundVoting.test.ts` mis à jour (le test figeait l'ancien -1 comme
+  comportement voulu pour les 4 méthodes d'un coup).
+- **`dowdall`** (70 écarts) : vrai bug backend, cette fois-ci **chez nous**
+  (pas dans un tiers comme au Lot 4.2). `get_dowdall_winner` utilisait
+  `Fraction` pour rester exact — mais `defaultdict(float)` réintroduit
+  silencieusement le flottant dès la première addition (`0.0 + Fraction(1,k)`
+  redevient un float via `Fraction.__radd__`), recréant exactement le bug que
+  le commentaire du fichier dit vouloir éviter. Le frontend, lui, était déjà
+  protégé (mise à l'échelle par `lcm(1..m)` pour rester en entiers exacts) —
+  ironie du sort, c'est la comparaison exhaustive avec le front qui a trouvé
+  le bug côté back. Corrigé en `defaultdict(Fraction)`.
+
+**Fixture permanente** (`voter-app/src/lib/__fixtures__/engineParity.json`,
+nouvelle clé `exhaustiveScenarios`) : les 481 profils exhaustifs pour n≤3
+(m≤5), gagnants **bruts** (pas filtrés par `strict_winner` — ce filtre aurait
+justement masqué 4 des 5 bugs ci-dessus), régénérés et vérifiés à chaque PR
+par `check_engine_parity_drift.sh` comme le reste du fixture. n=4 (98 280
+profils de plus, ~60 Mo de JSON) volontairement **non committé** : vérifié une
+fois en développement (0 écart après correctifs), mais un ajout de cette
+taille au fixture ralentirait `check_engine_parity_drift.sh` sur *chaque* PR
+pour couvrir la même classe de bugs qu'une tranche n≤3 beaucoup plus petite
+détecte déjà.
+
 ### 4.4 — `fast-check` côté TypeScript ⭐⭐⭐ 📝📝 · `M`
 
 Hypothesis couvre le Python ; `playgroundVoting.ts` — l'autre moitié du contrat
 de parité — n'a aucun test à propriétés.
+
+✅ **Fait — et le plus rentable des quatre premiers items du Lot 4 en
+rapport trouvailles/effort.** `voter-app/src/lib/playgroundVoting.axioms.test.ts`
+(nouveau, `fast-check` en devDependency) reporte les 7 critères de la matrice
+Python contre `ruleWinnerFromRanks`, mais sur un domaine plus large que
+l'exhaustif du Lot 4.3 : n ∈ [3,6] candidats, m ∈ [3,25] électeurs (Python
+`_profiles4` fige n=4 exactement). La classification satisfait/viole n'est
+**pas recopiée aveuglément** — vérifiée en la rejouant réellement sur ce
+domaine plus large, seed fixe pour la reproductibilité (même leçon que
+Lot 4.1/4.2 : `derandomize`/seed non fixé retrouve des choses différentes à
+chaque run — littéralement observé ici avant de fixer la seed, voir plus bas).
+
+**Six corrections réelles trouvées, toutes vérifiées à la main contre le
+backend et corrigées dans `test_voting_criteria_matrix.py`** (donc pas des
+particularités du seul moteur front) :
+
+- **`baldwin`** échoue l'indépendance aux clones, mais seulement à partir de
+  n=6 — un nombre de candidats que la stratégie Hypothesis de Python (figée
+  à exactement 4) ne génère structurellement jamais.
+- **`condorcet` (Copeland sur le front)** échoue aussi l'indépendance aux
+  clones — mais ceci n'est PAS une correction de la classification Python :
+  la clé `"condorcet"` du fichier Python désigne `get_condorcet_winner` (le
+  critère strict), une fonction différente de la règle front `condorcet`
+  (Copeland, étiquetée « Condorcet (Copeland) » dans `RULE_LABELS`). Un
+  score net victoires-défaites comme celui de Copeland est un cas d'école de
+  méthode manipulable par clonage — confirmé indépendamment côté backend
+  (`get_copeland_winner`), classification propre à ce fichier TS.
+- **`irv`, `coombs`, `benham`, `raynaud`** élisent chacun un perdant de
+  Condorcet dans des profils spécifiques — pas un problème de nombre de
+  candidats cette fois, juste des profils que les 200 exemples Hypothesis
+  figés de Python n'avaient jamais échantillonnés.
+
+**Effet de bord important : ce dernier groupe a révélé que le critère
+« perdant de Condorcet » était bien plus fuyant que prévu.** Plutôt que de
+corriger au coup par coup à chaque nouvelle seed `fast-check`, un balayage
+systématique direct en Python (~15 000-24 000 profils par méthode/critère,
+au lieu des 200 exemples Hypothesis fixes) a permis de trancher les 7
+critères une bonne fois : Condorcet gagnant, Pareto et monotonie
+correspondent exactement à la classification existante ; indépendance aux
+clones aussi, à `baldwin` près (déjà trouvé) ; majorité avait UNE cellule de
+plus à corriger — `dowdall` (même famille que la faiblesse déjà connue de
+Borda : une règle positionnelle peut perdre face à une majorité si son score
+s'égalise exactement avec un rival, un cas assez rare — 2 sur ~6500 essais
+— pour avoir échappé aux 200 exemples Hypothesis aussi).
+
+Ce balayage plus volumineux reste un échantillon plus large, pas une preuve
+exhaustive comme celle du Lot 4.3 — si une recherche encore plus large
+trouverait une 7e cellule reste une question ouverte, nommée plutôt que
+poursuivie indéfiniment (même logique que le report de participation/
+symétrie par renversement au Lot 4.1).
 
 ### 4.5 — Contre-exemples de la littérature comme fixtures nommées ⭐⭐ 📝📝📝 · `M`
 
 Paradoxe de Condorcet, exemples de manipulation Borda, profils de Saari…
 chaque exemple classique devient une fixture nommée et sourcée (clé BibTeX de
 `docs/research/`). Double emploi test + pédagogie.
+
+✅ **Fait.** Avant d'écrire quoi que ce soit, vérifié que le cas le plus
+évident (une élection réelle où méthode ⇒ vainqueur différent) était déjà
+couvert : le backtest Burlington 2009 / Alaska 2022 (`voter-app/src/lib/
+realElections.ts`, sourcé PrefLib 00005 et arXiv:2303.00108) existe déjà,
+testé, cité — refaire la même chose aurait été du travail en double. Le
+vrai trou était les **exemples synthétiques classiques**, absents des deux
+moteurs. Quatre ajoutés dans
+`fast_api_voter/api/tests/test_literature_counterexamples.py`, chacun
+vérifié à la main avant d'être committé, chacun sourcé (nouvelles clés
+BibTeX `saari1995`, `tideman1987`, `fishburn_brams1983` ajoutées à
+`docs/research/bibliography.bib` **et** à `THEORY.md` §11, qui les partage) :
+
+- **Paradoxe de Condorcet** (Condorcet, 1785, déjà cité) — le cycle
+  fondateur à 3 électeurs/3 candidats, déjà décrit en THEORY.md §4.1,
+  maintenant testé et lié depuis là.
+- **Désaccord des règles positionnelles** (Saari, 1995) — un profil minimal
+  de 4 bulletins (trouvé par recherche exhaustive sur tous les profils
+  jusqu'à 17 bulletins) où pluralité, Borda et anti-pluralité élisent
+  chacune un candidat différent sur les mêmes préférences. Nouvelle
+  sous-section THEORY.md §4.5.
+- **Motivation de Ranked Pairs** (Tideman, 1987) — réutilise le contre-
+  exemple de non-indépendance aux clones de Copeland déjà trouvé au
+  Lot 4.4, en le recadrant comme LE problème que Tideman a conçu Ranked
+  Pairs pour résoudre : même profil, même clonage, Copeland change de
+  vainqueur, Ranked Pairs non. Documenté sur la fiche Copeland de
+  THEORY.md §2.1.
+- **Paradoxe du non-vote** (Fishburn & Brams, 1983) — clôt une petite
+  tranche, nommée et sourcée, du critère de participation que le Lot 4.1
+  avait reporté en bloc (le fuzzing complet reste hors périmètre, mais au
+  moins UN exemple canonique, vérifié à la main tour par tour, est
+  maintenant permanent). Un électeur dont le bulletin sincère élit son
+  DERNIER choix, alors que s'abstenir aurait élu son 2e choix — trouvé par
+  recherche (2 millions de profils synthétiques), retenu pour sa taille
+  (8 bulletins) après avoir écarté des exemples plus grands. Nouvelle
+  sous-section THEORY.md §4.6.
+
+**Effet de bord** : en cherchant la formulation exacte de la propriété de
+Ranked Pairs/River pour cette fixture, une survivance de Lot 4.1/4.2 a été
+repérée dans THEORY.md — la fiche Ranked Pairs affirmait « indépendante des
+clones » sans la réserve du cas générique (marges non exactement égales),
+alors que le Lot 4.2 avait déjà trouvé et documenté l'exception dégénérée
+dans le fichier de tests. Corrigé au passage (§2.4), avec renvoi vers le
+test qui pin le contre-exemple.
 
 ### 4.6 — Z3 / model checking ⭐ 📝📝📝 · `L` *(expérience à risque assumé)*
 
@@ -314,32 +551,605 @@ plutôt que d'échantillonner. **Peut très bien échouer** (encodage trop lourd
 explosion combinatoire) — et un échec documenté « voilà pourquoi le SMT ne passe
 pas à l'échelle sur ce problème » est un excellent carnet d'expérience.
 
+✅ **Fait — verdict : adopté partiellement.** Carnet complet dans
+[`docs/exploration/EXP-002-z3-formal-voting-proofs.md`](docs/exploration/EXP-002-z3-formal-voting-proofs.md).
+Résumé : `z3-solver` encode les décomptes de voix comme des variables
+entières symboliques (pas des profils concrets) et prouve — au lieu
+d'échantillonner — qu'aucun électorat, quelle que soit sa taille, ne peut
+violer une propriété donnée. **Minimax et Schulze respectent le critère de
+Condorcet pour TOUS les électorats possibles** jusqu'à n=7 candidats
+(`unsat` en moins d'une minute) — plus fort que tout ce que les Lots
+4.1-4.4 avaient établi sur ce point précis, puisque ceux-ci vérifient
+toujours un nombre *fini* de profils, aussi grand soit-il.
+
+**Le risque assumé par le plan s'est matérialisé, mais pas comme prévu**
+— pas une explosion combinatoire (Z3 n'a jamais peiné à raisonner), mais
+un encodage IRV **silencieusement faux** : un premier essai a "prouvé"
+qu'IRV ne peut jamais élire un perdant de Condorcet, ce qui contredit un
+contre-exemple déjà vérifié à la main au Lot 4.4
+(`test_condorcet_loser_irv_can_be_violated`). La cause : la règle de
+départage de ce moteur (éliminer TOUS les candidats à égalité au minimum,
+pas un minimum strict unique) manquait dans l'encodage — Z3 a fidèlement
+prouvé une propriété vraie d'une règle *différente* de la vraie
+`get_irv_winner`. Une fois corrigé (revérifié contre le contre-exemple
+connu avant de refaire confiance à quoi que ce soit), Z3 a aussi trouvé un
+contre-exemple à 7 bulletins **prouvé minimal** — une garantie
+qu'aucun échantillonnage ne peut offrir par construction.
+
+**Ce qui est committé** : `fast_api_voter/api/tests/test_z3_formal_proofs.py`
+(minimax + Schulze uniquement, ~5s en CI) et `z3-solver` en dépendance de
+dev (aucun conflit de version Python, contrairement à `pref_voting` au
+Lot 4.2). L'encodage IRV corrigé n'est **pas** committé — plus fragile
+(plus de branchements, plus de façons de mal représenter une règle réelle)
+pour un gain déjà obtenu autrement par les Lots 4.1-4.4 ; documenté en
+détail dans le carnet d'expérience plutôt que maintenu comme code
+permanent.
+
 ---
 
 ## Lot 5 — Robustesse des tests eux-mêmes
 
 *Qui teste les tests ?* Angle de récit fort : la couverture à 91 % ment-elle ?
 
-| Item | Pourquoi ici | Effort | Solidité | Récit |
-|---|---|---|---|---|
-| **Score de mutation ciblé + gating** | mutmut/Stryker tournent mais sont informatifs. Un seuil *par module critique* (le moteur uniquement) vaut mieux qu'un score global mou. | M | ⭐⭐⭐ | 📝📝📝 |
-| **`pytest-randomly`** | Ordre d'exécution aléatoire → révèle les tests couplés par effet de bord (déjà rencontré avec le limiter partagé). | S | ⭐⭐ | 📝📝 |
-| **Chasse au flake nocturne** | Relancer la suite N fois et tracker l'instabilité. Le « flaky check » existe en e2e, rien côté backend. | M | ⭐⭐ | 📝📝 |
-| **Régénérabilité de `engineParity.json`** | Un job qui régénère et diffe prouverait que le fichier n'a pas été édité à la main — aujourd'hui c'est une règle écrite, rien ne l'applique. | S | ⭐⭐⭐ | 📝📝 |
-| **`syrupy`** (snapshots pytest) | Sorties de simulation riches, plus lisibles qu'des assertions à la main. | S | ⭐ | 📝 |
+| Item | Pourquoi ici | Effort | Solidité | Récit | Statut |
+|---|---|---|---|---|---|
+| **Score de mutation ciblé + gating** | mutmut/Stryker tournent mais sont informatifs. Un seuil *par module critique* (le moteur uniquement) vaut mieux qu'un score global mou. | M | ⭐⭐⭐ | 📝📝📝 | ✅ déjà fait (chantier antérieur au présent plan, PR #177/#187/#214 et suivantes) — `mutmut` scopé à `simulation_ranked_utils.py`/`simulation_score_utils.py` (plancher 70%, `[tool.mutmut]` dans `pyproject.toml`), Stryker scopé à `playgroundVoting.ts` (`thresholds.break: 80`, `stryker.config.json`) ; les deux gatent réellement (`continue-on-error` retiré, confirmé dans `mutation-testing.yml`) |
+| **`pytest-randomly`** | Ordre d'exécution aléatoire → révèle les tests couplés par effet de bord (déjà rencontré avec le limiter partagé). | S | ⭐⭐ | 📝📝 | ✅ `pytest-randomly==5.0.0` en dépendance de dev, actif sur chaque run local/CI dès l'installation (aucune config requise) |
+| **Chasse au flake nocturne** | Relancer la suite N fois et tracker l'instabilité. Le « flaky check » existe en e2e, rien côté backend. | M | ⭐⭐ | 📝📝 | ✅ `scripts/check_flaky_backend.py` + `.github/workflows/flaky-check-backend.yml` (nightly + push develop + `workflow_dispatch`) — détail sous le tableau |
+| **Régénérabilité de `engineParity.json`** | Un job qui régénère et diffe prouverait que le fichier n'a pas été édité à la main — aujourd'hui c'est une règle écrite, rien ne l'applique. | S | ⭐⭐⭐ | 📝📝 | ✅ déjà fait (chantier antérieur, PR #172) — `scripts/check_engine_parity_drift.sh`, gate CI (`openapi-contract.yml`'s « Generated artifacts in sync » job), vérifié en vrai à chaque PR de ce plan touchant le moteur (Lots 4.2-4.4) |
+| **`syrupy`** (snapshots pytest) | Sorties de simulation riches, plus lisibles qu'des assertions à la main. | S | ⭐ | 📝 | ✅ `api/tests/test_compare_all_methods_snapshot.py` — le rapport `compare_all_methods` (26 méthodes × 5 champs) capturé en un seul snapshot `.ambr` lisible (345 lignes), plutôt que des assertions champ par champ. `random.seed`/`np.random.seed` fixées explicitement avant construction de l'électorat — stabilité vérifiée sur 3 runs consécutifs (ce test appelle `create_voter`/`create_candidate` sans `rng`/`np_rng`, donc retombe sur le fallback singleton documenté ci-dessous ; correct ici puisqu'il tourne seul, sans accès concurrent) |
+
+**Chasse au flake nocturne, détail.** `scripts/check_flaky_backend.py` relance
+la suite 3× (chacune un process indépendant, un ordre `pytest-randomly`
+différent à chaque fois — pas des retries dans le même process, qui ne
+verraient pas un couplage lié à l'ordre de *collecte*), et diffe le résultat
+de chaque test entre les 3 exécutions. Détecteur vérifié en direct sur un
+couplage synthétique injecté (un test qui lit un état de module écrit par
+un autre) avant de lui faire confiance — le genre de vérification que ce
+projet applique systématiquement à ses propres détecteurs.
+
+Piège rencontré en le construisant : la première version passait
+`-o addopts=""` sans rien d'autre, ce qui supprime aussi bien le
+`--ignore` du fichier Schemathesis lent que la parallélisation `-n auto` du
+`addopts` par défaut — un run séquentiel de la suite complète (avec le
+fichier lent en plus) est passé de ~80s à ~1000s, soit ~50 minutes pour 3
+runs. Corrigé en réinjectant explicitement les deux. Effet de bord accepté,
+documenté dans le script : avec `-n auto`, un couplage qui n'existe qu'au
+sein d'un même *worker* peut atterrir sur des workers différents à chaque
+run et donc échouer (ou réussir) de façon constante plutôt que de varier —
+ce script ne le détecterait pas comme flaky, mais un échec constant est de
+toute façon déjà attrapé par la suite normale à chaque PR, donc rien ne
+reste durablement invisible.
+
+**3 exécutions réelles de la suite complète (1974 tests, ~16-18s chacune)
+lancées pendant ce développement : 0 flake trouvé.**
+
+**Mise à jour (2026-09-12) — 3 flakes réels trouvés et corrigés, mécanisme
+racine identifié.** Une session `flake-hunter` (l'agent décrit au Lot 11)
+invoquée sur `test_election_simulate.py::TestDeterminism::
+test_same_seed_yields_identical_methods` et deux tests de
+`test_export.py` (`TestJSON::test_reproducibility`,
+`TestCSV::test_csv_happy_path`) — tous verts en isolation, tous rouges de
+façon imprévisible sous l'ordre aléatoire `pytest-randomly` de la suite
+complète — a trouvé la vraie cause : `ElectionService.simulate()` et une
+douzaine d'autres workers (`api/domain/election/workers.py`,
+`api/domain/export.py`) « seedaient » `random`/`np.random` en appelant
+`random.seed(seed)`/`np.random.seed(seed)` — ce qui reseed le singleton
+**partagé au niveau du process**, pas une instance locale à l'appel. « Même
+seed → même résultat » ne tenait donc que si rien d'autre ne touchait ces
+singletons entre le reseed et les tirages de `create_voter`/
+`create_candidate` juste après — faux dès qu'un accès concurrent existe
+dans le même process (le cas normal d'un serveur qui sert plusieurs
+requêtes), et pas seulement sous xdist : `pytest-randomly` réordonne aussi
+la *collecte*, donc deux tests sans rapport peuvent interagir via ce même
+singleton dans un seul worker.
+
+Preuve par la démonstration, pas par la théorie : un script autonome
+appelle `ElectionService.simulate()` depuis deux threads avec le même seed
+pendant qu'un troisième thread ne fait qu'appeler `random.random()`/
+`np.random.random()` en boucle (aucun rapport avec l'élection) — sur la
+baseline `develop`, **1 tentative sur 30 seulement produisait un résultat
+identique entre les deux appels** (`voters_snapshot`/`methods` divergent
+dans les 29 autres) ; en séquentiel (sans le troisième thread), **30/30
+correspondent** — la signature exacte d'une interférence inter-appels, pas
+d'un vrai non-déterminisme algorithmique. Même protocole sur
+`api.domain.export._generate_rows` (chemin de `test_export.py`) et
+directement sur `_build_base_electorate` (le point de passage partagé par
+`_divergence_worker`, `_campaign_sensitivity_worker`,
+`_combined_effects_worker`, `_simulate_pipeline_worker`, `_coalition_worker`
+et par `theory/workers.py`) : **2/30 et 0/30 sur la baseline**,
+respectivement.
+
+Corrigé en remplaçant le reseed du singleton partagé par une paire de
+générateurs **locaux à l'appel**, explicitement enfilés à travers
+`create_voter`/`create_candidate` (nouveaux paramètres optionnels `rng`/
+`np_rng`, `None` → fallback sur le singleton global pour les appelants non
+touchés) et jusqu'aux `sample_*` de `demographic_data.py` :
+
+```python
+# au lieu de :
+random.seed(seed); np.random.seed(seed)
+# :
+rng    = random.Random(seed)
+np_rng = np.random.RandomState(seed)   # PAS np.random.default_rng(seed) —
+                                        # algorithme différent (PCG64 vs
+                                        # MT19937), même seed → valeurs
+                                        # différentes ; piège réel rencontré
+                                        # ici : un test à seed figé
+                                        # (`test_theory_batch2.py::
+                                        # TestManipulationAnalysis`) a
+                                        # d'abord cassé avec `default_rng`,
+                                        # confirmant que RandomState est la
+                                        # seule substitution bit-identique.
+```
+
+Corrigé sur les ~10 sites de `ElectionService.simulate()` et
+`api/domain/election/workers.py`, sur `api/domain/export._generate_rows`
+(cause directe des 2 flakes `test_export.py`), et sur les deux boucles
+Monte-Carlo délibérément non seedées mais qui tiraient quand même du
+singleton partagé (`api/sockets/__init__.py::_run_one`,
+`api/domain/simulations/advanced.py::_monte_carlo_worker`) — celles-ci
+gardent un tirage non seedé (pas de contrat de reproductibilité), juste
+plus sur le singleton global. Après correctif : les mêmes démonstrations
+concurrentes donnent **30/30** sur les trois points de mesure ci-dessus.
+`~8 autres fichiers` du même domaine (`workers_mechanisms.py`,
+`workers_advanced.py`, `workers_dynamics.py`, `workers_behavioral.py`,
+`tech.py`, `domain/simulations/compare.py`, `domain/theory/workers.py`)
+reproduisent le même anti-pattern de reseed mais restent **hors périmètre
+de ce correctif** (aucun flake confirmé ne leur est attribué, et forcer
+`create_voter`/`create_candidate` à des paramètres obligatoires aurait
+élargi le blast radius d'un fix de concurrence en un refactor de ~13k
+lignes non planifié) — signalé ici comme dette de suivi, même famille de
+bug, à traiter dans un lot séparé.
+
+Sous-espèce différente du même problème, cette fois *à l'intérieur* de
+`simulation_voting_utils.py` : `calculate_utility()` (~ligne 483,
+`will_vote = random.random() < voter["likelihood_to_vote"]`,
+inconditionnel, aucun paramètre `rng`) et, dans `simulation_metrics.py`,
+`compare_all_methods()` (~ligne 226, `random.sample(perms,
+_MAX_STRATEGIC_PERMS)` pour l'échantillonnage de vulnérabilité stratégique
+dès que les classements dépassent 4 candidats) tirent toutes deux du
+singleton global sans jamais reseeder — donc pas le bug de concurrence
+proprement dit (aucune fausse promesse de "même seed → même résultat" à
+casser), mais la même exposition au bruit d'un appelant concurrent. Même
+diagnostic hors-périmètre que les ~8 fichiers ci-dessus : ces deux fonctions
+sont profondément partagées (`calculate_utility` par pratiquement tout,
+corrigé ou non ; `compare_all_methods` par tous les chemins de comparaison
+multi-méthodes), leur ajouter un paramètre `rng` demanderait de toucher
+chacun de leurs nombreux appelants — réel, mais un vrai élargissement de
+périmètre, pas une correction ciblée pour ce lot.
+
+`create_voter`/`create_candidate` changent de signature (paramètres
+optionnels ajoutés) : `python fast_api_voter/scripts/gen_engine_parity.py`
+régénéré → **`engineParity.json` byte-identique** (aucune diff), confirmant
+que seule l'interférence inter-appels a été supprimée, pas l'algorithme par
+seed lui-même ; `playgroundVoting.parity.test.ts` reste vert (49/49).
+`mypy api/` reste clean (92 fichiers), `ruff check fast_api_voter` aussi.
+Suite complète (`python -m pytest api/tests`, hors benchmarks) :
+**2126 passed, 41 skipped, 0 failed**.
+
+`scripts/check_flaky_backend.py --runs 5` lancé sur les deux états (`develop`
+et corrigé) : **27 échecs identiques et constants dans les 10 runs (5+5)**,
+mais dans `test_engine_benchmarks.py` uniquement — l'incompatibilité connue
+`pytest-benchmark`/`xdist` (`benchmark.stats` reste `None` sous `-n auto`,
+sans rapport avec ce correctif ; c'est pourquoi la commande de gate rapide
+de CLAUDE.md exclut déjà ce fichier). En dehors de ce fichier : **0 test
+instable dans les deux états**, sur cet échantillon de 5 tirages — cet
+outil n'a pas capturé les 3 flakes connus dans cet échantillon, ni avant ni
+après (la fenêtre de reproduction d'une interférence probabiliste sur 5
+tirages n'est pas garantie ; le flake-hunter d'origine les avait trouvés
+sous une suite complète, pas ce script). La preuve avant/après faisant
+autorité reste la démonstration concurrente ciblée ci-dessus (0-1/30 sur
+`develop` → 30/30 corrigé, sur les 4 points de mesure), qui isole
+directement le mécanisme plutôt que d'attendre qu'il se manifeste par
+hasard dans l'ordre `pytest-randomly`.
+
+**Complément (2026-09-12, suite au `/code-review ultra` obligatoire) — 2
+sites manqués par ce lot lui-même, corrigés.** CLAUDE.md impose une revue
+`/code-review ultra` (5 agents indépendants) avant de merger toute PR
+touchant `simulation_voting_utils.py`. Convergence des 5 : deux fonctions du
+*même fichier* que `create_voter`/`create_candidate` — donc censé être
+entièrement migré par le lot ci-dessus — reseedaient encore le singleton
+partagé exactement comme avant le correctif : `run_bandwagon_simulation`
+(`random.seed(seed); np.random.seed(seed)` puis des appels internes à
+`create_voter`/`create_candidate` sans `rng`/`np_rng` — 2 angles de revue
+ont reproduit empiriquement 24/30 puis 23/30 mésappariements sous
+interférence concurrente simulée) et `run_simulation` (même anti-pattern,
+même fichier). `run_bandwagon_simulation` est exposée en direct via `POST
+/simulations/bandwagon` (`_bandwagon_worker`,
+`api/domain/simulations/advanced.py`, qui transmet tel quel un seed fourni
+par l'appelant) ; `run_simulation` n'est aujourd'hui appelée que par
+`api/tests/test_compare_all_methods_snapshot.py`, sans route HTTP live —
+même défaut, exposition plus étroite.
+
+Corrigées selon le patron déjà utilisé par `ElectionService.simulate()`/
+`_build_base_electorate()` : une paire `rng = random.Random(seed)` /
+`np_rng = np.random.RandomState(seed)` locale à l'appel (pas
+`np.random.default_rng(seed)` — toujours l'algorithme différent
+PCG64/MT19937 documenté plus haut), enfilée à travers chaque appel
+`create_voter`/`create_candidate` du corps des deux fonctions.
+
+Duplication réduite au passage (un relecteur l'a signalée comme un piège
+réel pour une future migration — omettre l'un des ~14 sites lors d'un futur
+changement de `RandomState` réintroduirait silencieusement exactement ce
+bug) : le motif `x if x is not None else <module>` répété dans
+`simulation_voting_utils.py` et `demographic_data.py` est extrait en deux
+petits helpers, `_resolve_rng`/`_resolve_np_rng`. Placés dans
+`demographic_data.py` — pas dans `simulation_voting_utils.py`, qui importe
+déjà *depuis* `demographic_data.py`, donc l'inverse aurait créé un import
+circulaire — et importés par `simulation_voting_utils.py` à côté des
+`sample_*` qui en viennent déjà. Le fallback numpy de `create_voter()`
+(`nr = ...`) résolvait ~71 lignes après celui de `random.Random` (`r =
+...`) ; déplacé pour résoudre au même endroit, en tête de fonction, comme
+les deux étaient censés l'être depuis le début.
+
+Couverture de régression ajoutée : `api/tests/test_seeded_rng_isolation.py`,
+8 tests. Une première version calquée littéralement sur "appeler deux fois
+avec le même seed, perturber les singletons globaux strictement entre les
+deux appels" reste **verte même sur le code non corrigé** (vérifié
+empiriquement, pas supposé) : chacune des 5 fonctions testées reconstruit
+son propre état RNG à partir de *son* paramètre `seed` en tout début
+d'appel, donc rien qui se passe strictement *avant* le second appel ne peut
+changer son résultat — corrigé ou non. Le vrai défaut ne se manifeste que
+par une interférence survenant *pendant* la séquence de tirages d'un même
+appel (l'équivalent déterministe d'un recouvrement de threads réel) —
+reproduit sans threads ni `sleep` en patchant `create_voter`/
+`create_candidate` pour déclencher la perturbation globale comme effet de
+bord après leur N-ième invocation, puis en comparant les voters/candidats
+construits *après* ce point à une exécution de référence non perturbée.
+Confirmé par bascule de fichier (pas par hypothèse) : rouge (4/8 — exactement
+les tests visant `run_bandwagon_simulation`/`run_simulation`) sur le code
+d'avant ce complément, vert (8/8) après ; les 4 tests visant les trois
+points déjà corrigés par le lot précédent (`ElectionService.simulate`,
+`_build_base_electorate`, `_generate_rows`) étaient déjà verts avant comme
+après — cohérent avec le fait que seuls `run_bandwagon_simulation`/
+`run_simulation` avaient été oubliés.
+
+En isolant précisément ce que corrige le threading `create_voter`/
+`create_candidate`, ces tests ont dû explicitement éviter deux *autres*
+tirages sur le singleton global dans le même fichier — non trouvés par la
+revue, découverts en construisant la preuve rouge/vert. Ajoutés à la liste
+divulguée ci-dessus, même famille et même cadrage honnête ("réel, périmètre
+plus étroit, non corrigé ici") : `simulate_vote()` (appelée uniquement par
+`run_simulation`) tire `random.random() > voter["likelihood_to_vote"]` sans
+aucun paramètre `rng`, inconditionnellement, avant même de regarder la
+méthode de vote ; `apply_social_influence()` (appelée uniquement par
+`run_bandwagon_simulation`, aux rounds 1+) tire `random.uniform(-0.15,
+0.15)` de la même façon pour déplacer chaque électeur vers le meneur des
+sondages entre deux rounds. Ajouter un paramètre `rng` à l'une ou l'autre
+serait un changement contenu (un seul appelant chacune) mais n'a pas été
+fait ici pour ne pas rouvrir le périmètre de ce complément à chaque nouvelle
+découverte — signalé, pas corrigé, comme le reste de cette liste.
+
+`python fast_api_voter/scripts/gen_engine_parity.py` régénéré →
+`engineParity.json` de nouveau byte-identique (aucune diff) ; `cd voter-app
+&& npx vitest run src/lib/playgroundVoting.parity.test.ts` reste vert
+(49/49) ; `mypy api/` clean (92 fichiers — `api/tests` hors périmètre
+mypy/ruff comme toujours) ; `ruff check fast_api_voter` clean. Suite
+complète (`python -m pytest api/tests`, hors benchmarks) : **2134 passed,
+41 skipped, 0 failed** (2126 + les 8 nouveaux tests, aucune régression
+ailleurs — le flake connu de `test_export.py` sous ordre aléatoire, déjà
+documenté plus haut, reste sans rapport avec ce complément).
+
+**Complément 2 (2026-09-12, suite à un second `/code-review ultra`
+obligatoire) — le complément ci-dessus était lui-même incomplet, d'une façon
+qui est une vraie régression et pas seulement un angle mort de concurrence
+manqué.** CLAUDE.md impose une revue `/code-review ultra` avant de merger
+toute PR touchant `simulation_voting_utils.py` ; cette seconde passe, sur la
+branche portant le complément ci-dessus, a confirmé trois défauts avant
+correction :
+
+1. **`run_bandwagon_simulation` n'était plus reproductible aux rounds 1+,
+   même sans aucune concurrence** — strictement pire que `develop`
+   pré-complément pour le cas mono-thread, où `random.seed(seed)` au moins
+   reseedait avant chaque appel. Supprimer `random.seed(seed)`/
+   `np.random.seed(seed)` sans enfiler `rng` jusque dans
+   `apply_social_influence()` (même fichier, appelée aux rounds 1+) laissait
+   son tirage `random.uniform(-0.15, 0.15)` lire le singleton global nu,
+   plus jamais reseedé. Vérifié directement : deux appels séquentiels
+   `run_bandwagon_simulation(num_voters=20, num_rounds=2, seed=7)`
+   produisaient `rounds[0]` identique (déjà corrigé par le complément 1) mais
+   `rounds[1]`/`rounds[2]` différents à chaque fois.
+2. **Même classe de régression dans `run_simulation`** : `simulate_vote()`
+   (même fichier, `random.random() > voter["likelihood_to_vote"]`) tirait
+   elle aussi du singleton nu, sans paramètre `rng`, inconditionnellement,
+   avant même de regarder la méthode de vote — silencieux aujourd'hui (seul
+   `test_compare_all_methods_snapshot.py` appelle `run_simulation`, sans
+   jamais lire `vote`), mais même défaut, et le paramètre `seed` de la
+   fonction implique un contrat de reproductibilité que ça viole.
+3. **L'endpoint réel `/simulations/bandwagon` n'exerçait jamais le correctif
+   de seeding des candidats du complément 1.** `_bandwagon_worker`
+   (`api/domain/simulations/advanced.py`) appelait `_build_population
+   (candidate_configs, 0, ideology_dist)` sans `rng=`/`np_rng=`, puis passait
+   la liste `candidates` déjà construite à `run_bandwagon_simulation
+   (candidates=candidates, ...)`. `candidates` n'étant pas `None`, la branche
+   `if candidates is None:` de `run_bandwagon_simulation` — où vit tout le
+   threading `rng`/`np_rng` du complément 1 pour la création des candidats —
+   était entièrement court-circuitée sur le seul chemin d'appel réel. Les
+   électeurs n'étaient pas affectés (construits inconditionnellement avec
+   `rng`/`np_rng`, indépendamment de cette branche) ; seuls les candidats du
+   endpoint live tiraient encore du singleton partagé.
+
+**Corrigé** : paramètre `rng: Optional[random.Random] = None` ajouté à
+`apply_social_influence()` et `simulate_vote()`, enfilé via `_resolve_rng()`
+(déjà utilisé partout ailleurs dans ce fichier) et passé par leurs deux
+appelants, chacun ayant **exactly one non-test caller** — vérifié par grep,
+pas supposé (`apply_social_influence` : uniquement
+`run_bandwagon_simulation`, plus les tests de
+`test_compare_all_methods_snapshot.py` ; `simulate_vote` : uniquement
+`run_simulation`, aucun autre appelant nulle part dans le repo).
+`_bandwagon_worker` corrigé à la source : construit désormais sa propre
+paire `rng`/`np_rng` à partir de sa variable `seed` déjà extraite
+(`seed = data.get("seed")`) et la passe à `_build_population(...,
+rng=rng, np_rng=np_rng)`.
+
+**Extraction supplémentaire, demandée par la revue** : le bloc `if seed is
+not None: rng = random.Random(seed); np_rng = np.random.RandomState(seed)`
+était dupliqué **verbatim sur 5 sites** (`_electorate.py`,
+`election_service.py`, `export.py`, et les deux nouveaux sites de
+`simulation_voting_utils.py`) — la revue a noté que c'est exactement le
+genre de dérive que l'extraction `_resolve_rng`/`_resolve_np_rng` du
+complément 1 devait déjà réduire, et que c'est la **3ᵉ fois** que ce même
+fichier révèle cette même famille de défaut sur des revues successives.
+Extrait en un helper unique, `_seeded_rng_pair(seed) -> tuple[Optional[
+random.Random], Optional[np.random.RandomState]]`, retournant `(None,
+None)` si `seed is None`. Placé dans `demographic_data.py` — pas dans
+`simulation_voting_utils.py` — pour exactement la raison qui a fait placer
+`_resolve_rng`/`_resolve_np_rng` là-bas au complément 1 : ce module n'a
+aucune dépendance interne au package, donc chacun des 5 sites (y compris
+`simulation_voting_utils.py`, qui importe déjà `_resolve_rng`/
+`_resolve_np_rng` depuis `demographic_data.py`) peut l'importer sans risquer
+un cycle. Les 3 sites à `seed: int` obligatoire (`_electorate.py`,
+`election_service.py`, `export.py`) passent par le même helper sans
+changement de comportement : `_seeded_rng_pair` accepte `Optional[int]`,
+donc un `seed` toujours fourni y produit toujours la paire non-`None` —
+`rng`/`np_rng` deviennent `Optional[...]` du point de vue de mypy, ce qui ne
+casse rien puisque `create_voter`/`create_candidate` acceptaient déjà ce
+type.
+
+**Passe de fermeture exhaustive** (demandée par la revue) : le graphe
+d'appel complet a été tracé statiquement depuis chacun des 5 points d'entrée
+(`ElectionService.simulate()`, `_build_base_electorate()`,
+`export._generate_rows()`, `run_bandwagon_simulation()`, `run_simulation()`),
+avec un grep de tout `random.`/`np.random.` nu (hors construction du
+`rng`/`np_rng` lui-même) dans `api/engine` et `api/domain` pour vérifier
+qu'aucun autre site atteignable n'avait été manqué :
+
+- `apply_social_influence()` et `simulate_vote()` : confirmés **un seul
+  appelant non-test** chacun (ci-dessus) — corrigés, comme prévu par la
+  revue.
+- `calculate_utility()` (`will_vote = random.random() < ...`) et
+  `compare_all_methods()`'s `random.sample(perms, _MAX_STRATEGIC_PERMS)`
+  (stratégie sur >4 candidats) : toujours atteints depuis ces 5 points
+  d'entrée (`calculate_utility` par les 5 ; `compare_all_methods` par
+  `ElectionService.simulate()` via `compare_all_methods`, et indirectement
+  par `export._generate_rows()` via `compare_all_methods_mc()` — mais cette
+  variante Monte-Carlo saute délibérément la recherche de vulnérabilité
+  stratégique, donc n'atteint **pas** `random.sample`), mais restent
+  **partagées par pratiquement tous les appelants du fichier**, corrigés ou
+  non — reclasser l'une ou l'autre en "à corriger" élargirait le périmètre
+  exactement comme documenté au complément 1 ; toujours divulguées, pas
+  corrigées, classification inchangée après vérification.
+- `simulate_campaign()`, `apply_information_asymmetry()`,
+  `simulate_blank_contagion()` (tous trois atteints depuis
+  `ElectionService.simulate()`) : vérifiés — chacun construit déjà sa **propre**
+  paire `rng`/`np_rng` locale à partir de **son propre** paramètre `seed`
+  (reçu de `ElectionService.simulate()` via `seed=seed`), donc hors de la
+  famille de bug (pas de reseed du singleton partagé, pas de dépendance à un
+  seeding externe) — confirmé, pas supposé, en lisant chaque fonction.
+- `simulation_ranked_utils.py` et `simulation_score_utils.py` (les fonctions
+  `get_*_winner` utilisées par les 5 points d'entrée) : aucun usage de
+  `random`/`np.random` du tout — départage déterministe.
+- Les `~8 autres fichiers` déjà divulgués au complément 1
+  (`workers_mechanisms.py`, `workers_advanced.py`, `workers_dynamics.py`,
+  `workers_behavioral.py`, `tech.py`, `domain/simulations/compare.py`,
+  `domain/theory/workers.py`, `domain/polity/*`) : toujours hors de portée
+  — non atteints par les 5 points d'entrée de ce lot (chemins d'appel
+  disjoints), confirmé par grep, classification inchangée.
+
+**Aucun nouveau site non divulgué trouvé** par cette passe — les seuls
+défauts réels étaient les 3 confirmés ci-dessus, déjà connus de la revue.
+
+**Tests ajoutés**, chacun avec preuve rouge/vert (bascule de fichier, pas
+supposition) :
+
+- `TestRunBandwagonSimulationFullReproducibility`
+  (`test_seeded_rng_isolation.py`) : `run_bandwagon_simulation(num_voters=20,
+  num_rounds=2, seed=7)` appelée deux fois de suite, sans thread ni mock —
+  juste une vérification de reproductibilité séquentielle. Rouge sur le code
+  pré-correctif (`rounds[1:]` diffère à chaque exécution) ; vert après.
+- `TestRunSimulationVoteReproducibility` (même fichier) : même idée pour le
+  champ `vote` de `run_simulation`, exclu par construction de l'ancienne
+  classe `TestRunSimulationIsolatedFromMidCallInterference` (qui ne compare
+  que `voter`/`utilities`). Rouge avant, vert après.
+- `TestBandwagon::test_same_seed_reproducible_end_to_end`
+  (`test_simulations_advanced.py`) : appelle le vrai endpoint HTTP `POST
+  /simulations/bandwagon` deux fois avec le même payload (`seed`,
+  `num_rounds=2`, `candidates` explicites — la forme exacte que
+  `BandwagonRequest` attend), et compare le corps de réponse entier. C'est
+  le seul des trois tests capable d'attraper le bug n°3 (le court-circuit de
+  la branche candidats) : appeler `run_bandwagon_simulation` directement
+  avec `candidates=None` (ce que font tous les autres tests de ce fichier)
+  ne peut jamais l'exercer, puisque le bug n'existe que quand l'appelant
+  pré-construit `candidates` comme le fait `_bandwagon_worker`. Rouge avant
+  (le corps de réponse différait à chaque appel), vert après.
+
+Les docstrings des deux classes existantes qui excluaient explicitement
+`apply_social_influence`/`simulate_vote` comme « lacune connue, hors
+périmètre » (`TestRunBandwagonSimulationIsolatedFromMidCallInterference`,
+`TestRunSimulationIsolatedFromMidCallInterference`) ont été mises à jour
+pour pointer vers les nouvelles classes ci-dessus plutôt que de rester
+figées sur une classification qui n'est plus vraie.
+
+`mypy api/` reste clean (92 fichiers) ; `ruff check fast_api_voter` aussi ;
+`python fast_api_voter/scripts/gen_engine_parity.py` régénéré →
+`engineParity.json` de nouveau byte-identique ; `cd voter-app && npx vitest
+run src/lib/playgroundVoting.parity.test.ts` reste vert (49/49). Suite
+complète (`python -m pytest api/tests`, hors benchmarks) : **2137 passed, 41
+skipped, 0 failed** (2134 + les 3 nouveaux tests, aucune régression
+ailleurs).
+
+**Troisième passe (2026-09-12) — `_bandwagon_worker` reconstruisait deux
+paires RNG indépendantes à partir du même seed, plus 2 sites `workers.py`
+non migrés, trouvés par une 7ᵉ revue `/code-review ultra` convergente.**
+Cette passe suit deux `/code-review ultra` complètes déjà appliquées à ce
+correctif (celle documentée juste au-dessus, et une précédente) — 7 agents
+de revue indépendants ont convergé sur un même défaut réel, plus deux écarts
+plus étroits confirmés par plusieurs agents.
+
+1. **MUST FIX, réel.** `_bandwagon_worker` (`api/domain/simulations/
+   advanced.py`) construisait `rng, np_rng = _seeded_rng_pair(seed_int)` et
+   ne s'en servait QUE pour seeder `_build_population(...)` (candidats),
+   puis appelait `run_bandwagon_simulation(candidates=candidates,
+   seed=seed_int, ...)` — en passant l'entier `seed_int`, pas les instances
+   RNG. `run_bandwagon_simulation` (`simulation_voting_utils.py`)
+   construisait alors sa PROPRE paire, `_seeded_rng_pair(seed)`, à partir de
+   ce même entier, pour les électeurs et `apply_social_influence`.
+   `random.Random(N)` instancié deux fois produit une séquence de tirages
+   strictement identique (vérifié directement :
+   `random.Random(13)` construit deux fois donne les 3 mêmes premiers
+   `.random()`) — donc le flux de tirage des candidats et celui des
+   électeurs, sur l'endpoint live `/simulations/bandwagon`, n'étaient PAS
+   indépendants : deux clones du même flux, redémarré depuis la position
+   zéro. Ça ne casse pas « même seed → même résultat » (les tests de
+   reproductibilité existants restaient tous verts — exactement pourquoi 2
+   passes `/code-review ultra` et la suite de tests existante ne l'avaient
+   pas attrapé), mais biaise silencieusement tout ce qui suppose l'aléa
+   candidats/électeurs indépendant (ex. une analyse de sensibilité par
+   balayage de seeds).
+
+   **Corrigé** en donnant à `run_bandwagon_simulation` la même forme que
+   `_build_population` (`api/domain/simulations/helpers.py`) a déjà :
+   paramètres optionnels `rng`/`np_rng`, utilisés s'ils sont fournis, sinon
+   dérivés de `seed` comme avant (`if rng is None or np_rng is None:
+   rng, np_rng = _seeded_rng_pair(seed)` — inchangé pour tout appelant qui
+   ne fournit que `seed=`, y compris tous les tests existants et le branch
+   `candidates is None` de `run_bandwagon_simulation` lui-même).
+   `_bandwagon_worker` construit désormais UNE SEULE paire `rng`/`np_rng`
+   depuis `seed_int` et la passe à `_build_population(...)` (candidats) ET à
+   `run_bandwagon_simulation(..., rng=rng, np_rng=np_rng)` (électeurs) — un
+   seul flux continu au lieu de deux clones indépendants.
+
+   **Test ajouté**, preuve rouge/vert directe sur la cause racine plutôt
+   qu'une propriété statistique indirecte (jugée trop fragile à démontrer
+   proprement) : `TestBandwagon::
+   test_candidate_and_voter_streams_share_one_rng_pair`
+   (`test_simulations_advanced.py`) espionne `_seeded_rng_pair` — importé
+   séparément dans `api.domain.simulations.advanced` et
+   `api.engine.utils.simulation_voting_utils`, donc les deux bindings sont
+   patchés — et vérifie qu'il n'est appelé qu'UNE fois par requête HTTP
+   `POST /simulations/bandwagon` avec un `seed` fourni. Rouge sur le code
+   pré-correctif (2 appels — un dans `_bandwagon_worker`, un dans
+   `run_bandwagon_simulation`) ; vert après (1 appel). Confirmé en vrai par
+   bascule de fichier (`git stash` scopé aux deux fichiers sources, pas une
+   simple relecture du diff), pas supposé.
+
+2. **SHOULD FIX, réel — le compte « 5 sites dupliqués » / « passe de
+   fermeture exhaustive » ci-dessus était inexact.** `api/domain/election/
+   workers.py` avait DEUX sites de plus (`_run_district_fptp`, live via
+   `POST /districts` ; `_primary_worker`, live via `POST /primary`) qui
+   inlinaient encore verbatim `rng = random.Random(seed); np_rng =
+   np.random.RandomState(seed)` au lieu d'utiliser `_seeded_rng_pair()`.
+   Fonctionnellement identique à l'existant (déjà correctement enfilé dans
+   `create_voter`/`create_candidate` sur ces deux sites — donc PAS un bug de
+   reproductibilité, juste une duplication non fermée), mais ça contredit
+   le compte « 5 sites » et la « passe de fermeture exhaustive n'a rien
+   trouvé d'autre » écrits plus haut : le vrai total est **7 sites**, deux
+   d'entre eux manqués par la passe de grep de la revue précédente. Corrigé
+   en remplaçant les deux constructions inline par `_seeded_rng_pair(seed)`
+   (import ajouté depuis `demographic_data.py`) ; `import random as _random`
+   devenu inutilisé dans `workers.py` a été retiré. `_run_district_fptp`
+   appelle `np_rng.normal(...)` directement (pas seulement via
+   `create_voter`/`create_candidate`, qui acceptent déjà `Optional[...]`) —
+   ça a fait apparaître une vraie erreur mypy (`np_rng` redevient
+   `Optional[RandomState]` du point de vue du type de retour général de
+   `_seeded_rng_pair`), réglée par un `assert rng is not None and np_rng is
+   not None` juste après l'appel, commenté : le `seed: int` de cette
+   fonction est obligatoire (pas `Optional`), donc la paire retournée n'est
+   jamais `(None, None)` en pratique — le narrowing mypy est donc correct,
+   pas un contournement. `mypy api/` et `ruff check fast_api_voter` restent
+   clean après ; les tests existants des deux endpoints live (`/districts`,
+   `/primary`) restent verts sans modification.
+
+3. **Hygiène de tests, vérifiée plutôt que supposée.**
+   `test_seeded_rng_isolation.py::_perturb_global_rng()` reseed
+   `random`/`np.random` et brûle des tirages, sans sauvegarder/restaurer
+   l'état antérieur. Les 7 agents de revue étaient partagés sur la gravité.
+   Vérifié directement : `requirements-dev.txt` installe
+   `pytest-randomly==5.0.0` (déjà en jeu au Lot 5, tableau ci-dessus) dont
+   les hooks `pytest_runtest_setup`/`pytest_runtest_call`
+   (`pytest_randomly/__init__.py`) reseedent *inconditionnellement*
+   `random.seed(...)` et `np.random.seed(...)` avant CHAQUE test, sans
+   option de désactivation configurée dans ce repo (pas de
+   `--randomly-dont-reset-seed` dans `addopts`, pas de `-p no:randomly`) —
+   confirmé en lisant `pyproject.toml`. Donc quoi que `_perturb_global_rng`
+   laisse dans les singletons globaux est de toute façon écrasé avant que
+   le test suivant ne démarre : l'absence de restauration est réellement
+   inerte, pas juste probablement inoffensive. Laissé tel quel, avec un
+   commentaire d'une dizaine de lignes ajouté à la fonction expliquant
+   pourquoi, pour qu'un futur lecteur n'ait pas à re-dériver cette
+   vérification.
+
+**Divulgué, explicitement PAS corrigé dans cette PR** — deux écarts réels
+mais plus étroits/pré-existants, plus un point architectural, trouvés par
+la même revue :
+
+- `simulate_campaign()`, `apply_information_asymmetry()`,
+  `simulate_blank_contagion()` (respectivement `campaign_dynamics.py`,
+  `information_model.py`, `blank_contagion.py`) construisent chacun leur
+  propre paire `random.Random(seed)`/`np.random.RandomState(seed)` à partir
+  du MÊME `seed` déjà utilisé pour l'électorat. Le point de vérification
+  précédent (ci-dessus, « `simulate_campaign()`, … : vérifiés ») s'arrêtait
+  à « pas de reseed du singleton partagé » et classait ça hors de la
+  famille de bug — correct pour cette famille précise, mais incomplet : ces
+  trois modules reproduisent la MÊME forme que le bug bandwagon corrigé au
+  point 1 ci-dessus (plusieurs instances RNG indépendantes construites à
+  partir de la valeur de seed identique), donc activer plusieurs de ces
+  fonctionnalités optionnelles ensemble (ex. campagne + asymétrie
+  d'information) corrèle leur aléa. Réel, mais **pré-existant** (pas
+  introduit par cette branche) et une propriété de conception des trois
+  modules, pas une régression de ce correctif — réenfiler les trois serait
+  un chantier séparé, plus large, hors du périmètre de ce fix.
+- `create_voter()`'s `likelihood_to_vote` : `sample_likelihood_to_vote`
+  re-tire `income` une seconde fois en interne au lieu de réutiliser le
+  champ `income` déjà tiré du voter — un bug de cohérence de données
+  pré-existant (le `income` stocké d'un électeur peut contredire le boost
+  basé sur le revenu déjà intégré dans son `likelihood_to_vote`), sans
+  rapport avec la famille de bug RNG-singleton, simplement remarqué en
+  relisant ce fichier pendant cette passe.
+- Point architectural récurrent (plusieurs agents de revue, sur plusieurs
+  passes maintenant) : un RNG ambiant basé sur un `contextvar`, lié une
+  fois par requête et lu implicitement par chaque helper, fermerait toute
+  cette famille de bug structurellement au lieu du threading manuel
+  paramètre-par-paramètre qui, sur 3 passes de revue successives, a
+  toujours fini par manquer un site. Noté comme recommandation légitime
+  pour un futur refactor, explicitement PAS entrepris dans cette PR compte
+  tenu du rapport effort/risque à ce stade d'une chaîne de correctifs déjà
+  longue.
+
+Vérification finale de cette troisième passe : `mypy api/` clean (92
+fichiers) ; `ruff check fast_api_voter` clean ; `./scripts/
+check_engine_parity_drift.sh` byte-identique ; `cd voter-app && npx vitest
+run src/lib/playgroundVoting.parity.test.ts` vert (49/49) ; suite complète
+(`python -m pytest api/tests`, hors benchmarks) comparée à la baseline
+2137/41 skip de la passe précédente — voir le résultat exact rapporté avec
+ce correctif. Cette troisième passe est censée être la **dernière** sur
+cette famille de défaut précise (reseed/duplication du RNG partagé) ; tout
+nouveau défaut sans rapport trouvé en cours de route serait signalé comme
+une découverte séparée, pas absorbé silencieusement dans ce périmètre.
 
 ---
 
 ## Lot 6 — Ce que l'analyse statique ne voit pas
 
-| Item | Pourquoi ici | Effort | Solidité | Récit |
-|---|---|---|---|---|
-| **Couverture *runtime*** (Istanbul sur e2e + `coverage.py`) | Trouve le code jamais exécuté **même en usage réel** — angle mort total de vulture/knip qui sont statiques. Après avoir supprimé 16 500 lignes mortes, la question « qu'est-ce qui reste inatteignable ? » est légitime. | M | ⭐⭐⭐ | 📝📝📝 |
-| **`basedpyright`/pyright** | Moteur d'inférence différent de mypy → attrape d'autres choses. Combien, sur un code déjà mypy-strict-clean ? Bonne question d'expérience. | S | ⭐⭐ | 📝📝📝 |
-| **`refurb`** + **`perflint`** | Modernisation Python et anti-patterns de perf — pertinent sur un moteur CPU-bound. | S | ⭐ | 📝📝 |
-| **`type-coverage`** (TS) | % de code réellement typé (les `any` implicites que `tsc` laisse passer). | S | ⭐⭐ | 📝📝 |
-| **`eslint-plugin-sonarjs`** | Complexité cognitive (≠ cyclomatique, déjà mesurée par radon) + bugs courants. | S | ⭐⭐ | 📝 |
-| **`pip-licenses` / `license-checker`** | Conformité de licences sur un repo public MIT. | S | ⭐ | 📝 |
+| Item | Pourquoi ici | Effort | Solidité | Récit | Statut |
+|---|---|---|---|---|---|
+| **Couverture *runtime*** (Istanbul sur e2e + `coverage.py`) | Trouve le code jamais exécuté **même en usage réel** — angle mort total de vulture/knip qui sont statiques. Après avoir supprimé 16 500 lignes mortes, la question « qu'est-ce qui reste inatteignable ? » est légitime. | M | ⭐⭐⭐ | 📝📝📝 | ✅ backend 34,4 %, frontend 63,15 % en usage réel (voir §6.5) |
+| **`basedpyright`/pyright** | Moteur d'inférence différent de mypy → attrape d'autres choses. Combien, sur un code déjà mypy-strict-clean ? Bonne question d'expérience. | S | ⭐⭐ | 📝📝📝 | ✅ 2 vrais bugs trouvés et corrigés (voir §6.2) |
+| **`refurb`** + **`perflint`** | Modernisation Python et anti-patterns de perf — pertinent sur un moteur CPU-bound. | S | ⭐ | 📝📝 | ✅ 145 + 85 findings, informationnel (voir §6.3) |
+| **`type-coverage`** (TS) | % de code réellement typé (les `any` implicites que `tsc` laisse passer). | S | ⭐⭐ | 📝📝 | ✅ 99,58 % (voir §6.4) |
+| **`eslint-plugin-sonarjs`** | Complexité cognitive (≠ cyclomatique, déjà mesurée par radon) + bugs courants. | S | ⭐⭐ | 📝 | ✅ 2 bugs d'affichage corrigés, 304 findings informationnels (voir §6.6) |
+| **`pip-licenses` / `license-checker`** | Conformité de licences sur un repo public MIT. | S | ⭐ | 📝 | ✅ 0 violation, promu en **gate bloquant** (voir §6.7) |
 
 ### 6.1 — Audit de pertinence des commentaires · `L` · ⭐⭐ 📝📝📝
 
@@ -383,75 +1193,1586 @@ nettement plus ancienne que celle des lignes de code qu'il surplombe ;
 (b) passe LLM par lot sur des blocs `(commentaire, code)`. Le contraste entre
 les deux est lui-même un bon contenu.
 
+✅ **Fait.** Phase 1 (heuristique `git blame`, [EXP-001](docs/exploration/
+EXP-001-audit-commentaires-heuristique-git-blame.md)) avait présélectionné
+**329 candidats** sur ~5 200 blocs scrutés. Phase 2 (passe sémantique) : 6
+agents en parallèle, un par tranche de ~55 candidats, chacun lisant le
+commentaire **et** le code environnant (pas seulement les dates) pour
+trancher entre les quatre catégories du plan — aucune classification prise
+pour argent comptant sans vérification du contenu réel (grep de la fonction
+citée, comptage manuel d'un décompte annoncé, relecture de la formule
+décrite), dans la continuité de la méthode du Lot 4.
+
+**Résultat, sur les 329 candidats** :
+
+| Catégorie | Nombre | Traitement |
+|---|---|---|
+| **Périmé** (factuellement faux) | 15 | Corrigé |
+| **Redondant** (paraphrase pure) | 59 | Supprimé |
+| **Archéologique** (récit de session) | 0 | — |
+| **Pourquoi** (contrainte/rationale) | 45 | Gardé tel quel |
+| **Toujours-valide** (vrai négatif) | 210 | Aucune action |
+
+**La mesure demandée par le plan** : sur les candidats déjà présélectionnés
+comme suspects par l'heuristique temporelle, **4,6 % (15/329) étaient
+effectivement faux** — le reste du signal temporel de phase 1 était du bruit
+(code qui bouge sans rapport, cf. le 0/5 de phase 1). Rapporté à l'ensemble
+des ~5 200 blocs de commentaires du dépôt, ça descend sous 0,3 % de
+commentaires confirmés menteurs — la très large majorité des commentaires de
+ce dépôt décrit fidèlement le code qu'elle surplombe. Le vrai motif commun
+aux 15 Périmé n'est pas l'usure ordinaire mais la **migration non
+nettoyée** : 5 commentaires évoquaient encore Flask (retiré depuis, cf.
+CLAUDE.md) ou Jest (jamais utilisé ici, le projet tourne sous Vitest) comme
+s'ils étaient encore d'actualité — un mode de péremption bien plus
+systématique qu'un simple oubli isolé. Les autres étaient des erreurs
+factuelles ponctuelles (une formule mal décrite, un décompte de "fiches"
+resté à 57 alors que le fichier en contient 62, une référence à un composant
+supprimé). **0 Archéologique** : ce dépôt n'a jamais laissé de récit de
+session dans son code source — cohérent avec la discipline déjà en place
+(carnet d'expérience séparé depuis le Lot 0.2).
+
+74 commentaires corrigés/supprimés au total, sur 44 fichiers (11 backend,
+33 frontend). `ruff`/`mypy`/pytest (1975 tests) et `tsc`/`vitest` (1697
+tests)/`eslint` restent verts après coup — seuls des commentaires ont
+changé, jamais le code qu'ils décrivaient. Détail complet (fichier, ligne,
+avant/après) dans l'historique de la PR ; [`docs/comment-audit/README.md`](
+docs/comment-audit/README.md) porte le verdict de synthèse des deux phases.
+
+### 6.2 — `basedpyright` comme second avis ⭐⭐ 📝📝📝 · `S`
+
+✅ **Fait.** Scope aligné sur celui de `mypy` (`api/` hors `api/tests/`,
+config dans `[tool.basedpyright]` de `pyproject.toml`, mode `standard` —
+le mode `strict`/`all` de basedpyright est nettement plus agressif que
+`mypy --strict` sur la propagation des types `Unknown`, ce qui aurait noyé
+le signal sous ~15 000 avertissements rien que sur les stubs manquants de
+`z3` dans les tests). Résultat brut : **50 erreurs**, qui se répartissent
+en 3 groupes très inégaux — 2 vrais bugs (corrigés, cf. ci-dessous, ce qui
+ramène le compte définitif à **34**), 32 faux positifs pydantic et 2 faux
+positifs isolés :
+
+- **2 vrais bugs, trouvés et corrigés** — invisibles à `mypy --strict` par
+  construction : `reportPossiblyUnboundVariable` n'a pas d'équivalent
+  activé par défaut dans le bundle `--strict` de mypy (il faudrait
+  `--enable-error-code possibly-undefined` explicitement, absent de
+  `mypy.ini`).
+  - `api/domain/simulations/base.py` (`_simulate_votes_worker`, endpoint
+    legacy `POST /api/v2/simulations`) : `simulationType` est testé par
+    sous-chaîne (`"votes" in simulation_type`, etc.), pas par enum. Un
+    premier `if/elif/elif` mutuellement exclusif calcule les données, mais
+    un second groupe de `if` indépendants (pas `elif`) retestait les mêmes
+    sous-chaînes pour assembler la réponse — une valeur contenant plusieurs
+    mots-clés à la fois (`"ranked_scores"`, `"votes_scores"`, …) entrait
+    dans une deuxième branche dont les variables n'avaient jamais été
+    assignées. **Confirmé en direct** : une requête HTTP réelle avec
+    `simulationType: "ranked_scores"` plantait avec
+    `UnboundLocalError: cannot access local variable 'voters_n'`, 500 non
+    géré. Corrigé en assemblant chaque bloc de réponse directement dans la
+    branche qui calcule ses données (plus de second test indépendant
+    possible) ; test de non-régression paramétré ajouté
+    (`test_multi_keyword_simulation_type_does_not_crash`). Cet endpoint est
+    exactement celui que Schemathesis (Lot 3) ne peut pas fuzzer utilement
+    — `KNOWN_FAILURES` le liste `[loose-req]`, schéma volontairement peu
+    typé — donc un angle mort réel du filet Lot 3, comblé ici par un outil
+    différent.
+  - `api/domain/polity/run_polity_simulation.py` : une liste `nominees = []`
+    sans annotation, remplie sous garde `if nominee is None: continue`
+    puis relue plus loin avec accès `.citizen_id`/`.pledged_platform`/etc. —
+    basedpyright infère `list[Citizen | None]` faute d'annotation explicite
+    et signale un accès possible sur `None`. Corrigé par une annotation
+    `nominees: list[Citizen] = []` documentant l'invariant déjà garanti par
+    la garde.
+- **32 faux positifs pydantic, tous de la même origine** : `mypy.ini`
+  déclare `plugins = pydantic.mypy`, qui comprend `Field(default, ge=, le=)`
+  et `Field(default_factory=SomeModel)` comme fournissant un défaut réel.
+  basedpyright n'a pas d'équivalent — son support natif de
+  `@dataclass_transform` (PEP 681) ne résout pas systématiquement les
+  surcharges de `Field()` combinant un défaut positionnel et des
+  contraintes de validation (`ge=`/`le=`/`min_length=`/…). Résultat :
+  18× `reportArgumentType` sur `Field(default_factory=SomeConfigClass)`
+  (idiome pydantic standard pour une config imbriquée entièrement
+  optionnelle) et 14× `reportCallIssue` sur des paramètres qui ont
+  pourtant un défaut (`BacksliddingCandidate(name=..., x=...)` sans `y`
+  signalé comme argument manquant alors que
+  `y: float = Field(0.0, ge=-1.0, le=1.0)`). Vérifié à la main sur
+  plusieurs cas : aucun n'est un vrai défaut de valeur manquant, tous
+  fonctionnent correctement à l'exécution.
+- **2 faux positifs isolés, même famille de cause** (le vérificateur ne
+  peut pas prouver une invariante garantie par du code qu'il a bien vu,
+  mais dont il ne fait pas la synthèse jusqu'au point d'usage) :
+  - `active` possiblement non lié dans `workers_mechanisms.py`
+    (`_abstention_worker`) — `num_rounds` y est borné en dur
+    (`max(1, min(5, ...))`) avant la boucle qui l'utilise, donc toujours
+    ≥ 1 en pratique ; basedpyright ne peut pas prouver cette invariante
+    arithmétique locale.
+  - `theory/workers.py`'s `_irv` helper : `remaining.remove(last)` où
+    `last` vient de `Counter[str | None].most_common()[-1][0]` — le
+    `None` a pourtant déjà été retiré juste avant par
+    `tally.pop(None, None)`, mais basedpyright ne réduit pas le type
+    `Counter[str | None]` après un `.pop()` sur une clé précise (aucun
+    vérificateur de type Python courant ne le fait — ce n'est pas
+    spécifique à basedpyright).
+  Les deux laissés tels quels (pas de `# pyright: ignore` ajouté pour des
+  cas isolés et bien compris individuellement).
+
+Outil informationnel (comme vulture/radon/deptry), pas un nouveau gate
+bloquant — `./scripts/audit.sh --quality` le lance et publie le compte
+dans son rapport. Les 34 faux positifs restants (32 pydantic + 2 isolés)
+sont un baseline connu, documenté ici plutôt que supprimé ligne par ligne.
+
+### 6.3 — `refurb` + `perflint` ⭐ 📝📝 · `S`
+
+✅ **Fait, informationnel uniquement** — l'item le moins prioritaire du lot
+(⭐ solitaire), traité à la hauteur de son propre budget : câblé, mesuré,
+documenté, **pas** corrigé ligne par ligne (145 + 85 findings, une
+campagne de correction aurait dépassé de très loin l'effort `S` annoncé).
+
+- **`refurb`** (`[tool.refurb]`, `pyproject.toml`) : **145 findings**, dont
+  77 (plus de la moitié) une seule et même suggestion `FURB123` —
+  `dict(x)`/`list(x)` → `x.copy()`. Un vrai gain, même minuscule, sur un
+  moteur CPU-bound (`.copy()` évite le dispatch générique du constructeur
+  `dict`/`list`) mais purement mécanique et réparti sur ~30 fichiers —
+  laissé en baseline à corriger incrémentalement plutôt qu'en un seul
+  diff géant. Le reste (14× `lambda x: x[k]` → `operator.itemgetter(k)`,
+  quelques `in [x, y, z]` → `in (x, y, z)`, …) est du même ordre :
+  correct, sans risque, mais zéro urgence.
+- **`perflint`** (plugin pylint, `[tool.pylint.main]`/`["messages
+  control"]`) : la règle par défaut la plus bruyante,
+  `loop-invariant-statement`, désactivée après l'avoir laissée tourner une
+  fois — **1 593 occurrences à elle seule** sur les boucles denses
+  par-électeur/par-candidat de ce moteur, très majoritairement des accès
+  d'attribut/indexation que pylint ne peut pas prouver invariants,
+  pas de vraies invariantes de boucle déplaçables. Avec ce seul filtre
+  retiré : **85 findings** exploitables (55 `use-tuple-over-list`, 12
+  `use-list-copy`, 9 `use-list-comprehension`, 9
+  `use-dict-comprehension`) ; zéro occurrence des règles les plus
+  concrètes (`unnecessary-list-cast`, `incorrect-dictionary-iterator`,
+  `memoryview-over-bytes`, `dotted-import-in-loop`,
+  `loop-global-usage`) — déjà propre sur ces axes-là.
+
+Les deux tournent via `./scripts/audit.sh --quality` (sections dédiées),
+comme vulture/radon/deptry — aucun gate ajouté.
+
+### 6.4 — `type-coverage` ⭐⭐ 📝📝 · `S`
+
+✅ **Fait, informationnel.** `npx type-coverage` nu plante sur ce dépôt
+(`Cannot read properties of undefined (reading 'Unknown')`) — le cache
+isolé de `npx` résout sa **propre** copie de `typescript`, incompatible
+avec le paquet lui-même ; installé comme vraie devDependency de
+`voter-app` (résout alors le `typescript@5.9.3` du projet), le problème
+disparaît. Piège suffisamment non-évident pour être noté explicitement
+dans `scripts/audit.sh` (commentaire inline) plutôt que redécouvert plus
+tard.
+
+**Résultat mesuré : 99,58 %** (146 940 / 147 548 positions typées), 608
+`any` implicites au total — 328 dans des fichiers de test (essentiellement
+des mocks Recharts/fetch typés `any` par choix, un idiome de test
+standard, pas une lacune), **280 dans du code source réel**, réparties sur
+28 fichiers. Aucun fichier généré (`src/api/types.gen.ts`) dans la liste —
+déjà 100 % typé. Câblé dans `./scripts/audit.sh --quality`, pas de gate
+bloquant ajouté (même traitement que le reste du Lot 6) ; l'outil expose
+nativement un mécanisme de cliquet (`--at-least`/`--update-if-higher`,
+qui écrirait un seuil dans `package.json`) qui rendrait une régression
+future bloquante à coût quasi nul — noté ici comme suite possible plutôt
+qu'ajouté maintenant, pour rester à la hauteur de l'effort `S` annoncé par
+cet item.
+
+### 6.5 — Couverture *runtime* : ce qui reste inatteignable en usage réel · `M` · ⭐⭐⭐ 📝📝📝
+
+✅ **Fait**, en script manuel (pas un gate CI — voir la justification dans
+le carnet). Backend : `coverage.py` autour d'un petit point d'entrée dédié
+(`fast_api_voter/scripts/run_e2e_coverage_server.py`) plutôt qu'autour
+d'`uvicorn` directement — nécessaire car `uvicorn` se re-signale lui-même
+en fin d'arrêt gracieux (idiome délibéré pour un code de sortie correct),
+ce qui contourne l'`atexit` dont dépend la sauvegarde de `coverage.py`, un
+piège qui aurait rendu tout le chantier silencieusement inopérant sans
+vérification directe (fichier `.coverage` absent malgré des logs d'arrêt
+parfaitement propres). Frontend : Istanbul (`vite-plugin-istanbul@9.0.1`),
+qui s'installe et fonctionne sans réserve sur **Vite 8.2.2** malgré
+l'avertissement du plan — l'écosystème a rattrapé Vite 8 depuis, et
+Istanbul a l'avantage de fonctionner sur les deux projets Playwright
+(chromium **et** firefox), contrairement à l'API V8 de Playwright
+(`page.coverage`, Chromium seulement) prévue comme repli.
+
+**La mesure** : sous la vraie suite e2e, le backend n'exécute que **34 %**
+de ses lignes (contre 91,56 % en unitaire) et le frontend **63 %** (contre
+87,05 %). Deux trouvailles concrètes, vérifiées à la main plutôt que
+prises pour argent comptant :
+
+- `api/domain/polity/*` (2 813 lignes, ~19 % du backend, ~99 % unitaire) :
+  **0 % e2e**, et pour cause — `api/main.py` n'enregistre aucune route
+  `polity` (`grep` direct, zéro résultat) et le frontend n'y fait aucune
+  référence. Un sous-système de recherche entier, entièrement testé,
+  structurellement hors du produit qu'un utilisateur réel touche.
+- `/simulation/compare` (retiré du routage vers `/playground` depuis
+  `voter-app/src/routes.ts`) a toujours une route backend vivante
+  (`POST /compare`, la couverture unitaire la **plus basse** du backend à
+  65 %, 7 % en e2e) et un hook frontend (`useDebouncedSimulation.ts`) à
+  100 % de fonctions couvertes par son propre test — et **invisible à
+  `knip`**, dont le graphe de reachabilité considère un import depuis un
+  fichier de test comme un usage valide. Ni la détection statique ni la
+  couverture unitaire, seules ou combinées, ne pouvaient signaler ce cas ;
+  il a fallu la question « une route le monte-t-elle réellement ? ».
+
+Détail complet (protocole, deux pièges de mécanisme trouvés et corrigés
+en vérifiant plutôt qu'en faisant confiance, chiffres par fichier, coût de
+l'instrumentation et pourquoi ça reste manuel) dans
+[EXP-003](docs/exploration/EXP-003-couverture-runtime-e2e.md).
+`scripts/e2e_coverage.sh` reste disponible pour une prochaine passe de
+nettoyage, à la demande.
+
+### 6.6 — `eslint-plugin-sonarjs` ⭐⭐ 📝 · `S`
+
+✅ **Fait, informationnel + 2 vrais bugs corrigés au passage.**
+`jsx-a11y`/`unused-imports` sont bloquants dans `eslint.config.js`
+aujourd'hui, mais seulement parce que leur backlog a été ramené à zéro
+avant de les activer (commentaires du fichier lui-même) — le même chemin
+n'est pas praticable ici à l'échelle de l'effort `S` annoncé : **307
+findings** sur la première passe (`voter-app/eslint.sonarjs.config.js`,
+config séparée de la config bloquante, lancée via `npm run lint:sonarjs` /
+`./scripts/audit.sh --quality`), dominés par des suggestions de charge
+cognitive plutôt que des bugs : `no-nested-conditional` (103),
+`parameterized-tests` (39, suggère `it.each` plutôt que des `it()`
+répétés), `cognitive-complexity` (38), `prefer-specific-assertions` (33,
+ex. `toHaveLength(n)` plutôt que `toBe(n)` sur un `.length`).
+
+Les 5 occurrences de `no-all-duplicated-branches` (un opérateur ternaire
+dont les deux branches renvoient la même valeur) vérifiées une par une
+plutôt que classées en bloc — **2 étaient de vrais bugs d'affichage,
+corrigés** :
+
+- `DeliberationPanel.tsx:295` — `regret_improvement >= 0 ? '' : ''`
+  n'affichait jamais de signe « + », alors que la ligne parallèle juste
+  au-dessus (`polarization_change >= 0 ? '+' : ''`) le fait pour la même
+  famille de badges. Corrigé (`'+' : ''`) ; le test existant
+  (`DeliberationPanel.test.tsx`) ne vérifie que la présence du badge, pas
+  son texte exact, donc rien à mettre à jour côté tests.
+- `AnimatedVoteCount.tsx:449` — `isEliminated ? '#dc3545' : isWinner ?
+  color : color` : la branche `isWinner` ne changeait jamais rien (les
+  deux issues valent `color`), en plus d'être imbriquée
+  (`no-nested-conditional` sur la même ligne). Simplifié en `isEliminated
+  ? '#dc3545' : color` — comportement de rendu strictement identique (le
+  vainqueur reste déjà signalé par le 🏆 et le libellé « (vainqueur) »
+  juste à côté), juste le code mort retiré.
+
+Les 3 autres `no-all-duplicated-branches` sont dans des fixtures de test
+(`PartyDynamicsPanel.test.tsx`, `PrimarySimulator.test.tsx`,
+`SortitionPanel.test.tsx`) — un champ de mock à valeur constante des deux
+côtés d'un ternaire vestige, sans effet sur ce que le test vérifie
+réellement. `no-identical-functions` (1) : un vrai doublon de fermeture
+`reaches` entre Ranked Pairs et River dans `playgroundVoting.ts` — réel,
+mais dédupliquer un helper dans ce fichier précis exige de re-passer la
+suite de parité moteur (`CLAUDE.md` — « the dual voting engine, keep it in
+sync ») pour un gain cosmétique ; laissé en baseline, hors budget `S`.
+`no-trivial-assertions` (1) : un `expect(true).toBe(true)` déjà commenté
+comme placeholder assumé (`IdeologyHeatmap.test.tsx`) — pas un oubli.
+
+**304 findings restants** après les deux corrections. Câblé dans
+`./scripts/audit.sh --quality`, pas de gate ajouté à `eslint.config.js` —
+même traitement informationnel que le reste du Lot 6.
+
+### 6.7 — `pip-licenses` / `license-checker` ⭐ 📝 · `S`
+
+✅ **Fait — le seul item du Lot 6 promu en gate CI bloquant**, pas
+informationnel : contrairement à refurb/perflint/sonarjs (des centaines de
+findings de style), la conformité de licence part d'une **baseline déjà à
+zéro** une fois correctement scopée aux dépendances de *production* — le
+même chemin que `jsx-a11y`/`unused-imports` (backlog nul avant activation),
+mais atteint directement plutôt qu'à corriger.
+
+**Le scope compte tout** : un premier passage sur l'environnement complet
+(prod + dev mélangés) trouvait 4 paquets GPL/LGPL (`pylint`, `refurb`,
+leur dépendance `astroid`, et `semgrep`) — tous des outils de dev ajoutés
+pendant ce Lot 6 ou déjà présents, jamais distribués avec l'application.
+Confirmé en isolant un venv propre avec `pip install -r requirements.txt`
+seul (39 paquets, aucune dépendance de dev) : **zéro** licence GPL/AGPL/
+LGPL, uniquement MIT/BSD/Apache/MPL-2.0/PSF-2.0. Côté frontend, `license-
+checker-rseidelsohn` (fork maintenu — l'original `license-checker` est
+abandonné) avec `--production` (exclut les devDependencies nativement,
+contrairement à Python qui n'a pas cette distinction) : 283 paquets, même
+verdict, aucune licence restrictive. Deux faux signaux vérifiés à la main
+avant d'être écartés : `pip-licenses` classait `face`/`peewee` (dépendances
+transitives de `semgrep`) en « UNKNOWN » — lu directement le fichier
+`LICENSE` installé de chacun (BSD et MIT respectivement) plutôt que de
+laisser planer le doute ; `license-checker-rseidelsohn` classait
+`voter-app` lui-même en « UNLICENSED » alors que son `package.json` déclare
+`"license": "MIT"` — un artefact du scan sur le paquet racine, exclu
+explicitement (`--excludePackages`).
+
+**Le gate** (`fast_api_voter/scripts/check_license_compliance.sh`,
+backend ; une invocation `license-checker-rseidelsohn --production
+--onlyAllow` en CI, frontend) tourne dans un venv **isolé**, pas le venv
+combiné prod+dev partagé par le reste de la CI — sinon les 4 paquets GPL/
+LGPL des outils de dev feraient échouer le gate à chaque run, ou pire,
+forceraient à les allow-lister explicitement et à perdre tout le sens du
+contrôle. Câblé en étape bloquante dans `backend-ci-cd-pipeline.yml` et
+`frontend-ci-cd-pipeline.yml`, et dans `scripts/audit.sh` (section
+gating, pas informationnelle comme le reste du Lot 6). Vérifié à la main
+avec un test négatif (`--allow-only="MIT"` seul) avant de faire confiance
+au code de sortie : `slowapi` (MIT License, orthographe différente de
+`MIT`) fait bien échouer le gate — confirmant qu'il a des dents et pas
+seulement une liste blanche assez large pour ne jamais mordre.
+
 ---
 
 ## Lot 7 — Surfaces perçues par l'utilisateur
 
-| Item | Pourquoi ici | Effort | Solidité | Récit |
-|---|---|---|---|---|
-| **a11y sur *toutes* les routes** | `routes.ts` est déjà « data » — boucler dessus et échouer si une surface n'est pas auditée, même mécanique que l'anti-rot e2e existant. | M | ⭐⭐⭐ | 📝📝 |
-| **Régression visuelle** (Playwright screenshots / Lost Pixel) | L'app est quasi entièrement visuelle (SVG, cartes, Recharts) et **rien** ne détecte qu'une carte s'affiche de travers. | M | ⭐⭐⭐ | 📝📝📝 |
-| **Viewport mobile en e2e** | App pédagogique → usage mobile probable, zéro test mobile aujourd'hui. | M | ⭐⭐ | 📝📝 |
-| **`i18next-parser`** + `eslint-plugin-i18next` | Clés orphelines/manquantes et chaînes en dur (5 encore trouvées à la main le 06/09). | M | ⭐⭐ | 📝📝 |
-| **Pseudo-locale à chaînes longues** | Casse les layouts avant que l'anglais ou une future langue ne le fasse. | S | ⭐⭐ | 📝📝📝 |
-| **Webkit en e2e** | Seuls chromium et firefox tournent aujourd'hui. | S | ⭐⭐ | 📝 |
+| Item | Pourquoi ici | Effort | Solidité | Récit | Statut |
+|---|---|---|---|---|---|
+| **a11y sur *toutes* les routes** | `routes.ts` est déjà « data » — boucler dessus et échouer si une surface n'est pas auditée, même mécanique que l'anti-rot e2e existant. | M | ⭐⭐⭐ | 📝📝 | ✅ déjà fait (voir sous le tableau) |
+| **Régression visuelle** (Playwright screenshots / Lost Pixel) | L'app est quasi entièrement visuelle (SVG, cartes, Recharts) et **rien** ne détecte qu'une carte s'affiche de travers. | M | ⭐⭐⭐ | 📝📝📝 | ✅ Playwright natif (Docker épinglé), gate CI (voir sous le tableau) |
+| **Viewport mobile en e2e** | App pédagogique → usage mobile probable, zéro test mobile aujourd'hui. | M | ⭐⭐ | 📝📝 | ✅ `tests/e2e/mobile.spec.ts` + projet `mobile` (voir sous le tableau) |
+| **`i18next-parser`** + `eslint-plugin-i18next` | Clés orphelines/manquantes et chaînes en dur (5 encore trouvées à la main le 06/09). | M | ⭐⭐ | 📝📝 | ✅ `i18next-cli lint` (voir sous le tableau) |
+| **Pseudo-locale à chaînes longues** | Casse les layouts avant que l'anglais ou une future langue ne le fasse. | S | ⭐⭐ | 📝📝📝 | ✅ `pseudo.ts` + `tests/e2e/pseudo-locale.spec.ts` (voir sous le tableau) |
+| **Webkit en e2e** | Seuls chromium et firefox tournent aujourd'hui. | S | ⭐⭐ | 📝 | ✅ projet `webkit` ajouté, CI câblée — voir détail sous le tableau |
+
+**a11y sur toutes les routes, détail.** Vérifié avant de commencer à
+construire quoi que ce soit (même discipline que le Lot 4.5) : le mécanisme
+décrit par cet item — boucler sur `routes.ts`, échouer si une surface n'a
+pas d'ancre — **existe déjà**, écrit le 2026-08-22
+(`test(e2e): make the route table the single source of truth`, avant même
+ce plan) et étendu le 2026-09-06. `tests/e2e/accessibility.spec.ts` audite
+avec `axe-core` (WCAG 2.1 AA) chacune des 5 `SURFACES` de `src/routes.ts`
+individuellement, plus `assertEverySurfaceAnchored()` qui fait échouer la
+suite si une route est ajoutée sans ancre `data-testid`, plus le mode sombre
+du playground et l'opérabilité clavier (rail des moments, candidats/partis
+déplaçables aux flèches). Rejoué en direct : **10/10 tests passent**
+(`npx playwright test tests/e2e/accessibility.spec.ts`, ~15s). Rien à
+construire — l'écart entre l'intitulé de cet item et l'état réel du code
+n'avait simplement jamais été vérifié.
+
+**Régression visuelle, détail.** Deux candidats évalués : le mécanisme natif
+de Playwright (`toHaveScreenshot`) contre Lost Pixel. Ce dernier écarté sans
+essai — vérification de maintenance faite *avant* d'installer quoi que ce
+soit (même réflexe que le fork `license-checker-rseidelsohn` au Lot 6.7) :
+Lost Pixel a annoncé le 22/04/2026 que l'équipe rejoignait Figma et
+arrêtait le produit, dépôt archivé le jour même. Le vrai travail n'était pas
+le choix de l'outil mais la stabilité : nouveau `playwright.visual.config.ts`
+(séparé de la config e2e existante), baselines générées et comparées
+**uniquement** dans l'image Docker officielle Playwright épinglée à la
+version exacte de `@playwright/test` (`mcr.microsoft.com/playwright:v1.62.1-
+noble`) — la seule façon trouvée de ne pas dépendre du hasard de ce que
+`ubuntu-latest` rend un jour donné. Quatre pièges réels trouvés et corrigés
+en le faisant échouer en vrai, pas en le supposant robuste : un flash de
+légende intermittent au montage (`FlipReveal.tsx`, ~1 échec/3 runs, tracé à
+un race dépendant de React Strict Mode) : réglé par une attente de son cycle
+de vie fixe plutôt qu'un polling optimiste ; un timeout du serveur de dev
+sans rapport avec le rendu (compilation à la demande d'un chunk lazy) : réglé
+en testant contre le vrai build de prod ; `ParliamentCanvas` qui, sans
+backend, n'affiche pas un hémicycle légèrement décalé mais son propre état
+d'erreur permanent (« hémicycle indisponible ») — aurait verrouillé un bug
+structurel incapable d'échouer un jour ; et surtout une tolérance
+`maxDiffPixelRatio: 0.01` choisie « par prudence » qui, vérifiée contre une
+régression injectée (couleur d'un marqueur changée en dur), s'est révélée
+laisser passer exactement ce genre de régression (0,07 % des pixels d'une
+carte) — supprimée, la même injection échoue alors proprement. Stabilité
+mesurée, pas supposée : 8/8 runs natifs et 6/6 runs Docker consécutifs à
+zéro échec sous la config finale. Câblé en job CI séparé
+(`visual-regression` dans `e2e.yml`, backend + frontend, aucun besoin de la
+suite e2e fonctionnelle) — réserve honnête : le mécanisme `container:`
+GitHub Actions n'a pas pu être observé sur un vrai run (pas de droit de push
+dans ce worktree), donc recommandé de ne l'ajouter aux *required status
+checks* qu'après son premier run réel. Deux pièges supplémentaires trouvés
+en rebasant sur `develop` juste avant le merge (donc après la rédaction
+initiale de cette fiche, pas hypothétiques) : le `testIgnore` de
+`playwright.visual.config.ts` posé au niveau racine de
+`playwright.config.ts` ne s'appliquait en réalité jamais — chaque projet
+(`chromium`/`firefox`) déclare son propre `testIgnore` (pour
+`mobile.spec.ts`, ajouté par un autre item de ce même Lot 7 mergé entre-
+temps) qui **remplace** celui de la racine au lieu de s'y ajouter ; confirmé
+en rejouant `npx playwright test` après rebase (241 tests au lieu de 227,
+`visual.spec.ts` exécuté hors Docker). Et `scripts/test-visual-docker.sh`
+laissait des fichiers appartenant à `root` dans le dépôt (conteneur lancé
+sans `--user`), cassant silencieusement la commande suivante lancée en tant
+qu'utilisateur normal. Les deux corrigés, suite par défaut revérifiée à 227
+tests et suite Docker à 7/7. Carnet complet (les six pièges, le détail de la
+vérification du détecteur) :
+[`docs/exploration/EXP-004-regression-visuelle-playwright-screenshots.md`](docs/exploration/EXP-004-regression-visuelle-playwright-screenshots.md).
+
+**`i18next-parser` + `eslint-plugin-i18next`, détail.** `i18next-parser`
+est officiellement déprécié (avertissement npm à l'installation : « use
+i18next-cli instead ») — jamais adopté, même règle que
+`license-checker` → `license-checker-rseidelsohn`. Bascule vers
+`i18next-cli`, ce qui a demandé trois correctifs successifs avant d'avoir
+un outil qui tourne réellement en CI :
+1. Les versions récentes exigent Node ≥22 (`execa` récent dépend de
+   `Set.prototype.union`, ES2024) — or `frontend-ci-cd-pipeline.yml` épingle
+   Node 20, comme le poste local. Épinglé sur `i18next-cli@1.0.0` (la
+   première version, sans `execa` en dépendance directe).
+2. `npm audit` a quand même signalé `glob@11.0.0-11.0.3` (injection de
+   commande, GHSA-5j98-mcp5-4vw2) dans les dépendances transitives de cette
+   version. `npm audit fix` naïf réintroduisait le blocage Node 22 (bump
+   d'`execa`) — corrigé en ciblant `glob` seul via `overrides` (même motif
+   déjà en place pour `typescript`/`ws`/`js-yaml`/…), vérifié 0
+   vulnérabilité **et** CLI toujours fonctionnel sur Node 20.
+3. Le pattern d'exclusion `'!src/**/*.test.{ts,tsx}'` était silencieusement
+   ignoré (le `glob()` interne à `i18next-cli` ne route pas les entrées
+   `!`-préfixées comme des exclusions depuis glob v9+) — remplacé par un
+   extglob POSIX dans un seul motif (`!(*.test|*.d)`), vérifié directement
+   via un script Node ad-hoc avant de faire confiance à la config.
+
+`i18next.config.ts` (nouveau, racine `voter-app/`) configure `lint` — la
+détection de chaînes en dur, pas l'extraction/écriture de fichiers de
+ressources (voir ci-dessous pourquoi). Bruit de fond énorme au départ (2927
+trouvailles) : l'app étant SVG-native (skill `voter-ui`), l'écrasante
+majorité était des attributs de présentation SVG (`fill`, `stroke`,
+`textAnchor`, `viewBox`, …), pas du texte utilisateur. `ignoredAttributes`
+réduit ça à 714 en deux passes (props génériques, puis ~40 attributs SVG).
+Deux vraies trouvailles corrigées dans le lot : `aria-label="Close"` en dur
+(anglais, alors que l'app démarre en français) dans les primitives
+partagées `components/ui/modal.tsx` et `components/ui/alert.tsx` — jamais
+`useTranslation`, remplacées par `t('common.close')`, la même clé déjà
+utilisée par `DatasetExportModal.tsx`. Les 714 restants sont dominés par du
+bruit générique et des littéraux de clé interne (`"fptp"`, `"irv"`,
+`"module-electorate"`, …) — informationnel via `scripts/audit.sh`, même
+statut que sonarjs/refurb/perflint (Lot 6).
+
+**Périmètre explicitement réduit : pas de détection clés
+orphelines/manquantes.** Les commandes `status`/`extract`/`types` de
+`i18next-cli` supposent toutes un `output` uniforme
+`{{namespace}}.{{language}}.ts` (confirmé en lisant `node_modules/
+i18next-cli/types/types.d.ts` directement) — incompatible avec la
+convention réelle du projet, où le namespace par défaut n'a pas de préfixe
+(`src/i18n/locales/fr.ts`) alors qu'un namespace nommé en a un
+(`playground.fr.ts`). `status` tourne mais rapporte des chiffres non
+fiables (cherche `translation.fr.ts`, qui n'existe pas). Réorganiser la
+disposition des fichiers i18n du projet pour coller à l'outil a été jugé
+hors périmètre de cet item — même discipline que « ne pas adopter un outil
+qui force à casser une convention du projet ». La détection de chaînes en
+dur (la moitié qui a trouvé les 2 vraies erreurs ci-dessus) reste la
+livraison de cet item.
+
+**Pseudo-locale à chaînes longues, détail.** `src/i18n/pseudoize.ts` accentue
+chaque chaîne, la rallonge d'environ 35 % (motif `~~~`) et l'encadre de
+`⟦…⟧` — les marqueurs de crochets servent à la fois de repère visuel de
+troncature et d'ancre pour qu'un test e2e sache que le bundle pseudo est
+bien actif (pas juste le fallback français). Les tokens `{{interpolation}}`
+sont préservés tels quels. `pseudo.ts` / `playground.pseudo.ts` sont des
+artefacts générés (même statut que `src/api/types.gen.ts`) — `scripts/
+gen-pseudo-locale.ts` (exécuté via `npx jiti`, ajouté en dépendance
+explicite plutôt que de compter sur sa présence transitive via
+tailwindcss ; `npm run gen:pseudo-locale`) les régénère depuis `fr.ts`/
+`playground.fr.ts`, et `src/i18n/pseudoize.test.ts` regénère l'arbre en
+mémoire et le compare à ce qui est commité — échoue bruyamment si `fr.ts`
+change sans régénération, même rôle que les tests de parité fr/en
+existants.
+
+Le locale `pseudo` est câblé dans `src/i18n/index.ts` avec le même
+mécanisme de lazy-loading que `en` (jamais dans le bundle principal),
+mais **jamais exposé dans le sélecteur de langue de l'app** — seulement
+atteignable en écrivant `pseudo` dans `localStorage.votelab_lang` (la même
+clé que lit déjà `i18next-browser-languagedetector`), ce que fait
+`tests/e2e/pseudo-locale.spec.ts` via `page.addInitScript` avant chaque
+navigation. Les 5 `SURFACES` de `routes.ts` sont balayées et chacune est
+vérifiée sans dépassement horizontal de page
+(`document.documentElement.scrollWidth` vs `clientWidth`, tolérance 2px) —
+un test qui a effectivement pris deux round-trips pour être fiable.
+D'abord une fausse piste : une première exécution donnait de faux échecs à
+cause d'un `vite preview` déjà présent sur le port 3000 de cet
+environnement, que `reuseExistingServer` réutilisait silencieusement au
+lieu de démarrer le vrai serveur de dev — diagnostiqué en traçant
+`localStorage` et `i18next` directement dans le navigateur avant de
+conclure à un bug applicatif ; identifié après coup comme le propre
+conteneur Docker de l'item « Régression visuelle » ci-dessus (`--network=
+host`), tournant en parallèle dans le même environnement, pas un processus
+extérieur à cette session. Ensuite un vrai bug, trouvé seulement en CI (pas
+reproductible en local, fonts différentes) : `/decouvrir` dépassait de 62px
+en largeur sous firefox. Cause réelle, indépendante de l'environnement :
+`padFor()` collait tout le padding `~~~~` en un seul bloc à la fin de la
+phrase entière plutôt que par mot — un unique « mot » artificiellement
+long et non-sécable, un mode de défaillance qu'aucune vraie langue ne
+produit (les langues plus longues ont des mots plus longs, pas un mot
+géant en fin de phrase). Corrigé en distribuant le padding mot par mot
+(`pseudoizeSegment` découpe sur les espaces). Les 5 tests passent contre le
+vrai serveur, chromium + firefox (10 tests) après ce correctif.
+
+**Webkit en e2e, détail** (2026-09-11/12). Rouvert une fois le blocage sudo
+levé par l'utilisateur (`sudo env "PATH=$PATH" npx playwright install-deps
+webkit` — la forme nue échouait avec `npx: command not found`, `sudo`
+n'héritant pas du `PATH` géré par nvm de l'utilisateur). Une fois les
+dépendances installées, `npx playwright test --project=webkit` en local a
+échoué à 100 % avec `WebKit encountered an internal error` sur *toute*
+navigation HTTP réelle (mais pas sur une URL `data:`) — un faux négatif
+d'environnement, pas un vrai bug applicatif, diagnostiqué avant de conclure
+quoi que ce soit : `DEBUG=pw:browser` a montré la cause exacte,
+`WPENetworkProcess: symbol lookup error: /snap/core20/current/lib/
+x86_64-linux-gnu/libpthread.so.0: undefined symbol: __libc_pthread_init` —
+le terminal de développement tourne confiné dans le cgroup du **snap VS
+Code** (`snap.code.code-*.scope`), qui court-circuite la résolution de
+`libpthread` vers une version incompatible embarquée dans `core20` pour tout
+binaire GTK/WPE lancé depuis ce shell. Confirmé que ni `LD_LIBRARY_PATH` ni
+`WEBKIT_DISABLE_SANDBOX=1` ne suffisent à contourner ça depuis l'intérieur du
+shell confiné. Vérifié à la place — même principe que la régression visuelle
+du Lot 7 (image Docker épinglée pour l'environnement de rendu) — dans un
+conteneur `mcr.microsoft.com/playwright:v1.62.1-noble` non confiné,
+`--network host` vers les serveurs déjà démarrés sur l'hôte :
+**114/114 tests passent (59,6 s)**, preuve que ni l'app ni la config webkit
+n'ont de défaut réel — le runner GitHub Actions (Ubuntu non confiné,
+identique au conteneur) ne rencontrera jamais ce problème, propre à ce poste
+de dev précis. `webkit` ajouté comme troisième projet dans
+`playwright.config.ts` (`devices['Desktop Safari']`, même `testIgnore` que
+chromium/firefox) et `.github/workflows/e2e.yml`'s `Install Playwright
+browsers` étendu (`chromium firefox webkit`). Sur ce poste, préférer le
+conteneur Docker ci-dessus pour rejouer `--project=webkit` en local plutôt
+que le terminal intégré VS Code.
 
 ---
 
 ## Lot 8 — Performance
 
-| Item | Pourquoi ici | Effort | Solidité | Récit |
-|---|---|---|---|---|
-| **`pytest-benchmark` + seuils** | Une régression de perf sur `simulation_ranked_utils` est aujourd'hui totalement invisible. | M | ⭐⭐⭐ | 📝📝 |
-| **Charge (k6 ou Locust)** | Le rate-limit 120/min a été calibré au jugé ; un test de charge donne le vrai plafond du pool de threads. | M | ⭐⭐⭐ | 📝📝📝 |
-| **Invariant de perf du form-lock** | Documenté dans le skill `voter-ui`, jamais mesuré. React Profiler + assertion. | M | ⭐⭐ | 📝📝📝 |
-| **Budget de bundle** | Seuil de taille sur le build Vite, échec si dépassement. | S | ⭐⭐ | 📝 |
+| Item | Pourquoi ici | Effort | Solidité | Récit | Statut |
+|---|---|---|---|---|---|
+| **`pytest-benchmark` + seuils** | Une régression de perf sur `simulation_ranked_utils` est aujourd'hui totalement invisible. | M | ⭐⭐⭐ | 📝📝 | ✅ gate CI bloquant, seuils absolus (voir sous le tableau) |
+| **Charge (k6 ou Locust)** | Le rate-limit 120/min a été calibré au jugé ; un test de charge donne le vrai plafond du pool de threads. | M | ⭐⭐⭐ | 📝📝📝 | ✅ script manuel Locust, pas de gate CI (voir sous le tableau) |
+| **Invariant de perf du form-lock** | Documenté dans le skill `voter-ui`, jamais mesuré. React Profiler + assertion. | M | ⭐⭐ | 📝📝📝 | ✅ `PlaygroundPage.perf.test.tsx` (voir sous le tableau) |
+| **Budget de bundle** | Seuil de taille sur le build Vite, échec si dépassement. | S | ⭐⭐ | 📝 | ✅ `size-limit` câblé dans `npm run build` (voir sous le tableau) |
+
+**`pytest-benchmark` + seuils, détail.** `api/tests/test_engine_benchmarks.py`
+— 27 cas (les 21 méthodes ordinales du set de parité `gen_engine_parity.py`,
+Kemeny-Young exact/approximation séparés, les 5 méthodes cardinales), tous
+mesurés à 1000 électeurs / 8 candidats (le vrai plafond de production,
+`api/schemas/election.py`), pas des tailles arbitraires. Deux faits vérifiés
+avant de choisir le design, pas supposés : `pytest-benchmark` désactive sa
+mesure de temps sous `pytest-xdist` (utilisé par la suite normale via
+`-n auto`, `backend-ci-cd-pipeline.yml`) — vérifié en direct que ça fait
+planter chaque test (`AttributeError`) plutôt que de passer sans rien
+mesurer, mais reste la mauvaise invocation dans les deux cas — donc invocation dédiée, comme
+`test_schema_contract.py`/Schemathesis (`--ignore` dans `pyproject.toml`,
+son propre step CI, mirroré dans `ci-local/backend.Dockerfile`) ; et la
+comparaison relative à une baseline stockée
+(`--benchmark-autosave`/`--benchmark-compare-fail`) est un piège de
+flakiness connu sur un runner CI partagé — confirmé, pas assumé, par
+recherche des modes de défaillance documentés de l'outil. D'où le choix :
+**plafonds absolus généreux** (100 ms pour les tallies O(n)/le scoring
+cardinal, 500 ms pour l'élimination/l'appariement/Kemeny), même philosophie
+que le `timeout: 30_000` de la suite e2e — toutes les méthodes mesurées
+tiennent en moins de 14 ms au plafond de production, laissant 15-160x de
+marge. Détecteur vérifié en direct (même discipline que ce plan applique
+systématiquement, EXP-002/EXP-004) : une régression O(n²) injectée dans
+`get_copeland_winner` (boucle redondante sur l'électorat) a fait passer sa
+moyenne de 3,7 ms à 1101,6 ms — détectée, puis le code retiré et revérifié
+vert. Effet de bord trouvé pendant ce travail : en relançant les benchmarks
+pendant qu'un serveur + Locust tournaient en parallèle (item suivant), les
+mêmes mesures ont varié de 20-50 % — une preuve directe, sur cette machine,
+que le bruit d'exécution est réel et qu'un plafond absolu large l'absorbe
+sans discussion, là où une comparaison relative à pourcentage serré en
+aurait fait un faux positif. Détail complet, y compris le protocole de
+recherche sur la fragilité CI de l'outil :
+[`docs/exploration/EXP-006-pytest-benchmark-engine-perf.md`](docs/exploration/EXP-006-pytest-benchmark-engine-perf.md).
+
+**Charge (Locust), détail.** Python retenu sur k6 : le backend est un
+projet Python de bout en bout, `locust` s'installe dans le même venv que le
+reste des dépendances de dev (`requirements-dev.txt`) sans nouveau langage
+ni toolchain — k6 (JS/Go) aurait été défendable mais sans bénéfice net ici.
+Lecture du code AVANT tout scénario de charge
+(`api/core/worker_dispatch.py`) : chaque route `/api/v2` est `async def`
+mais délègue son calcul via `asyncio.to_thread` derrière un **sémaphore
+partagé unique** (`MAX_CONCURRENT_WORKERS = 4`), pas l'exécuteur par défaut
+— et ce sémaphore est global au process, alors que le rate-limit
+(`check_v2_rate_limit`, 120/min) est **par chemin** (`key_style="url"`) et
+par IP. C'est cette asymétrie que le test de charge devait vraiment
+mesurer, pas juste « ça tient à combien de req/s ». `scripts/
+loadtest_v2_engine.py` : une classe de trafic léger réaliste
+(`profile-simulate`, l'endpoint que 120/min a explicitement été calibré
+contre, cf. le docstring de `ratelimit.py`) + une classe Monte-Carlo dont le
+temps de service (~1 s) s'auto-limite naturellement sous 120/min même en
+boucle fermée — ce qui permet de monter en concurrence sans jamais déclencher
+LE rate-limit de ce chemin, isolant ainsi la saturation du sémaphore de
+celle du rate-limit. Quatre paliers réels (`-u` doublé à chaque fois) :
+latence médiane 3,0 s (4 utilisateurs) → 7,2 s (10) → 14,0 s (20) → 25-30 s
+(40) — croissance quasi linéaire avec la concurrence au-delà des 4 slots du
+sémaphore, **zéro 429/503 sur toute la plage testée**. La vraie trouvaille :
+le rate-limit par-chemin ne protège structurellement pas une ressource
+VRAIMENT partagée entre chemins — aucun réglage du chiffre 120 n'aurait pu
+corriger ça, et le premier symptôme visible d'une vraie surcharge ici est
+une page qui semble geler, pas une erreur. Deux pièges de méthode trouvés et
+corrigés avant de faire confiance aux chiffres : un premier jet tournait
+sans le savoir contre un process tiers déjà présent sur le port `:4434`
+(collision de port silencieuse, un quasi-doublon du même piège déjà
+documenté par EXP-003 dans ce repo) ; un deuxième calibrage (les deux
+classes en boucle quasi fermée) mesurait en réalité le rate-limit, pas le
+sémaphore (45 % d'échecs, 100 % des 429), corrigé en s'appuyant sur l'ordre
+réel des dépendances FastAPI (rate-limit avant le sémaphore) confirmé en
+lisant le code. **Script manuel, pas de gate CI** — même raisonnement
+qu'EXP-003 (coût réel, chiffre spécifique à la machine qui l'exécute,
+documenté dans `CONTRIBUTING.md` § « Charge »). Détail complet, chiffres et
+protocole : [`docs/exploration/EXP-007-locust-v2-thread-pool-ceiling.md`](docs/exploration/EXP-007-locust-v2-thread-pool-ceiling.md).
+
+**Invariant de perf du form-lock, détail.** Le skill `voter-ui` documente le
+form-lock depuis longtemps (« à first paint, seuls les `*-toggle` sont dans le
+DOM ») et `PlaygroundPage.test.tsx` en vérifie déjà la **forme** (des testids
+précis absents du DOM) — mais rien ne le mesurait. Avant d'écrire une seule
+assertion, deux approches naïves ont été essayées contre le vrai environnement
+de test (Vitest + jsdom) et **rejetées avec des chiffres réels**, pas par
+principe :
+
+- **Un plafond en millisecondes absolues sur le premier rendu** : sur 8 runs
+  consécutifs du même code inchangé, le premier commit va de **58 ms (à froid,
+  JIT/modules pas encore chauds) à ~13 ms (à chaud)** — un facteur ×4.5 de pur
+  bruit d'environnement, qui noierait n'importe quelle régression assez petite
+  pour être plausible. Ce projet s'est déjà fait piéger une fois par exactement
+  cette catégorie d'erreur (calibration des timeouts CI, Lot 3 « Timeouts &
+  backpressure ») ; pas la peine de recommencer.
+- **Mesurer une régression injectée** (monter `ElectorateComposer` sans son
+  `Collapsible`, en double) montre la même chose autrement : la fenêtre de
+  durée observée (13,5-20,7 ms) **chevauche entièrement** la fenêtre de la
+  baseline (12,4-23,2 ms) — un vrai doublon de panneau, mesuré honnêtement, ne
+  ressort pas du bruit.
+
+Ce qui a survécu, vérifié en injectant de vraies régressions puis en confirmant
+un retour au vert après retrait (même discipline que EXP-004 « Lost Pixel » du
+Lot 7) :
+
+- **Invariant de comptage de commits** : à first paint, exactement **2**
+  commits synchrones (le montage, puis le passage `loading: true` du hook de
+  diagnostics live) — stable sur 8+ runs, y compris avec la régression
+  d'ElectorateComposer ci-dessus injectée (toujours 2 : monter un panneau en
+  trop n'ajoute pas de commit, il alourdit juste le premier). Ce que ce
+  compteur détecte réellement, prouvé par une seconde injection : une chaîne
+  d'effets eager non liés à une interaction (`useEffect` → `setState` → un
+  second `useEffect` qui en dépend) fait bien passer le compte à **3**,
+  détecté par l'assertion, confirmé revenir à 2 après retrait.
+- **Comparaison relative de coût** : ouvrir un panneau `Collapsible` trivial
+  (formulaire, pas de calcul) coûte 0,7-3,1 ms ; ouvrir la lentille de
+  probabilité (vrai calcul client, attendu comme le fait déjà
+  `PlaygroundPage.test.tsx`) coûte 7,5-16,8 ms — un ratio de **×5,4 à ×11,7**
+  sur 6 mesures indépendantes. Le seuil retenu (×3) est délibérément sous la
+  pire valeur observée, pas calé sur la moyenne — même marge de sécurité que
+  les seuils CI du Lot 3.
+
+Trouvaille méthodologique, documentée dans le fichier de test et dans
+EXP-004 : **le Profiler de React ne mesure que la phase de rendu/commit,
+jamais le corps d'un effet** — un calcul lourd glissé dans un `useEffect` (pas
+dans le rendu lui-même) est invisible au Profiler, quel que soit son coût CPU
+réel. Vérifié en injectant une boucle de 20M itérations dans un effet de
+montage : zéro changement mesurable sur `actualDuration`. C'est pour ça que
+l'invariant de comptage de commits (qui, lui, réagit à un effet qui déclenche
+un état) et le test de forme déjà existant (qui réagit à un DOM qui apparaît)
+restent complémentaires du Profiler, pas redondants avec lui.
+
+**Budget de bundle, détail.** Baseline mesurée sur un vrai `npm run build`
+avant de choisir un chiffre (jamais inventé) : 121 chunks JS, **3 004 492
+octets bruts**, **938 786 octets gzip** (mesure manuelle `gzip -c | wc -c`,
+pour comparaison) — le rapport Vite signale déjà, sans y toucher, que 2 chunks
+dépassent son `chunkSizeWarningLimit` par défaut (500 kB) : `recharts`
+(590 kB) et le chunk vendor principal `index` (580 kB), tous deux attendus
+(une lib de graphiques + React/router/zustand/tanstack-query, pas du code
+applicatif ballonné). `build.chunkSizeWarningLimit` seul ne fait qu'avertir,
+jamais échouer — donc pas suffisant tel quel pour « échec si dépassement »
+demandé par l'item.
+
+Outillage : `bundlesize` (dernier publié 2024-03, **>2 ans**, abandonné —
+écarté) et `vite-plugin-bundlesize` (dernier publié il y a ~1 an, mainteneur
+seul, signal modeste) rejetés sur la fraîcheur, même réflexe que le rejet de
+Lost Pixel (EXP-004, Lot 7) et le remplacement `license-checker` →
+`license-checker-rseidelsohn` (Lot 6.7). `rollup-plugin-visualizer` et
+`vite-bundle-analyzer` sont bien maintenus (publiés il y a 4-6 semaines) mais
+sont des outils de **visualisation**, pas de gate à seuil. **`size-limit`**
+(Andrey Sitnik — mainteneur connu de l'écosystème PostCSS/Autoprefixer),
+publié il y a ~6 semaines, `@size-limit/file` en plugin (mesure par glob sur
+des fichiers déjà construits, indépendant du bundler — exactement le besoin
+ici puisque `build/` est déjà produit par Vite) : adopté.
+
+**Piège de version trouvé en l'installant, pas juste supposé** : `npm install`
+sans épingler résout `size-limit@12.1.0` alors que `@size-limit/file@13.0.3`
+(la dernière version publiée du plugin) déclare une peer-dependency **exacte**
+sur `size-limit@13.0.3` — un `npm ls` après coup confirme l'arbre invalide
+(`ELSPROBLEMS`). Cause trouvée en creusant : `size-limit@13.0.3` a relevé son
+exigence Node à `^22.18.0 || ^24.0.0 || >=26.0.0`, laissant tomber le Node 20
+sur lequel ce dépôt tourne encore (même contrainte, déjà rencontrée et déjà
+documentée pour `dependency-cruiser` au Lot 2 — « 18.x exige Node ≥22 »).
+Résolu en épinglant la **paire exacte compatible** `size-limit@12.1.0` +
+`@size-limit/file@12.1.0` (peer-dependency exacte vérifiée, aucune version en
+caret) plutôt que la dernière publiée — aucune règle Dependabot `ignore`
+ajoutée (le dépôt n'en a pour aucun autre pin de ce type non plus ; ce
+paragraphe sert la même fonction que le commentaire du Lot 2 pour
+dependency-cruiser, à relire si Dependabot propose la bascule 13.x).
+
+**Le budget retenu : 1 MB (brotli), mesuré à 810,88 kB aujourd'hui — une marge
+de ~23 %.** `size-limit` mesure en brotli par défaut (pas gzip) ; sur ce
+build, brotli descend à 810,88 kB contre 951,57 kB en gzip (~15 % de mieux),
+cohérent avec l'écart habituel entre les deux algorithmes. 1 MB laisse de la
+place à une vraie croissance de fonctionnalités sans être assez large pour ne
+jamais mordre — même logique de marge que le Lot 3 (« pas si juste que la
+croissance légitime casse la CI en boucle, pas si large que ça ne veuille rien
+dire »). Câblé dans `npm run build` lui-même
+(`tsc --noEmit && vite build && npm run build:size`, `build:size` = `size-limit`)
+plutôt qu'en étape CI séparée : `frontend-ci-cd-pipeline.yml` appelle déjà
+`npm run build` sans modification, donc le gate est actif sur chaque PR sans
+toucher au workflow.
+
+**Vérifié en injectant une vraie régression** (deux chunks dupliqués dans
+`build/assets/`, portant le total mesuré à 1,1 MB) : `size-limit` échoue avec
+`exit 1` et un message précis (« Package size limit has exceeded by 99.25 kB »)
+— retiré, retour au vert confirmé (`exit 0`, 810,88 kB). Piège opérationnel
+noté en le vérifiant : `npx size-limit | tail` masque le vrai code de sortie
+derrière celui de `tail` dans le pipeline — vérifié avec `$?` juste après la
+commande, sans pipe, avant de faire confiance au signal.
 
 ---
 
 ## Lot 9 — Sécurité approfondie
 
-| Item | Pourquoi ici | Effort | Solidité | Récit |
-|---|---|---|---|---|
-| **DAST — ZAP baseline** | SAST (Semgrep/CodeQL) ne voit que le code, jamais le comportement de l'app qui tourne. | M | ⭐⭐ | 📝📝 |
-| **Fuzzing à couverture** (`atheris` ou `hypofuzz`) | Bien plus profond qu'Hypothesis seul sur le moteur et les parseurs. | L | ⭐⭐ | 📝📝📝 |
-| **`guarddog`** (Datadog) | Détecte les paquets *malveillants* (typosquatting, install-scripts hostiles) — angle mort de pip-audit/Trivy qui ne voient que les CVE connues. | S | ⭐⭐ | 📝📝📝 |
-| **`trufflehog`** | Secrets **vérifiés actifs**, pas juste des motifs (complète gitleaks + detect-secrets). | S | ⭐ | 📝 |
-| **OSV-Scanner** | Base de vulnérabilités différente de Trivy, recouvrement imparfait. Mesurer l'écart réel est une bonne expérience. | S | ⭐ | 📝📝📝 |
-| **Signature d'images + provenance SLSA** (cosign/sigstore) | Suite logique du SBOM + Scorecard déjà en place. | M | ⭐⭐ | 📝📝📝 |
-| **`minimumReleaseAge`** (via Renovate) | Attendre 3-7 j avant d'adopter une release : vraie défense contre les paquets compromis. | S | ⭐⭐⭐ | 📝📝 |
+| Item | Pourquoi ici | Effort | Solidité | Récit | Statut |
+|---|---|---|---|---|---|
+| **DAST — ZAP baseline** | SAST (Semgrep/CodeQL) ne voit que le code, jamais le comportement de l'app qui tourne. | M | ⭐⭐ | 📝📝 | ✅ `.github/workflows/dast.yml`, nightly + push:develop, non-gating (voir sous le tableau) |
+| **Fuzzing à couverture** (`atheris` ou `hypofuzz`) | Bien plus profond qu'Hypothesis seul sur le moteur et les parseurs. | L | ⭐⭐ | 📝📝📝 | ✅ `atheris`, 2 harnais + workflow CI planifié, 4 bugs réels trouvés et corrigés (voir sous le tableau) |
+| **`guarddog`** (Datadog) | Détecte les paquets *malveillants* (typosquatting, install-scripts hostiles) — angle mort de pip-audit/Trivy qui ne voient que les CVE connues. | S | ⭐⭐ | 📝📝📝 | ✅ CI (cron + push develop, informational — voir sous le tableau) |
+| **`trufflehog`** | Secrets **vérifiés actifs**, pas juste des motifs (complète gitleaks + detect-secrets). | S | ⭐ | 📝 | ✅ local + CI, informational (voir sous le tableau) |
+| **OSV-Scanner** | Base de vulnérabilités différente de Trivy, recouvrement imparfait. Mesurer l'écart réel est une bonne expérience. | S | ⭐ | 📝📝📝 | ✅ local + CI, informational (voir sous le tableau) |
+| **Signature d'images + provenance SLSA** (cosign/sigstore) | Suite logique du SBOM + Scorecard déjà en place. | M | ⭐⭐ | 📝📝📝 | ✅ SBOM signé (cosign, keyless) + provenance SLSA (`attest-build-provenance`), pas l'image (voir sous le tableau) |
+| **`minimumReleaseAge`** (via Renovate) | Attendre 3-7 j avant d'adopter une release : vraie défense contre les paquets compromis. | S | ⭐⭐⭐ | 📝📝 | ✅ déjà satisfait (Dependabot `cooldown`, sans migration — voir sous le tableau) |
+
+**`guarddog` + `trufflehog` + OSV-Scanner, détail.** Les trois exécutés pour de
+vrai contre l'état réel de ce dépôt (pas juste `--help`), avec vérification
+manuelle d'un échantillon de trouvailles — même discipline que le reste de ce
+plan (EXP-004/EXP-006 : faire échouer/confirmer le détecteur avant de lui
+faire confiance).
+
+*TruffleHog* : scan filesystem scopé au code source réel (`api/`, `scripts/`,
+`src/`, `tests/`, `docs/` — 1297 chunks, 10,3 Mo) — **0 secret vérifié-actif,
+0 même non-vérifié**, 66,9 ms. Câblé en `--results=verified` uniquement (le
+`--results` par défaut inclut aussi unverified/unknown, du bruit que Gitleaks
++ detect-secrets couvrent déjà par motif) : complète Gitleaks avec une
+vérification live contre l'API du fournisseur plutôt qu'un second passage
+regex. Local (`scripts/audit.sh`) + CI (`trufflesecurity/trufflehog`,
+nouveau step non-bloquant dans le job `gitleaks` existant de `audit.yml`).
+
+*OSV-Scanner* : comparaison réelle avec Trivy — [`docs/exploration/
+EXP-009-osv-scanner-vs-trivy-overlap.md`](docs/exploration/EXP-009-osv-scanner-vs-trivy-overlap.md)
+pour le protocole et les chiffres complets. Verdict court : **0 vs 0** sur
+l'état actuel des dépendances (cross-vérifié aussi avec pip-audit, 0) — pas un
+écart nul par construction, un écart nul *mesuré*, confirmé par un détecteur
+dont la sensibilité a été vérifiée en direct (deux paquets sciemment
+obsolètes, `urllib3==1.26.4`/`Jinja2==2.4.1`, remontent chacun 18 CVE réels).
+Piège d'environnement trouvé et contourné, pas contourné en silence : la
+source de données par défaut d'OSV-Scanner (`deps.dev`, résolution gRPC) a
+timeout dans cette session sandboxée alors que l'API REST du même service
+répond en 200 ms — `--data-source native` évite ce chemin gRPC (utilisé ici
+en local ET en CI, pour que les deux restent comparables). Un deuxième piège,
+propre à un *worktree* git (pas au dépôt) : `osv-scanner scan source -r .`
+trouve silencieusement 0 source de paquets depuis ce worktree, alors que les
+mêmes lockfiles sont trouvés sans problème via `-L` explicite ou depuis une
+copie hors-worktree — `scripts/audit.sh` utilise `-L` par fichier pour cette
+raison (plus rapide de toute façon, pas besoin d'exclure `node_modules`/`.venv`).
+Local + CI (job `osv-scanner`, workflow réutilisable officiel des
+mainteneurs, non-bloquant).
+
+*`guarddog`* : pas de carnet d'expérience dédié (item bas-cérémonie — un
+outil trouve quelque chose ou pas contre un dépôt propre), mais vérifié pour
+de vrai contre l'état réel de ce dépôt, pas juste `--help`. **Quatre
+trouvailles réelles**, aucune un paquet malveillant :
+
+- Le parseur de `guarddog pypi verify` rejette silencieusement toute ligne
+  `requirements.txt` dont le commentaire inline suit un nombre de espaces
+  interprété comme faisant partie du spécificateur de version — **11 lignes
+  sur 15** de `fast_api_voter/requirements.txt` (le style de commentaire
+  documentant chaque CVE/raison de pin, voir n'importe quelle ligne du
+  fichier) échouaient silencieusement (`This entry will be ignored`) avant
+  correctif. `scripts/audit.sh` et le job CI passent désormais par une copie
+  temporaire des commentaires inline retirés (`sed`), jamais le fichier
+  source lui-même — **15/15** lignes analysées après correctif, vérifié.
+- Sur les 15 paquets de production analysés (après correctif), **7 signaux**
+  de la catégorie `threat-*` (la seule qui compte réellement — les
+  `capability-*`, bien plus nombreux — ~50 au total — ne sont que des
+  patterns de code normaux comme "ouvre un socket" ou "supprime un fichier")
+  sont sortis, sur 5 paquets (`python-dotenv`, `PyYAML`, `slowapi`, `scipy`,
+  `numpy`) — **les 7 vérifiés à la main sur le vrai code source, tous de
+  vrais faux positifs** : `threat-filesystem-read` sur `python-dotenv` et
+  `slowapi` matche la chaîne littérale `".env"` — le fichier que ces
+  bibliothèques ont pour rôle explicite de lire ; `threat-runtime-dynamic-loader`
+  sur `PyYAML` matche `__import__(` dans le constructeur `!!python/object`
+  de son propre loader — une fonctionnalité connue de la bibliothèque, pas un
+  ajout suspect ; `threat-filesystem-read` sur `numpy` matche `/etc/shadow`
+  dans `numpy/lib/tests/test__datasource.py` — une liste de **chemins de
+  test négatif** (`malicious_files = [...]`) que le code est censé *rejeter*,
+  pas lire ; `threat-runtime-obfuscation-unicode` sur `numpy` et `scipy`
+  matche le caractère unicode légitime `µs` (microseconde) — un stub de
+  types (`numpy/__init__.pyi`) et un docstring d'exemple `%timeit`
+  (`scipy/optimize/_numdiff.py`), confondus avec un homoglyphe d'obfuscation ;
+  `threat-runtime-system-info` sur `scipy` matche `platform.machine()`/
+  `platform.uname()` dans son propre test suite (`test_distributions.py`),
+  utilisés pour un skip conditionnel par OS, pas une collecte télémétrique.
+- Piège d'environnement sans rapport avec le paquet, trouvé deux fois : la
+  première tentative PyPI (avant diagnostic) est restée bloquée **18+
+  minutes à 0 % CPU** — `/proc/<pid>/net/tcp` a montré une connexion
+  `SYN-SENT` figée vers une adresse IPv6 de pypi.org (confirmée par
+  résolution inverse), le trafic IPv4 vers le même hôte fonctionnant
+  normalement ; contourné en forçant IPv4 au niveau de `socket.getaddrinfo`
+  pour le diagnostic PyPI (qui a ensuite abouti, chiffres ci-dessus). Le même
+  piège est réapparu côté `guarddog npm verify` (`voter-app/package.json`,
+  28 dépendances de prod) malgré ce correctif — `ss` a montré une seconde
+  connexion IPv6 `SYN-SENT` distincte, cohérent avec un client HTTP
+  asynchrone (`aiohttp`/`aiodns`) qui résout ses propres DNS sans passer par
+  `socket.getaddrinfo` — non contourné faute de temps ; le côté npm de cet
+  item reste donc **vérifié sur l'interface CLI et le format de sortie
+  uniquement**, pas sur un run complet réussi dans cette session. Sans
+  confirmation que GitHub Actions partage cette pathologie réseau (peu
+  probable — c'est un symptôme de sandbox, pas du paquet ni du dépôt), le job
+  CI reste par prudence hors de la boucle PR normale (cron + push `develop`
+  seulement, même raisonnement que le job `image-scan` déjà dans ce
+  fichier), non-bloquant dans tous les cas.
+- `pygit2<1.19` (dépendance de `guarddog`) n'a pas de wheel `cp314` (vérifié
+  contre l'index PyPI — les wheels `cp314` n'existent qu'à partir de
+  `pygit2==1.20.0`) : installer `guarddog` dans le venv 3.14 réel de ce dépôt
+  échouerait. Pas ajouté à `requirements-dev.txt` pour cette raison ; job CI
+  dédié avec son propre `actions/setup-python` (3.13).
+
+**DAST — ZAP baseline, détail.** `.github/workflows/dast.yml`, nouveau
+workflow dédié (pas un job dans `audit.yml` : c'est le seul scanner du plan
+qui a besoin d'une app **réellement démarrée**, backend uvicorn + build/preview
+frontend, comme `e2e`/`visual-regression` dans `e2e.yml` — un besoin
+structurellement différent des jobs `audit.yml`, qui scannent tous des
+fichiers). Mode `baseline` (spider + scan **passif uniquement**, zéro payload
+d'attaque) choisi et vérifié avant tout câblage, pas supposé : lu le `--help`
+réel de `zap-baseline.py` et la doc zaproxy.org avant d'écrire une ligne de
+YAML. `zap-api-scan.py` (mode piloté par `openapi.gen.json`, déjà présent)
+a été sérieusement considéré — un import OpenAPI est en théorie plus exhaustif
+qu'un spider sur une API pure — mais rejeté : sa propre doc dit qu'il
+« imports the definition… and then runs an Active Scan against the URLs
+found » et « attempt[s] exploitation » (SQLi, etc.) — exactement le mode
+agressif que cet item du plan exclut explicitement, pas une nuance. Action
+officielle `zaproxy/action-baseline` (v0.15.0, dernier commit sur `master`
+daté du 06/09/2026 — dependabot mergé activement, dépôt non abandonné),
+épinglée au SHA du tag comme toutes les autres actions tierces de ce dépôt.
+
+Ciblé sur les **deux** surfaces, dans le même job : le frontend
+(`localhost:3000`, build + `vite preview` réel — mêmes commandes que le job
+`visual-regression`, pas le serveur de dev) et le backend directement
+(`localhost:4434/api/v2/docs`, l'entrée Swagger UI) plutôt qu'un seul scan du
+frontend en espérant que le spider découvre l'API par ricochet — vérifié en
+direct que ce n'est pas fiable : `EXP-004` avait déjà documenté que la
+plupart des pages de l'app ne font aucun appel réseau au montage, et le
+spider du frontend seul n'a déclenché **aucune** requête backend observée
+dans les logs d'accès pendant tout le run. Cible backend directe = couverture
+déterministe, indépendante de ce que le spider frontend explore ou non.
+
+Piège réel trouvé en vérifiant, pas supposé : le spider "moderne" (`-j`,
+navigateur headless réel) a **bloqué indéfiniment** sur la SPA (~59 min,
+tué à la main, CPU à 0 % après une `TimeoutException` Selenium jamais
+récupérée) — retiré. Le spider traditionnel seul suffit : sans exécuter le
+moindre JS, il découvre déjà 25 URLs réelles (tous les chunks JS/CSS
+référencés en dur dans le HTML brut de `index.html`, `sitemap.xml`,
+`robots.txt`, les icônes PWA) et termine en **28,6 s**. Contre le backend
+(`/api/v2/docs`), le scan couvre 7 URLs (Swagger UI + ses ressources) en
+**~27 s**. Les deux scans + démarrage des deux serveurs tiennent largement
+dans le budget CI de 20 min posé (mesuré en local, jamais encore observé sur
+un vrai runner GitHub Actions — même réserve honnête qu'EXP-004 pour le job
+`container:`).
+
+**Vérifié en injectant une vraie régression**, même discipline que EXP-004/006 :
+avant tout correctif, les deux scans trouvaient déjà, sans rien forcer,
+`X-Content-Type-Options Header Missing` (l'app n'envoyait strictement aucun
+header de sécurité — confirmé par `curl -I` avant d'écrire le moindre test).
+Un middleware minimal (`api/main.py`, une ligne, `X-Content-Type-Options:
+nosniff`) ajouté comme correctif réel et sert de bascule de vérification :
+scan backend re-joué → alerte disparue (WARN-NEW 9→8, PASS 58→59) ; middleware
+commenté et backend redémarré → alerte réapparue à l'identique (WARN-NEW de
+retour à 9) ; middleware restauré comme état final commité. Cycle complet
+détection→disparition→réapparition→retour au vert, prouvé en direct trois
+fois, pas supposé après la première. Le reste des alertes trouvées (CSP,
+Permissions-Policy, anti-clickjacking, Cross-Origin-*-Policy, SRI — 8 sur le
+backend, 9 sur le frontend) reste **non corrigé, documenté** : corriger
+l'intégralité de la posture de headers de sécurité est hors du périmètre de
+« câbler le scanner DAST », et risquerait de casser des choses (une CSP mal
+réglée peut bloquer Tailwind/le service worker/RegimeGlobe) sans le temps de
+le vérifier composant par composant — laissé en backlog informationnel
+explicite, même traitement que refurb/perflint/sonarjs au Lot 6.
+
+Non-gating (`fail_action: false`) : c'est le seul scanner de sécurité de ce
+dépôt qui dépend d'une app réellement démarrée — un vrai nouveau mode de
+panne (port déjà pris, serveur lent à démarrer, pull d'image ZAP) qu'aucun
+des scanners purement fichiers n'a. Déclenché sur `push: develop` (filtré aux
+chemins `voter-app/**`/`fast_api_voter/**`) + `schedule` nightly (02:42 UTC)
++ `workflow_dispatch`, jamais sur `pull_request` — même arbitrage que
+`schemathesis.yml`/`mutation-testing.yml`, mêmes raisons (variance de timing
+non mesurée sur un vrai runner). Pas de SARIF : l'action officielle n'en
+produit pas (issue ouverte non résolue côté `zaproxy/actions-common`), les
+convertisseurs tiers trouvés (`action-zap2sarif`, `zaproxy-to-ghas`) n'ont pas
+de statut de maintenance vérifié — écartés sans essai, même réflexe que
+Lost Pixel/`license-checker` (vérifier avant d'adopter, pas après). Rapport
+HTML/JSON/MD téléchargé en artifact CI (2 par run, un par cible) +
+comptage récapitulatif dans le step summary (`jq` sur `report_json.json`),
+pas de SARIF ni d'issue GitHub auto-créée (`allow_issue_writing: false` —
+tous les autres scanners de ce dépôt remontent par artifact/onglet
+Security/step-summary, jamais par une issue créée automatiquement).
+`scripts/audit.sh` reste inchangé : c'est le seul scanner de sécurité de ce
+plan qui a besoin de deux serveurs réellement démarrés (uvicorn + un build
+frontend), à l'opposé du principe du script (« déterministe, rapide, sans
+état, pour un hook ou une passe locale de quelques secondes ») — ajouter un
+scan de plusieurs dizaines de secondes avec deux ports à gérer localement
+casserait cette promesse pour tout le monde à chaque appel du script, pas
+seulement pour qui veut vérifier la sécurité DAST. Un développeur qui veut le
+rejouer en local lance `gh workflow run dast.yml` ou reproduit les deux
+commandes `docker run` documentées dans le workflow lui-même. Détail complet,
+protocole et pièges :
+[`docs/exploration/EXP-010-zap-baseline-dast.md`](docs/exploration/EXP-010-zap-baseline-dast.md).
+
+**Fuzzing à couverture, détail.** `atheris` vs `hypofuzz` tranché sur l'état
+réel des deux outils, pas sur la réputation — même discipline que le rejet de
+Lost Pixel (EXP-004) et le remplacement `license-checker` →
+`license-checker-rseidelsohn` (Lot 6.7) :
+
+- **`hypofuzz`** réutiliserait directement les stratégies Hypothesis déjà
+  écrites ici (`test_hypothesis_condorcet.py` etc.) — le fit technique le
+  plus naturel sur le papier. Écarté après vérification en direct : sa
+  licence (`LicenseRef-HypoFuzz`, pas une licence OSI) restreint l'usage
+  gratuit aux projets « non commercialement supportés », interdit toute
+  modification/redistribution sans permission écrite, et sa dernière release
+  PyPI (25.11.1, novembre 2025) traîne de ~6 mois derrière le dernier commit
+  du dépôt (mai 2026) — dépôt non archivé, mais rythme clairement ralenti.
+  Rien de disqualifiant en soi pour un usage personnel/pédagogique non
+  commercial, mais une ambiguïté que ce dépôt évite déjà systématiquement
+  pour ses dépendances de PRODUCTION (`scripts/check_license_compliance.sh`)
+  — pas de raison de l'accepter côté dev quand une alternative propre existe.
+- **`atheris`** : Apache-2.0 (licence OSI standard), toujours maintenu par
+  Google (dépôt non archivé, dernier commit 2026-06-17, `pushedAt` vérifié
+  en direct via `gh api`), wheels publiées pour Python 3.11-3.14 —
+  **téléchargées et installées avec succès sur le 3.14.7 exact que pin ce
+  dépôt**, pas juste lu dans un changelog. Retenu.
+
+**Cible : le moteur (26 règles) + les parseurs LLM (9 fonctions
+`decode_*_batch`), pas autre chose.** Grep de tout ce qui ressemble à un
+parseur dans `api/` avant d'écrire une ligne de harnais : la quasi-totalité
+des hits sont soit de la validation Pydantic sur le corps de requête (déjà
+couverte par le Schemathesis du Lot 3), soit du chargement de config/logs
+**de confiance** (repo-controlled). Un seul point du backend décode du texte
+qui n'est ni l'un ni l'autre : la réponse brute d'un LLM
+(`api/domain/polity/llm_client.py`'s `decode_vote_batch` et ses 8 sœurs
+quasi-identiques — regex `<think>` strip → `json.loads` → validation
+Pydantic → alignement des cid) — c'est le seul « parseur » réel de ce
+backend, et la cible exacte que l'item vise.
+
+- `scripts/fuzz_engine.py` — génère des profils de vote délibérément
+  malformés (bulletins vides/dupliqués, candidats unicode/vides, enveloppes
+  dict sans clé `ranking`, scores NaN/inf) qu'`st.permutations(["A","B","C","D"])`
+  (les tests Hypothesis existants) ne peut structurellement jamais produire.
+  Pool de candidats volontairement petit et FIXE pour ne pas faire exploser
+  le chemin exact O(n!) de Kemeny-Young.
+- `scripts/fuzz_llm_parsers.py` — mutation directe des octets bruts d'une
+  réponse LLM, corpus de départ (`fuzz_corpus/llm_parsers/seed_*`, committé)
+  = quelques payloads réalistes (batch valide, `<think>`-wrappé, JSON
+  invalide, prose brute).
+
+**Trois crashes réels trouvés, tous corrigés avec un test de régression
+minimal — pas fabriqués pour justifier l'outil :**
+
+1. `calculate_bayesian_regret` : un bulletin vide (`{}`, un votant qui n'a
+   noté personne) fait planter `max(vote.values())` avec un `ValueError`
+   pour TOUS les candidats, pas juste ce votant — trouvé en 13 exécutions.
+   Corrigé : les bulletins vides sont exclus du calcul (numérateur et
+   dénominateur), même logique que `vote.get(candidate, 0)` traite déjà un
+   candidat absent comme 0 ailleurs dans ce fichier.
+2. `get_nanson_winner` / `get_baldwin_winner` : `votes` non vide mais dont
+   *chaque* bulletin classe zéro candidat (`[[]]`) fait planter le fallback
+   `min(all_cands)` sur une liste vide — trouvé en ~92 exécutions. Corrigé en
+   ajoutant la même garde que `get_benham_winner`/`get_smith_irv_winner`
+   utilisent déjà juste à côté (`if not all_cands: return None`) —
+   incohérence entre fonctions sœurs du même fichier, pas un bug isolé.
+3. `get_majority_judgment_winner` : l'ensemble des candidats était dérivé du
+   PREMIER votant seulement (`utility_scores[0].keys()`) ; un votant suivant
+   notant un candidat que le premier n'avait pas noté faisait planter
+   `all_grades[c]` avec un `KeyError` — trouvé en ~85 exécutions. Corrigé en
+   réutilisant `_score_candidates` (déjà utilisé par `get_cumulative_winner`/
+   `get_maximin_score_winner`/`get_nash_winner` dans le même fichier) pour
+   prendre l'union de tous les votants. `get_evaluative_winner` avait
+   exactement le même défaut de conception sans planter (un candidat non vu
+   par le premier votant disparaissait silencieusement du résultat, jamais
+   une exception) — corrigé par cohérence avec la même fonction utilitaire.
+
+Un quatrième bug trouvé en amont du harnais, en lisant le code plutôt qu'en
+fuzzant (le premier grep des « parseurs » avant d'écrire quoi que ce soit) :
+`decode_vote_batch` et ses 8 sœurs ne rattrapaient que `json.JSONDecodeError`
+autour de `json.loads` — un JSON profondément imbriqué (~10⁵ `[` imbriqués,
+confirmé reproductible depuis un interpréteur neuf) fait déborder la pile C
+du parseur récursif de `json` avec un `RecursionError` NON rattrapé, *avant*
+que `json.JSONDecodeError` n'ait sa chance — un LLM bloqué dans une boucle de
+répétition dégénérée peut produire exactement cette forme. Corrigé (`except
+RecursionError` ajouté aux 9 fonctions) avec un test de régression dédié.
+Note méthodologique honnête : une campagne de fuzzing par mutation de bytes
+n'aurait probablement pas trouvé ce cas-là seule dans un budget de temps
+raisonnable — la couverture d'`atheris` est au niveau du bytecode Python, et
+le parseur JSON en C exécute le même bytecode à chaque niveau
+d'imbrication, donc rien ne récompense le mutateur pour empiler des
+crochets plus profondément.
+
+**Campagne réelle, chiffres mesurés (pas une estimation) :** 5 min par
+harnais après les 4 corrections ci-dessus, machine de dev locale. Moteur :
+**242 108 exécutions** (804 exec/s), couverture stabilisée à `cov: 1160`
+(`ft: 4831`), **zéro nouveau crash**. Parseurs LLM : **44 410 242
+exécutions** (147 542 exec/s — beaucoup plus rapide, l'essentiel du temps
+se passe dans un `json.loads` qui échoue en microsecondes sur du texte
+aléatoire plutôt que dans jusqu'à 25 fonctions de vote), couverture
+stabilisée à `cov: 48`, **zéro nouveau crash**. Verdict honnête : sur la taille actuelle de ce code (26 fonctions pures,
+~1700 lignes cumulées pour le moteur ; 9 fonctions quasi-identiques pour les
+parseurs), la surface explorable sature vite — les 3+1 bugs réels sont
+apparus dans les toutes premières secondes de chaque campagne, et 5 minutes
+supplémentaires n'ont rien trouvé de nouveau. C'est un résultat cohérent
+avec la prémisse de l'item (« plus profond qu'Hypothesis seul ») : les
+Hypothesis existants n'auraient structurellement pas pu générer ces 3
+formes d'entrée (bulletin vide, candidat asymétrique entre votants,
+bulletins tous vides) — mais ça reste modeste en volume de trouvailles, pas
+un gisement inépuisable.
+
+**CI : planifié, jamais bloquant, jamais sur PR** — même arbitrage que
+`mutation-testing.yml`/`schemathesis.yml` (voir leurs commentaires propres) :
+une campagne de fuzzing à couverture n'a de sens qu'avec un vrai budget
+temps (minutes, pas secondes), donc pas un gate de PR. `atheris-fuzzing.yml`
+: 15 min/harnais, `workflow_dispatch` avec un budget configurable, cron
+jeudi 04:44 UTC (le créneau lundi matin a déjà 3 jobs lourds). Corpus
+découvert persisté via `actions/cache` (même logique que le cache
+incrémental de Stryker) — un crash trouvé en CI est uploadé comme artefact
+(90 jours) et rejoue localement avec le même script (`python
+scripts/fuzz_engine.py <fichier-crash>`), même discipline de reproductibilité
+que `scripts/check_flaky_backend.py`.
+
+Détail complet, harnais, et chiffres :
+[`docs/exploration/EXP-011-atheris-coverage-fuzzing.md`](docs/exploration/EXP-011-atheris-coverage-fuzzing.md).
+
+**Signature d'images + provenance SLSA, détail.** Avant d'écrire la moindre
+ligne de YAML : les deux images Docker du repo sont-elles publiées quelque
+part ? Grep exhaustif de tous les workflows pour un push de registre
+(`docker/login-action`, `docker push`, `ghcr`) — une seule occurrence de
+`docker/build-push-action`, dans `audit.yml`'s job `image-scan`, avec
+`load: true` (démon local du runner, jamais publié) ; `release.yml` lu en
+entier ne construit ni ne pousse aucune image (bump de version, tag git,
+GitHub Release). **Aucune des deux images n'existe jamais en dehors du job
+qui la construit pour la scanner** — signer « l'image » au sens OCI natif
+(`cosign sign`, qui pousse un artefact de signature *dans le même registre
+que l'image*) n'a donc aucune destination. Le seul artefact réellement
+publié par ce job est le SBOM (`actions/upload-artifact`, déjà en place
+depuis le Lot 6) — c'est lui qui devient le sujet : `cosign sign-blob`
+(keyless, jeton OIDC du job, aucune clé à gérer) pour la signature,
+`actions/attest-build-provenance` (`subject-path`, aucun registre requis)
+pour la provenance SLSA. `slsa-framework/slsa-github-generator` — l'autre
+chemin nommé — écarté après lecture directe de son propre README : *« no
+longer actively maintained… we are working on guidance and simpler tooling
+to replace it »*, dernière release février 2025, pointant lui-même vers les
+GitHub artifact attestations comme remplacement ; sa garantie la plus forte
+(SLSA Build L3) exige en plus un workflow réutilisable isolé que ce job
+(un `docker build` ordinaire) n'est pas, restructuration non justifiée pour
+un item `M`. Les deux actions ajoutées épinglées au commit comme le reste du fichier :
+`sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2`,
+`actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2`.
+Permissions
+ajoutées **au niveau du job** (`id-token: write`, `attestations: write`),
+même précédent que `scorecard.yml` — ce qui a obligé à réécrire aussi les
+permissions déjà héritées du workflow (`contents`, `security-events`,
+`actions: read`), non additives au niveau job. Vérifié en direct en local
+avant le câblage CI (cette session n'a pas le droit de pousser de branche,
+donc le jeton OIDC ambiant de GitHub Actions ne peut s'exercer pour de vrai
+qu'au premier run après merge) : `cosign` v3.1.3 et `syft` v1.51.1 installés
+sans sudo, vraie image frontend construite (95,2 MB), vrai SBOM généré
+(1 038 650 octets, 71 paquets), signature + `verify-blob` réussis (code 0),
+puis **sabotage réel du SBOM signé** (paquet falsifié injecté) →
+`verify-blob` échoue correctement (code 1). Piège trouvé en testant le cas
+négatif de l'attestation, pas supposé : `cosign verify-blob-attestation
+--check-claims=false` renvoyait `Verified OK` même sur le fichier saboté —
+ce flag désactive silencieusement la correspondance de hash sujet↔fichier,
+pas seulement des métadonnées GitHub annexes comme son nom le suggère ; retiré,
+la même vérification échoue bien (code 1). **Confirmé en vrai depuis** : le
+merge de cet item a lui-même déclenché le premier run réel du job
+(`push` sur `develop`) — les quatre étapes (SBOM, install cosign, signature,
+attestation SLSA) sont passées avec succès pour les deux images, jeton OIDC
+GitHub Actions réel inclus, plus besoin de la réserve initiale. Détail
+complet, protocole et piège :
+[`docs/exploration/EXP-008-cosign-slsa-provenance-signing-scope.md`](docs/exploration/EXP-008-cosign-slsa-provenance-signing-scope.md).
+
+**`minimumReleaseAge`, détail — déjà satisfait, pas de migration Renovate.**
+Vérification avant tout travail (le point de décision signalé explicitement
+pour cet item) : `.github/dependabot.yml` porte déjà `cooldown:
+default-days: 7` sur les **6** blocs d'écosystème (pip, npm, github-actions,
+3× docker) — ajouté au commit `5c8e2f3` (27/08/2026), *avant* ce Lot 9,
+poussé par un finding Semgrep (`dependabot-missing-cooldown`), pas en
+réponse à cet item. `cooldown` est la fonctionnalité native de Dependabot
+équivalente au `minimumReleaseAge` de Renovate — vérifié contre la doc
+officielle GitHub et le changelog du 14/07/2026 (attendre N jours après la
+publication d'une release avant de proposer une mise à jour de *version*,
+jamais les mises à jour de *sécurité* qui restent immédiates) : GitHub a
+rendu un cooldown de **3 jours le défaut global** pour tous les repos
+Dependabot sans configuration explicite à partir du 14/07/2026 — le
+`cooldown: default-days: 7` de ce dépôt, ajouté le 27/08/2026 (six semaines
+*après*, en réaction à un finding Semgrep indépendant, pas en anticipation de
+ce défaut), est déjà **plus conservateur** que ce défaut global (7 jours,
+dans la fourchette "3-7 j" demandée par cet item lui-même).
+Migrer vers Renovate pour la seule granularité par-`packageRule` (l'avantage
+réel restant de Renovate sur ce point précis) remplacerait une intégration
+Dependabot existante et qui fonctionne — groupement patch/minor par
+écosystème (Lot 1), labels, et surtout l'auto-merge Mergify qui détecte
+spécifiquement la protection de branche Dependabot (`.mergify.yml`) — par une
+migration bien plus disruptive que l'effort `S` annoncé pour cet item ne le
+laisse supposer, pour un gain marginal (le dépôt n'a pas de paquet nécessitant
+une fenêtre différente des autres). **Rejeté comme migration, satisfait comme
+besoin** : aucun changement de configuration nécessaire, le mécanisme demandé
+existe déjà et dépasse même la cible.
 
 ---
 
 ## Lot 10 — Observabilité
 
-| Item | Pourquoi ici | Effort | Solidité | Récit |
-|---|---|---|---|---|
-| **Sentry ou GlitchTip** | Le handler global ajouté le 06/09 *logge* — mais personne ne lit les logs d'une app pédagogique. Sans collecteur, ce travail ne sert à rien en pratique. | M | ⭐⭐⭐ | 📝📝 |
-| **OpenTelemetry** | Traces par endpoint, temps réel par méthode de vote — alimente aussi le Lot 8. | L | ⭐⭐ | 📝📝📝 |
-| **`/metrics` Prometheus** + readiness/liveness distincts | `/health` existe mais reste binaire. | M | ⭐⭐ | 📝 |
+| Item | Pourquoi ici | Effort | Solidité | Récit | Statut |
+|---|---|---|---|---|---|
+| **Sentry ou GlitchTip** | Le handler global ajouté le 06/09 *logge* — mais personne ne lit les logs d'une app pédagogique. Sans collecteur, ce travail ne sert à rien en pratique. | M | ⭐⭐⭐ | 📝📝 | ✅ GlitchTip self-hébergé (`docker-compose.observability.yml`), `sentry-sdk` — voir détail sous le tableau |
+| **OpenTelemetry** | Traces par endpoint, temps réel par méthode de vote — alimente aussi le Lot 8. | L | ⭐⭐ | 📝📝📝 | ✅ Jaeger auto-hébergé (v2, `docker-compose.observability-tracing.yml`) + spans par méthode sur `POST /api/v2/simulations`, périmètre réduit (voir sous le tableau) |
+| **`/metrics` Prometheus** + readiness/liveness distincts | `/health` existe mais reste binaire. | M | ⭐⭐ | 📝 | ✅ `prometheus-fastapi-instrumentator` sur `/api/v2/metrics` + `/health/live`/`/health/ready` additifs (voir sous le tableau) |
+
+**GlitchTip, détail.** Choix explicite (self-hébergé, jamais Sentry SaaS) mis
+en service pour de vrai et vérifié contre une instance réelle — même
+discipline que le reste de ce plan (EXP-004/EXP-006 : prouver, pas supposer).
+`fast_api_voter/docker-compose.observability.yml` (opt-in, même précédent que
+`docker-compose.llm.yml`) démarre postgres + valkey + `glitchtip/glitchtip:
+6.2.6` en `SERVER_ROLE=all_in_one` — l'architecture réelle de GlitchTip v6
+n'a plus de services `migrate`/`worker` séparés (les migrations et le worker
+tournent dans le même conteneur que le web), contrairement à l'hypothèse de
+départ de cet item, corrigée en vérifiant le compose officiel réel
+(`glitchtip.com/assets/compose.sample.yml`) plutôt qu'en la supposant. Côté
+app, `sentry_sdk.init()` (`fast_api_voter/api/main.py`) gated sur
+`GLITCHTIP_DSN` (vide = désactivé, même contrat que `REDIS_URL`) — sans
+intégration explicite `FastApiIntegration`/`StarletteIntegration` : sentry-sdk
+les auto-active en détectant les paquets installés, confirmé en lisant les
+tracebacks réels d'événements capturés. Vérifié en direct contre une vraie
+instance (créée via `./manage.py bootstrap_dev`, découvert en listant les
+commandes Django disponibles plutôt que de deviner signup UI ou
+`createsuperuser`) : le handler catch-all **et** une erreur déjà catchée en
+interne par un worker (`api/domain/public.py`) remontent tous les deux
+jusqu'à GlitchTip, confirmé via son API (`/api/0/organizations/<org>/
+issues/`, 4 issues réelles) — sans modifier le code d'erreur d'aucun worker.
+Détail complet, y compris la double-capture (LoggingIntegration + intégration
+framework auto-activée) et le piège `TestClient(raise_server_exceptions=
+True)` masquant le comportement réel d'un handler `Exception` global :
+[`docs/exploration/EXP-013-glitchtip-self-hosted-error-tracking.md`](docs/exploration/EXP-013-glitchtip-self-hosted-error-tracking.md).
+Test de régression automatisé :
+`fast_api_voter/api/tests/test_error_tracking.py`.
+
+**OpenTelemetry, détail.** `docs/exploration/EXP-014` pour le protocole et
+les chiffres complets — résumé court : Jaeger auto-hébergé retenu par
+cohérence avec le choix déjà fait pour GlitchTip (auto-hébergé plutôt que
+SaaS), pas une validation explicite du propriétaire du dépôt *pour le
+tracing* spécifiquement. `jaegertracing/all-in-one` (le nom suggéré par
+l'item) vérifié gelé depuis ~9 mois sur Docker Hub — `jaegertracing/
+jaeger:2.20.0` (Jaeger v2, toujours "all-in-one" par défaut) utilisé à la
+place. Le moteur de vote n'a **pas** de dispatcher central par méthode : 15
+sites d'appel distincts de `simulation_ranked_utils.py`/
+`simulation_score_utils.py` trouvés par grep, pas un seul comme l'item le
+suggérait implicitement — décision de périmètre explicite : un seul point
+instrumenté (`_simulate_votes_worker`, qui sert `POST /api/v2/simulations`
+et calcule déjà les 12 vainqueurs ordinaux + 6 cardinaux par requête), les
+14 autres sites restant non tracés, cohérent avec l'effort `L`/récit ⭐⭐ que
+l'item s'attribue lui-même. Vraie trace capturée contre un Jaeger
+réellement démarré (pas juste le code relu) : span racine `POST /api/v2/
+simulations` (9,37 ms) avec 12 spans enfants `voting_method.<règle>` (8-69
+µs chacun, attribut `voting.method` renseigné), correctement imbriqués sous
+le span de requête malgré la traversée d'un `asyncio.to_thread`
+(`contextvars` propagées, vérifié dans le code source de `to_thread` avant
+de committer le design). Test de régression avec l'exportateur de spans en
+mémoire d'`opentelemetry-sdk` (`api/tests/test_tracing.py`), pas de
+dépendance à un collecteur réel pour ce test. No-op par défaut
+(`OTEL_EXPORTER_OTLP_ENDPOINT` vide) — même contrat que Redis/GlitchTip
+ailleurs dans `api/core/config.py`.
+
+**`/metrics` Prometheus + readiness/liveness, détail.**
+`prometheus-fastapi-instrumentator` retenu sur `prometheus_client` nu après
+vérification de maintenance en direct (`gh api`, pas la notoriété du nom) :
+dépôt non archivé, dernier push 2026-09-08 (3 jours avant l'écriture de cet
+item), release PyPI 8.1.0 datée du 26/07/2026, 1 486 étoiles — dépend en
+interne du `prometheus_client` officiel, ne réinvente pas le format
+d'exposition. `/api/v2/metrics` expose les métriques HTTP par défaut de la
+bibliothèque (`http_requests_total`, `http_request_duration_seconds`, etc.)
+par template de chemin + méthode + statut — vérifié en direct que les
+compteurs bougent vraiment (`http_requests_total{handler="/api/v2/health"}`
+1.0 → 3.0 après deux appels supplémentaires), pas juste que l'endpoint
+répond.
+
+`/api/v2/health` **inchangé** (`fly.toml` le cible en dur pour son
+`[[http_service.checks]]` de production — non touché). `/api/v2/health/live`
+(zéro check, quasi jamais en échec) et `/api/v2/health/ready` (réutilise
+`_check_redis()` sans dupliquer sa logique) ajoutés à côté, additifs.
+Sémantique de readiness pensée contre la topologie réelle de cette app
+plutôt que le pattern k8s générique copié tel quel : Redis y est déjà conçu
+comme optionnel et dégradant gracieusement (`_check_redis()` distingue
+« non configuré » de « configuré mais injoignable ») — un `REDIS_URL` absent
+est précisément le déploiement de production documenté par `fly.toml`
+(« Stateless: no Redis... required »), donc la seule vraie panne que
+`/health/ready` peut détecter est celle que `_check_redis()` savait déjà
+nommer. Vérifié en direct contre une vraie panne simulée (`REDIS_URL` pointé
+sur un hôte injoignable) : `/health` et `/health/ready` passent à 503,
+`/health/live` reste 200 sans latence ajoutée — la séparation fait ce
+qu'elle est censée faire.
+
+Garde d'authentification optionnelle sur `/metrics` (`METRICS_AUTH_TOKEN`,
+même posture « non configuré = ouvert » que Redis) : le scan ZAP baseline du
+Lot 9 (EXP-010) cible `/api/v2/docs` avec le spider traditionnel, qui ne suit
+que les liens HTML bruts de la page rendue — `/metrics` n'y est jamais
+référencé, donc cette garde reste la seule vérification connue sur ce
+chemin, pas une doublure du DAST déjà en place.
+
+Deux trouvailles réelles avant la mise en service, toutes deux corrigées :
+un `Content-Type` non documenté sur `/metrics` capturé par le Schemathesis
+du Lot 3 (le handler construit sa propre `Response`, hors de l'inférence
+`response_model` habituelle de FastAPI — corrigé en déclarant
+`CONTENT_TYPE_LATEST`, importé de `prometheus_client`, dans les `responses`
+de la route) et un rejet du gate de licences du Lot 6.7 sur la nouvelle
+dépendance de production (`ISC` et `Apache-2.0 AND BSD-2-Clause`, deux
+graphies absentes de l'allow-list existante malgré des licences déjà
+individuellement acceptées — corrigé après vérification que ISC est bien
+une licence permissive approuvée OSI). Détail complet, protocole et
+raisonnement sur la sémantique readiness :
+[`docs/exploration/EXP-012-prometheus-metrics-and-health-split.md`](docs/exploration/EXP-012-prometheus-metrics-and-health-split.md).
 
 ---
 
 ## Lot 11 — Outillage Claude avancé
 
-Le `.claude/` actuel est mince : 2 skills, 1 agent, 1 commande, **0 hook**.
+Le `.claude/` de départ était mince : 2 skills, 1 agent, 1 commande, 0 hook
+documenté. Ce lot l'a étoffé à 5 skills (`voter-api`, `voter-ui`,
+`voter-testing`, `voter-ci`, `release`), 7 agents (`experiment-writer`,
+`journal-writer`, `parity-guardian`, `dep-triage`, `axiom-checker`,
+`doc-drift`, `flake-hunter`), 2 commandes, et des hooks déjà en place
+(`PreToolUse`/`PostToolUse` sur `engineParity.json` — la ligne « Hooks
+Claude » du Lot 6 ci-dessus corrige déjà l'ancienne affirmation « 0 hook »,
+trouvaille du premier run réel de l'agent `doc-drift` ci-dessous, qui
+n'avait jamais été répercutée ici).
 Angle de récit : *« à quoi ressemble un repo réellement outillé pour le
 développement assisté par agent ? »* — sujet sur lequel il existe très peu de
 retours concrets.
 
-| Item | Pourquoi ici | Effort | Solidité | Récit |
-|---|---|---|---|---|
-| **Agent `parity-guardian`** | Dès qu'une règle de vote bouge : régénère la parité, lance le test, explique tout écart. | M | ⭐⭐⭐ | 📝📝📝 |
-| **Agent `dep-triage`** | Lit les PR Dependabot, classe patch/mineur/majeur, lit les changelogs, propose l'ordre de merge. Répond pile à la douleur du 06/09. | M | ⭐⭐ | 📝📝📝 |
-| **Agent `axiom-checker`** | Vérifie qu'une nouvelle méthode de vote arrive avec ses tests axiomatiques (Lot 4.1). | M | ⭐⭐ | 📝📝 |
-| **Agent `flake-hunter`** | Isole les tests instables, propose un correctif. | M | ⭐⭐ | 📝📝 |
-| **Agent `doc-drift`** | Celui improvisé le 06/09, figé en agent réutilisable + cron mensuel. | S | ⭐⭐ | 📝📝📝 |
-| **Skill `voter-testing`** | Comment tester ici : Hypothesis, fixtures de parité, testids e2e, pièges connus. | M | ⭐⭐ | 📝📝 |
-| **Skill `voter-ci`** | Diagnostiquer un échec CI, où sont les gates, que faire quand le ratchet casse. | M | ⭐⭐ | 📝📝 |
-| **Skill `release`** | Checklist `develop → main`. | S | ⭐⭐ | 📝 |
-| **Agents planifiés** | Revue hebdo du diff de la semaine, audit doc mensuel, veille de dépendances. | M | ⭐⭐ | 📝📝📝 |
-| **`/code-review ultra`** sur les PR du moteur | Existe déjà, sous-utilisé sur les changements sensibles. | S | ⭐⭐ | 📝📝 |
+| Item | Pourquoi ici | Effort | Solidité | Récit | Statut |
+|---|---|---|---|---|---|
+| **Agent `parity-guardian`** | Dès qu'une règle de vote bouge : régénère la parité, lance le test, explique tout écart. | M | ⭐⭐⭐ | 📝📝📝 | ✅ `.claude/agents/parity-guardian.md`, vérifié en direct sur les deux scénarios (voir sous le tableau) |
+| **Agent `dep-triage`** | Lit les PR Dependabot, classe patch/mineur/majeur, lit les changelogs, propose l'ordre de merge. Répond pile à la douleur du 06/09. | M | ⭐⭐ | 📝📝📝 | ✅ `.claude/agents/dep-triage.md` — voir détail sous le tableau |
+| **Agent `axiom-checker`** | Vérifie qu'une nouvelle méthode de vote arrive avec ses tests axiomatiques (Lot 4.1). | M | ⭐⭐ | 📝📝 | ✅ `.claude/agents/axiom-checker.md` — voir détail sous le tableau |
+| **Agent `flake-hunter`** | Isole les tests instables, propose un correctif. | M | ⭐⭐ | 📝📝 | ✅ `.claude/agents/flake-hunter.md` — voir détail sous le tableau |
+| **Agent `doc-drift`** | Celui improvisé le 06/09, figé en agent réutilisable + cron mensuel. | S | ⭐⭐ | 📝📝📝 | ✅ agent + premier run réel fait + routine cloud mensuelle câblée (voir détail sous le tableau) |
+| **Skill `voter-testing`** | Comment tester ici : Hypothesis, fixtures de parité, testids e2e, pièges connus. | M | ⭐⭐ | 📝📝 | ✅ `.claude/skills/voter-testing/SKILL.md` — voir détail sous le tableau |
+| **Skill `voter-ci`** | Diagnostiquer un échec CI, où sont les gates, que faire quand le ratchet casse. | M | ⭐⭐ | 📝📝 | ✅ `.claude/skills/voter-ci/SKILL.md` — voir détail sous le tableau |
+| **Skill `release`** | Checklist `develop → main`. | S | ⭐⭐ | 📝 | ✅ `.claude/skills/release/SKILL.md` — voir détail sous le tableau |
+| **Agents planifiés** | Revue hebdo du diff de la semaine, audit doc mensuel, veille de dépendances. | M | ⭐⭐ | 📝📝📝 | |
+| **`/code-review ultra`** sur les PR du moteur | Existe déjà, sous-utilisé sur les changements sensibles. | S | ⭐⭐ | 📝📝 | ✅ rappel ajouté à CLAUDE.md — voir détail sous le tableau |
+
+**Agent `parity-guardian`, détail.** Version active du rappel passif qui
+existait déjà (`remind_engine_parity_regen.py`, hook `PostToolUse`, Lot 2) :
+au lieu d'un `systemMessage` qui compte sur un humain pour lire CLAUDE.md et
+lancer les deux commandes lui-même, l'agent régénère `engineParity.json`
+(`PYTHONHASHSEED=0 python fast_api_voter/scripts/gen_engine_parity.py`),
+lance `playgroundVoting.parity.test.ts`, et — seulement si un vrai écart
+apparaît — lit les deux implémentations de la règle en cause pour expliquer
+la cause racine plutôt que de rapporter juste « le test échoue ». Deux choix
+explicites, documentés dans le fichier d'agent lui-même :
+
+- **Anglais**, pas français comme `experiment-writer`/`journal-writer` : ces
+  deux agents rédigent de la prose pour des documents humains en français
+  (journal, index d'expérience) ; `parity-guardian` diagnostique du code, et
+  tout ce avec quoi il travaille (CLAUDE.md, les deux hooks de parité,
+  `gen_engine_parity.py`, `check_engine_parity_drift.sh`, le test lui-même)
+  est déjà entièrement en anglais — rester dans cette même couche plutôt que
+  d'importer la convention française des documents narratifs.
+- **`Read, Grep, Glob, Bash` seulement, pas `Edit`/`Write`** : il propose un
+  correctif en texte, ne l'applique jamais, même « évident ». Le moteur de
+  vote est l'invariant sur lequel repose toute l'app pédagogique — un
+  mauvais correctif appliqué seul serait pire qu'un écart bien expliqué
+  laissé ouvert. Même posture que les deux agents existants (qui n'ont pas
+  non plus `Edit`/`Write`), renforcée ici par l'enjeu plus élevé.
+- **`model: sonnet`**, au-dessus du niveau que la note de la §12.4 réserve
+  aux agents *mécaniques* du Lot 11 (`doc-drift`, `dep-triage`) : expliquer
+  pourquoi deux implémentations indépendantes divergent est un vrai exercice
+  de lecture de code (ordre de départage, arrondi, gestion des cycles), pas
+  de la classification.
+
+Vérifié en conditions réelles, deux scénarios, dans un worktree jetable
+(jamais sur `develop`) :
+
+1. **Scénario propre** — aucun changement moteur en attente : régénère la
+   fixture (identique au bit près au commit), lance le test → 49/49, rapporte
+   un bilan propre concis.
+2. **Divergence injectée** — un vrai bug d'un caractère dans
+   `get_anti_plurality_winner` (`simulation_ranked_utils.py`) : véto sur
+   l'avant-dernier candidat classé au lieu du dernier. Régénère la fixture
+   (diff énorme en apparence, 12 724 lignes — dû à une RNG partagée entre
+   règles dans `gen_engine_parity.py`, documentée comme fragile dans son
+   propre en-tête), lance le test → 2 échecs, tous deux sur `anti_plurality`
+   uniquement. L'agent isole correctement les deux vrais échecs du bruit RNG
+   (confirmé en comparant la section exhaustive du fixture, indépendante de
+   la RNG : seul `anti_plurality` y bouge), lit les deux implémentations,
+   identifie que c'est le **backend** qui est faux malgré la règle « le
+   backend fait foi par défaut » de CLAUDE.md — vérifié sur le code, pas
+   supposé par convention — et propose le correctif d'une ligne sans jamais
+   toucher au fichier. Divergence ensuite révertée, état propre reconfirmé
+   (49/49, fixture inchangée) avant de committer quoi que ce soit.
+
+**Détail `dep-triage`** (2026-09-11) — `.claude/agents/dep-triage.md`, `model: sonnet`
+(le plan lui-même exclut le modèle le plus cher pour les agents mécaniques du
+Lot 11, cf. §12.4 ; `sonnet` reste cohérent avec `experiment-writer`/
+`journal-writer` et laisse la marge de jugement nécessaire pour distinguer une
+incompatibilité amont réelle d'une simplement plausible), outils `Read, Grep,
+Glob, Bash` (aucun `Write`/`Edit` — c'est un agent de triage/recommandation,
+il ne merge, ne ferme ni ne modifie jamais rien lui-même). Corps en français
+comme ses deux pairs, avec une règle explicite : tout texte destiné à
+GitHub qu'il rédige (commentaire de fermeture de PR, commentaire inline dans
+`dependabot.yml`) doit être en anglais, la convention réellement observée sur
+ce repo pour ce type de contenu (vérifié sur les fermetures de #371/#389 et
+sur les commentaires `ignore:` déjà en place), qui tranche avec le français
+des docs internes.
+
+Validation : le harness de cette session ne recharge pas la liste des
+sous-agents en cours de session (un nouveau fichier `.claude/agents/*.md` créé
+pendant la conversation n'apparaît pas dans les types invocables, même après
+commit) — limitation d'environnement, pas un défaut du fichier. À défaut de
+pouvoir invoquer `subagent_type: dep-triage` littéralement, la procédure
+décrite dans le fichier a été rejouée pour de vrai par un agent
+`general-purpose` à qui on a demandé de l'adopter mot pour mot, contre deux
+PR Dependabot fermées le 11/09 (#371 pylint, #324 jsdom) traitées comme si
+elles étaient encore ouvertes — vraies commandes `gh`/`curl`/`npm view`, vrais
+logs CI, vraie requête PyPI/npm, aucune écriture. Les deux essais retrouvent
+indépendamment le même paquet coupable, la même preuve CI et une
+recommandation de fermeture + règle `ignore:` quasi mot pour mot identique
+aux commentaires de fermeture et aux règles déjà mergées (#386, #390) —
+confirmation que le processus décrit reproduit fidèlement la démarche
+d'investigation réelle du 06-11/09, pas seulement en théorie.
+
+**Agent `doc-drift`, détail.** Construit dans `.claude/agents/doc-drift.md` —
+Read/Grep/Glob/Bash seulement, jamais d'édition. Vérifie dans l'ordre : les
+chemins de fichiers cités dans `CLAUDE.md`/`README.md`/`.claude/skills/*/
+SKILL.md`/ce plan (existence réelle), les commandes de gate documentées
+(le script/sous-commande visé existe toujours, échantillon exécuté sans
+lancer la suite complète), les marqueurs ✅ du plan (l'artefact cité tient
+toujours ce qu'il promet), et les chiffres qui vieillissent vite (compteurs,
+« N méthodes verrouillées ») — filtrés par l'écart `git blame`
+(`docs/exploration/EXP-001-...`) mais jamais tranchés par lui seul : un
+écart ancien déclenche une vérification réelle, pas une affirmation. Rédigé
+en anglais (les 3 des 4 surfaces qu'il audite le sont déjà ; c'est de la
+vérification mécanique, pas le carnet narratif des deux agents existants).
+
+**Premier run réel, pas un scénario.** L'invocation directe
+(`subagent_type: "doc-drift"`) a échoué deux fois de suite avec « Agent type
+not found » alors que le fichier existait déjà sur disque et était commité :
+la liste des agents disponibles pour l'outil Agent est fixée au démarrage de
+la session et ne se recharge pas en cours de route quand on ajoute un
+nouveau `.claude/agents/*.md` — pas testé si une session fraîche le
+ramasserait au démarrage suivant, aucun moyen d'en lancer une depuis ce
+contexte. Contournement : un agent `general-purpose` a reçu le corps de
+`doc-drift.md` verbatim comme instructions, avec les mêmes restrictions
+d'outils, pour un test grandeur nature fidèle. Trouvailles réelles,
+vérifiées à la main après coup : (1) le paragraphe d'ouverture de ce Lot 11
+lui-même affirmait « 0 hook » alors que les garde-fous `graphify` existaient
+déjà à la date du commit qui a écrit cette phrase (`617807a1`,
+2026-09-07) — et la ligne 247 de ce même plan avait déjà corrigé cette
+exacte erreur ailleurs, sans que ça remonte ici (corrigé dans ce commit) ;
+(2) `README.md` affirmait « three real destinations » alors que le tableau
+juste en dessous et `voter-app/src/routes.ts` en listent cinq (corrigé dans
+ce commit). Zéro écart trouvé sur un échantillon de marqueurs ✅ du Lot 9/10
+et sur les comptages de parité (26 méthodes, 29 règles) — vérifiés
+directement contre `engineParity.json`/`playgroundVoting.ts`, pas supposés.
+
+**Cron mensuel : câblé pour de vrai** (2026-09-11, après le merge de la PR).
+`CronCreate` existe bien mais ne convient structurellement pas à une cadence
+mensuelle : ses tâches sont **propres à la session** (en mémoire, rien sur
+disque) et **expirent après 7 jours** même en mode récurrent. Le mécanisme
+durable est une **routine cloud** (skill `schedule` + outil `RemoteTrigger`),
+accessible uniquement depuis la session interactive principale (introuvable
+depuis un sous-agent d'arrière-plan, sous plusieurs formulations) — cohérent
+avec le fait qu'une routine tire un **checkout git frais depuis l'URL GitHub
+du dépôt**, donc devait de toute façon attendre que `doc-drift.md` soit
+réellement sur `develop`.
+
+Routine `doc-drift-monthly` (`trig_0183HpsWHKnLz8EFfFQgS6qA`) créée une fois
+la PR mergée : `cron_expression: "0 8 1 * *"` (1er du mois, 8h UTC),
+`environment_id` par défaut, `model: claude-sonnet-5`, outils `Bash, Read,
+Grep, Glob` seulement, prompt demandant d'invoquer `doc-drift` (avec repli
+explicite — relire `.claude/agents/doc-drift.md` verbatim si `subagent_type`
+n'est pas reconnu dans la session cloud — sur le même doute de rechargement
+déjà rencontré en local) et de rapporter ses trouvailles sans jamais committer
+ni ouvrir de PR. Premier déclenchement prévu le 2026-10-01. Suivre ses
+exécutions : `claude.ai/code/routines/trig_0183HpsWHKnLz8EFfFQgS6qA` ou
+`RemoteTrigger` (`list_runs`/`get_run_log`).
+
+**Agent `axiom-checker`, détail** (2026-09-11) — `.claude/agents/axiom-checker.md`,
+`model: sonnet` (cohérent avec les quatre autres agents Lot 11 — voir §12.4 :
+tous excluent le modèle le plus cher, aucun ne va jusqu'à un modèle bon
+marché), outils `Read, Grep, Glob, Bash` (aucun `Write`/`Edit` — même posture
+« propose, n'applique jamais » que `parity-guardian`/`dep-triage`/`doc-drift` ;
+renforcée ici par le fait que la vraie méthodologie de classification, per le
+Lot 4.1, ne peut de toute façon pas tourner de façon fiable et automatique —
+elle demande du fuzzing puis une vérification humaine à la main). **Anglais**,
+comme `parity-guardian`/`doc-drift` et pour la même raison : tout ce que
+l'agent lit et manipule (`test_voting_criteria_matrix.py`, `simulation_ranked_
+utils.py`/`simulation_score_utils.py`, `gen_engine_parity.py`, `playgroundVoting.ts`,
+CLAUDE.md) est déjà entièrement en anglais — seule `CONTRIBUTING.md` documente
+la méthodologie en français, en référence secondaire, pas comme objet de
+travail principal.
+
+Forme différente des trois agents précédents parce que le problème est un
+autre genre de travail : `parity-guardian` diagnostique un désaccord entre
+deux implémentations existantes ; `axiom-checker` vérifie une *couverture* —
+une méthode nouvellement ajoutée a-t-elle sa ligne dans la matrice, et
+chacun des 7 critères a-t-il été *réellement* tranché pour elle, pas juste
+hérité par défaut. Ce dernier point est la vraie trouvaille de conception :
+6 des 7 critères du fichier définissent `SATISFIES = METHODS.keys() -
+VIOLATES`, donc ajouter une méthode à `METHODS` sans rien d'autre la fait
+retomber silencieusement du côté « satisfait » de ces 6 critères sans qu'un
+humain ait jamais vraiment tranché — exactement le défaut que cet agent
+existe pour attraper. L'instruction du fichier est explicite : ne jamais
+proposer un côté sat/violates soi-même, seulement signaler « pas encore
+classé, fuzzing réel requis » — la même discipline « classification jamais
+tirée de mémoire » que le Lot 4.1 lui-même a établie (et qui, historiquement,
+a déjà pris en défaut une classification sous-échantillonnée sur 4 méthodes).
+
+Vérifié en conditions réelles, dans ce même worktree jetable (jamais sur
+`develop`) : l'invocation directe (`subagent_type: "axiom-checker"`) a échoué
+avec « Agent type not found » — même limitation déjà rencontrée par
+`dep-triage`/`doc-drift` (liste des sous-agents figée au démarrage de la
+session). Contournement identique : un agent `general-purpose` a reçu le
+corps de `axiom-checker.md` verbatim, avec l'instruction explicite de rester
+dans son `tools:` déclaré (jamais d'édition) malgré un accès plus large en
+pratique. Scénario réel : une fonction `get_plurality_clone_winner` ajoutée
+temporairement dans `simulation_ranked_utils.py` (copie conforme de
+`get_plurality_winner` sous un autre nom, non câblée dans `RULES`/`METHODS`/
+`playgroundVoting.ts` — un scaffold jetable, jamais destiné à rester). L'agent
+a construit l'inventaire par grep des fonctions `get_*_winner` réelles (pas
+seulement les dicts déjà câblés, puisqu'une méthode neuve n'y figure par
+définition pas encore), correctement écarté les vraies exclusions déjà
+documentées (`get_approval_winner`, `get_positional_score_winner`,
+`get_random_ballot_winner`, le jumeau condorcet/Copeland) sans en signaler
+aucune à tort, puis identifié la fonction scratch comme absente de `METHODS`
+et des 6 critères classifiables — avec, en particulier, la bonne distinction
+entre le critère Condorcet gagnant (assertion de module qui casserait la
+collecte entière du fichier si non traité) et les 5 autres (balayage
+silencieux côté « satisfait » sans assertion qui casse rien). Proposition
+produite : ligne d'import, entrée `METHODS`, bump du compteur de
+`test_the_method_registry_is_not_stale`, et pour chaque critère classifiable
+un « pas encore classé » explicite plutôt qu'une classification devinée —
+avec, en bonus, la remarque que le commentaire de la fonction scratch
+suggérait lui-même la suppression plutôt que la promotion, une nuance que
+l'agent a correctement relayée comme décision humaine plutôt que de trancher
+seul. Aucune écriture réelle constatée pendant le test ; fonction scratch
+retirée ensuite, `git diff` sur `simulation_ranked_utils.py` revenu vide
+avant de committer quoi que ce soit.
+
+**`/code-review ultra`, détail.** Rien à construire — l'outil existe déjà
+(commande native, pas un artefact `.claude/`), le problème était l'usage.
+Rappel ajouté à la section « Workflow (mandated) » de `CLAUDE.md` : le lancer
+avant de merger une PR touchant le moteur de vote ou une autre surface à
+fort rayon d'impact (config CI/CD, harnais de parité/axiomes) — les gates CI
+standard attrapent une régression sur ce qui est déjà testé, pas une
+implémentation de règle subtilement fausse ou une erreur de logique qu'une
+relecture humaine (ou par agent) aurait vue.
+
+**Skill `voter-testing`, détail** (2026-09-11) — `.claude/skills/voter-testing/SKILL.md`,
+anglais et registre technique structuré (même forme que `voter-api`/`voter-ui` :
+frontmatter `description` orientée routage, sections à commandes exactes, une
+« Recipe » finale), pas la prose narrative française des agents
+`experiment-writer`/`journal-writer`. Contenu tiré des fichiers réels, pas
+paraphrasé : les trois fichiers Hypothesis nommés par cet item
+(`test_hypothesis_condorcet.py`, `test_hypothesis_monotonicity.py`,
+`test_voting_criteria_matrix.py`) lus en entier pour en extraire la forme
+réelle des stratégies, la distinction entre les tests `@given` proprement dits
+et le motif « peut être violé » (recherche aléatoire seedée à budget fixe, pas
+du tout du Hypothesis) et le gap de méthodologie que le fichier documente
+lui-même (candidats fixés à 4, comblé partiellement par Lot 4.4). Un détail a
+été vérifié en conditions réelles plutôt que cité de mémoire, et la vérification
+a corrigé une erreur avant publication : un bug d'un caractère injecté dans
+`get_plurality_winner` (`simulation_ranked_utils.py`) puis reverté a montré que
+la version de Hypothesis épinglée ici (6.167.1) affiche un bloc
+`Failing test case: test_xxx(votes=,)` à la valeur vide — un vrai artefact de
+cette combinaison de versions — et que le contre-exemple minimisé réel se lit
+une ligne plus haut, dans le dump de variables locales de la trace pytest ; la
+première rédaction affirmait le format `Falsifying example: ...` (l'ancien
+format Hypothesis, plausible mais faux ici), corrigée après ce test dans le
+worktree, jamais sur `develop`. Deux pièges Hypothesis supplémentaires, hors du
+périmètre strict des trois fichiers nommés mais directement pertinents et
+vérifiés par lecture réelle de `test_schema_contract.py`
+(`derandomize=True` seul insuffisant d'un processus à l'autre, un `try/except`
+incapable d'avaler un échec interne au moteur Hypothesis) : le second recoupe
+exactement le même défaut de reproductibilité que `gen_engine_parity.py`
+documente pour `PYTHONHASHSEED=0`, cité comme tel plutôt que traité comme un
+fait isolé. Les pièges e2e/perf cités viennent de `docs/exploration/EXP-004`
+(piège 5 : `testIgnore` de projet qui écrase celui de la racine ; piège 6 :
+script Docker sans `--user`) et `EXP-005` (Profiler React aveugle aux effets ;
+seuil de perf en ms absolu, bruit ×4,5 mesuré ; pipeline `| tail` qui masque
+`$?`) avec leur numéro de piège d'origine quand il existe, jamais reformulés en
+conseil générique.
+
+**Skill `voter-ci`, détail** (2026-09-11) — `.claude/skills/voter-ci/SKILL.md`,
+anglais, même registre. Les 14 fichiers de `.github/workflows/` lus (au moins
+l'essentiel, en entier pour les quatre qui gatent réellement une PR) pour
+cartographier gate/non-gate et le fichier de config propriétaire de chaque
+règle, plutôt que de paraphraser CLAUDE.md ou de deviner depuis le nom du
+fichier : confirmé en lisant les YAML que `audit.yml` porte à la fois Semgrep,
+Gitleaks, Trivy **et** CodeQL (pas un fichier `codeql.yml` séparé), et que
+`openapi-contract.yml` porte le job « Generated artifacts in sync », qui gate
+à la fois le contrat OpenAPI et la fixture de parité moteur. La commande de
+reproduction locale de diff-cover donnée par la tâche
+(`--cov-report=xml`, absent des `addopts` par défaut de
+`fast_api_voter/pyproject.toml`) a été exécutée pour de vrai dans le worktree
+(`pytest api/tests/test_hypothesis_condorcet.py --cov-report=xml` puis
+`diff-cover coverage.xml --compare-branch=origin/develop --fail-under=100`,
+sortie confirmée, fichiers de test nettoyés après coup) plutôt que documentée
+de mémoire. Trouvaille non demandée par la tâche mais tombée en lisant les
+workflows un par un : `mutation-testing.yml`, `schemathesis.yml`,
+`flaky-check-backend.yml` et `atheris-fuzzing.yml` documentent chacun, dans
+leur propre en-tête, que leurs déclencheurs `schedule`/`workflow_dispatch`
+résolvent contre la branche par défaut du dépôt (`main`) et non contre la
+branche qui possède le fichier — `main` étant à cette date 757 commits derrière
+`develop` (`git log origin/main..origin/develop --oneline`, vérifié), ces
+quatre workflows sont donc réellement inertes hors de leur déclencheur
+`push: develop` tant qu'une release n'a pas eu lieu. Repris dans le skill
+`release` plutôt que laissé seulement ici, pour que la conséquence (une
+release réveille des cron qui n'ont jamais tourné) soit visible au bon moment.
+
+**Skill `release`, détail** (2026-09-11) — `.claude/skills/release/SKILL.md`,
+anglais, volontairement court (`S`, une checklist, pas un essai d'exhaustivité
+comme les deux skills ci-dessus). `release.yml` lu en entier : son job
+`release` fait un `checkout` **explicite** de `main`, quel que soit le ref
+depuis lequel le workflow est déclenché, et ne fusionne jamais `develop`
+lui-même — seul un merge PR develop→main (déjà pratiqué manuellement par le
+passé, PR #57/#67/#70, convention de titre « Release: ... », confirmé via
+`gh pr view`) fait réellement transiter les commits ; le workflow se contente
+de bump/tag/push sur ce qui est déjà sur `main`. Vérifié aussi que ce mécanisme
+d'automatisation n'a, à ce jour, jamais tourné pour de vrai sur ce dépôt :
+aucun tag git n'existe (`git tag -l` vide après `git fetch --tags`),
+`voter-app/package.json` est toujours à sa version par défaut `0.1.0` — le
+skill le dit explicitement en tête de fichier plutôt que de présenter la
+checklist comme un chemin déjà rodé. Un risque de conflit sur le champ
+`version` de `package.json` lors d'un futur merge develop→main (le commit de
+bump de la release précédente ne serait jamais remonté sur `develop`) est
+signalé comme un raisonnement déduit de la lecture du workflow, explicitement
+qualifié comme tel — pas comme un incident déjà vécu, puisqu'aucune release
+n'a encore eu lieu pour le confirmer.
+
+**Agent `flake-hunter`, détail** (2026-09-11) — `.claude/agents/flake-hunter.md`,
+anglais, `model: sonnet`, `Read, Grep, Glob, Bash` seulement (même posture
+« propose, n'applique jamais » que les quatre autres agents Lot 11 — un
+correctif d'isolation touche souvent du code de *production*, pas juste le
+test, comme le cas RNG ci-dessous le montre). Distingue explicitement un test
+réellement instable d'un test simplement cassé (échoue 100 % du temps même
+isolé — pas son problème, retour au triage normal) et interdit
+« ajouter un retry » ou `@pytest.mark.flaky` comme correctif proposé.
+
+Cas réel utilisé pour la vérification :
+`test_election_perturbers5.py::TestDistricts::
+test_ideology_variance_is_wired_into_the_district_simulation`, repéré plus
+tôt dans cette même session comme un échec isolé sur run complet. Protocole
+rejoué pour de vrai, deux fois (l'agent lui-même, puis un second passage de
+vérification indépendant demandé après une première tentative restée
+incomplète) : 20/20 lancements isolés passent, 12 lancements complets et
+sériés (~78 s chacun sur ~2014 tests, pas les ~1000 s qu'un vieux commentaire
+suggérait) reproduisent `2014 passed, 41 skipped` à l'identique à chaque
+fois — **l'échec réel n'a pas pu être reproduit en direct dans cette
+session**, rapporté honnêtement comme tel plutôt que forcé. Le mécanisme
+suspecté (`random`/`np.random` globaux réensemencés puis consommés dans
+`_run_district_fptp` et `create_voter`/`demographic_data.py`, jamais une
+instance locale) a en revanche été **démontré directement, pas simplement
+allégué** : un script autonome fait tourner deux threads appelant
+`_run_district_fptp(seed=7, ...)` en concurrence (plus un troisième thread
+qui brasse les RNG globaux pour favoriser l'entrelacement) — 28/30 essais
+produisent des résultats différents pour un seed identique. Cause la plus
+plausible identifiée dans ce dépôt : le fixture `live_server`
+(`test_sockets.py`, `scope="module"`, un vrai serveur uvicorn sur thread
+démon qui exécute de vraies simulations Monte-Carlo) comme consommateur
+concurrent des mêmes RNG globaux, sans qu'un chevauchement réel avec le test
+cible ait pu être surpris sur les 12 runs sériés de cette session. Correctif
+proposé (jamais appliqué) : remplacer le réensemencement des singletons
+globaux par un `np.random.default_rng(seed)`/`random.Random(seed)` local
+passé en paramètre à travers `_run_district_fptp`/`create_voter`/les
+échantillonneurs démographiques.
 
 ---
 
@@ -480,6 +2801,42 @@ On n'optimise pas ce qu'on ne mesure pas.
   de carnet d'expérience. Chaque expérience du plan porte alors son coût réel —
   et le tableau des verdicts (0.3) devient *« ce que chaque outil a trouvé, et
   ce qu'il a coûté »*, ce qui est nettement plus intéressant à partager.
+
+**12.1, détail** (2026-09-12) — les deux premiers points vérifiés pour de vrai,
+pas supposés :
+
+- **Télémétrie OpenTelemetry de Claude Code** : fonctionnalité réelle et
+  documentée (`docs.claude.com`/`code.claude.com`), pas une extrapolation —
+  `CLAUDE_CODE_ENABLE_TELEMETRY=1` + `OTEL_EXPORTER_OTLP_ENDPOINT=...` exporte
+  des métriques nommées (`claude_code.session.count`, `claude_code.cost.usage`,
+  `claude_code.token.usage` par type input/output/cache) et des événements
+  (`claude_code.user_prompt`, `claude_code.api_request`, …) au format OTLP
+  standard. Synergie directe avec le Lot 10 : la même stack self-hébergée déjà
+  montée pour l'app (Jaeger, `fast_api_voter/docker-compose.observability-
+  tracing.yml`) peut recevoir ces exports sans nouvelle infrastructure — il
+  s'agit de config d'environnement côté développeur (variables de session),
+  pas de code applicatif, donc rien à committer dans ce repo au-delà de cette
+  note ; un futur item pourrait documenter la config recommandée dans une
+  skill dédiée si l'usage se généralise.
+- **`ccusage`** : évalué en conditions réelles (`npx ccusage@latest daily`)
+  contre les transcripts JSONL réels de cette session — fonctionne sans
+  compte, sans appel réseau, lit uniquement `~/.claude/projects/**/*.jsonl`
+  en local. Rapport journalier confirmé fonctionnel : rien que la journée du
+  11/09/2026 (la session qui a exécuté les Lots 9 à 12 de ce plan) totalise
+  10 936 requêtes API et l'équivalent de 628,47 $ de consommation modèle —
+  un chiffre concret qui valide à lui seul la prémisse de ce Lot (« on
+  n'optimise pas ce qu'on ne mesure pas »). Adopté comme outil d'analyse
+  ponctuelle (`npx ccusage@latest`), pas intégré au repo (c'est un outil
+  d'inspection de l'historique local de l'utilisateur, hors du contrôle de
+  version du projet).
+
+✅ **Fait pour le dernier sous-point.** Ligne « Coût en tokens » ajoutée au
+gabarit (`docs/exploration/TEMPLATE.md`, en-tête, à côté de « Coût réel »)
+et à l'étape de collecte d'`experiment-writer.md` — future uniquement, les
+14 `EXP-0XX-*.md` existants ne sont pas retouchés (hors périmètre
+explicite). Avec le détail ci-dessus (télémétrie OTel + `ccusage`, vérifiés
+dans une session concurrente le même jour), il ne reste de 12.1 que le
+réflexe `/cost` en séance — une habitude, pas un livrable.
 
 ### 12.2 — Ne jamais charger ce qui ne doit pas l'être · `M` · ⭐⭐⭐ 📝📝
 
@@ -510,6 +2867,60 @@ Actions :
   croît à chaque session. Archiver par année, sinon **le dispositif
   anti-répétition devient lui-même le poste de dépense** — exactement le piège
   identifié au Lot 0.5.
+
+✅ **Fait — avec un écart assumé sur le premier point.** `.claudeignore`
+n'est **pas** un mécanisme réel de Claude Code : absent de la documentation
+actuelle des permissions (`code.claude.com/docs/en/permissions`, aucune
+occurrence du mot), et objet d'une demande upstream toujours ouverte
+(`github.com/anthropics/claude-code` issue #579) — plusieurs autres issues
+confirment qu'un fichier `.claudeignore` posé dans un repo est simplement
+ignoré, sans avertissement. Un `permissions.deny` avec des règles
+`Read(<glob>)` existe bien, lui, et est documenté — mais il bloquerait
+aussi les lectures `offset`/`limit` ciblées qu'on veut au contraire laisser
+passer sans friction, donc écarté pour ce cas précis. Aucun fichier
+`.claudeignore` n'a été créé ; le vrai levier est le hook d'avertissement
+ci-dessous.
+
+Hook `PreToolUse` ajouté (`.claude/hooks/warn_generated_file_full_read.py`),
+calqué sur la garde `graphify` déjà en service : il pousse un
+`additionalContext` (jamais un `permissionDecision: deny` — le mot du plan
+est bien « avertissement ») sur une lecture intégrale de
+`package-lock.json` / `openapi.gen.json` / `types.gen.ts` /
+`engineParity.json`, sauf si `limit` est posé sur l'appel `Read` (un
+`offset` seul, sans `limit`, ne compte pas comme ciblé — il lit quand même
+jusqu'à la fin du fichier). Testé de façon exhaustive par simulation directe
+du payload `PreToolUse` réel (lecture intégrale d'une cible → avertissement ;
+`offset`+`limit`, ou `limit` seul → silencieux ; `offset` seul sans `limit`
+→ avertissement ; fichier hors périmètre, y compris le notebook → silencieux).
+Un test de bout en bout dans la session d'implémentation elle-même n'a en
+revanche pas pu confirmer le déclenchement réel du hook nouvellement ajouté
+sur un vrai appel `Read` — alors qu'un test témoin sur le hook *préexistant*
+(blocage d'`Edit` sur `engineParity.json`) s'est bien déclenché dans la même
+session. Explication la plus probable : le câblage des hooks se charge au
+démarrage de la session, pas à chaud après une édition de `settings.json` —
+à confirmer dans une session fraîche.
+
+`nbstripout` (0.9.1, hook officiel `kynan/nbstripout`) ajouté à
+`.pre-commit-config.yaml` et exécuté pour de vrai — au binaire nu puis via
+`pre-commit run nbstripout` sur une copie restaurée depuis `git show HEAD:`,
+pas juste supposé fonctionner — sur `Electors simulation.ipynb` :
+608 731 → 24 937 octets (**-95,9 %**), JSON toujours valide (`nbformat`
+4.5, 22 cellules), source de chaque cellule vérifiée identique octet pour
+octet avant/après (seules les sorties stockées ont disparu).
+
+`JOURNAL_DE_BORD.md` passe de 167 392 à 107 773 octets. Coupure choisie au
+seul endroit du fichier qui porte déjà une frontière de contenu explicite :
+les 10 entrées écrites en temps réel (2026-08-17 → 2026-09-06) restent dans
+le fichier actif ; l'historique reconstruit rétroactivement (mars 2025 →
+2026-08-19, chaque entrée porte littéralement la mention « reconstruite a
+posteriori ») part dans `docs/journal/archive/JOURNAL_2026.md` (58 633
+octets) et `JOURNAL_2025.md` (2 944 octets). Split vérifié sans perte par
+script, pas à l'œil : retirer l'en-tête ajouté à chacun des trois nouveaux
+fichiers et concaténer le résultat reproduit `JOURNAL_DE_BORD.md` original
+**octet pour octet**. Règle de rotation posée pour la suite, au lieu d'un
+découpage ponctuel : au-delà de ~100 Ko, déplacer les entrées les plus
+anciennes du fichier actif vers l'archive de l'année correspondante (créée
+au besoin).
 
 ### 12.3 — Lire moins cher ce qu'on lit quand même · `M` · ⭐⭐ 📝📝📝
 
@@ -555,13 +2966,304 @@ un chiffre que personne ne publie.
 
 ## Lot 13 — Synthèse & partage *(à faire en dernier, il consomme tout le reste)*
 
-| Item | Contenu | Effort | Récit |
-|---|---|---|---|
-| **Index des verdicts complété** | Le tableau du Lot 0.3, rempli par ~25 expériences réelles. | S | 📝📝📝 |
-| **Rétrospective du plan** | Ce plan a-t-il survécu au contact ? Quels items abandonnés, lesquels ajoutés en route, lesquels ont déçu. | M | 📝📝📝 |
-| **Les 3-4 histoires les plus partageables** | Candidats naturels : « la couverture à 91 % ment-elle ? » (Lot 5) · « 25 outils de qualité sur un vrai projet, le tableau des verdicts » (Lot 0.3) · « tester une théorie mathématique comme on teste du code » (Lot 4) · « combien de mes conventions écrites étaient déjà violées » (Lot 2). | L | 📝📝📝 |
-| **`CODE_AUDIT.md` rejoué** | Nouvelle édition datée après tous les lots, comparaison avec l'édition du 2026-09-06. | S | 📝📝 |
-| **README qui raconte** | Le repo est public : rendre visible la double exploration (méthodes de vote *et* pratiques de dev). | M | 📝📝📝 |
+| Item | Contenu | Effort | Récit | Statut |
+|---|---|---|---|---|
+| **Index des verdicts complété** | Le tableau du Lot 0.3, rempli par ~25 expériences réelles. | S | 📝📝📝 | ✅ voir détail sous le tableau |
+| **Rétrospective du plan** | Ce plan a-t-il survécu au contact ? Quels items abandonnés, lesquels ajoutés en route, lesquels ont déçu. | M | 📝📝📝 | ✅ voir détail sous le tableau |
+| **Les 3-4 histoires les plus partageables** | Candidats naturels : « la couverture à 91 % ment-elle ? » (Lot 5) · « 25 outils de qualité sur un vrai projet, le tableau des verdicts » (Lot 0.3) · « tester une théorie mathématique comme on teste du code » (Lot 4) · « combien de mes conventions écrites étaient déjà violées » (Lot 2). | L | 📝📝📝 | ✅ voir détail sous le tableau |
+| **`CODE_AUDIT.md` rejoué** | Nouvelle édition datée après tous les lots, comparaison avec l'édition du 2026-09-06. | S | 📝📝 | ✅ voir détail sous le tableau |
+| **README qui raconte** | Le repo est public : rendre visible la double exploration (méthodes de vote *et* pratiques de dev). | M | 📝📝📝 | ✅ voir détail sous le tableau |
+
+**Index des verdicts, détail.** `docs/exploration/README.md` tient déjà à
+jour : 14 expériences formelles closes (EXP-001 à EXP-014), chacune avec un
+verdict argumenté et des trouvailles réelles citées, zéro backlog d'expérience
+terminée sans carnet. Écart honnête avec l'intitulé de l'item : ~25 outils ont
+été *essayés* au total sur l'ensemble du plan, mais une partie (GuardDog,
+TruffleHog, `madge`, `type-coverage`, `ccusage`, `nbstripout`, quelques
+décisions Dependabot/CI mineures) a été tranchée directement en paragraphe
+« détail » dans ce document plutôt que via le rituel complet `/log-experiment`
+— proportionné à des essais courts, pas d'incohérence de méthode. Le
+mécanisme lui-même (index tenu à jour à chaque clôture) fonctionne comme
+prévu ; le chiffre final est 14 formelles, pas ~25, et c'est très bien ainsi.
+
+**Rétrospective du plan, détail** (2026-09-11). Carnet séparé plutôt qu'un
+paragraphe ici, pour la même raison qu'un carnet d'expérience vit hors du
+code : une rétrospective qui ne cite que des impressions ne se vérifie pas.
+[`RETROSPECTIVE.md`](RETROSPECTIVE.md) (racine du dépôt, à côté de ce plan et
+de `CODE_AUDIT.md`) croise le plan lot par lot contre `git log`, l'index des
+verdicts et le journal de bord pour répondre aux trois questions posées par
+cet item, chacune avec des commits/dates à l'appui plutôt qu'un souvenir :
+6 jours calendaires réels (203 commits, 86 PR) pour un plan dont le rythme
+d'exécution ne suit pas les efforts `S`/`M`/`L` annoncés (le Lot 4 entier,
+coté jusqu'à `L`, livré en une seule journée) ; le Lot 14 ajouté en cours de
+route (2026-09-11, quatre jours après l'ouverture, ~17 min après le dernier
+item du Lot 6) et toujours **entièrement** à l'état de plan à la date de ce
+document, vérifié par une recherche exhaustive dans l'historique des commits
+plutôt que supposé depuis son propre cadrage ;
+deux collisions de numérotation `EXP-*` entre agents/branches concurrents ;
+et six rejets d'outils (`hypofuzz`, `slsa-github-generator`, Lost Pixel,
+`bundlesize`, `license-checker`, `zap-api-scan.py`) dont chacun a évité un
+coût d'adoption réel plutôt que d'être un simple aveu d'échec. Trouvaille la
+plus inattendue : `docs/journal/JOURNAL_DE_BORD.md` n'a aucune entrée entre
+le 09-06 et la clôture de ce Lot — les six jours les plus denses du plan ont
+été racontés par les messages de commit et les paragraphes « détail » du
+plan lui-même, pas par le dispositif de journal que le Lot 0 avait prévu
+pour ce rôle.
+
+**Les 3-4 histoires les plus partageables, détail.** Les quatre candidats
+proposés par l'item se sont tous confirmés, à la lecture complète du
+matériau source, comme les plus solides — aucun 5e candidat (la campagne
+`atheris` du Lot 9, le récit d'agents du Lot 11) ne les dépassait assez pour
+justifier de dépasser 4 pièces sur un effort déjà noté `L`. Quatre récits
+autonomes rédigés dans [`docs/stories/`](docs/stories/README.md), en
+anglais (`README.md` — la façade publique du dépôt — est déjà entièrement en
+anglais ; `GUIDE_UTILISATEUR.md`, orienté utilisateur final de
+l'application, reste en français : la convention observée sépare le public
+applicatif du public technique/GitHub, et ce contenu vise le second) :
+
+- [`is-91-percent-coverage-lying-to-you.md`](docs/stories/is-91-percent-coverage-lying-to-you.md)
+  — Lot 5/6.5 + [EXP-003](docs/exploration/EXP-003-couverture-runtime-e2e.md) :
+  couverture *runtime* e2e (backend 34,4 % vs 91,56 % unitaire), le
+  sous-système `polity` à 0 % e2e malgré ~99 % unitaire, et `/simulation/
+  compare` invisible à `knip` autant qu'à la couverture unitaire à la fois.
+- [`25-tools-the-verdicts-table.md`](docs/stories/25-tools-the-verdicts-table.md)
+  — Lot 0.3 : la méthodologie du dépôt (vérifier avant d'adopter/rejeter),
+  illustrée par Lost Pixel (archivé), `hypofuzz` (licence non-OSI malgré un
+  meilleur fit technique), `.claudeignore` (confirmé ne pas exister comme
+  mécanisme réel) et OSV-Scanner vs Trivy (écart nul mesuré, pas supposé).
+- [`testing-a-mathematical-theory-like-code.md`](docs/stories/testing-a-mathematical-theory-like-code.md)
+  — Lot 4.1/4.2/4.6 : la matrice d'axiomes, la mauvaise classification de 4
+  méthodes par une exploration sous-échantillonnée que seul le rétrécissement
+  Hypothesis a corrigée, les 4 écarts trouvés contre l'oracle `pref_voting`,
+  et la preuve Z3 qui a débusqué une erreur dans son propre premier encodage.
+- [`how-many-written-rules-were-already-broken.md`](docs/stories/how-many-written-rules-were-already-broken.md)
+  — Lot 2 : la règle de layering la plus structurante s'est révélée déjà
+  respectée (0 violation), tandis que les règles Semgrep nées d'un incident
+  réel ont immédiatement trouvé de la vraie dette (3 routers sans
+  rate-limit, 18 `except Exception` muets).
+
+Emplacement choisi après avoir pesé les alternatives : un fichier par
+histoire sous `docs/stories/` (plutôt qu'un unique `STORIES.md` à la racine)
+pour que chaque récit reste lié et partagé individuellement — l'objectif
+même du mot « partageable » — avec un `README.md` d'index qui reprend le
+même patron que celui de `docs/exploration/`. Item « README qui raconte »
+(item distinct de ce tableau) laissé intact : ce travail ne modifie pas
+`README.md` lui-même, il produit le matériau que ce futur item pourra lier.
+
+**`CODE_AUDIT.md` rejoué, détail** (2026-09-12). Comparé à l'édition du
+2026-09-06 : `vulture`/`radon`/`jscpd` identiques au chiffre près malgré un
+volume de changement important entre les deux dates (Lots 7 à 12 complets).
+`deptry` et `knip` ont montré 2 régressions réelles chacun, toutes les deux
+du Lot 10, corrigées dans la même passe plutôt que laissées en dette pour le
+Lot 14 : `prometheus_client` importé directement mais jamais déclaré
+explicitement dans `requirements.txt` (reposait sur le pin transitif de
+`prometheus-fastapi-instrumentator`) ; `opentelemetry-instrumentation-fastapi`
+signalé à tort "inutilisé" par `deptry` (faux positif de résolution de nom de
+module, corrigé via `package_module_name_map`, pas masqué) ; deux entrées
+`ignore`/`ignoreDependencies` de `voter-app/knip.json` (`scripts/
+gen-pseudo-locale.ts`, `jiti`) devenues inutiles depuis que le Lot 7 leur a
+donné un vrai script `npm run gen:pseudo-locale` que knip reconnaît tout
+seul. `./scripts/check_quality_ratchet.sh` confirmé vert après correctif :
+dette tenue exactement à la baseline sur les 5 métriques. Détail complet et
+raisonnement dans `CODE_AUDIT.md` lui-même (section « Mise à jour du
+2026-09-12 »).
+
+**Suivi, `CODE_AUDIT.md` §7 item 6** (2026-09-12, après ce rejeu). La liste
+"chantiers plus lourds" de `CODE_AUDIT.md` §7 n'a pas de Lot dédié dans ce
+plan (distincte de la dette *mesurée par le Lot 6* que rembourse le Lot 14
+ci-dessous) — son item 6, tests manquants pour la famille `get_*_winner` de
+`simulation_ranked_utils.py` avant un futur découpage de ce fichier, est
+donc documenté directement dans `CODE_AUDIT.md` (sa propre mise à jour du
+2026-09-12 "bis") plutôt que dupliqué ici. Pour mémoire : le chiffre "9"
+de cet item était stale (heuristique par nom de fichier `test_<méthode>.py`,
+qui ratait les tests dédiés déjà réels mais nommés/partagés différemment,
+ex. `test_schulze_beatpath.py`) ; seules 3 fonctions manquaient vraiment
+d'un test dédié (`get_borda_winner`, `get_positional_score_winner`,
+`get_approval_winner_sincere`), désormais couvertes par
+`fast_api_voter/api/tests/test_borda.py`,
+`fast_api_voter/api/tests/test_positional_score.py` et une classe ajoutée à
+`test_approval.py`. Le découpage de `simulation_ranked_utils.py` que cet
+item préparait n'a pas d'item dédié dans ce plan ni dans `CODE_AUDIT.md`
+§7 — reste à planifier séparément le moment venu.
+
+**Suivi, `CODE_AUDIT.md` §7 item 5** (2026-09-12, `except Exception` nus).
+Comme pour l'item 6 ci-dessus, pas de Lot dédié dans ce plan — détail complet
+dans `CODE_AUDIT.md` lui-même (sa mise à jour datée "ter"). Pour mémoire :
+deux formes dominantes sur les 42 sites (`safe_call` pour "compute with
+fallback", 15 sites ; `log_and_error_response` pour "handler wrapping"
+`(body, status)`, 18 sites — appelée *depuis* le `except` existant, jamais à
+sa place, un décorateur enveloppant toute la fonction ayant été écarté après
+lecture réelle des sites : la plupart valide/parse hors du `try`, un
+décorateur global aurait élargi silencieusement la portée interceptée), 9
+sites laissés tels quels avec raison propre à chacun. 42 → 29 clauses
+`except Exception` réelles (35 en comptage brut, 6 mentions de prose dans le
+docstring du nouveau module). Découverte incidente : 3 des 9 sites laissés
+de côté logguent sans `exc_info=True` (gap d'observabilité, pas traité ici —
+distinct d'un refactor de duplication). La règle Semgrep custom
+`except-exception-without-log` (Lot 2) a dû être mise à jour dans la même
+passe pour reconnaître les deux nouveaux appels comme un log valide, sans
+quoi le job Semgrep gating de `audit.yml` aurait régressé sur les 18 sites
+"handler wrapping".
+
+**README qui raconte, détail** (2026-09-12). Nouvelle section « A second
+thing being explored here » ajoutée à [`README.md`](README.md), en anglais
+comme le reste de la façade publique du dépôt, placée après « Architecture »
+et avant « Workflow » — le produit et sa stack d'abord, la double
+exploration ensuite plutôt qu'en tête, pour ne pas retarder le lecteur venu
+pour l'app. Quatre liens, un par pièce déjà produite par ce Lot plutôt qu'un
+résumé qui les duplique : les [quatre récits](docs/stories/README.md), l'
+[index des 14 verdicts](docs/exploration/README.md), `RETROSPECTIVE.md` et
+le couple `CODE_AUDIT.md`/`PLAN_SOLIDITE_TECHNIQUE.md` — ces deux derniers
+et `RETROSPECTIVE.md` marqués explicitement « French » dans le README
+lui-même, seule entorse à sa convention 100 % anglaise, pour ne pas prétendre
+qu'un lecteur non francophone peut les lire tels quels. Item volontairement
+tenu au format lien-plus-une-phrase : le contenu narratif vit déjà dans les
+documents cités, pas dans une nouvelle paraphrase.
+
+---
+
+## Lot 14 — Rembourser la dette trouvée par le Lot 6 *(pas urgent, peut attendre)*
+
+Le Lot 6 a délibérément **mesuré et documenté** sans corriger en masse — chaque
+item y est resté à la hauteur de son propre budget `S`/`M`, avec les vrais
+bugs trouvés (basedpyright, sonarjs) fixés individuellement mais le gros de
+la dette laissé en baseline chiffrée. Ce lot referme la boucle : transformer
+les cinq mesures en réduction réelle, avec le même niveau d'exigence que le
+reste du plan (rien de mécanique commité sans vérifier que ça reste vert).
+Contrairement aux autres lots, **aucun élément ici n'est bloquant ou urgent**
+— chaque ligne peut attendre indéfiniment sans risque, elle référence un
+outil déjà câblé et un chiffre déjà mesuré, pas une lacune de détection.
+
+| Item | Pourquoi ici | Effort | Solidité | Récit | Statut |
+|---|---|---|---|---|---|
+| **Typer les `any` restants + activer le cliquet** (280 dans le code source, Lot 6.4) | Seul item du groupe avec un vrai gain de sûreté de typage, pas juste de lisibilité — `type-coverage` expose déjà `--at-least`/`--update-if-higher` mais rien n'est câblé, faute d'une baseline assez haute pour que ça vaille le coût. Réduire d'abord, gater ensuite. | M | ⭐⭐⭐ | 📝📝 | |
+| **Statuer sur les zones mortes trouvées par le Lot 6.5** (`api/domain/polity/*`, 2 813 lignes 0 % e2e ; `/simulation/compare`, invisible à knip) | Le Lot 6.5 a mesuré l'inatteignabilité, pas décidé quoi en faire. Deux vraies trouvailles qui méritent une décision explicite — réintégrer dans le produit ou supprimer — pas rester indéfiniment dans un angle mort connu. | M | ⭐⭐⭐ | 📝📝📝 | ✅ voir détail sous le tableau |
+| **Réduire la dette sonarjs** (304 findings restants, Lot 6.6) | 2 vrais bugs y avaient déjà été trouvés en vérifiant à la main les 5 cas `no-all-duplicated-branches` — les autres catégories (`no-nested-conditional` ×102, `cognitive-complexity` ×38, `parameterized-tests` ×39, `prefer-specific-assertions` ×33) n'ont pas reçu le même traitement individuel, faute de budget. Simplifier les fonctions à plus forte complexité cognitive en particulier est le genre de nettoyage qui prévient le prochain bug de cette famille. | L | ⭐⭐ | 📝📝 | |
+| **Réduire la dette refurb/perflint** (145 + 85 findings, Lot 6.3) | Le Lot 6.3 a mesuré et documenté sans corriger, hors budget de l'item lui-même. Transformations mécaniques, risque quasi nul (`dict(x)`→`x.copy()`, `lambda`→`operator.itemgetter`, `list`→`tuple` non mutés) — le genre de dette qui ne s'aggrave pas mais ne se résorbe pas non plus toute seule. | M | ⭐⭐ | 📝 | ✅ voir détail sous le tableau |
+| **Faire taire les faux positifs basedpyright** (34 restants, Lot 6.2) | Déjà vérifiés faux un par un (32 liés à l'absence d'équivalent du plugin `pydantic.mypy` côté pyright, 2 isolés où le vérificateur ne peut pas prouver une invariante locale) — pas de vraie dette ici, juste du bruit dans le rapport pour un futur contributeur. Le moins prioritaire des cinq ; à ne faire que si `basedpyright` reste consulté régulièrement. | S | ⭐ | 📝 | ✅ voir détail sous le tableau |
+
+**Statuer sur les zones mortes trouvées par le Lot 6.5, détail (2026-09-12).**
+Les deux trouvailles ont reçu une décision explicite et indépendante l'une de
+l'autre :
+
+- **`api/domain/polity/*`** (2 813 lignes, 0 % e2e) — **laissé tel quel,
+  volontairement**. Ce n'est pas du code mort : il est développé activement
+  dans un worktree/branche séparé (`Vote-App-polity`), pas encore routé sur
+  `develop` par construction de cette séparation, pas par oubli. Aucun
+  changement de code ici ; seule cette entrée de plan documente la décision.
+- **`/simulation/compare`** — la route elle-même reste une redirection
+  legacy vivante (`voter-app/src/routes.ts` la fait pointer vers
+  `/playground`), et son endpoint backend (`POST
+  /api/v2/simulations/compare`) reste appelé par du code produit bien vivant
+  (`services/simulationCompareApi.ts`, consommé par
+  `components/Simulation/VoteStepAnimator.tsx` et
+  `MonteCarloResults.tsx`, rendus depuis `components/lab/labCatalog.tsx` —
+  la fiche Laboratoire correspondante). Seul `hooks/useDebouncedSimulation.ts`
+  (+ son test) s'est retrouvé sans plus aucun appelant vivant après le retrait
+  de l'ancienne page de comparaison — confirmé par recherche exhaustive
+  (aucune référence non-test dans `src/`) avant suppression. Supprimé avec
+  son test, en même temps que le lot de code mort frontend signalé par
+  `knip` dans `CODE_AUDIT.md` §3/§7 (9 fichiers inutilisés, la dépendance
+  `@radix-ui/react-tabs`, l'export `CardTitle`) — même nature de nettoyage,
+  même vérification (gate frontend complet vert après coup), même commit.
+
+**Réduire la dette refurb/perflint — détail (2026-09-12)** : refurb passe de **145 → 6** findings,
+perflint (au sens `scripts/audit.sh`) de **85 → 37**. Chaque correction applique la réécriture
+suggérée par l'outil lui-même (`dict(x)`→`x.copy()`, `lambda`→`operator.itemgetter`,
+`list`→`tuple` littéral non muté, `{**a, **b}`→`a | b`, `x == y or z == y`→`y in (x, z)`,
+`try/except: pass`→`contextlib.suppress`, boucle `for`+`append` unique→compréhension,
+nid de boucles→`itertools.chain.from_iterable`) — vérifiée à chaque fois par lecture du site
+d'appel, `mypy api/` en local sur le fichier touché, et la suite de tests pertinente ; `mypy
+api/`, `ruff check`, et la suite complète `pytest api/tests` restent verts après coup. Le
+reste (43 findings, tous documentés en commentaire ou via ce paragraphe) est **volontairement
+non corrigé** parce qu'appliquer la réécriture littérale changerait un comportement réel,
+pas juste du style :
+
+- **Faux positifs du checker perflint lui-même (30 sur 37)**, confirmés en lisant sa propre
+  implémentation (`perflint/comprehension_checker.py`) : `use-list-comprehension`/
+  `use-list-copy`/`use-dict-comprehension` ne regardent que la première instruction de la
+  boucle, sans vérifier qu'elle n'est pas en réalité (a) un dédoublonnage préservant l'ordre
+  où la liste-cible est relue dans sa propre condition d'appartenance
+  (`simulation_ranked_utils.py:761,831`, `simulation_multiwinner_utils.py:457,524,624` —
+  convertir dépendrait d'un détail d'implémentation de `list.extend()`, pas d'une garantie du
+  langage), (b) un compteur/regroupement par clé across plusieurs itérations d'une boucle
+  englobante (`arrow_criteria.py:210`, `simulations/base.py:361`, `campaign_dynamics.py:194`,
+  `simulation_voting_utils.py:758`, `simulation_score_utils.py:175,349,470`,
+  `sockets/__init__.py:227`, `polity/indexer.py:324`, `theory/workers.py:369` — ce dernier est
+  en fait une reconstruction de chemin BFS, pas une copie), ou (c) une boucle à plusieurs
+  instructions dont il ne voit que la première (`simulation_multiwinner_utils.py:186`, qui
+  incrémente aussi `round_num` et alimente `rounds`).
+- **Conversions liste→tuple qui casseraient un vrai contrat de type (13 findings)**, vérifié
+  en convertissant puis en relançant `mypy` (jamais laissé au jugement seul) : la constante
+  visée est soit explicitement annotée `List[...]`/`Optional[List[...]]` côté consommateur,
+  soit réassignée à une variable déjà `List[...]`, soit combinée via `data.get(k) or DEFAULT`
+  — cas où `mypy` garde `Any | tuple[...]` dans l'union au lieu de l'effondrer en `Any`,
+  contrairement à `data.get(k, DEFAULT)` (2 arguments) sur un `Dict[str, Any]` qui, lui,
+  retourne bien `Any` (vérifié empiriquement, cf. `workers_advanced.py:269` corrigé sans
+  souci). Exemples : `engine/constants.py:8` (`DEFAULT_ISSUES`, testé — 107 erreurs mypy sur
+  ~15 fichiers si converti), `theory/workers.py:986-987,1499,1677,1719,1744,1967,2168,2366-
+  2367,2449,2541-2542`, `workers_mechanisms.py:1105`, `workers_advanced.py:784`,
+  `workers_playground.py:30,474`, `simulations/compare.py:456`.
+- **`refurb` (6 findings)** : `dict(x)`→`.copy()` refusé quand `x` est un `Counter`/
+  `defaultdict` vivant (`tech.py:133`, `simulation_multiwinner_utils.py:169,236`) — `.copy()`
+  préserverait le comportement « clé manquante → 0 » au lieu de normaliser en `dict` avant de
+  sérialiser, exactement la distinction que CLAUDE.md/l'énoncé de cette tâche demandait de
+  vérifier ; et `float(v)`→`v` refusé quand `v` provient d'un champ Pydantic `Dict[str, Any]`
+  non validé côté type — `information_model.py:107` (`media_bias`, un vrai appelant
+  `simulations/compare.py:85` passe le dict brut sans cast), `simulation_multiwinner_utils.py
+  :20` (`party_votes` de `MultiwinnerRequest`, lui aussi `Dict[str, Any]`).
+
+**Faire taire les faux positifs basedpyright, détail (2026-09-12).** Les 34
+trouvailles restantes du Lot 6.2 ont été revérifiées une par une (relecture du
+code réel à chaque site, pas une simple relecture du rapport) avant tout
+changement, puis silencées par un `# pyright: ignore[<règle exacte>]` ciblé
+ligne par ligne — jamais un désactivateur de fichier ou de règle global.
+Répartition confirmée :
+
+- **18× `reportArgumentType`** — `Field(default_factory=SomeConfigClass)` où
+  `SomeConfigClass` est une classe pydantic entièrement à défauts, utilisée
+  directement comme factory. Idiome valide (`SomeConfigClass()` fonctionne),
+  mais basedpyright n'a pas d'équivalent du plugin mypy `pydantic.mypy` et ne
+  résout pas cette combinaison de surcharges de `Field()`. Sites :
+  `api/schemas/common.py` (1), `api/schemas/election.py` (12),
+  `api/schemas/perturbers.py` (2), `api/schemas/theory.py` (3 :
+  `Guardrails`, `CompetenceParams`, `ATBaseSimulation`).
+- **14× `reportCallIssue`** — des constructeurs `XCandidate(name=..., x=...)`
+  (`BacksliddingCandidate`, `EpistCandidate`, `IDCandidate`,
+  `ATBaseCandidate`, `CWCandidate`, toutes dans `api/schemas/theory.py`,
+  même forme à trois champs `name`/`x`/`y`) omettant `y`, qui a pourtant un
+  vrai défaut (`y: float = Field(0.0, ge=-1.0, le=1.0)`) — même cause racine
+  que ci-dessus, basedpyright ne voit pas au travers du `__init__` généré par
+  pydantic.
+- **2 isolés, même famille (une invariante réelle que le vérificateur ne
+  peut pas prouver localement)**, déjà documentés dans le détail du §6.2 mais
+  jamais silencés à l'époque (« laissés tels quels ») :
+  - `reportPossiblyUnboundVariable` sur `active` dans
+    `api/domain/election/workers_mechanisms.py` (`_abstention_worker`) —
+    `num_rounds` est validé `>= 0` par le schéma Pydantic avant l'exécution
+    de la fonction, donc la boucle qui assigne `active` s'exécute toujours
+    au moins une fois ; invisible à l'analyse statique locale.
+  - `reportArgumentType` sur `remaining.remove(last)` dans
+    `api/domain/theory/workers.py` (`_irv`) — `last` vient de
+    `Counter[str | None].most_common()[-1][0]`, mais la clé `None` a déjà
+    été retirée juste avant par `tally.pop(None, None)` ; basedpyright ne
+    réduit pas `Counter[str | None]` après un `.pop()` ciblé.
+
+  Ce deuxième cas isolé ne figurait pas dans le compte initial de cette
+  tâche (19 + 14 + 1 = 34 attendus au lieu de 18 + 14 + 2 = 34 réels) — un
+  écart d'un dans chaque sens qui se compense, découvert en relançant
+  `basedpyright api/` à froid plutôt qu'en faisant confiance au compte
+  fourni : le total réel restait bien 34, mais réparti différemment. Les
+  deux isolés correspondent exactement aux « 2 faux positifs isolés » déjà
+  détaillés au §6.2 ci-dessus.
+
+  Résultat final, revérifié après coup : `basedpyright api/` → **0 errors,
+  0 warnings, 0 notes**. `mypy api/` reste clean (`Success: no issues found
+  in 92 source files` — aucun `# pyright: ignore[...]` ne perturbe mypy, qui
+  les traite comme de simples commentaires). `python -m pytest api/tests`
+  reste vert (**2139 passed, 41 skipped**, aucun échec) et `ruff check
+  fast_api_voter` aussi (`All checks passed!`) — changements strictement
+  limités à des commentaires, aucune ligne de logique modifiée.
 
 ---
 
@@ -587,6 +3289,10 @@ Lot 13 (synthèse & partage)
 
 Lot 12 (économie de tokens)     ← TRANSVERSAL : 12.1 et 12.2 dès maintenant,
                                    le reste s'installe au fil des autres lots
+
+Lot 14 (dette du Lot 6)         ← HORS FLUX : après Lot 6, sinon jamais —
+                                   aucune urgence, peut se faire n'importe
+                                   quand, y compris après Lot 13
 ```
 
 **Dépendances dures** (le reste est librement réordonnable) :
@@ -597,6 +3303,9 @@ Lot 12 (économie de tokens)     ← TRANSVERSAL : 12.1 et 12.2 dès maintenant,
 - Lot 12.1 (mesure) avant les lots coûteux, sinon on n'a pas de point de
   comparaison pour chiffrer ce qu'ils économisent (§12.6).
 - Lot 13 en dernier par construction.
+- Lot 14 après Lot 6 (il en réduit les chiffres) — mais sans échéance ; ne
+  bloque rien d'autre, y compris Lot 13 (la synthèse peut noter la dette du
+  Lot 6 comme « mesurée, pas encore remboursée »).
 
 ## Règles d'exécution
 

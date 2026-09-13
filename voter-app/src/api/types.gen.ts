@@ -1072,8 +1072,98 @@ export interface paths {
          * Health
          * @description Return 200 when healthy, 503 when degraded — same contract as
          *     `/api/health` on the Flask side.
+         *
+         *     Kept exactly as-is (fly.toml's [[http_service.checks]] hits this exact
+         *     path). `/health/live` and `/health/ready` below are ADDITIVE — a
+         *     conflated liveness+readiness signal on one endpoint is exactly the "reste
+         *     binaire" gap Lot 10 names, but this one has a real deploy dependency, so
+         *     it isn't worth rewriting when adding beside it is just as effective.
          */
         get: operations["health_api_v2_health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/health/live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Liveness
+         * @description Liveness only: can this process respond to HTTP at all?
+         *
+         *     Zero dependency checks, on purpose — this must basically never fail
+         *     unless the process itself is dead, so an orchestrator reading only this
+         *     endpoint never restarts a perfectly-alive process over a transient Redis
+         *     blip (a real gap `/health` alone has: a platform that treats any non-2xx
+         *     from its one health endpoint as "kill and restart" can't tell "the
+         *     process is dead" from "an optional cache is briefly unreachable" apart).
+         */
+        get: operations["liveness_api_v2_health_live_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/health/ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Readiness
+         * @description Readiness: should this instance receive traffic right now?
+         *
+         *     Reuses `_check_redis()` — no new dependency logic. This app has exactly
+         *     one optional backing service, and its own degrade-gracefully design
+         *     (see the comment on `_check_redis`) means an UNCONFIGURED Redis is not a
+         *     "required dependency down" case at all: the documented production deploy
+         *     (fly.toml: "Stateless: no Redis... required") runs with no REDIS_URL set,
+         *     and that is the fully-ready, fully-functional state, not a degraded one.
+         *     The only state this can meaningfully call "not ready" is the one where an
+         *     operator explicitly configured Redis (set REDIS_URL) and it is
+         *     unreachable — exactly what `_check_redis()` already encodes as
+         *     `{"ok": False, ...}` vs. `{"ok": True, "configured": False}` for the
+         *     unset case. So today this has the same pass/fail shape as `/health`
+         *     (there is only one checkable dependency, and it's optional) — the value
+         *     of a separate endpoint is semantic, not behavioural yet: a platform that
+         *     understands the liveness/readiness split can route around a degraded
+         *     instance without restarting it, which `/health` alone (conflated with
+         *     liveness) can't express.
+         */
+        get: operations["readiness_api_v2_health_ready_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Metrics
+         * @description Endpoint that serves Prometheus metrics.
+         */
+        get: operations["metrics_api_v2_metrics_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -8236,6 +8326,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     list_methods_api_v1_methods_get: {
@@ -8285,6 +8384,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     openapi_spec_api_v1_openapi_json_get: {
@@ -8325,6 +8433,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     real_elections_api_v1_real_elections_get: {
@@ -8356,6 +8473,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8407,6 +8533,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8487,6 +8622,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     adaptive_endpoint_api_v2_election_adaptive_post: {
@@ -8531,6 +8675,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8589,6 +8742,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     assembly_endpoint_api_v2_election_assembly_post: {
@@ -8633,6 +8795,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8691,6 +8862,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     ballot_complexity_endpoint_api_v2_election_ballot_complexity_post: {
@@ -8735,6 +8915,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8793,6 +8982,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     campaign_sensitivity_endpoint_api_v2_election_campaign_sensitivity_post: {
@@ -8837,6 +9035,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8895,6 +9102,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     choice_overload_endpoint_api_v2_election_choice_overload_post: {
@@ -8939,6 +9155,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8997,6 +9222,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     combined_effects_endpoint_api_v2_election_combined_effects_post: {
@@ -9041,6 +9275,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -9099,6 +9342,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     conviction_voting_endpoint_api_v2_election_conviction_voting_post: {
@@ -9143,6 +9395,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -9201,6 +9462,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     demographic_turnout_endpoint_api_v2_election_demographic_turnout_post: {
@@ -9245,6 +9515,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -9303,6 +9582,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     divergence_endpoint_api_v2_election_divergence_post: {
@@ -9347,6 +9635,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -9405,6 +9702,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     gerrymander_endpoint_api_v2_election_gerrymander_post: {
@@ -9449,6 +9755,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -9507,6 +9822,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     hotelling_endpoint_api_v2_election_hotelling_post: {
@@ -9551,6 +9875,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -9609,6 +9942,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     issue_voting_endpoint_api_v2_election_issue_voting_post: {
@@ -9653,6 +9995,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -9711,6 +10062,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     liquid_democracy_endpoint_api_v2_election_liquid_democracy_post: {
@@ -9755,6 +10115,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -9813,6 +10182,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     nota_endpoint_api_v2_election_nota_post: {
@@ -9857,6 +10235,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -9915,6 +10302,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     polarization_endpoint_api_v2_election_polarization_post: {
@@ -9959,6 +10355,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10017,6 +10422,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     primary_endpoint_api_v2_election_primary_post: {
@@ -10061,6 +10475,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10119,6 +10542,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     quadratic_funding_endpoint_api_v2_election_quadratic_funding_post: {
@@ -10163,6 +10595,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10221,6 +10662,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     simulate_endpoint_api_v2_election_simulate_post: {
@@ -10265,6 +10715,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10323,6 +10782,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     sortition_endpoint_api_v2_election_sortition_post: {
@@ -10367,6 +10835,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10425,6 +10902,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     stv_endpoint_api_v2_election_stv_post: {
@@ -10469,6 +10955,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10527,6 +11022,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     export_csv_api_v2_export_simulation_dataset_post: {
@@ -10562,6 +11066,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10611,6 +11124,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     health_api_v2_health_get: {
@@ -10639,6 +11161,89 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    liveness_api_v2_health_live_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    readiness_api_v2_health_ready_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Not ready — see the module docstring on `_check_redis` for why an UNCONFIGURED Redis never lands here, only a configured-but-unreachable one. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    metrics_api_v2_metrics_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                    "text/plain; version=1.0.0; charset=utf-8": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
             };
         };
     };
@@ -10693,6 +11298,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10760,6 +11374,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     bandwagon_api_v2_simulations_bandwagon_post: {
@@ -10813,6 +11436,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10880,6 +11512,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     blank_history_api_v2_simulations_blank_history_get: {
@@ -10931,6 +11572,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10998,6 +11648,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     campaign_api_v2_simulations_campaign_post: {
@@ -11051,6 +11710,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -11118,6 +11786,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     condorcet_matrix_api_v2_simulations_condorcet_matrix_post: {
@@ -11171,6 +11848,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -11238,6 +11924,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     get_closest_candidate_api_v2_simulations_get_closest_candidate_post: {
@@ -11291,6 +11986,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -11358,6 +12062,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     get_voter_segments_api_v2_simulations_get_voter_segments_post: {
@@ -11418,6 +12131,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     ideology_map_api_v2_simulations_ideology_map_post: {
@@ -11471,6 +12193,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -11540,6 +12271,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     monte_carlo_api_v2_simulations_monte_carlo_post: {
@@ -11593,6 +12333,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -11660,6 +12409,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     real_election_api_v2_simulations_real_election_post: {
@@ -11720,6 +12478,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     real_elections_api_v2_simulations_real_elections_get: {
@@ -11760,6 +12527,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -11827,6 +12603,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     sensitivity_api_v2_simulations_sensitivity_post: {
@@ -11880,6 +12665,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -11947,6 +12741,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     simulate_utility_api_v2_simulations_simulate_utility_post: {
@@ -12000,6 +12803,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -12067,6 +12879,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     strategic_impact_api_v2_simulations_strategic_impact_post: {
@@ -12120,6 +12941,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -12187,6 +13017,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     what_if_api_v2_simulations_what_if_post: {
@@ -12247,6 +13086,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     e2e_demo_endpoint_api_v2_tech_e2e_demo_post: {
@@ -12291,6 +13139,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -12349,6 +13206,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     polis_simulation_endpoint_api_v2_tech_polis_simulation_post: {
@@ -12393,6 +13259,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -12451,6 +13326,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     apportionment_endpoint_api_v2_theory_apportionment_post: {
@@ -12495,6 +13379,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -12553,6 +13446,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     assumption_testing_endpoint_api_v2_theory_assumption_testing_post: {
@@ -12597,6 +13499,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -12655,6 +13566,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     democratic_backsliding_endpoint_api_v2_theory_democratic_backsliding_post: {
@@ -12699,6 +13619,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -12757,6 +13686,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     identity_voting_endpoint_api_v2_theory_identity_voting_post: {
@@ -12801,6 +13739,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -12859,6 +13806,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     intergenerational_endpoint_api_v2_theory_intergenerational_post: {
@@ -12903,6 +13859,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -12961,6 +13926,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     majority_tyranny_endpoint_api_v2_theory_majority_tyranny_post: {
@@ -13005,6 +13979,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -13063,6 +14046,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     plott_chaos_endpoint_api_v2_theory_plott_chaos_post: {
@@ -13114,6 +14106,15 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
         };
     };
     sen_paradox_endpoint_api_v2_theory_sen_paradox_post: {
@@ -13158,6 +14159,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

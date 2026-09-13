@@ -76,3 +76,37 @@ concurrentes : (a) réduit l'espace de recherche, (b) tranche.
 passe sémantique (LLM ou revue manuelle) — sur les 329 candidats déjà
 présélectionnés par (a), plutôt que sur l'ensemble des blocs de commentaire du
 dépôt.
+
+## Phase 2 (2026-09-10) — passe sémantique, verdict final
+
+Exécutée par 6 agents en parallèle (un par tranche de ~55 candidats), chacun
+lisant le commentaire **et** le code environnant — jamais la seule date —
+avant de trancher, et vérifiant activement toute affirmation factuelle
+(compter un nombre annoncé, grep une fonction citée, relire une formule
+décrite) plutôt que de juger sur plausibilité.
+
+| Catégorie | Nombre | Traitement |
+|---|---|---|
+| **Périmé** | 15 | Corrigé |
+| **Redondant** | 59 | Supprimé |
+| **Archéologique** | 0 | — |
+| **Pourquoi** (non négociable) | 45 | Gardé |
+| **Toujours-valide** (vrai négatif) | 210 | Aucune action |
+
+**Verdict** : sur les 329 candidats présélectionnés par la phase 1, 4,6 %
+(15) étaient effectivement faux — confirmant le diagnostic de la phase 1 que
+l'écart temporel `git blame` est surtout du bruit (code qui bouge sans
+rapport avec le commentaire voisin). Le motif dominant des 15 Périmé n'est
+pas l'usure isolée mais la **migration non nettoyée** : un tiers d'entre eux
+évoquaient encore Flask (retiré, cf. `CLAUDE.md`) ou Jest (jamais utilisé,
+le projet tourne sous Vitest) comme des contraintes actuelles. Le reste
+étaient des erreurs factuelles ponctuelles indépendantes (formule mal
+décrite, décompte périmé, référence à un composant supprimé). Zéro
+« archéologique » — ce dépôt ne laisse pas de récit de session dans son code
+source, cohérent avec le carnet d'expérience séparé (Lot 0.2).
+
+74 commentaires corrigés ou supprimés, sur 44 fichiers (11 backend,
+33 frontend) ; `ruff`/`mypy`/pytest et `tsc`/`vitest`/`eslint` verts après
+coup. Détail complet dans [PLAN_SOLIDITE_TECHNIQUE.md §6.1](
+../../PLAN_SOLIDITE_TECHNIQUE.md#61--audit-de-pertinence-des-commentaires--l--%E2%AD%90%E2%AD%90-%F0%9F%93%9D%F0%9F%93%9D%F0%9F%93%9D)
+et dans l'historique de la PR qui a appliqué ces changements.

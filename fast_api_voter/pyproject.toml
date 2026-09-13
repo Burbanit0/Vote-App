@@ -13,7 +13,19 @@ asyncio_mode = "strict"
 # there via `pytest api/tests/test_schema_contract.py -o addopts=""` — naming
 # the file explicitly bypasses this --ignore (it only affects directory
 # discovery, confirmed live), so that invocation still collects it.
-addopts = "--cov=api --cov-report=term --cov-report=html --cov-fail-under=90 -v --ignore=api/tests/test_schema_contract.py"
+#
+# test_engine_benchmarks.py (Lot 8.1, PLAN_SOLIDITE_TECHNIQUE.md) is ignored
+# for a different reason: pytest-benchmark disables its timing machinery when
+# pytest-xdist is active (confirmed — "Benchmarks are automatically disabled
+# because xdist plugin is active"), and backend-ci-cd-pipeline.yml runs this
+# suite via `-n auto`. Running the file there doesn't silently no-op though —
+# confirmed live, every test crashes with AttributeError ('NoneType' object
+# has no attribute 'stats') since the benchmark fixture's .stats never gets
+# populated. It has its own blocking CI step, invoked explicitly without
+# -n auto (see
+# backend-ci-cd-pipeline.yml's "Engine perf ceilings" step and the module
+# docstring for the full design rationale).
+addopts = "--cov=api --cov-report=term --cov-report=html --cov-fail-under=90 -v --ignore=api/tests/test_schema_contract.py --ignore=api/tests/test_engine_benchmarks.py"
 
 [tool.coverage.run]
 source = ["api"]
@@ -70,6 +82,16 @@ extend_exclude = [
                    # (DEP004), it's exactly where a dev dependency belongs.
 ]
 
+# deptry can't derive this one from the PyPI name on its own: the package
+# installs into the nested opentelemetry.instrumentation.fastapi namespace
+# path (see api/core/tracing.py's import) rather than a flat opentelemetry_
+# instrumentation_fastapi module — without this mapping it wrongly reports
+# DEP002 ("defined as a dependency but not used"), confirmed via its own
+# "Assuming the corresponding module name..." warning during Lot 13's
+# CODE_AUDIT.md refresh.
+[tool.deptry.package_module_name_map]
+"opentelemetry-instrumentation-fastapi" = "opentelemetry"
+
 [tool.deptry.per_rule_ignores]
 # Each of these is a real, deliberate case deptry's static import-scanning
 # can't see, not an unfixed finding — see PR that introduced this section for
@@ -93,6 +115,26 @@ DEP003 = [
                   # place that pin can drift out of sync.
 ]
 
+# Second static-analysis opinion alongside mypy (Lot 6.2, PLAN_SOLIDITE_
+# TECHNIQUE.md — informational only, not a gate; see scripts/audit.sh
+# --quality). "standard" (not "strict"/"all"): basedpyright's stricter modes
+# propagate `Unknown` far more aggressively than `mypy --strict` and drown
+# the signal — e.g. ~15k warnings from z3-solver alone lacking type stubs.
+# api/tests/ excluded to match mypy.ini's own `exclude = (tests)` scope, so
+# the two tools are compared on the same code, not different codebases.
+[tool.basedpyright]
+include = ["api"]
+exclude = ["api/tests"]
+typeCheckingMode = "standard"
+pythonVersion = "3.14"
+# mypy.ini's `plugins = pydantic.mypy` understands `Field(default, ge=, ...)`
+# and `Field(default_factory=SomeModel)` as providing real defaults;
+# basedpyright's PEP 681 (dataclass_transform) support doesn't fully resolve
+# that overload combination and reports phantom missing-argument/type errors
+# on otherwise-correct pydantic models — a known, documented baseline
+# (~32 findings, all verified false positives), not something to chase to
+# zero. See PLAN_SOLIDITE_TECHNIQUE.md §6.2 for the full breakdown.
+
 # Dead-code detection (informational only — see CODE_AUDIT.md for the
 # rationale and how this feeds scripts/audit.sh / CI). min_confidence=80 keeps
 # the signal-to-noise ratio usable: below that threshold Enum members and
@@ -107,6 +149,15 @@ ignore_decorators = [
   "@field_validator", "@model_validator", "@validator",
 ]
 exclude = ["api/tests/"]
+
+# Python modernization (Lot 6, PLAN_SOLIDITE_TECHNIQUE.md — informational
+# only, see scripts/audit.sh --quality). 145 findings, 77 of them the same
+# `dict(x)`/`list(x)` -> `.copy()` idiom (FURB123) — a real, if tiny, perf
+# win on a CPU-bound engine (`.copy()` skips the general dict/list
+# constructor's type dispatch) but purely mechanical, so left as a baseline
+# to fix incrementally rather than a one-shot mass edit across ~30 files.
+[tool.refurb]
+python_version = "3.14"
 
 [tool.mutmut]
 # First pass, scoped deliberately (see prompt-mutation-testing.md). The doc's
@@ -295,4 +346,26 @@ layers = [
     "api.routes",
     "api.domain",
     "api.engine",
+]
+
+# Performance anti-patterns on the CPU-bound simulation engine (Lot 6,
+# PLAN_SOLIDITE_TECHNIQUE.md — informational, see scripts/audit.sh
+# --quality). Everything except loop-invariant-statement disabled: that one
+# rule alone fires ~1,600 times on this codebase's dense per-voter/per-
+# candidate loops, the overwhelming majority on expressions pylint can't
+# prove are actually invariant across iterations (attribute lookups,
+# subscripts on mutable containers) -- real signal-to-noise ratio too low
+# to be useful at the whole-repo scale; left disabled rather than drowning
+# the handful of other, much rarer and much more concrete perflint checks
+# (unnecessary-list-cast, incorrect-dictionary-iterator, use-list-copy, ...).
+[tool.pylint.main]
+load-plugins = ["perflint"]
+
+[tool.pylint."messages control"]
+disable = ["all"]
+enable = [
+    "unnecessary-list-cast", "incorrect-dictionary-iterator",
+    "loop-global-usage", "memoryview-over-bytes", "dotted-import-in-loop",
+    "use-tuple-over-list", "use-list-comprehension", "use-list-copy",
+    "use-dict-comprehension", "loop-try-except-usage",
 ]

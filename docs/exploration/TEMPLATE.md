@@ -1,6 +1,8 @@
 # EXP-00X — <Outil> : <ce qu'on cherchait à savoir>
 
-- **Date** · **Statut** : adopté | rejeté | suspendu · **Coût réel** : Xh
+- **Date** · **Statut** : adopté | rejeté | suspendu · **Coût réel** : Xh ·
+  **Coût en tokens** : X k tok (`/cost` en séance, ou estimation à partir du
+  transcript `~/.claude/projects/**/*.jsonl`)
 - **Verdict en une phrase** :
 
 ## Hypothèse de départ

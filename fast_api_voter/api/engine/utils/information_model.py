@@ -32,6 +32,7 @@ or ±0.045 (high_info) shift on the perceived utility.
 from __future__ import annotations
 
 import random
+from contextlib import suppress
 
 # ── Segment configuration ────────────────────────────────────────────────────
 
@@ -102,10 +103,8 @@ def apply_information_asymmetry(
     # ── Parse and clamp media bias ────────────────────────────────────────
     bias: dict[int, float] = {}
     for k, v in media_bias.items():
-        try:
+        with suppress(ValueError, TypeError):
             bias[int(k)] = max(-1.0, min(1.0, float(v)))
-        except (ValueError, TypeError):
-            pass
 
     # ── Apply noise + media effect per voter ──────────────────────────────
     perceived: list[list[float]] = []

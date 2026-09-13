@@ -11,7 +11,7 @@ works for both — see fast_api_voter/.env.example.
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import List
+from typing import List, Optional
 
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -44,6 +44,33 @@ class Settings(BaseSettings):
 
     # ── Logging ─────────────────────────────────────────────────────────────
     log_level: str = Field(default="INFO")
+
+    # ── Error tracking (Lot 10.1, PLAN_SOLIDITE_TECHNIQUE.md) ─────────────────
+    # Self-hosted GlitchTip (docker-compose.observability.yml), never Sentry
+    # SaaS — an empty DSN means "disabled, no error", same optional-dependency
+    # pattern as redis_url above (see api/routes/health.py's _check_redis
+    # comment). sentry-sdk is the correct client either way: GlitchTip
+    # implements the same event-ingestion API, only the DSN host differs.
+    glitchtip_dsn: str = Field(default="")
+
+    # ── Metrics (Lot 10, PLAN_SOLIDITE_TECHNIQUE.md — "/metrics Prometheus") ──
+    # Optional shared secret gating GET /api/v2/metrics. Unset (default) =
+    # unauthenticated, matching this app's overall posture (no auth system
+    # exists anywhere else either) — fine for local/dev. Set it in production
+    # to require `Authorization: Bearer <token>` and avoid handing anyone on
+    # the public internet a live view of endpoint traffic. See
+    # api/routes/metrics.py's `_check_metrics_auth`.
+    metrics_auth_token: Optional[str] = Field(default=None)
+
+    # ── Observability — tracing (Lot 10.2, PLAN_SOLIDITE_TECHNIQUE.md) ───────
+    # Same optional-dependency pattern as redis_url above: empty (the default)
+    # means tracing is fully disabled, no TracerProvider is installed, and the
+    # FastAPI auto-instrumentation is never applied. Point this at an OTLP/HTTP
+    # collector's base URL (e.g. "http://localhost:4318" for the Jaeger
+    # all-in-one in docker-compose.observability-tracing.yml) to enable it —
+    # "/v1/traces" is appended by api/core/tracing.py, don't include it here.
+    otel_exporter_otlp_endpoint: str = Field(default="")
+    otel_service_name: str = Field(default="vote-lab-api")
 
     # ── Derived ─────────────────────────────────────────────────────────────
     @property

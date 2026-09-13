@@ -17,6 +17,7 @@ from typing import Any, Dict, List, Optional, Tuple  # noqa: F401
 import numpy as _np
 
 from api.engine.constants import DEFAULT_ISSUES
+from api.engine.utils.error_handling import safe_call
 from api.engine.utils.logger import get_logger
 from api.engine.utils.simulation_metrics import compare_all_methods
 from api.engine.utils.simulation_ranked_utils import (
@@ -144,7 +145,7 @@ def _adaptive_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         for v in voters:
             uid       = v["id"]
             propensity: float = float(v.get("strategic_propensity", 0.2))
-            roll: float = float(_random.random())
+            roll: float = _random.random()
             if rnd > 0 and propensity > roll:
                 tactical = _tactical_vote(
                     uid, sincere_rankings[uid], true_utilities[uid], polls, strategic_threshold
@@ -328,7 +329,7 @@ def _historical_replay_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
     # ── Day-by-day Brownian campaign simulation ────────────────────────────
     sigma = 0.018
     current_u: Dict[Any, Dict[str, float]] = {
-        v["id"]: dict(base_utilities[v["id"]]) for v in voters
+        v["id"]: base_utilities[v["id"]].copy() for v in voters
     }
     n_cands   = len(cand_names)
     days_out: list[Dict[str, Any]] = []
@@ -451,7 +452,7 @@ def _generate_jury_ballots(
     ballots: List[List[str]] = []
 
     for _ in range(num_voters):
-        rest = list(options)
+        rest = options.copy()
         if rng.random() < competence:
             first = correct
         else:
@@ -476,7 +477,7 @@ def _jury_approval_winner(
     return counts.most_common(1)[0][0] if counts else None
 
 
-_JURY_METHODS = ["plurality", "borda", "irv", "approval", "schulze"]
+_JURY_METHODS = ("plurality", "borda", "irv", "approval", "schulze")
 
 
 def _run_jury_simulation(
@@ -533,13 +534,14 @@ def _jury_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     theoretical = _jury_theoretical(num_voters, voter_competence)
     majority_acc = accuracies.get("plurality", 0.0)
 
-    methods_out: Dict[str, Any] = {}
-    for m, acc in accuracies.items():
-        methods_out[m] = {
+    methods_out: Dict[str, Any] = {
+        m: {
             "accuracy":       acc,
             "beats_majority": acc > majority_acc or m == "plurality",
             "beats_theory":   acc > theoretical,
         }
+        for m, acc in accuracies.items()
+    }
 
     best_method  = max(accuracies, key=lambda k: accuracies[k])
     worst_method = min(accuracies, key=lambda k: accuracies[k])
@@ -736,8 +738,7 @@ def _abstention_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         # Build abstention_map (max 300 voters for performance)
         snap_indices = list(range(min(300, len(voters))))
         abs_map = [
-            {
-                **voter_positions[i],
+            voter_positions[i] | {
                 "preferred":        voter_preferred[voters[i]["id"]],
                 "abstained":        voters[i]["id"] in abstained,
                 "prob_abstention":  abs_probs.get(voters[i]["id"], 0.0),
@@ -777,21 +778,22 @@ def _abstention_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     # ── Per-method winners (with and without abstention) ──────────────────
     # Enables the LabCentralView pinned matrix to show how abstention
     # affects every voting method, not just plurality.
-    try:
+    def _compute_winners_by_method() -> Tuple[Dict[str, Any], Dict[str, Any]]:
         sincere_compare = compare_all_methods(voters, candidates, issues)
-        final_compare   = compare_all_methods(active, candidates, issues)
-        sincere_winners_by_method = {
-            m: data.get("winner")
-            for m, data in sincere_compare.get("methods", {}).items()
-        }
-        winners_by_method = {
-            m: data.get("winner")
-            for m, data in final_compare.get("methods", {}).items()
-        }
-    except Exception:  # pylint: disable=broad-except
-        log.warning("workers_mechanisms.abstention_winners_by_method_failed", exc_info=True)
-        sincere_winners_by_method = {}
-        winners_by_method = {}
+        # num_rounds >= 0 is enforced by Pydantic validation before this runs,
+        # so the loop above always executes >= 1 time and `active` is always
+        # assigned; not provable locally by pyright (PLAN_SOLIDITE_TECHNIQUE.md
+        # Lot 14.5)
+        final_compare = compare_all_methods(active, candidates, issues)  # pyright: ignore[reportPossiblyUnboundVariable]
+        return (
+            {m: data.get("winner") for m, data in sincere_compare.get("methods", {}).items()},
+            {m: data.get("winner") for m, data in final_compare.get("methods", {}).items()},
+        )
+
+    sincere_winners_by_method, winners_by_method = safe_call(
+        _compute_winners_by_method, lambda: ({}, {}),
+        log=log, event="workers_mechanisms.abstention_winners_by_method_failed",
+    )
 
     return {
         "rounds":          rounds_out,
@@ -1143,7 +1145,7 @@ def _multiwinner_compare_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
     # ── Distortion metrics ─────────────────────────────────────────────────
     prop_seats = _dhondt(vote_shares, num_seats)   # proportional reference
 
-    for method_name, mdata in methods.items():
+    for mdata in methods.values():
         seat_dict = mdata["seats"]
         dist_vals = [
             abs(seat_dict.get(c, 0) / num_seats - vote_shares.get(c, 0))

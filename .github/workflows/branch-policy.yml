@@ -20,7 +20,11 @@ jobs:
 
     steps:
       - name: Check branch naming (PRs to develop)
-        if: github.base_ref == 'develop'
+        # Mergify's own speculative merge-queue checks run against a
+        # synthetic `mergify/merge-queue/<hash>` branch it creates itself
+        # (see .mergify.yml) — that branch never goes through a real PR's
+        # naming convention and shouldn't be held to it.
+        if: github.base_ref == 'develop' && !startsWith(github.head_ref, 'mergify/merge-queue/')
         env:
           SOURCE: ${{ github.head_ref }}   # via env (untrusted) — never interpolate into the shell
         run: |
@@ -100,6 +104,10 @@ jobs:
           echo "✅  Source autorisée pour main : $SOURCE"
 
       - name: Validate PR title format
+        # Same exemption as the naming check above — Mergify's synthetic
+        # queue-check PR gets an auto-generated title ("merge queue:
+        # checking #N on develop (<sha>)"), not a real contributor's title.
+        if: ${{ !startsWith(github.head_ref, 'mergify/merge-queue/') }}
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |

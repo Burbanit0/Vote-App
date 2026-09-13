@@ -4,8 +4,8 @@ import { usePlaygroundCtx } from '../playground/PlaygroundController';
 import { useElection } from '../../stores/useElectionStore';
 
 // labCatalog — the Laboratoire's entire content as DATA. One entry per
-// experiment: 48 former anchor leaves + the strategy panel split into its five
-// modules + ballot + values + the methods matrix and gallery = 57 fiches.
+// experiment: 53 former anchor leaves + the strategy panel split into its four
+// modules + ballot + values + the methods duel, matrix and gallery = 62 fiches.
 // The page (LaboratoirePage) is a thin reader: a family rail, a catalogue of
 // chips, and one full-width bench ("établi") that renders the selected entry —
 // so no experiment ever stacks under another and nothing mounts unpicked.
@@ -19,7 +19,6 @@ import { useElection } from '../../stores/useElectionStore';
 
 // ── Lazy panels (formerly spread across 8 anchor files) ─────────────────────
 
-// Méthodes
 const MethodDuel = lazyWithPreload(() => import('./MethodDuel'));
 const MethodsMatrix = lazyWithPreload(() => import('./MethodsMatrix'));
 const MethodGallery = lazyWithPreload(() => import('./MethodGallery'));
@@ -31,78 +30,104 @@ const SincerityModule = lazyWithPreload(() => import('../playground/SincerityMod
 const StrategicModule = lazyWithPreload(() => import('../playground/StrategicModule'));
 const EquilibriumModule = lazyWithPreload(() => import('../playground/EquilibriumModule'));
 const VseModule = lazyWithPreload(() => import('../playground/VseModule'));
-const AbstentionPanel = lazyWithPreload(() => import('../shared/AbstentionPanel'));
+const AbstentionPanel = lazyWithPreload(() => import('../shared/blank/AbstentionPanel'));
 
 // Mécanismes alternatifs
-const JuryTheoremPanel = lazyWithPreload(() => import('../shared/JuryTheoremPanel'));
-const NOTAPanel = lazyWithPreload(() => import('../shared/NOTAPanel'));
-const LiquidDemocracyPanel = lazyWithPreload(() => import('../shared/LiquidDemocracyPanel'));
-const SortitionPanel = lazyWithPreload(() => import('../shared/SortitionPanel'));
-const DeliberationPanel = lazyWithPreload(() => import('../shared/DeliberationPanel'));
-const ConvictionVotingPanel = lazyWithPreload(() => import('../shared/ConvictionVotingPanel'));
-const EpistocracyPanel = lazyWithPreload(() => import('../shared/EpistocracyPanel'));
-const IdentityVotingPanel = lazyWithPreload(() => import('../shared/IdentityVotingPanel'));
+const JuryTheoremPanel = lazyWithPreload(() => import('../shared/mechanisms/JuryTheoremPanel'));
+const NOTAPanel = lazyWithPreload(() => import('../shared/blank/NOTAPanel'));
+const LiquidDemocracyPanel = lazyWithPreload(
+  () => import('../shared/mechanisms/LiquidDemocracyPanel')
+);
+const SortitionPanel = lazyWithPreload(() => import('../shared/mechanisms/SortitionPanel'));
+const DeliberationPanel = lazyWithPreload(() => import('../shared/mechanisms/DeliberationPanel'));
+const ConvictionVotingPanel = lazyWithPreload(
+  () => import('../shared/mechanisms/ConvictionVotingPanel')
+);
+const EpistocracyPanel = lazyWithPreload(() => import('../shared/mechanisms/EpistocracyPanel'));
+const IdentityVotingPanel = lazyWithPreload(
+  () => import('../shared/mechanisms/IdentityVotingPanel')
+);
 
 // Systèmes électoraux
-const CoalitionPanel = lazyWithPreload(() => import('../shared/CoalitionPanel'));
-const MultiwinnerCompare = lazyWithPreload(() => import('../shared/MultiwinnerCompare'));
-const DistrictMap = lazyWithPreload(() => import('../shared/DistrictMap'));
-const GerrymanderMap = lazyWithPreload(() => import('../shared/GerrymanderMap'));
-const STVPanel = lazyWithPreload(() => import('../shared/STVPanel'));
-const BallotComplexityPanel = lazyWithPreload(() => import('../shared/BallotComplexityPanel'));
+const CoalitionPanel = lazyWithPreload(() => import('../shared/systems/CoalitionPanel'));
+const MultiwinnerCompare = lazyWithPreload(() => import('../shared/systems/MultiwinnerCompare'));
+const DistrictMap = lazyWithPreload(() => import('../shared/systems/DistrictMap'));
+const GerrymanderMap = lazyWithPreload(() => import('../shared/systems/GerrymanderMap'));
+const STVPanel = lazyWithPreload(() => import('../shared/systems/STVPanel'));
+const BallotComplexityPanel = lazyWithPreload(
+  () => import('../shared/systems/BallotComplexityPanel')
+);
 const ElectionPipelineAnimator = lazyWithPreload(
-  () => import('../shared/ElectionPipelineAnimator')
+  () => import('../shared/systems/ElectionPipelineAnimator')
 );
 
 // Trajectoires de campagne
-const HotellingPanel = lazyWithPreload(() => import('../shared/HotellingPanel'));
+const HotellingPanel = lazyWithPreload(() => import('../shared/campaign/HotellingPanel'));
 const CampaignSensitivityPanel = lazyWithPreload(
-  () => import('../shared/CampaignSensitivityPanel')
+  () => import('../shared/campaign/CampaignSensitivityPanel')
 );
-const PolarizationPanel = lazyWithPreload(() => import('../shared/PolarizationPanel'));
-const PartyDynamicsPanel = lazyWithPreload(() => import('../shared/PartyDynamicsPanel'));
+const PolarizationPanel = lazyWithPreload(() => import('../shared/campaign/PolarizationPanel'));
+const PartyDynamicsPanel = lazyWithPreload(() => import('../shared/campaign/PartyDynamicsPanel'));
 
 // Mécanismes temporels
-const AdaptiveVotingPanel = lazyWithPreload(() => import('../shared/AdaptiveVotingPanel'));
-const HistoricalReplay = lazyWithPreload(() => import('../shared/HistoricalReplay'));
-const PrimarySimulator = lazyWithPreload(() => import('../shared/PrimarySimulator'));
-const CascadePanel = lazyWithPreload(() => import('../shared/CascadePanel'));
-const ElectoralFatiguePanel = lazyWithPreload(() => import('../shared/ElectoralFatiguePanel'));
+const AdaptiveVotingPanel = lazyWithPreload(() => import('../shared/temporal/AdaptiveVotingPanel'));
+const HistoricalReplay = lazyWithPreload(() => import('../shared/temporal/HistoricalReplay'));
+const PrimarySimulator = lazyWithPreload(() => import('../shared/temporal/PrimarySimulator'));
+const CascadePanel = lazyWithPreload(() => import('../shared/temporal/CascadePanel'));
+const ElectoralFatiguePanel = lazyWithPreload(
+  () => import('../shared/temporal/ElectoralFatiguePanel')
+);
 
 // Réalisme comportemental
-const BehavioralBiasPanel = lazyWithPreload(() => import('../shared/BehavioralBiasPanel'));
-const ShyVoterPanel = lazyWithPreload(() => import('../shared/ShyVoterPanel'));
-const ChoiceOverloadPanel = lazyWithPreload(() => import('../shared/ChoiceOverloadPanel'));
-const CompulsoryVotingPanel = lazyWithPreload(() => import('../shared/CompulsoryVotingPanel'));
-const DemographicTurnoutPanel = lazyWithPreload(() => import('../shared/DemographicTurnoutPanel'));
+const BehavioralBiasPanel = lazyWithPreload(
+  () => import('../shared/behavioral/BehavioralBiasPanel')
+);
+const ShyVoterPanel = lazyWithPreload(() => import('../shared/behavioral/ShyVoterPanel'));
+const ChoiceOverloadPanel = lazyWithPreload(
+  () => import('../shared/behavioral/ChoiceOverloadPanel')
+);
+const CompulsoryVotingPanel = lazyWithPreload(
+  () => import('../shared/behavioral/CompulsoryVotingPanel')
+);
+const DemographicTurnoutPanel = lazyWithPreload(
+  () => import('../shared/behavioral/DemographicTurnoutPanel')
+);
 const AffectivePolarizationPanel = lazyWithPreload(
-  () => import('../shared/AffectivePolarizationPanel')
+  () => import('../shared/behavioral/AffectivePolarizationPanel')
 );
 
 // Théorie & paradoxes
-const SenParadoxPanel = lazyWithPreload(() => import('../shared/SenParadoxPanel'));
+const SenParadoxPanel = lazyWithPreload(() => import('../shared/theory/SenParadoxPanel'));
 const JudgmentAggregationPanel = lazyWithPreload(
-  () => import('../shared/JudgmentAggregationPanel')
+  () => import('../shared/theory/JudgmentAggregationPanel')
 );
-const AgendaManipulationPanel = lazyWithPreload(() => import('../shared/AgendaManipulationPanel'));
-const MajorityTyrannyPanel = lazyWithPreload(() => import('../shared/MajorityTyrannyPanel'));
-const ApportionmentPanel = lazyWithPreload(() => import('../shared/ApportionmentPanel'));
-const PowerIndicesPanel = lazyWithPreload(() => import('../shared/PowerIndicesPanel'));
+const AgendaManipulationPanel = lazyWithPreload(
+  () => import('../shared/theory/AgendaManipulationPanel')
+);
+const MajorityTyrannyPanel = lazyWithPreload(() => import('../shared/theory/MajorityTyrannyPanel'));
+const ApportionmentPanel = lazyWithPreload(() => import('../shared/theory/ApportionmentPanel'));
+const PowerIndicesPanel = lazyWithPreload(() => import('../shared/theory/PowerIndicesPanel'));
 const DemocraticBackslidingPanel = lazyWithPreload(
-  () => import('../shared/DemocraticBackslidingPanel')
+  () => import('../shared/theory/DemocraticBackslidingPanel')
 );
-const IntergenerationalPanel = lazyWithPreload(() => import('../shared/IntergenerationalPanel'));
-const PolisPanel = lazyWithPreload(() => import('../shared/PolisPanel'));
+const IntergenerationalPanel = lazyWithPreload(
+  () => import('../shared/theory/IntergenerationalPanel')
+);
+const PolisPanel = lazyWithPreload(() => import('../shared/theory/PolisPanel'));
 
 // Analyse approfondie
 const MonteCarloResults = lazyWithPreload(() => import('../Simulation/MonteCarloResults'));
 const ManipulabilityChart = lazyWithPreload(() => import('../Simulation/ManipulabilityChart'));
 const ManipulationAnalysisPanel = lazyWithPreload(
-  () => import('../shared/ManipulationAnalysisPanel')
+  () => import('../shared/analysis/ManipulationAnalysisPanel')
 );
-const CollectiveWillPanel = lazyWithPreload(() => import('../shared/CollectiveWillPanel'));
-const AssumptionTesterPanel = lazyWithPreload(() => import('../shared/AssumptionTesterPanel'));
-const CombinedEffectsMatrix = lazyWithPreload(() => import('../shared/CombinedEffectsMatrix'));
+const CollectiveWillPanel = lazyWithPreload(() => import('../shared/analysis/CollectiveWillPanel'));
+const AssumptionTesterPanel = lazyWithPreload(
+  () => import('../shared/analysis/AssumptionTesterPanel')
+);
+const CombinedEffectsMatrix = lazyWithPreload(
+  () => import('../shared/analysis/CombinedEffectsMatrix')
+);
 
 // Résultats
 const FullResultsModule = lazyWithPreload(() => import('../playground/FullResultsModule'));
@@ -111,7 +136,7 @@ const RealElectionPanel = lazyWithPreload(() => import('../playground/RealElecti
 const LexiquePanel = lazyWithPreload(() => import('./LexiquePanel'));
 const BlankVotePanel = lazyWithPreload(() => import('./BlankVotePanel'));
 const BlankVoteDivergencePanel = lazyWithPreload(
-  () => import('../shared/BlankVoteDivergencePanel')
+  () => import('../shared/blank/BlankVoteDivergencePanel')
 );
 const RegimeGlobe = lazyWithPreload(() => import('./RegimeGlobe'));
 

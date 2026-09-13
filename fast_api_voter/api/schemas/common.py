@@ -60,7 +60,10 @@ class BlankVoteConfig(BaseModel):
     enabled:   bool             = Field(False, description="Apply the constitutional rule to the winner.")
     rule:      str              = Field("symbolic",
                                         description="'symbolic' | 'competitive' | 'threshold_30'.")
-    contagion: ContagionConfig  = Field(default_factory=ContagionConfig)
+    # pydantic default_factory=<Model> / omitted-default arg: basedpyright has
+    # no pydantic.mypy-equivalent plugin, false positive (see
+    # PLAN_SOLIDITE_TECHNIQUE.md Lot 14.5)
+    contagion: ContagionConfig  = Field(default_factory=ContagionConfig)  # pyright: ignore[reportArgumentType]
 
 
 class CampaignConfig(BaseModel):

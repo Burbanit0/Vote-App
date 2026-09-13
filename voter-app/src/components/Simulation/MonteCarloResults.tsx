@@ -22,8 +22,8 @@ import {
 import { Trans, useTranslation } from 'react-i18next';
 import { MonteCarloResult } from '../../types';
 import { getMonteCarlo, MonteCarloParams } from '../../services/simulationCompareApi';
-import ResponsiveTable from '../shared/ResponsiveTable';
-import SkeletonCard from '../shared/SkeletonCard';
+import ResponsiveTable from '../shared/ui/ResponsiveTable';
+import SkeletonCard from '../shared/ui/SkeletonCard';
 import { useChartTheme } from '../../hooks/useChartTheme';
 import { useMonteCarloStream } from '../../hooks/useMonteCarloStream';
 import MonteCarloLiveChart from './MonteCarloLiveChart';
@@ -34,13 +34,11 @@ import MethodSimilarityGraph, {
   partialResultsToMatrix,
 } from './MethodSimilarityGraph';
 import { useSimulationWorker } from '../../hooks/useSimulationWorker';
-import MetricTooltip from '../shared/MetricTooltip';
+import MetricTooltip from '../shared/ui/MetricTooltip';
 
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
 
 const CANDIDATE_PALETTE = ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948'];
-
-// ── Helpers ────────────────────────────────────────────────────────────────
 
 function cellStyle(rate: number, isDark: boolean): React.CSSProperties {
   if (isDark) {

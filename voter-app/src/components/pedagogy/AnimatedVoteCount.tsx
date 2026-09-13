@@ -8,8 +8,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 
-// ── Types ───────────────────────────────────────────────────────────────────
-
 export type VoteMethod =
   'plurality' | 'borda' | 'irv' | 'two-round' | 'approval' | 'schulze' | 'star';
 
@@ -448,7 +446,7 @@ const CandidateBar: React.FC<BarProps> = ({
 }) => {
   const pct = maxValue > 0 ? Math.round((score / maxValue) * 100) : 0;
   const totalPct = totalBallots > 0 ? ((score / totalBallots) * 100).toFixed(1) : '—';
-  const barColor = isEliminated ? '#dc3545' : isWinner ? color : color;
+  const barColor = isEliminated ? '#dc3545' : color;
 
   return (
     <div className="mb-3" role="row">

@@ -3,7 +3,8 @@
  *
  * Nodes = voting methods, coloured by family.
  * Edges  = inter-method agreement above the threshold slider.
- * Physics: forceLink (strength ∝ agreement) + forceManyBody + forceCenter + forceCollide.
+ * Physics: forceLink (strength ∝ agreement) + forceManyBody + forceCenter + forceCollide,
+ * plus forceX/forceY pulling nodes toward per-family centers when "group by family" is on.
  * D3 runs the simulation; React renders every tick via setState.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -67,8 +68,6 @@ interface NodeDatum extends SimulationNodeDatum {
   id: string;
   family: 'ranked' | 'score' | 'special';
 }
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 /** Convert flat "A|B" → value map to a symmetric nested matrix. */
 export function flatToMatrix(flat: Record<string, number>): Record<string, Record<string, number>> {

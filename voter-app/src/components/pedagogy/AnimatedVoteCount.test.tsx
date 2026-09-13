@@ -51,7 +51,6 @@ describe('generateSteps — plurality', () => {
   });
 
   it('returns 1 step even when winner has no absolute majority', () => {
-    // Plurality: no majority required — most votes wins
     const close: number[][] = [
       [0, 1, 2],
       [1, 0, 2],

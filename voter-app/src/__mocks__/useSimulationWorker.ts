@@ -1,11 +1,10 @@
 /**
- * Jest mock for hooks/useSimulationWorker.
+ * Vitest mock for hooks/useSimulationWorker.
  *
- * The real hook uses `new Worker(new URL('...', import.meta.url))` which Jest's
- * default TS module config does not support (TS1343 error). Rather than scatter
- * `jest.mock(...)` calls across every test file that transitively imports a
- * component using this hook, we map the module here via jest.config.js
- * moduleNameMapper.
+ * The real hook uses `new Worker(new URL('...', import.meta.url))`, which jsdom
+ * can't run. Rather than scatter `vi.mock(...)` calls across every test file
+ * that transitively imports a component using this hook, we map the module
+ * here project-wide via a regex alias in vitest.config.ts's resolve.alias.
  *
  * The mock dispatches to the corresponding **pure** function for each message
  * type — components that depend on the worker producing real heatmap/matrix

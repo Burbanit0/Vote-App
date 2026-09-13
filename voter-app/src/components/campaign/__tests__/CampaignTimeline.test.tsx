@@ -90,7 +90,6 @@ describe('CampaignTimeline (C2)', () => {
       DEFAULT_CONFIG.candidates.map((c) => c.name)
     );
     expect(pinned[0].x).toBeCloseTo(DEFAULT_CONFIG.candidates[0].x);
-    // Confirmation appears.
     expect(screen.getByText(/Positions carried into the playground/)).toBeInTheDocument();
   });
 

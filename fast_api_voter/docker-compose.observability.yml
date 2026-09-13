@@ -1,0 +1,143 @@
+# docker-compose.observability.yml — self-hosted GlitchTip error tracking
+# (Lot 10.1, PLAN_SOLIDITE_TECHNIQUE.md — "Sentry ou GlitchTip")
+#
+# The catch-all exception handler added 06/09 (api/main.py, _unhandled_exception_
+# handler) and every domain worker's internal `log.error(..., exc_info=True)`
+# already *log* — but nobody reads the logs of a pedagogical app. This stack
+# gives those errors a collector. GlitchTip was chosen explicitly over Sentry
+# SaaS: self-hosted, MIT-licensed, no third party ever sees this app's error
+# data.
+#
+# Kept separate from docker-compose.yml (api + redis) so the api+redis stack is
+# unaffected on machines that don't want this running — this file is opt-in,
+# same precedent as docker-compose.llm.yml.
+#
+# ── Real reference, not a guess ─────────────────────────────────────────────
+# This is adapted from GlitchTip's own official self-host sample
+# (https://glitchtip.com/assets/compose.sample.yml, linked from
+# https://glitchtip.com/documentation/install#docker-compose), fetched and
+# verified live 2026-09-11 — NOT from training-data memory of older GlitchTip
+# versions. That matters here because GlitchTip's architecture changed since
+# the "web + worker + migrate" three-service model most write-ups (and this
+# lot's own original task description) still assume:
+#
+#   GlitchTip now ships a SINGLE `web` service that runs everything —
+#   `SERVER_ROLE=all_in_one` embeds the background worker in the web process
+#   (equivalent to GLITCHTIP_EMBED_WORKER=True) AND runs database migrations
+#   automatically on startup (SKIP_INIT defaults to False). There is no
+#   separate `migrate` or `worker` service in the current official reference
+#   compose — confirmed against the live `glitchtip-backend` repo (GitLab
+#   project glitchtip/glitchtip-backend, tag v6.2.6) and the install docs'
+#   env-var reference, not assumed. Splitting web/worker back out is still
+#   supported for horizontal scaling (SERVER_ROLE=web / SERVER_ROLE=worker on
+#   separate services sharing the same DATABASE_URL/VALKEY_URL) — irrelevant
+#   at this app's scale, so not done here.
+#
+# ── Version pin ──────────────────────────────────────────────────────────────
+# Upstream's own sample pins the floating major tag `glitchtip/glitchtip:6`
+# (their documented policy: minor/patch updates are non-breaking, so tracking
+# the major is intentional upstream advice). This repo's own convention pins
+# exact versions everywhere else (requirements.txt, docker-compose.llm.yml's
+# "never latest, never guessed" rule) so this file pins the exact patch
+# `6.2.6` instead — verified to exist on Docker Hub
+# (hub.docker.com/v2/repositories/glitchtip/glitchtip/tags, pushed
+# 2026-08-08) and to match GitLab tag v6.2.6, the current latest tag on
+# glitchtip-backend as of 2026-09-11. Bump deliberately; check
+# https://glitchtip.com/blog/ for breaking changes on a major bump.
+#
+# ── Ports ────────────────────────────────────────────────────────────────────
+# GlitchTip's own default is host port 8000 — already taken on this machine
+# by docker-compose.llm.yml's vLLM server. Mapped to 8080 here instead; adjust
+# freely, it's only the host side of the mapping.
+#
+# ── First-run setup (verified live, not assumed) ─────────────────────────────
+# 1. `docker compose -f docker-compose.observability.yml up -d` from this
+#    directory (fast_api_voter/). First boot runs migrations automatically
+#    (SERVER_ROLE=all_in_one, SKIP_INIT unset -> False) — watch
+#    `docker compose -f docker-compose.observability.yml logs -f web` until
+#    it's serving.
+# 2. Open http://localhost:8080 and register the first account (self-signup
+#    is ON by default: ENABLE_USER_REGISTRATION defaults to True). No env var
+#    needs to be flipped for this — GLITCHTIP_ENABLE_ORGANIZATION_CREATION
+#    only gates whether a NON-superuser can create an org "after the first
+#    one" (install docs: "only superusers will be able to create new
+#    organizations after the first"), so the very first registered user can
+#    always create the very first organization through the UI regardless of
+#    that setting.
+# 3. In the UI: create a project (choose "Python" or "FastAPI" as the
+#    platform, doesn't change anything server-side) — GlitchTip shows the
+#    project's DSN immediately on the project-creation screen, and again
+#    later under Settings > Projects > <project> > SDK Setup. That DSN is
+#    what GLITCHTIP_DSN (fast_api_voter/.env) takes.
+#    Alternative admin path (not needed for the common case above, but
+#    available): `docker compose -f docker-compose.observability.yml exec
+#    web ./manage.py createsuperuser` creates a Django superuser directly,
+#    who can then log in and use Django Admin (only reachable if ENABLE_ADMIN
+#    is set to "True") or the normal UI.
+#
+# ── Low-resource note ─────────────────────────────────────────────────────────
+# Valkey is optional (GlitchTip falls back to Postgres for its task queue and
+# cache when VALKEY_URL is blank) — kept here because this is a dev/eval
+# stack, not a RAM-constrained one.
+
+x-environment: &default-environment
+  DATABASE_URL: postgres://postgres:postgres@postgres:5432/postgres
+  VALKEY_URL: redis://valkey:6379
+  SECRET_KEY: change_me_to_something_random # local/dev only — `openssl rand -hex 32` for anything real
+  EMAIL_URL: consolemail:// # no SMTP for local eval: emails (invites, resets) print to the web container's logs
+  GLITCHTIP_DOMAIN: http://localhost:8080 # must match the host-side port mapping below
+  DEFAULT_FROM_EMAIL: email@example.com
+  ENABLE_ADMIN: "False"
+  ENABLE_OPENAPI: "False"
+  LOG_LEVEL: INFO
+  # DEBUG unlocks `./manage.py bootstrap_dev` (fails fast with "requires
+  # DEBUG=True" otherwise) — the one-shot management command that creates a
+  # user + org + project + API token in one call, verified live 2026-09-11:
+  #   docker compose -f docker-compose.observability.yml exec web \
+  #     ./manage.py bootstrap_dev
+  # This stack is dev/local-eval only (see header) so DEBUG=True is the
+  # right default here — never set this on anything internet-reachable.
+  DEBUG: "True"
+
+x-depends_on: &default-depends_on
+  - postgres
+  - valkey
+
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: "trust" # local/dev only, matches upstream's own sample
+    restart: unless-stopped
+    volumes:
+      - glitchtip_pg_data:/var/lib/postgresql
+    networks:
+      - glitchtip
+
+  valkey:
+    image: valkey/valkey:9
+    restart: unless-stopped
+    networks:
+      - glitchtip
+
+  web:
+    image: glitchtip/glitchtip:6.2.6
+    container_name: glitchtip_web
+    depends_on: *default-depends_on
+    ports:
+      - "8080:8000" # host 8080 -> container's default 8000 (8000 is taken locally by docker-compose.llm.yml)
+    environment:
+      <<: *default-environment
+      SERVER_ROLE: all_in_one # web + embedded worker + automatic migrations, single container — see header
+    restart: unless-stopped
+    volumes:
+      - glitchtip_uploads:/code/uploads
+    networks:
+      - glitchtip
+
+networks:
+  glitchtip:
+
+volumes:
+  glitchtip_pg_data:
+  glitchtip_uploads:

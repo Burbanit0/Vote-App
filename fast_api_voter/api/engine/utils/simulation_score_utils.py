@@ -1,13 +1,11 @@
 from collections import defaultdict
+from operator import itemgetter
 from typing import Any, Dict, List, Optional
 import math
 import statistics
 
 
 def get_simple_score_winner(all_scores: Any) -> Dict[str, Any]:
-    """
-    Determine the winner using simple score sum/average method.
-    """
     candidate_scores: "defaultdict[Any, dict[str, Any]]" = defaultdict(
         lambda: {"sum": 0, "count": 0}
     )
@@ -24,7 +22,7 @@ def get_simple_score_winner(all_scores: Any) -> Dict[str, Any]:
         averages.append((candidate, avg))
 
     # Sort by average score (descending)
-    averages.sort(key=lambda x: x[1], reverse=True)
+    averages.sort(key=itemgetter(1), reverse=True)
 
     return {
         "method": "Simple Score",
@@ -53,7 +51,7 @@ def get_star_voting_winner(all_scores: Any) -> Dict[str, Any]:
         averages.append((candidate, avg))
 
     # Sort by average score (descending)
-    averages.sort(key=lambda x: x[1], reverse=True)
+    averages.sort(key=itemgetter(1), reverse=True)
 
     # Take top two candidates for runoff
     if len(averages) < 2:
@@ -171,9 +169,6 @@ def get_nash_winner(all_scores: Any) -> Optional[str]:
 
 
 def get_median_voting_winner(all_scores: Any) -> Dict[str, Any]:
-    """
-    Determine the winner using median score method.
-    """
     candidate_scores: "defaultdict[Any, list[Any]]" = defaultdict(list)
 
     for vote in all_scores:
@@ -186,7 +181,7 @@ def get_median_voting_winner(all_scores: Any) -> Dict[str, Any]:
         medians.append((candidate, median))
 
     # Sort by median score (descending)
-    medians.sort(key=lambda x: x[1], reverse=True)
+    medians.sort(key=itemgetter(1), reverse=True)
 
     return {
         "method": "Median Voting",
@@ -196,9 +191,6 @@ def get_median_voting_winner(all_scores: Any) -> Dict[str, Any]:
 
 
 def get_mean_median_hybrid_winner(all_scores: Any) -> Dict[str, Any]:
-    """
-    Determine the winner using a combination of mean and median scores.
-    """
     candidate_stats: "defaultdict[Any, dict[str, Any]]" = defaultdict(
         lambda: {"sum": 0, "count": 0, "scores": []}
     )
@@ -226,8 +218,7 @@ def get_mean_median_hybrid_winner(all_scores: Any) -> Dict[str, Any]:
             }
         )
 
-    # Sort by combined score (descending)
-    results.sort(key=lambda x: x["combined"], reverse=True)
+    results.sort(key=itemgetter("combined"), reverse=True)
 
     return {
         "method": "Mean-Median Hybrid",
@@ -237,9 +228,6 @@ def get_mean_median_hybrid_winner(all_scores: Any) -> Dict[str, Any]:
 
 
 def get_variance_based_winner(all_scores: Any) -> Dict[str, Any]:
-    """
-    Determine the winner considering both average score and variance.
-    """
     candidate_stats: "defaultdict[Any, dict[str, Any]]" = defaultdict(
         lambda: {"sum": 0, "sum_sq": 0, "count": 0}
     )
@@ -274,8 +262,7 @@ def get_variance_based_winner(all_scores: Any) -> Dict[str, Any]:
             }
         )
 
-    # Sort by weighted score (descending)
-    results.sort(key=lambda x: x["weighted_score"], reverse=True)
+    results.sort(key=itemgetter("weighted_score"), reverse=True)
 
     return {
         "method": "Variance-Based",
@@ -285,9 +272,6 @@ def get_variance_based_winner(all_scores: Any) -> Dict[str, Any]:
 
 
 def get_score_distribution_analysis(all_scores: Any) -> Dict[str, Any]:
-    """
-    Analyze the distribution of scores for each candidate.
-    """
     # Define score bins (0-0.5, 0.5-1, ..., 4.5-5)
     bin_width = 0.5
     bins = [i * bin_width for i in range(0, 11)]  # 0, 0.5, 1, ..., 5
@@ -328,58 +312,59 @@ def get_score_distribution_analysis(all_scores: Any) -> Dict[str, Any]:
             }
         )
 
-    # Sort by total votes (descending)
-    results.sort(key=lambda x: x["total"], reverse=True)
+    results.sort(key=itemgetter("total"), reverse=True)
 
     return {"method": "Score Distribution Analysis", "details": results}
 
 
+def _regret_for_candidate(
+    candidate: Any, scored_ballots: List[Dict[Any, Any]], utilities: "defaultdict[Any, list[Any]]"
+) -> Dict[str, Any]:
+    """One candidate's average regret + average utility over the ballots that
+    actually rated someone. Split out of `calculate_bayesian_regret` to keep
+    that function's own branching (empty-input guards) legible on its own."""
+    total_regret = 0.0
+    for vote in scored_ballots:
+        # Find the utility of the voter's most preferred candidate
+        best_utility = max(vote.values()) / 5
+        current_utility = vote.get(candidate, 0) / 5
+        # Regret is the difference between best possible and current
+        total_regret += best_utility - current_utility
+
+    avg_regret = total_regret / len(scored_ballots) if scored_ballots else 0
+    avg_utility = (
+        sum(utilities[candidate]) / len(utilities[candidate]) if utilities[candidate] else 0
+    )
+    return {"candidate": candidate, "avg_utility": avg_utility, "avg_regret": avg_regret}
+
+
 def calculate_bayesian_regret(all_scores: Any) -> Dict[str, Any]:
-    """
-    Calculate Bayesian regret for each candidate.
-    """
     candidate_set: set[Any] = set()
     for vote in all_scores:
         candidate_set.update(vote.keys())
     candidates = list(candidate_set)
 
-    # Calculate utilities (normalized scores)
     utilities: "defaultdict[Any, list[Any]]" = defaultdict(list)
     for vote in all_scores:
         for candidate, score in vote.items():
             # Normalize to 0-1 range
             utilities[candidate].append(score / 5)
 
+    # An empty ballot (a voter who rated nobody -- e.g. a blank/abstaining
+    # vote) has no "most preferred candidate" to compare against, so it
+    # can't contribute a regret value; count only voters who actually rated
+    # someone, both in the sum and its denominator. Found fuzzing this
+    # function with atheris (Lot 9, PLAN_SOLIDITE_TECHNIQUE.md): a single
+    # empty ballot mixed in with real ones crashed `max(vote.values())` with
+    # an uncaught ValueError for EVERY candidate's regret, not just that
+    # voter's contribution.
+    scored_ballots = [vote for vote in all_scores if vote]
+
     # Calculate expected regret for each candidate
-    regrets = []
-    for candidate in candidates:
-        total_regret = 0
-
-        for vote in all_scores:
-            # Find the utility of the voter's most preferred candidate
-            best_utility = max(vote.values()) / 5
-            current_utility = vote.get(candidate, 0) / 5
-
-            # Regret is the difference between best possible and current
-            total_regret += best_utility - current_utility
-
-        avg_regret = total_regret / len(all_scores)
-        avg_utility = (
-            sum(utilities[candidate]) / len(utilities[candidate])
-            if utilities[candidate]
-            else 0
-        )
-
-        regrets.append(
-            {
-                "candidate": candidate,
-                "avg_utility": avg_utility,
-                "avg_regret": avg_regret,
-            }
-        )
+    regrets = [_regret_for_candidate(c, scored_ballots, utilities) for c in candidates]
 
     # Sort by average regret (ascending - lower regret is better)
-    regrets.sort(key=lambda x: x["avg_regret"])
+    regrets.sort(key=itemgetter("avg_regret"))
 
     return {
         "method": "Bayesian Regret",
@@ -469,7 +454,15 @@ def get_majority_judgment_winner(
         return {"winner": None, "grades": {}, "medians": {}, "scores": {},
                 "grade_distributions": {}}
 
-    candidate_names: List[str] = list(utility_scores[0].keys())
+    # Union of every voter's candidates, not just voter 0's: a later voter
+    # rating a candidate voter 0 didn't (e.g. a candidate who entered the
+    # race after voter 0's ballot was cast) used to KeyError on
+    # `all_grades[c]` below, since that dict was only ever pre-seeded with
+    # voter 0's own keys. `_score_candidates` already implements this same
+    # "first-encountered order across every voter" union for the other
+    # cardinal rules in this file. Found fuzzing this function with atheris
+    # (Lot 9, PLAN_SOLIDITE_TECHNIQUE.md).
+    candidate_names: List[str] = _score_candidates(utility_scores)
 
     # 1. Build grade lists per candidate
     all_grades: Dict[str, List[int]] = {c: [] for c in candidate_names}
@@ -574,7 +567,14 @@ def get_evaluative_winner(
     if not utility_scores:
         return {"winner": None, "scores": {}, "distribution": {}}
 
-    candidates = list(utility_scores[0].keys())
+    # Union of every voter's candidates, not just voter 0's -- same fix and
+    # same reason as get_majority_judgment_winner just above: deriving this
+    # from voter 0 alone doesn't crash here (the loop below already reads
+    # `voter_utils.get(c, 0.0)`), but it silently drops any candidate a
+    # LATER voter rated and voter 0 didn't from every result entirely.
+    # Found alongside the majority-judgment KeyError while fuzzing this
+    # file with atheris (Lot 9, PLAN_SOLIDITE_TECHNIQUE.md).
+    candidates = _score_candidates(utility_scores)
     if not candidates:
         return {"winner": None, "scores": {}, "distribution": {}}
 

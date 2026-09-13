@@ -27,6 +27,7 @@ yarn-error.log*
 
 # Playwright test reports + per-failure artifacts (traces, screenshots)
 /playwright-report
+/playwright-report-visual
 /test-results
 
 # Stryker mutation testing (working copy + HTML report)

@@ -115,12 +115,12 @@ def compare_all_methods(
     if override_utilities is not None:
         utilities: Dict[Any, Dict[str, float]] = override_utilities
     else:
-        utilities = {}
-        for voter in voters:
-            voter_utils = {}
-            for c in candidates:
-                voter_utils[c["name"]] = calculate_utility(voter, c, issues)["utility"]
-            utilities[voter["id"]] = voter_utils
+        utilities = {
+            voter["id"]: {
+                c["name"]: calculate_utility(voter, c, issues)["utility"] for c in candidates
+            }
+            for voter in voters
+        }
 
     # ------------------------------------------------------------------
     # 2. Build sincere rankings — each voter's candidates sorted by
@@ -356,7 +356,7 @@ def compare_all_methods(
 
     # ── Majority Judgment — uses raw float utilities, not 0-5 scaled ──────────
     mj_utility_scores: List[Dict[str, float]] = [
-        dict(utilities[v["id"]]) for v in voters
+        utilities[v["id"]].copy() for v in voters
     ]
     mj_raw: Dict[str, Any]   = get_majority_judgment_winner(mj_utility_scores)
     mj_winner: Optional[str] = str(mj_raw["winner"]) if mj_raw.get("winner") else None
@@ -383,7 +383,7 @@ def compare_all_methods(
 
     # ── Quadratic Voting — uses raw float utilities, not 0-5 scaled ──────────
     qv_utilities: List[Dict[str, float]] = [
-        dict(utilities[v["id"]]) for v in voters
+        utilities[v["id"]].copy() for v in voters
     ]
     qv_result = apply_quadratic_voting(qv_utilities, budget=100)
     qv_winner: Optional[str] = qv_result.get("winner")
@@ -628,7 +628,7 @@ def get_condorcet_matrix(
             if b == a or matrix[a][b]["winner"] != a:
                 continue
             for c_name in candidate_names:
-                if c_name == a or c_name == b:
+                if c_name in (a, b):
                     continue
                 if (
                     matrix[b][c_name]["winner"] == b

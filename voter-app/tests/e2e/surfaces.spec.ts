@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './coverageFixtures';
 
 // The two entry surfaces around the instrument: Découvrir (the guided demo of
 // the thesis) and À vous de jouer (cast one ballot yourself, then read what it

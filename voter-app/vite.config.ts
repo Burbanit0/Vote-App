@@ -2,10 +2,16 @@ import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import istanbul from 'vite-plugin-istanbul';
 import { fileURLToPath } from 'node:url';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
+  // Runtime coverage under the real e2e suite (Lot 6, PLAN_SOLIDITE_TECHNIQUE.md):
+  // opt-in only, via E2E_COVERAGE=true, never on by default — Istanbul's Babel
+  // instrumentation adds real transform overhead we don't want on every `npm
+  // start`/`npm run build`. `scripts/e2e_coverage.sh` sets this env var itself.
+  const coverageEnabled = process.env.E2E_COVERAGE === 'true';
 
   return {
     resolve: {
@@ -60,6 +66,18 @@ export default defineConfig(({ mode }) => {
           ],
         },
       }),
+      // Instruments src/** with Istanbul counters (window.__coverage__) so a
+      // real Playwright e2e pass can report what it actually executed —
+      // conditional because it's diagnostic tooling (Lot 6), not something
+      // that should touch the code path everyone builds/dev-serves normally.
+      coverageEnabled &&
+        istanbul({
+          include: 'src/*',
+          exclude: ['node_modules', 'src/**/*.test.*', 'src/lib/__fixtures__/**'],
+          extension: ['.js', '.jsx', '.ts', '.tsx'],
+          requireEnv: false,
+          forceBuildInstrument: true,
+        }),
     ],
     server: {
       port: 3000,
@@ -67,16 +85,20 @@ export default defineConfig(({ mode }) => {
       proxy: {
         // The backend is FastAPI-only (Flask retired in Phase 4.5.b). Everything
         // under /api/* (the /api/v1/* public API + /api/v2/* app surface) and the
-        // Socket.IO stream is served by uvicorn on :4434.
+        // Socket.IO stream is served by uvicorn on :4434 by default.
         // Anchored on the segment, not the prefix: a plain '/api' key also
         // swallows sibling paths like the legacy '/api-docs' route, which must
         // reach the SPA (nginx serves it from index.html in production).
+        // Same VITE_API_URL override as src/api/client.ts's API_BASE below —
+        // needed by scripts/e2e_coverage.sh (Lot 6) to point at a coverage-
+        // instrumented backend on a non-default port when :4434 is already
+        // taken by something else in the dev environment.
         '^/api/': {
-          target: 'http://localhost:4434',
+          target: env.VITE_API_URL || 'http://localhost:4434',
           changeOrigin: true,
         },
         '/socket.io': {
-          target: 'http://localhost:4434',
+          target: env.VITE_API_URL || 'http://localhost:4434',
           changeOrigin: true,
           ws: true,
         },

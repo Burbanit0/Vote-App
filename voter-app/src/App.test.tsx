@@ -2,8 +2,6 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import App from './App';
 
-// ── Component mocks ────────────────────────────────────────────────────────
-
 vi.mock('./components/Navbar', () => ({ default: () => <div data-testid="navbar">Navbar</div> }));
 vi.mock('./components/Route/ErrorBoundary', () => ({
   default: ({ children }: { children: React.ReactNode }) => <>{children}</>,

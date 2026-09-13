@@ -1108,7 +1108,14 @@ def _nominate_and_position_llm(
     motif_by_party = {decision.party_id: decision.motif for decision in nomination_outcome.decisions}
     citizens_by_id = {c.citizen_id: c for c in citizens}
 
-    nominees = []
+    # Explicit element type: without it, type checkers infer `nominees`' type
+    # from every value `nominee` could hold anywhere in this function (including
+    # `Citizen | None`, from before the `is None: continue` guard below), not
+    # from the narrowed type actually passed to `.append()` — which made the
+    # second loop below look like it could dereference None on every attribute
+    # access (basedpyright's reportOptionalMemberAccess; see PLAN_SOLIDITE_TECHNIQUE.md
+    # Lot 6). The guard means only non-None `Citizen` values are ever appended.
+    nominees: list[Citizen] = []
     for party in parties:
         party_declared_cids = {
             c.citizen_id for c in citizens
@@ -1634,9 +1641,9 @@ def _pressure_context(
     per this project's own established rule)."""
     available = set(menu_acts(config.pressure_menu))
     if not can_sign:
-        available.discard(int(PressureAct.SIGN_PETITION))
+        available.discard(PressureAct.SIGN_PETITION)
     if not can_launch:
-        available.discard(int(PressureAct.LAUNCH_PETITION))
+        available.discard(PressureAct.LAUNCH_PETITION)
     return PressureContext(
         cid=citizen.citizen_id,
         target=holder.citizen_id,
@@ -1731,7 +1738,7 @@ def _run_reaction_to_event(
                 "llm_fallback": int(reaction_fallback.get(citizen.citizen_id, False)),
             }
         citizen.event_salience = update_event_salience(citizen.event_salience, delta, config.events)
-        payload: dict[str, object] = {"event_type": int(event_type), "target": target, "salience_delta": delta, **extra}
+        payload: dict[str, object] = {"event_type": int(event_type), "target": target, "salience_delta": delta} | extra
         if event_type is EventType.ECONOMIC_SHOCK:
             payload["magnitude"] = magnitude
         journal.write(
@@ -2195,7 +2202,7 @@ def _run_accountability_phase(
                 journal.write(
                     tick=tick,
                     event_type="pressure_action",
-                    payload={"target": holder.citizen_id, "act": int(decided), **payload_extra},
+                    payload={"target": holder.citizen_id, "act": int(decided)} | payload_extra,
                     citizen_id=citizen.citizen_id,
                     motif=motif,
                     codebook_version=config.llm.codebook_version if motif else "",
@@ -2297,7 +2304,7 @@ def _run_accountability_phase(
                     event_type="confidence_vote_result",
                     payload={
                         "office": Office.PRESIDENT.value,
-                        "bf": int(BallotFormat.BINARY),
+                        "bf": BallotFormat.BINARY,
                         "ballots": len(ballots),
                         "keep": sum(ballots),
                         "keep_ratio": keep_ratio,

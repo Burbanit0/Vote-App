@@ -95,6 +95,37 @@ paramètres bridés — trackée nommément (pas un simple compte) dans
 (timeouts) est exactement pourquoi l'item "Timeouts & backpressure" existe
 plus loin dans le même lot.*
 
+*Mise à jour du 2026-09-10 (bis) : régression `jscpd` (33→34 clones) trouvée
+et corrigée pendant le Lot 4.2 (oracle tiers `pref_voting`) — corriger un bug
+Raynaud (voir plus loin) a fait apparaître le même calcul de "pire défaite
+pairwise" en double entre `winRaynaud` (`playgroundVoting.ts`) et sa trace de
+rejeu (`voteTrace.ts`), auparavant trop différents structurellement pour que
+`jscpd` les détecte. Factorisé dans `raynaudWorstLoss`, exportée et partagée
+par les deux — cliquet revenu à 33 sans rien laisser en dette.*
+
+*Mise à jour du 2026-09-12 : le lot "code mort frontend" resté ouvert depuis
+le 2026-09-06 (§3/§7) est traité — les 9 fichiers inutilisés
+(`components/research/BlankVoteTimeSeries.tsx`, `components/shared/EmptyChart.tsx`,
+`components/ui/{accordion,bootstrap-tabs,pagination,tabs,tooltip-overlay}.tsx`,
+`data/methodReferences.ts`, `services/index.ts`), la dépendance
+`@radix-ui/react-tabs` et l'export inutilisé `CardTitle`
+(`components/ui/card.tsx` — le composant lui-même n'était référencé nulle
+part ailleurs, supprimé en entier plutôt que juste dé-exporté) sont
+supprimés. Même passe : l'orphelin trouvé par le Lot 6.5 du plan de
+solidité technique, le hook `hooks/useDebouncedSimulation.ts` (+ son test) —
+plus aucun appelant vivant depuis que sa route `/simulation/compare` a été
+retirée (voir Lot 14 du plan de solidité technique pour le détail des deux
+zones mortes tranchées dans ce lot, dont celle-ci n'est qu'une moitié).
+`npm run knip` passe de 104 à 93 trouvailles (uniquement des "unused exported
+types" du kit UI et des fichiers de types larges, déjà notés en §3 comme
+faux positifs structurels) ; `.github/quality-baseline.json` mis à jour en
+conséquence (`knip: 104 → 93`) — le cliquet `check_quality_ratchet.sh` fait
+échouer une baisse non enregistrée tout autant qu'une hausse, il faut donc
+la committer explicitement, pas seulement laisser passer. `vulture`/`radon`/
+`deptry`/`jscpd` inchangés (0/137/0/33). Gate frontend complet
+(`tsc --noEmit`, `vitest run` — 168 fichiers/1707 tests, `lint`, `build` +
+`size-limit`) vérifié vert après suppression.*
+
 ## Résumé exécutif
 
 Le repo `Vote-App` (backend FastAPI `fast_api_voter/`, frontend React/TS
@@ -125,6 +156,155 @@ pas la duplication copiée-collée mais la **fragmentation architecturale** :
 plusieurs familles de fichiers parallèles (`workers*.py`, `components/shared/`
 à plat) qui grossissent indépendamment plutôt que de s'étendre — un
 symptôme classique d'ajouts LLM successifs sans passe de consolidation.
+
+*Mise à jour du 2026-09-12 (Lot 13, [plan de solidité technique](PLAN_SOLIDITE_TECHNIQUE.md)
+— rejeu après les Lots 7 à 12) : outils relancés à l'identique de l'édition
+du 2026-09-06 pour comparaison directe. Verdict : **stable, malgré un volume
+de changement important** entre les deux éditions (WebKit e2e, perf backend/
+frontend, sécurité approfondie — fuzzing, SBOM, DAST —, observabilité complète
+— GlitchTip, OpenTelemetry, Prometheus —, 5 nouveaux agents et 3 nouvelles
+skills Claude Code, hygiène de contexte). Sur les 5 métriques du cliquet
+(`scripts/check_quality_ratchet.sh`) : `vulture` (0), `radon` fonctions C+
+(137), `jscpd` (33 clones) strictement identiques ; `deptry` et `knip`
+momentanément régressés puis corrigés dans la même passe, pas laissés en
+dette :
+- **`deptry`** : 2 trouvailles réelles, toutes deux du Lot 10. `prometheus_client`
+  importé directement dans `api/routes/metrics.py` mais jamais déclaré
+  explicitement (reposait sur le pin transitif de `prometheus-fastapi-
+  instrumentator`) — corrigé en l'ajoutant à `requirements.txt` avec sa
+  version réellement résolue (`0.26.0`). `opentelemetry-instrumentation-
+  fastapi` signalé "défini mais inutilisé" — faux positif confirmé (deptry
+  ne résout pas le mapping du nom PyPI vers le module imbriqué
+  `opentelemetry.instrumentation.fastapi`) — corrigé via
+  `[tool.deptry.package_module_name_map]`, pas par un `per_rule_ignores`
+  qui aurait juste caché le signal.
+- **`knip`** : 2 "Configuration hints" (pas du code mort) — `scripts/
+  gen-pseudo-locale.ts` et `jiti` n'avaient plus besoin d'être dans
+  `ignore`/`ignoreDependencies` de `voter-app/knip.json` : la commande
+  `npm run gen:pseudo-locale` (ajoutée au Lot 7) suffit à elle seule à ce
+  que knip les reconnaisse comme utilisés. Entrées retirées, revérifié
+  qu'aucun des deux ne réapparaît comme trouvaille réelle après coup.
+
+Aucune des deux régressions n'était visible dans `scripts/audit.sh
+--quality`'s propre synthèse (`audit-reports/SUMMARY.md`) : ce script
+rapporte des sous-métriques différentes (ex. "Unused files" plutôt que la
+somme totale que `check_quality_ratchet.sh` calcule) — seul le script de
+cliquet lui-même, relancé avec les mêmes fichiers de rapport que la CI
+(`fast_api_voter/{vulture,radon,deptry}.txt`, `voter-app/knip.txt`,
+`jscpd.txt`), donne un nombre directement comparable à la baseline.*
+
+*Mise à jour du 2026-09-12 (bis) — §7 "chantiers plus lourds" item 6 traité
+(tests manquants pour la famille `get_*_winner`). Le chiffre "9" cité dans
+cet item (et en §5) s'est révélé stale : il correspondait à une heuristique
+par nom de fichier (`test_<méthode>.py` existe-t-il ?), qui compte à tort
+`irv`/`coombs` (`test_irv_coombs_elimination.py`), `bucklin`
+(`test_bucklin_cumulative.py`), `schulze` (`test_schulze_beatpath.py`) et
+`ranked_pairs`/`random_ballot` (`test_ranked_pairs_random_ballot.py`) comme
+non couverts alors que chacun a un vrai test dédié (appel direct, assertion
+sur un gagnant précis), juste sous un nom de fichier différent ou partagé
+entre deux méthodes apparentées. Re-dérivé fonction par fonction (grep
+croisé sur `api/tests/`, plus `--cov-report=term-missing` sur
+`simulation_ranked_utils.py`) : seules **3** fonctions n'avaient réellement
+aucun test dédié — `get_borda_winner` (seulement exercée en comparaison
+incidentelle dans `test_black.py`/`test_dowdall.py` et dans l'axiome §5),
+`get_positional_score_winner` (alias `get_score_winner` — zéro test de
+toute nature, y compris dans `test_voting_criteria_matrix.py`, alors que
+c'est du code de production réel utilisé par `domain/simulations/base.py`,
+`gibbard_satterthwaite.py` et `arrow_criteria.py`), et
+`get_approval_winner_sincere` (le mode de vote sincère par seuil
+d'utilité — la branche correspondante dans `get_approval_winner`,
+lignes ~276-298, n'avait elle-même aucune couverture, pas seulement le
+wrapper). Tests ajoutés : `api/tests/test_borda.py` et
+`api/tests/test_positional_score.py` (nouveaux), plus une classe
+`TestGetApprovalWinnerSincere` dans `api/tests/test_approval.py` — majorité
+claire, égalité alphabétique, ballots vides/à un candidat, et pour Borda et
+positional-score un cas construit à la main qui les distingue explicitement
+l'un de l'autre (et de la pluralité) plutôt que de se contenter de vérifier
+"retourne une string". Couverture de `simulation_ranked_utils.py` : 94 % →
+96 % (`--cov-report=term-missing`, 41 → 28 lignes manquantes). Aucun bug
+trouvé dans l'implémentation existante par cette passe. Détail complet
+(liste re-dérivée, gap "axiome" flagué séparément) dans le rapport de la
+session correspondante ; §7 lui-même annoté "✅" ci-dessous.*
+
+*Mise à jour du 2026-09-12 (ter) — §7 "chantiers plus lourds" item 5 traité
+(centraliser les `except Exception` nus). Liste re-dérivée à la main (grep +
+lecture du contexte réel, pas juste la ligne `except`) plutôt que réutiliser
+le chiffre "42" tel quel : deux formes dominantes se sont dégagées, ni
+identiques ni couvrant tout le lot.
+- **"Compute with fallback"** (15 sites) — une valeur est calculée, et un
+  défaut la remplace en cas d'échec pendant que l'appelant continue (ou
+  retourne le défaut directement) : `gibbard_satterthwaite.py` (×2),
+  `cache.py` (×1 sur 3), `campaign_dynamics.py`, `routes/health.py`,
+  `workers_mechanisms.py`, `workers_advanced.py` (×2),
+  `workers_behavioral.py` (×7). Centralisé dans une fonction utilitaire
+  `safe_call(fn, fallback, *, log, event, level="warning", **log_kwargs)`
+  (nouveau module `api/engine/utils/error_handling.py`) — `fn` et `fallback`
+  sont deux callables sans argument (typiquement des `lambda:`) : le
+  fallback n'est **jamais évalué en cas de succès**, ce que le code
+  d'origine faisait déjà à plusieurs endroits (ex. `campaign_dynamics.py`,
+  où le fallback est un second appel réel au moteur, pas une simple
+  constante) et qu'une valeur par défaut passée telle quelle aurait cassé.
+- **"Handler wrapping"** (18 sites) — le contrat `(body, status)` des
+  workers (convention `voter-api`) : sur échec, la même exception log +
+  réponse d'erreur. Centralisé dans `log_and_error_response(log, event,
+  body, *, level="error", status=500, **log_kwargs)`, appelée **depuis
+  l'intérieur** du `except Exception as exc:` déjà existant — elle ne
+  remplace que le duo log-call + return, jamais le try/except lui-même.
+  Un décorateur enveloppant toute la fonction (suggestion initiale de cet
+  item) a été essayé puis abandonné après lecture attentive des sites
+  réels : la quasi-totalité de ces workers valide/parse des paramètres
+  *avant* le `try` (avec parfois son propre `except (TypeError, ValueError)`
+  séparé) ou exécute du code *après* le `except` — un décorateur enveloppant
+  toute la fonction aurait élargi silencieusement la portée de ce qui est
+  intercepté (un `ValueError` de parsing aujourd'hui non couvert deviendrait
+  couvert), un vrai changement de comportement, pas un refactor pur. D'où
+  une fonction plus modeste appelée *depuis* le bloc `except` existant,
+  jamais à sa place. `body` est fourni tel quel par l'appelant (pas
+  reconstruit par l'utilitaire) : certains sites retournent `{"error":
+  ...}`, d'autres un triplet `{"success": False, "error": ..., "message":
+  ...}` (`domain/simulations/base.py`) — préserver le contenu exact prime
+  sur une signature plus générique.
+- **Laissés tels quels (9 sites), avec raison** — aucun des deux utilitaires
+  ne leur va sans soit changer le comportement, soit ajouter plus de code
+  qu'il n'en retire : `cache.py` (2 des 3 sites — l'un enchaîne un retour
+  anticipé en cas de succès et un `except` partagé entre deux instructions,
+  l'autre est un `try/except` de 3 lignes déjà minimal, écrire le `lambda`
+  n'aurait rien réduit) ; `sockets/__init__.py` (boucle async qui notifie le
+  client ET arrête la boucle — pas juste une valeur de repli) ;
+  `domain/polity/llm_client.py` (×2) et `domain/polity/run_polity_simulation.py`
+  (×1) — style "best-effort, log et continue" déjà documenté comme
+  volontaire, mais via `logging.getLogger` %-style embarquant l'exception
+  dans le message plutôt que le style structlog `event, **kwargs` du reste
+  de `api/` ; **découverte incidente** : ces 3 sites logguent bien (la règle
+  Semgrep `except-exception-without-log` les voit), mais **sans**
+  `exc_info=True` — contrairement à ce que l'énoncé de cet item supposait
+  ("tous les 42 sites logguent déjà avec exc_info=True"), ce n'est vrai que
+  pour 39/42. Non corrigé ici (refactor de duplication, pas de gap
+  d'observabilité — distinct, à traiter séparément) ; `domain/simulations/
+  whatif.py` (1 site) et `domain/simulations/compare.py` (2 sites) —
+  accumulation de résultat partiel dans une boucle (`log.warning` +
+  `results.append(<repli propre au site>)` + `continue`), avec une forme de
+  repli différente à chaque site : ni `safe_call` (le repli n'est pas une
+  valeur réutilisée, c'est un item de liste au format bespoke) ni
+  `log_and_error_response` (pas de `return`) ne réduisent quoi que ce soit
+  ici sans forcer la forme.
+- **Chiffres avant/après** : `grep -rn "except Exception" fast_api_voter/api/
+  --include="*.py" | grep -v "/tests/" | wc -l` donne **35** après (42 avant)
+  — mais ce chiffre brut compte aussi 6 mentions de prose dans le docstring
+  du nouveau module (qui *documente* le motif "except Exception", donc le
+  contient littéralement). Le compte réel de clauses `except Exception`
+  fonctionnelles est **29** (35 − 6) : les 18 sites "handler wrapping" et les
+  9 sites laissés tels quels gardent chacun leur propre clause (27), plus
+  **une seule** clause partagée à l'intérieur de `safe_call` — qui remplace
+  ce qui était 15 clauses dupliquées. Nouveau module + tests dédiés
+  (`api/tests/test_error_handling.py`, 16 tests) ; 4 sites parmi les 18
+  "handler wrapping" n'avaient aucun test exerçant leur chemin d'erreur
+  (`domain/simulations/advanced.py`, `base.py`, `compare.py`, `campaign.py`)
+  — un test de repli par fichier touché ajouté, pas les 18 (refactor, pas
+  chantier de couverture). Suite backend complète, mypy, ruff et la règle
+  Semgrep custom (mise à jour pour reconnaître les deux nouveaux appels comme
+  un "log call" valide — sinon le job Semgrep gating de `audit.yml` aurait
+  régressé sur les 18 sites "handler wrapping") tous verts.*
 
 ---
 
@@ -224,26 +404,24 @@ pas résoudre ce pattern. Le reste à 60 % contient un mélange de :
 
 ### Frontend (knip)
 
-**Mise à jour 2026-09-06 — chiffres recalculés (`npm run knip`, total 104,
-== `.github/quality-baseline.json`).** Toutes les lignes de l'édition d'août
-ont été traitées (voir §7) ; le tableau ci-dessous est un nouvel état, pas
-une correction du précédent — la composition a changé (nouveaux fichiers
-inutilisés apparus depuis, indépendants de cette passe de nettoyage) :
+**Mise à jour 2026-09-12 — chiffres recalculés (`npm run knip`, total 93,
+== `.github/quality-baseline.json`).** Le lot de 9 fichiers/1 dépendance/1
+export signalé le 2026-09-06 est supprimé (voir la note de mise à jour en
+tête de fichier) ; il ne reste plus que les types exportés jamais réimportés
+ailleurs :
 
 | Catégorie | Compte | Détail |
 |---|---|---|
-| Fichiers inutilisés | 9 | `components/research/BlankVoteTimeSeries.tsx`, `components/shared/EmptyChart.tsx`, `components/ui/{accordion,bootstrap-tabs,pagination,tabs,tooltip-overlay}.tsx`, `data/methodReferences.ts`, `services/index.ts` |
-| Dépendances déclarées jamais importées | 1 | `@radix-ui/react-tabs` |
+| Fichiers inutilisés | 0 | Corrigé le 2026-09-12 : les 9 fichiers (`components/research/BlankVoteTimeSeries.tsx`, `components/shared/EmptyChart.tsx`, `components/ui/{accordion,bootstrap-tabs,pagination,tabs,tooltip-overlay}.tsx`, `data/methodReferences.ts`, `services/index.ts`) sont supprimés |
+| Dépendances déclarées jamais importées | 0 | Corrigé le 2026-09-12 : `@radix-ui/react-tabs` retiré de `package.json` |
 | Dépendances utilisées mais absentes de `package.json` | 0 | Corrigé : `d3-delaunay` est déclaré (`package.json`), `@eslint/js`/`globals` aussi — les 3 findings de l'édition d'août sont résolus |
-| Exports jamais importés ailleurs | 1 valeur + 93 types | La valeur : `CardTitle` (`components/ui/card.tsx`). Les types viennent toujours majoritairement de `components/ui/*` (kit shadcn/ui) et de `src/api/index.ts`/`src/types.ts` (types larges générés/partagés, partiellement utilisés par construction) |
+| Exports jamais importés ailleurs | 0 valeur + 93 types | Corrigé le 2026-09-12 : la valeur `CardTitle` (`components/ui/card.tsx`) était non seulement non exportée ailleurs mais aussi jamais utilisée en interne au fichier — composant supprimé en entier, pas seulement dé-exporté. Les 93 types viennent toujours majoritairement de `components/ui/*` (kit shadcn/ui) et de `src/api/index.ts`/`src/types.ts` (types larges générés/partagés, partiellement utilisés par construction) |
 | Export dupliqué | 0 | Corrigé : `src/components/ui/instrument.tsx` n'exporte plus que `Instrument` en nommé |
 
-**Priorité d'action suggérée :** aucun finding "risque réel" cette fois-ci
-(la catégorie dépendance-non-déclarée est vide) — les 9 fichiers inutilisés
-et la dépendance `@radix-ui/react-tabs` sont des suppressions sûres et
-rapides. Les exports/types "inutilisés" du kit UI et des fichiers de types
-larges restent à laisser tels quels sauf audit plus fin — faux positifs
-structurels d'un pattern "bibliothèque de composants", comme en août.
+**Priorité d'action suggérée :** plus aucun finding "risque réel" — la seule
+catégorie non vide (93 types exportés jamais réimportés) reste à laisser
+telle quelle sauf audit plus fin — faux positifs structurels d'un pattern
+"bibliothèque de composants", comme en août et en septembre.
 
 ---
 
@@ -395,6 +573,11 @@ envisagée.
   fichiers de ce dossier qui ne servaient qu'à la page morte. Le
   sous-dossier lui-même n'a pas été réorganisé par thème pour autant — le
   chantier §7 reste valable, juste sur un périmètre plus petit qu'en août.
+  **Traité le 2026-09-12** (voir la mise à jour en tête de §7, item 3) : les
+  63 fichiers restants (le chiffre a légèrement bougé depuis le 2026-09-06,
+  suppressions/ajouts normaux) sont répartis en 11 sous-dossiers
+  thématiques ; `components/shared/` lui-même ne contient plus de fichier à
+  plat, seulement `README.md` et les sous-dossiers.
 - **Dette déjà documentée par l'équipe** :
   `fast_api_voter/scripts/polity_v2_consolidation_handoff.md` montre qu'une
   passe de consolidation sur `domain/polity/` a déjà été identifiée comme
@@ -432,6 +615,11 @@ refactor) — à traiter dans une passe de nettoyage dédiée.
    `run_all_score_voting_methods`, `bucklin_voting`, `two_round_system`,
    `schulze_method`) — fait, les 9 fonctions ont été supprimées (aucune
    trace dans `api/` au 2026-09-06).
+6. ✅ Supprimer le nouveau lot de 9 fichiers frontend inutilisés + la
+   dépendance `@radix-ui/react-tabs` + l'export `CardTitle` signalés en §3
+   (apparus indépendamment après le 2026-09-06) — fait le 2026-09-12, avec
+   au passage l'orphelin `useDebouncedSimulation` du Lot 6.5 (voir Lot 14 du
+   plan de solidité technique) ; `npm run knip` 104 → 93.
 
 **Chantiers plus lourds (à planifier, pas à improviser en une PR) :**
 1. Factoriser les blocs dupliqués identifiés en §4 entre les fichiers
@@ -444,17 +632,56 @@ refactor) — à traiter dans une passe de nettoyage dédiée.
    `_liquid_democracy_worker` — voir §5) ; les 6 restants (dont 4 dans cette
    même famille de fichiers élargie) restent un bon point de départ concret
    pour prioriser la suite.
-3. Réorganiser `components/shared/` (66 fichiers au 2026-09-06, en forte
-   baisse depuis les 123 d'août — voir §6) en sous-dossiers thématiques.
+3. ✅ Réorganiser `components/shared/` (66 fichiers au 2026-09-06, en forte
+   baisse depuis les 123 d'août — voir §6) en sous-dossiers thématiques —
+   fait le 2026-09-12. Les 63 fichiers actuels sont répartis en 11
+   sous-dossiers : `mechanisms/` (8, mécanismes alternatifs — jury,
+   liquide, tirage au sort, délibération, conviction, épistocratie,
+   identité, E2E-V), `systems/` (8, systèmes électoraux et leurs
+   visualisations — coalition, multi-gagnant, cartes de circonscriptions/
+   gerrymander, STV, complexité du bulletin, pipeline électoral),
+   `campaign/` (5, dynamiques de campagne — Hotelling, sensibilité,
+   polarisation, dynamiques de partis), `temporal/` (5, mécanismes
+   temporels — vote adaptatif, rejeu historique, primaires, cascade,
+   fatigue électorale), `behavioral/` (6, réalisme comportemental — biais,
+   vote timide, surcharge de choix, vote obligatoire, participation
+   démographique, polarisation affective), `theory/` (9, théorie et
+   paradoxes — Sen, agrégation de jugements, manipulation de l'agenda,
+   tyrannie de la majorité, répartition des sièges, indices de pouvoir,
+   recul démocratique, intergénérationnel, Polis), `analysis/` (4, analyse
+   approfondie — manipulation, volonté collective, testeur d'hypothèses,
+   matrice d'effets combinés), `blank/` (3, famille du vote blanc — NOTA,
+   divergence, abstention), `results/` (4, aides de rendu des résultats
+   utilisées par `FullResultsModule`), `ui/` (8, primitives génériques
+   réutilisées dans toute l'app — toast, badge live, bannière hors-ligne,
+   etc.) et `common/` (3, composants transverses non thématiques —
+   questions de curiosité, export de jeu de données, visite guidée).
+   Classification faite en lisant le contenu de chaque fichier et en
+   croisant avec le regroupement déjà fait par `labCatalog.tsx` (la source
+   de vérité testée du catalogue du Laboratoire) plutôt qu'en devinant sur
+   le nom de fichier seul ; les ~150 imports (statiques et dynamiques
+   `import()` pour le code-splitting) ont été mis à jour et `tsc`/`vitest`/
+   `lint`/`build`/`knip` restent tous verts avec les mêmes compteurs
+   qu'avant (0 erreur tsc, même nombre de tests, 0 erreur lint, budget
+   size-limit respecté, même compte `knip`).
 4. Reprendre `polity_v2_consolidation_handoff.md` comme point de départ pour
    la consolidation de `domain/polity/`.
-5. Centraliser la gestion d'erreurs pour réduire les `except Exception` nus
+5. ✅ Centraliser la gestion d'erreurs pour réduire les `except Exception` nus
    (backend, 42 au 2026-09-06 — voir §6) — probablement via un décorateur ou
    un context manager partagé plutôt qu'un correctif fichier par fichier.
-6. Ajouter les tests manquants pour les 9 fonctions `get_*_winner` de
+   Fait le 2026-09-12 : voir la mise à jour datée ci-dessus pour le détail
+   (42 → 29 clauses réelles, deux formes partagées plutôt qu'un décorateur
+   unique, 9 sites laissés tels quels avec justification au cas par cas).
+6. ✅ Ajouter les tests manquants pour les fonctions `get_*_winner` de
    `simulation_ranked_utils.py` sans couverture dédiée (recoupement §5 /
    PR #157) avant de refactorer ce fichier — éviter de casser une méthode de
-   vote silencieusement pendant le découpage.
+   vote silencieusement pendant le découpage. Fait le 2026-09-12 : le chiffre
+   "9" était stale (voir la mise à jour datée ci-dessus) — seules 3 fonctions
+   manquaient réellement d'un test dédié (`get_borda_winner`,
+   `get_positional_score_winner`, `get_approval_winner_sincere`), désormais
+   couvertes. Le découpage de `simulation_ranked_utils.py` que ce filet de
+   sécurité prépare n'a, lui, pas d'item dédié dans cette liste — reste à
+   planifier séparément le moment venu.
 
 ---
 
@@ -472,9 +699,17 @@ ci-dessous restent utiles comme prochaine étape (un seuil absolu plutôt
 qu'un ratchet relatif), et certains sont déjà atteints en pratique :
 
 - **vulture** : critère (0 finding à `--min-confidence 80`) **atteint** au
-  2026-09-06 (voir §3) — pas encore promu en hook pre-commit bloquant (même
-  modèle que `flake8`/`mypy` existants), qui reste l'étape suivante logique
-  maintenant que le critère est rempli.
+  2026-09-06 (voir §3) et **promu en hook pre-commit bloquant le
+  2026-09-12** (`.pre-commit-config.yaml`, même modèle local que `mypy`).
+  Portée vérifiée en injectant du vrai code mort de chaque classe plutôt que
+  supposée : à ce seuil, vulture attrape bien un paramètre inutilisé (100 %),
+  du code inatteignable après `return` (100 %) et un import inutilisé
+  (90 %) — exactement les deux classes de ses trouvailles d'origine. Il
+  n'attrape **pas** une fonction top-level inutilisée ni une variable locale
+  inutilisée (toutes deux plafonnées à 60 % de confiance, quel que soit le
+  code) — celles-là restent informationnelles (`--min-confidence 60` dans
+  `scripts/audit.sh`), dominées par les faux positifs Enum/décorateurs déjà
+  documentés en §3, pas sûres à gater telles quelles.
 - **knip** : critère visé = dépendances "unused"/"unlisted" à 0. Au
   2026-09-06 : "unlisted" (utilisées mais non déclarées) est à 0 — corrigé
   depuis août ; "unused" (déclarées mais jamais importées) est à 1

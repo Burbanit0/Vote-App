@@ -24,10 +24,7 @@ caller — the route's @heavy_endpoint wrapper turns them into 500s.
 """
 from __future__ import annotations
 
-import random as _random
 from typing import Any, Dict, Optional
-
-import numpy as _np
 
 from api.engine.constants import DEFAULT_ISSUES
 from api.domain.election._helpers import (
@@ -38,6 +35,7 @@ from api.domain.election._helpers import (
 from api.engine.utils.blank_contagion import simulate_blank_contagion
 from api.engine.utils.blank_vote_rules import BlankVoteRule, apply_blank_rule
 from api.engine.utils.campaign_dynamics import simulate_campaign
+from api.engine.utils.demographic_data import _seeded_rng_pair
 from api.engine.utils.information_model import apply_information_asymmetry
 from api.engine.utils.simulation_metrics import compare_all_methods
 from api.engine.utils.simulation_voting_utils import calculate_utility, create_voter
@@ -89,9 +87,16 @@ class ElectionService:
         if len(cand_specs) < 2:
             return {"error": "At least 2 candidates required"}, 400
 
-        # ── Seed both PRNGs ───────────────────────────────────────────────
-        _random.seed(seed)
-        _np.random.seed(seed)
+        # ── Local RNG pair, scoped to this call ─────────────────────────────
+        # Deliberately NOT `random.seed(seed)` / `np.random.seed(seed)`: those
+        # reseed the shared process-wide singletons, so "same seed -> same
+        # result" only held if nothing else touched random/np.random between
+        # the reseed and the voter/candidate draws below — false under any
+        # concurrent access to this process (demonstrated: two threads calling
+        # simulate() with the same seed while a third thread merely called
+        # random.random() produced different winners/voters_snapshot in 22/30
+        # attempts). A local instance can't be perturbed by anything else.
+        rng, np_rng = _seeded_rng_pair(seed)
 
         issues     = DEFAULT_ISSUES
         cand_names = [str(s.get("name", f"C{i}")) for i, s in enumerate(cand_specs)]
@@ -110,7 +115,7 @@ class ElectionService:
 
         # ── 2. Build electorate ───────────────────────────────────────────
         voters = [
-            create_voter(issues, i, ideology_distribution=ideology)
+            create_voter(issues, i, ideology_distribution=ideology, rng=rng, np_rng=np_rng)
             for i in range(num_voters)
         ]
 

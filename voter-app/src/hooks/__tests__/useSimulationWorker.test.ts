@@ -109,7 +109,7 @@ describe('WorkerResponse contracts', () => {
 
 // ── 3. Mock-based hook interface test ─────────────────────────────────────────
 
-// The hook can't be imported directly in Jest due to import.meta.url.
+// The hook can't be imported directly in Vitest due to import.meta.url.
 // We verify the interface contract through a simple mock.
 
 vi.mock('../useSimulationWorker', () => ({

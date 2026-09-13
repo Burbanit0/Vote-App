@@ -9,6 +9,7 @@ each criterion empirically on a simulated population and measures how
 frequently each one is violated.
 """
 from typing import Callable, Dict, List, Optional, Any
+from itertools import chain
 import math
 
 from .simulation_voting_utils import calculate_utility
@@ -50,7 +51,7 @@ def _get_condorcet_loser(rankings: List[List[str]]) -> Optional[str]:
     """Return the Condorcet loser (loses every pairwise duel), or None."""
     if not rankings:
         return None
-    candidates = {c for r in rankings for c in r}
+    candidates = set(chain.from_iterable(rankings))
     for c in candidates:
         loses_to_all = True
         for other in candidates:

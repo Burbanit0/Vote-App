@@ -15,8 +15,10 @@ from __future__ import annotations
 import os
 import time
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any, AsyncIterator, Awaitable, Callable
 
+import sentry_sdk
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -31,11 +33,13 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from api.engine.utils.logger import configure_logging, get_logger
-from api.core.config import get_settings
+from api.core.config import Settings, get_settings
 from api.core.ratelimit import limiter
+from api.core.tracing import configure_tracing, instrument_app
 from api.routes import election as election_routes
 from api.routes import export as export_routes
 from api.routes import health as health_routes
+from api.routes.metrics import setup_metrics
 from api.routes import public as public_routes
 from api.routes import simulations as simulations_routes
 from api.routes import tech as tech_routes
@@ -59,6 +63,29 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     yield
     log.info("api.shutdown")
+
+
+# ── Error tracking (Lot 10.1, PLAN_SOLIDITE_TECHNIQUE.md) ────────────────────
+# Self-hosted GlitchTip (docker-compose.observability.yml), never Sentry SaaS.
+# Empty GLITCHTIP_DSN (the default) means "disabled, no error" — same
+# optional-dependency pattern as REDIS_URL (api/routes/health.py's
+# _check_redis comment). No explicit `integrations=[...]` needed: sentry-sdk
+# auto-detects installed frameworks ("auto-enabling integrations") and wires
+# up FastAPI + Starlette on its own — verified live against sentry-sdk
+# 2.69.1, not assumed. That, plus its default LoggingIntegration, means a
+# single call captures BOTH an exception that reaches this file's catch-all
+# handler below AND every already-existing `log.error(..., exc_info=True)`
+# call inside a domain worker's own try/except (api/domain/**), with zero
+# per-file changes — confirmed live (see api/tests/test_error_tracking.py and
+# docs/exploration/EXP-013).
+def _init_sentry(settings: Settings) -> None:
+    if settings.glitchtip_dsn:
+        sentry_sdk.init(dsn=settings.glitchtip_dsn, environment=settings.app_env)
+
+
+# Must run before `FastAPI(...)` so instrumentation is live for the very
+# first request.
+_init_sentry(get_settings())
 
 
 app = FastAPI(
@@ -113,6 +140,39 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type"],
 )
+
+
+# ── Tracing (Lot 10.2, PLAN_SOLIDITE_TECHNIQUE.md — "Observabilité") ────────
+# No-op unless OTEL_EXPORTER_OTLP_ENDPOINT is set — see api/core/tracing.py's
+# module docstring for the Jaeger-vs-hosted-APM reasoning and the full
+# no-op-by-default contract. `app` is still the raw FastAPI instance here
+# (the socket.io ASGI wrap that reassigns `app` happens at the bottom of this
+# file, well after this point) — instrument_app() must run against the real
+# FastAPI object, not that wrapper, since it patches FastAPI's own routing.
+configure_tracing()
+instrument_app(app)
+
+
+# ── Security headers ──────────────────────────────────────────────────────
+# Lot 9, PLAN_SOLIDITE_TECHNIQUE.md ("DAST — ZAP baseline"): confirmed live via
+# a real OWASP ZAP baseline scan (docs/exploration/EXP-009) that every response
+# was missing this header — a real, previously-invisible finding, not a
+# hypothetical one (SAST tools never look at response headers, only source).
+# `nosniff` stops a browser from MIME-sniffing a response into a more
+# dangerous content-type than the one this API actually declares — zero
+# behavioural risk (every route already sets an explicit Content-Type) so
+# there is nothing to verify beyond "the header is present". The remaining
+# baseline findings (CSP, Permissions-Policy, anti-clickjacking, …) are left
+# as documented, non-blocking backlog — see EXP-009 — deliberately not
+# addressed here to keep this change reviewable as the single, narrow fix the
+# ZAP verification loop targets, not a full header-hardening pass.
+@app.middleware("http")
+async def security_headers(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
 
 
 # ── Rate-limit state default (Lot 3, PLAN_SOLIDITE_TECHNIQUE.md — "Résilience
@@ -176,8 +236,16 @@ def root() -> dict[str, Any]:
         "version": "2.0.0-alpha",
         "docs":    "/api/v2/docs",
         "health":  "/api/v2/health",
+        "metrics": "/api/v2/metrics",
         "socketio": "/api/v2/socket.io",
     }
+
+
+# ── Metrics (Lot 10, PLAN_SOLIDITE_TECHNIQUE.md — "/metrics Prometheus") ────
+# Must run BEFORE the catch-all SPA mount below: Instrumentator.expose() adds
+# a plain route, and a "/" mount registered first would shadow it (Starlette
+# matches routes in registration order). See api/routes/metrics.py.
+setup_metrics(app)
 
 
 # ── Static frontend (single-container deploy) ───────────────────────────────
@@ -186,7 +254,7 @@ def root() -> dict[str, Any]:
 # websockets). Unset (dev / tests) → API-only, unchanged. Mounted LAST so every
 # /api route and the docs win over this catch-all mount.
 _frontend_dir = os.environ.get("FRONTEND_DIR", "")
-if _frontend_dir and os.path.isdir(_frontend_dir):
+if _frontend_dir and Path(_frontend_dir).is_dir():
 
     class _SPAStaticFiles(StaticFiles):
         """Serve the built bundle (assets, icons, manifest, service worker) and

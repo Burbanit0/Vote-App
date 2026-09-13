@@ -16,7 +16,6 @@ def init(
 ) -> list[dict[str, Any]]:
     voters = []
     for voter_id in range(population_size):
-        # Assign demographics
         age = random.choices(
             list(demographics["age"].keys()), weights=demographics["age"].values()
         )[0]
@@ -91,10 +90,11 @@ def simulate_voters(
             list(scores.keys()), weights=probabilities, k=1
         )[0]
 
-    # Collect votes (including "No Vote" for those who turned out but abstained)
+    # Collect votes, including "No Vote" for voters who never turned out (set
+    # directly above) and for those who turned out but whose weighted draw
+    # landed on abstention.
     votes = [voter["preference"] for voter in voters]
 
-    # Tally votes
     tally: "defaultdict[Any, int]" = defaultdict(int)
     for vote in votes:
         tally[vote] += 1
@@ -126,10 +126,8 @@ def simulate_ranked_voters(
                     if candidate in scores:
                         scores[candidate] *= weight
 
-        # Sort candidates by score to create ranking (highest score first)
         voter["ranking"] = sorted(scores.keys(), key=lambda x: -scores[x])
 
-    # Collect rankings
     rankings = [voter["ranking"] for voter in voters if voter["turnout"]]
 
     # Tally first choices (for demonstration)
@@ -172,7 +170,6 @@ def simulate_score_voters(
         # Avoid division by zero and ensure range
         if max_raw != min_raw:
             for candidate in raw_scores:
-                # Scale to 0-5
                 raw_scores[candidate] = (
                     5 * (raw_scores[candidate] - min_raw) / (max_raw - min_raw)
                 )
@@ -182,15 +179,12 @@ def simulate_score_voters(
                     2.5  # Default to midpoint if all scores are equal
                 )
 
-        # Clamp to 0-5
         voter["scores"] = {
             candidate: min(5, max(0, raw_scores[candidate])) for candidate in candidates
         }
 
-    # Collect scores
     all_scores = [voter["scores"] for voter in voters if voter["turnout"]]
 
-    # Calculate average score per candidate
     avg_scores: "defaultdict[Any, float]" = defaultdict(float)
     for scores in all_scores:
         for candidate, score in scores.items():

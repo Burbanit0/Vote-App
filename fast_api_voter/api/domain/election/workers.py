@@ -13,14 +13,15 @@ logical order:
 """
 from __future__ import annotations
 
-import random as _random
 from collections import Counter
+from operator import itemgetter
 from typing import Any, Dict, Optional
 
 import numpy as _np
 
 from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.simulation_voting_utils import calculate_utility, create_voter
+from api.engine.utils.demographic_data       import _seeded_rng_pair
 from api.engine.utils.simulation_metrics      import compare_all_methods
 from api.engine.utils.simulation_ranked_utils import (
     get_plurality_winner,
@@ -96,10 +97,9 @@ def _divergence_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     except ValueError:
         blank_rule = BlankVoteRule.SYMBOLIC
 
-    # ── Seed (same electorate for both runs) ──────────────────────────────
-    _random.seed(seed)
-    _np.random.seed(seed)
-
+    # _build_base_electorate() below seeds its own local RNG pair from `seed`
+    # (same electorate for both runs) instead of reseeding the shared
+    # random/np.random singletons — see election_service.py for why.
     issues = DEFAULT_ISSUES
     candidates, voters, true_utilities, cand_names = _build_base_electorate(
         cand_specs, num_voters, ideology, seed, issues
@@ -209,10 +209,7 @@ def _campaign_sensitivity_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], 
     except ValueError:
         blank_rule = BlankVoteRule.SYMBOLIC
 
-    # ── Seed and build base electorate ────────────────────────────────────
-    _random.seed(seed)
-    _np.random.seed(seed)
-
+    # ── Build base electorate (local RNG pair, seeded from `seed`) ─────────
     issues = DEFAULT_ISSUES
     candidates, voters, true_utilities, cand_names = _build_base_electorate(
         cand_specs, num_voters, ideology, seed, issues
@@ -251,9 +248,10 @@ def _campaign_sensitivity_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], 
     # negative index — for a large enough magnitude that overflows CPython's
     # ssize_t, crashing with IndexError instead of wrapping or 400ing
     # (found by Schemathesis, Lot 3).
-    resolved: list[int] = []
-    for d in raw_snaps:
-        resolved.append(num_days if d == "final" else max(0, min(int(d), num_days)))
+    resolved: list[int] = [
+        num_days if d == "final" else max(0, min(int(d), num_days))
+        for d in raw_snaps
+    ]
     snapshot_days = sorted(set(resolved))
 
     # ── Snapshot loop ─────────────────────────────────────────────────────
@@ -357,9 +355,6 @@ def _combined_effects_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
         blank_rule = BlankVoteRule(blank_rule_str)
     except ValueError:
         blank_rule = BlankVoteRule.SYMBOLIC
-
-    _random.seed(seed)
-    _np.random.seed(seed)
 
     issues = DEFAULT_ISSUES
     candidates, voters, true_utilities, cand_names = _build_base_electorate(
@@ -502,7 +497,7 @@ def _combined_effects_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
     most_disruptive  = min(factor_deltas, key=lambda k: factor_deltas[k])
     least_disruptive = max(factor_deltas, key=lambda k: factor_deltas[k])
     max_disrup_combo = min(
-        combinations, key=lambda c: c["inter_method_agreement"]
+        combinations, key=itemgetter("inter_method_agreement")
     )["id"]
 
     return {
@@ -643,10 +638,11 @@ def _interpret_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
           else condorcet_analysis
 
     # ── 5. Best / worst method by Bayesian Regret ─────────────────────────
-    regrets: Dict[str, float] = {}
-    for m, md in methods_raw.items():
-        if isinstance(md, dict) and md.get("bayesian_regret") is not None:
-            regrets[m] = float(md["bayesian_regret"])
+    regrets: Dict[str, float] = {
+        m: float(md["bayesian_regret"])
+        for m, md in methods_raw.items()
+        if isinstance(md, dict) and md.get("bayesian_regret") is not None
+    }
 
     best_by_regret  = min(regrets, key=lambda k: regrets[k]) if regrets else None
     worst_by_regret = max(regrets, key=lambda k: regrets[k]) if regrets else None
@@ -757,9 +753,6 @@ def _simulate_pipeline_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
 
-    _random.seed(seed)
-    _np.random.seed(seed)
-
     issues = DEFAULT_ISSUES
     candidates, voters, true_utilities, cand_names = _build_base_electorate(
         cand_specs, num_voters, ideology, seed, issues
@@ -777,7 +770,7 @@ def _simulate_pipeline_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
 
     steps:    list[Dict[str, Any]] = []
     prev_snap: list[Dict[str, Any]] = []
-    current_utilities: Dict[Any, Dict[str, float]] = dict(true_utilities)
+    current_utilities: Dict[Any, Dict[str, float]] = true_utilities.copy()
 
     # ── Step 1: Base electorate ───────────────────────────────────────────
     base_snap = _voter_snap(voters, true_utilities, blank_enabled)
@@ -1007,9 +1000,6 @@ def _coalition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
 
-    _random.seed(seed)
-    _np.random.seed(seed)
-
     issues = DEFAULT_ISSUES
     candidates, voters, true_utilities, cand_names = _build_base_electorate(
         cand_specs, num_voters, ideology, seed, issues
@@ -1021,12 +1011,11 @@ def _coalition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         for c in candidates
     }
 
-    result_mc = compare_all_methods(
+    methods_data: Dict[str, Any] = compare_all_methods(
         voters, candidates, issues,
         blank_vote=False,
         override_utilities=true_utilities,
-    )
-    methods_data: Dict[str, Any] = result_mc.get("methods", {})
+    ).get("methods", {})
 
     seat_threshold = int(_np.ceil(total_seats * government_threshold))
 
@@ -1099,18 +1088,28 @@ def _run_district_fptp(
     ideology_center shifts the entire voter distribution along the x axis
     by displacing economy-related issue positions.  Returns winner (FPTP)
     and raw first-choice vote counts that can be turned into shares.
-    """
-    _random.seed(seed)
-    _np.random.seed(seed)
 
-    voters = [create_voter(issues, i, ideology_distribution="random") for i in range(num_voters)]
+    Uses a local RNG pair seeded from *seed* (a per-district seed passed by
+    the caller) instead of reseeding the shared random/np.random singletons,
+    so concurrent districts/runs can't perturb each other's output.
+    """
+    # `seed` is a required `int` here (not Optional) — _seeded_rng_pair's
+    # @overload for an `int` argument returns a non-Optional pair directly,
+    # so no runtime narrowing is needed even though its general signature
+    # accepts `Optional[int]` for other, optional-seed callers.
+    rng, np_rng = _seeded_rng_pair(seed)
+
+    voters = [
+        create_voter(issues, i, ideology_distribution="random", rng=rng, np_rng=np_rng)
+        for i in range(num_voters)
+    ]
 
     # Shift every voter's economy position by ideology_center, plus per-voter
     # noise scaled by ideology_variance (intra-district spread around that
     # center — same 0.3 scale already used for the center shift itself).
     base_shift = ideology_center * 0.3     # max shift ≈ 0.3 to keep results legible
     for v in voters:
-        voter_shift = base_shift + _np.random.normal(0, ideology_variance) * 0.3
+        voter_shift = base_shift + np_rng.normal(0, ideology_variance) * 0.3
         old_econ = v["issue_positions"].get("economy", 0.5)
         v["issue_positions"]["economy"] = max(0.0, min(1.0, old_econ + voter_shift))
 
@@ -1153,8 +1152,6 @@ def _districts_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         return {"error": "At least 2 candidates required"}, 400
 
     issues = DEFAULT_ISSUES
-    _random.seed(seed)
-    _np.random.seed(seed)
 
     cand_names = [str(s.get("name", f"C{i}")) for i, s in enumerate(cand_specs)]
     candidates = [
@@ -1168,9 +1165,12 @@ def _districts_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         for i, s in enumerate(cand_specs)
     ]
 
-    # Generate district ideology centers: N samples from N(0, variance)
-    _np.random.seed(seed)
-    ideology_centers = _np.random.normal(0.0, district_ideology_variance, num_districts).tolist()
+    # Generate district ideology centers: N samples from N(0, variance).
+    # Local generator seeded from `seed` — each district's own simulation
+    # below (_run_district_fptp) reseeds independently from seed+i+1, so this
+    # never needs to touch the shared np.random singleton.
+    np_rng = _np.random.RandomState(seed)
+    ideology_centers = np_rng.normal(0.0, district_ideology_variance, num_districts).tolist()
 
     # ── Per-district simulation ────────────────────────────────────────────
     district_results: list[Dict[str, Any]] = []
@@ -1256,8 +1256,7 @@ def _build_primary_candidate(
     i: int, name: str, ideology_pos: float, issues: list[str]
 ) -> Dict[str, Any]:
     """Build a candidate dict from a 1-D ideology position in [-1, 1]."""
-    x = float(ideology_pos)
-    return _build_candidate_from_xy(i, name, x, 0.0, issues)
+    return _build_candidate_from_xy(i, name, ideology_pos, 0.0, issues)
 
 
 def _run_primary(
@@ -1319,8 +1318,6 @@ def _primary_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         if len(p.get("primary_candidates", [])) < 2:
             return {"error": f"Party '{p.get('name')}' needs at least 2 primary candidates"}, 400
 
-    _random.seed(seed)
-    _np.random.seed(seed)
     issues = DEFAULT_ISSUES
 
     # ── Build all primary candidates (flat list, per party) ───────────────
@@ -1352,11 +1349,10 @@ def _primary_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         })
         cand_offset += len(prim_specs)
 
-    # ── Build the general electorate ──────────────────────────────────────
-    _random.seed(seed)
-    _np.random.seed(seed)
+    # ── Build the general electorate (local RNG pair) ───────────────────────
+    rng, np_rng = _seeded_rng_pair(seed)
     general_voters = [
-        create_voter(issues, i, ideology_distribution=general_ideology)
+        create_voter(issues, i, ideology_distribution=general_ideology, rng=rng, np_rng=np_rng)
         for i in range(general_num_voters)
     ]
 

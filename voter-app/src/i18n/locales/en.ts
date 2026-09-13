@@ -36,6 +36,7 @@ const en: TranslationKeys = {
     darkModeTip: 'Dark mode',
     guidedTour: 'Guided tour',
     tourLabel: 'Guided tour',
+    toggleLabel: 'Navigation menu',
     logout: 'Log out',
     login: 'Log in',
     register: 'Create account',

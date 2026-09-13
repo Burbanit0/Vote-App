@@ -20,3 +20,21 @@ def test_balloted_winner_falls_back_and_logs_on_method_failure(monkeypatch, capl
 
     assert winner == "Alice"  # falls back to the plain utility-max plurality winner
     assert "campaign_dynamics.balloted_winner_failed" in caplog.text
+
+
+def test_balloted_winner_falls_back_when_method_returns_no_winner(monkeypatch):
+    """Distinct from the exception-path test above: here fn(ballots) returns
+    cleanly but falsy (None), so `winner or _plurality_winner(utilities)` on
+    the try block's own return line takes the fallback -- never raises, never
+    logs, no except block involved."""
+    monkeypatch.setattr(
+        "api.engine.utils.simulation_ranked_utils.get_plurality_winner",
+        lambda ballots: None,
+    )
+
+    utilities = {"Alice": 0.9, "Bob": 0.4, "Carol": 0.2}
+    winner = _balloted_winner(
+        utilities, list(utilities), method="plurality", rng=random.Random(0),
+    )
+
+    assert winner == "Alice"  # same fallback target, reached via the "or", not an exception

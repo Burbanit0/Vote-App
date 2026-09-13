@@ -23,6 +23,7 @@ from __future__ import annotations
 import random
 from typing import Any, Callable, Optional
 
+from api.engine.utils.error_handling import safe_call
 from api.engine.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -129,11 +130,10 @@ def compute_manipulability_index(
         sample_indices = random.sample(sample_indices, num_trials)
 
     # ── Compute sincere winner (all ballots, no manipulation) ──────────────
-    try:
-        sincere_winner: Optional[str] = method_fn(ballots)
-    except Exception:
-        log.warning("gibbard_satterthwaite.sincere_winner_failed", method=method_name, exc_info=True)
-        sincere_winner = None
+    sincere_winner: Optional[str] = safe_call(
+        lambda: method_fn(ballots), lambda: None,
+        log=log, event="gibbard_satterthwaite.sincere_winner_failed", method=method_name,
+    )
 
     # ── Test each sampled voter ────────────────────────────────────────────
     num_manipulators = 0
@@ -153,24 +153,21 @@ def compute_manipulability_index(
         # Generate alternative ballots (up to 3) by swapping adjacent pairs.
         manipulated = False
         for swap_pos in range(min(3, len(sincere_ballot) - 1)):
-            alt_ballot = list(sincere_ballot)
+            alt_ballot = sincere_ballot.copy()
             alt_ballot[swap_pos], alt_ballot[swap_pos + 1] = (
                 alt_ballot[swap_pos + 1],
                 alt_ballot[swap_pos],
             )
 
             # Replace voter's ballot and re-run the election.
-            test_ballots = list(ballots)
+            test_ballots = ballots.copy()
             test_ballots[voter_idx] = alt_ballot
 
-            try:
-                new_winner: Optional[str] = method_fn(test_ballots)
-            except Exception:
-                log.warning(
-                    "gibbard_satterthwaite.manipulated_winner_failed",
-                    method=method_name, voter_idx=voter_idx, swap_pos=swap_pos, exc_info=True,
-                )
-                continue
+            new_winner: Optional[str] = safe_call(
+                lambda: method_fn(test_ballots), lambda: None,
+                log=log, event="gibbard_satterthwaite.manipulated_winner_failed",
+                method=method_name, voter_idx=voter_idx, swap_pos=swap_pos,
+            )
 
             if new_winner is None or new_winner == sincere_winner:
                 continue

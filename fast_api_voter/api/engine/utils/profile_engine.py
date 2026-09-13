@@ -37,7 +37,7 @@ def _utils_from_rankings(rankings: List[List[str]], names: List[str]) -> Utility
     for i, ranking in enumerate(rankings):
         pos = {name: r for r, name in enumerate(ranking)}
         if m > 1:
-            matrix[i] = {name: float((m - 1 - pos[name]) / (m - 1)) for name in names}
+            matrix[i] = {name: (m - 1 - pos[name]) / (m - 1) for name in names}
         else:
             matrix[i] = {names[0]: 1.0}
     return matrix
@@ -203,7 +203,7 @@ def polya_urn_profile(
     rankings: List[List[str]] = []
     for _ in range(num_voters):
         if drawn and rng.random() < len(drawn) / (len(drawn) + alpha):
-            rankings.append(list(drawn[int(rng.integers(len(drawn)))]))
+            rankings.append(drawn[int(rng.integers(len(drawn)))].copy())
         else:
             fresh = list(rng.permutation(names))
             drawn.append(fresh)
@@ -291,9 +291,10 @@ def stratification_profile(
 def handcrafted_profile(matrix_in: List[List[float]], names: List[str]) -> UtilityMatrix:
     """Accept a directly-supplied utility matrix (rows = voters, cols = candidates,
     aligned with `names`). Builds exact paradoxes by hand."""
-    matrix: UtilityMatrix = {}
-    for i, row in enumerate(matrix_in):
-        matrix[i] = {names[j]: float(row[j]) for j in range(len(names))}
+    matrix: UtilityMatrix = {
+        i: {names[j]: row[j] for j in range(len(names))}
+        for i, row in enumerate(matrix_in)
+    }
     return matrix
 
 
@@ -336,15 +337,15 @@ _ALL_METHODS = _CARDINAL_METHODS | _ORDINAL_METHODS | {"approval"}
 def compatible_methods(ballot_type: str) -> set[str]:
     """Which counting rules can HONESTLY run on this ballot's information."""
     if ballot_type in ("full", "score", "grade", "cumulative"):
-        return set(_ALL_METHODS)
+        return _ALL_METHODS.copy()
     if ballot_type in ("rank_full", "rank_truncated"):
-        return set(_ORDINAL_METHODS)
+        return _ORDINAL_METHODS.copy()
     if ballot_type == "approve":
         return {"approval"}
     if ballot_type == "choose_one":
         # Random ballot needs only each voter's single top choice.
         return {"plurality", "two_round", "random_ballot"}
-    return set(_ALL_METHODS)
+    return _ALL_METHODS.copy()
 
 
 def _normalise_row(utils: Dict[str, float]) -> Dict[str, float]:
@@ -450,7 +451,7 @@ def turnout_mask(
     electorate (caller falls back to full turnout if <2 remain).
     """
     n = voter_pts.shape[0]
-    if model == "full" or intensity <= 0 or cand_pts.shape[0] == 0 or n == 0:
+    if model == "full" or intensity <= 0 or 0 in (cand_pts.shape[0], n):
         return np.ones(n, dtype=bool)
     k = float(min(max(intensity, 0.0), 1.0))
     d = np.linalg.norm(voter_pts[:, None, :] - cand_pts[None, :, :], axis=2)
@@ -501,7 +502,7 @@ def apply_behavior(
         if not act:
             out[vid] = utils
             continue
-        new = dict(utils)
+        new = utils.copy()
         hi, lo = max(utils.values()), min(utils.values())
         if utils[f1] >= utils[f2]:
             new[f1], new[f2] = hi, lo

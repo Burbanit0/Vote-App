@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './coverageFixtures';
 
 // Moment 2 — Méthode. The rule selector, the multi-select of compared methods
 // (which feeds the Bilan), the four lenses painted on the same map, and the

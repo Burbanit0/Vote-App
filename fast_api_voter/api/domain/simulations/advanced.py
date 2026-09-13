@@ -19,12 +19,16 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import random as _rng2
 
+import numpy as np
+
 from api.engine.utils.simulation_voting_utils import run_bandwagon_simulation, calculate_utility
 from api.engine.utils.simulation_metrics import compare_all_methods_mc
 from api.engine.utils.simulation_multiwinner_utils import compare_multiwinner_methods
 from api.engine.utils.real_election_data import analyze_real_election, list_elections
 from api.engine.utils.blank_vote_rules import BlankVoteRule
+from api.engine.utils.demographic_data import _seeded_rng_pair
 from api.engine.constants import DEFAULT_ISSUES
+from api.engine.utils.error_handling import log_and_error_response
 from api.domain.simulations.helpers import (
     _parse_candidate_configs, _build_population,
     _build_scenario_candidates, _build_scenario_voters, _run_five_methods,
@@ -52,7 +56,32 @@ def _bandwagon_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
         return {"error": "At least 2 candidates required"}, 400
 
     try:
-        _, candidates, issues = _build_population(candidate_configs, 0, ideology_dist)
+        # Candidates are built here (num_voters=0 — run_bandwagon_simulation
+        # builds its own voters below) and passed in, which means
+        # run_bandwagon_simulation's own `if candidates is None:` rng/np_rng
+        # threading for candidate creation never runs on this path — this
+        # call is the one that must seed _build_population itself. Missing
+        # this was a real bug (code-review ultra, 2026-09-12): candidates on
+        # the live /simulations/bandwagon endpoint were still drawing from
+        # the bare global singleton regardless of `seed`. See
+        # PLAN_SOLIDITE_TECHNIQUE.md's Lot 5 addendum.
+        #
+        # Build exactly ONE (rng, np_rng) pair from seed_int and thread it
+        # through BOTH candidate creation (_build_population, below) AND
+        # voter creation (run_bandwagon_simulation's rng=/np_rng=, below) so
+        # both draw from one continuous stream. Passing `seed=seed_int` alone
+        # to run_bandwagon_simulation (as a prior version of this fix did)
+        # made it derive its OWN, independently-constructed pair from the
+        # SAME seed value — `random.Random(13)` built twice yields
+        # byte-identical draws, so candidates and voters were two clones of
+        # the same sequence restarted from position zero, not independent
+        # streams (real bug, second code-review ultra pass, 2026-09-12; see
+        # PLAN_SOLIDITE_TECHNIQUE.md's Lot 5 addendum).
+        seed_int = int(seed) if seed is not None else None
+        rng, np_rng = _seeded_rng_pair(seed_int)
+        _, candidates, issues = _build_population(
+            candidate_configs, 0, ideology_dist, rng=rng, np_rng=np_rng
+        )
         result = run_bandwagon_simulation(
             num_voters=num_voters,
             candidates=candidates,
@@ -60,12 +89,13 @@ def _bandwagon_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
             num_rounds=num_rounds,
             influence_strength=influence_strength,
             ideology_distribution=ideology_dist,
-            seed=int(seed) if seed is not None else None,
+            seed=seed_int,
+            rng=rng,
+            np_rng=np_rng,
         )
         return result, 200
     except Exception as e:
-        log.error("simulation.bandwagon.failed", exc_info=True)
-        return {"error": str(e)}, 500
+        return log_and_error_response(log, "simulation.bandwagon.failed", {"error": str(e)})
 
 
 
@@ -90,15 +120,22 @@ def _monte_carlo_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
         return {"error": "At least 2 candidates required"}, 400
 
     def _single_run(_: Any) -> Dict[str, Any]:
-        voters, candidates, issues = _build_population(candidate_configs, num_voters, ideology_dist)
+        # Fresh, unseeded, per-call local RNG pair — this Monte Carlo run has
+        # no reproducibility contract, but each call executes in its own
+        # ThreadPoolExecutor worker thread, so drawing from the shared
+        # random/np.random singletons would race every other concurrent run
+        # (in this pool and any other seeded/unseeded caller in the process).
+        rng    = _rng2.Random()
+        np_rng = np.random.RandomState()
+        voters, candidates, issues = _build_population(
+            candidate_configs, num_voters, ideology_dist, rng=rng, np_rng=np_rng
+        )
         return compare_all_methods_mc(voters, candidates, issues)
 
     try:
-        run_results = []
         with ThreadPoolExecutor(max_workers=min(4, num_runs)) as executor:
             futures = [executor.submit(_single_run, i) for i in range(num_runs)]
-            for f in as_completed(futures):
-                run_results.append(f.result())
+            run_results = [f.result() for f in as_completed(futures)]
 
         method_names = list(run_results[0]["methods"].keys())
         n_candidates = len(candidate_configs)
@@ -195,8 +232,7 @@ def _monte_carlo_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
         }, 200
 
     except Exception as e:
-        log.error("simulation.monte_carlo.failed", exc_info=True)
-        return {"error": str(e)}, 500
+        return log_and_error_response(log, "simulation.monte_carlo.failed", {"error": str(e)})
 
 
 
@@ -236,8 +272,7 @@ def _multiwinner_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
         result["num_seats"]   = num_seats
         return result, 200
     except Exception as e:
-        log.error("simulation.multiwinner.failed", exc_info=True)
-        return {"error": str(e)}, 500
+        return log_and_error_response(log, "simulation.multiwinner.failed", {"error": str(e)})
 
 
 
@@ -299,8 +334,7 @@ def _real_election_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
     except ValueError as e:
         return {"error": str(e)}, 404
     except Exception as e:
-        log.error("simulation.real_election.failed", exc_info=True)
-        return {"error": str(e)}, 500
+        return log_and_error_response(log, "simulation.real_election.failed", {"error": str(e)})
 
 
 
@@ -335,8 +369,7 @@ def _conclude_provisional(before: Dict[str, Any], after: Dict[str, Any], drift: 
 
 
 def _conclude_dissolution(multi: Dict[str, Any], plural_winner: str, num_seats: int) -> str:
-    comp = multi.get("comparison", {})
-    most_prop = comp.get("most_proportional", "sainte_lague")
+    most_prop = multi.get("comparison", {}).get("most_proportional", "sainte_lague")
     gallagher = multi.get(most_prop, {}).get("metrics", {}).get("gallagher_index")
     dhondt_seats = multi.get("dhondt", {}).get("seats", {}).get(plural_winner, 0)
     g_str = f"{gallagher:.3f}" if gallagher is not None else "?"
@@ -448,8 +481,7 @@ def _constitutional_scenario_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any
             "conclusion":      _conclude_dissolution(multi, plural_winner or "?", num_seats),
         }, 200
 
-    else:
-        return {"error": f"Unknown scenario_type '{scenario_type}'"}, 400
+    return {"error": f"Unknown scenario_type '{scenario_type}'"}, 400
 
 
 
@@ -486,7 +518,6 @@ def _blank_contagion_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
     except ValueError as exc:
         return {"error": str(exc)}, 400
     except Exception as exc:
-        log.error("simulation.blank_contagion.failed", exc_info=True)
-        return {"error": str(exc)}, 500
+        return log_and_error_response(log, "simulation.blank_contagion.failed", {"error": str(exc)})
 
 

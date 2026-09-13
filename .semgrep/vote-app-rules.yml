@@ -18,6 +18,22 @@
 #     across 9 files, none logging — fixed by adding a log call to each
 #     (mostly `log.warning("<module>.<thing>_failed", exc_info=True)`),
 #     following the shape already established elsewhere in the codebase.
+#
+# Update (CODE_AUDIT.md §7 item 5, boilerplate-reduction pass): the 42
+# `except Exception` sites this rule now sees all still log, just not always
+# via a literal `log.$METHOD(...)`/`_logger.$METHOD(...)` call anymore —
+# api/engine/utils/error_handling.py centralises two of the shapes:
+#   - `safe_call(fn, fallback, log=log, event=...)` replaces the try/except
+#     entirely at ~15 call sites, so this rule never sees a bare except there
+#     (nothing to flag) — the ONE real `except Exception:` left is inside
+#     `safe_call`'s own implementation, which logs via `getattr(log,
+#     level)(...)` (dynamic dispatch on the level, so `log.$METHOD(...)`
+#     doesn't match it); excluded by path below rather than adding a
+#     getattr-shaped pattern-not, since that would just as easily hide a
+#     genuinely silent getattr-based catch elsewhere.
+#   - `log_and_error_response(log, event, body)` replaces the log-call +
+#     return-tuple tail at ~18 "handler wrapping" call sites — the except
+#     block is untouched, so a pattern-not for this call covers those.
 rules:
   - id: v2-router-missing-rate-limit
     languages: [python]
@@ -61,6 +77,11 @@ rules:
       # doesn't have that problem.
       include:
         - /fast_api_voter/api/
+      exclude:
+        # The one real `except Exception:` left here logs via
+        # `getattr(log, level)(...)` inside `safe_call` — see the module
+        # note above and the file's own docstring.
+        - /fast_api_voter/api/engine/utils/error_handling.py
     patterns:
       - pattern-either:
           - pattern: |
@@ -100,4 +121,18 @@ rules:
           except Exception:
               ...
               _logger.$METHOD(...)
+              ...
+      - pattern-not: |
+          try:
+              ...
+          except Exception as $EXC:
+              ...
+              log_and_error_response(...)
+              ...
+      - pattern-not: |
+          try:
+              ...
+          except Exception:
+              ...
+              log_and_error_response(...)
               ...

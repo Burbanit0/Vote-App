@@ -12,11 +12,13 @@ import itertools
 import math
 import random as _random
 from collections import Counter
-from typing import Any, Callable, Dict, List, Optional
+from operator import itemgetter
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as _np
 
 from api.engine.constants import DEFAULT_ISSUES
+from api.engine.utils.error_handling import safe_call
 from api.engine.utils.logger import get_logger
 from api.engine.utils.simulation_voting_utils import calculate_utility, create_voter
 from api.engine.utils.simulation_metrics import compare_all_methods
@@ -32,8 +34,8 @@ log = get_logger(__name__)
 
 # ── Demographic Turnout ───────────────────────────────────────────────────────
 
-_AGE_LABELS  = ["jeunes (18-34)", "adultes (35-64)", "seniors (65+)"]
-_EDU_LABELS  = ["faible éducation", "éducation élevée"]
+_AGE_LABELS  = ("jeunes (18-34)", "adultes (35-64)", "seniors (65+)")
+_EDU_LABELS  = ("faible éducation", "éducation élevée")
 
 _DT_RULES = {
     "borda":   get_borda_winner,
@@ -41,11 +43,11 @@ _DT_RULES = {
     "schulze": get_schulze_winner,
 }
 
-_DT_DEFAULT_CANDIDATES = [
+_DT_DEFAULT_CANDIDATES = (
     {"name": "Alice", "x": -0.5, "y": -0.2},
     {"name": "Bob",   "x":  0.5, "y":  0.2},
     {"name": "Carol", "x":  0.0, "y":  0.1},
-]
+)
 
 
 def _dt_floats(raw: Any, default: List[float], keep: int) -> List[float]:
@@ -208,11 +210,16 @@ def _dt_winners_by_method(
     """Winner per method for each voter subset. All-or-nothing on failure, kept
     from before the split: the two subsets must never disagree about whether the
     comparison ran at all, or the caller would read one as a real change."""
-    try:
-        compares = [compare_all_methods(vs, candidates, issues) for vs in subsets]
-    except Exception:  # pylint: disable=broad-except
-        log.warning("workers_advanced.dt_winners_by_method_failed", exc_info=True)
+    def _compare_subsets() -> List[Dict[str, Any]]:
+        return [compare_all_methods(vs, candidates, issues) for vs in subsets]
+
+    def _empty_subsets() -> List[Dict[str, Any]]:
         return [{} for _ in subsets]
+
+    compares = safe_call(
+        _compare_subsets, _empty_subsets,
+        log=log, event="workers_advanced.dt_winners_by_method_failed",
+    )
     return [
         {m: d.get("winner") for m, d in c.get("methods", {}).items()}
         for c in compares
@@ -474,21 +481,20 @@ def _compulsory_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
     )
 
     # ── Per-method winners for both voter subsets (for central matrix diff) ──
-    try:
+    def _compute_winners_by_method() -> Tuple[Dict[str, Any], Dict[str, Any]]:
         vol_voters  = [v for v in voters if v["id"] in voluntary_ids]
         comp_voters = [v for v in voters if v["id"] in compulsory_ids]
         vol_compare  = compare_all_methods(vol_voters,  candidates, issues)
         comp_compare = compare_all_methods(comp_voters, candidates, issues)
-        vol_winners_by_method = {
-            m: d.get("winner") for m, d in vol_compare.get("methods", {}).items()
-        }
-        comp_winners_by_method = {
-            m: d.get("winner") for m, d in comp_compare.get("methods", {}).items()
-        }
-    except Exception:  # pylint: disable=broad-except
-        log.warning("workers_advanced.compulsory_voting_winners_by_method_failed", exc_info=True)
-        vol_winners_by_method = {}
-        comp_winners_by_method = {}
+        return (
+            {m: d.get("winner") for m, d in vol_compare.get("methods", {}).items()},
+            {m: d.get("winner") for m, d in comp_compare.get("methods", {}).items()},
+        )
+
+    vol_winners_by_method, comp_winners_by_method = safe_call(
+        _compute_winners_by_method, lambda: ({}, {}),
+        log=log, event="workers_advanced.compulsory_voting_winners_by_method_failed",
+    )
 
     return {
         "voluntary": {
@@ -576,7 +582,6 @@ def _sortition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     voter_age: Dict[int, int] = {v["id"]: _age_group(d_rng.random()) for v in voters}
     voter_edu: Dict[int, int] = {v["id"]: (0 if d_rng.random() < 0.40 else 1) for v in voters}
 
-    # ── Metric helpers ────────────────────────────────────────────────────
     def _representativity(asm: set[Any]) -> float:
         if not asm:
             return 0.0
@@ -587,7 +592,7 @@ def _sortition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         if not asm:
             return 0.0
         ideos = [voter_ideo[vid] for vid in asm]
-        bins  = [-1.0, -0.5, 0.0, 0.5, 1.01]
+        bins  = (-1.0, -0.5, 0.0, 0.5, 1.01)
         counts = [0] * 4
         for ideo in ideos:
             for i in range(4):
@@ -614,7 +619,7 @@ def _sortition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             return 0.0
         pop_s = sorted(voter_ideo.values())
         q     = max(1, num_voters // 4)
-        bounds = [pop_s[0], pop_s[q], pop_s[2 * q], pop_s[3 * q], pop_s[-1] + 0.01]
+        bounds = (pop_s[0], pop_s[q], pop_s[2 * q], pop_s[3 * q], pop_s[-1] + 0.01)
         ideos  = [voter_ideo[vid] for vid in asm]
         n_asm  = len(ideos)
         ratios = []
@@ -644,7 +649,6 @@ def _sortition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             },
         }
 
-    # ── Assembly constructors ─────────────────────────────────────────────
     def _elected_asm(rng: _random.Random) -> set[Any]:
         cand_n = min(assembly_size * 3, num_voters)
         if realistic_cands:
@@ -713,7 +717,6 @@ def _sortition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         "sortition_stratified": _asm_metrics(stratified_ids),
     }
 
-    # ── Winner by assembly ────────────────────────────────────────────────
     def _asm_winner(asm: set[Any]) -> Optional[str]:
         rnk = [
             sorted(sincere_utilities[vid].keys(), key=lambda k: -sincere_utilities[vid][k])
@@ -1428,7 +1431,7 @@ def _pi_note(party_results: List[Dict[str, Any]]) -> str:
     if not party_results:
         return "Aucun parti fourni."
 
-    top = max(party_results, key=lambda x: x["shapley_index"])
+    top = max(party_results, key=itemgetter("shapley_index"))
     note = (
         f"Shapley-Shubik 1954 : le parti '{top['name']}' détient "
         f"{round(top['shapley_index']*100, 1)}% du pouvoir de coalition "

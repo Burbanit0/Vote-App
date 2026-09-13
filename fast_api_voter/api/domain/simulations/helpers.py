@@ -1,11 +1,13 @@
 """
-Shared route-level helpers used by simulation_compare.py and simulation_advanced.py.
+Shared route-level helpers used by compare.py and advanced.py.
 
-These are not simulation logic (that lives in app/utils/) — they are
+These are not simulation logic (that lives in api/engine/utils/) — they are
 request-parsing and population-building helpers specific to the route layer.
 """
 import random as _rng
-from typing import Any
+from typing import Any, Optional
+
+import numpy as np
 
 from api.engine.utils.simulation_voting_utils import create_voter, create_candidate
 from api.engine.utils.simulation_metrics import compare_all_methods
@@ -21,7 +23,7 @@ _PRESET_TO_DISTRIBUTION = {
     "random":    "random",
 }
 
-_SCENARIO_METHODS = ["plurality", "irv", "borda", "schulze", "approval"]
+_SCENARIO_METHODS = ("plurality", "irv", "borda", "schulze", "approval")
 
 
 def _build_scenario_candidates(
@@ -106,7 +108,7 @@ def _run_five_methods(
     return filtered
 
 
-_PARTY_CYCLE = ["Green", "Conservative", "Liberal", "Independent"]
+_PARTY_CYCLE = ("Green", "Conservative", "Liberal", "Independent")
 
 
 def _parse_candidate_configs(raw: list[Any]) -> list[dict[str, Any]]:
@@ -141,12 +143,20 @@ def _build_population(
     candidate_configs: list[dict[str, Any]],
     num_voters: int,
     ideology_distribution: str = "random",
+    rng: Optional[_rng.Random] = None,
+    np_rng: Optional[np.random.RandomState] = None,
 ) -> tuple[list[Any], list[Any], list[str]]:
     """
     Create voters and candidates for a simulation run.
 
     candidate_configs — output of _parse_candidate_configs().
     Returns (voters, candidates, issues).
+
+    rng/np_rng: optional local RNG instances threaded through to
+    create_candidate/create_voter. Pass these when the caller runs several
+    populations concurrently (e.g. Monte Carlo over a thread pool) so draws
+    don't come from the shared random/np.random singletons — see
+    api.domain.simulations.advanced._monte_carlo_worker for the pattern.
     """
     issues = DEFAULT_ISSUES
     candidates = [
@@ -156,11 +166,12 @@ def _build_population(
             cfg["name"],
             cfg["party"],
             ideology_position=cfg.get("ideology_position"),
+            rng=rng,
         )
         for i, cfg in enumerate(candidate_configs)
     ]
     voters = [
-        create_voter(issues, i, ideology_distribution=ideology_distribution)
+        create_voter(issues, i, ideology_distribution=ideology_distribution, rng=rng, np_rng=np_rng)
         for i in range(num_voters)
     ]
     return voters, candidates, issues

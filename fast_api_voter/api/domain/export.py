@@ -7,28 +7,26 @@ blueprint in app/routes/export.py and the FastAPI router both import from here.
 """
 from __future__ import annotations
 
-import random as _random
 from typing import Any
 
-import numpy as _np
-
 from api.engine.constants import DEFAULT_ISSUES
+from api.engine.utils.demographic_data import _seeded_rng_pair
 from api.engine.utils.simulation_metrics import compare_all_methods_mc
 from api.engine.utils.simulation_voting_utils import create_candidate, create_voter
 
 _CANDIDATE_NAMES = ["Alice", "Bob", "Carol", "Dave", "Eve", "Frank", "Grace", "Hugo"]
-_PARTY_CYCLE     = ["Green", "Conservative", "Liberal", "Independent"]
-_KEY_METHODS     = ["plurality", "borda", "irv", "schulze", "approval"]
+_PARTY_CYCLE     = ("Green", "Conservative", "Liberal", "Independent")
+_KEY_METHODS     = ("plurality", "borda", "irv", "schulze", "approval")
 _MAX_SCENARIOS   = 1_000
 
-CSV_COLUMNS = [
+CSV_COLUMNS = (
     "scenario_id", "num_candidates", "num_voters",
     "method", "winner", "winner_score",
     "condorcet_exists", "condorcet_winner",
     "bayesian_regret", "blank_rate", "blank_rule",
     "plurality_winner", "borda_winner", "irv_winner",
     "schulze_winner", "approval_winner", "methods_agree",
-]
+)
 
 
 def _generate_rows(
@@ -41,23 +39,26 @@ def _generate_rows(
     """
     Generate one row per (scenario, method) deterministically from *seed*.
 
-    The global random state is seeded once at the start so that the same
+    A local RNG pair is seeded once at the start from *seed* — NOT the shared
+    random/np.random module-level singletons — so that the same
     (num_scenarios, num_candidates, num_voters, seed) triple always produces
-    identical output — important for research reproducibility.
+    identical output, including under concurrent access from other requests
+    in the same process (reseeding the shared globals doesn't have this
+    property: any other code touching random/np.random between the reseed
+    and the draws below changes the result for the same seed).
     """
-    _random.seed(seed)
-    _np.random.seed(seed)
+    rng, np_rng = _seeded_rng_pair(seed)
     issues = DEFAULT_ISSUES
     rows: list[dict[str, Any]] = []
 
     for s_id in range(1, num_scenarios + 1):
         cand_names = _CANDIDATE_NAMES[:num_candidates]
         candidates = [
-            create_candidate(issues, i, name, _PARTY_CYCLE[i % len(_PARTY_CYCLE)])
+            create_candidate(issues, i, name, _PARTY_CYCLE[i % len(_PARTY_CYCLE)], rng=rng)
             for i, name in enumerate(cand_names)
         ]
         voters = [
-            create_voter(issues, i, ideology_distribution=ideology)
+            create_voter(issues, i, ideology_distribution=ideology, rng=rng, np_rng=np_rng)
             for i in range(num_voters)
         ]
 

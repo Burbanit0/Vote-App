@@ -32,6 +32,17 @@ def test_nanson_single_and_empty():
     assert get_nanson_winner([["A"]]) == "A"
 
 
+def test_nanson_every_ballot_empty_has_no_winner():
+    """Regression test (Lot 9, PLAN_SOLIDITE_TECHNIQUE.md — atheris fuzzing
+    campaign): distinct from `votes == []` above -- here `votes` itself is
+    non-empty but every ballot in it ranks zero candidates, so `all_cands`
+    ends up empty too. The fallback `return min(all_cands)` a few lines
+    down assumed a non-empty list and raised an uncaught ValueError instead
+    of the None every other "nobody was ever ranked" path already returns."""
+    assert get_nanson_winner([[]]) is None
+    assert get_nanson_winner([[], []]) is None
+
+
 def test_compare_all_methods_registers_nanson():
     names = ["A", "B", "C"]
     matrix = {

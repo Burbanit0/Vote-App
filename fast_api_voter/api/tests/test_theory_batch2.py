@@ -137,3 +137,28 @@ class TestManipulationAnalysis:
         bad = {**self.payload, "num_voters": 999}
         assert client.post("/api/v2/theory/manipulation-analysis",
                            json=bad).status_code == 422
+
+    def test_irv_exercises_truncating_strategy(self, client):
+        """method='irv' unlocks the 'truncating' generator (partial-ranking
+        strategies only make sense for IRV/two_round/approval)."""
+        ok = {**self.payload, "method": "irv"}
+        r = client.post("/api/v2/theory/manipulation-analysis", json=ok)
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["manipulation_count"] == len(body["manipulators"])
+
+    def test_finds_a_real_manipulator_and_key_manipulator(self, client):
+        """This exact seed/candidate/method combo is known (found by a
+        parameter search) to produce at least one voter for whom plurality
+        strategic voting beats sincere voting -- exercising the
+        best-gain 'key manipulator' selection, not just the empty case."""
+        ok = {**self.payload, "seed": 32}
+        r = client.post("/api/v2/theory/manipulation-analysis", json=ok)
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["manipulable"] is True
+        assert body["manipulation_count"] > 0
+        key = body["key_manipulator"]
+        assert key is not None
+        assert key["gain"] > 0
+        assert any(m["voter_id"] == key["voter_id"] for m in body["manipulators"])

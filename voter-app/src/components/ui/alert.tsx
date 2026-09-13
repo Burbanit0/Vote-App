@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
+import { useTranslation } from 'react-i18next';
 
 import { cn } from '@/lib/utils';
 
@@ -31,30 +32,33 @@ export interface AlertProps
 }
 
 const Alert = React.forwardRef<HTMLDivElement, AlertProps>(
-  ({ className, variant, dismissible, onClose, children, ...props }, ref) => (
-    <div
-      ref={ref}
-      role="alert"
-      className={cn(
-        alertVariants({ variant }),
-        dismissible && 'flex items-start justify-between gap-2',
-        className
-      )}
-      {...props}
-    >
-      {dismissible ? <span>{children}</span> : children}
-      {dismissible && (
-        <button
-          type="button"
-          aria-label="Close"
-          onClick={onClose}
-          className="shrink-0 text-lg leading-none opacity-70 transition-opacity hover:opacity-100"
-        >
-          ×
-        </button>
-      )}
-    </div>
-  )
+  ({ className, variant, dismissible, onClose, children, ...props }, ref) => {
+    const { t } = useTranslation();
+    return (
+      <div
+        ref={ref}
+        role="alert"
+        className={cn(
+          alertVariants({ variant }),
+          dismissible && 'flex items-start justify-between gap-2',
+          className
+        )}
+        {...props}
+      >
+        {dismissible ? <span>{children}</span> : children}
+        {dismissible && (
+          <button
+            type="button"
+            aria-label={t('common.close')}
+            onClick={onClose}
+            className="shrink-0 text-lg leading-none opacity-70 transition-opacity hover:opacity-100"
+          >
+            ×
+          </button>
+        )}
+      </div>
+    );
+  }
 );
 Alert.displayName = 'Alert';
 

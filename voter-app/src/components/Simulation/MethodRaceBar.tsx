@@ -15,8 +15,6 @@ import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/badge';
 import { MethodStreamStats } from '../../hooks/useMonteCarloStream';
 
-// ── Constants ─────────────────────────────────────────────────────────────────
-
 const ROW_H = 36;
 const LABEL_W = 130; // left label column
 const RIGHT_LABEL_W = 120; // right label column
@@ -79,7 +77,6 @@ const MethodRaceBar: React.FC<Props> = ({ partialResults, isRunning }) => {
   const svgH = Math.max(40, rows.length * ROW_H + 20);
   const barMaxW = SVG_INNER_W - 8;
 
-  // Methods that crossed the badge threshold
   const stableLeaders = useMemo(() => rows.filter((r) => r.stability >= BADGE_THRESHOLD), [rows]);
 
   if (rows.length === 0) return null;

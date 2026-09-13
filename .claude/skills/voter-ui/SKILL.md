@@ -27,8 +27,11 @@ skill; this skill is about *this app's* structure and its non-obvious traps.
 
 ## The form-lock invariant (the #1 thing not to break)
 
-Tests enforce it (`PlaygroundPage.test.tsx`): **at first paint, only the `*-toggle`s are in
-the DOM** — no heavy panel is mounted. Rules:
+Tests enforce it: `PlaygroundPage.test.tsx` checks the DOM **shape** (at first paint, only
+the `*-toggle`s are in the DOM — no heavy panel is mounted); `PlaygroundPage.perf.test.tsx`
+adds a React Profiler **measurement** on top (commit count at first paint stays bounded;
+opening a real-compute lens costs measurably more than a trivial toggle — see
+`docs/exploration/EXP-005` for why an absolute-ms threshold was rejected). Rules:
 
 - Heavy panels mount **only when their `Collapsible` opens** (`{open && <div>{children}</div>}`);
   the default lens (`winner`) does **zero extra compute**. Adding a panel must not mount
@@ -84,7 +87,7 @@ and the instrument are thin consumers. When adding voting-theory features:
 npx tsc --noEmit     # BLOCKING
 npm run lint         # eslint — BLOCKING in CI (frontend-ci runs it with 0 errors expected)
 npm test             # Vitest — includes the form-lock tests; keep them green
-npm run build        # tsc + vite build (confirm Recharts stays its own chunk)
+npm run build        # tsc + vite build + size-limit (1 MB brotli budget on build/, Lot 8)
 ```
 
 - **Both tsc and lint block** (frontend-ci-cd-pipeline.yml runs `npm run lint` with no

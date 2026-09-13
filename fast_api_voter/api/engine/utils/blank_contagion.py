@@ -140,11 +140,11 @@ def simulate_blank_contagion(
             "Choose 'random', 'clustered', or 'small-world'."
         )
 
-    n       = max(10, min(1_000, int(num_voters)))
-    init    = max(0.0, min(1.0, float(initial_blank_rate)))
-    beta    = max(0.0, min(1.0, float(contagion_rate)))
-    gamma   = max(0.0, min(1.0, float(recovery_rate)))
-    rounds  = max(1, min(50, int(num_rounds)))
+    n       = max(10, min(1_000, num_voters))
+    init    = max(0.0, min(1.0, initial_blank_rate))
+    beta    = max(0.0, min(1.0, contagion_rate))
+    gamma   = max(0.0, min(1.0, recovery_rate))
+    rounds  = max(1, min(50, num_rounds))
 
     rng = np.random.RandomState(seed)
 

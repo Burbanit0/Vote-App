@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional  # noqa: F401
 from api.engine.utils.simulation_voting_utils import calculate_utility, create_voter
 from api.engine.utils.simulation_metrics import compare_all_methods
 from api.engine.utils.blank_vote_rules import BlankVoteRule, apply_blank_rule
+from api.engine.utils.demographic_data import _seeded_rng_pair
 from ._helpers import (
     build_candidate_from_xy as _build_candidate_from_xy,
     inter_method_agreement as _inter_method_agreement,
@@ -29,8 +30,17 @@ def _build_base_electorate(
     """
     Build candidates, voters, and true utilities from spec.
     Returns (candidates, voters, true_utilities, cand_names).
+
+    Seeds a local RNG pair from *seed* rather than reseeding the shared
+    random/np.random module-level singletons: this function used to rely on
+    the caller reseeding those globals immediately beforehand, which meant
+    "same seed -> same result" only held if nothing else in the process
+    touched random/np.random between the reseed and this call — false under
+    any concurrent access (see election_service.py for the full writeup).
     """
     import copy  # noqa: F401 — kept for symmetry, not actually needed here
+
+    rng, np_rng = _seeded_rng_pair(seed)
 
     cand_names = [str(s.get("name", f"C{i}")) for i, s in enumerate(cand_specs)]
 
@@ -46,7 +56,7 @@ def _build_base_electorate(
     ]
 
     voters = [
-        create_voter(issues, i, ideology_distribution=ideology)
+        create_voter(issues, i, ideology_distribution=ideology, rng=rng, np_rng=np_rng)
         for i in range(num_voters)
     ]
 
@@ -182,7 +192,7 @@ def _snapshot_election_winners(
     }
 
     methods_out: Dict[str, Dict[str, Any]] = {}
-    for method, winner in {**ranked, **scored}.items():
+    for method, winner in (ranked | scored).items():
         # score methods may return dicts
         if isinstance(winner, dict):
             winner = winner.get("winner")

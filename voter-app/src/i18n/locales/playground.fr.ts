@@ -768,8 +768,7 @@ const pgFr = {
         'Tour {{round}} : pas de vainqueur de Condorcet → on élimine le plus faible ({{cand}}).',
     },
     raynaud: {
-      round:
-        'Tour {{round}} : la pire défaite est {{a}} bat {{b}} ({{av}}–{{bv}}) → {{b}} éliminé.',
+      round: 'Tour {{round}} : pire défaite ({{margin}}) → éliminé : {{cand}}.',
     },
     smith: {
       set: 'On garde le « Smith set » — le plus petit groupe qui bat tous les autres : {{cand}}.',

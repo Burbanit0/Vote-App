@@ -50,7 +50,7 @@ describe('condorcetFromRanks / compressRanks', () => {
   });
 
   it('compression pushes the preferred frontrunner first and the other last', () => {
-    // Frontrunners by firsts: 0 and 2 (one first each + tie-break by order).
+    // Frontrunners by firsts: 0 (2 firsts) and 2 (1 first) — 0 leads outright.
     const { ranks } = compressRanks(
       [
         [0, 1, 2],

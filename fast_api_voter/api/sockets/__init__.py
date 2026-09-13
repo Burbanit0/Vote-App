@@ -21,9 +21,11 @@ from __future__ import annotations
 
 import asyncio
 import math
+import random
 from collections import defaultdict
 from typing import Any
 
+import numpy as np
 import socketio
 
 from api.core.config import get_settings
@@ -49,7 +51,7 @@ _stop_flags: dict[str, bool] = {}
 
 
 _CANDIDATE_NAMES = ["Alice", "Bob", "Carol", "Dave", "Eve", "Frank", "Grace", "Hugo"]
-_PARTY_CYCLE     = ["Green", "Conservative", "Liberal", "Independent"]
+_PARTY_CYCLE     = ("Green", "Conservative", "Liberal", "Independent")
 _EMIT_EVERY      = 50
 
 
@@ -57,13 +59,24 @@ _EMIT_EVERY      = 50
 
 def _run_one(candidate_configs: list[dict[str, Any]],
              num_voters: int, ideology: str) -> dict[str, Any]:
-    """Execute one Monte Carlo iteration and return raw method results."""
+    """Execute one Monte Carlo iteration and return raw method results.
+
+    Deliberately unseeded (this streaming Monte Carlo has no reproducibility
+    contract), but draws from a fresh local RNG pair rather than the shared
+    random/np.random singletons: each call runs in its own worker thread
+    (via asyncio.to_thread), and the old module-level-singleton draws meant
+    this loop could both perturb, and be perturbed by, any other concurrent
+    request in the same process (e.g. a seeded ElectionService.simulate()
+    call elsewhere) — unrelated to whether this loop itself needs a seed.
+    """
+    rng        = random.Random()
+    np_rng     = np.random.RandomState()
     issues     = DEFAULT_ISSUES
     candidates = [
-        create_candidate(issues, i, cfg["name"], _PARTY_CYCLE[i % len(_PARTY_CYCLE)])
+        create_candidate(issues, i, cfg["name"], _PARTY_CYCLE[i % len(_PARTY_CYCLE)], rng=rng)
         for i, cfg in enumerate(candidate_configs)
     ]
-    voters = [create_voter(issues, i, ideology_distribution=ideology)
+    voters = [create_voter(issues, i, ideology_distribution=ideology, rng=rng, np_rng=np_rng)
               for i in range(num_voters)]
     return compare_all_methods_mc(voters, candidates, issues)
 
@@ -80,8 +93,18 @@ def _ci_half(m2: float, n: int) -> float | None:
 
 @sio.event  # type: ignore[untyped-decorator]  # python-socketio decorators are untyped
 async def disconnect(sid: str) -> None:
-    """Drop any pending stop flag on disconnect."""
-    _stop_flags.pop(sid, None)
+    """Signal any running iteration loop to stop.
+
+    Popping the flag here (the previous behaviour) only erased it — with
+    nothing left for the loop's own `_stop_flags.get(sid)` check to see, a
+    client that disconnects mid-run left its Monte Carlo loop running
+    unattended for up to num_iterations more rounds (each a real
+    asyncio.to_thread compute call), burning CPU/a worker thread with
+    nowhere left to send its events (Lot 3, PLAN_SOLIDITE_TECHNIQUE.md —
+    "Timeouts & backpressure", the Socket.IO orphaned-run case). Setting it
+    True instead makes the loop's own check catch it on the next iteration
+    and exit; the loop pops its own entry once it does."""
+    _stop_flags[sid] = True
 
 
 @sio.on("stop_monte_carlo")  # type: ignore[untyped-decorator]  # untyped socketio decorator
@@ -200,7 +223,7 @@ async def start_monte_carlo(sid: str, data: dict[str, Any]) -> None:
             completed_runs = i + 1
             partial: dict[str, Any] = {}
             for m in method_names:
-                wc          = dict(winner_counts[m])
+                wc          = winner_counts[m].copy()
                 most_common = max(wc, key=wc.get) if wc else None   # type: ignore[arg-type]
                 partial[m]  = {
                     "winner_distribution": {
@@ -229,11 +252,11 @@ async def start_monte_carlo(sid: str, data: dict[str, Any]) -> None:
                 "total":                 num_iterations,
                 "partial_results":       partial,
                 "condorcet_exists_rate": round(condorcet_exists / completed_runs, 4),
-                "regret_history":        {m: list(regret_history_pts[m])
+                "regret_history":        {m: regret_history_pts[m].copy()
                                           for m in method_names},
                 "agreement_rate":        agreement_rate,
                 "regret_ci_half":        {m: ci_half_now[m] for m in method_names},
-                "iteration_checkpoints": list(iteration_checkpoints),
+                "iteration_checkpoints": iteration_checkpoints.copy(),
             }, to=sid)
             # No explicit yield needed — emit is awaited and asyncio.to_thread
             # is naturally yielding.
@@ -241,7 +264,7 @@ async def start_monte_carlo(sid: str, data: dict[str, Any]) -> None:
     # ── Final result ──────────────────────────────────────────────────────
     final: dict[str, Any] = {}
     for m in method_names:
-        wc          = dict(winner_counts[m])
+        wc          = winner_counts[m].copy()
         most_common = max(wc, key=wc.get) if wc else None   # type: ignore[arg-type]
         final[m]    = {
             "winner_distribution": {

@@ -1,6 +1,7 @@
 import * as React from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 import { cn } from '@/lib/utils';
 
@@ -67,23 +68,29 @@ const Header: React.FC<React.HTMLAttributes<HTMLDivElement> & { closeButton?: bo
   children,
   closeButton,
   ...props
-}) => (
-  <div
-    className={cn('flex items-center justify-between border-b border-border px-4 py-3', className)}
-    {...props}
-  >
-    {children}
-    {closeButton && (
-      <DialogPrimitive.Close
-        aria-label="Close"
-        className="rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring"
-      >
-        <X className="h-4 w-4" />
-        <span className="sr-only">Close</span>
-      </DialogPrimitive.Close>
-    )}
-  </div>
-);
+}) => {
+  const { t } = useTranslation();
+  return (
+    <div
+      className={cn(
+        'flex items-center justify-between border-b border-border px-4 py-3',
+        className
+      )}
+      {...props}
+    >
+      {children}
+      {closeButton && (
+        <DialogPrimitive.Close
+          aria-label={t('common.close')}
+          className="rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          <X className="h-4 w-4" />
+          <span className="sr-only">{t('common.close')}</span>
+        </DialogPrimitive.Close>
+      )}
+    </div>
+  );
+};
 
 const Title = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Title>,

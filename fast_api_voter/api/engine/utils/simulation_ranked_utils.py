@@ -128,7 +128,15 @@ def get_dowdall_winner(votes: list[Any], blank_candidate_name: str = "") -> Opti
     if not votes:
         return None
     is_dict = _is_dict_format(votes)
-    scores: "defaultdict[Any, float]" = defaultdict(float)
+    # defaultdict(Fraction), not defaultdict(float): the module docstring above
+    # explains why Fraction is used at all, but seeding each new key with a
+    # float 0.0 default defeats that -- `0.0 + Fraction(1, k)` immediately
+    # coerces back to float (Fraction.__radd__ on a float operand returns a
+    # float), silently reintroducing the exact bug this was meant to avoid.
+    # Caught by an exhaustive small-profile parity check against the frontend
+    # engine, which uses exact integer (LCM-scaled) arithmetic and doesn't
+    # have this bug (Lot 4.3, PLAN_SOLIDITE_TECHNIQUE.md).
+    scores: "defaultdict[Any, Fraction]" = defaultdict(Fraction)
     for vote in votes:
         ranking = _get_ranking(vote, is_dict)
         for position, candidate in enumerate(ranking):
@@ -424,7 +432,7 @@ def _kwik_sort(candidates: list[str], pairwise: dict[tuple[str, str], int]) -> l
     """
     import random as _rnd
     if len(candidates) <= 1:
-        return list(candidates)
+        return candidates.copy()
     pivot = _rnd.choice(candidates)
     left: list[str] = []
     right: list[str] = []
@@ -628,7 +636,12 @@ def get_schulze_winner(votes: list[Any], blank_candidate_name: str = "") -> Opti
     for cand in sorted(candidates):
         if all(p[cand][other] >= p[other][cand] for other in candidates if other != cand):
             return str(cand)
-    return str(sorted(candidates)[0])
+    # Unreachable on a finite candidate set: Schulze's beatpath matrix is always
+    # transitive and strict, so a maximal (undominated) candidate always exists
+    # and the loop above always returns first. Verified empirically against
+    # 500k random ballot profiles + 300k synthetic pairwise matrices with zero
+    # counterexamples (PLAN_SOLIDITE_TECHNIQUE.md Lot 14.4).
+    return str(min(candidates))  # pragma: no cover
 
 
 # ── New methods ────────────────────────────────────────────────────────────────
@@ -692,9 +705,25 @@ def get_copeland_winner(votes: list[Any], blank_candidate_name: str = "") -> Opt
 
 def get_raynaud_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
     """
-    Raynaud's method: repeatedly eliminate the candidate on the losing end of
-    the single largest pairwise defeat, until one remains. Condorcet-
-    consistent. Tie-break (equal largest-defeat margin): alphabetical.
+    Raynaud's method: each round, compute every active candidate's WORST
+    pairwise loss (the biggest margin by which any single opponent beats
+    them; undefeated candidates have none), then eliminate every candidate
+    whose worst loss ties for the biggest across the whole active set --
+    not just the loser of the single largest-margin pair. Repeat until one
+    remains. Condorcet-consistent.
+
+    Eliminating only one candidate per round (the loser of whichever pair
+    happens to have the single largest margin, breaking ties by scan order)
+    was this function's original bug: it can diverge from "eliminate
+    everyone whose worst loss is tied for biggest" whenever two DIFFERENT
+    candidates are each someone else's worst-loss victim by the same
+    margin, via different opponents -- those two are eliminated at
+    different alphabetically-tie-broken rounds instead of simultaneously,
+    which can change the eventual winner. Caught cross-checking against the
+    independent `pref_voting` library (Lot 4.2, PLAN_SOLIDITE_TECHNIQUE.md);
+    this codebase's own get_irv_winner/get_nanson_winner/get_smith_irv_winner
+    already eliminate all round-ties simultaneously, so this brings Raynaud
+    in line with the rest of the elimination-based methods here.
     """
     if not votes:
         return None
@@ -703,19 +732,21 @@ def get_raynaud_winner(votes: list[Any], blank_candidate_name: str = "") -> Opti
     if not active:
         return None
     while len(active) > 1:
-        best_margin: Optional[int] = None
-        loser: Optional[str] = None
-        for i in sorted(active):
-            for j in sorted(active):
-                if i == j:
-                    continue
-                margin = pw[i][j] - pw[j][i]
-                if best_margin is None or margin > best_margin:
-                    best_margin = margin
-                    loser = j
-        if loser is None:
+        worst_loss: dict[str, int] = {}
+        for c in active:
+            losses = [
+                pw[o][c] - pw[c][o]
+                for o in active
+                if o != c and pw[o][c] > pw[c][o]
+            ]
+            worst_loss[c] = max(losses) if losses else -1
+        max_worst_loss = max(worst_loss.values())
+        if max_worst_loss < 0:
             break
-        active.discard(loser)
+        doomed = {c for c in active if worst_loss[c] == max_worst_loss}
+        if len(doomed) >= len(active):
+            break
+        active -= doomed
     return min(active) if active else None
 
 
@@ -735,6 +766,13 @@ def get_nanson_winner(votes: list[Any], blank_candidate_name: str = "") -> Optio
         for c in _get_ranking(v, is_dict):
             if c not in all_cands:
                 all_cands.append(c)
+    # votes non-empty but every ballot ranks zero candidates (e.g. [[]]) is
+    # distinct from votes itself being empty (already handled above) --
+    # `min(all_cands)` a few lines down assumes a non-empty fallback list,
+    # same guard get_benham_winner/get_smith_irv_winner already use. Found
+    # fuzzing this function with atheris (Lot 9, PLAN_SOLIDITE_TECHNIQUE.md).
+    if not all_cands:
+        return None
 
     active = set(all_cands)
 
@@ -774,10 +812,20 @@ def get_nanson_winner(votes: list[Any], blank_candidate_name: str = "") -> Optio
 
 def get_baldwin_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
     """
-    Baldwin's method: iteratively eliminate the single candidate with the
-    lowest Borda score among the remaining candidates.
+    Baldwin's method: iteratively eliminate EVERY candidate tied for the
+    lowest Borda score among the remaining candidates (not just one).
     Like Nanson, guaranteed to elect the Condorcet winner when one exists.
-    Tie-break on elimination: alphabetical (eliminate the alphabetically first).
+
+    Eliminating only the alphabetically-first candidate among those tied
+    for lowest (this function's original behaviour) was a bug, not a
+    tie-break: two DIFFERENT candidates tied for lowest should leave
+    together, since removing just one changes the Borda scores everyone
+    else gets recomputed with in the next round, which can change the
+    eventual winner. Caught cross-checking against the independent
+    `pref_voting` library (Lot 4.2, PLAN_SOLIDITE_TECHNIQUE.md); this
+    codebase's own get_irv_winner/get_nanson_winner/get_smith_irv_winner
+    already eliminate all round-ties simultaneously, so this brings Baldwin
+    in line with the rest of the elimination-based methods here.
     """
     if not votes:
         return None
@@ -788,6 +836,12 @@ def get_baldwin_winner(votes: list[Any], blank_candidate_name: str = "") -> Opti
         for c in _get_ranking(v, is_dict):
             if c not in all_cands:
                 all_cands.append(c)
+    # Same "votes non-empty but every ballot ranks nobody" guard as
+    # get_nanson_winner just above, and for the same reason: `min(all_cands)`
+    # a few lines down assumes a non-empty fallback list. Found fuzzing this
+    # function with atheris (Lot 9, PLAN_SOLIDITE_TECHNIQUE.md).
+    if not all_cands:
+        return None
 
     active = set(all_cands)
 
@@ -800,16 +854,11 @@ def get_baldwin_winner(votes: list[Any], blank_candidate_name: str = "") -> Opti
                 scores[c] += n - 1 - pos
 
         min_score = min(scores.values())
+        doomed = {c for c in active if scores[c] == min_score}
         # All tied → no elimination possible
-        if all(s == min_score for s in scores.values()):
+        if len(doomed) >= len(active):
             break
-
-        # Eliminate the candidate with the lowest score (alpha tie-break)
-        loser = min(
-            (c for c in active if scores[c] == min_score),
-            key=lambda c: c,
-        )
-        active.discard(loser)
+        active -= doomed
 
     if not active:
         return min(all_cands)
@@ -941,12 +990,20 @@ def get_river_winner(votes: list[Any], blank_candidate_name: str = "") -> Option
 def _smith_set(pw: dict[str, dict[str, int]], members: list[str]) -> list[str]:
     """
     The Smith set (GETCHA) restricted to `members`: the smallest non-empty
-    set that each beat-or-tie every member outside it, from an already-
-    computed pairwise matrix `pw`. `members` must be pre-sorted
-    (alphabetical) so a Copeland-score tie breaks deterministically.
+    set S such that every member of S strictly beats every member outside
+    S, from an already-computed pairwise matrix `pw`. `members` must be
+    pre-sorted (alphabetical) so a Copeland-score tie breaks deterministically.
+
+    Requiring a strict beat (not beat-or-tie) matters: a candidate that only
+    TIES everyone outside a smaller set (rather than beating them) does not
+    make that smaller set dominant on its own -- checking merely "no outsider
+    beats this set" (the previous, buggy version of this function) passes
+    vacuously on ties and can return a Smith set that's too small. Cross-
+    checked against the independent `pref_voting` library's `smith_set`
+    (Lot 4.2, PLAN_SOLIDITE_TECHNIQUE.md), which caught this.
     """
     if len(members) <= 1:
-        return list(members)
+        return members.copy()
     copeland: dict[str, int] = {}
     for i in members:
         score = 0
@@ -961,24 +1018,27 @@ def _smith_set(pw: dict[str, dict[str, int]], members: list[str]) -> list[str]:
     order = sorted(members, key=lambda c: -copeland[c])
     for k in range(1, len(order) + 1):
         top = set(order[:k])
-        dominant = True
-        for i in top:
-            for j in members:
-                if j not in top and pw[j][i] > pw[i][j]:
-                    dominant = False
-                    break
-            if not dominant:
-                break
-        if dominant:
+        outside = [m for m in members if m not in top]
+        if all(pw[i][j] > pw[j][i] for i in top for j in outside):
             return sorted(top)
-    return list(members)
+    # Unreachable: at k == len(order), `outside` is empty, so `all(...)` over
+    # an empty generator is vacuously True and the loop always returns above
+    # on its last iteration (PLAN_SOLIDITE_TECHNIQUE.md Lot 14.4).
+    return members.copy()  # pragma: no cover
 
 
 def get_smith_irv_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
     """
-    Smith-IRV (Tideman's Alternative): restrict to the Smith set, eliminate
-    the candidate(s) tied for fewest first-preferences among the survivors,
-    and repeat. Condorcet-consistent and clone-independent.
+    Smith-IRV (Tideman's Alternative): restrict to the Smith set ONCE, then
+    run ordinary IRV (eliminate the candidate(s) tied for fewest first-
+    preferences among the survivors, and repeat) within that fixed set.
+    Condorcet-consistent and clone-independent.
+
+    The Smith set must be computed once from the full field, not
+    recomputed after each elimination round -- recomputing it against a
+    shrinking candidate set is a different (non-standard) procedure and
+    was this function's original bug, caught cross-checking against the
+    independent `pref_voting` library (Lot 4.2, PLAN_SOLIDITE_TECHNIQUE.md).
     """
     if not votes:
         return None
@@ -994,18 +1054,13 @@ def get_smith_irv_winner(votes: list[Any], blank_candidate_name: str = "") -> Op
     if not all_cands:
         return None
 
-    # Pairwise counts between two surviving candidates never change as OTHER
-    # candidates are eliminated, so compute this once, not per round.
     pw = _pairwise_wins(votes)
-    active = set(all_cands)
-    while len(active) > 1:
-        smith = _smith_set(pw, sorted(active))
-        if len(smith) == 1:
-            return smith[0]
-        active = set(smith)
-        if len(active) == 1:
-            return str(next(iter(active)))
+    smith = _smith_set(pw, sorted(all_cands))
+    if len(smith) == 1:
+        return smith[0]
 
+    active = set(smith)
+    while len(active) > 1:
         filtered = [[c for c in r if c in active] for r in ballots]
         first_choice: "Counter[Any]" = Counter(r[0] for r in filtered if r)
         counts = {c: first_choice.get(c, 0) for c in active}
@@ -1054,7 +1109,7 @@ def get_split_cycle_winner(votes: list[Any], blank_candidate_name: str = "") -> 
             if i == k:
                 continue
             for j in candidates:
-                if j == i or j == k:
+                if j in (i, k):
                     continue
                 s[i][j] = max(s[i][j], min(s[i][k], s[k][j]))
 

@@ -17,6 +17,7 @@ import {
   computeScores,
   ruleWinnerFromRanks,
   smithSet,
+  raynaudWorstLoss,
   condorcetWinnerIdx,
   CARDINAL_RULES,
   type Rule,
@@ -314,10 +315,14 @@ const ELIM_SPECS: Partial<Record<Rule, ElimSpec>> = {
     bars: bordaAlive,
     majority: false,
     roundKey: 'replay.elim.baldwinRound',
+    // Eliminate EVERY candidate tied for lowest, not just one -- matches
+    // winBaldwin's fix (Lot 4.2, PLAN_SOLIDITE_TECHNIQUE.md).
     doomed: (_r, alive, m, bars) => {
-      let worst = -1;
-      for (let i = 0; i < m; i++) if (alive[i] && (worst < 0 || bars[i] < bars[worst])) worst = i;
-      return worst >= 0 ? [worst] : [];
+      let min = Infinity;
+      for (let i = 0; i < m; i++) if (alive[i] && bars[i] < min) min = bars[i];
+      const d: number[] = [];
+      for (let i = 0; i < m; i++) if (alive[i] && bars[i] === min) d.push(i);
+      return d;
     },
   },
 };
@@ -445,35 +450,36 @@ function traceBucklin(cands: NamedPt[], ranks: number[][], m: number): TraceFram
   return frames;
 }
 
-// Smith-IRV (Tideman): alternate "restrict to the Smith set" and "IRV-eliminate
-// the plurality loser" until one remains. bars = first preferences among alive.
+// Smith-IRV (Tideman): restrict to the Smith set ONCE, then IRV-eliminate the
+// plurality loser among the survivors until one remains. bars = first
+// preferences among alive. The Smith set must be computed once from the full
+// field, not recomputed each round against a shrinking candidate set -- see
+// winSmithIRV's docstring above for why (Lot 4.2, PLAN_SOLIDITE_TECHNIQUE.md).
 function traceSmithIRV(cands: NamedPt[], ranks: number[][], m: number): TraceFrame[] {
   const frames: TraceFrame[] = [];
   const alive = new Array(m).fill(true);
   let remaining = m;
   let round = 1;
+  const S = smithSet(ranks, m);
+  const inS = new Set(S);
+  if (S.length < remaining) {
+    // Restriction beat: show the Smith set, mark the rest for elimination.
+    frames.push({
+      caption: {
+        key: 'replay.smith.set',
+        params: { cand: S.map((i) => cands[i].name).join(', ') },
+      },
+      bars: firstPrefs(ranks, alive, m),
+      eliminated: alive.map((a) => !a),
+      highlight: S,
+    });
+    for (let i = 0; i < m; i++)
+      if (alive[i] && !inS.has(i)) {
+        alive[i] = false;
+        remaining -= 1;
+      }
+  }
   while (remaining > 1) {
-    const S = smithSet(ranks, m, alive);
-    const inS = new Set(S);
-    if (S.length < remaining) {
-      // Restriction beat: show the Smith set, mark the rest for elimination.
-      frames.push({
-        caption: {
-          key: 'replay.smith.set',
-          params: { cand: S.map((i) => cands[i].name).join(', ') },
-        },
-        bars: firstPrefs(ranks, alive, m),
-        eliminated: alive.map((a) => !a),
-        highlight: S,
-      });
-      for (let i = 0; i < m; i++)
-        if (alive[i] && !inS.has(i)) {
-          alive[i] = false;
-          remaining -= 1;
-        }
-      if (remaining <= 1) break;
-    }
-    if (S.length === 1) break;
     // IRV beat among the Smith set.
     const fp = firstPrefs(ranks, alive, m);
     let min = Infinity;
@@ -570,8 +576,11 @@ function pairwiseMatrix(ranks: number[][], m: number): number[][] {
   return b;
 }
 
-// Raynaud: each round, eliminate the loser of the single heaviest pairwise defeat.
-// bars = duels won among the survivors (context for who's strong).
+// Raynaud: each round, eliminate EVERY candidate tied for the worst pairwise
+// loss (the biggest margin by which any single opponent beats them) -- not
+// just the loser of the single heaviest defeat (Lot 4.2,
+// PLAN_SOLIDITE_TECHNIQUE.md, matches winRaynaud's fix). bars = duels won
+// among the survivors (context for who's strong).
 function traceRaynaud(cands: NamedPt[], ranks: number[][], m: number): TraceFrame[] {
   const b = pairwiseMatrix(ranks, m);
   const alive = new Array(m).fill(true);
@@ -586,34 +595,31 @@ function traceRaynaud(cands: NamedPt[], ranks: number[][], m: number): TraceFram
   let remaining = m;
   let round = 1;
   while (remaining > 1) {
-    let worst = -Infinity;
-    let loser = -1;
-    let beater = -1;
+    const worstLoss = raynaudWorstLoss(b, alive, m);
+    let maxWorstLoss = -1;
     for (let i = 0; i < m; i++)
-      for (let j = 0; j < m; j++)
-        if (i !== j && alive[i] && alive[j] && b[i][j] - b[j][i] > worst) {
-          worst = b[i][j] - b[j][i];
-          loser = j;
-          beater = i;
-        }
-    if (loser < 0) break;
+      if (alive[i] && worstLoss[i] > maxWorstLoss) maxWorstLoss = worstLoss[i];
+    if (maxWorstLoss < 0) break;
+    const doomed: number[] = [];
+    for (let i = 0; i < m; i++) if (alive[i] && worstLoss[i] === maxWorstLoss) doomed.push(i);
+    if (doomed.length >= remaining) break;
     frames.push({
       caption: {
         key: 'replay.raynaud.round',
         params: {
           round,
-          a: cands[beater].name,
-          b: cands[loser].name,
-          av: b[beater][loser],
-          bv: b[loser][beater],
+          margin: maxWorstLoss,
+          cand: doomed.map((i) => cands[i].name).join(', '),
         },
       },
       bars: wins(),
       eliminated: alive.map((a) => !a),
-      highlight: [loser],
+      highlight: doomed,
     });
-    alive[loser] = false;
-    remaining -= 1;
+    for (const i of doomed) {
+      alive[i] = false;
+      remaining -= 1;
+    }
     round += 1;
   }
   const w = alive.findIndex((a) => a);

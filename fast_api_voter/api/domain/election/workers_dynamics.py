@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import random as _random
 from collections import Counter
+from operator import itemgetter
 from typing import Any, Dict, List, Optional  # noqa: F401
 
 import numpy as _np
@@ -46,7 +47,7 @@ def _hotelling_score(
     Returns a continuous value in [0, 1] suitable for gradient ascent.
     """
     N, C = utilities.shape
-    if N == 0 or C == 0:
+    if 0 in (N, C):
         return 0.0
 
     score: float
@@ -375,7 +376,7 @@ def _polarization_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         })
 
     # ── Key findings ───────────────────────────────────────────────────────
-    results_sorted = sorted(results, key=lambda r: r["polarization_index"])
+    results_sorted = sorted(results, key=itemgetter("polarization_index"))
 
     findings: List[str] = []
 
@@ -600,7 +601,7 @@ def _apply_affective(
         new_utils = {}
         for cname, u in utils.items():
             c_camp = candidate_camps.get(cname, "centre")
-            if c_camp == "centre" or v_camp == "centre" or c_camp == v_camp:
+            if "centre" in (c_camp, v_camp) or c_camp == v_camp:
                 new_utils[cname] = u
             else:
                 new_utils[cname] = u * (1.0 - hostility)

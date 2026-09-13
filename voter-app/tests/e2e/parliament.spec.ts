@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect, type Page } from './coverageFixtures';
 
 // Assemblée mode. Unlike the leader canvas, the numbers here come from the
 // backend (/assembly): seats, Gallagher, effective parties, wasted votes. These

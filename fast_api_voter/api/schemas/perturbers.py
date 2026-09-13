@@ -165,7 +165,10 @@ class ChoiceOverloadRequest(BaseModel):
                                           description="Candidate counts to compare. Each clamped to [2, 15].")
     overload_threshold: int   = Field(5, ge=2, le=12,
                                       description="Above this candidate count, voters switch to heuristics.")
-    heuristic_weights:  Optional[HeuristicWeights] = Field(default_factory=HeuristicWeights)
+    # pydantic default_factory=<Model> / omitted-default arg: basedpyright has
+    # no pydantic.mypy-equivalent plugin, false positive (see
+    # PLAN_SOLIDITE_TECHNIQUE.md Lot 14.5)
+    heuristic_weights:  Optional[HeuristicWeights] = Field(default_factory=HeuristicWeights)  # pyright: ignore[reportArgumentType]
     methods:            Optional[List[str]] = Field(None, max_length=5,
                                                     description="Voting methods to compare.")
 
@@ -260,7 +263,7 @@ class SortitionRequest(BaseModel):
     method:               str   = Field("plurality")
     num_simulations:      int   = Field(20, ge=5, le=100)
     realistic_candidates: bool  = Field(True)
-    stratification:       Optional[StratificationConfig] = Field(default_factory=StratificationConfig)
+    stratification:       Optional[StratificationConfig] = Field(default_factory=StratificationConfig)  # pyright: ignore[reportArgumentType]
 
 
 # ── /affective-polarization ─────────────────────────────────────────────────

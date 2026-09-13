@@ -2,11 +2,9 @@
 api.domain.theory — pure theory compute, no Flask, no FastAPI, no DB.
 
 All functions accept a `data: dict` and return `(body, http_status)`.
-Re-exports the pure workers extracted from `app.routes.theory` so the
-FastAPI side can import them without touching the Flask blueprint.
-
-When Phase 4 retires Flask, these aliases will be replaced with the
-canonical implementations moved here for real.
+The worker implementations live in the sibling `workers.py` module; this
+`__init__.py` re-exports them under the `api.domain.theory` namespace and
+wraps each one in a small typed function for the FastAPI routes to call.
 """
 from typing import Any
 
