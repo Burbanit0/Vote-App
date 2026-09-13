@@ -15,7 +15,12 @@ vi.mock('recharts', () => ({
   CartesianGrid: () => null,
   Cell: () => null,
   LabelList: () => null,
-  XAxis: () => null,
+  // Real recharts computes its own tick values from the data range; the mock
+  // instead calls the formatter directly so its signed-percentage formatting
+  // (never covered otherwise, since XAxis itself is stubbed away) is exercised.
+  XAxis: ({ tickFormatter }: { tickFormatter?: (value: number) => string }) => (
+    <div data-testid="factor-bars-x-axis">{tickFormatter ? tickFormatter(-14) : null}</div>
+  ),
   YAxis: () => null,
   Tooltip: () => null,
 }));
@@ -140,6 +145,16 @@ describe('CombinedEffectsMatrix', () => {
       // Badges contain the factor key names
       const disruptiveBadges = screen.getAllByText(/disruptif|disruptive/i);
       expect(disruptiveBadges.length).toBeGreaterThan(0);
+    });
+  });
+
+  it('formats the factor bar x-axis ticks as signed percentages', async () => {
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: /Analyser|Analyse/i }));
+    await waitFor(() => {
+      // -14 must render without a leading "+" and with one decimal place,
+      // unlike the positive deltas — this is the sign-branch the formatter exists for.
+      expect(screen.getByTestId('factor-bars-x-axis')).toHaveTextContent('-14.0%');
     });
   });
 });
