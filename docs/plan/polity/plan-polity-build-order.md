@@ -85,7 +85,7 @@ recorded here, with the date.
 
 | Step | What | Depends | Branch | Closed by |
 |---|---|---|---|---|
-| S0.1 | Housekeeping from the synthesis | — | `fix/polity-synthesis-housekeeping` | |
+| S0.1 | Housekeeping from the synthesis | — | `fix/polity-synthesis-housekeeping` | `904f5523` |
 | S0.2 | Golden references for prompts and journals | — | `feat/polity-golden-references` | |
 | S0.3 | Retry provenance for all nine decision types | S0.2 | `feat/polity-retry-provenance` | |
 | S0.4 | Complete run provenance | — | `feat/polity-run-provenance` | |
