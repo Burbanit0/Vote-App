@@ -15,7 +15,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from api.domain.polity.bakeoff_cases import read_bank  # noqa: E402
+from api.domain.polity.bakeoff_bank import read_bank  # noqa: E402
 from api.domain.polity.bakeoff_report import render_markdown  # noqa: E402
 from api.domain.polity.bakeoff_scorecard import discover_sessions, scorecard  # noqa: E402
 from bakeoff_cases import DEFAULT_BANK  # noqa: E402

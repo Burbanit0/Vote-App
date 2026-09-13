@@ -25,7 +25,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from api.domain.polity.bakeoff_cases import LOGPROB_GATE_FAMILY, Case, CaseBank
+from api.domain.polity.bakeoff_bank import BASE_CONTROL, LOGPROB_GATE_FAMILY, Case, CaseBank
 from api.domain.polity.bakeoff_runner import GATES_FILENAME, RESULTS_FILENAME, SESSION_FILENAME, read_results
 from api.domain.polity.bakeoff_statistics import cochrans_q, holm_adjust, mcnemar_exact, separation, spread, wilson_interval
 
@@ -95,14 +95,17 @@ def score_truth(cases: Sequence[Case], main: dict[str, dict[str, Any]]) -> dict[
     return {"kind": "truth", "accuracy": _rate(sum(outcomes.values()), len(outcomes)), "answers": dict(sorted(answers.items()))}
 
 
-def _contrast_rows(cases: Sequence[Case], main: dict[str, dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
-    """group -> one row per read unit; `cases` are all answered (score_decision_types keeps only those)."""
-    rows: dict[str, list[dict[str, Any]]] = defaultdict(list)
+def _contrast_rows(cases: Sequence[Case], main: dict[str, dict[str, Any]]) -> dict[tuple[str, str], list[dict[str, Any]]]:
+    """(group, control) -> one row per read unit, with the unit's canonical id; `cases` are all
+    answered (score_decision_types keeps only those)."""
+    rows: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
     for case in cases:
         result = main[case.case_id]
+        identity = case.labels.get("identity", {})
+        key = (case.labels["group"], case.labels.get("control", BASE_CONTROL))
         for unit in case.labels["units"]:
-            probability = (result["probabilities"] or {}).get(str(unit))
-            rows[case.labels["group"]].append({"t": case.labels["t"], "answer": result["answers"].get(str(unit)), "p": probability})
+            rows[key].append({"t": case.labels["t"], "unit": identity.get(str(unit), unit),
+                              "answer": result["answers"].get(str(unit)), "p": (result["probabilities"] or {}).get(str(unit))})
     return rows
 
 
@@ -133,8 +136,23 @@ def _group_sensitivity(rows: Sequence[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def _agreement(rows: Sequence[dict[str, Any]], base_rows: Sequence[dict[str, Any]]) -> dict[str, Any]:
+    """How often a control's answer is the base answer for the same level and the same citizen or party."""
+    base = {(row["t"], row["unit"]): row["answer"] for row in base_rows}
+    compared = [row["answer"] == base[(row["t"], row["unit"])] for row in rows if (row["t"], row["unit"]) in base]
+    return _rate(sum(compared), len(compared))
+
+
 def score_contrast(cases: Sequence[Case], main: dict[str, dict[str, Any]]) -> dict[str, Any]:
-    return {"kind": "contrast", "groups": {g: _group_sensitivity(rows) for g, rows in sorted(_contrast_rows(cases, main).items())}}
+    """`groups`: each contrast as production renders it. `controls` (S2.5): the same contrast
+    under each control, and how often its answers agree with production's rendering."""
+    rows = _contrast_rows(cases, main)
+    base = {group: group_rows for (group, control), group_rows in rows.items() if control == BASE_CONTROL}
+    controls: dict[str, dict[str, Any]] = defaultdict(dict)
+    for (group, control), group_rows in sorted(rows.items()):
+        if control != BASE_CONTROL:
+            controls[group][control] = {**_group_sensitivity(group_rows), "agreement_with_base": _agreement(group_rows, base.get(group, []))}
+    return {"kind": "contrast", "groups": {g: _group_sensitivity(r) for g, r in sorted(base.items())}, "controls": dict(controls)}
 
 
 def _picks(case: Case, result: dict[str, Any]) -> dict[str, tuple[int, int | None, bool]]:

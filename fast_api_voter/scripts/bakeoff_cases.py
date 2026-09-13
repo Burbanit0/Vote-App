@@ -20,7 +20,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from api.domain.polity.bakeoff_cases import BankIntegrityError, drift, generate_bank, read_bank, write_bank  # noqa: E402
+from api.domain.polity.bakeoff_bank import BankIntegrityError, read_bank, write_bank  # noqa: E402
+from api.domain.polity.bakeoff_cases import drift, generate_bank  # noqa: E402
 from api.domain.polity.config import PolityConfig  # noqa: E402
 from run_polity_flagship import _flagship_config  # noqa: E402
 

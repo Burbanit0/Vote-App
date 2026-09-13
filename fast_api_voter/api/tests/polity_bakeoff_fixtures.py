@@ -3,11 +3,14 @@ and fake clients that answer every case -- with token logprobs, when asked."""
 from __future__ import annotations
 
 import dataclasses
+import json
 import math
 from functools import lru_cache
 from typing import Any
 
-from api.domain.polity.bakeoff_cases import CaseBank, generate_bank
+from api.domain.polity.bakeoff_bank import CaseBank
+from api.domain.polity.bakeoff_cases import generate_bank
+from api.domain.polity.bakeoff_controls import parse_paths
 from api.domain.polity.config import PolityConfig, load_config
 from api.domain.polity.llm_client import TokenLogprob
 from api.tests.test_polity_run_simulation import _ElectingFakeLlmClient
@@ -46,15 +49,24 @@ def char_tokens(content: str) -> list[TokenLogprob]:
     return tokens
 
 
-class LogprobFakeClient(_ElectingFakeLlmClient):  # type: ignore[misc]
-    """The run-simulation fake, plus complete_json_with_logprobs; counts decision calls."""
+class BankFakeClient(_ElectingFakeLlmClient):  # type: ignore[misc]
+    """The run-simulation fake, able to read every rendering in the bank (S2.5): a user
+    prompt that is not JSON or TOON is a path rendering, turned back into JSON first.
+    Counts decision calls."""
 
     def __init__(self) -> None:
         self.calls = 0
 
     def complete_json(self, **kwargs: Any) -> str:
         self.calls += 1
+        user_prompt = kwargs["user_prompt"]
+        if not user_prompt.startswith(("{", "citizens[")):
+            kwargs = {**kwargs, "user_prompt": json.dumps(parse_paths(user_prompt))}
         return str(super().complete_json(**kwargs))
+
+
+class LogprobFakeClient(BankFakeClient):
+    """BankFakeClient plus complete_json_with_logprobs."""
 
     def complete_json_with_logprobs(self, **kwargs: Any) -> tuple[str, list[TokenLogprob]]:
         content = self.complete_json(**kwargs)

@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 
 from api.domain.polity import bakeoff_scorecard as sc
-from api.domain.polity.bakeoff_cases import LOGPROB_GATE_FAMILY, Case, CaseBank, make_case
+from api.domain.polity.bakeoff_bank import LOGPROB_GATE_FAMILY, Case, CaseBank, make_case
 from api.domain.polity.bakeoff_report import family_summary, render_markdown
 from api.domain.polity.bakeoff_runner import GATES_FILENAME, RESULTS_FILENAME, SESSION_FILENAME
 

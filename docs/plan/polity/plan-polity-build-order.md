@@ -297,7 +297,7 @@ follows the listed position (OBS-013); candidacy against the ambition threshold 
 `bakeoff_scorecard`, `bakeoff_statistics`, `bakeoff_report`; scripts `bakeoff_cases.py`,
 `run_bakeoff.py`, `bakeoff_report.py`):
 
-- **Case bank.** `scripts/bakeoff/case_bank.jsonl`, 94 cases in ten families. Each case is
+- **Case bank.** `scripts/bakeoff/case_bank.jsonl`, ten families (94 cases before S2.5's controls, 174 with them). Each case is
   captured by running a production `decide_*` function against a capturing client, so it
   is the request production sends, not a copy of prompt code. Captured candidacy, vote and
   positioning requests are byte-identical to production's (tested). The generated seed-1
@@ -368,6 +368,30 @@ persist on at least two non-Qwen families? Every model tested is reported.
 ### S2.5 Permutation and rendering controls
 Permute option codes and orders, renumber citizen ids, and render each case at least
 three equivalent ways in the collapse probes.
+
+*Made precise when built, 2026-09-13* (`bakeoff_controls`; the bank is still unanswered, so
+the controls join it before it freezes). Every S2.2 contrast case (response, coalition,
+reaction, chamber, positioning) gets four controls, each checked to change the surface and
+nothing else:
+
+- **Renumbered:** the scenario is captured again through production with every citizen or party
+  id reflected, which also reverses the order units are listed in. Each unit records its
+  canonical id.
+- **Codes:** the answer field's codes (stance, action, or the motif) are cyclically relabelled
+  in every table line and every rule that names them, and the option table is re-sorted. Both
+  the numbers and the order of options move. The relabelling must invert exactly or no case
+  is made. The JSON schema is unchanged because a bijection keeps the set of legal codes.
+  Answers are mapped back before production decodes them, and a logprob reading follows its
+  meaning to the new code.
+- **Two renderings of the user prompt:** indented JSON with keys in reverse order, and one
+  `path = value` line per field. Each must parse back to the same values.
+
+The scorecard reports each contrast per control: sensitivity, and agreement with production's
+rendering for the same level and the same citizen or party.
+
+**Accepted when:** every base contrast case has all four controls, and every transformation
+provably inverts (tested). A collapse is robust when it stays flat under every control; that
+is measured in S2.4's sessions, not here.
 
 ---
 

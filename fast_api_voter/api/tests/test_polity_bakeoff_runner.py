@@ -6,12 +6,11 @@ from pathlib import Path
 from typing import Any
 
 from api.domain.polity import bakeoff_runner as br
-from api.domain.polity.bakeoff_cases import LOGPROB_GATE_FAMILY, CaseBank
+from api.domain.polity.bakeoff_bank import LOGPROB_GATE_FAMILY, CaseBank
 from api.domain.polity.llm_call_log import CALL_LOG_FILENAME, read_calls
 from api.domain.polity.llm_client import TokenLogprob
 from api.domain.polity.llm_replay import ReplayClient
-from api.tests.polity_bakeoff_fixtures import CHOSEN_DIGIT_PROBABILITY, LogprobFakeClient, reference_bank, reference_config
-from api.tests.test_polity_run_simulation import _ElectingFakeLlmClient
+from api.tests.polity_bakeoff_fixtures import CHOSEN_DIGIT_PROBABILITY, BankFakeClient, LogprobFakeClient, reference_bank, reference_config
 
 SMALL_FAMILIES = ("response_sweep", "candidacy_p500")
 
@@ -34,7 +33,13 @@ def test_a_session_asks_every_case_reads_logprobs_and_reruns_a_tenth(tmp_path: P
     main = [r for r in results if r["pass"] == "main"]
     reruns = [r for r in results if r["pass"] == "rerun"]
     scored = [c for c in bank.cases if c.family != LOGPROB_GATE_FAMILY]
-    assert len(main) == len(bank.cases) and all(r["valid"] and r["error"] is None for r in main)
+    control = {c.case_id: c.labels.get("control") for c in bank.cases}
+    assert len(main) == len(bank.cases) and all(r["valid"] and r["error"] is None for r in main if control[r["case_id"]] != "codes")
+    # The fake ignores the prompt's codes: under permuted codes its answer maps back to an
+    # incoherent stance or action, which production rejects -- the mapping is applied.
+    permuted = {r["family"]: r for r in main if control[r["case_id"]] == "codes"}
+    assert not permuted["response_sweep"]["valid"] and not permuted["coalition_diagonal"]["valid"]
+    assert set(map(tuple, permuted["chamber_poles"]["answers"].values())) == {(701, 1)}  # its 702 is now SINCERE_POSITION
     assert [r["case_id"] for r in reruns] == [c.case_id for c in br.rerun_selection(scored, br.DEFAULT_RERUN_FRACTION)]
 
     gates = json.loads((tmp_path / "fake" / br.GATES_FILENAME).read_text())
@@ -61,7 +66,7 @@ def test_a_session_resumes_without_asking_a_case_twice(tmp_path: Path) -> None:
     assert client.calls == asked and len(again) == len(first)
 
 
-class _MisalignedLogprobs(_ElectingFakeLlmClient):  # type: ignore[misc]
+class _MisalignedLogprobs(BankFakeClient):  # type: ignore[misc]
     def complete_json_with_logprobs(self, **kwargs: Any) -> tuple[str, list[TokenLogprob]]:
         return str(self.complete_json(**kwargs)), [TokenLogprob(token="?", logprob=0.0, alternatives={"?": 0.0})]
 
@@ -71,10 +76,12 @@ def test_logprobs_that_do_not_align_on_the_gate_are_not_read_anywhere(tmp_path: 
     gate = [r for r in results if r["family"] == LOGPROB_GATE_FAMILY]
     assert all(r["valid"] and r["error"].startswith("LogprobAlignmentError") for r in gate)
     assert json.loads((tmp_path / "s" / br.GATES_FILENAME).read_text())["logprob_aligned"] is False
-    assert all(r["probabilities"] is None and r["error"] is None for r in results if r["family"] == "response_sweep")
+    sweep = [r for r in results if r["family"] == "response_sweep"]
+    assert sweep and all(r["probabilities"] is None for r in sweep)
+    assert not any(str(r["error"]).startswith("LogprobAlignmentError") for r in sweep)
 
 
-class _Garbage(_ElectingFakeLlmClient):  # type: ignore[misc]
+class _Garbage(BankFakeClient):  # type: ignore[misc]
     def complete_json(self, **kwargs: Any) -> str:
         return "not a decision batch"
 
@@ -87,9 +94,9 @@ def test_an_answer_production_would_reject_is_an_invalid_result_not_a_crash(tmp_
 
 def test_a_session_replayed_from_its_call_log_gets_the_same_answers(tmp_path: Path) -> None:
     bank = _small_bank(*SMALL_FAMILIES)
-    recorded = _run(bank, _ElectingFakeLlmClient(), tmp_path / "live", warm_up=False, rerun_fraction=0.0)
+    recorded = _run(bank, BankFakeClient(), tmp_path / "live", warm_up=False, rerun_fraction=0.0)
     partial = CaseBank(reference=bank.reference, cases=bank.cases[:-1])
-    _run(partial, _ElectingFakeLlmClient(), tmp_path / "partial", warm_up=False, rerun_fraction=0.0)
+    _run(partial, BankFakeClient(), tmp_path / "partial", warm_up=False, rerun_fraction=0.0)
 
     replayed = _run(bank, ReplayClient(read_calls(tmp_path / "partial" / CALL_LOG_FILENAME)), tmp_path / "replay",
                     warm_up=False, rerun_fraction=0.0)

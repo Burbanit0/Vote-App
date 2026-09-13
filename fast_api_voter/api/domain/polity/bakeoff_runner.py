@@ -17,7 +17,9 @@ from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 from typing import Any
 
-from api.domain.polity.bakeoff_cases import LOGPROB_GATE_FAMILY, Case, CaseBank, resolve_max_tokens
+from api.domain.polity.bakeoff_bank import LOGPROB_GATE_FAMILY, Case, CaseBank
+from api.domain.polity.bakeoff_cases import resolve_max_tokens
+from api.domain.polity.bakeoff_controls import canonical_content
 from api.domain.polity.config import PolityConfig
 from api.domain.polity.llm_call_log import CALL_LOG_FILENAME, CallLoggingClient, CallLogWriter, call_context
 from api.domain.polity.llm_client import (
@@ -88,9 +90,10 @@ def unit_key(decision_type: str) -> str:
 
 
 def decode_answers(case: Case, content: str) -> dict[str, Any]:
-    """Each unit's answer, keyed by its id as a string. Raises LlmResponseError when the
-    content is not a valid batch for the case's units -- exactly what production rejects."""
-    decisions = _DECODERS[case.decision_type](content, list(case.unit_ids))
+    """Each unit's answer, keyed by its id as a string, in canonical codes (a code-permuted
+    case's answer is mapped back first). Raises LlmResponseError when the content is not a
+    valid batch for the case's units -- exactly what production rejects."""
+    decisions = _DECODERS[case.decision_type](canonical_content(case, content), list(case.unit_ids))
     key = unit_key(case.decision_type)
     extract = _ANSWERS[case.decision_type]
     return {str(getattr(d, key)): extract(d) for d in decisions}
