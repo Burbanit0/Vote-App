@@ -50,11 +50,20 @@ import statistics
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from api.domain.polity.sweep_statistics import (  # noqa: E402
+    SweepRun,
+    clopper_pearson,
+    first_completed_runs,
+    mean_bca_interval,
+    prediction_interval,
+    provenance_differences,
+    red_flags,
+    sweep_run_plan,
+)
 from llm_test_harness import registration, report, trial  # noqa: E402
 
 _SCRIPTS_DIR = Path(__file__).resolve().parent
@@ -62,8 +71,9 @@ _FAST_API_VOTER_DIR = _SCRIPTS_DIR.parent
 _FLAGSHIP_SCRIPT = _SCRIPTS_DIR / "run_polity_flagship.py"
 
 
-def _run_id_for(years: int, population: int, seed: int) -> str:
-    return f"sweep-{years}y-p{population}-seed{seed}"
+def _run_id_for(years: int, population: int, seed: int, repeat: int = 1) -> str:
+    """A seed's first run keeps the historical id; a repeat (S0.7) gets `-rep<n>`."""
+    return f"sweep-{years}y-p{population}-seed{seed}" + (f"-rep{repeat}" if repeat > 1 else "")
 
 
 def _digest_path(output_dir: Path, run_id: str) -> Path:
@@ -71,10 +81,10 @@ def _digest_path(output_dir: Path, run_id: str) -> Path:
 
 
 def _run_one_seed(
-    *, years: int, population: int, seed: int, seats: int, output_dir: Path, max_batch_replays: int,
+    *, years: int, population: int, seed: int, repeat: int, seats: int, output_dir: Path, max_batch_replays: int,
     resume_sweep: bool,
 ) -> trial.TrialResult:
-    run_id = _run_id_for(years, population, seed)
+    run_id = _run_id_for(years, population, seed, repeat)
     run_dir = output_dir / run_id
     digest_path = _digest_path(output_dir, run_id)
 
@@ -139,61 +149,120 @@ def _run_one_seed(
     )
 
 
-def _write_sweep_summary(output_dir: Path, years: int, population: int, seeds: list[int]) -> Path:
-    """Generated from each seed's own digest.json -- never hand-typed. This is
-    the substantive artifact: per-metric mean/stdev/range across seeds, the
-    actual answer to "is a single seed representative" that the harness's own
-    generic report.py does not compute (its own metric vocabulary is
-    failure_rate/success_rate only)."""
-    rows: list[dict[str, Any]] = []
-    for seed in seeds:
-        run_id = _run_id_for(years, population, seed)
-        digest_path = _digest_path(output_dir, run_id)
-        if not digest_path.exists():
-            rows.append({"seed": seed, "run_id": run_id, "outcome": "missing"})
-            continue
-        digest = json.loads(digest_path.read_text(encoding="utf-8"))
-        rows.append({
-            "seed": seed,
-            "run_id": run_id,
-            "outcome": digest.get("outcome"),
-            "office_occupancy": digest.get("office_occupancy"),
-            "llm_fallback_alerts": digest.get("llm_fallback_alerts") or {},
-        })
+def _load_run(output_dir: Path, years: int, population: int, seed: int, repeat: int) -> SweepRun:
+    run_id = _run_id_for(years, population, seed, repeat)
+    digest_path = _digest_path(output_dir, run_id)
+    if not digest_path.exists():
+        return SweepRun(seed=seed, repeat=repeat, run_id=run_id, outcome="missing")
+    digest = json.loads(digest_path.read_text(encoding="utf-8"))
+    # Exact per-type counts from progress.json, not the digest's rounded rates.
+    progress_path = digest_path.with_name("progress.json")
+    progress = json.loads(progress_path.read_text(encoding="utf-8")) if progress_path.exists() else {}
+    metadata_path = digest_path.with_name("run_metadata.json")
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8")) if metadata_path.exists() else {}
+    return SweepRun(
+        seed=seed, repeat=repeat, run_id=run_id, outcome=str(digest.get("outcome")),
+        office_occupancy=digest.get("office_occupancy"),
+        decisions_by_type=dict(progress.get("decisions_by_type") or {}),
+        fallback_by_type=dict(progress.get("fallback_by_type") or {}),
+        run_metadata=metadata,
+    )
 
-    completed_rows = [r for r in rows if r.get("outcome") == "completed"]
-    occupancy_values = [r["office_occupancy"] for r in completed_rows if r.get("office_occupancy") is not None]
 
+def _interval(bounds: tuple[float, float] | None, fmt: str = ".4f") -> str:
+    return "not computable" if bounds is None else f"{bounds[0]:{fmt}} to {bounds[1]:{fmt}}"
+
+
+def _per_run_section(runs: list[SweepRun]) -> list[str]:
     lines = [
-        f"# Seed sweep — {years}y, population {population} ({len(seeds)} seeds)\n",
-        f"- seeds: {seeds}",
-        f"- completed: {len(completed_rows)}/{len(seeds)}\n",
-        "## Per-seed results\n",
-        "| seed | run_id | outcome | office_occupancy | fallback alerts |",
-        "|---|---|---|---|---|",
+        "## Per-run results\n",
+        "| seed | repeat | run_id | outcome | office_occupancy | types above 10% fallback |",
+        "|---|---|---|---|---|---|",
     ]
-    for r in rows:
-        alerts = r.get("llm_fallback_alerts") or {}
-        lines.append(
-            f"| {r['seed']} | {r['run_id']} | {r['outcome']} | "
-            f"{r.get('office_occupancy', '-')} | {alerts or '-'} |"
-        )
-    lines.append("")
+    for r in runs:
+        over = {t: f"{rate:.1%}" for t, rate in r.fallback_rates().items() if rate > 0.10}
+        occupancy = "-" if r.office_occupancy is None else f"{r.office_occupancy:.4f}"
+        lines.append(f"| {r.seed} | {r.repeat} | {r.run_id} | {r.outcome} | {occupancy} | {over or '-'} |")
+    return [*lines, ""]
 
-    lines.append("## office_occupancy across seeds\n")
-    if len(occupancy_values) >= 2:
-        mean = statistics.fmean(occupancy_values)
-        stdev = statistics.stdev(occupancy_values)
-        lines.append(
-            f"- n={len(occupancy_values)}, mean={mean:.4f}, stdev={stdev:.4f}, "
-            f"min={min(occupancy_values):.4f}, max={max(occupancy_values):.4f}"
-        )
-    elif len(occupancy_values) == 1:
-        lines.append(f"- only one completed seed with office_occupancy: {occupancy_values[0]:.4f} (no variance to report)")
+
+def _occupancy_section(firsts: list[SweepRun]) -> list[str]:
+    values = [r.office_occupancy for r in firsts if r.office_occupancy is not None]
+    lines = ["## office_occupancy across seeds (first completed run per seed)\n"]
+    if len(values) >= 2:
+        lines += [
+            f"- n={len(values)}, mean={statistics.fmean(values):.4f}, stdev={statistics.stdev(values):.4f}, "
+            f"min={min(values):.4f}, max={max(values):.4f}",
+            f"- 95% BCa bootstrap interval for the mean: {_interval(mean_bca_interval(values))}",
+            f"- 95% prediction interval for one new seed: {_interval(prediction_interval(values))}",
+        ]
+    elif values:
+        lines.append(f"- only one completed seed with office_occupancy: {values[0]:.4f} (no variance to report)")
     else:
         lines.append("- no completed seed produced an office_occupancy value yet")
-    lines.append("")
+    return [*lines, ""]
 
+
+def _fallback_section(firsts: list[SweepRun]) -> list[str]:
+    alerted = sum(any(rate > 0.10 for rate in r.fallback_rates().values()) for r in firsts)
+    lines = [
+        "## Fallback rates (first completed run per seed)\n",
+        f"- seeds with any type above 10%: {alerted}/{len(firsts)}, 95% Clopper–Pearson "
+        f"{_interval(clopper_pearson(alerted, len(firsts)), '.1%')}\n",
+        "| decision type | fallbacks / decisions, pooled | rate | 95% Clopper–Pearson |",
+        "|---|---|---|---|",
+    ]
+    for decision_type in sorted({t for r in firsts for t in r.decisions_by_type}):
+        decisions = sum(r.decisions_by_type.get(decision_type, 0) for r in firsts)
+        fallbacks = sum(r.fallback_by_type.get(decision_type, 0) for r in firsts)
+        lines.append(
+            f"| {decision_type} | {fallbacks} / {decisions} | {fallbacks / decisions:.2%} "
+            f"| {_interval(clopper_pearson(fallbacks, decisions), '.2%')} |"
+            if decisions else f"| {decision_type} | 0 / 0 | - | - |"
+        )
+    return [*lines, ""]
+
+
+def _provenance_section(runs: list[SweepRun]) -> list[str]:
+    lines = ["## Provenance (S0.4)\n"]
+    completed = [r for r in runs if r.completed]
+    differences = provenance_differences(runs)
+    if not any(r.run_metadata.get("git_sha") for r in completed):
+        lines.append("- not recorded: these runs predate run provenance (S0.4)")
+    elif not differences:
+        first = completed[0].run_metadata
+        lines.append(
+            f"- all {len(completed)} completed runs share git_sha {first.get('git_sha')}, prompt source "
+            f"{str(first.get('prompt_source_sha256'))[:16]}, vLLM {first.get('vllm_version')} "
+            f"({str(first.get('vllm_image_id'))[:19]}), {first.get('served_model_repo')} @ "
+            f"{str(first.get('served_model_revision'))[:8]}, dirty paths {first.get('git_dirty_paths')}"
+        )
+    else:
+        lines.append("- **MIXED: these runs are not one experiment.** Differing fields:")
+        lines += [f"  - {name}: {values}" for name, values in differences.items()]
+    return [*lines, ""]
+
+
+def _write_sweep_summary(output_dir: Path, years: int, population: int, seeds: list[int]) -> Path:
+    """Generated from each run's own digest.json and progress.json -- never
+    hand-typed. Across-seed statistics use each seed's first completed run;
+    repeats of a seed are reported against them, and S0.7's pre-registered red
+    flags are evaluated here (api/domain/polity/sweep_statistics.py), so the
+    results doc S0.8 needs is this file, read against the pre-registration."""
+    runs = [_load_run(output_dir, years, population, seed, repeat) for seed, repeat in sweep_run_plan(seeds)]
+    firsts = first_completed_runs(runs)
+    lines = [
+        f"# Seed sweep — {years}y, population {population} ({len(runs)} runs)\n",
+        f"- seeds requested, in order: {seeds}",
+        f"- completed: {sum(r.completed for r in runs)}/{len(runs)} runs; {len(firsts)} distinct seeds completed\n",
+        *_provenance_section(runs),
+        *_per_run_section(runs),
+        *_occupancy_section(firsts),
+        *_fallback_section(firsts),
+        "## Pre-registered red flags (S0.7)\n",
+        *[f"- **{flag.name}**: {flag.status} -- {flag.detail}" for flag in red_flags(runs)],
+        "",
+    ]
     summary_path = output_dir / f"sweep-{years}y-p{population}-summary.md"
     summary_path.write_text("\n".join(lines), encoding="utf-8")
     return summary_path
@@ -208,7 +277,11 @@ def main(argv: list[str] | None = None) -> int:
              "override for a small smoke-test population where 75 would exceed it",
     )
     parser.add_argument("--years", type=int, required=True)
-    parser.add_argument("--seeds", required=True, help="comma-separated list of integer seeds")
+    parser.add_argument(
+        "--seeds", required=True,
+        help="comma-separated list of integer seeds; a seed listed twice runs twice (the second as -rep2), "
+             "which measures inference noise at a fixed seed",
+    )
     parser.add_argument("--max-batch-replays", type=int, default=2)
     parser.add_argument("--output-dir", type=Path, default=Path("scripts/seed_sweep_runs"))
     parser.add_argument(
@@ -216,6 +289,10 @@ def main(argv: list[str] | None = None) -> int:
         help="skip seeds whose digest.json already shows outcome=completed; --resume any partial run_dir",
     )
     parser.add_argument("--hypothesis", default=None, help="override the default pre-registered hypothesis text")
+    parser.add_argument(
+        "--decision-criterion", default=None,
+        help="the pre-registered reading, recorded with the experiment (S0.7: point at the pre-registration doc)",
+    )
     parser.add_argument("--planned-n", type=int, default=None, help="defaults to len(seeds)")
     args = parser.parse_args(argv)
 
@@ -231,7 +308,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     experiment = registration.register(
         hypothesis=hypothesis,
-        decision_criterion=(
+        decision_criterion=args.decision_criterion or (
             "No structured threshold registered -- office_occupancy's stdev across seeds is read "
             "against its own mean by a human, alongside whether any seed's fallback alerts differ "
             "qualitatively from the others (see the generated sweep summary, not this report)."
@@ -242,14 +319,15 @@ def main(argv: list[str] | None = None) -> int:
     print(f"registered experiment {experiment.experiment_id}: {experiment.hypothesis}")
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    for i, seed in enumerate(seeds, start=1):
-        print(f"[{i}/{len(seeds)}] seed={seed} ...", flush=True)
+    plan = sweep_run_plan(seeds)
+    for i, (seed, repeat) in enumerate(plan, start=1):
+        print(f"[{i}/{len(plan)}] seed={seed} repeat={repeat} ...", flush=True)
         result = trial.record_trial(
             experiment.experiment_id, i,
             container_name="vllm-polity",
             inference_backend="vllm",
-            run_call=lambda seed=seed: _run_one_seed(
-                years=args.years, population=args.population, seed=seed, seats=args.seats or 75,
+            run_call=lambda seed=seed, repeat=repeat: _run_one_seed(
+                years=args.years, population=args.population, seed=seed, repeat=repeat, seats=args.seats or 75,
                 output_dir=args.output_dir, max_batch_replays=args.max_batch_replays,
                 resume_sweep=args.resume_sweep,
             ),

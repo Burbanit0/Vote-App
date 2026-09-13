@@ -681,7 +681,9 @@ correctif Track A tient à travers les seeds à cette échelle de population.
 > le sweep « répond à la question de représentativité à cette échelle ». C'est
 > excessif : aucun seuil pré-enregistré n'existait pour la trancher. Recalculé
 > sur les dix valeurs : intervalle bootstrap BCa à 95 % pour la moyenne
-> **0,894–0,955** ; intervalle de prédiction à 95 % pour une nouvelle seed
+> **0,888–0,955** (100 000 rééchantillonnages sur les valeurs exactes ; d'abord
+> donné à 0,894–0,955, dont la borne basse varie entre 0,888 et 0,894 selon la
+> seule graine de rééchantillonnage) ; intervalle de prédiction à 95 % pour une nouvelle seed
 > **0,81–1,05** (au-delà du plafond de 1, donc « une seed peut tomber n'importe
 > où entre ~0,81 et le plafond ») ; alerte de repli sur 2 seeds sur 10, intervalle
 > de Clopper–Pearson **2,5–55,6 %** ; 8 seeds sur 10 à ±0,05 de la moyenne. Le
