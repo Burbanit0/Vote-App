@@ -3148,6 +3148,30 @@ datée « quinquies ». `jscpd` reste à 19 : ces 5 blocs étaient déjà sous s
 seuil de détection avant comme après, cohérent avec la contagion du vote blanc
 plus haut dans ce même item.
 
+**Suivi, `CODE_AUDIT.md` §7 item 2** (2026-09-13, complexité cyclomatique
+rang F). Comme les items 1/5/6 ci-dessus, pas de Lot dédié dans ce plan —
+détail complet dans `CODE_AUDIT.md` lui-même (sa mise à jour datée du
+2026-09-13). Pour mémoire : 4 des 6 fonctions rang F de son §5 sont
+décomposées, une PR par fonction — `_interpret_worker` (`election/
+workers.py`) F 44 → A, `_identity_voting_worker` (`theory/workers.py`) F 44
+→ C, `_democratic_backsliding_worker` (`theory/workers.py`, la plus grosse,
+259 lignes) F 45 → B, `start_monte_carlo` (`sockets/__init__.py`) F 41 → B.
+Même refactor pur partout (mêmes noms, même calcul, même ordre) que les
+extractions jscpd de l'item 1 ; `diff-cover` a trouvé des trous de
+couverture réels sur 3 des 4 PR une fois le code déplacé dans ses propres
+lignes suivies par le diff — même mécanisme que la duplication qui cachait
+un trou de couverture dans l'item 1 (« sextius » dans `CODE_AUDIT.md`), et
+sur la PR `_democratic_backsliding_worker` un cas voisin mais distinct : une
+branche couverte par accident en local par un test tiers non déterministe
+(vraisemblablement Hypothesis/Schemathesis), pas par un test dédié — corrigée
+par un test déterministe plutôt que laissée dépendre de la chance du
+fuzzing. Les 2 fonctions polity restantes (`index_events`,
+`_run_accountability_phase`) sont laissées de côté — développement actif
+séparé dans `Vote-App-polity`, même décision que celle déjà prise pour ce
+dossier au Lot 14.5 ci-dessous. La consolidation architecturale plus large
+de `domain/election/workers*.py` (au-delà de la seule complexité par
+fonction) reste, elle, un chantier distinct non entamé.
+
 **README qui raconte, détail** (2026-09-12). Nouvelle section « A second
 thing being explored here » ajoutée à [`README.md`](README.md), en anglais
 comme le reste de la façade publique du dépôt, placée après « Architecture »
