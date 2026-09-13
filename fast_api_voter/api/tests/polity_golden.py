@@ -10,6 +10,15 @@ test_polity_golden.py until it is regenerated on purpose with
 Checked before relying on this (2026-09-13): the journal is byte-identical across
 processes with different PYTHONHASHSEED values, for both engines, so committed
 hashes do not depend on the process that produced them.
+
+Not across CPUs, though. Population positions come from BLAS matrix products, whose
+kernel OpenBLAS picks per CPU, and a different kernel changes the last bits of those
+floats. Journal payloads that carry raw positions then differ in their digits alone
+(mandate_pledge_declared on some GitHub runners; chamber_deliberation locally under
+OPENBLAS_CORETYPE=Prescott), and the golden test failed on those runners only. Journal
+summaries therefore hash each event with every float rounded to FLOAT_SIGNIFICANT_DIGITS
+-- far above BLAS last-bit noise, far below any change a real edit would make. Checked:
+the manifest is identical under the default, Haswell, Sandybridge and Prescott kernels.
 """
 from __future__ import annotations
 
@@ -45,6 +54,10 @@ LLM_DECISION_TYPES = (
     "chamber_deliberation",
     "coalition_decision",
 )
+
+
+def _canonical(value: Any) -> str:
+    return json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
 
 
 def _sha256(text: str | bytes) -> str:
@@ -133,16 +146,36 @@ def golden_config(output_dir: Path, *, llm: bool) -> PolityConfig:
     return config
 
 
+FLOAT_SIGNIFICANT_DIGITS = 9
+
+
+def _round_floats(value: Any) -> Any:
+    if isinstance(value, float):
+        return float(f"{value:.{FLOAT_SIGNIFICANT_DIGITS}g}")
+    if isinstance(value, dict):
+        return {key: _round_floats(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_round_floats(item) for item in value]
+    return value
+
+
+def _canonical_event(line: bytes) -> tuple[str, str]:
+    """(event_type, the event as canonical JSON with floats rounded) -- see the module
+    docstring for why the raw line is not hashed."""
+    event = json.loads(line)
+    return event["event_type"], _canonical(_round_floats(event))
+
+
 def _journal_summary(journal_path: Path) -> dict[str, Any]:
-    raw = journal_path.read_bytes()
-    lines_by_type: dict[str, list[bytes]] = {}
-    for line in raw.splitlines():
-        lines_by_type.setdefault(json.loads(line)["event_type"], []).append(line)
+    events = [_canonical_event(line) for line in journal_path.read_bytes().splitlines() if line.strip()]
+    lines_by_type: dict[str, list[str]] = {}
+    for event_type, canonical in events:
+        lines_by_type.setdefault(event_type, []).append(canonical)
     return {
-        "events_sha256": _sha256(raw),
-        "event_count": len(raw.splitlines()),
+        "events_sha256": _sha256("\n".join(canonical for _, canonical in events)),
+        "event_count": len(events),
         "by_event_type": {
-            event_type: {"count": len(lines), "sha256": _sha256(b"\n".join(lines))}
+            event_type: {"count": len(lines), "sha256": _sha256("\n".join(lines))}
             for event_type, lines in sorted(lines_by_type.items())
         },
     }
