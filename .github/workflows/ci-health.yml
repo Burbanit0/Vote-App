@@ -44,9 +44,9 @@ jobs:
       # job opens would be permanently stuck without a human manually
       # pushing an extra commit every single time -- exactly the automation
       # this mechanism exists to provide. CI_HEALTH_PAT is a fine-grained
-      # PAT scoped to only this repo, with only Contents: read/write and
-      # Pull requests: read/write -- see the voter-ci skill for how to
-      # (re)create and rotate it.
+      # PAT scoped to only this repo, with Contents: read/write, Pull
+      # requests: read/write, and Administration: read-only -- see the
+      # voter-ci skill for how to (re)create and rotate it.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           ref: develop
@@ -54,10 +54,17 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.14'
+      # GH_TOKEN also has to be the PAT here, not GITHUB_TOKEN: reading
+      # branch-protection settings (GET .../branches/{branch}/protection,
+      # what check_branch_protection_drift() calls) requires Administration
+      # read access, a permission GITHUB_TOKEN can never be granted no
+      # matter what the workflow declares -- confirmed live, this step
+      # failed with "Resource not accessible by integration" on GITHUB_TOKEN
+      # even though the workflow-health half of the same call worked fine.
       - name: Run the audit
         id: audit
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # read-only queries -- least privilege, no need for the PAT here
+          GH_TOKEN: ${{ secrets.CI_HEALTH_PAT }}
         run: |
           python scripts/check_ci_health.py --update | tee summary.txt
           {

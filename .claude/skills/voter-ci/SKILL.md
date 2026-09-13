@@ -327,15 +327,21 @@ never run can never be merged, so without a real user identity behind it,
 this job's whole PR-opening step would need a human to manually nudge every
 single snapshot update — exactly the automation gap this mechanism exists
 to close. `CI_HEALTH_PAT` is a fine-grained personal access token, scoped
-to this repo only, with exactly two permissions: **Contents: Read and
-write**, **Pull requests: Read and write** — nothing else. To (re)create it
-(GitHub requires an expiration on fine-grained tokens, so this needs
+to this repo only, with exactly three permissions: **Contents: Read and
+write**, **Pull requests: Read and write**, **Administration: Read-only**
+— nothing else. The third one isn't obvious either and was missed on the
+first pass: `check_branch_protection_drift()` reads live branch-protection
+settings (`GET .../branches/{branch}/protection`), which needs
+Administration access no matter which token asks — confirmed live,
+`GITHUB_TOKEN` failed this specific call with "Resource not accessible by
+integration" even with every other permission declared. To (re)create the
+PAT (GitHub requires an expiration on fine-grained tokens, so this needs
 repeating periodically):
 
 1. https://github.com/settings/personal-access-tokens/new → resource owner
    `Burbanit0` → repository access "Only select repositories" → `Vote-App`.
 2. Repository permissions → Contents: Read and write, Pull requests: Read
-   and write. Everything else: No access.
+   and write, Administration: Read-only. Everything else: No access.
 3. Generate, then `gh secret set CI_HEALTH_PAT --repo Burbanit0/Vote-App`
    (paste the token when prompted — never commit it, never paste it into a
    chat/agent session; the token itself never needs to leave the terminal
