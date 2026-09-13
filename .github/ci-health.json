@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-13T14:31:35Z",
+  "generated_at": "2026-09-13T14:42:36Z",
   "workflows": {
     "mutation-testing.yml": {
       "display_name": "Mutation Testing",
@@ -79,7 +79,7 @@
     "scorecard.yml": {
       "display_name": "OpenSSF Scorecard",
       "expected_cadence_hours": 168,
-      "last_run_at": "2026-09-13T14:31:26Z",
+      "last_run_at": "2026-09-13T14:42:02Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -93,7 +93,7 @@
     }
   },
   "branch_protection": {
-    "status": "healthy",
-    "detail": "matches setup-branch-protection.sh"
+    "status": "unhealthy",
+    "detail": "could not read live branch protection: gh: Resource not accessible by integration (HTTP 403)"
   }
 }
