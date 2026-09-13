@@ -47,6 +47,19 @@ class TestSimulatePipeline:
         assert client.post("/api/v2/election/simulate-pipeline",
                            json=bad).status_code == 422
 
+    def test_contagion_enabled_adds_contagion_step(self, client):
+        # _simulate_pipeline_worker's own "Step 3" only runs when both
+        # blank_vote.enabled and contagion.enabled are set.
+        ok = {
+            **self.payload,
+            "blank_vote": {"enabled": True, "rule": "symbolic",
+                           "contagion": {"enabled": True}},
+        }
+        r = client.post("/api/v2/election/simulate-pipeline", json=ok)
+        assert r.status_code == 200, r.text
+        step_ids = [s["id"] for s in r.json()["steps"]]
+        assert "contagion" in step_ids
+
     def test_rejects_single_candidate(self, client):
         bad = {**self.payload, "candidates": [CANDS[0]]}
         assert client.post("/api/v2/election/simulate-pipeline",
