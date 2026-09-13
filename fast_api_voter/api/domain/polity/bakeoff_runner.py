@@ -41,7 +41,9 @@ from api.domain.polity.llm_logprob_instrumentation import (
     candidate_probability,
     locate_decision_field_logprobs,
 )
+from api.domain.polity.llm_behavior_engine import truncation_limit
 from api.domain.polity.llm_replay import UnrecordedRequestError
+from api.domain.polity.llm_schemas import vote_cast_json_schema
 from api.domain.polity.run_polity_simulation import _warm_up_llm_client
 
 RESULTS_FILENAME = "results.jsonl"
@@ -62,6 +64,24 @@ _DECODERS: dict[str, Callable[[str, Sequence[int]], Sequence[Any]]] = {
 }
 
 _PARTY_UNITS = frozenset({"party_nomination_choice", "coalition_decision"})
+
+
+def _vote_grammar_schema(case: Case, schema: dict[str, Any]) -> dict[str, Any]:
+    """S1.2's grammar for a vote_cast case, bounded by its own field's ranking limit; any
+    other case keeps the bank's schema."""
+    if case.decision_type != "vote_cast":
+        return schema
+    candidates = len(json.loads(case.user_prompt)["candidates"])
+    limit = truncation_limit(candidates)
+    return vote_cast_json_schema(limit if limit is not None else candidates)
+
+
+ARMS: dict[str, Callable[[Case, dict[str, Any]], dict[str, Any]]] = {
+    "vote_grammar": _vote_grammar_schema,
+}
+"""Schema arms for an A/B on the same frozen cases: a session run with an arm sends each
+case the arm's schema instead of the bank's. Two sessions of one model, with and without
+an arm, are the A/B the scorecard's paired tests compare."""
 
 
 def _vote_answer(d: Any) -> Any:
@@ -211,6 +231,14 @@ def gate_aligned(results: Sequence[dict[str, Any]], cases: Sequence[Case]) -> bo
     return sum(len(r["probabilities"] or {}) for r in gate_results) == units
 
 
+def schema_resolver(bank: CaseBank, arm: str | None) -> Callable[[Case], dict[str, Any]]:
+    """The schema each case is sent with: the bank's, or the arm's."""
+    if arm is None:
+        return lambda case: bank.schemas[case.decision_type]
+    schema_arm = ARMS[arm]
+    return lambda case: schema_arm(case, bank.schemas[case.decision_type])
+
+
 def run_session(
     bank: CaseBank,
     client: LlmClientProtocol,
@@ -221,11 +249,16 @@ def run_session(
     families: Iterable[str] | None = None,
     warm_up: bool = True,
     rerun_fraction: float = DEFAULT_RERUN_FRACTION,
+    arm: str | None = None,
 ) -> Path:
     """One model's session. `client` is the model's own (or a replay); `config.llm`
-    names the model, so token budgets follow its profile."""
+    names the model, so token budgets follow its profile. `arm` names an entry of ARMS."""
     session_dir.mkdir(parents=True, exist_ok=True)
-    (session_dir / SESSION_FILENAME).write_text(json.dumps({**metadata, "bank_sha256": bank.content_sha256}, indent=2, sort_keys=True))
+    (session_dir / SESSION_FILENAME).write_text(
+        json.dumps({**metadata, "bank_sha256": bank.content_sha256, "arm": arm}, indent=2, sort_keys=True)
+    )
+    schema_for = schema_resolver(bank, arm)
+
     results_path = session_dir / RESULTS_FILENAME
     done = {(r["case_id"], r["pass"]) for r in read_results(results_path)}
     logprobs = callable(getattr(client, "complete_json_with_logprobs", None))
@@ -245,8 +278,7 @@ def run_session(
             for case in batch:
                 if (case.case_id, pass_name) in done:
                     continue
-                result = run_case(case, logged, writer, config, bank.schemas[case.decision_type],
-                                  pass_name=pass_name, use_logprobs=use_logprobs)
+                result = run_case(case, logged, writer, config, schema_for(case), pass_name=pass_name, use_logprobs=use_logprobs)
                 _append(results_path, result)
                 answered.append(result)
             return answered

@@ -120,7 +120,7 @@ recorded here, with the date.
 | S4.1 | Utility vote with turnout | D2, S3.4 | `feat/polity-utility-vote` | |
 | S4.2 | Policy status quo and ordinary legislation | D3, S3.4 | `feat/polity-legislation` | |
 | S4.3 | Dynamic citizens | S3.4 | `feat/polity-dynamic-citizens` | |
-| S4.4 | Phase clock | S3.4 | `feat/polity-phase-clock` | |
+| S4.4 | Phase clock | S3.4 | `feat/polity-phase-clock` | `c3a086c1` |
 | S5.1 | Run registry | S0.4 | `feat/polity-run-registry` | `2bc3727d` |
 | S5.2 | marimo run explorer | S5.1 | `feat/polity-run-explorer` | `f61ec32e` |
 | S5.3 | Narratives with checkable claims | S0.5 | `feat/polity-checked-narratives` | `6913a6f9` |
@@ -246,6 +246,27 @@ current data cannot explain (~3,800 s of an election tick unaccounted for).
 **Accepted when:** on the `vote_cast` fixture, the blank-with-ranking validation error
 no longer occurs and agreement with `build_ranking` is no lower than baseline. Schema
 bytes change: golden updated deliberately.
+
+*Made precise when built, 2026-09-13*:
+
+- **The grammar.** `llm_schemas.vote_cast_json_schema(max_ranking)` makes each ballot `anyOf`
+  a blank branch (`blank` const 1, `ranking` maxItems 0) and a ranked one (`blank` const 0,
+  `ranking` minItems 1). `maxItems` is set per batch to the rule the validator already
+  applies (top five above six candidates, the field size otherwise), so the grammar enforces
+  existing rules and adds none. Decision types are now read off a schema's title, which a
+  per-batch schema keeps.
+- **Checked on the CPU in the server image.** `scripts/check_vote_grammar_xgrammar_results.md`:
+  vLLM 0.28.0's xgrammar takes the schema with no backend fallback, and refuses all three
+  rejected ballot shapes while accepting the valid ones.
+- **Off until accepted.** Production uses it behind `llm.vote_cast_grammar_invariants`
+  (`false`), so golden references and every run so far are unchanged. Adoption flips the
+  default and updates golden deliberately, as written above.
+- **The fixture.** The S2.2 bank's vote cases, `logprob_gate` and `vote_first_choice`. The A/B
+  is two bake-off sessions of the control model, one with `--arm vote_grammar`.
+- **Accepted when, on those sessions:**
+  - the arm's vote_cast validity errors include no "blank=1 requires an empty ranking";
+  - its `vote_first_choice` accuracy is at least the baseline's on the same cases, with the
+    scorecard's paired McNemar test reported.
 
 ### S1.3 Thinking-budget A/B
 Arms: no budget, 4096, 2048 for `vote_cast` (chunk 3) and `chamber_deliberation`

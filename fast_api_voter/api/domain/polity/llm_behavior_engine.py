@@ -204,6 +204,7 @@ from api.domain.polity.llm_schemas import (
     ReactionDecision,
     ResponseDecision,
     VoteCastDecision,
+    vote_cast_json_schema,
 )
 from api.domain.polity.llm_toon_encoding import encode_toon_array
 from api.domain.polity.model_profiles import QWEN3_8B_AWQ_VLLM, QWEN3_8B_OLLAMA, ModelProfile, model_profile
@@ -1679,6 +1680,10 @@ def cast_votes(
     candidate_count = len(candidates)
     position_to_candidate = {i: c for i, c in enumerate(sorted_candidates(candidates), start=1)}
     truncate_at = truncation_limit(candidate_count)
+    vote_schema = (
+        vote_cast_json_schema(truncate_at if truncate_at is not None else candidate_count)
+        if config.llm.vote_cast_grammar_invariants else VOTE_CAST_JSON_SCHEMA
+    )
 
     def _vote_chunk(chunk: list[Citizen]) -> tuple[list[VoteCastDecision], bool, bool, str | None]:
         """One chunk's worth of work, run_chunks's own unit of parallelism
@@ -1696,7 +1701,7 @@ def cast_votes(
                 client,
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
-                json_schema=VOTE_CAST_JSON_SCHEMA,
+                json_schema=vote_schema,
                 max_tokens=_dynamic_max_tokens(
                     client,
                     config,

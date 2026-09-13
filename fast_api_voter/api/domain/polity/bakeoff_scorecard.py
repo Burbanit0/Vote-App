@@ -18,6 +18,7 @@ models, on accuracy and on validity, Holm-corrected over every test reported.
 from __future__ import annotations
 
 import json
+import re
 import statistics
 from collections import Counter, defaultdict
 from collections.abc import Iterable, Sequence
@@ -189,9 +190,22 @@ _SCORERS = {"truth": score_truth, "contrast": score_contrast, "permutation": sco
 
 # ── per decision type ─────────────────────────────────────────────────────
 
+_VALUE_ERROR = re.compile(r"Value error, (?P<message>[^\[\n]+?)\s*\[")
+
+
+def error_kind(error: str) -> str:
+    """A failure's kind: a schema validator's own message (e.g. "blank=1 requires an empty
+    ranking") where there is one, otherwise its first line with numbers blanked out."""
+    match = _VALUE_ERROR.search(error)
+    if match:
+        return match["message"]
+    return re.sub(r"\d+", "#", error.split("\n", 1)[0])[:120]
+
+
 def score_validity(cases: Sequence[Case], main: dict[str, dict[str, Any]]) -> dict[str, Any]:
     answered = [main[c.case_id] for c in cases if c.case_id in main]
-    return _rate(sum(1 for r in answered if r["valid"]), len(answered))
+    errors = Counter(error_kind(r["error"]) for r in answered if not r["valid"] and r["error"])
+    return {**_rate(sum(1 for r in answered if r["valid"]), len(answered)), "errors": dict(errors.most_common())}
 
 
 def _mean(values: Iterable[Any]) -> float | None:

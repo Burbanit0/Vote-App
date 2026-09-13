@@ -105,6 +105,7 @@ def test_invalid_answers_count_as_wrong_and_unread_gates_are_unmeasured() -> Non
     results = [_result(CANDIDACY, {}, valid=False), _result(GATE, {"7": "blank", "8": 2, "9": 1})]
     scored = sc.score_session(BANK, _session("s", results, gates={}))
     assert scored["decision_types"]["candidacy_considered"]["validity"]["successes"] == 0
+    assert scored["decision_types"]["candidacy_considered"]["validity"]["errors"] == {"LlmResponseError: bad": 1}
     assert scored["decision_types"]["candidacy_considered"]["families"]["candidacy_p500"]["accuracy"]["successes"] == 0
     assert scored["gates"]["logprob"]["passed"] is None and scored["gates"]["think"] is None
 
@@ -182,3 +183,17 @@ def test_family_summaries_cover_every_kind() -> None:
     assert "| s | vllm/s | – | yes | not run | yes: 3/3" in render_markdown(card)
     empty = sc.scorecard(BANK, [_session("e", [], gates={"think": {"think_true_reasoning_tokens": 1, "think_false_reasoning_tokens": 0, "passed": True}})])
     assert "yes (on 1, off 0) | unmeasured |" in render_markdown(empty)
+
+
+def test_a_failure_is_counted_by_its_kind() -> None:
+    pydantic = ("LlmResponseError: batch failed schema validation: 3 validation errors for VoteCastBatch\ndecisions.0\n"
+                "  Value error, blank=1 requires an empty ranking (§3.6.1 hard rule) [type=value_error, input_value={}]")
+    assert sc.error_kind(pydantic) == "blank=1 requires an empty ranking (§3.6.1 hard rule)"
+    assert sc.error_kind("LlmResponseError: finish_reason='length' after 14163 tokens\nmore") == "LlmResponseError: finish_reason='length' after # tokens"
+
+    invalid = [_result(CANDIDACY, {}, valid=False)]
+    invalid[0]["error"] = pydantic
+    session = sc.Session(label="arm", metadata={"provider": "vllm", "model": "qwen3:8b", "arm": "vote_grammar"}, gates={}, results=invalid)
+    markdown = render_markdown(sc.scorecard(BANK, [session]))
+    assert "vllm/qwen3:8b, arm vote_grammar" in markdown
+    assert "0/1 = 0.0% [0.0, 79.3]<br>blank=1 requires an empty ranking (§3.6.1 hard rule) ×1" in markdown

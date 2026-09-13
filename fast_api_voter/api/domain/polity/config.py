@@ -478,6 +478,10 @@ class LlmConfig:
     personas_count: int
     max_batch_replays: int
     recycle_after_n_calls: int | None
+    vote_cast_grammar_invariants: bool
+    """S1.2: send vote_cast the grammar that enforces blank=1 <=> empty ranking and the
+    ranking length limit (llm_schemas.vote_cast_json_schema). Off until its bake-off A/B
+    is accepted; turning it on changes vote_cast's request bytes."""
 
 
 @dataclass(frozen=True)
@@ -893,6 +897,7 @@ def _parse_llm(raw: dict[str, Any]) -> LlmConfig:
         personas_count=_get_positive_int(s, "llm", "personas_count"),
         max_batch_replays=_get_nonneg_int(s, "llm", "max_batch_replays"),
         recycle_after_n_calls=recycle_after_n_calls,
+        vote_cast_grammar_invariants=_get(s, "llm", "vote_cast_grammar_invariants", bool),
     )
 
 

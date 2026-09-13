@@ -523,6 +523,13 @@ llm:
                               #      grand budget) — pas prouvé général à
                               #      tout mélange de types de décision ;
                               #      voir llm_batching_determinism_results_gpu.md
+  vote_cast_grammar_invariants: false  # [S1.2] grammaire vote_cast imposant
+                              #      blank=1 <=> ranking vide et la longueur
+                              #      maximale du classement
+                              #      (llm_schemas.vote_cast_json_schema).
+                              #      false tant que l'A/B du bake-off n'est
+                              #      pas accepté : l'activer change les
+                              #      octets des requêtes vote_cast.
 
 # =============================================================================
 # JOURNAL ET DONNÉES (§16)
