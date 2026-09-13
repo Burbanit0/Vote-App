@@ -94,6 +94,18 @@ jobs:
         run: npm run lint
         working-directory: ./voter-app
 
+      # Lot 14 (PLAN_SOLIDITE_TECHNIQUE.md): package.json's `typeCoverage.atLeast`
+      # is the ratchet -- type-coverage reads it itself (no CLI flag needed) and
+      # fails below it. Was informational-only (§6.4) until the 280 real `any`s
+      # measured there were actually reduced (238 by the time this gate was
+      # added); gating an unreduced baseline would have meant enforcing debt, not
+      # preventing it. A genuine future improvement is locked in with
+      # `npx type-coverage --update-if-higher`, committing the new package.json
+      # value -- never hand-edit the number down to make a red run green.
+      - name: Type coverage — no regression (blocking)
+        run: npm run type-coverage
+        working-directory: ./voter-app
+
       # Frontend equivalent of the backend's import-linter layering contract
       # (Lot 2, PLAN_SOLIDITE_TECHNIQUE.md) — see .dependency-cruiser.json for
       # exactly what's enforced (src/lib must stay framework-agnostic, per
