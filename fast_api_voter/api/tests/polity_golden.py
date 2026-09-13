@@ -19,8 +19,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-from api.domain.polity import llm_schemas
 from api.domain.polity.config import PolityConfig, load_config
+from api.domain.polity.llm_call_log import decision_type_for_schema, request_sha256
 from api.domain.polity.run_polity_simulation import run_simulation
 from api.tests.test_polity_run_simulation import _ElectingFakeLlmClient
 
@@ -47,31 +47,8 @@ LLM_DECISION_TYPES = (
 )
 
 
-def _canonical(value: Any) -> str:
-    return json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
-
-
 def _sha256(text: str | bytes) -> str:
     return hashlib.sha256(text.encode() if isinstance(text, str) else text).hexdigest()
-
-
-_DECISION_TYPE_BY_SCHEMA = {
-    _canonical(llm_schemas.VOTE_CAST_JSON_SCHEMA): "vote_cast",
-    _canonical(llm_schemas.CANDIDACY_JSON_SCHEMA): "candidacy_considered",
-    _canonical(llm_schemas.PARTY_NOMINATION_JSON_SCHEMA): "party_nomination_choice",
-    _canonical(llm_schemas.POSITIONING_JSON_SCHEMA): "campaign_positioning",
-    _canonical(llm_schemas.RESPONSE_JSON_SCHEMA): "representative_response",
-    _canonical(llm_schemas.PRESSURE_JSON_SCHEMA): "pressure_action",
-    _canonical(llm_schemas.REACTION_JSON_SCHEMA): "reaction_to_event",
-    _canonical(llm_schemas.CHAMBER_JSON_SCHEMA): "chamber_deliberation",
-    _canonical(llm_schemas.COALITION_JSON_SCHEMA): "coalition_decision",
-}
-
-
-def decision_type_for_schema(json_schema: dict[str, Any]) -> str:
-    """Which LLM decision type a complete_json request belongs to, read off its
-    JSON schema -- the one request field every decision type sets differently."""
-    return _DECISION_TYPE_BY_SCHEMA.get(_canonical(json_schema), "unknown_schema")
 
 
 class RecordingClient:
@@ -96,16 +73,11 @@ class RecordingClient:
         temperature: float | None = None,
         seed: int | None = None,
     ) -> str:
-        request = {
-            "system_prompt": system_prompt,
-            "user_prompt": user_prompt,
-            "json_schema": json_schema,
-            "max_tokens": max_tokens,
-            "think": think,
-            "temperature": temperature,
-            "seed": seed,
-        }
-        self.requests.append((decision_type_for_schema(json_schema), _sha256(_canonical(request))))
+        digest = request_sha256(
+            system_prompt=system_prompt, user_prompt=user_prompt, json_schema=json_schema,
+            max_tokens=max_tokens, think=think, temperature=temperature, seed=seed,
+        )
+        self.requests.append((decision_type_for_schema(json_schema), digest))
         return str(
             self._inner.complete_json(
                 system_prompt=system_prompt,

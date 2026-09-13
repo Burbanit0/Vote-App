@@ -260,6 +260,12 @@ class ProgressTracker:
             self._tick_in_progress = None
             self._write_locked(avg_recent_tick_duration_seconds=avg_recent, wall_clock_elapsed=wall_clock_elapsed)
 
+    @property
+    def tick_in_progress(self) -> int | None:
+        """The tick being computed, or None between ticks -- read by the per-call
+        LLM log to stamp each call with its tick."""
+        return self._tick_in_progress
+
     def begin_tick(self, tick: int) -> None:
         """Called at the TOP of the run loop's tick body, before any phase
         runs. Publishes which tick is being computed, so a reader can tell

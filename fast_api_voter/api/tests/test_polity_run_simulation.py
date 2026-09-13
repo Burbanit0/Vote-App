@@ -2182,7 +2182,7 @@ def test_representative_response_is_journalled_once_per_presided_tick(tmp_path):
         # now says whether a varied-sampling retry produced it, not only vote_cast
         # and chamber_deliberation.
         assert set(e["payload"].keys()) == {
-            "office", "stance", "shifts", "ctx", "unified_deviation", "llm_fallback", "retry_sampling_varied",
+            "office", "stance", "shifts", "ctx", "unified_deviation", "llm_fallback", "retry_sampling_varied", "llm_call_id",
         }
         assert e["payload"]["retry_sampling_varied"] == 0
         assert set(e["payload"]["ctx"].keys()) == {"L", "mandate_dev", "street", "lame_duck", "ticks_left"}
@@ -2692,7 +2692,7 @@ def test_pressure_action_is_journalled_once_per_consulted_citizen_with_its_ctx(t
         # llm_fallback is provenance, not a decision field, and rides on every
         # LLM-path pressure_action since 2026-09-11 -- 0 here, because this
         # client answers cleanly.
-        assert set(e["payload"].keys()) == {"target", "act", "ctx", "llm_fallback", "retry_sampling_varied"}
+        assert set(e["payload"].keys()) == {"target", "act", "ctx", "llm_fallback", "retry_sampling_varied", "llm_call_id"}
         assert e["payload"]["llm_fallback"] == 0
         assert e["payload"]["retry_sampling_varied"] == 0
         # blank_threshold rides on the ctx since Track C3 (2026-09-11): decide_pressure_actions'
@@ -3379,7 +3379,7 @@ def test_chamber_deliberation_is_journalled_once_per_seated_member_per_tick(tmp_
     assert len(tick0_events) == 3  # seats
     for e in tick0_events:
         assert set(e["payload"].keys()) == {
-            "shifts", "ctx", "chamber_deviation", "motif_corrected", "retry_sampling_varied", "llm_fallback",
+            "shifts", "ctx", "chamber_deviation", "motif_corrected", "retry_sampling_varied", "llm_fallback", "llm_call_id",
         }
         assert set(e["payload"]["ctx"].keys()) == {"ticks_left"}
         assert e["motif"] in ("701", "702")
@@ -4341,7 +4341,7 @@ def test_reaction_to_event_is_journalled_once_per_citizen_per_firing_event_type_
     for e in reactions:
         # llm_fallback is provenance, LLM path only, since 2026-09-11 -- 0
         # here, because this client answers cleanly.
-        assert set(e["payload"]) == {"event_type", "target", "salience_delta", "ctx", "llm_fallback", "retry_sampling_varied"}
+        assert set(e["payload"]) == {"event_type", "target", "salience_delta", "ctx", "llm_fallback", "retry_sampling_varied", "llm_call_id"}
         assert e["payload"]["llm_fallback"] == 0
         assert e["payload"]["retry_sampling_varied"] == 0
         assert e["payload"]["event_type"] == int(EventType.SCANDAL)

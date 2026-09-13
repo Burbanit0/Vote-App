@@ -114,6 +114,7 @@ from api.domain.polity.llm_behavior_engine import (
     pressure_shipped_signal_values,
     resolve_ranking_cids,
 )
+from api.domain.polity.llm_call_log import CALL_LOG_FILENAME, call_context, call_logged
 from api.domain.polity.llm_client import (
     _RECYCLE_WARM_UP_MAX_TOKENS,
     _RECYCLE_WARM_UP_USER_PROMPT,
@@ -228,13 +229,14 @@ def _warm_up_llm_client(client: LlmClientProtocol) -> None:
     vLLM/AWQ, which would need its own forced-cold protocol."""
     for think in (True, False):
         try:
-            client.complete_json(
-                system_prompt="Reply with the required JSON object.",
-                user_prompt=_RECYCLE_WARM_UP_USER_PROMPT,
-                json_schema=_WARM_UP_SCHEMA,
-                max_tokens=_RECYCLE_WARM_UP_MAX_TOKENS,
-                think=think,
-            )
+            with call_context(kind="warm_up", decision_type=None):
+                client.complete_json(
+                    system_prompt="Reply with the required JSON object.",
+                    user_prompt=_RECYCLE_WARM_UP_USER_PROMPT,
+                    json_schema=_WARM_UP_SCHEMA,
+                    max_tokens=_RECYCLE_WARM_UP_MAX_TOKENS,
+                    think=think,
+                )
         except Exception as exc:  # noqa: BLE001
             _logger.warning("LLM warm-up call (think=%s) failed, continuing anyway: %s", think, exc)
 
@@ -673,7 +675,10 @@ def run_simulation(
 
     with (
         Journal.from_config(config.journal, run_id, start_event_id=start_event_id) as journal,
-        _llm_client_scope(config, llm_client, progress_tracker) as client,
+        _llm_client_scope(
+            config, llm_client, progress_tracker,
+            call_log_path=run_dir / CALL_LOG_FILENAME if config.llm.enabled else None,
+        ) as client,
     ):
         for tick in range(first_tick, clock.total_ticks + 1):
             tick_start_time = time.monotonic()
@@ -833,6 +838,7 @@ def _llm_client_scope(
     config: PolityConfig,
     llm_client: LlmClientProtocol | None,
     progress_tracker: ProgressTracker | None = None,
+    call_log_path: Path | None = None,
 ) -> Iterator[LlmClientProtocol | None]:
     """v4 vLLM switch (§15bis.6): dispatch on config.llm.provider via
     llm_client.build_json_client, rather than always constructing an
@@ -852,18 +858,28 @@ def _llm_client_scope(
     something journaled.
 
     Whatever is yielded is wrapped for the intra-tick heartbeat when a
-    progress tracker is supplied -- see _with_heartbeat."""
+    progress tracker is supplied -- see _with_heartbeat.
+
+    With `call_log_path` (S0.5), every call through the client -- owned or
+    injected, warm-up included -- is logged to llm_calls.jsonl first; see
+    llm_call_log.py. The log sits inside the heartbeat, so it sees exactly the
+    calls the engine makes."""
+    tick_source = (lambda: progress_tracker.tick_in_progress) if progress_tracker is not None else (lambda: None)
     if llm_client is not None:
-        yield _with_heartbeat(llm_client, progress_tracker)
+        with call_logged(llm_client, call_log_path, tick_source) as logged_client:
+            yield _with_heartbeat(logged_client, progress_tracker)
         return
     if not config.llm.enabled:
         yield None
         return
-    with build_json_client(config.llm, seed=config.run.seed) as owned_client:
-        # The warm-up deliberately runs BEFORE wrapping, so a warm-up response
-        # can never make a run look like it is producing decisions.
-        _warm_up_llm_client(owned_client)
-        yield _with_heartbeat(owned_client, progress_tracker)
+    with (
+        build_json_client(config.llm, seed=config.run.seed) as owned_client,
+        call_logged(owned_client, call_log_path, tick_source) as logged_client,
+    ):
+        # The warm-up deliberately runs BEFORE the heartbeat wrapping, so a
+        # warm-up response can never make a run look like it is producing decisions.
+        _warm_up_llm_client(logged_client)
+        yield _with_heartbeat(logged_client, progress_tracker)
 
 
 def _with_heartbeat(
@@ -1100,6 +1116,7 @@ def _consider_candidacies_llm(
                 # tally picks this up with no further wiring.
                 "llm_fallback": int(outcome.llm_fallback.get(decision.cid, False)),
                 "retry_sampling_varied": int(outcome.retry_sampling_varied.get(decision.cid, False)),
+                "llm_call_id": outcome.llm_call_ids.get(decision.cid),
             },
             citizen_id=decision.cid,
             motif=str(decision.motif),
@@ -1164,6 +1181,7 @@ def _nominate_and_position_llm(
                     # party_id, the decision unit for this type.
                     "llm_fallback": int(nomination_outcome.llm_fallback.get(party.party_id, False)),
                     "retry_sampling_varied": int(nomination_outcome.retry_sampling_varied.get(party.party_id, False)),
+                    "llm_call_id": nomination_outcome.llm_call_ids.get(party.party_id),
                 },
                 citizen_id=nominee.citizen_id,
                 motif=str(motif_by_party[party.party_id]),
@@ -1212,6 +1230,7 @@ def _nominate_and_position_llm(
                 # motif=601 is ambiguous without it.
                 "llm_fallback": int(positioning_outcome.llm_fallback.get(nominee.citizen_id, False)),
                 "retry_sampling_varied": int(positioning_outcome.retry_sampling_varied.get(nominee.citizen_id, False)),
+                "llm_call_id": positioning_outcome.llm_call_ids.get(nominee.citizen_id),
             },
             citizen_id=nominee.citizen_id,
             motif=str(positioning_decision.motif),
@@ -1344,6 +1363,7 @@ def _hold_presidential_election(
                         # cannot mistake a varied-sampling retry's decision for
                         # an ordinary, deterministic first-attempt one.
                         "retry_sampling_varied": int(outcome.retry_sampling_varied.get(decision.cid, False)),
+                        "llm_call_id": outcome.llm_call_ids.get(decision.cid),
                         # Same convention, marking the OTHER provenance this
                         # journal must not silently mistake for a real LLM
                         # answer: cast_votes's own last-resort deterministic
@@ -1578,6 +1598,7 @@ def _form_and_journal_coalition_llm(
     outcome = decide_coalition(parties, seats, votes, config, llm_client)
     for round_number, round_decisions in enumerate(outcome.rounds, start=1):
         round_retry_varied = outcome.rounds_retry_sampling_varied[round_number - 1]
+        round_call_id = outcome.rounds_llm_call_ids[round_number - 1]
         for decision in round_decisions:
             journal.write(
                 tick=tick,
@@ -1588,6 +1609,7 @@ def _form_and_journal_coalition_llm(
                     "initiator": outcome.initiator,
                     "round": round_number,
                     "retry_sampling_varied": int(round_retry_varied),
+                    "llm_call_id": round_call_id,
                 },
                 motif=str(decision.motif),
                 codebook_version=config.llm.codebook_version,
@@ -1758,6 +1780,7 @@ def _run_reaction_to_event(
     reaction_decisions: dict[int, ReactionDecision] | None = None
     reaction_fallback: dict[int, bool] = {}
     reaction_retry_varied: dict[int, bool] = {}
+    reaction_call_ids: dict[int, str | None] = {}
     contexts: dict[int, ReactionContext] = {}
     if config.llm.enabled:
         assert llm_client is not None  # guaranteed by _llm_client_scope when llm.enabled
@@ -1768,6 +1791,7 @@ def _run_reaction_to_event(
         reaction_decisions = {d.cid: d for d in outcome.decisions}
         reaction_fallback = outcome.llm_fallback
         reaction_retry_varied = outcome.retry_sampling_varied
+        reaction_call_ids = outcome.llm_call_ids
 
     for citizen in citizens:
         if reaction_decisions is None:
@@ -1785,6 +1809,7 @@ def _run_reaction_to_event(
                 # ReactionBatchOutcome.llm_fallback.
                 "llm_fallback": int(reaction_fallback.get(citizen.citizen_id, False)),
                 "retry_sampling_varied": int(reaction_retry_varied.get(citizen.citizen_id, False)),
+                "llm_call_id": reaction_call_ids.get(citizen.citizen_id),
             }
         citizen.event_salience = update_event_salience(citizen.event_salience, delta, config.events)
         payload: dict[str, object] = {"event_type": int(event_type), "target": target, "salience_delta": delta} | extra
@@ -1881,6 +1906,7 @@ def _run_representative_responses(
                 # identical here -- see ResponseBatchOutcome.llm_fallback.
                 "llm_fallback": int(outcome.llm_fallback.get(holder.citizen_id, False)),
                 "retry_sampling_varied": int(outcome.retry_sampling_varied.get(holder.citizen_id, False)),
+                "llm_call_id": outcome.llm_call_ids.get(holder.citizen_id),
             },
             citizen_id=holder.citizen_id,
             motif=str(decision.motif),
@@ -2005,6 +2031,7 @@ def _run_chamber_deliberation(
                 # llm_fallback marks the model path being exhausted entirely (sincere, no
                 # shift) instead of aborting the run.
                 "retry_sampling_varied": int(outcome.retry_sampling_varied.get(member.citizen_id, False)),
+                "llm_call_id": outcome.llm_call_ids.get(member.citizen_id),
                 "llm_fallback": int(outcome.llm_fallback.get(member.citizen_id, False)),
             },
             citizen_id=member.citizen_id,
@@ -2198,6 +2225,7 @@ def _run_accountability_phase(
             decisions: dict[int, PressureDecision] | None = None
             pressure_fallback: dict[int, bool] = {}
             pressure_retry_varied: dict[int, bool] = {}
+            pressure_call_ids: dict[int, str | None] = {}
             contexts: dict[int, PressureContext] = {}
             if config.llm.enabled and consulted:  # §7bis.7 step 2 (v4 Lot 7)
                 assert llm_client is not None  # guaranteed by _llm_client_scope when llm.enabled
@@ -2219,6 +2247,7 @@ def _run_accountability_phase(
                 decisions = {d.cid: d for d in outcome.decisions}
                 pressure_fallback = outcome.llm_fallback
                 pressure_retry_varied = outcome.retry_sampling_varied
+                pressure_call_ids = outcome.llm_call_ids
             participants = 0
             for citizen, gap in consulted:
                 can_sign = _can_sign(holder, citizen, tick, config)  # LIVE, re-read per citizen
@@ -2247,6 +2276,7 @@ def _run_accountability_phase(
                         # comparison depends on being able to exclude these.
                         "llm_fallback": int(pressure_fallback.get(citizen.citizen_id, False)),
                         "retry_sampling_varied": int(pressure_retry_varied.get(citizen.citizen_id, False)),
+                        "llm_call_id": pressure_call_ids.get(citizen.citizen_id),
                     }
                     motif = str(decision.motif)
                 if act is PressureAct.MOBILIZE:
