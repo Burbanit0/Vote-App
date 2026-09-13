@@ -118,6 +118,11 @@ def call_context(
         _current_context.reset(token)
 
 
+def current_call_context() -> CallContext | None:
+    """The context the engine set around the call being made in this thread, if any."""
+    return _current_context.get()
+
+
 _in_flight = threading.local()
 
 
@@ -260,6 +265,29 @@ class CallLoggingClient:
             return result
 
         return str(self._forward(record, call))
+
+    def complete_json_with_logprobs(self, **kwargs: Any) -> tuple[str, Any]:
+        """complete_json's call with token logprobs (S2.2's bake-off reads them). Logged
+        under the same request hash complete_json would give -- logprobs change what
+        comes back, not what is asked -- with the content, not the tokens."""
+        request_hash = request_sha256(
+            system_prompt=kwargs["system_prompt"],
+            user_prompt=kwargs["user_prompt"],
+            json_schema=kwargs["json_schema"],
+            max_tokens=kwargs["max_tokens"],
+            think=kwargs.get("think", True),
+            temperature=kwargs.get("temperature"),
+            seed=kwargs.get("seed"),
+        )
+        record = self._open_record(request_hash, kwargs, fallback_decision_type=decision_type_for_schema(kwargs["json_schema"]))
+
+        def call() -> tuple[str, Any]:
+            content, tokens = self._inner.complete_json_with_logprobs(**kwargs)
+            record.setdefault("content", content)
+            return str(content), tokens
+
+        result: tuple[str, Any] = self._forward(record, call)
+        return result
 
     def count_prompt_tokens(self, **kwargs: Any) -> int:
         request_hash = request_sha256(
