@@ -1,0 +1,98 @@
+{
+  "generated_at": "2026-09-13T14:22:21Z",
+  "workflows": {
+    "mutation-testing.yml": {
+      "display_name": "Mutation Testing",
+      "expected_cadence_hours": 168,
+      "last_run_at": "2026-09-13T13:54:59Z",
+      "recent_conclusions": [
+        "failure",
+        "failure",
+        "failure",
+        "failure",
+        "failure"
+      ],
+      "consecutive_failures": 5,
+      "status": "unhealthy",
+      "detail": "last 5 completed runs all failed"
+    },
+    "schemathesis.yml": {
+      "display_name": "Schemathesis Contract Fuzzing",
+      "expected_cadence_hours": 168,
+      "last_run_at": "2026-09-13T13:54:59Z",
+      "recent_conclusions": [
+        "success",
+        "success",
+        "success",
+        "success"
+      ],
+      "consecutive_failures": 0,
+      "status": "healthy",
+      "detail": "ok"
+    },
+    "atheris-fuzzing.yml": {
+      "display_name": "Coverage-Guided Fuzzing (atheris)",
+      "expected_cadence_hours": 168,
+      "last_run_at": "2026-09-13T13:54:59Z",
+      "recent_conclusions": [
+        "success",
+        "success",
+        "success",
+        "success",
+        "success"
+      ],
+      "consecutive_failures": 0,
+      "status": "healthy",
+      "detail": "ok"
+    },
+    "flaky-check-backend.yml": {
+      "display_name": "Backend Flaky Test Hunt",
+      "expected_cadence_hours": 24,
+      "last_run_at": "2026-09-13T13:54:59Z",
+      "recent_conclusions": [
+        "success",
+        "success",
+        "success",
+        "success",
+        "success"
+      ],
+      "consecutive_failures": 0,
+      "status": "healthy",
+      "detail": "ok"
+    },
+    "dast.yml": {
+      "display_name": "DAST \u2014 ZAP Baseline",
+      "expected_cadence_hours": 24,
+      "last_run_at": "2026-09-13T13:54:59Z",
+      "recent_conclusions": [
+        "success",
+        "success",
+        "success",
+        "success",
+        "success"
+      ],
+      "consecutive_failures": 0,
+      "status": "healthy",
+      "detail": "ok"
+    },
+    "scorecard.yml": {
+      "display_name": "OpenSSF Scorecard",
+      "expected_cadence_hours": 168,
+      "last_run_at": "2026-09-13T13:54:59Z",
+      "recent_conclusions": [
+        "success",
+        "success",
+        "success",
+        "success",
+        "success"
+      ],
+      "consecutive_failures": 0,
+      "status": "healthy",
+      "detail": "ok"
+    }
+  },
+  "branch_protection": {
+    "status": "drifted",
+    "detail": "missing live required contexts: ['CI health check']"
+  }
+}
