@@ -108,15 +108,15 @@ _TARGET_PARTY_ID = 3  # the one where the answer (26) was small enough to be det
 def main() -> int:
     config = load_config()
     checkpoint = load_checkpoint(_CHECKPOINT_PATH)
-    citizens_by_id = {c.citizen_id: c for c in checkpoint.citizens}
-    parties_by_id = {p.party_id: p for p in checkpoint.parties}
+    citizens_by_id = {c.citizen_id: c for c in checkpoint.state.citizens}
+    parties_by_id = {p.party_id: p for p in checkpoint.state.parties}
 
     contested = {
         party_id: [citizens_by_id[cid] for cid in cids]
         for party_id, cids in _CONTENDERS_BY_PARTY.items()
     }
     all_contenders = [c for members in contested.values() for c in members]
-    support = {c.citizen_id: sympathizer_ratio(c, checkpoint.citizens) for c in all_contenders}
+    support = {c.citizen_id: sympathizer_ratio(c, checkpoint.state.citizens) for c in all_contenders}
 
     system_prompt = build_party_nomination_system_prompt(contested)
     user_prompt = build_party_nomination_user_prompt(contested, parties_by_id, support)

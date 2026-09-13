@@ -40,12 +40,12 @@ import json
 import logging
 import subprocess
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Iterator
 
 import numpy as np
 
@@ -79,7 +79,7 @@ from api.domain.polity.ballot_and_aggregation import (
     get_presidential_winner,
     resolve_confidence_vote,
 )
-from api.domain.polity.checkpoint import config_hash, load_checkpoint, restore_rng, save_checkpoint
+from api.domain.polity.checkpoint import config_hash, load_checkpoint, save_checkpoint
 from api.domain.polity.progress import HeartbeatClient, ProgressTracker
 from api.domain.polity.snapshots import expected_snapshot_rows, is_snapshot_tick, write_snapshot
 from api.domain.polity.citizen import Citizen, Office, Role, generate_population
@@ -181,6 +181,7 @@ from api.domain.polity.simple_rules import (
     vacate_office,
 )
 from api.domain.polity.social_graph import SocialGraph, generate_social_graph
+from api.domain.polity.tick_state import PendingRerun, TickState
 
 _logger = logging.getLogger(__name__)
 
@@ -275,72 +276,6 @@ def _warm_up_llm_client(client: LlmClientProtocol) -> None:
                 )
         except Exception as exc:  # noqa: BLE001
             _logger.warning("LLM warm-up call (think=%s) failed, continuing anyway: %s", think, exc)
-
-
-@dataclass(frozen=True)
-class PendingRerun:
-    """v4 Lot 9 (§6bis.2): local, run-scoped state for the invalidate ->
-    rerun -> bar cycle, deliberately NOT a Citizen field: unlike every other
-    officeholder-scoped piece of state this project has added since Lot 3
-    (legitimacy_capital, street_pressure, petition state), an invalidated
-    election has no officeholder to attach state to by construction. Held as
-    a plain local in run_simulation's scope, threaded into and back out of
-    _hold_presidential_election and into _attempt_rupture_candidacies every
-    tick -- the same register as rupture_rng, the one other piece of
-    cross-tick local state this module already carries.
-
-    `attempt` is the rerun's own 1-indexed number: the ORIGINAL scheduled
-    election is never tracked as a PendingRerun at all (there is no pending
-    state until the first invalidation). attempt=1 is the first rerun,
-    attempt=2 the second. Attempts 1..reelection_max_attempts get the full
-    invalidation check; attempt reelection_max_attempts+1 is FORCED (see
-    _is_forced_attempt) -- §6bis.2's "au-delà, un résultat est forcé".
-
-    `barred_candidate_ids` unions the candidate set of every invalidated
-    election within this one cycle, but ONLY when
-    config.institutions.barred_from_immediate_rerun is true -- that key is
-    its own toggle, independent of blank_vote_competitive (shipped true,
-    the doc's own recommended default, but a real comparison arm). Cleared
-    (the whole PendingRerun discarded, back to None) the instant the cycle
-    resolves: a real winner elected, or the forced attempt's outcome
-    (winner or election_no_winner) accepted.
-
-    `next_tick` REPLACES the fixed calendar for the presidency while this is
-    active (see run_simulation's own tick loop), rather than being OR'd into
-    it -- OR-ing a rerun tick into the fixed calendar is reachable at
-    non-default reelection_delay_ticks/president_term_years combinations
-    and produces two independent elections for one vacancy, with no journal
-    event marking the discard."""
-
-    attempt: int
-    next_tick: int
-    barred_candidate_ids: frozenset[int]
-
-
-def _pending_rerun_to_dict(pending_rerun: PendingRerun | None) -> dict[str, Any] | None:
-    """Phase 3 (plan-flagship-30y-run.md): checkpoint.py's own save/load
-    functions take a plain dict for this field rather than importing
-    PendingRerun directly -- that class lives here, and checkpoint.py needs
-    to be importABLE from here, so the reverse import would be circular.
-    Three fields, trivial to convert at the one place that already owns
-    the class."""
-    if pending_rerun is None:
-        return None
-    return {
-        "attempt": pending_rerun.attempt,
-        "next_tick": pending_rerun.next_tick,
-        "barred_candidate_ids": sorted(pending_rerun.barred_candidate_ids),
-    }
-
-
-def _pending_rerun_from_dict(data: dict[str, Any] | None) -> PendingRerun | None:
-    if data is None:
-        return None
-    return PendingRerun(
-        attempt=data["attempt"],
-        next_tick=data["next_tick"],
-        barred_candidate_ids=frozenset(data["barred_candidate_ids"]),
-    )
 
 
 def _is_forced_attempt(pending_rerun: PendingRerun | None, config: PolityConfig) -> bool:
@@ -632,77 +567,11 @@ def run_simulation(
             snapshots_path,
             expected_snapshot_rows(checkpoint.tick, config.run.ticks_per_year, config.run.population_size),
         )
-        citizens = checkpoint.citizens
-        parties = checkpoint.parties
-        pending_rerun = _pending_rerun_from_dict(checkpoint.pending_rerun)
-        # Track E (2026-09-11): None on every checkpoint except the single
-        # tick between a staggered declaration and its own nomination one
-        # tick later -- see Checkpoint.staggered_declared_cids's own
-        # docstring.
-        staggered_declared_cids: set[int] | None = (
-            set(checkpoint.staggered_declared_cids) if checkpoint.staggered_declared_cids is not None else None
-        )
-        economy_x = checkpoint.economy_x
-        mobilized_last_tick: Mapping[int, int] = dict(checkpoint.mobilized_last_tick)
-        rupture_rng = restore_rng(checkpoint.rupture_rng_state)
-        events_rng = restore_rng(checkpoint.events_rng_state)
-        sortition_rng = restore_rng(checkpoint.sortition_rng_state)
+        state = checkpoint.state
         first_tick = checkpoint.tick + 1
         start_event_id = checkpoint.next_event_id
     else:
-        citizens = generate_population(config.citizens, config.run.population_size, config.run.seed)
-        _warn_if_no_candidate_is_possible(citizens, config)
-        parties = initialize_parties(citizens, config.parties.initial_count, config.run.seed)
-        for citizen in citizens:
-            citizen.party_affiliation = assign_party_affiliation(citizen, parties)
-        # Independent stream from population/party generation (same pattern as
-        # Lot 2/3): a fresh default_rng per concern, so enabling rupture draws
-        # never perturbs the citizens/parties already generated above.
-        rupture_rng = np.random.default_rng(config.run.seed)
-        # v5 Lot 2 (§8): a third independent stream, never reusing rupture_rng --
-        # same "fresh default_rng per concern" reasoning as above. rupture_rng
-        # already draws unconditionally every tick for every elector (before the
-        # is_term_limited/barred-set check, specifically so a gated citizen
-        # never shifts the stream); coupling v5's draws into that stream would
-        # either entangle two unrelated mechanisms' RNG consumption for no
-        # benefit, or -- if inserted only when events.enabled -- violate
-        # rupture_rng's own existing, tested draw-position contract for every
-        # run that doesn't enable events. Fixed intra-stream draw order inside
-        # _run_exogenous_events: scandal arrival before the AR(1) innovation.
-        events_rng = np.random.default_rng(config.run.seed)
-        # v6b Lot 2 (§6bis.3): a fourth independent stream -- unlike `graph`
-        # above (generated once, no persistent stream name needed), sortition
-        # selection draws repeatedly, every rotation tick, so it needs the
-        # rupture_rng/events_rng-style persistent stream. Drawn from only
-        # inside select_sortition_chamber, only on a rotation tick, only when
-        # sortition_chamber.enabled -- undrawn otherwise.
-        sortition_rng = np.random.default_rng(config.run.seed)
-        # v4 Lot 9 (§6bis.2): None whenever blank_vote_competitive is off (the
-        # shipped default) or no cycle is currently open -- see PendingRerun's
-        # own docstring for why this is a plain local, not a Citizen field.
-        pending_rerun = None
-        # Track E (2026-09-11): the staggered-election declaration/nomination
-        # gap -- see Checkpoint.staggered_declared_cids's own docstring. Same
-        # bare-local register as pending_rerun; None whenever no declaration
-        # is currently pending (always, unless institutions.staggered_
-        # election is on and this is the single tick after a declaration).
-        staggered_declared_cids = None
-        # v5 Lot 2 (§8): the AR(1) economic-climate variable, x(t) -- population-
-        # wide, no natural Citizen owner, so a bare local in the same register as
-        # rupture_rng/pending_rerun rather than a Citizen field. Reassigned from
-        # _run_exogenous_events's return value every tick. Deliberately
-        # unclamped -- see shock.economic_shock_step's own docstring.
-        economy_x = 0.0
-        # v6 Lot 3 (§5/§7bis.9c): citizen_id -> target citizen_id, for every
-        # citizen whose APPLIED pressure_action was MOBILIZE on the most
-        # recently completed tick -- a bare local in the same register as
-        # economy_x, fully REPLACED (never accumulated) every tick by
-        # _run_accountability_phase's own return value, so it always reflects
-        # exactly one completed tick. The one-tick lag mirrors dt=6's own
-        # street_pressure lag (v4 Lot 6): decide_pressure_actions batches an
-        # entire cohort's decisions in one frozen call, so a neighbor's SAME-
-        # tick decision cannot be seen by construction.
-        mobilized_last_tick = {}
+        state = _fresh_tick_state(config)
         first_tick = 0
         start_event_id = 0
 
@@ -731,106 +600,12 @@ def run_simulation(
             # looking like a freeze. Paired with record_tick below, which
             # clears it.
             progress_tracker.begin_tick(tick)
-            # Phase 6: BEFORE this tick's own phases run, not after -- the
-            # tick-0 snapshot is then the true initial population, untouched
-            # by any simulated decision, and every later year's snapshot
-            # reflects state as of the START of that year (i.e. through the
-            # END of the year before it), matching a census-style reading.
-            # See is_snapshot_tick's own docstring for the resume-truncation
-            # consequence of this ordering.
-            if is_snapshot_tick(tick, config.run.ticks_per_year):
-                write_snapshot(snapshots_path, citizens, tick=tick, ticks_per_year=config.run.ticks_per_year)
-            barred_ids = pending_rerun.barred_candidate_ids if pending_rerun is not None else frozenset()
-            _attempt_rupture_candidacies(citizens, parties, config, journal, tick, rupture_rng, barred_candidate_ids=barred_ids)
-            exogenous = _run_exogenous_events(citizens, config, journal, tick, events_rng, economy_x)
-            economy_x = exogenous.economy_x
-            election = clock.election_at(tick)
-            # While a rerun is pending, the fixed presidential calendar is
-            # SUSPENDED, not OR'd with the rerun tick -- see PendingRerun's
-            # own docstring for why a union reintroduces a double-election
-            # pathology. This reduces to today's exact
-            # `election in (PRESIDENTIAL, BOTH)` check whenever
-            # pending_rerun is None, which is always true when
-            # blank_vote_competitive is off.
-            if pending_rerun is not None:
-                hold_president = tick == pending_rerun.next_tick
-                # Track E (2026-09-11): any staggered declaration still
-                # awaiting its own nomination tick is abandoned the instant
-                # a rerun interrupts the calendar -- otherwise a stale
-                # declared set from a cycle the calendar never finished
-                # could resurface at a LATER, unrelated election's own
-                # nomination tick once the rerun eventually resolves.
-                # already_staggered's own fallback in _hold_presidential_
-                # election recovers the abandoned cycle atomically, exactly
-                # like the tick-0/no-staggering case.
-                staggered_declared_cids = None
-            else:
-                hold_president = election in (ElectionType.PRESIDENTIAL, ElectionType.BOTH)
-                # Track E's own staggered calendar, fixed-election-only (a
-                # rerun never reaches this branch -- see above). Declaration
-                # and nomination are never the SAME tick as the vote they
-                # feed (both fire strictly before it), so this cannot
-                # collide with `hold_president` below.
-                if config.institutions.staggered_election and client is not None:
-                    if clock.is_presidential_declaration_tick(tick):
-                        staggered_declared_cids = _consider_candidacies_llm(citizens, config, journal, tick, client)
-                    if clock.is_presidential_nomination_tick(tick) and staggered_declared_cids is not None:
-                        _nominate_and_position_llm(
-                            citizens, parties, staggered_declared_cids, config, journal, tick, client
-                        )
-                        staggered_declared_cids = None
-            if hold_president:
-                pending_rerun = _hold_presidential_election(
-                    citizens, parties, config, journal, tick, client, pending_rerun
-                )
-            if election in (ElectionType.LEGISLATIVE, ElectionType.BOTH):
-                seats, votes = _hold_legislative_election(citizens, parties, config, journal, tick)
-                _form_and_journal_coalition(parties, seats, votes, config, journal, tick, client)
-            if config.sortition_chamber.enabled and clock.is_sortition_rotation(tick):
-                _run_sortition_rotation(citizens, config, journal, tick, sortition_rng)
-            if config.sortition_chamber.enabled:
-                _run_chamber_deliberation(citizens, config, journal, tick, client)
-            president_before_accountability = current_office_holders(citizens, Office.PRESIDENT)
-            mobilized_last_tick = _run_accountability_phase(
-                citizens, config, journal, tick, client,
-                exogenous=exogenous, graph=graph, mobilized_last_tick=mobilized_last_tick,
+            context = TickContext(
+                tick=tick, config=config, journal=journal, client=client, clock=clock, graph=graph,
+                snapshots_path=snapshots_path, election=clock.election_at(tick),
             )
-            # Track A3 (2026-09-11, lets-build-a-solid-spicy-otter.md): the
-            # snap election. Deliberately keyed on "the office is vacant and
-            # nothing is already scheduled to fill it" rather than "a recall
-            # fired this tick" -- engine-agnostic (the vacancy is structural
-            # to simple_rules.py's own recall logic, not an LLM artifact --
-            # measured directly, Track 0b), self-healing on resume (a run
-            # that vacated the office before this flag existed schedules one
-            # the first tick it is checked), and it never fights a genuine
-            # blank-vote-invalidation cycle already in progress
-            # (pending_rerun is None guards both). `president_before_
-            # accountability` is captured only for the journal event below
-            # -- it plays no role in the trigger condition itself.
-            if (
-                config.institutions.snap_election_on_recall
-                and pending_rerun is None
-                and not current_office_holders(citizens, Office.PRESIDENT)
-            ):
-                pending_rerun = PendingRerun(
-                    attempt=1, next_tick=tick + config.institutions.reelection_delay_ticks,
-                    # barred_from_immediate_rerun does NOT apply here -- see
-                    # _parse_institutions's own comment on why a recall has
-                    # no candidate SET to bar the way an invalidated
-                    # election does.
-                    barred_candidate_ids=frozenset(),
-                )
-                journal.write_event(
-                    tick=tick,
-                    event=SnapElectionTriggered(
-                        office=Office.PRESIDENT.value,
-                        recalled_citizen_id=president_before_accountability[0].citizen_id
-                            if president_before_accountability
-                            else None,
-                        next_attempt_tick=pending_rerun.next_tick,
-                    ),
-                    citizen_id=None,
-                )
+            for phase in TICK_PHASES:
+                phase(context, state)
             # Phase 3: checkpoint AFTER every tick's phases are fully done and
             # journaled, never mid-tick -- a resume always restarts a tick
             # from its own beginning (see truncate_journal's own docstring),
@@ -838,22 +613,8 @@ def run_simulation(
             # this same iteration just finished computing, at the position in
             # the loop where nothing about `tick` has changed since.
             save_checkpoint(
-                checkpoint_path,
-                run_id=run_id,
-                config=config,
-                tick=tick,
-                next_event_id=journal.next_event_id,
-                citizens=citizens,
-                parties=parties,
-                pending_rerun=_pending_rerun_to_dict(pending_rerun),
-                economy_x=economy_x,
-                mobilized_last_tick=mobilized_last_tick,
-                rupture_rng=rupture_rng,
-                events_rng=events_rng,
-                sortition_rng=sortition_rng,
-                staggered_declared_cids=(
-                    sorted(staggered_declared_cids) if staggered_declared_cids is not None else None
-                ),
+                checkpoint_path, run_id=run_id, config=config, tick=tick,
+                next_event_id=journal.next_event_id, state=state,
             )
             # Phase 4 (plan-flagship-30y-run.md): same position as the
             # checkpoint write above -- after this tick's own phases are
@@ -870,6 +631,221 @@ def run_simulation(
     if config.journal.enabled and config.journal.index_after_run:
         compact_run(journal_path, config)
     return journal_path
+
+
+def _fresh_tick_state(config: PolityConfig) -> TickState:
+    """A new run's starting state."""
+    citizens = generate_population(config.citizens, config.run.population_size, config.run.seed)
+    _warn_if_no_candidate_is_possible(citizens, config)
+    parties = initialize_parties(citizens, config.parties.initial_count, config.run.seed)
+    for citizen in citizens:
+        citizen.party_affiliation = assign_party_affiliation(citizen, parties)
+    return TickState(
+        citizens=citizens,
+        parties=parties,
+        # Independent stream from population/party generation (same pattern as
+        # Lot 2/3): a fresh default_rng per concern, so enabling rupture draws
+        # never perturbs the citizens/parties already generated above.
+        rupture_rng=np.random.default_rng(config.run.seed),
+        # v5 Lot 2 (§8): a third independent stream, never reusing rupture_rng --
+        # same "fresh default_rng per concern" reasoning as above. rupture_rng
+        # already draws unconditionally every tick for every elector (before the
+        # is_term_limited/barred-set check, specifically so a gated citizen
+        # never shifts the stream); coupling v5's draws into that stream would
+        # either entangle two unrelated mechanisms' RNG consumption for no
+        # benefit, or -- if inserted only when events.enabled -- violate
+        # rupture_rng's own existing, tested draw-position contract for every
+        # run that doesn't enable events. Fixed intra-stream draw order inside
+        # _run_exogenous_events: scandal arrival before the AR(1) innovation.
+        events_rng=np.random.default_rng(config.run.seed),
+        # v6b Lot 2 (§6bis.3): a fourth independent stream -- unlike `graph`
+        # (generated once, no persistent stream name needed), sortition
+        # selection draws repeatedly, every rotation tick, so it needs the
+        # rupture_rng/events_rng-style persistent stream. Drawn from only
+        # inside select_sortition_chamber, only on a rotation tick, only when
+        # sortition_chamber.enabled -- undrawn otherwise.
+        sortition_rng=np.random.default_rng(config.run.seed),
+        # pending_rerun (v4 Lot 9, §6bis.2): None whenever blank_vote_competitive
+        # is off (the shipped default) or no cycle is currently open.
+        # staggered_declared_cids (Track E): None unless institutions.staggered_
+        # election is on and this is the single tick after a declaration.
+        # economy_x (v5 Lot 2, §8): the AR(1) economic climate x(t), reassigned from
+        # _run_exogenous_events every tick; deliberately unclamped -- see
+        # shock.economic_shock_step.
+        # mobilized_last_tick (v6 Lot 3, §5/§7bis.9c): citizen_id -> target for every
+        # citizen whose APPLIED pressure_action was MOBILIZE on the most recently
+        # completed tick, fully REPLACED every tick by _run_accountability_phase.
+        # The one-tick lag mirrors dt=6's street_pressure lag (v4 Lot 6):
+        # decide_pressure_actions batches a cohort in one frozen call, so a
+        # neighbor's SAME-tick decision cannot be seen by construction.
+    )
+
+
+@dataclass
+class TickContext:
+    """One tick's fixed inputs, and what an earlier phase of the tick leaves for a
+    later one (exogenous events for accountability, the president before
+    accountability for the snap-election event). Rebuilt every tick; never
+    checkpointed -- nothing in it outlives the tick."""
+
+    tick: int
+    config: PolityConfig
+    journal: Journal
+    client: LlmClientProtocol | None
+    clock: InstitutionalClock
+    graph: SocialGraph | None
+    snapshots_path: Path
+    election: ElectionType | None
+    exogenous: ExogenousEventsOutcome | None = None
+    president_before_accountability: list[Citizen] = field(default_factory=list)
+
+
+def _phase_snapshot(context: TickContext, state: TickState) -> None:
+    # Phase 6: BEFORE this tick's own phases run, not after -- the tick-0 snapshot
+    # is then the true initial population, untouched by any simulated decision, and
+    # every later year's snapshot reflects state as of the START of that year
+    # (i.e. through the END of the year before it), matching a census-style
+    # reading. See is_snapshot_tick's own docstring for the resume-truncation
+    # consequence of this ordering.
+    config = context.config
+    if is_snapshot_tick(context.tick, config.run.ticks_per_year):
+        write_snapshot(context.snapshots_path, state.citizens, tick=context.tick, ticks_per_year=config.run.ticks_per_year)
+
+
+def _phase_rupture_candidacies(context: TickContext, state: TickState) -> None:
+    barred_ids = state.pending_rerun.barred_candidate_ids if state.pending_rerun is not None else frozenset()
+    _attempt_rupture_candidacies(
+        state.citizens, state.parties, context.config, context.journal, context.tick, state.rupture_rng,
+        barred_candidate_ids=barred_ids,
+    )
+
+
+def _phase_exogenous_events(context: TickContext, state: TickState) -> None:
+    context.exogenous = _run_exogenous_events(
+        state.citizens, context.config, context.journal, context.tick, state.events_rng, state.economy_x,
+    )
+    state.economy_x = context.exogenous.economy_x
+
+
+def _phase_presidential_election(context: TickContext, state: TickState) -> None:
+    tick, config, client = context.tick, context.config, context.client
+    # While a rerun is pending, the fixed presidential calendar is SUSPENDED, not
+    # OR'd with the rerun tick -- see PendingRerun's own docstring for why a union
+    # reintroduces a double-election pathology. This reduces to the plain
+    # `election in (PRESIDENTIAL, BOTH)` check whenever pending_rerun is None,
+    # which is always true when blank_vote_competitive is off.
+    if state.pending_rerun is not None:
+        hold_president = tick == state.pending_rerun.next_tick
+        # Track E (2026-09-11): any staggered declaration still awaiting its own
+        # nomination tick is abandoned the instant a rerun interrupts the calendar
+        # -- otherwise a stale declared set from a cycle the calendar never
+        # finished could resurface at a LATER, unrelated election's own nomination
+        # tick once the rerun eventually resolves. already_staggered's own fallback
+        # in _hold_presidential_election recovers the abandoned cycle atomically,
+        # exactly like the tick-0/no-staggering case.
+        state.staggered_declared_cids = None
+    else:
+        hold_president = context.election in (ElectionType.PRESIDENTIAL, ElectionType.BOTH)
+        # Track E's own staggered calendar, fixed-election-only (a rerun never
+        # reaches this branch -- see above). Declaration and nomination are never
+        # the SAME tick as the vote they feed (both fire strictly before it), so
+        # this cannot collide with `hold_president` below.
+        if config.institutions.staggered_election and client is not None:
+            _run_staggered_campaign(context, state, client)
+    if hold_president:
+        state.pending_rerun = _hold_presidential_election(
+            state.citizens, state.parties, config, context.journal, tick, client, state.pending_rerun,
+        )
+
+
+def _run_staggered_campaign(context: TickContext, state: TickState, client: LlmClientProtocol) -> None:
+    tick = context.tick
+    if context.clock.is_presidential_declaration_tick(tick):
+        state.staggered_declared_cids = _consider_candidacies_llm(state.citizens, context.config, context.journal, tick, client)
+    if context.clock.is_presidential_nomination_tick(tick) and state.staggered_declared_cids is not None:
+        _nominate_and_position_llm(
+            state.citizens, state.parties, state.staggered_declared_cids, context.config, context.journal, tick, client,
+        )
+        state.staggered_declared_cids = None
+
+
+def _phase_legislative_election(context: TickContext, state: TickState) -> None:
+    if context.election in (ElectionType.LEGISLATIVE, ElectionType.BOTH):
+        seats, votes = _hold_legislative_election(state.citizens, state.parties, context.config, context.journal, context.tick)
+        _form_and_journal_coalition(state.parties, seats, votes, context.config, context.journal, context.tick, context.client)
+
+
+def _phase_sortition_chamber(context: TickContext, state: TickState) -> None:
+    config = context.config
+    if not config.sortition_chamber.enabled:
+        return
+    if context.clock.is_sortition_rotation(context.tick):
+        _run_sortition_rotation(state.citizens, config, context.journal, context.tick, state.sortition_rng)
+    _run_chamber_deliberation(state.citizens, config, context.journal, context.tick, context.client)
+
+
+def _phase_accountability(context: TickContext, state: TickState) -> None:
+    assert context.exogenous is not None  # _phase_exogenous_events runs earlier in TICK_PHASES
+    context.president_before_accountability = current_office_holders(state.citizens, Office.PRESIDENT)
+    state.mobilized_last_tick = _run_accountability_phase(
+        state.citizens, context.config, context.journal, context.tick, context.client,
+        exogenous=context.exogenous, graph=context.graph, mobilized_last_tick=state.mobilized_last_tick,
+    )
+
+
+def _phase_snap_election(context: TickContext, state: TickState) -> None:
+    # Track A3 (2026-09-11, lets-build-a-solid-spicy-otter.md): the snap election.
+    # Deliberately keyed on "the office is vacant and nothing is already scheduled
+    # to fill it" rather than "a recall fired this tick" -- engine-agnostic (the
+    # vacancy is structural to simple_rules.py's own recall logic, not an LLM
+    # artifact -- measured directly, Track 0b), self-healing on resume (a run that
+    # vacated the office before this flag existed schedules one the first tick it
+    # is checked), and it never fights a genuine blank-vote-invalidation cycle
+    # already in progress (pending_rerun is None guards both).
+    # `president_before_accountability` is captured only for the journal event
+    # below -- it plays no role in the trigger condition itself.
+    config = context.config
+    if (
+        not config.institutions.snap_election_on_recall
+        or state.pending_rerun is not None
+        or current_office_holders(state.citizens, Office.PRESIDENT)
+    ):
+        return
+    state.pending_rerun = PendingRerun(
+        attempt=1, next_tick=context.tick + config.institutions.reelection_delay_ticks,
+        # barred_from_immediate_rerun does NOT apply here -- see
+        # _parse_institutions's own comment on why a recall has no candidate SET
+        # to bar the way an invalidated election does.
+        barred_candidate_ids=frozenset(),
+    )
+    before = context.president_before_accountability
+    context.journal.write_event(
+        tick=context.tick,
+        event=SnapElectionTriggered(
+            office=Office.PRESIDENT.value,
+            recalled_citizen_id=before[0].citizen_id if before else None,
+            next_attempt_tick=state.pending_rerun.next_tick,
+        ),
+        citizen_id=None,
+    )
+
+
+TICK_PHASES: tuple[Callable[[TickContext, TickState], None], ...] = (
+    _phase_snapshot,
+    _phase_rupture_candidacies,
+    _phase_exogenous_events,
+    _phase_presidential_election,
+    _phase_legislative_election,
+    _phase_sortition_chamber,
+    _phase_accountability,
+    _phase_snap_election,
+)
+"""One tick, in order (S3.4). Each phase reads and updates TickState and may leave a
+value on TickContext for a later phase of the same tick -- the order is load-bearing:
+exogenous events before accountability (which reads them), elections before the
+chamber and accountability, the snap-election check last. Phases call the module's
+named functions (_attempt_rupture_candidacies, _run_accountability_phase, ...), so the
+crash-and-resume tests that patch those names still interrupt a real tick."""
 
 
 @contextmanager

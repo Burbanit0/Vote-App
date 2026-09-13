@@ -5050,7 +5050,7 @@ def test_staggered_election_resumes_correctly_after_a_crash_between_declaration_
 
     checkpoint = load_checkpoint(tmp_path / "crashed" / "run" / "checkpoint.json")
     assert checkpoint.tick == crash_tick - 1  # tick 2, the declaration tick, fully completed and checkpointed
-    assert checkpoint.staggered_declared_cids is not None  # the exact cross-tick state this test targets
+    assert checkpoint.state.staggered_declared_cids is not None  # the exact cross-tick state this test targets
 
     journal_b = run_simulation(config_b, run_id="run", llm_client=_ElectingFakeLlmClient(), resume=True)
 
