@@ -12,14 +12,15 @@ import numpy as np
 import pytest
 
 from api.domain.polity.checkpoint import (
+    STATE_PAYLOAD_KEYS,
     config_hash,
     load_checkpoint,
-    restore_rng,
     save_checkpoint,
 )
 from api.domain.polity.citizen import Citizen, Office, Role
 from api.domain.polity.config import load_config
 from api.domain.polity.parties import Party
+from api.domain.polity.tick_state import PendingRerun, TickState
 
 
 def _citizen(cid, **overrides):
@@ -41,12 +42,8 @@ def _rng(seed, draws=0):
     return rng
 
 
-def _save(path, config, **overrides):
-    kwargs = dict(
-        run_id="r1",
-        config=config,
-        tick=3,
-        next_event_id=42,
+def _save(path, config, *, run_id="r1", tick=3, next_event_id=42, **state_overrides):
+    state = dict(
         citizens=[_citizen(0)],
         parties=[Party(party_id=0, platform=(0.5, 0.5))],
         pending_rerun=None,
@@ -56,8 +53,8 @@ def _save(path, config, **overrides):
         events_rng=_rng(2),
         sortition_rng=_rng(3),
     )
-    kwargs.update(overrides)
-    save_checkpoint(path, **kwargs)
+    state.update(state_overrides)
+    save_checkpoint(path, run_id=run_id, config=config, tick=tick, next_event_id=next_event_id, state=TickState(**state))
 
 
 def test_round_trip_preserves_scalar_fields(tmp_path):
@@ -70,7 +67,7 @@ def test_round_trip_preserves_scalar_fields(tmp_path):
     assert cp.run_id == "r1"
     assert cp.tick == 7
     assert cp.next_event_id == 99
-    assert cp.economy_x == 0.25
+    assert cp.state.economy_x == 0.25
     assert cp.config_hash == config_hash(config)
 
 
@@ -100,7 +97,7 @@ def test_round_trip_preserves_every_citizen_field(tmp_path):
     path = tmp_path / "checkpoint.json"
     _save(path, config, citizens=[citizen])
 
-    restored = load_checkpoint(path).citizens[0]
+    restored = load_checkpoint(path).state.citizens[0]
 
     assert restored == citizen
     assert isinstance(restored.role, Role)
@@ -119,7 +116,7 @@ def test_round_trip_preserves_citizens_with_none_optional_fields(tmp_path):
     path = tmp_path / "checkpoint.json"
     _save(path, config, citizens=[citizen])
 
-    restored = load_checkpoint(path).citizens[0]
+    restored = load_checkpoint(path).state.citizens[0]
 
     assert restored == citizen
     assert restored.pledged_platform is None
@@ -133,7 +130,7 @@ def test_round_trip_preserves_citizen_order(tmp_path):
     path = tmp_path / "checkpoint.json"
     _save(path, config, citizens=citizens)
 
-    restored = load_checkpoint(path).citizens
+    restored = load_checkpoint(path).state.citizens
 
     assert [c.citizen_id for c in restored] == [5, 2, 8, 1]
 
@@ -144,16 +141,16 @@ def test_round_trip_preserves_parties(tmp_path):
     path = tmp_path / "checkpoint.json"
     _save(path, config, parties=parties)
 
-    assert load_checkpoint(path).parties == parties
+    assert load_checkpoint(path).state.parties == parties
 
 
 def test_round_trip_preserves_pending_rerun(tmp_path):
     config = load_config()
-    pending = {"attempt": 2, "next_tick": 9, "barred_candidate_ids": [3, 1, 7]}
+    pending = PendingRerun(attempt=2, next_tick=9, barred_candidate_ids=frozenset({3, 1, 7}))
     path = tmp_path / "checkpoint.json"
     _save(path, config, pending_rerun=pending)
 
-    assert load_checkpoint(path).pending_rerun == pending
+    assert load_checkpoint(path).state.pending_rerun == pending
 
 
 def test_round_trip_preserves_pending_rerun_none(tmp_path):
@@ -161,7 +158,7 @@ def test_round_trip_preserves_pending_rerun_none(tmp_path):
     path = tmp_path / "checkpoint.json"
     _save(path, config, pending_rerun=None)
 
-    assert load_checkpoint(path).pending_rerun is None
+    assert load_checkpoint(path).state.pending_rerun is None
 
 
 def test_round_trip_preserves_staggered_declared_cids(tmp_path):
@@ -169,9 +166,9 @@ def test_round_trip_preserves_staggered_declared_cids(tmp_path):
     # declaration and its own nomination tick, one tick later.
     config = load_config()
     path = tmp_path / "checkpoint.json"
-    _save(path, config, staggered_declared_cids=[7, 3, 1])
+    _save(path, config, staggered_declared_cids={7, 3, 1})
 
-    assert load_checkpoint(path).staggered_declared_cids == [7, 3, 1]
+    assert load_checkpoint(path).state.staggered_declared_cids == {7, 3, 1}
 
 
 def test_round_trip_preserves_staggered_declared_cids_none(tmp_path):
@@ -179,7 +176,7 @@ def test_round_trip_preserves_staggered_declared_cids_none(tmp_path):
     path = tmp_path / "checkpoint.json"
     _save(path, config, staggered_declared_cids=None)
 
-    assert load_checkpoint(path).staggered_declared_cids is None
+    assert load_checkpoint(path).state.staggered_declared_cids is None
 
 
 def test_a_checkpoint_written_before_track_e_shipped_loads_as_none(tmp_path):
@@ -195,7 +192,7 @@ def test_a_checkpoint_written_before_track_e_shipped_loads_as_none(tmp_path):
     del payload["staggered_declared_cids"]
     path.write_text(json.dumps(payload), encoding="utf-8")
 
-    assert load_checkpoint(path).staggered_declared_cids is None
+    assert load_checkpoint(path).state.staggered_declared_cids is None
 
 
 def test_round_trip_preserves_mobilized_last_tick_with_int_keys(tmp_path):
@@ -205,7 +202,7 @@ def test_round_trip_preserves_mobilized_last_tick_with_int_keys(tmp_path):
     path = tmp_path / "checkpoint.json"
     _save(path, config, mobilized_last_tick={5: 12, 30: 7})
 
-    restored = load_checkpoint(path).mobilized_last_tick
+    restored = load_checkpoint(path).state.mobilized_last_tick
 
     assert restored == {5: 12, 30: 7}
     assert all(isinstance(k, int) for k in restored)
@@ -220,7 +217,7 @@ def test_rng_state_round_trips_and_continues_the_same_stream(tmp_path):
     path = tmp_path / "checkpoint.json"
     _save(path, config, rupture_rng=rupture_rng)
 
-    restored = restore_rng(load_checkpoint(path).rupture_rng_state)
+    restored = load_checkpoint(path).state.rupture_rng
     actual_next = restored.random(10)
 
     assert (actual_next == expected_next).all()
@@ -239,9 +236,9 @@ def test_the_three_rng_streams_restore_independently(tmp_path):
     expected_events = _rng(2, draws=6).random(4)
     expected_sortition = _rng(3, draws=9).random(4)
 
-    assert (restore_rng(cp.rupture_rng_state).random(4) == expected_rupture).all()
-    assert (restore_rng(cp.events_rng_state).random(4) == expected_events).all()
-    assert (restore_rng(cp.sortition_rng_state).random(4) == expected_sortition).all()
+    assert (cp.state.rupture_rng.random(4) == expected_rupture).all()
+    assert (cp.state.events_rng.random(4) == expected_events).all()
+    assert (cp.state.sortition_rng.random(4) == expected_sortition).all()
 
 
 def test_save_is_atomic_no_tmp_file_left_behind(tmp_path):
@@ -294,3 +291,28 @@ def test_config_hash_ignores_journal_output_dir():
     config = load_config()
     relocated = dataclasses.replace(config, journal=dataclasses.replace(config.journal, output_dir="/elsewhere"))
     assert config_hash(config) == config_hash(relocated)
+
+
+def test_every_tick_state_field_has_a_checkpoint_key(tmp_path):
+    # S3.4: TickState is serialised whole. A field added to it without a key here would
+    # be lost on resume -- silently, since the resumed run would start it from its default.
+    import json
+
+    assert set(STATE_PAYLOAD_KEYS) == {f.name for f in dataclasses.fields(TickState)}
+    config = load_config()
+    path = tmp_path / "checkpoint.json"
+    _save(path, config)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert set(payload) == set(STATE_PAYLOAD_KEYS.values()) | {"run_id", "config_hash", "tick", "next_event_id"}
+
+
+def test_a_checkpoint_keeps_the_file_format_older_runs_wrote(tmp_path):
+    # Resuming a run started before S3.4 (the checkpoint JSON keys did not change).
+    import json
+
+    config = load_config()
+    path = tmp_path / "checkpoint.json"
+    _save(path, config, pending_rerun=PendingRerun(attempt=1, next_tick=4, barred_candidate_ids=frozenset({2})))
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert payload["pending_rerun"] == {"attempt": 1, "next_tick": 4, "barred_candidate_ids": [2]}
+    assert payload["mobilized_last_tick"] == {} and "rupture_rng_state" in payload

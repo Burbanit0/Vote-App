@@ -20,12 +20,11 @@ mid-run)"; `InstitutionalClock.from_config` takes config alone, holds no
 state. Regenerating either from the resumed config reproduces them exactly;
 snapshotting them would be pure duplication with its own resync risk.
 
-**`pending_rerun`** (v4 Lot 9's `PendingRerun`) is intentionally NOT this
-module's own type -- `run_polity_simulation.py` owns that class, and
-importing it here would be circular (that module needs to call INTO this
-one). This module's own save/load functions take/return a plain
-`dict[str, Any] | None` for it; the caller does the (three-field, trivial)
-conversion.
+**What is snapshotted** is `tick_state.TickState` whole (S3.4), plus the run id,
+config hash, tick and next event id. The file's JSON keys are unchanged from before
+TickState existed, so a checkpoint written by older code still resumes.
+`STATE_PAYLOAD_KEYS` maps every TickState field to its key, and a test fails when a
+field is added without one.
 """
 from __future__ import annotations
 
@@ -41,6 +40,7 @@ import numpy as np
 from api.domain.polity.citizen import Citizen, Office, Role
 from api.domain.polity.config import PolityConfig
 from api.domain.polity.parties import Party
+from api.domain.polity.tick_state import PendingRerun, TickState
 
 
 @dataclasses.dataclass(frozen=True)
@@ -57,23 +57,7 @@ class Checkpoint:
     config_hash: str
     tick: int
     next_event_id: int
-    citizens: list[Citizen]
-    parties: list[Party]
-    pending_rerun: dict[str, Any] | None
-    economy_x: float
-    mobilized_last_tick: Mapping[int, int]
-    rupture_rng_state: dict[str, Any]
-    events_rng_state: dict[str, Any]
-    sortition_rng_state: dict[str, Any]
-    staggered_declared_cids: list[int] | None
-    """Track E (2026-09-11): who declared candidacy at this cycle's
-    declaration tick (`institutions.staggered_election`), still awaiting
-    the nomination tick 1 tick later. `None` whenever no declaration is
-    pending -- every tick except the single one between a staggered
-    declaration and its own nomination -- same "bare local, not a Citizen
-    field" register as `pending_rerun`/`economy_x`/`mobilized_last_tick`,
-    for the same reason: this is institutional/cycle-scoped state, not a
-    citizen's own durable property."""
+    state: TickState
 
 
 def config_hash(config: PolityConfig) -> str:
@@ -142,6 +126,61 @@ def _party_from_dict(data: dict[str, Any]) -> Party:
     return Party(party_id=data["party_id"], platform=tuple(data["platform"]))
 
 
+STATE_PAYLOAD_KEYS: dict[str, str] = {
+    "citizens": "citizens",
+    "parties": "parties",
+    "rupture_rng": "rupture_rng_state",
+    "events_rng": "events_rng_state",
+    "sortition_rng": "sortition_rng_state",
+    "pending_rerun": "pending_rerun",
+    "staggered_declared_cids": "staggered_declared_cids",
+    "economy_x": "economy_x",
+    "mobilized_last_tick": "mobilized_last_tick",
+}
+"""TickState field -> checkpoint JSON key."""
+
+
+def _state_to_payload(state: TickState) -> dict[str, Any]:
+    pending = state.pending_rerun
+    return {
+        "citizens": [_citizen_to_dict(c) for c in state.citizens],
+        "parties": [_party_to_dict(p) for p in state.parties],
+        "rupture_rng_state": state.rupture_rng.bit_generator.state,
+        "events_rng_state": state.events_rng.bit_generator.state,
+        "sortition_rng_state": state.sortition_rng.bit_generator.state,
+        "pending_rerun": None if pending is None else {
+            "attempt": pending.attempt,
+            "next_tick": pending.next_tick,
+            "barred_candidate_ids": sorted(pending.barred_candidate_ids),
+        },
+        "staggered_declared_cids": (
+            sorted(state.staggered_declared_cids) if state.staggered_declared_cids is not None else None
+        ),
+        "economy_x": state.economy_x,
+        "mobilized_last_tick": {str(k): v for k, v in state.mobilized_last_tick.items()},
+    }
+
+
+def _state_from_payload(payload: Mapping[str, Any]) -> TickState:
+    pending = payload["pending_rerun"]
+    declared = payload.get("staggered_declared_cids")  # absent from checkpoints written before Track E
+    return TickState(
+        citizens=[_citizen_from_dict(c) for c in payload["citizens"]],
+        parties=[_party_from_dict(p) for p in payload["parties"]],
+        rupture_rng=restore_rng(payload["rupture_rng_state"]),
+        events_rng=restore_rng(payload["events_rng_state"]),
+        sortition_rng=restore_rng(payload["sortition_rng_state"]),
+        pending_rerun=None if pending is None else PendingRerun(
+            attempt=pending["attempt"],
+            next_tick=pending["next_tick"],
+            barred_candidate_ids=frozenset(pending["barred_candidate_ids"]),
+        ),
+        staggered_declared_cids=set(declared) if declared is not None else None,
+        economy_x=payload["economy_x"],
+        mobilized_last_tick={int(k): v for k, v in payload["mobilized_last_tick"].items()},
+    )
+
+
 def save_checkpoint(
     path: Path,
     *,
@@ -149,15 +188,7 @@ def save_checkpoint(
     config: PolityConfig,
     tick: int,
     next_event_id: int,
-    citizens: list[Citizen],
-    parties: list[Party],
-    pending_rerun: dict[str, Any] | None,
-    economy_x: float,
-    mobilized_last_tick: Mapping[int, int],
-    rupture_rng: np.random.Generator,
-    events_rng: np.random.Generator,
-    sortition_rng: np.random.Generator,
-    staggered_declared_cids: list[int] | None = None,
+    state: TickState,
 ) -> None:
     """Atomic write (temp file + `os.replace`, same discipline `run_
     polity_flagship.py`'s own convention docs elsewhere in this project use
@@ -176,15 +207,7 @@ def save_checkpoint(
         "config_hash": config_hash(config),
         "tick": tick,
         "next_event_id": next_event_id,
-        "citizens": [_citizen_to_dict(c) for c in citizens],
-        "parties": [_party_to_dict(p) for p in parties],
-        "pending_rerun": pending_rerun,
-        "economy_x": economy_x,
-        "mobilized_last_tick": {str(k): v for k, v in mobilized_last_tick.items()},
-        "rupture_rng_state": rupture_rng.bit_generator.state,
-        "events_rng_state": events_rng.bit_generator.state,
-        "sortition_rng_state": sortition_rng.bit_generator.state,
-        "staggered_declared_cids": staggered_declared_cids,
+        **_state_to_payload(state),
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_suffix(path.suffix + ".tmp")
@@ -204,18 +227,7 @@ def load_checkpoint(path: Path) -> Checkpoint:
         config_hash=payload["config_hash"],
         tick=payload["tick"],
         next_event_id=payload["next_event_id"],
-        citizens=[_citizen_from_dict(c) for c in payload["citizens"]],
-        parties=[_party_from_dict(p) for p in payload["parties"]],
-        pending_rerun=payload["pending_rerun"],
-        economy_x=payload["economy_x"],
-        mobilized_last_tick={int(k): v for k, v in payload["mobilized_last_tick"].items()},
-        rupture_rng_state=payload["rupture_rng_state"],
-        events_rng_state=payload["events_rng_state"],
-        sortition_rng_state=payload["sortition_rng_state"],
-        # .get, not [] -- a checkpoint written before Track E shipped has no
-        # such key at all; absent means "no declaration was ever pending",
-        # the same as an explicit null would.
-        staggered_declared_cids=payload.get("staggered_declared_cids"),
+        state=_state_from_payload(payload),
     )
 
 

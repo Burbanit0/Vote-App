@@ -107,7 +107,7 @@ recorded here, with the date.
 | S2.4 | First-wave bake-off | S2.2, S2.3 | (run) | |
 | S2.5 | Permutation and rendering controls on collapse probes | S2.2 | `feat/polity-probe-controls` | |
 | S3.1 | Typed generic decoder | S0.2 | `feat/polity-generic-decoder` | `98bc0c03` |
-| S3.2 | Decision runner for candidacy, reaction, pressure | S3.1, S0.3 | `feat/polity-decision-runner` | |
+| S3.2 | Decision runner for candidacy, reaction, pressure | S3.1, S0.3 | `feat/polity-decision-runner` | `1e2ce8b5` |
 | S3.3 | Typed events and event registry | S0.2 | `feat/polity-typed-events` | `7695fafd` |
 | S3.4 | Tick state and phase pipeline | S3.3 | `feat/polity-tick-state` | |
 | S3.5 | Settle the debt ledger | S3.1, S3.2 | `feat/polity-debt-ledger` | |
