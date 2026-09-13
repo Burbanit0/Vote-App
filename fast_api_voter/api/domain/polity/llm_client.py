@@ -68,6 +68,7 @@ import httpx
 from pydantic import ValidationError
 
 from api.domain.polity.config import LlmConfig
+from api.domain.polity.llm_call_log import record_http_response
 from api.domain.polity.llm_schemas import (
     CandidacyBatch,
     CandidacyDecision,
@@ -232,6 +233,10 @@ def _post_with_transport_retry(client: httpx.Client, url: str, payload: str) -> 
         if response.status_code != 200:
             last_transport_error = LlmTransportError(f"HTTP {response.status_code} from {url}: {response.text[:500]}")
             continue
+        # Every path that receives a model response passes here, so this one line
+        # gives the per-call log (llm_call_log.py) tokens, finish reason and reasoning
+        # for all of them, including responses the caller then rejects.
+        record_http_response(response)
         return response
 
     assert last_transport_error is not None  # loop runs at least once

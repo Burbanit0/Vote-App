@@ -161,6 +161,13 @@ services:
       - "8000"
       - "--seed"
       - "42"
+      - "--enable-prompt-tokens-details"
+                                    # S0.5 (plan-polity-build-order.md): reports
+                                    # usage.prompt_tokens_details.cached_tokens, which
+                                    # llm_calls.jsonl records per call -- without it the
+                                    # field is null and prefix-cache hits are invisible
+                                    # to time attribution. Reporting only: it changes
+                                    # the usage block, not generation.
       - "--speculative-config"
       - '{"method": "ngram", "num_speculative_tokens": 5, "prompt_lookup_max": 4, "prompt_lookup_min": 2}'
                                     # plan-llm-protocol-and-theory-program.md
