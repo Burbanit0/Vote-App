@@ -104,11 +104,16 @@ not a separate `codeql.yml`.
   + cron + `workflow_dispatch` only), deliberately not required checks
   (`scripts/setup-branch-protection.sh`'s own comment: a required check under
   a workflow that never triggers on a PR blocks that PR forever — the exact
-  failure PR #205 hit). **Their `schedule`/`workflow_dispatch` triggers
-  currently resolve against `main` as the default branch, which is ~750+
-  commits behind `develop`** — until a real release lands, only their
-  `push: develop` trigger actually fires; the cron/dispatch paths are
-  configured but dormant. See the `release` skill.
+  failure PR #205 hit). Their `schedule`/`workflow_dispatch` triggers resolve
+  against GitHub's **default branch**, which used to be `main` (hundreds of
+  commits behind `develop`) and made these four inert outside their
+  `push: develop` trigger — **that's fixed**: the repo's default branch is
+  now `develop`, confirmed by live successful runs (`flaky-check-backend.yml`'s
+  cron on 2026-09-12, `atheris-fuzzing.yml`'s dispatch on 2026-09-11). See each
+  workflow's own `on:` comment for the fuller history. **Being non-required is
+  exactly why `mutmut` crashed on every single run for 17 days
+  (2026-08-29 → 2026-09-13) unnoticed — see `ci-health.yml` below, which
+  exists specifically to catch that class of rot.**
 - `scorecard.yml`, `dast.yml` — informational, non-gating, results in the
   Security tab.
 
@@ -258,6 +263,106 @@ signatures — `uv pip install --system` resolver conflicts, `npm ci`
 pinned Node 20) is written up in `.claude/agents/dep-triage.md` for the
 Dependabot-PR case specifically; the same "get the real log, don't guess from
 the job name" discipline applies to any red check, not just a dependency bump.
+
+## `ci-health.yml` — catching a non-required workflow rotting silently
+
+Every workflow in the two tables above that isn't a required check
+(`mutation-testing.yml`, `schemathesis.yml`, `atheris-fuzzing.yml`,
+`flaky-check-backend.yml`, `dast.yml`, `scorecard.yml`) rots invisibly by
+construction: nothing blocks a human from ignoring a red run, because
+nothing requires them to look. That's not hypothetical — `mutmut` crashed on
+every single run for 17 days before anyone noticed (numpy 2.4+ vs. mutmut
+3.7.0's in-process coverage model; fixed in PR #447 by bumping to 3.8.0).
+The same audit that found it also found `develop`'s branch protection had
+silently drifted from `scripts/setup-branch-protection.sh`.
+
+`ci-health.yml` closes that gap with two jobs, deliberately asymmetric:
+
+- **`audit`** (schedule + `workflow_dispatch` only, never `pull_request` —
+  same reasoning as the workflows it watches) runs
+  `scripts/check_ci_health.py --update`, which queries real run history for
+  each watched workflow plus live branch-protection state, and — if the
+  result changed — opens a `chore/ci-health-snapshot-*` PR. Two real
+  restrictions shaped this, both confirmed live rather than assumed:
+  - A direct push was the original design (thought to match `release.yml`'s
+    push-to-`main` pattern), but `develop`'s `required_pull_request_reviews`
+    block (even at 0 required approvals) makes GitHub reject any raw push
+    with "Changes must be made through a pull request" — meaning
+    `release.yml`'s own direct push to `main` has the same latent bug and
+    has simply never been exercised for real yet (no release has shipped).
+  - `GITHUB_TOKEN` couldn't open the PR at all at first either — GitHub
+    blocks Actions from creating PRs by default (`gh api repos/.../actions/
+    permissions/workflow`'s `can_approve_pull_request_reviews`, confusingly
+    named — it's the same flag GitHub's UI shows as "Allow GitHub Actions to
+    create and approve pull requests"), enabled deliberately for this repo.
+  - The job does **not** try to queue its own PR (an earlier version posted
+    `@mergifyio queue` on it — Mergify refused with "Command disallowed due
+    to command restrictions": letting a bot queue its own PR is exactly the
+    self-merge path that restriction exists to block, correctly). A human
+    reviews and queues/merges it, same as any other PR. If that goes
+    unnoticed, `verify`'s own staleness check is the real backstop — every
+    PR starts failing after ~36h of a quiet audit, a much louder signal
+    than one unmerged PR sitting in the list.
+- **`verify`** (required, every PR, no paths filter — it's cheap enough
+  that skipping it is never worth the PR #205 risk of a required check with
+  no run) reads that snapshot from `develop`'s tip — not the PR branch's own
+  copy, since this is metadata about the *repo's* health, not the PR's diff
+  — and fails if:
+  - the snapshot is stale (the scheduled `audit` job has gone quiet — its
+    own silence has to be as loud as any other failure it reports), or
+  - any watched workflow is `unhealthy` (≥2 consecutive real failures),
+    `inert` (no run within 1.5× its own cron-derived cadence), or
+    `never_run`, or
+  - `develop`'s live branch protection has drifted from
+    `scripts/setup-branch-protection.sh`.
+
+**`CI_HEALTH_PAT`**: the `audit` job's checkout and PR-creation steps use
+this secret instead of the default `GITHUB_TOKEN`, for a reason that isn't
+obvious and cost real debugging time: GitHub never triggers new workflow
+runs from a commit or PR authored by `GITHUB_TOKEN` (its own built-in
+anti-recursion rule). Confirmed live — a bot-authored snapshot PR (#453)
+sat with zero check runs, ever, until a human-authored commit on the same
+branch triggered a real run immediately. A PR whose required checks can
+never run can never be merged, so without a real user identity behind it,
+this job's whole PR-opening step would need a human to manually nudge every
+single snapshot update — exactly the automation gap this mechanism exists
+to close. `CI_HEALTH_PAT` is a fine-grained personal access token, scoped
+to this repo only, with exactly three permissions: **Contents: Read and
+write**, **Pull requests: Read and write**, **Administration: Read-only**
+— nothing else. The third one isn't obvious either and was missed on the
+first pass: `check_branch_protection_drift()` reads live branch-protection
+settings (`GET .../branches/{branch}/protection`), which needs
+Administration access no matter which token asks — confirmed live,
+`GITHUB_TOKEN` failed this specific call with "Resource not accessible by
+integration" even with every other permission declared. To (re)create the
+PAT (GitHub requires an expiration on fine-grained tokens, so this needs
+repeating periodically):
+
+1. https://github.com/settings/personal-access-tokens/new → resource owner
+   `Burbanit0` → repository access "Only select repositories" → `Vote-App`.
+2. Repository permissions → Contents: Read and write, Pull requests: Read
+   and write, Administration: Read-only. Everything else: No access.
+3. Generate, then `gh secret set CI_HEALTH_PAT --repo Burbanit0/Vote-App`
+   (paste the token when prompted — never commit it, never paste it into a
+   chat/agent session; the token itself never needs to leave the terminal
+   that runs this command).
+
+If the audit job starts failing at "Open a PR..." with a permissions error
+again, the token likely expired — recreate it the same way.
+
+A real, known problem doesn't have to block every PR forever: add a dated
+entry to `.github/ci-health-snoozes.json` (key = the workflow filename, or
+`branch-protection`) with `until` (a real date, never open-ended) and
+`reason`. An expired snooze reverts to blocking — it does not silently keep
+passing — so a snooze is a deadline, not a permanent silencer. `--verify`
+still prints snoozed findings (🟡), it just doesn't fail on them.
+
+Tested against real and injected failures before being trusted (this
+repo's own standard, per the flaky-detector/depcruise/DAST precedents): the
+64.4%-below-floor mutmut score above was a real one it caught immediately
+on the first live `--update`; staleness, snooze-expiry, and inert-workflow
+detection were each verified against constructed fixtures
+(`--snapshot`/`--snoozes` override flags exist specifically for this).
 
 ## Recipe — a PR just went red
 

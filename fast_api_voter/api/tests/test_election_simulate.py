@@ -125,6 +125,20 @@ class TestPipelineOptions:
             assert "winner_with_blank" in md
             assert "blank_triggered" in md
 
+    def test_blank_vote_contagion_enabled_still_returns_200(self, client):
+        # ElectionService.simulate's own _apply_blank_contagion call only
+        # runs when both blank_vote.enabled and contagion.enabled are set
+        # (unlike the test above, which pins contagion off).
+        r = client.post("/api/v2/election/simulate", json=_payload(
+            blank_vote={"enabled": True, "rule": "symbolic",
+                        "contagion": {"enabled": True, "beta": 0.15,
+                                      "gamma": 0.10, "network": "random"}}
+        ))
+        assert r.status_code == 200, r.text
+        body = r.json()
+        for md in body["methods"].values():
+            assert "winner_with_blank" in md
+
     def test_campaign_enabled_returns_trajectory(self, client):
         body = client.post("/api/v2/election/simulate", json=_payload(
             campaign={"enabled": True, "num_days": 14, "polling_effect": 0.3}

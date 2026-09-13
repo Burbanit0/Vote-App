@@ -8,11 +8,16 @@ method-comparison wrapper, and a lightweight winners-only snapshot.
 """
 from __future__ import annotations
 
+import random
 from typing import Any, Dict, List, Optional  # noqa: F401
 
+import numpy as np
+
+from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.simulation_voting_utils import calculate_utility, create_voter
 from api.engine.utils.simulation_metrics import compare_all_methods
 from api.engine.utils.blank_vote_rules import BlankVoteRule, apply_blank_rule
+from api.engine.utils.blank_contagion import simulate_blank_contagion
 from api.engine.utils.demographic_data import _seeded_rng_pair
 from ._helpers import (
     build_candidate_from_xy as _build_candidate_from_xy,
@@ -66,6 +71,86 @@ def _build_base_electorate(
     }
 
     return candidates, voters, true_utilities, cand_names
+
+
+def _reseed_and_build_electorate(
+    cand_specs: list[dict[str, Any]],
+    num_voters: int,
+    ideology: str,
+    seed: int,
+) -> tuple[
+    list[Dict[str, Any]], list[Dict[str, Any]], Dict[Any, Dict[str, float]], list[str], list[str]
+]:
+    """Reseed the shared `random`/`numpy.random` singletons from *seed*, then
+    build the electorate via `_build_base_electorate`.
+
+    This is the *legacy* reseed pattern used by several older `workers_*.py`
+    workers (`workers_advanced.py`, `workers_behavioral.py`,
+    `workers_dynamics.py`, `workers_mechanisms.py`) — predating the local
+    seeded-RNG-pair fix documented on `_build_base_electorate`/
+    `election_service.py` for the concurrency issue with reseeding shared
+    singletons. Kept exactly as-is here: this is a pure duplication
+    extraction (the same 4-line block was copy-pasted across 13 call sites,
+    jscpd-flagged, CODE_AUDIT.md §4/§7), not a behaviour change — do not use
+    this as a template for new workers, prefer `_build_base_electorate`
+    directly with `_seeded_rng_pair`.
+
+    Returns (candidates, voters, true_utilities, cand_names, issues) so
+    every call site keeps `issues` in scope afterwards exactly as before
+    (it is always `DEFAULT_ISSUES`, echoed back rather than re-imported at
+    each site).
+    """
+    random.seed(seed)
+    np.random.seed(seed)
+    issues = DEFAULT_ISSUES
+    candidates, voters, true_utilities, cand_names = _build_base_electorate(
+        cand_specs, num_voters, ideology, seed, issues
+    )
+    return candidates, voters, true_utilities, cand_names, issues
+
+
+def _apply_blank_contagion(
+    voters: list[Dict[str, Any]],
+    contagion_cfg: Dict[str, Any],
+    num_voters: int,
+    seed: int,
+) -> Dict[str, Any]:
+    """Run the SIS blank-vote contagion model and reduce each voter's
+    `blank_threshold` in place by 0.4x the resulting final blank rate.
+
+    Extracted from the identical block duplicated across
+    `election_service.py` and 4 workers in `workers.py`
+    (`_divergence_worker`, `_campaign_sensitivity_worker`,
+    `_combined_effects_worker`, `_simulate_pipeline_worker` — jscpd-flagged,
+    CODE_AUDIT.md §4/§7). Callers keep their own on/off condition
+    (`contagion_on`, sometimes `and blank_enabled`) and their own choice of
+    which voters list to mutate (the live electorate, or a `copy.deepcopy`
+    of it) — only the identical inner computation moved here.
+
+    Returns `{"final_blank_rate", "beta", "gamma"}` for the one call site
+    (`_simulate_pipeline_worker`) that reports these back in its own
+    response; other callers can ignore the return value.
+    """
+    beta    = max(0.0, min(1.0, float(contagion_cfg.get("beta",  0.15))))
+    gamma   = max(0.0, min(1.0, float(contagion_cfg.get("gamma", 0.10))))
+    net_map = {"random": "random", "watts_strogatz": "small-world", "block": "clustered"}
+    net     = net_map.get(str(contagion_cfg.get("network", "random")), "random")
+
+    contagion_result = simulate_blank_contagion(
+        num_voters=num_voters,
+        initial_blank_rate=0.05,
+        contagion_rate=beta,
+        recovery_rate=gamma,
+        num_rounds=10,
+        network_type=net,
+        seed=seed,
+    )
+    final_blank_rate = contagion_result.get("final_blank_rate", 0.05)
+    reduction = final_blank_rate * 0.4
+    for v in voters:
+        v["blank_threshold"] = max(0.05, v["blank_threshold"] - reduction)
+
+    return {"final_blank_rate": final_blank_rate, "beta": beta, "gamma": gamma}
 
 
 def _run_methods_on_electorate(

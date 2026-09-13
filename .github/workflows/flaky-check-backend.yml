@@ -17,11 +17,13 @@ name: Backend Flaky Test Hunt
 # gating every PR (mirrors schemathesis.yml/mutation-testing.yml's existing
 # precedent for exactly this tradeoff).
 #
-# `schedule`/`workflow_dispatch` resolve against the DEFAULT branch (main),
-# not the ref that owns the file — mutation-testing.yml and schemathesis.yml
-# both hit this already (their cron silently never fired while main lagged
-# develop). Included below for when a develop -> main release makes them
-# live; `push: develop` is what actually runs this today.
+# `schedule`/`workflow_dispatch` resolve against GitHub's DEFAULT branch, not
+# necessarily the ref that owns the file — mutation-testing.yml and
+# schemathesis.yml hit exactly this while the default branch was still
+# `main` (hundreds of commits behind `develop`, so their cron silently never
+# fired; see mutation-testing.yml's comment for the full history). That's
+# fixed now: the repo's default branch is `develop`, and this workflow's own
+# cron has already fired and succeeded for real (2026-09-12).
 on:
   push:
     branches: [develop]

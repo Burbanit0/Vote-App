@@ -34,6 +34,7 @@ CMD ["bash","-euo","pipefail","-c","\
 echo '=== Lint (gating — 0 errors) ===';   npm run lint; \
 echo '=== Architecture boundaries (dependency-cruiser) ===';   npm run depcruise; \
 echo '=== npm audit (high blocks) ===';    npm audit --audit-level=high; \
+echo '=== License compliance (gating) ==='; SELF=\"$(node -p \"require('./package.json').name\")@$(node -p \"require('./package.json').version\")\"; npx license-checker-rseidelsohn --production --onlyAllow \"MIT;ISC;Apache-2.0;BSD-2-Clause;BSD-3-Clause;BlueOak-1.0.0;MPL-2.0;CC0-1.0;MIT-0;Python-2.0;Unlicense;0BSD;(MIT OR CC0-1.0);MIT AND ISC\" --excludePackages \"$SELF\"; \
 echo '=== Tests + coverage ===';           npm run test:coverage; \
 echo '=== Build ===';                       npm run build; \
 echo '=== Frontend CI: PASS ==='"]

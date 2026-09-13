@@ -139,7 +139,7 @@ theory and the tests are the same file.
 
 ---
 
-*Sourced from [`PLAN_SOLIDITE_TECHNIQUE.md`](../../PLAN_SOLIDITE_TECHNIQUE.md)
+*Sourced from [`PLAN_SOLIDITE_TECHNIQUE.md`](../plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md)
 (Lot 4.1, 4.2, and 4.6) and
 [`docs/exploration/EXP-002-z3-formal-voting-proofs.md`](../exploration/EXP-002-z3-formal-voting-proofs.md).
 The axiom matrix itself lives in

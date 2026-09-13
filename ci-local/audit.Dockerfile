@@ -30,6 +30,6 @@ WORKDIR /repo
 # .semgrepignore + ci-local/audit.Dockerfile.dockerignore keep the context lean.
 COPY . .
 
-# Gitleaks BLOCKS on secrets; Semgrep + Trivy are informational (printed, non-gating)
-# — same posture as the GitHub workflow.
+# Semgrep, Trivy and Gitleaks all GATE (see audit-ci.sh) — same posture as the
+# GitHub workflow's required Semgrep/Trivy/Gitleaks jobs.
 CMD ["bash", "ci-local/audit-ci.sh"]

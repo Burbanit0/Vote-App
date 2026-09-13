@@ -1471,8 +1471,209 @@ import numpy as _np_bs  # noqa: E402
 
 _POINT_OF_NO_RETURN = 0.45   # democratic quality below which recovery is very unlikely
 
+def _backsliding_base_vote_shares(
+    candidates_raw: List[Dict[str, Any]], ideology: str, nv: int, seed_local: int,
+) -> Dict[str, float]:
+    """Simulate base vote shares via a 1D spatial model: each voter's position
+    is drawn from the ideology distribution, and votes for the nearest
+    candidate by distance."""
+    rng_l = _np_bs.random.default_rng(seed_local)
+    if ideology == "polarized":
+        voter_positions = rng_l.normal(0, 0.4, nv)
+        voter_positions = _np_bs.clip(voter_positions, -1, 1)
+    else:
+        voter_positions = rng_l.uniform(-1, 1, nv)
+
+    shares: Dict[str, float] = {c["name"]: 0 for c in candidates_raw}
+    for vp in voter_positions:
+        distances = {
+            c["name"]: float((vp - c.get("x", 0.0)) ** 2)
+            for c in candidates_raw
+        }
+        winner_name = min(distances, key=distances.get)  # type: ignore[arg-type]
+        shares[winner_name] += 1
+    return {k: v / nv for k, v in shares.items()}
+
+
+def _run_one_backsliding_election(
+    n: int, num_voters: int, seed: int, candidates_raw: List[Dict[str, Any]],
+    ideology: str, incumbent_name: str, method_bs: str, guardrails: Dict[str, bool],
+    effective_intensity: float, rng: "_rnd.Random", state: Dict[str, Any],
+) -> Dict[str, Any]:
+    """One election cycle: base vote shares -> apply the chosen backsliding
+    mechanism + guardrail resistance -> determine the winner -> update the
+    democratic-quality index and cumulative advantages -> detect autocracy.
+
+    Mutates `state` in place (keys: gerry_bonus, media_bias,
+    suppression_rate, democratic_quality, consecutive_incumbent_wins,
+    autocracy_reached, autocracy_at_election); returns the per-election
+    record dict to append to `elections`."""
+    guardrails_triggered: List[str] = []
+
+    # ── Base vote shares ──────────────────────────────────────────────────
+    shares = _backsliding_base_vote_shares(candidates_raw, ideology, num_voters, seed + n)
+
+    # ── Apply backsliding mechanisms ──────────────────────────────────────
+    if method_bs == "gerrymandering":
+        # Gerrymandering: directly boosts incumbent share
+        bonus = state["gerry_bonus"]
+        if guardrails["constitutional_court"] and bonus > 0.05:
+            bonus = max(0.05, bonus * 0.6)
+            guardrails_triggered.append("constitutional_court")
+        shares[incumbent_name] = min(0.95, shares[incumbent_name] + bonus)
+        # Renormalize
+        total = sum(shares.values())
+        shares = {k: v / total for k, v in shares.items()}
+
+    elif method_bs == "media_capture":
+        # Media capture: shift perceived utility toward incumbent
+        bias = state["media_bias"]
+        if guardrails["opposition_media"] and bias > 0.1:
+            bias = max(0.1, bias * 0.55)
+            guardrails_triggered.append("opposition_media")
+        noise = rng.gauss(0, 0.02)
+        shares[incumbent_name] = min(0.95, shares[incumbent_name] + bias + noise)
+        total = sum(shares.values())
+        shares = {k: v / total for k, v in shares.items()}
+
+    elif method_bs == "voter_suppression":
+        # Voter suppression: reduce effective opposition turnout
+        suppression = state["suppression_rate"]
+        if guardrails["supermajority_required"] and suppression > 0.1:
+            suppression = max(0.1, suppression * 0.5)
+            guardrails_triggered.append("supermajority_required")
+        for cname, c in zip([c["name"] for c in candidates_raw], candidates_raw):
+            if cname != incumbent_name:
+                shares[cname] = max(0.01, shares[cname] * (1.0 - suppression))
+        total = sum(shares.values())
+        shares = {k: v / total for k, v in shares.items()}
+
+    # ── International pressure — soft resistance ───────────────────────
+    if guardrails["international_pressure"] and state["democratic_quality"] < 0.7:
+        shares[incumbent_name] = max(0.0, shares[incumbent_name] - 0.03)
+        total = sum(shares.values())
+        shares = {k: v / total for k, v in shares.items()}
+        guardrails_triggered.append("international_pressure")
+
+    # ── Determine election winner ─────────────────────────────────────────
+    election_winner = max(shares, key=shares.get)  # type: ignore[arg-type]
+    incumbent_won = (election_winner == incumbent_name)
+
+    # ── Update democratic quality index ───────────────────────────────────
+    # Quality declines by intensity × per-mechanism rate each time incumbent wins
+    per_election_decay_base = effective_intensity * 0.12
+
+    if incumbent_won:
+        state["consecutive_incumbent_wins"] += 1
+        # Decay accelerates with each consecutive win (compounding)
+        decay = per_election_decay_base * (1.0 + state["consecutive_incumbent_wins"] * 0.15)
+        state["democratic_quality"] = max(0.0, state["democratic_quality"] - decay)
+    else:
+        state["consecutive_incumbent_wins"] = 0
+        # Opposition win slightly restores quality (institutional memory)
+        state["democratic_quality"] = min(1.0, state["democratic_quality"] + 0.05)
+
+    # Noise for realism
+    state["democratic_quality"] += rng.gauss(0, 0.01)
+    state["democratic_quality"] = max(0.0, min(1.0, state["democratic_quality"]))
+
+    # ── Update cumulative advantages for next election ────────────────────
+    if incumbent_won:
+        per_step = effective_intensity * 0.06
+        if method_bs == "gerrymandering":
+            state["gerry_bonus"] = min(0.40, state["gerry_bonus"] + per_step)
+        elif method_bs == "media_capture":
+            state["media_bias"]  = min(0.40, state["media_bias"] + per_step)
+        elif method_bs == "voter_suppression":
+            state["suppression_rate"] = min(0.60, state["suppression_rate"] + per_step)
+    else:
+        # Partial rollback when opposition wins
+        state["gerry_bonus"]      = max(0.0, state["gerry_bonus"] - 0.02)
+        state["media_bias"]       = max(0.0, state["media_bias"] - 0.02)
+        state["suppression_rate"] = max(0.0, state["suppression_rate"] - 0.02)
+
+    # ── Autocracy detection ───────────────────────────────────────────────
+    point_of_no_return = state["democratic_quality"] <= _POINT_OF_NO_RETURN
+    if not state["autocracy_reached"] and state["democratic_quality"] <= 0.20:
+        state["autocracy_reached"]     = True
+        state["autocracy_at_election"] = n
+
+    return {
+        "election_n":         n,
+        "winner":             election_winner,
+        "vote_shares":        {k: round(v, 4) for k, v in shares.items()},
+        "democratic_quality": round(state["democratic_quality"], 4),
+        "advantages": {
+            "gerrymandering_bonus": round(state["gerry_bonus"], 4),
+            "media_bias":           round(state["media_bias"], 4),
+            "suppression_rate":     round(state["suppression_rate"], 4),
+        },
+        "guardrails_triggered": guardrails_triggered,
+        "point_of_no_return":   point_of_no_return,
+    }
+
+
+def _backsliding_guardrail_effectiveness(
+    guardrails: Dict[str, bool], guardrail_quality_saved: float,
+) -> Dict[str, float]:
+    """Split the rough counterfactual quality-saved estimate across the
+    active guardrails, weighted by their nominal resistance contribution."""
+    guardrail_effectiveness: Dict[str, float] = {}
+    weights = {
+        "constitutional_court":   0.30,
+        "opposition_media":       0.20,
+        "international_pressure": 0.15,
+        "supermajority_required": 0.25,
+    }
+    for gr, active in guardrails.items():
+        if active:
+            guardrail_effectiveness[gr] = round(
+                guardrail_quality_saved * weights[gr] / max(sum(weights[g] for g, a in guardrails.items() if a), 0.01),
+                4,
+            )
+        else:
+            guardrail_effectiveness[gr] = 0.0
+    return guardrail_effectiveness
+
+
+def _backsliding_pedagogical_note(
+    guardrails: Dict[str, bool], autocracy_reached: bool,
+    autocracy_at_election: Optional[int], elections: List[Dict[str, Any]],
+    final_quality: float, num_elections: int, guardrail_quality_saved: float,
+) -> str:
+    """Popper's paradox pedagogical note, plus a guardrail-savings sentence
+    when at least one guardrail is active."""
+    active_gr = [k for k, v in guardrails.items() if v]
+    if autocracy_reached:
+        assert autocracy_at_election is not None
+        note = (
+            f"Autocratie atteinte à l'élection n°{autocracy_at_election} "
+            f"(qualité démocratique : {elections[autocracy_at_election - 1]['democratic_quality']:.2f}). "
+        )
+    else:
+        note = (
+            f"Qualité démocratique finale : {final_quality:.2f} après {num_elections} élections. "
+        )
+    if active_gr:
+        note += (
+            f"Les garde-fous actifs ({', '.join(active_gr)}) ont sauvé "
+            f"≈{guardrail_quality_saved:.2f} unités de qualité démocratique. "
+        )
+    note += (
+        "Paradoxe de Popper (1945) : une démocratie sans droits non-dérogeables "
+        "peut voter légalement pour sa propre destruction."
+    )
+    return note
+
+
 def _democratic_backsliding_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /democratic-backsliding — extracted for FastAPI v2."""
+    """Pure worker for /democratic-backsliding — extracted for FastAPI v2.
+
+    The per-election loop body, the base-vote-shares model, the guardrail-
+    effectiveness split and the pedagogical note are now private
+    `_backsliding_*`/`_run_one_backsliding_election` helpers — same names,
+    same computation, same order as before (CODE_AUDIT.md §5/§8 complexity
+    decomposition)."""
     candidates_raw: List[Dict[str, Any]] = data.get("candidates") or [
         {"name": "Incumbent", "x": 0.2, "y": 0.0},
         {"name": "Opposition", "x": -0.4, "y": 0.0},
@@ -1502,25 +1703,6 @@ def _democratic_backsliding_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any]
         ]
     incumbent_name = candidates_raw[0]["name"]
 
-    # ── Simulate base vote shares via spatial model ───────────────────────────
-    def _base_vote_shares(nv: int, seed_local: int) -> Dict[str, float]:
-        rng_l = _np_bs.random.default_rng(seed_local)
-        if ideology == "polarized":
-            voter_positions = rng_l.normal(0, 0.4, nv)
-            voter_positions = _np_bs.clip(voter_positions, -1, 1)
-        else:
-            voter_positions = rng_l.uniform(-1, 1, nv)
-
-        shares: Dict[str, float] = {c["name"]: 0 for c in candidates_raw}
-        for vp in voter_positions:
-            distances = {
-                c["name"]: float((vp - c.get("x", 0.0)) ** 2)
-                for c in candidates_raw
-            }
-            winner_name = min(distances, key=distances.get)  # type: ignore[arg-type]
-            shares[winner_name] += 1
-        return {k: v / nv for k, v in shares.items()}
-
     # ── Guardrail effectiveness parameters ───────────────────────────────────
     # Each guardrail reduces the effective intensity multiplier
     guardrail_resistance = 0.0
@@ -1536,142 +1718,31 @@ def _democratic_backsliding_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any]
     effective_intensity = max(0.0, intensity * (1.0 - guardrail_resistance))
 
     # ── Cumulative advantage state ────────────────────────────────────────────
-    gerry_bonus:      float = 0.0   # cumulative gerrymandering bonus (vote share add)
-    media_bias:       float = 0.0   # cumulative media capture (utility shift)
-    suppression_rate: float = 0.0   # opposition turnout reduction
-
-    democratic_quality = 1.0
-    consecutive_incumbent_wins = 0
-    autocracy_reached = False
-    autocracy_at_election: Optional[int] = None
+    state: Dict[str, Any] = {
+        "gerry_bonus":               0.0,   # cumulative gerrymandering bonus (vote share add)
+        "media_bias":                0.0,   # cumulative media capture (utility shift)
+        "suppression_rate":          0.0,   # opposition turnout reduction
+        "democratic_quality":        1.0,
+        "consecutive_incumbent_wins": 0,
+        "autocracy_reached":         False,
+        "autocracy_at_election":     None,
+    }
 
     elections: List[Dict[str, Any]] = []
-
     for n in range(1, num_elections + 1):
-        guardrails_triggered: List[str] = []
-
-        # ── Base vote shares ──────────────────────────────────────────────────
-        shares = _base_vote_shares(num_voters, seed + n)
-
-        # ── Apply backsliding mechanisms ──────────────────────────────────────
-        if method_bs == "gerrymandering":
-            # Gerrymandering: directly boosts incumbent share
-            bonus = gerry_bonus
-            if guardrails["constitutional_court"] and bonus > 0.05:
-                bonus = max(0.05, bonus * 0.6)
-                guardrails_triggered.append("constitutional_court")
-            shares[incumbent_name] = min(0.95, shares[incumbent_name] + bonus)
-            # Renormalize
-            total = sum(shares.values())
-            shares = {k: v / total for k, v in shares.items()}
-
-        elif method_bs == "media_capture":
-            # Media capture: shift perceived utility toward incumbent
-            bias = media_bias
-            if guardrails["opposition_media"] and bias > 0.1:
-                bias = max(0.1, bias * 0.55)
-                guardrails_triggered.append("opposition_media")
-            noise = rng.gauss(0, 0.02)
-            shares[incumbent_name] = min(0.95, shares[incumbent_name] + bias + noise)
-            total = sum(shares.values())
-            shares = {k: v / total for k, v in shares.items()}
-
-        elif method_bs == "voter_suppression":
-            # Voter suppression: reduce effective opposition turnout
-            suppression = suppression_rate
-            if guardrails["supermajority_required"] and suppression > 0.1:
-                suppression = max(0.1, suppression * 0.5)
-                guardrails_triggered.append("supermajority_required")
-            for cname, c in zip([c["name"] for c in candidates_raw], candidates_raw):
-                if cname != incumbent_name:
-                    shares[cname] = max(0.01, shares[cname] * (1.0 - suppression))
-            total = sum(shares.values())
-            shares = {k: v / total for k, v in shares.items()}
-
-        # ── International pressure — soft resistance ───────────────────────
-        if guardrails["international_pressure"] and democratic_quality < 0.7:
-            shares[incumbent_name] = max(0.0, shares[incumbent_name] - 0.03)
-            total = sum(shares.values())
-            shares = {k: v / total for k, v in shares.items()}
-            guardrails_triggered.append("international_pressure")
-
-        # ── Determine election winner ─────────────────────────────────────────
-        election_winner = max(shares, key=shares.get)  # type: ignore[arg-type]
-        incumbent_won = (election_winner == incumbent_name)
-
-        # ── Update democratic quality index ───────────────────────────────────
-        # Quality declines by intensity × per-mechanism rate each time incumbent wins
-        per_election_decay_base = effective_intensity * 0.12
-
-        if incumbent_won:
-            consecutive_incumbent_wins += 1
-            # Decay accelerates with each consecutive win (compounding)
-            decay = per_election_decay_base * (1.0 + consecutive_incumbent_wins * 0.15)
-            democratic_quality = max(0.0, democratic_quality - decay)
-        else:
-            consecutive_incumbent_wins = 0
-            # Opposition win slightly restores quality (institutional memory)
-            democratic_quality = min(1.0, democratic_quality + 0.05)
-
-        # Noise for realism
-        democratic_quality += rng.gauss(0, 0.01)
-        democratic_quality = max(0.0, min(1.0, democratic_quality))
-
-        # ── Update cumulative advantages for next election ────────────────────
-        if incumbent_won:
-            per_step = effective_intensity * 0.06
-            if method_bs == "gerrymandering":
-                gerry_bonus = min(0.40, gerry_bonus + per_step)
-            elif method_bs == "media_capture":
-                media_bias  = min(0.40, media_bias + per_step)
-            elif method_bs == "voter_suppression":
-                suppression_rate = min(0.60, suppression_rate + per_step)
-        else:
-            # Partial rollback when opposition wins
-            gerry_bonus      = max(0.0, gerry_bonus - 0.02)
-            media_bias       = max(0.0, media_bias - 0.02)
-            suppression_rate = max(0.0, suppression_rate - 0.02)
-
-        # ── Autocracy detection ───────────────────────────────────────────────
-        point_of_no_return = democratic_quality <= _POINT_OF_NO_RETURN
-        if not autocracy_reached and democratic_quality <= 0.20:
-            autocracy_reached     = True
-            autocracy_at_election = n
-
-        elections.append({
-            "election_n":         n,
-            "winner":             election_winner,
-            "vote_shares":        {k: round(v, 4) for k, v in shares.items()},
-            "democratic_quality": round(democratic_quality, 4),
-            "advantages": {
-                "gerrymandering_bonus": round(gerry_bonus, 4),
-                "media_bias":           round(media_bias, 4),
-                "suppression_rate":     round(suppression_rate, 4),
-            },
-            "guardrails_triggered": guardrails_triggered,
-            "point_of_no_return":   point_of_no_return,
-        })
+        elections.append(_run_one_backsliding_election(
+            n, num_voters, seed, candidates_raw, ideology, incumbent_name,
+            method_bs, guardrails, effective_intensity, rng, state,
+        ))
 
     # ── Guardrail effectiveness: compare with/without ─────────────────────────
     final_quality = elections[-1]["democratic_quality"]
     # Rough counterfactual: without guardrails, extra decay per election ≈
     # guardrail_resistance × intensity × 0.12 × num_elections
     guardrail_quality_saved = guardrail_resistance * intensity * 0.12 * num_elections
-    guardrail_effectiveness: Dict[str, float] = {}
-    weights = {
-        "constitutional_court":   0.30,
-        "opposition_media":       0.20,
-        "international_pressure": 0.15,
-        "supermajority_required": 0.25,
-    }
-    for gr, active in guardrails.items():
-        if active:
-            guardrail_effectiveness[gr] = round(
-                guardrail_quality_saved * weights[gr] / max(sum(weights[g] for g, a in guardrails.items() if a), 0.01),
-                4,
-            )
-        else:
-            guardrail_effectiveness[gr] = 0.0
+    guardrail_effectiveness = _backsliding_guardrail_effectiveness(
+        guardrails, guardrail_quality_saved,
+    )
 
     # ── Tipping points ────────────────────────────────────────────────────────
     tipping_points = [
@@ -1680,32 +1751,15 @@ def _democratic_backsliding_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any]
     ]
     tipping_points = [min(tp, 1.0) for tp in tipping_points]
 
-    # ── Pedagogical note ──────────────────────────────────────────────────────
-    active_gr = [k for k, v in guardrails.items() if v]
-    if autocracy_reached:
-        assert autocracy_at_election is not None
-        note = (
-            f"Autocratie atteinte à l'élection n°{autocracy_at_election} "
-            f"(qualité démocratique : {elections[autocracy_at_election - 1]['democratic_quality']:.2f}). "
-        )
-    else:
-        note = (
-            f"Qualité démocratique finale : {final_quality:.2f} après {num_elections} élections. "
-        )
-    if active_gr:
-        note += (
-            f"Les garde-fous actifs ({', '.join(active_gr)}) ont sauvé "
-            f"≈{guardrail_quality_saved:.2f} unités de qualité démocratique. "
-        )
-    note += (
-        "Paradoxe de Popper (1945) : une démocratie sans droits non-dérogeables "
-        "peut voter légalement pour sa propre destruction."
+    note = _backsliding_pedagogical_note(
+        guardrails, state["autocracy_reached"], state["autocracy_at_election"],
+        elections, final_quality, num_elections, guardrail_quality_saved,
     )
 
     return {
         "elections":                elections,
-        "autocracy_reached":        autocracy_reached,
-        "autocracy_at_election":    autocracy_at_election,
+        "autocracy_reached":        state["autocracy_reached"],
+        "autocracy_at_election":    state["autocracy_at_election"],
         "guardrails_effectiveness": guardrail_effectiveness,
         "tipping_points":           tipping_points,
         "pedagogical_note":         note,
@@ -2153,32 +2207,11 @@ def _epistocracy_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
 # ── /api/theory/identity-voting ───────────────────────────────────────────────
 
-def _identity_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /identity-voting — extracted for FastAPI v2."""
-    candidates_raw: List[Dict[str, Any]] = data.get("candidates") or [
-        {"name": "Alice", "x": -0.5, "y": 0.0},
-        {"name": "Bob",   "x":  0.0, "y": 0.0},
-        {"name": "Carol", "x":  0.5, "y": 0.0},
-    ]
-    num_voters:      int   = max(20, min(int(data.get("num_voters", 200)), 2000))
-    seed:            int   = int(data.get("seed", 42))
-    identity_weight: float = max(0.0, min(float(data.get("identity_weight", 0.5)), 1.0))
-    cross_pressure:  bool  = bool(data.get("cross_pressure", True))
-
-    default_groups = [
-        {"name": "Groupe A", "pct": 0.40, "ideology_center": -0.3,
-         "loyalty": 0.75, "candidate_affiliation": candidates_raw[0]["name"]},
-        {"name": "Groupe B", "pct": 0.35, "ideology_center":  0.1,
-         "loyalty": 0.60, "candidate_affiliation": candidates_raw[1]["name"]},
-        {"name": "Groupe C", "pct": 0.25, "ideology_center":  0.4,
-         "loyalty": 0.80, "candidate_affiliation": candidates_raw[2]["name"]},
-    ]
-    groups_raw: List[Dict[str, Any]] = data.get("identity_groups") or default_groups
-
-    rng = _rnd.Random(seed)
-    cand_names = [c["name"] for c in candidates_raw]
-
-    # ── Normalise groups ──────────────────────────────────────────────────────
+def _identity_normalise_groups(
+    groups_raw: List[Dict[str, Any]], cand_names: List[str],
+) -> List[Dict[str, Any]]:
+    """Step 1 — normalise identity groups (percentages renormalised to sum to
+    1, unknown candidate affiliations fall back to the first candidate)."""
     groups: List[Dict[str, Any]] = []
     total_pct = sum(float(g.get("pct", 0.33)) for g in groups_raw) or 1.0
     for g in groups_raw:
@@ -2192,8 +2225,17 @@ def _identity_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             "loyalty":               max(0.0, min(float(g.get("loyalty", 0.6)), 1.0)),
             "candidate_affiliation": affil,
         })
+    return groups
 
-    # ── Generate voters ───────────────────────────────────────────────────────
+
+def _identity_generate_voters(
+    groups: List[Dict[str, Any]], candidates_raw: List[Dict[str, Any]],
+    num_voters: int, rng: "_rnd.Random", cross_pressure: bool,
+    identity_weight: float,
+) -> List[Dict[str, Any]]:
+    """Step 2 — generate voters: each draws an ideology position from their
+    group, votes ideologically vs. by identity affiliation, may abstain when
+    cross-pressured, and casts a final vote blending both."""
     voters: List[Dict[str, Any]] = []
     group_sizes = [max(1, round(g["pct"] * num_voters)) for g in groups]
     # Adjust last group to hit exactly num_voters
@@ -2238,22 +2280,18 @@ def _identity_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
                 "is_cross_pressured": is_cross_pressured,
                 "abstains":           abstains,
             })
+    return voters
 
-    # ── Tally votes for 3 scenarios ───────────────────────────────────────────
-    def _plurality(votes: List[str]) -> str:
-        from collections import Counter as _C
-        return _C(votes).most_common(1)[0][0] if votes else cand_names[0]
 
-    sincere_votes  = [v["ideo_vote"]     for v in voters]
-    identity_votes = [v["identity_vote"] for v in voters]
-    mixed_votes    = [v["final_vote"]    for v in voters
-                      if not (cross_pressure and v["abstains"])]
+def _identity_plurality(votes: List[str], cand_names: List[str]) -> str:
+    from collections import Counter as _C
+    return _C(votes).most_common(1)[0][0] if votes else cand_names[0]
 
-    sincere_winner  = _plurality(sincere_votes)
-    identity_winner = _plurality(identity_votes)
-    mixed_winner    = _plurality(mixed_votes)
 
-    # ── Group results ─────────────────────────────────────────────────────────
+def _identity_group_results(
+    voters: List[Dict[str, Any]], groups: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Step 5 — per-group breakdown of identity-vote and ideology-match rates."""
     group_results: List[Dict[str, Any]] = []
     for gidx, group in enumerate(groups):
         members = [v for v in voters if v["group"] == gidx]
@@ -2270,14 +2308,16 @@ def _identity_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             "loyalty":        round(group["loyalty"], 4),
             "size_pct":       round(group["pct"], 4),
         })
+    return group_results
 
-    # ── Cross-pressured stats ─────────────────────────────────────────────────
-    cross_pressured_voters = [v for v in voters if v["is_cross_pressured"]]
-    n_cross = len(cross_pressured_voters)
-    n_abstaining = sum(1 for v in cross_pressured_voters if v["abstains"])
-    abstention_rate = n_abstaining / n_cross if n_cross > 0 else 0.0
 
-    # ── Identity-weight curve ─────────────────────────────────────────────────
+def _identity_weight_curve(
+    voters: List[Dict[str, Any]], groups: List[Dict[str, Any]],
+    cand_names: List[str], seed: int, cross_pressure: bool,
+    sincere_votes: List[str], identity_votes: List[str],
+) -> List[Dict[str, Any]]:
+    """Step 7 — re-simulate the final vote at 11 identity-weight steps
+    (0%..100%) to trace how the winner and inter-scenario agreement shift."""
     curve: List[Dict[str, Any]] = []
     for w_pct in range(0, 105, 10):
         w = w_pct / 100.0
@@ -2291,7 +2331,7 @@ def _identity_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             vote_c  = v["identity_vote"] if use_id else v["ideo_vote"]
             if not (cross_pressure and v["abstains"]):
                 curve_votes.append(vote_c)
-        w_winner = _plurality(curve_votes)
+        w_winner = _identity_plurality(curve_votes, cand_names)
         # Agreement: fraction who would vote same under both identity=0 and identity=1
         ideo_tally   = {n: sincere_votes.count(n) for n in cand_names}
         id_tally     = {n: identity_votes.count(n) for n in cand_names}
@@ -2303,9 +2343,14 @@ def _identity_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             "winner":         w_winner,
             "agreement_rate": round(agreement, 4),
         })
+    return curve
 
-    # ── Pedagogical note ──────────────────────────────────────────────────────
-    n_cross_total = len(cross_pressured_voters)
+
+def _identity_pedagogical_note(
+    identity_weight: float, mixed_winner: str, sincere_winner: str,
+    n_cross_total: int, num_voters: int, abstention_rate: float,
+) -> str:
+    """Step 8 — pedagogical note (Green/Palmquist/Schickler + cross-pressure stats)."""
     note = (
         f"Green, Palmquist & Schickler (2002) : les électeurs adoptent les positions "
         f"de leur camp, ils ne choisissent pas leur camp selon leurs positions. "
@@ -2319,6 +2364,73 @@ def _identity_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             f"'cross-pressured' (identité ≠ idéologie) ; "
             f"taux d'abstention dans ce groupe : {round(abstention_rate*100)}%."
         )
+    return note
+
+
+def _identity_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /identity-voting — extracted for FastAPI v2.
+
+    Each numbered step below used to be inlined here; they're now private
+    `_identity_*` helpers (one per step) so this function is a short,
+    low-complexity sequence of calls instead of one large branchy block —
+    same names, same computation, same order as before (CODE_AUDIT.md §5/§8
+    complexity decomposition)."""
+    candidates_raw: List[Dict[str, Any]] = data.get("candidates") or [
+        {"name": "Alice", "x": -0.5, "y": 0.0},
+        {"name": "Bob",   "x":  0.0, "y": 0.0},
+        {"name": "Carol", "x":  0.5, "y": 0.0},
+    ]
+    num_voters:      int   = max(20, min(int(data.get("num_voters", 200)), 2000))
+    seed:            int   = int(data.get("seed", 42))
+    identity_weight: float = max(0.0, min(float(data.get("identity_weight", 0.5)), 1.0))
+    cross_pressure:  bool  = bool(data.get("cross_pressure", True))
+
+    default_groups = [
+        {"name": "Groupe A", "pct": 0.40, "ideology_center": -0.3,
+         "loyalty": 0.75, "candidate_affiliation": candidates_raw[0]["name"]},
+        {"name": "Groupe B", "pct": 0.35, "ideology_center":  0.1,
+         "loyalty": 0.60, "candidate_affiliation": candidates_raw[1]["name"]},
+        {"name": "Groupe C", "pct": 0.25, "ideology_center":  0.4,
+         "loyalty": 0.80, "candidate_affiliation": candidates_raw[2]["name"]},
+    ]
+    groups_raw: List[Dict[str, Any]] = data.get("identity_groups") or default_groups
+
+    rng = _rnd.Random(seed)
+    cand_names = [c["name"] for c in candidates_raw]
+
+    groups = _identity_normalise_groups(groups_raw, cand_names)
+    voters = _identity_generate_voters(
+        groups, candidates_raw, num_voters, rng, cross_pressure, identity_weight,
+    )
+
+    # ── Tally votes for 3 scenarios ───────────────────────────────────────────
+    sincere_votes  = [v["ideo_vote"]     for v in voters]
+    identity_votes = [v["identity_vote"] for v in voters]
+    mixed_votes    = [v["final_vote"]    for v in voters
+                      if not (cross_pressure and v["abstains"])]
+
+    sincere_winner  = _identity_plurality(sincere_votes, cand_names)
+    identity_winner = _identity_plurality(identity_votes, cand_names)
+    mixed_winner    = _identity_plurality(mixed_votes, cand_names)
+
+    group_results = _identity_group_results(voters, groups)
+
+    # ── Cross-pressured stats ─────────────────────────────────────────────────
+    cross_pressured_voters = [v for v in voters if v["is_cross_pressured"]]
+    n_cross = len(cross_pressured_voters)
+    n_abstaining = sum(1 for v in cross_pressured_voters if v["abstains"])
+    abstention_rate = n_abstaining / n_cross if n_cross > 0 else 0.0
+
+    curve = _identity_weight_curve(
+        voters, groups, cand_names, seed, cross_pressure,
+        sincere_votes, identity_votes,
+    )
+
+    n_cross_total = len(cross_pressured_voters)
+    note = _identity_pedagogical_note(
+        identity_weight, mixed_winner, sincere_winner, n_cross_total,
+        num_voters, abstention_rate,
+    )
 
     return {
         "sincere_winner":  sincere_winner,

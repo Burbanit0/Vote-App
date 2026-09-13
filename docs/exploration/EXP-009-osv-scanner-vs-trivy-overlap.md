@@ -5,7 +5,7 @@
 
 ## Hypothèse de départ
 
-Le [Lot 9 du plan](../../PLAN_SOLIDITE_TECHNIQUE.md#lot-9--sécurité-approfondie)
+Le [Lot 9 du plan](../plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md#lot-9--sécurité-approfondie)
 nomme explicitement l'expérience : Trivy (déjà en place, gating HIGH/CRITICAL
 dans `audit.yml`) et OSV-Scanner utilisent des bases de vulnérabilités
 différentes, recouvrement imparfait par construction — mesurer l'écart réel

@@ -5,7 +5,7 @@
 
 ## Hypothèse de départ
 
-Le [Lot 6 du plan](../../PLAN_SOLIDITE_TECHNIQUE.md#lot-6--ce-que-lanalyse-statique-ne-voit-pas)
+Le [Lot 6 du plan](../plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md#lot-6--ce-que-lanalyse-statique-ne-voit-pas)
 pose la question après la suppression de 16 500 lignes mortes (chantier
 antérieur) : qu'est-ce qui reste inatteignable **même en usage réel** ? Deux
 signaux existent déjà et ont chacun un angle mort structurel :

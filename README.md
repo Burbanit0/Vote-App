@@ -241,14 +241,14 @@ evidence, not just a claim.
 - **[14 tool trials, each closed with an argued verdict](docs/exploration/README.md)**
   — adopt, reject, or suspend, backed by real findings and real cost rather
   than "we added X."
-- **[`RETROSPECTIVE.md`](RETROSPECTIVE.md)** (French) — did the plan behind
-  all this survive contact with the actual work? What got added mid-flight,
-  what disappointed, what two independent `EXP-*` numbering collisions
-  revealed about running concurrent agents against the same repo.
-- **[`CODE_AUDIT.md`](CODE_AUDIT.md)** and
-  **[`PLAN_SOLIDITE_TECHNIQUE.md`](PLAN_SOLIDITE_TECHNIQUE.md)** (French) —
-  the quantified baseline and the lot-by-lot plan behind all of the above,
-  both still maintained as the work continues.
+- **[`RETROSPECTIVE.md`](docs/plan/vote-app/RETROSPECTIVE.md)** (French) — did
+  the plan behind all this survive contact with the actual work? What got
+  added mid-flight, what disappointed, what two independent `EXP-*` numbering
+  collisions revealed about running concurrent agents against the same repo.
+- **[`CODE_AUDIT.md`](docs/plan/vote-app/CODE_AUDIT.md)** and
+  **[`PLAN_SOLIDITE_TECHNIQUE.md`](docs/plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md)**
+  (French) — the quantified baseline and the lot-by-lot plan behind all of
+  the above, both still maintained as the work continues.
 
 ---
 

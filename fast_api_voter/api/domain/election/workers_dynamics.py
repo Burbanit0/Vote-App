@@ -17,7 +17,7 @@ import numpy as _np
 
 from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.simulation_metrics import compare_all_methods
-from ._electorate import _build_base_electorate
+from ._electorate import _build_base_electorate, _reseed_and_build_electorate
 from ._helpers import gini as _gini
 
 
@@ -92,13 +92,9 @@ def _hotelling_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
 
-    _random.seed(seed)
-    _np.random.seed(seed)
-    issues = DEFAULT_ISSUES
-
     # ── Build fixed electorate ─────────────────────────────────────────────
-    candidates, voters, _, cand_names = _build_base_electorate(
-        cand_specs, num_voters, ideology, seed, issues
+    candidates, voters, _, cand_names, issues = _reseed_and_build_electorate(
+        cand_specs, num_voters, ideology, seed
     )
 
     # Voter 2-D positions (fixed throughout)
@@ -285,16 +281,12 @@ def _polarization_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
 
-    issues = DEFAULT_ISSUES
     results: List[Dict[str, Any]] = []
 
     for ideology in ideology_range:
-        _random.seed(seed)
-        _np.random.seed(seed)
-
         # ── Build reference electorate to compute polarization index ──────
-        candidates, voters, true_utilities, cand_names = _build_base_electorate(
-            cand_specs, num_voters, ideology, seed, issues
+        candidates, voters, true_utilities, cand_names, issues = _reseed_and_build_electorate(
+            cand_specs, num_voters, ideology, seed
         )
 
         economy_positions: List[float] = [
@@ -640,12 +632,8 @@ def _affective_polarization_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any]
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
 
-    _random.seed(seed)
-    _np.random.seed(seed)
-    issues = DEFAULT_ISSUES
-
-    candidates, voters, sincere_utilities, cand_names = _build_base_electorate(
-        cand_specs, num_voters, ideology, seed, issues
+    candidates, voters, sincere_utilities, cand_names, issues = _reseed_and_build_electorate(
+        cand_specs, num_voters, ideology, seed
     )
 
     # ── Assign camps ──────────────────────────────────────────────────────

@@ -120,7 +120,7 @@ capable of telling the truth.
 
 ---
 
-*Sourced from [`PLAN_SOLIDITE_TECHNIQUE.md`](../../PLAN_SOLIDITE_TECHNIQUE.md)
+*Sourced from [`PLAN_SOLIDITE_TECHNIQUE.md`](../plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md)
 (Lot 0.3's framing and Lot 13's own honest reconciliation of "~25 tried" vs.
 "14 formal"), the [verdicts index](../exploration/README.md), and
 [EXP-004](../exploration/EXP-004-regression-visuelle-playwright-screenshots.md),

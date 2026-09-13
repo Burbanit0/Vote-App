@@ -1,7 +1,7 @@
 # Les surfaces de documentation
 
 Vote-App a plusieurs supports qui se chevauchaient mal avant ce document
-(Lot 0.1 du [plan de solidité technique](../PLAN_SOLIDITE_TECHNIQUE.md)).
+(Lot 0.1 du [plan de solidité technique](plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md)).
 Chacun a un rôle et un rythme distincts — la confusion entre eux, plus qu'un
 manque de discipline, est ce qui les faisait dériver.
 
@@ -16,7 +16,7 @@ manque de discipline, est ce qui les faisait dériver.
 | `…/flagship_runs/<run>/run/<run>/progress.json` | État vivant d'un run en cours : tick complété **et tick en cours**, décisions par type, replis, et un **battement de cœur LLM** (`last_llm_response_at`). C'est la seule surface qui répond à « ce run est-il vivant ? » — lue par `scripts/check_run_liveness.py`, jamais à l'œil nu. | Par tick **et** à chaque réponse LLM (throttlé à 5 s) | ✅ (battement intra-tick ajouté le 2026-09-11, après qu'un run sain a été tué faute de pouvoir répondre à cette question) |
 | `…/flagship_runs/<run>/run/<run>/TIMELINE.md` | Le récit lisible d'un run : ce qu'a vécu cette société simulée, et ce que la population a fait. Rédigé à partir du digest, jamais des logs bruts. | Par run terminé (`/log-run` → sub-agent `run-narrator`) ; les runs non racontés sont signalés au démarrage de session | ✅ |
 | Mémoire Claude polity | Écueils rechargés d'office à chaque session — le seul support qui empêche *réellement* la répétition. | Par écueil rencontré | ✅ côté polity uniquement — hors périmètre de ce dépôt ; alimentation automatique (Lot 0.5, tier 3) pas encore branchée |
-| `CODE_AUDIT.md` (racine) | État de santé daté du code, rejouable. | Par passe de nettoyage | ✅ |
+| `docs/plan/vote-app/CODE_AUDIT.md` | État de santé daté du code, rejouable. | Par passe de nettoyage | ✅ |
 
 ## Comment choisir la bonne surface
 
@@ -31,7 +31,7 @@ manque de discipline, est ce qui les faisait dériver.
   ce qui s'y est passé** → `/log-run` → `TIMELINE.md` à côté du `events.jsonl`
   du run, rédigé depuis son `digest.json`.
 - **Je veux savoir où en est la qualité du code, dans l'ensemble** →
-  `CODE_AUDIT.md`.
+  `docs/plan/vote-app/CODE_AUDIT.md`.
 
 ## Ce que ce document n'est pas
 

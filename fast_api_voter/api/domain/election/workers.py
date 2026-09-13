@@ -29,7 +29,6 @@ from api.engine.utils.simulation_ranked_utils import (
     get_approval_winner_sincere,
 )
 from api.engine.utils.blank_vote_rules        import BlankVoteRule
-from api.engine.utils.blank_contagion         import simulate_blank_contagion
 from api.engine.utils.campaign_dynamics       import simulate_campaign
 from api.engine.utils.information_model       import apply_information_asymmetry
 from api.engine.utils.cache import cache_result
@@ -38,14 +37,16 @@ from api.engine.utils.cache import cache_result
 # this package. Re-exported under their original private names so the
 # 30+ existing call sites in this file continue to work unchanged.
 from ._helpers import (
-    build_candidate_from_xy as _build_candidate_from_xy,
-    inter_method_agreement  as _inter_method_agreement,
-    dhondt                  as _dhondt,
+    build_candidate_from_xy       as _build_candidate_from_xy,
+    inter_method_agreement        as _inter_method_agreement,
+    dhondt                        as _dhondt,
+    parse_optional_election_configs as _parse_optional_election_configs,
 )
 from ._electorate import (
     _build_base_electorate,
     _run_methods_on_electorate,
     _snapshot_election_winners,
+    _apply_blank_contagion,
 )
 
 
@@ -117,18 +118,7 @@ def _divergence_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     voters_b = copy.deepcopy(voters)
 
     if contagion_on:
-        beta    = max(0.0, min(1.0, float(contagion_cfg.get("beta",  0.15))))
-        gamma   = max(0.0, min(1.0, float(contagion_cfg.get("gamma", 0.10))))
-        net_map = {"random": "random", "watts_strogatz": "small-world", "block": "clustered"}
-        net     = net_map.get(str(contagion_cfg.get("network", "random")), "random")
-        contagion_result = simulate_blank_contagion(
-            num_voters=num_voters, initial_blank_rate=0.05,
-            contagion_rate=beta, recovery_rate=gamma,
-            num_rounds=10, network_type=net, seed=seed,
-        )
-        reduction = contagion_result.get("final_blank_rate", 0.05) * 0.4
-        for v in voters_b:
-            v["blank_threshold"] = max(0.05, v["blank_threshold"] - reduction)
+        _apply_blank_contagion(voters_b, contagion_cfg, num_voters, seed)
 
     run_b = _run_methods_on_electorate(
         voters_b, candidates, true_utilities, issues,
@@ -217,18 +207,7 @@ def _campaign_sensitivity_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], 
 
     # ── Apply blank-vote contagion once (threshold adjustments) ───────────
     if contagion_on and blank_enabled:
-        beta    = max(0.0, min(1.0, float(contagion_cfg.get("beta",  0.15))))
-        gamma   = max(0.0, min(1.0, float(contagion_cfg.get("gamma", 0.10))))
-        net_map = {"random": "random", "watts_strogatz": "small-world", "block": "clustered"}
-        net     = net_map.get(str(contagion_cfg.get("network", "random")), "random")
-        contagion_result = simulate_blank_contagion(
-            num_voters=num_voters, initial_blank_rate=0.05,
-            contagion_rate=beta, recovery_rate=gamma,
-            num_rounds=10, network_type=net, seed=seed,
-        )
-        reduction = contagion_result.get("final_blank_rate", 0.05) * 0.4
-        for v in voters:
-            v["blank_threshold"] = max(0.05, v["blank_threshold"] - reduction)
+        _apply_blank_contagion(voters, contagion_cfg, num_voters, seed)
 
     # ── Run campaign to get day-by-day polling shares ─────────────────────
     camp       = simulate_campaign(
@@ -415,18 +394,7 @@ def _combined_effects_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
     # ── Pre-compute blank-vote adjusted voters ────────────────────────────
     blank_voters = copy.deepcopy(voters)
     if contagion_on:
-        beta    = max(0.0, min(1.0, float(contagion_cfg.get("beta",  0.15))))
-        gamma   = max(0.0, min(1.0, float(contagion_cfg.get("gamma", 0.10))))
-        net_map = {"random": "random", "watts_strogatz": "small-world", "block": "clustered"}
-        net     = net_map.get(str(contagion_cfg.get("network", "random")), "random")
-        contagion_result = simulate_blank_contagion(
-            num_voters=num_voters, initial_blank_rate=0.05,
-            contagion_rate=beta, recovery_rate=gamma,
-            num_rounds=10, network_type=net, seed=seed,
-        )
-        reduction = contagion_result.get("final_blank_rate", 0.05) * 0.4
-        for v in blank_voters:
-            v["blank_threshold"] = max(0.05, v["blank_threshold"] - reduction)
+        _apply_blank_contagion(blank_voters, contagion_cfg, num_voters, seed)
 
     # (campaign_on, info_on) → utilities dict
     utility_map: Dict[tuple[bool, bool], Dict[Any, Dict[str, float]]] = {
@@ -555,27 +523,17 @@ _T: Dict[str, Dict[str, str]] = {
 }
 
 
-def _interpret_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /interpret — extracted for FastAPI v2."""
-    lang = str(data.get("lang", "fr")) if str(data.get("lang", "fr")) in ("fr", "en") else "fr"
-    T    = _T[lang]
-
-    methods_raw        = data.get("methods") or {}
-    condorcet_winner   = data.get("condorcet_winner")
-    condorcet_exists   = bool(data.get("condorcet_exists", condorcet_winner is not None))
-    inter_agreement    = float(data.get("inter_method_agreement", 0.0))
-    blank_rate         = float(data.get("blank_rate", 0.0))
-    blank_rule         = str((data.get("config") or {}).get("blank_vote", {}).get("rule", "symbolic"))
-
-    if not methods_raw:
-        return {"error": "No methods data provided"}, 400
-
-    # ── 1. Group methods by effective winner ──────────────────────────────
+def _interpret_group_methods(
+    methods_raw: Dict[str, Any],
+) -> tuple[list[Dict[str, Any]], Optional[str]]:
+    """Step 1 — group methods by effective winner (`winner_after_rule` takes
+    priority over `winner` when a blank-vote rule was applied), then resolve
+    the plurality winner specifically (needed by Condorcet-spoiler detection
+    in later steps)."""
     winner_to_methods: Dict[str, list[str]] = {}
     for method_name, md in methods_raw.items():
         if not isinstance(md, dict):
             continue
-        # Prefer winner_after_rule if blank vote applied
         effective = md.get("winner_after_rule") or md.get("winner")
         if not effective:
             continue
@@ -602,7 +560,13 @@ def _interpret_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     pl_md = methods_raw.get("plurality", {})
     plurality_winner = pl_md.get("winner_after_rule") or pl_md.get("winner") if pl_md else None
 
-    # ── 2. Headline ───────────────────────────────────────────────────────
+    return method_groups, plurality_winner
+
+
+def _interpret_headline(
+    T: Dict[str, str], inter_agreement: float, method_groups: list[Dict[str, Any]],
+) -> tuple[str, str]:
+    """Step 2 — headline, plus the resolved top winner name reused by later steps."""
     pct_int = round(inter_agreement * 100)
     top_group = method_groups[0] if method_groups else None
     top_winner = top_group["winner"] if top_group else "?"
@@ -614,59 +578,84 @@ def _interpret_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     else:
         headline = T["strong_diverg"].format(pct=pct_int)
 
-    # ── 3. Condorcet analysis ─────────────────────────────────────────────
+    return headline, top_winner
+
+
+def _interpret_condorcet_analysis(
+    T: Dict[str, str], condorcet_exists: bool, condorcet_winner: Optional[str],
+    plurality_winner: Optional[str], top_winner: str,
+) -> str:
+    """Step 3 — Condorcet analysis (spoiler detection vs. plain existence)."""
     if not condorcet_exists:
-        condorcet_analysis = T["no_condorcet"]
-    elif condorcet_winner and plurality_winner and condorcet_winner != plurality_winner:
-        condorcet_analysis = T["condorcet_spoiler"].format(
-            cw=condorcet_winner, pw=plurality_winner
-        )
-    else:
-        condorcet_analysis = T["condorcet_exists"].format(
-            winner=condorcet_winner or top_winner
-        )
+        return T["no_condorcet"]
+    if condorcet_winner and plurality_winner and condorcet_winner != plurality_winner:
+        return T["condorcet_spoiler"].format(cw=condorcet_winner, pw=plurality_winner)
+    return T["condorcet_exists"].format(winner=condorcet_winner or top_winner)
 
-    # ── 4. Divergence reason ──────────────────────────────────────────────
+
+def _interpret_divergence_reason(
+    T: Dict[str, str], method_groups: list[Dict[str, Any]], condorcet_exists: bool,
+    condorcet_winner: Optional[str], plurality_winner: Optional[str],
+    condorcet_analysis: str,
+) -> str:
+    """Step 4 — divergence reason (reuses the Condorcet analysis text where
+    it already answers the question, otherwise a dedicated spoiler message)."""
     if len(method_groups) <= 1:
-        divergence_reason = condorcet_analysis
-    elif not condorcet_exists:
-        divergence_reason = T["no_condorcet"]
-    else:
-        divergence_reason = T["condorcet_spoiler"].format(
+        return condorcet_analysis
+    if not condorcet_exists:
+        return T["no_condorcet"]
+    if condorcet_winner and plurality_winner and condorcet_winner != plurality_winner:
+        return T["condorcet_spoiler"].format(
             cw=condorcet_winner or "?", pw=plurality_winner or "?"
-        ) if condorcet_winner and plurality_winner and condorcet_winner != plurality_winner \
-          else condorcet_analysis
+        )
+    return condorcet_analysis
 
-    # ── 5. Best / worst method by Bayesian Regret ─────────────────────────
+
+def _interpret_best_worst_by_regret(
+    methods_raw: Dict[str, Any],
+) -> tuple[Optional[str], Optional[str]]:
+    """Step 5 — best / worst method by Bayesian Regret."""
     regrets: Dict[str, float] = {
         m: float(md["bayesian_regret"])
         for m, md in methods_raw.items()
         if isinstance(md, dict) and md.get("bayesian_regret") is not None
     }
-
     best_by_regret  = min(regrets, key=lambda k: regrets[k]) if regrets else None
     worst_by_regret = max(regrets, key=lambda k: regrets[k]) if regrets else None
+    return best_by_regret, worst_by_regret
 
-    # ── 6. Blank analysis ─────────────────────────────────────────────────
-    blank_analysis: Optional[str] = None
+
+def _interpret_blank_analysis(
+    T: Dict[str, str], blank_rate: float, blank_rule: str,
+) -> Optional[str]:
+    """Step 6 — blank-vote analysis, only when the rate is high enough to matter."""
     if blank_rate > 0.2:
-        blank_analysis = T["high_blank"].format(
-            pct=round(blank_rate * 100, 1), rule=blank_rule
-        )
+        return T["high_blank"].format(pct=round(blank_rate * 100, 1), rule=blank_rule)
+    return None
 
-    # ── 7. Pedagogical note ───────────────────────────────────────────────
+
+def _interpret_pedagogical_note(
+    T: Dict[str, str], condorcet_exists: bool, inter_agreement: float,
+) -> str:
+    """Step 7 — pedagogical note (Arrow / Condorcet / consensus)."""
     if not condorcet_exists:
-        pedagogical_note = T["ped_arrow"]
-    elif inter_agreement > 0.85:
-        pedagogical_note = T["ped_consensus"]
-    else:
-        pedagogical_note = T["ped_condorcet"]
+        return T["ped_arrow"]
+    if inter_agreement > 0.85:
+        return T["ped_consensus"]
+    return T["ped_condorcet"]
 
-    # ── 8. Key facts ──────────────────────────────────────────────────────
+
+def _interpret_key_facts(
+    T: Dict[str, str], method_groups: list[Dict[str, Any]], n_methods: int,
+    condorcet_exists: bool, condorcet_winner: Optional[str],
+    best_by_regret: Optional[str],
+) -> list[str]:
+    """Step 8 — key facts, a short bulleted summary of the steps above."""
     key_facts: list[str] = []
+    top_group = method_groups[0] if method_groups else None
     if top_group:
-        top_pct:     float     = top_group["pct"]      # type: ignore[assignment]
-        top_methods: list[str] = top_group["methods"]  # type: ignore[assignment]
+        top_pct:     float     = top_group["pct"]
+        top_methods: list[str] = top_group["methods"]
         key_facts.append(T["fact_pct"].format(
             pct=int(round(top_pct * 100, 0)),
             n=len(top_methods),
@@ -679,6 +668,46 @@ def _interpret_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         key_facts.append(T["fact_condorcet_n"])
     if best_by_regret:
         key_facts.append(T["fact_best"].format(method=best_by_regret))
+    return key_facts
+
+
+def _interpret_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /interpret — extracted for FastAPI v2.
+
+    Each numbered step below used to be inlined here; they're now private
+    `_interpret_*` helpers (one per step) so this function is a short,
+    low-complexity sequence of calls instead of one large branchy block —
+    same names, same computation, same order as before (CODE_AUDIT.md §5/§8
+    complexity decomposition)."""
+    lang = str(data.get("lang", "fr")) if str(data.get("lang", "fr")) in ("fr", "en") else "fr"
+    T    = _T[lang]
+
+    methods_raw        = data.get("methods") or {}
+    condorcet_winner   = data.get("condorcet_winner")
+    condorcet_exists   = bool(data.get("condorcet_exists", condorcet_winner is not None))
+    inter_agreement    = float(data.get("inter_method_agreement", 0.0))
+    blank_rate         = float(data.get("blank_rate", 0.0))
+    blank_rule         = str((data.get("config") or {}).get("blank_vote", {}).get("rule", "symbolic"))
+
+    if not methods_raw:
+        return {"error": "No methods data provided"}, 400
+
+    method_groups, plurality_winner = _interpret_group_methods(methods_raw)
+    headline, top_winner = _interpret_headline(T, inter_agreement, method_groups)
+    condorcet_analysis = _interpret_condorcet_analysis(
+        T, condorcet_exists, condorcet_winner, plurality_winner, top_winner,
+    )
+    divergence_reason = _interpret_divergence_reason(
+        T, method_groups, condorcet_exists, condorcet_winner, plurality_winner,
+        condorcet_analysis,
+    )
+    best_by_regret, worst_by_regret = _interpret_best_worst_by_regret(methods_raw)
+    blank_analysis = _interpret_blank_analysis(T, blank_rate, blank_rule)
+    pedagogical_note = _interpret_pedagogical_note(T, condorcet_exists, inter_agreement)
+    key_facts = _interpret_key_facts(
+        T, method_groups, len(methods_raw), condorcet_exists, condorcet_winner,
+        best_by_regret,
+    )
 
     return {
         "headline":           headline,
@@ -736,19 +765,11 @@ def _simulate_pipeline_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
         {"name": "Carol", "x":  0.0, "y":  0.3},
     ])[:6]
 
-    blank_cfg      = data.get("blank_vote", {}) or {}
-    blank_enabled  = bool(blank_cfg.get("enabled", False))
-    str(blank_cfg.get("rule", "symbolic"))
-    contagion_cfg  = blank_cfg.get("contagion", {}) or {}
-    contagion_on   = bool(contagion_cfg.get("enabled", False))
-
-    info_cfg       = data.get("information_model", {}) or {}
-    info_enabled   = bool(info_cfg.get("enabled", False))
-
-    campaign_cfg   = data.get("campaign", {}) or {}
-    campaign_on    = bool(campaign_cfg.get("enabled", False))
-    num_days       = max(7,  min(60, int(campaign_cfg.get("num_days",        30))))
-    polling_effect = max(0.0, min(1.0, float(campaign_cfg.get("polling_effect", 0.3))))
+    (
+        blank_enabled, _, contagion_cfg, contagion_on,
+        info_cfg, info_enabled, campaign_cfg, campaign_on,
+        num_days, polling_effect,
+    ) = _parse_optional_election_configs(data)
 
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
@@ -823,19 +844,10 @@ def _simulate_pipeline_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
 
     # ── Step 3: Blank-vote contagion ──────────────────────────────────────
     if contagion_on and blank_enabled:
-        beta    = max(0.0, min(1.0, float(contagion_cfg.get("beta",  0.15))))
-        gamma   = max(0.0, min(1.0, float(contagion_cfg.get("gamma", 0.10))))
-        net_map = {"random": "random", "watts_strogatz": "small-world", "block": "clustered"}
-        net     = net_map.get(str(contagion_cfg.get("network", "random")), "random")
-        cont_r  = simulate_blank_contagion(
-            num_voters=num_voters, initial_blank_rate=0.05,
-            contagion_rate=beta, recovery_rate=gamma,
-            num_rounds=10, network_type=net, seed=seed,
-        )
-        final_blank = cont_r.get("final_blank_rate", 0.05)
-        reduction   = final_blank * 0.4
-        for v in voters:
-            v["blank_threshold"] = max(0.05, v["blank_threshold"] - reduction)
+        contagion_info = _apply_blank_contagion(voters, contagion_cfg, num_voters, seed)
+        beta        = contagion_info["beta"]
+        gamma       = contagion_info["gamma"]
+        final_blank = contagion_info["final_blank_rate"]
 
         cont_snap   = _voter_snap(voters, current_utilities, blank_enabled=True)
         blank_count = sum(1 for s in cont_snap if s["is_blank"])
