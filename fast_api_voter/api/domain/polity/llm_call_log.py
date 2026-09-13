@@ -43,23 +43,28 @@ def _canonical(value: Any) -> str:
     return json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
 
 
-_DECISION_TYPE_BY_SCHEMA = {
-    _canonical(llm_schemas.VOTE_CAST_JSON_SCHEMA): "vote_cast",
-    _canonical(llm_schemas.CANDIDACY_JSON_SCHEMA): "candidacy_considered",
-    _canonical(llm_schemas.PARTY_NOMINATION_JSON_SCHEMA): "party_nomination_choice",
-    _canonical(llm_schemas.POSITIONING_JSON_SCHEMA): "campaign_positioning",
-    _canonical(llm_schemas.RESPONSE_JSON_SCHEMA): "representative_response",
-    _canonical(llm_schemas.PRESSURE_JSON_SCHEMA): "pressure_action",
-    _canonical(llm_schemas.REACTION_JSON_SCHEMA): "reaction_to_event",
-    _canonical(llm_schemas.CHAMBER_JSON_SCHEMA): "chamber_deliberation",
-    _canonical(llm_schemas.COALITION_JSON_SCHEMA): "coalition_decision",
+_DECISION_TYPE_BY_TITLE = {
+    str(schema["title"]): decision_type
+    for schema, decision_type in (
+        (llm_schemas.VOTE_CAST_JSON_SCHEMA, "vote_cast"),
+        (llm_schemas.CANDIDACY_JSON_SCHEMA, "candidacy_considered"),
+        (llm_schemas.PARTY_NOMINATION_JSON_SCHEMA, "party_nomination_choice"),
+        (llm_schemas.POSITIONING_JSON_SCHEMA, "campaign_positioning"),
+        (llm_schemas.RESPONSE_JSON_SCHEMA, "representative_response"),
+        (llm_schemas.PRESSURE_JSON_SCHEMA, "pressure_action"),
+        (llm_schemas.REACTION_JSON_SCHEMA, "reaction_to_event"),
+        (llm_schemas.CHAMBER_JSON_SCHEMA, "chamber_deliberation"),
+        (llm_schemas.COALITION_JSON_SCHEMA, "coalition_decision"),
+    )
 }
 
 
 def decision_type_for_schema(json_schema: dict[str, Any] | None) -> str:
     """Which decision type a complete_json request belongs to, read off its JSON
-    schema -- the one request field every decision type sets differently."""
-    return _DECISION_TYPE_BY_SCHEMA.get(_canonical(json_schema), "unknown_schema")
+    schema's title -- the batch model's name, which stays the same when a schema is
+    built per request (S1.2's vote_cast grammar sets ranking bounds per field)."""
+    title = json_schema.get("title") if isinstance(json_schema, dict) else None
+    return _DECISION_TYPE_BY_TITLE.get(str(title), "unknown_schema")
 
 
 def request_sha256(

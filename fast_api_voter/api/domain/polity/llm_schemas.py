@@ -23,7 +23,7 @@ belongs in llm_behavior_engine.py as plain functions, not here.
 """
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -78,6 +78,41 @@ class VoteCastBatch(BaseModel):
 
 
 VOTE_CAST_JSON_SCHEMA = VoteCastBatch.model_json_schema()
+
+
+def vote_cast_json_schema(max_ranking: int) -> dict[str, Any]:
+    """S1.2: VOTE_CAST_JSON_SCHEMA with the ballot rules VoteCastDecision and
+    validate_decision check after the fact written into the grammar, so constrained
+    decoding cannot produce a ballot production would reject for them.
+
+    - `blank=1` if and only if the ranking is empty: the decision is `anyOf` a blank
+      branch (`blank` const 1, `ranking` maxItems 0) and a ranked one (`blank` const 0,
+      `ranking` minItems 1).
+    - At most `max_ranking` positions: the batch's own limit, `truncation_limit` for a
+      field above six candidates (top five) and the field size otherwise -- the
+      validator's rule, not a new one.
+
+    Positions above the field size and duplicate positions stay the validators' to
+    catch. The batch envelope keeps its title, which is what identifies a request's
+    decision type (llm_call_log.decision_type_for_schema)."""
+    if max_ranking < 1:
+        raise ValueError(f"max_ranking must be at least 1, got {max_ranking}")
+    schema = VoteCastBatch.model_json_schema()
+    decision = schema["$defs"]["VoteCastDecision"]
+    properties = decision["properties"]
+
+    def branch(blank: int, ranking_bounds: dict[str, int]) -> dict[str, Any]:
+        blank_schema = {key: value for key, value in properties["blank"].items() if key != "enum"}
+        return {
+            "type": "object", "additionalProperties": False, "required": decision["required"],
+            "properties": {**properties, "blank": {**blank_schema, "const": blank}, "ranking": {**properties["ranking"], **ranking_bounds}},
+        }
+
+    schema["$defs"]["VoteCastDecision"] = {
+        "title": decision["title"],
+        "anyOf": [branch(1, {"maxItems": 0}), branch(0, {"minItems": 1, "maxItems": max_ranking})],
+    }
+    return schema
 
 
 class CandidacyDecision(BaseModel):

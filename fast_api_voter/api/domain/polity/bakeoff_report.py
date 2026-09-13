@@ -42,9 +42,19 @@ def _logprob(gate: dict[str, Any]) -> str:
     return f"{_yes(gate['passed'])}: {gate['aligned']}/{gate['units']} aligned, {gate['threshold_call_correct']} correct, separation {_num(gate['separation'])}"
 
 
+def _model(metadata: dict[str, Any]) -> str:
+    model = f"{metadata.get('provider', '?')}/{metadata.get('model', '?')}"
+    return f"{model}, arm {metadata['arm']}" if metadata.get("arm") else model
+
+
+def _validity(validity: dict[str, Any]) -> str:
+    errors = "; ".join(f"{kind} ×{count}" for kind, count in validity.get("errors", {}).items())
+    return f"{_pct(validity)}" + (f"<br>{errors}" if errors else "")
+
+
 def _session_rows(sessions: list[dict[str, Any]]) -> list[list[Any]]:
     return [
-        [s["label"], f"{s['metadata'].get('provider', '?')}/{s['metadata'].get('model', '?')}", s["metadata"].get("weights", "–"),
+        [s["label"], _model(s["metadata"]), s["metadata"].get("weights", "–"),
          _yes(s["bank_matches"]), _think(s["gates"]["think"]), _logprob(s["gates"]["logprob"]),
          f"output {_pct(s['noise_floor']['identical_output'])}; units {_pct(s['noise_floor']['unit_agreement'])}"]
         for s in sessions
@@ -90,7 +100,7 @@ def _decision_type_sections(sessions: list[dict[str, Any]]) -> list[str]:
     lines: list[str] = []
     for decision_type in types:
         rows = [
-            [s["label"], _pct(scored["validity"]), "<br>".join(family_summary(f, fs) for f, fs in scored["families"].items()), _cost(scored["cost"])]
+            [s["label"], _validity(scored["validity"]), "<br>".join(family_summary(f, fs) for f, fs in scored["families"].items()), _cost(scored["cost"])]
             for s in sessions if (scored := s["decision_types"].get(decision_type)) is not None
         ]
         lines += ["", f"## {decision_type}", "", *_table(["session", "validity", "accuracy / sensitivity", "cost per request"], rows)]
