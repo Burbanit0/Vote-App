@@ -80,6 +80,25 @@ class TestDemocraticBacksliding:
         assert client.post("/api/v2/theory/democratic-backsliding",
                            json=bad).status_code == 422
 
+    def test_opposition_win_restores_quality_and_rolls_back_advantages(self, client):
+        # With zero backsliding intensity, the outcome is pure spatial
+        # competition — the opposition can win some elections. Exercises
+        # the "not incumbent_won" branches: quality partially restores
+        # (rather than decaying) and the cumulative advantages roll back
+        # (rather than accumulate). seed=1 deterministically produces at
+        # least one opposition win within 10 elections (verified directly
+        # against the worker before writing this test).
+        ok = {
+            **self.payload,
+            "seed": 1,
+            "num_elections": 10,
+            "backsliding_intensity": 0.0,
+        }
+        r = client.post("/api/v2/theory/democratic-backsliding", json=ok)
+        assert r.status_code == 200, r.text
+        winners = [e["winner"] for e in r.json()["elections"]]
+        assert "Opposition" in winners
+
     def test_polarized_ideology(self, client):
         # _backsliding_base_vote_shares's "polarized" branch (normal
         # distribution around the ideology poles instead of uniform).
