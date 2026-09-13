@@ -1,0 +1,216 @@
+{
+  "_generated_by": "scripts/gen_polity_golden.py -- regenerate on purpose, never hand-edit",
+  "deterministic": {
+    "by_event_type": {
+      "candidacy_declared": {
+        "count": 2,
+        "sha256": "5cc92586f819eae097ecc9d46d39e6d43a938b01db60fb1a9e426c8b89e480d9"
+      },
+      "coalition_formed": {
+        "count": 1,
+        "sha256": "07a9e0e394f162c136b851b1b66bc0afed630c3747a97db7c490e8bdeeaa0f7c"
+      },
+      "elected": {
+        "count": 1,
+        "sha256": "7519c713b23f665d738d51690389d8b1fd0413ea067e543e0b2e8f99981d101f"
+      },
+      "legislative_result": {
+        "count": 1,
+        "sha256": "91feee05a2f5bcbf0b3d5696c2b47690c40633a17dfc7bca81649a6a0923f9c2"
+      },
+      "legitimacy_updated": {
+        "count": 9,
+        "sha256": "9cdd433bf7953a74dc22a34a74d82eb2ddeebf9e6c2c8f1277d83aa22e48155e"
+      },
+      "mandate_pledge_declared": {
+        "count": 1,
+        "sha256": "957f0d81d104e901f60e1d17912d8bfe8c1abfc9e6ed37c665b5a3f0749599d8"
+      },
+      "petition_expired": {
+        "count": 1,
+        "sha256": "0c0643df61e0e80cd9ace5f92978b2d768afc63ee863c81d4c9007c8a0746e9b"
+      },
+      "petition_launched": {
+        "count": 2,
+        "sha256": "d070299d16162de7be3bd5b57df2877aa1b8696e2e1fedcdbbca8d11aad84b6f"
+      },
+      "pressure_action": {
+        "count": 65,
+        "sha256": "045abf72535faaa6974c9410ba8132e3fb4da9ad711144d10f3daabc1cc6ad81"
+      },
+      "reaction_to_event": {
+        "count": 160,
+        "sha256": "40d566b3a812dca4f47c4a9ce4a9f7f2e0ae9318096979eb6b3f81b5c26cb67a"
+      },
+      "scandal_occurred": {
+        "count": 4,
+        "sha256": "93987d49d97ac379ba900fad05c60704556433b3de99c0b52c74116fa40047ef"
+      },
+      "sortition_rotation": {
+        "count": 3,
+        "sha256": "8c53511cd8ad859e386d1dce189700b8a09af0a688f661cd618a97b5ef3114a2"
+      }
+    },
+    "event_count": 250,
+    "events_sha256": "3d0f0685c8fd2e18ab7df8ee6a9ba260b9a187367b4454ebf4b966f3a40e3667"
+  },
+  "fake_llm": {
+    "by_event_type": {
+      "campaign_positioning": {
+        "count": 10,
+        "sha256": "33a140c118c8d68bd15661786ed974610d1d1d51c9b4bddf661cbb8bf72c00af"
+      },
+      "candidacy_considered": {
+        "count": 80,
+        "sha256": "8bd15579bd0ad68696a58c145e67740907df34a7e933acd2bc892896fea477ed"
+      },
+      "candidacy_declared": {
+        "count": 10,
+        "sha256": "42c6885051731d367dd1fd9184bfa6d816775770acfa2a1cf4494d33b5d8b9a3"
+      },
+      "chamber_deliberation": {
+        "count": 45,
+        "sha256": "d1e2cd9d0321285b701d8d3f40ff10dd02ab2ca00635561e28648a65349ee4fa"
+      },
+      "clamped_at_bound": {
+        "count": 13,
+        "sha256": "341cd9dc035095c3423528f59544614c291ba76dbd4ff792133bd1da0b9b4c66"
+      },
+      "coalition_decision": {
+        "count": 8,
+        "sha256": "7a2654145e8c2355edebfa343392d1e7aec1a095c75858fedc410f8e9ce7ec04"
+      },
+      "coalition_formed": {
+        "count": 1,
+        "sha256": "28a05013b815abd0c2674b34e38732cb9effac586f3de5297b4cdbd8f0097499"
+      },
+      "confidence_vote_result": {
+        "count": 1,
+        "sha256": "c3dbb47e4dfe9e542ee731d00e11d5b855ad2dece56427bf69e978aca5c4ace8"
+      },
+      "confidence_vote_triggered": {
+        "count": 1,
+        "sha256": "dda0ed4838cca8b18ce3f9b4c2534fffc98752af67525f01f94ba37c57602e10"
+      },
+      "elected": {
+        "count": 2,
+        "sha256": "6d5d17b0ab16fe5d99e9de83958a2c7587be462966120fb7381ac2950e6257f0"
+      },
+      "legislative_result": {
+        "count": 1,
+        "sha256": "b46feb4107a8e01a3a23867ac0106f42fa33939a0e22ebd542cda85a6f00ddc8"
+      },
+      "legitimacy_updated": {
+        "count": 9,
+        "sha256": "65d6262052a6be76b07d8d2c469719bdc0d7ae4fdf103363e150bb92731f0ef9"
+      },
+      "mandate_pledge_declared": {
+        "count": 2,
+        "sha256": "a48c07503dd25f04ce9e8138605021fd45a2dfe5e92c781bb932c84881344fc5"
+      },
+      "nomination_lost": {
+        "count": 42,
+        "sha256": "f864d3e8ac63ed9eaf86f449d5829f1dbd59f195e3aed540afa5c234fa51e5c8"
+      },
+      "party_nomination_choice": {
+        "count": 8,
+        "sha256": "e094807d7d7861f612a0149270f770639ffdd92f4e89c0ee60ecfeaede332483"
+      },
+      "petition_expired": {
+        "count": 1,
+        "sha256": "ec4ae44665d201a3aaa3aafe537bd89333b15f5e136a415be9dd477d40740f80"
+      },
+      "petition_launched": {
+        "count": 2,
+        "sha256": "38402b73c7380718f516f8cdd0741a571a0d6c5d980b24ef13c5d5fd5194cbf8"
+      },
+      "petition_signed": {
+        "count": 16,
+        "sha256": "cc4a4828b140bfeabc9838f254310788e0fe7bd9dd8918208d15b3e5acd15b7f"
+      },
+      "pressure_action": {
+        "count": 68,
+        "sha256": "94326a0974b620b2cfbd5bee3d9db18048e2621d2c3bf19d110b49c3048215c3"
+      },
+      "reaction_to_event": {
+        "count": 160,
+        "sha256": "dd45a02cc8f2afc91dd323eec2ec871e13842e9aa3a6ddf77c5a475c192261b7"
+      },
+      "recalled": {
+        "count": 1,
+        "sha256": "e24a2a38f5b915a68bfd32bb03da31bc2a6ab588d69140a0b03c394e68ebd0a5"
+      },
+      "representative_response": {
+        "count": 9,
+        "sha256": "5ae813d53002e02be1fb79300e250791c0035ebd22b3f23686428ba0c3bfe622"
+      },
+      "scandal_occurred": {
+        "count": 4,
+        "sha256": "e59bd7a6f4af05e6975e12b59e194b9fb65256f67b57aa4099d0ebdf11197929"
+      },
+      "snap_election_triggered": {
+        "count": 1,
+        "sha256": "46ea8ed8239c193061742f1b49d91bcbdce7de14df0b3c6be3509413b7f4a695"
+      },
+      "sortition_rotation": {
+        "count": 3,
+        "sha256": "f594910ed36460c485b8cba23f947168661d8415b1745e7cee7d6cc181bf8b33"
+      },
+      "vote_cast": {
+        "count": 80,
+        "sha256": "a49df54f74b19b862153d92b7c6c7f74f971bd66413a2f730e5172393de2c359"
+      }
+    },
+    "event_count": 578,
+    "events_sha256": "0ffded8ce754023c9d089faa3f7086696a79ebe21a39804fd2a8ae5a6ce7fdb7",
+    "requests": {
+      "by_decision_type": {
+        "campaign_positioning": {
+          "count": 2,
+          "sha256": "c63a3c73ca86057e46ce98beed2b7753a1fb6dabf7776aff9da24048300b9594"
+        },
+        "candidacy_considered": {
+          "count": 4,
+          "sha256": "a20c0cc5026254fa5866fa5d6160a2e6bfbc737e07a2b1e3a48c69762b6bb44a"
+        },
+        "chamber_deliberation": {
+          "count": 9,
+          "sha256": "0f76d7ed15e60b86458dd6fd9dea0aa44486d4f905ca09f34374cb54211c3c56"
+        },
+        "coalition_decision": {
+          "count": 2,
+          "sha256": "f6d287e86893a05781c4612da6259f93aa6dd656b11da356d2d1817398f72adf"
+        },
+        "party_nomination_choice": {
+          "count": 2,
+          "sha256": "435014945f356aff9d7043ad1015e7f245f7b9f89e7e4e913831853baf1840fa"
+        },
+        "pressure_action": {
+          "count": 68,
+          "sha256": "a89cf4a7b12760ba67c9553fc821471e16ec182e557cb13cf719d1251c1d5542"
+        },
+        "reaction_to_event": {
+          "count": 8,
+          "sha256": "f4a4dfa2db77a55bb27a6ee1e878f4f3570a6042bdc891c4e771fb6650ec4d1c"
+        },
+        "representative_response": {
+          "count": 9,
+          "sha256": "ef024b759cdb4aac625a42675b99ddb9194a919172fd04ad450c38746fbd1723"
+        },
+        "vote_cast": {
+          "count": 28,
+          "sha256": "69f8422caaeda4fd99cafb480f4a98c280a4fab8d6407913ea5bbdd57943e297"
+        }
+      },
+      "count": 132,
+      "sequence_sha256": "c363c4291c46b16fadccdacf7d8986e72c62e411765930946cb7550600de8725"
+    }
+  },
+  "scenario": {
+    "population": 40,
+    "scandal_rate_per_tick": 0.5,
+    "seats": 5,
+    "seed": 42,
+    "years": 2
+  }
+}
