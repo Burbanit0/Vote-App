@@ -85,6 +85,8 @@ recorded here, with the date.
 | D3 | Ordinary legislation (ADR-009) before ADR-008 constitutional amendments | S4.2 | |
 | D4 | Adopt non-greedy sampling for thinking calls — only if S1.4 shows it helps | S1.4 adoption | |
 | D5 | Launch the p500 batch once Stage 0 is closed, under S0.7's pre-registration | S0.8 | 2026-09-13: launch now, from a worktree at `04358d24` |
+| D6 | What should differ between two elections of a run: today nothing the candidacy and nomination decisions read changes, so the same field returns every time (`observations.md` OBS-001–003, OBS-010). Levers: term limits, barring or informing about a recalled president, dynamic citizens, sampling above temperature 0 | S4.3 scope | |
+| D7 | What the sortition chamber deliberates on: today it has no agenda and its prompt tells it to hold still (OBS-004) | S4.2's chamber role | |
 
 ---
 
@@ -120,7 +122,7 @@ recorded here, with the date.
 | S4.3 | Dynamic citizens | S3.4 | `feat/polity-dynamic-citizens` | |
 | S4.4 | Phase clock | S3.4 | `feat/polity-phase-clock` | |
 | S5.1 | Run registry | S0.4 | `feat/polity-run-registry` | `2bc3727d` |
-| S5.2 | marimo run explorer | S5.1 | `feat/polity-run-explorer` | |
+| S5.2 | marimo run explorer | S5.1 | `feat/polity-run-explorer` | `f61ec32e` |
 | S5.3 | Narratives with checkable claims | S0.5 | `feat/polity-checked-narratives` | `6913a6f9` |
 | S5.4 | Generated doc status and wider doc-drift | — | `feat/polity-generated-doc-status` | `e4ac23c6` |
 
@@ -286,6 +288,10 @@ model × decision type: validity, accuracy with Wilson intervals, sensitivity, c
 paired McNemar and Cochran's Q with Holm correction. Generated JSON and Markdown.
 **Accepted when:** on Qwen3-8B-AWQ it reproduces the known numbers — 202/500 declared,
 318/500 accurate for candidacy, flat `representative_response`, flat `coalition_decision`.
+
+*Case bank additions from the observation log, 2026-09-13:* party nomination with the
+candidate order and cids shuffled, to tell a pick that follows the candidate from one that
+follows the listed position (OBS-013); candidacy against the ambition threshold (OBS-011).
 
 ### S2.3 Minimal model profiles and model override
 Thinking control per family (`enable_thinking`, `thinking`, `reasoning_effort`, or none),
