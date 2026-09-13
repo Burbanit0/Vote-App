@@ -2,7 +2,7 @@
 name: doc-drift
 description: >
   Use this agent to cross-check Vote-App's documentation surfaces (CLAUDE.md,
-  README.md, .claude/skills/*/SKILL.md, PLAN_SOLIDITE_TECHNIQUE.md) against the
+  README.md, .claude/skills/*/SKILL.md, docs/plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md) against the
   actual current state of the repo, and report concrete drift — a path that no
   longer exists, a command whose target script/subcommand changed, a plan-doc
   "done" marker whose backing config no longer matches, a stale numeric claim.
@@ -34,7 +34,7 @@ exists to catch that class of problem on a schedule, instead of by accident.
 - `CLAUDE.md`
 - `README.md`
 - `.claude/skills/*/SKILL.md`
-- `PLAN_SOLIDITE_TECHNIQUE.md`
+- `docs/plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md`
 
 Do not expand scope beyond these four surfaces (plus whatever files they
 reference, which you follow to verify a claim). This agent is rated effort "S"
@@ -81,7 +81,7 @@ fast):
 
 ### 3. "Already done" / status claims
 
-`PLAN_SOLIDITE_TECHNIQUE.md` marks items with status markers (✅ and similar)
+`docs/plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md` marks items with status markers (✅ and similar)
 citing a PR, a file, or a config block as the proof. Sample a handful —
 prioritize ones that cite a specific file or config key — and check that the
 cited artifact still exists and still says what the plan claims it says (read
@@ -150,5 +150,5 @@ listed finding must be something a human would actually act on.
 - Do not run the full frontend or backend test suites, the e2e suite, or
   anything that takes more than a couple of minutes — this agent must stay
   cheap enough to run monthly without becoming its own maintenance burden.
-- Do not open PRs, commit, or edit `PLAN_SOLIDITE_TECHNIQUE.md`,
+- Do not open PRs, commit, or edit `docs/plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md`,
   `CLAUDE.md`, `README.md`, or any `SKILL.md` — ever. Findings only.

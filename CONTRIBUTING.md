@@ -299,8 +299,8 @@ une tolérance de pixels mal calibrée a été détectée) :
 
 Une grande partie de ce repo est écrite avec l'aide de LLM (Claude Code &
 autres). Ces outils rapportent leurs trouvailles sans jamais faire échouer
-leur propre étape (voir [`CODE_AUDIT.md`](CODE_AUDIT.md) pour l'état des
-lieux) :
+leur propre étape (voir [`CODE_AUDIT.md`](docs/plan/vote-app/CODE_AUDIT.md)
+pour l'état des lieux) :
 
 | Outil | Détecte | Lancer en local |
 |---|---|---|

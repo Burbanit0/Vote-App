@@ -1,7 +1,7 @@
 # Les surfaces de documentation
 
 Vote-App a plusieurs supports qui se chevauchaient mal avant ce document
-(Lot 0.1 du [plan de solidité technique](../PLAN_SOLIDITE_TECHNIQUE.md)).
+(Lot 0.1 du [plan de solidité technique](plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md)).
 Chacun a un rôle et un rythme distincts — la confusion entre eux, plus qu'un
 manque de discipline, est ce qui les faisait dériver.
 
@@ -13,7 +13,7 @@ manque de discipline, est ce qui les faisait dériver.
 | `docs/adr/` | Décisions d'architecture engageantes, avec alternatives écartées. | Rare | ✅ (polity + application — ADR-004 à 007, Lot 0.6) |
 | `docs/journal/commits.jsonl` | Trace machine exhaustive, générée — archéologie et alimentation des autres surfaces. | Par commit (auto, worktree polity uniquement — `scripts/git_commit_capture.py` se garde sur le nom du worktree) | ✅ (Lot 0.5, tier 1 ; script générique sur `develop`, activation via `pre-commit install --hook-type post-commit`) |
 | Mémoire Claude polity | Écueils rechargés d'office à chaque session — le seul support qui empêche *réellement* la répétition. | Par écueil rencontré | ✅ côté polity uniquement — hors périmètre de ce dépôt ; alimentation automatique (Lot 0.5, tier 3) pas encore branchée |
-| `CODE_AUDIT.md` (racine) | État de santé daté du code, rejouable. | Par passe de nettoyage | ✅ |
+| `docs/plan/vote-app/CODE_AUDIT.md` | État de santé daté du code, rejouable. | Par passe de nettoyage | ✅ |
 
 ## Comment choisir la bonne surface
 
@@ -25,7 +25,7 @@ manque de discipline, est ce qui les faisait dériver.
 - **Une décision structurante a été prise, avec des alternatives écartées, et
   elle doit rester compréhensible dans un an** → un ADR dans `docs/adr/`.
 - **Je veux savoir où en est la qualité du code, dans l'ensemble** →
-  `CODE_AUDIT.md`.
+  `docs/plan/vote-app/CODE_AUDIT.md`.
 
 ## Ce que ce document n'est pas
 

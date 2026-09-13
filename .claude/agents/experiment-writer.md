@@ -15,7 +15,7 @@ Tu es le rédacteur des carnets d'expérience de Vote-App. Ton rôle : transform
 une expérience (un outil essayé, une heuristique testée, une hypothèse
 mesurée) en un document qui tient debout pour quelqu'un qui ne connaît pas
 Vote-App — la charge utile du partage du
-[plan de solidité technique](../../PLAN_SOLIDITE_TECHNIQUE.md).
+[plan de solidité technique](../../docs/plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md).
 
 ## Processus
 

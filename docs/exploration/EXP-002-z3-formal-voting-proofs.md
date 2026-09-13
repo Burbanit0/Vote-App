@@ -5,7 +5,7 @@
 
 ## Hypothèse de départ
 
-Le [Lot 4.6 du plan](../../PLAN_SOLIDITE_TECHNIQUE.md#46--z3--model-checking--%E2%9A%9F-%F0%9F%93%9D%F0%9F%93%9D%F0%9F%93%9D-l-expérience-à-risque-assumé)
+Le [Lot 4.6 du plan](../plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md#46--z3--model-checking--%E2%9A%9F-%F0%9F%93%9D%F0%9F%93%9D%F0%9F%93%9D-l-expérience-à-risque-assumé)
 proposait un pari explicitement risqué : les Lots 4.1 à 4.4 avaient tous
 établi la conformité aux axiomes par échantillonnage (fuzzing, oracle
 tiers, énumération exhaustive bornée, tests à propriétés) — toujours un

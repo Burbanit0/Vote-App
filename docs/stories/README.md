@@ -1,7 +1,7 @@
 # Shareable stories
 
 Four standalone write-ups pulled out of
-[`PLAN_SOLIDITE_TECHNIQUE.md`](../../PLAN_SOLIDITE_TECHNIQUE.md), the
+[`PLAN_SOLIDITE_TECHNIQUE.md`](../plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md), the
 technical-hardening plan for Vote Lab. The plan itself is French, internal,
 and organized by work item ("Lot"); these are the opposite on purpose —
 English, narrative, written for a reader who has never opened this repo, one

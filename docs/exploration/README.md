@@ -1,7 +1,7 @@
 # Index des verdicts
 
 Le livrable partageable de l'exploration outillage/pratiques du
-[plan de solidité technique](../../PLAN_SOLIDITE_TECHNIQUE.md) (Lot 0.3) :
+[plan de solidité technique](../plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md) (Lot 0.3) :
 « j'ai essayé ~25 outils de qualité sur un vrai projet, voilà lesquels ont
 trouvé quelque chose ». Un rejet argumenté vaut autant qu'une adoption —
 souvent plus, parce que personne ne publie ses rejets.
