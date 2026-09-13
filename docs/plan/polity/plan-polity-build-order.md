@@ -24,7 +24,10 @@ merged back with `--no-ff`, pushed. Never commit a step directly on `polity`.
 .venv/bin/python -m mypy api/ --config-file mypy.ini   # strict, must stay clean
 .venv/bin/ruff check .                                  # CI lints scripts/ too
 .venv/bin/lint-imports                                  # routes -> domain -> engine
-.venv/bin/python -m pytest api/tests -n auto -o addopts="" -q   # full backend
+.venv/bin/python -m pytest api/tests -n auto -q         # full backend, CI's coverage gate
+                                                        # (not -o addopts="": that drops the
+                                                        # benchmark ignore, and benchmarks
+                                                        # fail under xdist)
 ../scripts/check_quality_ratchet.sh                     # no increase (see voter-ci skill)
 ```
 
@@ -86,7 +89,7 @@ recorded here, with the date.
 | Step | What | Depends | Branch | Closed by |
 |---|---|---|---|---|
 | S0.1 | Housekeeping from the synthesis | — | `fix/polity-synthesis-housekeeping` | `904f5523` |
-| S0.2 | Golden references for prompts and journals | — | `feat/polity-golden-references` | |
+| S0.2 | Golden references for prompts and journals | — | `feat/polity-golden-references` | `2b4290fd` |
 | S0.3 | Retry provenance for all nine decision types | S0.2 | `feat/polity-retry-provenance` | |
 | S0.4 | Complete run provenance | — | `feat/polity-run-provenance` | |
 | S0.5 | Per-call LLM log and time attribution | S0.2 | `feat/polity-llm-call-log` | |
@@ -138,7 +141,9 @@ runs when run against the repo.
 ### S0.2 Golden references
 - A recording fake LLM client that captures every `(system, user, schema)` request.
 - A committed manifest of sha256 hashes: every captured request, plus `events.jsonl`, for
-  (a) a deterministic 2-year population-30 run and (b) a fake-LLM 2-year population-30 run.
+  (a) a deterministic 2-year population-40 run and (b) a fake-LLM 2-year population-40 run.
+  (Planned at population 30; candidacy chunking refuses batches under 20 citizens, so 30
+  cannot run with the LLM enabled.)
 - `scripts/gen_polity_golden.py` regenerates it; a pytest compares, failing with a
   "regenerate only if intentional" message.
 
@@ -151,7 +156,15 @@ journal `retry_sampling_varied`, so digests undercount retries for the other sev
 
 **Accepted when:** a fake client that fails the first attempt of one call per type
 produces a journaled retry for all nine, and `progress.json`'s retry count equals the
-number of injected failures. Golden updated deliberately in the same commit.
+number of decisions those recovering retries produced. A retry that decodes but then
+fails validation journals as a fallback, not a retry. Golden updated deliberately in the
+same commit.
+
+*Criterion changed before running, 2026-09-13:* it first said the retry count equals
+"the number of injected failures". `progress.json` counts decisions carrying the flag,
+not calls, and one failed call retries a whole chunk (3 voters, 20 candidacy citizens),
+so that count was never the right target. The validation clause was added after reading
+the vote and chamber paths: they flagged fallback decisions as retries.
 
 ### S0.4 Complete run provenance
 `run_metadata.json` gains: git SHA and dirty flag, vLLM image tag, served model repo and

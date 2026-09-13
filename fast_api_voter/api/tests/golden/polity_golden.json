@@ -58,11 +58,11 @@
     "by_event_type": {
       "campaign_positioning": {
         "count": 10,
-        "sha256": "33a140c118c8d68bd15661786ed974610d1d1d51c9b4bddf661cbb8bf72c00af"
+        "sha256": "0e560967be46056a10cb69330cffce773b4f812f725e0f176992b99f288b01d7"
       },
       "candidacy_considered": {
         "count": 80,
-        "sha256": "8bd15579bd0ad68696a58c145e67740907df34a7e933acd2bc892896fea477ed"
+        "sha256": "c0e47d2de88d14e6fe365181eb82c46e80c2c4ee7c1491591daa5b629ee64d92"
       },
       "candidacy_declared": {
         "count": 10,
@@ -78,7 +78,7 @@
       },
       "coalition_decision": {
         "count": 8,
-        "sha256": "7a2654145e8c2355edebfa343392d1e7aec1a095c75858fedc410f8e9ce7ec04"
+        "sha256": "069d72a61d86043b0b712d3fcdf6c97e73ab77fc7aab1a847b6f10ec2ae76050"
       },
       "coalition_formed": {
         "count": 1,
@@ -114,7 +114,7 @@
       },
       "party_nomination_choice": {
         "count": 8,
-        "sha256": "e094807d7d7861f612a0149270f770639ffdd92f4e89c0ee60ecfeaede332483"
+        "sha256": "0b90c2daacd9009d347de1225844dcfdcd176c13aa9854f4a34137e8c377ecba"
       },
       "petition_expired": {
         "count": 1,
@@ -130,11 +130,11 @@
       },
       "pressure_action": {
         "count": 68,
-        "sha256": "94326a0974b620b2cfbd5bee3d9db18048e2621d2c3bf19d110b49c3048215c3"
+        "sha256": "170ad78c9d181e4bb795902b2a802a8ace72f22bae4967e9c61308676d364bbb"
       },
       "reaction_to_event": {
         "count": 160,
-        "sha256": "dd45a02cc8f2afc91dd323eec2ec871e13842e9aa3a6ddf77c5a475c192261b7"
+        "sha256": "43b808430722c7071a5551d767473a582dae3d0d0126efd3a6896d09b94f7444"
       },
       "recalled": {
         "count": 1,
@@ -142,7 +142,7 @@
       },
       "representative_response": {
         "count": 9,
-        "sha256": "5ae813d53002e02be1fb79300e250791c0035ebd22b3f23686428ba0c3bfe622"
+        "sha256": "686a5d9538736db8d11f0433114130ec7d65a2ed50a02df6e08c25ef355c1ef9"
       },
       "scandal_occurred": {
         "count": 4,
@@ -162,7 +162,7 @@
       }
     },
     "event_count": 578,
-    "events_sha256": "0ffded8ce754023c9d089faa3f7086696a79ebe21a39804fd2a8ae5a6ce7fdb7",
+    "events_sha256": "8bf15e0d088bbffc10d60881b2c47bb94eeffad40bc384180ad07ef2320544ca",
     "requests": {
       "by_decision_type": {
         "campaign_positioning": {
