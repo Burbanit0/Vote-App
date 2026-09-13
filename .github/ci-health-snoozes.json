@@ -1,7 +1,7 @@
 {
   "mutation-testing.yml": {
     "until": "2026-09-27",
-    "reason": "real 64.4% score (floor 70%) found the moment mutmut stopped crashing (PR #447) -- a genuine assertion gap in simulation_ranked_utils.py/simulation_score_utils.py, not a tooling problem. Needs its own investigation (which functions lost coverage, likely from the recent decomposition PRs) and new tests, tracked separately from the watchdog rollout."
+    "reason": "real 64.4% score (floor 70%), but NOT simple 17-day decay: total mutant count tripled (1906 -> 6322) between the old mutmut 3.7.0 baseline and the post-fix 3.8.0 run, near-certainly because 3.8.0's coverage fix now correctly recognizes far more covered lines than 3.7.0 ever could -- most survivors are mutants that were never generated before, not a regression. Confirmed real and fixable on one case: api/tests/test_ballot_dict_format.py closed a systemic dict-format-ballot gap shared by 19+ functions, 58 survived->killed confirmed by diff (65.2% final). See fast_api_voter/pyproject.toml's [tool.mutmut] UPDATE (2026-09-13) note for the full account. Closing gaps like this one at a time, not chasing 70% by writing tests against the floor."
   },
   "branch-protection": {
     "until": "2026-09-15",
