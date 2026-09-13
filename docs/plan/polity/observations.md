@@ -38,7 +38,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-009](#obs-009) | Journals are not bit-identical across CPUs | 2026-09-13 | explained |
 | [OBS-010](#obs-010) | Half the p100 seeds tell the same story | 2026-09-13 | cause found |
 | [OBS-011](#obs-011) | About 40% of citizens declare candidacy at every election | 2026-09-11 | open |
-| [OBS-012](#obs-012) | Term limits and the rerun bar do nothing on the LLM engine | 2026-09-13 | cause found |
+| [OBS-012](#obs-012) | Term limits and the rerun bar do nothing on the LLM engine | 2026-09-13 | fixed |
 | [OBS-013](#obs-013) | Party nominations often don't match the reason the model gives, and lean to the last listed candidate | 2026-09-13 | open |
 
 ---
@@ -82,15 +82,14 @@ every time. Only the vote sees anything new.
 - Where the winner did change, it was a rupture candidate twice (seed 10, ticks 16 and 32), and
   otherwise another member of the same field for one election, after which the previous winner
   returned (seeds 3, 4, 5, 6, 8).
-- `institutions.president_term_limit` ships `null`, and setting it would change nothing on the LLM
-  engine today (OBS-012). The term-limit sweep first proposed here would therefore have repeated
-  the same runs.
+- `institutions.president_term_limit` ships `null`. Until OBS-012's fix, setting it changed nothing
+  on the LLM engine, so the term-limit sweep first proposed here would have repeated the same runs.
 
 Not the cause: the model does not simply nominate the most ambitious member (OBS-013). It makes
 the same pick every time.
 
 *What would settle it.* A design choice, not a check: what should differ between two elections?
-Candidates are term limits once OBS-012 is fixed, S4.3 (dynamic citizens: positions and ambition
+Candidates are term limits (they work on both engines since OBS-012's fix), S4.3 (dynamic citizens: positions and ambition
 that respond to what happened), or sampling above temperature 0 for candidacy and nomination.
 
 ### OBS-002
@@ -109,8 +108,8 @@ that respond to what happened), or sampling above temperature 0 for candidacy an
 every election, so the same citizens declare and the same one wins each party. `ambition_score` is
 never updated during a run (the check first proposed here). `institutions.barred_from_immediate_rerun`
 bars candidates only after an *invalidated* election, not after a recall (see the comment at
-`_phase_snap_election` in `run_polity_simulation.py`), and on the LLM engine it bars nobody at all
-(OBS-012).
+`_phase_snap_election` in `run_polity_simulation.py`), and until OBS-012's fix it barred nobody at all on
+the LLM engine.
 
 *What would settle it.* As OBS-001.
 
@@ -364,8 +363,13 @@ documented as "§6bis.1: a hard, always-on candidacy block, independent of the L
 disk has `president_term_limit: null`, and none has an invalidated election, the only thing that
 fills the barred set.
 
-*What would settle it.* Apply the same eligibility filter on the LLM path, keeping the unfiltered
-population where the LLM path needs it (perceived support, the electorate mean for positioning).
+*Fixed 2026-09-13* (`fix/polity-llm-candidate-eligibility`). `_eligible_declared_cids` applies
+both gates to the LLM path's declared set just before nomination. The staggered calendar passes
+through the same function. The model is still asked about every citizen's candidacy, so candidacy
+prompts don't depend on either rule, and `citizens` stays whole for perceived support and the
+positioning electorate mean. `check_observations.py term-limit` now shows 11 distinct presidents on
+both engines. The golden references are unchanged (no term limit, no invalidated election). No
+recorded run changes, for the reason above.
 
 ### OBS-013
 
