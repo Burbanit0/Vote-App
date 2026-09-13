@@ -2153,32 +2153,11 @@ def _epistocracy_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
 # ── /api/theory/identity-voting ───────────────────────────────────────────────
 
-def _identity_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /identity-voting — extracted for FastAPI v2."""
-    candidates_raw: List[Dict[str, Any]] = data.get("candidates") or [
-        {"name": "Alice", "x": -0.5, "y": 0.0},
-        {"name": "Bob",   "x":  0.0, "y": 0.0},
-        {"name": "Carol", "x":  0.5, "y": 0.0},
-    ]
-    num_voters:      int   = max(20, min(int(data.get("num_voters", 200)), 2000))
-    seed:            int   = int(data.get("seed", 42))
-    identity_weight: float = max(0.0, min(float(data.get("identity_weight", 0.5)), 1.0))
-    cross_pressure:  bool  = bool(data.get("cross_pressure", True))
-
-    default_groups = [
-        {"name": "Groupe A", "pct": 0.40, "ideology_center": -0.3,
-         "loyalty": 0.75, "candidate_affiliation": candidates_raw[0]["name"]},
-        {"name": "Groupe B", "pct": 0.35, "ideology_center":  0.1,
-         "loyalty": 0.60, "candidate_affiliation": candidates_raw[1]["name"]},
-        {"name": "Groupe C", "pct": 0.25, "ideology_center":  0.4,
-         "loyalty": 0.80, "candidate_affiliation": candidates_raw[2]["name"]},
-    ]
-    groups_raw: List[Dict[str, Any]] = data.get("identity_groups") or default_groups
-
-    rng = _rnd.Random(seed)
-    cand_names = [c["name"] for c in candidates_raw]
-
-    # ── Normalise groups ──────────────────────────────────────────────────────
+def _identity_normalise_groups(
+    groups_raw: List[Dict[str, Any]], cand_names: List[str],
+) -> List[Dict[str, Any]]:
+    """Step 1 — normalise identity groups (percentages renormalised to sum to
+    1, unknown candidate affiliations fall back to the first candidate)."""
     groups: List[Dict[str, Any]] = []
     total_pct = sum(float(g.get("pct", 0.33)) for g in groups_raw) or 1.0
     for g in groups_raw:
@@ -2192,8 +2171,17 @@ def _identity_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             "loyalty":               max(0.0, min(float(g.get("loyalty", 0.6)), 1.0)),
             "candidate_affiliation": affil,
         })
+    return groups
 
-    # ── Generate voters ───────────────────────────────────────────────────────
+
+def _identity_generate_voters(
+    groups: List[Dict[str, Any]], candidates_raw: List[Dict[str, Any]],
+    num_voters: int, rng: "_rnd.Random", cross_pressure: bool,
+    identity_weight: float,
+) -> List[Dict[str, Any]]:
+    """Step 2 — generate voters: each draws an ideology position from their
+    group, votes ideologically vs. by identity affiliation, may abstain when
+    cross-pressured, and casts a final vote blending both."""
     voters: List[Dict[str, Any]] = []
     group_sizes = [max(1, round(g["pct"] * num_voters)) for g in groups]
     # Adjust last group to hit exactly num_voters
@@ -2238,22 +2226,18 @@ def _identity_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
                 "is_cross_pressured": is_cross_pressured,
                 "abstains":           abstains,
             })
+    return voters
 
-    # ── Tally votes for 3 scenarios ───────────────────────────────────────────
-    def _plurality(votes: List[str]) -> str:
-        from collections import Counter as _C
-        return _C(votes).most_common(1)[0][0] if votes else cand_names[0]
 
-    sincere_votes  = [v["ideo_vote"]     for v in voters]
-    identity_votes = [v["identity_vote"] for v in voters]
-    mixed_votes    = [v["final_vote"]    for v in voters
-                      if not (cross_pressure and v["abstains"])]
+def _identity_plurality(votes: List[str], cand_names: List[str]) -> str:
+    from collections import Counter as _C
+    return _C(votes).most_common(1)[0][0] if votes else cand_names[0]
 
-    sincere_winner  = _plurality(sincere_votes)
-    identity_winner = _plurality(identity_votes)
-    mixed_winner    = _plurality(mixed_votes)
 
-    # ── Group results ─────────────────────────────────────────────────────────
+def _identity_group_results(
+    voters: List[Dict[str, Any]], groups: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Step 5 — per-group breakdown of identity-vote and ideology-match rates."""
     group_results: List[Dict[str, Any]] = []
     for gidx, group in enumerate(groups):
         members = [v for v in voters if v["group"] == gidx]
@@ -2270,14 +2254,16 @@ def _identity_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             "loyalty":        round(group["loyalty"], 4),
             "size_pct":       round(group["pct"], 4),
         })
+    return group_results
 
-    # ── Cross-pressured stats ─────────────────────────────────────────────────
-    cross_pressured_voters = [v for v in voters if v["is_cross_pressured"]]
-    n_cross = len(cross_pressured_voters)
-    n_abstaining = sum(1 for v in cross_pressured_voters if v["abstains"])
-    abstention_rate = n_abstaining / n_cross if n_cross > 0 else 0.0
 
-    # ── Identity-weight curve ─────────────────────────────────────────────────
+def _identity_weight_curve(
+    voters: List[Dict[str, Any]], groups: List[Dict[str, Any]],
+    cand_names: List[str], seed: int, cross_pressure: bool,
+    sincere_votes: List[str], identity_votes: List[str],
+) -> List[Dict[str, Any]]:
+    """Step 7 — re-simulate the final vote at 11 identity-weight steps
+    (0%..100%) to trace how the winner and inter-scenario agreement shift."""
     curve: List[Dict[str, Any]] = []
     for w_pct in range(0, 105, 10):
         w = w_pct / 100.0
@@ -2291,7 +2277,7 @@ def _identity_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             vote_c  = v["identity_vote"] if use_id else v["ideo_vote"]
             if not (cross_pressure and v["abstains"]):
                 curve_votes.append(vote_c)
-        w_winner = _plurality(curve_votes)
+        w_winner = _identity_plurality(curve_votes, cand_names)
         # Agreement: fraction who would vote same under both identity=0 and identity=1
         ideo_tally   = {n: sincere_votes.count(n) for n in cand_names}
         id_tally     = {n: identity_votes.count(n) for n in cand_names}
@@ -2303,9 +2289,14 @@ def _identity_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             "winner":         w_winner,
             "agreement_rate": round(agreement, 4),
         })
+    return curve
 
-    # ── Pedagogical note ──────────────────────────────────────────────────────
-    n_cross_total = len(cross_pressured_voters)
+
+def _identity_pedagogical_note(
+    identity_weight: float, mixed_winner: str, sincere_winner: str,
+    n_cross_total: int, num_voters: int, abstention_rate: float,
+) -> str:
+    """Step 8 — pedagogical note (Green/Palmquist/Schickler + cross-pressure stats)."""
     note = (
         f"Green, Palmquist & Schickler (2002) : les électeurs adoptent les positions "
         f"de leur camp, ils ne choisissent pas leur camp selon leurs positions. "
@@ -2319,6 +2310,73 @@ def _identity_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             f"'cross-pressured' (identité ≠ idéologie) ; "
             f"taux d'abstention dans ce groupe : {round(abstention_rate*100)}%."
         )
+    return note
+
+
+def _identity_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
+    """Pure worker for /identity-voting — extracted for FastAPI v2.
+
+    Each numbered step below used to be inlined here; they're now private
+    `_identity_*` helpers (one per step) so this function is a short,
+    low-complexity sequence of calls instead of one large branchy block —
+    same names, same computation, same order as before (CODE_AUDIT.md §5/§8
+    complexity decomposition)."""
+    candidates_raw: List[Dict[str, Any]] = data.get("candidates") or [
+        {"name": "Alice", "x": -0.5, "y": 0.0},
+        {"name": "Bob",   "x":  0.0, "y": 0.0},
+        {"name": "Carol", "x":  0.5, "y": 0.0},
+    ]
+    num_voters:      int   = max(20, min(int(data.get("num_voters", 200)), 2000))
+    seed:            int   = int(data.get("seed", 42))
+    identity_weight: float = max(0.0, min(float(data.get("identity_weight", 0.5)), 1.0))
+    cross_pressure:  bool  = bool(data.get("cross_pressure", True))
+
+    default_groups = [
+        {"name": "Groupe A", "pct": 0.40, "ideology_center": -0.3,
+         "loyalty": 0.75, "candidate_affiliation": candidates_raw[0]["name"]},
+        {"name": "Groupe B", "pct": 0.35, "ideology_center":  0.1,
+         "loyalty": 0.60, "candidate_affiliation": candidates_raw[1]["name"]},
+        {"name": "Groupe C", "pct": 0.25, "ideology_center":  0.4,
+         "loyalty": 0.80, "candidate_affiliation": candidates_raw[2]["name"]},
+    ]
+    groups_raw: List[Dict[str, Any]] = data.get("identity_groups") or default_groups
+
+    rng = _rnd.Random(seed)
+    cand_names = [c["name"] for c in candidates_raw]
+
+    groups = _identity_normalise_groups(groups_raw, cand_names)
+    voters = _identity_generate_voters(
+        groups, candidates_raw, num_voters, rng, cross_pressure, identity_weight,
+    )
+
+    # ── Tally votes for 3 scenarios ───────────────────────────────────────────
+    sincere_votes  = [v["ideo_vote"]     for v in voters]
+    identity_votes = [v["identity_vote"] for v in voters]
+    mixed_votes    = [v["final_vote"]    for v in voters
+                      if not (cross_pressure and v["abstains"])]
+
+    sincere_winner  = _identity_plurality(sincere_votes, cand_names)
+    identity_winner = _identity_plurality(identity_votes, cand_names)
+    mixed_winner    = _identity_plurality(mixed_votes, cand_names)
+
+    group_results = _identity_group_results(voters, groups)
+
+    # ── Cross-pressured stats ─────────────────────────────────────────────────
+    cross_pressured_voters = [v for v in voters if v["is_cross_pressured"]]
+    n_cross = len(cross_pressured_voters)
+    n_abstaining = sum(1 for v in cross_pressured_voters if v["abstains"])
+    abstention_rate = n_abstaining / n_cross if n_cross > 0 else 0.0
+
+    curve = _identity_weight_curve(
+        voters, groups, cand_names, seed, cross_pressure,
+        sincere_votes, identity_votes,
+    )
+
+    n_cross_total = len(cross_pressured_voters)
+    note = _identity_pedagogical_note(
+        identity_weight, mixed_winner, sincere_winner, n_cross_total,
+        num_voters, abstention_rate,
+    )
 
     return {
         "sincere_winner":  sincere_winner,
