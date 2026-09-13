@@ -113,6 +113,166 @@ async def stop_monte_carlo(sid: str, _data: Any = None) -> None:
     _stop_flags[sid] = True
 
 
+def _monte_carlo_parse_input(
+    data: dict[str, Any],
+) -> tuple[int, int, int, str, list[dict[str, Any]]]:
+    """Parse + validate /start_monte_carlo input. Raises TypeError/ValueError
+    on bad input — the caller catches and emits monte_carlo_error."""
+    num_iterations = max(1, min(10_000, int(data.get("num_iterations", 1_000))))
+    num_voters     = max(10, min(2_000, int(data.get("num_voters",     150))))
+    num_candidates = max(2, min(8,      int(data.get("num_candidates", 4))))
+    ideology       = str(data.get("ideology")
+                         or data.get("ideology_distribution")
+                         or "random")
+
+    raw_cands = data.get("candidates")
+    if raw_cands and isinstance(raw_cands, list) and len(raw_cands) >= 2:
+        candidate_configs = [
+            {"name": str(c)} if isinstance(c, str) else
+            {"name": str(c.get("name", f"Cand{i}"))}
+            for i, c in enumerate(raw_cands[:8])
+        ]
+    else:
+        names             = _CANDIDATE_NAMES[:num_candidates]
+        candidate_configs = [{"name": n} for n in names]
+    return num_iterations, num_voters, num_candidates, ideology, candidate_configs
+
+
+def _monte_carlo_new_stats() -> dict[str, Any]:
+    """Fresh aggregation state for one /start_monte_carlo run, threaded
+    through the streaming loop and mutated in place each iteration."""
+    return {
+        "winner_counts":         defaultdict(lambda: defaultdict(int)),
+        "regrets":                defaultdict(list),
+        "satisfactions":          defaultdict(list),
+        "condorcet_exists":       0,
+        "method_names":           [],
+        # Welford online algorithm per method
+        "regret_n":               defaultdict(int),
+        "regret_mean":            defaultdict(float),
+        "regret_m2":              defaultdict(float),
+        "regret_history_pts":     defaultdict(list),
+        "iteration_checkpoints":  [],
+        "all_agree_count":        0,
+    }
+
+
+def _monte_carlo_accumulate_run(run: dict[str, Any], stats: dict[str, Any]) -> None:
+    """Fold one Monte Carlo iteration's raw method results into `stats`
+    (mutated in place): per-method winner counts, regret/satisfaction
+    samples, the Welford regret mean/variance accumulator, the Condorcet-
+    exists counter, and the all-methods-agree counter."""
+    if not stats["method_names"] and run.get("methods"):
+        stats["method_names"] = list(run["methods"].keys())
+
+    if run.get("condorcet_winner"):
+        stats["condorcet_exists"] += 1
+
+    for method, md in run.get("methods", {}).items():
+        w = md.get("winner")
+        if w:
+            stats["winner_counts"][method][w] += 1
+        r = md.get("bayesian_regret")
+        if r is not None:
+            stats["regrets"][method].append(r)
+        s_val = md.get("majority_satisfaction")
+        if s_val is not None:
+            stats["satisfactions"][method].append(s_val)
+
+        if r is not None:
+            n          = stats["regret_n"][method] + 1
+            delta      = r - stats["regret_mean"][method]
+            new_mean   = stats["regret_mean"][method] + delta / n
+            delta2     = r - new_mean
+            stats["regret_n"][method]    = n
+            stats["regret_mean"][method] = new_mean
+            stats["regret_m2"][method]  += delta * delta2
+
+    run_winners = {
+        m: md.get("winner")
+        for m, md in run.get("methods", {}).items()
+        if md.get("winner")
+    }
+    if run_winners and len(set(run_winners.values())) == 1:
+        stats["all_agree_count"] += 1
+
+
+def _monte_carlo_checkpoint_payload(
+    stats: dict[str, Any], completed_runs: int, num_iterations: int,
+) -> dict[str, Any]:
+    """Build the `monte_carlo_progress` emit payload for one checkpoint, and
+    record it into `stats["iteration_checkpoints"]`/`["regret_history_pts"]`."""
+    method_names = stats["method_names"]
+    partial: dict[str, Any] = {}
+    for m in method_names:
+        wc          = stats["winner_counts"][m].copy()
+        most_common = max(wc, key=wc.get) if wc else None
+        partial[m]  = {
+            "winner_distribution": {
+                c: round(cnt / completed_runs, 4) for c, cnt in wc.items()
+            },
+            "most_common_winner": most_common,
+            "bayesian_regret_mean": (
+                round(sum(stats["regrets"][m]) / len(stats["regrets"][m]), 6)
+                if stats["regrets"][m] else None
+            ),
+        }
+
+    stats["iteration_checkpoints"].append(completed_runs)
+    for m in method_names:
+        if stats["regret_n"][m] > 0:
+            stats["regret_history_pts"][m].append(round(stats["regret_mean"][m], 6))
+
+    ci_half_now: dict[str, float | None] = {
+        m: _ci_half(stats["regret_m2"][m], stats["regret_n"][m])
+        for m in method_names
+    }
+    agreement_rate = round(stats["all_agree_count"] / completed_runs, 4)
+
+    return {
+        "iteration":             completed_runs,
+        "total":                 num_iterations,
+        "partial_results":       partial,
+        "condorcet_exists_rate": round(stats["condorcet_exists"] / completed_runs, 4),
+        "regret_history":        {m: stats["regret_history_pts"][m].copy()
+                                  for m in method_names},
+        "agreement_rate":        agreement_rate,
+        "regret_ci_half":        {m: ci_half_now[m] for m in method_names},
+        "iteration_checkpoints": stats["iteration_checkpoints"].copy(),
+    }
+
+
+def _monte_carlo_final_payload(
+    stats: dict[str, Any], num_iterations: int, num_voters: int,
+) -> dict[str, Any]:
+    """Build the `monte_carlo_complete` emit payload from the final `stats`."""
+    final: dict[str, Any] = {}
+    for m in stats["method_names"]:
+        wc          = stats["winner_counts"][m].copy()
+        most_common = max(wc, key=wc.get) if wc else None
+        final[m]    = {
+            "winner_distribution": {
+                c: round(cnt / num_iterations, 4) for c, cnt in wc.items()
+            },
+            "most_common_winner": most_common,
+            "bayesian_regret_mean": (
+                round(sum(stats["regrets"][m]) / len(stats["regrets"][m]), 6)
+                if stats["regrets"][m] else None
+            ),
+            "majority_satisfaction_mean": (
+                round(sum(stats["satisfactions"][m]) / len(stats["satisfactions"][m]), 4)
+                if stats["satisfactions"][m] else None
+            ),
+        }
+
+    return {
+        "final_results":         final,
+        "num_iterations":        num_iterations,
+        "num_voters":            num_voters,
+        "condorcet_exists_rate": round(stats["condorcet_exists"] / num_iterations, 4),
+    }
+
+
 @sio.on("start_monte_carlo")  # type: ignore[untyped-decorator]  # untyped socketio decorator
 async def start_monte_carlo(sid: str, data: dict[str, Any]) -> None:
     """Stream Monte Carlo progress back to the caller.
@@ -122,48 +282,22 @@ async def start_monte_carlo(sid: str, data: dict[str, Any]) -> None:
       agreement_rate       — fraction of runs where all methods agreed
       regret_ci_half       — 95% CI half-width per method
       iteration_checkpoints — X-axis tick values matching regret_history
-    """
+
+    Input parsing, per-run aggregation and payload building are now private
+    `_monte_carlo_*` helpers — same names, same computation, same order as
+    before (CODE_AUDIT.md §5/§8 complexity decomposition)."""
     _stop_flags[sid] = False
 
-    # ── Parse + validate input ────────────────────────────────────────────
     try:
-        num_iterations = max(1, min(10_000, int(data.get("num_iterations", 1_000))))
-        num_voters     = max(10, min(2_000, int(data.get("num_voters",     150))))
-        num_candidates = max(2, min(8,      int(data.get("num_candidates", 4))))
-        ideology       = str(data.get("ideology")
-                             or data.get("ideology_distribution")
-                             or "random")
-
-        raw_cands = data.get("candidates")
-        if raw_cands and isinstance(raw_cands, list) and len(raw_cands) >= 2:
-            candidate_configs = [
-                {"name": str(c)} if isinstance(c, str) else
-                {"name": str(c.get("name", f"Cand{i}"))}
-                for i, c in enumerate(raw_cands[:8])
-            ]
-        else:
-            names             = _CANDIDATE_NAMES[:num_candidates]
-            candidate_configs = [{"name": n} for n in names]
+        num_iterations, num_voters, num_candidates, ideology, candidate_configs = (
+            _monte_carlo_parse_input(data)
+        )
     except (TypeError, ValueError) as exc:
         await sio.emit("monte_carlo_error",
                        {"message": f"Invalid parameters: {exc}"}, to=sid)
         return
 
-    # ── Aggregation state ─────────────────────────────────────────────────
-    winner_counts:  dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
-    regrets:        dict[str, list[float]]    = defaultdict(list)
-    satisfactions:  dict[str, list[float]]    = defaultdict(list)
-    condorcet_exists = 0
-    method_names:   list[str]                 = []
-
-    # Welford online algorithm per method
-    regret_n:     dict[str, int]   = defaultdict(int)
-    regret_mean:  dict[str, float] = defaultdict(float)
-    regret_m2:    dict[str, float] = defaultdict(float)
-
-    regret_history_pts: dict[str, list[float]] = defaultdict(list)
-    iteration_checkpoints: list[int]            = []
-    all_agree_count = 0
+    stats = _monte_carlo_new_stats()
 
     # ── Streaming loop ────────────────────────────────────────────────────
     for i in range(num_iterations):
@@ -184,108 +318,21 @@ async def start_monte_carlo(sid: str, data: dict[str, Any]) -> None:
             await sio.emit("monte_carlo_error", {"message": str(exc)}, to=sid)
             return
 
-        if not method_names and run.get("methods"):
-            method_names = list(run["methods"].keys())
-
-        if run.get("condorcet_winner"):
-            condorcet_exists += 1
-
-        for method, md in run.get("methods", {}).items():
-            w = md.get("winner")
-            if w:
-                winner_counts[method][w] += 1
-            r = md.get("bayesian_regret")
-            if r is not None:
-                regrets[method].append(r)
-            s_val = md.get("majority_satisfaction")
-            if s_val is not None:
-                satisfactions[method].append(s_val)
-
-            if r is not None:
-                n          = regret_n[method] + 1
-                delta      = r - regret_mean[method]
-                new_mean   = regret_mean[method] + delta / n
-                delta2     = r - new_mean
-                regret_n[method]    = n
-                regret_mean[method] = new_mean
-                regret_m2[method]  += delta * delta2
-
-        run_winners = {
-            m: md.get("winner")
-            for m, md in run.get("methods", {}).items()
-            if md.get("winner")
-        }
-        if run_winners and len(set(run_winners.values())) == 1:
-            all_agree_count += 1
+        _monte_carlo_accumulate_run(run, stats)
 
         # ── Emit checkpoint ───────────────────────────────────────────────
         if (i + 1) % _EMIT_EVERY == 0 or i == num_iterations - 1:
-            completed_runs = i + 1
-            partial: dict[str, Any] = {}
-            for m in method_names:
-                wc          = winner_counts[m].copy()
-                most_common = max(wc, key=wc.get) if wc else None   # type: ignore[arg-type]
-                partial[m]  = {
-                    "winner_distribution": {
-                        c: round(cnt / completed_runs, 4) for c, cnt in wc.items()
-                    },
-                    "most_common_winner": most_common,
-                    "bayesian_regret_mean": (
-                        round(sum(regrets[m]) / len(regrets[m]), 6)
-                        if regrets[m] else None
-                    ),
-                }
-
-            iteration_checkpoints.append(completed_runs)
-            for m in method_names:
-                if regret_n[m] > 0:
-                    regret_history_pts[m].append(round(regret_mean[m], 6))
-
-            ci_half_now: dict[str, float | None] = {
-                m: _ci_half(regret_m2[m], regret_n[m])
-                for m in method_names
-            }
-            agreement_rate = round(all_agree_count / completed_runs, 4)
-
-            await sio.emit("monte_carlo_progress", {
-                "iteration":             completed_runs,
-                "total":                 num_iterations,
-                "partial_results":       partial,
-                "condorcet_exists_rate": round(condorcet_exists / completed_runs, 4),
-                "regret_history":        {m: regret_history_pts[m].copy()
-                                          for m in method_names},
-                "agreement_rate":        agreement_rate,
-                "regret_ci_half":        {m: ci_half_now[m] for m in method_names},
-                "iteration_checkpoints": iteration_checkpoints.copy(),
-            }, to=sid)
+            payload = _monte_carlo_checkpoint_payload(stats, i + 1, num_iterations)
+            await sio.emit("monte_carlo_progress", payload, to=sid)
             # No explicit yield needed — emit is awaited and asyncio.to_thread
             # is naturally yielding.
 
     # ── Final result ──────────────────────────────────────────────────────
-    final: dict[str, Any] = {}
-    for m in method_names:
-        wc          = winner_counts[m].copy()
-        most_common = max(wc, key=wc.get) if wc else None   # type: ignore[arg-type]
-        final[m]    = {
-            "winner_distribution": {
-                c: round(cnt / num_iterations, 4) for c, cnt in wc.items()
-            },
-            "most_common_winner": most_common,
-            "bayesian_regret_mean": (
-                round(sum(regrets[m]) / len(regrets[m]), 6) if regrets[m] else None
-            ),
-            "majority_satisfaction_mean": (
-                round(sum(satisfactions[m]) / len(satisfactions[m]), 4)
-                if satisfactions[m] else None
-            ),
-        }
-
-    await sio.emit("monte_carlo_complete", {
-        "final_results":         final,
-        "num_iterations":        num_iterations,
-        "num_voters":            num_voters,
-        "condorcet_exists_rate": round(condorcet_exists / num_iterations, 4),
-    }, to=sid)
+    await sio.emit(
+        "monte_carlo_complete",
+        _monte_carlo_final_payload(stats, num_iterations, num_voters),
+        to=sid,
+    )
     _stop_flags.pop(sid, None)
 
 
