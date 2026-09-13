@@ -282,14 +282,27 @@ silently drifted from `scripts/setup-branch-protection.sh`.
   same reasoning as the workflows it watches) runs
   `scripts/check_ci_health.py --update`, which queries real run history for
   each watched workflow plus live branch-protection state, and — if the
-  result changed — opens a `chore/ci-health-snapshot-*` PR and queues it via
-  `@mergifyio queue`. A direct push was the original design (thought to
-  match `release.yml`'s push-to-`main` pattern), but `develop`'s
-  `required_pull_request_reviews` block (even at 0 required approvals)
-  makes GitHub reject any raw push with "Changes must be made through a
-  pull request" — confirmed live on this job's first real run, meaning
-  `release.yml`'s own direct push to `main` has the same latent bug and has
-  simply never been exercised for real yet (no release has shipped).
+  result changed — opens a `chore/ci-health-snapshot-*` PR. Two real
+  restrictions shaped this, both confirmed live rather than assumed:
+  - A direct push was the original design (thought to match `release.yml`'s
+    push-to-`main` pattern), but `develop`'s `required_pull_request_reviews`
+    block (even at 0 required approvals) makes GitHub reject any raw push
+    with "Changes must be made through a pull request" — meaning
+    `release.yml`'s own direct push to `main` has the same latent bug and
+    has simply never been exercised for real yet (no release has shipped).
+  - `GITHUB_TOKEN` couldn't open the PR at all at first either — GitHub
+    blocks Actions from creating PRs by default (`gh api repos/.../actions/
+    permissions/workflow`'s `can_approve_pull_request_reviews`, confusingly
+    named — it's the same flag GitHub's UI shows as "Allow GitHub Actions to
+    create and approve pull requests"), enabled deliberately for this repo.
+  - The job does **not** try to queue its own PR (an earlier version posted
+    `@mergifyio queue` on it — Mergify refused with "Command disallowed due
+    to command restrictions": letting a bot queue its own PR is exactly the
+    self-merge path that restriction exists to block, correctly). A human
+    reviews and queues/merges it, same as any other PR. If that goes
+    unnoticed, `verify`'s own staleness check is the real backstop — every
+    PR starts failing after ~36h of a quiet audit, a much louder signal
+    than one unmerged PR sitting in the list.
 - **`verify`** (required, every PR, no paths filter — it's cheap enough
   that skipping it is never worth the PR #205 risk of a required check with
   no run) reads that snapshot from `develop`'s tip — not the PR branch's own

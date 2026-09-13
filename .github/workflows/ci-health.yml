@@ -64,9 +64,19 @@ jobs:
       # a pull request" -- confirmed live (this job's first real run, 2026-
       # 09-13). GITHUB_TOKEN cannot bypass that, by GitHub's own design, so
       # the only legitimate path is the same one every other change in this
-      # repo takes: a PR, queued through Mergify. Only opened if something
-      # actually changed -- a no-op run shouldn't spam a PR just to bump a
-      # timestamp.
+      # repo takes: a PR. Only opened if something actually changed -- a
+      # no-op run shouldn't spam a PR just to bump a timestamp.
+      #
+      # Deliberately NOT auto-queued: an earlier version had this job post
+      # `@mergifyio queue` on its own PR. Mergify refused it outright --
+      # "Command disallowed due to command restrictions" -- because letting
+      # a bot comment its own PR into the merge queue is exactly the
+      # self-merge path Mergify's command restrictions exist to block. That
+      # is correct behavior, not a bug to route around: a human queues or
+      # merges this PR, same as reviewing any other change. The existing
+      # staleness check in `verify` is the real backstop if even that goes
+      # unnoticed -- every PR starts failing after ~36h of silence, which is
+      # a much louder signal than an unmerged PR sitting quietly.
       - name: Open a PR with the updated snapshot, if it changed
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -84,12 +94,8 @@ jobs:
           git push origin "$BRANCH"
           PR_URL=$(gh pr create --base develop --head "$BRANCH" \
             --title "chore(ci-health): update snapshot" \
-            --body "Automated snapshot from the scheduled CI health audit. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}")
-          echo "Opened $PR_URL"
-          # auto_merge_conditions in .mergify.yml doesn't reliably auto-queue
-          # in practice (observed live on PRs #448/#449) -- comment explicitly
-          # rather than trust it.
-          gh pr comment "$PR_URL" --body "@mergifyio queue"
+            --body "Automated snapshot from the scheduled CI health audit (run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}). Needs a human to review and queue/merge -- Mergify won't accept a queue command from this bot.")
+          echo "Opened $PR_URL -- needs a human to queue/merge it."
 
   # The actual gate. Required on every PR. Reads the snapshot from develop's
   # tip (not the PR branch's own possibly-months-stale copy -- this is
