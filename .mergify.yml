@@ -29,6 +29,23 @@ queue_rules:
     # (mutation-testing.yml's stryker job is the only one over this, and it
     # doesn't gate the merge queue).
     checks_timeout: "25 minutes"
+    # batch_size: 1 (PLAN_REMEDIATION_CI_CD.md §2.2) — GitHub's "require
+    # branches to be up to date before merging" branch protection setting
+    # (re-enabled 2026-09-13) is incompatible with batching: Mergify tests a
+    # speculative combined branch ahead of the real one, so the real PR is
+    # never "up to date" by GitHub's own definition when its turn comes,
+    # and the merge is refused. Confirmed live: every PR queued after
+    # re-enabling `strict` got "Configuration not compatible with a branch
+    # protection setting" instead of merging. batch_size: 1 disables
+    # batching entirely — queued PRs process one at a time, in place,
+    # slower when several are queued at once but compatible with `strict`.
+    batch_size: 1
+
+# max_parallel_checks: 1 (same incompatibility as batch_size above, see that
+# comment) — disables Mergify's speculative parallel-checks feature, which
+# has the identical "not actually up to date yet" problem with `strict`.
+merge_queue:
+  max_parallel_checks: 1
 
 merge_protections_settings:
   # Every PR whose (injected) required checks pass is queued and merged
