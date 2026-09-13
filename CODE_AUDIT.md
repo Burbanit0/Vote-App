@@ -454,6 +454,31 @@ Suite backend complète (2187 passed, 41 skipped — identique à la baseline de
 cette branche), `mypy`, `ruff check fast_api_voter` et `lint-imports` (0
 violation) tous verts.*
 
+*Mise à jour du 2026-09-12 (sextius) — le gate CI "Backend: Tests + Coverage +
+Security" a échoué après le push précédent : `diff-cover` (100% des lignes
+changées exigé) a trouvé 19 lignes non couvertes, réparties entre le corps de
+`_apply_blank_contagion` (`_electorate.py`), ses 4 sites d'appel dans
+`workers.py` (`_divergence_worker`, `_campaign_sensitivity_worker`,
+`_combined_effects_worker`, `_simulate_pipeline_worker`), son site dans
+`ElectionService.simulate` (`election_service.py`), et la branche
+`len(cand_specs) < 2` de `_validate_multiwinner_candidates`
+(`workers_mechanisms.py`). Cause : les blocs dupliqués d'origine n'étaient
+exercés par aucun test avec la contagion (`blank_vote.contagion.enabled`)
+réellement activée — la duplication avait involontairement caché ce trou de
+couverture derrière plusieurs copies identiques, dont aucune n'était testée
+avec ce paramètre à `true`. Pour `_validate_multiwinner_candidates`, la
+branche `< 2` est en réalité inatteignable via les deux endpoints HTTP
+(`/stv`, `/multiwinner_compare` imposent déjà `min_length=2` au niveau
+Pydantic) : gardée comme filet de sécurité pour un futur appelant direct de
+la fonction, et testée comme telle (appel direct, pas HTTP).
+
+Fix : 7 tests réels ajoutés (aucun gaming de couverture) — un par site
+d'appel avec `contagion.enabled: true` dans le payload HTTP concerné, plus un
+test direct de `_validate_multiwinner_candidates` sur les deux branches.
+`diff-cover --compare-branch=origin/develop --fail-under=100` repasse à 100%
+(0 ligne manquante). `mypy`, `ruff check fast_api_voter` et `lint-imports`
+verts ; suite backend complète 2194 passed (2187 + 7), 41 skipped.*
+
 ---
 
 ## 1. Garde-fous déjà en place (avant cet audit)
