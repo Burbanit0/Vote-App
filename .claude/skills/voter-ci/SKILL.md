@@ -177,6 +177,35 @@ The ratchet is the actual gate, reading the `.txt` files those tools already
   would fail on the existing backlog), but the codebase-wide average can never
   drift worse than A.
 
+## The mutation score ratchet (`scripts/check_mutation_score.sh`)
+
+Same idiom as the quality ratchet above (`.github/mutation-baseline.json`
+records `{score, killed, total}`, `--update` accepts a new one), for the
+backend half of `mutation-testing.yml`. A hand-maintained percentage floor
+sat in the workflow file until 2026-09-13 — nobody remembered to raise it as
+the score improved, and mutmut 3.8.0's coverage-gathering fix (see that
+workflow's own history and `PLAN_REMEDIATION_CI_CD.md` §2.1) made the old
+number meaningless overnight anyway when the mutant population tripled.
+
+**One deliberate difference from the quality ratchet**: this one does
+**not** fail on an improvement, only on a real drop (past a small noise
+tolerance). The quality ratchet's tools are fully deterministic; mutmut
+has genuine run-to-run non-determinism from mutant timeouts (observed
+directly — two back-to-back runs of the identical commit differed by
+~0.1 percentage points with zero code change). A symmetric "fail on any
+change" rule would make this gate fail on pure noise most runs — exactly
+the kind of ignored-because-it-cries-wolf signal this repo's whole
+`ci-health.yml` effort exists to prevent. An improvement is reported with
+a suggestion to `--update`, not forced.
+
+```bash
+./scripts/check_mutation_score.sh fast_api_voter/mutmut-run.log            # check (CI)
+./scripts/check_mutation_score.sh fast_api_voter/mutmut-run.log --update   # accept the current score as the new baseline
+```
+
+Same "measure on an up-to-date branch" caveat as the quality ratchet — CI
+measures against the PR's merge result.
+
 ## diff-cover — 100% coverage on changed lines
 
 This is a *different, stricter* gate than the 90%/global coverage floor:
@@ -281,9 +310,18 @@ silently drifted from `scripts/setup-branch-protection.sh`.
 - **`audit`** (schedule + `workflow_dispatch` only, never `pull_request` —
   same reasoning as the workflows it watches) runs
   `scripts/check_ci_health.py --update`, which queries real run history for
-  each watched workflow plus live branch-protection state, and — if the
-  result changed — opens a `chore/ci-health-snapshot-*` PR. Two real
-  restrictions shaped this, both confirmed live rather than assumed:
+  each watched workflow plus live branch-protection state, and opens a
+  `chore/ci-health-snapshot-*` PR only when `--update`'s own `pr_needed`
+  decision says so: a real status change always qualifies; a pure
+  timestamp-only refresh (every workflow's `last_run_at` moves on every
+  run, whether or not anything else did) only qualifies once
+  `HEARTBEAT_MAX_DAYS` (7) have passed since the last snapshot commit —
+  otherwise a rock-solid-healthy repo would get a trivial PR every single
+  day, and a human rubber-stamping those on autopilot is worse than not
+  having the check. The weekly heartbeat still exists so `verify`'s own
+  staleness check never has genuinely stale-looking data to distrust on a
+  repo that's simply healthy for a long stretch. Three real restrictions
+  shaped the rest of this job, all confirmed live rather than assumed:
   - A direct push was the original design (thought to match `release.yml`'s
     push-to-`main` pattern), but `develop`'s `required_pull_request_reviews`
     block (even at 0 required approvals) makes GitHub reject any raw push

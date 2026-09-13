@@ -19,7 +19,14 @@ memory:
              dast.yml, scorecard.yml) plus develop's live branch-protection
              settings, and writes a snapshot to .github/ci-health.json.
              Run on a schedule (see ci-health.yml), never on a PR -- it's
-             the thing being watched, not the watcher.
+             the thing being watched, not the watcher. Also decides (and
+             prints, and writes to $GITHUB_OUTPUT as `pr_needed` when that
+             env var is set) whether the change is worth a PR: a real
+             status change always is; a no-op refresh only is once
+             HEARTBEAT_MAX_DAYS have passed since the last one, so a
+             rock-solid-healthy repo doesn't get a daily PR just to bump a
+             timestamp, but still gets one occasionally so the staleness
+             check in --verify never has stale-looking data to distrust.
 
   --verify   Reads that snapshot (not live GitHub state -- cheap, no API
              calls, safe to run on every PR) and fails if:
@@ -48,6 +55,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -96,6 +104,14 @@ INERT_MULTIPLIER = 1.5
 # run (daily). 1.5x gives one missed day of slack before blocking PRs.
 AUDIT_EXPECTED_HOURS = 24
 AUDIT_STALE_HOURS = AUDIT_EXPECTED_HOURS * INERT_MULTIPLIER
+
+# A PR only needs opening when there's something worth a human's attention:
+# a real health change, or enough silence that the snapshot's own
+# generated_at is worth refreshing so the staleness check above doesn't
+# eventually trip on a rock-solid-healthy repo. Independent of
+# AUDIT_EXPECTED_HOURS (which the audit job runs on) -- the audit runs
+# daily regardless, this only decides whether a no-op day is worth a PR.
+HEARTBEAT_MAX_DAYS = 7
 
 
 def _run_gh_json(args: list[str]) -> Any:
@@ -251,7 +267,42 @@ def check_branch_protection_drift() -> dict[str, Any]:
     return {"status": "healthy", "detail": "matches setup-branch-protection.sh"}
 
 
+def _meaningfully_changed(old: dict[str, Any], new: dict[str, Any]) -> bool:
+    """True when anything a human would actually care about differs --
+    everything except the always-different generated_at/last_run_at
+    timestamps. A workflow's status flipping, its detail message changing
+    (e.g. a different consecutive-failure count), or branch-protection
+    drift appearing/disappearing all count; a new run simply confirming
+    the same status with a later timestamp does not."""
+
+    def _strip_timestamps(workflows: dict[str, Any]) -> dict[str, Any]:
+        return {
+            wf: {k: v for k, v in info.items() if k != "last_run_at"}
+            for wf, info in workflows.items()
+        }
+
+    return _strip_timestamps(old.get("workflows", {})) != _strip_timestamps(
+        new.get("workflows", {})
+    ) or old.get("branch_protection") != new.get("branch_protection")
+
+
+def _heartbeat_overdue(old: dict[str, Any]) -> bool:
+    """True when it's been long enough since the last commit that the
+    snapshot is worth refreshing even with no real change -- otherwise a
+    repo that's simply healthy for months would never get a new PR, and
+    `verify`'s staleness check would eventually (wrongly) trip on it."""
+    age_days = (_now() - _parse_iso(old["generated_at"])).total_seconds() / 86400
+    return age_days >= HEARTBEAT_MAX_DAYS
+
+
 def cmd_update(_: argparse.Namespace) -> int:
+    old_snapshot: dict[str, Any] | None = None
+    if SNAPSHOT_PATH.exists():
+        try:
+            old_snapshot = json.loads(SNAPSHOT_PATH.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            old_snapshot = None
+
     workflows = {wf: query_workflow_health(wf) for wf in WATCHED_WORKFLOWS}
     branch_protection = check_branch_protection_drift()
 
@@ -260,6 +311,16 @@ def cmd_update(_: argparse.Namespace) -> int:
         "workflows": workflows,
         "branch_protection": branch_protection,
     }
+
+    if old_snapshot is None:
+        pr_needed, pr_reason = True, "no prior snapshot"
+    elif _meaningfully_changed(old_snapshot, snapshot):
+        pr_needed, pr_reason = True, "a workflow or branch-protection status changed"
+    elif _heartbeat_overdue(old_snapshot):
+        pr_needed, pr_reason = True, f"no real change but snapshot is {HEARTBEAT_MAX_DAYS}+ days old"
+    else:
+        pr_needed, pr_reason = False, "no real change, heartbeat not due yet"
+
     SNAPSHOT_PATH.write_text(json.dumps(snapshot, indent=2) + "\n", encoding="utf-8")
 
     unhealthy = [
@@ -277,6 +338,13 @@ def cmd_update(_: argparse.Namespace) -> int:
             print(f"  - {line}")
     else:
         print("All watched workflows and branch protection: healthy.")
+    print(f"PR_NEEDED={'true' if pr_needed else 'false'} ({pr_reason})")
+
+    github_output = os.environ.get("GITHUB_OUTPUT")
+    if github_output:
+        with open(github_output, "a", encoding="utf-8") as f:
+            f.write(f"pr_needed={'true' if pr_needed else 'false'}\n")
+
     return 0
 
 

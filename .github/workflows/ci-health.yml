@@ -82,8 +82,12 @@ jobs:
       # a pull request" -- confirmed live (this job's first real run, 2026-
       # 09-13), regardless of which token pushes it. The only legitimate
       # path is the same one every other change in this repo takes: a PR.
-      # Only opened if something actually changed -- a no-op run shouldn't
-      # spam a PR just to bump a timestamp.
+      # Only opened when scripts/check_ci_health.py --update's own
+      # pr_needed decision says so (a real status change, or a heartbeat
+      # refresh at most once a week) -- a raw `git diff` on the file would
+      # see the generated_at/last_run_at timestamps change on literally
+      # every run and open a PR daily even when nothing real changed,
+      # exactly the "spam a PR just to bump a timestamp" this avoids.
       #
       # Deliberately NOT auto-queued: an earlier version had this job post
       # `@mergifyio queue` on its own PR. Mergify refused it outright --
@@ -95,15 +99,12 @@ jobs:
       # staleness check in `verify` is the real backstop if even that goes
       # unnoticed -- every PR starts failing after ~36h of silence, which is
       # a much louder signal than an unmerged PR sitting quietly.
-      - name: Open a PR with the updated snapshot, if it changed
+      - name: Open a PR with the updated snapshot, if it's worth one
+        if: steps.audit.outputs.pr_needed == 'true'
         env:
           GH_TOKEN: ${{ secrets.CI_HEALTH_PAT }}
         run: |
           git add .github/ci-health.json
-          if git diff --cached --quiet; then
-            echo "No change to .github/ci-health.json"
-            exit 0
-          fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           BRANCH="chore/ci-health-snapshot-$(date -u +%Y%m%d-%H%M%S)"

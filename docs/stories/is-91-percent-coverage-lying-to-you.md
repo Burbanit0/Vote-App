@@ -160,8 +160,10 @@ Runtime reachability is one axis of "does the test suite actually mean
 something." Two others, run alongside it here, ask a different pair of
 uncomfortable questions and are worth naming for completeness:
 
-- **Mutation testing** (`mutmut` on the backend's voting engine, floored at
-  70%; Stryker on the client engine, floored at 80%, both gating in CI) asks
+- **Mutation testing** (`mutmut` on the backend's voting engine, ratcheted
+  against its last recorded score — no fixed floor, see
+  `scripts/check_mutation_score.sh`; Stryker on the client engine, floored at
+  80%, both gating in CI) asks
   whether the assertions inside an already-green, already-reachable line
   would even notice if the logic were subtly broken — a check on the
   *meaning* of a passing test, not just whether it ran.
