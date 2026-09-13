@@ -110,7 +110,10 @@ not a separate `codeql.yml`.
   `push: develop` trigger — **that's fixed**: the repo's default branch is
   now `develop`, confirmed by live successful runs (`flaky-check-backend.yml`'s
   cron on 2026-09-12, `atheris-fuzzing.yml`'s dispatch on 2026-09-11). See each
-  workflow's own `on:` comment for the fuller history.
+  workflow's own `on:` comment for the fuller history. **Being non-required is
+  exactly why `mutmut` crashed on every single run for 17 days
+  (2026-08-29 → 2026-09-13) unnoticed — see `ci-health.yml` below, which
+  exists specifically to catch that class of rot.**
 - `scorecard.yml`, `dast.yml` — informational, non-gating, results in the
   Security tab.
 
@@ -260,6 +263,54 @@ signatures — `uv pip install --system` resolver conflicts, `npm ci`
 pinned Node 20) is written up in `.claude/agents/dep-triage.md` for the
 Dependabot-PR case specifically; the same "get the real log, don't guess from
 the job name" discipline applies to any red check, not just a dependency bump.
+
+## `ci-health.yml` — catching a non-required workflow rotting silently
+
+Every workflow in the two tables above that isn't a required check
+(`mutation-testing.yml`, `schemathesis.yml`, `atheris-fuzzing.yml`,
+`flaky-check-backend.yml`, `dast.yml`, `scorecard.yml`) rots invisibly by
+construction: nothing blocks a human from ignoring a red run, because
+nothing requires them to look. That's not hypothetical — `mutmut` crashed on
+every single run for 17 days before anyone noticed (numpy 2.4+ vs. mutmut
+3.7.0's in-process coverage model; fixed in PR #447 by bumping to 3.8.0).
+The same audit that found it also found `develop`'s branch protection had
+silently drifted from `scripts/setup-branch-protection.sh`.
+
+`ci-health.yml` closes that gap with two jobs, deliberately asymmetric:
+
+- **`audit`** (schedule + `workflow_dispatch` only, never `pull_request` —
+  same reasoning as the workflows it watches) runs
+  `scripts/check_ci_health.py --update`, which queries real run history for
+  each watched workflow plus live branch-protection state, and commits the
+  result to `.github/ci-health.json` directly on `develop`
+  (`[skip ci]`, same direct-push-to-a-protected-branch pattern `release.yml`
+  already uses on `main`).
+- **`verify`** (required, every PR, no paths filter — it's cheap enough
+  that skipping it is never worth the PR #205 risk of a required check with
+  no run) reads that snapshot from `develop`'s tip — not the PR branch's own
+  copy, since this is metadata about the *repo's* health, not the PR's diff
+  — and fails if:
+  - the snapshot is stale (the scheduled `audit` job has gone quiet — its
+    own silence has to be as loud as any other failure it reports), or
+  - any watched workflow is `unhealthy` (≥2 consecutive real failures),
+    `inert` (no run within 1.5× its own cron-derived cadence), or
+    `never_run`, or
+  - `develop`'s live branch protection has drifted from
+    `scripts/setup-branch-protection.sh`.
+
+A real, known problem doesn't have to block every PR forever: add a dated
+entry to `.github/ci-health-snoozes.json` (key = the workflow filename, or
+`branch-protection`) with `until` (a real date, never open-ended) and
+`reason`. An expired snooze reverts to blocking — it does not silently keep
+passing — so a snooze is a deadline, not a permanent silencer. `--verify`
+still prints snoozed findings (🟡), it just doesn't fail on them.
+
+Tested against real and injected failures before being trusted (this
+repo's own standard, per the flaky-detector/depcruise/DAST precedents): the
+64.4%-below-floor mutmut score above was a real one it caught immediately
+on the first live `--update`; staleness, snooze-expiry, and inert-workflow
+detection were each verified against constructed fixtures
+(`--snapshot`/`--snoozes` override flags exist specifically for this).
 
 ## Recipe — a PR just went red
 

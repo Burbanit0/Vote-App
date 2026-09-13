@@ -90,7 +90,8 @@ REQUIRED_CONTEXTS='[
       "Backend: Tests + Coverage + Security",
       "Frontend: Tests + Coverage + Security",
       "Playwright E2E",
-      "Generated artifacts in sync"
+      "Generated artifacts in sync",
+      "CI health check"
     ]'
 
 protect_main() {

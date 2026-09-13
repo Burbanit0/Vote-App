@@ -1,0 +1,118 @@
+name: CI Health Watchdog
+
+# Catches a non-required workflow, or develop's branch protection, rotting
+# silently -- mutmut crashed on every run for 17 days (2026-08-29 ->
+# 2026-09-13) before anyone noticed, because it's deliberately not a
+# required check (mutation-testing.yml never runs on `pull_request`, and a
+# required check on a workflow that never triggers on a PR blocks every PR
+# forever -- see scripts/setup-branch-protection.sh's own comment). The same
+# day's audit also found develop's branch protection had silently drifted
+# from what that script documents. Both are the same disease: state that
+# only a human remembering to look would catch. See
+# scripts/check_ci_health.py's module docstring for the full design,
+# including why the watcher itself can't be allowed to die quietly.
+
+on:
+  schedule:
+    - cron: '7 8 * * *'  # daily, off-peak, distinct from every other cron in this repo
+  workflow_dispatch: {}
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [develop]
+
+permissions:
+  contents: read
+
+jobs:
+  # Writes the snapshot. Never runs on pull_request -- it's the thing being
+  # watched, not the watcher (same reasoning as mutation-testing.yml/
+  # schemathesis.yml never gating a PR).
+  audit:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    name: CI health audit (writes snapshot)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          ref: develop
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - name: Run the audit
+        id: audit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python scripts/check_ci_health.py --update | tee summary.txt
+          {
+            echo "## CI health audit"
+            echo ""
+            echo '```'
+            cat summary.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+      # Commit only if something actually changed -- a no-op run shouldn't
+      # create a commit just to bump a timestamp; the snapshot's own
+      # generated_at inside the file is what freshness is judged on, and an
+      # unchanged file with an unchanged mtime would make every run a no-op
+      # commit otherwise. [skip ci] matches release.yml's own precedent for
+      # a direct bot push to a protected branch (main there, develop here) --
+      # GitHub natively skips creating check runs for a commit with this in
+      # its message, so this doesn't loop back into itself or spam the four
+      # required-check workflows for a metadata-only change.
+      - name: Commit the snapshot if it changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .github/ci-health.json
+          if git diff --cached --quiet; then
+            echo "No change to .github/ci-health.json"
+            exit 0
+          fi
+          git commit -m "chore(ci-health): update snapshot [skip ci]"
+          git push origin HEAD:develop
+
+  # The actual gate. Required on every PR. Reads the snapshot from develop's
+  # tip (not the PR branch's own possibly-months-stale copy -- this is
+  # metadata ABOUT the repo's CI health, not something that varies with the
+  # PR's own diff, so every PR should see the same, freshest read) plus the
+  # PR's OWN .github/ci-health-snoozes.json (so a PR can add or renew a
+  # snooze and see it take effect on itself immediately, same as any other
+  # reviewed change). No `changes`/paths-filter gate at all, unlike
+  # backend/frontend/e2e/openapi-contract: this check is cheap (a JSON read
+  # and some date arithmetic, no dependency install), so there's no reason
+  # to skip it ever -- which also means it can't hit PR #205's failure mode
+  # (a required check whose workflow never creates a run on some PRs).
+  verify:
+    name: CI health check
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      # Bootstrap case: the PR that introduces this file has nothing on
+      # develop yet to read (the audit job hasn't run for real until this
+      # merges and its first schedule/dispatch fires) -- that's a one-time
+      # gap, not a health problem, so it passes with a notice instead of
+      # failing on a missing path.
+      - name: Fetch the latest snapshot from develop
+        id: fetch
+        run: |
+          git fetch --depth=1 origin develop
+          if git show origin/develop:.github/ci-health.json > /tmp/ci-health.json 2>/dev/null; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Verify
+        if: steps.fetch.outputs.found == 'true'
+        run: python scripts/check_ci_health.py --verify --snapshot /tmp/ci-health.json
+      - name: Bootstrap notice
+        if: steps.fetch.outputs.found == 'false'
+        run: echo "No .github/ci-health.json on develop yet -- nothing to verify until this mechanism's first PR merges and its scheduled audit runs."
