@@ -655,6 +655,38 @@ ad hoc cette fois :
    déjà utilisé pour un problème de nature différente mais de même
    esprit (ne pas réécrire l'historique, juste le qualifier honnêtement).
 
+### 4.1 Track D — sweep p100, 10 seeds (2026-09-12/13)
+
+Premier sweep multi-seed réellement exécuté au titre du point 1 ci-dessus —
+jusqu'ici seule la seed 42 avait jamais tourné en LLM sur un run publié
+(§4.3 : `seed_representativeness: unvalidated`). Protocole : nouveau
+`scripts/run_polity_seed_sweep.py` (`llm_test_harness`-enregistré), 10
+seeds (1 à 10) indépendantes, chacune un vrai `run_polity_flagship.py
+--engine llm --years 8 --population 100 --seats 15` contre le serveur
+vLLM de production. Méthode et table complète :
+`fast_api_voter/scripts/run_polity_seed_sweep_p100_results.md`.
+
+**Résultat.** `office_occupancy` — moyenne 0,930, stdev 0,052, min 0,818,
+max 0,970 sur les 10 seeds. Bande resserrée, aucune seed sous 0,81 : le
+correctif de vacance présidentielle (Track A) généralise à travers les
+seeds, pas seulement à la seed sur laquelle il a été vérifié à l'origine.
+Effet de bord noté, pas encore un motif établi : l'alerte de repli de
+`representative_response` (seuil >10%, Track C2) s'est déclenchée sur 2
+des 10 seeds (2 et 3), muette sur les 8 autres.
+
+**Ce que ça règle, et ce que ça ne règle pas.** Le sweep p100 répond à la
+question de représentativité à cette échelle de population. Il ne répond
+pas à la question analogue à population 500 : le repli propre à
+`party_nomination_choice`, dépendant de l'échelle (mesuré à 67% en Phase
+7 Stage 3, jamais observé à p100), reste hors du périmètre de ce sweep
+par construction. Un second batch (seeds 1, 2, 42 — la dernière choisie
+pour se raccorder au run Stage 3 déjà analysé à cette population) est
+construit et prêt, mais pas encore lancé.
+
+**Statut** : point 1 de la politique du §4 satisfait pour p100 ; le volet
+p500 reste ouvert, point 3 (marquage des runs déjà publiés) toujours pas
+fait.
+
 ## 5. Plan d'exécution, phasé avec portes de validation
 
 **Phase 1 — Décision théorique** (avant tout code)
