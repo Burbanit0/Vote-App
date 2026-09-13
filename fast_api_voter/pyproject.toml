@@ -187,23 +187,24 @@ python_version = "3.14"
 # problem is still untested — confirm on a clean run of the 11-worker file
 # before adding the numpy-touching 4 (also blocked on the regression below).
 #
-# 🔴 REGRESSION (2026-08-29): the entire mutmut job (both files, no test-file
-# changes needed to trigger it) now fails deterministically before producing
-# any score — "ImportError: cannot load module more than once per process"
-# while collecting test_anti_plurality.py's `import numpy`, during mutmut's
-# own stats-gathering pass. Reproduced 2x in CI (runs 33227879711,
-# 33228264565), same failure both times — not flaky. Last clean run: 73.3%
-# on 2026-08-28T11:34Z. numpy 2.2.6 → 2.4.6 merged 2026-08-29T01:30Z (13h
-# later) is the only relevant change on develop between the two — strong
-# circumstantial link, not yet confirmed by bisection (would need a WSL
-# environment; not run — see CLAUDE.md's "run via WSL" note above and this
-# repo's session notes on avoiding WSL churn). Likely the same root cause as
-# the workers.py exclusion above — numpy's newer C-extension singleton
-# loading is stricter about repeated imports in one process, and mutmut's
-# in-process re-exec model does exactly that — just now tripped by a file
-# that isn't TestClient-coupled at all. Not yet fixed; needs its own
-# investigation (bisect the numpy version, or find a mutmut-side mitigation)
-# before this job's score can be trusted again.
+# 🟢 REGRESSION (2026-08-29), FIXED (2026-09-13): the entire mutmut job (both
+# files, no test-file changes needed to trigger it) failed deterministically
+# before producing any score — "ImportError: cannot load module more than
+# once per process" while collecting test_anti_plurality.py's `import numpy`,
+# during mutmut's own stats-gathering pass. Confirmed broken on every push/
+# schedule run for 17 days straight (2026-08-29 through 2026-09-13, ~17
+# runs), not flaky. Root cause confirmed (not just circumstantial): numpy
+# 2.4+ added a guard refusing to re-initialize its C extension in the same
+# process (numpy/numpy#29030, same failure family as
+# github.com/DataDog/dd-trace-py#18276) — mutmut 3.7.0's in-process coverage
+# re-exec model does exactly that. mutmut 3.8.0's changelog fixes this
+# specific case ("gather coverage in a separate process", #528/#566) —
+# bumped in requirements-dev.txt, verified locally by reproducing the crash
+# on 3.7.0 then confirming 3.8.0 runs cleanly past stats collection into
+# actual mutant testing on the exact same config, same numpy 2.5.2, same
+# Python 3.14.7 as CI. The workers.py/TestClient exclusion above is a
+# different, still-open incompatibility — not resolved by this bump, since
+# it was never confirmed to be the same trigger (see that note's own caveat).
 source_paths = [
     "api/engine/utils/simulation_ranked_utils.py",
     # The cardinal half of the engine-parity harness. Both files are locked
