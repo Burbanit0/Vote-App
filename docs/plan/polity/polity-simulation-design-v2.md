@@ -273,9 +273,16 @@ structurellement impossible en volume. `llm_behavior_engine.py` doit :
 - soumettre un batch en un seul appel, retournant un tableau structuré ;
 - ne jamais raisonner citoyen par citoyen dans la boucle principale.
 
-**🟡 Reste ouvert (B3)** : critère exact de similarité et taille de
-cohorte. `max_batch_size: 25` est fixé en config, mais le critère de
-regroupement reste à préciser — dernier bloquant v2 non résolu.
+**🟢 B3, résolu par simplification documentée, pas par le critère prévu ici**
+(mise à jour 2026-09-13) : pas de bibliothèque de personas (§9 jamais
+livrée), donc un « critère de similarité par archetype_id » n'est pas
+littéralement implémentable — `llm_behavior_engine.py` le dit explicitement
+dans son propre docstring de module. `chunk_voters()` utilise à la place un
+découpage quasi-égal par `citizen_id`, sans critère de similarité. `max_batch_
+size: 25` reste fixé en config, mais la composition des chunks en production
+est en réalité bien plus petite et pilotée par la fiabilité/le budget de
+tokens, pas par le regroupement envisagé ici (`_VOTE_CAST_MAX_CHUNK_SIZE`,
+`_CHAMBER_MAX_CHUNK_SIZE`, cf. `plan-flagship-30y-run.md`).
 
 ---
 
@@ -1836,7 +1843,7 @@ jamais est un récit aussi instructif que celui d'un militant.
 | A6 | Formule de `L(t)` | ✅ | `écart(t)` défini (§7bis.0) ; `support(t) = (1−decay)·m`, `m` = part des bulletins classant le vainqueur au-dessus de Blanc — résolu par le plan v4 (Lot 3), implémenté dans `legitimacy.py`, documenté en `THEORY.md` §10.1 |
 | B1 | Schéma de sortie LLM | ✅ | §3.6 |
 | B2 | Déterminisme LLM | ✅ | `temperature: 0`, modèle épinglé (§4.2) |
-| B3 | Composition des cohortes | 🔴 | Taille fixée (25), critère de similarité non spécifié |
+| B3 | Composition des cohortes | 🟢 | Résolu par simplification documentée (pas de persona/archetype), pas par le critère de similarité prévu — voir §3.5, mis à jour 2026-09-13 |
 | B4 | Budget de coût | ✅ | Reformulé en **temps d'horloge** et non en prix (§15bis.0) ; mesure réelle faite sur un run de 100 citoyens — v4 Lot 8, `scripts/acceptance_v4_results.md` |
 | — | **Déterminisme sous batching** | 🔴 | **Nouveau (§15bis.4c)** : B2 pourrait être insuffisant — protocole de vérification §15bis.5 à exécuter avant v2 |
 | C1 | Contradiction §2.3/§2.4 | ✅ | Seuil réduit, pas d'exemption (§2.4) |
@@ -1844,8 +1851,11 @@ jamais est un récit aussi instructif que celui d'un militant.
 | C3 | Modules de données manquants | ✅ | Arborescence §1 complétée |
 | D9 | Fichier de configuration | ✅ | `polity_config.yaml` |
 
-**Reste bloquant avant v2** : B3 (critère de cohorte).
 **Reste à finir pour v0** : règle de départage de coalition (A5).
+**B3 n'a jamais bloqué v2 en pratique** : le roadmap est allé de v2 à v8 sans
+que le critère de similarité prévu soit implémenté — voir §3.5 pour la
+résolution réelle (simplification documentée, pas la résolution envisagée
+ici).
 
 ---
 
@@ -1996,6 +2006,17 @@ jamais est un récit aussi instructif que celui d'un militant.
     autre raison) — cette question 20 reste donc « réponse acceptée pour
     le provider live », maintenant avec une tentative de bascule réelle
     et documentée derrière, pas seulement une intention jamais testée.
+    **Mise à jour 2026-09-13 — condition de réouverture atteinte** : le
+    passage à Linux natif a eu lieu le 2026-09-05 (pour la raison même
+    nommée ci-dessus, sans lien avec ce point précis), le blocage WSL2
+    a disparu, et `llm.provider: vllm` est le provider effectif en
+    production depuis le 2026-09-06 (`plan-vllm-switch-readiness.md`,
+    statut « DÉBLOQUÉ ET TERMINÉ »). Le déterminisme sous batching a bien
+    été réévalué spécifiquement pour vLLM comme annoncé ci-dessus — B2
+    (température=0 + seed épinglée ⇒ déterminisme) vérifié tenir en
+    conditions réelles, y compris sous batching concurrent
+    (`docker-compose.llm.yml`, commentaire du service `vllm` ;
+    `scripts/vllm_determinism_results.md`).
 21. Sharding intra-run (§15bis.3) : **sans objet pour l'instant** —
     subordonné au point 20, jamais eu de second GPU physique pour le
     justifier. À rouvrir seulement si un besoin de déterminisme sous

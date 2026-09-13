@@ -5,11 +5,15 @@ vocabulary, the mechanisms, the nine LLM decisions, every knob, and — stated p
 are trustworthy and which are not. Written to be read by someone deciding where to spend effort
 next.
 
-**Snapshot.** Verified against the code at commit `a691e29` (2026-09-11). Everything below was read
-from the source, not recalled; where two sources disagreed the code won. This is a snapshot, not a
-contract: it will drift, and `polity-simulation-design-v2.md` (the design intent, French) and
+**Snapshot.** Verified against the code at commit `a691e29` (2026-09-11), §9/§10's
+`representative_response` entries corrected 2026-09-13 (they went stale within hours of that same
+commit — a fix landed later the same day and this document wasn't re-read). Everything below was
+read from the source, not recalled; where two sources disagreed the code won. This is a snapshot,
+not a contract: it will drift, and `polity-simulation-design-v2.md` (the design intent, French) and
 `polity-decision-contracts.md` (the prompt-quality contract, French) remain the authorities on
-*intent*. This document is the authority on *what is built*.
+*intent*. This document is the authority on *what is built* — but check `polity-decision-
+contracts.md`'s own §2/§3 for anything dated after this snapshot before trusting a per-type verdict
+here.
 
 **Language.** English, matching `plan-flagship-30y-run.md` and the `scripts/*_results.md` lineage
 this belongs to. The design docs are French, so §1 bridges the two vocabularies.
@@ -450,9 +454,14 @@ The honest part. Stated per decision, from measurements in the code's own docstr
 
 **Confirmed content-blind collapse — the model returns the same answer regardless of input:**
 
-- **`representative_response` (dt=6)** — the worst. P(stance=1) stayed within 0.000001 of 1.0 across
-  the entire range from "near-perfect legitimacy, zero pressure" to "collapsing legitimacy, deep
-  drift, mass mobilisation". No gradient at all. No remediation attempted.
+- **`representative_response` (dt=6)** — was the worst: P(stance=1) stayed within 0.000001 of 1.0
+  across the entire range from "near-perfect legitimacy, zero pressure" to "collapsing legitimacy,
+  deep drift, mass mobilisation", no gradient at all. **Partially fixed, 2026-09-11** (Track B1,
+  `polity-decision-contracts.md` §3): the prompt now states `mandate_dev`/`street` on their real
+  scale. P(stance=1) is no longer flat — at the exact zero-pressure pole the model now switches to
+  SILENCE, P(stance=1) dropping to ~0.12. This breaks the flat collapse at the zero/non-zero
+  boundary specifically; sensitivity to the *magnitude* of pressure once it's non-zero is still
+  unestablished — do not read this as a fully solved gradient.
 - **`coalition_decision` (dt=9)** — P(action=JOIN) 0.965–0.999 everywhere, including the
   decline-obvious pole. Still collapses on vLLM.
 - **`pressure_action` (dt=10)** — P(act=4) ≥ 0.976 for every citizen tested. **Root-caused and fixed
@@ -542,8 +551,14 @@ Ordered by how much they would change things.
    reference, exactly the defect that caused `pressure_action`'s collapse. A real run shows **~40% of
    citizens declaring candidacy**, which is implausible against any real polity. The fix vehicle is
    already written down in `polity-decision-contracts.md` and unbuilt.
-4. **`representative_response` and `coalition_decision` have written calibration vehicles and no
-   implementation.** They are the two confirmed collapses left.
+4. **`coalition_decision` still collapses; its calibration vehicle was built and tried, not just
+   written.** Track B2 (`polity-decision-contracts.md` §3) implemented the same kind of scale
+   reference C3 asks for (mean inter-party distance) and measured **no improvement** on a 5-point
+   probe (pole-to-pole difference actually slightly smaller than baseline) — C3 does not explain
+   this collapse the way it explained `pressure_action`'s. `representative_response`'s own vehicle
+   *was* built and shipped (partial fix, see above) — corrected here 2026-09-13, this bullet
+   previously said neither had gone past the written stage, which was already stale by the time
+   this document's own snapshot commit landed.
 5. **A known metric design bug**: `mandate_deviation` weights only the top-5 priorities, so drift in
    any other dimension reads as exactly 0.0. Live-verified: a term drifted three dimensions to the
    clamp ceiling while the metric read 0.0 throughout. `unified_mandate_deviation` exists as the
