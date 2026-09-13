@@ -1071,6 +1071,7 @@ def _consider_candidacies_llm(
                 # llm_fallback. progress.py's generic `payload.llm_fallback`
                 # tally picks this up with no further wiring.
                 "llm_fallback": int(outcome.llm_fallback.get(decision.cid, False)),
+                "retry_sampling_varied": int(outcome.retry_sampling_varied.get(decision.cid, False)),
             },
             citizen_id=decision.cid,
             motif=str(decision.motif),
@@ -1134,6 +1135,7 @@ def _nominate_and_position_llm(
                     # PartyNominationBatchOutcome.llm_fallback. Keyed by
                     # party_id, the decision unit for this type.
                     "llm_fallback": int(nomination_outcome.llm_fallback.get(party.party_id, False)),
+                    "retry_sampling_varied": int(nomination_outcome.retry_sampling_varied.get(party.party_id, False)),
                 },
                 citizen_id=nominee.citizen_id,
                 motif=str(motif_by_party[party.party_id]),
@@ -1181,6 +1183,7 @@ def _nominate_and_position_llm(
                 # Outcome.llm_fallback for why an empty `shifts` list with
                 # motif=601 is ambiguous without it.
                 "llm_fallback": int(positioning_outcome.llm_fallback.get(nominee.citizen_id, False)),
+                "retry_sampling_varied": int(positioning_outcome.retry_sampling_varied.get(nominee.citizen_id, False)),
             },
             citizen_id=nominee.citizen_id,
             motif=str(positioning_decision.motif),
@@ -1546,6 +1549,7 @@ def _form_and_journal_coalition_llm(
     assert llm_client is not None  # guaranteed by _llm_client_scope when llm.enabled
     outcome = decide_coalition(parties, seats, votes, config, llm_client)
     for round_number, round_decisions in enumerate(outcome.rounds, start=1):
+        round_retry_varied = outcome.rounds_retry_sampling_varied[round_number - 1]
         for decision in round_decisions:
             journal.write(
                 tick=tick,
@@ -1555,6 +1559,7 @@ def _form_and_journal_coalition_llm(
                     "action": decision.action,
                     "initiator": outcome.initiator,
                     "round": round_number,
+                    "retry_sampling_varied": int(round_retry_varied),
                 },
                 motif=str(decision.motif),
                 codebook_version=config.llm.codebook_version,
@@ -1724,6 +1729,7 @@ def _run_reaction_to_event(
 
     reaction_decisions: dict[int, ReactionDecision] | None = None
     reaction_fallback: dict[int, bool] = {}
+    reaction_retry_varied: dict[int, bool] = {}
     contexts: dict[int, ReactionContext] = {}
     if config.llm.enabled:
         assert llm_client is not None  # guaranteed by _llm_client_scope when llm.enabled
@@ -1733,6 +1739,7 @@ def _run_reaction_to_event(
         )
         reaction_decisions = {d.cid: d for d in outcome.decisions}
         reaction_fallback = outcome.llm_fallback
+        reaction_retry_varied = outcome.retry_sampling_varied
 
     for citizen in citizens:
         if reaction_decisions is None:
@@ -1749,6 +1756,7 @@ def _run_reaction_to_event(
                 # model decision to have fallen back FROM) -- see
                 # ReactionBatchOutcome.llm_fallback.
                 "llm_fallback": int(reaction_fallback.get(citizen.citizen_id, False)),
+                "retry_sampling_varied": int(reaction_retry_varied.get(citizen.citizen_id, False)),
             }
         citizen.event_salience = update_event_salience(citizen.event_salience, delta, config.events)
         payload: dict[str, object] = {"event_type": int(event_type), "target": target, "salience_delta": delta} | extra
@@ -1844,6 +1852,7 @@ def _run_representative_responses(
                 # Provenance: a fallback silence and a real one are otherwise
                 # identical here -- see ResponseBatchOutcome.llm_fallback.
                 "llm_fallback": int(outcome.llm_fallback.get(holder.citizen_id, False)),
+                "retry_sampling_varied": int(outcome.retry_sampling_varied.get(holder.citizen_id, False)),
             },
             citizen_id=holder.citizen_id,
             motif=str(decision.motif),
@@ -2160,6 +2169,7 @@ def _run_accountability_phase(
             )
             decisions: dict[int, PressureDecision] | None = None
             pressure_fallback: dict[int, bool] = {}
+            pressure_retry_varied: dict[int, bool] = {}
             contexts: dict[int, PressureContext] = {}
             if config.llm.enabled and consulted:  # §7bis.7 step 2 (v4 Lot 7)
                 assert llm_client is not None  # guaranteed by _llm_client_scope when llm.enabled
@@ -2180,6 +2190,7 @@ def _run_accountability_phase(
                 outcome = decide_pressure_actions([c for c, _ in consulted], contexts, config, llm_client)
                 decisions = {d.cid: d for d in outcome.decisions}
                 pressure_fallback = outcome.llm_fallback
+                pressure_retry_varied = outcome.retry_sampling_varied
             participants = 0
             for citizen, gap in consulted:
                 can_sign = _can_sign(holder, citizen, tick, config)  # LIVE, re-read per citizen
@@ -2207,6 +2218,7 @@ def _run_accountability_phase(
                         # Outcome.llm_fallback for why the §11.4 palier's own
                         # comparison depends on being able to exclude these.
                         "llm_fallback": int(pressure_fallback.get(citizen.citizen_id, False)),
+                        "retry_sampling_varied": int(pressure_retry_varied.get(citizen.citizen_id, False)),
                     }
                     motif = str(decision.motif)
                 if act is PressureAct.MOBILIZE:

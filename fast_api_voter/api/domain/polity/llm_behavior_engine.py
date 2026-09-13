@@ -882,6 +882,14 @@ def _complete_and_decode_with_replay(
             )
 
 
+def _sampling_varied(retry_info: dict[str, Any], is_fallback: bool) -> bool:
+    """The journaled `retry_sampling_varied` flag: true only when a varied-sampling
+    retry produced the decision actually kept. retry_info is written as soon as a
+    response decodes, so a varied retry that decodes and then fails validation would
+    otherwise mark its replacement fallback decisions as model retries."""
+    return bool(retry_info.get("sampling_varied", False)) and not is_fallback
+
+
 def chunk_voters(
     voters: Sequence[Citizen], max_batch_size: int, *, min_batch_size: int = MIN_SAFE_BATCH_SIZE
 ) -> list[list[Citizen]]:
@@ -1602,8 +1610,7 @@ def cast_votes(
             )
             chunk_decisions = [_deterministic_vote_fallback(voter, candidates) for voter in chunk]
             is_fallback = True
-        sampling_varied = bool(retry_info.get("sampling_varied", False))
-        return chunk_decisions, sampling_varied, is_fallback
+        return chunk_decisions, _sampling_varied(retry_info, is_fallback), is_fallback
 
     ballots: list[list[str]] = []
     decisions: list[VoteCastDecision] = []
@@ -1638,6 +1645,9 @@ class CandidacyBatchOutcome:
     own docstring) -- so an analyst reading a motif distribution that silently
     contains threshold answers would be measuring the baseline while believing
     they were measuring the model."""
+    retry_sampling_varied: dict[int, bool] = field(default_factory=dict)
+    """cid -> whether this decision came from a varied-sampling retry; same contract
+    as VoteBatchOutcome.retry_sampling_varied, never true for a fallback decision."""
 
 
 def _deterministic_candidacy_fallback(
@@ -1920,8 +1930,9 @@ def decide_candidacies(
     population = list(citizens)
     support = {c.citizen_id: sympathizer_ratio(c, population) for c in population}
 
-    def _candidacy_chunk(chunk: list[Citizen]) -> tuple[list[CandidacyDecision], bool]:
+    def _candidacy_chunk(chunk: list[Citizen]) -> tuple[list[CandidacyDecision], bool, bool]:
         expected_cids = [c.citizen_id for c in chunk]
+        retry_info: dict[str, Any] = {}
         is_fallback = False
         try:
             chunk_decisions = _complete_and_decode_with_replay(
@@ -1939,6 +1950,7 @@ def decide_candidacies(
                 # applies to a genuine retry (never the first attempt).
                 retry_temperature=_CANDIDACY_RETRY_TEMPERATURE,
                 retry_seed_base=_CANDIDACY_RETRY_SEED_BASE,
+                retry_info=retry_info,
             )
         except LlmResponseError as exc:
             # Last resort, not a silent one -- see CandidacyBatchOutcome.llm_
@@ -1953,18 +1965,24 @@ def decide_candidacies(
             )
             chunk_decisions = _deterministic_candidacy_fallback(chunk, config)
             is_fallback = True
-        return chunk_decisions, is_fallback
+        return chunk_decisions, _sampling_varied(retry_info, is_fallback), is_fallback
 
     decisions: list[CandidacyDecision] = []
+    retry_sampling_varied: dict[int, bool] = {}
     llm_fallback: dict[int, bool] = {}
     chunks = chunk_voters(citizens, config.llm.max_batch_size)
-    for chunk_decisions, is_fallback in run_chunks(chunks, _candidacy_chunk, config.parallel.intra_run_workers):
-        if is_fallback:
-            for decision in chunk_decisions:
+    for chunk_decisions, sampling_varied, is_fallback in run_chunks(
+        chunks, _candidacy_chunk, config.parallel.intra_run_workers
+    ):
+        for decision in chunk_decisions:
+            retry_sampling_varied[decision.cid] = sampling_varied
+            if is_fallback:
                 llm_fallback[decision.cid] = True
         decisions.extend(chunk_decisions)
 
-    return CandidacyBatchOutcome(decisions=decisions, llm_fallback=llm_fallback)
+    return CandidacyBatchOutcome(
+        decisions=decisions, llm_fallback=llm_fallback, retry_sampling_varied=retry_sampling_varied
+    )
 
 
 @dataclass(frozen=True)
@@ -1984,6 +2002,10 @@ class PartyNominationBatchOutcome:
     field: the fallback emits motif=HIGHEST_AMBITION, which is also a real
     answer the model can give, so without this the two are indistinguishable
     in the journal."""
+    retry_sampling_varied: dict[int, bool] = field(default_factory=dict)
+    """PARTY_ID -> whether this decision came from a varied-sampling retry of the
+    call that produced it (the whole batch, or the party's own isolated retry);
+    same contract as VoteBatchOutcome.retry_sampling_varied."""
 
 
 def build_party_nomination_system_prompt(contested: dict[int, list[Citizen]]) -> str:
@@ -2202,6 +2224,8 @@ def decide_party_nominations(
     decisions: list[PartyNominationDecision] = []
     winners: dict[int, int] = {}
     llm_fallback: dict[int, bool] = {}
+    retry_sampling_varied: dict[int, bool] = {}
+    batch_retry_info: dict[str, Any] = {}
     try:
         batch_decisions = _complete_and_decode_with_replay(
             client,
@@ -2217,11 +2241,13 @@ def decide_party_nominations(
             # see _NOMINATION_RETRY_TEMPERATURE's own comment.
             retry_temperature=_NOMINATION_RETRY_TEMPERATURE,
             retry_seed_base=_NOMINATION_RETRY_SEED_BASE,
+            retry_info=batch_retry_info,
         )
         for decision in batch_decisions:
             decisions.append(decision)
             winners[decision.party_id] = resolve_party_nomination_cid(decision, contested[decision.party_id])
             llm_fallback[decision.party_id] = False
+            retry_sampling_varied[decision.party_id] = _sampling_varied(batch_retry_info, False)
     except LlmResponseError as exc:
         retry_targets = {} if len(contested) == 1 else contested
         # A single contested party's own stage-1 whole-batch attempt is
@@ -2258,6 +2284,7 @@ def decide_party_nominations(
             def _decode_single(raw: str, single: dict[int, list[Citizen]] = single, party_id: int = party_id) -> list[PartyNominationDecision]:
                 return _decode_and_validate(raw, single, [party_id])
 
+            single_retry_info: dict[str, Any] = {}
             try:
                 single_decisions = _complete_and_decode_with_replay(
                     client,
@@ -2271,11 +2298,13 @@ def decide_party_nominations(
                     decision_type="party_nomination_choice",
                     retry_temperature=_NOMINATION_RETRY_TEMPERATURE,
                     retry_seed_base=_NOMINATION_RETRY_SEED_BASE,
+                    retry_info=single_retry_info,
                 )
                 decision = single_decisions[0]
                 decisions.append(decision)
                 winners[party_id] = resolve_party_nomination_cid(decision, members)
                 llm_fallback[party_id] = False
+                retry_sampling_varied[party_id] = _sampling_varied(single_retry_info, False)
             except LlmResponseError as single_exc:
                 _logger.error(
                     "party_nomination_choice: exhausted every recovery attempt for party_id %s, falling back "
@@ -2292,7 +2321,9 @@ def decide_party_nominations(
                 winners[party_id] = nominee.citizen_id
                 llm_fallback[party_id] = True
 
-    return PartyNominationBatchOutcome(decisions=decisions, winners=winners, llm_fallback=llm_fallback)
+    return PartyNominationBatchOutcome(
+        decisions=decisions, winners=winners, llm_fallback=llm_fallback, retry_sampling_varied=retry_sampling_varied
+    )
 
 
 @dataclass(frozen=True)
@@ -2315,6 +2346,9 @@ class PositioningBatchOutcome:
     mandate_deviation (which measures drift away from the pledged platform)
     would be read as a finding about strategy rather than an artifact of
     the engine giving up."""
+    retry_sampling_varied: dict[int, bool] = field(default_factory=dict)
+    """cid -> whether this decision came from a varied-sampling retry; same contract
+    as VoteBatchOutcome.retry_sampling_varied, never true for a fallback decision."""
 
 
 def _deterministic_positioning_fallback(nominees: Sequence[Citizen]) -> list[PositioningDecision]:
@@ -2644,6 +2678,7 @@ def decide_campaign_positioning(
     nominees = sorted(nominees, key=lambda n: n.citizen_id)
     electorate_mean = tuple(float(x) for x in np.mean([c.issue_positions for c in citizens], axis=0))
     expected_cids = [n.citizen_id for n in nominees]
+    retry_info: dict[str, Any] = {}
     is_fallback = False
     try:
         decisions = _complete_and_decode_with_replay(
@@ -2665,6 +2700,7 @@ def decide_campaign_positioning(
             # fixed temperature and seed re-runs identically every time.
             retry_temperature=_POSITIONING_RETRY_TEMPERATURE,
             retry_seed_base=_POSITIONING_RETRY_SEED_BASE,
+            retry_info=retry_info,
         )
         # Inside the try on purpose: a validate_positioning_decision failure is
         # the SAME class of unrecoverable batch as an exhausted replay budget,
@@ -2694,7 +2730,8 @@ def decide_campaign_positioning(
     return PositioningBatchOutcome(
         decisions=decisions,
         platforms=platforms,
-        llm_fallback={cid: is_fallback for cid in expected_cids},
+        llm_fallback=dict.fromkeys(expected_cids, is_fallback),
+        retry_sampling_varied=dict.fromkeys(expected_cids, _sampling_varied(retry_info, is_fallback)),
     )
 
 
@@ -2753,6 +2790,9 @@ class ResponseBatchOutcome:
     PositioningBatchOutcome's `platforms`, pledged_platform is never
     resolved here: the promise is immutable for the term, which is the
     only reason mandate_deviation means anything (§7bis.5)."""
+    retry_sampling_varied: dict[int, bool] = field(default_factory=dict)
+    """cid -> whether this decision came from a varied-sampling retry; same contract
+    as VoteBatchOutcome.retry_sampling_varied, never true for a fallback decision."""
 
 
 def _deterministic_response_fallback(holders: Sequence[Citizen]) -> list[ResponseDecision]:
@@ -3057,6 +3097,7 @@ def decide_representative_response(
     # rely on an incidental insertion order (D-5 precedent).
     holders = sorted(holders, key=lambda h: h.citizen_id)
     expected_cids = [h.citizen_id for h in holders]
+    retry_info: dict[str, Any] = {}
     is_fallback = False
     try:
         decisions = _complete_and_decode_with_replay(
@@ -3074,6 +3115,7 @@ def decide_representative_response(
             # to a genuine retry (never the first attempt).
             retry_temperature=_RESPONSE_RETRY_TEMPERATURE,
             retry_seed_base=_RESPONSE_RETRY_SEED_BASE,
+            retry_info=retry_info,
         )
         for decision in decisions:
             validate_response_decision(decision, config)
@@ -3101,7 +3143,8 @@ def decide_representative_response(
     return ResponseBatchOutcome(
         decisions=decisions,
         positions=positions,
-        llm_fallback={cid: is_fallback for cid in expected_cids},
+        llm_fallback=dict.fromkeys(expected_cids, is_fallback),
+        retry_sampling_varied=dict.fromkeys(expected_cids, _sampling_varied(retry_info, is_fallback)),
     )
 
 
@@ -3184,6 +3227,9 @@ class PressureBatchOutcome:
     mobilization_rate is computed from exactly these acts. An analyst
     comparing the two arms must exclude fallback decisions or the comparison
     is partly against itself."""
+    retry_sampling_varied: dict[int, bool] = field(default_factory=dict)
+    """cid -> whether this decision came from a varied-sampling retry; same contract
+    as VoteBatchOutcome.retry_sampling_varied, never true for a fallback decision."""
 
 
 def _deterministic_pressure_fallback(
@@ -3934,12 +3980,13 @@ def decide_pressure_actions(
     # rely on an incidental insertion order (D-5 precedent).
     consulted = sorted(consulted, key=lambda c: c.citizen_id)
 
-    def _pressure_chunk(chunk: list[Citizen]) -> tuple[list[PressureDecision], bool]:
+    def _pressure_chunk(chunk: list[Citizen]) -> tuple[list[PressureDecision], bool, bool]:
         expected_cids = [c.citizen_id for c in chunk]
         per_citizen_signals = {c.citizen_id: pressure_shipped_signal_values(c) for c in chunk}
         signal_values = {
             PRESSURE_THRESHOLD_SIGNAL.field: {cid: values[PRESSURE_THRESHOLD_SIGNAL.field] for cid, values in per_citizen_signals.items()}
         }
+        retry_info: dict[str, Any] = {}
         is_fallback = False
         try:
             chunk_decisions = _complete_and_decode_with_replay(
@@ -3957,6 +4004,7 @@ def decide_pressure_actions(
                 # applies to a genuine retry (never the first attempt).
                 retry_temperature=_PRESSURE_RETRY_TEMPERATURE,
                 retry_seed_base=_PRESSURE_RETRY_SEED_BASE,
+                retry_info=retry_info,
             )
             # Inside the try on purpose: an out-of-menu act is a rejected batch
             # exactly like an exhausted replay budget, and killed the run just
@@ -3977,18 +4025,20 @@ def decide_pressure_actions(
             )
             chunk_decisions = _deterministic_pressure_fallback(chunk, contexts, config)
             is_fallback = True
-        return chunk_decisions, is_fallback
+        return chunk_decisions, _sampling_varied(retry_info, is_fallback), is_fallback
 
     decisions: list[PressureDecision] = []
+    retry_sampling_varied: dict[int, bool] = {}
     llm_fallback: dict[int, bool] = {}
     chunks = chunk_voters(consulted, _PRESSURE_CALIBRATED_CHUNK_SIZE, min_batch_size=1)
-    for chunk_decisions, is_fallback in run_chunks(chunks, _pressure_chunk, config.parallel.intra_run_workers):
-        if is_fallback:
-            for decision in chunk_decisions:
+    for chunk_decisions, sampling_varied, is_fallback in run_chunks(chunks, _pressure_chunk, config.parallel.intra_run_workers):
+        for decision in chunk_decisions:
+            retry_sampling_varied[decision.cid] = sampling_varied
+            if is_fallback:
                 llm_fallback[decision.cid] = True
         decisions.extend(chunk_decisions)
 
-    return PressureBatchOutcome(decisions=decisions, llm_fallback=llm_fallback)
+    return PressureBatchOutcome(decisions=decisions, llm_fallback=llm_fallback, retry_sampling_varied=retry_sampling_varied)
 
 
 @dataclass(frozen=True)
@@ -4031,6 +4081,9 @@ class ReactionBatchOutcome:
     reacted identically -- which is exactly the content-blind-collapse
     signature this project's own diagnostics hunt for. Without this field a
     fallback would read as evidence of the very defect it is not."""
+    retry_sampling_varied: dict[int, bool] = field(default_factory=dict)
+    """cid -> whether this decision came from a varied-sampling retry; same contract
+    as VoteBatchOutcome.retry_sampling_varied, never true for a fallback decision."""
 
 
 _EVENT_TYPE_GROUNDING_MOTIF: dict[EventType, ReactionMotif] = {
@@ -4273,8 +4326,9 @@ def decide_reaction_to_event(
     # rely on an incidental insertion order (D-5 precedent).
     citizens = sorted(citizens, key=lambda c: c.citizen_id)
 
-    def _reaction_chunk(chunk: list[Citizen]) -> tuple[list[ReactionDecision], bool]:
+    def _reaction_chunk(chunk: list[Citizen]) -> tuple[list[ReactionDecision], bool, bool]:
         expected_cids = [c.citizen_id for c in chunk]
+        retry_info: dict[str, Any] = {}
         is_fallback = False
         try:
             chunk_decisions = _complete_and_decode_with_replay(
@@ -4292,6 +4346,7 @@ def decide_reaction_to_event(
                 # applies to a genuine retry (never the first attempt).
                 retry_temperature=_REACTION_RETRY_TEMPERATURE,
                 retry_seed_base=_REACTION_RETRY_SEED_BASE,
+                retry_info=retry_info,
             )
             # Inside the try on purpose: an over-cap delta or a wrong-event
             # grounding motif is a rejected batch exactly like an exhausted
@@ -4309,18 +4364,20 @@ def decide_reaction_to_event(
             )
             chunk_decisions = _deterministic_reaction_fallback(chunk, event_type, config, magnitude)
             is_fallback = True
-        return chunk_decisions, is_fallback
+        return chunk_decisions, _sampling_varied(retry_info, is_fallback), is_fallback
 
     decisions: list[ReactionDecision] = []
+    retry_sampling_varied: dict[int, bool] = {}
     llm_fallback: dict[int, bool] = {}
     chunks = chunk_voters(citizens, config.llm.max_batch_size)
-    for chunk_decisions, is_fallback in run_chunks(chunks, _reaction_chunk, config.parallel.intra_run_workers):
-        if is_fallback:
-            for decision in chunk_decisions:
+    for chunk_decisions, sampling_varied, is_fallback in run_chunks(chunks, _reaction_chunk, config.parallel.intra_run_workers):
+        for decision in chunk_decisions:
+            retry_sampling_varied[decision.cid] = sampling_varied
+            if is_fallback:
                 llm_fallback[decision.cid] = True
         decisions.extend(chunk_decisions)
 
-    return ReactionBatchOutcome(decisions=decisions, llm_fallback=llm_fallback)
+    return ReactionBatchOutcome(decisions=decisions, llm_fallback=llm_fallback, retry_sampling_varied=retry_sampling_varied)
 
 
 @dataclass(frozen=True)
@@ -4690,8 +4747,7 @@ def decide_chamber_deliberation(
             )
             chunk_decisions = _deterministic_chamber_fallback(chunk)
             is_fallback = True
-        sampling_varied = bool(retry_info.get("sampling_varied", False))
-        return chunk_decisions, sampling_varied, is_fallback
+        return chunk_decisions, _sampling_varied(retry_info, is_fallback), is_fallback
 
     decisions: list[ChamberDecision] = []
     retry_sampling_varied: dict[int, bool] = {}
@@ -4773,6 +4829,9 @@ class CoalitionBatchOutcome:
     therefore `[]`, not "the last round that DID complete" -- there wasn't
     one. `aborted_at_round == 1` is exactly the signal for that state, and the
     journal carries it as `rounds_completed: 0`."""
+    rounds_retry_sampling_varied: list[bool] = field(default_factory=list)
+    """rounds_retry_sampling_varied[i] -> whether round i+1's decisions came from a
+    varied-sampling retry of that round's call; parallel to `rounds`."""
 
 
 def build_coalition_system_prompt(
@@ -5190,7 +5249,7 @@ def decide_coalition(
     if not responders:
         return CoalitionBatchOutcome(decisions=[], initiator=initiator, coalition=None)
 
-    all_rounds, aborted_at_round = _run_coalition_negotiation(
+    all_rounds, aborted_at_round, rounds_sampling_varied = _run_coalition_negotiation(
         client, responders, initiator, party_platforms, seats, votes, total_seats, threshold, config,
     )
     if aborted_at_round is not None:
@@ -5204,12 +5263,14 @@ def decide_coalition(
             coalition=None,
             rounds=all_rounds,
             aborted_at_round=aborted_at_round,
+            rounds_retry_sampling_varied=rounds_sampling_varied,
         )
 
     final_decisions = all_rounds[-1]
     coalition = assemble_coalition(final_decisions, initiator, party_platforms, seats, majority_ratio)
     return CoalitionBatchOutcome(
-        decisions=final_decisions, initiator=initiator, coalition=coalition, rounds=all_rounds
+        decisions=final_decisions, initiator=initiator, coalition=coalition, rounds=all_rounds,
+        rounds_retry_sampling_varied=rounds_sampling_varied,
     )
 
 
@@ -5223,7 +5284,7 @@ def _run_coalition_negotiation(
     total_seats: int,
     threshold: float,
     config: PolityConfig,
-) -> tuple[list[list[CoalitionDecision]], int | None]:
+) -> tuple[list[list[CoalitionDecision]], int | None, list[bool]]:
     """The round loop itself, split out of decide_coalition (radon: the
     unsplit function was D(21) -- this keeps each function's own cyclomatic
     complexity readable, a pure refactor, no behavior change). Returns
@@ -5234,10 +5295,12 @@ def _run_coalition_negotiation(
     propagates straight out of this function unchanged, per the same
     docstring's documented asymmetry."""
     all_rounds: list[list[CoalitionDecision]] = []
+    rounds_sampling_varied: list[bool] = []
     prior_by_party: dict[int, CoalitionDecision] | None = None
     provisional_seats: int | None = None
     round_number = 1
     while True:
+        retry_info: dict[str, Any] = {}
         try:
             round_decisions = _complete_and_decode_with_replay(
                 client,
@@ -5262,6 +5325,7 @@ def _run_coalition_negotiation(
                 # this, all nine decision types vary sampling on a retry.
                 retry_temperature=_COALITION_RETRY_TEMPERATURE,
                 retry_seed_base=_COALITION_RETRY_SEED_BASE,
+                retry_info=retry_info,
             )
         except LlmResponseError:
             # Round 1 used to `raise` here, which made coalition_decision the
@@ -5285,18 +5349,19 @@ def _run_coalition_negotiation(
             # LLM failure, never on a genuine no-majority outcome), so an
             # analyst can exclude them. Revisit by giving BOTH rounds a
             # form_coalition fallback, never just this one.
-            return all_rounds, round_number
+            return all_rounds, round_number, rounds_sampling_varied
 
         for decision in round_decisions:
             validate_coalition_decision(decision, seats, initiator)
         all_rounds.append(round_decisions)
+        rounds_sampling_varied.append(_sampling_varied(retry_info, False))
 
         current_by_party = {d.party_id: d for d in round_decisions}
         converged = prior_by_party is not None and all(
             prior_by_party[pid].action == current_by_party[pid].action for pid in responders
         )
         if converged or round_number >= config.parties.coalition_max_negotiation_rounds:
-            return all_rounds, None
+            return all_rounds, None, rounds_sampling_varied
 
         prior_by_party = current_by_party
         joiners = [pid for pid, d in current_by_party.items() if d.action == CoalitionAction.JOIN.value]

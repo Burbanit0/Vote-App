@@ -68,6 +68,12 @@ _DECISION_TYPE_BY_SCHEMA = {
 }
 
 
+def decision_type_for_schema(json_schema: dict[str, Any]) -> str:
+    """Which LLM decision type a complete_json request belongs to, read off its
+    JSON schema -- the one request field every decision type sets differently."""
+    return _DECISION_TYPE_BY_SCHEMA.get(_canonical(json_schema), "unknown_schema")
+
+
 class RecordingClient:
     """Wraps a fake client and hashes every complete_json request in call order,
     labelled by the decision type its JSON schema belongs to."""
@@ -99,8 +105,7 @@ class RecordingClient:
             "temperature": temperature,
             "seed": seed,
         }
-        decision_type = _DECISION_TYPE_BY_SCHEMA.get(_canonical(json_schema), "unknown_schema")
-        self.requests.append((decision_type, _sha256(_canonical(request))))
+        self.requests.append((decision_type_for_schema(json_schema), _sha256(_canonical(request))))
         return str(
             self._inner.complete_json(
                 system_prompt=system_prompt,

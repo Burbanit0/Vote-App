@@ -2178,9 +2178,13 @@ def test_representative_response_is_journalled_once_per_presided_tick(tmp_path):
         # fallback: without it a fallback silence and a real one are the same
         # event, and a stance distribution would count engine failures as
         # choices the representative made.
+        # retry_sampling_varied added 2026-09-13 (S0.3): every LLM decision type
+        # now says whether a varied-sampling retry produced it, not only vote_cast
+        # and chamber_deliberation.
         assert set(e["payload"].keys()) == {
-            "office", "stance", "shifts", "ctx", "unified_deviation", "llm_fallback",
+            "office", "stance", "shifts", "ctx", "unified_deviation", "llm_fallback", "retry_sampling_varied",
         }
+        assert e["payload"]["retry_sampling_varied"] == 0
         assert set(e["payload"]["ctx"].keys()) == {"L", "mandate_dev", "street", "lame_duck", "ticks_left"}
         assert e["payload"]["ctx"]["lame_duck"] in (0, 1)
         assert e["motif"] == "301"
@@ -2688,8 +2692,9 @@ def test_pressure_action_is_journalled_once_per_consulted_citizen_with_its_ctx(t
         # llm_fallback is provenance, not a decision field, and rides on every
         # LLM-path pressure_action since 2026-09-11 -- 0 here, because this
         # client answers cleanly.
-        assert set(e["payload"].keys()) == {"target", "act", "ctx", "llm_fallback"}
+        assert set(e["payload"].keys()) == {"target", "act", "ctx", "llm_fallback", "retry_sampling_varied"}
         assert e["payload"]["llm_fallback"] == 0
+        assert e["payload"]["retry_sampling_varied"] == 0
         # blank_threshold rides on the ctx since Track C3 (2026-09-11): decide_pressure_actions'
         # calibrated prompt merges it in via pressure_shipped_signal_values, and the journal
         # write now merges the same function's output so the two can never diverge again.
@@ -4336,8 +4341,9 @@ def test_reaction_to_event_is_journalled_once_per_citizen_per_firing_event_type_
     for e in reactions:
         # llm_fallback is provenance, LLM path only, since 2026-09-11 -- 0
         # here, because this client answers cleanly.
-        assert set(e["payload"]) == {"event_type", "target", "salience_delta", "ctx", "llm_fallback"}
+        assert set(e["payload"]) == {"event_type", "target", "salience_delta", "ctx", "llm_fallback", "retry_sampling_varied"}
         assert e["payload"]["llm_fallback"] == 0
+        assert e["payload"]["retry_sampling_varied"] == 0
         assert e["payload"]["event_type"] == int(EventType.SCANDAL)
         assert set(e["payload"]["ctx"]) == {"event_salience"}
         assert e["motif"] == str(ReactionMotif.SCANDAL_TRUST_EROSION)
