@@ -161,3 +161,12 @@ because it isn't *testing the app* — it's testing the workflow itself.
   `code-quality` job (vulture/deptry/knip/jscpd/radon behind a ratchet — see
   `.github/quality-baseline.json`), or CodeQL (GitHub-native, not runnable
   locally).
+
+**Drift found and fixed (PLAN_REMEDIATION_CI_CD.md §2.6)**: three gating
+steps had been added to the real workflows without ever being mirrored
+here — license compliance (`backend.Dockerfile`/`frontend.Dockerfile`),
+the webkit browser (`e2e.Dockerfile`), and the project's own custom
+Semgrep rules (`audit-ci.sh`'s `--config=.semgrep/vote-app-rules.yml`).
+All three now match. If a future PR adds a new gating step to any of the
+four mirrored workflows, mirror it here in the same PR — this caveat list
+is the whole point of this file, and it's only honest if it stays current.

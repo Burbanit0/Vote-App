@@ -12,6 +12,7 @@ semgrep \
   --config=p/python --config=p/javascript --config=p/react \
   --config=p/security-audit --config=p/secrets \
   --config=p/sql-injection --config=p/owasp-top-ten \
+  --config=.semgrep/vote-app-rules.yml \
   --metrics=off --error --quiet . \
   || { echo "🔴 Semgrep: finding(s) above — failing the audit job."; fail=1; }
 

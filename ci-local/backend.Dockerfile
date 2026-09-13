@@ -31,13 +31,16 @@ COPY fast_api_voter/ fast_api_voter/
 
 # Mirror the workflow steps in order (matches GitHub CI gating).
 # ruff (replaces flake8, Lot 1) + bandit = GATING. pip-audit = informational
-# (continue-on-error upstream).
+# (continue-on-error upstream). License compliance (Lot 6.7) = GATING —
+# check_license_compliance.sh builds its own isolated venv (python3-venv is
+# part of this base image's CPython build), so no extra install needed here.
 ENV FLASK_ENV=testing
 CMD ["bash","-euo","pipefail","-c","\
 echo '=== Ruff (gating) ===';           ruff check fast_api_voter; \
 echo '=== Import layering (gating) ==='; (cd fast_api_voter && lint-imports); \
 echo '=== Bandit (gating) ===';         bandit -r fast_api_voter/api -ll --skip B104,B311; \
 echo '=== pip-audit (non-blocking) ==='; pip-audit --requirement fast_api_voter/requirements.txt || echo '(pip-audit failed — non-blocking)'; \
+echo '=== License compliance (gating) ==='; bash fast_api_voter/scripts/check_license_compliance.sh; \
 cd fast_api_voter; \
 echo '=== Mypy (gating) ===';           python -m mypy api/ --config-file mypy.ini; \
 echo '=== Pytest + coverage (gating) ==='; python -m pytest api/tests -v --cov=api --cov-report=term-missing --cov-report=xml --cov-fail-under=85; \
