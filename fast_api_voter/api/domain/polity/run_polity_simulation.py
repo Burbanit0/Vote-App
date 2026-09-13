@@ -43,11 +43,13 @@ import time
 from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator
 
 import numpy as np
 
+from api.domain.polity import run_provenance
 from api.domain.polity.accountability import (
     applicable_pressure_act,
     chamber_deviation,
@@ -343,7 +345,9 @@ def _capture_gpu_driver_info() -> tuple[str | None, str | None]:
         return None, None
 
 
-def _write_run_metadata(run_dir: Path, config: PolityConfig, run_id: str) -> None:
+def _write_run_metadata(
+    run_dir: Path, config: PolityConfig, run_id: str, *, resume: bool, llm_client: LlmClientProtocol | None,
+) -> None:
     """Records what's cheaply knowable about this run's LLM target -- NOT
     a journal event (would prepend a byte to every run and break every
     byte-for-byte reproducibility test); a sibling file instead, so
@@ -366,26 +370,50 @@ def _write_run_metadata(run_dir: Path, config: PolityConfig, run_id: str) -> Non
     Ollama client itself to confirm which device served a given call --
     Ollama's own `ollama ps` CLI queries the server directly for that,
     and the closest HTTP equivalent, `/api/ps`'s `size_vram` field, isn't
-    wired up anywhere in this codebase)."""
+    wired up anywhere in this codebase).
+
+    S0.4 (plan-polity-build-order.md) completes the record: commit and dirty
+    paths, prompt-source hash, the vLLM server's own version, image and weights
+    revision, the run's shape, and its overrides against the shipped YAML -- see
+    run_provenance.py. `started_at` makes this file differ between otherwise
+    identical runs; the reproducibility contract is over events.jsonl, which is
+    why this is a sibling file. `config.json` beside it is the full resolved
+    config, so "mechanism disabled" and "enabled, nothing happened" stay
+    distinguishable from the run directory alone."""
     run_dir.mkdir(parents=True, exist_ok=True)
+    metadata_path = run_dir / "run_metadata.json"
     gpu_driver_version: str | None = None
     gpu_cuda_version: str | None = None
     if config.llm.enabled:
         gpu_driver_version, gpu_cuda_version = _capture_gpu_driver_info()
-    (run_dir / "run_metadata.json").write_text(
-        json.dumps(
-            {
-                "run_id": run_id,
-                "llm_enabled": config.llm.enabled,
-                "llm_provider": config.llm.provider if config.llm.enabled else None,
-                "llm_base_url": config.llm.base_url if config.llm.enabled else None,
-                "llm_model": config.llm.model if config.llm.enabled else None,
-                "gpu_driver_version": gpu_driver_version,
-                "gpu_cuda_version": gpu_cuda_version,
-            },
-            sort_keys=True,
-            indent=2,
-        ),
+    now = datetime.now(timezone.utc).isoformat()
+    provenance = {
+        **run_provenance.code_and_server_provenance(config, llm_client=llm_client),
+        "gpu_driver_version": gpu_driver_version,
+        "gpu_cuda_version": gpu_cuda_version,
+    }
+    if resume and metadata_path.exists():
+        # The first start's record stays; each resume appends what it ran under,
+        # since a resume checks the config (config_hash) but not the code.
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        metadata["resumes"] = [*metadata.get("resumes", []), {"resumed_at": now, **provenance}]
+    else:
+        metadata = {
+            "run_id": run_id,
+            "started_at": now,
+            "llm_enabled": config.llm.enabled,
+            "llm_provider": config.llm.provider if config.llm.enabled else None,
+            "llm_base_url": config.llm.base_url if config.llm.enabled else None,
+            "llm_model": config.llm.model if config.llm.enabled else None,
+            **provenance,
+            **run_provenance.run_shape(config),
+            "config_hash": config_hash(config),
+            "config_overrides": run_provenance.config_overrides(config),
+            "resumes": [],
+        }
+    metadata_path.write_text(json.dumps(metadata, sort_keys=True, indent=2, default=str), encoding="utf-8")
+    (run_dir / "config.json").write_text(
+        json.dumps(run_provenance.typed_config_mapping(config), sort_keys=True, indent=2, default=str),
         encoding="utf-8",
     )
 
@@ -528,7 +556,7 @@ def run_simulation(
             "both discard that progress and corrupt events.jsonl (Journal appends, it does not overwrite)"
         )
 
-    _write_run_metadata(run_dir, config, run_id)
+    _write_run_metadata(run_dir, config, run_id, resume=resume, llm_client=llm_client)
     clock = InstitutionalClock.from_config(config.institutions, config.run, config.sortition_chamber)
     # v6 Lot 2/3 (§5): generated once, population-structural (evolving is
     # TRANCHÉ rejected at config-parse time, so this never changes mid-run).
