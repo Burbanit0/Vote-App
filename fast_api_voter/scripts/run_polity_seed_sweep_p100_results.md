@@ -46,12 +46,24 @@ was verified on.** Before Track A, the chronic vacancy was measured at
 `office_occupancy` ≈ 0.15–0.33 across every run this project had produced (all on
 seed 42 or close variants). This sweep's mean of 0.93, in a tight band (stdev
 0.052, every single seed above 0.81), is the first multi-seed confidence figure
-for that fix and settles the seed-representativeness question for this metric at
-this population size: a single seed was not, and did not need to be, hiding a
-materially different outcome.
+for that fix: against a pre-fix range of 0.15–0.33, no seed comes close.
+
+> **Correction, 2026-09-13.** An earlier version of this paragraph said the sweep
+> "settles the seed-representativeness question for this metric at this population
+> size". It does not, and no pre-registered threshold existed to settle it against
+> (the driver's own registration says "No structured threshold"). Recomputed from
+> the ten values above: the 95% BCa bootstrap interval for the mean is
+> **0.894–0.955**; the 95% prediction interval for one new seed is **0.81–1.05**
+> (a normal-model interval that runs past the metric's ceiling of 1, so read it as
+> "one seed can land anywhere from ~0.81 to the ceiling"); 8 of the 10 seeds fall
+> within ±0.05 of the mean. What the data supports: the Track A fix holds across
+> seeds. What it does not support: that any one seed's exact value stands for the
+> rest. The p500 batch is pre-registered accordingly
+> (`docs/plan/polity/plan-polity-build-order.md`, S0.7).
 
 **`representative_response`'s fallback alert (Track C2's own >10% bar) fired on 2
-of 10 seeds (2 and 3), both early in the sweep, quiet on the other 8** (seeds 5, 6,
+of 10 seeds (2 and 3; 95% Clopper–Pearson interval for that rate: 2.5–55.6%), both
+early in the sweep, quiet on the other 8** (seeds 5, 6,
 7, 8, 9, 10 had zero fallbacks at all; seed 1 had 6, seed 8 had 1 — all under the
 10% bar). Read carefully: this is **not** a re-opening of B1's own partial fix
 (that work was about `representative_response`'s content-blind collapse

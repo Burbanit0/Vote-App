@@ -29,7 +29,10 @@ import os
 import sys
 from pathlib import Path
 
-RUNS_GLOB = "fast_api_voter/scripts/flagship_runs/*/run/*/digest.json"
+# Every `*_runs` directory, not only flagship_runs: seed-sweep runs share the same
+# `<name>/run/<name>/digest.json` layout, and scoping to flagship_runs meant the
+# ten p100 sweep runs were never listed or narrated.
+RUNS_GLOB = "fast_api_voter/scripts/*_runs/*/run/*/digest.json"
 TIMELINE_NAME = "TIMELINE.md"
 MAX_LISTED = 5
 

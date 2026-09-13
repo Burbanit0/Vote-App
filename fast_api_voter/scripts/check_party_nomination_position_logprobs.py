@@ -46,7 +46,6 @@ from api.domain.polity.llm_behavior_engine import (  # noqa: E402
     build_party_nomination_system_prompt,
     build_party_nomination_user_prompt,
     compute_max_tokens,
-    sorted_candidates,
 )
 from api.domain.polity.llm_client import VllmJsonClient, decode_party_nomination_batch  # noqa: E402
 from api.domain.polity.llm_logprob_instrumentation import (  # noqa: E402

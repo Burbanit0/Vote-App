@@ -674,9 +674,22 @@ Effet de bord noté, pas encore un motif établi : l'alerte de repli de
 `representative_response` (seuil >10%, Track C2) s'est déclenchée sur 2
 des 10 seeds (2 et 3), muette sur les 8 autres.
 
-**Ce que ça règle, et ce que ça ne règle pas.** Le sweep p100 répond à la
-question de représentativité à cette échelle de population. Il ne répond
-pas à la question analogue à population 500 : le repli propre à
+**Ce que ça règle, et ce que ça ne règle pas.** Le sweep p100 établit que le
+correctif Track A tient à travers les seeds à cette échelle de population.
+
+> **Correction, 2026-09-13.** Une première version de ce paragraphe disait que
+> le sweep « répond à la question de représentativité à cette échelle ». C'est
+> excessif : aucun seuil pré-enregistré n'existait pour la trancher. Recalculé
+> sur les dix valeurs : intervalle bootstrap BCa à 95 % pour la moyenne
+> **0,894–0,955** ; intervalle de prédiction à 95 % pour une nouvelle seed
+> **0,81–1,05** (au-delà du plafond de 1, donc « une seed peut tomber n'importe
+> où entre ~0,81 et le plafond ») ; alerte de repli sur 2 seeds sur 10, intervalle
+> de Clopper–Pearson **2,5–55,6 %** ; 8 seeds sur 10 à ±0,05 de la moyenne. Le
+> correctif tient ; qu'une seed isolée vaille pour les autres n'est pas établi.
+> Le batch p500 est pré-enregistré en conséquence
+> (`plan-polity-build-order.md`, S0.7).
+
+Il ne répond pas à la question analogue à population 500 : le repli propre à
 `party_nomination_choice`, dépendant de l'échelle (mesuré à 67% en Phase
 7 Stage 3, jamais observé à p100), reste hors du périmètre de ce sweep
 par construction. Un second batch (seeds 1, 2, 42 — la dernière choisie
