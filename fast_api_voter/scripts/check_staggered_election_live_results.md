@@ -59,3 +59,48 @@ re-baseline exists would ship a calendar shape nobody has validated at productio
 scale (p500, a full 30-year run). The config flag defaults to `false`, so every
 existing run and test is completely unaffected; enabling it for real runs is a
 deliberate, separate decision left for when Track D's own sweep happens.
+
+## Addendum, 2026-09-13 — wired into the flagship runner, and one real bug found first
+
+**Wired, still off by default.** `run_polity_flagship.py` gained
+`--staggered-election` (opt-in). It is deliberately *not* force-enabled the way
+`rupture_path_enabled`/`blank_vote_competitive`/`snap_election_on_recall` are:
+turning it on changes the RNG draw order, so a run with it on is not comparable
+to the p100 seed sweep or to Phase 7 Stage 3, both of which ran without it —
+the same single-variable discipline as the version-pin decision in
+`plan-distribution-positions-seeds.md` §4.2. This makes Track E *runnable* from
+the flagship harness; it does not change what the next run measures.
+
+**A real bug, found before enabling rather than after.** The staggered dispatch
+in `run_polity_simulation.py` guards on `staggered_election and llm.enabled`, but
+the `already_staggered` check at the election guarded only on
+`staggered_election`. The two conditions disagreed, and the disagreement had
+teeth: under the **deterministic** engine nothing staggers, yet
+`rupture_path_enabled` (RNG-driven, LLM-independent, and force-enabled by this
+very runner) can leave a standing rupture candidate holding `Role.CANDIDATE` on
+election day — which satisfied `any(...)` by itself. `_declare_nominees` was then
+skipped and that rupture candidate became the **entire** candidate field: an
+election with no party nominees, silently, no error. Latent only because the flag
+ships `false`; the first deterministic run with `--staggered-election` would have
+produced quietly wrong elections. Fixed by adding the missing `llm.enabled` half,
+with a regression test (`test_staggered_election_does_not_suppress_party_nominees_
+on_the_deterministic_engine`) verified to fail without the fix and pass with it.
+
+**Two sharp edges knowingly left unfixed** — both stem from the same root: the
+election infers "staggering already ran this cycle" from citizen *roles*, which is
+a proxy, not the fact itself (`staggered_declared_cids` is cleared at the
+nomination tick, so it is already `None` by election day and cannot serve).
+1. In LLM mode, if the declaration tick yields an empty declared set but a stale
+   rupture candidate is standing, `already_staggered` is still true and party
+   nominations are suppressed for that cycle.
+2. Conversely, if staggering ran but produced no `Role.CANDIDATE` at all, the
+   atomic fallback silently re-runs declaration+nomination *at the election tick*
+   — reintroducing the very decision spike Track E exists to remove, paying for
+   tick−2's work twice, and journaling nothing about it.
+
+Fixing these properly means tracking "this cycle staggered" explicitly rather than
+sniffing roles (e.g. not clearing `staggered_declared_cids` until the election
+consumes it — it is already checkpointed, so no schema change). Not done here: it
+changes behaviour that six existing tests pin, including byte-identical journal
+equality, and Track E is off for the imminent p500 batch either way. **Do this
+before any run that actually sets `--staggered-election`.**

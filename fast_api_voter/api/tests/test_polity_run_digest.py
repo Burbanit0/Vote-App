@@ -229,13 +229,22 @@ def test_legitimacy_trajectory_is_ordered_and_typed():
 
 # ── build_digest / write_digest ──────────────────────────────────────────
 
-def _digest_for(tmp_path, outcome, **kwargs):
+def _digest_for(tmp_path, outcome, *, progress=None, **kwargs):
     config = load_config()
     journal = _write_journal(tmp_path / "events.jsonl", [
         _e(0, "elected", {"office": "president"}, citizen_id=5),
         _e(1, "legitimacy_updated", {"legitimacy": 0.7, "mandate_strength": 0.8, "ecart": 0.0}, citizen_id=5),
     ])
+    if progress is not None:
+        (tmp_path / "progress.json").write_text(json.dumps(progress), encoding="utf-8")
     return build_digest(journal, config, run_id="r", outcome=outcome, **kwargs)
+
+
+# Shape copied from a real deterministic run's own progress.json
+# (scaleprobe-8y-p500-deterministic-twin): the file exists, and
+# `decisions_by_type` is empty because ProgressTracker skips counting
+# entirely when llm_enabled is False -- it does NOT omit the file.
+_DETERMINISTIC_PROGRESS = {"decisions_by_type": {}, "decisions_total": 0, "retry_count": 0, "fallback_count": 0}
 
 
 @pytest.mark.parametrize("outcome", ["completed", "crashed", "interrupted"])
@@ -274,14 +283,28 @@ def test_build_digest_closes_an_open_term_at_the_last_reached_tick(tmp_path):
 
 def test_build_digest_on_a_deterministic_run_reports_no_llm_decisions(tmp_path):
     # decisions_by_type == {} is correct on a deterministic run, not a signal
-    # that nothing happened -- the events are all still there.
-    digest = _digest_for(tmp_path, "completed", resume=False)
+    # that nothing happened -- the events are all still there. A real
+    # deterministic run DOES write progress.json (verified on disk), so this
+    # is "checked, nothing to flag" -- `{}`, not `null`.
+    digest = _digest_for(tmp_path, "completed", resume=False, progress=_DETERMINISTIC_PROGRESS)
 
     assert digest["llm_decisions"] == {}
     assert digest["journal"]["total_events"] == 2
     assert digest["metadata"]["unverified_decision_types"] == []
     assert digest["llm_fallback_rates"] == {}
     assert digest["llm_fallback_alerts"] == {}
+
+
+def test_build_digest_reports_unknown_not_clear_when_progress_json_is_missing(tmp_path):
+    # A run killed before its first checkpoint has no progress.json, so the
+    # per-type rates cannot be computed at all. Reporting `{}` there -- as
+    # this did until 2026-09-13 -- is the one failure mode llm_fallback_
+    # alerts' own docstring promises to prevent: it reads as "checked, all
+    # clear" on exactly the runs (crashes) where degradation is most likely.
+    digest = _digest_for(tmp_path, "crashed", resume=False)
+
+    assert digest["llm_fallback_rates"] is None
+    assert digest["llm_fallback_alerts"] is None
 
 
 # ── llm_fallback_rates / llm_fallback_alerts (Track C2, 2026-09-11) ─────────

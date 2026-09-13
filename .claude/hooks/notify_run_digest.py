@@ -52,8 +52,28 @@ def pending_narratives(project_dir: Path) -> list[tuple[str, str]]:
         ticks = digest.get("ticks") or {}
         reached = f"{ticks.get('last_tick_journaled')}/{ticks.get('planned_total')} ticks"
         pending.append((str(digest.get("run_id", digest_path.parent.name)),
-                        f"{digest.get('outcome', 'unknown')}, {reached}"))
+                        f"{digest.get('outcome', 'unknown')}, {reached}{_fallback_note(digest)}"))
     return pending
+
+
+def _fallback_note(digest: dict) -> str:
+    """Surface a degraded run here rather than only inside digest.json.
+
+    This hook already opens every digest at session start, so flagging a
+    tripped `llm_fallback_alerts` costs no extra I/O -- and without it, a run
+    where one decision type ran almost entirely on its deterministic fallback
+    is listed in exactly the same words as a clean one. `None` means the check
+    could not run (no progress.json), which is deliberately NOT reported as
+    clear -- see run_digest.build_digest's own comment."""
+    alerts = digest.get("llm_fallback_alerts")
+    if alerts is None:
+        return ", fallback UNKNOWN"
+    if not alerts:
+        return ""
+    worst_type, worst_rate = max(alerts.items(), key=lambda kv: kv[1])
+    if len(alerts) > 1:
+        return f", FALLBACK ALERT: {len(alerts)} types, worst {worst_type} {worst_rate:.0%}"
+    return f", FALLBACK ALERT: {worst_type} {worst_rate:.0%}"
 
 
 def main() -> None:

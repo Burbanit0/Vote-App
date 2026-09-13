@@ -1248,6 +1248,19 @@ def _hold_presidential_election(
     # nominees.
     already_staggered = (
         config.institutions.staggered_election
+        # Must mirror the dispatch guard in run_simulation's tick loop, which
+        # is `staggered_election and llm.enabled` -- without the llm.enabled
+        # half here, the two conditions disagree, and the disagreement is not
+        # harmless (2026-09-13). Under the deterministic engine nothing ever
+        # staggers, but `rupture_path_enabled` (RNG-driven, LLM-independent,
+        # and force-enabled by run_polity_flagship) can leave a standing
+        # rupture candidate holding Role.CANDIDATE on election day. That alone
+        # satisfied the `any(...)` below, so _declare_nominees was skipped and
+        # the election ran with the rupture candidate as the ENTIRE field --
+        # no party nominees at all, silently. Latent until now only because
+        # staggered_election ships false; enabling it for a deterministic run
+        # would have produced quietly wrong elections rather than an error.
+        and config.llm.enabled
         and pending_rerun is None
         and any(c.role == Role.CANDIDATE for c in citizens)
     )

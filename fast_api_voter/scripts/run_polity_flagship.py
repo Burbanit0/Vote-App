@@ -98,7 +98,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from api.domain.polity.config import PolityConfig, load_config  # noqa: E402
 from api.domain.polity.indexer import RunMetrics, index_run  # noqa: E402
-from api.domain.polity.run_digest import write_digest  # noqa: E402
+from api.domain.polity.run_digest import FALLBACK_ALERT_THRESHOLD, write_digest  # noqa: E402
 from api.domain.polity.viz_export import export_run  # noqa: E402
 from api.domain.polity.run_polity_simulation import run_simulation  # noqa: E402
 
@@ -114,6 +114,7 @@ def _flagship_config(
     max_batch_replays: int,
     provider: str | None,
     workers: int,
+    staggered_election: bool = False,
 ) -> PolityConfig:
     config = load_config()
     config = dataclasses.replace(
@@ -158,7 +159,18 @@ def _flagship_config(
         # rejects outright as designs this codebase decided against.
         candidacy=dataclasses.replace(config.candidacy, rupture_path_enabled=True),
         institutions=dataclasses.replace(
-            config.institutions, blank_vote_competitive=True, snap_election_on_recall=True
+            config.institutions,
+            blank_vote_competitive=True,
+            snap_election_on_recall=True,
+            # Track E, wired 2026-09-13 -- opt-in via --staggered-election, and
+            # deliberately NOT force-enabled like the three flags above.
+            # Turning it on changes the RNG draw order, so a run with it on is
+            # not comparable to the p100 seed sweep or to Phase 7 Stage 3,
+            # both of which ran without it. Same single-variable discipline as
+            # the version-pin decision in plan-distribution-positions-seeds.md
+            # §4.2: this makes Track E *runnable* from the flagship harness,
+            # it does not silently change what the next run measures.
+            staggered_election=staggered_election,
         ),
         legitimacy=dataclasses.replace(config.legitimacy, enabled=True),
         mandate=dataclasses.replace(config.mandate, enabled=True),
@@ -317,6 +329,46 @@ def _write_digest_safely(
         print(f"[run_digest] non-fatal: {exc}", file=sys.stderr, flush=True)
         return
     print(f"[run_digest] {outcome}: {digest_path}", file=sys.stderr, flush=True)
+    _print_fallback_verdict(digest_path)
+
+
+def _print_fallback_verdict(digest_path: Path) -> None:
+    """Say out loud, at the end of the run, whether any decision type fell back
+    past `FALLBACK_ALERT_THRESHOLD`.
+
+    The rates and alerts have been computed and written into digest.json since
+    Track C2 -- but nothing pointed a human at them, so a run degraded on one
+    whole decision type ended with output byte-identical to a clean one. On a
+    14-hour flagship run that is the difference between noticing now and
+    noticing after the analysis is built on it. Deliberately here rather than
+    in the success-only summary below: a crashed or SIGTERM'd run is exactly
+    when this matters most.
+
+    Same never-block contract as its caller: a verdict is bookkeeping, and
+    bookkeeping does not get to raise on an already-finished run."""
+    try:
+        digest = json.loads(digest_path.read_text(encoding="utf-8"))
+        alerts = digest.get("llm_fallback_alerts")
+    except (OSError, json.JSONDecodeError, AttributeError) as exc:
+        print(f"[fallback] non-fatal: could not read verdict: {exc}", file=sys.stderr, flush=True)
+        return
+    if alerts is None:
+        print(
+            "[fallback] UNKNOWN -- no progress.json, so per-type fallback rates could not be "
+            "computed. This is not 'all clear'.",
+            file=sys.stderr, flush=True,
+        )
+    elif alerts:
+        formatted = ", ".join(f"{event_type} {rate:.1%}" for event_type, rate in alerts.items())
+        print(
+            f"[fallback] ALERT -- {len(alerts)} decision type(s) above "
+            f"{FALLBACK_ALERT_THRESHOLD:.0%}: {formatted}. These decisions ran on the "
+            "deterministic fallback, not the model.",
+            file=sys.stderr, flush=True,
+        )
+    else:
+        print(f"[fallback] clear -- no decision type above {FALLBACK_ALERT_THRESHOLD:.0%}.",
+              file=sys.stderr, flush=True)
 
 
 class _Terminated(BaseException):
@@ -366,6 +418,7 @@ def run_flagship(
     run_id: str | None,
     force: bool = False,
     resume: bool = False,
+    staggered_election: bool = False,
 ) -> Path:
     config = _flagship_config(
         engine=engine,
@@ -377,6 +430,7 @@ def run_flagship(
         max_batch_replays=max_batch_replays,
         provider=provider,
         workers=workers,
+        staggered_election=staggered_election,
     )
     _assert_coherent(config)
 
@@ -542,6 +596,15 @@ def main(argv: list[str] | None = None) -> int:
             "(see plan-flagship-30y-run.md Phase 2 and check_intra_run_concurrency_determinism_results.md)"
         ),
     )
+    parser.add_argument(
+        "--staggered-election",
+        action="store_true",
+        help="Track E: split the presidential election across 3 ticks (declare at -2, nominate at -1, "
+             "vote on the day) instead of one tick carrying the whole ~1221-decision spike. LLM engine "
+             "only -- it is a no-op under --engine deterministic. OFF by default on purpose: it changes "
+             "the RNG draw order, so a run with it on is not comparable to one without (and invalidates "
+             "existing checkpoints via config_hash).",
+    )
     parser.add_argument("--run-id", default=None)
     parser.add_argument("--force", action="store_true", help="delete an existing run dir instead of refusing")
     parser.add_argument(
@@ -576,6 +639,7 @@ def main(argv: list[str] | None = None) -> int:
         run_id=args.run_id,
         force=args.force,
         resume=args.resume,
+        staggered_election=args.staggered_election,
     )
     return 0
 
