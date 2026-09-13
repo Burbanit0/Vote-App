@@ -33,20 +33,31 @@ jobs:
     name: CI health audit (writes snapshot)
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    permissions:
-      contents: write
-      pull-requests: write
     steps:
+      # token: CI_HEALTH_PAT, not the default GITHUB_TOKEN, for the whole
+      # job's git credentials -- GitHub deliberately never triggers new
+      # workflow runs from a commit or PR authored by GITHUB_TOKEN (its own
+      # anti-recursion rule, confirmed live the hard way: PR #453 sat with
+      # ZERO check runs, ever, until a human-authored commit on the same
+      # branch triggered a real run immediately). A PR whose own required
+      # checks can never run can never be merged, so the snapshot PR this
+      # job opens would be permanently stuck without a human manually
+      # pushing an extra commit every single time -- exactly the automation
+      # this mechanism exists to provide. CI_HEALTH_PAT is a fine-grained
+      # PAT scoped to only this repo, with only Contents: read/write and
+      # Pull requests: read/write -- see the voter-ci skill for how to
+      # (re)create and rotate it.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           ref: develop
+          token: ${{ secrets.CI_HEALTH_PAT }}
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.14'
       - name: Run the audit
         id: audit
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # read-only queries -- least privilege, no need for the PAT here
         run: |
           python scripts/check_ci_health.py --update | tee summary.txt
           {
@@ -62,10 +73,10 @@ jobs:
       # required_pull_request_reviews block (even at 0 required approvals)
       # makes GitHub reject ANY raw push with "Changes must be made through
       # a pull request" -- confirmed live (this job's first real run, 2026-
-      # 09-13). GITHUB_TOKEN cannot bypass that, by GitHub's own design, so
-      # the only legitimate path is the same one every other change in this
-      # repo takes: a PR. Only opened if something actually changed -- a
-      # no-op run shouldn't spam a PR just to bump a timestamp.
+      # 09-13), regardless of which token pushes it. The only legitimate
+      # path is the same one every other change in this repo takes: a PR.
+      # Only opened if something actually changed -- a no-op run shouldn't
+      # spam a PR just to bump a timestamp.
       #
       # Deliberately NOT auto-queued: an earlier version had this job post
       # `@mergifyio queue` on its own PR. Mergify refused it outright --
@@ -79,7 +90,7 @@ jobs:
       # a much louder signal than an unmerged PR sitting quietly.
       - name: Open a PR with the updated snapshot, if it changed
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.CI_HEALTH_PAT }}
         run: |
           git add .github/ci-health.json
           if git diff --cached --quiet; then

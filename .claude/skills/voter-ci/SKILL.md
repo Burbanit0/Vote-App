@@ -316,6 +316,34 @@ silently drifted from `scripts/setup-branch-protection.sh`.
   - `develop`'s live branch protection has drifted from
     `scripts/setup-branch-protection.sh`.
 
+**`CI_HEALTH_PAT`**: the `audit` job's checkout and PR-creation steps use
+this secret instead of the default `GITHUB_TOKEN`, for a reason that isn't
+obvious and cost real debugging time: GitHub never triggers new workflow
+runs from a commit or PR authored by `GITHUB_TOKEN` (its own built-in
+anti-recursion rule). Confirmed live — a bot-authored snapshot PR (#453)
+sat with zero check runs, ever, until a human-authored commit on the same
+branch triggered a real run immediately. A PR whose required checks can
+never run can never be merged, so without a real user identity behind it,
+this job's whole PR-opening step would need a human to manually nudge every
+single snapshot update — exactly the automation gap this mechanism exists
+to close. `CI_HEALTH_PAT` is a fine-grained personal access token, scoped
+to this repo only, with exactly two permissions: **Contents: Read and
+write**, **Pull requests: Read and write** — nothing else. To (re)create it
+(GitHub requires an expiration on fine-grained tokens, so this needs
+repeating periodically):
+
+1. https://github.com/settings/personal-access-tokens/new → resource owner
+   `Burbanit0` → repository access "Only select repositories" → `Vote-App`.
+2. Repository permissions → Contents: Read and write, Pull requests: Read
+   and write. Everything else: No access.
+3. Generate, then `gh secret set CI_HEALTH_PAT --repo Burbanit0/Vote-App`
+   (paste the token when prompted — never commit it, never paste it into a
+   chat/agent session; the token itself never needs to leave the terminal
+   that runs this command).
+
+If the audit job starts failing at "Open a PR..." with a permissions error
+again, the token likely expired — recreate it the same way.
+
 A real, known problem doesn't have to block every PR forever: add a dated
 entry to `.github/ci-health-snoozes.json` (key = the workflow filename, or
 `branch-protection`) with `until` (a real date, never open-ended) and
