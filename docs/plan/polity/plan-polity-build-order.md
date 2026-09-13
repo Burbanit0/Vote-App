@@ -85,7 +85,7 @@ recorded here, with the date.
 | D3 | Ordinary legislation (ADR-009) before ADR-008 constitutional amendments | S4.2 | |
 | D4 | Adopt non-greedy sampling for thinking calls — only if S1.4 shows it helps | S1.4 adoption | |
 | D5 | Launch the p500 batch once Stage 0 is closed, under S0.7's pre-registration | S0.8 | 2026-09-13: launch now, from a worktree at `04358d24` |
-| D6 | What should differ between two elections of a run: today nothing the candidacy and nomination decisions read changes, so the same field returns every time (`observations.md` OBS-001–003, OBS-010). Levers: term limits, barring or informing about a recalled president, dynamic citizens, sampling above temperature 0 | S4.3 scope | |
+| D6 | What should differ between two elections of a run: today nothing the candidacy and nomination decisions read changes, so the same field returns every time (`observations.md` OBS-001–003, OBS-010). Levers: term limits (enforced on both engines since OBS-012's fix), barring or informing about a recalled president, dynamic citizens, sampling above temperature 0 | S4.3 scope | |
 | D7 | What the sortition chamber deliberates on: today it has no agenda and its prompt tells it to hold still (OBS-004) | S4.2's chamber role | |
 
 ---

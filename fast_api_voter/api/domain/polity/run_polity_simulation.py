@@ -452,8 +452,8 @@ def run_simulation(
 
     president_term_limit is null in the shipped config (illimité), but is
     now enforced when set (v4 Lot 2, §6bis.1): a citizen with
-    mandates_served >= term_limit cannot be nominated again on the
-    deterministic candidacy path (assembly_term_limit stays unread —
+    mandates_served >= term_limit cannot be nominated again, on either
+    engine (the LLM path since 2026-09-13) (assembly_term_limit stays unread —
     legislative elections are party-list, no per-citizen candidacy check
     exists to gate).
 
@@ -1045,20 +1045,13 @@ def _declare_nominees(
     barred_candidate_ids: frozenset[int] = frozenset(),
 ) -> list[Citizen]:
     if llm_client is not None:
-        # barred_candidate_ids intentionally NOT passed here, extending the
-        # same asymmetry term limits already have on this path (see below).
-        return _declare_nominees_llm(citizens, parties, config, journal, tick, llm_client)
-    # Term limits (v4 Lot 2, §6bis.1) and, since Lot 9, the §6bis.2 barred
-    # set are enforced only on this deterministic branch.
-    # _declare_nominees_llm reuses `citizens` unfiltered to compute
-    # decide_campaign_positioning's electorate_mean over the FULL population
-    # -- pre-filtering it here would silently change that already-shipped
-    # LLM path's context. Verified directly (Lot 9): this asymmetry was
-    # never actually closed by Lot 6/7 as originally anticipated -- Lot 6
-    # added lame_duck to dt=6's *response* context, not to nomination
-    # filtering -- so Lot 9 extends the same, still-open gap in the same
-    # direction rather than fixing it. Closing it (for both term limits and
-    # the barred set together) is a legitimate, separately-scoped follow-up.
+        # The LLM path applies the same two gates to its declared set, just before
+        # nomination (_eligible_declared_cids), and keeps `citizens` whole for
+        # perceived support and the positioning electorate mean.
+        return _declare_nominees_llm(
+            citizens, parties, config, journal, tick, llm_client, barred_candidate_ids=barred_candidate_ids,
+        )
+    # Term limits (v4 Lot 2, §6bis.1) and the §6bis.2 barred set (Lot 9).
     eligible = [
         c
         for c in citizens
@@ -1153,6 +1146,7 @@ def _nominate_and_position_llm(
     journal: Journal,
     tick: int,
     llm_client: LlmClientProtocol,
+    barred_candidate_ids: frozenset[int] = frozenset(),
 ) -> list[Citizen]:
     """v2 increment 2/3's LLM path, nomination + positioning half:
     decide_party_nominations replaces select_party_nominee_from_declared's
@@ -1168,8 +1162,10 @@ def _nominate_and_position_llm(
 
     `declared_cids` is a parameter here, not computed internally -- see
     `_consider_candidacies_llm`'s own docstring for why this split exists
-    (Track E, 2026-09-11)."""
-    nominees = _nominate_llm(citizens, parties, declared_cids, config, journal, tick, llm_client)
+    (Track E, 2026-09-11). Only the eligible ones can be nominated
+    (_eligible_declared_cids)."""
+    eligible_cids = _eligible_declared_cids(citizens, declared_cids, config, barred_candidate_ids)
+    nominees = _nominate_llm(citizens, parties, eligible_cids, config, journal, tick, llm_client)
     _position_nominees_llm(nominees, citizens, parties, config, journal, tick, llm_client)
     return nominees
 
@@ -1309,6 +1305,27 @@ def _position_nominees_llm(
         )
 
 
+def _eligible_declared_cids(
+    citizens: list[Citizen], declared_cids: set[int], config: PolityConfig, barred_candidate_ids: frozenset[int],
+) -> set[int]:
+    """The declared citizens who may stand: not term-limited (§6bis.1) and not barred
+    after an invalidated election (§6bis.2) -- the same gates the deterministic path
+    applies before choosing nominees. Applied after the candidacy decision, as the
+    rupture path does after its draw, so the model is asked about every citizen and its
+    candidacy prompts do not depend on either rule. A gated citizen who declared is
+    simply not nominated, as on the deterministic path.
+
+    Until 2026-09-13 the LLM path skipped both gates, so `president_term_limit` and
+    `barred_from_immediate_rerun` did nothing on it (observations.md OBS-012)."""
+    return {
+        c.citizen_id
+        for c in citizens
+        if c.citizen_id in declared_cids
+        and not is_term_limited(c, config.institutions.president_term_limit)
+        and c.citizen_id not in barred_candidate_ids
+    }
+
+
 def _declare_nominees_llm(
     citizens: list[Citizen],
     parties: list[Party],
@@ -1316,6 +1333,7 @@ def _declare_nominees_llm(
     journal: Journal,
     tick: int,
     llm_client: LlmClientProtocol,
+    barred_candidate_ids: frozenset[int] = frozenset(),
 ) -> list[Citizen]:
     """The ATOMIC (non-staggered) LLM path -- candidacy, nomination, and
     positioning all in the same tick, exactly as this project has always
@@ -1325,7 +1343,9 @@ def _declare_nominees_llm(
     position_llm` separately, from two different tick-loop positions,
     instead of through this one thin wrapper."""
     declared_cids = _consider_candidacies_llm(citizens, config, journal, tick, llm_client)
-    return _nominate_and_position_llm(citizens, parties, declared_cids, config, journal, tick, llm_client)
+    return _nominate_and_position_llm(
+        citizens, parties, declared_cids, config, journal, tick, llm_client, barred_candidate_ids=barred_candidate_ids,
+    )
 
 
 def _hold_presidential_election(

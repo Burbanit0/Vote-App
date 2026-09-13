@@ -33,6 +33,7 @@ from api.domain.polity.run_polity_simulation import (
     PendingRerun,
     _attempt_rupture_candidacies,
     _declare_nominees_llm,
+    _fresh_tick_state,
     _hold_presidential_election,
     _llm_client_scope,
     _run_accountability_phase,
@@ -610,6 +611,45 @@ def test_term_limited_incumbent_is_not_re_nominated(tmp_path):
     assert citizen_a.office == Office.NONE
     assert citizen_a.role == Role.ELECTOR
     assert citizen_a.mandates_served == 1
+
+
+def test_the_llm_path_honours_the_term_limit(tmp_path):
+    # observations.md OBS-012: until 2026-09-13 only the deterministic path applied
+    # the limit, and the LLM path re-elected the same citizen at every election.
+    config = _config_with_llm_enabled(tmp_path)
+    config = dataclasses.replace(
+        config,
+        run=dataclasses.replace(config.run, duration_years=8),
+        institutions=dataclasses.replace(config.institutions, president_term_limit=1),
+    )
+    events = _events(run_simulation(config, run_id="limited", llm_client=_ElectingFakeLlmClient()))
+
+    presidents = [e["citizen_id"] for e in events if e["event_type"] == "elected" and e["payload"]["office"] == "president"]
+    assert len(presidents) >= 3
+    assert len(set(presidents)) == len(presidents)
+
+
+def test_the_llm_path_does_not_nominate_a_barred_citizen_but_still_asks_about_them(tmp_path):
+    config = _config_with_llm_enabled(tmp_path)
+
+    def nominate(barred):
+        state = _fresh_tick_state(config)
+        journal_path = tmp_path / f"run-{len(barred)}.jsonl"
+        with Journal(journal_path, run_id="r") as journal:
+            nominees = _declare_nominees_llm(
+                state.citizens, state.parties, config, journal, 0, _FakeLlmClient(), barred_candidate_ids=barred,
+            )
+        considered = [e for e in _events(journal_path) if e["event_type"] == "candidacy_considered"]
+        return {c.citizen_id for c in nominees}, considered
+
+    unbarred, considered_unbarred = nominate(frozenset())
+    barred = frozenset(unbarred)
+    nominees, considered_barred = nominate(barred)
+
+    assert nominees and not nominees & barred
+    # The gate sits after the candidacy decision: the model is asked the same question
+    # about every citizen whether or not anyone is barred.
+    assert considered_barred == considered_unbarred
 
 
 # ── competitive blank voting (v4 Lot 9, §6bis.2) ─────────────────────────
