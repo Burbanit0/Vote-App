@@ -433,8 +433,17 @@ def build_digest(
         # Track C2 (2026-09-11): the aggregate above hid Stage 3's real
         # problem (0.26% overall, 67% on one type) -- per-type rates plus an
         # explicit alert make that impossible to miss silently again.
-        "llm_fallback_rates": fallback_rates,
-        "llm_fallback_alerts": llm_fallback_alerts(fallback_rates),
+        #
+        # `null` when progress.json itself is missing, NOT `{}` (2026-09-13):
+        # llm_fallback_alerts' own docstring promises a reader can tell
+        # "checked, all clear" from "the check never ran", and `{}` on both
+        # paths broke exactly that promise on the one path where it matters
+        # most -- a run killed before its first checkpoint, i.e. a crash, the
+        # case you most want to distinguish from a clean run. A deterministic
+        # run still yields `{}`: progress.json exists, it just has no LLM
+        # decisions to rate, which IS "checked, nothing to flag".
+        "llm_fallback_rates": fallback_rates if progress is not None else None,
+        "llm_fallback_alerts": llm_fallback_alerts(fallback_rates) if progress is not None else None,
         # Carried through so a narrator flags these rather than presenting them
         # as findings -- see viz_export.export_metadata's own docstring.
         "metadata": export_metadata(config),
