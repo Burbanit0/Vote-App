@@ -231,9 +231,24 @@ python_version = "3.14"
 # re-running mutmut and diffing the survivor list: 58 mutants flipped
 # survived -> killed (64.4% -> 65.2%; exact count has a few-mutant
 # run-to-run wobble from mutmut's own timeout non-determinism, not from
-# the fix itself), exactly where predicted. Floor stays at 70% and the
-# snooze in .github/ci-health-snoozes.json stays in
-# place (until 2026-09-27) while more gaps like this one get found and
+# the fix itself), exactly where predicted.
+#
+# SECOND PASS, same day: get_star_voting_winner was the single worst-covered
+# function in either engine file (57 survivors — more than any other),
+# because every existing STAR fixture used exactly two candidates scored
+# identically enough that the first-round accumulator, the runoff counters,
+# and the `.get(candidate, 0)` defaults could all be wrong without ever
+# changing which of the two candidates won. api/tests/test_star_runoff_tie.py
+# added cases where each of those actually matters — a genuine underdog
+# runoff win, a ballot that omits a finalist, two tied ballots not one, a
+# candidate scored by exactly one ballot — closing 53 of the 57 (65.2% ->
+# 66.1%). The remaining 4 are confirmed equivalent mutants (`data["count"]
+# > 0`'s branch is unreachable by construction — every candidate in
+# candidate_scores was added by at least one ballot), documented in that
+# file's own docstring rather than left unexplained.
+#
+# Floor stays at 70% and the snooze in .github/ci-health-snoozes.json stays
+# in place (until 2026-09-27) while more gaps like this one get found and
 # closed one at a time — raising the floor to a number nobody has
 # earned yet would be exactly the "get a red run green" shortcut this
 # file's own check_mutation_score.sh warns against.
