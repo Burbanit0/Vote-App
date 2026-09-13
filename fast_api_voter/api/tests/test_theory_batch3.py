@@ -80,6 +80,63 @@ class TestDemocraticBacksliding:
         assert client.post("/api/v2/theory/democratic-backsliding",
                            json=bad).status_code == 422
 
+    def test_polarized_ideology(self, client):
+        # _backsliding_base_vote_shares's "polarized" branch (normal
+        # distribution around the ideology poles instead of uniform).
+        ok = {**self.payload, "ideology": "polarized"}
+        r = client.post("/api/v2/theory/democratic-backsliding", json=ok)
+        assert r.status_code == 200, r.text
+
+    def test_media_capture_method_triggers_guardrail_once_bias_builds_up(self, client):
+        # The opposition_media guardrail only kicks in once the cumulative
+        # media_bias exceeds 0.1 — needs several elections to build up.
+        ok = {
+            **self.payload,
+            "num_elections": 15,
+            "backsliding_method": "media_capture",
+            "backsliding_intensity": 1.0,
+            "guardrails": {"opposition_media": True},
+        }
+        r = client.post("/api/v2/theory/democratic-backsliding", json=ok)
+        assert r.status_code == 200, r.text
+        triggered = [
+            g for e in r.json()["elections"] for g in e["guardrails_triggered"]
+        ]
+        assert "opposition_media" in triggered
+
+    def test_voter_suppression_method_triggers_guardrail_once_rate_builds_up(self, client):
+        # The supermajority_required guardrail only kicks in once the
+        # cumulative suppression_rate exceeds 0.1.
+        ok = {
+            **self.payload,
+            "num_elections": 15,
+            "backsliding_method": "voter_suppression",
+            "backsliding_intensity": 1.0,
+            "guardrails": {"supermajority_required": True},
+        }
+        r = client.post("/api/v2/theory/democratic-backsliding", json=ok)
+        assert r.status_code == 200, r.text
+        triggered = [
+            g for e in r.json()["elections"] for g in e["guardrails_triggered"]
+        ]
+        assert "supermajority_required" in triggered
+
+    def test_international_pressure_triggers_once_quality_drops(self, client):
+        # Guardrail only activates once democratic_quality < 0.7 — needs a
+        # high enough intensity/election count to actually reach that.
+        ok = {
+            **self.payload,
+            "num_elections": 15,
+            "backsliding_intensity": 1.0,
+            "guardrails": {"international_pressure": True},
+        }
+        r = client.post("/api/v2/theory/democratic-backsliding", json=ok)
+        assert r.status_code == 200, r.text
+        triggered = [
+            g for e in r.json()["elections"] for g in e["guardrails_triggered"]
+        ]
+        assert "international_pressure" in triggered
+
 
 # ── /intergenerational ─────────────────────────────────────────────────────
 
