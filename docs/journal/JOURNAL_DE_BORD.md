@@ -23,6 +23,291 @@
 
 ---
 
+## 2026-09-12 → 2026-09-13 — Track D confirme `office_occupancy` sur 10 seeds, un worktree et un venv abîmés par la migration ressurgissent, le système de lois se révèle pur design
+
+**Contexte du jour.** Track D (politique de validation multi-seed du §4 de `plan-distribution-
+positions-seeds.md`) devait recevoir son premier vrai sweep multi-seed depuis que le run flagship
+existe — jusque-là chaque résultat publié tournait sur la seule seed 42, jamais validée comme
+représentative (§4.3, `seed_representativeness: unvalidated`). Lancé le 12/09, le sweep a tourné
+toute la journée ; la session du 13/09 devait construire un outil de vérification des versions du
+stack LLM avant de lancer le lot p500, ce qui a d'abord exigé de réparer deux dégâts laissés par la
+migration Ubuntu (§2026-09-04), puis a débouché sur un audit complet de l'état du projet Polity.
+
+**Ce qui a avancé**
+- **Bug réel trouvé sur le tout premier lancement du sweep** (`1edd5c65`) : `--resume-sweep`
+  passait `--resume` sans condition dès que le `run_dir` existait, alors que `run_flagship` refuse
+  de reprendre un dossier sans `checkpoint.json` — corrigé en vérifiant `checkpoint.json`
+  spécifiquement et en passant `--force` sinon.
+- **10 seeds indépendantes (1 à 10) exécutées** (`6be5cea6`), chacune un vrai
+  `run_polity_flagship.py --engine llm --years 8 --population 100 --seats 15` contre le vLLM de
+  production, ~11,5h de temps d'horloge au total. `office_occupancy` : moyenne 0,9303, stdev
+  0,0516, min 0,8182 (seed 6), max 0,9697 (seeds 1, 2, 3, 7, 9) — voir
+  `fast_api_voter/scripts/run_polity_seed_sweep_p100_results.md`. Règle, pour cette métrique à
+  cette échelle, la question de représentativité ouverte au §4.3 : le correctif de vacance
+  présidentielle (Track A, livré la veille) tient à travers les seeds, pas seulement sur celle où
+  il a été vérifié à l'origine.
+- **Effet de bord noté, pas encore un motif** : l'alerte de repli de `representative_response`
+  (seuil >10 %, Track C2) s'est déclenchée sur 2 des 10 seeds (2 et 3 : 30,3 % et 36,4 %), muette
+  sur les 8 autres. Résultat formalisé dans le plan lui-même, nouveau §4.1
+  (`docs/plan/polity/plan-distribution-positions-seeds.md`). Le lot p500 (seeds 1, 2, 42) est
+  construit et prêt, explicitement **mis en pause sur demande** après ce lot — pas lancé.
+- **Worktree cassé, trouvé et réparé** : `.git` du worktree pointait encore vers
+  `/home/burbanit0/Vote-App-polity/.git/worktrees/Vote-App-polity` (ancien chemin, pré-migration
+  Ubuntu du 04/09), inexistant — toute commande git échouait. Réparé par `git worktree repair`
+  depuis le dépôt principal (désormais `/home/burbanit0/Documents/Dev/Vote-App`) ; `git status`/
+  `git log` fonctionnels après coup.
+- **Même défaut de migration trouvé dans le venv, seulement contourné** :
+  `fast_api_voter/.venv/bin/mypy` (et vraisemblablement les autres scripts installés) porte encore
+  le shebang `#!/home/burbanit0/Vote-App-polity/fast_api_voter/.venv314/bin/python` — un venv créé
+  `.venv314` à l'ancien chemin, renommé/déplacé sans jamais être recréé, ce qui casse tout
+  script-console installé. Contourné en appelant `python -m mypy`/`python -m ruff` directement.
+  Confirmé au passage : `flake8` n'est plus installé dans ce venv — `ruff` l'a remplacé projet
+  entier (`pyproject.toml`, commentaire « Lot 1 de PLAN_SOLIDITE_TECHNIQUE.md ») ; `CLAUDE.md`
+  reste muet sur ce point côté backend.
+- **Nouvel outil construit** : `fast_api_voter/scripts/check_llm_stack_versions.py` (474 lignes),
+  demandé avant le lancement du p500, pour vérifier que les images Docker et révisions Hugging Face
+  épinglées (`docker-compose.llm*.yml`/`.ollama.yml`) sont encore à jour contre leur source réelle
+  — reporte seulement, ne bump jamais automatiquement. Deux vrais bugs trouvés et corrigés pendant
+  la construction, vérifiés en direct contre Internet :
+  - Égress IPv6 de ce sandbox black-holé (SYN-SENT sans résolution, confirmé via `ss -tnp` et
+    `curl -6`). `httpx` n'a pas de repli Happy-Eyeballs comme `curl` — un seul mauvais chemin
+    dévorait tout le budget de timeout, en série sur ~11 appels HTTP successifs : ressemblait à un
+    blocage, était ~180s de retries légitimes mais gâchés. Corrigé en forçant IPv4
+    (`httpx.HTTPTransport(local_address="0.0.0.0")`) et un timeout connect/read explicitement
+    séparé (5s/15s).
+  - L'API REST de tags de `hub.docker.com` plafonne la pagination anonyme (confirmé en direct :
+    403 en page 11, « pagination offset too large for anonymous requests ») — bien en deçà des
+    ~1174 tags d'`ollama/ollama`. Une version antérieure du script contournait ce plafond en
+    triant par récence et en ne lisant que les premières pages, ce qui n'est pas une approximation
+    sûre mais activement FAUSSE : elle renvoyait `0.5.5` (poussé 2025-01-11) comme « dernière
+    version » contre un vrai `0.33.3` pinné (poussé 2026-09-03), le bruit de tags multi-arch/
+    rebuild ayant enterré la vraie dernière release hors de cette fenêtre. Corrigé en basculant
+    entièrement sur l'API OCI Distribution v2 (`registry-1.docker.io`, le protocole que
+    `docker pull` lui-même utilise pour les dépôts publics anonymes), sans cette limite — vérifié
+    en paginant intégralement les ~1174 tags via l'en-tête `Link`.
+  - Résultat final, re-vérifié en direct pendant la rédaction de cette entrée : mypy propre, ruff
+    propre, et deux vrais écarts de version non appliqués — vLLM épinglé `v0.28.0` vs `v0.29.0`
+    disponible (poussé 2026-09-09), Ollama épinglé `0.33.3` vs `0.34.0` disponible (poussé
+    2026-09-09) — signalés, délibérément PAS bumpés.
+- **Audit à 3 agents** (aucun code touché) de tout `docs/plan/polity/` + `ADR-008` +
+  `fast_api_voter/api/domain/polity/`, pour répondre à « où en est le projet, en particulier le
+  système de lois ». Confirmé : roadmap v0-v8 tous terminés (v8, bascule vLLM, « DÉBLOQUÉ ET
+  TERMINÉ » depuis le 06/09) ; Phase 7 (dry-runs étagés) a passé ses 3 stages, porte franchie le
+  11/09 — Stage 4 (le vrai run de 30 ans) est débloqué mais **pas lancé**
+  (`plan-flagship-30y-run.md`, lignes 14-16). Qualité LLM par type de décision, état mixte :
+  `pressure_action` corrigé et livré (10/09) mais un effondrement aveugle au contenu reconfirmé la
+  même semaine via logprobs ; `representative_response` partiellement corrigé (11/09) ;
+  `party_nomination_choice` corrigé et vérifié en direct ; `candidacy_considered` — tentative de
+  calibration ÉCHOUÉE (accuracy 64 %→58,4 %), pas livrée ; `coalition_decision` — tenté, échoué,
+  effondre toujours ; `chamber_deliberation`/`reaction_to_event` — véhicules seulement écrits.
+  **Système de lois : pur design, zéro implémentation** — `ADR-008` (statut « Proposed »,
+  2026-09-11) spécifie `law_proposal` + overlay borné `AmendableParameter`/`ActiveLaws` +
+  `law_version`, mais son propre texte dit « No code changes ship with this ADR », confirmé par un
+  grep du dépôt entier (zéro hit réel pour law/legislation/ratification) ; `veto_power` de
+  `polity_config.yaml` est parsé mais sans effet comportemental, conséquence directe.
+- **Les 4 autres constats de péremption documentaire trouvés pendant l'audit sont désormais
+  corrigés** (non commités au moment de la rédaction) : `polity-llm-reference.md` (contredisait sa
+  propre date de rédaction sur `representative_response`), `polity-decision-contracts.md`
+  (compteur « 1 véhicule sur 6 » remplacé par « 4 sur 6 construits, 2 livrés »),
+  `polity-simulation-design-v2.md` (B3 sorti de « reste bloquant avant v2 » — jamais bloqué en
+  pratique, le roadmap est allé de v2 à v8 sans le critère prévu ; provider mis à jour vers `vllm`
+  en production depuis le 06/09), `plan-coalition-negotiation-v7.md` (section « État » de fin
+  passée de « Lot 1 pas encore autorisé » à « TERMINÉ », alignée sur son propre en-tête).
+- **Discussion exploratoire NON actée** : une architecture multi-agent-citoyen plus riche (état
+  affectif par citoyen pilotant une dérive continue de position dans l'espace 20-dim,
+  élargissement de la fenêtre pré-élection à 2 ticks de Track E vers une vraie phase de campagne à
+  4 ticks) a été discutée — déterminisme séquentiel du projet vs volonté affichée de sacrifier la
+  reproductibilité inter-run pour la diversité narrative et la vitesse ; confirmé que les citoyens
+  ordinaires ont des positions statiques aujourd'hui, seuls titulaires/candidats/membres de chambre
+  bougent via `apply_shifts`. Reporté explicitement à après l'audit complet — piste ouverte, pas
+  une décision.
+
+**Points bloquants**
+- Le lot p500 (seeds 1, 2, 42) est construit et prêt mais pas lancé — en pause sur demande.
+- Bump vLLM (`v0.28.0`→`v0.29.0`) et/ou Ollama (`0.33.3`→`0.34.0`) avant ou après ce lot : pas
+  tranché.
+- Le venv `fast_api_voter/.venv` est diagnostiqué cassé (shebangs stale depuis la migration), pas
+  réparé — à recréer proprement.
+- Le hook `SessionStart` a signalé en début de session que
+  `scaleprobe-8y-p500-deterministic-twin` a un `digest.json`/`digest.jsonl` (confirmé) mais pas de
+  `TIMELINE.md` — toujours pas traité, nécessiterait `/log-run`.
+- L'architecture multi-agent-citoyen (affect, dérive continue, campagne à 4 ticks) reste une
+  discussion ouverte, non tranchée.
+
+**Décisions prises**
+- Réparer le worktree via `git worktree repair` plutôt que de le recréer — *pourquoi* : préserve
+  tout l'état de travail en cours (branche, fichiers non commités) sans reconstruction manuelle.
+- Contourner (pas corriger) le venv cassé via `python -m <outil>` plutôt que de le recréer
+  immédiatement — *pourquoi* : éviter une opération lourde en plein milieu d'une session
+  d'outillage/audit ; réparation reportée délibérément.
+- Vérifier les versions du stack LLM via l'API brute du registre OCI (`registry-1.docker.io`)
+  plutôt que l'API REST de `hub.docker.com` — *pourquoi* : seule à ne pas plafonner la pagination
+  anonyme, la première approche ayant produit un résultat activement faux (`0.5.5` comme
+  « dernière version »), pas seulement incomplet.
+- Ne pas bumper vLLM/Ollama malgré les deux écarts trouvés — *pourquoi* : un bump doit rester une
+  édition délibérée et revue, jamais un effet de bord d'une vérification, et il faut éviter de
+  confondre un changement de version avec le p500 imminent.
+- Reporter l'idée d'architecture multi-agent-citoyen à après l'audit complet — *pourquoi* :
+  décision de l'utilisateur, établir l'état réel avant d'ouvrir un nouveau chantier de conception.
+
+**Prochaines étapes**
+- [ ] Lancer le lot p500 (seeds 1, 2, 42), construit et prêt depuis Track D.
+- [ ] Trancher le bump vLLM/Ollama avant ou après ce lot.
+- [ ] Recréer proprement `fast_api_voter/.venv` (shebangs cassés depuis la migration Ubuntu).
+- [ ] Committer les 4 corrections de péremption documentaire encore non commitées et le nouvel
+      outil `check_llm_stack_versions.py`.
+
+**Pour aller plus loin** : `fast_api_voter/scripts/run_polity_seed_sweep_p100_results.md`,
+`docs/plan/polity/plan-distribution-positions-seeds.md` §4.1, `docs/adr/ADR-008-law-system-seam-
+bounds-and-comparability.md`, `docs/plan/polity/polity-llm-reference.md`,
+`docs/plan/polity/polity-decision-contracts.md`, `fast_api_voter/scripts/
+check_llm_stack_versions.py`.
+
+---
+
+## 2026-09-11 (suite) — Vacance présidentielle corrigée aux deux bouts, deux calibrations sur trois échouent proprement, Stage 3 repasse et déverrouille le run de 30 ans
+
+**Contexte du jour.** Suite immédiate de la session du matin (retractation du « hang », clôturée à
+`ebcbd773` 12:37) : combler la vraie lacune qu'elle avait révélée — rien ne distingue un run lent
+d'un run figé — puis auditer l'état des 22 plans du dépôt avant d'enchaîner sur les chantiers
+restés ouverts de `lets-build-a-solid-spicy-otter.md` : la vacance présidentielle chronique
+(Track A), les calibrations de contrat C3 sur les décisions encore effondrées (Track B), trois
+derniers points de fiabilité (Track C), l'étalement de l'élection présidentielle sur plusieurs
+ticks (Track E), et le design — sans code — du système de lois (ADR-008). Refermé par un second
+passage du Stage 3 du run flagship, qui franchit sa porte.
+
+**Ce qui a avancé**
+- **Battement de cœur intra-tick** (`1a2093bb`) : `ProgressTracker.record_llm_activity` écrit
+  `progress.json` à chaque réponse LLM complétée, plus seulement par tick —
+  `last_llm_response_at` (horodatage absolu, jamais « il y a N secondes »), `llm_calls_completed`,
+  `tick_in_progress` distinct de `tick`. Porté par un point de passage unique
+  (`HeartbeatClient` dans `_llm_client_scope`), donc aucun des neuf types de décision ne sait que
+  le battement existe. Nouveau `scripts/check_run_liveness.py` consulte le battement ET le serveur
+  d'inférence, refuse de trancher sur la seule preuve côté client — vérifié en direct contre le
+  Stage 3 en cours : renvoie `ALIVE` exactement dans la configuration qui avait trompé la lecture
+  du matin. 2159 tests passed, ruff/mypy propres (2 erreurs mypy pré-existantes dans
+  `workers_playground.py`).
+- **Audit des 22 plans du dépôt** (`f8d2bcc2`) : six documents affichaient un état devenu faux,
+  dont un cassé le jour même — l'EXP écrit le matin avait pris le numéro « 002 », déjà utilisé sur
+  `develop` ; renumérotée EXP-008 (puis EXP-015 après le merge du 12/09, la même collision
+  s'étant reproduite avec le `develop` synchronisé entretemps — voir l'entrée du 12-13/09).
+  Corrigés aussi : `plan-coalition-negotiation-v7` (« Lot 1 pas encore autorisé » alors que les 3
+  lots sont livrés depuis ~2 semaines, `rounds_used: 2` vérifié sur un run pop 500),
+  `plan-vllm-switch-readiness` (« BLOQUÉ » alors que vLLM est le backend de prod depuis le 06/09),
+  `polity-decision-contracts` (« corrections non commencées » contredisant son propre §3 « Livré »
+  pour `pressure_action`), `plan-llm-protocol` (TOON « non shippé » pour `candidacy_considered`,
+  shippé le jour même), `ci-hardening-plan.md` (supersédé par sa v2 le jour même de sa rédaction,
+  jamais marqué).
+- **Sonde de précision négative** (`c9396bf4`) : cinquième piste pour les effondrements de
+  `representative_response`/`coalition_decision`, après framing adversarial et alignement/RLHF
+  (éliminés) et la lacune C3 (ne corrigeait qu'un type sur cinq). Servi
+  `ELVISIO/Qwen3-8B-NVFP4A16` (même modèle de base que l'AWQ de prod, quantification poids-seuls
+  vérifiée via `config.json`) : négatif sur les deux types — `representative_response` toujours
+  P(stance=1) = 0,999996–1,000000 sur les 9 points, `coalition_decision` toujours JOIN partout
+  (≥0,88). Les effondrements ne sont pas un artefact de quantification.
+- **Track A — vacance présidentielle corrigée aux deux bouts** (`847e26f5`) : 8/8 runs avec un
+  recall tombaient en longue vacance (pire cas 87,5 %), prouvé structurel à `simple_rules.py` (un
+  double déterministe pur recale deux fois et reste vacant pire que son jumeau LLM). A1+A2 : un
+  vote de confiance gagné compte désormais réellement (`support(t)` remplace `mandate_strength` ;
+  nouveau champ `averted_recall` empêche qu'un recall du même tick écrase une rétention gagnée —
+  cas réel mesuré : président retenu à 69,2 % puis recalé le même tick avant le correctif). A3 :
+  élection anticipée sur recall (`institutions.snap_election_on_recall`), vérifiée en direct :
+  recall au tick 5, remplacé au tick 6. A4 : continuité de la chambre de tirage au sort pinnée en
+  test (75/75 sièges, aucun trou, ticks 0–32). A5 : `office_occupancy` promu en vraie métrique
+  (`RunMetrics`/`digest.json`) — corrige au passage les propres chiffres Track 0b du document
+  (0,531/0,281 → 0,5152/0,2727, dénominateur faux). 2168 tests passed.
+- **Track B — calibrations C3, deux échecs propres et un correctif partiel** : B1
+  `representative_response` — correctif PARTIEL livré, énonçant enfin l'échelle de `mandate_dev`
+  ([0,1] géométrique) et `street` (asymptote ~6,67) ; P(stance=1) chute à 0,1225 exactement au pôle
+  zéro-pression (bascule vers SILENCE) — une vraie distinction zéro/non-zéro, pas un gradient
+  lisse. B2 `coalition_decision` — TENTÉ, NÉGATIF, pas livré : même logique de référence (distance
+  moyenne inter-partis), aucune amélioration mesurée (écart pôle-à-pôle -0,0004 contre -0,0026
+  avant, plus petit en magnitude). B3 `candidacy_considered` — la clause C3 ne s'applique pas non
+  plus ici : calibré sur l'ambition moyenne de la population, les déclarations montent de 40,4 % à
+  47,6 % et l'exactitude CHUTE de 64 % à 58,4 % contre la vérité terrain. Pas livré. B6 : défaut
+  d'échantillonnage corrigé dans le harnais de calibration lui-même (taille 1 tirait toujours du
+  même pôle par construction) — la conclusion déjà tirée à une autre taille tenait déjà par une
+  preuve indépendante, pas rejouée.
+- **Track C — trois derniers points de fiabilité** : C1 isole le repli de
+  `party_nomination_choice` parti par parti au lieu de faire échouer tout le tick (Stage 3 :
+  10/15 nominations en repli à cause d'un seul parti sur cinq à chaque fois), puis énonce
+  explicitement la borne par parti dans le prompt (`candidate_count`) — reproduction exacte du
+  checkpoint Stage 3 vérifiée : le même parti répond 19 (légal) au lieu de 26 après correctif, avec
+  la même confiance. C2 ajoute un taux de repli PAR TYPE et une alerte (seuil 10 %) à
+  `run_digest.json` — le taux global de Stage 3 (0,26 %) masquait un type à 67 %. C3 corrige une
+  vraie dérive : le contexte journalisé de `pressure_action` ne portait plus `blank_threshold`
+  depuis la Phase E, silencieusement, sur un type à haut volume.
+- **Track E — élection présidentielle étalée sur 3 ticks** (`75cde4b1`) :
+  `institutions.staggered_election` (défaut `false`) sépare déclaration (J-2), nomination+
+  positionnement (J-1) et vote (jour J) au lieu d'un seul tick portant ~1221 décisions LLM d'un
+  coup. Neuf tests + vérification live confirment un vainqueur réel élu. PAS câblé dans
+  `run_polity_flagship.py` — le changement d'ordre de tirage RNG qu'il force est explicitement
+  renvoyé au Track D.
+- **ADR-008, design du système de lois** (`92b44071`) : seam = nouveau decision type
+  `law_proposal` sur la chambre de tirage au sort, paramètres bornés dans un overlay `ActiveLaws`
+  plutôt que de muter le `PolityConfig` figé, comparabilité via un compteur `law_version`
+  monotone. Aucun code livré avec cet ADR — sa propre section « When to build » constate que, des
+  trois symptômes nommés comme raisons d'attendre, seule la vacance présidentielle est réellement
+  corrigée (Track A) ; `representative_response` est partiel, `coalition_decision` reste un
+  effondrement non résolu.
+- **Stage 3 repassé et validé** (`54598c56`) : `completed`, 32/32 ticks, 8226 événements, 0 ligne
+  malformée. Le correctif `vote_cast` (`246da0b`, 10/09) tient à population 500 sur les DEUX
+  scrutins présidentiels (6/500 puis 0/500 replis, contre 494/500 et 476/500 avant correctif).
+  Mais `party_nomination_choice` devient le pire type mesuré du simulateur (10/15 replis, 67 %) —
+  root-cause tracée dans `replays.log` jusqu'à une réponse confiante et fausse
+  (`winner_position=26` contre 18-19 candidats, P("2")=0,994). Projection du run de 30 ans revue à
+  ~22,5h à partir des vrais chronométrages (tick ordinaire ~246s, tick électoral ~7580s, 120 ticks,
+  7 élections), contre 35,6h/40,8h estimés précédemment. `TIMELINE.md` (245 lignes), premier récit
+  produit par l'agent `run-narrator`, révèle qu'un président ayant GAGNÉ son vote de confiance
+  (69,2 %) au tick 17 a quand même été recalé le même tick par le plancher de légitimité (avant le
+  correctif Track A), puis la présidence est restée vacante ticks 18-31 (44 % du run) — tout le pan
+  « redevabilité » du modèle à zéro strict sur ces 14 ticks, vérifié dans le journal.
+
+**Points bloquants**
+- `coalition_decision` reste un effondrement non expliqué — ni framing adversarial, ni
+  alignement/RLHF, ni C3, ni précision de quantification ne l'expliquent. Deux hypothèses
+  non tranchées : mauvaise référence choisie côté prompt, ou « rejoindre sur invitation » est une
+  politique institutionnellement plausible indépendante de la distance de plateforme — auquel cas
+  la réponse du modèle serait correcte, pas effondrée.
+- `candidacy_considered` continue de violer la clause C3 (référence de population absente du
+  prompt) ; la tentative de calibration a empiré l'exactitude plutôt que de la corriger — le
+  véhicule est à repenser, pas juste à finir.
+- Stage 4 est débloqué mais soulève une vraie question de conception avant d'être lancé : un
+  plancher de légitimité automatique a recalé un président venant de GAGNER un vote de confiance
+  populaire explicite ; Track A empêche désormais ce cas précis (A2), mais la question de fond
+  (le plancher doit-il pouvoir écraser un vote populaire) reste posée devant toute décision de
+  lancer le run de 30 ans.
+- Track E n'est pas câblé dans le run flagship — le changement d'ordre RNG qu'il force reste à
+  re-baseliner, tâche explicitement renvoyée à Track D.
+
+**Décisions prises**
+- Construire `scripts/check_run_liveness.py` plutôt que de fixer un seuil de temps arbitraire pour
+  juger un run figé — *pourquoi* : le seul test honnête de vivacité est de consulter le serveur
+  d'inférence lui-même, exactement ce que la mauvaise lecture du matin même n'avait pas fait.
+- Ne pas rejouer Track B6 corrigé sur la matrice de calibration de `pressure_action` — *pourquoi* :
+  la conclusion déjà tirée tenait déjà par une preuve indépendante (12/12 citoyens alternés).
+- Ne pas câbler Track E dans le run flagship malgré des tests verts — *pourquoi* : le changement
+  d'ordre de tirage RNG qu'il force est une frontière de version à re-baseliner, du ressort de
+  Track D, pas de celui-ci.
+- Écrire l'ADR-008 maintenant mais différer toute implémentation — *pourquoi* : son propre critère
+  de lancement (les effondrements connus corrigés) n'est que partiellement rempli.
+
+**Prochaines étapes**
+- [ ] Retenter `coalition_decision` sous un angle différent de C3, ou documenter le verdict
+      « réponse correcte, pas effondrée » comme hypothèse retenue.
+- [ ] Statuer sur le plancher de légitimité pouvant recaler un président venant de gagner un vote
+      de confiance — question nommée par le `TIMELINE.md` du Stage 3, à trancher avant Stage 4.
+- [ ] Câbler Track E après le re-baseline RNG que Track D doit produire.
+- [ ] Reprendre `candidacy_considered` avec un véhicule différent, la calibration C3 ayant empiré
+      l'exactitude.
+
+**Pour aller plus loin** : `docs/exploration/EXP-015-hook-taskcompleted-recit-run-polity.md`,
+`docs/plan/polity/lets-build-a-solid-spicy-otter.md` (Tracks A-E), `docs/adr/ADR-008-law-system-
+seam-bounds-and-comparability.md`, `docs/plan/polity/polity-decision-contracts.md` §3,
+`fast_api_voter/scripts/flagship_runs/` (Stage 3, `TIMELINE.md`).
+
+---
+
 ## 2026-09-10 (soir) → 2026-09-11 — `pressure_action` calibré livré, trois runs tués sur quatre jours par un repli manquant, et un run figé qui avait l'air vivant
 
 **Contexte du jour.** Session continue, ouverte pour livrer la Phase E du plan de calibration de
