@@ -35,6 +35,15 @@
 # (a real regression), never on a rise -- an improvement is reported and
 # suggested for `--update`, not forced.
 #
+# KNOWN LIMITATION: the tolerance means two separate real regressions, each
+# smaller than NOISE_TOLERANCE_PP on its own, can each land as a green "holds
+# at baseline" and only the second trips the gate -- against the ORIGINAL
+# baseline, not the first regression's commit. This runs on `push` to
+# develop, not per-PR, so that's a real (if narrow) gap between commits, not
+# just a race within one. If a failure here doesn't look explained by the
+# triggering commit alone, check whether the baseline itself is already
+# stale from an earlier below-tolerance drop.
+#
 # Usage:
 #   ./scripts/check_mutation_score.sh <mutmut-run.log>              # check (CI)
 #   ./scripts/check_mutation_score.sh <mutmut-run.log> --update     # accept current score as the new baseline
@@ -47,18 +56,38 @@ set -euo pipefail
 
 export PYTHONIOENCODING=utf-8
 
-BASELINE=".github/mutation-baseline.json"
-NOISE_TOLERANCE_PP=0.3
-
 LOG="${1:?usage: $0 <mutmut-run.log> [--update]}"
 UPDATE=0
-[[ "${2:-}" == "--update" ]] && UPDATE=1
+case "${2:-}" in
+  "") ;;
+  --update) UPDATE=1 ;;
+  *)
+    echo "🔴 Unrecognized second argument: ${2}" >&2
+    echo "   Usage: $0 <mutmut-run.log> [--update]" >&2
+    exit 1
+    ;;
+esac
 
 [[ -f "$LOG" ]] || {
   echo "🔴 $LOG not found — mutmut did not produce a log." >&2
   echo "   Refusing to report a passing score on absent data." >&2
   exit 1
 }
+
+# Resolve LOG to an absolute path before the repo-root `cd` below -- otherwise
+# a path relative to some OTHER cwd (e.g. run from fast_api_voter/, as the
+# mutmut invocation right before this one in the workflow and SKILL.md both
+# are) would silently resolve against the wrong directory once we've moved.
+LOG="$(cd -- "$(dirname -- "$LOG")" &>/dev/null && pwd)/$(basename -- "$LOG")"
+
+# Same repo-root anchor as check_quality_ratchet.sh, for the same reason:
+# BASELINE below is a path relative to the repo root, not to wherever this
+# script happens to be invoked from.
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+cd "$SCRIPT_DIR/.."
+
+BASELINE=".github/mutation-baseline.json"
+NOISE_TOLERANCE_PP=0.3
 
 python - "$LOG" "$BASELINE" "$UPDATE" "$NOISE_TOLERANCE_PP" <<'PY'
 import json
@@ -86,6 +115,7 @@ if not matches:
     sys.exit(1)
 
 m = matches[-1]  # the final redraw is the complete one
+done = int(m["done"])
 total = int(m["total"])
 killed = int(m["killed"])
 survived = int(m["survived"])
@@ -93,6 +123,19 @@ timeout = int(m["timeout"])
 
 if total == 0:
     print("🔴 mutmut reported 0 mutants — nothing was measured.", file=sys.stderr)
+    sys.exit(1)
+
+# A crash or kill partway through (this pipeline's had both -- see the
+# numpy/mutmut 3.7.0 in-process-crash history in pyproject.toml's
+# [tool.mutmut] notes) still leaves a real progress line behind, just one
+# where done < total. Scoring killed/TOTAL against an incomplete run would
+# understate the score using the FULL population as the denominator and
+# report a false regression -- worse, it would look identical to a real one.
+if done != total:
+    print(f"🔴 mutmut only processed {done}/{total} mutants -- the run did not finish.", file=sys.stderr)
+    print("   Scoring a partial run against the full mutant population would", file=sys.stderr)
+    print("   silently understate the score and report a false regression.", file=sys.stderr)
+    print("   Find out why the run stopped short and re-run it. Not guessing.", file=sys.stderr)
     sys.exit(1)
 
 score = 100.0 * killed / total
