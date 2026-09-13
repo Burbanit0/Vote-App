@@ -162,7 +162,7 @@ has, or deliberately lacks, a deterministic counterpart, and that choice is docu
 
 | decision | dt | unit | think | chunking | degradation if the model fails |
 |---|---|---|---|---|---|
-| `vote_cast` | 1 | citizen | ✅ | 3 (vLLM) / 1 (Ollama) | ✅ deterministic ballot |
+| `vote_cast` | 1 | citizen | ✅ | per served model, below | ✅ deterministic ballot |
 | `candidacy_considered` | 2 | citizen | ❌ | 25 | ✅ ambition threshold |
 | `party_nomination_choice` | 4 | contested party | ❌ | none | ✅ highest-ambition tiebreak |
 | `campaign_positioning` | 5 | nominee | ✅ | none | ✅ sincere platform, no shift |
@@ -170,7 +170,29 @@ has, or deliberately lacks, a deterministic counterpart, and that choice is docu
 | `reaction_to_event` | 8 | citizen (pop-wide) | ❌ | 25 | ✅ flat baseline delta |
 | `coalition_decision` | 9 | party × round | ❌ | none | ⚠️ aborts the negotiation |
 | `pressure_action` | 10 | consulted citizen | ❌ | **1** | ✅ deterministic pressure rule |
-| `chamber_deliberation` | 11 | chamber member | ✅ | 5 (vLLM) / 1 (Ollama) | ✅ sincere, no shift |
+| `chamber_deliberation` | 11 | chamber member | ✅ | per served model, below | ✅ sincere, no shift |
+
+<!-- [[[cog
+import cog
+from api.domain.polity.model_profiles import PROFILES
+cog.outl("Measured per served model -- generated from `api/domain/polity/model_profiles.py` (S2.3);")
+cog.outl("`scripts/check_generated_docs.sh` fails CI when this table and the code disagree.")
+cog.outl("")
+cog.outl("| served model | weights | thinking switch | context limit | `vote_cast` chunk | `chamber_deliberation` chunk | thinking budget: vote / chamber / positioning |")
+cog.outl("|---|---|---|---|---|---|---|")
+for (provider, model), p in sorted(PROFILES.items()):
+    switch = p.thinking.field if p.thinking.key is None else f"{p.thinking.field}.{p.thinking.key}"
+    context = "not sized against" if p.context_limit is None else f"{p.context_limit} (probed)" if p.probe_token_budget else str(p.context_limit)
+    cog.outl(f"| `{model}` on {provider} | {p.weights} | `{switch}` | {context} | {p.vote_cast_chunk_size} | {p.chamber_chunk_size} | {p.vote_think_allowance} / {p.chamber_think_allowance} / {p.positioning_think_allowance} |")
+]]] -->
+Measured per served model -- generated from `api/domain/polity/model_profiles.py` (S2.3);
+`scripts/check_generated_docs.sh` fails CI when this table and the code disagree.
+
+| served model | weights | thinking switch | context limit | `vote_cast` chunk | `chamber_deliberation` chunk | thinking budget: vote / chamber / positioning |
+|---|---|---|---|---|---|---|
+| `qwen3:8b` on ollama | qwen3:8b (Ollama library GGUF) | `chat_template_kwargs.enable_thinking` | not sized against | 1 | 1 | 12000 / 8000 / 8000 |
+| `qwen3:8b` on vllm | Qwen/Qwen3-8B-AWQ | `chat_template_kwargs.enable_thinking` | 16384 (probed) | 3 | 5 | 12000 / 8000 / 8000 |
+<!-- [[[end]]] -->
 
 As of 2026-09-11 **no decision type can end a run on a bad batch**. Eight substitute their own §11.4
 deterministic baseline — the arm the LLM path was built to be compared against — and flag it in the
@@ -436,15 +458,38 @@ choices follow from it.
 |---|---|
 | `events.jsonl` | The journal. 9 fields per line, **no wall-clock timestamp** (it would break byte-identity). Ordering is `event_id`, flushed per write |
 | `snapshots.jsonl` | Per-citizen census, once per simulated year. Positions/role/party — **not** legitimacy or pressure |
-| `checkpoint.json` | Per-tick resumable state incl. 3 RNG stream positions and a `config_hash` that refuses a mismatched resume |
-| `progress.json` | Live status: tick, ETA, decisions by type, retries, fallbacks. The only artifact with a wall-clock timestamp |
-| `digest.json` / `digest.jsonl` | **Written on every ending** — completed, crashed or interrupted. Per-year counts of all 30 event types, population impact, terms, outcome. One appended line per attempt |
+| `run_metadata.json` | What the run ran under (S0.4): commit and dirty paths, prompt-source hash, the vLLM version, image and weights revision it actually talked to, the model profile, run shape, overrides against the shipped YAML, start time, and one entry per resume |
+| `config.json` | The full resolved config, overrides included |
+| `checkpoint.json` | Per-tick resumable state (`TickState`, S3.4) incl. 3 RNG stream positions and a `config_hash` that refuses a mismatched resume |
+| `progress.json` | Live status: tick, ETA, decisions by type, retries, fallbacks |
+| `llm_calls.jsonl`, `llm_calls_summary.json` | LLM runs only (S0.5): one line per model call -- tokens, latency, finish reason, reasoning, content -- and the writer's totals. LLM events carry `llm_call_id`; `scripts/attribute_llm_time.py` reads it, and `--replay-calls-from` replays the run from it (S0.6) |
+| `digest.json` / `digest.jsonl` | **Written on every ending** — completed, crashed or interrupted. Per-year counts of every event type, population impact, terms, outcome. One appended line per attempt |
 | `viz_export.json`, `metrics.json`, `events.duckdb` | Post-run only, i.e. **only if the run finished cleanly** |
 | `replays.log` | Every rejected batch, with the reason. Appended across resumed attempts |
 | `TIMELINE.md` | The human-readable story, written from the digest by the `run-narrator` agent |
 
-**30 event types** can be journaled. The digest reports a count for every one of them, per year,
-including zeros — so "this did not happen" is distinguishable from "nobody looked".
+<!-- [[[cog
+import cog
+from api.domain.polity.events import EVENT_TYPES
+institutional = sorted(t for t, c in EVENT_TYPES.items() if c.INSTITUTIONAL)
+decisions = sorted(t for t, c in EVENT_TYPES.items() if c.LLM_DECISION)
+other = sorted(t for t, c in EVENT_TYPES.items() if not c.INSTITUTIONAL and not c.LLM_DECISION)
+cog.outl(f"**{len(EVENT_TYPES)} event types** can be journaled -- generated from the registry in")
+cog.outl("`api/domain/polity/events.py` (S3.3), checked by `scripts/check_generated_docs.sh`:")
+cog.outl("")
+for label, names in (("institutional", institutional), ("LLM decisions", decisions), ("other", other)):
+    cog.outl(f"- {label} ({len(names)}): " + ", ".join(f"`{n}`" for n in names))
+]]] -->
+**31 event types** can be journaled -- generated from the registry in
+`api/domain/polity/events.py` (S3.3), checked by `scripts/check_generated_docs.sh`:
+
+- institutional (14): `coalition_failed`, `coalition_formed`, `confidence_vote_result`, `confidence_vote_triggered`, `economic_shock_tick`, `elected`, `election_invalidated`, `election_no_winner`, `legislative_result`, `petition_expired`, `petition_launched`, `recalled`, `scandal_occurred`, `snap_election_triggered`
+- LLM decisions (9): `campaign_positioning`, `candidacy_considered`, `chamber_deliberation`, `coalition_decision`, `party_nomination_choice`, `pressure_action`, `reaction_to_event`, `representative_response`, `vote_cast`
+- other (8): `candidacy_declared`, `clamped_at_bound`, `legitimacy_updated`, `mandate_deviation_recorded`, `mandate_pledge_declared`, `nomination_lost`, `petition_signed`, `sortition_rotation`
+<!-- [[[end]]] -->
+
+The digest reports a count for every one of them, per year, including zeros — so "this did not
+happen" is distinguishable from "nobody looked".
 
 ---
 
