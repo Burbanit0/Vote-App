@@ -293,6 +293,59 @@ paired McNemar and Cochran's Q with Holm correction. Generated JSON and Markdown
 candidate order and cids shuffled, to tell a pick that follows the candidate from one that
 follows the listed position (OBS-013); candidacy against the ambition threshold (OBS-011).
 
+*Made precise when built, 2026-09-13* (`bakeoff_cases`, `bakeoff_runner`,
+`bakeoff_scorecard`, `bakeoff_statistics`, `bakeoff_report`; scripts `bakeoff_cases.py`,
+`run_bakeoff.py`, `bakeoff_report.py`):
+
+- **Case bank.** `scripts/bakeoff/case_bank.jsonl`, 94 cases in ten families. Each case is
+  captured by running a production `decide_*` function against a capturing client, so it
+  is the request production sends, not a copy of prompt code. Captured candidacy, vote and
+  positioning requests are byte-identical to production's (tested). The generated seed-1
+  candidacy requests also match the 20 the live p500 run logged at tick 0.
+  - **Shapes.** Cases are rendered at the reference model's production shapes: the
+    flagship runner's config (the p500 batch's), vLLM qwen3:8b, seed 42. Every model answers
+    the same requests, so comparisons are paired. Only `max_tokens` follows each model's
+    profile, by the rule production uses (fixed, prompt-token probe, or profile allowance).
+  - **Families.**
+    - `logprob_gate`: 16 voters, 8 with a blank sincere ballot.
+    - Ground truth: `candidacy_p500` (500 citizens; truth is the ambition threshold);
+      `vote_first_choice` (40 voters, 20 blank and 20 ranked; the 300-citizen electorate has
+      only 31 blank ballots); `pressure_act` (12 citizens far above their tolerance and 12
+      far below, asked one at a time).
+    - Contrasts: `response_sweep` (9 points); `coalition_diagonal` (5 points); `reaction_scandal`,
+      `chamber_poles` and `positioning_poles` (2 poles each).
+    - Permutation: `nomination_permutation` (five p100 populations, each with cids reversed).
+  - **Frozen.** A bank changes only on purpose: `bakeoff_cases.py check` verifies the hash and
+    reports where production renders differently today, without failing.
+- **Per model.** One session of cases, in order:
+  - warm-up, with the thinking gate read off its two calls;
+  - the logprob gate: all 16 units aligned, or no probability is read anywhere in the session;
+  - every case;
+  - every tenth case by id, re-run for the noise floor.
+  - A session resumes where it stopped. `--replay-calls-from` answers cases from a recorded call
+    log without a GPU.
+- **Scorecard definitions.**
+  - **Validity:** the answer decodes into a batch production accepts.
+  - **Accuracy:** an invalid request's units count as wrong.
+  - **Sensitivity:** the separation between the poles of the probability read at each level;
+    flat is |separation| < 0.10, S2.4's bar. Contrasts with no single-token field (reaction,
+    positioning) report whether answers vary, not a separation.
+  - **Permutation:** how often the pick names the same citizen, the same listed position, or
+    the last one.
+- **Deviation from the probes.** The coalition diagonal stops one seat short of a majority. The
+  probe's last two points had no shortfall, and production asks nobody then.
+- **Acceptance, pre-registered here before any live session.** Read on the Qwen3-8B-AWQ
+  control:
+  - `candidacy_p500`: 202 of 500 declared and 318 of 500 agreeing with the threshold.
+  - `coalition_decision`: flat.
+  - `representative_response`: Track B1's shipped reading, since its calibrated prompt shipped
+    on 2026-09-11. P(CONCESSION) spreads by less than 0.10 wherever there is pressure (t > 0),
+    and is below 0.5 at the one point with none (t = 0). "Flat" in the criterion above is read
+    as this.
+  - **Open:** the logprob readings need one live GPU session. The candidacy half needs none: the
+    p500 batch's seed-42 run sends exactly those requests, so replaying its call log checks it.
+    Until then this step has no *Closed by*.
+
 ### S2.3 Minimal model profiles and model override
 Thinking control per family (`enable_thinking`, `thinking`, `reasoning_effort`, or none),
 context limit, chunk sizes and budgets keyed by model rather than by provider; `--model`
