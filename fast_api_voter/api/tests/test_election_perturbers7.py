@@ -87,6 +87,64 @@ class TestInterpret:
         r = client.post("/api/v2/election/interpret", json=bad)
         assert r.status_code == 400, r.text
 
+    def test_no_condorcet_winner_uses_arrow_pedagogical_note(self, client):
+        # Cyclical preferences (Arrow's paradox): no Condorcet winner exists.
+        # Exercises the "not condorcet_exists" branch shared by the
+        # condorcet-analysis, divergence-reason and pedagogical-note steps.
+        bad = {
+            **self.payload,
+            "methods": {"plurality": {"winner": "Alice"}, "borda": {"winner": "Bob"}},
+            "condorcet_winner": None,
+            "condorcet_exists": False,
+        }
+        body = client.post("/api/v2/election/interpret", json=bad).json()
+        assert "n'existe pas de vainqueur de Condorcet" in body["condorcet_analysis"]
+        assert body["divergence_reason"] == body["condorcet_analysis"]
+        assert "Arrow" in body["pedagogical_note"]
+
+    def test_condorcet_spoiler_when_plurality_differs(self, client):
+        # Condorcet winner and plurality winner disagree: classic spoiler
+        # effect. Exercises the spoiler branch in both condorcet-analysis
+        # and divergence-reason.
+        bad = {
+            **self.payload,
+            "methods": {"plurality": {"winner": "Bob"}, "borda": {"winner": "Alice"}},
+            "condorcet_winner": "Alice",
+            "condorcet_exists": True,
+        }
+        body = client.post("/api/v2/election/interpret", json=bad).json()
+        assert "spoiler" in body["condorcet_analysis"].lower()
+        assert body["divergence_reason"] == body["condorcet_analysis"]
+
+    def test_high_blank_rate_flags_analysis(self, client):
+        bad = {**self.payload, "blank_rate": 0.35}
+        body = client.post("/api/v2/election/interpret", json=bad).json()
+        assert body["blank_analysis"] is not None
+        assert "35" in body["blank_analysis"]
+
+    def test_high_agreement_uses_consensus_pedagogical_note(self, client):
+        bad = {**self.payload, "inter_method_agreement": 0.9}
+        body = client.post("/api/v2/election/interpret", json=bad).json()
+        assert "Condorcet" in body["pedagogical_note"]
+        assert "Arrow" not in body["pedagogical_note"]
+
+    def test_full_consensus_reuses_condorcet_analysis_as_divergence_reason(self, client):
+        # All methods agree on the same winner: a single method_group, so
+        # divergence_reason short-circuits to the condorcet_analysis text
+        # rather than recomputing a spoiler check.
+        bad = {
+            **self.payload,
+            "methods": {
+                "plurality": {"winner": "Alice"},
+                "borda":     {"winner": "Alice"},
+                "irv":       {"winner": "Alice"},
+            },
+            "inter_method_agreement": 1.0,
+        }
+        body = client.post("/api/v2/election/interpret", json=bad).json()
+        assert len(body["method_groups"]) == 1
+        assert body["divergence_reason"] == body["condorcet_analysis"]
+
 
 # ── /quadratic-funding ──────────────────────────────────────────────────────
 
