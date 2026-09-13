@@ -306,6 +306,102 @@ identiques ni couvrant tout le lot.
   un "log call" valide — sinon le job Semgrep gating de `audit.yml` aurait
   régressé sur les 18 sites "handler wrapping") tous verts.*
 
+*Mise à jour du 2026-09-12 (quater) — §7 "chantiers plus lourds" item 1
+traité (déduplication des clones jscpd entre `workers*.py`/
+`election_service.py`, plus le doublon interne à `simulation_ranked_utils.py`).
+Le chiffre du §4 avait déjà glissé depuis la dernière mesure (passes RNG et
+refurb/perflint récentes ont déplacé des lignes) — re-dérivé avec
+`npx jscpd --config .jscpd.json fast_api_voter/api voter-app/src` avant de
+toucher quoi que ce soit : 13 clones backend sur les 32 totaux, tous dans le
+cluster ciblé, les 19 autres (frontend `components/`/`lib/`) volontairement
+laissés de côté (hors périmètre de cet item).
+
+Lire le code réel derrière chaque paire a montré qu'il ne s'agissait pas de
+13 problèmes indépendants mais de **5 blocs canoniques** copiés-collés
+chacun dans plusieurs fichiers, plus un sixième découvert pendant
+l'extraction elle-même (voir plus bas) :
+
+1. **Le bloc de parsing `blank_vote`/`information_model`/`campaign`**
+   (`election_service.py` `ElectionService.simulate` ↔ `workers.py`
+   `_simulate_pipeline_worker`) → `parse_optional_election_configs()`,
+   nouvelle fonction dans `_helpers.py` (déjà importé par les deux fichiers).
+   La vérification candidats (`if len(cand_specs) < 2: ...`) reste dupliquée
+   volontairement : elle dépend du `cand_specs` de chaque appelant, construit
+   avec un défaut/plafond différent (`SINGLE_WINNER_CAP` côté service, `[:6]`
+   côté pipeline) — pas une duplication réelle.
+2. **Le bloc de contagion du vote blanc** (SIS + réduction du
+   `blank_threshold`) → `_apply_blank_contagion()`, nouvelle fonction dans
+   `_electorate.py`. jscpd n'en avait flaggé qu'une paire
+   (`election_service.py` ↔ `workers.py` `_campaign_sensitivity_worker`),
+   mais le même bloc, octet pour octet, existait en réalité **5 fois**
+   (les 3 autres : `_divergence_worker`, `_combined_effects_worker`,
+   `_simulate_pipeline_worker`, toutes dans `workers.py`) — les 4 non
+   flaggées par jscpd (probablement une fenêtre de correspondance qui ne
+   s'alignait pas à cause du contexte environnant) ont été vérifiées une par
+   une (mêmes noms de paramètres, même calcul ; seul ce que l'appelant fait
+   du taux final après coup diffère, ce que la fonction autorise en le
+   retournant plutôt qu'en l'imposant).
+3. **Le bloc "reseed global + construire l'électorat"** (`_random.seed`/
+   `_np.random.seed`/`_build_base_electorate`, le pattern *legacy* qui a
+   précédé le couple `_seeded_rng_pair`/RNG locale documenté sur
+   `election_service.py`) → `_reseed_and_build_electorate()`, nouvelle
+   fonction dans `_electorate.py`. C'est le plus gros cluster : jscpd en
+   avait flaggé 13 physiquement distincts via 7 paires qui se recoupaient
+   (ex. `workers_advanced.py:366-382` matchait à la fois avec
+   `workers_behavioral.py:41-57` ET `:167-183` — un seul bloc canonique, pas
+   deux problèmes). Vérification site par site (mêmes 4 lignes,
+   caractère pour caractère) a trouvé **3 sites de plus** que les 13
+   flaggés — `_liquid_democracy_worker` et `_ballot_complexity_worker`
+   (`workers_behavioral.py`), `_gerrymander_worker`
+   (`workers_mechanisms.py`) — repérés mécaniquement en appliquant le
+   remplacement partout où le texte matchait exactement. **16 sites au
+   total** utilisent désormais cette fonction unique : `workers_advanced.py`
+   (`_compulsory_voting_worker`, `_deliberation_worker`),
+   `workers_behavioral.py` (`_cascade_worker`, `_behavioral_biases_worker`,
+   `_liquid_democracy_worker`, `_nota_worker`, `_ballot_complexity_worker`,
+   `_shy_voter_worker`, `_electoral_fatigue_worker`), `workers_dynamics.py`
+   (`_hotelling_worker`, `_affective_polarization_worker`),
+   `workers_mechanisms.py` (`_adaptive_worker`, `_abstention_worker`,
+   `_stv_worker`, `_gerrymander_worker`, `_multiwinner_compare_worker`).
+   Le défaut de candidats et son plafond (`[:6]`/`[:8]`, Carol à 0.1 ou 0.3
+   selon le fichier) restent propres à chaque site — jamais partagés, jamais
+   part du bloc dupliqué.
+4. **Le résidu STV/multi-gagnant** — une fois (3) extrait, jscpd a révélé un
+   **cinquième** clone que ni lui ni cette liste n'avaient vu au départ : le
+   défaut à 4 candidats + les deux vérifications (`len(cand_specs) < 2` et
+   `num_seats >= len(cand_specs)`) partagées par `_stv_worker` et
+   `_multiwinner_compare_worker` (`workers_mechanisms.py`) redevenaient un
+   bloc de 16 lignes autonome une fois le bloc (3) qui les suivait retiré.
+   Factorisé dans la foulée : `_validate_multiwinner_candidates()` +
+   `_MULTIWINNER_DEFAULT_CANDIDATES`, fonctions/constante privées ajoutées
+   directement dans `workers_mechanisms.py` (usage strictement local aux
+   deux workers, pas de raison de le partager plus largement).
+5. **Le doublon interne à `simulation_ranked_utils.py`** (rassembler
+   `ballots`/`all_cands` à partir de `votes`) → `_ballots_and_candidates()`,
+   nouvelle fonction privée dans le même fichier, utilisée par
+   `get_benham_winner` et `get_smith_irv_winner`. La boucle IRV qui suit
+   n'a PAS été fusionnée malgré une ressemblance de surface : `get_benham_winner`
+   y insère une vérification Condorcet à chaque tour que `get_smith_irv_winner`
+   n'a pas (Condorcet-IRV vs Smith-IRV sont deux méthodes différentes) — jscpd
+   ne l'avait d'ailleurs pas flaggée non plus, cohérent avec le fait que ce
+   n'est pas une vraie duplication.
+
+Chaque extraction est un refactor pur — mêmes noms de paramètres, même
+calcul, même ordre d'exécution — vérifié par la suite backend complète
+(aucune régression), `mypy api/` (clean) et `ruff check fast_api_voter`
+(0 erreur). `simulation_ranked_utils.py` étant un des deux fichiers du
+moteur double documentés par CLAUDE.md : `./scripts/check_engine_parity_drift.sh`
+regénère `engineParity.json` **octet pour octet identique** au fichier commité
+(aucune dérive — attendu, ces deux fonctions ne changent pas de sortie) et
+`playgroundVoting.parity.test.ts` reste vert (49/49). `lint-imports` (contrat
+`routes → domain → engine`) reste à 0 violation.
+
+**Résultat** : jscpd 32 → 19 clones ; le cluster backend ciblé passe de 13 à
+**0** (les 19 restants sont exactement les clones frontend `components/`/
+`lib/`, hors périmètre, inchangés). `.github/quality-baseline.json` mis à
+jour (`jscpd_clones: 32 → 19`) via `./scripts/check_quality_ratchet.sh
+--update` — `vulture`/`radon`/`deptry`/`knip` inchangés (0/135/0/93).*
+
 ---
 
 ## 1. Garde-fous déjà en place (avant cet audit)
@@ -474,6 +570,19 @@ fichiers : du code a bien été copié-collé **entre** ces fichiers workers
 plutôt que factorisé, et `election_service.py` duplique de la logique déjà
 présente dans `workers.py`.
 
+**Traité le 2026-09-12** (voir la mise à jour en tête de ce document,
+« quater ») : le cluster `election_service.py`/`workers*.py`/
+`simulation_ranked_utils.py` ci-dessus — 13 clones sur un total qui avait
+entre-temps glissé à 32 (passes RNG et refurb/perflint postérieures au
+2026-09-06) — est éliminé. Regroupé en 5 blocs de contenu réellement
+identique (pas 13 problèmes indépendants) et factorisé dans
+`_electorate.py`, `_helpers.py`, `workers_mechanisms.py` et
+`simulation_ranked_utils.py` lui-même ; détail complet, y compris les 4
+sites supplémentaires trouvés en lisant le code plutôt qu'en se fiant aux
+seules paires jscpd, dans la mise à jour datée. `jscpd` : 32 → 19 clones,
+tous frontend (`components/`/`lib/`) désormais — la mesure python de ce scan
+est passée à 0.
+
 **Note positive :** `voter-app/src/api/client.ts` (client typé généré) vs
 `voter-app/src/services/*Api.ts` (wrappers domaine) **n'est pas** une
 duplication — le fichier `client.ts` documente lui-même explicitement le
@@ -622,8 +731,11 @@ refactor) — à traiter dans une passe de nettoyage dédiée.
    plan de solidité technique) ; `npm run knip` 104 → 93.
 
 **Chantiers plus lourds (à planifier, pas à improviser en une PR) :**
-1. Factoriser les blocs dupliqués identifiés en §4 entre les fichiers
-   `workers*.py` et entre `election_service.py`/`workers.py`.
+1. ✅ Factoriser les blocs dupliqués identifiés en §4 entre les fichiers
+   `workers*.py` et entre `election_service.py`/`workers.py`. Fait le
+   2026-09-12 : voir la mise à jour datée « quater » en tête de ce document
+   pour le détail (5 clusters réels, 16+ sites, `jscpd` 32 → 19 — la mesure
+   backend passe à 0).
 2. Évaluer une consolidation architecturale de `domain/election/workers*.py`
    (toujours 6 fichiers, 7 851 lignes cumulées au 2026-09-06, contre 7 250 en
    août) — probablement vers un découpage par responsabilité plutôt

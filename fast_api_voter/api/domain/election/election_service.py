@@ -27,12 +27,13 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 from api.engine.constants import DEFAULT_ISSUES
+from api.domain.election._electorate import _apply_blank_contagion
 from api.domain.election._helpers import (
     SINGLE_WINNER_CAP,
     build_candidate_from_xy,
     inter_method_agreement,
+    parse_optional_election_configs,
 )
-from api.engine.utils.blank_contagion import simulate_blank_contagion
 from api.engine.utils.blank_vote_rules import BlankVoteRule, apply_blank_rule
 from api.engine.utils.campaign_dynamics import simulate_campaign
 from api.engine.utils.demographic_data import _seeded_rng_pair
@@ -70,19 +71,11 @@ class ElectionService:
             {"name": "Carol", "x":  0.0, "y":  0.3},
         ])[:SINGLE_WINNER_CAP]
 
-        blank_cfg       = data.get("blank_vote", {}) or {}
-        blank_enabled   = bool(blank_cfg.get("enabled", False))
-        blank_rule_str  = str(blank_cfg.get("rule", "symbolic"))
-        contagion_cfg   = blank_cfg.get("contagion", {}) or {}
-        contagion_on    = bool(contagion_cfg.get("enabled", False))
-
-        info_cfg        = data.get("information_model", {}) or {}
-        info_enabled    = bool(info_cfg.get("enabled", False))
-
-        campaign_cfg    = data.get("campaign", {}) or {}
-        campaign_on     = bool(campaign_cfg.get("enabled", False))
-        num_days        = max(7, min(60, int(campaign_cfg.get("num_days",       30))))
-        polling_effect  = max(0.0, min(1.0, float(campaign_cfg.get("polling_effect", 0.3))))
+        (
+            blank_enabled, blank_rule_str, contagion_cfg, contagion_on,
+            info_cfg, info_enabled, campaign_cfg, campaign_on,
+            num_days, polling_effect,
+        ) = parse_optional_election_configs(data)
 
         if len(cand_specs) < 2:
             return {"error": "At least 2 candidates required"}, 400
@@ -156,24 +149,7 @@ class ElectionService:
 
         # ── 5. Blank-vote contagion (optional) ────────────────────────────
         if contagion_on and blank_enabled:
-            beta    = max(0.0, min(1.0, float(contagion_cfg.get("beta",  0.15))))
-            gamma   = max(0.0, min(1.0, float(contagion_cfg.get("gamma", 0.10))))
-            net_map = {"random": "random", "watts_strogatz": "small-world", "block": "clustered"}
-            net     = net_map.get(str(contagion_cfg.get("network", "random")), "random")
-
-            contagion_result = simulate_blank_contagion(
-                num_voters=num_voters,
-                initial_blank_rate=0.05,
-                contagion_rate=beta,
-                recovery_rate=gamma,
-                num_rounds=10,
-                network_type=net,
-                seed=seed,
-            )
-            final_blank_rate = contagion_result.get("final_blank_rate", 0.05)
-            threshold_reduction = final_blank_rate * 0.4
-            for v in voters:
-                v["blank_threshold"] = max(0.05, v["blank_threshold"] - threshold_reduction)
+            _apply_blank_contagion(voters, contagion_cfg, num_voters, seed)
 
         # ── 6. Information model (optional) ───────────────────────────────
         effective_utilities = true_utilities

@@ -28,7 +28,7 @@ from api.engine.utils.simulation_multiwinner_utils import (
     get_stv_result, get_dhondt_winners, get_spav_result, get_phragmen_result,
     get_equal_shares_result, check_justified_representation,
 )
-from ._electorate import _build_base_electorate
+from ._electorate import _build_base_electorate, _reseed_and_build_electorate
 from ._helpers import dhondt as _dhondt
 
 log = get_logger(__name__)
@@ -106,12 +106,8 @@ def _adaptive_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
 
-    _random.seed(seed)
-    _np.random.seed(seed)
-    issues = DEFAULT_ISSUES
-
-    candidates, voters, true_utilities, cand_names = _build_base_electorate(
-        cand_specs, num_voters, ideology, seed, issues
+    candidates, voters, true_utilities, cand_names, issues = _reseed_and_build_electorate(
+        cand_specs, num_voters, ideology, seed
     )
 
     # Each voter's sincere ranking (fixed for the whole simulation)
@@ -658,12 +654,8 @@ def _abstention_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
 
-    _random.seed(seed)
-    _np.random.seed(seed)
-    issues = DEFAULT_ISSUES
-
-    candidates, voters, true_utilities, cand_names = _build_base_electorate(
-        cand_specs, num_voters, ideology, seed, issues
+    candidates, voters, true_utilities, cand_names, issues = _reseed_and_build_electorate(
+        cand_specs, num_voters, ideology, seed
     )
 
     # Voter positions for the abstention_map (SVG ideology overlay)
@@ -809,6 +801,32 @@ def _abstention_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
 # ── STV endpoint ──────────────────────────────────────────────────────────────
 
+# Shared by /stv and /multiwinner_compare — the default 4-candidate field and
+# the two-candidate-checks validation used to be copy-pasted between the two
+# workers (jscpd-flagged, CODE_AUDIT.md §4/§7).
+_MULTIWINNER_DEFAULT_CANDIDATES: List[Dict[str, Any]] = [
+    {"name": "Alice", "x": -0.5, "y": -0.2},
+    {"name": "Bob",   "x":  0.5, "y":  0.2},
+    {"name": "Carol", "x":  0.0, "y":  0.3},
+    {"name": "Dave",  "x": -0.2, "y":  0.5},
+]
+
+
+def _validate_multiwinner_candidates(
+    cand_specs: List[Dict[str, Any]], num_seats: int
+) -> Optional[tuple[Dict[str, Any], int]]:
+    """At least 2 candidates, and fewer seats than candidates.
+
+    Returns the (body, status) error tuple to return immediately, or None
+    when the input is valid.
+    """
+    if len(cand_specs) < 2:
+        return {"error": "At least 2 candidates required"}, 400
+    if num_seats >= len(cand_specs):
+        return {"error": "num_seats must be less than number of candidates"}, 400
+    return None
+
+
 def _stv_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     """Pure worker for /stv — extracted for FastAPI v2."""
     num_voters = max(50,  min(1000, int(data.get("num_voters",  300))))
@@ -816,24 +834,14 @@ def _stv_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     seed       = int(data.get("seed",        42))
     num_seats  = max(2,  min(10,  int(data.get("num_seats",     5))))
     quota_type = str(data.get("quota_type", "droop"))
-    cand_specs = data.get("candidates", [
-        {"name": "Alice", "x": -0.5, "y": -0.2},
-        {"name": "Bob",   "x":  0.5, "y":  0.2},
-        {"name": "Carol", "x":  0.0, "y":  0.3},
-        {"name": "Dave",  "x": -0.2, "y":  0.5},
-    ])[:8]
+    cand_specs = data.get("candidates", _MULTIWINNER_DEFAULT_CANDIDATES)[:8]
 
-    if len(cand_specs) < 2:
-        return {"error": "At least 2 candidates required"}, 400
-    if num_seats >= len(cand_specs):
-        return {"error": "num_seats must be less than number of candidates"}, 400
+    error = _validate_multiwinner_candidates(cand_specs, num_seats)
+    if error is not None:
+        return error
 
-    _random.seed(seed)
-    _np.random.seed(seed)
-    issues = DEFAULT_ISSUES
-
-    candidates, voters, true_utilities, cand_names = _build_base_electorate(
-        cand_specs, num_voters, ideology, seed, issues
+    candidates, voters, true_utilities, cand_names, issues = _reseed_and_build_electorate(
+        cand_specs, num_voters, ideology, seed
     )
 
     # Build full ranked ballots (sincere, by utility)
@@ -924,12 +932,8 @@ def _gerrymander_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     if not districts_raw:
         return {"error": "At least 1 district required"}, 400
 
-    _random.seed(seed)
-    _np.random.seed(seed)
-    issues = DEFAULT_ISSUES
-
-    candidates, voters, true_utilities, cand_names = _build_base_electorate(
-        cand_specs, num_voters, ideology, seed, issues
+    candidates, voters, true_utilities, cand_names, issues = _reseed_and_build_electorate(
+        cand_specs, num_voters, ideology, seed
     )
 
     # Map each voter's 2-D position
@@ -1067,24 +1071,14 @@ def _multiwinner_compare_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
     ideology   = str(data.get("ideology",  "random"))
     seed       = int(data.get("seed",        42))
     num_seats  = max(2,  min(10,  int(data.get("num_seats",    5))))
-    cand_specs = data.get("candidates", [
-        {"name": "Alice", "x": -0.5, "y": -0.2},
-        {"name": "Bob",   "x":  0.5, "y":  0.2},
-        {"name": "Carol", "x":  0.0, "y":  0.3},
-        {"name": "Dave",  "x": -0.2, "y":  0.5},
-    ])[:8]
+    cand_specs = data.get("candidates", _MULTIWINNER_DEFAULT_CANDIDATES)[:8]
 
-    if len(cand_specs) < 2:
-        return {"error": "At least 2 candidates required"}, 400
-    if num_seats >= len(cand_specs):
-        return {"error": "num_seats must be less than number of candidates"}, 400
+    error = _validate_multiwinner_candidates(cand_specs, num_seats)
+    if error is not None:
+        return error
 
-    _random.seed(seed)
-    _np.random.seed(seed)
-    issues = DEFAULT_ISSUES
-
-    candidates, voters, true_utilities, cand_names = _build_base_electorate(
-        cand_specs, num_voters, ideology, seed, issues
+    candidates, voters, true_utilities, cand_names, issues = _reseed_and_build_electorate(
+        cand_specs, num_voters, ideology, seed
     )
 
     # ── Build ballots ──────────────────────────────────────────────────────

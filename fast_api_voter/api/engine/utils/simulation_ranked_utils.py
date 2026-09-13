@@ -19,6 +19,35 @@ def _get_ranking(vote: Any, is_dict: bool) -> Any:
     return vote["ranking"] if is_dict else vote
 
 
+def _ballots_and_candidates(votes: list[Any]) -> Optional[tuple[list[Any], list[Any]]]:
+    """Convert *votes* into per-ballot rankings and the list of every
+    candidate that appears anywhere, in first-seen order.
+
+    Returns None when there is nothing to work with (`votes` is empty, or no
+    ballot ranks any candidate) — the two early-return cases every caller of
+    this block already needed before doing its own elimination-round logic.
+
+    Extracted from the identical block duplicated between
+    `get_benham_winner` and `get_smith_irv_winner` (jscpd-flagged internal
+    clone, CODE_AUDIT.md §4/§7). Pure extraction: same computation, same
+    early-return semantics.
+    """
+    if not votes:
+        return None
+    is_dict = _is_dict_format(votes)
+    ballots = [_get_ranking(v, is_dict) for v in votes]
+    all_cands: list[Any] = []
+    seen: set[Any] = set()
+    for ranking in ballots:
+        for c in ranking:
+            if c not in seen:
+                seen.add(c)
+                all_cands.append(c)
+    if not all_cands:
+        return None
+    return ballots, all_cands
+
+
 def get_condorcet_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
     """
     Determine the Condorcet winner from a set of rankings.
@@ -169,19 +198,10 @@ def get_benham_winner(votes: list[Any], blank_candidate_name: str = "") -> Optio
     :param votes: A list of rankings (see get_condorcet_winner for format)
     :return: The name of the Benham winner
     """
-    if not votes:
+    parsed = _ballots_and_candidates(votes)
+    if parsed is None:
         return None
-    is_dict = _is_dict_format(votes)
-    ballots = [_get_ranking(v, is_dict) for v in votes]
-    all_cands: list[Any] = []
-    seen: set[Any] = set()
-    for ranking in ballots:
-        for c in ranking:
-            if c not in seen:
-                seen.add(c)
-                all_cands.append(c)
-    if not all_cands:
-        return None
+    ballots, all_cands = parsed
 
     active = set(all_cands)
     while len(active) > 1:
@@ -1040,19 +1060,10 @@ def get_smith_irv_winner(votes: list[Any], blank_candidate_name: str = "") -> Op
     was this function's original bug, caught cross-checking against the
     independent `pref_voting` library (Lot 4.2, PLAN_SOLIDITE_TECHNIQUE.md).
     """
-    if not votes:
+    parsed = _ballots_and_candidates(votes)
+    if parsed is None:
         return None
-    is_dict = _is_dict_format(votes)
-    ballots = [_get_ranking(v, is_dict) for v in votes]
-    all_cands: list[Any] = []
-    seen: set[Any] = set()
-    for ranking in ballots:
-        for c in ranking:
-            if c not in seen:
-                seen.add(c)
-                all_cands.append(c)
-    if not all_cands:
-        return None
+    ballots, all_cands = parsed
 
     pw = _pairwise_wins(votes)
     smith = _smith_set(pw, sorted(all_cands))

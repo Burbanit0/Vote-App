@@ -3105,6 +3105,38 @@ passe pour reconnaître les deux nouveaux appels comme un log valide, sans
 quoi le job Semgrep gating de `audit.yml` aurait régressé sur les 18 sites
 "handler wrapping".
 
+**Suivi, `CODE_AUDIT.md` §7 item 1** (2026-09-12, duplication jscpd
+`workers*.py`/`election_service.py`/`simulation_ranked_utils.py`). Comme les
+items 5 et 6 ci-dessus, pas de Lot dédié dans ce plan — détail complet dans
+`CODE_AUDIT.md` lui-même (sa mise à jour datée « quater »). Pour mémoire : les
+13 clones backend du §4 (le chiffre avait déjà glissé à 32 au total depuis la
+dernière mesure) se sont révélés être 5 blocs de contenu réellement
+identique, pas 13 problèmes indépendants — lire le code derrière chaque paire
+jscpd a montré que plusieurs pointaient vers le même bloc canonique copié
+dans plus de deux fichiers. Factorisés dans `_electorate.py`
+(`_reseed_and_build_electorate`, le pattern *legacy* de reseed global +
+construction d'électorat, 16 sites au total une fois les 3 sites
+supplémentaires trouvés en vérifiant le texte plutôt qu'en se fiant aux
+seules paires jscpd ; `_apply_blank_contagion`, le bloc SIS de contagion du
+vote blanc, 5 sites), `_helpers.py` (`parse_optional_election_configs`, le
+parsing des sous-configs optionnelles `blank_vote`/`information_model`/
+`campaign`, 2 sites), `workers_mechanisms.py` en local
+(`_validate_multiwinner_candidates` — un sixième clone révélé seulement
+après la première extraction, quand le résidu STV/multi-gagnant est
+redevenu un bloc autonome assez long pour que jscpd le voie) et
+`simulation_ranked_utils.py` en local (`_ballots_and_candidates`, le
+rassemblement `ballots`/`all_cands` partagé par `get_benham_winner` et
+`get_smith_irv_winner` — la boucle IRV qui suit, elle, n'a pas été fusionnée :
+`get_benham_winner` y insère une vérification Condorcet par tour que
+`get_smith_irv_winner` n'a pas, deux méthodes différentes malgré la
+ressemblance de surface). Refactor pur partout : suite backend complète sans
+régression, `mypy`/`ruff`/`lint-imports` verts. `simulation_ranked_utils.py`
+étant un des deux fichiers du moteur double (CLAUDE.md) :
+`./scripts/check_engine_parity_drift.sh` confirme `engineParity.json`
+inchangé octet pour octet et `playgroundVoting.parity.test.ts` reste vert
+(49/49) — attendu, l'extraction ne change aucune sortie. `jscpd` 32 → 19 ;
+`.github/quality-baseline.json` mis à jour en conséquence.
+
 **README qui raconte, détail** (2026-09-12). Nouvelle section « A second
 thing being explored here » ajoutée à [`README.md`](README.md), en anglais
 comme le reste de la façade publique du dépôt, placée après « Architecture »
