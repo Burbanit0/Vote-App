@@ -15,7 +15,17 @@ vi.mock('recharts', () => ({
   CartesianGrid: () => null,
   Cell: () => null,
   LabelList: () => null,
-  XAxis: () => null,
+  // Real recharts computes its own tick values from the data range; the mock
+  // instead calls the formatter directly, with both a negative and a positive
+  // value, so its signed-percentage formatting (never covered otherwise,
+  // since XAxis itself is stubbed away) is exercised on both branches of the
+  // `v > 0 ? '+' : ''` sign prefix.
+  XAxis: ({ tickFormatter }: { tickFormatter?: (value: number) => string }) => (
+    <div data-testid="factor-bars-x-axis">
+      <span data-testid="tick-negative">{tickFormatter ? tickFormatter(-14) : null}</span>
+      <span data-testid="tick-positive">{tickFormatter ? tickFormatter(14) : null}</span>
+    </div>
+  ),
   YAxis: () => null,
   Tooltip: () => null,
 }));
@@ -140,6 +150,17 @@ describe('CombinedEffectsMatrix', () => {
       // Badges contain the factor key names
       const disruptiveBadges = screen.getAllByText(/disruptif|disruptive/i);
       expect(disruptiveBadges.length).toBeGreaterThan(0);
+    });
+  });
+
+  it('formats the factor bar x-axis ticks as signed percentages', async () => {
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: /Analyser|Analyse/i }));
+    await waitFor(() => {
+      // -14 must render without a leading "+"; +14 must have one — this is
+      // the sign-branch (`v > 0 ? '+' : ''`) the formatter exists for.
+      expect(screen.getByTestId('tick-negative')).toHaveTextContent('-14.0%');
+      expect(screen.getByTestId('tick-positive')).toHaveTextContent('+14.0%');
     });
   });
 });

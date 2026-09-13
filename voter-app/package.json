@@ -127,5 +127,8 @@
     "@humanfs/node": "^0.16.8",
     "glob": "^11.1.0"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "typeCoverage": {
+    "atLeast": 99.76
+  }
 }

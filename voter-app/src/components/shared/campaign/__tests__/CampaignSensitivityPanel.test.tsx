@@ -16,7 +16,12 @@ vi.mock('recharts', () => ({
   Area: () => null,
   CartesianGrid: () => null,
   Cell: () => null,
-  XAxis: () => null,
+  // Real recharts computes its own tick values; the mock calls the
+  // formatter directly so its 0-1 → percentage rounding is exercised. Only
+  // the stability BarChart's XAxis has a tickFormatter (the snapshot
+  // AreaChart's XAxis does not), so this can't collide with it.
+  XAxis: ({ tickFormatter }: { tickFormatter?: (value: number) => string }) =>
+    tickFormatter ? <div data-testid="stability-x-tick">{tickFormatter(0.55)}</div> : null,
   YAxis: () => null,
   Tooltip: () => null,
   Legend: () => null,
@@ -103,6 +108,14 @@ describe('CampaignSensitivityPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: /Analyser|Analyse/i }));
     await waitFor(() => {
       expect(screen.getAllByTestId('bar-chart').length).toBeGreaterThan(0);
+    });
+  });
+
+  it('formats the stability chart x-axis ticks as rounded percentages', async () => {
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: /Analyser|Analyse/i }));
+    await waitFor(() => {
+      expect(screen.getByTestId('stability-x-tick')).toHaveTextContent('55%');
     });
   });
 

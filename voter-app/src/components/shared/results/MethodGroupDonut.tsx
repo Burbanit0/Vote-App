@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Cell, Pie, PieChart, Tooltip } from 'recharts';
+import type { TooltipContentProps } from 'recharts';
 import { useTranslation } from 'react-i18next';
 import { MethodGroup } from '../../../services/electionApi';
 
@@ -19,7 +20,7 @@ const DONUT_COLORS = [
 
 // ── Custom tooltip ────────────────────────────────────────────────────────────
 
-const DonutTooltip = ({ active, payload }: any) => {
+const DonutTooltip = ({ active, payload }: TooltipContentProps) => {
   if (!active || !payload?.length) return null;
   const { winner, methods, pct } = payload[0].payload as MethodGroup;
   return (
@@ -177,7 +178,7 @@ const MethodGroupDonut: React.FC<Props> = ({ methodGroups, totalMethods }) => {
               />
             ))}
           </Pie>
-          <Tooltip content={<DonutTooltip />} />
+          <Tooltip content={DonutTooltip} />
           <CentreLabel cx={66} cy={66} singleGroup={false} total={totalMethods} t={t} />
         </PieChart>
       </div>

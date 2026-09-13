@@ -3203,11 +3203,62 @@ outil déjà câblé et un chiffre déjà mesuré, pas une lacune de détection.
 
 | Item | Pourquoi ici | Effort | Solidité | Récit | Statut |
 |---|---|---|---|---|---|
-| **Typer les `any` restants + activer le cliquet** (280 dans le code source, Lot 6.4) | Seul item du groupe avec un vrai gain de sûreté de typage, pas juste de lisibilité — `type-coverage` expose déjà `--at-least`/`--update-if-higher` mais rien n'est câblé, faute d'une baseline assez haute pour que ça vaille le coût. Réduire d'abord, gater ensuite. | M | ⭐⭐⭐ | 📝📝 | |
+| **Typer les `any` restants + activer le cliquet** (280 dans le code source, Lot 6.4) | Seul item du groupe avec un vrai gain de sûreté de typage, pas juste de lisibilité — `type-coverage` expose déjà `--at-least`/`--update-if-higher` mais rien n'est câblé, faute d'une baseline assez haute pour que ça vaille le coût. Réduire d'abord, gater ensuite. | M | ⭐⭐⭐ | 📝📝 | ✅ voir détail sous le tableau |
 | **Statuer sur les zones mortes trouvées par le Lot 6.5** (`api/domain/polity/*`, 2 813 lignes 0 % e2e ; `/simulation/compare`, invisible à knip) | Le Lot 6.5 a mesuré l'inatteignabilité, pas décidé quoi en faire. Deux vraies trouvailles qui méritent une décision explicite — réintégrer dans le produit ou supprimer — pas rester indéfiniment dans un angle mort connu. | M | ⭐⭐⭐ | 📝📝📝 | ✅ voir détail sous le tableau |
 | **Réduire la dette sonarjs** (304 findings restants, Lot 6.6) | 2 vrais bugs y avaient déjà été trouvés en vérifiant à la main les 5 cas `no-all-duplicated-branches` — les autres catégories (`no-nested-conditional` ×102, `cognitive-complexity` ×38, `parameterized-tests` ×39, `prefer-specific-assertions` ×33) n'ont pas reçu le même traitement individuel, faute de budget. Simplifier les fonctions à plus forte complexité cognitive en particulier est le genre de nettoyage qui prévient le prochain bug de cette famille. | L | ⭐⭐ | 📝📝 | |
 | **Réduire la dette refurb/perflint** (145 + 85 findings, Lot 6.3) | Le Lot 6.3 a mesuré et documenté sans corriger, hors budget de l'item lui-même. Transformations mécaniques, risque quasi nul (`dict(x)`→`x.copy()`, `lambda`→`operator.itemgetter`, `list`→`tuple` non mutés) — le genre de dette qui ne s'aggrave pas mais ne se résorbe pas non plus toute seule. | M | ⭐⭐ | 📝 | ✅ voir détail sous le tableau |
 | **Faire taire les faux positifs basedpyright** (34 restants, Lot 6.2) | Déjà vérifiés faux un par un (32 liés à l'absence d'équivalent du plugin `pydantic.mypy` côté pyright, 2 isolés où le vérificateur ne peut pas prouver une invariante locale) — pas de vraie dette ici, juste du bruit dans le rapport pour un futur contributeur. Le moins prioritaire des cinq ; à ne faire que si `basedpyright` reste consulté régulièrement. | S | ⭐ | 📝 | ✅ voir détail sous le tableau |
+
+**Typer les `any` restants + activer le cliquet, détail (2026-09-13).** Le
+chiffre mesuré au moment d'attaquer cet item (238 positions réelles hors
+tests, un peu sous les 280 du Lot 6.4 — le code a bougé entre-temps) est
+tombé à **27**, soit **211 corrigées**, réparties sur les 28 fichiers
+concernés. Chaque groupe a été traité par sa cause racine plutôt que ligne
+par ligne :
+
+- **`new Array(m).fill(x)` non typé** (une bizarrerie de la signature du
+  constructeur `Array` : `new Array(m)` seul vaut `any[]`, et `.fill()` ne
+  change pas ce paramètre de type) — annotation explicite
+  `: number[]`/`: boolean[]` à la déclaration, y compris dans
+  `playgroundVoting.ts` (18 positions, traité séparément et avec plus de soin
+  car c'est l'un des deux moteurs de vote — CLAUDE.md, « the dual voting
+  engine » — revérifié par la suite de parité complète, 252 tests, inchangée).
+- **Callbacks de rendu Recharts** (`Tooltip content`, `Line dot`,
+  `TickFormatter`) : types réels exportés par la bibliothèque elle-même
+  plutôt qu'un cast, plus un nouvel helper `numericTickFormatter` dans
+  `rechartsFormatters.ts` qui généralise l'idiome déjà en place pour
+  `numericTooltipFormatter`.
+- **Simulation de force D3** (`MethodSimilarityGraph.tsx`, 47 positions à lui
+  seul) : un vrai type `LinkDatum` et une `Simulation<NodeDatum, undefined>`
+  typée, ce qui a aussi fait disparaître des casts `(node as any).fx`
+  devenus inutiles (le champ existe déjà sur `NodeDatum`).
+- **Frontières `JSON.parse`/`fetch().json()`** (`ElectorateComposer.tsx`,
+  `DatasetExportModal.tsx`, `useLabStore.ts`) : interface décrivant la forme
+  réellement attendue, cast une seule fois à la frontière plutôt que laissé
+  `any` en aval.
+
+**27 restantes, documentées plutôt que forcées :**
+`src/api/client.ts` (18) — `apiClient.{POST,GET,DELETE}` acceptent
+délibérément un chemin `string` brut en plus du type généré
+(`PathsWithMethod<paths, method>`), vérifié par un test que passer un
+`string` littéral échoue à la compilation ; le `any` est le point, pas un
+raccourci. `OnboardingTour.tsx` (4) — le composant cible encore l'ancienne
+API de `react-joyride` (`callback`, `showProgress`…) alors que la version
+installée (`3.2.0`) n'expose que `onEvent`/`EventData` ; corriger le type
+sans corriger l'usage réel du composant (risque comportemental, ex.
+`onFinish()` qui ne se déclenche peut-être plus) est hors du périmètre d'un
+lot « typage seul ». 5 positions isolées où la bibliothèque elle-même
+déclare `any` (`i18next`, `recharts`) et où le code caste déjà immédiatement
+vers une forme réelle juste après.
+
+**Cliquet activé** : `voter-app/package.json` porte désormais
+`"typeCoverage": {"atLeast": 99.76}`, lu nativement par `type-coverage` (pas
+besoin de script maison comme pour les ratchets qualité/mutation — l'outil
+a le mécanisme intégré). Nouvelle étape bloquante dans
+`frontend-ci-cd-pipeline.yml` (le job "Frontend: Tests + Coverage +
+Security", déjà un required check). Une vraie amélioration future se
+verrouille avec `npx type-coverage --update-if-higher`, jamais en baissant
+le chiffre à la main.
 
 **Statuer sur les zones mortes trouvées par le Lot 6.5, détail (2026-09-12).**
 Les deux trouvailles ont reçu une décision explicite et indépendante l'une de

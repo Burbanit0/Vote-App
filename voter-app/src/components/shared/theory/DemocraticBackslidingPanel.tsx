@@ -23,7 +23,7 @@ import {
 } from 'recharts';
 import { $api } from '../../../api/hooks';
 
-import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+import { numericTooltipFormatter, numericTickFormatter } from '@/lib/rechartsFormatters';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -395,7 +395,7 @@ const DemocraticBackslidingPanel: React.FC = () => {
               />
               <YAxis
                 domain={[0, 1]}
-                tickFormatter={(v) => `${Math.round(v * 100)}%`}
+                tickFormatter={numericTickFormatter((v) => `${Math.round(v * 100)}%`)}
                 tick={{ fontSize: 10 }}
                 label={{
                   value: t('backsliding.qualityAxis'),

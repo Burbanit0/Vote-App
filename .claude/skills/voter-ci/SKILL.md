@@ -206,6 +206,32 @@ a suggestion to `--update`, not forced.
 Same "measure on an up-to-date branch" caveat as the quality ratchet — CI
 measures against the PR's merge result.
 
+## The type-coverage ratchet (frontend, `package.json`'s `typeCoverage.atLeast`)
+
+A third ratchet, same family, but this one needs no wrapper script: the
+`type-coverage` tool (frontend, TS) has the mechanism built in natively.
+`voter-app/package.json`'s `"typeCoverage": {"atLeast": <percent>}` is read
+automatically by a bare `type-coverage` invocation (`npm run type-coverage`,
+also the step in `frontend-ci-cd-pipeline.yml`) — no CLI flag needed — and it
+fails the run if the real percentage drops below it.
+
+Was informational-only (PLAN_SOLIDITE_TECHNIQUE.md §6.4) until Lot 14 reduced
+the 238 real (non-test) implicit-`any` positions it was measuring — gating an
+unreduced baseline would have meant enforcing debt, not preventing it, the
+same reasoning that kept the quality/mutation ratchets from gating anything
+before they had a real, reduced number to hold. Lock in a genuine future
+improvement with:
+
+```bash
+cd voter-app && npx type-coverage --update-if-higher   # writes the new atLeast into package.json
+```
+
+`--update-if-higher` only ever raises the stored value (never lowers it, and
+does nothing at all if `package.json` has no `typeCoverage.atLeast` key yet
+to compare against) — never hand-edit the number down to make a red run
+green; that's a real regression, not noise, since `type-coverage` is fully
+deterministic (unlike mutmut, there's no tolerance band here).
+
 ## diff-cover — 100% coverage on changed lines
 
 This is a *different, stricter* gate than the 90%/global coverage floor:

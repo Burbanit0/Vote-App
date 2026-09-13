@@ -18,7 +18,31 @@ vi.mock('recharts', () => {
     BarChart: ({ children }: any) => <div>{children}</div>,
     Bar: () => null,
     LineChart: ({ children }: any) => <div>{children}</div>,
-    Line: ({ dataKey }: any) => <div data-testid={`line-${dataKey}`} />,
+    // Real recharts calls `dot` once per rendered point, with the point's
+    // payload; the mock invokes it for both a poll point and a real-result
+    // point so the poll/real branch (bigger, outlined dot for the real
+    // result) is actually exercised instead of just being handed a closure.
+    Line: ({
+      dataKey,
+      dot,
+    }: {
+      dataKey?: string;
+      dot?: (props: {
+        cx: number;
+        cy: number;
+        index: number;
+        payload: { type: string };
+      }) => React.ReactNode;
+    }) => (
+      <div data-testid={`line-${dataKey}`}>
+        {typeof dot === 'function' && (
+          <>
+            {dot({ cx: 1, cy: 2, index: 0, payload: { type: 'poll' } })}
+            {dot({ cx: 3, cy: 4, index: 1, payload: { type: 'real' } })}
+          </>
+        )}
+      </div>
+    ),
     XAxis: () => null,
     YAxis: () => null,
     CartesianGrid: () => null,
@@ -170,6 +194,24 @@ describe('ShyVoterPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('poll-timeline-chart')).toBeInTheDocument());
+    vi.runAllTimers();
+  });
+
+  it('draws a bigger outlined dot for the real result than for poll points', async () => {
+    apiClient.POST.mockResolvedValue(makeData());
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
+    await waitFor(() => {
+      const timeline = screen.getByTestId('poll-timeline-chart');
+      const circles = timeline.querySelectorAll('circle');
+      expect(circles.length).toBeGreaterThanOrEqual(2);
+      // First dot() call was a poll point: small, unstroked marker.
+      expect(circles[0]).toHaveAttribute('r', '2');
+      expect(circles[0]).not.toHaveAttribute('stroke');
+      // Second dot() call was the real-result point: bigger, white-outlined marker.
+      expect(circles[1]).toHaveAttribute('r', '5');
+      expect(circles[1]).toHaveAttribute('stroke', '#fff');
+    });
     vi.runAllTimers();
   });
 
