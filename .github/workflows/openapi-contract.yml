@@ -12,6 +12,10 @@ name: Generated Artifacts Contract
 #     this before: a backend rule could change while the fixture kept the old
 #     winners, leaving the parity test green against a frozen snapshot while the
 #     two engines diverged. See scripts/check_engine_parity_drift.sh.
+#  3. Generated doc blocks — cog blocks in docs that render facts owned by code
+#     (polity's model profiles, the journal event registry). A code change that
+#     leaves the doc behind, or a hand edit of generated text, fails here. See
+#     scripts/check_generated_docs.sh.
 
 # No top-level `paths:` filter (moved to the `changes` job below, on purpose):
 # this workflow is a required status check, and a required check scoped by
@@ -64,6 +68,8 @@ jobs:
               - "voter-app/package-lock.json"
               - ".github/workflows/openapi-contract.yml"
               - "scripts/check_*_drift.sh"
+              - "scripts/check_generated_docs.sh"
+              - "docs/plan/polity/polity-llm-reference.md"
 
   drift-check:
     needs: changes
@@ -105,3 +111,9 @@ jobs:
       - name: Engine parity fixture drift
         if: always()
         run: ./scripts/check_engine_parity_drift.sh
+
+      - name: Generated doc blocks in sync
+        if: always()
+        run: |
+          uv pip install --system "$(grep -E '^cogapp==' fast_api_voter/requirements-dev.txt | cut -d' ' -f1)"
+          ./scripts/check_generated_docs.sh
