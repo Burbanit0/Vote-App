@@ -93,7 +93,7 @@ recorded here, with the date.
 | S0.3 | Retry provenance for all nine decision types | S0.2 | `feat/polity-retry-provenance` | `3593e65b` |
 | S0.4 | Complete run provenance | — | `feat/polity-run-provenance` | `22a12676` |
 | S0.5 | Per-call LLM log and time attribution | S0.2 | `feat/polity-llm-call-log` | `bad1961c` |
-| S0.6 | Replay client | S0.5 | `feat/polity-replay-client` | |
+| S0.6 | Replay client | S0.5 | `feat/polity-replay-client` | `8aefd0d3` |
 | S0.7 | p500 pre-registration and sweep statistics | — | `feat/polity-p500-preregistration` | |
 | S0.8 | p500 batch run and results | S0.1–S0.7, D5 | (run) | |
 | S1.1 | Where the time goes, per decision type | S0.5 | (analysis) | |
@@ -128,7 +128,8 @@ recorded here, with the date.
 - Correct the overclaim in `scripts/run_polity_seed_sweep_p100_results.md` and in
   `plan-distribution-positions-seeds.md` §4.1: the p100 sweep does not *settle*
   representativeness. Recomputed: 95% BCa interval for mean `office_occupancy`
-  0.894–0.955; 95% prediction interval for one new seed 0.81–1.05 (past the ceiling);
+  0.888–0.955 (first recorded as 0.894, a 10,000-resample figure on rounded values; see
+  S0.7); 95% prediction interval for one new seed 0.81–1.05 (past the ceiling);
   "alert on 2 of 10 seeds" 2.5–55.6% (Clopper–Pearson); 8 of 10 seeds within ±0.05.
 - Remove the unused `sorted_candidates` import (ruff F401) in
   `scripts/check_party_nomination_position_logprobs.py`.
@@ -210,6 +211,15 @@ byte-for-byte without contacting the server.
   divergence between the two seed-1 runs larger than the spread across seeds.
 
 **Accepted when:** the criterion is committed before the first p500 run starts.
+
+*Made precise before launch, 2026-09-13*
+(`fast_api_voter/scripts/run_polity_seed_sweep_p500_preregistration.md`):
+- Flag 3 is measured on `office_occupancy`.
+- Flag 2 reads exact per-type counts from `progress.json`.
+- The batch runs single-tick elections, like the p100 leg.
+- The batch runs from a dedicated worktree at the S0.7 merge. The generated summary
+  checks every run's S0.4 provenance, and a mixed batch is not read against the flags.
+- The p100 BCa interval recorded under S0.1 is corrected to 0.888–0.955 (see S0.1).
 
 ### S0.8 p500 batch run and results
 Runs under S0.4 and S0.5, so every p500 run carries full provenance and a call log.
