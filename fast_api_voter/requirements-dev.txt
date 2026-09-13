@@ -71,7 +71,11 @@ pip-licenses==5.5.5   # License compliance on a public MIT repo (Lot 6.7,
 # file(s) in [tool.mutmut] below). Native Windows isn't supported upstream
 # (mutmut/__main__.py exits on platform.system() == "Windows"); run via WSL
 # or Docker locally.
-mutmut==3.7.0
+mutmut==3.8.0  # 3.7.0 crashed under numpy>=2.4 (numpy/numpy#29030's new
+               # single-init guard, tripped by mutmut's in-process coverage
+               # re-exec) -- see pyproject.toml's [tool.mutmut] regression
+               # note for the incident; 3.8.0's changelog fixes exactly this
+               # by gathering coverage in a separate process (#528, #566).
 
 # Code quality
 ruff==0.16.6         # Replaces flake8 (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md) — see
