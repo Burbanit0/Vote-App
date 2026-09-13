@@ -118,7 +118,7 @@ recorded here, with the date.
 | S5.1 | Run registry | S0.4 | `feat/polity-run-registry` | `2bc3727d` |
 | S5.2 | marimo run explorer | S5.1 | `feat/polity-run-explorer` | |
 | S5.3 | Narratives with checkable claims | S0.5 | `feat/polity-checked-narratives` | `6913a6f9` |
-| S5.4 | Generated doc status and wider doc-drift | — | `feat/polity-generated-doc-status` | |
+| S5.4 | Generated doc status and wider doc-drift | — | `feat/polity-generated-doc-status` | `e4ac23c6` |
 
 ---
 
