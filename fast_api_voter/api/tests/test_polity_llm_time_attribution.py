@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from api.domain.polity.llm_time_attribution import attribute, attribute_run, call_category, covered_seconds
+from api.domain.polity.llm_time_attribution import attribute, attribute_run, by_tick, call_category, covered_seconds
 
 
 def _call(kind: str = "decision", *, tick: int = 4, decision_type: str | None = "vote_cast", units: tuple[int, ...] = (1, 2, 3),
@@ -59,3 +59,22 @@ def test_attribute_run_reads_the_run_directory(tmp_path: Path) -> None:
     assert attribute_run(tmp_path)["wall_clock_seconds"] is None
     (tmp_path / "progress.json").write_text(json.dumps({"wall_clock_elapsed_seconds": 4.0}), encoding="utf-8")
     assert attribute_run(tmp_path)["coverage"] == pytest.approx(0.5)
+
+
+def test_each_tick_splits_its_wall_clock_into_model_time_and_the_rest() -> None:
+    calls = [
+        _call("budget_probe", tick=0, attempt=None, start=0.0, ms=500),
+        _call(tick=0, start=1.0, ms=2000, content="bad"),                       # rejected
+        _call(tick=0, attempt=1, start=3.5, ms=1000, content="ok", temperature=0.3),
+        _call(tick=2, decision_type="chamber_deliberation", start=10.0, ms=3000, finish_reason="length"),
+        _call(tick=2, decision_type="pressure_action", units=(9,), start=11.0, ms=1000, content="ok"),  # overlaps the chamber call
+        _call("warm_up", tick=None, decision_type=None, units=(), attempt=None, start=-5.0, ms=100),  # no tick: not counted
+    ]
+    first, second = by_tick(calls)
+    assert (first["tick"], first["calls"], first["span_seconds"]) == (0, 3, 10.0)  # to tick 2's first call: tick 1 made none
+    assert (first["model_seconds"], first["outside_model_seconds"]) == (pytest.approx(3.5), pytest.approx(6.5))
+    assert first["by_category"] == {"retry": 1.0, "rejected": 2.0, "budget_probe": 0.5}
+    assert first["by_decision_type"] == {"vote_cast": 3.5}
+    assert (second["span_seconds"], second["model_seconds"], second["outside_model_seconds"]) == (3.0, 3.0, 0.0)
+    assert list(second["by_decision_type"]) == ["chamber_deliberation", "pressure_action"]  # largest first
+    assert by_tick([]) == []
