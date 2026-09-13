@@ -18,9 +18,10 @@ mechanism at once: legitimacy, mandate drift, petitions, street pressure,
 awakening (with contagion), exogenous events (scandal + economic shock), the
 social graph, and the sortition chamber. This is deliberately NOT an acceptance
 arm -- nothing is being isolated, so nothing is being held back. The config's own
-cross-validation rules are respected by construction and re-asserted in
-`_assert_coherent` (the shipped rules fire in `load_config`, on the YAML, and do
-not re-fire through `dataclasses.replace`).
+cross-validation rules are respected by construction and checked by
+`config.validate_config` before the run directory is created (run_simulation checks
+them again at start; S1.5 put every cross-setting rule in that one function, so a
+config built with `dataclasses.replace` is held to the same rules as the YAML).
 
 **`candidacy.ambition_threshold` stays at its shipped value**, unlike
 `run_acceptance_comparison._config_for_arm`, which forces it to 0.0. That 0.0 is
@@ -97,7 +98,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from api.domain.polity.checkpoint import config_hash  # noqa: E402
-from api.domain.polity.config import PolityConfig, load_config  # noqa: E402
+from api.domain.polity.config import PolityConfig, load_config, validate_config  # noqa: E402
 from api.domain.polity.indexer import RunMetrics, index_run  # noqa: E402
 from api.domain.polity.llm_call_log import CALL_LOG_FILENAME  # noqa: E402
 from api.domain.polity.llm_replay import ReplayClient  # noqa: E402
@@ -188,8 +189,8 @@ def _flagship_config(
             enabled=True,
             context_modulation=dataclasses.replace(
                 config.awakening.context_modulation,
-                # both required by load_config's own cross-validation once
-                # events/social_graph are on -- see _assert_coherent
+                # both required by config.validate_config once
+                # events/social_graph are on
                 event_salience=True,
                 neighbors_acting=True,
             ),
@@ -218,30 +219,6 @@ def _flagship_config(
             llm = dataclasses.replace(llm, provider=provider, base_url=base_url)
         config = dataclasses.replace(config, llm=llm)
     return config
-
-
-def _assert_coherent(config: PolityConfig) -> None:
-    """Re-assert the cross-config rules load_config enforces on the YAML.
-
-    Those rules fire at parse time and do not re-fire through
-    `dataclasses.replace`, so a full-richness config assembled in Python can
-    silently violate one. Cheap to check, and a violation here means a days-long
-    run producing quietly wrong output.
-    """
-    if config.events.enabled and not config.awakening.context_modulation.event_salience:
-        raise ValueError("events.enabled requires awakening.context_modulation.event_salience")
-    if config.awakening.context_modulation.neighbors_acting and not config.social_graph.enabled:
-        raise ValueError("awakening.context_modulation.neighbors_acting requires social_graph.enabled")
-    if config.events.enabled != (config.events.scandal_enabled or config.events.economic_shock_enabled):
-        raise ValueError("events.enabled must equal (scandal_enabled or economic_shock_enabled)")
-    if config.pressure_menu.petition_enabled != config.petition.enabled:
-        raise ValueError("pressure_menu.petition_enabled must match petition.enabled")
-    if config.pressure_menu.mobilization_enabled != config.street_pressure.enabled:
-        raise ValueError("pressure_menu.mobilization_enabled must match street_pressure.enabled")
-    if config.sortition_chamber.enabled and config.sortition_chamber.seats > config.run.population_size:
-        raise ValueError("sortition_chamber.seats must not exceed run.population_size")
-    if config.institutions.blank_vote_competitive and not config.institutions.blank_vote_enabled:
-        raise ValueError("institutions.blank_vote_competitive requires institutions.blank_vote_enabled")
 
 
 def _metrics_to_json(metrics: RunMetrics) -> dict[str, Any]:
@@ -456,7 +433,7 @@ def run_flagship(
         workers=workers,
         staggered_election=staggered_election,
     )
-    _assert_coherent(config)
+    validate_config(config)
 
     effective_provider = config.llm.provider if engine == "llm" else "none"
     run_id = run_id or f"flagship-{years}y-p{population}-{engine}"

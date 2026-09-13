@@ -80,7 +80,7 @@ recorded here, with the date.
 | D2 | Population vote: keep LLM `vote_cast` for every citizen, or a deterministic utility vote with the LLM as audit sample (needs an ADR) | S4.1 | |
 | D3 | Ordinary legislation (ADR-009) before ADR-008 constitutional amendments | S4.2 | |
 | D4 | Adopt non-greedy sampling for thinking calls — only if S1.4 shows it helps | S1.4 adoption | |
-| D5 | Launch the p500 batch once Stage 0 is closed, under S0.7's pre-registration | S0.8 | |
+| D5 | Launch the p500 batch once Stage 0 is closed, under S0.7's pre-registration | S0.8 | 2026-09-13: launch now, from a worktree at `04358d24` |
 
 ---
 
@@ -94,7 +94,7 @@ recorded here, with the date.
 | S0.4 | Complete run provenance | — | `feat/polity-run-provenance` | `22a12676` |
 | S0.5 | Per-call LLM log and time attribution | S0.2 | `feat/polity-llm-call-log` | `bad1961c` |
 | S0.6 | Replay client | S0.5 | `feat/polity-replay-client` | `8aefd0d3` |
-| S0.7 | p500 pre-registration and sweep statistics | — | `feat/polity-p500-preregistration` | |
+| S0.7 | p500 pre-registration and sweep statistics | — | `feat/polity-p500-preregistration` | `04358d24` |
 | S0.8 | p500 batch run and results | S0.1–S0.7, D5 | (run) | |
 | S1.1 | Where the time goes, per decision type | S0.5 | (analysis) | |
 | S1.2 | Grammar-enforced `vote_cast` invariants | S0.2 | `feat/polity-vote-grammar-invariants` | |

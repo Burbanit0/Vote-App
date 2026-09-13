@@ -85,7 +85,7 @@ from api.domain.polity.snapshots import expected_snapshot_rows, is_snapshot_tick
 from api.domain.polity.citizen import Citizen, Office, Role, generate_population
 from api.domain.polity.codebook import BallotFormat, EventType, PressureAct, ReactionMotif
 from api.domain.polity.compaction import compact_run
-from api.domain.polity.config import PolityConfig
+from api.domain.polity.config import PolityConfig, PolityConfigError, validate_config
 from api.domain.polity.institutional_clock import ElectionType, InstitutionalClock
 from api.domain.polity.journal import Journal, truncate_journal
 from api.domain.polity.legitimacy import (
@@ -538,6 +538,12 @@ def run_simulation(
     from the journal itself, so it can never drift from what actually
     happened, fresh run or resumed).
     """
+    validate_config(config)
+    if llm_client is not None and not config.llm.enabled:
+        # S1.5: from here on, "is there a client" IS the engine switch -- _llm_client_scope
+        # yields one exactly when llm.enabled -- so an injected client under a deterministic
+        # config would silently turn the LLM path on. Refused instead.
+        raise PolityConfigError("an llm_client was passed to a run whose 'llm.enabled' is false")
     if config.institutions.presidential_method not in RANKED_METHODS:
         raise NotImplementedError(
             f"presidential_method {config.institutions.presidential_method!r} needs a "
@@ -729,7 +735,7 @@ def run_simulation(
                 # and nomination are never the SAME tick as the vote they
                 # feed (both fire strictly before it), so this cannot
                 # collide with `hold_president` below.
-                if config.institutions.staggered_election and config.llm.enabled:
+                if config.institutions.staggered_election and client is not None:
                     if clock.is_presidential_declaration_tick(tick):
                         staggered_declared_cids = _consider_candidacies_llm(citizens, config, journal, tick, client)
                     if clock.is_presidential_nomination_tick(tick) and staggered_declared_cids is not None:
@@ -1024,7 +1030,7 @@ def _declare_nominees(
     llm_client: LlmClientProtocol | None,
     barred_candidate_ids: frozenset[int] = frozenset(),
 ) -> list[Citizen]:
-    if config.llm.enabled:
+    if llm_client is not None:
         # barred_candidate_ids intentionally NOT passed here, extending the
         # same asymmetry term limits already have on this path (see below).
         return _declare_nominees_llm(citizens, parties, config, journal, tick, llm_client)
@@ -1084,7 +1090,7 @@ def _consider_candidacies_llm(
     config: PolityConfig,
     journal: Journal,
     tick: int,
-    llm_client: LlmClientProtocol | None,
+    llm_client: LlmClientProtocol,
 ) -> set[int]:
     """v2 increment 2/3's LLM path, candidacy half: decide_candidacies
     replaces decide_candidacy's bare threshold for the dominant-path
@@ -1102,7 +1108,6 @@ def _consider_candidacies_llm(
     position_llm` back to back with no gap, for the non-staggered (default)
     calendar -- this split changes nothing about that atomic path's own
     behavior, only how its code is organized."""
-    assert llm_client is not None  # guaranteed by _llm_client_scope when llm.enabled
     outcome = decide_candidacies(citizens, config, llm_client)
     for decision in outcome.decisions:
         journal.write(
@@ -1132,7 +1137,7 @@ def _nominate_and_position_llm(
     config: PolityConfig,
     journal: Journal,
     tick: int,
-    llm_client: LlmClientProtocol | None,
+    llm_client: LlmClientProtocol,
 ) -> list[Citizen]:
     """v2 increment 2/3's LLM path, nomination + positioning half:
     decide_party_nominations replaces select_party_nominee_from_declared's
@@ -1149,7 +1154,6 @@ def _nominate_and_position_llm(
     `declared_cids` is a parameter here, not computed internally -- see
     `_consider_candidacies_llm`'s own docstring for why this split exists
     (Track E, 2026-09-11)."""
-    assert llm_client is not None  # guaranteed by _llm_client_scope when llm.enabled
     nomination_outcome = decide_party_nominations(citizens, parties, declared_cids, config, llm_client)
     motif_by_party = {decision.party_id: decision.motif for decision in nomination_outcome.decisions}
     citizens_by_id = {c.citizen_id: c for c in citizens}
@@ -1251,7 +1255,7 @@ def _declare_nominees_llm(
     config: PolityConfig,
     journal: Journal,
     tick: int,
-    llm_client: LlmClientProtocol | None,
+    llm_client: LlmClientProtocol,
 ) -> list[Citizen]:
     """The ATOMIC (non-staggered) LLM path -- candidacy, nomination, and
     positioning all in the same tick, exactly as this project has always
@@ -1299,7 +1303,7 @@ def _hold_presidential_election(
     already_staggered = (
         config.institutions.staggered_election
         # Must mirror the dispatch guard in run_simulation's tick loop, which
-        # is `staggered_election and llm.enabled` -- without the llm.enabled
+        # is `staggered_election and client is not None` -- without the client
         # half here, the two conditions disagree, and the disagreement is not
         # harmless (2026-09-13). Under the deterministic engine nothing ever
         # staggers, but `rupture_path_enabled` (RNG-driven, LLM-independent,
@@ -1310,7 +1314,7 @@ def _hold_presidential_election(
         # no party nominees at all, silently. Latent until now only because
         # staggered_election ships false; enabling it for a deterministic run
         # would have produced quietly wrong elections rather than an error.
-        and config.llm.enabled
+        and llm_client is not None
         and pending_rerun is None
         and any(c.role == Role.CANDIDATE for c in citizens)
     )
@@ -1344,8 +1348,7 @@ def _hold_presidential_election(
     all_candidate_ids: set[int] = set()
     if nominees:
         all_candidate_ids = {c.citizen_id for c in nominees}
-        if config.llm.enabled:
-            assert llm_client is not None  # guaranteed by _llm_client_scope when llm.enabled
+        if llm_client is not None:
             outcome = cast_votes(citizens, nominees, config, llm_client)
             ballots = outcome.ballots
             for decision in outcome.decisions:
@@ -1554,7 +1557,7 @@ def _form_and_journal_coalition(
     tick: int,
     llm_client: LlmClientProtocol | None,
 ) -> None:
-    if config.llm.enabled:
+    if llm_client is not None:
         _form_and_journal_coalition_llm(parties, seats, votes, config, journal, tick, llm_client)
         return
     platforms = {party.party_id: party.platform for party in parties}
@@ -1575,7 +1578,7 @@ def _form_and_journal_coalition_llm(
     config: PolityConfig,
     journal: Journal,
     tick: int,
-    llm_client: LlmClientProtocol | None,
+    llm_client: LlmClientProtocol,
 ) -> None:
     """v2 increment 5's LLM path: decide_coalition replaces form_coalition's
     nearest-neighbour greedy aggregation with one join/leave decision per
@@ -1594,7 +1597,6 @@ def _form_and_journal_coalition_llm(
     genuine conclusion, no majority reachable" from "negotiation cut short
     by an LLM failure", which the pre-v7 single coalition_failed shape could
     not (plan-coalition-negotiation-v7.md §4)."""
-    assert llm_client is not None  # guaranteed by _llm_client_scope when llm.enabled
     outcome = decide_coalition(parties, seats, votes, config, llm_client)
     for round_number, round_decisions in enumerate(outcome.rounds, start=1):
         round_retry_varied = outcome.rounds_retry_sampling_varied[round_number - 1]
@@ -1782,8 +1784,7 @@ def _run_reaction_to_event(
     reaction_retry_varied: dict[int, bool] = {}
     reaction_call_ids: dict[int, str | None] = {}
     contexts: dict[int, ReactionContext] = {}
-    if config.llm.enabled:
-        assert llm_client is not None  # guaranteed by _llm_client_scope when llm.enabled
+    if llm_client is not None:
         contexts = {c.citizen_id: ReactionContext(cid=c.citizen_id, event_salience=c.event_salience) for c in citizens}
         outcome = decide_reaction_to_event(
             citizens, contexts, event_type, config, llm_client, target=target, magnitude=magnitude
@@ -1830,7 +1831,7 @@ def _run_representative_responses(
     config: PolityConfig,
     journal: Journal,
     tick: int,
-    llm_client: LlmClientProtocol | None,
+    llm_client: LlmClientProtocol,
 ) -> None:
     """§7bis.7 step 1 + step 7 (v4 Lot 6, dt=6): the sitting representative's
     reaction to the pressure of the PREVIOUS tick, then this tick's update of
@@ -1874,7 +1875,6 @@ def _run_representative_responses(
     verbatim by the user-prompt builder and this journal write so "the ctx
     an analyst reads is provably the ctx the model saw" stays true --
     unified_deviation is never shown to the model."""
-    assert llm_client is not None  # guaranteed by _llm_client_scope when llm.enabled
     # pledged_platform/revealed_position are always written together (declare_candidacy,
     # this function's own overwrite below, the loser-reset in _hold_presidential_election)
     # -- checking one implies the other, so filtering on just one is exact, not a shortcut.
@@ -1992,12 +1992,11 @@ def _run_chamber_deliberation(
     field, ticks_left) -- this is a post-hoc analysis value only, unlike
     dt=6's own ctx.mandate_dev, which is genuinely pre-decision
     information the model sees."""
-    if not config.llm.enabled:
+    if llm_client is None:
         return
     members = current_sortition_members(citizens)
     if not members:
         return
-    assert llm_client is not None  # guaranteed by _llm_client_scope when llm.enabled
     contexts: dict[int, ChamberContext] = {}
     for m in members:
         assert m.sortition_seat_until_tick is not None  # guaranteed by current_sortition_members's own filter
@@ -2175,7 +2174,7 @@ def _run_accountability_phase(
                 citizens, EventType.ECONOMIC_SHOCK, config, journal, tick, llm_client,
                 target=None, magnitude=exogenous.economy_x,
             )
-    if config.llm.enabled and config.mandate.enabled:  # §7bis.7 step 1 (v4 Lot 6)
+    if llm_client is not None and config.mandate.enabled:  # §7bis.7 step 1 (v4 Lot 6)
         _run_representative_responses(holders, config, journal, tick, llm_client)
     for holder in holders:
         deviation: float | None = None
@@ -2227,8 +2226,7 @@ def _run_accountability_phase(
             pressure_retry_varied: dict[int, bool] = {}
             pressure_call_ids: dict[int, str | None] = {}
             contexts: dict[int, PressureContext] = {}
-            if config.llm.enabled and consulted:  # §7bis.7 step 2 (v4 Lot 7)
-                assert llm_client is not None  # guaranteed by _llm_client_scope when llm.enabled
+            if llm_client is not None and consulted:  # §7bis.7 step 2 (v4 Lot 7)
                 contexts = {
                     citizen.citizen_id: _pressure_context(
                         citizen,

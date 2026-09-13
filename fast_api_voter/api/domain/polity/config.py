@@ -13,6 +13,7 @@ KeyError/TypeError from a caller three frames away.
 """
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -524,12 +525,6 @@ def _parse_institutions(raw: dict[str, Any]) -> InstitutionsConfig:
     s = _section(raw, "institutions")
     blank_vote_enabled = _get(s, "institutions", "blank_vote_enabled", bool)
     blank_vote_competitive = _get(s, "institutions", "blank_vote_competitive", bool)
-    if blank_vote_competitive and not blank_vote_enabled:
-        raise PolityConfigError(
-            "'institutions.blank_vote_competitive': true requires 'institutions.blank_vote_enabled' "
-            "to also be true (v4 Lot 9, §6bis.2 -- nothing to be competitive about if blank isn't "
-            "itself a choice)"
-        )
     return InstitutionsConfig(
         president_term_years=_get_positive_int(s, "institutions", "president_term_years"),
         assembly_term_years=_get_positive_int(s, "institutions", "assembly_term_years"),
@@ -658,12 +653,6 @@ def _parse_pressure_menu(raw: dict[str, Any]) -> PressureMenuConfig:
     petition_enabled = _get(s, "pressure_menu", "petition_enabled", bool)
     mobilization_enabled = _get(s, "pressure_menu", "mobilization_enabled", bool)
     electoral_only = _get(s, "pressure_menu", "electoral_only", bool)
-    if electoral_only and (petition_enabled or mobilization_enabled):
-        raise PolityConfigError(
-            "'pressure_menu.electoral_only': true requires both petition_enabled and "
-            "mobilization_enabled to be false (§7bis.8 -- one 4-modality variable, not two "
-            "independent booleans)"
-        )
     return PressureMenuConfig(
         petition_enabled=petition_enabled,
         mobilization_enabled=mobilization_enabled,
@@ -752,11 +741,6 @@ def _parse_events(raw: dict[str, Any]) -> EventsConfig:
     scandal_enabled = _get(s, "events", "scandal_enabled", bool)
     economic_shock_enabled = _get(s, "events", "economic_shock_enabled", bool)
     enabled = _get(s, "events", "enabled", bool)
-    if enabled != (scandal_enabled or economic_shock_enabled):
-        raise PolityConfigError(
-            "'events.enabled' must equal 'events.scandal_enabled or events.economic_shock_enabled' "
-            "-- these describe the same fact (§8) and must not drift apart"
-        )
     return EventsConfig(
         enabled=enabled,
         scandal_enabled=scandal_enabled,
@@ -878,8 +862,6 @@ def _parse_llm(raw: dict[str, Any]) -> LlmConfig:
     # once the LLM path is actually enabled — reject rather than silently
     # accept a config that would produce irreproducible runs.
     temperature = float(_get(s, "llm", "temperature", (int, float)))
-    if enabled and temperature != 0.0:
-        raise PolityConfigError(f"'llm.temperature': must be 0.0 when llm.enabled is true, got {temperature}")
 
     recycle_after_n_calls = _get_optional_int(s, "llm", "recycle_after_n_calls")
     if recycle_after_n_calls is not None and recycle_after_n_calls <= 0:
@@ -913,6 +895,84 @@ def _parse_parallel(raw: dict[str, Any]) -> ParallelConfig:
     )
 
 
+# Every rule relating two or more settings, in one place (S1.5). Each section parses
+# in isolation; these only make sense once the whole config is known -- and they
+# must hold for a config built in code with dataclasses.replace, which never passes
+# through load_config's parsing. A rule returns its error message, or None.
+_CONFIG_RULES: tuple[Callable[[PolityConfig], str | None], ...] = (
+    lambda c: (
+        "'institutions.blank_vote_competitive': true requires 'institutions.blank_vote_enabled' "
+        "to also be true (v4 Lot 9, §6bis.2 -- nothing to be competitive about if blank isn't "
+        "itself a choice)"
+    ) if c.institutions.blank_vote_competitive and not c.institutions.blank_vote_enabled else None,
+    lambda c: (
+        "'pressure_menu.electoral_only': true requires both petition_enabled and "
+        "mobilization_enabled to be false (§7bis.8 -- one 4-modality variable, not two "
+        "independent booleans)"
+    ) if c.pressure_menu.electoral_only and (c.pressure_menu.petition_enabled or c.pressure_menu.mobilization_enabled) else None,
+    lambda c: (
+        "'events.enabled' must equal 'events.scandal_enabled or events.economic_shock_enabled' "
+        "-- these describe the same fact (§8) and must not drift apart"
+    ) if c.events.enabled != (c.events.scandal_enabled or c.events.economic_shock_enabled) else None,
+    lambda c: (
+        f"'llm.temperature': must be 0.0 when llm.enabled is true, got {c.llm.temperature}"
+    ) if c.llm.enabled and c.llm.temperature != 0.0 else None,
+    lambda c: (
+        "'pressure_menu.petition_enabled' and 'petition.enabled' disagree -- these two keys "
+        "describe the same fact (§7bis.2) and must not drift apart"
+    ) if c.pressure_menu.petition_enabled != c.petition.enabled else None,
+    lambda c: (
+        "'pressure_menu.mobilization_enabled' and 'street_pressure.enabled' disagree -- "
+        "these two keys describe the same fact (§7bis.2) and must not drift apart"
+    ) if c.pressure_menu.mobilization_enabled != c.street_pressure.enabled else None,
+    lambda c: (
+        f"'petition.weight_in_ecart' + 'street_pressure.weight_in_ecart' must sum to 1.0 "
+        f"(w_pet + w_mob, §7bis.6), got {c.petition.weight_in_ecart + c.street_pressure.weight_in_ecart}"
+    ) if abs(c.petition.weight_in_ecart + c.street_pressure.weight_in_ecart - 1.0) > 1e-9 else None,
+    lambda c: (
+        "'legitimacy.enabled' must be true when 'petition.enabled' or 'street_pressure.enabled' "
+        "is true -- écart(t) from either lever has nowhere to go without L(t) tracked (§7bis.6)"
+    ) if (c.petition.enabled or c.street_pressure.enabled) and not c.legitimacy.enabled else None,
+    lambda c: (
+        "'awakening.enabled' must be true when 'petition.enabled' or 'street_pressure.enabled' "
+        "is true -- a citizen lever with nobody ever consulted (§7bis.9d) is a silently dead "
+        "experiment, indistinguishable from 'pressure_menu.electoral_only'"
+    ) if (c.petition.enabled or c.street_pressure.enabled) and not c.awakening.enabled else None,
+    lambda c: (
+        "'awakening.enabled' must be true when 'events.enabled' is true -- a shock with nobody "
+        "ever consulted (§7bis.9d) is a silently dead experiment (v5 §8)"
+    ) if c.events.enabled and not c.awakening.enabled else None,
+    lambda c: (
+        "'awakening.context_modulation.event_salience' must be true when 'events.enabled' is "
+        "true -- a shock with nothing in the awakening gate to modulate is a silently dead "
+        "experiment (v5 §8)"
+    ) if c.events.enabled and not c.awakening.context_modulation.event_salience else None,
+    lambda c: (
+        "'social_graph.enabled' must be true when "
+        "'awakening.context_modulation.neighbors_acting' is true -- there is no graph to "
+        "compute the term from otherwise (§5/§7bis.9f). The reverse is not required: "
+        "'social_graph.enabled' alone (without this flag) is a real arm -- the graph still "
+        "feeds pressure_action's ctx.neighbors_acting without also modulating who gets "
+        "consulted"
+    ) if c.awakening.context_modulation.neighbors_acting and not c.social_graph.enabled else None,
+    lambda c: (
+        "'sortition_chamber.seats' cannot exceed 'run.population_size' when "
+        "'sortition_chamber.enabled' is true -- a config that can't seat even one full chamber "
+        "is a degenerate arm (§6bis.3)"
+    ) if c.sortition_chamber.enabled and c.run.population_size < c.sortition_chamber.seats else None,
+)
+
+
+def validate_config(config: PolityConfig) -> None:
+    """Raise PolityConfigError on the first cross-setting rule `config` breaks.
+    Called by load_config and again by run_simulation, so a config assembled
+    with dataclasses.replace is held to the same rules as the YAML."""
+    for rule in _CONFIG_RULES:
+        message = rule(config)
+        if message is not None:
+            raise PolityConfigError(message)
+
+
 def load_config(path: Path | str | None = None) -> PolityConfig:
     """Load and validate polity_config.yaml. Raises PolityConfigError on any
     structural problem — never lets a malformed file fail silently or with a
@@ -944,65 +1004,7 @@ def load_config(path: Path | str | None = None) -> PolityConfig:
     social_graph = _parse_social_graph(raw)
     sortition_chamber = _parse_sortition_chamber(raw)
 
-    # Cross-section rules (§7bis.2/§7bis.6) -- each section parses in
-    # isolation above; these are the invariants that only make sense once
-    # more than one section is known, so they live here rather than in any
-    # single _parse_* function.
-    if pressure_menu.petition_enabled != petition.enabled:
-        raise PolityConfigError(
-            "'pressure_menu.petition_enabled' and 'petition.enabled' disagree -- these two keys "
-            "describe the same fact (§7bis.2) and must not drift apart"
-        )
-    if pressure_menu.mobilization_enabled != street_pressure.enabled:
-        raise PolityConfigError(
-            "'pressure_menu.mobilization_enabled' and 'street_pressure.enabled' disagree -- "
-            "these two keys describe the same fact (§7bis.2) and must not drift apart"
-        )
-    weight_sum = petition.weight_in_ecart + street_pressure.weight_in_ecart
-    if abs(weight_sum - 1.0) > 1e-9:
-        raise PolityConfigError(
-            f"'petition.weight_in_ecart' + 'street_pressure.weight_in_ecart' must sum to 1.0 "
-            f"(w_pet + w_mob, §7bis.6), got {weight_sum}"
-        )
-    if (petition.enabled or street_pressure.enabled) and not legitimacy.enabled:
-        raise PolityConfigError(
-            "'legitimacy.enabled' must be true when 'petition.enabled' or 'street_pressure.enabled' "
-            "is true -- écart(t) from either lever has nowhere to go without L(t) tracked (§7bis.6)"
-        )
-    if (petition.enabled or street_pressure.enabled) and not awakening.enabled:
-        raise PolityConfigError(
-            "'awakening.enabled' must be true when 'petition.enabled' or 'street_pressure.enabled' "
-            "is true -- a citizen lever with nobody ever consulted (§7bis.9d) is a silently dead "
-            "experiment, indistinguishable from 'pressure_menu.electoral_only'"
-        )
-    if events.enabled and not awakening.enabled:
-        raise PolityConfigError(
-            "'awakening.enabled' must be true when 'events.enabled' is true -- a shock with nobody "
-            "ever consulted (§7bis.9d) is a silently dead experiment (v5 §8)"
-        )
-    if events.enabled and not awakening.context_modulation.event_salience:
-        raise PolityConfigError(
-            "'awakening.context_modulation.event_salience' must be true when 'events.enabled' is "
-            "true -- a shock with nothing in the awakening gate to modulate is a silently dead "
-            "experiment (v5 §8)"
-        )
-    if awakening.context_modulation.neighbors_acting and not social_graph.enabled:
-        raise PolityConfigError(
-            "'social_graph.enabled' must be true when "
-            "'awakening.context_modulation.neighbors_acting' is true -- there is no graph to "
-            "compute the term from otherwise (§5/§7bis.9f). The reverse is not required: "
-            "'social_graph.enabled' alone (without this flag) is a real arm -- the graph still "
-            "feeds pressure_action's ctx.neighbors_acting without also modulating who gets "
-            "consulted"
-        )
-    if sortition_chamber.enabled and run.population_size < sortition_chamber.seats:
-        raise PolityConfigError(
-            "'sortition_chamber.seats' cannot exceed 'run.population_size' when "
-            "'sortition_chamber.enabled' is true -- a config that can't seat even one full chamber "
-            "is a degenerate arm (§6bis.3)"
-        )
-
-    return PolityConfig(
+    config = PolityConfig(
         run=run,
         institutions=_parse_institutions(raw),
         parties=_parse_parties(raw),
@@ -1024,3 +1026,5 @@ def load_config(path: Path | str | None = None) -> PolityConfig:
         parallel=_parse_parallel(raw),
         raw=raw,
     )
+    validate_config(config)
+    return config
