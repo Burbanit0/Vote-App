@@ -206,6 +206,7 @@ from api.domain.polity.llm_schemas import (
     VoteCastDecision,
 )
 from api.domain.polity.llm_toon_encoding import encode_toon_array
+from api.domain.polity.model_profiles import QWEN3_8B_AWQ_VLLM, QWEN3_8B_OLLAMA, ModelProfile, model_profile
 from api.domain.polity.parties import Party
 from api.domain.polity.simple_rules import (
     BLANK_LABEL,
@@ -291,9 +292,9 @@ MIN_SAFE_BATCH_SIZE = 20
 # rather than silently keep applying an Ollama-measured ceiling to vLLM --
 # see _CHAMBER_MAX_CHUNK_SIZE_VLLM below for the re-test and its very
 # different answer, and _chamber_chunk_size for how the two are selected.
-_CHAMBER_MAX_CHUNK_SIZE_OLLAMA = 1
+_CHAMBER_MAX_CHUNK_SIZE_OLLAMA = QWEN3_8B_OLLAMA.chamber_chunk_size  # 1; the value lives in model_profiles (S2.3)
 
-_CHAMBER_MAX_CHUNK_SIZE_VLLM = 5
+_CHAMBER_MAX_CHUNK_SIZE_VLLM = QWEN3_8B_AWQ_VLLM.chamber_chunk_size  # 5; the value lives in model_profiles (S2.3)
 """check_vllm_chunk_size_throughput_results.md (2026-09-08, GPU, real
 production prompts, real decode/validation, vLLM/Qwen3-8B-AWQ): unlike
 vote_cast (see _VOTE_CAST_MAX_CHUNK_SIZE_VLLM's own docstring), chamber_
@@ -314,14 +315,16 @@ at all. Requires _dynamic_max_tokens at the call site, not just this raised
 ceiling on its own -- see that function's own docstring for why."""
 
 
+def _profile(config: PolityConfig) -> ModelProfile:
+    """The served model's profile (S2.3), read fresh per call so a config change
+    -- a test overriding llm.provider or llm.model -- is always honored."""
+    return model_profile(config.llm.provider, config.llm.model)
+
+
 def _chamber_chunk_size(config: PolityConfig) -> int:
-    """The provider-conditional switch _CHAMBER_MAX_CHUNK_SIZE_VLLM/_OLLAMA's
-    own docstrings describe -- kept as a function rather than resolved once
-    at import time so a config change (e.g. a test overriding llm.provider)
-    is always honored, matching how every other provider-conditional check
-    in this module (_check_supported, _dynamic_max_tokens) already reads
-    config.llm.provider fresh per call rather than caching it."""
-    return _CHAMBER_MAX_CHUNK_SIZE_VLLM if config.llm.provider == "vllm" else _CHAMBER_MAX_CHUNK_SIZE_OLLAMA
+    """The model profile's measured chamber chunk size -- 5 for Qwen3-8B-AWQ on
+    vLLM, 1 on Ollama; see _CHAMBER_MAX_CHUNK_SIZE_VLLM/_OLLAMA for the record."""
+    return _profile(config).chamber_chunk_size
 
 # A real v6b acceptance run (2026-08-17, GPU) found cast_votes's own
 # per-voter distance-threshold arithmetic -- correct at batch size 1 (5/5
@@ -379,9 +382,9 @@ def _chamber_chunk_size(config: PolityConfig) -> int:
 # Renamed here (2026-09-08) to make explicit this value only ever applied
 # to Ollama, unexamined since the vLLM switch (§15bis.6) -- see
 # _VOTE_CAST_MAX_CHUNK_SIZE_VLLM below for the re-test.
-_VOTE_CAST_MAX_CHUNK_SIZE_OLLAMA = 1
+_VOTE_CAST_MAX_CHUNK_SIZE_OLLAMA = QWEN3_8B_OLLAMA.vote_cast_chunk_size  # 1; the value lives in model_profiles (S2.3)
 
-_VOTE_CAST_MAX_CHUNK_SIZE_VLLM = 3
+_VOTE_CAST_MAX_CHUNK_SIZE_VLLM = QWEN3_8B_AWQ_VLLM.vote_cast_chunk_size  # 3; the value lives in model_profiles (S2.3)
 """check_vllm_chunk_size_throughput_results.md (2026-09-08, GPU, real
 production prompts, parties.initial_count=5): re-tested the identity-
 permutation collapse directly against the same ground truth the Ollama-era
@@ -405,10 +408,9 @@ ceiling on its own -- see that function's own docstring for why."""
 
 
 def _vote_cast_chunk_size(config: PolityConfig) -> int:
-    """The provider-conditional switch _VOTE_CAST_MAX_CHUNK_SIZE_VLLM/_OLLAMA's
-    own docstrings describe -- see _chamber_chunk_size's own docstring for
-    why this stays a function rather than a value resolved once."""
-    return _VOTE_CAST_MAX_CHUNK_SIZE_VLLM if config.llm.provider == "vllm" else _VOTE_CAST_MAX_CHUNK_SIZE_OLLAMA
+    """The model profile's measured vote_cast chunk size -- 3 for Qwen3-8B-AWQ on
+    vLLM, 1 on Ollama; see _VOTE_CAST_MAX_CHUNK_SIZE_VLLM/_OLLAMA for the record."""
+    return _profile(config).vote_cast_chunk_size
 
 
 _PRESSURE_CALIBRATED_CHUNK_SIZE = 1
@@ -598,7 +600,7 @@ _COALITION_RETRY_SEED_BASE = 900_000_801
 # roughly 14000 tokens of real headroom, so 12000 leaves a genuine margin
 # (~2600 tokens) for prompt-size variance rather than sitting right at the
 # ceiling like 4000/8000 both did.
-_VOTE_THINK_TOKEN_ALLOWANCE = 12000
+_VOTE_THINK_TOKEN_ALLOWANCE = QWEN3_8B_AWQ_VLLM.vote_think_allowance  # 12000; see model_profiles (S2.3)
 
 # think=False's own "3/3 on the real 30-member cohort" finding above did NOT
 # generalize to every 10-member chunk: a real v6b acceptance run (2026-08-17,
@@ -624,7 +626,7 @@ _VOTE_THINK_TOKEN_ALLOWANCE = 12000
 # throughout, no context-shift, prompt ~4771 tokens -- the same deterministic
 # budget-exhaustion signature, not context corruption. Corrected to actually
 # match the value the docstring already claimed.
-_CHAMBER_THINK_TOKEN_ALLOWANCE = 8000
+_CHAMBER_THINK_TOKEN_ALLOWANCE = QWEN3_8B_AWQ_VLLM.chamber_think_allowance  # 8000; see model_profiles (S2.3)
 
 _TRUNCATION_THRESHOLD = 6
 _TRUNCATE_TO = 5
@@ -1055,10 +1057,12 @@ derived context (shared verbatim with the permanent journal record, where
 this project's own precision has never been questioned and reducing it would
 be a very different, much bigger decision than reducing what the model sees)."""
 
-_VLLM_CONTEXT_LIMIT = 16384
+assert QWEN3_8B_AWQ_VLLM.context_limit is not None
+_VLLM_CONTEXT_LIMIT = QWEN3_8B_AWQ_VLLM.context_limit
 """Matches `--max-model-len 16384` (docker-compose.llm.yml) -- vLLM's own
-hard ceiling on prompt_tokens + max_tokens together for one request. Used
-only by _dynamic_max_tokens, only on the vLLM path."""
+hard ceiling on prompt_tokens + max_tokens together for one request. Kept as a
+name for the scripts that import it; _dynamic_max_tokens reads the run's own
+model profile (S2.3)."""
 
 _VLLM_MAX_TOKENS_SAFETY_MARGIN = 300
 """Headroom below _VLLM_CONTEXT_LIMIT that _dynamic_max_tokens never
@@ -1121,14 +1125,16 @@ def _dynamic_max_tokens(
     with_replay makes for the same chunk (only seed/temperature vary on a
     retry), so prompt_tokens cannot change between attempts either."""
     floor = compute_max_tokens(chunk_size)
-    if config.llm.provider != "vllm":
+    profile = _profile(config)
+    context_limit = profile.context_limit
+    if not profile.probe_token_budget or context_limit is None:
         return floor + flat_allowance
     with call_context(kind="budget_probe", decision_type=decision_type, unit_ids=unit_ids):
         prompt_tokens = client.count_prompt_tokens(system_prompt=system_prompt, user_prompt=user_prompt, think=True)
-    return max(floor, _VLLM_CONTEXT_LIMIT - prompt_tokens - _VLLM_MAX_TOKENS_SAFETY_MARGIN)
+    return max(floor, context_limit - prompt_tokens - _VLLM_MAX_TOKENS_SAFETY_MARGIN)
 
 
-_POSITIONING_THINK_TOKEN_ALLOWANCE = 8000
+_POSITIONING_THINK_TOKEN_ALLOWANCE = QWEN3_8B_AWQ_VLLM.positioning_think_allowance  # 8000; see model_profiles (S2.3)
 """Extra budget decide_campaign_positioning adds on top of compute_max_tokens
 once it moved to think=True (v4 Lot 8 live finding, see that function's
 docstring). Measured, not guessed: a 5-nominee batch under
@@ -1589,7 +1595,7 @@ def cast_votes(
                     system_prompt=system_prompt,
                     user_prompt=user_prompt,
                     chunk_size=len(chunk),
-                    flat_allowance=_VOTE_THINK_TOKEN_ALLOWANCE,
+                    flat_allowance=_profile(config).vote_think_allowance,
                     decision_type="vote_cast",
                     unit_ids=expected_cids,
                 ),
@@ -2727,7 +2733,7 @@ def decide_campaign_positioning(
             system_prompt=build_positioning_system_prompt(nominees, config),
             user_prompt=build_positioning_user_prompt(nominees, parties_by_id, electorate_mean),
             json_schema=POSITIONING_JSON_SCHEMA,
-            max_tokens=compute_max_tokens(len(nominees)) + _POSITIONING_THINK_TOKEN_ALLOWANCE,
+            max_tokens=compute_max_tokens(len(nominees)) + _profile(config).positioning_think_allowance,
             think=True,
             decode=lambda raw: decode_positioning_batch(raw, expected_cids),
             replays=config.llm.max_batch_replays,
@@ -4782,7 +4788,7 @@ def decide_chamber_deliberation(
                     system_prompt=system_prompt,
                     user_prompt=user_prompt,
                     chunk_size=len(chunk),
-                    flat_allowance=_CHAMBER_THINK_TOKEN_ALLOWANCE,
+                    flat_allowance=_profile(config).chamber_think_allowance,
                     decision_type="chamber_deliberation",
                     unit_ids=expected_cids,
                 ),

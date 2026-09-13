@@ -27,7 +27,7 @@ _VLLM_CONTAINER_CMD = [
 ]
 
 _LLM_ONLY_FIELDS = (
-    "llm_provider", "llm_base_url", "llm_model", "llm_client_injected", "prompt_source_sha256",
+    "llm_provider", "llm_base_url", "llm_model", "llm_client_injected", "prompt_source_sha256", "model_profile",
     "gpu_driver_version", "gpu_cuda_version", *run_provenance.SERVER_FIELDS,
 )
 
@@ -104,6 +104,8 @@ def test_an_injected_client_is_named_and_no_server_is_probed(tmp_path: Path, mon
     assert metadata["engine"] == "llm"
     assert metadata["llm_client_injected"] == "_FakeLlmClient"
     assert re.fullmatch(r"[0-9a-f]{64}", metadata["prompt_source_sha256"])
+    assert metadata["model_profile"]["weights"] == "Qwen/Qwen3-8B-AWQ"
+    assert metadata["model_profile"]["vote_cast_chunk_size"] == 3
     assert all(metadata[field] is None for field in run_provenance.SERVER_FIELDS)
 
 

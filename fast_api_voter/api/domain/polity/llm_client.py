@@ -69,6 +69,7 @@ from pydantic import BaseModel, ValidationError
 
 from api.domain.polity.config import LlmConfig
 from api.domain.polity.llm_call_log import record_http_response
+from api.domain.polity.model_profiles import QWEN3_THINKING, ThinkingControl, model_profile
 from api.domain.polity.llm_schemas import (
     CandidacyBatch,
     CandidacyDecision,
@@ -636,19 +637,26 @@ class VllmJsonClient:
         seed: int,
         timeout: float,
         transport: httpx.BaseTransport | None = None,
+        thinking: ThinkingControl = QWEN3_THINKING,
     ) -> None:
         self._base_url = base_url
         self._model = model
         self._temperature = temperature
         self._seed = seed
         self._client = httpx.Client(timeout=timeout, transport=transport)
+        # How this model's reasoning is switched (S2.3, model_profiles.py). The default
+        # is Qwen3's, which every request sent before model profiles existed used.
+        self._thinking = thinking
 
     @classmethod
     def from_config(cls, llm: LlmConfig, *, seed: int, timeout: float = 600.0) -> VllmJsonClient:
         """Same 600s default as OllamaJsonClient.from_config -- no live
         vLLM measurement exists yet to justify a different one; re-measure
         once a GPU host is available (see the vLLM switch plan)."""
-        return cls(llm.base_url, llm.model, llm.temperature, seed, timeout)
+        return cls(
+            llm.base_url, llm.model, llm.temperature, seed, timeout,
+            thinking=model_profile(llm.provider, llm.model).thinking,
+        )
 
     def complete_json(
         self,
@@ -690,7 +698,7 @@ class VllmJsonClient:
             "seed": effective_seed,
             "max_tokens": max_tokens,
             "stream": False,
-            "chat_template_kwargs": {"enable_thinking": think},
+            **self._thinking.request_fields(think),
             "response_format": {
                 "type": "json_schema",
                 "json_schema": {"name": "polity_decision_batch", "strict": True, "schema": _inline_refs(json_schema)},
@@ -740,7 +748,7 @@ class VllmJsonClient:
             "seed": self._seed,
             "max_tokens": 1,
             "stream": False,
-            "chat_template_kwargs": {"enable_thinking": think},
+            **self._thinking.request_fields(think),
         }
         payload = json.dumps(body, sort_keys=True, separators=(",", ":"))
         response = _post_with_transport_retry(self._client, f"{self._base_url}/chat/completions", payload)
@@ -813,7 +821,7 @@ class VllmJsonClient:
             "seed": effective_seed,
             "max_tokens": max_tokens,
             "stream": False,
-            "chat_template_kwargs": {"enable_thinking": think},
+            **self._thinking.request_fields(think),
             "logprobs": True,
             "top_logprobs": top_logprobs,
         }
@@ -877,7 +885,7 @@ class VllmJsonClient:
             "seed": effective_seed,
             "max_tokens": max_tokens,
             "stream": False,
-            "chat_template_kwargs": {"enable_thinking": think},
+            **self._thinking.request_fields(think),
             "response_format": {
                 "type": "json_schema",
                 "json_schema": {"name": "polity_decision_batch", "strict": True, "schema": _inline_refs(json_schema)},
