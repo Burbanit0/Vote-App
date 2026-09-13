@@ -57,7 +57,7 @@ const BlankVotePanel: React.FC = () => {
       true,
       liveBlank.intensity
     );
-    const counts = new Array(leaderCandidates.length).fill(0);
+    const counts: number[] = new Array(leaderCandidates.length).fill(0);
     for (const r of computeRanks(expressed, leaderCandidates)) counts[r[0]]++;
     const total = votingVoters.length || 1;
     return {

@@ -191,8 +191,8 @@ export function criteriaMatrix(voters: Pt[], cands: NamedPt[]): CriteriaRow[] {
   const cw = condorcetFromRanks(baseRanks, m);
 
   // Majority favourite (first for >50%) and majority loser (last for >50%).
-  const firsts = new Array(m).fill(0);
-  const lasts = new Array(m).fill(0);
+  const firsts: number[] = new Array(m).fill(0);
+  const lasts: number[] = new Array(m).fill(0);
   for (const r of baseRanks) {
     firsts[r[0]] += 1;
     lasts[r[r.length - 1]] += 1;

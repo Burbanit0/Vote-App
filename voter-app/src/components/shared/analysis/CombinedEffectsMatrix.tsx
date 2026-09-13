@@ -27,7 +27,7 @@ import { useChartTheme } from '../../../hooks/useChartTheme';
 import LiveBadge from '../ui/LiveBadge';
 import MetricTooltip from '../ui/MetricTooltip';
 
-import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+import { numericTooltipFormatter, numericTickFormatter } from '@/lib/rechartsFormatters';
 
 // ── Colour helpers ────────────────────────────────────────────────────────────
 
@@ -208,7 +208,7 @@ const FactorBars: React.FC<{
         <XAxis
           type="number"
           tick={{ fontSize: 10, fill: ct.tickFill }}
-          tickFormatter={(v) => `${v > 0 ? '+' : ''}${v.toFixed(1)}%`}
+          tickFormatter={numericTickFormatter((v) => `${v > 0 ? '+' : ''}${v.toFixed(1)}%`)}
         />
         <YAxis
           type="category"

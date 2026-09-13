@@ -26,7 +26,7 @@ import LiveBadge from '../ui/LiveBadge';
 import PinToCentralButton from '../ui/PinToCentralButton';
 import CampaignSwimlane from './CampaignSwimlane';
 
-import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+import { numericTooltipFormatter, numericTickFormatter } from '@/lib/rechartsFormatters';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -91,7 +91,7 @@ const StabilityChart: React.FC<{
             type="number"
             domain={[0, 1]}
             tick={{ fontSize: 10, fill: ct.tickFill }}
-            tickFormatter={(v) => `${Math.round(v * 100)}%`}
+            tickFormatter={numericTickFormatter((v) => `${Math.round(v * 100)}%`)}
           />
           <YAxis
             type="category"

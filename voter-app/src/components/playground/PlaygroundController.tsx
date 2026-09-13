@@ -207,7 +207,7 @@ function useController() {
     const ranks = computeRanks(expressedVoters, leaderCandidates);
     const scores = computeScores(expressedVoters, leaderCandidates);
     const winnerIdx = ruleWinnerFromRanks(ranks, m, leaderRule, scores);
-    const firstPrefCounts = new Array(m).fill(0);
+    const firstPrefCounts: number[] = new Array(m).fill(0);
     for (const r of ranks) firstPrefCounts[r[0]] += 1;
     const total = expressedVoters.length + blankSplit.blankCount;
     const shares = firstPrefCounts.map((c) => c / total);

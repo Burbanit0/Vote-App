@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Control, Range } from '@/components/ui/form-controls';
 import { Col, Row } from '@/components/ui/grid';
 import { Spinner } from '@/components/ui/spinner';
-import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+import { numericTooltipFormatter, numericTickFormatter } from '@/lib/rechartsFormatters';
 
 import {
   RadarChart,
@@ -317,7 +317,7 @@ const MajorityTyrannyPanel: React.FC = () => {
                   <XAxis dataKey="pct" unit="%" tick={{ fontSize: 10 }} />
                   <YAxis
                     domain={[0, 1]}
-                    tickFormatter={(v) => `${Math.round(v * 100)}%`}
+                    tickFormatter={numericTickFormatter((v) => `${Math.round(v * 100)}%`)}
                     tick={{ fontSize: 10 }}
                   />
                   <Tooltip
