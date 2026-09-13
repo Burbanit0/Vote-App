@@ -281,10 +281,15 @@ silently drifted from `scripts/setup-branch-protection.sh`.
 - **`audit`** (schedule + `workflow_dispatch` only, never `pull_request` —
   same reasoning as the workflows it watches) runs
   `scripts/check_ci_health.py --update`, which queries real run history for
-  each watched workflow plus live branch-protection state, and commits the
-  result to `.github/ci-health.json` directly on `develop`
-  (`[skip ci]`, same direct-push-to-a-protected-branch pattern `release.yml`
-  already uses on `main`).
+  each watched workflow plus live branch-protection state, and — if the
+  result changed — opens a `chore/ci-health-snapshot-*` PR and queues it via
+  `@mergifyio queue`. A direct push was the original design (thought to
+  match `release.yml`'s push-to-`main` pattern), but `develop`'s
+  `required_pull_request_reviews` block (even at 0 required approvals)
+  makes GitHub reject any raw push with "Changes must be made through a
+  pull request" — confirmed live on this job's first real run, meaning
+  `release.yml`'s own direct push to `main` has the same latent bug and has
+  simply never been exercised for real yet (no release has shipped).
 - **`verify`** (required, every PR, no paths filter — it's cheap enough
   that skipping it is never worth the PR #205 risk of a required check with
   no run) reads that snapshot from `develop`'s tip — not the PR branch's own

@@ -4,7 +4,7 @@
     "reason": "real 64.4% score (floor 70%) found the moment mutmut stopped crashing (PR #447) -- a genuine assertion gap in simulation_ranked_utils.py/simulation_score_utils.py, not a tooling problem. Needs its own investigation (which functions lost coverage, likely from the recent decomposition PRs) and new tests, tracked separately from the watchdog rollout."
   },
   "branch-protection": {
-    "until": "2026-09-16",
-    "reason": "this PR adds 'CI health check' to setup-branch-protection.sh's REQUIRED_CONTEXTS, but the setup script can't be re-run to make it live until the check has actually run once on develop (GitHub won't accept a required context with no prior run -- see the script's own trailing note). Run scripts/setup-branch-protection.sh develop right after this merges and its first run completes, then remove this entry."
+    "until": "2026-09-15",
+    "reason": "bridge only: branch protection is already fixed live (setup-branch-protection.sh develop re-run 2026-09-13, confirmed via the API), but verify reads the SNAPSHOT from develop's tip, not this PR's own copy -- so this PR's corrected .github/ci-health.json can't make its own verify pass until it's already merged. Self-referential by construction; the snooze bridges exactly that gap. Should read healthy on its own again the moment this merges or the next real audit PR lands -- remove then, don't let it linger."
   }
 }

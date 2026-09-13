@@ -35,6 +35,7 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
@@ -55,26 +56,40 @@ jobs:
             cat summary.txt
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
-      # Commit only if something actually changed -- a no-op run shouldn't
-      # create a commit just to bump a timestamp; the snapshot's own
-      # generated_at inside the file is what freshness is judged on, and an
-      # unchanged file with an unchanged mtime would make every run a no-op
-      # commit otherwise. [skip ci] matches release.yml's own precedent for
-      # a direct bot push to a protected branch (main there, develop here) --
-      # GitHub natively skips creating check runs for a commit with this in
-      # its message, so this doesn't loop back into itself or spam the four
-      # required-check workflows for a metadata-only change.
-      - name: Commit the snapshot if it changed
+      # A direct push here was the original design, matching what looked
+      # like release.yml's precedent (push straight to a protected branch).
+      # That precedent turned out to be untested and wrong: develop's
+      # required_pull_request_reviews block (even at 0 required approvals)
+      # makes GitHub reject ANY raw push with "Changes must be made through
+      # a pull request" -- confirmed live (this job's first real run, 2026-
+      # 09-13). GITHUB_TOKEN cannot bypass that, by GitHub's own design, so
+      # the only legitimate path is the same one every other change in this
+      # repo takes: a PR, queued through Mergify. Only opened if something
+      # actually changed -- a no-op run shouldn't spam a PR just to bump a
+      # timestamp.
+      - name: Open a PR with the updated snapshot, if it changed
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
           git add .github/ci-health.json
           if git diff --cached --quiet; then
             echo "No change to .github/ci-health.json"
             exit 0
           fi
-          git commit -m "chore(ci-health): update snapshot [skip ci]"
-          git push origin HEAD:develop
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          BRANCH="chore/ci-health-snapshot-$(date -u +%Y%m%d-%H%M%S)"
+          git checkout -b "$BRANCH"
+          git commit -m "chore(ci-health): update snapshot"
+          git push origin "$BRANCH"
+          PR_URL=$(gh pr create --base develop --head "$BRANCH" \
+            --title "chore(ci-health): update snapshot" \
+            --body "Automated snapshot from the scheduled CI health audit. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}")
+          echo "Opened $PR_URL"
+          # auto_merge_conditions in .mergify.yml doesn't reliably auto-queue
+          # in practice (observed live on PRs #448/#449) -- comment explicitly
+          # rather than trust it.
+          gh pr comment "$PR_URL" --body "@mergifyio queue"
 
   # The actual gate. Required on every PR. Reads the snapshot from develop's
   # tip (not the PR branch's own possibly-months-stale copy -- this is
