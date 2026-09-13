@@ -4930,6 +4930,38 @@ def test_staggered_election_splits_declaration_nomination_and_vote_across_three_
     assert len(elected_at_4) == 1
 
 
+def test_staggered_election_does_not_suppress_party_nominees_on_the_deterministic_engine(tmp_path):
+    """Regression, 2026-09-13. The staggered DISPATCH requires `llm.enabled`;
+    the `already_staggered` check at the election did not. Under the
+    deterministic engine nothing staggers, so nothing should change -- but
+    `rupture_path_enabled` is RNG-driven and LLM-independent (and
+    run_polity_flagship force-enables it), so a standing rupture candidate
+    holding Role.CANDIDATE on election day satisfied `any(...)` on its own.
+    _declare_nominees was then skipped and the rupture candidate became the
+    ENTIRE field: an election with no party nominees, silently, with no error.
+
+    rupture_base_probability=1.0 makes the rupture candidate certain rather
+    than hoping the RNG produces one, the same device test_polity_run_
+    simulation.py already uses elsewhere for this path."""
+    config = _config_with_output_dir(tmp_path)  # deterministic: llm.enabled stays False
+    config = dataclasses.replace(
+        config,
+        institutions=dataclasses.replace(config.institutions, staggered_election=True, president_term_years=1),
+        candidacy=dataclasses.replace(config.candidacy, rupture_path_enabled=True, rupture_base_probability=1.0),
+        run=dataclasses.replace(config.run, duration_years=2, population_size=20),
+    )
+
+    journal_path = run_simulation(config, run_id="staggered-deterministic")
+    events = _events(journal_path)
+
+    # The election at tick 4 must still declare party nominees itself -- the
+    # atomic path, because nothing staggered.
+    declared_at_4 = [e for e in events if e["event_type"] == "candidacy_declared" and e["tick"] == 4]
+    assert declared_at_4, "party nominees were never declared: the staggered branch was taken with no LLM"
+    elected_at_4 = [e for e in events if e["event_type"] == "elected" and e["tick"] == 4]
+    assert len(elected_at_4) == 1
+
+
 def test_staggered_election_keeps_the_tick_zero_election_atomic(tmp_path):
     # There is no tick -2/-1 to declare/nominate into -- the very first
     # election has no runway, so it stays exactly as it always has:
