@@ -34,35 +34,85 @@ L'audit a trouvé **6 items concrets** qui méritent une action — le 6e
 connus et volontairement différés** (Lot 14 du plan de solidité, non repris
 ici en détail).
 
+**Mise à jour (2026-09-13, même session)** : 5 des 6 items ont une PR ouverte
+contre `develop` (#439 §2.6, #440 §2.4, #442 §2.5, #444 §2.3 ; §2.1 root-causé
+et corrigé, PR #447 ouverte). Seul **§2.2** (dérive
+de la protection de branche) reste sans action : c'est une bascule
+d'infrastructure live avec un historique documenté d'incompatibilité avec
+Mergify, donc une décision humaine avant tout changement, pas une action
+prise unilatéralement.
+
+**Effet de bord observé pendant cette session** : Mergify a **auto-mergé**
+#438, #439, #442 et #444 quelques minutes après ouverture, dès leurs checks
+requis au vert — avant qu'aucune revue humaine ni `/code-review ultra` n'ait
+eu lieu, alors que `CLAUDE.md` recommande explicitement cette revue pour les
+PR touchant des workflows CI/CD (#442, #444 en sont). Aucun de ces
+changements n'était à haut risque et chacun a été vérifié en direct avant
+d'ouvrir sa PR (builds Docker réels, requêtes `gh` en direct, reproduction
+locale du crash mutmut) — mais la queue Mergify ne lit pas ces
+vérifications, seulement les checks requis. Vaut la peine d'une décision
+consciente : soit exclure les PR touchant `.github/workflows/**` de
+l'auto-merge Mergify (`.mergify.yml`), soit accepter que la vérification
+humaine/ultra intervienne *avant* l'ouverture de la PR plutôt qu'avant son
+merge sur ce dépôt.
+
 ---
 
 ## 2. Items à traiter, par priorité
 
-### 2.1 🔴 Le cliquet mutation testing (mutmut) échoue en silence
+### 2.1 🟢 Le job mutmut ne crashait pas sur un vrai déficit de tests — root-caused et corrigé — PR #447 ouverte
 
-**Constat** : sur les 15 derniers runs de `mutation-testing.yml`, le job
-`Backend mutation score (mutmut, floor 70%)` a échoué **9 fois** à l'étape du
-seuil. Stryker (frontend, seuil 80%) passe à chaque run — ce n'est donc pas
-un problème d'outillage, c'est une vraie régression de couverture de
-mutation sur `simulation_ranked_utils.py`/`simulation_score_utils.py`. Le
-job n'est délibérément pas un check requis (règle du skill `voter-ci` : un
-check requis sur un workflow qui ne tourne jamais en PR bloque la PR pour
-toujours), donc personne ne le voit passer au rouge.
+**Constat initial** (à partir des `gh run list`) : sur les 15 derniers runs
+de `mutation-testing.yml`, le job `Backend mutation score (mutmut, floor
+70%)` a échoué **9 fois** à l'étape du seuil. Stryker (frontend, seuil 80%)
+passe à chaque run. Hypothèse de départ : une vraie régression de couverture
+de mutation.
 
-**Pourquoi ça compte** : c'est exactement le gate que le Lot 5 du plan de
-solidité a mis en place pour éviter un score de mutation qui se dégrade sans
-bruit sur le moteur — et c'est en train de faire ce que le plan voulait
-éviter.
+**Ce que les vrais logs ont montré** (`gh api .../actions/jobs/<id>/logs`,
+recette du skill `voter-ci`) : **ce n'est pas ça.** Chaque run échoue
+identiquement, en ~2 minutes, avant qu'un seul mutant ne soit testé —
+`check_mutation_score.sh` échoue avec « No mutmut progress line found »
+parce que le job entier a planté pendant la phase `Running stats` de mutmut
+avec :
 
-**Action** : lancer `mutmut run` en local sur les deux fichiers, identifier
-les mutants qui survivent maintenant et ne survivaient pas avant (probable
-lien avec les PR récentes de décomposition — `feat/decompose-start-monte-carlo`,
-`feat/decompose-democratic-backsliding-worker`, cf. git log). Soit ajouter
-les tests qui tuent ces mutants, soit documenter explicitement pourquoi le
-seuil doit baisser (jamais en douce — même logique que le cliquet qualité :
-un changement de seuil se commit avec sa justification).
+```
+ImportError while importing test module '.../test_anti_plurality.py'.
+...
+E   ImportError: cannot load module more than once per process
+```
 
-**Effort** : M · **Priorité** : haute (dette qui grossit sans alarme).
+**Root cause confirmée, pas supposée** : `git log` a montré que le dernier
+run propre (73.3%, 2026-08-28T11:34Z) a été suivi 13h plus tard par PR #212
+(`chore/numpy-bump-2.4.6`), et un commit du même jour
+(`869ee44d docs(mutmut): flag the numpy 2.4.6 regression`) avait **déjà**
+diagnostiqué et documenté ce lien de cause à effet dans
+`fast_api_voter/pyproject.toml` — sans jamais être corrigé depuis (17 jours,
+tous les runs cassés de la même façon). Recherche web confirmant le
+mécanisme exact : numpy 2.4+ a ajouté un garde-fou qui refuse qu'une
+extension C soit ré-initialisée dans le même process
+([numpy/numpy#29030](https://github.com/numpy/numpy/issues/29030) — même
+famille de bug que
+[DataDog/dd-trace-py#18276](https://github.com/DataDog/dd-trace-py/issues/18276)),
+et **mutmut a corrigé exactement ce cas en 3.8.0** (changelog : « Fix
+`mutate_only_covered_lines` breaking when the test suite imports a
+dependency that cannot be initialized twice in one process, which raised
+for numpy... Coverage is now gathered in a separate process » — #528, #566).
+Ce dépôt était épinglé sur `mutmut==3.7.0`.
+
+**Corrigé** : bump `mutmut` 3.7.0 → 3.8.0 dans `requirements-dev.txt`.
+**Vérifié en local, pas seulement lu dans un changelog** : reproduit le vrai
+crash avec 3.7.0 (même trace exacte), puis installé 3.8.0 dans un venv jetable
+(Python 3.14.7, numpy 2.5.2 — versions identiques à la CI réelle) et relancé
+`mutmut run --max-children 4` sur la config existante inchangée : passe la
+phase `Running stats` sans l'`ImportError`, chose qui échouait à 100% (12/12
+runs non annulés) depuis 17 jours.
+
+**Effort réel** : S (un bump de version, une fois la vraie cause identifiée
+— pas le `M` d'une chasse aux mutants survivants supposés). **Priorité** :
+haute, traité en premier parmi les items restants : un cliquet qui plante
+avant de mesurer quoi que ce soit ne protège rien, et l'a fait pendant 17
+jours sans alerter personne (non-requis par design, cf. règle
+`voter-ci`).
 
 ### 2.2 🔴 Dérive de la protection de branche `develop` (`strict`)
 
@@ -88,7 +138,7 @@ Mergify réel passe toujours derrière.
 **Effort** : S · **Priorité** : haute (protection de branche = garde-fou
 silencieux, une dérive ici n'affiche aucune erreur).
 
-### 2.3 🔴 `release.yml` taguerait l'état obsolète de `main`
+### 2.3 🟡 `release.yml` taguerait l'état obsolète de `main` — PR #444 ouverte
 
 **Constat** : le job `release` fait un `checkout` explicite sur `ref: main`
 avant de bump la version, créer le tag et pousser — sans jamais fusionner ou
@@ -112,7 +162,7 @@ direct de `develop` au moment du dispatch).
 non urgente (aucune release n'est prévue immédiatement — à traiter **avant**
 la prochaine, pas dans l'heure).
 
-### 2.4 🟡 Trigger `merge_group` mort dans `audit.yml`
+### 2.4 🟡 Trigger `merge_group` mort dans `audit.yml` — PR #440 ouverte
 
 **Constat** : `audit.yml` déclenche sur `merge_group:`, mais
 `gh api repos/Burbanit0/Vote-App/rulesets` renvoie `[]` (aucune ruleset
@@ -127,7 +177,7 @@ native).
 **Effort** : S · **Priorité** : basse (config morte, pas un risque actif).
 
 ### 2.5 🟡 Documentation obsolète — la « bonne nouvelle » du changement de
-branche par défaut n'est pas actée
+branche par défaut n'est pas actée — PR #442 ouverte
 
 **Constat** : `mutation-testing.yml`, `schemathesis.yml`,
 `flaky-check-backend.yml`, `atheris-fuzzing.yml` (et le skill `voter-ci`)
@@ -149,7 +199,7 @@ problème déjà résolu.
 **Effort** : S · **Priorité** : basse (aucun impact fonctionnel, seulement
 un risque de travail en double futur).
 
-### 2.6 🔴 `ci-local/` a dérivé — trois gates réels absents du mirroir Docker
+### 2.6 🟡 `ci-local/` a dérivé — trois gates réels absents du mirroir Docker — PR #439 ouverte
 
 **Constat** : vérifié en diffant chaque Dockerfile/script contre le workflow
 GitHub qu'il prétend reproduire, au-delà des 3 écarts déjà documentés dans
