@@ -402,6 +402,58 @@ regénère `engineParity.json` **octet pour octet identique** au fichier commit�
 jour (`jscpd_clones: 32 → 19`) via `./scripts/check_quality_ratchet.sh
 --update` — `vulture`/`radon`/`deptry`/`knip` inchangés (0/135/0/93).*
 
+*Mise à jour du 2026-09-12 (quinquies) — un `/code-review ultra` mandaté avant
+merge (la PR touche `simulation_ranked_utils.py`, CLAUDE.md l'exige) a trouvé
+5 instances **supplémentaires** de la même duplication que le point ci-dessus
+venait de traiter, manquées par la vérification "site par site" faite alors —
+la duplication réelle, pas une nouvelle catégorie :
+
+- **3 sites de plus** pour le bloc `_reseed_and_build_electorate` (point 3
+  ci-dessus) : `_sortition_worker` (`workers_advanced.py`), qui appelait encore
+  `_build_base_electorate` après un `_random.seed`/`_np.random.seed` manuel ;
+  `_historical_replay_worker` (`workers_mechanisms.py`), où le calcul des
+  overrides de candidats s'intercalait entre le reseed et la construction
+  (réordonné sans risque : ce calcul ne touche ni `random` ni `np.random`) ;
+  `_polarization_worker` (`workers_dynamics.py`), où le `issues =
+  DEFAULT_ISSUES` hissé au-dessus de la boucle `for ideology in
+  ideology_range:` est devenu redondant et a été retiré. La boucle Monte-Carlo
+  interne de `_polarization_worker` (seed différent par simulation) reste,
+  elle, en appel direct à `_build_base_electorate` — vérifié que
+  `_affective_polarization_worker`, déjà "converti" au point 3, a exactement
+  la même boucle interne non convertie : convention existante, pas un oubli.
+- **2 sites de plus** pour `_ballots_and_candidates` (point 5 ci-dessus) :
+  `get_nanson_winner` et `get_baldwin_winner` faisaient encore leur propre
+  scan `is_dict` + `for c in ranking: if c not in all_cands: ...` — le
+  commentaire de `get_baldwin_winner` signalait déjà lui-même la ressemblance
+  avec `get_nanson_winner`. Bascule vers
+  `parsed = _ballots_and_candidates(votes)` dans les deux, ce qui remplace au
+  passage un scan O(n²) par candidat par le set "seen" O(n) de la fonction
+  partagée. `simulation_ranked_utils.py` touché : `mypy api/` a d'abord
+  échoué (`Returning Any` sur les retours `min(all_cands)`/`min(active)`,
+  `all_cands`/`ballots` hérités en `list[Any]` de la signature générique du
+  helper) — corrigé par une pré-déclaration `all_cands: list[str]` avant le
+  dépaquetage, sans toucher au flux de contrôle.
+  `./scripts/check_engine_parity_drift.sh` et `playgroundVoting.parity.test.ts`
+  (49/49) confirment que le gain de complexité ne change aucun résultat
+  produit par ces deux méthodes.
+- **Un mutable partagé dormant** : `_MULTIWINNER_DEFAULT_CANDIDATES` (point 4
+  ci-dessus) était une `list` de `dict`s alors que `_LD_DEFAULT_CANDIDATES`/
+  `_DT_DEFAULT_CANDIDATES` (même famille de fichiers, même usage) sont des
+  `tuple`s — aucun bug vivant (rien ne mute ces dicts en place aujourd'hui),
+  mais un futur appelant qui normaliserait un `cand_spec` sur place
+  corromprait silencieusement le défaut partagé pour la durée du process.
+  Alignée sur la convention établie (`tuple`).
+
+`npx jscpd --config .jscpd.json fast_api_voter/api voter-app/src` redonne
+**19** clones, inchangé — 0 clone Python avant comme après cette ronde : ces
+5 blocs (4 lignes de reseed, ~15 lignes de scan `is_dict`) étaient déjà sous
+le seuil `minLines`/`minTokens` de jscpd et invisibles à l'outil, exactement
+comme au point 2 ci-dessus pour la contagion du vote blanc. `.github/quality-
+baseline.json` inchangé (`jscpd_clones: 19`), pas de `--update` nécessaire.
+Suite backend complète (2187 passed, 41 skipped — identique à la baseline de
+cette branche), `mypy`, `ruff check fast_api_voter` et `lint-imports` (0
+violation) tous verts.*
+
 ---
 
 ## 1. Garde-fous déjà en place (avant cet audit)
@@ -735,7 +787,11 @@ refactor) — à traiter dans une passe de nettoyage dédiée.
    `workers*.py` et entre `election_service.py`/`workers.py`. Fait le
    2026-09-12 : voir la mise à jour datée « quater » en tête de ce document
    pour le détail (5 clusters réels, 16+ sites, `jscpd` 32 → 19 — la mesure
-   backend passe à 0).
+   backend passe à 0). Un `/code-review ultra` mandaté avant merge en a trouvé
+   5 instances de plus de ces mêmes blocs (3 sites `_reseed_and_build_electorate`,
+   2 sites `_ballots_and_candidates`) plus un mutable partagé dormant à
+   aligner sur la convention `tuple` existante — voir la mise à jour datée
+   « quinquies ».
 2. Évaluer une consolidation architecturale de `domain/election/workers*.py`
    (toujours 6 fichiers, 7 851 lignes cumulées au 2026-09-06, contre 7 250 en
    août) — probablement vers un découpage par responsabilité plutôt

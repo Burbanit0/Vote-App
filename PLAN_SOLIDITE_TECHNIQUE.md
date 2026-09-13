@@ -3137,6 +3137,17 @@ inchangé octet pour octet et `playgroundVoting.parity.test.ts` reste vert
 (49/49) — attendu, l'extraction ne change aucune sortie. `jscpd` 32 → 19 ;
 `.github/quality-baseline.json` mis à jour en conséquence.
 
+**Suivi du suivi** (2026-09-12, même jour) — le `/code-review ultra`
+obligatoire sur cette même PR (elle touche `simulation_ranked_utils.py`) a
+trouvé 5 sites de plus des deux blocs ci-dessus (`_sortition_worker`,
+`_historical_replay_worker`, `_polarization_worker` pour
+`_reseed_and_build_electorate` ; `get_nanson_winner`/`get_baldwin_winner` pour
+`_ballots_and_candidates`) plus `_MULTIWINNER_DEFAULT_CANDIDATES` à aligner sur
+la convention `tuple` du fichier — détail dans `CODE_AUDIT.md`, mise à jour
+datée « quinquies ». `jscpd` reste à 19 : ces 5 blocs étaient déjà sous son
+seuil de détection avant comme après, cohérent avec la contagion du vote blanc
+plus haut dans ce même item.
+
 **README qui raconte, détail** (2026-09-12). Nouvelle section « A second
 thing being explored here » ajoutée à [`README.md`](README.md), en anglais
 comme le reste de la façade publique du dépôt, placée après « Architecture »

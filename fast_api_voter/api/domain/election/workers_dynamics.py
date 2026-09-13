@@ -281,16 +281,12 @@ def _polarization_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
 
-    issues = DEFAULT_ISSUES
     results: List[Dict[str, Any]] = []
 
     for ideology in ideology_range:
-        _random.seed(seed)
-        _np.random.seed(seed)
-
         # ── Build reference electorate to compute polarization index ──────
-        candidates, voters, true_utilities, cand_names = _build_base_electorate(
-            cand_specs, num_voters, ideology, seed, issues
+        candidates, voters, true_utilities, cand_names, issues = _reseed_and_build_electorate(
+            cand_specs, num_voters, ideology, seed
         )
 
         economy_positions: List[float] = [

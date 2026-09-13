@@ -777,30 +777,26 @@ def get_nanson_winner(votes: list[Any], blank_candidate_name: str = "") -> Optio
     Guaranteed to elect the Condorcet winner when one exists (Nanson, 1882).
     Tie-break (if multiple remain with no eliminations possible): alphabetical.
     """
-    if not votes:
+    # `votes` empty, or every ballot ranking zero candidates (e.g. [[]]), are
+    # both handled by this guard, same as get_benham_winner/get_smith_irv_winner
+    # just above — `min(all_cands)` a few lines down assumes a non-empty
+    # fallback list. Originally its own inline scan here (found fuzzing this
+    # function with atheris, Lot 9, PLAN_SOLIDITE_TECHNIQUE.md); folded into
+    # the shared `_ballots_and_candidates` helper (CODE_AUDIT.md §4/§7) —
+    # same guard, but O(n) seen-set instead of an O(n²) `in all_cands` scan.
+    parsed = _ballots_and_candidates(votes)
+    if parsed is None:
         return None
-
-    is_dict  = _is_dict_format(votes)
-    all_cands: list[str] = []
-    for v in votes:
-        for c in _get_ranking(v, is_dict):
-            if c not in all_cands:
-                all_cands.append(c)
-    # votes non-empty but every ballot ranks zero candidates (e.g. [[]]) is
-    # distinct from votes itself being empty (already handled above) --
-    # `min(all_cands)` a few lines down assumes a non-empty fallback list,
-    # same guard get_benham_winner/get_smith_irv_winner already use. Found
-    # fuzzing this function with atheris (Lot 9, PLAN_SOLIDITE_TECHNIQUE.md).
-    if not all_cands:
-        return None
+    all_cands: list[str]
+    ballots, all_cands = parsed
 
     active = set(all_cands)
 
     while len(active) > 1:
         # Compute Borda scores restricted to active candidates
         scores: dict[str, float] = {c: 0.0 for c in active}
-        for v in votes:
-            ranking = [c for c in _get_ranking(v, is_dict) if c in active]
+        for r in ballots:
+            ranking = [c for c in r if c in active]
             n = len(ranking)
             for pos, c in enumerate(ranking):
                 scores[c] += n - 1 - pos
@@ -821,8 +817,8 @@ def get_nanson_winner(votes: list[Any], blank_candidate_name: str = "") -> Optio
 
     # Multiple survivors: return the one with highest final Borda score, then alpha
     scores_final: dict[str, float] = {c: 0.0 for c in active}
-    for v in votes:
-        ranking = [c for c in _get_ranking(v, is_dict) if c in active]
+    for r in ballots:
+        ranking = [c for c in r if c in active]
         n = len(ranking)
         for pos, c in enumerate(ranking):
             scores_final[c] += n - 1 - pos
@@ -847,28 +843,24 @@ def get_baldwin_winner(votes: list[Any], blank_candidate_name: str = "") -> Opti
     already eliminate all round-ties simultaneously, so this brings Baldwin
     in line with the rest of the elimination-based methods here.
     """
-    if not votes:
-        return None
-
-    is_dict   = _is_dict_format(votes)
-    all_cands: list[str] = []
-    for v in votes:
-        for c in _get_ranking(v, is_dict):
-            if c not in all_cands:
-                all_cands.append(c)
     # Same "votes non-empty but every ballot ranks nobody" guard as
     # get_nanson_winner just above, and for the same reason: `min(all_cands)`
     # a few lines down assumes a non-empty fallback list. Found fuzzing this
-    # function with atheris (Lot 9, PLAN_SOLIDITE_TECHNIQUE.md).
-    if not all_cands:
+    # function with atheris (Lot 9, PLAN_SOLIDITE_TECHNIQUE.md). Now shared
+    # via `_ballots_and_candidates` (CODE_AUDIT.md §4/§7) — same guard as
+    # get_nanson_winner just above, O(n) seen-set instead of an O(n²) scan.
+    parsed = _ballots_and_candidates(votes)
+    if parsed is None:
         return None
+    all_cands: list[str]
+    ballots, all_cands = parsed
 
     active = set(all_cands)
 
     while len(active) > 1:
         scores: dict[str, float] = {c: 0.0 for c in active}
-        for v in votes:
-            ranking = [c for c in _get_ranking(v, is_dict) if c in active]
+        for r in ballots:
+            ranking = [c for c in r if c in active]
             n = len(ranking)
             for pos, c in enumerate(ranking):
                 scores[c] += n - 1 - pos

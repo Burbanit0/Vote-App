@@ -16,7 +16,6 @@ from typing import Any, Dict, List, Optional, Tuple  # noqa: F401
 
 import numpy as _np
 
-from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.error_handling import safe_call
 from api.engine.utils.logger import get_logger
 from api.engine.utils.simulation_metrics import compare_all_methods
@@ -28,7 +27,7 @@ from api.engine.utils.simulation_multiwinner_utils import (
     get_stv_result, get_dhondt_winners, get_spav_result, get_phragmen_result,
     get_equal_shares_result, check_justified_representation,
 )
-from ._electorate import _build_base_electorate, _reseed_and_build_electorate
+from ._electorate import _reseed_and_build_electorate
 from ._helpers import dhondt as _dhondt
 
 log = get_logger(__name__)
@@ -304,10 +303,6 @@ def _historical_replay_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
     if not cfg:
         return {"error": f"Unknown scenario: {scenario_id}"}, 400
 
-    _random.seed(seed)
-    _np.random.seed(seed)
-    issues = DEFAULT_ISSUES
-
     # Apply user overrides to candidate positions
     override_map: Dict[str, Dict[str, float]] = {
         o["name"]: {"x": float(o["x"]), "y": float(o["y"])}
@@ -318,8 +313,8 @@ def _historical_replay_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
         for c in cfg["candidates"]
     ]
 
-    candidates, voters, base_utilities, cand_names = _build_base_electorate(
-        cand_specs, int(cfg["num_voters"]), str(cfg["ideology"]), seed, issues
+    candidates, voters, base_utilities, cand_names, issues = _reseed_and_build_electorate(
+        cand_specs, int(cfg["num_voters"]), str(cfg["ideology"]), seed
     )
 
     # ── Day-by-day Brownian campaign simulation ────────────────────────────
@@ -804,12 +799,18 @@ def _abstention_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 # Shared by /stv and /multiwinner_compare — the default 4-candidate field and
 # the two-candidate-checks validation used to be copy-pasted between the two
 # workers (jscpd-flagged, CODE_AUDIT.md §4/§7).
-_MULTIWINNER_DEFAULT_CANDIDATES: List[Dict[str, Any]] = [
+#
+# A tuple, not a list — matching `_LD_DEFAULT_CANDIDATES`/`_DT_DEFAULT_CANDIDATES`
+# elsewhere in this file family: a module-level mutable default is a landmine for
+# a future edit that normalises a `cand_spec` in place (it would silently and
+# permanently corrupt this shared default for the life of the process). Nothing
+# downstream mutates it today, but a tuple fails fast (TypeError) instead.
+_MULTIWINNER_DEFAULT_CANDIDATES = (
     {"name": "Alice", "x": -0.5, "y": -0.2},
     {"name": "Bob",   "x":  0.5, "y":  0.2},
     {"name": "Carol", "x":  0.0, "y":  0.3},
     {"name": "Dave",  "x": -0.2, "y":  0.5},
-]
+)
 
 
 def _validate_multiwinner_candidates(
