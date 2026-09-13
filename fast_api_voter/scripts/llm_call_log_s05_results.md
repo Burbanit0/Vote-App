@@ -57,4 +57,25 @@ coalition_decision 2 calls 1.1 s; party_nomination_choice 1 call 0.9 s.
   do not extrapolate linearly to p500 election ticks (bigger candidate fields, more
   voters per election); S1.1 measures that on the real shape.
 - Replay (S0.6) must reproduce this run's `events.jsonl` from this log; that is its
-  acceptance test, not this step's.
+  acceptance test, not this step's -- see below.
+
+## S0.6: this run replayed from its own log
+
+Same flags and run id, written elsewhere, answered by `ReplayClient` with the vLLM
+container stopped (`curl localhost:8000/health` unreachable before starting):
+
+```bash
+python scripts/run_polity_flagship.py --engine llm --years 2 --population 100 --seats 15 \
+  --seed 42 --max-batch-replays 2 --run-id s05-call-log-2y-p100-seed42 \
+  --output-dir scripts/flagship_runs/replay \
+  --replay-calls-from scripts/flagship_runs/s05-call-log-2y-p100-seed42/run/s05-call-log-2y-p100-seed42
+```
+
+| Criterion | Measured | Holds |
+|---|---|---|
+| Replay reproduces `events.jsonl` byte for byte without the server | `cmp` identical, sha256 `37efa54bd0a78067...` both; `snapshots.jsonl` identical too | yes |
+| Every recorded call is used | 344 served, 0 never asked for (the 2 warm-up calls are not replayed: an injected client is never warmed up) | yes |
+
+The replay took 1.5 s against the recorded run's 931.7 s. Its `run_metadata.json` names
+`llm_client_injected: ReplayClient` and leaves every server field null, as S0.4 intends
+for a run that never talked to a server.

@@ -270,7 +270,13 @@ class CallLoggingClient:
             think=kwargs.get("think", True),
         )
         record = self._open_record(request_hash, kwargs, fallback_decision_type=None, kind="budget_probe")
-        return int(self._forward(record, lambda: int(self._inner.count_prompt_tokens(**kwargs))))
+
+        def call() -> int:
+            prompt_tokens = int(self._inner.count_prompt_tokens(**kwargs))
+            record.setdefault("prompt_tokens", prompt_tokens)  # replay (S0.6) answers probes from this
+            return prompt_tokens
+
+        return int(self._forward(record, call))
 
     def _open_record(
         self, request_hash: str, kwargs: dict[str, Any], *, fallback_decision_type: str | None, kind: str | None = None,
@@ -305,6 +311,11 @@ class CallLoggingClient:
             _in_flight.record = None
             record["latency_ms"] = round(1000 * (time.perf_counter() - start), 3)
             self._writer.write(record)
+
+
+def read_calls(path: Path) -> list[dict[str, Any]]:
+    """Every record in a call log, in the order written."""
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
 @contextmanager

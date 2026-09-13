@@ -96,8 +96,11 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from api.domain.polity.checkpoint import config_hash  # noqa: E402
 from api.domain.polity.config import PolityConfig, load_config  # noqa: E402
 from api.domain.polity.indexer import RunMetrics, index_run  # noqa: E402
+from api.domain.polity.llm_call_log import CALL_LOG_FILENAME  # noqa: E402
+from api.domain.polity.llm_replay import ReplayClient  # noqa: E402
 from api.domain.polity.run_digest import FALLBACK_ALERT_THRESHOLD, write_digest  # noqa: E402
 from api.domain.polity.viz_export import export_run  # noqa: E402
 from api.domain.polity.run_polity_simulation import run_simulation  # noqa: E402
@@ -404,6 +407,26 @@ def _interrupted(exc: BaseException) -> bool:
     return _termination_requested or isinstance(exc, (KeyboardInterrupt, _Terminated))
 
 
+def _replay_client_for(recorded_run_dir: Path, config: PolityConfig) -> ReplayClient:
+    """S0.6: a client answering from a recorded run's llm_calls.jsonl, refused unless
+    this invocation's config hashes the same as the recorded run's -- a replay under
+    other settings would fail on its first unrecorded request anyway, but later and
+    less legibly. config_hash ignores output_dir, so the replay can write elsewhere."""
+    if not (recorded_run_dir / CALL_LOG_FILENAME).is_file():
+        raise FileNotFoundError(
+            f"no {CALL_LOG_FILENAME} in {recorded_run_dir} -- pass the directory holding the recorded "
+            "run's events.jsonl (<output-dir>/<run-id>/run/<run-id>)"
+        )
+    recorded = json.loads((recorded_run_dir / "run_metadata.json").read_text(encoding="utf-8"))
+    if recorded.get("config_hash") != config_hash(config):
+        raise ValueError(
+            f"{recorded_run_dir} was recorded under a different config -- pass the same --years, --population, "
+            "--seats, --seed, --max-batch-replays, --provider and --staggered-election it ran with "
+            f"(recorded run_metadata.json: {recorded.get('config_overrides')})"
+        )
+    return ReplayClient.from_run_dir(recorded_run_dir)
+
+
 def run_flagship(
     *,
     engine: str,
@@ -419,6 +442,7 @@ def run_flagship(
     force: bool = False,
     resume: bool = False,
     staggered_election: bool = False,
+    replay_calls_from: Path | None = None,
 ) -> Path:
     config = _flagship_config(
         engine=engine,
@@ -464,6 +488,7 @@ def run_flagship(
     config = dataclasses.replace(
         config, journal=dataclasses.replace(config.journal, output_dir=str(run_dir / "run"))
     )
+    replay_client = _replay_client_for(replay_calls_from, config) if replay_calls_from is not None else None
     if not resume:
         # Skipped on resume, deliberately: rewriting this from a possibly-
         # different set of CLI args right before run_simulation's own
@@ -496,7 +521,7 @@ def run_flagship(
     # journal it was writing to is deterministic (run_polity_simulation.py:517-519).
     expected_journal = Path(config.journal.output_dir) / run_id / "events.jsonl"
     try:
-        journal_path = run_simulation(config, run_id=run_id, llm_client=None, resume=resume)
+        journal_path = run_simulation(config, run_id=run_id, llm_client=replay_client, resume=resume)
     except BaseException as exc:
         # BaseException, not Exception: KeyboardInterrupt (Ctrl-C) and the
         # SIGTERM handler installed in main() both raise outside Exception, and
@@ -519,6 +544,15 @@ def run_flagship(
         journal_path, config, run_id=run_id, outcome="completed",
         resume=resume, elapsed_seconds=elapsed, error=None,
     )
+    if replay_client is not None:
+        # Every recorded call should have been asked for; leftovers mean the replay
+        # took a shorter path than the recorded run did.
+        print(
+            f"[replay] {replay_client.served} recorded calls served, {replay_client.unserved} never asked for"
+            + ("" if replay_client.unserved == 0 else " -- the replay DIVERGED from the recorded run"),
+            file=sys.stderr,
+            flush=True,
+        )
 
     replay_count = 0
     replays_log = run_dir / "replays.log"
@@ -612,8 +646,16 @@ def main(argv: list[str] | None = None) -> int:
         help="continue a crashed or deliberately-stopped run from its own last checkpoint (Phase 3)",
     )
     parser.add_argument("--output-dir", type=Path, default=Path("scripts/flagship_runs"))
+    parser.add_argument(
+        "--replay-calls-from", type=Path, default=None,
+        help="S0.6: answer every LLM request from this recorded run's llm_calls.jsonl instead of the server "
+             "(the directory holding its events.jsonl). Needs the same run-shaping flags and --run-id it ran "
+             "with; the journal then reproduces the recorded one byte for byte.",
+    )
     args = parser.parse_args(argv)
 
+    if args.replay_calls_from is not None and (args.resume or args.engine != "llm"):
+        parser.error("--replay-calls-from replays a whole LLM run: it needs --engine llm and cannot --resume")
     if args.force and args.resume:
         parser.error("--force and --resume are mutually exclusive -- --force destroys the run --resume continues")
 
@@ -640,6 +682,7 @@ def main(argv: list[str] | None = None) -> int:
         force=args.force,
         resume=args.resume,
         staggered_election=args.staggered_election,
+        replay_calls_from=args.replay_calls_from,
     )
     return 0
 
