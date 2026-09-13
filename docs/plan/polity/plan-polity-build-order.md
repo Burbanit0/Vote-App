@@ -41,6 +41,10 @@ found five plan docs contradicting their own sections because status was hand-ma
 **Pre-registration.** Measurement steps state their criterion here before running; a
 criterion changed after seeing data is recorded as changed, with the reason.
 
+**Strange behaviour goes to the observation log.** Anything a run does that looks wrong, repeats
+when it should vary, or contradicts itself is recorded in `observations.md` with the evidence to see
+it again, whether or not a step here addresses it.
+
 **Golden references guard refactors.** Once S0.2 lands, any change to prompt bytes or
 journal bytes must be an intentional golden update in the same commit, explained in its
 message.

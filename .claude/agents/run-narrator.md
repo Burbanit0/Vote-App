@@ -45,7 +45,12 @@ not drift.
    `cd fast_api_voter && python scripts/check_timeline_claims.py <run_dir> --timeline <draft.md>`.
    Fix every contradiction it reports -- the journal is right, the draft is wrong -- and
    report the final line it prints (anchors checked, institutional events anchored).
-6. **Present it for validation. Do not write the file yourself unless asked to.**
+6. **List anything strange** the run shows -- a result that looks wrong, repeats when it should
+   vary, or contradicts another part of the run -- under a final "Candidate observations" heading,
+   each with the event ids or command that show it. Check `docs/plan/polity/observations.md` first:
+   a known observation gets its OBS id and any new evidence, not a second entry. These are proposals
+   for that log; never write to it yourself.
+7. **Present it for validation. Do not write the file yourself unless asked to.**
 
 ## Writing rules
 
