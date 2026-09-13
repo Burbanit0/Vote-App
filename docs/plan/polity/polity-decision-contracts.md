@@ -264,14 +264,19 @@ ouverte avant comme après cette correction.
   barème de `plan-decision-quality-validation.md` (≥ 90 % sur les cas non ambigus) avant d'être
   traité comme le comportement réel du simulateur.
 
-**Statut** (mis à jour 2026-09-11) : audit établi ; **une correction sur six construite**.
+**Statut** (mis à jour 2026-09-13 — la ligne précédente, datée 2026-09-11, était déjà périmée le
+jour même : elle ne comptait pas `representative_response`, construit et livré plus tard cette
+même journée) : audit établi ; **quatre véhicules sur six construits, deux livrés**.
 `pressure_action` était le pilote, conformément à `plan-decision-quality-validation.md` qui prescrit
 de valider la méthode sur ce type avant de construire les sondes restantes — c'est fait, et la
 méthode a tenu (Phases B→E, livré le 2026-09-10, commit `da83b28`).
 
-Les cinq autres véhicules décrits au §3 restent **écrits et non construits** :
-`candidacy_considered`, `representative_response`, `coalition_decision`, `chamber_deliberation`,
-`reaction_to_event`. Aucun builder « calibrated » n'existe hors de `pressure_action`.
+Sur les cinq autres véhicules décrits au §3 :
+- **Construits et livrés** : `representative_response` (Track B1, partiel — voir §3).
+- **Construits, testés, essayés et NÉGATIFS — pas livrés** : `candidacy_considered` (Track B3),
+  `coalition_decision` (Track B2). C3 n'expliquait le défaut dans aucun des deux cas ; voir §3 pour
+  le détail de chaque échec.
+- **Restent écrits et non construits** : `chamber_deliberation`, `reaction_to_event`.
 
 Et pour `pressure_action` lui-même, **un signal sur quatre est shippé** : seul
 `PRESSURE_THRESHOLD_SIGNAL` est câblé en production. `PRESSURE_HISTORY_SIGNAL`,

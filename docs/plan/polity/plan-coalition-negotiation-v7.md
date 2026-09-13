@@ -266,5 +266,7 @@ fondations statiques, Lot 2 écrit la mécanique, Lot 3+ la valide en conditions
 ## État
 
 Scoping complet, quatre points de la remarque intégrés avec vérification directe du code (pas
-seulement du document de design, qui s'est révélé périmé sur le point du cache — §4). **Lot 1
-pas encore autorisé.**
+seulement du document de design, qui s'est révélé périmé sur le point du cache — §4). **TERMINÉ**
+— voir l'en-tête en haut de ce document (constaté 2026-09-11) : les trois lots sont livrés et
+vérifiés en conditions réelles (pop 500, `coalition_formed` avec `rounds_used: 2`). Cette section
+était restée périmée après la clôture des lots 2-3 ; corrigé pour ne plus contredire l'en-tête.
