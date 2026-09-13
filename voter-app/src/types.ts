@@ -57,7 +57,7 @@ export interface ScoreVote {
 export interface ScoreVotingResult {
   method: string;
   winner?: string;
-  details: any;
+  details: unknown;
 }
 
 export interface ScoreVotingResults {
