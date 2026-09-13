@@ -79,14 +79,21 @@ institutions:
                                       #      flagship l'active explicitement
                                       #      (run_polity_flagship.py).
   staggered_election: false           # [Track E] scrutin présidentiel étalé sur
-                                      #      3 ticks (déclaration, investiture +
-                                      #      positionnement, vote) au lieu d'un
-                                      #      seul — jamais pour un scrutin
+                                      #      sa campagne (déclaration au premier
+                                      #      tick, investiture + positionnement au
+                                      #      dernier, vote au tick du scrutin) au
+                                      #      lieu d'un seul tick — jamais pour un scrutin
                                       #      anticipé (rappel/invalidation), qui
                                       #      reste atomique. false par défaut :
                                       #      ne change pas un run déjà calibré ;
                                       #      change l'ordre de tirage RNG quand
                                       #      actif (frontière de version).
+  presidential_campaign_ticks: 4      # [S4.4] campagne présidentielle : les 4
+                                      #      ticks avant le scrutin. Un scrutin
+                                      #      étalé déclare au premier tick de la
+                                      #      campagne et investit au dernier.
+  legislative_campaign_ticks: 2       # [S4.4] campagne législative : les 2 ticks
+                                      #      avant le scrutin.
 
 # =============================================================================
 # PARTIS (§A2 de l'audit)

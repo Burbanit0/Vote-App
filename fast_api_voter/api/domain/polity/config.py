@@ -156,6 +156,8 @@ class InstitutionsConfig:
     barred_from_immediate_rerun: bool
     snap_election_on_recall: bool
     staggered_election: bool
+    presidential_campaign_ticks: int
+    legislative_campaign_ticks: int
 
 
 @dataclass(frozen=True)
@@ -573,6 +575,11 @@ def _parse_institutions(raw: dict[str, Any]) -> InstitutionsConfig:
         # journal shape -- a version boundary, not a bug (§16.3-adjacent:
         # this is a new calendar shape, not a new event taxonomy).
         staggered_election=_get(s, "institutions", "staggered_election", bool),
+        # S4.4, 2026-09-13: how many ticks before each election its campaign runs
+        # (InstitutionalClock.phase). The presidential window is also where a staggered
+        # election declares (its first tick) and nominates (its last).
+        presidential_campaign_ticks=_get_nonneg_int(s, "institutions", "presidential_campaign_ticks"),
+        legislative_campaign_ticks=_get_nonneg_int(s, "institutions", "legislative_campaign_ticks"),
     )
 
 
