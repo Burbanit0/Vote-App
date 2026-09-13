@@ -62,10 +62,10 @@ import logging
 import re
 from dataclasses import dataclass
 from types import TracebackType
-from typing import Any, Protocol, Sequence
+from typing import Any, Callable, Protocol, Sequence, TypeVar
 
 import httpx
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from api.domain.polity.config import LlmConfig
 from api.domain.polity.llm_call_log import record_http_response
@@ -1067,14 +1067,50 @@ def _extract_native_content(response: httpx.Response) -> str:
     return str(message["content"])
 
 
-def decode_vote_batch(raw: str, expected_cids: Sequence[int]) -> list[VoteCastDecision]:
-    """Enforces design doc §3.6.0's hard rule: response contains exactly
-    one element per cid sent, in the same order. A count or order mismatch
-    is a full-batch failure -- never a partial/silent correction, which
-    would make a cid<->decision misalignment undetectable and break
-    reproducibility (§4). Concrete to VoteCastBatch for now -- this
-    increment has exactly one decision type; generalize when a second one
-    is actually built, not before."""
+class _HasCid(Protocol):
+    @property
+    def cid(self) -> int: ...
+
+
+class _HasPartyId(Protocol):
+    @property
+    def party_id(self) -> int: ...
+
+
+def _cid(decision: _HasCid) -> int:
+    return decision.cid
+
+
+def _party_id(decision: _HasPartyId) -> int:
+    return decision.party_id
+
+
+_BatchT = TypeVar("_BatchT", bound=BaseModel)
+_DecisionT = TypeVar("_DecisionT")
+
+
+def _decode_batch(
+    raw: str,
+    batch_model: type[_BatchT],
+    *,
+    decisions: Callable[[_BatchT], list[_DecisionT]],
+    unit: Callable[[_DecisionT], int],
+    unit_label: str,
+    expected_units: Sequence[int],
+) -> list[_DecisionT]:
+    """Every decode_*_batch below is this, for one batch model and one unit key.
+
+    Enforces design doc §3.6.0's hard rule: the response holds exactly one
+    decision per unit sent (citizen or party), in the same order. A count or
+    order mismatch is a full-batch failure -- never a partial or silent
+    correction, which would make a unit<->decision misalignment undetectable and
+    break reproducibility (§4).
+
+    Nine copies of this body existed until S3.1 (plan-polity-build-order.md);
+    each carried a note that a generic `type[T]` version had failed mypy-strict.
+    It failed because one type variable stood for both the batch and its
+    decisions; two, with the decision list and the unit key passed as functions,
+    type-check."""
     stripped = _THINK_TAG_RE.sub("", raw).strip()
     try:
         parsed = json.loads(stripped)
@@ -1082,275 +1118,136 @@ def decode_vote_batch(raw: str, expected_cids: Sequence[int]) -> list[VoteCastDe
         raise LlmResponseError(f"response is not valid JSON after stripping reasoning tags: {exc}") from exc
     except RecursionError as exc:
         # json.loads' recursive-descent parser overflows the C stack on
-        # pathologically deep nesting (confirmed: ~1e5 nested `[` from a
-        # fresh interpreter) *before* reaching JSONDecodeError's own checks
-        # -- an LLM stuck in a degenerate repetition loop can emit exactly
-        # this shape. Found fuzzing this function with atheris (Lot 9,
-        # PLAN_SOLIDITE_TECHNIQUE.md); every decode_*_batch below shares
-        # this same parse step and the same fix.
+        # pathologically deep nesting (confirmed: ~1e5 nested `[` from a fresh
+        # interpreter) *before* reaching JSONDecodeError's own checks -- an LLM
+        # stuck in a degenerate repetition loop can emit exactly this shape.
+        # Found fuzzing decode_vote_batch with atheris (Lot 9,
+        # PLAN_SOLIDITE_TECHNIQUE.md).
         raise LlmResponseError(f"response is too deeply nested to parse as JSON: {exc}") from exc
 
     try:
-        batch = VoteCastBatch.model_validate(parsed)
+        batch = batch_model.model_validate(parsed)
     except ValidationError as exc:
         raise LlmResponseError(f"batch failed schema validation: {exc}") from exc
 
-    got_cids = [decision.cid for decision in batch.decisions]
-    if got_cids != list(expected_cids):
+    batch_decisions = decisions(batch)
+    got_units = [unit(decision) for decision in batch_decisions]
+    if got_units != list(expected_units):
         raise LlmResponseError(
-            f"batch misaligned with the request: expected cids {list(expected_cids)}, got {got_cids}"
+            f"batch misaligned with the request: expected {unit_label} {list(expected_units)}, got {got_units}"
         )
+    return batch_decisions
 
+
+# One typed accessor per batch model, not a lambda: through a lambda mypy stops
+# checking the decision type against `unit`, so a wrong key (party_id on a
+# citizen decision) type-checked. Named, the whole call is checked.
+
+def _vote_decisions(batch: VoteCastBatch) -> list[VoteCastDecision]:
     return batch.decisions
+
+
+def _party_nomination_decisions(batch: PartyNominationBatch) -> list[PartyNominationDecision]:
+    return batch.decisions
+
+
+def _positioning_decisions(batch: PositioningBatch) -> list[PositioningDecision]:
+    return batch.decisions
+
+
+def _response_decisions(batch: ResponseBatch) -> list[ResponseDecision]:
+    return batch.decisions
+
+
+def _pressure_decisions(batch: PressureBatch) -> list[PressureDecision]:
+    return batch.decisions
+
+
+def _reaction_decisions(batch: ReactionBatch) -> list[ReactionDecision]:
+    return batch.decisions
+
+
+def _chamber_decisions(batch: ChamberBatch) -> list[ChamberDecision]:
+    return batch.decisions
+
+
+def _coalition_decisions(batch: CoalitionBatch) -> list[CoalitionDecision]:
+    return batch.decisions
+
+
+def _candidacy_decisions(batch: CandidacyBatch) -> list[CandidacyDecision]:
+    return batch.decisions
+
+def decode_vote_batch(raw: str, expected_cids: Sequence[int]) -> list[VoteCastDecision]:
+    """vote_cast, one decision per voter (cid)."""
+    return _decode_batch(
+        raw, VoteCastBatch, decisions=_vote_decisions, unit=_cid, unit_label="cids",
+        expected_units=expected_cids,
+    )
 
 
 def decode_party_nomination_batch(raw: str, expected_party_ids: Sequence[int]) -> list[PartyNominationDecision]:
-    """Same contract as decode_vote_batch/decode_candidacy_batch, specialized
-    to PartyNominationBatch and keyed on `party_id` instead of `cid` -- the
-    decision unit here is a contested party, not a citizen. This is the
-    third near-identical decode function (decode_vote_batch's own comment
-    flagged this as the point to "revisit genericizing... if the duplication
-    cost is clearly worth paying"): kept duplicated anyway, since the prior
-    generic `type[T]` attempt concretely failed mypy-strict typing and
-    nothing about that has changed."""
-    stripped = _THINK_TAG_RE.sub("", raw).strip()
-    try:
-        parsed = json.loads(stripped)
-    except json.JSONDecodeError as exc:
-        raise LlmResponseError(f"response is not valid JSON after stripping reasoning tags: {exc}") from exc
-    except RecursionError as exc:  # same overflow, same fix as decode_vote_batch's
-        raise LlmResponseError(f"response is too deeply nested to parse as JSON: {exc}") from exc
-
-    try:
-        batch = PartyNominationBatch.model_validate(parsed)
-    except ValidationError as exc:
-        raise LlmResponseError(f"batch failed schema validation: {exc}") from exc
-
-    got_party_ids = [decision.party_id for decision in batch.decisions]
-    if got_party_ids != list(expected_party_ids):
-        raise LlmResponseError(
-            f"batch misaligned with the request: expected party_ids {list(expected_party_ids)}, "
-            f"got {got_party_ids}"
-        )
-
-    return batch.decisions
+    """party_nomination_choice, one decision per contested party (party_id)."""
+    return _decode_batch(
+        raw, PartyNominationBatch, decisions=_party_nomination_decisions, unit=_party_id, unit_label="party_ids",
+        expected_units=expected_party_ids,
+    )
 
 
 def decode_positioning_batch(raw: str, expected_cids: Sequence[int]) -> list[PositioningDecision]:
-    """Same contract as decode_vote_batch/decode_candidacy_batch, specialized
-    to PositioningBatch -- keyed on `cid` (the nominee), same as those two,
-    unlike decode_party_nomination_batch's `party_id` key. A fourth
-    near-identical decode function, kept duplicated for the same reason as
-    the third: the prior generic `type[T]` attempt concretely failed
-    mypy-strict typing, and nothing about that has changed."""
-    stripped = _THINK_TAG_RE.sub("", raw).strip()
-    try:
-        parsed = json.loads(stripped)
-    except json.JSONDecodeError as exc:
-        raise LlmResponseError(f"response is not valid JSON after stripping reasoning tags: {exc}") from exc
-    except RecursionError as exc:  # same overflow, same fix as decode_vote_batch's
-        raise LlmResponseError(f"response is too deeply nested to parse as JSON: {exc}") from exc
-
-    try:
-        batch = PositioningBatch.model_validate(parsed)
-    except ValidationError as exc:
-        raise LlmResponseError(f"batch failed schema validation: {exc}") from exc
-
-    got_cids = [decision.cid for decision in batch.decisions]
-    if got_cids != list(expected_cids):
-        raise LlmResponseError(
-            f"batch misaligned with the request: expected cids {list(expected_cids)}, got {got_cids}"
-        )
-
-    return batch.decisions
+    """campaign_positioning, one decision per nominee (cid)."""
+    return _decode_batch(
+        raw, PositioningBatch, decisions=_positioning_decisions, unit=_cid, unit_label="cids",
+        expected_units=expected_cids,
+    )
 
 
 def decode_response_batch(raw: str, expected_cids: Sequence[int]) -> list[ResponseDecision]:
-    """Same contract as decode_vote_batch/decode_candidacy_batch/
-    decode_positioning_batch, specialized to ResponseBatch -- keyed on `cid`
-    (the officeholder), v4 Lot 6 (dt=6). A sixth near-identical decode
-    function, kept duplicated for the same reason as the third, fourth and
-    fifth: the prior generic `type[T]` attempt concretely failed
-    mypy-strict typing, and nothing about that has changed."""
-    stripped = _THINK_TAG_RE.sub("", raw).strip()
-    try:
-        parsed = json.loads(stripped)
-    except json.JSONDecodeError as exc:
-        raise LlmResponseError(f"response is not valid JSON after stripping reasoning tags: {exc}") from exc
-    except RecursionError as exc:  # same overflow, same fix as decode_vote_batch's
-        raise LlmResponseError(f"response is too deeply nested to parse as JSON: {exc}") from exc
-
-    try:
-        batch = ResponseBatch.model_validate(parsed)
-    except ValidationError as exc:
-        raise LlmResponseError(f"batch failed schema validation: {exc}") from exc
-
-    got_cids = [decision.cid for decision in batch.decisions]
-    if got_cids != list(expected_cids):
-        raise LlmResponseError(
-            f"batch misaligned with the request: expected cids {list(expected_cids)}, got {got_cids}"
-        )
-
-    return batch.decisions
+    """representative_response, one decision per officeholder (cid)."""
+    return _decode_batch(
+        raw, ResponseBatch, decisions=_response_decisions, unit=_cid, unit_label="cids",
+        expected_units=expected_cids,
+    )
 
 
 def decode_pressure_batch(raw: str, expected_cids: Sequence[int]) -> list[PressureDecision]:
-    """Same contract as decode_vote_batch/decode_candidacy_batch/
-    decode_positioning_batch/decode_response_batch, specialized to
-    PressureBatch -- keyed on `cid` (the consulted citizen), v4 Lot 7
-    (dt=10). A seventh near-identical decode function, kept duplicated for
-    the same reason as the third through sixth: the prior generic `type[T]`
-    attempt concretely failed mypy-strict typing, and nothing about that
-    has changed.
-
-    Unlike every prior decode function, `expected_cids` here is a
-    variable-size, CHUNKED cohort (decide_pressure_actions calls this once
-    per chunk_voters chunk, not once per tick) -- a misalignment costs a
-    whole chunk, not a whole tick's consultation."""
-    stripped = _THINK_TAG_RE.sub("", raw).strip()
-    try:
-        parsed = json.loads(stripped)
-    except json.JSONDecodeError as exc:
-        raise LlmResponseError(f"response is not valid JSON after stripping reasoning tags: {exc}") from exc
-    except RecursionError as exc:  # same overflow, same fix as decode_vote_batch's
-        raise LlmResponseError(f"response is too deeply nested to parse as JSON: {exc}") from exc
-
-    try:
-        batch = PressureBatch.model_validate(parsed)
-    except ValidationError as exc:
-        raise LlmResponseError(f"batch failed schema validation: {exc}") from exc
-
-    got_cids = [decision.cid for decision in batch.decisions]
-    if got_cids != list(expected_cids):
-        raise LlmResponseError(
-            f"batch misaligned with the request: expected cids {list(expected_cids)}, got {got_cids}"
-        )
-
-    return batch.decisions
+    """pressure_action, one decision per consulted citizen (cid). Called once per
+    chunk, so a misalignment costs a chunk, not a tick's consultation."""
+    return _decode_batch(
+        raw, PressureBatch, decisions=_pressure_decisions, unit=_cid, unit_label="cids",
+        expected_units=expected_cids,
+    )
 
 
 def decode_reaction_batch(raw: str, expected_cids: Sequence[int]) -> list[ReactionDecision]:
-    """Same contract as decode_pressure_batch, specialized to ReactionBatch
-    -- keyed on `cid` (the reacting citizen), v5 Lot 4 (dt=8). An eighth
-    near-identical decode function, kept duplicated for the same reason as
-    the third through seventh.
-
-    Like decode_pressure_batch, `expected_cids` here is a variable-size,
-    CHUNKED cohort -- decide_reaction_to_event calls this once per
-    chunk_voters chunk (always exactly 4 chunks of 25 at shipped
-    population_size/max_batch_size, since dt=8 batches the WHOLE
-    population, not an awakening-gated subset)."""
-    stripped = _THINK_TAG_RE.sub("", raw).strip()
-    try:
-        parsed = json.loads(stripped)
-    except json.JSONDecodeError as exc:
-        raise LlmResponseError(f"response is not valid JSON after stripping reasoning tags: {exc}") from exc
-    except RecursionError as exc:  # same overflow, same fix as decode_vote_batch's
-        raise LlmResponseError(f"response is too deeply nested to parse as JSON: {exc}") from exc
-
-    try:
-        batch = ReactionBatch.model_validate(parsed)
-    except ValidationError as exc:
-        raise LlmResponseError(f"batch failed schema validation: {exc}") from exc
-
-    got_cids = [decision.cid for decision in batch.decisions]
-    if got_cids != list(expected_cids):
-        raise LlmResponseError(
-            f"batch misaligned with the request: expected cids {list(expected_cids)}, got {got_cids}"
-        )
-
-    return batch.decisions
+    """reaction_to_event, one decision per reacting citizen (cid), once per chunk."""
+    return _decode_batch(
+        raw, ReactionBatch, decisions=_reaction_decisions, unit=_cid, unit_label="cids",
+        expected_units=expected_cids,
+    )
 
 
 def decode_chamber_batch(raw: str, expected_cids: Sequence[int]) -> list[ChamberDecision]:
-    """Same contract as decode_response_batch, specialized to ChamberBatch
-    -- keyed on `cid` (the seated sortition member), v6b Lot 3 (dt=11). A
-    ninth near-identical decode function, kept duplicated for the same
-    reason as the third through eighth.
-
-    Like decode_pressure_batch/decode_reaction_batch, `expected_cids` here
-    is a CHUNKED cohort -- decide_chamber_deliberation calls this once per
-    chunk_voters chunk, at its own measured, provider-conditional ceiling
-    (llm_behavior_engine._chamber_chunk_size(config): 1 on Ollama, 5 on
-    vLLM as of 2026-09-08), not config.llm.max_batch_size: a real, measured
-    correction after this lot's own pre-flight spike found one call of 30
-    (and even a chunk of 15) silently drops all but the last 6 decisions."""
-    stripped = _THINK_TAG_RE.sub("", raw).strip()
-    try:
-        parsed = json.loads(stripped)
-    except json.JSONDecodeError as exc:
-        raise LlmResponseError(f"response is not valid JSON after stripping reasoning tags: {exc}") from exc
-    except RecursionError as exc:  # same overflow, same fix as decode_vote_batch's
-        raise LlmResponseError(f"response is too deeply nested to parse as JSON: {exc}") from exc
-
-    try:
-        batch = ChamberBatch.model_validate(parsed)
-    except ValidationError as exc:
-        raise LlmResponseError(f"batch failed schema validation: {exc}") from exc
-
-    got_cids = [decision.cid for decision in batch.decisions]
-    if got_cids != list(expected_cids):
-        raise LlmResponseError(
-            f"batch misaligned with the request: expected cids {list(expected_cids)}, got {got_cids}"
-        )
-
-    return batch.decisions
+    """chamber_deliberation, one decision per seated member (cid), once per chunk
+    at llm_behavior_engine._chamber_chunk_size -- a single call of 30 members
+    was measured to drop all but the last 6 decisions."""
+    return _decode_batch(
+        raw, ChamberBatch, decisions=_chamber_decisions, unit=_cid, unit_label="cids",
+        expected_units=expected_cids,
+    )
 
 
 def decode_coalition_batch(raw: str, expected_party_ids: Sequence[int]) -> list[CoalitionDecision]:
-    """Same contract as decode_party_nomination_batch — keyed on `party_id`,
-    not `cid`. A fifth near-identical decode function, kept duplicated for
-    the same reason as the third and fourth: the prior generic `type[T]`
-    attempt concretely failed mypy-strict typing, and nothing about that has
-    changed."""
-    stripped = _THINK_TAG_RE.sub("", raw).strip()
-    try:
-        parsed = json.loads(stripped)
-    except json.JSONDecodeError as exc:
-        raise LlmResponseError(f"response is not valid JSON after stripping reasoning tags: {exc}") from exc
-    except RecursionError as exc:  # same overflow, same fix as decode_vote_batch's
-        raise LlmResponseError(f"response is too deeply nested to parse as JSON: {exc}") from exc
-
-    try:
-        batch = CoalitionBatch.model_validate(parsed)
-    except ValidationError as exc:
-        raise LlmResponseError(f"batch failed schema validation: {exc}") from exc
-
-    got_party_ids = [decision.party_id for decision in batch.decisions]
-    if got_party_ids != list(expected_party_ids):
-        raise LlmResponseError(
-            f"batch misaligned with the request: expected party_ids {list(expected_party_ids)}, "
-            f"got {got_party_ids}"
-        )
-
-    return batch.decisions
+    """coalition_decision, one decision per responding party (party_id)."""
+    return _decode_batch(
+        raw, CoalitionBatch, decisions=_coalition_decisions, unit=_party_id, unit_label="party_ids",
+        expected_units=expected_party_ids,
+    )
 
 
 def decode_candidacy_batch(raw: str, expected_cids: Sequence[int]) -> list[CandidacyDecision]:
-    """Same contract as decode_vote_batch, specialized to CandidacyBatch —
-    the second decision type this project actually builds. Deliberately
-    duplicated rather than generalized: decode_vote_batch's own comment
-    anticipated this moment, but a prior generic `type[T]` attempt didn't
-    type-check cleanly (return type conflated batch vs. decision types).
-    Revisit genericizing both only if a third decision type makes the
-    duplication cost clearly worth paying."""
-    stripped = _THINK_TAG_RE.sub("", raw).strip()
-    try:
-        parsed = json.loads(stripped)
-    except json.JSONDecodeError as exc:
-        raise LlmResponseError(f"response is not valid JSON after stripping reasoning tags: {exc}") from exc
-    except RecursionError as exc:  # same overflow, same fix as decode_vote_batch's
-        raise LlmResponseError(f"response is too deeply nested to parse as JSON: {exc}") from exc
-
-    try:
-        batch = CandidacyBatch.model_validate(parsed)
-    except ValidationError as exc:
-        raise LlmResponseError(f"batch failed schema validation: {exc}") from exc
-
-    got_cids = [decision.cid for decision in batch.decisions]
-    if got_cids != list(expected_cids):
-        raise LlmResponseError(
-            f"batch misaligned with the request: expected cids {list(expected_cids)}, got {got_cids}"
-        )
-
-    return batch.decisions
+    """candidacy_considered, one decision per citizen considered (cid)."""
+    return _decode_batch(
+        raw, CandidacyBatch, decisions=_candidacy_decisions, unit=_cid, unit_label="cids",
+        expected_units=expected_cids,
+    )
