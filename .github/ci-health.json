@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-13T14:22:21Z",
+  "generated_at": "2026-09-13T14:31:35Z",
   "workflows": {
     "mutation-testing.yml": {
       "display_name": "Mutation Testing",
@@ -21,12 +21,13 @@
       "expected_cadence_hours": 168,
       "last_run_at": "2026-09-13T13:54:59Z",
       "recent_conclusions": [
+        "failure",
         "success",
         "success",
         "success",
         "success"
       ],
-      "consecutive_failures": 0,
+      "consecutive_failures": 1,
       "status": "healthy",
       "detail": "ok"
     },
@@ -78,7 +79,7 @@
     "scorecard.yml": {
       "display_name": "OpenSSF Scorecard",
       "expected_cadence_hours": 168,
-      "last_run_at": "2026-09-13T13:54:59Z",
+      "last_run_at": "2026-09-13T14:31:26Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -92,7 +93,7 @@
     }
   },
   "branch_protection": {
-    "status": "drifted",
-    "detail": "missing live required contexts: ['CI health check']"
+    "status": "healthy",
+    "detail": "matches setup-branch-protection.sh"
   }
 }

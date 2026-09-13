@@ -2,9 +2,5 @@
   "mutation-testing.yml": {
     "until": "2026-09-27",
     "reason": "real 64.4% score (floor 70%) found the moment mutmut stopped crashing (PR #447) -- a genuine assertion gap in simulation_ranked_utils.py/simulation_score_utils.py, not a tooling problem. Needs its own investigation (which functions lost coverage, likely from the recent decomposition PRs) and new tests, tracked separately from the watchdog rollout."
-  },
-  "branch-protection": {
-    "until": "2026-09-16",
-    "reason": "this PR adds 'CI health check' to setup-branch-protection.sh's REQUIRED_CONTEXTS, but the setup script can't be re-run to make it live until the check has actually run once on develop (GitHub won't accept a required context with no prior run -- see the script's own trailing note). Run scripts/setup-branch-protection.sh develop right after this merges and its first run completes, then remove this entry."
   }
 }
