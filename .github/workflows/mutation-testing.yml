@@ -11,20 +11,25 @@ name: Mutation Testing
 # the other free to accumulate tests that execute without asserting — the exact
 # blind spot line coverage already has.
 on:
-  # THIS WORKFLOW HAD NEVER RUN. Not once, since it was added.
+  # HISTORICAL NOTE — fixed as of 2026-09, see PLAN_REMEDIATION_CI_CD.md §2.5.
+  # This workflow went unrun for months because GitHub resolves `schedule` and
+  # `workflow_dispatch` against the repo's DEFAULT branch only, and that used
+  # to be `main` — hundreds of commits behind the `develop` this file lives
+  # on, so GitHub was looking for a version of the file that, from `main`,
+  # didn't exist. The weekly cron never fired and `gh workflow run` answered
+  # 404. A workflow can be configured, plausible and completely inert, which
+  # is the same failure mode as the dead simulation worker: the config
+  # looked right, nothing ran. Kept below as the lesson, not a live problem —
+  # the repo's default branch is now `develop` (`gh api repos/.../Vote-App
+  # --jq .default_branch`), and sibling workflows' schedule/workflow_dispatch
+  # triggers have since fired for real: flaky-check-backend.yml's cron on
+  # 2026-09-12, atheris-fuzzing.yml's dispatch on 2026-09-11.
   #
-  # GitHub resolves `schedule` and `workflow_dispatch` against the DEFAULT branch
-  # only. This file lives on develop; the default branch is main, and main is 215
-  # commits behind — so the file does not exist where GitHub looks for it. The
-  # weekly cron never fired and `gh workflow run` answers 404. A workflow can be
-  # configured, plausible and completely inert, which is the same failure mode as
-  # the dead simulation worker: the config looked right, nothing ran.
-  #
-  # `push` and `pull_request`, unlike the two above, use the workflow file from the
-  # ref being pushed. So this trigger works today, without waiting for a release.
-  # Scoped by `paths` to the two engines: a mutation score can only move when the
-  # mutated code moves, so this runs exactly when it has something new to say —
-  # which is a better rule than "every Monday" anyway.
+  # `push` and `pull_request` never had this problem — they use the workflow
+  # file from the ref being pushed, not the default branch. Scoped by `paths`
+  # to the two engines: a mutation score can only move when the mutated code
+  # moves, so this runs exactly when it has something new to say — which is
+  # a better rule than "every Monday" anyway.
   push:
     branches: [develop]
     paths:
