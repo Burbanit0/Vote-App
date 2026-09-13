@@ -36,22 +36,50 @@ this stays accurate as those files change):
     The baseline digests below are hand-copied from that comment; update
     them there and here together on a deliberate re-pin, not automatically.
 
+`--discover` answers a different question: not "has my pinned repo moved?" but
+"has a NEWER model been released that I should evaluate?" It lists official
+releases from the org behind each pinned model's base, newer than the newest
+model already pinned, and runs each survivor through two gates this project
+actually depends on:
+  - fits the card: real weight-file bytes + a KV cache sized for one
+    `--max-model-len` sequence + an overhead allowance, against nvidia-smi's
+    VRAM x `--gpu-memory-utilization` (both read from the compose files).
+    The pinned models go through the same estimator first, as a calibration
+    check -- they run today, so if they did not "fit", the estimator is wrong.
+  - honors `enable_thinking`: this engine toggles thinking per decision type,
+    so a model without the toggle is not a drop-in even within the same
+    family. Measured 2026-09-13: the Qwen3-4B "2507" refresh split into an
+    Instruct model that never thinks and a Thinking model that always does.
+Passing both gates earns "worth evaluating" -- necessary, not sufficient. A
+weights change is a confounded variable in this project
+(plan-vllm-switch-readiness.md); decision quality and throughput still have
+to be measured on this project's own probes before anything is switched.
+Discovery never affects `--strict`: a newer model existing is not drift.
+
 Usage:
     python fast_api_voter/scripts/check_llm_stack_versions.py
     python fast_api_voter/scripts/check_llm_stack_versions.py --strict  # exit 1 on any drift
     python fast_api_voter/scripts/check_llm_stack_versions.py --json
+    python fast_api_voter/scripts/check_llm_stack_versions.py --discover
+    python fast_api_voter/scripts/check_llm_stack_versions.py --discover --discover-orgs google,mistralai
 
 Network access to registry-1.docker.io, hub.docker.com, huggingface.co and
 registry.ollama.ai is required; any single failed lookup is reported inline
-as "could not verify" rather than aborting the rest of the report.
+as "could not verify" rather than aborting the rest of the report. `--discover`
+also needs docker (to ask the pinned vLLM image what it can load -- never
+pulls) and nvidia-smi (or --vram-gib). Set HF_TOKEN to probe gated repos.
 """
 from __future__ import annotations
 
 import argparse
 import dataclasses
 import json
+import os
 import re
+import subprocess
 import sys
+from collections import Counter
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -301,7 +329,7 @@ def _hf_model_head(
     """Returns (head_sha, last_modified, error)."""
     url = f"https://huggingface.co/api/models/{repo_id}"
     try:
-        resp = client.get(url, timeout=_TIMEOUT)
+        resp = client.get(url, headers=_hf_headers(), timeout=_TIMEOUT)
         resp.raise_for_status()
         payload = resp.json()
         return payload.get("sha"), payload.get("lastModified"), None
@@ -339,12 +367,517 @@ def _ollama_manifest_digests(
         return None, str(exc)
 
 
-def _run_checks() -> tuple[list[ImageCheck], list[ModelCheck], list[OllamaModelCheck]]:
+# ── --discover: newer official models worth evaluating ─────────────────────
+
+_GIB = 1024**3
+# vLLM's KV cache dtype follows the model's activation dtype unless
+# --kv-cache-dtype is set; no compose file here sets it, and every pinned
+# model runs fp16/bf16 activations.
+_KV_BYTES_PER_ELEMENT = 2
+# CUDA graphs, sampler, activations. docker-compose.llm.yml's own
+# --max-model-len history is the evidence this is not free: a config with
+# 37 MiB left died during CUDA-graph/sampler warmup, not under load. 1.5 GiB
+# is an allowance, not a measurement -- the calibration rows exist to catch it
+# being wrong.
+_OVERHEAD_GIB = 1.5
+# The most aggressive quantization any candidate could plausibly ship in, used
+# only to discard models that could not fit even then, before spending HTTP
+# calls probing them. A floor, so it never wrongly excludes a model that fits.
+_FOUR_BIT_BYTES_PER_PARAM = 0.5
+_DISCOVER_MAX_PAGES = 20
+_UNSERVABLE_FORMAT_RE = re.compile(r"\b(mlx|gguf)\b", re.IGNORECASE)
+_NON_CHAT_NAME_RE = re.compile(r"(embedding|reranker|guard)", re.IGNORECASE)
+# pipeline_tag -> is it multimodal. image-text-to-text is NOT optional here:
+# measured 2026-09-13, every newer Qwen generation (Qwen3.5, 3.6, 3.8) ships as
+# image-text-to-text. Filtering to text-generation alone reported only
+# same-generation siblings as "newer" -- silently hiding the entire mainline.
+_CHAT_PIPELINES = {"text-generation": False, "image-text-to-text": True}
+_WORTH_EVALUATING = "worth evaluating"
+
+
+@dataclasses.dataclass
+class ModelCandidate:
+    repo_id: str
+    revision: str
+    created_at: str | None
+    pinned: bool
+    multimodal: bool = False
+    architecture: str | None = None
+    arch_supported: bool | None = None
+    quant: str | None = None
+    weights_gib: float | None = None
+    kv_gib: float | None = None
+    est_total_gib: float | None = None
+    fits: bool | None = None
+    thinking_toggle: bool | None = None
+    error: str | None = None
+
+    @property
+    def verdict(self) -> str:
+        if self.error:
+            return f"could not probe: {self.error}"
+        # Before any size question: a model the pinned server cannot load is a
+        # non-starter at any size, and no quantization changes that.
+        if self.arch_supported is False:
+            return f"the pinned vLLM cannot load {self.architecture}"
+        if self.fits is None:
+            return "size unknown"
+        if not self.fits:
+            if self.pinned:
+                return "estimator says it does NOT fit, yet it runs today -- do not trust the fit verdicts"
+            return "too big for this card"
+        if self.thinking_toggle is None:
+            return "fits; no chat template found -- check thinking support by hand"
+        if not self.thinking_toggle:
+            return "fits, but NOT a drop-in: no enable_thinking toggle"
+        if self.pinned:
+            return "fits (consistent with it running today)"
+        return _WORTH_EVALUATING
+
+
+@dataclasses.dataclass
+class ModelDiscovery:
+    since_by_org: dict[str, str | None]
+    vram_gib: float | None
+    gpu_memory_utilization: float | None
+    max_model_len: int | None
+    budget_gib: float | None
+    vllm_image: str | None
+    vllm_arch_count: int | None
+    calibration: list[ModelCandidate]
+    candidates: list[ModelCandidate]
+    excluded: dict[str, int]
+    notes: list[str]
+
+
+def _extract_flag_values(command: list[str], flag: str) -> list[str]:
+    return [command[i + 1] for i, token in enumerate(command) if token == flag and i + 1 < len(command)]
+
+
+def _collect_serving_limits(fast_api_dir: Path) -> tuple[float | None, int | None]:
+    """(tightest --gpu-memory-utilization, largest --max-model-len) across every
+    vLLM service -- the most conservative pair, so "fits" means fits every arm."""
+    utilizations: list[float] = []
+    max_lens: list[int] = []
+    for name in _COMPOSE_FILES:
+        path = fast_api_dir / name
+        if not path.exists():
+            continue
+        for service in (_load_compose(path).get("services") or {}).values():
+            command = service.get("command") or []
+            utilizations += [float(v) for v in _extract_flag_values(command, "--gpu-memory-utilization")]
+            max_lens += [int(v) for v in _extract_flag_values(command, "--max-model-len")]
+    return (min(utilizations) if utilizations else None, max(max_lens) if max_lens else None)
+
+
+def _gpu_total_gib() -> float | None:
+    try:
+        out = subprocess.run(
+            ["nvidia-smi", "--query-gpu=memory.total", "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=10, check=True,
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    mib = [float(line) for line in out.splitlines() if line.strip()]
+    return max(mib) / 1024 if mib else None
+
+
+def _hf_headers() -> dict[str, str]:
+    """HF_TOKEN, if set, for gated repos (Gemma variants, all of Llama). Passed
+    per request and only on huggingface.co calls -- never set on the shared
+    client, which also talks to Docker Hub and the Ollama registry. httpx drops
+    Authorization on the cross-origin redirect to HF's CDN, which is what those
+    pre-signed CDN URLs expect."""
+    token = os.environ.get("HF_TOKEN")
+    return {"Authorization": f"Bearer {token}"} if token else {}
+
+
+def _hf_api(client: httpx.Client, path: str, params: Any = None) -> Any:
+    resp = client.get(f"https://huggingface.co/api/{path}", params=params, headers=_hf_headers(), timeout=_TIMEOUT)
+    resp.raise_for_status()
+    return resp.json()
+
+
+def _hf_file(client: httpx.Client, repo_id: str, revision: str, filename: str) -> str | None:
+    """A raw repo file, or None if the repo does not ship it. `resolve/`
+    redirects to a CDN, and httpx does not follow redirects by default -- the
+    first probe of this returned nothing for every model because of that."""
+    resp = client.get(
+        f"https://huggingface.co/{repo_id}/resolve/{revision}/{filename}",
+        headers=_hf_headers(), timeout=_TIMEOUT, follow_redirects=True,
+    )
+    if resp.status_code == 404:
+        return None
+    resp.raise_for_status()
+    return resp.text
+
+
+def _weights_gib(client: httpx.Client, repo_id: str, revision: str) -> float | None:
+    """Real bytes of the safetensors files. NOT `safetensors.parameters` from
+    the model API: for a quantized model that counts packed int4 tensors in
+    their I32 storage dtype, which sizes Qwen3-8B-AWQ at ~30 GB when its files
+    are 6.1 GB."""
+    info = _hf_api(client, f"models/{repo_id}/revision/{revision}", params={"blobs": "true"})
+    sizes = [
+        sibling.get("size") or 0
+        for sibling in info.get("siblings", [])
+        if str(sibling.get("rfilename", "")).endswith(".safetensors")
+    ]
+    return sum(sizes) / _GIB if sizes else None
+
+
+def _kv_cache_gib(config: dict[str, Any], max_model_len: int) -> float | None:
+    """KV cache for ONE max-length sequence (this client never issues concurrent
+    requests): 2 (K,V) x kv_heads x head_dim x bytes x tokens-held, summed over
+    the layers that actually hold a KV cache. Multimodal configs nest the
+    language model under `text_config`.
+
+    `layer_types` matters and is not an edge case: Qwen3.5/3.6 run linear
+    attention on 24 of 32 layers (a fixed-size recurrent state, no per-token
+    cache), so counting every layer overestimated their KV by 4x -- 2.0 GiB
+    instead of 0.5 GiB for Qwen3.5-4B at 16384 tokens, which on a larger model
+    is enough to mark a real candidate "too big".
+    Linear-attention state is left to the overhead allowance; sliding-window
+    layers hold at most `sliding_window` tokens; any unrecognized layer type is
+    counted as full attention, so an unknown architecture errs toward "too
+    big" rather than toward an out-of-memory crash."""
+    text = config if "num_hidden_layers" in config else config.get("text_config")
+    if not isinstance(text, dict):
+        return None
+    layers = text.get("num_hidden_layers")
+    heads = text.get("num_attention_heads")
+    kv_heads = text.get("num_key_value_heads") or heads
+    hidden = text.get("hidden_size")
+    head_dim = text.get("head_dim") or (hidden // heads if hidden and heads else None)
+    if not (layers and kv_heads and head_dim):
+        return None
+    layer_types = text.get("layer_types")
+    if not (isinstance(layer_types, list) and layer_types):
+        layer_types = ["full_attention"] * int(layers)
+    window = text.get("sliding_window")
+    tokens_held = 0
+    for layer_type in layer_types:
+        if layer_type == "linear_attention":
+            continue
+        if layer_type == "sliding_attention" and window:
+            tokens_held += min(int(window), max_model_len)
+        else:
+            tokens_held += max_model_len
+    return float(2 * kv_heads * head_dim * _KV_BYTES_PER_ELEMENT * tokens_held) / _GIB
+
+
+def _vllm_supported_archs(image: str | None) -> tuple[frozenset[str] | None, str | None]:
+    """Asks the pinned vLLM image itself which architectures it can load -- the
+    exact server version that would serve the model, not a docs page for some
+    other release. No GPU needed (measured 2026-09-13: ~12 s, 378
+    architectures). `--pull=never` because this must not turn into a 28 GB
+    download just to answer a question, and `--network none` because the
+    container has no reason to talk to anything."""
+    if image is None:
+        return None, "no pinned vllm/vllm-openai image in the compose files: architecture support unchecked"
+    script = (
+        "import json; from vllm.model_executor.models import ModelRegistry; "
+        "print(json.dumps(sorted(ModelRegistry.get_supported_archs())))"
+    )
+    try:
+        proc = subprocess.run(
+            ["docker", "run", "--rm", "--pull=never", "--network", "none", "--entrypoint", "python3", image, "-c", script],
+            capture_output=True, text=True, timeout=300, check=True,
+        )
+        archs = json.loads(proc.stdout.strip().splitlines()[-1])
+    except (OSError, subprocess.SubprocessError, ValueError, IndexError) as exc:
+        return None, f"could not ask {image} for its supported architectures (is it pulled?): {exc}"
+    return frozenset(str(a) for a in archs), None
+
+
+def _quant_label(config: dict[str, Any]) -> str:
+    """quant_method if quantized, else the dtype. Newer configs say `dtype`
+    rather than `torch_dtype`, and multimodal ones keep it under `text_config`
+    (Qwen3.5: `text_config.dtype`) -- all four spellings are checked."""
+    for scope in (config, config.get("text_config")):
+        if not isinstance(scope, dict):
+            continue
+        quant = scope.get("quantization_config")
+        if isinstance(quant, dict) and quant.get("quant_method"):
+            return str(quant["quant_method"])
+    for scope in (config, config.get("text_config")):
+        if isinstance(scope, dict) and (dtype := scope.get("torch_dtype") or scope.get("dtype")):
+            return str(dtype)
+    return "unknown"
+
+
+def _has_thinking_toggle(client: httpx.Client, repo_id: str, revision: str) -> bool | None:
+    """Does the chat template accept `enable_thinking`? None when no template
+    exists at all -- that is "cannot tell", not "no"."""
+    templates: list[str] = []
+    raw = _hf_file(client, repo_id, revision, "tokenizer_config.json")
+    if raw is not None:
+        loaded = json.loads(raw)
+        chat_template = loaded.get("chat_template") if isinstance(loaded, dict) else None
+        if isinstance(chat_template, str):
+            templates.append(chat_template)
+        elif isinstance(chat_template, list):
+            templates += [str(t.get("template", "")) for t in chat_template if isinstance(t, dict)]
+    if not templates:
+        jinja = _hf_file(client, repo_id, revision, "chat_template.jinja")
+        if jinja is not None:
+            templates.append(jinja)
+    if not templates:
+        return None
+    return any("enable_thinking" in template for template in templates)
+
+
+def _probe_model(
+    client: httpx.Client,
+    repo_id: str,
+    revision: str,
+    created_at: str | None,
+    *,
+    pinned: bool,
+    budget_gib: float | None,
+    max_model_len: int | None,
+    supported_archs: frozenset[str] | None,
+    multimodal: bool = False,
+) -> ModelCandidate:
+    candidate = ModelCandidate(
+        repo_id=repo_id, revision=revision, created_at=created_at, pinned=pinned, multimodal=multimodal,
+    )
+    try:
+        raw_config = _hf_file(client, repo_id, revision, "config.json")
+        loaded = json.loads(raw_config) if raw_config is not None else {}
+        config: dict[str, Any] = loaded if isinstance(loaded, dict) else {}
+        architectures = config.get("architectures")
+        if isinstance(architectures, list) and architectures:
+            candidate.architecture = str(architectures[0])
+            if supported_archs is not None:
+                candidate.arch_supported = candidate.architecture in supported_archs
+        candidate.quant = _quant_label(config)
+        candidate.weights_gib = _weights_gib(client, repo_id, revision)
+        if max_model_len is not None:
+            candidate.kv_gib = _kv_cache_gib(config, max_model_len)
+        if candidate.weights_gib is not None and candidate.kv_gib is not None:
+            candidate.est_total_gib = candidate.weights_gib + candidate.kv_gib + _OVERHEAD_GIB
+            if budget_gib is not None:
+                candidate.fits = candidate.est_total_gib <= budget_gib
+        candidate.thinking_toggle = _has_thinking_toggle(client, repo_id, revision)
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code in (401, 403):
+            candidate.error = (
+                "gated repo, and HF_TOKEN lacks access to it" if os.environ.get("HF_TOKEN")
+                else "gated repo: accept its license on huggingface.co, then set HF_TOKEN"
+            )
+        else:
+            candidate.error = str(exc)
+    except (httpx.HTTPError, ValueError) as exc:  # ValueError covers a malformed JSON file
+        candidate.error = str(exc)
+    return candidate
+
+
+def _pinned_lineage(
+    client: httpx.Client, model_pins: Iterable[tuple[str, str]]
+) -> tuple[dict[str, str | None], dict[str, str | None], list[str]]:
+    """(org -> newest pinned createdAt, repo -> createdAt, notes).
+
+    The org searched is the one behind each pinned model's BASE, so a
+    community requant (ELVISIO/Qwen3-8B-NVFP4A16) points discovery at Qwen,
+    not at ELVISIO's unrelated uploads. A requant's own upload date says
+    nothing about which generation it is, so only official pins in an org set
+    its "since" -- falling back to the base model's date if an org has none."""
+    since: dict[str, str | None] = {}
+    created: dict[str, str | None] = {}
+    orphan_bases: dict[str, str] = {}
+    notes: list[str] = []
+    for repo_id, _revision in model_pins:
+        try:
+            info = _hf_api(client, f"models/{repo_id}", params=[("expand[]", "createdAt"), ("expand[]", "cardData")])
+        except httpx.HTTPError as exc:
+            notes.append(f"{repo_id}: could not read lineage: {exc}")
+            continue
+        repo_created = info.get("createdAt")
+        created[repo_id] = repo_created
+        base = (info.get("cardData") or {}).get("base_model")
+        if isinstance(base, list):
+            base = base[0] if base else None
+        own_org = repo_id.split("/")[0]
+        org = base.split("/")[0] if isinstance(base, str) and "/" in base else own_org
+        current = since.setdefault(org, None)
+        if org == own_org:
+            if repo_created and (current is None or repo_created > current):
+                since[org] = repo_created
+        elif isinstance(base, str):
+            orphan_bases.setdefault(org, base)
+    for org, base in orphan_bases.items():
+        if since.get(org) is None:
+            try:
+                since[org] = _hf_api(client, f"models/{base}", params=[("expand[]", "createdAt")]).get("createdAt")
+            except httpx.HTTPError as exc:
+                notes.append(f"{org}: could not date lineage base {base}: {exc}")
+    return since, created, notes
+
+
+def _list_org_models_since(
+    client: httpx.Client, org: str, since: str | None
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """Newest first, stopping once past `since`. That early stop leans on the
+    server's createdAt sort, so the order is checked page by page rather than
+    trusted -- the Docker Hub half of this script already learned that a
+    trusted server ordering can silently hide the real answer. If the order is
+    ever seen to break, listing continues to the page cap instead."""
+    url = "https://huggingface.co/api/models"
+    params: Any = [
+        ("author", org), ("sort", "createdAt"), ("direction", "-1"), ("limit", "100"),
+        ("expand[]", "createdAt"), ("expand[]", "safetensors"), ("expand[]", "tags"), ("expand[]", "pipeline_tag"),
+    ]
+    items: list[dict[str, Any]] = []
+    notes: list[str] = []
+    previous: str | None = None
+    ordered = True
+    for _ in range(_DISCOVER_MAX_PAGES):
+        resp = client.get(url, params=params, headers=_hf_headers(), timeout=_TIMEOUT)
+        resp.raise_for_status()
+        reached_older = False
+        for item in resp.json():
+            item_created = item.get("createdAt") or ""
+            if previous is not None and item_created > previous:
+                ordered = False
+            previous = item_created
+            if since is not None and item_created <= since:
+                reached_older = True
+                continue
+            items.append(item)
+        m = _LINK_NEXT_RE.search(resp.headers.get("link", ""))
+        if not m or (reached_older and ordered):
+            break
+        if not m.group(1).startswith("https://huggingface.co/"):
+            # The next URL comes from the server and the request carries HF_TOKEN.
+            notes.append(f"{org}: refused a pagination link off huggingface.co, listing may be incomplete")
+            break
+        url, params = m.group(1), None
+    else:
+        notes.append(f"{org}: stopped at the {_DISCOVER_MAX_PAGES}-page cap, listing may be incomplete")
+    if not ordered:
+        notes.append(f"{org}: server createdAt order was not monotonic, so early stopping was disabled")
+    return items, notes
+
+
+def _exclusion_reason(item: dict[str, Any], budget_gib: float | None) -> str | None:
+    """Cheap, listing-data-only reasons to skip a model before probing it. Every
+    skip is counted and reported, so nothing disappears silently. The pipeline
+    filter is client-side and deliberately wide -- see `_CHAT_PIPELINES` for the
+    newer generations a narrow one hid."""
+    repo_id = str(item.get("id", ""))
+    if _UNSERVABLE_FORMAT_RE.search(" ".join([repo_id, *map(str, item.get("tags") or [])])):
+        return "MLX/GGUF build (not this project's vLLM-on-NVIDIA path)"
+    if item.get("pipeline_tag") not in _CHAT_PIPELINES:
+        return "not a chat model (speech, image generation, classification...)"
+    if _NON_CHAT_NAME_RE.search(repo_id):
+        return "embedding / reranker / guard model"
+    total_params = (item.get("safetensors") or {}).get("total")
+    if not total_params:
+        return "no safetensors metadata to size it"
+    if budget_gib is not None and total_params * _FOUR_BIT_BYTES_PER_PARAM / _GIB > budget_gib:
+        return "too large for this card even at 4-bit"
+    return None
+
+
+def _discover(
+    client: httpx.Client,
+    model_pins: Iterable[tuple[str, str]],
+    *,
+    override_orgs: list[str] | None,
+    vram_gib_override: float | None,
+    vllm_image: str | None,
+) -> ModelDiscovery:
+    pins = sorted(model_pins)
+    since_by_org, created, notes = _pinned_lineage(client, pins)
+    if override_orgs:
+        newest = max((s for s in since_by_org.values() if s), default=None)
+        since_by_org = {org: newest for org in override_orgs}
+
+    utilization, max_model_len = _collect_serving_limits(_FAST_API_DIR)
+    vram_gib = vram_gib_override if vram_gib_override is not None else _gpu_total_gib()
+    if vram_gib is None:
+        notes.append("nvidia-smi unavailable and no --vram-gib given: fit verdicts skipped")
+    budget = vram_gib * utilization if vram_gib is not None and utilization is not None else None
+    supported_archs, arch_note = _vllm_supported_archs(vllm_image)
+    if arch_note:
+        notes.append(arch_note)
+
+    calibration = [
+        _probe_model(
+            client, repo, rev, created.get(repo), pinned=True,
+            budget_gib=budget, max_model_len=max_model_len, supported_archs=supported_archs,
+        )
+        for repo, rev in pins
+    ]
+
+    pinned_ids = {repo for repo, _ in pins}
+    candidates: list[ModelCandidate] = []
+    excluded: Counter[str] = Counter()
+    for org, since in sorted(since_by_org.items()):
+        try:
+            items, list_notes = _list_org_models_since(client, org, since)
+        except httpx.HTTPError as exc:
+            notes.append(f"{org}: listing failed: {exc}")
+            continue
+        notes += list_notes
+        for item in items:
+            if item.get("id") in pinned_ids:
+                continue
+            reason = _exclusion_reason(item, budget)
+            if reason:
+                excluded[reason] += 1
+                continue
+            candidates.append(_probe_model(
+                client, str(item["id"]), "main", item.get("createdAt"),
+                pinned=False, budget_gib=budget, max_model_len=max_model_len,
+                supported_archs=supported_archs, multimodal=_CHAT_PIPELINES[str(item.get("pipeline_tag"))],
+            ))
+    # "worth evaluating" first, and within it the largest model that fits --
+    # the most capability this card can hold. Newest-first was tried and buried
+    # Qwen3.5-4B under the 0.8B/2B releases dated one day later. Base models
+    # sort after their instruct twin; every other group stays newest first.
+    def order(c: ModelCandidate) -> tuple[bool, float, bool]:
+        worth = c.verdict == _WORTH_EVALUATING
+        return (not worth, -(c.weights_gib or 0.0) if worth else 0.0, c.repo_id.endswith("-Base"))
+
+    candidates.sort(key=lambda c: c.created_at or "", reverse=True)
+    candidates.sort(key=order)  # stable, so newest-first survives as the final tie-break
+
+    return ModelDiscovery(
+        since_by_org=since_by_org, vram_gib=vram_gib, gpu_memory_utilization=utilization,
+        max_model_len=max_model_len, budget_gib=budget, vllm_image=vllm_image,
+        vllm_arch_count=len(supported_archs) if supported_archs is not None else None,
+        calibration=calibration, candidates=candidates, excluded=dict(excluded.most_common()), notes=notes,
+    )
+
+
+def _run_checks(
+    *,
+    discover: bool = False,
+    discover_orgs: list[str] | None = None,
+    vram_gib: float | None = None,
+) -> tuple[list[ImageCheck], list[ModelCheck], list[OllamaModelCheck], ModelDiscovery | None]:
     image_pins, model_pins = _collect_pins(_FAST_API_DIR)
     image_checks: list[ImageCheck] = []
     model_checks: list[ModelCheck] = []
     ollama_checks: list[OllamaModelCheck] = []
+    discovery: ModelDiscovery | None = None
+    # One client for everything: _TRANSPORT is a single shared instance, and
+    # closing the client closes it, so discovery cannot open a second client
+    # after this block ends.
     with httpx.Client(transport=_TRANSPORT, timeout=_TIMEOUT) as client:
+        if discover:
+            # The production arm's image, since that is the server a switch would land on.
+            vllm_image = next(
+                (f"{repo}:{tag}" for (repo, tag), sources in sorted(image_pins.items())
+                 if repo == "vllm/vllm-openai" and "docker-compose.llm.yml" in sources),
+                None,
+            )
+            discovery = _discover(
+                client, model_pins.keys(), override_orgs=discover_orgs,
+                vram_gib_override=vram_gib, vllm_image=vllm_image,
+            )
         for (repository, tag), sources in sorted(image_pins.items()):
             latest_tag, latest_pushed_at, error = _docker_hub_latest_stable_tag(client, repository)
             pinned_pushed_at = None if error else _docker_hub_tag_pushed_at(client, repository, tag)
@@ -357,7 +890,7 @@ def _run_checks() -> tuple[list[ImageCheck], list[ModelCheck], list[OllamaModelC
         for tag, pinned in sorted(_OLLAMA_LIBRARY_MODELS.items()):
             live, error = _ollama_manifest_digests(client, tag)
             ollama_checks.append(OllamaModelCheck(tag, pinned, live, error))
-    return image_checks, model_checks, ollama_checks
+    return image_checks, model_checks, ollama_checks, discovery
 
 
 def _short(revision: str) -> str:
@@ -433,31 +966,115 @@ def _print_report(
         print()
 
 
+def _format_candidate(candidate: ModelCandidate) -> str:
+    created = (candidate.created_at or "")[:10] or "?"
+    if candidate.weights_gib is not None and candidate.kv_gib is not None and candidate.est_total_gib is not None:
+        size = (
+            f"{candidate.weights_gib:.2f} weights + {candidate.kv_gib:.2f} KV + {_OVERHEAD_GIB:.1f} overhead"
+            f" = {candidate.est_total_gib:.2f} GiB"
+        )
+    elif candidate.weights_gib is not None:
+        size = f"{candidate.weights_gib:.2f} GiB weights, KV unknown"
+    else:
+        size = "size unknown"
+    yes_no = {True: "yes", False: "NO", None: "?"}
+    kind = ", multimodal" if candidate.multimodal else ""
+    return (
+        f"- {candidate.repo_id}  [created {created}, {candidate.quant or '?'}{kind}]\n"
+        f"    {size}\n"
+        f"    enable_thinking: {yes_no[candidate.thinking_toggle]}  |  "
+        f"pinned vLLM loads {candidate.architecture or '?'}: {yes_no[candidate.arch_supported]}\n"
+        f"    -> {candidate.verdict}"
+    )
+
+
+def _print_discovery(discovery: ModelDiscovery) -> None:
+    print("## Model candidates (--discover)\n")
+    if discovery.budget_gib is not None:
+        print(
+            f"Budget: {discovery.vram_gib:.2f} GiB VRAM x {discovery.gpu_memory_utilization:.2f} "
+            f"--gpu-memory-utilization = {discovery.budget_gib:.2f} GiB for vLLM, against weights + a KV cache"
+        )
+        print(f"        for one --max-model-len {discovery.max_model_len} sequence + {_OVERHEAD_GIB} GiB overhead.")
+    if discovery.vllm_arch_count is not None:
+        print(f"Loadable: checked against {discovery.vllm_image} itself ({discovery.vllm_arch_count} architectures).")
+    for org, since in sorted(discovery.since_by_org.items()):
+        print(f"Searched: {org}, releases after {since[:10] if since else '(the beginning)'}")
+
+    print("\nCalibration: the pinned models through the same estimator. These run today, so they must fit --")
+    print("if one does not, trust none of the fit verdicts below.\n")
+    for candidate in discovery.calibration:
+        print(_format_candidate(candidate))
+
+    print("\nCandidates:\n")
+    if not discovery.candidates:
+        print("- nothing newer passed the filters")
+    for candidate in discovery.candidates:
+        print(_format_candidate(candidate))
+
+    if discovery.excluded:
+        print(f"\nSkipped before probing ({sum(discovery.excluded.values())}):")
+        for reason, count in discovery.excluded.items():
+            print(f"  {count:>4}  {reason}")
+    for note in discovery.notes:
+        print(f"\nnote: {note}")
+    print(
+        f"\n'{_WORTH_EVALUATING}' means: fits this card, the pinned vLLM loads its architecture, and it honors\n"
+        "enable_thinking. Necessary, not sufficient: a weights change is a confounded variable here\n"
+        "(plan-vllm-switch-readiness.md), so decision quality and throughput still have to be measured on this\n"
+        "project's own probes before switching anything. Multimodal models also load a vision tower (counted\n"
+        "in the weights above) and have never been served text-only in this project."
+    )
+    print()
+
+
 def _to_jsonable(checks: list[Any]) -> list[dict[str, Any]]:
     return [dataclasses.asdict(c) | {"up_to_date": c.up_to_date} for c in checks]
+
+
+def _discovery_jsonable(discovery: ModelDiscovery) -> dict[str, Any]:
+    def with_verdicts(candidates: list[ModelCandidate]) -> list[dict[str, Any]]:
+        return [dataclasses.asdict(c) | {"verdict": c.verdict} for c in candidates]
+
+    return dataclasses.asdict(discovery) | {
+        "calibration": with_verdicts(discovery.calibration),
+        "candidates": with_verdicts(discovery.candidates),
+    }
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--json", action="store_true", help="emit machine-readable JSON instead of the text report")
     parser.add_argument("--strict", action="store_true", help="exit 1 if anything checked is not up to date")
+    parser.add_argument(
+        "--discover", action="store_true",
+        help="also list newer official models that fit this card and honor enable_thinking (slower; never affects --strict)",
+    )
+    parser.add_argument(
+        "--discover-orgs", default=None,
+        help="comma-separated Hugging Face orgs to search instead of the pinned models' own lineage (e.g. google,mistralai)",
+    )
+    parser.add_argument("--vram-gib", type=float, default=None, help="total GPU memory, if nvidia-smi is unavailable")
     args = parser.parse_args(argv)
 
-    image_checks, model_checks, ollama_checks = _run_checks()
+    orgs = [org.strip() for org in args.discover_orgs.split(",") if org.strip()] if args.discover_orgs else None
+    image_checks, model_checks, ollama_checks, discovery = _run_checks(
+        discover=args.discover or orgs is not None, discover_orgs=orgs, vram_gib=args.vram_gib,
+    )
 
     if args.json:
-        print(
-            json.dumps(
-                {
-                    "images": _to_jsonable(image_checks),
-                    "models": _to_jsonable(model_checks),
-                    "ollama_models": _to_jsonable(ollama_checks),
-                },
-                indent=2,
-            )
-        )
+        payload: dict[str, Any] = {
+            "images": _to_jsonable(image_checks),
+            "models": _to_jsonable(model_checks),
+            "ollama_models": _to_jsonable(ollama_checks),
+        }
+        if discovery is not None:
+            payload["model_discovery"] = _discovery_jsonable(discovery)
+        print(json.dumps(payload, indent=2))
     else:
         _print_report(image_checks, model_checks, ollama_checks)
+        if discovery is not None:
+            _print_discovery(discovery)
 
     if args.strict:
         any_drift = (
