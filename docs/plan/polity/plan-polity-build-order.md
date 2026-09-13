@@ -110,7 +110,7 @@ recorded here, with the date.
 | S3.2 | Decision runner for candidacy, reaction, pressure | S3.1, S0.3 | `feat/polity-decision-runner` | `1e2ce8b5` |
 | S3.3 | Typed events and event registry | S0.2 | `feat/polity-typed-events` | `7695fafd` |
 | S3.4 | Tick state and phase pipeline | S3.3 | `feat/polity-tick-state` | `b27dbea9` |
-| S3.5 | Settle the debt ledger | S3.1, S3.2 | `feat/polity-debt-ledger` | |
+| S3.5 | Settle the debt ledger | S3.1, S3.2 | `feat/polity-debt-ledger` | `6f85b10a` |
 | S4.1 | Utility vote with turnout | D2, S3.4 | `feat/polity-utility-vote` | |
 | S4.2 | Policy status quo and ordinary legislation | D3, S3.4 | `feat/polity-legislation` | |
 | S4.3 | Dynamic citizens | S3.4 | `feat/polity-dynamic-citizens` | |
