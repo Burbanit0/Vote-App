@@ -136,7 +136,7 @@ import logging
 import math
 from dataclasses import dataclass, field
 from itertools import chain
-from typing import Any, Callable, Mapping, Sequence, TypeVar
+from typing import Any, Callable, Generic, Mapping, Protocol, Sequence, TypeVar
 
 import numpy as np
 
@@ -1018,6 +1018,113 @@ def run_chunks(
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
         futures = [pool.submit(worker, chunk) for chunk in chunks]
         return [future.result() for future in futures]
+
+
+class CitizenDecision(Protocol):
+    """A decision whose unit is one citizen."""
+
+    @property
+    def cid(self) -> int: ...
+
+
+_CitizenDecisionT = TypeVar("_CitizenDecisionT", bound=CitizenDecision)
+
+
+@dataclass(frozen=True, kw_only=True)
+class DecisionSpec(Generic[_CitizenDecisionT]):
+    """Everything that differs between two chunked, per-citizen decision types (S3.2).
+    run_decision owns everything that does not: chunking, the replay loop,
+    validation inside it, the per-chunk deterministic fallback, and provenance."""
+
+    decision_type: str
+    json_schema: dict[str, Any]
+    think: bool
+    retry_temperature: float
+    retry_seed_base: int
+    chunk_size: int
+    min_batch_size: int = MIN_SAFE_BATCH_SIZE
+    system_prompt: Callable[[list[Citizen]], str]
+    user_prompt: Callable[[list[Citizen]], str]
+    decode: Callable[[str, Sequence[int]], list[_CitizenDecisionT]]
+    validate: Callable[[_CitizenDecisionT], None] | None = None
+    """Raises LlmResponseError on a decoded decision the engine cannot honour; runs
+    inside the replay's failure handling, so a rejected batch falls back exactly like
+    an exhausted replay budget."""
+    fallback: Callable[[list[Citizen]], list[_CitizenDecisionT]]
+    fallback_description: str
+    """What the log names as the fallback, e.g. "the deterministic ambition threshold
+    (simple_rules.decide_candidacy)"."""
+
+
+@dataclass(frozen=True)
+class DecisionResult(Generic[_CitizenDecisionT]):
+    decisions: list[_CitizenDecisionT]
+    llm_fallback: dict[int, bool]
+    retry_sampling_varied: dict[int, bool]
+    llm_call_ids: dict[int, str | None]
+
+
+def run_decision(
+    spec: DecisionSpec[_CitizenDecisionT],
+    citizens: Sequence[Citizen],
+    config: PolityConfig,
+    client: LlmClientProtocol,
+) -> DecisionResult[_CitizenDecisionT]:
+    """Chunks `citizens` in the order given (callers sort), decides each chunk, and
+    aggregates provenance per citizen. One unrecoverable chunk degrades only its own
+    citizens to spec.fallback, and is logged at ERROR -- never silently, never by
+    aborting the run."""
+
+    def decide_chunk(chunk: list[Citizen]) -> tuple[list[_CitizenDecisionT], bool, bool, str | None]:
+        expected_cids = [c.citizen_id for c in chunk]
+        retry_info: dict[str, Any] = {}
+        is_fallback = False
+        try:
+            chunk_decisions = _complete_and_decode_with_replay(
+                client,
+                system_prompt=spec.system_prompt(chunk),
+                user_prompt=spec.user_prompt(chunk),
+                json_schema=spec.json_schema,
+                max_tokens=compute_max_tokens(len(chunk)),
+                think=spec.think,
+                decode=lambda raw: spec.decode(raw, expected_cids),
+                replays=config.llm.max_batch_replays,
+                decision_type=spec.decision_type,
+                unit_ids=expected_cids,
+                # A deliberate, local exception to temperature=0 determinism -- see each
+                # decision type's own _*_RETRY_TEMPERATURE. Only ever applies to a genuine
+                # retry, never the first attempt.
+                retry_temperature=spec.retry_temperature,
+                retry_seed_base=spec.retry_seed_base,
+                retry_info=retry_info,
+            )
+            if spec.validate is not None:
+                for decision in chunk_decisions:
+                    spec.validate(decision)
+        except LlmResponseError as exc:
+            _logger.error(
+                "%s: exhausted every recovery attempt for cid(s) %s, falling back to %s instead of aborting "
+                "the run: %s", spec.decision_type, expected_cids, spec.fallback_description, exc,
+            )
+            chunk_decisions = spec.fallback(chunk)
+            is_fallback = True
+        return chunk_decisions, _sampling_varied(retry_info, is_fallback), is_fallback, retry_info.get("call_id")
+
+    decisions: list[_CitizenDecisionT] = []
+    retry_sampling_varied: dict[int, bool] = {}
+    llm_fallback: dict[int, bool] = {}
+    llm_call_ids: dict[int, str | None] = {}
+    chunks = chunk_voters(citizens, spec.chunk_size, min_batch_size=spec.min_batch_size)
+    for chunk_decisions, sampling_varied, is_fallback, call_id in run_chunks(
+        chunks, decide_chunk, config.parallel.intra_run_workers
+    ):
+        for decision in chunk_decisions:
+            retry_sampling_varied[decision.cid] = sampling_varied
+            llm_call_ids[decision.cid] = call_id
+            if is_fallback:
+                llm_fallback[decision.cid] = True
+        decisions.extend(chunk_decisions)
+    return DecisionResult(decisions, llm_fallback, retry_sampling_varied, llm_call_ids)
 
 
 def truncation_limit(candidate_count: int) -> int | None:
@@ -1960,61 +2067,27 @@ def decide_candidacies(
     population = list(citizens)
     support = {c.citizen_id: sympathizer_ratio(c, population) for c in population}
 
-    def _candidacy_chunk(chunk: list[Citizen]) -> tuple[list[CandidacyDecision], bool, bool, str | None]:
-        expected_cids = [c.citizen_id for c in chunk]
-        retry_info: dict[str, Any] = {}
-        is_fallback = False
-        try:
-            chunk_decisions = _complete_and_decode_with_replay(
-                client,
-                system_prompt=build_candidacy_system_prompt_toon(chunk),
-                user_prompt=build_candidacy_user_prompt_toon(chunk, support),
-                json_schema=CANDIDACY_JSON_SCHEMA,
-                max_tokens=compute_max_tokens(len(chunk)),
-                think=False,
-                decode=lambda raw: decode_candidacy_batch(raw, expected_cids),
-                replays=config.llm.max_batch_replays,
-                decision_type="candidacy_considered",
-                unit_ids=expected_cids,
-                # A deliberate, local exception to temperature=0 determinism --
-                # see _CANDIDACY_RETRY_TEMPERATURE's own comment. Only ever
-                # applies to a genuine retry (never the first attempt).
-                retry_temperature=_CANDIDACY_RETRY_TEMPERATURE,
-                retry_seed_base=_CANDIDACY_RETRY_SEED_BASE,
-                retry_info=retry_info,
-            )
-        except LlmResponseError as exc:
-            # Last resort, not a silent one -- see CandidacyBatchOutcome.llm_
-            # fallback and _deterministic_candidacy_fallback's own docstrings.
-            # Per CHUNK, not per run: one unrecoverable chunk degrades its own
-            # citizens to the threshold rule and leaves every other chunk's
-            # model decisions intact, exactly as cast_votes already does.
-            _logger.error(
-                "candidacy_considered: exhausted every recovery attempt for cid(s) %s, falling back "
-                "to the deterministic ambition threshold (simple_rules.decide_candidacy) instead of "
-                "aborting the run: %s", expected_cids, exc,
-            )
-            chunk_decisions = _deterministic_candidacy_fallback(chunk, config)
-            is_fallback = True
-        return chunk_decisions, _sampling_varied(retry_info, is_fallback), is_fallback, retry_info.get("call_id")
-
-    decisions: list[CandidacyDecision] = []
-    retry_sampling_varied: dict[int, bool] = {}
-    llm_fallback: dict[int, bool] = {}
-    llm_call_ids: dict[int, str | None] = {}
-    chunks = chunk_voters(citizens, config.llm.max_batch_size)
-    for chunk_decisions, sampling_varied, is_fallback, call_id in run_chunks(
-        chunks, _candidacy_chunk, config.parallel.intra_run_workers
-    ):
-        for decision in chunk_decisions:
-            retry_sampling_varied[decision.cid] = sampling_varied
-            llm_call_ids[decision.cid] = call_id
-            if is_fallback:
-                llm_fallback[decision.cid] = True
-        decisions.extend(chunk_decisions)
-
+    result = run_decision(
+        DecisionSpec[CandidacyDecision](
+            decision_type="candidacy_considered",
+            json_schema=CANDIDACY_JSON_SCHEMA,
+            think=False,
+            retry_temperature=_CANDIDACY_RETRY_TEMPERATURE,
+            retry_seed_base=_CANDIDACY_RETRY_SEED_BASE,
+            chunk_size=config.llm.max_batch_size,
+            system_prompt=build_candidacy_system_prompt_toon,
+            user_prompt=lambda chunk: build_candidacy_user_prompt_toon(chunk, support),
+            decode=decode_candidacy_batch,
+            # Per CHUNK, not per run: see CandidacyBatchOutcome.llm_fallback and
+            # _deterministic_candidacy_fallback's own docstrings.
+            fallback=lambda chunk: _deterministic_candidacy_fallback(chunk, config),
+            fallback_description="the deterministic ambition threshold (simple_rules.decide_candidacy)",
+        ),
+        citizens, config, client,
+    )
     return CandidacyBatchOutcome(
-        decisions=decisions, llm_fallback=llm_fallback, retry_sampling_varied=retry_sampling_varied, llm_call_ids=llm_call_ids,
+        decisions=result.decisions, llm_fallback=result.llm_fallback,
+        retry_sampling_varied=result.retry_sampling_varied, llm_call_ids=result.llm_call_ids,
     )
 
 
@@ -4037,69 +4110,37 @@ def decide_pressure_actions(
     # rely on an incidental insertion order (D-5 precedent).
     consulted = sorted(consulted, key=lambda c: c.citizen_id)
 
-    def _pressure_chunk(chunk: list[Citizen]) -> tuple[list[PressureDecision], bool, bool, str | None]:
-        expected_cids = [c.citizen_id for c in chunk]
+    def user_prompt(chunk: list[Citizen]) -> str:
         per_citizen_signals = {c.citizen_id: pressure_shipped_signal_values(c) for c in chunk}
         signal_values = {
             PRESSURE_THRESHOLD_SIGNAL.field: {cid: values[PRESSURE_THRESHOLD_SIGNAL.field] for cid, values in per_citizen_signals.items()}
         }
-        retry_info: dict[str, Any] = {}
-        is_fallback = False
-        try:
-            chunk_decisions = _complete_and_decode_with_replay(
-                client,
-                system_prompt=build_pressure_system_prompt_calibrated(chunk, config, (PRESSURE_THRESHOLD_SIGNAL,)),
-                user_prompt=build_pressure_user_prompt_calibrated(chunk, contexts, signal_values),
-                json_schema=PRESSURE_JSON_SCHEMA,
-                max_tokens=compute_max_tokens(len(chunk)),
-                think=False,
-                decode=lambda raw: decode_pressure_batch(raw, expected_cids),
-                replays=config.llm.max_batch_replays,
-                decision_type="pressure_action",
-                unit_ids=expected_cids,
-                # A deliberate, local exception to temperature=0 determinism --
-                # see _PRESSURE_RETRY_TEMPERATURE's own comment. Only ever
-                # applies to a genuine retry (never the first attempt).
-                retry_temperature=_PRESSURE_RETRY_TEMPERATURE,
-                retry_seed_base=_PRESSURE_RETRY_SEED_BASE,
-                retry_info=retry_info,
-            )
-            # Inside the try on purpose: an out-of-menu act is a rejected batch
-            # exactly like an exhausted replay budget, and killed the run just
-            # as reliably (cast_votes's own except block covers both classes).
-            for decision in chunk_decisions:
-                validate_pressure_decision(decision, contexts[decision.cid], config)
-        except LlmResponseError as exc:
-            # Last resort, not a silent one -- see PressureBatchOutcome.llm_
-            # fallback and _deterministic_pressure_fallback's own docstrings.
-            # At _PRESSURE_CALIBRATED_CHUNK_SIZE=1 a chunk is ONE citizen, so
-            # this degrades a single citizen's act and leaves the rest of the
-            # consulted cohort's model decisions untouched -- the finest
+        return build_pressure_user_prompt_calibrated(chunk, contexts, signal_values)
+
+    result = run_decision(
+        DecisionSpec[PressureDecision](
+            decision_type="pressure_action",
+            json_schema=PRESSURE_JSON_SCHEMA,
+            think=False,
+            retry_temperature=_PRESSURE_RETRY_TEMPERATURE,
+            retry_seed_base=_PRESSURE_RETRY_SEED_BASE,
+            chunk_size=_PRESSURE_CALIBRATED_CHUNK_SIZE,
+            min_batch_size=1,
+            system_prompt=lambda chunk: build_pressure_system_prompt_calibrated(chunk, config, (PRESSURE_THRESHOLD_SIGNAL,)),
+            user_prompt=user_prompt,
+            decode=decode_pressure_batch,
+            # An out-of-menu act is a rejected batch exactly like an exhausted replay budget.
+            validate=lambda decision: validate_pressure_decision(decision, contexts[decision.cid], config),
+            # At _PRESSURE_CALIBRATED_CHUNK_SIZE=1 a chunk is ONE citizen: the finest
             # granularity any decision type in this engine falls back at.
-            _logger.error(
-                "pressure_action: exhausted every recovery attempt for cid(s) %s, falling back to "
-                "the deterministic pressure rule (simple_rules.deterministic_pressure_action) "
-                "instead of aborting the run: %s", expected_cids, exc,
-            )
-            chunk_decisions = _deterministic_pressure_fallback(chunk, contexts, config)
-            is_fallback = True
-        return chunk_decisions, _sampling_varied(retry_info, is_fallback), is_fallback, retry_info.get("call_id")
-
-    decisions: list[PressureDecision] = []
-    retry_sampling_varied: dict[int, bool] = {}
-    llm_fallback: dict[int, bool] = {}
-    llm_call_ids: dict[int, str | None] = {}
-    chunks = chunk_voters(consulted, _PRESSURE_CALIBRATED_CHUNK_SIZE, min_batch_size=1)
-    for chunk_decisions, sampling_varied, is_fallback, call_id in run_chunks(chunks, _pressure_chunk, config.parallel.intra_run_workers):
-        for decision in chunk_decisions:
-            retry_sampling_varied[decision.cid] = sampling_varied
-            llm_call_ids[decision.cid] = call_id
-            if is_fallback:
-                llm_fallback[decision.cid] = True
-        decisions.extend(chunk_decisions)
-
+            fallback=lambda chunk: _deterministic_pressure_fallback(chunk, contexts, config),
+            fallback_description="the deterministic pressure rule (simple_rules.deterministic_pressure_action)",
+        ),
+        consulted, config, client,
+    )
     return PressureBatchOutcome(
-        decisions=decisions, llm_fallback=llm_fallback, retry_sampling_varied=retry_sampling_varied, llm_call_ids=llm_call_ids,
+        decisions=result.decisions, llm_fallback=result.llm_fallback,
+        retry_sampling_varied=result.retry_sampling_varied, llm_call_ids=result.llm_call_ids,
     )
 
 
@@ -4391,62 +4432,30 @@ def decide_reaction_to_event(
     # rely on an incidental insertion order (D-5 precedent).
     citizens = sorted(citizens, key=lambda c: c.citizen_id)
 
-    def _reaction_chunk(chunk: list[Citizen]) -> tuple[list[ReactionDecision], bool, bool, str | None]:
-        expected_cids = [c.citizen_id for c in chunk]
-        retry_info: dict[str, Any] = {}
-        is_fallback = False
-        try:
-            chunk_decisions = _complete_and_decode_with_replay(
-                client,
-                system_prompt=build_reaction_system_prompt(chunk, event_type, config),
-                user_prompt=build_reaction_user_prompt(chunk, contexts, event_type=event_type, target=target, magnitude=magnitude),
-                json_schema=REACTION_JSON_SCHEMA,
-                max_tokens=compute_max_tokens(len(chunk)),
-                think=False,
-                decode=lambda raw: decode_reaction_batch(raw, expected_cids),
-                replays=config.llm.max_batch_replays,
-                decision_type="reaction_to_event",
-                unit_ids=expected_cids,
-                # A deliberate, local exception to temperature=0 determinism --
-                # see _REACTION_RETRY_TEMPERATURE's own comment. Only ever
-                # applies to a genuine retry (never the first attempt).
-                retry_temperature=_REACTION_RETRY_TEMPERATURE,
-                retry_seed_base=_REACTION_RETRY_SEED_BASE,
-                retry_info=retry_info,
-            )
-            # Inside the try on purpose: an over-cap delta or a wrong-event
-            # grounding motif is a rejected batch exactly like an exhausted
-            # replay budget, and killed the run just as reliably (cast_votes's
-            # own except block covers both classes for the same reason).
-            for decision in chunk_decisions:
-                validate_reaction_decision(decision, event_type, config)
-        except LlmResponseError as exc:
-            # Last resort, not a silent one -- see ReactionBatchOutcome.llm_
-            # fallback and _deterministic_reaction_fallback's own docstrings.
-            _logger.error(
-                "reaction_to_event: exhausted every recovery attempt for cid(s) %s, falling back to "
-                "the flat deterministic salience delta (simple_rules."
-                "deterministic_reaction_to_event) instead of aborting the run: %s", expected_cids, exc,
-            )
-            chunk_decisions = _deterministic_reaction_fallback(chunk, event_type, config, magnitude)
-            is_fallback = True
-        return chunk_decisions, _sampling_varied(retry_info, is_fallback), is_fallback, retry_info.get("call_id")
-
-    decisions: list[ReactionDecision] = []
-    retry_sampling_varied: dict[int, bool] = {}
-    llm_fallback: dict[int, bool] = {}
-    llm_call_ids: dict[int, str | None] = {}
-    chunks = chunk_voters(citizens, config.llm.max_batch_size)
-    for chunk_decisions, sampling_varied, is_fallback, call_id in run_chunks(chunks, _reaction_chunk, config.parallel.intra_run_workers):
-        for decision in chunk_decisions:
-            retry_sampling_varied[decision.cid] = sampling_varied
-            llm_call_ids[decision.cid] = call_id
-            if is_fallback:
-                llm_fallback[decision.cid] = True
-        decisions.extend(chunk_decisions)
-
+    result = run_decision(
+        DecisionSpec[ReactionDecision](
+            decision_type="reaction_to_event",
+            json_schema=REACTION_JSON_SCHEMA,
+            think=False,
+            retry_temperature=_REACTION_RETRY_TEMPERATURE,
+            retry_seed_base=_REACTION_RETRY_SEED_BASE,
+            chunk_size=config.llm.max_batch_size,
+            system_prompt=lambda chunk: build_reaction_system_prompt(chunk, event_type, config),
+            user_prompt=lambda chunk: build_reaction_user_prompt(
+                chunk, contexts, event_type=event_type, target=target, magnitude=magnitude,
+            ),
+            decode=decode_reaction_batch,
+            # An over-cap delta or a wrong-event grounding motif is a rejected batch
+            # exactly like an exhausted replay budget.
+            validate=lambda decision: validate_reaction_decision(decision, event_type, config),
+            fallback=lambda chunk: _deterministic_reaction_fallback(chunk, event_type, config, magnitude),
+            fallback_description="the flat deterministic salience delta (simple_rules.deterministic_reaction_to_event)",
+        ),
+        citizens, config, client,
+    )
     return ReactionBatchOutcome(
-        decisions=decisions, llm_fallback=llm_fallback, retry_sampling_varied=retry_sampling_varied, llm_call_ids=llm_call_ids,
+        decisions=result.decisions, llm_fallback=result.llm_fallback,
+        retry_sampling_varied=result.retry_sampling_varied, llm_call_ids=result.llm_call_ids,
     )
 
 
