@@ -479,6 +479,87 @@ test direct de `_validate_multiwinner_candidates` sur les deux branches.
 (0 ligne manquante). `mypy`, `ruff check fast_api_voter` et `lint-imports`
 verts ; suite backend complète 2194 passed (2187 + 7), 41 skipped.*
 
+*Mise à jour du 2026-09-13 — §7 "chantiers plus lourds" item 2 (complexité)
+traité pour son périmètre non-polity : les 4 fonctions rang F de §5 hors
+`domain/polity/*` sont décomposées, une PR par fonction (`--no-ff` sur
+`develop`, comme le reste du plan) :
+
+- **`_interpret_worker`** (`election/workers.py`, F 44) → **A**. Les 8
+  sections déjà numérotées en commentaire (groupement par vainqueur,
+  titre, analyse Condorcet, raison de divergence, meilleur/pire par
+  regret bayésien, analyse du vote blanc, note pédagogique, faits clés)
+  deviennent 8 fonctions privées `_interpret_*` appelées en séquence — même
+  calcul, même ordre, `_interpret_group_methods` (le bloc le plus complexe
+  de l'extraction) retombe en **C**. `diff-cover` a trouvé 8 lignes non
+  couvertes une fois le code déplacé (spoiler Condorcet, consensus
+  complet, taux de vote blanc élevé, forte concordance inter-méthodes) —
+  5 tests réels ajoutés.
+- **`_identity_voting_worker`** (`theory/workers.py`, F 44) → **C**. Même
+  traitement, 6 helpers `_identity_*`. `diff-cover` 100 % du premier coup
+  (les tests existants couvraient déjà chaque branche extraite).
+- **`_democratic_backsliding_worker`** (`theory/workers.py`, F 45, la plus
+  longue des 4 — 259 lignes) → **B**. Le corps de la boucle par élection
+  (vote de base → mécanisme de recul choisi → résistance des garde-fous →
+  vainqueur → indice de qualité démocratique → avantages cumulés →
+  détection d'autocratie) extrait dans `_run_one_backsliding_election`
+  (rang **D**, absorbe l'essentiel de la complexité d'origine — attendu,
+  l'objectif est d'isoler la logique par cycle, pas d'éliminer un
+  branchement inhérent à la simulation). Les 7 variables mutées à chaque
+  itération (bonus de gerrymandering, biais médiatique, taux de
+  suppression, qualité démocratique, victoires consécutives de l'sortant,
+  autocratie atteinte/à quelle élection) regroupées dans un seul
+  `state: Dict[str, Any]` muté sur place plutôt qu'un nouveau type
+  (dataclass/NamedTuple) inédit dans ce fichier. `diff-cover` a trouvé deux
+  vagues de lignes non couvertes : d'abord 4 branches `media_capture`/
+  `voter_suppression`/leurs garde-fous (aucun test n'utilisait ces deux
+  méthodes), puis — après un premier passage CI vert en local mais rouge
+  en CI — les branches "l'opposition gagne" (`else` de `incumbent_won`),
+  couvertes par accident en local par un test tiers non déterministe
+  (probablement un test Hypothesis/Schemathesis dont le fuzzing a touché
+  cette branche cette fois-là) plutôt que par un test dédié. Corrigé par un
+  test déterministe (`seed=1`, intensité de recul nulle → concurrence
+  spatiale pure, vérifié directement contre le worker avant d'écrire le
+  test) — même catégorie de piège que la duplication qui cachait un trou
+  de couverture en §4/« sextius » ci-dessus, cette fois côté fuzzing plutôt
+  que copier-coller.
+- **`start_monte_carlo`** (`sockets/__init__.py`, F 41) → **B**. Handler
+  Socket.IO de streaming ; extrait `_monte_carlo_parse_input` (le bloc
+  `try` de validation), `_monte_carlo_new_stats`/`_monte_carlo_accumulate_run`
+  (agrégation par itération — le plus complexe des 5, rang **C**),
+  `_monte_carlo_checkpoint_payload`/`_monte_carlo_final_payload` (les deux
+  payloads `sio.emit`). `diff-cover` a trouvé la branche "liste de
+  candidats explicite" non couverte (tous les tests existants passent par
+  `num_candidates`, jamais `candidates`) — 3 tests unitaires directs
+  ajoutés sur `_monte_carlo_parse_input` (fonction pure maintenant qu'elle
+  est son propre helper, pas besoin du `live_server` complet).
+
+Chaque extraction est un refactor pur (mêmes noms, même calcul, même ordre),
+vérifiée par la suite backend complète, `mypy`, `ruff check` et
+`lint-imports` à chaque PR. `./scripts/check_quality_ratchet.sh` reste
+exactement à la baseline sur les 5 métriques après les 4 PR (`radon_c_plus`
+135 → 135 : les blocs qui remplacent chaque fonction rang F sont pour
+l'essentiel rang A/B, un seul rang C par extraction, donc le compte de blocs
+« C ou pire » ne bouge pas alors même que la moyenne globale s'améliore,
+voir §5). Aucune des 4 PR ne touche `simulation_ranked_utils.py`/
+`simulation_score_utils.py`/`playgroundVoting.ts` ni une autre surface
+mandatant `/code-review ultra` par CLAUDE.md.
+
+**Hors périmètre, volontairement** : les 2 fonctions rang F restantes
+(`api/domain/polity/indexer.py::index_events` F 81, `api/domain/polity/
+run_polity_simulation.py::_run_accountability_phase` F 44) appartiennent à
+`domain/polity/`, développé activement dans le worktree/branche séparé
+`Vote-App-polity` — même décision que celle déjà documentée pour ce même
+dossier dans PLAN_SOLIDITE_TECHNIQUE.md (Lot 14.5, "zones mortes"). Un
+découpage unilatéral depuis `develop` risquerait un conflit avec ce travail
+en cours plutôt que de l'aider ; à reprendre côté polity le moment venu.
+
+**Effet sur §8** : le resserrement de `xenon` envisagé (`-b D -m D -a B`)
+reste bloqué par ces 2 fonctions polity — `xenon api/ -e "api/tests/*"`
+tourne sur tout `api/` sans exclusion de `domain/polity/`, donc un seuil par
+bloc plus strict que F échouerait immédiatement sur ces deux-là. À reprendre
+une fois qu'une décision équivalente aura été prise côté polity (soit les
+décomposer aussi, soit exclure `domain/polity/` du gate par bloc).*
+
 ---
 
 ## 1. Garde-fous déjà en place (avant cet audit)
@@ -729,6 +810,17 @@ restent à F (jamais d'échec par bloc/module) tant que les 6 fonctions rang F
 et les fonctions rang E n'ont pas été décomposées — voir §8 pour la suite
 envisagée.
 
+**Mise à jour du 2026-09-13** : 4 des 6 fonctions rang F ci-dessus sont
+décomposées (`_interpret_worker` → A, `_identity_voting_worker` → C,
+`_democratic_backsliding_worker` → B, `start_monte_carlo` → B) — détail
+complet dans la mise à jour datée en tête de ce document. Moyenne globale
+désormais **A (4.54) sur 1227 blocs**. Seules les 2 fonctions
+`domain/polity/*` du tableau restent rang F (hors périmètre, développement
+polity séparé — voir la même mise à jour datée) ; `radon_c_plus` reste à 135
+dans `.github/quality-baseline.json` (les blocs qui remplacent chaque F sont
+pour l'essentiel A/B, un seul C par extraction, donc le compte de blocs
+« C ou pire » ne bouge pas malgré l'amélioration de la moyenne globale).
+
 ---
 
 ## 6. Autres odeurs "vibe coding"
@@ -817,14 +909,20 @@ refactor) — à traiter dans une passe de nettoyage dédiée.
    2 sites `_ballots_and_candidates`) plus un mutable partagé dormant à
    aligner sur la convention `tuple` existante — voir la mise à jour datée
    « quinquies ».
-2. Évaluer une consolidation architecturale de `domain/election/workers*.py`
-   (toujours 6 fichiers, 7 851 lignes cumulées au 2026-09-06, contre 7 250 en
-   août) — probablement vers un découpage par responsabilité plutôt
-   que par ordre chronologique d'ajout. Trois des 9 rangs F d'août ont déjà
-   été démontés depuis (`_power_indices_worker`, `_demographic_turnout_worker`,
-   `_liquid_democracy_worker` — voir §5) ; les 6 restants (dont 4 dans cette
-   même famille de fichiers élargie) restent un bon point de départ concret
-   pour prioriser la suite.
+2. ✅ (partiel) Décomposer les fonctions rang F restantes de §5 — fait le
+   2026-09-13 pour les 4 fonctions hors `domain/polity/*` (voir la mise à
+   jour datée en tête de ce document) : `_interpret_worker` F→A,
+   `_identity_voting_worker` F→C, `_democratic_backsliding_worker` F→B,
+   `start_monte_carlo` F→B. Les 2 fonctions polity restantes (`index_events`
+   F 81, `_run_accountability_phase` F 44) sont laissées volontairement de
+   côté — développement actif séparé, voir la même mise à jour datée. La
+   **consolidation architecturale plus large** de `domain/election/
+   workers*.py` (6 fichiers, ~7 850 lignes cumulées) — un découpage par
+   responsabilité plutôt que par ordre chronologique d'ajout — reste, elle,
+   un chantier distinct et non entamé : la décomposition ci-dessus retire la
+   complexité extrême par fonction, pas la fragmentation du fichier dans son
+   ensemble. À planifier séparément si jugé utile, plutôt qu'improvisé en
+   continuité de ce lot.
 3. ✅ Réorganiser `components/shared/` (66 fichiers au 2026-09-06, en forte
    baisse depuis les 123 d'août — voir §6) en sous-dossiers thématiques —
    fait le 2026-09-12. Les 63 fichiers actuels sont répartis en 11
