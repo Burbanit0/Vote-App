@@ -281,9 +281,18 @@ silently drifted from `scripts/setup-branch-protection.sh`.
 - **`audit`** (schedule + `workflow_dispatch` only, never `pull_request` —
   same reasoning as the workflows it watches) runs
   `scripts/check_ci_health.py --update`, which queries real run history for
-  each watched workflow plus live branch-protection state, and — if the
-  result changed — opens a `chore/ci-health-snapshot-*` PR. Two real
-  restrictions shaped this, both confirmed live rather than assumed:
+  each watched workflow plus live branch-protection state, and opens a
+  `chore/ci-health-snapshot-*` PR only when `--update`'s own `pr_needed`
+  decision says so: a real status change always qualifies; a pure
+  timestamp-only refresh (every workflow's `last_run_at` moves on every
+  run, whether or not anything else did) only qualifies once
+  `HEARTBEAT_MAX_DAYS` (7) have passed since the last snapshot commit —
+  otherwise a rock-solid-healthy repo would get a trivial PR every single
+  day, and a human rubber-stamping those on autopilot is worse than not
+  having the check. The weekly heartbeat still exists so `verify`'s own
+  staleness check never has genuinely stale-looking data to distrust on a
+  repo that's simply healthy for a long stretch. Three real restrictions
+  shaped the rest of this job, all confirmed live rather than assumed:
   - A direct push was the original design (thought to match `release.yml`'s
     push-to-`main` pattern), but `develop`'s `required_pull_request_reviews`
     block (even at 0 required approvals) makes GitHub reject any raw push
