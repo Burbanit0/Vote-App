@@ -20,6 +20,8 @@ from typing import Any
 
 import yaml
 
+from api.domain.polity.model_profiles import PROFILED_PROVIDERS, PROFILES
+
 _DEFAULT_CONFIG_PATH = Path(__file__).parent / "polity_config.yaml"
 
 _PRESIDENTIAL_METHODS = {
@@ -960,6 +962,11 @@ _CONFIG_RULES: tuple[Callable[[PolityConfig], str | None], ...] = (
         "'sortition_chamber.enabled' is true -- a config that can't seat even one full chamber "
         "is a degenerate arm (§6bis.3)"
     ) if c.sortition_chamber.enabled and c.run.population_size < c.sortition_chamber.seats else None,
+    lambda c: (
+        f"'llm.model' {c.llm.model!r} has no model profile on provider {c.llm.provider!r} -- its chunk "
+        "sizes, thinking budgets and thinking switch are unmeasured; add a profile to "
+        "api/domain/polity/model_profiles.py (S2.3)"
+    ) if c.llm.enabled and c.llm.provider in PROFILED_PROVIDERS and (c.llm.provider, c.llm.model) not in PROFILES else None,
 )
 
 

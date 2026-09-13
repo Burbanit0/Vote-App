@@ -82,7 +82,7 @@ def _digest_path(output_dir: Path, run_id: str) -> Path:
 
 def _run_one_seed(
     *, years: int, population: int, seed: int, repeat: int, seats: int, output_dir: Path, max_batch_replays: int,
-    resume_sweep: bool,
+    resume_sweep: bool, model: str | None = None,
 ) -> trial.TrialResult:
     run_id = _run_id_for(years, population, seed, repeat)
     run_dir = output_dir / run_id
@@ -103,6 +103,7 @@ def _run_one_seed(
         "--run-id", run_id,
         "--output-dir", str(output_dir),
         "--max-batch-replays", str(max_batch_replays),
+        *(["--model", model] if model is not None else []),
     ]
     checkpoint_path = run_dir / "run" / run_id / "checkpoint.json"
     if resume_sweep and run_dir.exists():
@@ -283,6 +284,7 @@ def main(argv: list[str] | None = None) -> int:
              "which measures inference noise at a fixed seed",
     )
     parser.add_argument("--max-batch-replays", type=int, default=2)
+    parser.add_argument("--model", default=None, help="passed to run_polity_flagship.py --model (S2.3)")
     parser.add_argument("--output-dir", type=Path, default=Path("scripts/seed_sweep_runs"))
     parser.add_argument(
         "--resume-sweep", action="store_true",
@@ -329,7 +331,7 @@ def main(argv: list[str] | None = None) -> int:
             run_call=lambda seed=seed, repeat=repeat: _run_one_seed(
                 years=args.years, population=args.population, seed=seed, repeat=repeat, seats=args.seats or 75,
                 output_dir=args.output_dir, max_batch_replays=args.max_batch_replays,
-                resume_sweep=args.resume_sweep,
+                resume_sweep=args.resume_sweep, model=args.model,
             ),
         )
         print(f"  -> ok={result.ok} detail={result.detail}", flush=True)

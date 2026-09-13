@@ -100,13 +100,13 @@ recorded here, with the date.
 | S1.2 | Grammar-enforced `vote_cast` invariants | S0.2 | `feat/polity-vote-grammar-invariants` | |
 | S1.3 | Thinking-budget A/B | S0.5 | `feat/polity-thinking-budget` | |
 | S1.4 | Thinking-mode sampling A/B | S0.5 | `feat/polity-thinking-sampling` | |
-| S1.5 | One config validator, one engine switch | S0.2 | `feat/polity-config-validation` | |
+| S1.5 | One config validator, one engine switch | S0.2 | `feat/polity-config-validation` | `5f8ad0ff` |
 | S2.1 | Replayable concurrency | S0.6, S1.3, D1 | `feat/polity-replayable-concurrency` | |
 | S2.2 | Model bake-off harness | S0.5 | `feat/polity-bakeoff-harness` | |
 | S2.3 | Minimal model profiles and model override | S0.2 | `feat/polity-model-profiles` | |
 | S2.4 | First-wave bake-off | S2.2, S2.3 | (run) | |
 | S2.5 | Permutation and rendering controls on collapse probes | S2.2 | `feat/polity-probe-controls` | |
-| S3.1 | Typed generic decoder | S0.2 | `feat/polity-generic-decoder` | |
+| S3.1 | Typed generic decoder | S0.2 | `feat/polity-generic-decoder` | `98bc0c03` |
 | S3.2 | Decision runner for candidacy, reaction, pressure | S3.1, S0.3 | `feat/polity-decision-runner` | |
 | S3.3 | Typed events and event registry | S0.2 | `feat/polity-typed-events` | |
 | S3.4 | Tick state and phase pipeline | S3.3 | `feat/polity-tick-state` | |
@@ -288,6 +288,12 @@ Thinking control per family (`enable_thinking`, `thinking`, `reasoning_effort`, 
 context limit, chunk sizes and budgets keyed by model rather than by provider; `--model`
 on the flagship and sweep runners.
 **Accepted when:** Qwen requests are byte-identical (golden unchanged).
+
+*Made precise when built, 2026-09-13:* "keyed by model" means keyed by the served model,
+(provider, `llm.model`). The same `qwen3:8b` tag deliberately names Ollama's GGUF and
+vLLM's AWQ, and each measurement belongs to one of them. The golden references hash
+engine requests, not HTTP bodies, so byte-identity is also checked on the client's
+payloads.
 
 ### S2.4 First-wave bake-off
 Gemma-4-12B QAT W4A16, Granite-4.2-8B NVFP4, Nemotron-3-Nano-4B, Qwen3-4B, Qwen3.5-4B,

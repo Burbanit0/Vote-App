@@ -26,6 +26,7 @@ from urllib.parse import urlsplit
 import httpx
 
 from api.domain.polity.config import PolityConfig, load_config
+from api.domain.polity.model_profiles import PROFILES
 
 _POLITY_DIR = Path(__file__).resolve().parent
 _BACKEND_DIR = _POLITY_DIR.parents[2]
@@ -189,9 +190,13 @@ def code_and_server_provenance(config: PolityConfig, *, llm_client: object | Non
     recording it would claim the run used weights it never saw."""
     llm = config.llm.enabled
     probe_server = llm and llm_client is None and config.llm.provider == "vllm"
+    profile = PROFILES.get((config.llm.provider, config.llm.model)) if llm else None
     return {
         **git_provenance(),
         "prompt_source_sha256": prompt_source_sha256() if llm else None,
+        # The chunk sizes, budgets and thinking switch this run used (S2.3): code, not
+        # config, so config.json alone would not say.
+        "model_profile": dataclasses.asdict(profile) if profile is not None else None,
         "llm_client_injected": type(llm_client).__name__ if llm and llm_client is not None else None,
         **(vllm_server_provenance(config.llm.base_url) if probe_server else dict.fromkeys(SERVER_FIELDS)),
     }

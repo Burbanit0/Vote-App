@@ -119,6 +119,7 @@ def _flagship_config(
     provider: str | None,
     workers: int,
     staggered_election: bool = False,
+    model: str | None = None,
 ) -> PolityConfig:
     config = load_config()
     config = dataclasses.replace(
@@ -217,6 +218,11 @@ def _flagship_config(
                 "ollama": "http://localhost:11434/v1",
             }[provider]
             llm = dataclasses.replace(llm, provider=provider, base_url=base_url)
+        if model is not None:
+            # S2.3: the name the server serves the weights under. validate_config refuses a
+            # model with no profile in model_profiles.py -- its chunk sizes and thinking
+            # switch would otherwise be another model's.
+            llm = dataclasses.replace(llm, model=model)
         config = dataclasses.replace(config, llm=llm)
     return config
 
@@ -420,6 +426,7 @@ def run_flagship(
     resume: bool = False,
     staggered_election: bool = False,
     replay_calls_from: Path | None = None,
+    model: str | None = None,
 ) -> Path:
     config = _flagship_config(
         engine=engine,
@@ -432,6 +439,7 @@ def run_flagship(
         provider=provider,
         workers=workers,
         staggered_election=staggered_election,
+        model=model,
     )
     validate_config(config)
 
@@ -598,6 +606,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--max-batch-replays", type=int, default=2)
     parser.add_argument(
+        "--model", default=None,
+        help="S2.3: llm.model, the served model name (default: the shipped config's). Needs a profile in "
+             "api/domain/polity/model_profiles.py for the provider.",
+    )
+    parser.add_argument(
         "--workers",
         type=int,
         default=1,
@@ -660,6 +673,7 @@ def main(argv: list[str] | None = None) -> int:
         resume=args.resume,
         staggered_election=args.staggered_election,
         replay_calls_from=args.replay_calls_from,
+        model=args.model,
     )
     return 0
 
