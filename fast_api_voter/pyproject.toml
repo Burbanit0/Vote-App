@@ -205,6 +205,53 @@ python_version = "3.14"
 # Python 3.14.7 as CI. The workers.py/TestClient exclusion above is a
 # different, still-open incompatibility — not resolved by this bump, since
 # it was never confirmed to be the same trigger (see that note's own caveat).
+#
+# UPDATE (2026-09-13), the same day: the first real post-fix score was
+# 64.4% (4063/6322) — well below the 70% floor above, but NOT simply "17
+# days of decay". Total mutant count more than TRIPLED (1906 -> 6322)
+# versus the 73.3% baseline (1397/1906 killed) measured under mutmut
+# 3.7.0. That's not the codebase growing 3x; it's near-certainly the same
+# 3.8.0 coverage fix above (separate-process gathering) now correctly
+# recognizing far more covered lines than 3.7.0's in-process model ever
+# could — the same silent-undercount failure family as the crash itself,
+# just not severe enough to crash outright everywhere. So most of the
+# ~2245 survivors are mutants that were simply never GENERATED before,
+# not mutants the test suite regressed on. Confirmed real and fixable,
+# not noise, on one concrete case: `is_dict = _is_dict_format(votes)` ->
+# `is_dict = None` survived on every single rule that reads it (19+
+# functions sharing `_ballots_and_candidates`/`_build_pairwise`) because
+# nothing in this suite ever exercised the dict-wrapped ballot format
+# (`{"ranking": [...]}`) those functions' own logic explicitly branches
+# on — real, reachable code in their accepted `Any`-typed contract, even
+# though tracing every actual caller (verified, not assumed — see
+# test_ballot_dict_format.py's own module docstring for the corrected
+# account after `/code-review ultra` caught an earlier wrong claim here)
+# found none currently produces that shape.
+# api/tests/test_ballot_dict_format.py closed that one gap, confirmed by
+# re-running mutmut and diffing the survivor list: 58 mutants flipped
+# survived -> killed (64.4% -> 65.2%; exact count has a few-mutant
+# run-to-run wobble from mutmut's own timeout non-determinism, not from
+# the fix itself), exactly where predicted.
+#
+# SECOND PASS, same day: get_star_voting_winner was the single worst-covered
+# function in either engine file (57 survivors — more than any other),
+# because every existing STAR fixture used exactly two candidates scored
+# identically enough that the first-round accumulator, the runoff counters,
+# and the `.get(candidate, 0)` defaults could all be wrong without ever
+# changing which of the two candidates won. api/tests/test_star_runoff_tie.py
+# added cases where each of those actually matters — a genuine underdog
+# runoff win, a ballot that omits a finalist, two tied ballots not one, a
+# candidate scored by exactly one ballot — closing 53 of the 57 (65.2% ->
+# 66.1%). The remaining 4 are confirmed equivalent mutants (`data["count"]
+# > 0`'s branch is unreachable by construction — every candidate in
+# candidate_scores was added by at least one ballot), documented in that
+# file's own docstring rather than left unexplained.
+#
+# Floor stays at 70% and the snooze in .github/ci-health-snoozes.json stays
+# in place (until 2026-09-27) while more gaps like this one get found and
+# closed one at a time — raising the floor to a number nobody has
+# earned yet would be exactly the "get a red run green" shortcut this
+# file's own check_mutation_score.sh warns against.
 source_paths = [
     "api/engine/utils/simulation_ranked_utils.py",
     # The cardinal half of the engine-parity harness. Both files are locked
@@ -265,6 +312,7 @@ pytest_add_cli_args_test_selection = [
     "api/tests/test_anti_plurality.py",
     "api/tests/test_approval.py",
     "api/tests/test_baldwin.py",
+    "api/tests/test_ballot_dict_format.py",
     "api/tests/test_benham.py",
     "api/tests/test_black.py",
     "api/tests/test_bucklin_cumulative.py",

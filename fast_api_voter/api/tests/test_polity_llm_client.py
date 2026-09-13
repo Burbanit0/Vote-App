@@ -808,6 +808,12 @@ def test_vllm_complete_with_logprobs_rejects_an_unexpected_finish_reason():
         client.complete_with_logprobs(system_prompt="s", user_prompt="u", max_tokens=1)
 
 
+def test_vllm_complete_with_logprobs_rejects_a_malformed_token_entry():
+    client = _vllm_client(lambda request: _logprobs_response("stop", "a", [{"token": "a"}]))
+    with pytest.raises(LlmResponseError, match="malformed logprobs.content entry"):
+        client.complete_with_logprobs(system_prompt="s", user_prompt="u", max_tokens=1)
+
+
 def test_vllm_complete_with_logprobs_missing_logprobs_raises():
     client = _vllm_client(lambda request: httpx.Response(
         200, json={"choices": [{"finish_reason": "stop", "message": {"content": "a"}}]}

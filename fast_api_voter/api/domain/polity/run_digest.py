@@ -41,6 +41,7 @@ notices a run directory whose journal has no digest.
 """
 from __future__ import annotations
 
+import dataclasses
 import json
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -158,66 +159,83 @@ def population_impact_by_year(
         # A year with no events still gets a row -- see _year_span.
         year_events = per_year.get(year, [])
         ticks = [e["tick"] for e in year_events] or [year * ticks_per_year]
-
-        considered = [e for e in year_events if e["event_type"] == "candidacy_considered"]
-        declared_llm = sum(1 for e in considered if e["payload"].get("outcome") == 1)
-        pressure = [e for e in year_events if e["event_type"] == "pressure_action"]
-        acts = Counter(_PRESSURE_ACT_NAMES.get(e["payload"].get("act"), "UNKNOWN") for e in pressure)
-        signed = [e for e in year_events if e["event_type"] == "petition_signed"]
-        launched = [e for e in year_events if e["event_type"] == "petition_launched"]
-        ballots = [e for e in year_events if e["event_type"] == "vote_cast"]
-        blanks = sum(1 for e in ballots if e["payload"].get("blank"))
-        reactions = [e for e in year_events if e["event_type"] == "reaction_to_event"]
-        deltas = [e["payload"].get("salience_delta", 0.0) for e in reactions]
-        ratios = [
-            e["payload"]["signed_ratio"]
-            for e in (*signed, *launched)
-            if e["payload"].get("signed_ratio") is not None
-        ]
-
+        by_type: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for event in year_events:
+            by_type[event["event_type"]].append(event)
         series.append({
             "year": year,
             "tick_range": [min(ticks), max(ticks)],
-            "candidacy": {
-                # `considered` exists only on the LLM path; on a deterministic
-                # run it is 0 and every rate below is None rather than 0.0 --
-                # indexer.py's own "0.0 is a claim, None says this run does not
-                # track that" rule.
-                "considered": len(considered),
-                "declared": declared_llm,
-                "declined": len(considered) - declared_llm,
-                "declared_rate_of_considered": _ratio(declared_llm, len(considered)),
-                "declared_rate_of_population": _ratio(declared_llm, population) if considered else None,
-                "declared_events": sum(1 for e in year_events if e["event_type"] == "candidacy_declared"),
-            },
-            "pressure": {
-                "consulted": len(pressure),
-                "acts_decided": dict(sorted(acts.items())),
-                "inaction_rate": _ratio(acts.get("NOTHING", 0), len(pressure)),
-                "consulted_rate_of_population": _ratio(len(pressure), population) if pressure else None,
-            },
-            "petitions": {
-                "launched": len(launched),
-                "signed": len(signed),
-                "expired": sum(1 for e in year_events if e["event_type"] == "petition_expired"),
-                "peak_signed_ratio": max(ratios) if ratios else None,
-                "confidence_votes": sum(1 for e in year_events if e["event_type"] == "confidence_vote_triggered"),
-            },
-            "votes": {
-                "ballots": len(ballots),
-                "blank": blanks,
-                "blank_rate": _ratio(blanks, len(ballots)),
-            },
-            "reactions": {
-                "count": len(reactions),
-                "mean_salience_delta": (sum(deltas) / len(deltas)) if deltas else None,
-            },
+            "candidacy": _candidacy_impact(by_type, population),
+            "pressure": _pressure_impact(by_type, population),
+            "petitions": _petition_impact(by_type),
+            "votes": _vote_impact(by_type),
+            "reactions": _reaction_impact(by_type),
             "llm_quality": {
                 "fallbacks": sum(1 for e in year_events if e["payload"].get("llm_fallback")),
                 "retries": sum(1 for e in year_events if e["payload"].get("retry_sampling_varied")),
             },
         })
     return series
+
+
+EventsByType = Mapping[str, list[dict[str, Any]]]
+
+
+def _candidacy_impact(by_type: EventsByType, population: int) -> dict[str, Any]:
+    considered = by_type.get("candidacy_considered", [])
+    declared_llm = sum(1 for e in considered if e["payload"].get("outcome") == 1)
+    return {
+        # `considered` exists only on the LLM path; on a deterministic
+        # run it is 0 and every rate below is None rather than 0.0 --
+        # indexer.py's own "0.0 is a claim, None says this run does not
+        # track that" rule.
+        "considered": len(considered),
+        "declared": declared_llm,
+        "declined": len(considered) - declared_llm,
+        "declared_rate_of_considered": _ratio(declared_llm, len(considered)),
+        "declared_rate_of_population": _ratio(declared_llm, population) if considered else None,
+        "declared_events": len(by_type.get("candidacy_declared", [])),
+    }
+
+
+def _pressure_impact(by_type: EventsByType, population: int) -> dict[str, Any]:
+    pressure = by_type.get("pressure_action", [])
+    acts = Counter(_PRESSURE_ACT_NAMES.get(e["payload"].get("act"), "UNKNOWN") for e in pressure)
+    return {
+        "consulted": len(pressure),
+        "acts_decided": dict(sorted(acts.items())),
+        "inaction_rate": _ratio(acts.get("NOTHING", 0), len(pressure)),
+        "consulted_rate_of_population": _ratio(len(pressure), population) if pressure else None,
+    }
+
+
+def _petition_impact(by_type: EventsByType) -> dict[str, Any]:
+    signed = by_type.get("petition_signed", [])
+    launched = by_type.get("petition_launched", [])
+    ratios = [
+        e["payload"]["signed_ratio"]
+        for e in (*signed, *launched)
+        if e["payload"].get("signed_ratio") is not None
+    ]
+    return {
+        "launched": len(launched),
+        "signed": len(signed),
+        "expired": len(by_type.get("petition_expired", [])),
+        "peak_signed_ratio": max(ratios) if ratios else None,
+        "confidence_votes": len(by_type.get("confidence_vote_triggered", [])),
+    }
+
+
+def _vote_impact(by_type: EventsByType) -> dict[str, Any]:
+    ballots = by_type.get("vote_cast", [])
+    blanks = sum(1 for e in ballots if e["payload"].get("blank"))
+    return {"ballots": len(ballots), "blank": blanks, "blank_rate": _ratio(blanks, len(ballots))}
+
+
+def _reaction_impact(by_type: EventsByType) -> dict[str, Any]:
+    reactions = by_type.get("reaction_to_event", [])
+    deltas = [e["payload"].get("salience_delta", 0.0) for e in reactions]
+    return {"count": len(reactions), "mean_salience_delta": (sum(deltas) / len(deltas)) if deltas else None}
 
 
 def _ratio(numerator: int, denominator: int) -> float | None:
@@ -332,9 +350,6 @@ def build_digest(
     # See "terms"/"office_occupancy" below for why this is computed once,
     # here, rather than inline in each of those two places.
     terms = segment_terms(events, last_tick or 0)
-    decisions_by_type = (progress or {}).get("decisions_by_type", {})
-    fallback_by_type = (progress or {}).get("fallback_by_type", {})
-    fallback_rates = llm_fallback_rates(decisions_by_type, fallback_by_type)
 
     return {
         "run_id": run_id,
@@ -351,19 +366,7 @@ def build_digest(
             "last_checkpoint_tick": (checkpoint or {}).get("tick"),
             "ticks_per_year": config.run.ticks_per_year,
         },
-        "shape": {
-            "population_size": config.run.population_size,
-            "duration_years": config.run.duration_years,
-            "llm_enabled": config.llm.enabled,
-            "llm_provider": config.llm.provider,
-            "llm_model": config.llm.model,
-            "sortition_seats": config.sortition_chamber.seats if config.sortition_chamber.enabled else None,
-            "pressure_menu": {
-                "electoral_only": config.pressure_menu.electoral_only,
-                "petition_enabled": config.pressure_menu.petition_enabled,
-                "mobilization_enabled": config.pressure_menu.mobilization_enabled,
-            },
-        },
+        "shape": _run_shape(config),
         "journal": {
             "total_events": len(events),
             "malformed_lines_skipped": skipped_lines,
@@ -376,17 +379,7 @@ def build_digest(
         # a term the run never actually lived through. Called once, here, and
         # reused for office_occupancy below -- never a second, potentially
         # divergent call over the same events.
-        "terms": [
-            {
-                "holder_id": term.holder_id,
-                "start_tick": term.start_tick,
-                "end_tick": term.end_tick,
-                "lame_duck": term.lame_duck,
-                "mandate_strength": term.mandate_strength,
-                "ended_by": term.ended_by,
-            }
-            for term in terms
-        ],
+        "terms": [dataclasses.asdict(term) for term in terms],
         # Track A5 (2026-09-11): the same metrics.office_occupancy formula
         # RunMetrics carries, computed here too because digest.json is what
         # an interrupted or still-running attempt actually has -- metrics.json
@@ -404,30 +397,62 @@ def build_digest(
         "event_counts_by_year": event_counts_by_year(events, config.run.ticks_per_year),
         "population_impact_by_year": population_impact_by_year(events, config),
         "legitimacy_trajectory": legitimacy_trajectory(events),
-        "llm_decisions": decisions_by_type,
-        "llm_retries": (progress or {}).get("retry_count"),
-        "llm_fallbacks": (progress or {}).get("fallback_count"),
-        # Track C2 (2026-09-11): the aggregate above hid Stage 3's real
-        # problem (0.26% overall, 67% on one type) -- per-type rates plus an
-        # explicit alert make that impossible to miss silently again.
-        #
-        # `null` when progress.json itself is missing, NOT `{}` (2026-09-13):
-        # llm_fallback_alerts' own docstring promises a reader can tell
-        # "checked, all clear" from "the check never ran", and `{}` on both
-        # paths broke exactly that promise on the one path where it matters
-        # most -- a run killed before its first checkpoint, i.e. a crash, the
-        # case you most want to distinguish from a clean run. A deterministic
-        # run still yields `{}`: progress.json exists, it just has no LLM
-        # decisions to rate, which IS "checked, nothing to flag".
-        "llm_fallback_rates": fallback_rates if progress is not None else None,
-        "llm_fallback_alerts": llm_fallback_alerts(fallback_rates) if progress is not None else None,
+        **_llm_quality(progress),
         # Carried through so a narrator flags these rather than presenting them
         # as findings -- see viz_export.export_metadata's own docstring.
         "metadata": export_metadata(config),
-        "sibling_artifacts": sorted(
-            p.name for p in journal_path.parent.iterdir() if p.is_file()
-        ) if journal_path.parent.is_dir() else [],
+        "sibling_artifacts": _sibling_artifacts(journal_path),
     }
+
+
+def _llm_quality(progress: dict[str, Any] | None) -> dict[str, Any]:
+    """The digest's LLM decision counts, retries and fallbacks, from progress.json."""
+    if progress is None:
+        # `null`, NOT `{}`, when progress.json itself is missing (2026-09-13):
+        # llm_fallback_alerts' own docstring promises a reader can tell "checked, all
+        # clear" from "the check never ran", and `{}` on both paths broke exactly that
+        # promise on the one path where it matters most -- a run killed before its
+        # first checkpoint, i.e. a crash. A deterministic run still yields `{}`:
+        # progress.json exists, it just has no LLM decisions to rate, which IS
+        # "checked, nothing to flag".
+        return {
+            "llm_decisions": {}, "llm_retries": None, "llm_fallbacks": None,
+            "llm_fallback_rates": None, "llm_fallback_alerts": None,
+        }
+    decisions_by_type = progress.get("decisions_by_type", {})
+    fallback_rates = llm_fallback_rates(decisions_by_type, progress.get("fallback_by_type", {}))
+    return {
+        "llm_decisions": decisions_by_type,
+        "llm_retries": progress.get("retry_count"),
+        "llm_fallbacks": progress.get("fallback_count"),
+        # Track C2 (2026-09-11): the aggregate above hid Stage 3's real problem
+        # (0.26% overall, 67% on one type) -- per-type rates plus an explicit alert
+        # make that impossible to miss silently again.
+        "llm_fallback_rates": fallback_rates,
+        "llm_fallback_alerts": llm_fallback_alerts(fallback_rates),
+    }
+
+
+def _run_shape(config: PolityConfig) -> dict[str, Any]:
+    return {
+        "population_size": config.run.population_size,
+        "duration_years": config.run.duration_years,
+        "llm_enabled": config.llm.enabled,
+        "llm_provider": config.llm.provider,
+        "llm_model": config.llm.model,
+        "sortition_seats": config.sortition_chamber.seats if config.sortition_chamber.enabled else None,
+        "pressure_menu": {
+            "electoral_only": config.pressure_menu.electoral_only,
+            "petition_enabled": config.pressure_menu.petition_enabled,
+            "mobilization_enabled": config.pressure_menu.mobilization_enabled,
+        },
+    }
+
+
+def _sibling_artifacts(journal_path: Path) -> list[str]:
+    if not journal_path.parent.is_dir():
+        return []
+    return sorted(p.name for p in journal_path.parent.iterdir() if p.is_file())
 
 
 def write_digest(

@@ -1,10 +1,6 @@
 {
   "mutation-testing.yml": {
     "until": "2026-09-27",
-    "reason": "real 64.4% score (floor 70%) found the moment mutmut stopped crashing (PR #447) -- a genuine assertion gap in simulation_ranked_utils.py/simulation_score_utils.py, not a tooling problem. Needs its own investigation (which functions lost coverage, likely from the recent decomposition PRs) and new tests, tracked separately from the watchdog rollout."
-  },
-  "branch-protection": {
-    "until": "2026-09-15",
-    "reason": "bridge only: branch protection is already fixed live (setup-branch-protection.sh develop re-run 2026-09-13, confirmed via the API), but verify reads the SNAPSHOT from develop's tip, not this PR's own copy -- so this PR's corrected .github/ci-health.json can't make its own verify pass until it's already merged. Self-referential by construction; the snooze bridges exactly that gap. Should read healthy on its own again the moment this merges or the next real audit PR lands -- remove then, don't let it linger."
+    "reason": "real 64.4% score (floor 70%), but NOT simple 17-day decay: total mutant count tripled (1906 -> 6322) between the old mutmut 3.7.0 baseline and the post-fix 3.8.0 run, near-certainly because 3.8.0's coverage fix now correctly recognizes far more covered lines than 3.7.0 ever could -- most survivors are mutants that were never generated before, not a regression. Confirmed real and fixable on two cases so far: api/tests/test_ballot_dict_format.py closed a systemic dict-format-ballot gap shared by 19+ functions (58 survived->killed); api/tests/test_star_runoff_tie.py closed 53 of get_star_voting_winner's 57 survivors, the single worst-covered function in either engine file (the remaining 4 are confirmed equivalent mutants, documented in that file's own docstring, not left uninvestigated). 66.1% so far. See fast_api_voter/pyproject.toml's [tool.mutmut] UPDATE (2026-09-13) note for the full account. Closing gaps like this one at a time, not chasing 70% by writing tests against the floor."
   }
 }

@@ -2,8 +2,10 @@ name: Mutation Testing
 
 # Separate from Backend CI on purpose (see prompt-mutation-testing.md §3): this
 # does not run on pull requests, so it never gates a merge. It DOES gate itself —
-# each job now fails when its score drops below a floor set just under the last
-# measurement. A score nobody can fail is a score nobody reads.
+# mutmut fails on any real drop from its own recorded baseline (see
+# scripts/check_mutation_score.sh; a hand-maintained floor lived here until
+# 2026-09-13), Stryker fails below its hand-set `thresholds.break`. A score
+# nobody can fail is a score nobody reads.
 #
 # Two jobs, one per engine, because the project keeps TWO implementations of the
 # voting rules in sync (CLAUDE.md, "the dual voting engine"): mutmut mutates the
@@ -52,7 +54,7 @@ concurrency:
 
 jobs:
   mutmut:
-    name: Backend mutation score (mutmut, floor 70%)
+    name: Backend mutation score (mutmut, no regression)
     runs-on: ubuntu-latest
     # CONTRIBUTING.md: ~40min-3h depending on how much the incremental cache
     # (if any) covers — matches the margin stryker's own 240min timeout gives.
@@ -90,15 +92,22 @@ jobs:
           cd fast_api_voter
           python -m mutmut run --max-children 4 2>&1 | tee mutmut-run.log
 
-      # Floor set just UNDER the measured score, to lock in what exists rather
-      # than to aspire. Measured 2026-08-25 (CI-confirmed, after fixing the
-      # test-selection list to include test_anonymity.py + test_cardinal_
-      # orphans.py): 1389/1896 killed = 72.9%. Raise it further as the
-      # remaining cardinal-rule coverage lands (simulation_score_utils.py is
-      # still the weaker half — see the pyproject.toml [tool.mutmut] note).
-      - name: Mutation score floor (70%)
+      # A hand-maintained percentage floor sat here until 2026-09-13: nobody
+      # remembered to raise it as the score improved, and it was already
+      # sitting well below the real score by the time anyone looked (see
+      # pyproject.toml's [tool.mutmut] UPDATE notes for the mutmut 3.8.0
+      # migration that made the old number meaningless anyway). Replaced
+      # with the same ratchet idiom check_quality_ratchet.sh already uses:
+      # .github/mutation-baseline.json records the last accepted score,
+      # this step fails only on a real drop from it (a small noise
+      # tolerance absorbs mutmut's own run-to-run timeout variance), and
+      # `./scripts/check_mutation_score.sh <log> --update` accepts a
+      # genuine improvement -- see that script's own header for why this
+      # one doesn't also fail on improvements the way the quality ratchet
+      # does.
+      - name: Mutation score (no regression from baseline)
         if: always()
-        run: ./scripts/check_mutation_score.sh fast_api_voter/mutmut-run.log 70
+        run: ./scripts/check_mutation_score.sh fast_api_voter/mutmut-run.log
 
       - name: Mutation results (survivors + score)
         if: always()

@@ -852,11 +852,7 @@ def _complete_and_decode_with_replay(
     a retry needs its own fake client to accept the kwarg."""
     attempt = 0
     while True:
-        call_kwargs: dict[str, Any] = {}
-        if attempt > 0 and retry_temperature is not None:
-            call_kwargs["temperature"] = retry_temperature
-        if attempt > 0 and retry_seed_base is not None:
-            call_kwargs["seed"] = retry_seed_base + attempt
+        call_kwargs = _retry_sampling(attempt, retry_temperature, retry_seed_base)
         # Before the call, every attempt: a decision that ends in a fallback still
         # points at the call whose failure caused it.
         retry_info["call_id"] = llm_call_id(request_sha256(
@@ -875,25 +871,30 @@ def _complete_and_decode_with_replay(
                 )
             result = decode(raw)
             retry_info["attempts"] = attempt
-            retry_info["sampling_varied"] = attempt > 0 and (
-                retry_temperature is not None or retry_seed_base is not None
-            )
+            retry_info["sampling_varied"] = bool(call_kwargs)
             return result
         except LlmResponseError as exc:
             if attempt >= replays:
                 raise
             attempt += 1
-            detail = []
-            if retry_temperature is not None:
-                detail.append(f"temperature={retry_temperature}")
-            if retry_seed_base is not None:
-                detail.append(f"seed={retry_seed_base + attempt}")
+            detail = ", ".join(f"{key}={value}" for key, value in _retry_sampling(attempt, retry_temperature, retry_seed_base).items())
             _logger.warning(
                 "%s batch rejected on attempt %d/%d, replaying%s: %s",
-                decision_type, attempt, replays + 1,
-                f" at {', '.join(detail)}" if detail else "",
-                exc,
+                decision_type, attempt, replays + 1, f" at {detail}" if detail else "", exc,
             )
+
+
+def _retry_sampling(attempt: int, retry_temperature: float | None, retry_seed_base: int | None) -> dict[str, Any]:
+    """The sampling overrides an attempt sends: none on the first attempt, then the
+    decision type's retry temperature and a seed of base + attempt, whichever are set.
+    Only overrides are sent, never an explicit None (see
+    _complete_and_decode_with_replay)."""
+    overrides: dict[str, Any] = {}
+    if attempt > 0 and retry_temperature is not None:
+        overrides["temperature"] = retry_temperature
+    if attempt > 0 and retry_seed_base is not None:
+        overrides["seed"] = retry_seed_base + attempt
+    return overrides
 
 
 def _sampling_varied(retry_info: dict[str, Any], is_fallback: bool) -> bool:
@@ -2235,6 +2236,109 @@ def validate_party_nomination_decision(decision: PartyNominationDecision, member
         )
 
 
+def _contested_parties(
+    citizens: Sequence[Citizen], parties: Sequence[Party], declared_cids: set[int],
+) -> dict[int, list[Citizen]]:
+    """party_id -> its declared members, for every party with two or more (in party_id order)."""
+    contested: dict[int, list[Citizen]] = {}
+    for party in sorted(parties, key=lambda p: p.party_id):
+        members = [c for c in citizens if c.party_affiliation == party.party_id and c.citizen_id in declared_cids]
+        if len(members) >= 2:
+            contested[party.party_id] = members
+    return contested
+
+
+@dataclass(frozen=True)
+class _NominationRequest:
+    client: LlmClientProtocol
+    config: PolityConfig
+    parties_by_id: dict[int, Party]
+    support: dict[int, float]
+
+    def decide(self, batch: dict[int, list[Citizen]], retry_info: dict[str, Any]) -> list[PartyNominationDecision]:
+        """One party_nomination_choice call over `batch`, replayed and validated."""
+        party_ids = list(batch.keys())
+
+        def decode_and_validate(raw: str) -> list[PartyNominationDecision]:
+            batch_decisions = decode_party_nomination_batch(raw, party_ids)
+            for decision in batch_decisions:
+                validate_party_nomination_decision(decision, batch[decision.party_id])
+            return batch_decisions
+
+        return _complete_and_decode_with_replay(
+            self.client,
+            system_prompt=build_party_nomination_system_prompt(batch),
+            user_prompt=build_party_nomination_user_prompt(batch, self.parties_by_id, self.support),
+            json_schema=PARTY_NOMINATION_JSON_SCHEMA,
+            max_tokens=compute_max_tokens(len(batch)),
+            think=False,
+            decode=decode_and_validate,
+            replays=self.config.llm.max_batch_replays,
+            decision_type="party_nomination_choice",
+            unit_ids=party_ids,
+            # A deliberate, local exception to temperature=0 determinism --
+            # see _NOMINATION_RETRY_TEMPERATURE's own comment.
+            retry_temperature=_NOMINATION_RETRY_TEMPERATURE,
+            retry_seed_base=_NOMINATION_RETRY_SEED_BASE,
+            retry_info=retry_info,
+        )
+
+
+@dataclass
+class _NominationTally:
+    decisions: list[PartyNominationDecision] = field(default_factory=list)
+    winners: dict[int, int] = field(default_factory=dict)
+    llm_fallback: dict[int, bool] = field(default_factory=dict)
+    retry_sampling_varied: dict[int, bool] = field(default_factory=dict)
+    llm_call_ids: dict[int, str | None] = field(default_factory=dict)
+
+    def record_model(self, decision: PartyNominationDecision, members: list[Citizen], retry_info: dict[str, Any]) -> None:
+        self.decisions.append(decision)
+        self.winners[decision.party_id] = resolve_party_nomination_cid(decision, members)
+        self.llm_fallback[decision.party_id] = False
+        self.retry_sampling_varied[decision.party_id] = _sampling_varied(retry_info, False)
+        self.llm_call_ids[decision.party_id] = retry_info.get("call_id")
+
+    def record_fallback(
+        self, party_id: int, members: list[Citizen], citizens: Sequence[Citizen], declared_cids: set[int],
+        retry_info: dict[str, Any],
+    ) -> None:
+        """The deterministic highest-ambition tiebreak; the call id is the last attempt's."""
+        nominee = select_party_nominee_from_declared(party_id, list(citizens), declared_cids)
+        assert nominee is not None  # contested parties always have >=2 declared members
+        position = sorted_candidates(members).index(nominee) + 1
+        self.decisions.append(
+            PartyNominationDecision(party_id=party_id, winner_position=position, motif=PartyNominationMotif.HIGHEST_AMBITION)
+        )
+        self.winners[party_id] = nominee.citizen_id
+        self.llm_fallback[party_id] = True
+        self.llm_call_ids[party_id] = retry_info.get("call_id")
+
+    def outcome(self) -> PartyNominationBatchOutcome:
+        return PartyNominationBatchOutcome(
+            decisions=self.decisions, winners=self.winners, llm_fallback=self.llm_fallback,
+            retry_sampling_varied=self.retry_sampling_varied, llm_call_ids=self.llm_call_ids,
+        )
+
+
+def _nominate_one_party(
+    request: _NominationRequest, tally: _NominationTally, party_id: int, members: list[Citizen],
+    citizens: Sequence[Citizen], declared_cids: set[int],
+) -> None:
+    """Stage 2: one contested party on its own, after the whole batch failed."""
+    retry_info: dict[str, Any] = {}
+    try:
+        [decision] = request.decide({party_id: members}, retry_info)
+        tally.record_model(decision, members, retry_info)
+    except LlmResponseError as exc:
+        _logger.error(
+            "party_nomination_choice: exhausted every recovery attempt for party_id %s, falling back "
+            "to the deterministic highest-ambition tiebreak for this party instead of aborting the "
+            "run: %s", party_id, exc,
+        )
+        tally.record_fallback(party_id, members, citizens, declared_cids, retry_info)
+
+
 def decide_party_nominations(
     citizens: Sequence[Citizen],
     parties: Sequence[Party],
@@ -2310,137 +2414,46 @@ def decide_party_nominations(
     of its peers this tick did not."""
     _check_supported(config)
 
-    parties_by_id = {party.party_id: party for party in parties}
-    contested: dict[int, list[Citizen]] = {}
-    for party in sorted(parties, key=lambda p: p.party_id):
-        members = [c for c in citizens if c.party_affiliation == party.party_id and c.citizen_id in declared_cids]
-        if len(members) >= 2:
-            contested[party.party_id] = members
-
+    contested = _contested_parties(citizens, parties, declared_cids)
     if not contested:
         return PartyNominationBatchOutcome(decisions=[], winners={})
 
     all_contenders = list(chain.from_iterable(contested.values()))
-    support = {c.citizen_id: sympathizer_ratio(c, list(citizens)) for c in all_contenders}
-
-    def _decode_and_validate(raw: str, batch: dict[int, list[Citizen]], party_ids: list[int]) -> list[PartyNominationDecision]:
-        batch_decisions = decode_party_nomination_batch(raw, party_ids)
-        for decision in batch_decisions:
-            validate_party_nomination_decision(decision, batch[decision.party_id])
-        return batch_decisions
-
+    request = _NominationRequest(
+        client=client, config=config,
+        parties_by_id={party.party_id: party for party in parties},
+        support={c.citizen_id: sympathizer_ratio(c, list(citizens)) for c in all_contenders},
+    )
     expected_party_ids = list(contested.keys())
-    decisions: list[PartyNominationDecision] = []
-    winners: dict[int, int] = {}
-    llm_fallback: dict[int, bool] = {}
-    retry_sampling_varied: dict[int, bool] = {}
-    llm_call_ids: dict[int, str | None] = {}
+    tally = _NominationTally()
     batch_retry_info: dict[str, Any] = {}
     try:
-        batch_decisions = _complete_and_decode_with_replay(
-            client,
-            system_prompt=build_party_nomination_system_prompt(contested),
-            user_prompt=build_party_nomination_user_prompt(contested, parties_by_id, support),
-            json_schema=PARTY_NOMINATION_JSON_SCHEMA,
-            max_tokens=compute_max_tokens(len(contested)),
-            think=False,
-            decode=lambda raw: _decode_and_validate(raw, contested, expected_party_ids),
-            replays=config.llm.max_batch_replays,
-            decision_type="party_nomination_choice",
-            unit_ids=expected_party_ids,
-            # A deliberate, local exception to temperature=0 determinism --
-            # see _NOMINATION_RETRY_TEMPERATURE's own comment.
-            retry_temperature=_NOMINATION_RETRY_TEMPERATURE,
-            retry_seed_base=_NOMINATION_RETRY_SEED_BASE,
-            retry_info=batch_retry_info,
-        )
-        for decision in batch_decisions:
-            decisions.append(decision)
-            winners[decision.party_id] = resolve_party_nomination_cid(decision, contested[decision.party_id])
-            llm_fallback[decision.party_id] = False
-            retry_sampling_varied[decision.party_id] = _sampling_varied(batch_retry_info, False)
-            llm_call_ids[decision.party_id] = batch_retry_info.get("call_id")
+        for decision in request.decide(contested, batch_retry_info):
+            tally.record_model(decision, contested[decision.party_id], batch_retry_info)
     except LlmResponseError as exc:
-        retry_targets = {} if len(contested) == 1 else contested
         # A single contested party's own stage-1 whole-batch attempt is
         # already byte-for-byte the same request stage 2 would repeat (same
         # system/user prompt, same schema, same retry cycle) -- skip
         # straight to the deterministic tiebreak instead of wasting an
         # identical, already-exhausted retry cycle on the only party there
         # is to isolate.
-        if retry_targets:
-            _logger.warning(
-                "party_nomination_choice: whole-batch replay exhausted for party_id(s) %s, retrying each "
-                "contested party individually before falling back: %s", expected_party_ids, exc,
-            )
-        else:
+        if len(contested) == 1:
             _logger.error(
                 "party_nomination_choice: exhausted every recovery attempt for the only contested party_id "
                 "%s, falling back to the deterministic highest-ambition tiebreak instead of aborting the "
                 "run: %s", expected_party_ids[0], exc,
             )
             party_id = expected_party_ids[0]
-            members = contested[party_id]
-            nominee = select_party_nominee_from_declared(party_id, list(citizens), declared_cids)
-            assert nominee is not None  # contested parties always have >=2 declared members
-            position = sorted_candidates(members).index(nominee) + 1
-            decisions.append(
-                PartyNominationDecision(party_id=party_id, winner_position=position, motif=PartyNominationMotif.HIGHEST_AMBITION)
+            tally.record_fallback(party_id, contested[party_id], citizens, declared_cids, batch_retry_info)
+        else:
+            _logger.warning(
+                "party_nomination_choice: whole-batch replay exhausted for party_id(s) %s, retrying each "
+                "contested party individually before falling back: %s", expected_party_ids, exc,
             )
-            winners[party_id] = nominee.citizen_id
-            llm_fallback[party_id] = True
-            llm_call_ids[party_id] = batch_retry_info.get("call_id")
+            for party_id, members in contested.items():
+                _nominate_one_party(request, tally, party_id, members, citizens, declared_cids)
 
-        for party_id, members in retry_targets.items():
-            single = {party_id: members}
-
-            def _decode_single(raw: str, single: dict[int, list[Citizen]] = single, party_id: int = party_id) -> list[PartyNominationDecision]:
-                return _decode_and_validate(raw, single, [party_id])
-
-            single_retry_info: dict[str, Any] = {}
-            try:
-                single_decisions = _complete_and_decode_with_replay(
-                    client,
-                    system_prompt=build_party_nomination_system_prompt(single),
-                    user_prompt=build_party_nomination_user_prompt(single, parties_by_id, support),
-                    json_schema=PARTY_NOMINATION_JSON_SCHEMA,
-                    max_tokens=compute_max_tokens(1),
-                    think=False,
-                    decode=_decode_single,
-                    replays=config.llm.max_batch_replays,
-                    decision_type="party_nomination_choice",
-                    unit_ids=[party_id],
-                    retry_temperature=_NOMINATION_RETRY_TEMPERATURE,
-                    retry_seed_base=_NOMINATION_RETRY_SEED_BASE,
-                    retry_info=single_retry_info,
-                )
-                decision = single_decisions[0]
-                decisions.append(decision)
-                winners[party_id] = resolve_party_nomination_cid(decision, members)
-                llm_fallback[party_id] = False
-                retry_sampling_varied[party_id] = _sampling_varied(single_retry_info, False)
-                llm_call_ids[party_id] = single_retry_info.get("call_id")
-            except LlmResponseError as single_exc:
-                _logger.error(
-                    "party_nomination_choice: exhausted every recovery attempt for party_id %s, falling back "
-                    "to the deterministic highest-ambition tiebreak for this party instead of aborting the "
-                    "run: %s", party_id, single_exc,
-                )
-                nominee = select_party_nominee_from_declared(party_id, list(citizens), declared_cids)
-                assert nominee is not None  # contested parties always have >=2 declared members
-                position = sorted_candidates(members).index(nominee) + 1
-                decision = PartyNominationDecision(
-                    party_id=party_id, winner_position=position, motif=PartyNominationMotif.HIGHEST_AMBITION,
-                )
-                decisions.append(decision)
-                winners[party_id] = nominee.citizen_id
-                llm_fallback[party_id] = True
-                llm_call_ids[party_id] = single_retry_info.get("call_id")
-
-    return PartyNominationBatchOutcome(
-        decisions=decisions, winners=winners, llm_fallback=llm_fallback, retry_sampling_varied=retry_sampling_varied,
-        llm_call_ids=llm_call_ids,
-    )
+    return tally.outcome()
 
 
 @dataclass(frozen=True)
@@ -3498,56 +3511,9 @@ def build_pressure_system_prompt(consulted: Sequence[Citizen], config: PolityCon
     `config`, identical across every chunk AND every tick for the whole
     run, not merely within one chunk. No semantic change to the
     instruction itself."""
-    legal = menu_acts(config.pressure_menu)
-    legal_table = "\n".join(
-        line for line in PRESSURE_ACT_PROMPT_TABLE.splitlines() if int(line.split(" = ")[0]) in legal
-    )
-    if config.social_graph.enabled:
-        neighbors_acting_line = (
-            "ctx.neighbors_acting : proportion (0 a 1) de mon voisinage "
-            "social qui a deja mobilise contre cette meme cible, au tick "
-            "precedent. Le motif 306 (FOLLOWING_NEIGHBORS) est approprie "
-            "pour un act 1, 2 ou 3 motive par ce signal -- jamais pour "
-            "act 0 ou 4.\n"
-        )
-    else:
-        neighbors_acting_line = (
-            "ctx.neighbors_acting : toujours null dans cette simulation (aucun "
-            "graphe social suivi), jamais zero -- null signifie que cette "
-            "information n'existe pas du tout ici, PAS que les voisins sont "
-            "inactifs ou absents. Ne rien en deduire sur le voisinage : ignorer "
-            "ce champ dans le raisonnement, ne jamais l'interpreter comme un "
-            "signal.\n"
-        )
-    return (
-        "Tu es un moteur de simulation. Pour chaque citoyen mecontent recu "
-        "(pressure_action), decide son action envers l'elu cible, en te "
-        "basant sur son propre ecart de mecontentement (ctx) et le menu "
-        "constitutionnel actif.\n"
-        f"CONTRAINTE ABSOLUE : le champ act de CHAQUE decision doit valoir "
-        f"UN DES CODES SUIVANTS, et aucun autre : {list(legal)}. Tout autre "
-        "code invalide le batch entier.\n"
-        f"act (les seuls codes autorises ce tick) :\n{legal_table}\n"
-        "0 (ne rien faire) et 4 (attendre la prochaine election) sont des "
-        "resultats legitimes et journalises, jamais des echecs -- la part "
-        "des mecontents qui n'agissent pas est une mesure du modele, pas "
-        "une erreur a eviter.\n"
-        f"Motifs valides (code court obligatoire) :\n{PRESSURE_MOTIF_PROMPT_TABLE}\n"
-        "ctx.self_gap : ecart pondere entre mes propres positions et la "
-        "position actuelle de l'elu cible.\n"
-        "ctx.mandate_dev : ecart pondere entre la promesse de l'elu et sa "
-        "position actuelle -- une information sur l'elu, pas sur moi.\n"
-        f"{neighbors_acting_line}"
-        "ctx.ticks_to_election : nombre de ticks avant la prochaine "
-        "election presidentielle, null si aucune election prevue.\n"
-        "IMPORTANT : la liste decisions doit contenir EXACTEMENT les cid "
-        "donnes par le champ 'expected_cids' du message utilisateur, "
-        "chacun une seule fois, dans le MEME ordre que ce champ. Verifie "
-        "ta reponse avant de la finaliser : chaque cid de 'expected_cids' "
-        "doit apparaitre exactement une fois dans le champ 'cid' des "
-        f"decisions, et chaque act doit appartenir a {list(legal)}.\n"
-        "Reponds UNIQUEMENT avec un objet JSON conforme au schema fourni."
-    )
+    # S3.5: the calibrated builder with no signals is this prompt, byte for byte -- it
+    # was written as a copy of this one plus appended signal sentences.
+    return build_pressure_system_prompt_calibrated(consulted, config, ())
 
 
 def build_pressure_user_prompt(consulted: Sequence[Citizen], contexts: Mapping[int, PressureContext]) -> str:
@@ -3571,26 +3537,8 @@ def build_pressure_user_prompt(consulted: Sequence[Citizen], contexts: Mapping[i
     `consulted` -- moved here from build_pressure_system_prompt's own
     output for the same prefix-cache reason as build_user_prompt's own
     identical field; see that function's own docstring."""
-    citizen_blocks = []
-    for citizen in consulted:
-        context = contexts[citizen.citizen_id]
-        citizen_blocks.append(
-            {
-                "cid": citizen.citizen_id,
-                "target": context.target,
-                "ctx": context.to_payload(),
-                "available": list(context.available),
-                "petition": {
-                    "open": context.petition_open,
-                    "expires_at_tick": context.petition_expires_at_tick,
-                    "already_signed": context.already_signed,
-                },
-            }
-        )
-    return json.dumps(
-        {"consulted": citizen_blocks, "expected_cids": [c.citizen_id for c in consulted]},
-        sort_keys=True, separators=(",", ":"),
-    )
+    # S3.5: the calibrated builder with no signal values is this payload, byte for byte.
+    return build_pressure_user_prompt_calibrated(consulted, contexts, {})
 
 
 def build_pressure_system_prompt_toon(consulted: Sequence[Citizen], config: PolityConfig) -> str:
@@ -3683,26 +3631,9 @@ def build_pressure_user_prompt_toon(consulted: Sequence[Citizen], contexts: Mapp
     social graph enabled, or an open petition) needs a different
     encoding, not this one silently mis-describing its own input."""
     ctxs = [contexts[c.citizen_id] for c in consulted]
-    targets = {ctx.target for ctx in ctxs}
-    mandate_devs = {ctx.mandate_dev for ctx in ctxs}
-    ticks = {ctx.ticks_to_election for ctx in ctxs}
-    if len(targets) != 1 or len(mandate_devs) != 1 or len(ticks) != 1:
-        raise ValueError(
-            "build_pressure_user_prompt_toon assumes target/mandate_dev/ticks_to_election are "
-            "call-level constants (true under the shipped architecture: one consulted officeholder "
-            "per tick) -- got heterogeneous values across this chunk"
-        )
-    target = targets.pop()
-    ticks_to_election = ticks.pop()
-    if ticks_to_election is None:
-        raise ValueError("build_pressure_user_prompt_toon does not support a null ticks_to_election")
+    target, ticks_to_election = _toon_pressure_call_constants(ctxs)
     for ctx in ctxs:
-        if ctx.available != (0, 4):
-            raise ValueError(f"build_pressure_user_prompt_toon assumes the shipped closed menu (0,4), got {ctx.available!r}")
-        if ctx.petition_open or ctx.already_signed or ctx.petition_expires_at_tick is not None:
-            raise ValueError("build_pressure_user_prompt_toon assumes no petition is open (shipped electoral_only)")
-        if ctx.neighbors_acting is not None:
-            raise ValueError("build_pressure_user_prompt_toon assumes neighbors_acting is untracked (shipped default)")
+        _check_toon_pressure_context(ctx)
     call_block = encode_toon_array(
         "call", ("target", "mandate_dev", "ticks_to_election"),
         [(target, round(ctxs[0].mandate_dev, 4), ticks_to_election)],
@@ -3712,6 +3643,32 @@ def build_pressure_user_prompt_toon(consulted: Sequence[Citizen], contexts: Mapp
         [(c.citizen_id, round(contexts[c.citizen_id].self_gap, 4)) for c in consulted],
     )
     return f"{call_block}\n{pressure_block}"
+
+
+def _toon_pressure_call_constants(ctxs: Sequence[PressureContext]) -> tuple[int, int]:
+    """(target, ticks_to_election), which the TOON encoding sends once per call."""
+    targets = {ctx.target for ctx in ctxs}
+    mandate_devs = {ctx.mandate_dev for ctx in ctxs}
+    ticks = {ctx.ticks_to_election for ctx in ctxs}
+    if len(targets) != 1 or len(mandate_devs) != 1 or len(ticks) != 1:
+        raise ValueError(
+            "build_pressure_user_prompt_toon assumes target/mandate_dev/ticks_to_election are "
+            "call-level constants (true under the shipped architecture: one consulted officeholder "
+            "per tick) -- got heterogeneous values across this chunk"
+        )
+    ticks_to_election = ticks.pop()
+    if ticks_to_election is None:
+        raise ValueError("build_pressure_user_prompt_toon does not support a null ticks_to_election")
+    return targets.pop(), ticks_to_election
+
+
+def _check_toon_pressure_context(ctx: PressureContext) -> None:
+    if ctx.available != (0, 4):
+        raise ValueError(f"build_pressure_user_prompt_toon assumes the shipped closed menu (0,4), got {ctx.available!r}")
+    if ctx.petition_open or ctx.already_signed or ctx.petition_expires_at_tick is not None:
+        raise ValueError("build_pressure_user_prompt_toon assumes no petition is open (shipped electoral_only)")
+    if ctx.neighbors_acting is not None:
+        raise ValueError("build_pressure_user_prompt_toon assumes neighbors_acting is untracked (shipped default)")
 
 
 @dataclass(frozen=True)
@@ -5343,19 +5300,7 @@ def decide_coalition(
         client, responders, initiator, party_platforms, seats, votes, total_seats, threshold, config,
     )
     if aborted_at_round is not None:
-        return CoalitionBatchOutcome(
-            # Empty when the abort happened in round 1 -- nothing ever
-            # completed, so there is no last round to expose. Unguarded, this
-            # was an IndexError the moment round 1 stopped raising (see
-            # _run_coalition_negotiation's own except block).
-            decisions=all_rounds[-1] if all_rounds else [],
-            initiator=initiator,
-            coalition=None,
-            rounds=all_rounds,
-            aborted_at_round=aborted_at_round,
-            rounds_retry_sampling_varied=rounds_sampling_varied,
-            rounds_llm_call_ids=rounds_call_ids,
-        )
+        return _aborted_coalition_outcome(initiator, all_rounds, aborted_at_round, rounds_sampling_varied, rounds_call_ids)
 
     final_decisions = all_rounds[-1]
     coalition = assemble_coalition(final_decisions, initiator, party_platforms, seats, majority_ratio)
@@ -5364,6 +5309,47 @@ def decide_coalition(
         rounds_retry_sampling_varied=rounds_sampling_varied,
         rounds_llm_call_ids=rounds_call_ids,
     )
+
+
+def _aborted_coalition_outcome(
+    initiator: int,
+    all_rounds: list[list[CoalitionDecision]],
+    aborted_at_round: int,
+    rounds_sampling_varied: list[bool],
+    rounds_call_ids: list[str | None],
+) -> CoalitionBatchOutcome:
+    return CoalitionBatchOutcome(
+        # Empty when the abort happened in round 1 -- nothing ever
+        # completed, so there is no last round to expose. Unguarded, this
+        # was an IndexError the moment round 1 stopped raising (see
+        # _run_coalition_negotiation's own except block).
+        decisions=all_rounds[-1] if all_rounds else [],
+        initiator=initiator,
+        coalition=None,
+        rounds=all_rounds,
+        aborted_at_round=aborted_at_round,
+        rounds_retry_sampling_varied=rounds_sampling_varied,
+        rounds_llm_call_ids=rounds_call_ids,
+    )
+
+
+def _negotiation_converged(
+    prior_by_party: dict[int, CoalitionDecision] | None,
+    current_by_party: dict[int, CoalitionDecision],
+    responders: Sequence[int],
+) -> bool:
+    """A fixed point: every responder repeated its previous round's action."""
+    return prior_by_party is not None and all(
+        prior_by_party[pid].action == current_by_party[pid].action for pid in responders
+    )
+
+
+def _provisional_coalition_seats(
+    current_by_party: dict[int, CoalitionDecision], initiator: int, seats: dict[int, int],
+) -> int:
+    """The initiator's seats plus every party that joined this round -- what the next round is told."""
+    joiners = [pid for pid, d in current_by_party.items() if d.action == CoalitionAction.JOIN.value]
+    return seats[initiator] + sum(seats[pid] for pid in joiners)
 
 
 def _run_coalition_negotiation(
@@ -5452,13 +5438,12 @@ def _run_coalition_negotiation(
         rounds_call_ids.append(retry_info.get("call_id"))
 
         current_by_party = {d.party_id: d for d in round_decisions}
-        converged = prior_by_party is not None and all(
-            prior_by_party[pid].action == current_by_party[pid].action for pid in responders
-        )
-        if converged or round_number >= config.parties.coalition_max_negotiation_rounds:
+        if (
+            _negotiation_converged(prior_by_party, current_by_party, responders)
+            or round_number >= config.parties.coalition_max_negotiation_rounds
+        ):
             return all_rounds, None, rounds_sampling_varied, rounds_call_ids
 
         prior_by_party = current_by_party
-        joiners = [pid for pid, d in current_by_party.items() if d.action == CoalitionAction.JOIN.value]
-        provisional_seats = seats[initiator] + sum(seats[pid] for pid in joiners)
+        provisional_seats = _provisional_coalition_seats(current_by_party, initiator, seats)
         round_number += 1
