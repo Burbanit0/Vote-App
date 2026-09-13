@@ -24,16 +24,10 @@ from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any
 
+from api.domain.polity.llm_call_log import CALL_LOG_FILENAME, read_calls
+
 CATEGORIES = ("first_attempt", "retry", "rejected", "truncation", "failed", "budget_probe", "warm_up")
 TOKEN_FIELDS = ("prompt_tokens", "completion_tokens", "reasoning_tokens", "cached_tokens")
-
-
-def read_calls(path: Path) -> list[dict[str, Any]]:
-    calls = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if line.strip():
-            calls.append(json.loads(line))
-    return calls
 
 
 def _batch_key(call: dict[str, Any]) -> tuple[Any, ...]:
@@ -124,4 +118,4 @@ def attribute_run(run_dir: Path) -> dict[str, Any]:
     wall_clock = None
     if progress_path.exists():
         wall_clock = json.loads(progress_path.read_text(encoding="utf-8")).get("wall_clock_elapsed_seconds")
-    return attribute(read_calls(run_dir / "llm_calls.jsonl"), wall_clock)
+    return attribute(read_calls(run_dir / CALL_LOG_FILENAME), wall_clock)

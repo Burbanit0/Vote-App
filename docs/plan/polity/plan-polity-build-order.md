@@ -92,7 +92,7 @@ recorded here, with the date.
 | S0.2 | Golden references for prompts and journals | — | `feat/polity-golden-references` | `2b4290fd` |
 | S0.3 | Retry provenance for all nine decision types | S0.2 | `feat/polity-retry-provenance` | `3593e65b` |
 | S0.4 | Complete run provenance | — | `feat/polity-run-provenance` | `22a12676` |
-| S0.5 | Per-call LLM log and time attribution | S0.2 | `feat/polity-llm-call-log` | |
+| S0.5 | Per-call LLM log and time attribution | S0.2 | `feat/polity-llm-call-log` | `bad1961c` |
 | S0.6 | Replay client | S0.5 | `feat/polity-replay-client` | |
 | S0.7 | p500 pre-registration and sweep statistics | — | `feat/polity-p500-preregistration` | |
 | S0.8 | p500 batch run and results | S0.1–S0.7, D5 | (run) | |
