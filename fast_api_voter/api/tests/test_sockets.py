@@ -336,3 +336,33 @@ async def test_run_failure_emits_error_and_logs(live_server, monkeypatch, caplog
     assert error_event, "Server never emitted monte_carlo_error"
     assert "engine exploded mid-run" in error_event[0]["message"]
     assert "sockets.monte_carlo_run_failed" in caplog.text
+
+
+class TestMonteCarloParseInputExplicitCandidates:
+    """No live_server test exercised the "explicit `candidates` list"
+    branch — every one sends `num_candidates` and lets the default
+    `_CANDIDATE_NAMES` fallback apply. `_monte_carlo_parse_input` is a pure
+    function, so this is a direct unit test rather than a full socket
+    round-trip."""
+
+    def test_string_and_dict_entries_both_resolve_to_name_dicts(self):
+        _, _, _, _, candidate_configs = sockets_module._monte_carlo_parse_input({
+            "candidates": ["Alice", {"name": "Bob"}, {"other_key": "ignored"}],
+        })
+        assert candidate_configs == [
+            {"name": "Alice"}, {"name": "Bob"}, {"name": "Cand2"},
+        ]
+
+    def test_truncated_to_eight_candidates(self):
+        _, _, _, _, candidate_configs = sockets_module._monte_carlo_parse_input({
+            "candidates": [f"C{i}" for i in range(12)],
+        })
+        assert len(candidate_configs) == 8
+
+    def test_single_candidate_falls_back_to_defaults(self):
+        # len(raw_cands) >= 2 is required; a single explicit candidate isn't
+        # enough and falls back to the num_candidates/_CANDIDATE_NAMES path.
+        _, _, _, _, candidate_configs = sockets_module._monte_carlo_parse_input({
+            "candidates": ["Solo"], "num_candidates": 2,
+        })
+        assert candidate_configs == [{"name": "Alice"}, {"name": "Bob"}]
