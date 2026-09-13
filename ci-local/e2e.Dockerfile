@@ -8,8 +8,9 @@
 #  - python:3.14 == actions/setup-python '3.14' (same base as backend.Dockerfile),
 #    plus Node 20 via NodeSource == actions/setup-node '20'. One image, because the
 #    workflow runs backend + frontend + browsers on ONE runner.
-#  - `npx playwright install --with-deps chromium firefox` — the exact CI step, so
-#    the browser builds match the pinned @playwright/test.
+#  - `npx playwright install --with-deps chromium firefox webkit` — the exact CI
+#    step (Lot 7, PLAN_SOLIDITE_TECHNIQUE.md added webkit), so the browser builds
+#    match the pinned @playwright/test.
 #  - The backend here is a FIXTURE (Assemblée mode and two Laboratoire fiches call
 #    /api/v2/*); Backend CI is the job that actually tests it.
 #  - CI=true → Playwright retries once, forbids test.only, and starts its own vite
@@ -46,7 +47,7 @@ COPY voter-app/package.json voter-app/package-lock.json ./
 RUN npm ci
 
 # Browsers — cached with the lockfile layer (they track @playwright/test).
-RUN npx playwright install --with-deps chromium firefox
+RUN npx playwright install --with-deps chromium firefox webkit
 
 # Source layers — bust on any source change.
 WORKDIR /app
@@ -64,7 +65,7 @@ echo '=== Start FastAPI backend (:4434) ==='; \
 for _ in $(seq 30); do curl -sf http://localhost:4434/api/v2/health >/dev/null && ready=1 && break; sleep 1; done; \
 [ -n \"${ready:-}\" ] || { echo 'Backend did not start in time' >&2; exit 1; }; \
 echo 'Backend is ready'; \
-echo '=== Playwright E2E (chromium + firefox) ==='; \
+echo '=== Playwright E2E (chromium + firefox + webkit) ==='; \
 cd /app/voter-app && npm run test:e2e; \
 echo '=== Flaky check (a retry-only pass is a broken test) ==='; \
 node scripts/check-flaky.mjs; \
