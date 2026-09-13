@@ -133,6 +133,7 @@ from api.domain.polity.legitimacy import (
 )
 from api.domain.polity.llm_behavior_engine import (
     ChamberContext,
+    PartyNominationBatchOutcome,
     PressureContext,
     ReactionContext,
     ResponseContext,
@@ -1168,8 +1169,23 @@ def _nominate_and_position_llm(
     `declared_cids` is a parameter here, not computed internally -- see
     `_consider_candidacies_llm`'s own docstring for why this split exists
     (Track E, 2026-09-11)."""
+    nominees = _nominate_llm(citizens, parties, declared_cids, config, journal, tick, llm_client)
+    _position_nominees_llm(nominees, citizens, parties, config, journal, tick, llm_client)
+    return nominees
+
+
+def _nominate_llm(
+    citizens: list[Citizen],
+    parties: list[Party],
+    declared_cids: set[int],
+    config: PolityConfig,
+    journal: Journal,
+    tick: int,
+    llm_client: LlmClientProtocol,
+) -> list[Citizen]:
+    """Each party's nominee -- the model's choice where 2+ members declared, the
+    deterministic tiebreak otherwise -- journaled with its losers, and declared."""
     nomination_outcome = decide_party_nominations(citizens, parties, declared_cids, config, llm_client)
-    motif_by_party = {decision.party_id: decision.motif for decision in nomination_outcome.decisions}
     citizens_by_id = {c.citizen_id: c for c in citizens}
 
     # Explicit element type: without it, type checkers infer `nominees`' type
@@ -1185,25 +1201,9 @@ def _nominate_and_position_llm(
             c.citizen_id for c in citizens
             if c.party_affiliation == party.party_id and c.citizen_id in declared_cids
         }
-        nominee: Citizen | None
-        if party.party_id in nomination_outcome.winners:
-            nominee = citizens_by_id[nomination_outcome.winners[party.party_id]]
-            # Provenance, not a decision field -- see
-            # PartyNominationBatchOutcome.llm_fallback. Keyed by
-            # party_id, the decision unit for this type.
-            journal.write_event(
-                tick=tick,
-                event=PartyNominationChoice(
-                    party_id=party.party_id,
-                    contenders=sorted(party_declared_cids),
-                    provenance=LlmProvenance.for_unit(nomination_outcome.llm_fallback, nomination_outcome.retry_sampling_varied, nomination_outcome.llm_call_ids, party.party_id),
-                ),
-                citizen_id=nominee.citizen_id,
-                motif=str(motif_by_party[party.party_id]),
-                codebook_version=config.llm.codebook_version,
-            )
-        else:
-            nominee = select_party_nominee_from_declared(party.party_id, citizens, declared_cids)
+        nominee = _party_nominee(
+            party, party_declared_cids, nomination_outcome, citizens_by_id, citizens, declared_cids, config, journal, tick,
+        )
         lost_cids = party_declared_cids - ({nominee.citizen_id} if nominee is not None else set())
         for cid in lost_cids:
             journal.write_event(
@@ -1225,7 +1225,57 @@ def _nominate_and_position_llm(
             citizen_id=nominee.citizen_id,
         )
         nominees.append(nominee)
+    return nominees
 
+
+def _party_nominee(
+    party: Party,
+    party_declared_cids: set[int],
+    nomination_outcome: PartyNominationBatchOutcome,
+    citizens_by_id: dict[int, Citizen],
+    citizens: list[Citizen],
+    declared_cids: set[int],
+    config: PolityConfig,
+    journal: Journal,
+    tick: int,
+) -> Citizen | None:
+    """The model's pick, journaled, for a contested party; the deterministic tiebreak
+    for a party with fewer than two declared members (None when it has none)."""
+    if party.party_id not in nomination_outcome.winners:
+        return select_party_nominee_from_declared(party.party_id, citizens, declared_cids)
+    nominee = citizens_by_id[nomination_outcome.winners[party.party_id]]
+    motif = next(d.motif for d in nomination_outcome.decisions if d.party_id == party.party_id)
+    # Provenance, not a decision field -- see
+    # PartyNominationBatchOutcome.llm_fallback. Keyed by
+    # party_id, the decision unit for this type.
+    journal.write_event(
+        tick=tick,
+        event=PartyNominationChoice(
+            party_id=party.party_id,
+            contenders=sorted(party_declared_cids),
+            provenance=LlmProvenance.for_unit(
+                nomination_outcome.llm_fallback, nomination_outcome.retry_sampling_varied,
+                nomination_outcome.llm_call_ids, party.party_id,
+            ),
+        ),
+        citizen_id=nominee.citizen_id,
+        motif=str(motif),
+        codebook_version=config.llm.codebook_version,
+    )
+    return nominee
+
+
+def _position_nominees_llm(
+    nominees: list[Citizen],
+    citizens: list[Citizen],
+    parties: list[Party],
+    config: PolityConfig,
+    journal: Journal,
+    tick: int,
+    llm_client: LlmClientProtocol,
+) -> None:
+    """Campaign positioning for the nominees: each moves its pledged platform, and the
+    move is journaled with any dimension that hit the [0, 1] bound."""
     parties_by_id = {party.party_id: party for party in parties}
     positioning_outcome = decide_campaign_positioning(nominees, citizens, parties_by_id, config, llm_client)
     positioning_by_cid = {decision.cid: decision for decision in positioning_outcome.decisions}
@@ -1257,7 +1307,6 @@ def _nominate_and_position_llm(
             journal, tick=tick, citizen_id=nominee.citizen_id, decision_event="campaign_positioning",
             base=nominee.issue_positions, shifts=positioning_decision.shifts, result=new_platform,
         )
-    return nominees
 
 
 def _declare_nominees_llm(

@@ -686,27 +686,11 @@ class VllmJsonClient:
         reproduces it -- `_VOTE_CAST_RETRY_TEMPERATURE` alone was not enough
         here, unlike on Ollama, because vLLM's pinned seed still constrains
         the retry at the RETRY temperature too."""
-        effective_temperature = temperature if temperature is not None else self._temperature
-        effective_seed = seed if seed is not None else self._seed
-        body = {
-            "model": self._model,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            "temperature": effective_temperature,
-            "seed": effective_seed,
-            "max_tokens": max_tokens,
-            "stream": False,
-            **self._thinking.request_fields(think),
-            "response_format": {
-                "type": "json_schema",
-                "json_schema": {"name": "polity_decision_batch", "strict": True, "schema": _inline_refs(json_schema)},
-            },
-        }
-        payload = json.dumps(body, sort_keys=True, separators=(",", ":"))
-        response = _post_with_transport_retry(self._client, f"{self._base_url}/chat/completions", payload)
-        return _extract_content(response)
+        body = self._chat_body(
+            system_prompt, user_prompt, max_tokens=max_tokens, think=think, temperature=temperature, seed=seed,
+            json_schema=json_schema,
+        )
+        return _extract_content(self._post_chat(body))
 
     def count_prompt_tokens(self, *, system_prompt: str, user_prompt: str, think: bool = True) -> int:
         """VERIFIED live (2026-09-08, GPU, check_vllm_chunk_size_throughput_
@@ -738,21 +722,8 @@ class VllmJsonClient:
         separately isolated in the live investigation and remains an
         assumption, not a measured claim, though it follows directly from
         how vLLM's structured-output backends are documented to work."""
-        body = {
-            "model": self._model,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            "temperature": self._temperature,
-            "seed": self._seed,
-            "max_tokens": 1,
-            "stream": False,
-            **self._thinking.request_fields(think),
-        }
-        payload = json.dumps(body, sort_keys=True, separators=(",", ":"))
-        response = _post_with_transport_retry(self._client, f"{self._base_url}/chat/completions", payload)
-        return _extract_prompt_tokens(response)
+        body = self._chat_body(system_prompt, user_prompt, max_tokens=1, think=think, temperature=None, seed=None)
+        return _extract_prompt_tokens(self._post_chat(body))
 
     def complete_with_logprobs(
         self,
@@ -809,25 +780,11 @@ class VllmJsonClient:
         preserves the client's own configured values) -- included for the
         same reason count_prompt_tokens documents: a total function of the
         call arguments, no hidden server-side default."""
-        effective_temperature = temperature if temperature is not None else self._temperature
-        effective_seed = seed if seed is not None else self._seed
-        body = {
-            "model": self._model,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            "temperature": effective_temperature,
-            "seed": effective_seed,
-            "max_tokens": max_tokens,
-            "stream": False,
-            **self._thinking.request_fields(think),
-            "logprobs": True,
-            "top_logprobs": top_logprobs,
-        }
-        payload = json.dumps(body, sort_keys=True, separators=(",", ":"))
-        response = _post_with_transport_retry(self._client, f"{self._base_url}/chat/completions", payload)
-        return _extract_content_and_logprobs(response)
+        body = self._chat_body(
+            system_prompt, user_prompt, max_tokens=max_tokens, think=think, temperature=temperature, seed=seed,
+            top_logprobs=top_logprobs,
+        )
+        return _extract_content_and_logprobs(self._post_chat(body))
 
     def complete_json_with_logprobs(
         self,
@@ -873,29 +830,53 @@ class VllmJsonClient:
         method's; see that module's own docstring for the fix (locate
         `content` as a substring of the reconstructed raw token stream,
         then work in that raw offset space)."""
-        effective_temperature = temperature if temperature is not None else self._temperature
-        effective_seed = seed if seed is not None else self._seed
-        body = {
+        body = self._chat_body(
+            system_prompt, user_prompt, max_tokens=max_tokens, think=think, temperature=temperature, seed=seed,
+            json_schema=json_schema, top_logprobs=top_logprobs,
+        )
+        return _extract_content_and_logprobs(self._post_chat(body))
+
+    def _chat_body(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        *,
+        max_tokens: int,
+        think: bool,
+        temperature: float | None,
+        seed: int | None,
+        json_schema: dict[str, Any] | None = None,
+        top_logprobs: int | None = None,
+    ) -> dict[str, Any]:
+        """The request body every call on this client sends: a total function of the
+        call's arguments, with temperature/seed falling back to the client's own
+        configured values, the model profile's thinking switch, and -- when asked --
+        a strict JSON-schema response format and token logprobs."""
+        body: dict[str, Any] = {
             "model": self._model,
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
-            "temperature": effective_temperature,
-            "seed": effective_seed,
+            "temperature": temperature if temperature is not None else self._temperature,
+            "seed": seed if seed is not None else self._seed,
             "max_tokens": max_tokens,
             "stream": False,
             **self._thinking.request_fields(think),
-            "response_format": {
+        }
+        if json_schema is not None:
+            body["response_format"] = {
                 "type": "json_schema",
                 "json_schema": {"name": "polity_decision_batch", "strict": True, "schema": _inline_refs(json_schema)},
-            },
-            "logprobs": True,
-            "top_logprobs": top_logprobs,
-        }
+            }
+        if top_logprobs is not None:
+            body["logprobs"] = True
+            body["top_logprobs"] = top_logprobs
+        return body
+
+    def _post_chat(self, body: dict[str, Any]) -> httpx.Response:
         payload = json.dumps(body, sort_keys=True, separators=(",", ":"))
-        response = _post_with_transport_retry(self._client, f"{self._base_url}/chat/completions", payload)
-        return _extract_content_and_logprobs(response)
+        return _post_with_transport_retry(self._client, f"{self._base_url}/chat/completions", payload)
 
     def close(self) -> None:
         self._client.close()
@@ -927,33 +908,45 @@ def build_json_client(
     raise unsupported_provider_error(llm.provider)
 
 
-def _extract_content(response: httpx.Response) -> str:
-    """response.json() is Any -- walk it with explicit isinstance checks
-    rather than indexing blindly, so a surprise shape raises a named error
-    instead of an opaque KeyError three frames from here."""
+def _response_body(response: httpx.Response) -> dict[str, Any]:
+    """response.json() is Any -- walk it with explicit isinstance checks rather than
+    indexing blindly, so a surprise shape raises a named error instead of an opaque
+    KeyError three frames from here."""
     try:
         body = response.json()
     except ValueError as exc:
         raise LlmResponseError(f"response was not valid JSON: {exc}") from exc
-
     if not isinstance(body, dict):
         raise LlmResponseError(f"expected a JSON object, got {type(body).__name__}")
+    return body
+
+
+def _first_choice(body: dict[str, Any]) -> dict[str, Any]:
     choices = body.get("choices")
     if not isinstance(choices, list) or not choices:
         raise LlmResponseError(f"expected a non-empty 'choices' list, got {choices!r}")
     choice = choices[0]
     if not isinstance(choice, dict):
         raise LlmResponseError(f"expected choices[0] to be an object, got {type(choice).__name__}")
+    return choice
 
-    finish_reason = choice.get("finish_reason")
-    if finish_reason != "stop":
-        raise LlmResponseError(f"generation did not finish cleanly: finish_reason={finish_reason!r}")
 
+def _message_content(choice: dict[str, Any]) -> str:
     message = choice.get("message")
     if not isinstance(message, dict) or not isinstance(message.get("content"), str):
         raise LlmResponseError(f"expected choices[0].message.content to be a string, got {message!r}")
-
     return str(message["content"])
+
+
+def _extract_content(response: httpx.Response) -> str:
+    # finish_reason before content, always: a truncated generation can come back with
+    # no content at all (everything still in reasoning), and it must be reported as the
+    # truncation it is -- replays.log and llm_calls.jsonl are read for that text.
+    choice = _first_choice(_response_body(response))
+    finish_reason = choice.get("finish_reason")
+    if finish_reason != "stop":
+        raise LlmResponseError(f"generation did not finish cleanly: finish_reason={finish_reason!r}")
+    return _message_content(choice)
 
 
 def _extract_prompt_tokens(response: httpx.Response) -> int:
@@ -962,14 +955,7 @@ def _extract_prompt_tokens(response: httpx.Response) -> int:
     of `finish_reason` (a max_tokens=1 probe always finishes at 'length',
     never 'stop', so this deliberately does NOT go through _extract_content,
     which would raise on exactly that)."""
-    try:
-        body = response.json()
-    except ValueError as exc:
-        raise LlmResponseError(f"response was not valid JSON: {exc}") from exc
-
-    if not isinstance(body, dict):
-        raise LlmResponseError(f"expected a JSON object, got {type(body).__name__}")
-    usage = body.get("usage")
+    usage = _response_body(response).get("usage")
     if not isinstance(usage, dict) or not isinstance(usage.get("prompt_tokens"), int):
         raise LlmResponseError(f"expected usage.prompt_tokens to be an int, got {usage!r}")
     return int(usage["prompt_tokens"])
@@ -1005,50 +991,30 @@ def _extract_content_and_logprobs(response: httpx.Response) -> tuple[str, list[T
     mode to reject. Both 'stop' and 'length' are accepted; anything else
     (e.g. a content filter) is not, since this project has never seen or
     reasoned about what those would mean for the returned logprobs."""
-    try:
-        body = response.json()
-    except ValueError as exc:
-        raise LlmResponseError(f"response was not valid JSON: {exc}") from exc
-
-    if not isinstance(body, dict):
-        raise LlmResponseError(f"expected a JSON object, got {type(body).__name__}")
-    choices = body.get("choices")
-    if not isinstance(choices, list) or not choices:
-        raise LlmResponseError(f"expected a non-empty 'choices' list, got {choices!r}")
-    choice = choices[0]
-    if not isinstance(choice, dict):
-        raise LlmResponseError(f"expected choices[0] to be an object, got {type(choice).__name__}")
-
+    choice = _first_choice(_response_body(response))
     finish_reason = choice.get("finish_reason")
     if finish_reason not in ("stop", "length"):
         raise LlmResponseError(f"generation did not finish as expected: finish_reason={finish_reason!r}")
-
-    message = choice.get("message")
-    if not isinstance(message, dict) or not isinstance(message.get("content"), str):
-        raise LlmResponseError(f"expected choices[0].message.content to be a string, got {message!r}")
-
+    content = _message_content(choice)
     logprobs_obj = choice.get("logprobs")
     if not isinstance(logprobs_obj, dict) or not isinstance(logprobs_obj.get("content"), list):
         raise LlmResponseError(
             f"expected choices[0].logprobs.content to be a list -- was `logprobs: true` sent? got {logprobs_obj!r}"
         )
+    return content, [_token_logprob(entry) for entry in logprobs_obj["content"]]
 
-    tokens: list[TokenLogprob] = []
-    for entry in logprobs_obj["content"]:
-        if not isinstance(entry, dict) or not isinstance(entry.get("token"), str) \
-                or not isinstance(entry.get("logprob"), (int, float)):
-            raise LlmResponseError(f"malformed logprobs.content entry: {entry!r}")
-        top = entry.get("top_logprobs")
-        alternatives: dict[str, float] = {}
-        if isinstance(top, list):
-            for alt in top:
-                if isinstance(alt, dict) and isinstance(alt.get("token"), str) \
-                        and isinstance(alt.get("logprob"), (int, float)):
-                    alternatives[alt["token"]] = float(alt["logprob"])
-        alternatives.setdefault(entry["token"], float(entry["logprob"]))
-        tokens.append(TokenLogprob(token=entry["token"], logprob=float(entry["logprob"]), alternatives=alternatives))
 
-    return str(message["content"]), tokens
+def _token_logprob(entry: Any) -> TokenLogprob:
+    if not isinstance(entry, dict) or not isinstance(entry.get("token"), str) \
+            or not isinstance(entry.get("logprob"), (int, float)):
+        raise LlmResponseError(f"malformed logprobs.content entry: {entry!r}")
+    alternatives: dict[str, float] = {}
+    top = entry.get("top_logprobs")
+    for alt in top if isinstance(top, list) else []:
+        if isinstance(alt, dict) and isinstance(alt.get("token"), str) and isinstance(alt.get("logprob"), (int, float)):
+            alternatives[alt["token"]] = float(alt["logprob"])
+    alternatives.setdefault(entry["token"], float(entry["logprob"]))
+    return TokenLogprob(token=entry["token"], logprob=float(entry["logprob"]), alternatives=alternatives)
 
 
 def _extract_native_content(response: httpx.Response) -> str:

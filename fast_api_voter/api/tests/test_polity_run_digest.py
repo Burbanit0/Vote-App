@@ -311,6 +311,15 @@ def test_build_digest_reports_unknown_not_clear_when_progress_json_is_missing(tm
     assert digest["llm_fallback_alerts"] is None
 
 
+def test_build_digest_of_a_journal_whose_directory_does_not_exist_lists_no_siblings(tmp_path):
+    # A run that never got as far as creating its directory.
+    digest = build_digest(
+        tmp_path / "never-created" / "events.jsonl", load_config(), run_id="r", outcome="crashed", resume=False,
+    )
+    assert digest["sibling_artifacts"] == []
+    assert digest["journal"]["total_events"] == 0
+
+
 # ── llm_fallback_rates / llm_fallback_alerts (Track C2, 2026-09-11) ─────────
 
 def test_llm_fallback_rates_computes_per_type_ratio():
