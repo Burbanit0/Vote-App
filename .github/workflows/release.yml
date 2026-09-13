@@ -95,6 +95,24 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      # This job always tags/pushes `main`, regardless of which ref the
+      # workflow_dispatch was actually fired against — ci-frontend/ci-backend/
+      # e2e above test whatever ref the dispatch used, not necessarily `main`.
+      # Since the repo's default branch is `develop`, a dispatch without an
+      # explicit `--ref main` (e.g. `gh workflow run release.yml -f ...` from
+      # the wrong directory, or the GitHub UI defaulting its branch picker)
+      # would test develop's code but tag/ship main's — code that was never
+      # actually run through CI here. Fail loudly instead: the commit that
+      # triggered this run must already be reachable from `main`, which is
+      # only true once the develop → main PR (see the `release` skill) has
+      # merged and this was dispatched with `--ref main`.
+      - name: Verify the triggering commit is already on main
+        run: |
+          if ! git merge-base --is-ancestor "${{ github.sha }}" HEAD; then
+            echo "::error::main does not contain ${{ github.sha }} (the commit that triggered this run). This job always tags main directly, so releasing now would ship untested code. Merge develop -> main first (see the release skill), then re-dispatch with --ref main." >&2
+            exit 1
+          fi
+
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
