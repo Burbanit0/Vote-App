@@ -111,7 +111,7 @@ recorded here, with the date.
 | S2.2 | Model bake-off harness | S0.5 | `feat/polity-bakeoff-harness` | |
 | S2.3 | Minimal model profiles and model override | S0.2 | `feat/polity-model-profiles` | `13150616` |
 | S2.4 | First-wave bake-off | S2.2, S2.3 | (run) | |
-| S2.5 | Permutation and rendering controls on collapse probes | S2.2 | `feat/polity-probe-controls` | |
+| S2.5 | Permutation and rendering controls on collapse probes | S2.2 | `feat/polity-probe-controls` | `f3e8ef2c` |
 | S3.1 | Typed generic decoder | S0.2 | `feat/polity-generic-decoder` | `98bc0c03` |
 | S3.2 | Decision runner for candidacy, reaction, pressure | S3.1, S0.3 | `feat/polity-decision-runner` | `1e2ce8b5` |
 | S3.3 | Typed events and event registry | S0.2 | `feat/polity-typed-events` | `7695fafd` |
@@ -450,6 +450,22 @@ Static population kept as control arm.
 A phase that is a pure function of the tick, absorbing Track E. Fix Track E's two
 documented sharp edges first (`check_staggered_election_live_results.md`). Campaign
 windows: 4 ticks before presidential, 2 before legislative elections.
+
+*Made precise when built, 2026-09-13*, in `docs/adr/ADR-010-phase-clock-and-campaign-windows.md`,
+which also pre-registers the facts checked:
+
+- **The phase.** `InstitutionalClock.phase(tick)` returns the election held, whether a
+  presidential and/or legislative campaign is running, and the ticks to each next election.
+- **Window lengths.** `institutions.presidential_campaign_ticks` (4) and
+  `legislative_campaign_ticks` (2).
+- **Track E inside the campaign.** A staggered election declares on the campaign's first
+  tick and nominates on its last.
+- **The sharp edges.** Both are fixed at their root: whether a cycle staggered is recorded
+  (the declared set is kept until the election consumes it), not inferred from citizen
+  roles.
+
+**Accepted when:** the ADR's facts hold in tests and the golden references are unchanged
+(every recorded run has staggering off).
 
 ---
 

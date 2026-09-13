@@ -4944,15 +4944,17 @@ def _config_with_staggered_election(output_dir, **run_overrides) -> PolityConfig
     """duration_years=2 + president_term_years=1 (against the shipped
     ticks_per_year=4) makes a 4-tick presidential term inside an 8-tick
     run -- elections at 0, 4, 8, so the SECOND election (at tick 4) has a
-    real staggered window (declare at 2, nominate+position at 3) to
-    exercise cheaply, without needing the shipped 16-tick term/120-tick
-    run scale."""
+    real staggered window to exercise cheaply, without needing the shipped
+    16-tick term/120-tick run scale. A two-tick campaign (S4.4) keeps the
+    window at declare 2, nominate+position 3."""
     config = _config_with_llm_enabled(output_dir)
     run_kwargs = {"duration_years": 2, "population_size": 20}
     run_kwargs.update(run_overrides)
     return dataclasses.replace(
         config,
-        institutions=dataclasses.replace(config.institutions, staggered_election=True, president_term_years=1),
+        institutions=dataclasses.replace(
+            config.institutions, staggered_election=True, president_term_years=1, presidential_campaign_ticks=2,
+        ),
         run=dataclasses.replace(config.run, **run_kwargs),
     )
 
@@ -5124,6 +5126,80 @@ def test_staggered_election_self_heals_when_a_recall_interrupts_the_window(tmp_p
     # Some presidential election eventually still produces a winner despite
     # the interruption -- the run does not deadlock into permanent vacancy.
     assert any(e["event_type"] == "elected" for e in events)
+
+
+def test_a_staggered_election_spreads_over_the_whole_campaign(tmp_path):
+    # S4.4: with a four-tick campaign against a four-tick term, the campaign opens the
+    # tick after the previous election (never on it), so declaring and nominating sit
+    # three ticks apart.
+    config = _config_with_staggered_election(tmp_path)
+    config = dataclasses.replace(config, institutions=dataclasses.replace(config.institutions, presidential_campaign_ticks=4))
+    events = _events(run_simulation(config, run_id="whole-campaign", llm_client=_ElectingFakeLlmClient()))
+
+    def ticks_for(event_type):
+        return sorted({e["tick"] for e in events if e["event_type"] == event_type})
+
+    assert ticks_for("candidacy_considered") == [0, 1, 5]
+    assert ticks_for("party_nomination_choice") == [0, 3, 7]
+    assert [e["tick"] for e in events if e["event_type"] == "elected"] == [0, 4, 8]
+
+
+def test_the_declared_set_survives_until_the_election_consumes_it_and_a_resume_there_matches(tmp_path, monkeypatch):
+    # S4.4: the campaign's declared set is kept, and checkpointed, through the
+    # nomination tick until the election reads it -- a crash between nomination and
+    # vote resumes into the staggered election, not the atomic one.
+    config_a = _config_with_staggered_election(tmp_path / "uninterrupted")
+    journal_a = run_simulation(config_a, run_id="run", llm_client=_ElectingFakeLlmClient())
+
+    config_b = _config_with_staggered_election(tmp_path / "crashed")
+    real_rupture_phase = run_polity_simulation_module._attempt_rupture_candidacies
+
+    def crash_before_the_vote(citizens, parties, config, journal, tick, rng, **kwargs):
+        if tick == 4:
+            raise _SimulatedCrash("simulated crash between nomination and vote")
+        return real_rupture_phase(citizens, parties, config, journal, tick, rng, **kwargs)
+
+    monkeypatch.setattr(run_polity_simulation_module, "_attempt_rupture_candidacies", crash_before_the_vote)
+    with pytest.raises(_SimulatedCrash):
+        run_simulation(config_b, run_id="run", llm_client=_ElectingFakeLlmClient())
+    monkeypatch.undo()
+    checkpoint = load_checkpoint(tmp_path / "crashed" / "run" / "checkpoint.json")
+    assert checkpoint.tick == 3 and checkpoint.state.staggered_declared_cids is not None
+
+    journal_b = run_simulation(config_b, run_id="run", llm_client=_ElectingFakeLlmClient(), resume=True)
+    assert _events_ignoring_run_id(journal_a) == _events_ignoring_run_id(journal_b)
+    final = load_checkpoint(tmp_path / "crashed" / "run" / "checkpoint.json")
+    assert final.state.staggered_declared_cids is None  # the tick-8 election consumed its own
+
+
+def _election_tick_state(tmp_path):
+    config = _config_with_staggered_election(tmp_path)
+    state = _fresh_tick_state(config)
+    return config, state
+
+
+def test_an_election_that_did_not_stagger_nominates_even_with_a_rupture_candidate_standing(tmp_path):
+    # Sharp edge 1 (check_staggered_election_live_results.md): the old role-based check
+    # took a standing rupture candidate as proof a campaign had run, and the party
+    # nominations never happened.
+    config, state = _election_tick_state(tmp_path)
+    declare_candidacy(state.citizens[0])
+    with Journal(tmp_path / "run.jsonl", run_id="r") as journal:
+        _hold_presidential_election(state.citizens, state.parties, config, journal, tick=4, llm_client=_ElectingFakeLlmClient())
+    events = _events(tmp_path / "run.jsonl")
+    assert [e for e in events if e["event_type"] == "candidacy_declared" and e["payload"]["path"] == "dominant"]
+
+
+def test_a_staggered_election_whose_campaign_produced_no_candidate_decides_nothing_again(tmp_path):
+    # Sharp edge 2: with no candidate on election day, the old check fell back to
+    # declaring and nominating at the election tick itself.
+    config, state = _election_tick_state(tmp_path)
+    with Journal(tmp_path / "run.jsonl", run_id="r") as journal:
+        _hold_presidential_election(state.citizens, state.parties, config, journal, tick=4, llm_client=_ElectingFakeLlmClient(),
+                                    staggered=True)
+    types = {e["event_type"] for e in _events(tmp_path / "run.jsonl")}
+    assert not types & {"candidacy_considered", "party_nomination_choice", "campaign_positioning"}
+    assert "election_no_winner" in types
 
 
 # ── S1.5: run_simulation validates, and the client is the engine switch ──

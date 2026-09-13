@@ -5,7 +5,7 @@ presidential and 8 legislative elections, at the expected ticks; changing
 the offset correctly shifts the second calendar.
 """
 from api.domain.polity.config import load_config
-from api.domain.polity.institutional_clock import ElectionType, InstitutionalClock
+from api.domain.polity.institutional_clock import ElectionType, InstitutionalClock, Phase
 
 
 def _default_clock():
@@ -76,22 +76,36 @@ def test_is_sortition_rotation_matches_the_modular_schedule():
     assert clock.is_sortition_rotation(3) is False
 
 
-# ── Track E: is_presidential_declaration_tick / is_presidential_nomination_tick ──
+# ── Track E, absorbed by S4.4: declaration and nomination bound the presidential campaign ──
 
-def test_declaration_and_nomination_ticks_land_two_and_one_before_each_election():
-    clock = _default_clock()  # presidential elections at 0, 16, 32, ..., 112
-    assert clock.is_presidential_declaration_tick(14) is True   # 14 + 2 == 16
-    assert clock.is_presidential_nomination_tick(15) is True    # 15 + 1 == 16
-    assert clock.is_presidential_declaration_tick(30) is True   # 30 + 2 == 32
-    assert clock.is_presidential_nomination_tick(31) is True    # 31 + 1 == 32
+def test_a_staggered_election_declares_when_its_campaign_opens_and_nominates_on_its_last_tick():
+    clock = _default_clock()  # presidential elections at 0, 16, 32, ..., 112; campaigns of 4 ticks
+    assert clock.is_presidential_declaration_tick(12) is True   # 16 - 4
+    assert clock.is_presidential_nomination_tick(15) is True    # 16 - 1
+    assert clock.is_presidential_declaration_tick(28) is True   # 32 - 4
+    assert clock.is_presidential_nomination_tick(31) is True    # 32 - 1
 
 
 def test_declaration_and_nomination_ticks_are_false_off_the_window():
     clock = _default_clock()
+    assert clock.is_presidential_declaration_tick(11) is False
     assert clock.is_presidential_declaration_tick(13) is False
-    assert clock.is_presidential_declaration_tick(15) is False
     assert clock.is_presidential_nomination_tick(14) is False
     assert clock.is_presidential_nomination_tick(16) is False
+
+
+def _clock(term: int, campaign: int, total: int = 32) -> InstitutionalClock:
+    return InstitutionalClock(
+        president_term_ticks=term, assembly_term_ticks=term, assembly_offset_ticks=0, total_ticks=total,
+        sortition_term_ticks=4, presidential_campaign_ticks=campaign,
+    )
+
+
+def test_a_campaign_never_reaches_back_to_the_previous_election_and_can_be_one_tick_or_none():
+    assert [t for t in range(9) if _clock(4, 4).is_presidential_declaration_tick(t)] == [1, 5]  # clamped to term - 1
+    assert [t for t in range(9) if _clock(4, 1).is_presidential_declaration_tick(t)] == [3, 7]
+    assert [t for t in range(9) if _clock(4, 1).is_presidential_nomination_tick(t)] == [3, 7]  # the same tick
+    assert not any(_clock(4, 0).is_presidential_declaration_tick(t) or _clock(4, 0).is_presidential_nomination_tick(t) for t in range(9))
 
 
 def test_the_tick_zero_election_never_gets_a_staggered_window():
@@ -111,7 +125,7 @@ def test_declaration_tick_excludes_an_election_past_the_runs_own_end():
     # tick 30 for that phantom election would be pure waste.
     clock = InstitutionalClock(
         president_term_ticks=16, assembly_term_ticks=16, assembly_offset_ticks=0, total_ticks=17,
-        sortition_term_ticks=4,
+        sortition_term_ticks=4, presidential_campaign_ticks=2,
     )
     assert clock.is_presidential_declaration_tick(14) is True  # real: election at 16, in range
     assert clock.is_presidential_declaration_tick(30) is False  # phantom: election at 32, out of range
@@ -128,3 +142,35 @@ def test_shipped_config_rotation_coincides_with_every_election():
         assert clock.is_sortition_rotation(tick) is True
     for tick in clock.legislative_election_ticks():
         assert clock.is_sortition_rotation(tick) is True
+
+
+# ── S4.4: the phase clock ─────────────────────────────────────────────────
+
+def test_the_shipped_calendar_has_four_tick_presidential_and_two_tick_legislative_campaigns():
+    clock = _default_clock()  # presidential at 0, 16, ...; legislative at 8, 24, ..., 120
+    names = {t: clock.phase(t).name for t in range(18)}
+    assert [t for t, name in names.items() if name == "election"] == [0, 8, 16]
+    assert [t for t, name in names.items() if name == "campaign"] == [6, 7, 12, 13, 14, 15]
+    assert (clock.phase(12).presidential_campaign, clock.phase(12).legislative_campaign) == (True, False)
+    assert (clock.phase(7).presidential_campaign, clock.phase(7).legislative_campaign) == (False, True)
+    assert clock.phase(13) == Phase(election=ElectionType.NONE, presidential_campaign=True, legislative_campaign=False,
+                                    ticks_to_presidential=3, ticks_to_legislative=11)
+    assert clock.phase(8).election is ElectionType.LEGISLATIVE and clock.phase(11).name == "governing"
+
+
+def test_after_the_last_presidential_election_there_is_no_presidential_campaign():
+    clock = _default_clock()
+    last = clock.phase(118)
+    assert (last.ticks_to_presidential, last.presidential_campaign, last.legislative_campaign) == (None, False, True)
+    assert clock.phase(120).name == "election" and clock.phase(120).ticks_to_legislative == 0
+    assert clock.phase(-1).ticks_to_presidential is None
+
+
+def test_campaigns_for_different_elections_can_overlap():
+    clock = InstitutionalClock(
+        president_term_ticks=16, assembly_term_ticks=16, assembly_offset_ticks=2, total_ticks=32,
+        sortition_term_ticks=4, presidential_campaign_ticks=4, legislative_campaign_ticks=4,
+    )
+    both = clock.phase(15)  # presidential at 16, legislative at 18
+    assert (both.presidential_campaign, both.legislative_campaign, both.name) == (True, True, "campaign")
+    assert clock.phase(17).legislative_campaign and not clock.phase(17).presidential_campaign
