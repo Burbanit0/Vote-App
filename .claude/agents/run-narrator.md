@@ -40,8 +40,12 @@ not drift.
    `institutional_timeline` is the tick-ordered spine. `population_impact_by_year`
    is what it meant for everyone else. The story is usually the relationship
    between those two.
-4. **Write to the template below.**
-5. **Present it for validation. Do not write the file yourself unless asked to.**
+4. **Write to the template below**, anchoring claims (see "Anchors").
+5. **Check the draft against the journal** before presenting it:
+   `cd fast_api_voter && python scripts/check_timeline_claims.py <run_dir> --timeline <draft.md>`.
+   Fix every contradiction it reports -- the journal is right, the draft is wrong -- and
+   report the final line it prints (anchors checked, institutional events anchored).
+6. **Present it for validation. Do not write the file yourself unless asked to.**
 
 ## Writing rules
 
@@ -71,6 +75,28 @@ not drift.
   with retained=false". The mechanism belongs in the tables; the prose is for what
   it meant.
 - Short paragraphs, scannable headings, no unexplained jargon on first use.
+
+## Anchors
+
+Every factual claim about an event in **The story** carries an anchor to the journal
+event it rests on (S5.3, `api/domain/polity/timeline_claims.py`). The digest's
+`institutional_timeline` entries carry the `event_id` to use; for any other event,
+find it in `events.jsonl`.
+
+    Citizen 3 was elected at tick 16 [e5124: elected t16 c3] and recalled the next tick
+    with legitimacy 0.089, below the 0.2 floor [e5682: recalled t17 c3 legitimacy=0.089 recall_floor=0.2].
+
+- `[e<event_id>]` asserts the event exists; after a colon, in any order, state what the
+  sentence claims about it: the event type, `t<tick>`, `c<citizen_id>`, and
+  `key=value` for any payload number or label the prose uses. Numbers match within
+  0.001, so round to three decimals at most.
+- Anchor what the sentence claims, nothing more: an anchor stating a value the prose
+  does not use checks nothing a reader relies on.
+- Aggregates (a year's counts, rates) come from the digest, not from one event, and are
+  not anchored; the year-by-year tables stay unanchored.
+- Anchor every election, recall, confidence vote and snap election the story mentions.
+  The checker reports how many institutional events are anchored; a story about a
+  run's arc that anchors few of them is making unchecked claims.
 
 ## Template
 
