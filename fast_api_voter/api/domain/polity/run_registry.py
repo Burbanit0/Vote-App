@@ -199,10 +199,11 @@ def build_registry(roots: Iterable[Path], connection: duckdb.DuckDBPyConnection 
     con = connection if connection is not None else duckdb.connect()
     con.execute("DROP TABLE IF EXISTS runs")
     con.execute("CREATE TABLE runs (" + ", ".join(f"{name} {kind}" for name, kind in COLUMNS) + ")")
-    rows = [_row(run_record(run_dir)) for run_dir in discover_runs(roots)]
-    if rows:
-        placeholders = ", ".join("?" for _ in COLUMNS)
-        con.executemany(f"INSERT INTO runs VALUES ({placeholders})", rows)
+    # DuckDB's table API, not an INSERT statement built as a string: bandit (B608) flags
+    # any formatted SQL, placeholders only or not, and the API needs no SQL at all.
+    table = con.table("runs")
+    for run_dir in discover_runs(roots):
+        table.insert(_row(run_record(run_dir)))
     return con
 
 
