@@ -292,6 +292,11 @@ graphify-out/
 # re-include anything under a directory that is itself excluded, so `/docs/` would
 # make the `!` negation below silently inert.
 /docs/*
+# Plans themselves — the first line of this block says they are versioned, but
+# this negation was missing: every tracked plan had been force-added, and any NEW
+# plan file was silently ignored by a plain `git add`, the one-disk loss this whole
+# block exists to prevent.
+!/docs/plan/
 # Architecture Decision Records are versioned on purpose: an ADR that only exists
 # on one machine cannot do its job (record a structural decision for everyone, in
 # history). Same failure mode as the untracked-source bug ci-local/run-ci.sh's own
