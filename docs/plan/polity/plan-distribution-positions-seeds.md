@@ -687,6 +687,41 @@ construit et prêt, mais pas encore lancé.
 p500 reste ouvert, point 3 (marquage des runs déjà publiés) toujours pas
 fait.
 
+### 4.2 Versions du stack LLM pour le batch p500 — décision (2026-09-13)
+
+`scripts/check_llm_stack_versions.py` (nouvel outil, EXP-016) signale deux
+écarts réels à la date du batch : vLLM épinglé `v0.28.0` contre `v0.29.0`
+disponible (poussé 2026-09-09), Ollama épinglé `0.33.3` contre `0.34.0`
+disponible (poussé 2026-09-09).
+
+**Décision : ne rien bumper avant le batch p500.** Trois raisons, dans cet
+ordre :
+
+1. **Comparabilité, qui est la raison principale.** Le batch p500 a deux
+   points de raccordement explicites, et les deux ont tourné sous
+   `vllm/vllm-openai:v0.28.0` : le volet p100 ci-dessus (même sweep Track D)
+   et le run Phase 7 Stage 3 (même population, seed 42 choisie exactement
+   pour ça). Bumper le serveur en même temps qu'on change la population
+   ferait bouger deux variables à la fois — précisément l'erreur que
+   `docker-compose.llm.yml` documente déjà pour le passage AWQ (« a SECOND
+   variable confounded with the serving-layer switch, not a transparent
+   substitution ») et que `docker-compose.llm-4b.yml` interdit en une
+   phrase (« the serving layer must not be a variable in this comparison »).
+2. **Un bump de vLLM demande sa propre vérification, pas un run au hasard.**
+   Chaque changement de couche de service dans ce projet a été revérifié
+   explicitement (déterminisme B2, sortie structurée, le correctif
+   `disable_any_whitespace` de xgrammar). Un bump livré sans ce passage ne
+   serait pas moins cher, il serait juste non vérifié.
+3. **Le bump Ollama n'a presque aucun effet ici de toute façon** :
+   `llm.provider` est `vllm` en production depuis le 2026-09-06, donc
+   l'image Ollama n'est pas dans le chemin d'exécution de ces runs.
+
+**Ce qui rouvrirait la question** : un correctif amont dans `v0.29.0` qui
+toucherait un défaut réellement observé ici (troncature, grammaire,
+déterminisme), ou la fin du programme Track D — à ce moment-là le bump
+devient un chantier à part entière, avec sa propre revérification, pas un
+effet de bord d'un sweep.
+
 ## 5. Plan d'exécution, phasé avec portes de validation
 
 **Phase 1 — Décision théorique** (avant tout code)
