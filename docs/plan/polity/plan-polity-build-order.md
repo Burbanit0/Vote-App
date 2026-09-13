@@ -103,7 +103,7 @@ recorded here, with the date.
 | S1.5 | One config validator, one engine switch | S0.2 | `feat/polity-config-validation` | `5f8ad0ff` |
 | S2.1 | Replayable concurrency | S0.6, S1.3, D1 | `feat/polity-replayable-concurrency` | |
 | S2.2 | Model bake-off harness | S0.5 | `feat/polity-bakeoff-harness` | |
-| S2.3 | Minimal model profiles and model override | S0.2 | `feat/polity-model-profiles` | |
+| S2.3 | Minimal model profiles and model override | S0.2 | `feat/polity-model-profiles` | `13150616` |
 | S2.4 | First-wave bake-off | S2.2, S2.3 | (run) | |
 | S2.5 | Permutation and rendering controls on collapse probes | S2.2 | `feat/polity-probe-controls` | |
 | S3.1 | Typed generic decoder | S0.2 | `feat/polity-generic-decoder` | `98bc0c03` |

@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any, TextIO
 
 from api.domain.polity.config import JournalConfig
+from api.domain.polity.events import Event
 
 
 @dataclasses.dataclass(frozen=True)
@@ -99,6 +100,23 @@ class Journal:
         self._file.flush()
         self._next_event_id += 1
         return event.event_id
+
+    def write_event(
+        self,
+        tick: int,
+        event: Event,
+        *,
+        citizen_id: int | None = None,
+        motif: str | None = None,
+        rationale: str | None = None,
+        codebook_version: str = "",
+    ) -> int:
+        """Write a typed event (events.py, S3.3): its type names the event_type and
+        its fields are the payload keys, so a write site cannot misspell either."""
+        return self.write(
+            tick, event.EVENT_TYPE, event.payload(),
+            citizen_id=citizen_id, motif=motif, rationale=rationale, codebook_version=codebook_version,
+        )
 
     def close(self) -> None:
         self._file.close()

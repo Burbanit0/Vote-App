@@ -86,6 +86,42 @@ from api.domain.polity.citizen import Citizen, Office, Role, generate_population
 from api.domain.polity.codebook import BallotFormat, EventType, PressureAct, ReactionMotif
 from api.domain.polity.compaction import compact_run
 from api.domain.polity.config import PolityConfig, PolityConfigError, validate_config
+from api.domain.polity.events import (
+    CampaignPositioning,
+    CandidacyConsidered,
+    CandidacyDeclared,
+    ChamberDeliberation,
+    ClampedAtBound,
+    CoalitionDecision,
+    CoalitionFailed,
+    CoalitionFormed,
+    ConfidenceVoteResult,
+    ConfidenceVoteTriggered,
+    EconomicShockTick,
+    Elected,
+    ElectionInvalidated,
+    ElectionNoWinner,
+    Event,
+    LegislativeResult,
+    LegitimacyUpdated,
+    LlmProvenance,
+    MandateDeviationRecorded,
+    MandatePledgeDeclared,
+    NominationLost,
+    OMIT,
+    PartyNominationChoice,
+    PetitionExpired,
+    PetitionLaunched,
+    PetitionSigned,
+    PressureAction,
+    ReactionToEvent,
+    Recalled,
+    RepresentativeResponse,
+    ScandalOccurred,
+    SnapElectionTriggered,
+    SortitionRotation,
+    VoteCast,
+)
 from api.domain.polity.institutional_clock import ElectionType, InstitutionalClock
 from api.domain.polity.journal import Journal, truncate_journal
 from api.domain.polity.legitimacy import (
@@ -784,18 +820,15 @@ def run_simulation(
                     # election does.
                     barred_candidate_ids=frozenset(),
                 )
-                journal.write(
+                journal.write_event(
                     tick=tick,
-                    event_type="snap_election_triggered",
-                    payload={
-                        "office": Office.PRESIDENT.value,
-                        "recalled_citizen_id": (
-                            president_before_accountability[0].citizen_id
+                    event=SnapElectionTriggered(
+                        office=Office.PRESIDENT.value,
+                        recalled_citizen_id=president_before_accountability[0].citizen_id
                             if president_before_accountability
-                            else None
-                        ),
-                        "next_attempt_tick": pending_rerun.next_tick,
-                    },
+                            else None,
+                        next_attempt_tick=pending_rerun.next_tick,
+                    ),
                     citizen_id=None,
                 )
             # Phase 3: checkpoint AFTER every tick's phases are fully done and
@@ -937,10 +970,11 @@ def _attempt_rupture_candidacies(
             and citizen.citizen_id not in barred_candidate_ids
         ):
             declare_candidacy(citizen)
-            journal.write(
+            journal.write_event(
                 tick=tick,
-                event_type="candidacy_declared",
-                payload={"path": "rupture"},
+                event=CandidacyDeclared(
+                    path="rupture",
+                ),
                 citizen_id=citizen.citizen_id,
             )
 
@@ -991,10 +1025,11 @@ def _run_exogenous_events(
     if scandal_fired:
         holders = current_office_holders(citizens, Office.PRESIDENT)
         scandal_target = holders[0].citizen_id if holders else None
-        journal.write(
+        journal.write_event(
             tick=tick,
-            event_type="scandal_occurred",
-            payload={"target": scandal_target},
+            event=ScandalOccurred(
+                target=scandal_target,
+            ),
             citizen_id=scandal_target,
         )
 
@@ -1010,10 +1045,12 @@ def _run_exogenous_events(
         config.events.economic_shock_enabled and abs(economy_x) >= config.events.economy_shock_threshold
     )
     if shock_crossed:
-        journal.write(
+        journal.write_event(
             tick=tick,
-            event_type="economic_shock_tick",
-            payload={"x": economy_x, "threshold": config.events.economy_shock_threshold},
+            event=EconomicShockTick(
+                x=economy_x,
+                threshold=config.events.economy_shock_threshold,
+            ),
         )
 
     return ExogenousEventsOutcome(
@@ -1057,10 +1094,12 @@ def _declare_nominees(
         if nominee is None:
             continue
         declare_candidacy(nominee)
-        journal.write(
+        journal.write_event(
             tick=tick,
-            event_type="candidacy_declared",
-            payload={"party_id": party.party_id, "path": "dominant"},
+            event=CandidacyDeclared(
+                party_id=party.party_id,
+                path="dominant",
+            ),
             citizen_id=nominee.citizen_id,
         )
         nominees.append(nominee)
@@ -1077,10 +1116,12 @@ def _journal_clamped_dimensions(
     (dt=5/6/11) so the check has exactly one implementation."""
     clamped = clamped_dimensions(base, shifts, result)
     if clamped:
-        journal.write(
+        journal.write_event(
             tick=tick,
-            event_type="clamped_at_bound",
-            payload={"decision_event": decision_event, "dimensions": sorted(clamped)},
+            event=ClampedAtBound(
+                decision_event=decision_event,
+                dimensions=sorted(clamped),
+            ),
             citizen_id=citizen_id,
         )
 
@@ -1110,19 +1151,16 @@ def _consider_candidacies_llm(
     behavior, only how its code is organized."""
     outcome = decide_candidacies(citizens, config, llm_client)
     for decision in outcome.decisions:
-        journal.write(
+        # Provenance, not a decision field -- see CandidacyBatchOutcome.
+        # llm_fallback. progress.py's generic `payload.llm_fallback`
+        # tally picks this up with no further wiring.
+        journal.write_event(
             tick=tick,
-            event_type="candidacy_considered",
-            payload={
-                "outcome": decision.outcome,
-                "path": "dominant",
-                # Provenance, not a decision field -- see CandidacyBatchOutcome.
-                # llm_fallback. progress.py's generic `payload.llm_fallback`
-                # tally picks this up with no further wiring.
-                "llm_fallback": int(outcome.llm_fallback.get(decision.cid, False)),
-                "retry_sampling_varied": int(outcome.retry_sampling_varied.get(decision.cid, False)),
-                "llm_call_id": outcome.llm_call_ids.get(decision.cid),
-            },
+            event=CandidacyConsidered(
+                outcome=decision.outcome,
+                path="dominant",
+                provenance=LlmProvenance.for_unit(outcome.llm_fallback, outcome.retry_sampling_varied, outcome.llm_call_ids, decision.cid),
+            ),
             citizen_id=decision.cid,
             motif=str(decision.motif),
             codebook_version=config.llm.codebook_version,
@@ -1174,19 +1212,16 @@ def _nominate_and_position_llm(
         nominee: Citizen | None
         if party.party_id in nomination_outcome.winners:
             nominee = citizens_by_id[nomination_outcome.winners[party.party_id]]
-            journal.write(
+            # Provenance, not a decision field -- see
+            # PartyNominationBatchOutcome.llm_fallback. Keyed by
+            # party_id, the decision unit for this type.
+            journal.write_event(
                 tick=tick,
-                event_type="party_nomination_choice",
-                payload={
-                    "party_id": party.party_id,
-                    "contenders": sorted(party_declared_cids),
-                    # Provenance, not a decision field -- see
-                    # PartyNominationBatchOutcome.llm_fallback. Keyed by
-                    # party_id, the decision unit for this type.
-                    "llm_fallback": int(nomination_outcome.llm_fallback.get(party.party_id, False)),
-                    "retry_sampling_varied": int(nomination_outcome.retry_sampling_varied.get(party.party_id, False)),
-                    "llm_call_id": nomination_outcome.llm_call_ids.get(party.party_id),
-                },
+                event=PartyNominationChoice(
+                    party_id=party.party_id,
+                    contenders=sorted(party_declared_cids),
+                    provenance=LlmProvenance.for_unit(nomination_outcome.llm_fallback, nomination_outcome.retry_sampling_varied, nomination_outcome.llm_call_ids, party.party_id),
+                ),
                 citizen_id=nominee.citizen_id,
                 motif=str(motif_by_party[party.party_id]),
                 codebook_version=config.llm.codebook_version,
@@ -1195,19 +1230,22 @@ def _nominate_and_position_llm(
             nominee = select_party_nominee_from_declared(party.party_id, citizens, declared_cids)
         lost_cids = party_declared_cids - ({nominee.citizen_id} if nominee is not None else set())
         for cid in lost_cids:
-            journal.write(
+            journal.write_event(
                 tick=tick,
-                event_type="nomination_lost",
-                payload={"party_id": party.party_id},
+                event=NominationLost(
+                    party_id=party.party_id,
+                ),
                 citizen_id=cid,
             )
         if nominee is None:
             continue
         declare_candidacy(nominee)
-        journal.write(
+        journal.write_event(
             tick=tick,
-            event_type="candidacy_declared",
-            payload={"party_id": party.party_id, "path": "dominant"},
+            event=CandidacyDeclared(
+                party_id=party.party_id,
+                path="dominant",
+            ),
             citizen_id=nominee.citizen_id,
         )
         nominees.append(nominee)
@@ -1222,20 +1260,17 @@ def _nominate_and_position_llm(
         nominee.pledged_platform = new_platform
         nominee.revealed_position = new_platform
         positioning_decision = positioning_by_cid[nominee.citizen_id]
-        journal.write(
+        # Provenance, not a decision field -- see PositioningBatch
+        # Outcome.llm_fallback for why an empty `shifts` list with
+        # motif=601 is ambiguous without it.
+        journal.write_event(
             tick=tick,
-            event_type="campaign_positioning",
-            payload={
-                "shifts": [
+            event=CampaignPositioning(
+                shifts=[
                     {"dimension": shift.dimension, "delta": shift.delta} for shift in positioning_decision.shifts
                 ],
-                # Provenance, not a decision field -- see PositioningBatch
-                # Outcome.llm_fallback for why an empty `shifts` list with
-                # motif=601 is ambiguous without it.
-                "llm_fallback": int(positioning_outcome.llm_fallback.get(nominee.citizen_id, False)),
-                "retry_sampling_varied": int(positioning_outcome.retry_sampling_varied.get(nominee.citizen_id, False)),
-                "llm_call_id": positioning_outcome.llm_call_ids.get(nominee.citizen_id),
-            },
+                provenance=LlmProvenance.for_unit(positioning_outcome.llm_fallback, positioning_outcome.retry_sampling_varied, positioning_outcome.llm_call_ids, nominee.citizen_id),
+            ),
             citizen_id=nominee.citizen_id,
             motif=str(positioning_decision.motif),
             codebook_version=config.llm.codebook_version,
@@ -1352,29 +1387,26 @@ def _hold_presidential_election(
             outcome = cast_votes(citizens, nominees, config, llm_client)
             ballots = outcome.ballots
             for decision in outcome.decisions:
-                journal.write(
+                # §3.7.1 booleans-as-0/1: a deliberate, LOCAL exception
+                # to temperature=0 determinism (llm_behavior_engine's
+                # own _VOTE_CAST_RETRY_TEMPERATURE) -- marks a decision
+                # that came from a temperature-varied RETRY, never the
+                # first attempt, so a future analysis of this journal
+                # cannot mistake a varied-sampling retry's decision for
+                # an ordinary, deterministic first-attempt one.
+                # Same convention, marking the OTHER provenance this
+                # journal must not silently mistake for a real LLM
+                # answer: cast_votes's own last-resort deterministic
+                # fallback (VoteBatchOutcome.llm_fallback's docstring)
+                # after every recovery attempt was exhausted for this
+                # voter. Mutually exclusive with retry_sampling_varied.
+                journal.write_event(
                     tick=tick,
-                    event_type="vote_cast",
-                    payload={
-                        "blank": decision.blank,
-                        "ranking": resolve_ranking_cids(decision, nominees),
-                        # §3.7.1 booleans-as-0/1: a deliberate, LOCAL exception
-                        # to temperature=0 determinism (llm_behavior_engine's
-                        # own _VOTE_CAST_RETRY_TEMPERATURE) -- marks a decision
-                        # that came from a temperature-varied RETRY, never the
-                        # first attempt, so a future analysis of this journal
-                        # cannot mistake a varied-sampling retry's decision for
-                        # an ordinary, deterministic first-attempt one.
-                        "retry_sampling_varied": int(outcome.retry_sampling_varied.get(decision.cid, False)),
-                        "llm_call_id": outcome.llm_call_ids.get(decision.cid),
-                        # Same convention, marking the OTHER provenance this
-                        # journal must not silently mistake for a real LLM
-                        # answer: cast_votes's own last-resort deterministic
-                        # fallback (VoteBatchOutcome.llm_fallback's docstring)
-                        # after every recovery attempt was exhausted for this
-                        # voter. Mutually exclusive with retry_sampling_varied.
-                        "llm_fallback": int(outcome.llm_fallback.get(decision.cid, False)),
-                    },
+                    event=VoteCast(
+                        blank=decision.blank,
+                        ranking=resolve_ranking_cids(decision, nominees),
+                        provenance=LlmProvenance.for_unit(outcome.llm_fallback, outcome.retry_sampling_varied, outcome.llm_call_ids, decision.cid),
+                    ),
                     citizen_id=decision.cid,
                     motif=str(decision.motif),
                     codebook_version=config.llm.codebook_version,
@@ -1443,60 +1475,57 @@ def _hold_presidential_election(
             next_tick=tick + config.institutions.reelection_delay_ticks,
             barred_candidate_ids=barred_next,
         )
-        journal.write(
+        journal.write_event(
             tick=tick,
-            event_type="election_invalidated",
-            payload={
-                "office": Office.PRESIDENT.value,
-                "blank_share": blank_share_value,
-                "threshold": config.institutions.blank_invalidation_threshold,
-                "attempt": new_attempt,
-                "candidate_ids": sorted(all_candidate_ids),
-                "barred_candidate_ids": sorted(barred_next),
-                "next_attempt_tick": new_pending_rerun.next_tick,
-            },
+            event=ElectionInvalidated(
+                office=Office.PRESIDENT.value,
+                blank_share=blank_share_value,
+                threshold=config.institutions.blank_invalidation_threshold,
+                attempt=new_attempt,
+                candidate_ids=sorted(all_candidate_ids),
+                barred_candidate_ids=sorted(barred_next),
+                next_attempt_tick=new_pending_rerun.next_tick,
+            ),
             citizen_id=None,
         )
         return new_pending_rerun
 
-    journal.write(
+    # §6bis.2: attempt/forced are additive, always both-or-neither, and gated on
+    # `nominees` (not just blank_vote_competitive) -- these two keys describe the
+    # invalidation check's own bookkeeping, which is meaningless when there was no
+    # candidate field to measure blank_share against (nominees empty -> a
+    # PendingRerun could never have been created either, so attempt/forced would
+    # be a constant 0/0 carrying no information). This is what keeps a config
+    # where nominees never exist a true byte-for-byte no-op even with
+    # blank_vote_competitive=true, not merely a config where the mechanism
+    # happens not to trigger.
+    attempt, forced = OMIT, OMIT
+    if config.institutions.blank_vote_competitive and nominees:
+        attempt = pending_rerun.attempt if pending_rerun is not None else 0
+        forced = int(_is_forced_attempt(pending_rerun, config))
+    # ADR-002: election_no_winner covered two structurally different failures
+    # with the same payload -- "candidates ran and Blank won the runoff" (the
+    # §10.10 seed/distribution failure mode) and "no candidate existed at all"
+    # (the shipped ambition_threshold making candidacy arithmetically
+    # impossible). No journal this project has produced could tell them apart.
+    # `reason` names the second. Conditional on `nominees` being empty,
+    # deliberately: the emptiness IS the new information, so the key appears
+    # exactly where it says something, and a config that fields no nominee keeps
+    # the byte-for-byte no-op property election_invalidated's own comment above is
+    # written to protect. Consequence accepted: journals predating this key stay
+    # ambiguous -- they are already documented as non-representative
+    # (uniform/seed=42, THEORY.md §10.10).
+    outcome_event: Event = (
+        Elected(office=Office.PRESIDENT.value, attempt=attempt, forced=forced)
+        if winner is not None
+        else ElectionNoWinner(
+            office=Office.PRESIDENT.value, attempt=attempt, forced=forced,
+            reason="no_candidates" if not nominees else OMIT,
+        )
+    )
+    journal.write_event(
         tick=tick,
-        event_type="elected" if winner is not None else "election_no_winner",
-        payload={
-            "office": Office.PRESIDENT.value,
-            # §6bis.2: additive, always both-or-neither, and gated on
-            # `nominees` (not just blank_vote_competitive) -- these two keys
-            # describe the invalidation check's own bookkeeping, which is
-            # meaningless when there was no candidate field to measure
-            # blank_share against (nominees empty -> a PendingRerun could
-            # never have been created either, so attempt/forced would be a
-            # constant 0/0 carrying no information). This is what keeps a
-            # config where nominees never exist a true byte-for-byte no-op
-            # even with blank_vote_competitive=true, not merely a config
-            # where the mechanism happens not to trigger.
-            **(
-                {
-                    "attempt": pending_rerun.attempt if pending_rerun is not None else 0,
-                    "forced": int(_is_forced_attempt(pending_rerun, config)),
-                }
-                if config.institutions.blank_vote_competitive and nominees
-                else {}
-            ),
-            # ADR-002: election_no_winner covered two structurally different
-            # failures with the same payload -- "candidates ran and Blank won
-            # the runoff" (the §10.10 seed/distribution failure mode) and "no
-            # candidate existed at all" (the shipped ambition_threshold making
-            # candidacy arithmetically impossible). No journal this project has
-            # produced could tell them apart. This key names the second.
-            # Conditional on `nominees` being empty, deliberately: the emptiness
-            # IS the new information, so the key appears exactly where it says
-            # something, and a config that fields no nominee keeps the
-            # byte-for-byte no-op property election_invalidated's own comment
-            # above is written to protect. Consequence accepted: journals
-            # predating this key stay ambiguous -- they are already documented
-            # as non-representative (uniform/seed=42, THEORY.md §10.10).
-            **({"reason": "no_candidates"} if not nominees else {}),
-        },
+        event=outcome_event,
         citizen_id=winner.citizen_id if winner is not None else None,
     )
     if winner is not None and config.mandate.enabled:
@@ -1506,15 +1535,14 @@ def _hold_presidential_election(
         # journal-only analyst can compute §6bis.1's lame_duck_deviation_delta
         # without needing president_term_limit from the run's config file.
         assert winner.pledged_platform is not None  # declare_candidacy always sets it
-        journal.write(
+        journal.write_event(
             tick=tick,
-            event_type="mandate_pledge_declared",
-            payload={
-                "office": Office.PRESIDENT.value,
-                "pledged_platform": list(winner.pledged_platform),
-                "mandates_served": winner.mandates_served,
-                "lame_duck": is_term_limited(winner, config.institutions.president_term_limit),
-            },
+            event=MandatePledgeDeclared(
+                office=Office.PRESIDENT.value,
+                pledged_platform=list(winner.pledged_platform),
+                mandates_served=winner.mandates_served,
+                lame_duck=is_term_limited(winner, config.institutions.president_term_limit),
+            ),
             citizen_id=winner.citizen_id,
         )
     return None
@@ -1540,10 +1568,13 @@ def _hold_legislative_election(
     )
     seats = {int(party_id): count for party_id, count in raw_seats.items()}
 
-    journal.write(
+    journal.write_event(
         tick=tick,
-        event_type="legislative_result",
-        payload={"seats": seats, "votes": votes, "blank_count": blank_count},
+        event=LegislativeResult(
+            seats=seats,
+            votes=votes,
+            blank_count=blank_count,
+        ),
     )
     return seats, votes
 
@@ -1564,10 +1595,13 @@ def _form_and_journal_coalition(
     coalition = form_coalition(
         platforms, seats, votes, config.parties.coalition_tiebreak, config.parties.coalition_majority_ratio
     )
-    journal.write(
+    journal.write_event(
         tick=tick,
-        event_type="coalition_formed" if coalition is not None else "coalition_failed",
-        payload={"coalition": coalition, "seats": seats},
+        event=(
+            CoalitionFormed(coalition=coalition, seats=seats)
+            if coalition is not None
+            else CoalitionFailed(coalition=None, seats=seats)
+        ),
     )
 
 
@@ -1602,36 +1636,37 @@ def _form_and_journal_coalition_llm(
         round_retry_varied = outcome.rounds_retry_sampling_varied[round_number - 1]
         round_call_id = outcome.rounds_llm_call_ids[round_number - 1]
         for decision in round_decisions:
-            journal.write(
+            journal.write_event(
                 tick=tick,
-                event_type="coalition_decision",
-                payload={
-                    "party_id": decision.party_id,
-                    "action": decision.action,
-                    "initiator": outcome.initiator,
-                    "round": round_number,
-                    "retry_sampling_varied": int(round_retry_varied),
-                    "llm_call_id": round_call_id,
-                },
+                event=CoalitionDecision(
+                    party_id=decision.party_id,
+                    action=decision.action,
+                    initiator=outcome.initiator,
+                    round=round_number,
+                    retry_sampling_varied=int(round_retry_varied),
+                    llm_call_id=round_call_id,
+                ),
                 motif=str(decision.motif),
                 codebook_version=config.llm.codebook_version,
             )
     if outcome.aborted_at_round is not None:
-        journal.write(
+        journal.write_event(
             tick=tick,
-            event_type="coalition_failed",
-            payload={
-                "coalition": None,
-                "seats": seats,
-                "aborted_at_round": outcome.aborted_at_round,
-                "rounds_completed": len(outcome.rounds),
-            },
+            event=CoalitionFailed(
+                coalition=None,
+                seats=seats,
+                aborted_at_round=outcome.aborted_at_round,
+                rounds_completed=len(outcome.rounds),
+            ),
         )
     else:
-        journal.write(
+        journal.write_event(
             tick=tick,
-            event_type="coalition_formed" if outcome.coalition is not None else "coalition_failed",
-            payload={"coalition": outcome.coalition, "seats": seats, "rounds_used": len(outcome.rounds)},
+            event=(
+                CoalitionFormed(coalition=outcome.coalition, seats=seats, rounds_used=len(outcome.rounds))
+                if outcome.coalition is not None
+                else CoalitionFailed(coalition=None, seats=seats, rounds_used=len(outcome.rounds))
+            ),
         )
 
 
@@ -1795,31 +1830,29 @@ def _run_reaction_to_event(
         reaction_call_ids = outcome.llm_call_ids
 
     for citizen in citizens:
+        ctx, provenance = OMIT, OMIT
         if reaction_decisions is None:
             delta = deterministic_reaction_to_event(event_type, config.events, magnitude=magnitude)
             motif = str(grounding_motif)
-            extra: dict[str, object] = {}
         else:
             decision = reaction_decisions[citizen.citizen_id]
             delta = decision.salience_delta
             motif = str(decision.motif)
-            extra = {
-                "ctx": contexts[citizen.citizen_id].to_payload(),
-                # Provenance, LLM path only (the deterministic path has no
-                # model decision to have fallen back FROM) -- see
-                # ReactionBatchOutcome.llm_fallback.
-                "llm_fallback": int(reaction_fallback.get(citizen.citizen_id, False)),
-                "retry_sampling_varied": int(reaction_retry_varied.get(citizen.citizen_id, False)),
-                "llm_call_id": reaction_call_ids.get(citizen.citizen_id),
-            }
+            ctx = contexts[citizen.citizen_id].to_payload()
+            # Provenance, LLM path only (the deterministic path has no model decision
+            # to have fallen back FROM) -- see ReactionBatchOutcome.llm_fallback.
+            provenance = LlmProvenance.for_unit(reaction_fallback, reaction_retry_varied, reaction_call_ids, citizen.citizen_id)
         citizen.event_salience = update_event_salience(citizen.event_salience, delta, config.events)
-        payload: dict[str, object] = {"event_type": int(event_type), "target": target, "salience_delta": delta} | extra
-        if event_type is EventType.ECONOMIC_SHOCK:
-            payload["magnitude"] = magnitude
-        journal.write(
+        journal.write_event(
             tick=tick,
-            event_type="reaction_to_event",
-            payload=payload,
+            event=ReactionToEvent(
+                event_type=int(event_type),
+                target=target,
+                salience_delta=delta,
+                magnitude=magnitude if event_type is EventType.ECONOMIC_SHOCK else OMIT,
+                ctx=ctx,
+                provenance=provenance,
+            ),
             citizen_id=citizen.citizen_id,
             motif=motif,
             codebook_version=config.llm.codebook_version,
@@ -1893,21 +1926,18 @@ def _run_representative_responses(
         # `base`/ctx.mandate_dev (see this function's own docstring).
         unified_deviation = unified_mandate_deviation(holder)
         holder.revealed_position = outcome.positions[holder.citizen_id]
-        journal.write(
+        # Provenance: a fallback silence and a real one are otherwise
+        # identical here -- see ResponseBatchOutcome.llm_fallback.
+        journal.write_event(
             tick=tick,
-            event_type="representative_response",
-            payload={
-                "office": Office.PRESIDENT.value,
-                "stance": decision.stance,
-                "shifts": [{"dimension": s.dimension, "delta": s.delta} for s in decision.shifts],
-                "ctx": contexts[holder.citizen_id].to_payload(),
-                "unified_deviation": unified_deviation,
-                # Provenance: a fallback silence and a real one are otherwise
-                # identical here -- see ResponseBatchOutcome.llm_fallback.
-                "llm_fallback": int(outcome.llm_fallback.get(holder.citizen_id, False)),
-                "retry_sampling_varied": int(outcome.retry_sampling_varied.get(holder.citizen_id, False)),
-                "llm_call_id": outcome.llm_call_ids.get(holder.citizen_id),
-            },
+            event=RepresentativeResponse(
+                office=Office.PRESIDENT.value,
+                stance=decision.stance,
+                shifts=[{"dimension": s.dimension, "delta": s.delta} for s in decision.shifts],
+                ctx=contexts[holder.citizen_id].to_payload(),
+                unified_deviation=unified_deviation,
+                provenance=LlmProvenance.for_unit(outcome.llm_fallback, outcome.retry_sampling_varied, outcome.llm_call_ids, holder.citizen_id),
+            ),
             citizen_id=holder.citizen_id,
             motif=str(decision.motif),
             codebook_version=config.llm.codebook_version,
@@ -1953,10 +1983,13 @@ def _run_sortition_rotation(
         # unrelated term's own drift.
         member.chamber_position = member.issue_positions
 
-    journal.write(
+    journal.write_event(
         tick=tick,
-        event_type="sortition_rotation",
-        payload={"seated": drawn, "vacated": vacated, "pool_relaxed": int(relaxed)},
+        event=SortitionRotation(
+            seated=drawn,
+            vacated=vacated,
+            pool_relaxed=int(relaxed),
+        ),
     )
 
 
@@ -2008,31 +2041,28 @@ def _run_chamber_deliberation(
         base = member.chamber_position
         assert base is not None  # guaranteed by _run_sortition_rotation's own seating loop
         member.chamber_position = outcome.positions[member.citizen_id]
-        journal.write(
+        # decide_chamber_deliberation's own motif_corrected marker: true iff this
+        # decision arrived as motif=702 (DELIBERATIVE_SHIFT) with empty shifts -- an
+        # incoherent pairing under this schema's own stated intent, corrected to 701
+        # (what shifts=[] actually means) rather than rejected, since motif has zero
+        # effect on chamber_deviation/simulation behavior. Journaled explicitly so a
+        # future reader cannot mistake a corrected label for a first-hand 701.
+        # Same §3.7.1 booleans-as-0/1 convention as vote_cast's own journal payload
+        # (see that call site's own comment) -- added 2026-09-08 alongside
+        # decide_chamber_deliberation's own retry_temperature/deterministic fallback,
+        # after a real Phase 7 run crashed with neither in place. Mutually exclusive
+        # per cid: retry_sampling_varied marks a genuine, temperature-varied recovery;
+        # llm_fallback marks the model path being exhausted entirely (sincere, no
+        # shift) instead of aborting the run.
+        journal.write_event(
             tick=tick,
-            event_type="chamber_deliberation",
-            payload={
-                "shifts": [{"dimension": s.dimension, "delta": s.delta} for s in decision.shifts],
-                "ctx": contexts[member.citizen_id].to_payload(),
-                "chamber_deviation": chamber_deviation(member),
-                # decide_chamber_deliberation's own motif_corrected marker: true iff this
-                # decision arrived as motif=702 (DELIBERATIVE_SHIFT) with empty shifts -- an
-                # incoherent pairing under this schema's own stated intent, corrected to 701
-                # (what shifts=[] actually means) rather than rejected, since motif has zero
-                # effect on chamber_deviation/simulation behavior. Journaled explicitly so a
-                # future reader cannot mistake a corrected label for a first-hand 701.
-                "motif_corrected": int(outcome.motif_corrected.get(member.citizen_id, False)),
-                # Same §3.7.1 booleans-as-0/1 convention as vote_cast's own journal payload
-                # (see that call site's own comment) -- added 2026-09-08 alongside
-                # decide_chamber_deliberation's own retry_temperature/deterministic fallback,
-                # after a real Phase 7 run crashed with neither in place. Mutually exclusive
-                # per cid: retry_sampling_varied marks a genuine, temperature-varied recovery;
-                # llm_fallback marks the model path being exhausted entirely (sincere, no
-                # shift) instead of aborting the run.
-                "retry_sampling_varied": int(outcome.retry_sampling_varied.get(member.citizen_id, False)),
-                "llm_call_id": outcome.llm_call_ids.get(member.citizen_id),
-                "llm_fallback": int(outcome.llm_fallback.get(member.citizen_id, False)),
-            },
+            event=ChamberDeliberation(
+                shifts=[{"dimension": s.dimension, "delta": s.delta} for s in decision.shifts],
+                ctx=contexts[member.citizen_id].to_payload(),
+                chamber_deviation=chamber_deviation(member),
+                motif_corrected=int(outcome.motif_corrected.get(member.citizen_id, False)),
+                provenance=LlmProvenance.for_unit(outcome.llm_fallback, outcome.retry_sampling_varied, outcome.llm_call_ids, member.citizen_id),
+            ),
             citizen_id=member.citizen_id,
             motif=str(decision.motif),
             codebook_version=config.llm.codebook_version,
@@ -2187,16 +2217,15 @@ def _run_accountability_phase(
             deviation = mandate_deviation(holder, config.mandate)
             unified = unified_mandate_deviation(holder)
         if config.mandate.enabled and deviation is not None and deviation > config.mandate.deviation_log_threshold:
-            journal.write(
+            # provably non-None wherever this write runs: assigned in
+            # the same guarded block as `deviation`, immediately above
+            journal.write_event(
                 tick=tick,
-                event_type="mandate_deviation_recorded",
-                payload={
-                    "office": Office.PRESIDENT.value,
-                    "deviation": deviation,
-                    # provably non-None wherever this write runs: assigned in
-                    # the same guarded block as `deviation`, immediately above
-                    "unified_deviation": unified,
-                },
+                event=MandateDeviationRecorded(
+                    office=Office.PRESIDENT.value,
+                    deviation=deviation,
+                    unified_deviation=unified,
+                ),
                 citizen_id=holder.citizen_id,
             )
 
@@ -2256,61 +2285,58 @@ def _run_accountability_phase(
                         citizen, gap, config.pressure_menu, can_sign=can_sign, can_launch=can_launch
                     )
                     act = decided
-                    payload_extra: dict[str, object] = {}
+                    pressure_ctx, pressure_provenance = OMIT, OMIT
                 else:
                     decision = decisions[citizen.citizen_id]
                     decided = PressureAct(decision.act)
                     act = applicable_pressure_act(decided, can_sign=can_sign, can_launch=can_launch)
-                    payload_extra = {
-                        # Track C3 fix (2026-09-11): merges dt=10's shipped
-                        # calibration signal(s) in via the SAME function
-                        # decide_pressure_actions itself calls to build the
-                        # prompt -- to_payload() alone used to under-report
-                        # what the model actually saw (blank_threshold was
-                        # sent but never journaled).
-                        "ctx": {**contexts[citizen.citizen_id].to_payload(), **pressure_shipped_signal_values(citizen)},
-                        # Provenance, LLM path only -- see PressureBatch
-                        # Outcome.llm_fallback for why the §11.4 palier's own
-                        # comparison depends on being able to exclude these.
-                        "llm_fallback": int(pressure_fallback.get(citizen.citizen_id, False)),
-                        "retry_sampling_varied": int(pressure_retry_varied.get(citizen.citizen_id, False)),
-                        "llm_call_id": pressure_call_ids.get(citizen.citizen_id),
-                    }
+                    # Track C3 fix (2026-09-11): merges dt=10's shipped
+                    # calibration signal(s) in via the SAME function
+                    # decide_pressure_actions itself calls to build the
+                    # prompt -- to_payload() alone used to under-report
+                    # what the model actually saw (blank_threshold was
+                    # sent but never journaled).
+                    pressure_ctx = {**contexts[citizen.citizen_id].to_payload(), **pressure_shipped_signal_values(citizen)}
+                    # Provenance, LLM path only -- see PressureBatch
+                    # Outcome.llm_fallback for why the §11.4 palier's own
+                    # comparison depends on being able to exclude these.
+                    pressure_provenance = LlmProvenance.for_unit(
+                        pressure_fallback, pressure_retry_varied, pressure_call_ids, citizen.citizen_id,
+                    )
                     motif = str(decision.motif)
                 if act is PressureAct.MOBILIZE:
                     participants += 1
                     new_mobilized[citizen.citizen_id] = holder.citizen_id  # v6 Lot 3: for NEXT tick's own read
-                journal.write(
+                journal.write_event(
                     tick=tick,
-                    event_type="pressure_action",
-                    payload={"target": holder.citizen_id, "act": int(decided)} | payload_extra,
+                    event=PressureAction(
+                        target=holder.citizen_id, act=int(decided), ctx=pressure_ctx, provenance=pressure_provenance,
+                    ),
                     citizen_id=citizen.citizen_id,
                     motif=motif,
                     codebook_version=config.llm.codebook_version if motif else "",
                 )
                 if act is PressureAct.LAUNCH_PETITION:
                     launch_petition(holder, citizen, tick)
-                    journal.write(
+                    journal.write_event(
                         tick=tick,
-                        event_type="petition_launched",
-                        payload={
-                            "target": holder.citizen_id,
-                            "signatures": len(holder.petition_signers),
-                            "signed_ratio": petition_pressure(holder, config.run.population_size),
-                            "expires_at_tick": tick + config.petition.petition_lifespan_ticks,
-                        },
+                        event=PetitionLaunched(
+                            target=holder.citizen_id,
+                            signatures=len(holder.petition_signers),
+                            signed_ratio=petition_pressure(holder, config.run.population_size),
+                            expires_at_tick=tick + config.petition.petition_lifespan_ticks,
+                        ),
                         citizen_id=citizen.citizen_id,
                     )
                 elif act is PressureAct.SIGN_PETITION:
                     sign_petition(holder, citizen)
-                    journal.write(
+                    journal.write_event(
                         tick=tick,
-                        event_type="petition_signed",
-                        payload={
-                            "target": holder.citizen_id,
-                            "signatures": len(holder.petition_signers),
-                            "signed_ratio": petition_pressure(holder, config.run.population_size),
-                        },
+                        event=PetitionSigned(
+                            target=holder.citizen_id,
+                            signatures=len(holder.petition_signers),
+                            signed_ratio=petition_pressure(holder, config.run.population_size),
+                        ),
                         citizen_id=citizen.citizen_id,
                     )
             if config.street_pressure.enabled:
@@ -2333,15 +2359,14 @@ def _run_accountability_phase(
         holder.legitimacy_capital = update_legitimacy(
             holder.legitimacy_capital, holder.mandate_strength, ecart, config.legitimacy
         )
-        journal.write(
+        journal.write_event(
             tick=tick,
-            event_type="legitimacy_updated",
-            payload={
-                "office": Office.PRESIDENT.value,
-                "legitimacy": holder.legitimacy_capital,
-                "mandate_strength": holder.mandate_strength,
-                "ecart": ecart,
-            },
+            event=LegitimacyUpdated(
+                office=Office.PRESIDENT.value,
+                legitimacy=holder.legitimacy_capital,
+                mandate_strength=holder.mandate_strength,
+                ecart=ecart,
+            ),
             citizen_id=holder.citizen_id,
         )
         floor_fires = crosses_floor(holder.legitimacy_capital, config.legitimacy)
@@ -2350,15 +2375,14 @@ def _run_accountability_phase(
         if holder.petition_open_since_tick is not None:  # step 5
             ratio = petition_pressure(holder, config.run.population_size)
             if ratio >= config.petition.signature_threshold:
-                journal.write(
+                journal.write_event(
                     tick=tick,
-                    event_type="confidence_vote_triggered",
-                    payload={
-                        "office": Office.PRESIDENT.value,
-                        "opened_at_tick": holder.petition_open_since_tick,
-                        "signatures": len(holder.petition_signers),
-                        "signed_ratio": ratio,
-                    },
+                    event=ConfidenceVoteTriggered(
+                        office=Office.PRESIDENT.value,
+                        opened_at_tick=holder.petition_open_since_tick,
+                        signatures=len(holder.petition_signers),
+                        signed_ratio=ratio,
+                    ),
                     citizen_id=holder.citizen_id,
                 )
                 ballots = [build_confidence_ballot(c, holder) for c in citizens]
@@ -2380,18 +2404,17 @@ def _run_accountability_phase(
                 averted_recall = retained and floor_fires
                 if averted_recall:
                     floor_fires = False
-                journal.write(
+                journal.write_event(
                     tick=tick,
-                    event_type="confidence_vote_result",
-                    payload={
-                        "office": Office.PRESIDENT.value,
-                        "bf": BallotFormat.BINARY,
-                        "ballots": len(ballots),
-                        "keep": sum(ballots),
-                        "keep_ratio": keep_ratio,
-                        "retained": retained,
-                        "averted_recall": averted_recall,
-                    },
+                    event=ConfidenceVoteResult(
+                        office=Office.PRESIDENT.value,
+                        bf=BallotFormat.BINARY,
+                        ballots=len(ballots),
+                        keep=sum(ballots),
+                        keep_ratio=keep_ratio,
+                        retained=retained,
+                        averted_recall=averted_recall,
+                    ),
                     citizen_id=holder.citizen_id,
                 )
                 if retained:
@@ -2413,43 +2436,40 @@ def _run_accountability_phase(
                 resolve_petition(holder, tick, config.petition)
                 lost_confidence = not retained
             elif petition_has_expired(holder, tick, config.petition):
-                journal.write(
+                journal.write_event(
                     tick=tick,
-                    event_type="petition_expired",
-                    payload={
-                        "office": Office.PRESIDENT.value,
-                        "opened_at_tick": holder.petition_open_since_tick,
-                        "signatures": len(holder.petition_signers),
-                        "signed_ratio": ratio,
-                        "signature_threshold": config.petition.signature_threshold,
-                    },
+                    event=PetitionExpired(
+                        office=Office.PRESIDENT.value,
+                        opened_at_tick=holder.petition_open_since_tick,
+                        signatures=len(holder.petition_signers),
+                        signed_ratio=ratio,
+                        signature_threshold=config.petition.signature_threshold,
+                    ),
                     citizen_id=holder.citizen_id,
                 )
                 resolve_petition(holder, tick, config.petition)
 
         if floor_fires:  # step 6, floor wins the attribution
-            journal.write(
+            journal.write_event(
                 tick=tick,
-                event_type="recalled",
-                payload={
-                    "office": Office.PRESIDENT.value,
-                    "legitimacy": holder.legitimacy_capital,
-                    "recall_floor": config.legitimacy.recall_floor,
-                    "trigger": "legitimacy_floor",
-                },
+                event=Recalled(
+                    office=Office.PRESIDENT.value,
+                    legitimacy=holder.legitimacy_capital,
+                    recall_floor=config.legitimacy.recall_floor,
+                    trigger="legitimacy_floor",
+                ),
                 citizen_id=holder.citizen_id,
             )
             vacate_office(holder)
         elif lost_confidence:
-            journal.write(
+            journal.write_event(
                 tick=tick,
-                event_type="recalled",
-                payload={
-                    "office": Office.PRESIDENT.value,
-                    "legitimacy": holder.legitimacy_capital,
-                    "recall_floor": config.legitimacy.recall_floor,
-                    "trigger": "confidence_vote",
-                },
+                event=Recalled(
+                    office=Office.PRESIDENT.value,
+                    legitimacy=holder.legitimacy_capital,
+                    recall_floor=config.legitimacy.recall_floor,
+                    trigger="confidence_vote",
+                ),
                 citizen_id=holder.citizen_id,
             )
             vacate_office(holder)

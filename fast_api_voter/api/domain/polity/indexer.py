@@ -88,6 +88,7 @@ from pathlib import Path
 from typing import Any, Iterable, Iterator, Mapping, Sequence
 
 from api.domain.polity.config import PolityConfig
+from api.domain.polity.events import PRESIDENT_ELECTION_OUTCOMES
 from api.domain.polity.metrics import (
     blank_vote_rate,
     cohabitation_rate as _cohabitation_rate_fn,
@@ -104,7 +105,7 @@ from api.domain.polity.metrics import (
     stance_distribution as _stance_distribution_fn,
 )
 
-_PRESIDENT_ELECTION_EVENTS = ("elected", "election_no_winner", "election_invalidated")
+_PRESIDENT_ELECTION_EVENTS = PRESIDENT_ELECTION_OUTCOMES  # events.py registry (S3.3)
 
 
 @dataclass(frozen=True)

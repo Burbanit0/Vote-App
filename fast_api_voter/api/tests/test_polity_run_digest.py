@@ -133,17 +133,21 @@ def test_event_counts_by_year_keeps_an_unknown_event_type():
 
 
 def test_all_event_types_matches_what_the_simulation_can_journal():
-    # Pins the constant against the real writer. 29 event_type= literals plus
-    # election_no_winner, which is the false branch of a ternary and therefore
-    # invisible to a naive literal grep.
+    # Pins the constant against the real writer. Since S3.3 every write goes through a
+    # typed event (journal.write_event), so the event types the simulation can journal
+    # are exactly the registered event classes it constructs -- and a raw
+    # journal.write with a hand-typed payload must not come back.
     import re
     from pathlib import Path
 
-    source = Path(__file__).resolve().parents[1] / "domain" / "polity" / "run_polity_simulation.py"
-    written = set(re.findall(r'event_type="([a-z_]+)"', source.read_text(encoding="utf-8")))
-    written.add("election_no_winner")
+    from api.domain.polity.events import EVENT_CLASSES
+
+    source = (Path(__file__).resolve().parents[1] / "domain" / "polity" / "run_polity_simulation.py").read_text(encoding="utf-8")
+    constructed = set(re.findall(r"\b([A-Z][A-Za-z]+)\(", source))
+    written = {cls.EVENT_TYPE for cls in EVENT_CLASSES if cls.__name__ in constructed}
 
     assert written == set(ALL_EVENT_TYPES)
+    assert "journal.write(" not in source
 
 
 # ── population_impact_by_year ────────────────────────────────────────────
