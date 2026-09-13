@@ -29,7 +29,6 @@ from api.engine.utils.simulation_ranked_utils import (
     get_approval_winner_sincere,
 )
 from api.engine.utils.blank_vote_rules        import BlankVoteRule
-from api.engine.utils.blank_contagion         import simulate_blank_contagion
 from api.engine.utils.campaign_dynamics       import simulate_campaign
 from api.engine.utils.information_model       import apply_information_asymmetry
 from api.engine.utils.cache import cache_result
@@ -38,14 +37,16 @@ from api.engine.utils.cache import cache_result
 # this package. Re-exported under their original private names so the
 # 30+ existing call sites in this file continue to work unchanged.
 from ._helpers import (
-    build_candidate_from_xy as _build_candidate_from_xy,
-    inter_method_agreement  as _inter_method_agreement,
-    dhondt                  as _dhondt,
+    build_candidate_from_xy       as _build_candidate_from_xy,
+    inter_method_agreement        as _inter_method_agreement,
+    dhondt                        as _dhondt,
+    parse_optional_election_configs as _parse_optional_election_configs,
 )
 from ._electorate import (
     _build_base_electorate,
     _run_methods_on_electorate,
     _snapshot_election_winners,
+    _apply_blank_contagion,
 )
 
 
@@ -117,18 +118,7 @@ def _divergence_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     voters_b = copy.deepcopy(voters)
 
     if contagion_on:
-        beta    = max(0.0, min(1.0, float(contagion_cfg.get("beta",  0.15))))
-        gamma   = max(0.0, min(1.0, float(contagion_cfg.get("gamma", 0.10))))
-        net_map = {"random": "random", "watts_strogatz": "small-world", "block": "clustered"}
-        net     = net_map.get(str(contagion_cfg.get("network", "random")), "random")
-        contagion_result = simulate_blank_contagion(
-            num_voters=num_voters, initial_blank_rate=0.05,
-            contagion_rate=beta, recovery_rate=gamma,
-            num_rounds=10, network_type=net, seed=seed,
-        )
-        reduction = contagion_result.get("final_blank_rate", 0.05) * 0.4
-        for v in voters_b:
-            v["blank_threshold"] = max(0.05, v["blank_threshold"] - reduction)
+        _apply_blank_contagion(voters_b, contagion_cfg, num_voters, seed)
 
     run_b = _run_methods_on_electorate(
         voters_b, candidates, true_utilities, issues,
@@ -217,18 +207,7 @@ def _campaign_sensitivity_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], 
 
     # ── Apply blank-vote contagion once (threshold adjustments) ───────────
     if contagion_on and blank_enabled:
-        beta    = max(0.0, min(1.0, float(contagion_cfg.get("beta",  0.15))))
-        gamma   = max(0.0, min(1.0, float(contagion_cfg.get("gamma", 0.10))))
-        net_map = {"random": "random", "watts_strogatz": "small-world", "block": "clustered"}
-        net     = net_map.get(str(contagion_cfg.get("network", "random")), "random")
-        contagion_result = simulate_blank_contagion(
-            num_voters=num_voters, initial_blank_rate=0.05,
-            contagion_rate=beta, recovery_rate=gamma,
-            num_rounds=10, network_type=net, seed=seed,
-        )
-        reduction = contagion_result.get("final_blank_rate", 0.05) * 0.4
-        for v in voters:
-            v["blank_threshold"] = max(0.05, v["blank_threshold"] - reduction)
+        _apply_blank_contagion(voters, contagion_cfg, num_voters, seed)
 
     # ── Run campaign to get day-by-day polling shares ─────────────────────
     camp       = simulate_campaign(
@@ -415,18 +394,7 @@ def _combined_effects_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
     # ── Pre-compute blank-vote adjusted voters ────────────────────────────
     blank_voters = copy.deepcopy(voters)
     if contagion_on:
-        beta    = max(0.0, min(1.0, float(contagion_cfg.get("beta",  0.15))))
-        gamma   = max(0.0, min(1.0, float(contagion_cfg.get("gamma", 0.10))))
-        net_map = {"random": "random", "watts_strogatz": "small-world", "block": "clustered"}
-        net     = net_map.get(str(contagion_cfg.get("network", "random")), "random")
-        contagion_result = simulate_blank_contagion(
-            num_voters=num_voters, initial_blank_rate=0.05,
-            contagion_rate=beta, recovery_rate=gamma,
-            num_rounds=10, network_type=net, seed=seed,
-        )
-        reduction = contagion_result.get("final_blank_rate", 0.05) * 0.4
-        for v in blank_voters:
-            v["blank_threshold"] = max(0.05, v["blank_threshold"] - reduction)
+        _apply_blank_contagion(blank_voters, contagion_cfg, num_voters, seed)
 
     # (campaign_on, info_on) → utilities dict
     utility_map: Dict[tuple[bool, bool], Dict[Any, Dict[str, float]]] = {
@@ -736,19 +704,11 @@ def _simulate_pipeline_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
         {"name": "Carol", "x":  0.0, "y":  0.3},
     ])[:6]
 
-    blank_cfg      = data.get("blank_vote", {}) or {}
-    blank_enabled  = bool(blank_cfg.get("enabled", False))
-    str(blank_cfg.get("rule", "symbolic"))
-    contagion_cfg  = blank_cfg.get("contagion", {}) or {}
-    contagion_on   = bool(contagion_cfg.get("enabled", False))
-
-    info_cfg       = data.get("information_model", {}) or {}
-    info_enabled   = bool(info_cfg.get("enabled", False))
-
-    campaign_cfg   = data.get("campaign", {}) or {}
-    campaign_on    = bool(campaign_cfg.get("enabled", False))
-    num_days       = max(7,  min(60, int(campaign_cfg.get("num_days",        30))))
-    polling_effect = max(0.0, min(1.0, float(campaign_cfg.get("polling_effect", 0.3))))
+    (
+        blank_enabled, _, contagion_cfg, contagion_on,
+        info_cfg, info_enabled, campaign_cfg, campaign_on,
+        num_days, polling_effect,
+    ) = _parse_optional_election_configs(data)
 
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
@@ -823,19 +783,10 @@ def _simulate_pipeline_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
 
     # ── Step 3: Blank-vote contagion ──────────────────────────────────────
     if contagion_on and blank_enabled:
-        beta    = max(0.0, min(1.0, float(contagion_cfg.get("beta",  0.15))))
-        gamma   = max(0.0, min(1.0, float(contagion_cfg.get("gamma", 0.10))))
-        net_map = {"random": "random", "watts_strogatz": "small-world", "block": "clustered"}
-        net     = net_map.get(str(contagion_cfg.get("network", "random")), "random")
-        cont_r  = simulate_blank_contagion(
-            num_voters=num_voters, initial_blank_rate=0.05,
-            contagion_rate=beta, recovery_rate=gamma,
-            num_rounds=10, network_type=net, seed=seed,
-        )
-        final_blank = cont_r.get("final_blank_rate", 0.05)
-        reduction   = final_blank * 0.4
-        for v in voters:
-            v["blank_threshold"] = max(0.05, v["blank_threshold"] - reduction)
+        contagion_info = _apply_blank_contagion(voters, contagion_cfg, num_voters, seed)
+        beta        = contagion_info["beta"]
+        gamma       = contagion_info["gamma"]
+        final_blank = contagion_info["final_blank_rate"]
 
         cont_snap   = _voter_snap(voters, current_utilities, blank_enabled=True)
         blank_count = sum(1 for s in cont_snap if s["is_blank"])

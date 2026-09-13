@@ -92,3 +92,44 @@ def inter_method_agreement(methods_data: Dict[str, Any]) -> float:
         return 0.0
     most_common = Counter(winners).most_common(1)[0][1]
     return round(most_common / len(winners), 4)
+
+
+def parse_optional_election_configs(
+    data: Dict[str, Any],
+) -> tuple[bool, str, Dict[str, Any], bool, Dict[str, Any], bool, Dict[str, Any], bool, int, float]:
+    """Parse the optional `blank_vote` (+ nested `contagion`),
+    `information_model` and `campaign` sub-configs shared by the unified
+    election pipeline, deriving their on/off flags and clamped numeric
+    params.
+
+    Extracted from the identical block duplicated between
+    `election_service.py`'s `ElectionService.simulate` and
+    `workers.py`'s `_simulate_pipeline_worker` (jscpd-flagged,
+    CODE_AUDIT.md §4/§7). The candidate-count validation that immediately
+    follows this block at both call sites stays there — it depends on each
+    caller's own `cand_specs` (parsed with a different default/cap at each
+    site), so it isn't part of this shared computation.
+
+    Returns (blank_enabled, blank_rule_str, contagion_cfg, contagion_on,
+    info_cfg, info_enabled, campaign_cfg, campaign_on, num_days,
+    polling_effect).
+    """
+    blank_cfg      = data.get("blank_vote", {}) or {}
+    blank_enabled  = bool(blank_cfg.get("enabled", False))
+    blank_rule_str = str(blank_cfg.get("rule", "symbolic"))
+    contagion_cfg  = blank_cfg.get("contagion", {}) or {}
+    contagion_on   = bool(contagion_cfg.get("enabled", False))
+
+    info_cfg     = data.get("information_model", {}) or {}
+    info_enabled = bool(info_cfg.get("enabled", False))
+
+    campaign_cfg   = data.get("campaign", {}) or {}
+    campaign_on    = bool(campaign_cfg.get("enabled", False))
+    num_days       = max(7, min(60, int(campaign_cfg.get("num_days",       30))))
+    polling_effect = max(0.0, min(1.0, float(campaign_cfg.get("polling_effect", 0.3))))
+
+    return (
+        blank_enabled, blank_rule_str, contagion_cfg, contagion_on,
+        info_cfg, info_enabled, campaign_cfg, campaign_on,
+        num_days, polling_effect,
+    )

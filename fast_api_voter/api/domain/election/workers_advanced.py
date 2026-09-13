@@ -26,7 +26,7 @@ from api.engine.utils.simulation_ranked_utils import (
     get_borda_winner, get_condorcet_winner, get_irv_winner, get_plurality_winner,
     get_schulze_winner,
 )
-from ._electorate import _build_base_electorate
+from ._electorate import _reseed_and_build_electorate
 from ._helpers import build_candidate_from_xy as _build_candidate_from_xy
 
 log = get_logger(__name__)
@@ -373,12 +373,8 @@ def _compulsory_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
 
-    _random.seed(seed)
-    _np.random.seed(seed)
-    issues = DEFAULT_ISSUES
-
-    candidates, voters, sincere_utilities, cand_names = _build_base_electorate(
-        cand_specs, num_voters, ideology, seed, issues
+    candidates, voters, sincere_utilities, cand_names, issues = _reseed_and_build_electorate(
+        cand_specs, num_voters, ideology, seed
     )
     voter_ideo:     Dict[int, float] = {
         v["id"]: round(2.0 * v["issue_positions"].get("economy", 0.5) - 1.0, 3)
@@ -551,12 +547,8 @@ def _sortition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
 
-    _random.seed(seed)
-    _np.random.seed(seed)
-    issues = DEFAULT_ISSUES
-
-    candidates, voters, sincere_utilities, cand_names = _build_base_electorate(
-        cand_specs, num_voters, ideology, seed, issues
+    candidates, voters, sincere_utilities, cand_names, issues = _reseed_and_build_electorate(
+        cand_specs, num_voters, ideology, seed
     )
     all_ids: list[int] = [v["id"] for v in voters]
 
@@ -1077,12 +1069,8 @@ def _deliberation_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
 
-    _random.seed(seed)
-    _np.random.seed(seed)
-    issues = DEFAULT_ISSUES
-
-    candidates, voters, sincere_utilities, cand_names = _build_base_electorate(
-        cand_specs, num_voters, ideology, seed, issues
+    candidates, voters, sincere_utilities, cand_names, issues = _reseed_and_build_electorate(
+        cand_specs, num_voters, ideology, seed
     )
 
     # ── Initial ideology (1D economy axis) ───────────────────────────────

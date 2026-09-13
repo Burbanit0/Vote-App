@@ -45,6 +45,17 @@ class TestDivergence:
         assert client.post("/api/v2/election/divergence",
                            json=bad).status_code == 422
 
+    def test_contagion_enabled_still_returns_200(self, client):
+        # _divergence_worker applies contagion whenever `contagion.enabled`
+        # is set, independent of blank_vote.enabled itself.
+        with_contagion = {
+            **self.payload,
+            "blank_vote": {"enabled": True, "rule": "symbolic",
+                           "contagion": {"enabled": True}},
+        }
+        r = client.post("/api/v2/election/divergence", json=with_contagion)
+        assert r.status_code == 200, r.text
+
 
 # ── /interpret ──────────────────────────────────────────────────────────────
 

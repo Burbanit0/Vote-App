@@ -24,7 +24,7 @@ from api.engine.utils.simulation_ranked_utils import (
     get_schulze_winner,
 )
 from api.engine.utils.simulation_score_utils import get_majority_judgment_winner
-from ._electorate import _build_base_electorate
+from ._electorate import _reseed_and_build_electorate
 from ._helpers import build_candidate_from_xy as _build_candidate_from_xy
 
 log = get_logger(__name__)
@@ -48,12 +48,8 @@ def _cascade_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
 
-    _random.seed(seed)
-    _np.random.seed(seed)
-    issues = DEFAULT_ISSUES
-
-    candidates, voters, sincere_utilities, cand_names = _build_base_electorate(
-        cand_specs, num_voters, ideology, seed, issues
+    candidates, voters, sincere_utilities, cand_names, issues = _reseed_and_build_electorate(
+        cand_specs, num_voters, ideology, seed
     )
 
     def _sincere_choice(voter_id: Any) -> str:
@@ -174,12 +170,8 @@ def _behavioral_biases_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
 
-    _random.seed(seed)
-    _np.random.seed(seed)
-    issues = DEFAULT_ISSUES
-
-    candidates, voters, sincere_utilities, cand_names = _build_base_electorate(
-        cand_specs, num_voters, ideology, seed, issues
+    candidates, voters, sincere_utilities, cand_names, issues = _reseed_and_build_electorate(
+        cand_specs, num_voters, ideology, seed
     )
 
     # ── Resolve candidate order for primacy ───────────────────────────────
@@ -531,12 +523,8 @@ def _liquid_democracy_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
 
-    _random.seed(seed)
-    _np.random.seed(seed)
-    issues = DEFAULT_ISSUES
-
-    candidates, voters, sincere_utilities, cand_names = _build_base_electorate(
-        cand_specs, num_voters, ideology, seed, issues
+    candidates, voters, sincere_utilities, cand_names, issues = _reseed_and_build_electorate(
+        cand_specs, num_voters, ideology, seed
     )
     all_ids: list[int] = [v["id"] for v in voters]
     voter_positions = _ld_voter_positions(voters)
@@ -892,12 +880,8 @@ def _nota_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
 
-    _random.seed(seed)
-    _np.random.seed(seed)
-    issues = DEFAULT_ISSUES
-
-    candidates, voters, sincere_utilities, cand_names = _build_base_electorate(
-        cand_specs, num_voters, ideology, seed, issues
+    candidates, voters, sincere_utilities, cand_names, issues = _reseed_and_build_electorate(
+        cand_specs, num_voters, ideology, seed
     )
 
     # ── NOTA determination for a given method+threshold ───────────────────
@@ -1078,12 +1062,8 @@ def _ballot_complexity_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
 
-    _random.seed(seed)
-    _np.random.seed(seed)
-    issues = DEFAULT_ISSUES
-
-    candidates, voters, sincere_utilities, cand_names = _build_base_electorate(
-        cand_specs, num_voters, ideology, seed, issues
+    candidates, voters, sincere_utilities, cand_names, issues = _reseed_and_build_electorate(
+        cand_specs, num_voters, ideology, seed
     )
     n_cands = len(cand_names)
 
@@ -1244,12 +1224,8 @@ def _shy_voter_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
 
-    _random.seed(seed)
-    _np.random.seed(seed)
-    issues = DEFAULT_ISSUES
-
-    candidates, voters, sincere_utilities, cand_names = _build_base_electorate(
-        cand_specs, num_voters, ideology, seed, issues
+    candidates, voters, sincere_utilities, cand_names, issues = _reseed_and_build_electorate(
+        cand_specs, num_voters, ideology, seed
     )
     shy_idx       = min(shy_idx, len(cand_names) - 1)
     shy_candidate = cand_names[shy_idx]
@@ -1390,12 +1366,8 @@ def _electoral_fatigue_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
 
-    _random.seed(seed)
-    _np.random.seed(seed)
-    issues = DEFAULT_ISSUES
-
-    candidates, voters, sincere_utilities, cand_names = _build_base_electorate(
-        cand_specs, num_voters, ideology, seed, issues
+    candidates, voters, sincere_utilities, cand_names, issues = _reseed_and_build_electorate(
+        cand_specs, num_voters, ideology, seed
     )
     all_ids: list[int] = [v["id"] for v in voters]
 
