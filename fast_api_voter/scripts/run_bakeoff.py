@@ -29,7 +29,7 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from api.domain.polity.bakeoff_cases import read_bank  # noqa: E402
+from api.domain.polity.bakeoff_bank import read_bank  # noqa: E402
 from api.domain.polity.bakeoff_runner import DEFAULT_RERUN_FRACTION, run_session  # noqa: E402
 from api.domain.polity.config import PolityConfig  # noqa: E402
 from api.domain.polity.llm_call_log import CALL_LOG_FILENAME, read_calls  # noqa: E402

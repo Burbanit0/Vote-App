@@ -59,12 +59,22 @@ def _group_summary(name: str, group: dict[str, Any]) -> str:
     return f"{name}: {varies}; P by level {curve}; separation {_num(group['separation'])} ({'flat' if group['flat'] else 'moves'})"
 
 
+def _controls_summary(group: str, controls: dict[str, Any]) -> str:
+    """S2.5: each control's agreement with the production rendering, and whether it reads flat."""
+    parts = [
+        f"{name} agrees {_pct(control['agreement_with_base'])}, {'unread' if control['flat'] is None else 'flat' if control['flat'] else 'moves'}"
+        for name, control in controls.items()
+    ]
+    return f"{group} controls: " + ", ".join(parts)
+
+
 def family_summary(family: str, score: dict[str, Any]) -> str:
     if score["kind"] == "truth":
         answers = ", ".join(f"{json.loads(a)}×{n}" for a, n in score["answers"].items())
         return f"{family}: accuracy {_pct(score['accuracy'])}; answers {answers}"
     if score["kind"] == "contrast":
-        return "; ".join(_group_summary(f"{family}/{g}", group) for g, group in score["groups"].items())
+        base = [_group_summary(f"{family}/{g}", group) for g, group in score["groups"].items()]
+        return "; ".join(base + [_controls_summary(g, controls) for g, controls in score.get("controls", {}).items()])
     return (f"{family}: same candidate {_pct(score['same_candidate'])}; same listed position "
             f"{_pct(score['same_listed_position'])}; last listed {_pct(score['last_listed_position'])}")
 
