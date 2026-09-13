@@ -97,7 +97,7 @@ the real debt turns out to be waiting.
 
 ---
 
-*Sourced from [`PLAN_SOLIDITE_TECHNIQUE.md`](../../PLAN_SOLIDITE_TECHNIQUE.md),
+*Sourced from [`PLAN_SOLIDITE_TECHNIQUE.md`](../plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md),
 Lot 2 ("Rendre les conventions exécutables"). The `import-linter` contract
 lives in `fast_api_voter/pyproject.toml`; the custom Semgrep rules in
 `.semgrep/vote-app-rules.yml`; the frontend boundary rule in

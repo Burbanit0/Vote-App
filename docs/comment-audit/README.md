@@ -1,6 +1,6 @@
 # Audit de pertinence des commentaires — Lot 6.1
 
-Phase 1 de l'item [6.1 du plan](../../PLAN_SOLIDITE_TECHNIQUE.md#61--audit-de-pertinence-des-commentaires--l--%E2%AD%90%E2%AD%90-%F0%9F%93%9D%F0%9F%93%9D%F0%9F%93%9D) :
+Phase 1 de l'item [6.1 du plan](../plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md#61--audit-de-pertinence-des-commentaires--l--%E2%AD%90%E2%AD%90-%F0%9F%93%9D%F0%9F%93%9D%F0%9F%93%9D) :
 construire et faire tourner l'approche (a) proposée par le plan (heuristique
 `git log`), pour voir ce qu'elle trouve avant d'investir dans l'approche (b)
 (passe LLM).
@@ -108,5 +108,5 @@ source, cohérent avec le carnet d'expérience séparé (Lot 0.2).
 74 commentaires corrigés ou supprimés, sur 44 fichiers (11 backend,
 33 frontend) ; `ruff`/`mypy`/pytest et `tsc`/`vitest`/`eslint` verts après
 coup. Détail complet dans [PLAN_SOLIDITE_TECHNIQUE.md §6.1](
-../../PLAN_SOLIDITE_TECHNIQUE.md#61--audit-de-pertinence-des-commentaires--l--%E2%AD%90%E2%AD%90-%F0%9F%93%9D%F0%9F%93%9D%F0%9F%93%9D)
+../plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md#61--audit-de-pertinence-des-commentaires--l--%E2%AD%90%E2%AD%90-%F0%9F%93%9D%F0%9F%93%9D%F0%9F%93%9D)
 et dans l'historique de la PR qui a appliqué ces changements.

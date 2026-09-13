@@ -5,7 +5,7 @@
 
 ## Hypothèse de départ
 
-Le [Lot 6.1 du plan](../../PLAN_SOLIDITE_TECHNIQUE.md#61--audit-de-pertinence-des-commentaires--l--%E2%AD%90%E2%AD%90-%F0%9F%93%9D%F0%9F%93%9D%F0%9F%93%9D)
+Le [Lot 6.1 du plan](../plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md#61--audit-de-pertinence-des-commentaires--l--%E2%AD%90%E2%AD%90-%F0%9F%93%9D%F0%9F%93%9D%F0%9F%93%9D)
 propose deux approches pour trouver les commentaires périmés : (a) une
 heuristique par `git log`/`git blame` (comparer la date du commentaire à celle
 du code qu'il surplombe), (b) une passe LLM sémantique par lot. L'hypothèse

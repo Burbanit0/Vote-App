@@ -178,7 +178,7 @@ coverage number can tell the truth about the wrong question.
 
 ---
 
-*Sourced from [`PLAN_SOLIDITE_TECHNIQUE.md`](../../PLAN_SOLIDITE_TECHNIQUE.md)
+*Sourced from [`PLAN_SOLIDITE_TECHNIQUE.md`](../plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md)
 (Lot 5 and Lot 6.5) and
 [`docs/exploration/EXP-003-couverture-runtime-e2e.md`](../exploration/EXP-003-couverture-runtime-e2e.md),
 which carries the full protocol, both debugging detours in detail, and the

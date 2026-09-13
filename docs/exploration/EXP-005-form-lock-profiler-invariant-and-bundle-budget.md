@@ -5,7 +5,7 @@
 
 ## Hypothèse de départ
 
-Le [Lot 8 du plan](../../PLAN_SOLIDITE_TECHNIQUE.md#lot-8--performance) porte
+Le [Lot 8 du plan](../plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md#lot-8--performance) porte
 deux items indépendants mais nés de la même question : une convention **déjà
 écrite** (le form-lock documenté dans le skill `voter-ui`, un budget de
 bundle jamais chiffré) peut-elle être rendue **exécutable**, dans l'esprit du

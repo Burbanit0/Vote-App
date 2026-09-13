@@ -5,7 +5,7 @@
 
 ## Hypothèse de départ
 
-Le [Lot 7 du plan](../../PLAN_SOLIDITE_TECHNIQUE.md#lot-7--surfaces-perçues-par-lutilisateur)
+Le [Lot 7 du plan](../plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md#lot-7--surfaces-perçues-par-lutilisateur)
 pose un vrai angle mort : l'app est presque entièrement visuelle (cartes SVG
 `LeaderCanvas`/`ParliamentCanvas`, Recharts, ~50+ panneaux pédagogiques) et
 aucun signal existant (tests unitaires, audit a11y, e2e fonctionnel) ne
