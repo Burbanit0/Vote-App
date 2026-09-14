@@ -459,16 +459,27 @@ function useController() {
   // ~70 fields behind one object, so every usePlaygroundCtx() consumer
   // (InstrumentPanel, LeaderCanvas, every moment panel — see
   // PlaygroundController.render.test.tsx) re-rendered on every toggle. That
-  // re-render storm was cheap enough to be invisible normally, but under
-  // real CPU contention it's what made a 28-checkbox uncheck loop hang past
-  // WebKit's actionability timeout in the e2e suite (flake-hunter
-  // investigation, 2026-09-13: WebKit's per-frame cost for this app's
-  // re-render pattern is measurably higher than Chromium's for identical
-  // work — 24-way contention reproduced 24/24 WebKit failures against 24/24
-  // Chromium passes on the exact same test). A separate, smaller context
-  // for just this slice means a checkbox toggle only re-renders its own
-  // three real consumers (MethodMoment, ValuesLabPanel, BilanMoment) on
-  // every engine, not just under load.
+  // re-render storm was cheap enough to be invisible normally, but was root-
+  // caused as the reason a 28-checkbox uncheck loop intermittently hung past
+  // WebKit's actionability timeout under real CI-runner CPU contention
+  // (Chromium/Firefox unaffected by the identical contention) -- see the
+  // commit that introduced this split for the full reproduction. A separate,
+  // smaller context for just this slice means a checkbox toggle only
+  // re-renders its own three real consumers (MethodMoment, ValuesLabPanel,
+  // BilanMoment) on every engine, not just under load.
+  //
+  // Scope note: this closes the specific reproduced case, not the general
+  // class. `main` still bundles ~64 other fields (playground/assembly/
+  // config among them) read by roughly a dozen consumers including
+  // InstrumentPanel -> LeaderCanvas, so another rapid-fire control bound to
+  // one of those (e.g. MethodMoment's own assembly-seats slider, or
+  // ElectorateComposer's range inputs) could in principle hit the same
+  // WebKit-under-load ceiling. Splitting per newly-implicated field like
+  // this one, rather than migrating to per-field subscriptions (this repo's
+  // own useElectionStore.tsx Zustand selectors already do that for the
+  // store layer), is the fix that matched this bug's actual size -- revisit
+  // with the more general approach if this class of flake recurs on a
+  // different control.
   const methodSelection = React.useMemo(
     () => ({ enabledRules, setEnabledRules, lensItems }),
     [enabledRules, setEnabledRules, lensItems]
