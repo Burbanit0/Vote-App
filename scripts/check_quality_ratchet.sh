@@ -29,7 +29,7 @@
 #
 # Expects, relative to the repo root (produced by the code-quality job):
 #   fast_api_voter/vulture.txt  fast_api_voter/radon.txt  fast_api_voter/deptry.txt
-#   voter-app/knip.txt          jscpd.txt
+#   voter-app/knip.txt          jscpd.txt          voter-app/sonarjs.txt
 
 set -euo pipefail
 
@@ -66,6 +66,7 @@ require fast_api_voter/radon.txt
 require fast_api_voter/deptry.txt
 require voter-app/knip.txt
 require jscpd.txt
+require voter-app/sonarjs.txt
 
 # vulture: one finding per line.
 vulture=$(strip_ansi < fast_api_voter/vulture.txt | grep -cve '^[[:space:]]*$' || true)
@@ -90,14 +91,22 @@ knip=$(strip_ansi < voter-app/knip.txt \
 jscpd=$(strip_ansi < jscpd.txt | sed -nE 's/^Found ([0-9]+) clones\..*/\1/p' | tail -1)
 jscpd=${jscpd:-0}
 
+# eslint-plugin-sonarjs (informational overlay, `npm run lint:sonarjs` — none of
+# its rules run in the blocking eslint.config.js, see that file's own comment):
+# ESLint's stylish formatter prints its own summary line, "✖ 288 problems (...)",
+# but omits that line entirely at zero findings, hence the same ${var:-0}
+# fallback as jscpd above.
+sonarjs=$(strip_ansi < voter-app/sonarjs.txt | sed -nE 's/^✖ ([0-9]+) problems.*/\1/p' | tail -1)
+sonarjs=${sonarjs:-0}
+
 if [[ $UPDATE -eq 1 ]]; then
   python -c "
 import json, sys
-json.dump({'vulture': $vulture, 'radon_c_plus': $radon, 'deptry': $deptry, 'knip': $knip, 'jscpd_clones': $jscpd},
+json.dump({'vulture': $vulture, 'radon_c_plus': $radon, 'deptry': $deptry, 'knip': $knip, 'jscpd_clones': $jscpd, 'sonarjs': $sonarjs},
           open('$BASELINE', 'w'), indent=2)
 open('$BASELINE', 'a').write('\n')
 "
-  echo "✅ Baseline updated: vulture=$vulture radon=$radon deptry=$deptry knip=$knip jscpd=$jscpd"
+  echo "✅ Baseline updated: vulture=$vulture radon=$radon deptry=$deptry knip=$knip jscpd=$jscpd sonarjs=$sonarjs"
   exit 0
 fi
 
@@ -108,11 +117,11 @@ fi
 
 # One python call does the compare + the report: the exit code and the table have
 # to agree, and splitting them across bash and python is how they drift apart.
-python - "$BASELINE" "$vulture" "$radon" "$deptry" "$knip" "$jscpd" <<'PY'
+python - "$BASELINE" "$vulture" "$radon" "$deptry" "$knip" "$jscpd" "$sonarjs" <<'PY'
 import json, sys
 
 baseline_path, *counts = sys.argv[1:]
-vulture, radon, deptry, knip, jscpd = (int(c) for c in counts)
+vulture, radon, deptry, knip, jscpd, sonarjs = (int(c) for c in counts)
 
 with open(baseline_path) as f:
     base = json.load(f)
@@ -123,6 +132,7 @@ rows = [
     ("deptry (unused/undeclared deps)",   "deptry",       deptry),
     ("knip (TS dead code / unused deps)", "knip",         knip),
     ("jscpd (duplicate clones)",          "jscpd_clones", jscpd),
+    ("sonarjs (informational overlay)",   "sonarjs",      sonarjs),
 ]
 
 grown, shrunk = [], []
