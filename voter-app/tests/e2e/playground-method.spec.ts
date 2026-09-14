@@ -46,7 +46,18 @@ test.describe('Playground — Méthode', () => {
     await expect(page.locator('[data-testid="replay-row-plurality"]')).toBeVisible();
   });
 
-  test('the compared set can never be emptied', async ({ page }) => {
+  test('the compared set can never be emptied', async ({ page, browserName }) => {
+    // WebKit-only: this loop drives ~28 real, sequential clicks, and a clean
+    // (uncontended) CI run measured WebKit at ~30.8s for that -- against
+    // this suite's 30s per-test ceiling, essentially zero margin, not a
+    // render-storm bug. Chromium/Firefox run the identical interaction in
+    // ~4-6s (flake investigation, 2026-09-14, after the PlaygroundController
+    // context-split fix, PR #465, closed a real but separate re-render
+    // coupling that WAS the original cause of this test's earlier flakes).
+    // Budget for WebKit's real per-action cost instead of leaving a test at
+    // ~100% of its own timeout.
+    test.slow(browserName === 'webkit', 'WebKit needs ~30s for this loop of 28 real clicks alone');
+
     // Untick everything the panel offers; the engine must keep at least one rule,
     // otherwise the Bilan has nothing to conclude from.
     const checks = page.locator('[data-testid^="rule-check-"]');
