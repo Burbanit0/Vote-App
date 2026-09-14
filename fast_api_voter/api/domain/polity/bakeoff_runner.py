@@ -13,7 +13,8 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -76,12 +77,36 @@ def _vote_grammar_schema(case: Case, schema: dict[str, Any]) -> dict[str, Any]:
     return vote_cast_json_schema(limit if limit is not None else candidates)
 
 
-ARMS: dict[str, Callable[[Case, dict[str, Any]], dict[str, Any]]] = {
-    "vote_grammar": _vote_grammar_schema,
+THINKING_ARM_TYPES = frozenset({"vote_cast", "chamber_deliberation"})
+"""The decision types S1.3's and S1.4's thinking arms apply to: the two production calls made
+with thinking on."""
+
+
+def _thinking_budget(budget: int) -> Callable[[Case], dict[str, Any]]:
+    """S1.3: vLLM's `thinking_token_budget` on every thinking vote and chamber case."""
+    def request(case: Case) -> dict[str, Any]:
+        if not case.think or case.decision_type not in THINKING_ARM_TYPES:
+            return {}
+        return {"extra_body": {"thinking_token_budget": budget}}
+    return request
+
+
+@dataclass(frozen=True)
+class BakeoffArm:
+    """An A/B arm on the same frozen cases: what a session run with it sends each case in
+    place of the bank's request -- another schema, or request fields merged into the call
+    (`temperature`, `seed`, `extra_body`). Two sessions of one model, with and without an
+    arm, are the A/B the scorecard's paired tests compare."""
+
+    schema: Callable[[Case, dict[str, Any]], dict[str, Any]] | None = None
+    request: Callable[[Case], dict[str, Any]] | None = None
+
+
+ARMS: dict[str, BakeoffArm] = {
+    "vote_grammar": BakeoffArm(schema=_vote_grammar_schema),
+    "thinking_budget_4096": BakeoffArm(request=_thinking_budget(4096)),
+    "thinking_budget_2048": BakeoffArm(request=_thinking_budget(2048)),
 }
-"""Schema arms for an A/B on the same frozen cases: a session run with an arm sends each
-case the arm's schema instead of the bank's. Two sessions of one model, with and without
-an arm, are the A/B the scorecard's paired tests compare."""
 
 
 def _vote_answer(d: Any) -> Any:
@@ -155,10 +180,12 @@ def _call_summary(record: dict[str, Any] | None) -> dict[str, Any]:
     return {key: record.get(key) for key in _CALL_FIELDS} if record is not None else {}
 
 
-def _ask(client: Any, case: Case, config: PolityConfig, schema: dict[str, Any], use_logprobs: bool) -> tuple[str, Any]:
+def _ask(
+    client: Any, case: Case, config: PolityConfig, schema: dict[str, Any], use_logprobs: bool, overrides: Mapping[str, Any],
+) -> tuple[str, Any]:
     max_tokens = resolve_max_tokens(case, client, config)
     request = {"system_prompt": case.system_prompt, "user_prompt": case.user_prompt, "json_schema": schema,
-               "max_tokens": max_tokens, "think": case.think}
+               "max_tokens": max_tokens, "think": case.think, **overrides}
     if use_logprobs:
         content, tokens = client.complete_json_with_logprobs(**request)
         return str(content), tokens
@@ -171,7 +198,7 @@ def _content_sha256(content: str | None) -> str | None:
 
 def run_case(
     case: Case, client: Any, writer: RecordingWriter, config: PolityConfig, schema: dict[str, Any],
-    *, pass_name: str, use_logprobs: bool,
+    *, pass_name: str, use_logprobs: bool, request_overrides: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Ask one case and record what came back. A response the engine would reject is a
     result (invalid), not an error; a request a replayed log does not hold is recorded too."""
@@ -181,7 +208,7 @@ def run_case(
     first_record = len(writer.records)
     try:
         with call_context(kind="decision", decision_type=case.decision_type, unit_ids=case.unit_ids, attempt=0):
-            content, tokens = _ask(client, case, config, schema, use_logprobs)
+            content, tokens = _ask(client, case, config, schema, use_logprobs, request_overrides or {})
         result["answers"] = decode_answers(case, content)
         result["valid"] = True
         if tokens is not None and case.labels.get("value") is not None:
@@ -233,10 +260,16 @@ def gate_aligned(results: Sequence[dict[str, Any]], cases: Sequence[Case]) -> bo
 
 def schema_resolver(bank: CaseBank, arm: str | None) -> Callable[[Case], dict[str, Any]]:
     """The schema each case is sent with: the bank's, or the arm's."""
-    if arm is None:
+    schema_arm = ARMS[arm].schema if arm is not None else None
+    if schema_arm is None:
         return lambda case: bank.schemas[case.decision_type]
-    schema_arm = ARMS[arm]
     return lambda case: schema_arm(case, bank.schemas[case.decision_type])
+
+
+def request_resolver(arm: str | None) -> Callable[[Case], dict[str, Any]]:
+    """The request fields each case is sent with besides the bank's: none, or the arm's."""
+    request_arm = ARMS[arm].request if arm is not None else None
+    return request_arm if request_arm is not None else (lambda case: {})
 
 
 def run_session(
@@ -258,6 +291,7 @@ def run_session(
         json.dumps({**metadata, "bank_sha256": bank.content_sha256, "arm": arm}, indent=2, sort_keys=True)
     )
     schema_for = schema_resolver(bank, arm)
+    request_for = request_resolver(arm)
 
     results_path = session_dir / RESULTS_FILENAME
     done = {(r["case_id"], r["pass"]) for r in read_results(results_path)}
@@ -278,7 +312,8 @@ def run_session(
             for case in batch:
                 if (case.case_id, pass_name) in done:
                     continue
-                result = run_case(case, logged, writer, config, schema_for(case), pass_name=pass_name, use_logprobs=use_logprobs)
+                result = run_case(case, logged, writer, config, schema_for(case), pass_name=pass_name, use_logprobs=use_logprobs,
+                                  request_overrides=request_for(case))
                 _append(results_path, result)
                 answered.append(result)
             return answered

@@ -20,7 +20,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
-from api.domain.polity.llm_call_log import CALL_LOG_FILENAME, read_calls, request_sha256
+from api.domain.polity.llm_call_log import CALL_LOG_FILENAME, completion_request_sha256, read_calls, request_sha256
 from api.domain.polity.llm_client import LlmResponseError, LlmTransportError
 
 _REPLAYABLE_ERRORS: dict[str, type[Exception]] = {
@@ -55,15 +55,7 @@ class ReplayClient:
         return sum(len(answers) for answers in self._answers.values())
 
     def complete_json(self, **kwargs: Any) -> str:
-        request_hash = request_sha256(
-            system_prompt=kwargs["system_prompt"],
-            user_prompt=kwargs["user_prompt"],
-            json_schema=kwargs["json_schema"],
-            max_tokens=kwargs["max_tokens"],
-            think=kwargs.get("think", True),
-            temperature=kwargs.get("temperature"),
-            seed=kwargs.get("seed"),
-        )
+        request_hash = completion_request_sha256(kwargs)
         call = self._next("complete_json", request_hash)
         _raise_recorded_error(call)
         if not isinstance(call.get("content"), str):

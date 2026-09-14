@@ -62,7 +62,7 @@ import logging
 import re
 from dataclasses import dataclass
 from types import TracebackType
-from typing import Any, Callable, Protocol, Sequence, TypeVar
+from typing import Any, Callable, Mapping, Protocol, Sequence, TypeVar
 
 import httpx
 from pydantic import BaseModel, ValidationError
@@ -668,6 +668,7 @@ class VllmJsonClient:
         think: bool = True,
         temperature: float | None = None,
         seed: int | None = None,
+        extra_body: Mapping[str, Any] | None = None,
     ) -> str:
         """Retries only a transport failure, exactly like OllamaJsonClient
         -- see _post_with_transport_retry. A response-level failure
@@ -688,7 +689,7 @@ class VllmJsonClient:
         the retry at the RETRY temperature too."""
         body = self._chat_body(
             system_prompt, user_prompt, max_tokens=max_tokens, think=think, temperature=temperature, seed=seed,
-            json_schema=json_schema,
+            json_schema=json_schema, extra_body=extra_body,
         )
         return _extract_content(self._post_chat(body))
 
@@ -797,6 +798,7 @@ class VllmJsonClient:
         think: bool = True,
         temperature: float | None = None,
         seed: int | None = None,
+        extra_body: Mapping[str, Any] | None = None,
     ) -> tuple[str, list[TokenLogprob]]:
         """plan-llm-protocol-and-theory-program.md §5.C's "real hard
         problem": complete_with_logprobs's own docstring names it and
@@ -832,7 +834,7 @@ class VllmJsonClient:
         then work in that raw offset space)."""
         body = self._chat_body(
             system_prompt, user_prompt, max_tokens=max_tokens, think=think, temperature=temperature, seed=seed,
-            json_schema=json_schema, top_logprobs=top_logprobs,
+            json_schema=json_schema, top_logprobs=top_logprobs, extra_body=extra_body,
         )
         return _extract_content_and_logprobs(self._post_chat(body))
 
@@ -847,11 +849,14 @@ class VllmJsonClient:
         seed: int | None,
         json_schema: dict[str, Any] | None = None,
         top_logprobs: int | None = None,
+        extra_body: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         """The request body every call on this client sends: a total function of the
         call's arguments, with temperature/seed falling back to the client's own
         configured values, the model profile's thinking switch, and -- when asked --
-        a strict JSON-schema response format and token logprobs."""
+        a strict JSON-schema response format and token logprobs. `extra_body` (S1.3's
+        request arms: `thinking_token_budget`, sampling fields) is merged in last, so it
+        may set any field vLLM accepts."""
         body: dict[str, Any] = {
             "model": self._model,
             "messages": [
@@ -872,6 +877,8 @@ class VllmJsonClient:
         if top_logprobs is not None:
             body["logprobs"] = True
             body["top_logprobs"] = top_logprobs
+        if extra_body:
+            body.update(extra_body)
         return body
 
     def _post_chat(self, body: dict[str, Any]) -> httpx.Response:
