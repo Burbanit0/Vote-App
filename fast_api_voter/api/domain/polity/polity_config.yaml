@@ -530,6 +530,12 @@ llm:
                               #      grand budget) — pas prouvé général à
                               #      tout mélange de types de décision ;
                               #      voir llm_batching_determinism_results_gpu.md
+  reproducibility: strict      # [S2.1, D1] strict = un seul worker, un run se
+                              #      régénère octet pour octet depuis sa graine ;
+                              #      relaxed = décisions parallèles dans un tick
+                              #      (parallel.intra_run_workers > 1, vllm
+                              #      seulement), un run se rejoue depuis son
+                              #      llm_calls.jsonl (S0.6).
   vote_cast_grammar_invariants: false  # [S1.2] grammaire vote_cast imposant
                               #      blank=1 <=> ranking vide et la longueur
                               #      maximale du classement
@@ -579,6 +585,7 @@ parallel:
   runs_in_parallel: 1         # [v2] parallélisme ENTRE runs — sans risque
                               #      pour la reproductibilité, c'est le
                               #      levier recommandé (§15bis.3)
-  intra_run_workers: 1        # [v2] sharding INTRA-run — ne pas augmenter
-                              #      avant validation du point ouvert n°20
-                              #      (déterminisme vLLM sous batching)
+  intra_run_workers: 1        # [v2] sharding INTRA-run — > 1 exige
+                              #      llm.reproducibility: relaxed (D1, S2.1) :
+                              #      le batching vLLM change alors les réponses,
+                              #      le run se rejoue mais ne se régénère plus

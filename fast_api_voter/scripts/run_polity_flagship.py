@@ -63,15 +63,13 @@ seconds and spends no GPU -- the cheap way to confirm the config plumbing before
 committing hours to an LLM arm, the same calibration-before-commit checkpoint
 `run_v7_acceptance.py` uses.
 
-`--workers` is plumbed (it sets `parallel.intra_run_workers`) but the engine's
-own `_check_supported()` refuses anything above 1 unconditionally -- Phase 2
-built the concurrency mechanism and then found, via its own live determinism
-proof, that vLLM concurrent batching breaks reproducibility too (not just
-Ollama's already-known issue): 20/497 events diverged between workers=1 and
-workers=8 on an otherwise identical run. See plan-flagship-30y-run.md's own
-Phase 2 writeup and check_intra_run_concurrency_determinism_results.md. The
-flagship therefore runs sequential; `--workers` stays plumbed as ready-to-
-enable groundwork, not a live knob.
+`--workers` sets `parallel.intra_run_workers`. Above 1 it needs
+`--reproducibility relaxed` on vLLM (S2.1, decision D1): Phase 2's live proof found
+that parallel calls change vLLM's batches and so its answers (20/497 events differed
+between workers 1 and 8; check_intra_run_concurrency_determinism_results.md), so such
+a run is reproducible by replaying its call log (`--replay-calls-from`), not by
+re-running its seed. S2.1's sweep (scripts/run_concurrency_sweep.py) measures what it
+costs before relaxed runs are used for results.
 
 `--resume` (Phase 3): continues a crashed or deliberately-stopped run from its
 own last per-tick checkpoint (`checkpoint.json`, beside `events.jsonl` in the
@@ -120,6 +118,7 @@ def _flagship_config(
     workers: int,
     staggered_election: bool = False,
     model: str | None = None,
+    reproducibility: str = "strict",
 ) -> PolityConfig:
     config = load_config()
     config = dataclasses.replace(
@@ -207,7 +206,7 @@ def _flagship_config(
     )
 
     if engine == "llm":
-        llm = dataclasses.replace(config.llm, enabled=True, max_batch_replays=max_batch_replays)
+        llm = dataclasses.replace(config.llm, enabled=True, max_batch_replays=max_batch_replays, reproducibility=reproducibility)
         if provider is not None:
             # Baseline A/B only (plan Phase 0): the shipped default is the
             # single source of truth for which provider production uses --
@@ -427,6 +426,7 @@ def run_flagship(
     staggered_election: bool = False,
     replay_calls_from: Path | None = None,
     model: str | None = None,
+    reproducibility: str = "strict",
 ) -> Path:
     config = _flagship_config(
         engine=engine,
@@ -440,6 +440,7 @@ def run_flagship(
         workers=workers,
         staggered_election=staggered_election,
         model=model,
+        reproducibility=reproducibility,
     )
     validate_config(config)
 
@@ -614,11 +615,14 @@ def main(argv: list[str] | None = None) -> int:
         "--workers",
         type=int,
         default=1,
-        help=(
-            "parallel.intra_run_workers; >1 is refused by the engine on every provider -- Phase 2's own "
-            "determinism proof found vLLM concurrency unsafe too, not just Ollama's already-known issue "
-            "(see plan-flagship-30y-run.md Phase 2 and check_intra_run_concurrency_determinism_results.md)"
-        ),
+        help="parallel.intra_run_workers; above 1 needs --reproducibility relaxed on vllm (S2.1, D1)",
+    )
+    parser.add_argument(
+        "--reproducibility",
+        choices=("strict", "relaxed"),
+        default="strict",
+        help="llm.reproducibility: strict regenerates from the seed; relaxed allows --workers > 1 and "
+             "is reproduced by replaying the call log (S2.1, D1)",
     )
     parser.add_argument(
         "--staggered-election",
@@ -674,6 +678,7 @@ def main(argv: list[str] | None = None) -> int:
         staggered_election=args.staggered_election,
         replay_calls_from=args.replay_calls_from,
         model=args.model,
+        reproducibility=args.reproducibility,
     )
     return 0
 

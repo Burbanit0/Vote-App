@@ -697,20 +697,13 @@ def _check_supported(config: PolityConfig) -> None:
         )
     if config.llm.rationale_mode != "codes":
         raise NotImplementedError(f"llm.rationale_mode {config.llm.rationale_mode!r} is not supported yet (§16.5)")
-    if config.parallel.intra_run_workers != 1:
+    if config.parallel.intra_run_workers != 1 and (config.llm.reproducibility != "relaxed" or config.llm.provider != "vllm"):
+        # check_intra_run_concurrency_determinism_results.md: parallel calls change vLLM's
+        # batches and so its answers (20/497 events differed between workers 1 and 8). D1
+        # accepts that for runs made reproducible by replay (S0.6) -- llm.reproducibility:
+        # relaxed -- and only on vLLM; validate_config says the same with the reason.
         raise NotImplementedError(
-            "parallel.intra_run_workers > 1 is not supported -- concurrent batching breaks "
-            "reproducibility on Ollama (llm_batching_determinism_results.md) AND, contrary to "
-            "this project's own working hypothesis going in, on vLLM too: "
-            "check_intra_run_concurrency_determinism_results.md found 20/497 events (~4%) "
-            "diverging between workers=1 and workers=8 on an otherwise byte-identical config, "
-            "concentrated in vote_cast's first-attempt success/failure outcome, and a real "
-            "increase in that failure rate under concurrent load (30% to 39%), not just a "
-            "reshuffling of which citizen fails -- confirmed against a workers=1-vs-workers=1 "
-            "control (0/497 diffs) to rule out this being inherent, non-concurrency vLLM "
-            "nondeterminism. run_chunks() itself (this module) is written, tested, and ready to "
-            "re-enable if a future investigation resolves the underlying batch-composition "
-            "sensitivity -- this guard is what currently keeps it unreachable."
+            "parallel.intra_run_workers > 1 needs llm.reproducibility: relaxed on the vllm provider (S2.1)"
         )
     check_codebook_version(config.llm.codebook_version)
 
@@ -955,8 +948,8 @@ def run_chunks(
     """The single shared execution strategy behind every chunked decide_*
     entry point (Phase 2, plan-flagship-30y-run.md).
 
-    **Status: written and tested, but not currently reachable.**
-    `_check_supported` refuses `workers > 1` unconditionally --
+    **Reachable under `llm.reproducibility: relaxed` on vLLM (S2.1, decision D1).**
+    Until then `_check_supported` refused `workers > 1` unconditionally --
     `check_intra_run_concurrency_determinism_results.md` found that vLLM
     concurrency ALSO breaks reproducibility (not just Ollama's, the finding
     this guard originally cited): 20/497 events (~4%) diverged between
