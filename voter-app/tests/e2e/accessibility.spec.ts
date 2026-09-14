@@ -46,7 +46,7 @@ async function audit(page: import('@playwright/test').Page, name: string) {
 
 test.describe('WCAG 2.1 AA — axe-core audit', () => {
   test('every surface in src/routes.ts is audited here', () => {
-    assertEverySurfaceAnchored();
+    expect(assertEverySurfaceAnchored).not.toThrow();
   });
 
   for (const path of SURFACES) {

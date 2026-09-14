@@ -20,8 +20,6 @@ export type Income = 'low' | 'middle' | 'high';
 export type PartySimu = 'Green' | 'Conservative' | 'Liberal' | 'Independent';
 type Education = 'none' | 'high_school' | 'bachelor' | 'master' | 'phd';
 type Employment = 'employed' | 'unemployed' | 'self_employed' | 'retired';
-/** @deprecated Use Employment */
-export type Employement = Employment;
 export type Family = 'single' | 'with_children' | 'retired';
 export type Ethnicity = 'native' | 'immigrant';
 export type Religion = 'religious' | 'non_religious';

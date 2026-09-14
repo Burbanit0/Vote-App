@@ -7,6 +7,7 @@ import tseslint from '@typescript-eslint/eslint-plugin';
 import parser from '@typescript-eslint/parser';
 import jsxA11y from 'eslint-plugin-jsx-a11y';
 import unusedImports from 'eslint-plugin-unused-imports';
+import sonarjs from 'eslint-plugin-sonarjs';
 
 export default [
   js.configs.recommended,
@@ -38,6 +39,14 @@ export default [
       prettier,
       'jsx-a11y': jsxA11y,
       'unused-imports': unusedImports,
+      // Registered (not enabled -- no `sonarjs/*` entry below) purely so
+      // `// eslint-disable-next-line sonarjs/<rule>` comments resolve here
+      // too, on a file this config also lints. Without this, ESLint treats
+      // that disable comment as referencing an unknown rule and errors on
+      // it -- exactly the opposite of what a verified-false-positive
+      // suppression is for. The actual sonarjs rules stay off here; they
+      // only run informationally via eslint.sonarjs.config.js (Lot 6.6).
+      sonarjs,
     },
     rules: {
       'react/react-in-jsx-scope': 'off',

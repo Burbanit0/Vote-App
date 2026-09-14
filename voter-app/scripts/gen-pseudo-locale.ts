@@ -74,10 +74,11 @@ generate(
   'pgPseudo'
 );
 
+// Resolved to the local devDependency binary, not a bare "npx" looked up on
+// PATH -- sonarjs/no-os-command-from-path.
 execFileSync(
-  'npx',
+  new URL('../node_modules/.bin/prettier', import.meta.url).pathname,
   [
-    'prettier',
     '--config',
     new URL('../.prettierrc', import.meta.url).pathname,
     '--write',

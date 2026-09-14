@@ -21,16 +21,12 @@ const enKeys = collectKeys(en as unknown as Record<string, unknown>);
 describe('i18n parity', () => {
   test('all fr keys exist in en', () => {
     const missing = frKeys.filter((k) => !enKeys.includes(k));
-    if (missing.length > 0) {
-      throw new Error(`Missing en keys:\n${missing.join('\n')}`);
-    }
+    expect(missing).toEqual([]);
   });
 
   test('all en keys exist in fr', () => {
     const missing = enKeys.filter((k) => !frKeys.includes(k));
-    if (missing.length > 0) {
-      throw new Error(`Missing fr keys:\n${missing.join('\n')}`);
-    }
+    expect(missing).toEqual([]);
   });
 
   test('no empty string values in fr', () => {
@@ -40,9 +36,7 @@ describe('i18n parity', () => {
       for (const p of parts) val = (val as Record<string, unknown>)[p];
       return val === '';
     });
-    if (empty.length > 0) {
-      throw new Error(`Empty fr values:\n${empty.join('\n')}`);
-    }
+    expect(empty).toEqual([]);
   });
 
   test('no empty string values in en', () => {
@@ -52,9 +46,7 @@ describe('i18n parity', () => {
       for (const p of parts) val = (val as Record<string, unknown>)[p];
       return val === '';
     });
-    if (empty.length > 0) {
-      throw new Error(`Empty en values:\n${empty.join('\n')}`);
-    }
+    expect(empty).toEqual([]);
   });
 
   test('interpolation placeholders match between fr and en', () => {
@@ -79,8 +71,6 @@ describe('i18n parity', () => {
       }
     }
 
-    if (mismatches.length > 0) {
-      throw new Error(`Interpolation placeholder mismatches:\n${mismatches.join('\n')}`);
-    }
+    expect(mismatches).toEqual([]);
   });
 });

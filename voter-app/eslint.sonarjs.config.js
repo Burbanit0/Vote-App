@@ -10,4 +10,13 @@
 import base from './eslint.config.js';
 import sonarjs from 'eslint-plugin-sonarjs';
 
-export default [...base, sonarjs.configs.recommended];
+// base now registers the `sonarjs` plugin key too (eslint.config.js, so that
+// `// eslint-disable-next-line sonarjs/<rule>` comments resolve there without
+// erroring on files it also lints) -- with none of its rules turned on.
+// sonarjs.configs.recommended carries its own `plugins: { sonarjs }` entry;
+// flat config accepts the same plugin key registered twice only when both
+// point at the exact same object, so re-declare it here from this file's own
+// `sonarjs` import (the same reference eslint.config.js registers) rather
+// than reusing whatever object sonarjs.configs.recommended.plugins.sonarjs
+// happens to be internally.
+export default [...base, { ...sonarjs.configs.recommended, plugins: { sonarjs } }];

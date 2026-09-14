@@ -13,7 +13,7 @@ import {
 
 test.describe('Navigation — the five real surfaces', () => {
   test('every surface in src/routes.ts is covered here', () => {
-    assertEverySurfaceAnchored();
+    expect(assertEverySurfaceAnchored).not.toThrow();
   });
 
   for (const path of SURFACES) {
@@ -66,6 +66,10 @@ test.describe('Navigation — the five real surfaces', () => {
   });
 
   for (const [from, to] of Object.entries(LEGACY_REDIRECTS)) {
+    // The test body below does assert, via `expect.poll(...).toBe(...)`
+    // (needed for the redirect's own navigation to settle) rather than the
+    // plain `expect(x).matcher()` shape this rule's heuristic recognizes.
+    // eslint-disable-next-line sonarjs/assertions-in-tests -- false positive, see above
     test(`${from} redirects to ${to}`, async ({ page }) => {
       await page.goto(concreteUrl(from));
       // Compare pathnames rather than building a regex out of the target: exact

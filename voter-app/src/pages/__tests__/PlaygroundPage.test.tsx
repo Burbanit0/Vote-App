@@ -458,6 +458,10 @@ describe('PlaygroundPage (P0 shell)', () => {
     const e = useElectionStore.getState().playground.electorate;
     expect(e.mode).toBe('composed');
     expect(e.correlation).toBe(0.5);
+    // Number(o.noise) || 0 (see ElectorateComposer.tsx's import handler) is a
+    // no-op on an already-numeric JSON value -- no rounding/arithmetic
+    // between the literal above and this read-back.
+    // eslint-disable-next-line sonarjs/no-floating-point-equality -- see above
     expect(e.noise).toBe(0.2);
     expect(e.communities).toHaveLength(1);
     expect(e.communities[0].label).toBe('Importé');

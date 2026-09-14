@@ -12,7 +12,7 @@ import { SURFACES, ANCHORS, assertEverySurfaceAnchored } from './routes';
 
 test.describe('Mobile viewport — the five real surfaces', () => {
   test('every surface in src/routes.ts is covered here', () => {
-    assertEverySurfaceAnchored();
+    expect(assertEverySurfaceAnchored).not.toThrow();
   });
 
   for (const path of SURFACES) {
