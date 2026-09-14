@@ -74,8 +74,12 @@ jobs:
       # instead of a cryptic missing-browser error discovered later.
       - name: Assert @playwright/test matches the visual-regression image tag
         run: |
-          pkg_version=$(grep -oP '"@playwright/test":\s*"\^?\K[0-9.]+' voter-app/package.json)
-          image_version=$(grep -oP 'mcr\.microsoft\.com/playwright:v\K[0-9.]+' .github/workflows/e2e.yml)
+          # `|| true` on each grep: GH Actions runs `run:` under `bash -eo
+          # pipefail`, so a non-matching grep (exit 1) would otherwise abort
+          # the script right here -- before the explicit empty-value
+          # diagnostic below ever gets a chance to run.
+          pkg_version=$(grep -oP '"@playwright/test":\s*"\^?\K[0-9.]+' voter-app/package.json || true)
+          image_version=$(grep -oP 'mcr\.microsoft\.com/playwright:v\K[0-9.]+' .github/workflows/e2e.yml || true)
           if [ -z "$pkg_version" ] || [ -z "$image_version" ]; then
             echo "::error::Could not extract one of the two versions to compare (package_version='$pkg_version' image_version='$image_version') -- this check itself needs fixing, not just the versions it compares."
             exit 1
@@ -188,7 +192,13 @@ jobs:
           retention-days: 7
 
   visual-regression:
-    needs: changes
+    # Waits on playwright-image-sync (not just changes): this job is the one
+    # actually at risk from a desynced image tag, and a fast, explicit
+    # version-mismatch failure here is the whole point of that job -- running
+    # them in parallel would still spend the full ~15 minutes on this job's
+    # real container pull + Playwright run before its own cryptic
+    # missing-browser error, right alongside the fast one.
+    needs: [changes, playwright-image-sync]
     if: |
       always() &&
       (github.event_name == 'workflow_dispatch' ||
