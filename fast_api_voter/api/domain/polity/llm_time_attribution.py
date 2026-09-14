@@ -156,11 +156,36 @@ def _tick_row(tick: int, members: list[tuple[int, dict[str, Any]]], superseded: 
     }
 
 
+def attempts(calls: Sequence[dict[str, Any]]) -> list[list[dict[str, Any]]]:
+    """The call log split into the process attempts that wrote it: each attempt of a run
+    (the first, and every resume) opens with its warm-up calls."""
+    split: list[list[dict[str, Any]]] = []
+    for call in calls:
+        opens = call.get("kind") == "warm_up" and (not split or split[-1][-1].get("kind") != "warm_up")
+        if opens or not split:
+            split.append([])
+        split[-1].append(call)
+    return split
+
+
+def kept_calls(calls: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The calls whose results a resumed run kept: an attempt's calls for a tick the next
+    attempt ran again (from its checkpoint) are dropped, since that tick restarted from scratch."""
+    split = attempts(calls)
+    kept: list[dict[str, Any]] = []
+    for attempt, following in zip(split, split[1:] + [[]]):
+        restart = min((c["tick"] for c in following if c.get("tick") is not None), default=None)
+        kept += [c for c in attempt if restart is None or c.get("tick") is None or c["tick"] < restart]
+    return kept
+
+
 def attribute_run(run_dir: Path) -> dict[str, Any]:
-    """Attribution for a run directory: its llm_calls.jsonl over progress.json's
-    wall-clock (null when the run never wrote progress)."""
+    """Attribution for a run directory: the calls its journal kept (see kept_calls) over
+    progress.json's wall-clock. The wall-clock is null when the run never wrote progress, or
+    was resumed: progress then times the last attempt only."""
+    calls = read_calls(run_dir / CALL_LOG_FILENAME)
     progress_path = run_dir / "progress.json"
     wall_clock = None
-    if progress_path.exists():
+    if progress_path.exists() and len(attempts(calls)) <= 1:
         wall_clock = json.loads(progress_path.read_text(encoding="utf-8")).get("wall_clock_elapsed_seconds")
-    return attribute(read_calls(run_dir / CALL_LOG_FILENAME), wall_clock)
+    return attribute(kept_calls(calls), wall_clock)
