@@ -80,13 +80,13 @@ recorded here, with the date.
 
 | ID | Decision | Gates | Recorded |
 |---|---|---|---|
-| D1 | Runs are **replayable** from their call log rather than **regenerable** byte-for-byte from their seed | S2.1 | |
-| D2 | Population vote: keep LLM `vote_cast` for every citizen, or a deterministic utility vote with the LLM as audit sample (needs an ADR) | S4.1 | |
-| D3 | Ordinary legislation (ADR-009) before ADR-008 constitutional amendments | S4.2 | |
+| D1 | Runs are **replayable** from their call log rather than **regenerable** byte-for-byte from their seed | S2.1 | 2026-09-13: replayable from the call log (S0.6 replay is byte-identical); parallel decisions allowed |
+| D2 | Population vote: keep LLM `vote_cast` for every citizen, or a deterministic utility vote with the LLM as audit sample (needs an ADR) | S4.1 | 2026-09-13: deterministic utility vote, the LLM voting on an audit sample |
+| D3 | Ordinary legislation (ADR-009) before ADR-008 constitutional amendments | S4.2 | 2026-09-13: ordinary legislation first |
 | D4 | Adopt non-greedy sampling for thinking calls — only if S1.4 shows it helps | S1.4 adoption | |
 | D5 | Launch the p500 batch once Stage 0 is closed, under S0.7's pre-registration | S0.8 | 2026-09-13: launch now, from a worktree at `04358d24` |
-| D6 | What should differ between two elections of a run: today nothing the candidacy and nomination decisions read changes, so the same field returns every time (`observations.md` OBS-001–003, OBS-010). Levers: term limits (enforced on both engines since OBS-012's fix), barring or informing about a recalled president, dynamic citizens, sampling above temperature 0 | S4.3 scope | |
-| D7 | What the sortition chamber deliberates on: today it has no agenda and its prompt tells it to hold still (OBS-004) | S4.2's chamber role | |
+| D6 | What should differ between two elections of a run: today nothing the candidacy and nomination decisions read changes, so the same field returns every time (`observations.md` OBS-001–003, OBS-010). Levers: term limits (enforced on both engines since OBS-012's fix), barring or informing about a recalled president, dynamic citizens, sampling above temperature 0 | S4.3 scope | 2026-09-13: four levers -- dynamic citizens (S4.3), a retrospective vote (S4.1), `president_term_limit: 2` by default, and a recalled president barred from the snap election that follows the recall. Sampling stays at temperature 0 |
+| D7 | What the sortition chamber deliberates on: today it has no agenda and its prompt tells it to hold still (OBS-004) | S4.2's chamber role | 2026-09-13: the chamber reviews bills, with its suspensive veto (S4.2); its current deliberation calls continue until then |
 
 ---
 
