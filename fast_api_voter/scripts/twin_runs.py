@@ -50,6 +50,17 @@ def recording(name: str, recorder: Callable[[tuple[Any, ...], dict[str, Any], An
         setattr(engine, name, real)
 
 
+@contextmanager
+def observing(observer: Callable[[Any, Any], None]) -> Iterator[None]:
+    """Append a last phase to every tick that hands its context and state to `observer`."""
+    real = engine.TICK_PHASES
+    engine.TICK_PHASES = (*real, observer)
+    try:
+        yield
+    finally:
+        engine.TICK_PHASES = real
+
+
 def run_twin(config: PolityConfig) -> list[dict[str, Any]]:
     """Run `config` to the end and return its journal's events."""
     return run_twin_with_snapshots(config)[0]

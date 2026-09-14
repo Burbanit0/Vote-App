@@ -305,3 +305,101 @@ def closest_to(target: float, measure: str) -> Callable[[Arm], float]:
         value = arm.measures.get(measure)
         return math.inf if value is None else abs(value - target)
     return key
+
+
+# ── S4.2: ordinary legislation (ADR-009) ──────────────────────────────────
+
+@dataclass(frozen=True)
+class PolicyTick:
+    """A tick with an assembly and a sitting president: how far policy and the president's
+    revealed position stand from the population's per-issue median (RMS per issue)."""
+
+    seed: int
+    tick: int
+    policy_distance: float
+    president_distance: float
+
+
+def checks_moderate(ticks: Sequence[PolicyTick]) -> Fact:
+    """ADR-009 L1: policy nearer the median than the sitting president, averaged over ticks."""
+    policy = _mean([t.policy_distance for t in ticks])
+    president = _mean([t.president_distance for t in ticks])
+    holds = policy is not None and president is not None and policy < president
+    reading = "–" if policy is None or president is None else f"policy {policy:.4f} from the median, president {president:.4f}"
+    return Fact("L1 checks moderate policy", holds, reading)
+
+
+def legislation_alive(enacted: Sequence[int], terms: Sequence[int], min_moving_runs: int = 9) -> Fact:
+    """ADR-009 L2: at least one bill enacted per presidential term (pooled over runs), and
+    policy moved in at least `min_moving_runs` runs. `enacted` and `terms` are per run."""
+    per_term = _rate(sum(enacted), sum(terms))
+    moving = sum(count > 0 for count in enacted)
+    holds = per_term is not None and per_term >= 1 and moving >= min_moving_runs
+    return Fact("L2 the institution is alive", holds,
+                f"{'–' if per_term is None else f'{per_term:.2f}'} bills enacted per term; policy moved in {moving} of {len(enacted)} runs")
+
+
+@dataclass(frozen=True)
+class Draft:
+    seed: int
+    regime: str
+    """"cohabitation", "unified" or "no_government"."""
+    enacted: bool
+
+
+def gridlock_under_cohabitation(drafts: Sequence[Draft], minimum: int = 20) -> Fact:
+    """ADR-009 L3: a lower enacted share under cohabitation than under unified government,
+    pooled; unmeasured -- and so not holding -- when either regime drafted fewer than `minimum`."""
+    def share(regime: str) -> tuple[int, int]:
+        bills = [d for d in drafts if d.regime == regime]
+        return sum(d.enacted for d in bills), len(bills)
+
+    (co_enacted, co_drafted), (un_enacted, un_drafted) = share("cohabitation"), share("unified")
+    measured = co_drafted >= minimum and un_drafted >= minimum
+    co_rate, un_rate = _rate(co_enacted, co_drafted), _rate(un_enacted, un_drafted)
+    holds = measured and co_rate is not None and un_rate is not None and co_rate < un_rate
+    reading = (f"enacted {co_enacted}/{co_drafted} ({_percent(co_rate)}) under cohabitation, "
+               f"{un_enacted}/{un_drafted} ({_percent(un_rate)}) unified" + ("" if measured else "; unmeasured"))
+    return Fact("L3 gridlock under cohabitation", holds, reading)
+
+
+@dataclass(frozen=True)
+class GovernmentSpell:
+    """A coalition formed at one legislative election: its parties' combined vote share then,
+    and at the next legislative election."""
+
+    seed: int
+    share_at_formation: float
+    share_next: float
+
+
+def mean_share_change(spells: Sequence[GovernmentSpell]) -> float | None:
+    return _mean([s.share_next - s.share_at_formation for s in spells])
+
+
+def cost_of_ruling(spells: Sequence[GovernmentSpell], baseline: Sequence[GovernmentSpell]) -> Fact:
+    """ADR-009 L4: the governing parties' share falls on average, and by more than with no
+    policy retrospection."""
+    change, zero = mean_share_change(spells), mean_share_change(baseline)
+    holds = change is not None and zero is not None and change < 0 and change < zero
+    reading = ("–" if change is None or zero is None
+               else f"governing share changes {100 * change:+.2f} points (retrospection 0: {100 * zero:+.2f})")
+    return Fact("L4 cost of ruling", holds, reading)
+
+
+def lowest_qualifying_weight(
+    by_weight: Sequence[tuple[float, Sequence[GovernmentSpell]]], baseline: Sequence[GovernmentSpell],
+) -> tuple[float | None, Fact]:
+    """L4's pick: the smallest weight whose spells meet the cost of ruling, with its fact; the
+    largest weight's failing fact when none does."""
+    ordered = sorted(by_weight, key=lambda item: item[0])
+    for weight, spells in ordered:
+        fact = cost_of_ruling(spells, baseline)
+        if fact.holds:
+            return weight, fact
+    return None, cost_of_ruling(ordered[-1][1], baseline) if ordered else Fact("L4 cost of ruling", False, "–")
+
+
+def legislation_choice(arm: Arm) -> tuple[float, float]:
+    """The pre-registered order: the lowest bill rate (the longest interval), then the smallest step."""
+    return (-arm.setting["bill_interval_ticks"], arm.setting["max_bill_step"])

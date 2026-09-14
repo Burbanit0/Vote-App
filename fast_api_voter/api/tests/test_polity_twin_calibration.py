@@ -154,3 +154,45 @@ def test_emotion_facts_read_terciles_within_each_run_and_full_terms() -> None:
 
     arms = [Arm({"x": 1}, (), {"m": 0.7}), Arm({"x": 2}, (), {"m": None})]
     assert [closest_to(0.8, "m")(arm) for arm in arms] == [abs(0.7 - 0.8), float("inf")]
+
+
+# ── S4.2 ──────────────────────────────────────────────────────────────────
+
+def test_legislation_facts_on_hand_built_records() -> None:
+    from api.domain.polity.twin_calibration import (
+        Draft,
+        GovernmentSpell,
+        PolicyTick,
+        checks_moderate,
+        cost_of_ruling,
+        gridlock_under_cohabitation,
+        legislation_alive,
+        legislation_choice,
+        lowest_qualifying_weight,
+        mean_share_change,
+    )
+
+    ticks = [PolicyTick(1, 8, 0.02, 0.10), PolicyTick(1, 9, 0.04, 0.08)]
+    assert checks_moderate(ticks).holds and checks_moderate(ticks).reading == "policy 0.0300 from the median, president 0.0900"
+    assert not checks_moderate([PolicyTick(1, 8, 0.2, 0.1)]).holds and not checks_moderate([]).holds
+
+    assert legislation_alive([4, 3] + [1] * 8, [4] * 10).reading == "0.38 bills enacted per term; policy moved in 10 of 10 runs"
+    assert legislation_alive([5] * 9 + [0], [4] * 10).holds
+    assert not legislation_alive([40] * 8 + [0, 0], [4] * 10).holds
+    assert not legislation_alive([], []).holds
+
+    drafts = [Draft(1, "cohabitation", i < 5) for i in range(20)] + [Draft(1, "unified", i < 10) for i in range(20)] + [Draft(1, "no_government", True)]
+    assert gridlock_under_cohabitation(drafts).holds
+    assert gridlock_under_cohabitation(drafts[:25]).reading.endswith("; unmeasured")
+    assert not gridlock_under_cohabitation(drafts[:25]).holds
+
+    falling = [GovernmentSpell(1, 0.5, 0.45), GovernmentSpell(2, 0.4, 0.38)]
+    flat = [GovernmentSpell(1, 0.5, 0.5)]
+    assert mean_share_change(falling) == -(0.05 + 0.02) / 2
+    assert cost_of_ruling(falling, flat).holds and not cost_of_ruling(flat, falling).holds
+    assert not cost_of_ruling([], flat).holds
+    assert lowest_qualifying_weight([(5.0, falling), (2.0, flat)], flat)[0] == 5.0
+    weight, fact = lowest_qualifying_weight([(2.0, flat), (5.0, flat)], flat)
+    assert weight is None and not fact.holds
+    assert lowest_qualifying_weight([], flat) == (None, lowest_qualifying_weight([], flat)[1])
+    assert legislation_choice(Arm({"bill_interval_ticks": 4, "max_bill_step": 0.1}, ())) == (-4, 0.1)
