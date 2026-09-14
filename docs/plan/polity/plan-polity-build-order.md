@@ -715,8 +715,10 @@ alongside it.
    5. S1.4's sampling arm. Adoption is D4.
    6. S2.1's sweep, `kv-auto`. Then the same with the server restarted with
       `--kv-cache-dtype fp8`, and the server restored.
-4. **S2.4 is blocked on disk.** The root filesystem has 6.7 GB free, and five candidate models need
-   several times that. What to free is the owner's call (D8).
+4. **S2.4 runs after the queue.** The candidate models download into the vLLM container's Hugging
+   Face cache volume. That volume lives under `/var/lib/docker`, a separate 335 GB partition with
+   300 GB free. (First written here as blocked on the root filesystem's 6.7 GB free; D8 closed
+   for that reason.)
 
 | ID | Decision | Gates | Recorded |
 |---|---|---|---|
@@ -737,7 +739,7 @@ alongside it.
 - **The combined check does not apply:** no calibration adopted a setting (S4.1, S4.3 and S4.2 all
   stay off).
 
-| D8 | Free enough disk for S2.4's five candidate models (about 25–30 GB), and choose what goes | S2.4 | |
+| D8 | Free enough disk for S2.4's five candidate models (about 25–30 GB), and choose what goes | S2.4 | 2026-09-14: not needed. Docker's data, the vLLM model cache included, is on its own partition with 300 GB free |
 | D9 | The three Stage 4 calibrations ran on a twin whose presidents are recalled after a median of 2 ticks (OBS-015). That churn leaves too few incumbents for S4.1 fact 1 and no full term for S4.3's E3, and it multiplies the terms in S4.2's L2. Nothing qualified. Cause shown: a steady pressure gap above 0.055 walks legitimacy to the recall floor; with the pressure channels off there is no recall. Options: accept the verdicts; or first make the twin's presidency last (pressure weights, the recall floor, or a pressure rule calibrated against the LLM path's), then re-run all three under a new pre-registration | re-calibrating S4.1–S4.3 | |
 
 ### S4.1's grid, pre-registered before running (ADR-011 gave the facts, not the grid)
