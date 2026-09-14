@@ -2011,11 +2011,15 @@ trouvailles réelles**, aucune un paquet malveillant :
   CI reste par prudence hors de la boucle PR normale (cron + push `develop`
   seulement, même raisonnement que le job `image-scan` déjà dans ce
   fichier), non-bloquant dans tous les cas.
-- `pygit2<1.19` (dépendance de `guarddog`) n'a pas de wheel `cp314` (vérifié
-  contre l'index PyPI — les wheels `cp314` n'existent qu'à partir de
-  `pygit2==1.20.0`) : installer `guarddog` dans le venv 3.14 réel de ce dépôt
-  échouerait. Pas ajouté à `requirements-dev.txt` pour cette raison ; job CI
-  dédié avec son propre `actions/setup-python` (3.13).
+- `guarddog` épingle `pygit2<1.19,>=1.11` ; les wheels `cp314` de `pygit2`
+  n'existent qu'à partir de `pygit2==1.19.0` (vérifié contre l'index PyPI —
+  `1.18.2` et les versions antérieures n'en ont aucune). `guarddog` ne pourra
+  donc jamais résoudre un `pygit2` compatible `cp314`, quelle que soit la
+  version publiée ensuite : le vrai plafond, permanent, c'est l'épinglage de
+  `guarddog` lui-même, pas l'historique des wheels de `pygit2`. Installer
+  `guarddog` dans le venv 3.14 réel de ce dépôt échouerait. Pas ajouté à
+  `requirements-dev.txt` pour cette raison ; job CI dédié avec son propre
+  `actions/setup-python` (3.13).
 
 **DAST — ZAP baseline, détail.** `.github/workflows/dast.yml`, nouveau
 workflow dédié (pas un job dans `audit.yml` : c'est le seul scanner du plan
