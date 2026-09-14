@@ -91,12 +91,14 @@ knip=$(strip_ansi < voter-app/knip.txt \
 jscpd=$(strip_ansi < jscpd.txt | sed -nE 's/^Found ([0-9]+) clones\..*/\1/p' | tail -1)
 jscpd=${jscpd:-0}
 
-# eslint-plugin-sonarjs (informational overlay, `npm run lint:sonarjs` — none of
-# its rules run in the blocking eslint.config.js, see that file's own comment):
-# ESLint's stylish formatter prints its own summary line, "✖ 288 problems (...)",
-# but omits that line entirely at zero findings, hence the same ${var:-0}
-# fallback as jscpd above.
-sonarjs=$(strip_ansi < voter-app/sonarjs.txt | sed -nE 's/^✖ ([0-9]+) problems.*/\1/p' | tail -1)
+# eslint-plugin-sonarjs (informational overlay, `npx eslint -c
+# eslint.sonarjs.config.js` — none of its rules run in the blocking
+# eslint.config.js, see that file's own comment): ESLint's stylish formatter
+# prints its own summary line, "✖ 288 problems (...)", but drops the trailing
+# "s" at exactly 1 ("✖ 1 problem (...)", confirmed against the formatter's own
+# `pluralize()`) -- `problems?` covers both. The line is omitted entirely at
+# zero findings, hence the same ${var:-0} fallback as jscpd above.
+sonarjs=$(strip_ansi < voter-app/sonarjs.txt | sed -nE 's/^✖ ([0-9]+) problems?.*/\1/p' | tail -1)
 sonarjs=${sonarjs:-0}
 
 if [[ $UPDATE -eq 1 ]]; then
@@ -157,8 +159,9 @@ if grown:
     print("   These tools are non-blocking on their own, but the total may not grow.", file=sys.stderr)
     print("   Fix the new findings, or — if a finding is a false positive — silence it", file=sys.stderr)
     print("   at the source (.vulture_whitelist.py, fast_api_voter/pyproject.toml's", file=sys.stderr)
-    print("   [tool.deptry], voter-app/knip.json, .jscpd.json)", file=sys.stderr)
-    print("   rather than raising the baseline.", file=sys.stderr)
+    print("   [tool.deptry], voter-app/knip.json, .jscpd.json, or for sonarjs a", file=sys.stderr)
+    print("   `// eslint-disable-next-line sonarjs/<rule>` comment / rule override in", file=sys.stderr)
+    print("   voter-app/eslint.sonarjs.config.js) rather than raising the baseline.", file=sys.stderr)
     sys.exit(1)
 
 if shrunk:
