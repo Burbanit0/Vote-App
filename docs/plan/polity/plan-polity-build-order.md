@@ -707,6 +707,23 @@ alongside it.
 
 | ID | Decision | Gates | Recorded |
 |---|---|---|---|
+**How it runs (set 2026-09-13, 22:45).**
+
+- **The batch** runs as the user unit `polity-p500-batch`, started 22:15, from the S0.7 worktree.
+- **The GPU sessions of step 3** wait in a second unit, `polity-gpu-queue`. It runs
+  `Vote-App-gpu-queue/gpu_queue.sh`, from a worktree pinned at `7376c702`, and starts when the batch
+  unit ends. Step by step:
+  1. S2.2's control session.
+  2. S1.2's arm.
+  3. S1.3's check, and its two arms only if the budget is honoured.
+  4. S1.4's arm.
+  5. S2.1's `kv-auto` sweep.
+
+  Each step's start, end and exit code go to `Vote-App-gpu-queue/gpu_queue.log`. The `kv-fp8` sweep
+  needs a server restart and is done by hand after.
+- **The combined check does not apply:** no calibration adopted a setting (S4.1, S4.3 and S4.2 all
+  stay off).
+
 | D8 | Free enough disk for S2.4's five candidate models (about 25–30 GB), and choose what goes | S2.4 | |
 | D9 | The three Stage 4 calibrations ran on a twin whose presidents are recalled after a median of 2 ticks (OBS-015). That churn leaves too few incumbents for S4.1 fact 1 and no full term for S4.3's E3, and it multiplies the terms in S4.2's L2. Nothing qualified. Options: accept the verdicts; or first make the twin's presidency last (the deterministic pressure rule is the suspect), then re-run all three under a new pre-registration | re-calibrating S4.1–S4.3 | |
 
