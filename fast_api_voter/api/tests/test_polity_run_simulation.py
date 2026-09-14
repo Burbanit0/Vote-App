@@ -2171,8 +2171,13 @@ class _LaunchingFakeLlmClient(_ElectingFakeLlmClient):
 
 
 def _config_with_llm_enabled(output_dir) -> PolityConfig:
+    # The model casts every ballot here (vote.mode llm): these tests exercise the LLM
+    # decision paths, several through the fakes' own votes. S4.1's utility vote, shipped
+    # by default, is tested in test_polity_utility_vote.py.
     config = _config_with_output_dir(output_dir)
-    return dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=True))
+    return dataclasses.replace(
+        config, llm=dataclasses.replace(config.llm, enabled=True), vote=dataclasses.replace(config.vote, mode="llm"),
+    )
 
 
 def test_llm_path_completes_and_journals_vote_cast_events(tmp_path):

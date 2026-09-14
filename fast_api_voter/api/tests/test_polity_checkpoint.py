@@ -7,6 +7,7 @@ given, since `run_simulation`'s own resume path splices these straight back
 into its tick loop with no further validation.
 """
 import dataclasses
+import json
 
 import numpy as np
 import pytest
@@ -151,6 +152,18 @@ def test_round_trip_preserves_pending_rerun(tmp_path):
     _save(path, config, pending_rerun=pending)
 
     assert load_checkpoint(path).state.pending_rerun == pending
+
+
+def test_a_rerun_s_incumbent_round_trips_and_is_left_out_when_unset(tmp_path):
+    # S4.1: the president a rerun judges. Written only when set, so checkpoints from before
+    # S4.1 (no key) load and re-serialize unchanged.
+    config = load_config()
+    path = tmp_path / "checkpoint.json"
+    judged = PendingRerun(attempt=1, next_tick=5, barred_candidate_ids=frozenset({4}), incumbent_id=4)
+    _save(path, config, pending_rerun=judged)
+    assert load_checkpoint(path).state.pending_rerun == judged
+    _save(path, config, pending_rerun=PendingRerun(attempt=1, next_tick=5, barred_candidate_ids=frozenset()))
+    assert "incumbent_id" not in json.loads(path.read_text())["pending_rerun"]
 
 
 def test_round_trip_preserves_pending_rerun_none(tmp_path):

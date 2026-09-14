@@ -1,6 +1,9 @@
 """S2.1's concurrency sweep: the same 1-year, population-100 flagship run at several worker
 counts, then the comparison pre-registered in plan-polity-build-order.md against workers = 1.
 
+Every arm pins `vote.mode: llm` (S4.1, ADR-011): the measure is vote_cast agreement, so
+the model must cast every ballot rather than the shipped utility mode's audit sample.
+
 `run` needs the vLLM server (GPU). The FP8 KV cache is a server setting -- vLLM's
 `--kv-cache-dtype fp8`, which docker-compose.llm.yml does not set today (auto): run the
 arms once per server configuration, under a --label that names it.
@@ -30,7 +33,7 @@ from api.domain.polity.run_polity_simulation import config_hash  # noqa: E402
 from run_polity_flagship import _flagship_config  # noqa: E402
 
 DEFAULT_ROOT = Path(__file__).resolve().parent / "concurrency_sweep_runs"
-SHAPE = {"years": 1, "population": 100, "seats": 30, "seed": 42, "max_batch_replays": 2}
+SHAPE = {"years": 1, "population": 100, "seats": 30, "seed": 42, "max_batch_replays": 2, "vote_mode": "llm"}
 
 
 def _arm(workers: int) -> dict[str, Any]:
@@ -47,7 +50,7 @@ def run(label: str, workers: list[int], root: Path) -> int:
                    "--years", str(arm["years"]), "--population", str(arm["population"]), "--seats", str(arm["seats"]),
                    "--seed", str(arm["seed"]), "--max-batch-replays", str(arm["max_batch_replays"]),
                    "--workers", str(arm["workers"]), "--reproducibility", arm["reproducibility"],
-                   "--run-id", arm["run_id"], "--output-dir", str(sweep_dir)]
+                   "--vote-mode", arm["vote_mode"], "--run-id", arm["run_id"], "--output-dir", str(sweep_dir)]
         print("$", " ".join(command), flush=True)
         if subprocess.run(command, check=False).returncode != 0:
             print(f"arm {arm['run_id']} failed; stopping", file=sys.stderr)
@@ -90,7 +93,8 @@ def compare(label: str, root: Path) -> int:
         run_dir = sweep_dir / arm["run_id"] / "run" / arm["run_id"]
         config = _flagship_config(engine="llm", years=arm["years"], population=arm["population"], seats=arm["seats"],
                                   seed=arm["seed"], output_dir=Path("unused"), max_batch_replays=arm["max_batch_replays"],
-                                  provider="vllm", workers=arm["workers"], reproducibility=arm["reproducibility"])
+                                  provider="vllm", workers=arm["workers"], reproducibility=arm["reproducibility"],
+                                  vote_mode=arm["vote_mode"])
         recorded = json.loads((run_dir / "run_metadata.json").read_text())["config_hash"]
         if recorded != config_hash(config):
             print(f"{run_dir}: recorded under a different config than the manifest describes", file=sys.stderr)

@@ -24,6 +24,7 @@ def _config(output_dir: Path, *, workers: int = 1, reproducibility: str = "stric
     config = golden_config(output_dir, llm=True)
     return dataclasses.replace(
         config,
+        vote=dataclasses.replace(config.vote, mode="llm"),  # as the sweep: the model casts every ballot
         llm=dataclasses.replace(config.llm, reproducibility=reproducibility, provider=provider),
         parallel=dataclasses.replace(config.parallel, intra_run_workers=workers),
     )
@@ -111,6 +112,9 @@ def test_first_attempt_failures_count_what_did_not_stand() -> None:
 def test_a_recorded_arm_is_measured_by_replay_and_compared_on_the_preregistered_bands(tmp_path: Path) -> None:
     baseline_journal = run_simulation(_config(tmp_path / "w1"), run_id="w1", llm_client=_ElectingFakeLlmClient())
     arm_journal = run_simulation(_config(tmp_path / "w4", workers=4, reproducibility="relaxed"), run_id="w4", llm_client=_ElectingFakeLlmClient())
+    for journal, seconds in ((baseline_journal, 8.0), (arm_journal, 2.0)):  # a fake run's own wall clock rounds to 0.0
+        progress = journal.parent / "progress.json"
+        progress.write_text(json.dumps(json.loads(progress.read_text()) | {"wall_clock_elapsed_seconds": seconds}))
     baseline = cc.measure_run(baseline_journal.parent, _config(tmp_path / "unused"), label="w1")
     arm = cc.measure_run(arm_journal.parent, _config(tmp_path / "unused", workers=4, reproducibility="relaxed"), label="w4")
 
@@ -119,7 +123,7 @@ def test_a_recorded_arm_is_measured_by_replay_and_compared_on_the_preregistered_
     assert arm.workers == 4 and set(arm.first_attempt_failures) >= {"vote_cast", "candidacy_considered"}
     verdict = cc.compare_to_baseline(baseline, arm)
     assert (verdict["vote_agreement_points"], verdict["vote_agreement_within_band"], verdict["vote_first_attempt_failure_within_band"]) == (0.0, True, True)
-    assert verdict["speedup"] is not None and verdict["replays_to_its_journal"] is True
+    assert verdict["speedup"] == 4.0 and verdict["replays_to_its_journal"] is True
 
 
 def test_the_verdict_is_unmeasured_where_a_measure_is_missing_and_outside_the_band_beyond_it() -> None:

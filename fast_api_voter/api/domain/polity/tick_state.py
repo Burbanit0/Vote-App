@@ -58,6 +58,9 @@ class PendingRerun:
     attempt: int
     next_tick: int
     barred_candidate_ids: frozenset[int]
+    incumbent_id: int | None = None
+    """S4.1: the president whose record this rerun judges -- the recalled one for a snap
+    election, the outgoing one carried through an invalidation cycle."""
 
 
 @dataclass

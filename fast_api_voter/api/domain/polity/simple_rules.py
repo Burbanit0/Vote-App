@@ -35,12 +35,14 @@ their pledged_platform.
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 
 import numpy as np
 
 from api.domain.polity.citizen import Citizen, Office, Role
 from api.domain.polity.codebook import EventType, PressureAct
-from api.domain.polity.config import CandidacyConfig, EventsConfig, PressureMenuConfig
+from api.domain.polity.config import CandidacyConfig, EventsConfig, PressureMenuConfig, VoteConfig
 from api.domain.polity.parties import Party
 
 CANDIDATE_LABEL_PREFIX = "citizen_"
@@ -109,6 +111,85 @@ def build_ranking(
         1 for c in ranked if weighted_distance(voter, _candidate_platform(c)) <= voter.blank_threshold
     )
     return names[:within_tolerance] + [blank_label] + names[within_tolerance:]
+
+
+@dataclass(frozen=True)
+class IncumbentRecord:
+    """The president an election judges (S4.1's retrospective vote): the holder whose
+    term ends at this election, or the one a snap election replaces."""
+
+    citizen_id: int
+    party: int | None
+    record: float
+    """2 x legitimacy - 1, clamped to [-1, 1]: -1 for a president with no legitimacy left, +1 for one who kept it all."""
+
+
+def incumbent_record(citizen: Citizen) -> IncumbentRecord:
+    return IncumbentRecord(
+        citizen_id=citizen.citizen_id, party=citizen.party_affiliation,
+        record=max(-1.0, min(1.0, 2 * citizen.legitimacy_capital - 1)),
+    )
+
+
+def _partisan_term(voter: Citizen, candidate: Citizen, vote: VoteConfig) -> float:
+    same_party = candidate.party_affiliation is not None and candidate.party_affiliation == voter.party_affiliation
+    return vote.partisanship if same_party else 0.0
+
+
+def _retrospective_term(candidate: Citizen, vote: VoteConfig, incumbent: IncumbentRecord | None) -> float:
+    if incumbent is None:
+        return 0.0
+    if candidate.citizen_id == incumbent.citizen_id:
+        return vote.approval * incumbent.record
+    if incumbent.party is not None and candidate.party_affiliation == incumbent.party:
+        return vote.approval * vote.approval_party_carryover * incumbent.record
+    return 0.0
+
+
+def candidate_utility(
+    voter: Citizen, candidate: Citizen, vote: VoteConfig,
+    incumbent: IncumbentRecord | None = None, valence: Mapping[int, float] | None = None,
+) -> float:
+    """S4.1 (ADR-011): minus the weighted distance, plus partisanship for the voter's own
+    party, plus the incumbent's record for the incumbent (and a share of it for their
+    party's candidate), plus valence. A term whose weight is zero is exactly 0.0, so with
+    every weight at zero this orders and compares as minus build_ranking's distance."""
+    valence_term = vote.valence * valence.get(candidate.citizen_id, 0.0) if valence else 0.0
+    return (
+        -weighted_distance(voter, _candidate_platform(candidate))
+        + _partisan_term(voter, candidate, vote)
+        + _retrospective_term(candidate, vote, incumbent)
+        + valence_term
+    )
+
+
+def abstains(voter: Citizen, utilities: Sequence[float], turnout_cost: float) -> bool:
+    """Indifference abstention: the voter stays home when their best option -- a candidate
+    or the blank ballot, worth minus their blank threshold -- beats the next by less than
+    the cost of turning out. A zero cost never keeps anyone home."""
+    if turnout_cost <= 0:
+        return False
+    options = sorted([*utilities, -voter.blank_threshold], reverse=True)
+    return options[0] - options[1] < turnout_cost
+
+
+def utility_ballot(
+    voter: Citizen, candidates: list[Citizen], vote: VoteConfig, *,
+    incumbent: IncumbentRecord | None = None, valence: Mapping[int, float] | None = None, blank_label: str = BLANK_LABEL,
+) -> list[str] | None:
+    """S4.1: build_ranking with utility in place of distance, or None for a voter who
+    abstains. Candidates whose utility reaches minus the voter's blank threshold rank above
+    blank, highest utility first, ties to the lowest citizen_id. With every weight in
+    `vote` at zero this returns exactly build_ranking's ballot (property-tested)."""
+    scored = sorted(
+        ((candidate_utility(voter, c, vote, incumbent, valence), c) for c in candidates),
+        key=lambda item: (-item[0], item[1].citizen_id),
+    )
+    if abstains(voter, [utility for utility, _ in scored], vote.turnout_cost):
+        return None
+    names = [candidate_label(c) for _, c in scored]
+    acceptable = sum(1 for utility, _ in scored if utility >= -voter.blank_threshold)
+    return names[:acceptable] + [blank_label] + names[acceptable:]
 
 
 def ballot_ranks_above_blank(ballot: list[str], label: str, blank_label: str = BLANK_LABEL) -> bool:

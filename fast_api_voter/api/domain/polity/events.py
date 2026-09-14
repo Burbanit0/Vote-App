@@ -144,6 +144,7 @@ class VoteCast(Event):
     blank: int
     ranking: list[int]
     provenance: LlmProvenance
+    audit: int = OMIT  # 1 on an S4.1 audit ballot: asked of the model beside the utility vote, never counted
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -168,6 +169,7 @@ class Elected(Event):
     office: str  # Office value, e.g. "president"
     attempt: int = OMIT  # present when blank_vote_competitive
     forced: int = OMIT
+    abstained: int = OMIT  # S4.1: voters who stayed home, present once any did
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -179,6 +181,7 @@ class ElectionNoWinner(Event):
     attempt: int = OMIT
     forced: int = OMIT
     reason: str = OMIT  # "no_candidates" when the field was empty
+    abstained: int = OMIT
 
 
 @dataclass(frozen=True, kw_only=True)

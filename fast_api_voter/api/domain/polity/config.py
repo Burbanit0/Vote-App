@@ -198,6 +198,29 @@ class CandidacyConfig:
 
 
 @dataclass(frozen=True)
+class VoteConfig:
+    """S4.1 / D2 (docs/adr/ADR-011-utility-vote-with-turnout.md): how the population votes.
+
+    `mode` "llm" asks vote_cast for every ballot; "utility" builds every ballot with
+    simple_rules.utility_ballot and, when the run has a model, asks vote_cast for an
+    `audit_fraction` sample of voters, journaled as audit votes and never counted.
+    With every weight at zero a utility ballot is build_ranking's sincere ballot."""
+
+    mode: str
+    audit_fraction: float
+    partisanship: float
+    """Utility added to a candidate of the voter's own party."""
+    approval: float
+    """Weight of the incumbent's record (2 x legitimacy - 1, in [-1, 1]) on the incumbent's utility."""
+    approval_party_carryover: float
+    """Share of that record carried to another candidate of the incumbent's party."""
+    valence: float
+    """Weight of a candidate's valence (none is sourced yet: every valence is 0)."""
+    turnout_cost: float
+    """A voter abstains when their best option beats the next by less than this."""
+
+
+@dataclass(frozen=True)
 class CampaignConfig:
     """v2 increment 4 (campaign_positioning, dt=5) tunables — a nominee's
     LLM-chosen shift away from their sincere position is bounded on both
@@ -508,6 +531,7 @@ class PolityConfig:
     citizens: CitizensConfig
     candidacy: CandidacyConfig
     campaign: CampaignConfig
+    vote: VoteConfig
     legitimacy: LegitimacyConfig
     pressure_menu: PressureMenuConfig
     mandate: MandateConfig
@@ -643,6 +667,22 @@ def _parse_candidacy(raw: dict[str, Any]) -> CandidacyConfig:
         rupture_distance_multiplier=_get_nonneg_float(s, "candidacy", "rupture_distance_multiplier"),
         rupture_signature_ratio=_get_ratio(s, "candidacy", "rupture_signature_ratio"),
         max_candidates_hard_cap=_get_positive_int(s, "candidacy", "max_candidates_hard_cap"),
+    )
+
+
+_VOTE_MODES = {"llm", "utility"}
+
+
+def _parse_vote(raw: dict[str, Any]) -> VoteConfig:
+    s = _section(raw, "vote")
+    return VoteConfig(
+        mode=_get_enum(s, "vote", "mode", _VOTE_MODES),
+        audit_fraction=_get_ratio(s, "vote", "audit_fraction"),
+        partisanship=_get_nonneg_float(s, "vote", "partisanship"),
+        approval=_get_nonneg_float(s, "vote", "approval"),
+        approval_party_carryover=_get_ratio(s, "vote", "approval_party_carryover"),
+        valence=_get_nonneg_float(s, "vote", "valence"),
+        turnout_cost=_get_nonneg_float(s, "vote", "turnout_cost"),
     )
 
 
@@ -1050,6 +1090,7 @@ def load_config(path: Path | str | None = None) -> PolityConfig:
         citizens=_parse_citizens(raw),
         candidacy=_parse_candidacy(raw),
         campaign=_parse_campaign(raw),
+        vote=_parse_vote(raw),
         legitimacy=legitimacy,
         pressure_menu=pressure_menu,
         mandate=_parse_mandate(raw),

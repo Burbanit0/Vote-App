@@ -119,6 +119,7 @@ def _flagship_config(
     staggered_election: bool = False,
     model: str | None = None,
     reproducibility: str = "strict",
+    vote_mode: str | None = None,
 ) -> PolityConfig:
     config = load_config()
     config = dataclasses.replace(
@@ -207,6 +208,10 @@ def _flagship_config(
 
     if engine == "llm":
         llm = dataclasses.replace(config.llm, enabled=True, max_batch_replays=max_batch_replays, reproducibility=reproducibility)
+        if vote_mode is not None:
+            # S4.1 (ADR-011): the shipped utility mode asks the model for an audit sample of
+            # ballots only; `llm` has it cast every ballot, as every run before S4.1 did.
+            config = dataclasses.replace(config, vote=dataclasses.replace(config.vote, mode=vote_mode))
         if provider is not None:
             # Baseline A/B only (plan Phase 0): the shipped default is the
             # single source of truth for which provider production uses --
@@ -427,6 +432,7 @@ def run_flagship(
     replay_calls_from: Path | None = None,
     model: str | None = None,
     reproducibility: str = "strict",
+    vote_mode: str | None = None,
 ) -> Path:
     config = _flagship_config(
         engine=engine,
@@ -441,6 +447,7 @@ def run_flagship(
         staggered_election=staggered_election,
         model=model,
         reproducibility=reproducibility,
+        vote_mode=vote_mode,
     )
     validate_config(config)
 
@@ -625,6 +632,14 @@ def main(argv: list[str] | None = None) -> int:
              "is reproduced by replaying the call log (S2.1, D1)",
     )
     parser.add_argument(
+        "--vote-mode",
+        choices=("utility", "llm"),
+        default=None,
+        help="vote.mode (S4.1, ADR-011; default: the shipped config's, utility): utility casts every ballot "
+             "from simple_rules.utility_ballot and asks the model for an audit sample; llm has the model cast "
+             "every ballot",
+    )
+    parser.add_argument(
         "--staggered-election",
         action="store_true",
         help="Track E: split the presidential election across 3 ticks (declare at -2, nominate at -1, "
@@ -679,6 +694,7 @@ def main(argv: list[str] | None = None) -> int:
         replay_calls_from=args.replay_calls_from,
         model=args.model,
         reproducibility=args.reproducibility,
+        vote_mode=args.vote_mode,
     )
     return 0
 

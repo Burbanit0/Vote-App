@@ -152,6 +152,8 @@ def _state_to_payload(state: TickState) -> dict[str, Any]:
             "attempt": pending.attempt,
             "next_tick": pending.next_tick,
             "barred_candidate_ids": sorted(pending.barred_candidate_ids),
+            # Written only when set, so a checkpoint from before S4.1 re-serializes unchanged.
+            **({"incumbent_id": pending.incumbent_id} if pending.incumbent_id is not None else {}),
         },
         "staggered_declared_cids": (
             sorted(state.staggered_declared_cids) if state.staggered_declared_cids is not None else None
@@ -174,6 +176,7 @@ def _state_from_payload(payload: Mapping[str, Any]) -> TickState:
             attempt=pending["attempt"],
             next_tick=pending["next_tick"],
             barred_candidate_ids=frozenset(pending["barred_candidate_ids"]),
+            incumbent_id=pending.get("incumbent_id"),
         ),
         staggered_declared_cids=set(declared) if declared is not None else None,
         economy_x=payload["economy_x"],
