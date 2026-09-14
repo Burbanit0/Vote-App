@@ -21,7 +21,7 @@ import json
 import logging
 import threading
 import time
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
@@ -76,9 +76,12 @@ def request_sha256(
     think: bool = True,
     temperature: float | None = None,
     seed: int | None = None,
+    extra_body: Mapping[str, Any] | None = None,
 ) -> str:
     """sha256 of a request as the engine issues it: complete_json's arguments,
-    with temperature/seed null when the client's own configured value applies."""
+    with temperature/seed null when the client's own configured value applies.
+    `extra_body` (S1.3's request arms) enters the hash only when given, so every
+    request without one hashes as it always did."""
     request = {
         "system_prompt": system_prompt,
         "user_prompt": user_prompt,
@@ -87,8 +90,24 @@ def request_sha256(
         "think": think,
         "temperature": temperature,
         "seed": seed,
+        **({"extra_body": dict(extra_body)} if extra_body is not None else {}),
     }
     return hashlib.sha256(_canonical(request).encode("utf-8")).hexdigest()
+
+
+def completion_request_sha256(kwargs: Mapping[str, Any]) -> str:
+    """request_sha256 of a complete_json (or complete_json_with_logprobs) call's keyword
+    arguments."""
+    return request_sha256(
+        system_prompt=kwargs["system_prompt"],
+        user_prompt=kwargs["user_prompt"],
+        json_schema=kwargs["json_schema"],
+        max_tokens=kwargs["max_tokens"],
+        think=kwargs.get("think", True),
+        temperature=kwargs.get("temperature"),
+        seed=kwargs.get("seed"),
+        extra_body=kwargs.get("extra_body"),
+    )
 
 
 def llm_call_id(request_hash: str) -> str:
@@ -253,15 +272,7 @@ class CallLoggingClient:
         self._tick_source = tick_source
 
     def complete_json(self, **kwargs: Any) -> str:
-        request_hash = request_sha256(
-            system_prompt=kwargs["system_prompt"],
-            user_prompt=kwargs["user_prompt"],
-            json_schema=kwargs["json_schema"],
-            max_tokens=kwargs["max_tokens"],
-            think=kwargs.get("think", True),
-            temperature=kwargs.get("temperature"),
-            seed=kwargs.get("seed"),
-        )
+        request_hash = completion_request_sha256(kwargs)
         record = self._open_record(request_hash, kwargs, fallback_decision_type=decision_type_for_schema(kwargs["json_schema"]))
 
         def call() -> str:
@@ -275,15 +286,7 @@ class CallLoggingClient:
         """complete_json's call with token logprobs (S2.2's bake-off reads them). Logged
         under the same request hash complete_json would give -- logprobs change what
         comes back, not what is asked -- with the content, not the tokens."""
-        request_hash = request_sha256(
-            system_prompt=kwargs["system_prompt"],
-            user_prompt=kwargs["user_prompt"],
-            json_schema=kwargs["json_schema"],
-            max_tokens=kwargs["max_tokens"],
-            think=kwargs.get("think", True),
-            temperature=kwargs.get("temperature"),
-            seed=kwargs.get("seed"),
-        )
+        request_hash = completion_request_sha256(kwargs)
         record = self._open_record(request_hash, kwargs, fallback_decision_type=decision_type_for_schema(kwargs["json_schema"]))
 
         def call() -> tuple[str, Any]:
@@ -327,6 +330,7 @@ class CallLoggingClient:
             "max_tokens": kwargs.get("max_tokens"),
             "temperature": kwargs.get("temperature"),
             "seed": kwargs.get("seed"),
+            **({"extra_body": dict(kwargs["extra_body"])} if kwargs.get("extra_body") is not None else {}),
         }
 
     def _forward(self, record: dict[str, Any], call: Callable[[], Any]) -> Any:

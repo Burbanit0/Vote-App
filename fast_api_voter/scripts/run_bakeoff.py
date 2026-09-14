@@ -12,6 +12,8 @@ Usage (from fast_api_voter/):
 
     # an A/B arm on the same cases: S1.2's vote_cast grammar against the session above
     python scripts/run_bakeoff.py --label qwen3-8b-awq-vote-grammar --arm vote_grammar --families vote_first_choice
+    # S1.3's thinking-budget arms, on the thinking vote and chamber cases
+    python scripts/run_bakeoff.py --label qwen3-8b-awq-budget-2048 --arm thinking_budget_2048 --families vote_first_choice chamber_poles
 
     # no GPU: answer the cases from a recorded llm_calls.jsonl (a bake-off session, or a run
     # whose requests the cases match -- the p500 batch's seed-42 run answers candidacy_p500)
@@ -85,7 +87,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--replay-calls-from", type=Path, default=None, help="a run or session directory, or its llm_calls.jsonl")
     parser.add_argument("--rerun-fraction", type=float, default=DEFAULT_RERUN_FRACTION)
     parser.add_argument("--arm", choices=sorted(ARMS), default=None,
-                        help="send cases an A/B arm's schema instead of the bank's (e.g. vote_grammar, S1.2)")
+                        help="an A/B arm on the same cases: another schema (vote_grammar, S1.2) or request fields "
+                             "(thinking_budget_4096/2048, S1.3)")
     args = parser.parse_args(argv)
 
     bank = read_bank(args.bank)

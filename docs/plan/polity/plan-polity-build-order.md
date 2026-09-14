@@ -276,6 +276,32 @@ speculation on.
 **Pre-registered choice:** the smallest budget whose agreement with `build_ranking` is
 within one case of "no budget" on the fixture and whose truncation rate is ≤ 1%.
 
+*Made precise when built, 2026-09-13, before any session:*
+
+- **The precondition.** `scripts/check_thinking_token_budget.py` sends one thinking vote case with
+  no budget, 256 and 64. The budget counts as honoured when:
+  - each budgeted call's reasoning stays within budget + 16 tokens, the room for the forced end
+    string;
+  - each budgeted call's answer decodes;
+  - the unbudgeted call reasons past 256 tokens.
+
+  vLLM 0.28.0's source takes `thinking_token_budget` on chat completions: it is enabled by the
+  `qwen3` reasoning parser the server runs, and the speculative-decoding sampler handles it. Only the
+  live check shows it works.
+- **The arms.** `thinking_budget_4096` and `thinking_budget_2048` are bake-off request arms. They
+  send `thinking_token_budget` on every thinking `vote_cast` and `chamber_deliberation` case. The
+  extra field enters the request hash and the call log only when set, so no earlier hash changes.
+- **The fixture.** The bank's `vote_first_choice` (14 cases, 40 voters) and `chamber_poles` (10
+  cases). Its drift-0 pole is the runaway state, where `chamber_position` equals the sincere
+  position.
+- **The sessions.** Three on the control model, sharing one server and the same families: no arm,
+  and each budget.
+- **The readings.**
+  - *"Within one case"* means at most one fewer voter agreeing with `build_ranking` on
+    `vote_first_choice` than the no-budget session.
+  - *The truncation rate* is the share of the arm's vote and chamber calls, rerun pass included,
+    ending with finish reason `length`.
+
 ### S1.4 Thinking-mode sampling A/B
 Temperature 0 against Qwen's recommended thinking settings (temperature 0.6, top-p 0.95,
 top-k 20, per-request seeds), same fixtures and metrics.
