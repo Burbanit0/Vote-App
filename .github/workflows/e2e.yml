@@ -169,7 +169,7 @@ jobs:
     # find the pre-installed browsers or silently compares against a different
     # renderer than the one that generated the committed baselines.
     container:
-      image: mcr.microsoft.com/playwright:v1.62.1-noble
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
       options: --ipc=host
 
     steps:

@@ -50,11 +50,16 @@ Same `changes`-gated shape, scoped to `voter-app/**`:
 Called on every PR (paths-gated the same way), on push to `develop`, and via
 `workflow_call` from `release.yml`. Boots the real FastAPI backend on `:4434`
 as a fixture, then `npm run test:e2e` (chromium + firefox + mobile). A
-separate `visual-regression` job runs pixel-diff screenshots inside the
-**exact pinned** `mcr.microsoft.com/playwright:v1.62.1-noble` image (kept in
-lockstep with `voter-app/package.json`'s `@playwright/test` version) — never
-on a bare `ubuntu-latest`, because the OS image itself can silently drift
-renderer output between runs (`docs/exploration/EXP-004`). `check-flaky.mjs`
+separate `visual-regression` job runs pixel-diff screenshots inside an
+**exact pinned** `mcr.microsoft.com/playwright:v<X>-noble` image (`e2e.yml`
+has the current tag; must match `voter-app/package.json`'s
+`@playwright/test` version exactly — a mismatch fails to find the
+pre-installed browsers, or worse, silently renders against a different
+browser build than the one that produced the committed baselines, e.g.
+PR #477's live break when a Dependabot `@playwright/test` bump landed
+without this tag moving in lockstep) — never on a bare `ubuntu-latest`,
+because the OS image itself can silently drift renderer output between
+runs (`docs/exploration/EXP-004`). `check-flaky.mjs`
 runs after the main e2e job (`if: always()`) and fails the run if any test
 passed only on retry.
 
