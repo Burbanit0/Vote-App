@@ -40,6 +40,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-011](#obs-011) | About 40% of citizens declare candidacy at every election | 2026-09-11 | open |
 | [OBS-012](#obs-012) | Term limits and the rerun bar do nothing on the LLM engine | 2026-09-13 | fixed |
 | [OBS-013](#obs-013) | Party nominations often don't match the reason the model gives, and lean to the last listed candidate | 2026-09-13 | open |
+| [OBS-014](#obs-014) | The p500 batch stopped: seed 1 received SIGTERM during the last vote of its last tick | 2026-09-13 | open |
 
 ---
 
@@ -419,3 +420,63 @@ exactly the last-position answers. OBS-006's out-of-range 26 may be a relative o
 from S0.5 on, but nomination runs with `think=False`, so there is none to read. A nomination case
 bank in S2.2 (shuffle candidate order and cids, and check whether the pick follows the position or
 the candidate) would answer it.
+
+### OBS-014
+
+**The p500 batch stopped: seed 1 received SIGTERM during the last vote of its last tick.**
+
+*Seen.* The S0.8 batch (`Vote-App-p500/fast_api_voter/scripts/seed_sweep_runs`) ran seed 1 from
+14:32. Its run ended `interrupted` after 25,044 s, with `_Terminated: received signal 15`, on tick
+32 of 32, the final presidential election.
+
+- **What tick 32 had done.** It had journaled candidacy, nomination and positioning (500
+  `candidacy_considered`, 5 `candidacy_declared`, 5 `campaign_positioning`). It had made 286
+  `vote_cast` calls, against 355 for the whole vote at tick 16.
+- **When it stopped.** The last call started at 21:28:23 EDT. The traceback shows the process
+  waiting in `httpcore` for a vLLM response when the signal arrived, and `digest.json` was written
+  at 21:29.
+- **What remains.** The last checkpoint is tick 31.
+- **The batch driver died with it.** `p500_driver.log` ends at `[1/4] seed=1 repeat=1 ...`, and no
+  batch process remains, so seeds 2 and 42 and the seed-1 repeat never started.
+- **What else was running.** The `vllm-polity` container stayed up and healthy. A container named
+  `flaky-backend-postfix` was created at 21:27:49, about a minute before the signal. Whether the
+  two are related is not known.
+
+*Evidence.*
+
+```bash
+cd Vote-App-p500/fast_api_voter/scripts/seed_sweep_runs
+python3 -c "import json; d=json.load(open('sweep-8y-p500-seed1/run/sweep-8y-p500-seed1/digest.json')); print(d['outcome'], d['error'], d['ticks'])"
+tail -3 sweep-8y-p500-seed1.log; cat p500_driver.log
+docker ps -a --format '{{.Names}} {{.CreatedAt}} {{.Status}}'
+```
+
+*Suspected cause: the machine ran out of memory, and the batch died with a process the kernel
+killed.* The system journal shows the chain; the last link is inferred from timing.
+
+1. At 21:28:10 a second container (`hungry_noyce`, auto-removed since) started, beside
+   `flaky-backend-postfix` (image `fast_api_voter-api`, `uvicorn` on port 4434: the e2e suite's
+   backend). The kernel's process table at the kill lists `playwright` and the Vite dev server
+   among the largest processes.
+2. At 21:29:25 the kernel ran out of memory machine-wide. The allocation that triggered it came
+   from that container's scope, which systemd reports at a 16.7 GB memory peak over 77 s.
+3. The OOM killer killed process 9443, `code`, in VS Code's snap scope.
+4. The batch's `digest.json` was written at 21:29:26.35, one second later, after SIGTERM.
+
+The batch process being a child of that VS Code instance, for instance started from its integrated
+terminal, would explain the SIGTERM. That relationship is not recorded anywhere, so it stays a
+suspicion. The e2e run was not part of this polity session.
+
+```bash
+journalctl --since "2026-09-13 21:27:00" --until "2026-09-13 21:30:00" --no-pager | grep -E "oom|Killed process|Consumed|Started docker"
+```
+
+*What would settle it.*
+
+- **Confirming the link.** Rerun a long batch from a detached process (`nohup` or `systemd-run
+  --user`) while the e2e suite runs. If it survives an OOM kill of the editor, the link is shown.
+  Either way, a multi-hour batch should not share a process tree with an editor.
+- **Finishing the batch** needs the GPU. The seed-1 run resumes from its tick-31 checkpoint
+  (`run_polity_seed_sweep.py ... --resume-sweep`, which passes `--resume` to a started run). It
+  redoes tick 32, then continues with seeds 2 and 42 and the repeat.
+
