@@ -170,7 +170,7 @@ describe('ManipulationAnalysisPanel', () => {
     apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
     fireEvent.click(screen.getByTestId('analyze-btn'));
-    await waitFor(() => screen.getByTestId('manip-map-svg'));
+    await waitFor(() => expect(screen.getByTestId('manip-map-svg')).toBeInTheDocument());
     // Click the first manipulator circle (SVG click)
     const svg = screen.getByTestId('manip-map-svg');
     const circles = svg.querySelectorAll('circle');

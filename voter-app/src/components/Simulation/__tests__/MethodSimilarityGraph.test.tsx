@@ -45,8 +45,15 @@ describe('flatToMatrix', () => {
   it('converts flat keys to nested matrix', () => {
     const flat = { 'plurality|borda': 0.8, 'borda|irv': 0.65 };
     const mat = flatToMatrix(flat);
+    // flatToMatrix does a pure key-split-and-copy (no arithmetic on the
+    // values at all -- see its implementation), so the output is the exact
+    // same float value/reference that went in; toBeCloseTo would accept a
+    // spurious near-match that a passthrough should never produce.
+    // eslint-disable-next-line sonarjs/no-floating-point-equality -- see above
     expect(mat['plurality']['borda']).toBe(0.8);
+    // eslint-disable-next-line sonarjs/no-floating-point-equality -- see above
     expect(mat['borda']['plurality']).toBe(0.8);
+    // eslint-disable-next-line sonarjs/no-floating-point-equality -- see above
     expect(mat['borda']['irv']).toBe(0.65);
   });
 
