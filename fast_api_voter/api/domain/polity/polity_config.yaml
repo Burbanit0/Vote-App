@@ -249,6 +249,26 @@ campaign:
                                 #      complet à issue_count dimensions
 
 # =============================================================================
+# VOTE DE LA POPULATION (S4.1, D2 — docs/adr/ADR-011-utility-vote-with-turnout.md)
+# =============================================================================
+vote:
+  mode: utility                 # llm = vote_cast pour chaque bulletin ;
+                                #   utility = simple_rules.utility_ballot pour
+                                #   chaque bulletin, et vote_cast sur un
+                                #   échantillon d'audit (journalisé, jamais compté)
+  audit_fraction: 0.1           # part des électeurs auditée par le modèle
+  partisanship: 0.0             # utilité ajoutée au candidat de son propre parti
+  approval: 0.0                 # poids du bilan du sortant (2 x légitimité - 1)
+  approval_party_carryover: 0.0 # part de ce bilan reportée sur un autre candidat
+                                #   du parti du sortant
+  valence: 0.0                  # poids de la valence (aucune source encore : 0)
+  turnout_cost: 0.0             # abstention si la meilleure option ne dépasse la
+                                #   suivante que de moins que ce coût
+                                # Poids à 0 = le bulletin sincère de build_ranking
+                                #   (bras témoin), jusqu'à calibration contre les
+                                #   faits pré-enregistrés de l'ADR-011.
+
+# =============================================================================
 # LÉGITIMITÉ ET RAPPEL (§7)
 # =============================================================================
 legitimacy:

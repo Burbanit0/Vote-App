@@ -474,6 +474,26 @@ valence and turnout terms. **First accepted when** every new term at zero reprod
 `build_ranking` exactly (Hypothesis property test); then timed on the p100 deterministic
 twin.
 
+*Made precise when built, 2026-09-13*, in `docs/adr/ADR-011-utility-vote-with-turnout.md`:
+
+- **What was built.**
+  - The utility terms, and indifference abstention.
+  - The incumbent judged at an election: the holder whose term ends, or the president a rerun
+    carries, i.e. the recalled one for a snap election.
+  - `vote.mode` (utility shipped), with an LLM audit sample (`vote.audit_fraction` 0.1, journaled
+    `audit: 1`, never counted).
+- **First acceptance met.**
+  - The zero-weight property holds over 400 generated electorates, and the deterministic golden
+    reference does not move.
+  - Timed: 2.8 ms per 100 ballots against `build_ranking`'s 4.9 ms; an 8-year p100 deterministic
+    twin in 0.15 s.
+- **Weights ship at zero** (the control arm). The ADR pre-registers the facts a calibrated weight
+  set must meet on the p100 deterministic twin: retrospective voting, turnout 50–85%, partisanship,
+  and fewer one-president runs (OBS-001). The calibration needs no GPU and is this step's
+  remaining work before any weight leaves zero.
+- **S2.1's sweep pins `vote.mode: llm`** (`run_polity_flagship.py --vote-mode`): its measure is
+  `vote_cast` agreement, which needs the model to cast every ballot.
+
 ### S4.2 Policy status quo and ordinary legislation (after D3)
 ADR-009 first: a policy vector in the issue space; proposer moves it on at most two
 dimensions within a step bound; assembly ratification with a coalition majority;

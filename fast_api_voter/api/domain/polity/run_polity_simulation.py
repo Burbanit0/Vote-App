@@ -36,6 +36,7 @@ if/else split.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import subprocess
@@ -137,6 +138,7 @@ from api.domain.polity.llm_behavior_engine import (
     PressureContext,
     ReactionContext,
     ResponseContext,
+    VoteBatchOutcome,
     cast_votes,
     clamped_dimensions,
     decide_campaign_positioning,
@@ -169,16 +171,18 @@ from api.domain.polity.simple_rules import (
     attempt_rupture_candidacy,
     blank_share,
     build_confidence_ballot,
-    build_ranking,
     choose_party,
     citizen_id_from_label,
     decide_candidacy,
     declare_candidacy,
     deterministic_pressure_action,
     deterministic_reaction_to_event,
+    IncumbentRecord,
     form_coalition,
+    incumbent_record,
     select_party_nominee,
     select_party_nominee_from_declared,
+    utility_ballot,
     vacate_office,
 )
 from api.domain.polity.social_graph import SocialGraph, generate_social_graph
@@ -830,6 +834,7 @@ def _phase_snap_election(context: TickContext, state: TickState) -> None:
         barred_candidate_ids=(
             frozenset({recalled}) if recalled is not None and config.institutions.recalled_barred_from_snap_election else frozenset()
         ),
+        incumbent_id=recalled,
     )
     context.journal.write_event(
         tick=context.tick,
@@ -1359,6 +1364,70 @@ def _declare_nominees_llm(
     )
 
 
+def _judged_incumbent(citizens: list[Citizen], incumbent_id: int | None, config: PolityConfig) -> IncumbentRecord | None:
+    """The record an election's voters weigh (S4.1): none without a president to judge, or
+    while legitimacy -- the record's measure -- is not tracked."""
+    if incumbent_id is None or not config.legitimacy.enabled:
+        return None
+    return incumbent_record(next(c for c in citizens if c.citizen_id == incumbent_id))
+
+
+def audit_sample(citizens: list[Citizen], config: PolityConfig, tick: int) -> list[Citizen]:
+    """S4.1's LLM audit sample: each voter in with probability vote.audit_fraction, decided
+    by a hash of (seed, tick, citizen) -- the same voters on every replay of the run, and
+    no draw taken from any of the run's random streams."""
+    fraction = config.vote.audit_fraction
+    return [
+        c for c in citizens
+        if int(hashlib.sha256(f"{config.run.seed}:{tick}:{c.citizen_id}".encode()).hexdigest()[:8], 16) < fraction * 2**32
+    ]
+
+
+def _journal_vote_decisions(
+    journal: Journal, tick: int, outcome: VoteBatchOutcome, nominees: list[Citizen], config: PolityConfig, *, audit: bool,
+) -> None:
+    for decision in outcome.decisions:
+        # §3.7.1 booleans-as-0/1: retry_sampling_varied marks a decision from a
+        # temperature-varied retry, llm_fallback one from cast_votes's deterministic
+        # fallback -- mutually exclusive, see VoteBatchOutcome. `audit` marks an S4.1
+        # audit ballot, asked of the model beside the utility vote and never counted.
+        journal.write_event(
+            tick=tick,
+            event=VoteCast(
+                blank=decision.blank,
+                ranking=resolve_ranking_cids(decision, nominees),
+                provenance=LlmProvenance.for_unit(outcome.llm_fallback, outcome.retry_sampling_varied, outcome.llm_call_ids, decision.cid),
+                audit=1 if audit else OMIT,
+            ),
+            citizen_id=decision.cid,
+            motif=str(decision.motif),
+            codebook_version=config.llm.codebook_version,
+        )
+
+
+def _presidential_ballots(
+    citizens: list[Citizen], nominees: list[Citizen], config: PolityConfig, journal: Journal, tick: int,
+    llm_client: LlmClientProtocol | None, incumbent: IncumbentRecord | None,
+) -> tuple[list[list[str]], int]:
+    """Every ballot the election counts, and how many voters abstained (S4.1, D2).
+
+    `vote.mode` "llm" on a run with a model: vote_cast casts every ballot, as before S4.1.
+    Otherwise -- and always on the deterministic engine -- utility_ballot casts them
+    (build_ranking's ballot while every weight is zero), and a run with a model also asks
+    vote_cast for an audit sample, journaled with `audit` and not counted."""
+    if llm_client is not None and config.vote.mode == "llm":
+        outcome = cast_votes(citizens, nominees, config, llm_client)
+        _journal_vote_decisions(journal, tick, outcome, nominees, config, audit=False)
+        return outcome.ballots, 0
+    cast = [utility_ballot(voter, nominees, config.vote, incumbent=incumbent) for voter in citizens]
+    sample = audit_sample(citizens, config, tick) if llm_client is not None else []
+    if sample:
+        assert llm_client is not None
+        _journal_vote_decisions(journal, tick, cast_votes(sample, nominees, config, llm_client), nominees, config, audit=True)
+    ballots = [ballot for ballot in cast if ballot is not None]
+    return ballots, len(cast) - len(ballots)
+
+
 def _hold_presidential_election(
     citizens: list[Citizen],
     parties: list[Party],
@@ -1385,6 +1454,10 @@ def _hold_presidential_election(
     # invariant for any future increment that does (representative_response,
     # term limits, legitimacy). A re-elected incumbent is simply reset here
     # and re-promoted below, same as any other winner.
+    # S4.1: whose record this election judges -- the holder whose term ends now, or, for a
+    # rerun, the president its PendingRerun carries (the recalled one, for a snap election).
+    holder = next((c for c in citizens if c.office == Office.PRESIDENT), None)
+    incumbent_id = holder.citizen_id if holder is not None else (pending_rerun.incumbent_id if pending_rerun is not None else None)
     for outgoing in citizens:
         if outgoing.office == Office.PRESIDENT:
             vacate_office(outgoing)
@@ -1424,38 +1497,12 @@ def _hold_presidential_election(
     invalidated = False
     blank_share_value: float | None = None
     all_candidate_ids: set[int] = set()
+    abstained = 0
     if nominees:
         all_candidate_ids = {c.citizen_id for c in nominees}
-        if llm_client is not None:
-            outcome = cast_votes(citizens, nominees, config, llm_client)
-            ballots = outcome.ballots
-            for decision in outcome.decisions:
-                # §3.7.1 booleans-as-0/1: a deliberate, LOCAL exception
-                # to temperature=0 determinism (llm_behavior_engine's
-                # own _VOTE_CAST_RETRY_TEMPERATURE) -- marks a decision
-                # that came from a temperature-varied RETRY, never the
-                # first attempt, so a future analysis of this journal
-                # cannot mistake a varied-sampling retry's decision for
-                # an ordinary, deterministic first-attempt one.
-                # Same convention, marking the OTHER provenance this
-                # journal must not silently mistake for a real LLM
-                # answer: cast_votes's own last-resort deterministic
-                # fallback (VoteBatchOutcome.llm_fallback's docstring)
-                # after every recovery attempt was exhausted for this
-                # voter. Mutually exclusive with retry_sampling_varied.
-                journal.write_event(
-                    tick=tick,
-                    event=VoteCast(
-                        blank=decision.blank,
-                        ranking=resolve_ranking_cids(decision, nominees),
-                        provenance=LlmProvenance.for_unit(outcome.llm_fallback, outcome.retry_sampling_varied, outcome.llm_call_ids, decision.cid),
-                    ),
-                    citizen_id=decision.cid,
-                    motif=str(decision.motif),
-                    codebook_version=config.llm.codebook_version,
-                )
-        else:
-            ballots = [build_ranking(voter, nominees) for voter in citizens]
+        ballots, abstained = _presidential_ballots(
+            citizens, nominees, config, journal, tick, llm_client, _judged_incumbent(citizens, incumbent_id, config),
+        )
 
         # v4 Lot 9 (§6bis.2): the deterministic-enclave threshold check --
         # no LLM, no RNG, just the ballots already built above. A forced
@@ -1517,6 +1564,7 @@ def _hold_presidential_election(
             attempt=new_attempt,
             next_tick=tick + config.institutions.reelection_delay_ticks,
             barred_candidate_ids=barred_next,
+            incumbent_id=incumbent_id,
         )
         journal.write_event(
             tick=tick,
@@ -1558,12 +1606,13 @@ def _hold_presidential_election(
     # written to protect. Consequence accepted: journals predating this key stay
     # ambiguous -- they are already documented as non-representative
     # (uniform/seed=42, THEORY.md §10.10).
+    turnout_abstained = abstained if abstained else OMIT  # S4.1: present once anyone stays home
     outcome_event: Event = (
-        Elected(office=Office.PRESIDENT.value, attempt=attempt, forced=forced)
+        Elected(office=Office.PRESIDENT.value, attempt=attempt, forced=forced, abstained=turnout_abstained)
         if winner is not None
         else ElectionNoWinner(
             office=Office.PRESIDENT.value, attempt=attempt, forced=forced,
-            reason="no_candidates" if not nominees else OMIT,
+            reason="no_candidates" if not nominees else OMIT, abstained=turnout_abstained,
         )
     )
     journal.write_event(
