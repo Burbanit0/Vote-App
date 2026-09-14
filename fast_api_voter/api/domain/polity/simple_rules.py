@@ -497,6 +497,7 @@ def deterministic_pressure_action(
     *,
     can_sign: bool = False,
     can_launch: bool = False,
+    tolerance_scale: float = 1.0,
 ) -> PressureAct:
     """v4 Lot 4/5, dt=10's §11.4 baseline for a citizen already past the
     awakening gate (accountability.select_consulted) -- this function never
@@ -533,8 +534,11 @@ def deterministic_pressure_action(
     can compare them. This rigid preference is the §11.4 BASELINE ONLY --
     Lot 7's LLM sees the whole menu and arbitrates freely; the contrast
     between a rigid preference and a free arbitration is what the palier
-    exists to measure."""
-    if gap < citizen.blank_threshold:
+    exists to measure.
+
+    `tolerance_scale` (S4.3, emotions.tolerance_scale) scales the blank threshold this
+    rule acts past: anger lowers it."""
+    if gap < citizen.blank_threshold * tolerance_scale:
         return PressureAct.NOTHING
     if menu.petition_enabled:
         if can_sign:

@@ -99,7 +99,13 @@ def _citizen_to_dict(citizen: Citizen) -> dict[str, Any]:
     # would be correct but is pure overhead this rewrite deliberately drops.
     data = vars(citizen).copy()
     data["petition_signers"] = sorted(citizen.petition_signers)
+    for key in _UNTRACKED_UNLESS_SET:  # S4.3: absent while untracked, as before they existed
+        if data[key] is None:
+            del data[key]
     return data
+
+
+_UNTRACKED_UNLESS_SET = ("latent_factors", "anger", "anxiety", "enthusiasm")
 
 
 def _citizen_from_dict(data: dict[str, Any]) -> Citizen:
@@ -115,6 +121,8 @@ def _citizen_from_dict(data: dict[str, Any]) -> Citizen:
         data["revealed_position"] = tuple(data["revealed_position"])
     if data["chamber_position"] is not None:
         data["chamber_position"] = tuple(data["chamber_position"])
+    if data.get("latent_factors") is not None:
+        data["latent_factors"] = tuple(data["latent_factors"])
     return Citizen(**data)
 
 
@@ -136,6 +144,7 @@ STATE_PAYLOAD_KEYS: dict[str, str] = {
     "staggered_declared_cids": "staggered_declared_cids",
     "economy_x": "economy_x",
     "mobilized_last_tick": "mobilized_last_tick",
+    "dynamics_rng": "dynamics_rng_state",
 }
 """TickState field -> checkpoint JSON key."""
 
@@ -160,6 +169,8 @@ def _state_to_payload(state: TickState) -> dict[str, Any]:
         ),
         "economy_x": state.economy_x,
         "mobilized_last_tick": {str(k): v for k, v in state.mobilized_last_tick.items()},
+        # S4.3: written only for a dynamic run, so a static run's checkpoint is unchanged.
+        **({"dynamics_rng_state": state.dynamics_rng.bit_generator.state} if state.dynamics_rng is not None else {}),
     }
 
 
@@ -181,6 +192,7 @@ def _state_from_payload(payload: Mapping[str, Any]) -> TickState:
         staggered_declared_cids=set(declared) if declared is not None else None,
         economy_x=payload["economy_x"],
         mobilized_last_tick={int(k): v for k, v in payload["mobilized_last_tick"].items()},
+        dynamics_rng=restore_rng(payload["dynamics_rng_state"]) if "dynamics_rng_state" in payload else None,
     )
 
 

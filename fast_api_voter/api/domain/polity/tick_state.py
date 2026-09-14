@@ -78,3 +78,5 @@ class TickState:
     """The economy's AR(1) state, driving economic shocks."""
     mobilized_last_tick: Mapping[int, int] = field(default_factory=dict)
     """citizen_id -> targeted officeholder, from the previous tick's mobilization."""
+    dynamics_rng: np.random.Generator | None = None
+    """S4.3: the opinion-dynamics stream, None unless dynamics.enabled."""

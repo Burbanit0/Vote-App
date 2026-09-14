@@ -67,6 +67,7 @@ from api.domain.polity.accountability import (
     reset_petition_state,
     resolve_petition,
     select_consulted,
+    self_gap,
     sign_petition,
     ticks_to_election,
     unified_mandate_deviation,
@@ -83,7 +84,7 @@ from api.domain.polity.ballot_and_aggregation import (
 from api.domain.polity.checkpoint import config_hash, load_checkpoint, save_checkpoint
 from api.domain.polity.progress import HeartbeatClient, ProgressTracker
 from api.domain.polity.snapshots import expected_snapshot_rows, is_snapshot_tick, write_snapshot
-from api.domain.polity.citizen import Citizen, Office, Role, generate_population
+from api.domain.polity.citizen import Citizen, LatentStructure, Office, Role, generate_population, latent_structure
 from api.domain.polity.codebook import BallotFormat, EventType, PressureAct, ReactionMotif
 from api.domain.polity.compaction import compact_run
 from api.domain.polity.config import PolityConfig, PolityConfigError, validate_config
@@ -102,6 +103,7 @@ from api.domain.polity.events import (
     Elected,
     ElectionInvalidated,
     ElectionNoWinner,
+    EmotionsUpdated,
     Event,
     LegislativeResult,
     LegitimacyUpdated,
@@ -110,6 +112,7 @@ from api.domain.polity.events import (
     MandatePledgeDeclared,
     NominationLost,
     OMIT,
+    OpinionDynamicsStep,
     PartyNominationChoice,
     PetitionExpired,
     PetitionLaunched,
@@ -123,6 +126,7 @@ from api.domain.polity.events import (
     SortitionRotation,
     VoteCast,
 )
+from api.domain.polity.emotions import appraise, feel, mean_emotions, tolerance_scale
 from api.domain.polity.institutional_clock import ElectionType, InstitutionalClock
 from api.domain.polity.journal import Journal, truncate_journal
 from api.domain.polity.legitimacy import (
@@ -162,6 +166,7 @@ from api.domain.polity.llm_client import (
 )
 from api.domain.polity.llm_schemas import PositionShift, PressureDecision, ReactionDecision
 from api.domain.polity.metrics import mobilization_rate
+from api.domain.polity.opinion_dynamics import NeighbourEdges, apply_dynamics
 from api.domain.polity.parties import Party, initialize_parties
 from api.domain.polity.shock import economic_shock_step, scandal_arrival
 from api.domain.polity.sortition_chamber import select_sortition_chamber
@@ -553,6 +558,13 @@ def run_simulation(
     graph: SocialGraph | None = None
     if config.social_graph.enabled:
         graph = generate_social_graph(config.social_graph, config.run.population_size, config.run.seed)
+    # S4.3: the latent model the population was drawn from, and the graph as edge arrays --
+    # like the graph, regenerated from the config on resume, never checkpointed.
+    latent: LatentStructure | None = None
+    edges: NeighbourEdges | None = None
+    if config.dynamics.enabled:
+        latent = latent_structure(config.citizens, config.run.population_size, config.run.seed)
+        edges = NeighbourEdges.from_graph(graph)
 
     if resume:
         checkpoint = load_checkpoint(checkpoint_path)
@@ -609,7 +621,7 @@ def run_simulation(
             progress_tracker.begin_tick(tick)
             context = TickContext(
                 tick=tick, config=config, journal=journal, client=client, clock=clock, graph=graph,
-                snapshots_path=snapshots_path, election=clock.election_at(tick),
+                snapshots_path=snapshots_path, election=clock.election_at(tick), latent=latent, edges=edges,
             )
             for phase in TICK_PHASES:
                 phase(context, state)
@@ -672,6 +684,9 @@ def _fresh_tick_state(config: PolityConfig) -> TickState:
         # inside select_sortition_chamber, only on a rotation tick, only when
         # sortition_chamber.enabled -- undrawn otherwise.
         sortition_rng=np.random.default_rng(config.run.seed),
+        # S4.3: a fifth stream, same "fresh default_rng per concern" reasoning; None for a
+        # static population, so a static run draws and checkpoints exactly as before.
+        dynamics_rng=np.random.default_rng(config.run.seed) if config.dynamics.enabled else None,
         # pending_rerun (v4 Lot 9, §6bis.2): None whenever blank_vote_competitive
         # is off (the shipped default) or no cycle is currently open.
         # staggered_declared_cids (Track E): None unless institutions.staggered_
@@ -705,6 +720,9 @@ class TickContext:
     election: ElectionType | None
     exogenous: ExogenousEventsOutcome | None = None
     president_before_accountability: list[Citizen] = field(default_factory=list)
+    latent: LatentStructure | None = None
+    """S4.3: the population's latent model, set when dynamics.enabled."""
+    edges: NeighbourEdges | None = None
 
 
 def _phase_snapshot(context: TickContext, state: TickState) -> None:
@@ -795,6 +813,39 @@ def _phase_sortition_chamber(context: TickContext, state: TickState) -> None:
     _run_chamber_deliberation(state.citizens, config, context.journal, context.tick, context.client)
 
 
+def _phase_emotions(context: TickContext, state: TickState) -> None:
+    if context.config.emotions.enabled:
+        _update_emotions(state.citizens, context.config, context.journal, context.tick, state.economy_x)
+
+
+def _update_emotions(citizens: list[Citizen], config: PolityConfig, journal: Journal, tick: int, economy_x: float) -> None:
+    """S4.3 (ADR-012): every citizen's emotions move toward this tick's appraisal of the
+    sitting president and the economy, after the elections (so a new president is the one
+    appraised) and before accountability reads them."""
+    holder = next((h for h in current_office_holders(citizens, Office.PRESIDENT) if h.revealed_position is not None), None)
+    for citizen in citizens:
+        gap = None if holder is None or citizen is holder else self_gap(citizen, holder)
+        appraisal = appraise(gap, citizen.blank_threshold, economy_x, config.events.economy_shock_threshold)
+        feel(citizen, appraisal, config.emotions.decay)
+    mean = mean_emotions(citizens)
+    journal.write_event(
+        tick=tick, event=EmotionsUpdated(anger=mean.anger, anxiety=mean.anxiety, enthusiasm=mean.enthusiasm), citizen_id=None,
+    )
+
+
+def _phase_opinion_dynamics(context: TickContext, state: TickState) -> None:
+    """S4.3 (ADR-012): last in the tick, so the next tick's decisions read the moved views."""
+    if not context.config.dynamics.enabled:
+        return
+    assert context.latent is not None and context.edges is not None and state.dynamics_rng is not None
+    step = apply_dynamics(state.citizens, context.latent, context.edges, context.config.dynamics, state.dynamics_rng)
+    context.journal.write_event(
+        tick=context.tick,
+        event=OpinionDynamicsStep(mean_shift=step.mean_shift, max_shift=step.max_shift, influenced=step.influenced),
+        citizen_id=None,
+    )
+
+
 def _phase_accountability(context: TickContext, state: TickState) -> None:
     assert context.exogenous is not None  # _phase_exogenous_events runs earlier in TICK_PHASES
     context.president_before_accountability = current_office_holders(state.citizens, Office.PRESIDENT)
@@ -854,13 +905,16 @@ TICK_PHASES: tuple[Callable[[TickContext, TickState], None], ...] = (
     _phase_presidential_election,
     _phase_legislative_election,
     _phase_sortition_chamber,
+    _phase_emotions,
     _phase_accountability,
     _phase_snap_election,
+    _phase_opinion_dynamics,
 )
 """One tick, in order (S3.4). Each phase reads and updates TickState and may leave a
 value on TickContext for a later phase of the same tick -- the order is load-bearing:
 exogenous events before accountability (which reads them), elections before the
-chamber and accountability, the snap-election check last. Phases call the module's
+chamber and accountability, emotions just before accountability (which reads them), the
+snap-election check, then opinion dynamics last. Phases call the module's
 named functions (_attempt_rupture_candidacies, _run_accountability_phase, ...), so the
 crash-and-resume tests that patch those names still interrupt a real tick."""
 
@@ -2341,6 +2395,7 @@ def _run_accountability_phase(
                 mandate_dev=deviation or 0.0,
                 awakening=config.awakening,
                 neighbors_acting=neighbors_acting_by_cid,
+                emotions=config.emotions,
             )
             decisions: dict[int, PressureDecision] | None = None
             pressure_fallback: dict[int, bool] = {}
@@ -2374,7 +2429,8 @@ def _run_accountability_phase(
                 motif: str | None = None
                 if decisions is None:
                     decided = deterministic_pressure_action(
-                        citizen, gap, config.pressure_menu, can_sign=can_sign, can_launch=can_launch
+                        citizen, gap, config.pressure_menu, can_sign=can_sign, can_launch=can_launch,
+                        tolerance_scale=tolerance_scale(citizen, config.emotions),
                     )
                     act = decided
                     pressure_ctx, pressure_provenance = OMIT, OMIT

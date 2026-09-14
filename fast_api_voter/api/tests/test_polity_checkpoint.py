@@ -316,7 +316,21 @@ def test_every_tick_state_field_has_a_checkpoint_key(tmp_path):
     path = tmp_path / "checkpoint.json"
     _save(path, config)
     payload = json.loads(path.read_text(encoding="utf-8"))
-    assert set(payload) == set(STATE_PAYLOAD_KEYS.values()) | {"run_id", "config_hash", "tick", "next_event_id"}
+    # dynamics_rng_state is written only for a dynamic run (S4.3); see the test below.
+    assert set(payload) == set(STATE_PAYLOAD_KEYS.values()) - {"dynamics_rng_state"} | {"run_id", "config_hash", "tick", "next_event_id"}
+
+
+def test_a_dynamic_run_s_stream_and_citizen_views_round_trip(tmp_path):
+    config = load_config()
+    path = tmp_path / "checkpoint.json"
+    moved = _citizen(0, latent_factors=(0.3, -1.2), anger=0.4, anxiety=0.1, enthusiasm=0.0)
+    _save(path, config, citizens=[moved, _citizen(1)], dynamics_rng=_rng(4, draws=7))
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert "latent_factors" in payload["citizens"][0] and "anger" not in payload["citizens"][1]
+
+    state = load_checkpoint(path).state
+    assert state.citizens == [moved, _citizen(1)] and isinstance(state.citizens[0].latent_factors, tuple)
+    assert state.dynamics_rng is not None and state.dynamics_rng.random() == _rng(4, draws=7).random()
 
 
 def test_a_checkpoint_keeps_the_file_format_older_runs_wrote(tmp_path):
