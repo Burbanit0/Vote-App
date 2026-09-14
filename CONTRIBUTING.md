@@ -73,7 +73,7 @@ git push origin feature/ma-feature
 | E2E (Playwright) | Un parcours utilisateur casse sur Chromium ou Firefox — **ou passe seulement au second essai** (voir « Tests E2E » plus bas) |
 | Generated Artifacts Contract | `openapi.gen.json` / `types.gen.ts` **ou** `engineParity.json` désynchronisés du code (voir `scripts/check_openapi_drift.sh` et `scripts/check_engine_parity_drift.sh`) |
 | Engine perf ceilings | Une règle de vote (`simulation_ranked_utils.py`/`simulation_score_utils.py`) dépasse son plafond de temps absolu — généreux exprès (100-500 ms, 15-500x la mesure réelle), pensé pour attraper une régression algorithmique, pas du bruit machine (voir `fast_api_voter/api/tests/test_engine_benchmarks.py`) |
-| Quality ratchet | La dette vulture/radon/deptry/knip/jscpd a augmenté (voir « Code mort » plus bas) |
+| Quality ratchet | La dette vulture/radon/deptry/knip/jscpd/sonarjs a augmenté (voir « Code mort » plus bas) |
 | Dependency Review | La PR introduit une dépendance vulnérable (sévérité high+) — complète Dependabot, qui ne scanne que l'existant, pas ce qu'une PR ajoute |
 
 ### 4. Release : develop → main
@@ -154,7 +154,7 @@ ou un gate, mettez cette table à jour dans la même PR.
 | `branch-policy.yml` (Branch Policy) | PR | Oui, y compris le format du titre (Conventional Commits — plus un simple avertissement) et la source pour les PR vers `main` (`Check source is develop`) | Oui | ~10-30 s |
 | `openapi-contract.yml` (Generated Artifacts Contract) | push/PR, toujours (même schéma `changes`) | Oui, quand un fichier du contrat a changé — sinon `skipped` | Oui | ~1 min (skip quasi instantané sinon) |
 | `dependency-review.yml` (Dependency Review) | PR sur `develop`/`main` | Oui — sévérité `high`+ introduite par la PR | Oui | ~15-30 s |
-| `audit.yml` (Security Audit) | push/PR + cron lundi 06:00 UTC + `merge_group` | Semgrep/Trivy/Secret Scan : oui · CodeQL : le job doit terminer mais ne bloque pas sur ses trouvailles (elles atterrissent dans l'onglet Security) · code mort/duplication/complexité (vulture/radon/deptry/knip/jscpd) : non-bloquant sauf régression du cliquet (`quality-baseline.json`) · scan d'image Docker + SBOM (`image-scan`) : non-bloquant, et ne tourne que sur push `develop`/cron — jamais sur une PR (build de 2 images, coûte plusieurs minutes) | Oui (les 4 jobs gating + les 2 jobs CodeQL du matrix — `image-scan` n'est pas requis) | ~2-3 min sur PR (le run cron/push `develop`, qui inclut `image-scan`, est plus long et indépendant d'une PR) |
+| `audit.yml` (Security Audit) | push/PR + cron lundi 06:00 UTC + `merge_group` | Semgrep/Trivy/Secret Scan : oui · CodeQL : le job doit terminer mais ne bloque pas sur ses trouvailles (elles atterrissent dans l'onglet Security) · code mort/duplication/complexité (vulture/radon/deptry/knip/jscpd/sonarjs) : non-bloquant sauf régression du cliquet (`quality-baseline.json`) · scan d'image Docker + SBOM (`image-scan`) : non-bloquant, et ne tourne que sur push `develop`/cron — jamais sur une PR (build de 2 images, coûte plusieurs minutes) | Oui (les 4 jobs gating + les 2 jobs CodeQL du matrix — `image-scan` n'est pas requis) | ~2-3 min sur PR (le run cron/push `develop`, qui inclut `image-scan`, est plus long et indépendant d'une PR) |
 | `mutation-testing.yml` (Mutation Testing) | push sur `develop` (paths engine uniquement) + `workflow_dispatch` + cron lundi 04:17 UTC | Non — jamais bloquant | Non — ne se déclenche jamais sur PR | mutmut ~40 min-3h · Stryker jusqu'à ~2h30 en cold-cache (`timeout-minutes: 240`), moins avec le cache `--incremental` une fois chaud |
 | `schemathesis.yml` (Schemathesis Contract Fuzzing) | push sur `develop` (paths `fast_api_voter/api/**`) + `workflow_dispatch` + cron lundi 05:38 UTC | Non — jamais bloquant | Non — ne se déclenche jamais sur PR | ~220s (~3.5-4 min) en local, non re-mesuré sur un runner GitHub réel (`timeout-minutes: 45` par prudence) |
 | `flaky-check-backend.yml` (Backend Flaky Test Hunt) | push sur `develop` (paths `fast_api_voter/api/**`) + `workflow_dispatch` + cron quotidien 03:13 UTC | Non — jamais bloquant | Non — ne se déclenche jamais sur PR | ~1 min en local (3 exécutions parallélisées `-n auto`, ~16-18s chacune) |
@@ -223,7 +223,7 @@ Types valides : `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `ci`, `secur
 | Couches `routes → domain → engine` | bloquant, 0 import remontant | `fast_api_voter/pyproject.toml` (`[tool.importlinter]`) |
 | `src/lib` pur (pas de dépendance vers `components`/`pages`) | bloquant, 0 violation | `voter-app/.dependency-cruiser.json` |
 | Tests e2e instables | 0 — un test qui ne passe qu'au *retry* fait échouer la PR | `voter-app/scripts/check-flaky.mjs` |
-| Dette qualité (vulture/radon/deptry/knip/jscpd) | ne doit jamais augmenter | `.github/quality-baseline.json` |
+| Dette qualité (vulture/radon/deptry/knip/jscpd/sonarjs) | ne doit jamais augmenter | `.github/quality-baseline.json` |
 | npm audit severity | high | `npm audit --audit-level=high` |
 | Bandit severity | medium+ | `-ll` dans args bandit |
 | Licence des dépendances de *production* | allow-list MIT/BSD/Apache/MPL-2.0/PSF-2.0-like, 0 exception | `fast_api_voter/scripts/check_license_compliance.sh` (backend, venv isolé) ; `license-checker-rseidelsohn --production --onlyAllow` (frontend, `frontend-ci-cd-pipeline.yml`) |

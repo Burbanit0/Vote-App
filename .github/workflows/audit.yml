@@ -473,6 +473,25 @@ jobs:
         continue-on-error: true
         run: npx knip --no-progress | tee knip.txt
 
+      # eslint-plugin-sonarjs (Lot 6.6, PLAN_SOLIDITE_TECHNIQUE.md): none of its
+      # rules run in the blocking eslint.config.js (see that file's own comment
+      # on why the plugin is still registered there) -- this is the separate,
+      # informational-only config (eslint.sonarjs.config.js) with the full
+      # recommended ruleset on. Same non-blocking-per-tool, ratcheted-overall
+      # pattern as vulture/radon/deptry/knip above: PLAN_CI_STRUCTURAL_GAPS.md
+      # item 2.B closed the gap where this count lived only in a memory file,
+      # not an actual gate.
+      - name: Frontend sonarjs findings, informational overlay (eslint-plugin-sonarjs)
+        working-directory: voter-app
+        continue-on-error: true
+        # Direct binary invocation, not `npm run lint:sonarjs` -- matches every
+        # sibling tool's own convention in this job (`npx knip`, `npx jscpd`,
+        # `python -m vulture`, ...) and keeps sonarjs.txt free of npm's own
+        # "> voter-app@... lint:sonarjs" banner line, which would otherwise be
+        # the only thing distinguishing "eslint ran" from "eslint never got
+        # invoked" if this step's config ever breaks.
+        run: npx eslint -c eslint.sonarjs.config.js . --ext .js,.jsx,.ts,.tsx | tee sonarjs.txt
+
       - name: Cross-language duplication (jscpd)
         continue-on-error: true
         run: npx --yes jscpd --config .jscpd.json fast_api_voter/api voter-app/src | tee jscpd.txt
@@ -520,6 +539,9 @@ jobs:
             echo "<details><summary>knip (TS dead code / unused deps)</summary>"
             echo; echo '```'; cat voter-app/knip.txt 2>/dev/null || echo "(no output)"; echo '```'
             echo "</details>"
+            echo "<details><summary>sonarjs (informational overlay, eslint-plugin-sonarjs)</summary>"
+            echo; echo '```'; cat voter-app/sonarjs.txt 2>/dev/null || echo "(no output)"; echo '```'
+            echo "</details>"
             echo "<details><summary>deptry (Python unused/undeclared deps)</summary>"
             echo; echo '```'; cat fast_api_voter/deptry.txt 2>/dev/null || echo "(no output)"; echo '```'
             echo "</details>"
@@ -536,6 +558,7 @@ jobs:
             fast_api_voter/radon.txt
             fast_api_voter/xenon.txt
             voter-app/knip.txt
+            voter-app/sonarjs.txt
             fast_api_voter/deptry.txt
             jscpd.txt
           if-no-files-found: ignore

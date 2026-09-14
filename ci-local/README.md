@@ -158,9 +158,9 @@ because it isn't *testing the app* — it's testing the workflow itself.
   mirror covers Semgrep, Gitleaks and the filesystem Trivy scan only. It does
   **not** run the `image-scan` job (Trivy image scan + SBOM on the two prod
   Dockerfiles — schedule/`push`-to-`develop` only, non-gating for now), the
-  `code-quality` job (vulture/deptry/knip/jscpd/radon behind a ratchet — see
-  `.github/quality-baseline.json`), or CodeQL (GitHub-native, not runnable
-  locally).
+  `code-quality` job (vulture/deptry/knip/jscpd/radon/sonarjs behind a
+  ratchet — see `.github/quality-baseline.json`), or CodeQL (GitHub-native,
+  not runnable locally).
 
 **Drift found and fixed (PLAN_REMEDIATION_CI_CD.md §2.6)**: three gating
 steps had been added to the real workflows without ever being mirrored

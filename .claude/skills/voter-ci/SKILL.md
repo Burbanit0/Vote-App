@@ -88,7 +88,7 @@ watching requirements too.
 | Semgrep SAST | **required**, `--error` on any finding | rules in `.semgrep/vote-app-rules.yml` + `p/python`, `p/javascript`, `p/react`, `p/security-audit`, `p/secrets`, `p/sql-injection`, `p/owasp-top-ten` |
 | Secret Scan (Gitleaks) | **required** | `.gitleaks.toml`; TruffleHog alongside is informational only |
 | Dependencies, Containers & Misconfig (Trivy) | **required**, HIGH/CRITICAL fs scan | `.trivyignore.yaml` for triaged false positives |
-| Code Quality | **required**, but only via the ratchet at the end — see below | vulture/radon/xenon/deptry/knip/jscpd all run `continue-on-error: true` |
+| Code Quality | **required**, but only via the ratchet at the end — see below | vulture/radon/xenon/deptry/knip/sonarjs/jscpd all run `continue-on-error: true` |
 | CodeQL (`javascript-typescript`, `python`) | **required**, non-gating by itself | results land in the Security tab, not a hard fail |
 | OSV-Scanner, GuardDog, Docker image scan/SBOM/signing | informational only | second opinions / supply-chain, not PR blockers |
 
@@ -139,9 +139,11 @@ pattern, or does it still filter at the trigger?
 
 `audit.yml`'s `code-quality` job runs vulture (Python dead code), radon
 (cyclomatic complexity, rank C+), deptry (unused/undeclared deps), knip (TS
-dead code/unused deps), and jscpd (cross-language duplication) — all with
-`continue-on-error: true`, because the repo never did a full cleanup pass and
-failing outright on the existing backlog would just get the job disabled.
+dead code/unused deps), sonarjs (`eslint-plugin-sonarjs`'s full recommended
+ruleset, informational-only in the blocking `eslint.config.js`), and jscpd
+(cross-language duplication) — all with `continue-on-error: true`, because
+the repo never did a full cleanup pass and failing outright on the existing
+backlog would just get the job disabled.
 
 The ratchet is the actual gate, reading the `.txt` files those tools already
 `tee`d (zero extra CI seconds):
@@ -166,7 +168,9 @@ The ratchet is the actual gate, reading the `.txt` files those tools already
   increase means new debt was actually added; the fix is to address the new
   finding (or silence a genuine false positive at its source —
   `.vulture_whitelist.py`, `pyproject.toml`'s `[tool.deptry]`,
-  `voter-app/knip.json`, `.jscpd.json`), not to launder it into the baseline.
+  `voter-app/knip.json`, `.jscpd.json`, or for sonarjs a
+  `// eslint-disable-next-line sonarjs/<rule>` comment / rule override in
+  `voter-app/eslint.sonarjs.config.js`), not to launder it into the baseline.
 - **Measure `--update` on an up-to-date branch.** CI runs these tools against
   the PR's merge result; the script's own header notes a real incident where a
   baseline measured one merge behind `develop` disagreed with CI by exactly
