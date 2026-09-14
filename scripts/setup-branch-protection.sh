@@ -2,9 +2,13 @@
 # ── Vote Lab — Branch protection setup ────────────────────────────────────────
 # Usage:
 #   bash scripts/setup-branch-protection.sh [main|develop|polity|polity-ui|all] [GH_TOKEN]
-#   bash scripts/setup-branch-protection.sh              # both branches, gh CLI
+#   bash scripts/setup-branch-protection.sh              # main and develop, gh CLI
 #   bash scripts/setup-branch-protection.sh develop      # develop only, gh CLI
-#   bash scripts/setup-branch-protection.sh all <TOKEN>  # both, curl + token
+#   bash scripts/setup-branch-protection.sh all <TOKEN>  # main and develop, curl + token
+#   bash scripts/setup-branch-protection.sh polity-ui    # one Polity branch, gh CLI
+#
+# `all` means main and develop only: polity and polity-ui are protected one at a time,
+# on purpose, each when its branch exists and its checks are known to report there.
 #
 # Get a token: GitHub → Settings → Developer settings → Personal access tokens
 # Required scopes: repo (or Administration for fine-grained tokens)
@@ -171,7 +175,7 @@ case "$TARGET" in
   develop) protect_develop ;;
   polity|polity-ui) protect_polity_branch "$TARGET" ;;
   all)     protect_main; echo ""; protect_develop ;;
-  *) echo "❌ Unknown target '$TARGET' — use main, develop, polity, polity-ui, or all"; exit 1 ;;
+  *) echo "❌ Unknown target '$TARGET' — use main, develop, polity, polity-ui, or all (= main and develop)"; exit 1 ;;
 esac
 
 echo ""
