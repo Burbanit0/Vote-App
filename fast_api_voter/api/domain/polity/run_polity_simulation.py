@@ -450,8 +450,8 @@ def run_simulation(
 ) -> Path:
     """Run a full simulation and return the path to its journal.
 
-    president_term_limit is null in the shipped config (illimité), but is
-    now enforced when set (v4 Lot 2, §6bis.1): a citizen with
+    president_term_limit ships at 2 (D6, 2026-09-13; null means illimité) and is
+    enforced when set (v4 Lot 2, §6bis.1): a citizen with
     mandates_served >= term_limit cannot be nominated again, on either
     engine (the LLM path since 2026-09-13) (assembly_term_limit stays unread —
     legislative elections are party-list, no per-citizen candidacy check
@@ -816,19 +816,24 @@ def _phase_snap_election(context: TickContext, state: TickState) -> None:
         or current_office_holders(state.citizens, Office.PRESIDENT)
     ):
         return
+    before = context.president_before_accountability
+    recalled = before[0].citizen_id if before else None
     state.pending_rerun = PendingRerun(
         attempt=1, next_tick=context.tick + config.institutions.reelection_delay_ticks,
         # barred_from_immediate_rerun does NOT apply here -- see
         # _parse_institutions's own comment on why a recall has no candidate SET
-        # to bar the way an invalidated election does.
-        barred_candidate_ids=frozenset(),
+        # to bar the way an invalidated election does. The recalled president alone
+        # may be barred instead (D6, recalled_barred_from_snap_election); a vacancy
+        # with no president before it (an election with no winner) bars nobody.
+        barred_candidate_ids=(
+            frozenset({recalled}) if recalled is not None and config.institutions.recalled_barred_from_snap_election else frozenset()
+        ),
     )
-    before = context.president_before_accountability
     context.journal.write_event(
         tick=context.tick,
         event=SnapElectionTriggered(
             office=Office.PRESIDENT.value,
-            recalled_citizen_id=before[0].citizen_id if before else None,
+            recalled_citizen_id=recalled,
             next_attempt_tick=state.pending_rerun.next_tick,
         ),
         citizen_id=None,

@@ -494,7 +494,13 @@ def _config_with_mandate_enabled_and_guaranteed_winners(output_dir) -> PolityCon
     # it to 0 guarantees nominees, and therefore `elected` events to assert
     # mandate_pledge_declared against.
     config = _config_with_mandate_enabled(output_dir)
-    return dataclasses.replace(config, candidacy=dataclasses.replace(config.candidacy, ambition_threshold=0.0))
+    return dataclasses.replace(
+        config,
+        candidacy=dataclasses.replace(config.candidacy, ambition_threshold=0.0),
+        # No term limit: every pledge here is a re-eligible president's (lame_duck False),
+        # which is what the deviation control case below asserts about.
+        institutions=dataclasses.replace(config.institutions, president_term_limit=None),
+    )
 
 
 def test_default_config_run_emits_no_mandate_events(tmp_path):
@@ -1140,8 +1146,14 @@ def test_legitimacy_is_flat_at_mandate_strength_for_the_entire_run(tmp_path):
     config = _config_with_legitimacy_enabled_and_guaranteed_winners(tmp_path, recall_floor=0.0)
     # Pinned to uniform regardless of citizens.position_dist's shipped
     # default (plan-distribution-positions-seeds.md, Phase 3): m=0.51 below
-    # was computed for this seed specifically under uniform.
-    config = dataclasses.replace(config, citizens=dataclasses.replace(config.citizens, position_dist="uniform"))
+    # was computed for this seed specifically under uniform. No term limit
+    # (shipped at 2 since D6): the claim is about one president's L(t) across
+    # every term, which a limit would end.
+    config = dataclasses.replace(
+        config,
+        citizens=dataclasses.replace(config.citizens, position_dist="uniform"),
+        institutions=dataclasses.replace(config.institutions, president_term_limit=None),
+    )
     journal_path = run_simulation(config, run_id="legitimacy-flat")
     events = _events(journal_path)
     updates = [e for e in events if e["event_type"] == "legitimacy_updated"]
@@ -1270,7 +1282,11 @@ def test_snap_election_on_recall_refills_the_office_continuously(tmp_path):
     config = dataclasses.replace(
         config,
         run=dataclasses.replace(config.run, duration_years=2, population_size=20),
-        institutions=dataclasses.replace(config.institutions, snap_election_on_recall=True),
+        # The recalled president stays eligible and unlimited here, so the same citizen
+        # can be recalled and re-elected every tick; the D6 levers are tested below.
+        institutions=dataclasses.replace(
+            config.institutions, snap_election_on_recall=True, president_term_limit=None, recalled_barred_from_snap_election=False,
+        ),
     )
     journal_path = run_simulation(config, run_id="snap-refill")
     events = _events(journal_path)
@@ -1291,10 +1307,33 @@ def test_snap_election_on_recall_refills_the_office_continuously(tmp_path):
     for tick, e in enumerate(snap_events):
         assert e["payload"]["office"] == "president"
         assert e["payload"]["next_attempt_tick"] == tick + config.institutions.reelection_delay_ticks
-        # The recalled citizen is named, and (see _parse_institutions's own
-        # comment) never barred from immediately winning again -- confirmed
-        # here by the SAME citizen id recurring across the whole run.
+        # The recalled citizen is named, and (with the bar off) not barred from
+        # immediately winning again -- confirmed here by the SAME citizen id
+        # recurring across the whole run.
         assert e["payload"]["recalled_citizen_id"] == 0
+
+
+def test_a_recalled_president_is_barred_from_the_snap_election_that_follows_but_not_after(tmp_path):
+    # D6 (2026-09-13, observations.md OBS-003): with the bar on, the snap election a
+    # recall triggers cannot re-elect the recalled president. The same every-tick
+    # recall set-up as above, term limit off to isolate the bar.
+    config = _config_with_legitimacy_enabled_and_guaranteed_winners(tmp_path, recall_floor=0.99)
+    config = dataclasses.replace(
+        config,
+        run=dataclasses.replace(config.run, duration_years=2, population_size=20),
+        institutions=dataclasses.replace(
+            config.institutions, snap_election_on_recall=True, president_term_limit=None, recalled_barred_from_snap_election=True,
+        ),
+    )
+    events = _events(run_simulation(config, run_id="snap-bar"))
+    elected = [(e["tick"], e["citizen_id"]) for e in events if e["event_type"] == "elected"]
+    recalled = {e["tick"]: e["payload"]["recalled_citizen_id"] for e in events if e["event_type"] == "snap_election_triggered"}
+
+    assert len(elected) >= 3
+    for (tick, winner), (_, previous) in zip(elected[1:], elected):
+        if recalled.get(tick - 1) == previous:
+            assert winner != previous  # never the president recalled the tick before
+    assert len({winner for _, winner in elected}) < len(elected)  # a president can return after an intervening one
 
 
 def test_snap_election_on_recall_defaults_to_false_and_preserves_the_long_vacancy(tmp_path):

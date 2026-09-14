@@ -553,7 +553,8 @@ def test_indexing_a_full_menu_llm_run_populates_every_v4_metric(tmp_path):
 
     assert metrics.mandate_deviation is not None
     assert metrics.mandate_deviation_source == "ctx"
-    assert metrics.lame_duck_deviation_delta is None  # president_term_limit: null, shipped
+    # president_term_limit ships at 2 (D6): the second term is a lame duck's, so the delta is measured.
+    assert metrics.lame_duck_deviation_delta is not None
 
     assert metrics.inaction_rate is not None
     for _tick, rate in metrics.inaction_rate:

@@ -22,7 +22,8 @@ def test_loads_the_real_polity_config_with_expected_v0_values():
     assert config.institutions.presidential_method == "two_round"
     assert config.institutions.assembly_seats == 100
     assert config.institutions.seat_allocation == "dhondt"
-    assert config.institutions.president_term_limit is None
+    assert config.institutions.president_term_limit == 2  # D6, 2026-09-13
+    assert config.institutions.recalled_barred_from_snap_election is True
     assert config.parties.initial_count == 5
     assert config.parties.coalition_tiebreak == ("seats", "votes", "party_id")
     assert config.parties.coalition_max_negotiation_rounds == 3

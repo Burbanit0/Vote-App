@@ -155,6 +155,7 @@ class InstitutionsConfig:
     reelection_max_attempts: int
     barred_from_immediate_rerun: bool
     snap_election_on_recall: bool
+    recalled_barred_from_snap_election: bool
     staggered_election: bool
     presidential_campaign_ticks: int
     legislative_campaign_ticks: int
@@ -567,6 +568,10 @@ def _parse_institutions(raw: dict[str, Any]) -> InstitutionsConfig:
         # candidate set to bar -- conflating the two would silently change
         # what the flag means for its original caller.
         snap_election_on_recall=_get(s, "institutions", "snap_election_on_recall", bool),
+        # D6, 2026-09-13: its own flag, not barred_from_immediate_rerun (see above) -- the
+        # recalled president alone is barred, and only from the snap election the recall
+        # triggers (observations.md OBS-003).
+        recalled_barred_from_snap_election=_get(s, "institutions", "recalled_barred_from_snap_election", bool),
         # Track E, 2026-09-11 (lets-build-a-solid-spicy-otter.md): defaults
         # false, same rollout shape as snap_election_on_recall -- every
         # existing test/run keeps today's atomic declare+nominate+position+

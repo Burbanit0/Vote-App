@@ -31,7 +31,10 @@ institutions:
   assembly_offset_years: 2    # [v0] décalage entre les deux calendriers
                               #      0 = élections concurrentes (Shugart & Carey)
                               #      dimension de comparaison Monte Carlo (§6bis.4)
-  president_term_limit: null  # [v4] null = illimité, sinon nb de mandats max
+  president_term_limit: 2     # [v4] null = illimité, sinon nb de mandats max
+                              #   (scrutins gagnés, anticipés compris). 2 depuis
+                              #   D6 (2026-09-13) : sans limite, le même citoyen
+                              #   gagnait presque chaque scrutin (OBS-001).
   assembly_term_limit: null   # [v4] cf. effet lame duck (§6bis.1)
 
   # --- Élection présidentielle (un seul vainqueur) ---
@@ -78,6 +81,10 @@ institutions:
                                       #      un run déjà calibré ; le run
                                       #      flagship l'active explicitement
                                       #      (run_polity_flagship.py).
+  recalled_barred_from_snap_election: true  # [D6, 2026-09-13] le président
+                                      #      rappelé ne peut pas se présenter au
+                                      #      scrutin anticipé qui suit son rappel
+                                      #      (OBS-003) ; il le peut aux suivants.
   staggered_election: false           # [Track E] scrutin présidentiel étalé sur
                                       #      sa campagne (déclaration au premier
                                       #      tick, investiture + positionnement au
