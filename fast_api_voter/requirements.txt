@@ -50,7 +50,7 @@ opentelemetry-exporter-otlp-proto-http==1.44.0
 opentelemetry-instrumentation-fastapi==0.65b0  # matching contrib pre-release line for core 1.44.0
 
 # ── Data / science (the simulation engine) ───────────────────────────────────
-numpy==2.5.2
+numpy==2.5.3
 scipy==1.18.1                  # 1.15.3 has no Python 3.14 wheel (cp314); this is the version
                                 # already proposed by the stalled scipy Dependabot PR (#266),
                                 # blocked for the same reason (needs Python >=3.12)
