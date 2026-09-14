@@ -98,6 +98,19 @@ the same pick every time.
 
 Re-measure OBS-001 and OBS-010 on the first sweep run with them.
 
+*Update 2026-09-14, p500 seeds 1 and 2, complete.* Both runs come from the S0.7 worktree, before
+D6's levers.
+
+- **The party field never changed.** Seed 1's nominees are 31, 113, 398, 421 and 499 at all four
+  elections. Seed 2's are 0, 70, 224, 248 and 271 at all four, with a rupture candidate added at
+  ticks 16, 26 and 32 (`check_observations.py elections`: same field 3/3 in each run).
+- **Winners.**
+  - Seed 1: citizen 31 won ticks 0, 16 and 20.
+  - Seed 2: 271 at tick 0, 224 at tick 16, 326 at tick 26, then 224 again at tick 32.
+- **Rupture candidates take office.** Seed 1's last winner (287, tick 32) and seed 2's third (326,
+  tick 26) are not among the declared nominees of those elections: both came in through the rupture
+  path.
+
 *What would settle it (before D6).* A design choice, not a check: what should differ between two elections?
 Candidates are term limits (they work on both engines since OBS-012's fix), S4.3 (dynamic citizens: positions and ambition
 that respond to what happened), or sampling above temperature 0 for candidacy and nomination.
@@ -152,6 +165,17 @@ and `elected` with the same `citizen_id`.
 recall, and may stand again at later elections (`institutions.recalled_barred_from_snap_election`,
 shipped true). Voters' knowledge of the recall enters through S4.1's retrospective vote.
 
+*Update 2026-09-14, p500 seeds 1 and 2 (before D6's bar).* The pattern is not universal.
+
+- **Seed 1 repeats it.** Citizen 31, recalled at tick 19, wins the snap election at tick 20.
+- **Seed 2 does not.** Neither recalled president wins their snap election, though both stand.
+  - 271, recalled at tick 15, loses the tick-16 snap election to 224.
+  - 224, recalled at tick 25, loses at tick 26 to 326, a rupture candidate. 224 then wins the
+    scheduled election at tick 32.
+
+Across the ten p100 runs and these two, recall still more often changes the calendar than the
+president.
+
 *What would settle it (before D6).* A design decision: should a recalled president stand in the snap election,
 and should voters know who was recalled? A bar is a rule change; telling voters is a prompt change
 that S2.2's case bank could test first.
@@ -164,6 +188,12 @@ that S2.2's case bank could test first.
 no shift, 6 with motif 702 and three shifts each (18 shifts in total, deltas between -0.1 and
 +0.05). 5 decisions fell back. Membership does differ by seed (the first seated chamber differs in
 every run). p500 seed 1 is the same: 1,200 decisions, 1,181 with motif 701, 14 with 702, 5 fallbacks.
+*Update 2026-09-14, both p500 runs complete* (`check_observations.py chamber`):
+
+- **Seed 1:** 2,475 decisions, 2,457 with motif 701 (10 of them fallbacks), 18 with 702. The reasoning
+  of all 495 completed calls notes identical positions.
+- **Seed 2:** 2,475 decisions, 2,463 with 701 (5 fallbacks), 12 with 702. All 497 completed calls note
+  identical positions.
 
 *Evidence.*
 
@@ -254,6 +284,16 @@ decisions, and `representative_response` is CONCESSION in 299 of the 304 that di
 (all 26 fallbacks are SILENCE, the fallback's value). p500 seed 1 so far: JOIN 8 of 8, CONCESSION
 16 of 16. Whether real inputs ever call for another answer is not established, so this is
 consistent with the collapse but does not prove it.
+
+*Update 2026-09-14, both p500 runs complete.*
+
+- **`coalition_decision`:** JOIN 16 of 16 in each run.
+- **`representative_response`:**
+  - Seed 1 concedes 33 of 33, none falling back.
+  - Seed 2 concedes 25 times and answers SILENCE 8 times. One SILENCE is the fallback, so 7 of its
+    32 model answers are not CONCESSION. That is the largest departure seen on a real run so far.
+  - Seed 2's presidents faced more pressure: 74 mobilizations against seed 1's 1, 689 petition
+    signatures against 530, and 2 confidence votes against 1.
 
 *Suspected cause.* Survives a full change of serving stack and quantization, so the model's
 behaviour on these two prompt shapes, not infrastructure.

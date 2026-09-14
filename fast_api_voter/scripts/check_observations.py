@@ -35,6 +35,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from api.domain.polity.checkpoint import load_checkpoint  # noqa: E402
+from api.domain.polity.llm_time_attribution import kept_calls  # noqa: E402
 from api.domain.polity.simple_rules import sympathizer_ratio  # noqa: E402
 
 _KERNELS = ("default", "Haswell", "Sandybridge", "Nehalem", "Prescott")
@@ -168,8 +169,9 @@ def _sentences(text: str) -> list[str]:
 
 
 def truncations(run_dir: Path) -> None:
-    calls = [c for c in _jsonl(run_dir / "llm_calls.jsonl") if c["kind"] == "decision"]
-    cut = [c for c in calls if c["finish_reason"] == "length"]
+    # The calls the run kept: a resumed run's interrupted attempt is dropped for the ticks it ran again.
+    calls = [c for c in kept_calls(_jsonl(run_dir / "llm_calls.jsonl")) if c["kind"] == "decision"]
+    cut = [c for c in calls if c.get("finish_reason") == "length"]
     print(f"{len(cut)} of {len(calls)} decision calls hit the token budget")
     print("| decision type | tick | seconds | reasoning tokens | top sentence repeats | second half: distinct / total sentences |")
     print("|---|---:|---:|---:|---:|---:|")
@@ -200,7 +202,7 @@ def chamber(run_dir: Path) -> None:
         return
     completed = [
         c for c in _jsonl(calls_path)
-        if c["decision_type"] == "chamber_deliberation" and c["kind"] == "decision" and c["finish_reason"] == "stop"
+        if c["decision_type"] == "chamber_deliberation" and c["kind"] == "decision" and c.get("finish_reason") == "stop"
     ]
     equal = sum(bool(_POSITIONS_EQUAL.search(c.get("reasoning") or "")) for c in completed)
     shifted = sum('"motif": 702' in (c.get("content") or "") for c in completed)
