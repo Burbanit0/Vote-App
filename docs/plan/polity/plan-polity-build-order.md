@@ -609,3 +609,60 @@ Can proceed alongside Stages 1–4.
   TIMELINE.md, a mechanical claim checker; story skeletons clustered across seeds.
 - **S5.4 Generated doc status:** cog blocks with `cog --check` in CI; the doc-drift agent
   widened to `docs/plan/polity`.
+
+---
+
+## 9. Execution order for the open steps (set 2026-09-13, 22:20)
+
+What remains open: S0.8 and S1.1–S1.4, S2.1, S2.2 and S2.4 (all needing the GPU in some part), and
+the calibrations of S4.1–S4.3 (no GPU). There is one GPU, an RTX 5070 Ti (16 GB). Every
+measurement against the server needs the server to itself: concurrent requests change vLLM's
+batches, and so its answers. The order below puts the long unattended job first and does the GPU-free work
+alongside it.
+
+1. **Resume the p500 batch (S0.8)** from the S0.7 worktree with `--resume-sweep`: seed 1's last
+   tick from its checkpoint, then seeds 2 and 42 and the seed-1 repeat, about 21 h. It runs
+   detached from any editor (`systemd-run --user`), since OBS-014 lost the first attempt with one.
+   Nothing else uses the server until it ends.
+2. **Meanwhile, without the GPU:**
+   - S1.1's attribution for seed 1, updated with the other runs when they finish.
+   - The calibrations of S4.1, S4.3 and S4.2, each by a script that writes its results doc from
+     the runs. Each calibration runs on the shipped config with the other two mechanisms off, as
+     each ADR states.
+   - Then the **combined check**, pre-registered here: every adopted setting on together, same
+     twin and seeds, each ADR's facts reported again. A fact that flips is recorded as an
+     interaction, and no setting is re-tuned for it.
+   - The S1.3 and S1.4 arms, built and tested against a fake client, ready for their sessions.
+3. **After the batch, one GPU session at a time**, each on the unchanged `vllm-polity` server
+   unless stated:
+   1. S0.8's generated summary. S2.2's candidacy acceptance by replaying seed 42's call log.
+   2. S2.2's control session (Qwen3-8B-AWQ, no arm): the rest of S2.2's acceptance, and the
+      control that S1.2 and S2.4 compare against.
+   3. S1.2's `vote_grammar` session; adopted or not by its acceptance.
+   4. S1.3: first confirm the pinned server honours `thinking_token_budget` with ngram speculation.
+      Then the budget arms.
+   5. S1.4's sampling arm. Adoption is D4.
+   6. S2.1's sweep, `kv-auto`. Then the same with the server restarted with
+      `--kv-cache-dtype fp8`, and the server restored.
+4. **S2.4 is blocked on disk.** The root filesystem has 6.7 GB free, and five candidate models need
+   several times that. What to free is the owner's call (D8).
+
+| ID | Decision | Gates | Recorded |
+|---|---|---|---|
+| D8 | Free enough disk for S2.4's five candidate models (about 25–30 GB), and choose what goes | S2.4 | |
+
+### S4.1's grid, pre-registered before running (ADR-011 gave the facts, not the grid)
+
+- `partisanship` ∈ {0, 0.05, 0.1}
+- `approval` ∈ {0, 0.05, 0.1}, with `approval_party_carryover` 0.5
+- `turnout_cost` ∈ {0.005, 0.01, 0.02, 0.04}
+- `valence` stays 0, since nothing sources a valence yet.
+
+**Selection.** Among the settings where all four facts hold, the smallest `partisanship +
+approval` is adopted. Ties go to the mean turnout closest to 67.5%, the middle of the band. With
+nothing qualifying, the weights stay at 0 and the failing facts are reported.
+
+**What is measured.** Facts that the journal does not carry (first choices, the judged incumbent's
+record) are recorded by the calibration script. It wraps the production functions and changes
+nothing they return.
+
