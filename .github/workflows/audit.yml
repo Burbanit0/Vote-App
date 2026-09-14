@@ -188,9 +188,12 @@ jobs:
   # GuardDog (Lot 9, PLAN_SOLIDITE_TECHNIQUE.md): detects MALICIOUS packages
   # (typosquatting, hostile install scripts) — a blind spot of every CVE
   # scanner above, which only sees already-disclosed vulnerabilities.
-  # Own job, own setup-python: guarddog pins pygit2<1.19, and pygit2 only
-  # ships cp314 wheels from 1.20.0 onward (verified against PyPI's own file
-  # index) — installing it against this repo's real 3.14-pinned backend venv
+  # Own job, own setup-python: guarddog pins pygit2<1.19,>=1.11, and pygit2
+  # only started shipping cp314 wheels at 1.19.0 (verified against PyPI's own
+  # file index: 1.18.2 and earlier have none) — so guarddog can never resolve
+  # a cp314-compatible pygit2 build regardless of how new pygit2 itself gets;
+  # the real, permanent ceiling is guarddog's own pin, not pygit2's wheel
+  # history. Installing it against this repo's real 3.14-pinned backend venv
   # would force a from-source pygit2 build. 3.13 is the newest version with a
   # compatible pygit2 wheel.
   # Cron + push-to-develop only, same reasoning as the image-scan job below:

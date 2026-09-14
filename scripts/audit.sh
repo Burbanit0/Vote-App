@@ -160,10 +160,14 @@ if [ "$MODE" != "quality" ]; then
   # PLAN_SOLIDITE_TECHNIQUE.md — typosquatting, hostile install scripts; a
   # blind spot of pip-audit/Trivy/OSV-Scanner above, which only see already-
   # disclosed CVEs). NOT in requirements-dev.txt: guarddog pins
-  # pygit2<1.19, and pygit2 only shipped cp314 wheels from 1.20.0 onward
-  # (verified against PyPI's file index) — installing it into this repo's
-  # actual 3.14-pinned backend venv would force a from-source pygit2 build
-  # (needs libgit2 headers, not guaranteed present) or fail outright.
+  # pygit2<1.19,>=1.11, and pygit2 only started shipping cp314 wheels at
+  # 1.19.0 (verified against PyPI's file index: 1.18.2 and earlier have
+  # none) — so guarddog can never resolve a cp314-compatible pygit2 build
+  # no matter which version pygit2 publishes next; the real, permanent
+  # ceiling is guarddog's own pin, not pygit2's wheel history. Installing
+  # it into this repo's actual 3.14-pinned backend venv would force a
+  # from-source pygit2 build (needs libgit2 headers, not guaranteed
+  # present) or fail outright.
   # `have` (PATH binary), not `have_py`, matches the Semgrep pattern above:
   # install guarddog into its own venv (Python <=3.13) or via `pipx`, not
   # into fast_api_voter/.venv. Scoped to requirements.txt (production) only
