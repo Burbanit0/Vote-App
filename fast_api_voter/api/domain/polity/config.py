@@ -218,6 +218,28 @@ class VoteConfig:
     """Weight of a candidate's valence (none is sourced yet: every valence is 0)."""
     turnout_cost: float
     """A voter abstains when their best option beats the next by less than this."""
+    policy_retrospection: float
+    """S4.2 (ADR-009): weight of how far enacted policy moved toward a voter during a
+    term, on the judged incumbent and, in legislative elections, the governing parties."""
+
+
+@dataclass(frozen=True)
+class LegislationConfig:
+    """S4.2 (docs/adr/ADR-009-ordinary-legislation.md): a policy status quo that bills move.
+
+    Every `bill_interval_ticks` the agenda setter -- the president, or the government under
+    cohabitation -- drafts a bill moving policy on at most `max_bill_dimensions` issues by at
+    most `max_bill_step` each. It passes the assembly with more than
+    `assembly_majority_ratio` of seats; under cohabitation the president blocks one that
+    moves policy away from them (`cohabitation_block`); the sortition chamber reviews it
+    with sortition_chamber.veto_power. Disabled, there is no policy at all."""
+
+    enabled: bool
+    bill_interval_ticks: int
+    max_bill_dimensions: int
+    max_bill_step: float
+    assembly_majority_ratio: float
+    cohabitation_block: bool
 
 
 @dataclass(frozen=True)
@@ -439,10 +461,10 @@ class SortitionChamberConfig:
     against the elected president's own dt=6 mandate_deviation trajectory
     (§6bis.5's own "groupe de contrôle élu vs tiré-au-sort" framing).
 
-    `veto_power`/`veto_delay_ticks` are parsed here (so a typo fails
-    loudly) but consumed by NOTHING in v6b -- point ouvert n°11 (veto
-    power) needs a lawmaking concept this codebase has never built, and is
-    deferred to its own, separately-authorized future palier.
+    `veto_power`/`veto_delay_ticks` were parsed but consumed by nothing in v6b --
+    point ouvert n°11 needed a lawmaking concept. S4.2 (ADR-009) consumes them: the
+    chamber reviews every bill on its first reading, and under suspensive_limited a
+    majority against suspends it for veto_delay_ticks before a second assembly reading.
 
     `selection`/`overlaps_with_assembly`/`renewable` are all TRANCHÉ
     parse-time guards, the same precedent as
@@ -572,6 +594,7 @@ class PolityConfig:
     candidacy: CandidacyConfig
     campaign: CampaignConfig
     vote: VoteConfig
+    legislation: LegislationConfig
     dynamics: DynamicsConfig
     emotions: EmotionsConfig
     legitimacy: LegitimacyConfig
@@ -725,6 +748,19 @@ def _parse_vote(raw: dict[str, Any]) -> VoteConfig:
         approval_party_carryover=_get_ratio(s, "vote", "approval_party_carryover"),
         valence=_get_nonneg_float(s, "vote", "valence"),
         turnout_cost=_get_nonneg_float(s, "vote", "turnout_cost"),
+        policy_retrospection=_get_nonneg_float(s, "vote", "policy_retrospection"),
+    )
+
+
+def _parse_legislation(raw: dict[str, Any]) -> LegislationConfig:
+    s = _section(raw, "legislation")
+    return LegislationConfig(
+        enabled=_get(s, "legislation", "enabled", bool),
+        bill_interval_ticks=_get_positive_int(s, "legislation", "bill_interval_ticks"),
+        max_bill_dimensions=_get_positive_int(s, "legislation", "max_bill_dimensions"),
+        max_bill_step=_get_ratio(s, "legislation", "max_bill_step"),
+        assembly_majority_ratio=_get_ratio(s, "legislation", "assembly_majority_ratio"),
+        cohabitation_block=_get(s, "legislation", "cohabitation_block", bool),
     )
 
 
@@ -1095,6 +1131,10 @@ _CONFIG_RULES: tuple[Callable[[PolityConfig], str | None], ...] = (
         "consulted"
     ) if c.awakening.context_modulation.neighbors_acting and not c.social_graph.enabled else None,
     lambda c: (
+        f"'legislation.max_bill_dimensions' ({c.legislation.max_bill_dimensions}) cannot exceed "
+        f"'citizens.issue_count' ({c.citizens.issue_count}) -- a bill moves policy on real issues (S4.2)"
+    ) if c.legislation.max_bill_dimensions > c.citizens.issue_count else None,
+    lambda c: (
         "'dynamics.enabled' requires 'citizens.position_dist: factor_structure' (S4.3): citizens move "
         "on the latent factors their positions are built from, and a uniform population has none"
     ) if c.dynamics.enabled and c.citizens.position_dist != "factor_structure" else None,
@@ -1168,6 +1208,7 @@ def load_config(path: Path | str | None = None) -> PolityConfig:
         candidacy=_parse_candidacy(raw),
         campaign=_parse_campaign(raw),
         vote=_parse_vote(raw),
+        legislation=_parse_legislation(raw),
         dynamics=_parse_dynamics(raw),
         emotions=_parse_emotions(raw),
         legitimacy=legitimacy,

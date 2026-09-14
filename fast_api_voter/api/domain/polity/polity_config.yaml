@@ -264,9 +264,28 @@ vote:
   valence: 0.0                  # poids de la valence (aucune source encore : 0)
   turnout_cost: 0.0             # abstention si la meilleure option ne dépasse la
                                 #   suivante que de moins que ce coût
+  policy_retrospection: 0.0     # S4.2 (ADR-009) : poids du chemin parcouru par la
+                                #   politique vers l'électeur pendant le mandat —
+                                #   sur le sortant jugé et, aux législatives, sur
+                                #   les partis de gouvernement
                                 # Poids à 0 = le bulletin sincère de build_ranking
                                 #   (bras témoin), jusqu'à calibration contre les
                                 #   faits pré-enregistrés de l'ADR-011.
+
+# =============================================================================
+# LÉGISLATION ORDINAIRE (S4.2, D3/D7 — docs/adr/ADR-009-ordinary-legislation.md)
+# =============================================================================
+legislation:
+  enabled: false                # false = aucune politique, aucun projet de loi
+  bill_interval_ticks: 2        # un projet tous les N ticks (aucun tant qu'un
+                                #   projet est suspendu par la chambre)
+  max_bill_dimensions: 2        # enjeux qu'un projet peut déplacer
+  max_bill_step: 0.1            # déplacement maximal par enjeu
+  assembly_majority_ratio: 0.5  # part des sièges à dépasser pour adopter
+  cohabitation_block: true      # en cohabitation, le président bloque un projet
+                                #   qui éloigne la politique de sa position
+                                # Le veto de la chambre : sortition_chamber.veto_power
+                                #   et veto_delay_ticks. Calibration : ADR-009.
 
 # =============================================================================
 # CITOYENS DYNAMIQUES (S4.3 — docs/adr/ADR-012-dynamic-citizens.md)
@@ -396,13 +415,13 @@ sortition_chamber:
                                     #       code (Office.DEPUTY réservé,
                                     #       jamais assigné)
   veto_power: suspensive_limited   # [v6b] suspensive_limited | consultative_only
-                                    #       ANALYSÉ, NON CONSOMMÉ en v6b —
-                                    #       le pouvoir de veto (point ouvert
-                                    #       n°11) exige un mécanisme de loi
-                                    #       qui n'existe nulle part dans ce
-                                    #       code ; différé à un palier futur
-                                    #       distinct, non encore autorisé
-  veto_delay_ticks: 2         # [v6b] (point ouvert n°11, différé — voir ci-dessus)
+                                    #       Consommé depuis S4.2 (ADR-009) : la
+                                    #       chambre examine chaque projet en
+                                    #       première lecture ; une majorité
+                                    #       contre le suspend (suspensive_limited)
+                                    #       ou ne fait qu'être journalisée
+                                    #       (consultative_only)
+  veto_delay_ticks: 2         # [v6b] durée de la suspension avant seconde lecture
   max_deliberation_delta: 0.3 # [v6b] borne dt=11 (§6bis.3, Lot 3) — même valeur que
                               #      mandate.max_response_delta, DÉLIBÉRÉMENT : la
                               #      comparaison élu/tiré-au-sort du Lot 4 isole ainsi

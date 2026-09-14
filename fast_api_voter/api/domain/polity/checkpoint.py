@@ -39,6 +39,7 @@ import numpy as np
 
 from api.domain.polity.citizen import Citizen, Office, Role
 from api.domain.polity.config import PolityConfig
+from api.domain.polity.legislation import Bill, Legislature
 from api.domain.polity.parties import Party
 from api.domain.polity.tick_state import PendingRerun, TickState
 
@@ -145,6 +146,7 @@ STATE_PAYLOAD_KEYS: dict[str, str] = {
     "economy_x": "economy_x",
     "mobilized_last_tick": "mobilized_last_tick",
     "dynamics_rng": "dynamics_rng_state",
+    "legislature": "legislature",
 }
 """TickState field -> checkpoint JSON key."""
 
@@ -171,6 +173,8 @@ def _state_to_payload(state: TickState) -> dict[str, Any]:
         "mobilized_last_tick": {str(k): v for k, v in state.mobilized_last_tick.items()},
         # S4.3: written only for a dynamic run, so a static run's checkpoint is unchanged.
         **({"dynamics_rng_state": state.dynamics_rng.bit_generator.state} if state.dynamics_rng is not None else {}),
+        # S4.2: likewise only for a legislating run.
+        **({"legislature": _legislature_to_dict(state.legislature)} if state.legislature is not None else {}),
     }
 
 
@@ -193,6 +197,35 @@ def _state_from_payload(payload: Mapping[str, Any]) -> TickState:
         economy_x=payload["economy_x"],
         mobilized_last_tick={int(k): v for k, v in payload["mobilized_last_tick"].items()},
         dynamics_rng=restore_rng(payload["dynamics_rng_state"]) if "dynamics_rng_state" in payload else None,
+        legislature=_legislature_from_dict(payload["legislature"]) if "legislature" in payload else None,
+    )
+
+
+def _optional_tuple(values: list[Any] | None) -> tuple[Any, ...] | None:
+    return None if values is None else tuple(values)
+
+
+def _legislature_to_dict(legislature: Legislature) -> dict[str, Any]:
+    data = dataclasses.asdict(legislature)
+    if legislature.seats is not None:
+        data["seats"] = {str(k): v for k, v in legislature.seats.items()}
+    return data
+
+
+def _legislature_from_dict(data: Mapping[str, Any]) -> Legislature:
+    bill = data["suspended"]
+    return Legislature(
+        policy=tuple(data["policy"]),
+        seats=None if data["seats"] is None else {int(k): v for k, v in data["seats"].items()},
+        coalition=_optional_tuple(data["coalition"]),
+        policy_at_term_start=_optional_tuple(data["policy_at_term_start"]),
+        policy_at_assembly_start=_optional_tuple(data["policy_at_assembly_start"]),
+        suspended=None if bill is None else Bill(
+            bill_id=bill["bill_id"], agenda_setter=bill["agenda_setter"], proposer=bill["proposer"],
+            dimensions=tuple(bill["dimensions"]), proposal=tuple(bill["proposal"]), returns_at_tick=bill["returns_at_tick"],
+        ),
+        bills_drafted=data["bills_drafted"],
+        bills_enacted=data["bills_enacted"],
     )
 
 
