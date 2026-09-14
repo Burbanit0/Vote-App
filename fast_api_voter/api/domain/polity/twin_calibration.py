@@ -288,15 +288,16 @@ def honeymoon_decline(moods: Sequence[TickMood], terms: Sequence[Term], term_tic
     """ADR-012 E3: mean enthusiasm over a full term's first year above its last year's, in a
     majority of full terms."""
     by_tick = {(m.seed, m.tick): m.enthusiasm for m in moods}
-    declines = counted = 0
-    for term in terms:
-        first = [by_tick.get((term.seed, term.start + t)) for t in range(ticks_per_year)]
-        last = [by_tick.get((term.seed, term.start + term_ticks - ticks_per_year + t)) for t in range(ticks_per_year)]
-        if None in first or None in last:
-            continue
-        counted += 1
-        declines += sum(v for v in first if v is not None) > sum(v for v in last if v is not None)
-    return Fact("E3 honeymoon decline", counted > 0 and declines > counted / 2, f"declined in {declines} of {counted} full terms")
+
+    def year_total(seed: int, start: int) -> float | None:
+        values = [by_tick.get((seed, start + t)) for t in range(ticks_per_year)]
+        return None if None in values else sum(v for v in values if v is not None)
+
+    pairs = [(year_total(t.seed, t.start), year_total(t.seed, t.start + term_ticks - ticks_per_year)) for t in terms]
+    measured = [(first, last) for first, last in pairs if first is not None and last is not None]
+    declines = sum(first > last for first, last in measured)
+    return Fact("E3 honeymoon decline", bool(measured) and declines > len(measured) / 2,
+                f"declined in {declines} of {len(measured)} full terms")
 
 
 def closest_to(target: float, measure: str) -> Callable[[Arm], float]:

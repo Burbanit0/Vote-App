@@ -547,6 +547,11 @@ before the code, with the targets):
     calibration is for.
   - A model-decided proposal or review is a later step with its own pre-registered criterion;
     `chamber_deliberation` keeps running unchanged meanwhile.
+- **Calibration, 2026-09-13: nothing qualifies, and legislation stays off**
+  (`scripts/calibrate_legislation_results.md`, ADR-009's calibration result).
+  - L1, L3 and L4 (from weight 2) hold at all nine settings.
+  - L2 fails at all nine: 0.04–0.23 bills per term, with the twin's recall churn (OBS-015)
+    multiplying terms.
 
 ### S4.3 Dynamic citizens
 Pure `update_positions(pop, graph, rng)`: Friedkin–Johnsen with bounded confidence over
@@ -580,6 +585,12 @@ Static population kept as control arm.
   search grid: panel stability 0.70–0.90 over four years, no consensus collapse, neighbour
   homophily, more distinct presidents; discontent mobilizes, anxiety draws people in, honeymoon
   decline. The calibration needs no GPU and is this step's remaining work.
+- **Calibration, 2026-09-13: nothing qualifies, and both stay off**
+  (`scripts/calibrate_dynamic_citizens_results.md`, ADR-012's calibration result).
+  - Dynamics: 0 of 81 settings meet D1–D4. The ten settings passing D1 fail D2 or D4; the static
+    arm already elects 5.7 presidents per run.
+  - Emotions: E1 and E2 hold even at zero weight. E3 is unmeasurable because no term completes
+    (OBS-015).
 
 ### S4.4 Phase clock
 A phase that is a pure function of the tick, absorbing Track E. Fix Track E's two
@@ -657,6 +668,7 @@ alongside it.
 | ID | Decision | Gates | Recorded |
 |---|---|---|---|
 | D8 | Free enough disk for S2.4's five candidate models (about 25–30 GB), and choose what goes | S2.4 | |
+| D9 | The three Stage 4 calibrations ran on a twin whose presidents are recalled after a median of 2 ticks (OBS-015). That churn leaves too few incumbents for S4.1 fact 1 and no full term for S4.3's E3, and it multiplies the terms in S4.2's L2. Nothing qualified. Options: accept the verdicts; or first make the twin's presidency last (the deterministic pressure rule is the suspect), then re-run all three under a new pre-registration | re-calibrating S4.1–S4.3 | |
 
 ### S4.1's grid, pre-registered before running (ADR-011 gave the facts, not the grid)
 
