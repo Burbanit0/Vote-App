@@ -18,9 +18,9 @@ on:
   # The workflow now always triggers; the real job is skipped instead, which
   # GitHub treats as a passing required check.
   pull_request:
-    branches: [develop, main]
+    branches: [develop, main, polity, polity-ui]
   push:
-    branches: [develop]
+    branches: [develop, polity, polity-ui]
 
 # A newer push to the same branch cancels the previous e2e run.
 concurrency:
@@ -34,7 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
-      relevant: ${{ steps.filter.outputs.relevant }}
+      relevant: ${{ steps.filter.outputs.relevant == 'true' || steps.backend.outputs.runtime == 'true' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
@@ -43,8 +43,22 @@ jobs:
           filters: |
             relevant:
               - 'voter-app/**'
-              - 'fast_api_voter/**'
               - '.github/workflows/e2e.yml'
+      # The backend counts only where the running app can change: a change confined to
+      # backend scripts, backend tests or Markdown cannot alter what the e2e suite drives.
+      # `every` makes a file match only when it passes all four patterns -- inside
+      # fast_api_voter/ and outside each exclusion. On `polity` most PRs touch only
+      # scripts, results docs or tests, and the ~10-13 min e2e run stays for the rest.
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: backend
+        with:
+          predicate-quantifier: 'every'
+          filters: |
+            runtime:
+              - 'fast_api_voter/**'
+              - '!fast_api_voter/scripts/**'
+              - '!fast_api_voter/api/tests/**'
+              - '!fast_api_voter/**/*.md'
 
   e2e:
     needs: changes

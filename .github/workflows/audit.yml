@@ -12,9 +12,9 @@ name: Security Audit
 
 on:
   push:
-    branches: [main, develop, polity]
+    branches: [main, develop, polity, polity-ui]
   pull_request:
-    branches: [main, develop, polity]
+    branches: [main, develop, polity, polity-ui]
   schedule:
     - cron: "0 6 * * 1" # weekly Monday 06:00 UTC
   # No merge_group trigger: that event only fires under GitHub's own native

@@ -2,7 +2,7 @@ name: Branch Policy
 
 on:
   pull_request:
-    branches: [develop, main, polity]
+    branches: [develop, main, polity, polity-ui]
     types: [opened, synchronize, reopened, edited]
 
 concurrency:
@@ -62,7 +62,9 @@ jobs:
           echo "Source branch : $SOURCE"
           echo "Target branch : polity"
 
-          if [[ ! "$SOURCE" =~ $ALLOWED ]]; then
+          # polity-ui is the Polity run explorer's integration branch: its features land
+          # there first (see the step below), and it merges into polity as one PR.
+          if [[ "$SOURCE" != "polity-ui" && ! "$SOURCE" =~ $ALLOWED ]]; then
             echo ""
             echo "❌  La branche '$SOURCE' ne peut pas merger dans polity."
             echo ""
@@ -80,6 +82,30 @@ jobs:
           fi
 
           echo "✅  Branche valide pour polity : $SOURCE"
+
+      - name: Check branch naming (PRs to polity-ui)
+        if: github.base_ref == 'polity-ui'
+        env:
+          SOURCE: ${{ github.head_ref }}   # via env (untrusted) — never interpolate into the shell
+        run: |
+          ALLOWED="^(feat|fix|test|docs|ci|chore|refactor|perf)/(polity-ui-.+|sync-polity-into-polity-ui-.+)$"
+
+          echo "Source branch : $SOURCE"
+          echo "Target branch : polity-ui"
+
+          if [[ ! "$SOURCE" =~ $ALLOWED ]]; then
+            echo ""
+            echo "❌  La branche '$SOURCE' ne peut pas merger dans polity-ui."
+            echo ""
+            echo "Format attendu : <type>/polity-ui-<fonctionnalité>"
+            echo "  types : feat fix test docs ci chore refactor perf"
+            echo "  ou    : chore/sync-polity-into-polity-ui-<date> pour resynchroniser"
+            echo ""
+            echo "Exemple : feat/polity-ui-population-map"
+            exit 1
+          fi
+
+          echo "✅  Branche valide pour polity-ui : $SOURCE"
 
       - name: Check source is develop (PRs to main)
         if: github.base_ref == 'main'
