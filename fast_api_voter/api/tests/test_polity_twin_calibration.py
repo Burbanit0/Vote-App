@@ -82,3 +82,117 @@ def test_a_utility_vote_arm_carries_its_facts_and_orders_by_weight_then_turnout(
     assert arm.measures == {"turnout": 0.66, "own_party_first": 0.8, "repeat_winners": 0.0}
     assert utility_vote_choice(arm) == (0.05, abs(0.66 - 0.675))
     assert utility_vote_choice(Arm({"partisanship": 0.0, "approval": 0.1}, ())) == (0.1, 0.675)
+
+
+# ── S4.3 ──────────────────────────────────────────────────────────────────
+
+def test_panel_stability_averages_lagged_factor_correlations_from_year_one() -> None:
+    import numpy as np
+
+    from api.domain.polity.twin_calibration import panel_correlation, panel_stability
+
+    base = np.array([[0.0, 1.0], [1.0, 0.0], [2.0, 3.0], [3.0, 1.0]])
+    flipped = base * np.array([1.0, -1.0])  # factor 0 kept, factor 1 reversed
+    panel = {0: base * 0 + 7, 1: base, 5: flipped}  # year 0 is never a start year
+    assert panel_correlation(panel, 4) == 0.0  # (1 + -1) / 2
+    assert panel_correlation({1: base, 5: np.ones((4, 2))}, 4) is None  # no spread: no correlation
+    assert panel_stability([{1: base, 5: base}]).reading == "four-year factor correlation 1.000"
+    assert not panel_stability([{1: base, 5: base}]).holds and not panel_stability([{}]).holds
+
+
+def test_dispersion_homophily_and_presidents() -> None:
+    import numpy as np
+
+    from api.domain.polity.twin_calibration import (
+        dispersion_kept,
+        distinct_presidents,
+        homophily,
+        more_presidents,
+        neighbour_distance_ratio,
+    )
+
+    start = np.array([[0.0, 0.0], [2.0, 2.0], [4.0, 4.0]])
+    fact = dispersion_kept([{0: start, 8: start * 0.9}, {0: start, 8: start * 0.6}])
+    assert not fact.holds and fact.reading == "spread kept 0.750 on average (lowest 0.600)"
+    assert dispersion_kept([{0: start, 8: start}]).holds and not dispersion_kept([{0: start}]).holds
+
+    pairs = np.array([[0, 1]])
+    assert neighbour_distance_ratio(start, pairs) == np.linalg.norm([2, 2]) / np.mean([np.linalg.norm([2, 2]), np.linalg.norm([4, 4]), np.linalg.norm([2, 2])])
+    assert neighbour_distance_ratio(start, np.empty((0, 2), dtype=int)) is None
+    assert neighbour_distance_ratio(np.zeros((2, 2)), np.array([[0, 1]])) is None
+    assert homophily([(1.0, 0.8), (1.0, 1.1)]).holds and not homophily([(1.0, None)]).holds
+
+    assert distinct_presidents([[1, 1, 2], [3, 3, 3]]) == 1.5
+    assert more_presidents([[1, 2, 3]], [[1, 1, 2]]).holds and not more_presidents([[1]], [[2]]).holds
+    assert not more_presidents([], [[2]]).holds
+
+
+def test_emotion_facts_read_terciles_within_each_run_and_full_terms() -> None:
+    from api.domain.polity.twin_calibration import (
+        Term,
+        TickMood,
+        closest_to,
+        discontent_mobilizes,
+        hard_times_draw_in,
+        honeymoon_decline,
+        tercile_totals,
+    )
+
+    def mood(tick: int, anger: float, mobilizations: int, seed: int = 1, enthusiasm: float = 0.0) -> TickMood:
+        return TickMood(seed=seed, tick=tick, anger=anger, anxiety=anger, enthusiasm=enthusiasm, pressure_actions=mobilizations * 2,
+                        mobilizations=mobilizations)
+
+    moods = [mood(t, a, m) for t, (a, m) in enumerate([(0.1, 0), (0.9, 5), (0.5, 1), (0.2, 1), (0.8, 3), (0.4, 2)])]
+    assert tercile_totals(moods, "anger", "mobilizations") == (8, 1)
+    assert tercile_totals(moods[:2], "anger", "mobilizations") == (0, 0)  # a third of two ticks is none
+    assert discontent_mobilizes(moods).holds and hard_times_draw_in(moods).holds
+    assert not discontent_mobilizes([mood(t, 1.0 - t / 10, 1) for t in range(3)]).holds
+
+    term_moods = [mood(t, 0.0, 0, enthusiasm=1.0 - t / 20) for t in range(16)]
+    assert honeymoon_decline(term_moods, [Term(seed=1, start=0), Term(seed=1, start=4)], term_ticks=16, ticks_per_year=4).reading == "declined in 1 of 1 full terms"
+    assert not honeymoon_decline(term_moods, [], term_ticks=16, ticks_per_year=4).holds
+
+    arms = [Arm({"x": 1}, (), {"m": 0.7}), Arm({"x": 2}, (), {"m": None})]
+    assert [closest_to(0.8, "m")(arm) for arm in arms] == [abs(0.7 - 0.8), float("inf")]
+
+
+# ── S4.2 ──────────────────────────────────────────────────────────────────
+
+def test_legislation_facts_on_hand_built_records() -> None:
+    from api.domain.polity.twin_calibration import (
+        Draft,
+        GovernmentSpell,
+        PolicyTick,
+        checks_moderate,
+        cost_of_ruling,
+        gridlock_under_cohabitation,
+        legislation_alive,
+        legislation_choice,
+        lowest_qualifying_weight,
+        mean_share_change,
+    )
+
+    ticks = [PolicyTick(1, 8, 0.02, 0.10), PolicyTick(1, 9, 0.04, 0.08)]
+    assert checks_moderate(ticks).holds and checks_moderate(ticks).reading == "policy 0.0300 from the median, president 0.0900"
+    assert not checks_moderate([PolicyTick(1, 8, 0.2, 0.1)]).holds and not checks_moderate([]).holds
+
+    assert legislation_alive([4, 3] + [1] * 8, [4] * 10).reading == "0.38 bills enacted per term; policy moved in 10 of 10 runs"
+    assert legislation_alive([5] * 9 + [0], [4] * 10).holds
+    assert not legislation_alive([40] * 8 + [0, 0], [4] * 10).holds
+    assert not legislation_alive([], []).holds
+
+    drafts = [Draft(1, "cohabitation", i < 5) for i in range(20)] + [Draft(1, "unified", i < 10) for i in range(20)] + [Draft(1, "no_government", True)]
+    assert gridlock_under_cohabitation(drafts).holds
+    assert gridlock_under_cohabitation(drafts[:25]).reading.endswith("; unmeasured")
+    assert not gridlock_under_cohabitation(drafts[:25]).holds
+
+    falling = [GovernmentSpell(1, 0.5, 0.45), GovernmentSpell(2, 0.4, 0.38)]
+    flat = [GovernmentSpell(1, 0.5, 0.5)]
+    assert mean_share_change(falling) == -(0.05 + 0.02) / 2
+    assert cost_of_ruling(falling, flat).holds and not cost_of_ruling(flat, falling).holds
+    assert not cost_of_ruling([], flat).holds
+    assert lowest_qualifying_weight([(5.0, falling), (2.0, flat)], flat)[0] == 5.0
+    weight, fact = lowest_qualifying_weight([(2.0, flat), (5.0, flat)], flat)
+    assert weight is None and not fact.holds
+    assert lowest_qualifying_weight([], flat) == (None, lowest_qualifying_weight([], flat)[1])
+    assert legislation_choice(Arm({"bill_interval_ticks": 4, "max_bill_step": 0.1}, ())) == (-4, 0.1)

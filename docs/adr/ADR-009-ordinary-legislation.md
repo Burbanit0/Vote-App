@@ -151,6 +151,30 @@ step. If none qualifies, legislation stays off and the failing facts are reporte
    at `policy_retrospection: 0`. The fall itself is the regularity comparative studies of
    incumbent parties report (Paldam 1986; Nannestad and Paldam 2002).
 
+### Calibration result (2026-09-13)
+
+`fast_api_voter/scripts/calibrate_legislation_results.md`. Readings the ADR left open were fixed in
+the script before the grid ran.
+
+**Nothing qualifies, and legislation stays off.** No setting meets all four facts (0 of 9). L2 fails
+in every one; the other three facts hold in every one.
+
+- **L1 holds.** Policy stays 0.012–0.024 from the median, while the sitting president stands 0.169
+  from it.
+- **L3 holds.** Under cohabitation 0–4.3% of drafted bills are enacted, against 2.8–27.3% under
+  unified government.
+- **L4 holds from weight 2** (weight 5 at a bill every tick with step 0.2). The governing share
+  falls 0.07–0.43 points. At weight 0 it does not move at all, since a static population casts the
+  same legislative ballots every time.
+- **L2 fails everywhere.** 0.04–0.23 bills are enacted per presidential term, and policy moves in
+  3–9 of 10 runs. Two things drive this.
+  - *Few bills pass.* A sincerely voting assembly passes few of them.
+  - *Terms are short.* In this twin a presidency lasts a median of 2 ticks before its recall
+    (`observations.md` OBS-015), so there are about 20 terms per 16-year run.
+
+A calibration against a twin with a working presidency is a new pre-registration (D9 in
+`plan-polity-build-order.md`).
+
 ## Consequences
 
 - **New state and events.** The `legislation` config section and the `vote.policy_retrospection`

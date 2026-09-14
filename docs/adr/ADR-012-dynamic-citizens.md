@@ -155,6 +155,29 @@ by total weight is adopted.
    year's in a majority of full terms (the decline in presidential popularity over a term, Mueller
    1970).
 
+### Calibration result (2026-09-13)
+
+`fast_api_voter/scripts/calibrate_dynamic_citizens_results.md`. Readings the ADR left open were
+fixed in the script before the grid ran.
+
+**Nothing qualifies, and both mechanisms stay off.** No dynamics setting meets D1–D4 (0 of 81). No
+emotion weight set, calibrated on the static population, meets E1–E3 (0 of 81).
+
+- **D1 fails in 71 of 81 settings.** Four-year correlations run from 0.635 to 0.998: most settings
+  move citizens too little, and the rest are the ones D2 or D4 rejects.
+- **D2 fails in 33 of 81.** Too much drift or influence shrinks the spread of views.
+- **D3 holds everywhere.** Neighbours grow closer under every setting.
+- **D4 fails in 69 of 81.** The static arm already elects 5.7 distinct presidents per run, and the
+  best settings reach 6.1. The ten settings passing D1 all fail D2 or D4.
+- **E1 and E2 hold for every weight set, the all-zero one included.** Discontent and hard times come
+  with more pressure whether or not emotions act on it.
+- **E3 cannot be measured.** No full presidential term exists in the twin: 84 of 101 terms end in a
+  recall, after a median of 2 ticks (`observations.md` OBS-015). The only terms with no recall start
+  in the last half-year, too late to have a last year.
+
+The twin's recall churn, not the mechanisms, decides E3 and weighs on D4. A calibration against a
+twin with a working presidency is a new pre-registration (D9 in `plan-polity-build-order.md`).
+
 ## Consequences
 
 - **Config hash.** The two new config sections enter `config_hash`, so a run started before S4.3

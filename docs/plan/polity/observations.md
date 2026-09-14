@@ -41,6 +41,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-012](#obs-012) | Term limits and the rerun bar do nothing on the LLM engine | 2026-09-13 | fixed |
 | [OBS-013](#obs-013) | Party nominations often don't match the reason the model gives, and lean to the last listed candidate | 2026-09-13 | open |
 | [OBS-014](#obs-014) | The p500 batch stopped: seed 1 received SIGTERM during the last vote of its last tick | 2026-09-13 | open |
+| [OBS-015](#obs-015) | In the deterministic twin, presidents are recalled after a median of two ticks | 2026-09-13 | open |
 
 ---
 
@@ -479,4 +480,47 @@ journalctl --since "2026-09-13 21:27:00" --until "2026-09-13 21:30:00" --no-page
 - **Finishing the batch** needs the GPU. The seed-1 run resumes from its tick-31 checkpoint
   (`run_polity_seed_sweep.py ... --resume-sweep`, which passes `--resume` to a started run). It
   redoes tick 32, then continues with seeds 2 and 42 and the repeat.
+
+### OBS-015
+
+**In the deterministic twin, presidents are recalled after a median of two ticks.**
+
+*Seen.* The twin is `run_polity_flagship.py`'s full-mechanism config on the deterministic engine,
+population 100 with 30 chamber seats, seeds 1–10, 8 years, on `polity` at the Stage 4 calibrations
+(every Stage 4 mechanism off).
+
+- **How often.** It holds 101 presidential elections with a winner and 77 recalls: 73 at the
+  legitimacy floor and 4 by confidence vote.
+- **How long.** 84 of the 101 terms end in a recall, after 0 to 10 ticks in office (median 2; 34 of
+  them after exactly 2).
+- **The spread.** Per seed there are 5 to 15 elections and 3 to 13 recalls. The only terms not ended
+  by a recall start in the run's last half-year.
+- **For comparison.** The p500 LLM run of seed 1 (S0.8) had 1 recall and 3 elections through tick
+  31, and `office_occupancy` 0.94.
+
+*Evidence.* The Stage 4 calibration results, which found no full term (ADR-012, E3), and:
+
+```bash
+cd fast_api_voter && python3 - <<'PY'
+import sys; sys.path.insert(0, "scripts")
+from twin_runs import twin_config, run_twin, SEEDS
+for seed in SEEDS:
+    ev = run_twin(twin_config(seed, 8))
+    print(seed, [e["tick"] for e in ev if e["event_type"] == "elected"],
+          [(e["tick"], e["payload"]["trigger"]) for e in ev if e["event_type"] == "recalled"])
+PY
+```
+
+*Suspected cause.* The deterministic pressure rule. Every consulted citizen whose gap to the
+president passes their blank threshold acts. `simple_rules.deterministic_pressure_action`'s own
+docstring measured that sustained mobilization drops legitimacy about 33 times faster than it
+builds. On the LLM path `pressure_action` is far less active (OBS-007).
+
+A snap election (Track A3) follows each recall. The recalled president is barred from it (D6), and
+the new president faces the same pressure, so the office turns over every few ticks instead of
+sitting vacant.
+
+*What would settle it.* The pressure actions and the legitimacy trajectory of one seed's first term,
+tick by tick, against a run with `pressure_menu.electoral_only`. Whether to change the twin is D9
+in `plan-polity-build-order.md`.
 
