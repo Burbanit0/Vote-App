@@ -6,10 +6,13 @@ and record; nothing here runs a simulation.
 from __future__ import annotations
 
 import itertools
+import math
 from collections import defaultdict
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
+
+import numpy as np
 
 
 def grid(axes: Mapping[str, Sequence[Any]]) -> list[dict[str, Any]]:
@@ -157,3 +160,148 @@ def utility_vote_choice(arm: Arm) -> tuple[float, float]:
     """The pre-registered order: least partisanship + approval, then turnout nearest 67.5%."""
     turnout = arm.measures.get("turnout")
     return (arm.setting["partisanship"] + arm.setting["approval"], abs((turnout if turnout is not None else 0.0) - 0.675))
+
+
+# ── S4.3: dynamic citizens (ADR-012) ──────────────────────────────────────
+
+def _correlation(a: np.ndarray, b: np.ndarray) -> float | None:
+    if len(a) < 2 or a.std() == 0 or b.std() == 0:
+        return None
+    return float(np.corrcoef(a, b)[0, 1])
+
+
+def panel_correlation(panel: Mapping[int, np.ndarray], lag: int, first_year: int = 1) -> float | None:
+    """One run's mean correlation, over citizens, of each latent factor between yearly
+    snapshots `lag` years apart, over every start year from `first_year` with its pair."""
+    values = [
+        r for year in sorted(panel) if year >= first_year and year + lag in panel
+        for k in range(panel[year].shape[1])
+        if (r := _correlation(panel[year][:, k], panel[year + lag][:, k])) is not None
+    ]
+    return sum(values) / len(values) if values else None
+
+
+def _mean(values: Sequence[float | None]) -> float | None:
+    present = [v for v in values if v is not None]
+    return sum(present) / len(present) if present else None
+
+
+def panel_stability(panels: Sequence[Mapping[int, np.ndarray]], lag: int = 4, band: tuple[float, float] = (0.70, 0.90)) -> Fact:
+    """ADR-012 D1: the four-year panel correlation, averaged over runs, within the band."""
+    value = _mean([panel_correlation(panel, lag) for panel in panels])
+    holds = value is not None and band[0] <= value <= band[1]
+    return Fact("D1 panel stability", holds, f"four-year factor correlation {'–' if value is None else f'{value:.3f}'}")
+
+
+def dispersion_kept(panels: Sequence[Mapping[int, np.ndarray]], first: int = 0, last: int = 8, floor: float = 0.8) -> Fact:
+    """ADR-012 D2: each factor's spread across citizens at `last` over its spread at `first`,
+    averaged over runs and factors, at least `floor`; the lowest single ratio is reported too."""
+    ratios = [
+        float(panel[last][:, k].std() / panel[first][:, k].std())
+        for panel in panels if first in panel and last in panel
+        for k in range(panel[first].shape[1]) if panel[first][:, k].std() > 0
+    ]
+    mean = _mean(ratios)
+    return Fact("D2 no consensus collapse", mean is not None and mean >= floor,
+                "–" if mean is None else f"spread kept {mean:.3f} on average (lowest {min(ratios):.3f})")
+
+
+def neighbour_distance_ratio(factors: np.ndarray, pairs: np.ndarray) -> float | None:
+    """Mean latent distance between graph neighbours over the mean distance between all pairs."""
+    if len(pairs) == 0 or len(factors) < 2:
+        return None
+    neighbours = float(np.linalg.norm(factors[pairs[:, 0]] - factors[pairs[:, 1]], axis=1).mean())
+    upper = np.triu_indices(len(factors), k=1)
+    everyone = float(np.linalg.norm(factors[upper[0]] - factors[upper[1]], axis=1).mean())
+    return neighbours / everyone if everyone else None
+
+
+def homophily(ratios: Sequence[tuple[float | None, float | None]]) -> Fact:
+    """ADR-012 D3: the neighbour distance ratio, averaged over runs, lower at the end than at the start."""
+    start, end = _mean([r[0] for r in ratios]), _mean([r[1] for r in ratios])
+    holds = start is not None and end is not None and end < start
+    return Fact("D3 neighbour homophily", holds,
+                "–" if start is None or end is None else f"neighbour/all-pairs distance {start:.3f} at the start, {end:.3f} at the end")
+
+
+def distinct_presidents(winners: Sequence[Sequence[int]]) -> float | None:
+    return _mean([float(len(set(run))) for run in winners])
+
+
+def more_presidents(winners: Sequence[Sequence[int]], static: Sequence[Sequence[int]]) -> Fact:
+    """ADR-012 D4: more distinct presidents per run, on average, than the static arm."""
+    value, baseline = distinct_presidents(winners), distinct_presidents(static)
+    holds = value is not None and baseline is not None and value > baseline
+    return Fact("D4 more distinct presidents", holds,
+                f"{'–' if value is None else f'{value:.2f}'} per run (static arm {'–' if baseline is None else f'{baseline:.2f}'})")
+
+
+@dataclass(frozen=True)
+class TickMood:
+    """One tick of one run: the population's mean emotions and the pressure it produced."""
+
+    seed: int
+    tick: int
+    anger: float
+    anxiety: float
+    enthusiasm: float
+    pressure_actions: int
+    mobilizations: int
+
+
+def tercile_totals(moods: Sequence[TickMood], by: str, count: str) -> tuple[int, int]:
+    """Within each run, its ticks ranked by `by` (ties to the earlier tick); the totals of
+    `count` over the top third and the bottom third, pooled over runs."""
+    runs: dict[int, list[TickMood]] = defaultdict(list)
+    for mood in moods:
+        runs[mood.seed].append(mood)
+    top = bottom = 0
+    for ticks in runs.values():
+        ranked = sorted(ticks, key=lambda m: (getattr(m, by), m.tick))
+        third = len(ranked) // 3
+        if third:
+            bottom += sum(getattr(m, count) for m in ranked[:third])
+            top += sum(getattr(m, count) for m in ranked[-third:])
+    return top, bottom
+
+
+def discontent_mobilizes(moods: Sequence[TickMood]) -> Fact:
+    """ADR-012 E1: more mobilizations in the angriest third of ticks than in the calmest."""
+    top, bottom = tercile_totals(moods, "anger", "mobilizations")
+    return Fact("E1 discontent mobilizes", top > bottom, f"mobilizations {top} in the angriest third, {bottom} in the calmest")
+
+
+def hard_times_draw_in(moods: Sequence[TickMood]) -> Fact:
+    """ADR-012 E2: more pressure_action events in the most anxious third of ticks than in the least."""
+    top, bottom = tercile_totals(moods, "anxiety", "pressure_actions")
+    return Fact("E2 hard times draw people in", top > bottom, f"pressure actions {top} in the most anxious third, {bottom} in the least")
+
+
+@dataclass(frozen=True)
+class Term:
+    seed: int
+    start: int
+    """The tick the president was elected; a full term holds office until start + its length."""
+
+
+def honeymoon_decline(moods: Sequence[TickMood], terms: Sequence[Term], term_ticks: int, ticks_per_year: int) -> Fact:
+    """ADR-012 E3: mean enthusiasm over a full term's first year above its last year's, in a
+    majority of full terms."""
+    by_tick = {(m.seed, m.tick): m.enthusiasm for m in moods}
+    declines = counted = 0
+    for term in terms:
+        first = [by_tick.get((term.seed, term.start + t)) for t in range(ticks_per_year)]
+        last = [by_tick.get((term.seed, term.start + term_ticks - ticks_per_year + t)) for t in range(ticks_per_year)]
+        if None in first or None in last:
+            continue
+        counted += 1
+        declines += sum(v for v in first if v is not None) > sum(v for v in last if v is not None)
+    return Fact("E3 honeymoon decline", counted > 0 and declines > counted / 2, f"declined in {declines} of {counted} full terms")
+
+
+def closest_to(target: float, measure: str) -> Callable[[Arm], float]:
+    """Selection key: distance of an arm's measure from `target` (a missing measure sorts last)."""
+    def key(arm: Arm) -> float:
+        value = arm.measures.get(measure)
+        return math.inf if value is None else abs(value - target)
+    return key

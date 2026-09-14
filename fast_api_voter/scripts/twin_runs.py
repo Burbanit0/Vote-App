@@ -52,7 +52,16 @@ def recording(name: str, recorder: Callable[[tuple[Any, ...], dict[str, Any], An
 
 def run_twin(config: PolityConfig) -> list[dict[str, Any]]:
     """Run `config` to the end and return its journal's events."""
+    return run_twin_with_snapshots(config)[0]
+
+
+def run_twin_with_snapshots(config: PolityConfig) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Run `config` to the end and return its journal's events and its yearly snapshot rows."""
     with tempfile.TemporaryDirectory() as tmp:
         config = dataclasses.replace(config, journal=dataclasses.replace(config.journal, output_dir=tmp))
         journal = engine.run_simulation(config, run_id="twin")
-        return [json.loads(line) for line in journal.read_text(encoding="utf-8").splitlines()]
+
+        def read(path: Path) -> list[dict[str, Any]]:
+            return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+
+        return read(journal), read(journal.parent / "snapshots.jsonl")
