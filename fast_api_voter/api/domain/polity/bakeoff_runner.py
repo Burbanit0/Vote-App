@@ -91,6 +91,24 @@ def _thinking_budget(budget: int) -> Callable[[Case], dict[str, Any]]:
     return request
 
 
+QWEN3_THINKING_SAMPLING = {"temperature": 0.6, "top_p": 0.95, "top_k": 20}
+"""S1.4: Qwen3's recommended settings for thinking mode, against production's temperature 0."""
+
+
+def _case_seed(case: Case) -> int:
+    """A seed of the case's own, so a sampled session is still repeatable case by case."""
+    return int(hashlib.sha256(case.case_id.encode("utf-8")).hexdigest()[:8], 16)
+
+
+def _thinking_sampling(case: Case) -> dict[str, Any]:
+    """S1.4: Qwen3's thinking-mode sampling, with a per-case seed, on every thinking vote and
+    chamber case."""
+    if not case.think or case.decision_type not in THINKING_ARM_TYPES:
+        return {}
+    return {"temperature": QWEN3_THINKING_SAMPLING["temperature"], "seed": _case_seed(case),
+            "extra_body": {"top_p": QWEN3_THINKING_SAMPLING["top_p"], "top_k": QWEN3_THINKING_SAMPLING["top_k"]}}
+
+
 @dataclass(frozen=True)
 class BakeoffArm:
     """An A/B arm on the same frozen cases: what a session run with it sends each case in
@@ -106,6 +124,7 @@ ARMS: dict[str, BakeoffArm] = {
     "vote_grammar": BakeoffArm(schema=_vote_grammar_schema),
     "thinking_budget_4096": BakeoffArm(request=_thinking_budget(4096)),
     "thinking_budget_2048": BakeoffArm(request=_thinking_budget(2048)),
+    "thinking_sampling": BakeoffArm(request=_thinking_sampling),
 }
 
 
