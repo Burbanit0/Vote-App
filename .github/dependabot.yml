@@ -87,6 +87,17 @@ updates:
         versions: [">=10.0.0"]
       - dependency-name: "@eslint/js"
         versions: [">=10.0.0"]
+      # typescript@7.x is the new Go-based native compiler line (confirmed:
+      # its npm package pulls in per-platform `@typescript/typescript-*`
+      # binary packages, not a JS rewrite) -- @typescript-eslint/eslint-
+      # plugin@8.70.0's peer range is `typescript: ">=4.8.4 <6.1.0"`, a hard
+      # ceiling that excludes it entirely (checked 2026-09-14). Bumped to
+      # 6.0.3 instead (the last release before 7.0, and itself a real,
+      # tested step -- it turns two now-hard-error-deprecated options,
+      # baseUrl and downlevelIteration, into full removals in 7.0). Re-open
+      # once typescript-eslint ships a 7.x-compatible release.
+      - dependency-name: "typescript"
+        versions: [">=7.0.0"]
 
   # Actions are pinned by commit hash (see any workflow's `# v4`-style
   # comments) — Dependabot proposes hash bumps for these, not just version tags.
