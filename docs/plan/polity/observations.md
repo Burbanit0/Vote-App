@@ -41,7 +41,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-012](#obs-012) | Term limits and the rerun bar do nothing on the LLM engine | 2026-09-13 | fixed |
 | [OBS-013](#obs-013) | Party nominations often don't match the reason the model gives, and lean to the last listed candidate | 2026-09-13 | open |
 | [OBS-014](#obs-014) | The p500 batch stopped: seed 1 received SIGTERM during the last vote of its last tick | 2026-09-13 | open |
-| [OBS-015](#obs-015) | In the deterministic twin, presidents are recalled after a median of two ticks | 2026-09-13 | open |
+| [OBS-015](#obs-015) | In the deterministic twin, presidents are recalled after a median of two ticks | 2026-09-13 | cause found |
 
 ---
 
@@ -511,16 +511,28 @@ for seed in SEEDS:
 PY
 ```
 
-*Suspected cause.* The deterministic pressure rule. Every consulted citizen whose gap to the
-president passes their blank threshold acts. `simple_rules.deterministic_pressure_action`'s own
-docstring measured that sustained mobilization drops legitimacy about 33 times faster than it
-builds. On the LLM path `pressure_action` is far less active (OBS-007).
+*Cause (shown 2026-09-13).* The citizen pressure channels, petition and mobilization, drive
+legitimacy down faster than support can hold it. Legitimacy updates as L(t) = 0.9·L(t−1) +
+0.1·m − écart(t) (`legitimacy.update_legitimacy`), so under a steady écart it settles at
+m − 10·écart. For the first president's m = 0.75, any écart above 0.055 held for a few ticks ends
+at the recall floor of 0.2.
 
-A snap election (Track A3) follows each recall. The recalled president is barred from it (D6), and
-the new president faces the same pressure, so the office turns over every few ticks instead of
-sitting vacant.
+- **Seed 1's first term, tick by tick.**
+  - A petition opens at tick 0.
+  - From tick 1 the same 7 of about 30 consulted citizens mobilize every tick
+    (`pressure_action` act 3).
+  - écart climbs 0.045, 0.080, 0.110, 0.135, 0.157, 0.130, 0.145.
+  - Legitimacy falls 0.705, 0.629, 0.532, 0.419, 0.295, 0.211, 0.119, and the president is recalled
+    at tick 6.
+  - The next president starts at m = 0.63 and faces 13 mobilizers from tick 8.
+- **With the channels off** (`pressure_menu.electoral_only`, petition and street pressure off), all
+  ten seeds hold exactly 3 elections and no recall.
+- **The snap election (Track A3)** refills the office at once after each recall, and the recalled
+  president is barred from it (D6). So the office turns over every few ticks instead of sitting
+  vacant.
 
-*What would settle it.* The pressure actions and the legitimacy trajectory of one seed's first term,
-tick by tick, against a run with `pressure_menu.electoral_only`. Whether to change the twin is D9
-in `plan-polity-build-order.md`.
+*What remains open.* Whether 7% of citizens mobilizing should be able to unseat a president in
+six ticks is a model question, not a bug: the pressure weights or the legitimacy floor, or a
+twin whose pressure rule is calibrated against the LLM path's. That is D9 in
+`plan-polity-build-order.md`.
 
