@@ -13,6 +13,12 @@ into a real error message.
 
 ## The gates, job by job
 
+**Branches.** Every workflow below triggers on `develop` and `main`. The required ones also
+trigger on `polity` (the polity simulation's integration branch) and `polity-ui` (where the
+Polity run explorer page is built before merging into `polity`). Those two branches are
+protected with the same required checks as `develop`, minus "CI health check", which
+`ci-health.yml` runs only for `develop`/`main` (`scripts/setup-branch-protection.sh polity|polity-ui`).
+
 ### `backend-ci-cd-pipeline.yml` — "Backend: Tests + Coverage + Security" (required)
 
 Triggers on every push/PR to `develop`/`main` but only *runs* its real job
@@ -47,7 +53,9 @@ Same `changes`-gated shape, scoped to `voter-app/**`:
 
 ### `e2e.yml` — "Playwright E2E" (required) + "Visual regression" (not yet required — see EXP-004)
 
-Called on every PR (paths-gated the same way), on push to `develop`, and via
+Called on every PR (paths-gated the same way: `voter-app/**`, or backend files outside
+`fast_api_voter/scripts/`, `fast_api_voter/api/tests/` and Markdown), on push to `develop`,
+`polity` and `polity-ui`, and via
 `workflow_call` from `release.yml`. Boots the real FastAPI backend on `:4434`
 as a fixture, then `npm run test:e2e` (chromium + firefox + mobile). A
 separate `visual-regression` job runs pixel-diff screenshots inside an

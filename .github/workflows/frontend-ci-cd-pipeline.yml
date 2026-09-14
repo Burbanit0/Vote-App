@@ -10,9 +10,9 @@ name: Frontend CI
 # instead, which GitHub treats as a passing required check.
 on:
   push:
-    branches: [develop, main]
+    branches: [develop, main, polity, polity-ui]
   pull_request:
-    branches: [develop, main]
+    branches: [develop, main, polity, polity-ui]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
