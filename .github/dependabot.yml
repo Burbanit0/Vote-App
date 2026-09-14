@@ -87,15 +87,23 @@ updates:
         versions: [">=10.0.0"]
       - dependency-name: "@eslint/js"
         versions: [">=10.0.0"]
-      # typescript@7.x is the new Go-based native compiler line (confirmed:
-      # its npm package pulls in per-platform `@typescript/typescript-*`
-      # binary packages, not a JS rewrite) -- @typescript-eslint/eslint-
-      # plugin@8.70.0's peer range is `typescript: ">=4.8.4 <6.1.0"`, a hard
-      # ceiling that excludes it entirely (checked 2026-09-14). Bumped to
-      # 6.0.3 instead (the last release before 7.0, and itself a real,
-      # tested step -- it turns two now-hard-error-deprecated options,
-      # baseUrl and downlevelIteration, into full removals in 7.0). Re-open
-      # once typescript-eslint ships a 7.x-compatible release.
+      # @typescript-eslint/eslint-plugin@8.70.0's peer range is
+      # `typescript: ">=4.8.4 <6.1.0"` (checked 2026-09-14) -- a ceiling
+      # INSIDE the 6.x line, not at 7.0 (typescript@7.x is a separate,
+      # bigger jump anyway: the new Go-based native compiler line,
+      # confirmed by its npm package pulling in per-platform
+      # `@typescript/typescript-*` binary packages, not a JS rewrite).
+      # Bumped to 6.0.3 -- the last release inside typescript-eslint's
+      # supported range, and itself a real, tested step: it turns two
+      # now-hard-error-deprecated options, baseUrl and downlevelIteration,
+      # into full removals in 7.0. `typescript` is pinned to the exact
+      # `6.0.3` (no caret) in package.json/overrides specifically so this
+      # ignore rule's `>=6.1.0` boundary can't be silently exceeded by a
+      # plain `npm install`/`npm update` between now and whenever
+      # typescript-eslint's own range moves -- ignoring only `>=7.0.0`
+      # would have left 6.1.x-6.x.x, an equally untested range, open.
+      # Re-open (and loosen the pin back to a caret range) once
+      # typescript-eslint ships a release supporting the new ceiling.
       #
       # Not the only typescript peer in this tree: openapi-typescript also
       # declares a required (non-optional) `typescript: "^5.x"` peer, which
@@ -106,7 +114,7 @@ updates:
       # bump doesn't assume this ignore rule was the full compatibility
       # picture.
       - dependency-name: "typescript"
-        versions: [">=7.0.0"]
+        versions: [">=6.1.0"]
 
   # Actions are pinned by commit hash (see any workflow's `# v4`-style
   # comments) — Dependabot proposes hash bumps for these, not just version tags.
