@@ -501,6 +501,46 @@ cohabitation block; the sortition chamber's suspensive veto (`veto_power` finall
 consumed). Targets named before code: policy congruence, cost of ruling, gridlock under
 cohabitation.
 
+*Made precise when built, 2026-09-13*, in `docs/adr/ADR-009-ordinary-legislation.md` (written
+before the code, with the targets):
+
+- **The status quo.** Policy is a point in the issue space, starting at the population's
+  per-issue median. `Legislature` on `TickState` also keeps the last assembly's seats and
+  coalition, the policy at each term's start, and any suspended bill.
+- **A bill's path** (`legislation.py`, config section `legislation:`, deterministic on both
+  engines).
+  - Every `bill_interval_ticks` the president drafts a bill, or, under cohabitation, the
+    government's initiating party. It moves policy on the two largest priority-weighted gaps by
+    at most `max_bill_step`.
+  - Seated parties vote sincerely; it passes with more than half the seats.
+  - Under cohabitation the president blocks a bill that moves policy away from them.
+  - The chamber reviews the first reading. Under `suspensive_limited` a majority against
+    suspends the bill for `veto_delay_ticks`, then it gets a second reading with no second
+    review.
+  - Six new event types, including a yearly `policy_status` with congruence.
+- **Voters judge policy** (`vote.policy_retrospection`, shipped at 0).
+  - The judged incumbent, and the governing parties at a legislative election, gain the
+    distance policy moved toward each voter during the term: the channel a cost of ruling
+    needs.
+  - At 0 no ballot or party choice changes (property).
+- **First acceptance met.**
+  - Each rule and the veto cycle match hand-worked cases.
+  - Golden references and the bake-off bank are unchanged, and a disabled run's checkpoints
+    gain no keys.
+  - A legislating run resumes byte-identical.
+- **Ships off.**
+  - The ADR pre-registers the targets on the p100 twin over 16 years:
+    - L1: checks moderate policy relative to the president.
+    - L2: at least one bill enacted per term.
+    - L3: gridlock under cohabitation.
+    - L4: the cost of ruling.
+  - Grid: bill interval, step, and retrospection weight.
+  - First smoke run (seeds 1-2): most bills die in a sincerely voting assembly (1 to 5 of 24-29
+    enacted over 16 years), so L2 is at risk at the shipped settings. That is what the
+    calibration is for.
+  - A model-decided proposal or review is a later step with its own pre-registered criterion;
+    `chamber_deliberation` keeps running unchanged meanwhile.
+
 ### S4.3 Dynamic citizens
 Pure `update_positions(pop, graph, rng)`: Friedkin–Johnsen with bounded confidence over
 the social graph, in the two-factor latent space; anger, anxiety and enthusiasm driving

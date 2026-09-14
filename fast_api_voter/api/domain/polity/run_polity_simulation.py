@@ -36,6 +36,7 @@ if/else split.
 """
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import json
 import logging
@@ -102,6 +103,11 @@ from api.domain.polity.events import (
     EconomicShockTick,
     Elected,
     ElectionInvalidated,
+    BillBlocked,
+    BillEnacted,
+    BillProposed,
+    BillReviewed,
+    BillVoted,
     ElectionNoWinner,
     EmotionsUpdated,
     Event,
@@ -117,6 +123,7 @@ from api.domain.polity.events import (
     PetitionExpired,
     PetitionLaunched,
     PetitionSigned,
+    PolicyStatus,
     PressureAction,
     ReactionToEvent,
     Recalled,
@@ -129,6 +136,18 @@ from api.domain.polity.events import (
 from api.domain.polity.emotions import appraise, feel, mean_emotions, tolerance_scale
 from api.domain.polity.institutional_clock import ElectionType, InstitutionalClock
 from api.domain.polity.journal import Journal, truncate_journal
+from api.domain.polity.legislation import (
+    GOVERNMENT,
+    PRESIDENT,
+    Bill,
+    Legislature,
+    assembly_vote,
+    chamber_review,
+    congruence,
+    draft_bill,
+    moves_away,
+    population_median,
+)
 from api.domain.polity.legitimacy import (
     compose_ecart,
     crosses_floor,
@@ -165,7 +184,7 @@ from api.domain.polity.llm_client import (
     build_json_client,
 )
 from api.domain.polity.llm_schemas import PositionShift, PressureDecision, ReactionDecision
-from api.domain.polity.metrics import mobilization_rate
+from api.domain.polity.metrics import is_cohabitation, mobilization_rate
 from api.domain.polity.opinion_dynamics import NeighbourEdges, apply_dynamics
 from api.domain.polity.parties import Party, initialize_parties
 from api.domain.polity.shock import economic_shock_step, scandal_arrival
@@ -184,7 +203,9 @@ from api.domain.polity.simple_rules import (
     deterministic_reaction_to_event,
     IncumbentRecord,
     form_coalition,
+    GoverningRecord,
     incumbent_record,
+    PolicyRecord,
     select_party_nominee,
     select_party_nominee_from_declared,
     utility_ballot,
@@ -687,6 +708,8 @@ def _fresh_tick_state(config: PolityConfig) -> TickState:
         # S4.3: a fifth stream, same "fresh default_rng per concern" reasoning; None for a
         # static population, so a static run draws and checkpoints exactly as before.
         dynamics_rng=np.random.default_rng(config.run.seed) if config.dynamics.enabled else None,
+        # S4.2: policy starts at the population's per-issue median, a neutral origin.
+        legislature=Legislature(policy=population_median(citizens)) if config.legislation.enabled else None,
         # pending_rerun (v4 Lot 9, §6bis.2): None whenever blank_vote_competitive
         # is off (the shipped default) or no cycle is currently open.
         # staggered_declared_cids (Track E): None unless institutions.staggered_
@@ -782,10 +805,14 @@ def _phase_presidential_election(context: TickContext, state: TickState) -> None
         # fact, not read off citizen roles: the declared set stays in state (and in the
         # checkpoint) from the campaign's first tick until the election consumes it here.
         staggered = state.pending_rerun is None and state.staggered_declared_cids is not None
+        legislature = state.legislature
         state.pending_rerun = _hold_presidential_election(
             state.citizens, state.parties, config, context.journal, tick, client, state.pending_rerun, staggered=staggered,
+            policy=_term_policy_record(legislature),
         )
         state.staggered_declared_cids = None
+        if legislature is not None and current_office_holders(state.citizens, Office.PRESIDENT):
+            legislature.policy_at_term_start = legislature.policy  # a president was elected this tick
 
 
 def _run_staggered_campaign(context: TickContext, state: TickState, client: LlmClientProtocol) -> None:
@@ -800,8 +827,34 @@ def _run_staggered_campaign(context: TickContext, state: TickState, client: LlmC
 
 def _phase_legislative_election(context: TickContext, state: TickState) -> None:
     if context.election in (ElectionType.LEGISLATIVE, ElectionType.BOTH):
-        seats, votes = _hold_legislative_election(state.citizens, state.parties, context.config, context.journal, context.tick)
-        _form_and_journal_coalition(state.parties, seats, votes, context.config, context.journal, context.tick, context.client)
+        legislature = state.legislature
+        seats, votes = _hold_legislative_election(
+            state.citizens, state.parties, context.config, context.journal, context.tick,
+            governing=_governing_record(state.citizens, legislature),
+        )
+        coalition = _form_and_journal_coalition(state.parties, seats, votes, context.config, context.journal, context.tick, context.client)
+        if legislature is not None:
+            legislature.seats, legislature.coalition = seats, tuple(coalition) if coalition else None
+            legislature.policy_at_assembly_start = legislature.policy
+
+
+def _term_policy_record(legislature: Legislature | None) -> PolicyRecord | None:
+    """S4.2: the policy the sitting president's term presided over, for the vote judging it."""
+    if legislature is None or legislature.policy_at_term_start is None:
+        return None
+    return PolicyRecord(then=legislature.policy_at_term_start, now=legislature.policy)
+
+
+def _governing_record(citizens: list[Citizen], legislature: Legislature | None) -> GoverningRecord | None:
+    """S4.2: the parties a legislative election judges -- the coalition the last one formed,
+    or the president's party when none did -- and the policy since that election."""
+    if legislature is None or legislature.policy_at_assembly_start is None:
+        return None
+    president_parties = {c.party_affiliation for c in current_office_holders(citizens, Office.PRESIDENT) if c.party_affiliation is not None}
+    parties = frozenset(legislature.coalition) if legislature.coalition else frozenset(president_parties)
+    if not parties:
+        return None
+    return GoverningRecord(parties=parties, policy=PolicyRecord(then=legislature.policy_at_assembly_start, now=legislature.policy))
 
 
 def _phase_sortition_chamber(context: TickContext, state: TickState) -> None:
@@ -811,6 +864,115 @@ def _phase_sortition_chamber(context: TickContext, state: TickState) -> None:
     if context.clock.is_sortition_rotation(context.tick):
         _run_sortition_rotation(state.citizens, config, context.journal, context.tick, state.sortition_rng)
     _run_chamber_deliberation(state.citizens, config, context.journal, context.tick, context.client)
+
+
+def _phase_legislation(context: TickContext, state: TickState) -> None:
+    """S4.2 (ADR-009): after the elections and the chamber's rotation and deliberation, so a
+    bill meets this tick's assembly, president and chamber. One reading per tick: a suspended
+    bill's second reading when it is due, otherwise a new bill every bill_interval_ticks.
+    Nothing is read without an assembly or a president."""
+    legislature, tick = state.legislature, context.tick
+    if legislature is None:
+        return
+    if is_snapshot_tick(tick, context.config.run.ticks_per_year):
+        fit = congruence(state.citizens, legislature.policy)
+        context.journal.write_event(
+            tick=tick, citizen_id=None,
+            event=PolicyStatus(policy=list(legislature.policy), median_distance=fit.median_distance, mean_citizen_distance=fit.mean_citizen_distance),
+        )
+    president = next((h for h in current_office_holders(state.citizens, Office.PRESIDENT) if h.revealed_position is not None), None)
+    if legislature.seats is None or president is None:
+        return
+    suspended = legislature.suspended
+    if suspended is None:
+        _propose_bill(context, state, legislature, president)
+    elif suspended.returns_at_tick is not None and tick >= suspended.returns_at_tick:
+        legislature.suspended = None
+        _read_bill(context, state, legislature, president, suspended, reading=2)
+
+
+def _propose_bill(context: TickContext, state: TickState, legislature: Legislature, president: Citizen) -> None:
+    """Every bill_interval_ticks, the agenda setter's bill and its first reading."""
+    if context.tick % context.config.legislation.bill_interval_ticks:
+        return
+    bill = _draft_bill(state.parties, legislature, president, context.config)
+    if bill is None:
+        return
+    legislature.bills_drafted += 1
+    context.journal.write_event(
+        tick=context.tick, citizen_id=president.citizen_id if bill.agenda_setter == PRESIDENT else None,
+        event=BillProposed(
+            bill_id=bill.bill_id, agenda_setter=bill.agenda_setter, proposer=bill.proposer, dimensions=list(bill.dimensions),
+            status_quo=[legislature.policy[d] for d in bill.dimensions], proposal=list(bill.proposal),
+        ),
+    )
+    _read_bill(context, state, legislature, president, bill, reading=1)
+
+
+def _in_cohabitation(legislature: Legislature, president: Citizen) -> bool:
+    return is_cohabitation(president.party_affiliation, list(legislature.coalition) if legislature.coalition else None)
+
+
+def _draft_bill(parties: list[Party], legislature: Legislature, president: Citizen, config: PolityConfig) -> Bill | None:
+    """The president sets the agenda, or under cohabitation the government: its initiating
+    party, aiming at that party's platform with every issue weighted alike."""
+    bill_id = legislature.bills_drafted + 1
+    if legislature.coalition and _in_cohabitation(legislature, president):
+        initiator = legislature.coalition[0]
+        platform = next(p.platform for p in parties if p.party_id == initiator)
+        return draft_bill(legislature.policy, platform, (1.0,) * len(platform), config.legislation,
+                          bill_id=bill_id, agenda_setter=GOVERNMENT, proposer=initiator)
+    assert president.revealed_position is not None
+    return draft_bill(legislature.policy, president.revealed_position, president.issue_priorities, config.legislation,
+                      bill_id=bill_id, agenda_setter=PRESIDENT, proposer=president.citizen_id)
+
+
+def _read_bill(
+    context: TickContext, state: TickState, legislature: Legislature, president: Citizen, bill: Bill, *, reading: int,
+) -> None:
+    """A bill's assembly reading, then the president's cohabitation block, then (first reading
+    only) the chamber's review; enacted if it survives."""
+    config, journal, tick = context.config, context.journal, context.tick
+    assert legislature.seats is not None and president.revealed_position is not None
+    vote = assembly_vote(state.parties, legislature.seats, legislature.policy, bill, config.legislation.assembly_majority_ratio)
+    journal.write_event(tick=tick, citizen_id=None, event=BillVoted(
+        bill_id=bill.bill_id, reading=reading, yes_seats=vote.yes_seats, no_seats=vote.no_seats,
+        yes_parties=list(vote.yes_parties), passed=int(vote.passed),
+    ))
+    if not vote.passed:
+        return
+    if config.legislation.cohabitation_block and _in_cohabitation(legislature, president) and moves_away(
+        president.revealed_position, president.issue_priorities, legislature.policy, bill,
+    ):
+        journal.write_event(tick=tick, citizen_id=president.citizen_id, event=BillBlocked(bill_id=bill.bill_id))
+        return
+    if reading == 1 and _chamber_suspends(context, state, legislature, bill):
+        return
+    old_values = [legislature.policy[d] for d in bill.dimensions]
+    legislature.policy = bill.enacted(legislature.policy)
+    legislature.bills_enacted += 1
+    journal.write_event(tick=tick, citizen_id=None, event=BillEnacted(
+        bill_id=bill.bill_id, dimensions=list(bill.dimensions), old_values=old_values, new_values=list(bill.proposal),
+        enacted=legislature.bills_enacted,
+    ))
+
+
+def _chamber_suspends(context: TickContext, state: TickState, legislature: Legislature, bill: Bill) -> bool:
+    """The sitting chamber's review; under suspensive_limited a majority against suspends the
+    bill for veto_delay_ticks (and it returns without a second review)."""
+    chamber = context.config.sortition_chamber
+    members = current_sortition_members(state.citizens) if chamber.enabled else []
+    if not members:
+        return False
+    review = chamber_review(members, legislature.policy, bill)
+    veto = review.rejects and chamber.veto_power == "suspensive_limited"
+    returns_at_tick = context.tick + chamber.veto_delay_ticks
+    context.journal.write_event(tick=context.tick, citizen_id=None, event=BillReviewed(
+        bill_id=bill.bill_id, yes=review.yes, no=review.no, veto=int(veto), returns_at_tick=returns_at_tick if veto else OMIT,
+    ))
+    if veto:
+        legislature.suspended = dataclasses.replace(bill, returns_at_tick=returns_at_tick)
+    return veto
 
 
 def _phase_emotions(context: TickContext, state: TickState) -> None:
@@ -905,6 +1067,7 @@ TICK_PHASES: tuple[Callable[[TickContext, TickState], None], ...] = (
     _phase_presidential_election,
     _phase_legislative_election,
     _phase_sortition_chamber,
+    _phase_legislation,
     _phase_emotions,
     _phase_accountability,
     _phase_snap_election,
@@ -913,7 +1076,8 @@ TICK_PHASES: tuple[Callable[[TickContext, TickState], None], ...] = (
 """One tick, in order (S3.4). Each phase reads and updates TickState and may leave a
 value on TickContext for a later phase of the same tick -- the order is load-bearing:
 exogenous events before accountability (which reads them), elections before the
-chamber and accountability, emotions just before accountability (which reads them), the
+chamber and accountability, legislation after the chamber (a bill meets this tick's assembly,
+president and chamber), emotions just before accountability (which reads them), the
 snap-election check, then opinion dynamics last. Phases call the module's
 named functions (_attempt_rupture_candidacies, _run_accountability_phase, ...), so the
 crash-and-resume tests that patch those names still interrupt a real tick."""
@@ -1418,12 +1582,16 @@ def _declare_nominees_llm(
     )
 
 
-def _judged_incumbent(citizens: list[Citizen], incumbent_id: int | None, config: PolityConfig) -> IncumbentRecord | None:
+def _judged_incumbent(
+    citizens: list[Citizen], incumbent_id: int | None, config: PolityConfig, policy: PolicyRecord | None = None,
+) -> IncumbentRecord | None:
     """The record an election's voters weigh (S4.1): none without a president to judge, or
-    while legitimacy -- the record's measure -- is not tracked."""
-    if incumbent_id is None or not config.legitimacy.enabled:
+    with neither legitimacy (the record's measure) tracked nor, S4.2, a policy record; a
+    record of 0 while legitimacy is not tracked."""
+    if incumbent_id is None or not (config.legitimacy.enabled or policy is not None):
         return None
-    return incumbent_record(next(c for c in citizens if c.citizen_id == incumbent_id))
+    record = incumbent_record(next(c for c in citizens if c.citizen_id == incumbent_id))
+    return dataclasses.replace(record, record=record.record if config.legitimacy.enabled else 0.0, policy=policy)
 
 
 def audit_sample(citizens: list[Citizen], config: PolityConfig, tick: int) -> list[Citizen]:
@@ -1492,6 +1660,7 @@ def _hold_presidential_election(
     pending_rerun: PendingRerun | None = None,
     *,
     staggered: bool = False,
+    policy: PolicyRecord | None = None,
 ) -> PendingRerun | None:
     # `staggered` (S4.4): this election's campaign already declared, nominated and
     # positioned (_run_staggered_campaign), so its field is every citizen holding
@@ -1555,7 +1724,7 @@ def _hold_presidential_election(
     if nominees:
         all_candidate_ids = {c.citizen_id for c in nominees}
         ballots, abstained = _presidential_ballots(
-            citizens, nominees, config, journal, tick, llm_client, _judged_incumbent(citizens, incumbent_id, config),
+            citizens, nominees, config, journal, tick, llm_client, _judged_incumbent(citizens, incumbent_id, config, policy),
         )
 
         # v4 Lot 9 (§6bis.2): the deterministic-enclave threshold check --
@@ -1695,12 +1864,13 @@ def _hold_presidential_election(
 
 
 def _hold_legislative_election(
-    citizens: list[Citizen], parties: list[Party], config: PolityConfig, journal: Journal, tick: int
+    citizens: list[Citizen], parties: list[Party], config: PolityConfig, journal: Journal, tick: int,
+    governing: GoverningRecord | None = None,
 ) -> tuple[dict[int, int], dict[int, float]]:
     votes: dict[int, float] = {party.party_id: 0.0 for party in parties}
     blank_count = 0
     for voter in citizens:
-        choice = choose_party(voter, parties)
+        choice = choose_party(voter, parties, governing, config.vote.policy_retrospection)
         if choice is None:
             blank_count += 1
         else:
@@ -1733,10 +1903,10 @@ def _form_and_journal_coalition(
     journal: Journal,
     tick: int,
     llm_client: LlmClientProtocol | None,
-) -> None:
+) -> list[int] | None:
+    """The governing coalition formed, or None (S4.2 keeps it for legislation)."""
     if llm_client is not None:
-        _form_and_journal_coalition_llm(parties, seats, votes, config, journal, tick, llm_client)
-        return
+        return _form_and_journal_coalition_llm(parties, seats, votes, config, journal, tick, llm_client)
     platforms = {party.party_id: party.platform for party in parties}
     coalition = form_coalition(
         platforms, seats, votes, config.parties.coalition_tiebreak, config.parties.coalition_majority_ratio
@@ -1749,6 +1919,7 @@ def _form_and_journal_coalition(
             else CoalitionFailed(coalition=None, seats=seats)
         ),
     )
+    return coalition
 
 
 def _form_and_journal_coalition_llm(
@@ -1759,7 +1930,7 @@ def _form_and_journal_coalition_llm(
     journal: Journal,
     tick: int,
     llm_client: LlmClientProtocol,
-) -> None:
+) -> list[int] | None:
     """v2 increment 5's LLM path: decide_coalition replaces form_coalition's
     nearest-neighbour greedy aggregation with one join/leave decision per
     seated, non-initiator party. The initiator designation, the majority
@@ -1805,15 +1976,16 @@ def _form_and_journal_coalition_llm(
                 rounds_completed=len(outcome.rounds),
             ),
         )
-    else:
-        journal.write_event(
-            tick=tick,
-            event=(
-                CoalitionFormed(coalition=outcome.coalition, seats=seats, rounds_used=len(outcome.rounds))
-                if outcome.coalition is not None
-                else CoalitionFailed(coalition=None, seats=seats, rounds_used=len(outcome.rounds))
-            ),
-        )
+        return None
+    journal.write_event(
+        tick=tick,
+        event=(
+            CoalitionFormed(coalition=outcome.coalition, seats=seats, rounds_used=len(outcome.rounds))
+            if outcome.coalition is not None
+            else CoalitionFailed(coalition=None, seats=seats, rounds_used=len(outcome.rounds))
+        ),
+    )
+    return outcome.coalition
 
 
 def _response_context(holder: Citizen, config: PolityConfig, tick: int) -> ResponseContext:

@@ -122,6 +122,8 @@ class IncumbentRecord:
     party: int | None
     record: float
     """2 x legitimacy - 1, clamped to [-1, 1]: -1 for a president with no legitimacy left, +1 for one who kept it all."""
+    policy: PolicyRecord | None = None
+    """S4.2: the policy the president's term presided over, while legislation runs."""
 
 
 def incumbent_record(citizen: Citizen) -> IncumbentRecord:
@@ -136,14 +138,24 @@ def _partisan_term(voter: Citizen, candidate: Citizen, vote: VoteConfig) -> floa
     return vote.partisanship if same_party else 0.0
 
 
-def _retrospective_term(candidate: Citizen, vote: VoteConfig, incumbent: IncumbentRecord | None) -> float:
+def _retrospective_term(voter: Citizen, candidate: Citizen, vote: VoteConfig, incumbent: IncumbentRecord | None) -> float:
     if incumbent is None:
         return 0.0
     if candidate.citizen_id == incumbent.citizen_id:
-        return vote.approval * incumbent.record
+        return vote.approval * incumbent.record + _policy_term(voter, vote, incumbent)
     if incumbent.party is not None and candidate.party_affiliation == incumbent.party:
-        return vote.approval * vote.approval_party_carryover * incumbent.record
+        return (
+            vote.approval * vote.approval_party_carryover * incumbent.record
+            + vote.approval_party_carryover * _policy_term(voter, vote, incumbent)
+        )
     return 0.0
+
+
+def _policy_term(voter: Citizen, vote: VoteConfig, incumbent: IncumbentRecord) -> float:
+    """S4.2: 0.0 exactly unless both a policy record and a nonzero weight exist."""
+    if incumbent.policy is None or not vote.policy_retrospection:
+        return 0.0
+    return vote.policy_retrospection * policy_gain(voter, incumbent.policy)
 
 
 def candidate_utility(
@@ -158,7 +170,7 @@ def candidate_utility(
     return (
         -weighted_distance(voter, _candidate_platform(candidate))
         + _partisan_term(voter, candidate, vote)
-        + _retrospective_term(candidate, vote, incumbent)
+        + _retrospective_term(voter, candidate, vote, incumbent)
         + valence_term
     )
 
@@ -253,18 +265,54 @@ def assign_party_affiliation(citizen: Citizen, parties: list[Party]) -> int:
     ).party_id
 
 
-def choose_party(voter: Citizen, parties: list[Party]) -> int | None:
+@dataclass(frozen=True)
+class PolicyRecord:
+    """S4.2 (ADR-009): where enacted policy stood when an office's term began, and now."""
+
+    then: tuple[float, ...]
+    now: tuple[float, ...]
+
+
+def policy_gain(voter: Citizen, record: PolicyRecord) -> float:
+    """How much closer policy came to the voter over the term (negative: farther)."""
+    return weighted_distance(voter, record.then) - weighted_distance(voter, record.now)
+
+
+@dataclass(frozen=True)
+class GoverningRecord:
+    """S4.2: the parties a legislative election judges, and the policy they presided over."""
+
+    parties: frozenset[int]
+    policy: PolicyRecord
+
+
+def choose_party(
+    voter: Citizen, parties: list[Party], governing: GoverningRecord | None = None, retrospection: float = 0.0,
+) -> int | None:
     """Party-list analogue of build_ranking's vote rule (A5), for the
     legislative election (assembly_mode: party_list): nearest party
     platform by issue-priority-weighted distance, or blank (None) if even
     the nearest party is farther than the voter's own tolerance. Ties
-    broken by the lowest party_id."""
+    broken by the lowest party_id.
+
+    S4.2 (ADR-009): with a `governing` record and a nonzero `retrospection`, the governing
+    parties' utility (minus the distance) gains retrospection x policy_gain, and the voter
+    picks the highest utility -- blank when even that falls below minus their tolerance.
+    At zero it is the nearest-platform rule above, exactly."""
+    if governing is not None and retrospection:
+        gain = retrospection * policy_gain(voter, governing.policy)
+        best = min(parties, key=lambda p: (-_party_utility(voter, p, governing.parties, gain), p.party_id))
+        return None if _party_utility(voter, best, governing.parties, gain) < -voter.blank_threshold else best.party_id
     nearest = min(
         parties, key=lambda p: (weighted_distance(voter, p.platform), p.party_id)
     )
     if weighted_distance(voter, nearest.platform) > voter.blank_threshold:
         return None
     return nearest.party_id
+
+
+def _party_utility(voter: Citizen, party: Party, governing: frozenset[int], gain: float) -> float:
+    return -weighted_distance(voter, party.platform) + (gain if party.party_id in governing else 0.0)
 
 
 # ── 2. Candidacy rule ─────────────────────────────────────────────────────

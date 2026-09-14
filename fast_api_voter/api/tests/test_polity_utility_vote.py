@@ -35,7 +35,7 @@ from api.tests.test_polity_run_simulation import (
 )
 
 ZERO = VoteConfig(mode="utility", audit_fraction=0.0, partisanship=0.0, approval=0.0, approval_party_carryover=0.0,
-                  valence=0.0, turnout_cost=0.0)
+                  valence=0.0, turnout_cost=0.0, policy_retrospection=0.0)
 
 
 def _citizen(cid: int, positions: tuple[float, ...], priorities: tuple[float, ...], threshold: float = 0.5,

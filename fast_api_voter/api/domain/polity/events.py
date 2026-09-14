@@ -401,6 +401,71 @@ class ChamberDeliberation(Event):
     provenance: LlmProvenance
 
 
+# ── ordinary legislation (S4.2) ───────────────────────────────────────────
+
+@dataclass(frozen=True, kw_only=True)
+class BillProposed(Event):
+    EVENT_TYPE = "bill_proposed"
+    INSTITUTIONAL = True
+    bill_id: int
+    agenda_setter: str  # "president" or "government"
+    proposer: int  # the president's citizen_id, or the government's initiating party_id
+    dimensions: list[int]
+    status_quo: list[float]  # policy on those dimensions before the bill
+    proposal: list[float]
+
+
+@dataclass(frozen=True, kw_only=True)
+class BillVoted(Event):
+    EVENT_TYPE = "bill_voted"
+    bill_id: int
+    reading: int  # 1, or 2 after the chamber's suspensive veto
+    yes_seats: int
+    no_seats: int
+    yes_parties: list[int]
+    passed: int
+
+
+@dataclass(frozen=True, kw_only=True)
+class BillBlocked(Event):
+    """The president blocked a passed bill under cohabitation."""
+
+    EVENT_TYPE = "bill_blocked"
+    INSTITUTIONAL = True
+    bill_id: int
+
+
+@dataclass(frozen=True, kw_only=True)
+class BillReviewed(Event):
+    EVENT_TYPE = "bill_reviewed"
+    bill_id: int
+    yes: int
+    no: int
+    veto: int
+    returns_at_tick: int = OMIT  # present when the veto suspended the bill
+
+
+@dataclass(frozen=True, kw_only=True)
+class BillEnacted(Event):
+    EVENT_TYPE = "bill_enacted"
+    INSTITUTIONAL = True
+    bill_id: int
+    dimensions: list[int]
+    old_values: list[float]
+    new_values: list[float]
+    enacted: int  # bills enacted so far in the run, this one included
+
+
+@dataclass(frozen=True, kw_only=True)
+class PolicyStatus(Event):
+    """Yearly: the policy in force and how congruent it is with the population."""
+
+    EVENT_TYPE = "policy_status"
+    policy: list[float]
+    median_distance: float
+    mean_citizen_distance: float
+
+
 # ── dynamic citizens (S4.3) ───────────────────────────────────────────────
 
 @dataclass(frozen=True, kw_only=True)
@@ -432,7 +497,7 @@ EVENT_CLASSES: tuple[type[Event], ...] = (
     ScandalOccurred, EconomicShockTick, ReactionToEvent, RepresentativeResponse, MandateDeviationRecorded,
     PressureAction, PetitionLaunched, PetitionSigned, LegitimacyUpdated, ConfidenceVoteTriggered,
     ConfidenceVoteResult, PetitionExpired, Recalled, SortitionRotation, ChamberDeliberation,
-    OpinionDynamicsStep, EmotionsUpdated,
+    OpinionDynamicsStep, EmotionsUpdated, BillProposed, BillVoted, BillBlocked, BillReviewed, BillEnacted, PolicyStatus,
 )
 
 EVENT_TYPES: dict[str, type[Event]] = {cls.EVENT_TYPE: cls for cls in EVENT_CLASSES}
