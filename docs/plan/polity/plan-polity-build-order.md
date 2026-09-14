@@ -725,6 +725,7 @@ alongside it.
 **How it runs (set 2026-09-13, 22:45).**
 
 - **The batch** runs as the user unit `polity-p500-batch`, started 22:15, from the S0.7 worktree.
+- **The seed-1 repeat is excluded (D10).** The batch ends with seed 42, about 15:00 on 2026-09-14.
 - **The GPU sessions of step 3** wait in a second unit, `polity-gpu-queue`. It runs
   `Vote-App-gpu-queue/gpu_queue.sh`, from a worktree pinned at `7376c702`, and starts when the batch
   unit ends. Step by step:
@@ -740,6 +741,7 @@ alongside it.
   stay off).
 
 | D8 | Free enough disk for S2.4's five candidate models (about 25–30 GB), and choose what goes | S2.4 | 2026-09-14: not needed. Docker's data, the vLLM model cache included, is on its own partition with 300 GB free |
+| D10 | Run the p500 batch without its second seed-1 run | S0.8's red flag 3 | 2026-09-14: excluded. The batch is seeds 1, 2 and 42. The sweep driver was paused during seed 42 and its unit is stopped when seed 42 ends (`Vote-App-gpu-queue/exclude_repeat.sh`). The summary is generated for those three seeds, so flag 3 (same-seed divergence) is not evaluable and is reported as such; S0.7's other two flags stand as pre-registered |
 | D9 | The three Stage 4 calibrations ran on a twin whose presidents are recalled after a median of 2 ticks (OBS-015). That churn leaves too few incumbents for S4.1 fact 1 and no full term for S4.3's E3, and it multiplies the terms in S4.2's L2. Nothing qualified. Cause shown: a steady pressure gap above 0.055 walks legitimacy to the recall floor; with the pressure channels off there is no recall. Options: accept the verdicts; or first make the twin's presidency last (pressure weights, the recall floor, or a pressure rule calibrated against the LLM path's), then re-run all three under a new pre-registration | re-calibrating S4.1–S4.3 | |
 
 ### S4.1's grid, pre-registered before running (ADR-011 gave the facts, not the grid)
