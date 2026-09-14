@@ -52,6 +52,7 @@ from api.domain.polity.llm_behavior_engine import (
     PRESSURE_HISTORY_SIGNAL,
     PRESSURE_PERCENTILE_SIGNAL,
     PRESSURE_PLEDGE_SIGNAL,
+    PRESSURE_EMOTION_SIGNALS,
     PRESSURE_THRESHOLD_SIGNAL,
     build_pressure_system_prompt,
     build_pressure_system_prompt_calibrated,
@@ -3628,6 +3629,7 @@ def test_calibrated_system_prompt_differs_from_baseline_only_by_the_signal_lines
 
 @pytest.mark.parametrize("signal", [
     PRESSURE_THRESHOLD_SIGNAL, PRESSURE_HISTORY_SIGNAL, PRESSURE_PERCENTILE_SIGNAL, PRESSURE_PLEDGE_SIGNAL,
+    *PRESSURE_EMOTION_SIGNALS,
 ])
 def test_every_calibration_signal_definition_contains_no_if_then_wording(signal):
     # polity-decision-contracts.md's C4, enforced structurally rather than

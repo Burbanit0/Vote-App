@@ -221,6 +221,46 @@ class VoteConfig:
 
 
 @dataclass(frozen=True)
+class DynamicsConfig:
+    """S4.3 (docs/adr/ADR-012-dynamic-citizens.md): citizens' views move between ticks.
+
+    Friedkin-Johnsen with bounded confidence, on the two latent factors every issue position
+    is built from (citizen.LatentStructure). Each update tick a citizen's factors move
+    `influence_step` of the way toward the mean of their social-graph neighbours within
+    `confidence_bound`, keep `susceptibility` of that and return the rest to where they
+    started, then take a `drift_std` Gaussian step. Disabled, the population is static:
+    the control arm. Not `citizens.static_population`, which is about births and deaths."""
+
+    enabled: bool
+    susceptibility: float
+    """Friedkin-Johnsen's lambda: 1 keeps no pull back to a citizen's initial factors."""
+    influence_step: float
+    """Share of the distance to the neighbours' mean covered in one update."""
+    confidence_bound: float
+    """Neighbours farther than this in the latent space do not influence."""
+    drift_std: float
+    """Standard deviation of each factor's idiosyncratic step per update."""
+
+
+@dataclass(frozen=True)
+class EmotionsConfig:
+    """S4.3 (ADR-012): anger, anxiety and enthusiasm, each in [0, 1], moving every tick
+    `1 - decay` of the way toward their appraisal. Anger toward the sitting president rises
+    with how far past a citizen's tolerance the president stands, enthusiasm with how far
+    inside it; anxiety with the economy's distance from normal. They lower (anger, anxiety)
+    or raise (enthusiasm) the awakening threshold, and anger lowers the tolerance past which
+    the deterministic pressure rule acts. Every weight at zero leaves both unchanged."""
+
+    enabled: bool
+    decay: float
+    awakening_anger: float
+    awakening_anxiety: float
+    awakening_enthusiasm: float
+    mobilization_anger: float
+    """At anger 1, the deterministic pressure rule acts past (1 - this) x the blank threshold."""
+
+
+@dataclass(frozen=True)
 class CampaignConfig:
     """v2 increment 4 (campaign_positioning, dt=5) tunables — a nominee's
     LLM-chosen shift away from their sincere position is bounded on both
@@ -532,6 +572,8 @@ class PolityConfig:
     candidacy: CandidacyConfig
     campaign: CampaignConfig
     vote: VoteConfig
+    dynamics: DynamicsConfig
+    emotions: EmotionsConfig
     legitimacy: LegitimacyConfig
     pressure_menu: PressureMenuConfig
     mandate: MandateConfig
@@ -683,6 +725,29 @@ def _parse_vote(raw: dict[str, Any]) -> VoteConfig:
         approval_party_carryover=_get_ratio(s, "vote", "approval_party_carryover"),
         valence=_get_nonneg_float(s, "vote", "valence"),
         turnout_cost=_get_nonneg_float(s, "vote", "turnout_cost"),
+    )
+
+
+def _parse_dynamics(raw: dict[str, Any]) -> DynamicsConfig:
+    s = _section(raw, "dynamics")
+    return DynamicsConfig(
+        enabled=_get(s, "dynamics", "enabled", bool),
+        susceptibility=_get_ratio(s, "dynamics", "susceptibility"),
+        influence_step=_get_ratio(s, "dynamics", "influence_step"),
+        confidence_bound=_get_nonneg_float(s, "dynamics", "confidence_bound"),
+        drift_std=_get_nonneg_float(s, "dynamics", "drift_std"),
+    )
+
+
+def _parse_emotions(raw: dict[str, Any]) -> EmotionsConfig:
+    s = _section(raw, "emotions")
+    return EmotionsConfig(
+        enabled=_get(s, "emotions", "enabled", bool),
+        decay=_get_ratio(s, "emotions", "decay"),
+        awakening_anger=_get_ratio(s, "emotions", "awakening_anger"),
+        awakening_anxiety=_get_ratio(s, "emotions", "awakening_anxiety"),
+        awakening_enthusiasm=_get_ratio(s, "emotions", "awakening_enthusiasm"),
+        mobilization_anger=_get_ratio(s, "emotions", "mobilization_anger"),
     )
 
 
@@ -1030,6 +1095,18 @@ _CONFIG_RULES: tuple[Callable[[PolityConfig], str | None], ...] = (
         "consulted"
     ) if c.awakening.context_modulation.neighbors_acting and not c.social_graph.enabled else None,
     lambda c: (
+        "'dynamics.enabled' requires 'citizens.position_dist: factor_structure' (S4.3): citizens move "
+        "on the latent factors their positions are built from, and a uniform population has none"
+    ) if c.dynamics.enabled and c.citizens.position_dist != "factor_structure" else None,
+    lambda c: (
+        "'dynamics.influence_step' > 0 requires 'social_graph.enabled' (S4.3): influence runs over "
+        "the social graph, so without one the step would silently do nothing"
+    ) if c.dynamics.enabled and c.dynamics.influence_step > 0 and not c.social_graph.enabled else None,
+    lambda c: (
+        "'emotions.enabled' requires 'awakening.enabled' (S4.3): emotions act through the awakening "
+        "gate and the pressure rule, so with nobody consulted they are a silently dead experiment"
+    ) if c.emotions.enabled and not c.awakening.enabled else None,
+    lambda c: (
         "'sortition_chamber.seats' cannot exceed 'run.population_size' when "
         "'sortition_chamber.enabled' is true -- a config that can't seat even one full chamber "
         "is a degenerate arm (§6bis.3)"
@@ -1091,6 +1168,8 @@ def load_config(path: Path | str | None = None) -> PolityConfig:
         candidacy=_parse_candidacy(raw),
         campaign=_parse_campaign(raw),
         vote=_parse_vote(raw),
+        dynamics=_parse_dynamics(raw),
+        emotions=_parse_emotions(raw),
         legitimacy=legitimacy,
         pressure_menu=pressure_menu,
         mandate=_parse_mandate(raw),

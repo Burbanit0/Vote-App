@@ -77,6 +77,9 @@ def _citizen_snapshot(citizen: Citizen, *, year: int, tick: int) -> dict[str, An
         # for the common case, both present once a citizen has ever run.
         "pledged_platform": list(citizen.pledged_platform) if citizen.pledged_platform is not None else None,
         "revealed_position": list(citizen.revealed_position) if citizen.revealed_position is not None else None,
+        # S4.3: present only once tracked, so a static run's snapshots are unchanged.
+        **({"latent_factors": list(citizen.latent_factors)} if citizen.latent_factors is not None else {}),
+        **({"anger": citizen.anger, "anxiety": citizen.anxiety, "enthusiasm": citizen.enthusiasm} if citizen.anger is not None else {}),
     }
 
 

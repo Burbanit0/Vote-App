@@ -269,6 +269,31 @@ vote:
                                 #   faits pré-enregistrés de l'ADR-011.
 
 # =============================================================================
+# CITOYENS DYNAMIQUES (S4.3 — docs/adr/ADR-012-dynamic-citizens.md)
+# =============================================================================
+dynamics:
+  enabled: false                # false = population statique (bras de contrôle).
+                                #   Requiert citizens.position_dist: factor_structure
+  susceptibility: 1.0           # lambda de Friedkin-Johnsen : 1 = aucun rappel
+                                #   vers les facteurs initiaux
+  influence_step: 0.0           # part de l'écart à la moyenne des voisins
+                                #   couverte par mise à jour (requiert social_graph)
+  confidence_bound: 1.0         # confiance bornée : un voisin plus loin que ceci,
+                                #   dans l'espace latent, n'influence pas
+  drift_std: 0.0                # écart-type du pas idiosyncratique, par facteur
+                                # Neutres tant que la calibration de l'ADR-012
+                                # (stabilité de panel) n'a pas tourné.
+
+emotions:
+  enabled: false                # requiert awakening.enabled
+  decay: 0.7                    # e(t) = decay*e(t-1) + (1-decay)*évaluation(t)
+  awakening_anger: 0.0          # la colère abaisse le seuil d'éveil
+  awakening_anxiety: 0.0        # l'anxiété l'abaisse
+  awakening_enthusiasm: 0.0     # l'enthousiasme l'élève
+  mobilization_anger: 0.0       # à colère 1, la règle déterministe de pression
+                                #   agit au-delà de (1 - ceci) x blank_threshold
+
+# =============================================================================
 # LÉGITIMITÉ ET RAPPEL (§7)
 # =============================================================================
 legitimacy:

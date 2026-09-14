@@ -401,6 +401,28 @@ class ChamberDeliberation(Event):
     provenance: LlmProvenance
 
 
+# ── dynamic citizens (S4.3) ───────────────────────────────────────────────
+
+@dataclass(frozen=True, kw_only=True)
+class OpinionDynamicsStep(Event):
+    """One opinion-dynamics update of the whole population (opinion_dynamics.py)."""
+
+    EVENT_TYPE = "opinion_dynamics_step"
+    mean_shift: float
+    max_shift: float
+    influenced: int
+
+
+@dataclass(frozen=True, kw_only=True)
+class EmotionsUpdated(Event):
+    """The population's mean emotions after this tick's appraisal (emotions.py)."""
+
+    EVENT_TYPE = "emotions_updated"
+    anger: float
+    anxiety: float
+    enthusiasm: float
+
+
 # ── registry ──────────────────────────────────────────────────────────────
 
 EVENT_CLASSES: tuple[type[Event], ...] = (
@@ -410,6 +432,7 @@ EVENT_CLASSES: tuple[type[Event], ...] = (
     ScandalOccurred, EconomicShockTick, ReactionToEvent, RepresentativeResponse, MandateDeviationRecorded,
     PressureAction, PetitionLaunched, PetitionSigned, LegitimacyUpdated, ConfidenceVoteTriggered,
     ConfidenceVoteResult, PetitionExpired, Recalled, SortitionRotation, ChamberDeliberation,
+    OpinionDynamicsStep, EmotionsUpdated,
 )
 
 EVENT_TYPES: dict[str, type[Event]] = {cls.EVENT_TYPE: cls for cls in EVENT_CLASSES}

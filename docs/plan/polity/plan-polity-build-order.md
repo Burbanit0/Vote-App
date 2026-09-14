@@ -507,6 +507,33 @@ the social graph, in the two-factor latent space; anger, anxiety and enthusiasm 
 awakening and mobilization. Step size pre-registered against measured panel stability.
 Static population kept as control arm.
 
+*Made precise when built, 2026-09-13*, in `docs/adr/ADR-012-dynamic-citizens.md`:
+
+- **Opinion dynamics** (`opinion_dynamics.py`, config section `dynamics:`).
+  - The pure update is `update_latent_factors(factors, anchors, edges, config, rng)`.
+  - Friedkin–Johnsen: susceptibility, a step toward the mean of the neighbours within the
+    confidence bound, and drift. It runs on the latent factors that `citizen.LatentStructure`
+    redraws from the seed, and positions are recomputed from them.
+  - One `opinion_dynamics_step` event per tick; a fifth random stream, checkpointed.
+- **Emotions** (`emotions.py`, config section `emotions:`).
+  - Appraisals: anger and enthusiasm from the gap to the president against the citizen's
+    tolerance, anxiety from the economy.
+  - Effects: a pull inside the awakening threshold's bounded modulation, and anger lowering the
+    pressure rule's tolerance.
+  - On the LLM path, the emotions go into `pressure_action`'s context as descriptive signals.
+  - One `emotions_updated` event per tick.
+- **First acceptance met.**
+  - Neutral settings move nobody (property), and a neutral run journals the static run plus the
+    two new event types.
+  - Golden references and the bake-off bank are unchanged; a static run's checkpoints and snapshots
+    gain no keys.
+  - A crashed dynamic run resumes byte-identical.
+  - Cost: 1.4 ms (update) + 1.6 ms (appraisal) per tick at p500.
+- **Both ship off, at neutral settings** (the control arm). The ADR pre-registers the facts and the
+  search grid: panel stability 0.70–0.90 over four years, no consensus collapse, neighbour
+  homophily, more distinct presidents; discontent mobilizes, anxiety draws people in, honeymoon
+  decline. The calibration needs no GPU and is this step's remaining work.
+
 ### S4.4 Phase clock
 A phase that is a pure function of the tick, absorbing Track E. Fix Track E's two
 documented sharp edges first (`check_staggered_election_live_results.md`). Campaign

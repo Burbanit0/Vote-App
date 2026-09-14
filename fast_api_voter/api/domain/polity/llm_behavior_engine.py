@@ -168,6 +168,7 @@ from api.domain.polity.codebook import (
     check_codebook_version,
 )
 from api.domain.polity.config import PolityConfig, PressureMenuConfig
+from api.domain.polity.emotions import tolerance_scale
 from api.domain.polity.llm_call_log import call_context, llm_call_id, request_sha256
 from api.domain.polity.llm_client import (
     SUPPORTED_PROVIDERS,
@@ -3418,6 +3419,7 @@ def _deterministic_pressure_fallback(
             config.pressure_menu,
             can_sign=int(PressureAct.SIGN_PETITION) in context.available,
             can_launch=int(PressureAct.LAUNCH_PETITION) in context.available,
+            tolerance_scale=tolerance_scale(citizen, config.emotions),
         )
         if act is PressureAct.NOTHING:
             motif = PressureMotif.RESIGNATION_NO_LEVERAGE
@@ -3694,6 +3696,39 @@ PRESSURE_THRESHOLD_SIGNAL = PressureCalibrationSignal(
 )
 
 
+PRESSURE_EMOTION_SIGNALS = (
+    PressureCalibrationSignal(
+        field="anger",
+        definition=(
+            "ctx.anger : ma colere envers la personne visee, de 0 a 1 ; elle monte quand sa "
+            "position s'eloigne de la mienne au-dela de mon seuil de tolerance. Ce nombre ne "
+            "prescrit aucune reaction.\n"
+        ),
+    ),
+    PressureCalibrationSignal(
+        field="anxiety",
+        definition=(
+            "ctx.anxiety : mon inquietude face a la conjoncture economique, de 0 a 1. Ce nombre "
+            "ne prescrit aucune reaction.\n"
+        ),
+    ),
+    PressureCalibrationSignal(
+        field="enthusiasm",
+        definition=(
+            "ctx.enthusiasm : mon enthousiasme envers la personne visee, de 0 a 1 ; il monte quand "
+            "sa position est proche de la mienne. Ce nombre ne prescrit aucune reaction.\n"
+        ),
+    ),
+)
+"""S4.3 (ADR-012): the citizen's emotions, sent once `emotions.enabled` tracks them. Each
+states what the number measures and, like the threshold signal, no reaction to it."""
+
+
+def pressure_signals(config: PolityConfig) -> tuple[PressureCalibrationSignal, ...]:
+    """The calibration signals dt=10's prompt carries under `config`."""
+    return (PRESSURE_THRESHOLD_SIGNAL, *PRESSURE_EMOTION_SIGNALS) if config.emotions.enabled else (PRESSURE_THRESHOLD_SIGNAL,)
+
+
 def pressure_shipped_signal_values(citizen: Citizen) -> dict[str, float]:
     """The single source of truth for dt=10's shipped calibration signal
     (`PRESSURE_THRESHOLD_SIGNAL` only -- see `decide_pressure_actions`'s own
@@ -3710,8 +3745,14 @@ def pressure_shipped_signal_values(citizen: Citizen) -> dict[str, float]:
     `build_pressure_user_prompt_calibrated`'s separate `signal_values`
     argument, but the journal write (`run_polity_simulation.py`) still
     called `to_payload()` alone, on a high-volume type (dt=10 fires on
-    every consulted citizen, every tick `mandate.enabled`)."""
-    return {PRESSURE_THRESHOLD_SIGNAL.field: round(citizen.blank_threshold, 4)}
+    every consulted citizen, every tick `mandate.enabled`).
+
+    S4.3: a citizen whose emotions are tracked also carries PRESSURE_EMOTION_SIGNALS'
+    three fields."""
+    values = {PRESSURE_THRESHOLD_SIGNAL.field: round(citizen.blank_threshold, 4)}
+    if citizen.anger is not None and citizen.anxiety is not None and citizen.enthusiasm is not None:
+        values.update(anger=round(citizen.anger, 4), anxiety=round(citizen.anxiety, 4), enthusiasm=round(citizen.enthusiasm, 4))
+    return values
 """polity-decision-contracts.md §3 pressure_action: `deterministic_
 pressure_action` (simple_rules.py) compares `gap < citizen.blank_
 threshold` to score every measurement this decision type has ever been
@@ -4065,10 +4106,12 @@ def decide_pressure_actions(
     # rely on an incidental insertion order (D-5 precedent).
     consulted = sorted(consulted, key=lambda c: c.citizen_id)
 
+    signals = pressure_signals(config)
+
     def user_prompt(chunk: list[Citizen]) -> str:
         per_citizen_signals = {c.citizen_id: pressure_shipped_signal_values(c) for c in chunk}
         signal_values = {
-            PRESSURE_THRESHOLD_SIGNAL.field: {cid: values[PRESSURE_THRESHOLD_SIGNAL.field] for cid, values in per_citizen_signals.items()}
+            signal.field: {cid: values[signal.field] for cid, values in per_citizen_signals.items()} for signal in signals
         }
         return build_pressure_user_prompt_calibrated(chunk, contexts, signal_values)
 
@@ -4081,7 +4124,7 @@ def decide_pressure_actions(
             retry_seed_base=_PRESSURE_RETRY_SEED_BASE,
             chunk_size=_PRESSURE_CALIBRATED_CHUNK_SIZE,
             min_batch_size=1,
-            system_prompt=lambda chunk: build_pressure_system_prompt_calibrated(chunk, config, (PRESSURE_THRESHOLD_SIGNAL,)),
+            system_prompt=lambda chunk: build_pressure_system_prompt_calibrated(chunk, config, signals),
             user_prompt=user_prompt,
             decode=decode_pressure_batch,
             # An out-of-menu act is a rejected batch exactly like an exhausted replay budget.
