@@ -88,7 +88,15 @@ every time. Only the vote sees anything new.
 Not the cause: the model does not simply nominate the most ambitious member (OBS-013). It makes
 the same pick every time.
 
-*What would settle it.* A design choice, not a check: what should differ between two elections?
+*Decided 2026-09-13 (D6).* Four levers:
+
+- **Shipped now:** `president_term_limit: 2` and a recalled president barred from the snap election
+  that follows the recall (`recalled_barred_from_snap_election`, OBS-003).
+- **Coming with later steps:** a retrospective vote (S4.1) and dynamic citizens (S4.3).
+
+Re-measure OBS-001 and OBS-010 on the first sweep run with them.
+
+*What would settle it (before D6).* A design choice, not a check: what should differ between two elections?
 Candidates are term limits (they work on both engines since OBS-012's fix), S4.3 (dynamic citizens: positions and ambition
 that respond to what happened), or sampling above temperature 0 for candidacy and nomination.
 
@@ -138,7 +146,11 @@ and `elected` with the same `citizen_id`.
   sees their own positions, priorities, blank threshold and distances. Nothing says who held office,
   their legitimacy, or that they were just recalled.
 
-*What would settle it.* A design decision: should a recalled president stand in the snap election,
+*Decided 2026-09-13 (D6).* A recalled president is barred from the snap election that follows the
+recall, and may stand again at later elections (`institutions.recalled_barred_from_snap_election`,
+shipped true). Voters' knowledge of the recall enters through S4.1's retrospective vote.
+
+*What would settle it (before D6).* A design decision: should a recalled president stand in the snap election,
 and should voters know who was recalled? A bar is a rule change; telling voters is a prompt change
 that S2.2's case bank could test first.
 

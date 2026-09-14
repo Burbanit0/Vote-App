@@ -221,9 +221,9 @@ def stance_distribution(stances: Sequence[int]) -> dict[int, float]:
 def lame_duck_deviation_delta(lame_duck: Sequence[float], eligible: Sequence[float]) -> float | None:
     """§6bis.1 / §10's "lame_duck_deviation_delta": mean(deviation over
     lame-duck terms) − mean(deviation over re-eligible terms). `None`, not
-    0.0, whenever either side has no observed term -- at the shipped
-    president_term_limit: null every term is re-eligible, so this is `None`
-    for the shipped acceptance configs by construction, not a bug."""
+    0.0, whenever either side has no observed term -- with president_term_limit
+    null every term is re-eligible, so this is `None` by construction, not a bug
+    (the limit ships at 2 since D6, 2026-09-13)."""
     if not lame_duck or not eligible:
         return None
     return (sum(lame_duck) / len(lame_duck)) - (sum(eligible) / len(eligible))
