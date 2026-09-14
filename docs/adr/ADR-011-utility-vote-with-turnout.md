@@ -79,6 +79,29 @@ weight set is adopted only if all of these hold; each is also reported for the z
 **Measured on a live run:** the audit sample's agreement with the utility ballot's first choice,
 read from its `vote_cast` events.
 
+### Calibration result (2026-09-13)
+
+`fast_api_voter/scripts/calibrate_utility_vote_results.md`, with the grid and selection
+pre-registered in `plan-polity-build-order.md` §9. Fact 4 was restated before running: the term
+limit of two rules out one-president runs for every arm, so it reads the share of elections won by
+the previous winner.
+
+**No setting meets all four facts, so the weights stay at 0.** None of the 36 settings qualifies.
+What stops them:
+
+- **Fact 1 cannot be judged at this size.** Ten seeds over 8 years give 0–7 incumbents standing per
+  setting. Barred recalled presidents and term limits leave few. Where both groups stood,
+  approval 0.05–0.1 mostly re-elects the negative-record group less often, but on one to five
+  cases.
+- **Fact 4 has no room.** The zero-weight arm's repeat-winner share is already 2.2% (2 of about 90
+  pairs), so a setting must go lower on a handful of elections.
+- **Turnout and partisanship pull against each other.** The band needs `turnout_cost` 0.02–0.04.
+  `partisanship` 0.05 lifts own-party first choices from 71.7% to 86–92%, and 0.1 to 94–97%, past
+  the 90% ceiling.
+
+A better-powered protocol (more seeds or years) would be a new pre-registration, recorded as such.
+It was not run.
+
 ## Consequences
 
 - **LLM runs.** Journals change shape: `vote_cast` events are now the audit sample, so an election
