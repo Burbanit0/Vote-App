@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
-import { usePlaygroundCtx } from '../PlaygroundController';
+import { usePlaygroundCtx, useMethodSelection } from '../PlaygroundController';
 import Scorecard from '../Scorecard';
 import MethodInfo from '../MethodInfo';
 import MethodReplayModal from '../MethodReplayModal';
@@ -67,17 +67,9 @@ function AxisCell({ axis }: { axis?: { mean: number; lo: number; hi: number } })
 const BilanMoment: React.FC = () => {
   const { t } = useTranslation('playground');
   const { ruleLabels, structureLabels } = useVotingLabels();
-  const {
-    mode,
-    assembly,
-    parlSc,
-    currentAxes,
-    leaderSc,
-    result,
-    votingVoters,
-    leaderCandidates,
-    enabledRules,
-  } = usePlaygroundCtx();
+  const { mode, assembly, parlSc, currentAxes, leaderSc, result, votingVoters, leaderCandidates } =
+    usePlaygroundCtx();
+  const { enabledRules } = useMethodSelection();
   const [replayRule, setReplayRule] = useState<Rule | null>(null);
 
   // Moment ② is explicit about it ("seules les méthodes cochées apparaissent dans

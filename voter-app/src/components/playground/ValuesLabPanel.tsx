@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { usePlaygroundCtx } from './PlaygroundController';
+import { usePlaygroundCtx, useMethodSelection } from './PlaygroundController';
 import ValuesPanel from './ValuesPanel';
 import { useVotingLabels } from '../../hooks/useVotingLabels';
 import { dialWeights, LEADER_AXES_KEYS } from '../../lib/scorecard';
@@ -12,7 +12,6 @@ const ValuesLabPanel: React.FC = () => {
   const {
     mode,
     axisMeta,
-    lensItems,
     lensMode,
     setLensMode,
     dial,
@@ -21,6 +20,7 @@ const ValuesLabPanel: React.FC = () => {
     setLeaderWeights,
     setParlWeights,
   } = usePlaygroundCtx();
+  const { lensItems } = useMethodSelection();
 
   return (
     <div className="flex flex-col gap-3">

@@ -23,7 +23,12 @@ vi.mock('../../../services/profileApi', () => ({
   }),
 }));
 
-import { PlaygroundProvider, usePlaygroundCtx, type PlaygroundCtx } from '../PlaygroundController';
+import {
+  PlaygroundProvider,
+  usePlaygroundCtx,
+  useMethodSelection,
+  type PlaygroundCtx,
+} from '../PlaygroundController';
 
 // What this test proves, and what it deliberately doesn't:
 //
@@ -34,15 +39,27 @@ import { PlaygroundProvider, usePlaygroundCtx, type PlaygroundCtx } from '../Pla
 // reference* — this test asserts exactly that: object identity survives an
 // unrelated ancestor re-render.
 //
-// It does NOT assert that consumer *render counts* drop, because they don't:
-// every direct usePlaygroundCtx() consumer (ElectorateMoment, MethodMoment,
+// It does NOT assert that consumer *render counts* drop, because they mostly
+// don't: every direct usePlaygroundCtx() consumer (ElectorateMoment,
 // InstrumentPanel, …) subscribes to ONE monolithic context via useContext, so
-// React re-renders all of them whenever ANY of its ~70 fields legitimately
+// React re-renders all of them whenever ANY of its ~67 fields legitimately
 // changes — which is most interactions, since almost everything here derives
 // from the same `config`/`playground` store slices. Memoizing the container
 // object cannot fix that; only splitting into several smaller contexts would
-// (the escape hatch this component's own review flagged, deliberately not
-// attempted here — a much larger, separate change touching every consumer).
+// (the escape hatch this component's own review flagged, previously not
+// attempted — a much larger, separate change touching every consumer).
+//
+// One slice HAS been split out since: `enabledRules`/`setEnabledRules`/
+// `lensItems` moved to their own useMethodSelection() context (2026-09-13,
+// flake-hunter investigation into a WebKit-only e2e timeout — see git log
+// on this file). MethodMoment's checkbox toggles used to re-render every
+// usePlaygroundCtx() consumer, including the SVG/D3-heavy LeaderCanvas via
+// InstrumentPanel; under real CI-runner CPU contention, WebKit's per-frame
+// cost for that re-render pattern was high enough to blow past Playwright's
+// 30s actionability timeout on a 28-checkbox uncheck loop (Chromium/Firefox
+// unaffected by the identical contention). Toggling a rule now only
+// re-renders MethodMoment, ValuesLabPanel and BilanMoment — the three real
+// consumers of that slice — asserted directly in the second test below.
 let captured: PlaygroundCtx[] = [];
 
 function Capture() {
@@ -85,5 +102,62 @@ describe('PlaygroundController context memoization', () => {
 
     const afterBump = captured[captured.length - 1];
     expect(afterBump).toBe(settled);
+  });
+
+  it('toggling a method-selection field does not re-render plain usePlaygroundCtx() consumers', async () => {
+    let mainRenders = 0;
+    let lastEnabledCount: number | null = null;
+
+    function MainOnlyConsumer() {
+      usePlaygroundCtx();
+      mainRenders++;
+      return null;
+    }
+
+    function Toggler() {
+      const { enabledRules, setEnabledRules } = useMethodSelection();
+      lastEnabledCount = enabledRules.size;
+      return (
+        <button
+          onClick={() =>
+            setEnabledRules((prev) => {
+              const next = new Set(prev);
+              const [first] = next;
+              if (next.size > 1 && first !== undefined) next.delete(first);
+              return next;
+            })
+          }
+        >
+          toggle
+        </button>
+      );
+    }
+
+    render(
+      <PlaygroundProvider>
+        <MainOnlyConsumer />
+        <Toggler />
+      </PlaygroundProvider>
+    );
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 500));
+    });
+    await waitFor(() => expect(mainRenders).toBeGreaterThan(0));
+
+    const rendersBeforeToggle = mainRenders;
+    const countBeforeToggle = lastEnabledCount;
+
+    fireEvent.click(screen.getByText('toggle'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // The method-selection slice really did change...
+    expect(lastEnabledCount).toBe((countBeforeToggle ?? 0) - 1);
+    // ...but a component that only reads usePlaygroundCtx() was not re-rendered
+    // by that change — the whole point of splitting this slice into its own
+    // context (see the comment above this describe block).
+    expect(mainRenders).toBe(rendersBeforeToggle);
   });
 });
