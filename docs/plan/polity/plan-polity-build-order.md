@@ -493,6 +493,13 @@ twin.
   remaining work before any weight leaves zero.
 - **S2.1's sweep pins `vote.mode: llm`** (`run_polity_flagship.py --vote-mode`): its measure is
   `vote_cast` agreement, which needs the model to cast every ballot.
+- **Calibration, 2026-09-13: nothing qualifies, and the weights stay at 0**
+  (`scripts/calibrate_utility_vote_results.md`, ADR-011's calibration result).
+  - Fact 1 has 0–7 standing incumbents per setting.
+  - Fact 4's zero-weight baseline is already 2.2%.
+  - The turnout band needs `turnout_cost` ≥ 0.02, while partisanship pushes own-party first
+    choices past 90%.
+  - A better-powered protocol needs its own pre-registration.
 
 ### S4.2 Policy status quo and ordinary legislation (after D3)
 ADR-009 first: a policy vector in the issue space; proposer moves it on at most two
