@@ -27,12 +27,12 @@ _VLLM_CONTAINER_CMD = [
 ]
 
 _LLM_ONLY_FIELDS = (
-    "llm_provider", "llm_base_url", "llm_model", "llm_client_injected", "prompt_source_sha256", "model_profile",
+    "llm_provider", "llm_base_url", "llm_model", "llm_reproducibility", "llm_client_injected", "prompt_source_sha256", "model_profile",
     "gpu_driver_version", "gpu_cuda_version", *run_provenance.SERVER_FIELDS,
 )
 
 _EVERY_FIELD = {
-    "run_id", "started_at", "resumes", "llm_enabled", *_LLM_ONLY_FIELDS,
+    "run_id", "started_at", "resumes", "llm_enabled", "intra_run_workers", *_LLM_ONLY_FIELDS,
     "git_sha", "git_branch", "git_dirty", "git_dirty_paths",
     "engine", "seed", "duration_years", "ticks_per_year", "total_ticks", "population_size",
     "assembly_seats", "sortition_seats", "config_hash", "config_overrides",

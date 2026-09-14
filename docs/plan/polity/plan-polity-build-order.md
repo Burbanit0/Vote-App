@@ -300,6 +300,26 @@ Sweep at 1 year / population 100: workers 1, 4, 8, 12 × FP8 KV cache on/off.
 `build_ranking` within ±2 points; first-attempt failure rate within ±5 points; wall-clock
 speedup reported whatever it is. Each run replayable through S0.6.
 
+*Made precise when built, 2026-09-13*:
+
+- **The mode.** `llm.reproducibility` (strict shipped). Relaxed lifts the one-worker guard on
+  vLLM only; Ollama unloads its model between calls. `validate_config` explains the refusal,
+  and `run_metadata.json` records the mode and the worker count.
+- **Thread safety.** Every piece of client state shared across workers is now thread-safe:
+  the replay client is locked; the call log and progress already were.
+- **Engine correctness.** A relaxed run with four workers writes the sequential journal byte
+  for byte under a deterministic client, and replays to it (tested).
+- **The measures** (`concurrency_comparison`):
+  - **Agreement:** each arm is replayed from its own call log. The replay's `vote_cast`
+    requests carry every voter's distances and blank threshold, so each accepted ballot's
+    first choice is scored against `build_ranking`'s rule on those values. Chunks production
+    would replace with the deterministic ballot are excluded.
+  - **First-attempt failure rate:** first attempts rejected, truncated or failed.
+  - **Replayability:** the replay must reproduce the arm's journal.
+- **The sweep.** `scripts/run_concurrency_sweep.py run --label <server config>` (GPU, once per
+  FP8 KV cache setting), then `compare --label` (no GPU) writes `comparison.md`. The compare
+  path was smoke-tested on fake-client arms.
+
 ### S2.2 Model bake-off harness
 Frozen, content-hashed case bank generated from the existing probes and ground-truth
 rules (never copied code). Per model: warm-up, a gate that `think=False` yields zero

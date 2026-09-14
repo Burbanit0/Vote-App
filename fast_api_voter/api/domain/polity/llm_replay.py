@@ -14,6 +14,7 @@ engine retries exactly as it did.
 """
 from __future__ import annotations
 
+import threading
 from collections import deque
 from collections.abc import Iterable
 from pathlib import Path
@@ -42,6 +43,7 @@ class ReplayClient:
             key = (_endpoint(call.get("kind")), str(call["request_sha256"]))
             self._answers.setdefault(key, deque()).append(call)
         self.served = 0
+        self._lock = threading.Lock()  # a relaxed run replays with its own workers (S2.1)
 
     @classmethod
     def from_run_dir(cls, run_dir: Path) -> ReplayClient:
@@ -83,14 +85,15 @@ class ReplayClient:
         return int(call["prompt_tokens"])
 
     def _next(self, endpoint: str, request_hash: str) -> dict[str, Any]:
-        answers = self._answers.get((endpoint, request_hash))
-        if not answers:
-            raise UnrecordedRequestError(
-                f"no recorded {endpoint} answer left for request {request_hash[:16]} -- the replayed run "
-                "diverged from the recorded one (different code, config or seed)"
-            )
-        self.served += 1
-        return answers.popleft()
+        with self._lock:
+            answers = self._answers.get((endpoint, request_hash))
+            if not answers:
+                raise UnrecordedRequestError(
+                    f"no recorded {endpoint} answer left for request {request_hash[:16]} -- the replayed run "
+                    "diverged from the recorded one (different code, config or seed)"
+                )
+            self.served += 1
+            return answers.popleft()
 
 
 def _endpoint(kind: Any) -> str:

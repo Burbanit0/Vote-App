@@ -38,6 +38,7 @@ _LLM_PROVIDERS = {"ollama", "vllm", "api"}
 _LLM_SHARDINGS = {"static", "dynamic"}
 _LLM_CACHE_BACKENDS = {"redis", "sqlite", "none"}
 _LLM_RATIONALE_MODES = {"codes", "free_text", "hybrid"}
+_LLM_REPRODUCIBILITY = {"strict", "relaxed"}
 
 
 class PolityConfigError(ValueError):
@@ -480,6 +481,10 @@ class LlmConfig:
     max_batch_replays: int
     recycle_after_n_calls: int | None
     vote_cast_grammar_invariants: bool
+    reproducibility: str
+    """S2.1 / D1: "strict" -- one worker, so a run regenerates byte-for-byte from its seed;
+    "relaxed" -- parallel decisions within a tick (parallel.intra_run_workers > 1), so a run
+    is reproducible by replaying its llm_calls.jsonl (S0.6), not by re-running the seed."""
     """S1.2: send vote_cast the grammar that enforces blank=1 <=> empty ranking and the
     ranking length limit (llm_schemas.vote_cast_json_schema). Off until its bake-off A/B
     is accepted; turning it on changes vote_cast's request bytes."""
@@ -903,6 +908,7 @@ def _parse_llm(raw: dict[str, Any]) -> LlmConfig:
         max_batch_replays=_get_nonneg_int(s, "llm", "max_batch_replays"),
         recycle_after_n_calls=recycle_after_n_calls,
         vote_cast_grammar_invariants=_get(s, "llm", "vote_cast_grammar_invariants", bool),
+        reproducibility=_get_enum(s, "llm", "reproducibility", _LLM_REPRODUCIBILITY),
     )
 
 
@@ -919,6 +925,15 @@ def _parse_parallel(raw: dict[str, Any]) -> ParallelConfig:
 # must hold for a config built in code with dataclasses.replace, which never passes
 # through load_config's parsing. A rule returns its error message, or None.
 _CONFIG_RULES: tuple[Callable[[PolityConfig], str | None], ...] = (
+    lambda c: (
+        "'parallel.intra_run_workers' > 1 requires 'llm.reproducibility: relaxed' (D1, S2.1): parallel "
+        "decisions change the server's batches, so such a run is replayable from its call log but "
+        "not regenerable from its seed"
+    ) if c.llm.enabled and c.parallel.intra_run_workers > 1 and c.llm.reproducibility != "relaxed" else None,
+    lambda c: (
+        "'parallel.intra_run_workers' > 1 needs 'llm.provider: vllm': Ollama unloads and reloads its "
+        "model between calls (llm.recycle_after_n_calls), which parallel calls would interrupt"
+    ) if c.llm.enabled and c.parallel.intra_run_workers > 1 and c.llm.provider != "vllm" else None,
     lambda c: (
         "'institutions.blank_vote_competitive': true requires 'institutions.blank_vote_enabled' "
         "to also be true (v4 Lot 9, §6bis.2 -- nothing to be competitive about if blank isn't "

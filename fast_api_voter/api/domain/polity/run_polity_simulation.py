@@ -379,6 +379,8 @@ def _write_run_metadata(
             "llm_provider": config.llm.provider if config.llm.enabled else None,
             "llm_base_url": config.llm.base_url if config.llm.enabled else None,
             "llm_model": config.llm.model if config.llm.enabled else None,
+            "llm_reproducibility": config.llm.reproducibility if config.llm.enabled else None,
+            "intra_run_workers": config.parallel.intra_run_workers,
             **provenance,
             **run_provenance.run_shape(config),
             "config_hash": config_hash(config),
