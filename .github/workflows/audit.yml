@@ -245,7 +245,7 @@ jobs:
   # ---------------------------------------------------------------
   # Built-image scan + SBOM. Neither Dockerfile is exercised by any other
   # workflow — the `trivy` job above only scans the filesystem, never a built
-  # image, so the actual base images (python:3.11-slim, node:20,
+  # image, so the actual base images (python:3.14-slim, node:26-slim,
   # nginxinc/nginx-unprivileged:alpine) and whatever the multi-stage builds
   # layer on top were previously unscanned and could silently bit-rot.
   #
@@ -422,7 +422,7 @@ jobs:
         with: { python-version: "3.14" }
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: "20"
+          node-version: "24"
           cache: "npm"
           cache-dependency-path: voter-app/package-lock.json
 

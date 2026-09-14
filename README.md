@@ -65,7 +65,7 @@ npm run dev     # backend (uvicorn :4434) + frontend (Vite :3000), colour-prefix
 database — so this is the full experience. Ctrl+C once stops both. Run a single side
 with `npm run dev:backend` or `npm run dev:frontend`.
 
-**Prerequisites:** [Node.js](https://nodejs.org/) 20+ and
+**Prerequisites:** [Node.js](https://nodejs.org/) 24+ and
 [Python](https://www.python.org/) 3.14+. [Docker](https://www.docker.com/) only if you
 want the containerised stack below.
 

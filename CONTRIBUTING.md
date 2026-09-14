@@ -317,8 +317,11 @@ voir le tableau « Seuils qualité » plus haut et `voter-app/.dependency-
 cruiser.json`. Équivalent frontend d'`import-linter` : `src/lib` (libs pures,
 voir CLAUDE.md — section Playground) ne doit jamais importer depuis
 `src/components` ou `src/pages`. Épinglé en `17.4.3` (pas la dernière
-majeure) : `18.x` exige Node `^22||^24||>=26`, ce repo (CI et dev local) est
-encore sur Node 20. `npm run depcruise` en local.
+majeure) : `18.x` exige Node `^22||^24||>=26` — était bloqué tant que la CI
+tournait sur Node 20 (EOL 2026-04-30), débloqué par le passage de la CI à
+Node 24 (2026-09) mais pas encore tenté ; bump à essayer séparément, pas
+mécaniquement en même temps que le changement de runtime. `npm run
+depcruise` en local.
 
 Tous tournent aussi dans `scripts/audit.sh` (mode `--quality` ou complet)
 et dans le job CI *Code Quality* de `audit.yml`.

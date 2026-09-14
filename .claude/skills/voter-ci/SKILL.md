@@ -315,7 +315,7 @@ gh run view --job <job-id> --log-failed
 This exact technique (and the repo's own catalogue of previously-seen failure
 signatures — `uv pip install --system` resolver conflicts, `npm ci`
 `ERESOLVE` peer-dependency caps, `engines.node` mismatches against this repo's
-pinned Node 20) is written up in `.claude/agents/dep-triage.md` for the
+pinned Node version, currently 24) is written up in `.claude/agents/dep-triage.md` for the
 Dependabot-PR case specifically; the same "get the real log, don't guess from
 the job name" discipline applies to any red check, not just a dependency bump.
 
