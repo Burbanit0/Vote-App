@@ -6,7 +6,7 @@
 #
 # Fidelity choices:
 #  - python:3.14 == actions/setup-python '3.14' (same base as backend.Dockerfile),
-#    plus Node 20 via NodeSource == actions/setup-node '20'. One image, because the
+#    plus Node 24 via NodeSource == actions/setup-node '24'. One image, because the
 #    workflow runs backend + frontend + browsers on ONE runner.
 #  - `npx playwright install --with-deps chromium firefox webkit` — the exact CI
 #    step (Lot 7, PLAN_SOLIDITE_TECHNIQUE.md added webkit), so the browser builds
@@ -30,7 +30,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends curl ca-certificates git \
- && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+ && curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
  && apt-get install -y --no-install-recommends nodejs \
  && node --version && npm --version && python --version \
  && rm -rf /var/lib/apt/lists/*
