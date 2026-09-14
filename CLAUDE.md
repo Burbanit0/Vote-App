@@ -84,8 +84,12 @@ hook reminds to regenerate parity whenever either side of the engine changes.
 
 The playground is a single "instrument" with a 5-moment rail (Électorat → Méthode →
 Stratégie → Campagne → Bilan) and a Dirigeant↔Assemblée toggle. All state and
-derivations live in `PlaygroundController.tsx` and flow through one context
-(`usePlaygroundCtx`); moment panels and the instrument are thin consumers. Analytical
+derivations live in `PlaygroundController.tsx`. Most of it flows through one context
+(`usePlaygroundCtx`); one slice (`enabledRules`/`setEnabledRules`/`lensItems`) has its
+own smaller context (`useMethodSelection`), split out so a rapid-fire control bound to
+just that slice (e.g. MethodMoment's rule checkboxes) doesn't re-render every other
+consumer — see the `methodSelection` memo in `PlaygroundController.tsx` for why. Moment
+panels and the instrument are thin consumers of whichever context(s) they need. Analytical
 panels (sincerity, equilibrium, robustness, real-election backtest, valence) are pure
 libs in `src/lib/` with a thin component each.
 
