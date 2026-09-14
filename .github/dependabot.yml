@@ -96,6 +96,15 @@ updates:
       # tested step -- it turns two now-hard-error-deprecated options,
       # baseUrl and downlevelIteration, into full removals in 7.0). Re-open
       # once typescript-eslint ships a 7.x-compatible release.
+      #
+      # Not the only typescript peer in this tree: openapi-typescript also
+      # declares a required (non-optional) `typescript: "^5.x"` peer, which
+      # 6.0.3 already violates today -- silently fine only because
+      # voter-app/package.json's own `overrides` block forces one
+      # typescript version across the whole tree regardless of what any
+      # package's peer range asks for. Noted here so a future typescript
+      # bump doesn't assume this ignore rule was the full compatibility
+      # picture.
       - dependency-name: "typescript"
         versions: [">=7.0.0"]
 
