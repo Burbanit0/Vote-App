@@ -114,8 +114,17 @@ describe('DatasetExportModal', () => {
   it('toggles column groups by clicking checkbox', () => {
     render(<DatasetExportModal show={true} onHide={vi.fn()} />);
 
-    const blankVote = screen.getByText(/Blank vote/);
-    fireEvent.click(blankVote);
+    const checkbox = screen.getByRole('checkbox', { name: /Blank vote/ }) as HTMLInputElement;
+    // "blank" is off by default (unlike the always-on identification group),
+    // so this specific group starts unchecked -- and the columns-selected
+    // count includes its 2 columns only once toggled on.
+    expect(checkbox.checked).toBe(false);
+    const before = screen.getByText(/columns selected/).textContent;
+
+    fireEvent.click(checkbox);
+
+    expect(checkbox.checked).toBe(true);
+    expect(screen.getByText(/columns selected/).textContent).not.toBe(before);
   });
 
   it('triggers download when download button is clicked', async () => {

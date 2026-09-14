@@ -26,7 +26,7 @@ import { useElection } from '../../../stores/useElectionStore';
 import PinToCentralButton from '../ui/PinToCentralButton';
 import { $api } from '../../../api/hooks';
 
-import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+import { numericTooltipFormatter, numericTickFormatter } from '@/lib/rechartsFormatters';
 
 const DEBOUNCE_MS = 400;
 
@@ -448,12 +448,12 @@ const AffectivePolarizationPanel: React.FC = () => {
                       dataKey="hostility"
                       type="number"
                       domain={[0, 1]}
-                      tickFormatter={(v) => `${Math.round(v * 100)}%`}
+                      tickFormatter={numericTickFormatter((v) => `${Math.round(v * 100)}%`)}
                       tick={{ fontSize: 10 }}
                     ></XAxis>
                     <YAxis
                       domain={[0, 1]}
-                      tickFormatter={(v) => `${Math.round(v * 100)}%`}
+                      tickFormatter={numericTickFormatter((v) => `${Math.round(v * 100)}%`)}
                       tick={{ fontSize: 10 }}
                     />
                     <Tooltip

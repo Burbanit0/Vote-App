@@ -31,7 +31,7 @@ function loadFromStorage(): PinnedPerturbation[] {
   try {
     const raw = window.localStorage.getItem(LS_KEY);
     if (!raw) return [];
-    const parsed = JSON.parse(raw);
+    const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     return parsed.filter(
       (x: unknown): x is PinnedPerturbation =>
