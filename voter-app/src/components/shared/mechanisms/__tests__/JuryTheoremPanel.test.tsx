@@ -19,8 +19,12 @@ vi.mock('recharts', () => {
     BarChart: ({ children }: any) => <div data-testid="bar-chart">{children}</div>,
     Bar: ({ children }: any) => <div>{children}</div>,
     Cell: () => null,
-    XAxis: () => null,
-    YAxis: () => null,
+    // Real recharts computes its own tick values; the mock calls the
+    // formatter directly so its 0-1 → percentage rounding is exercised.
+    XAxis: ({ tickFormatter }: { tickFormatter?: (value: number) => string }) =>
+      tickFormatter ? <div data-testid="competence-x-tick">{tickFormatter(0.62)}</div> : null,
+    YAxis: ({ tickFormatter }: { tickFormatter?: (value: number) => string }) =>
+      tickFormatter ? <div data-testid="competence-y-tick">{tickFormatter(0.91)}</div> : null,
     Tooltip: () => null,
     Legend: () => null,
     ReferenceLine: () => null,
@@ -122,6 +126,17 @@ describe('JuryTheoremPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('competence-curve-chart')).toBeInTheDocument());
+    vi.runAllTimers();
+  });
+
+  it('formats competence curve axis ticks as rounded percentages', async () => {
+    apiClient.POST.mockResolvedValue(makeData());
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
+    await waitFor(() => {
+      expect(screen.getByTestId('competence-x-tick')).toHaveTextContent('62%');
+      expect(screen.getByTestId('competence-y-tick')).toHaveTextContent('91%');
+    });
     vi.runAllTimers();
   });
 

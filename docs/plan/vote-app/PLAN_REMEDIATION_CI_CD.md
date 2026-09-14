@@ -34,13 +34,16 @@ L'audit a trouvé **6 items concrets** qui méritent une action — le 6e
 connus et volontairement différés** (Lot 14 du plan de solidité, non repris
 ici en détail).
 
-**Mise à jour (2026-09-13, même session)** : 5 des 6 items ont une PR ouverte
-contre `develop` (#439 §2.6, #440 §2.4, #442 §2.5, #444 §2.3 ; §2.1 root-causé
-et corrigé, PR #447 ouverte). Seul **§2.2** (dérive
-de la protection de branche) reste sans action : c'est une bascule
-d'infrastructure live avec un historique documenté d'incompatibilité avec
-Mergify, donc une décision humaine avant tout changement, pas une action
-prise unilatéralement.
+**Mise à jour (2026-09-14)** : les **6 items sont fermés**. Les 5 PR
+mentionnées ci-dessous (#439 §2.6, #440 §2.4, #442 §2.5, #444 §2.3, #447
+§2.1) sont toutes mergées. **§2.2** (dérive de la protection de branche) a
+été vérifié en direct le 2026-09-14 (`gh api
+repos/Burbanit0/Vote-App/branches/develop/protection --jq
+.required_status_checks.strict` → `true`) : la décision a été prise entre
+temps (par la queue Mergify continuant de fonctionner normalement depuis),
+`strict: true` correspond bien à nouveau à ce que configure
+`setup-branch-protection.sh`. Rien à faire de plus sur ce plan — conservé
+comme trace, pas de suppression.
 
 **Effet de bord observé pendant cette session** : Mergify a **auto-mergé**
 #438, #439, #442 et #444 quelques minutes après ouverture, dès leurs checks
@@ -60,7 +63,7 @@ merge sur ce dépôt.
 
 ## 2. Items à traiter, par priorité
 
-### 2.1 🟢 Le job mutmut ne crashait pas sur un vrai déficit de tests — root-caused et corrigé — PR #447 ouverte
+### 2.1 🟢 Le job mutmut ne crashait pas sur un vrai déficit de tests — root-caused et corrigé — PR #447 mergée
 
 **Constat initial** (à partir des `gh run list`) : sur les 15 derniers runs
 de `mutation-testing.yml`, le job `Backend mutation score (mutmut, floor
@@ -114,7 +117,7 @@ avant de mesurer quoi que ce soit ne protège rien, et l'a fait pendant 17
 jours sans alerter personne (non-requis par design, cf. règle
 `voter-ci`).
 
-### 2.2 🔴 Dérive de la protection de branche `develop` (`strict`)
+### 2.2 🟢 Dérive de la protection de branche `develop` (`strict`) — résolu, vérifié en direct le 2026-09-14
 
 **Constat** : `gh api repos/Burbanit0/Vote-App/branches/develop/protection`
 renvoie `required_status_checks.strict: false` ; `scripts/setup-branch-protection.sh`
@@ -138,7 +141,7 @@ Mergify réel passe toujours derrière.
 **Effort** : S · **Priorité** : haute (protection de branche = garde-fou
 silencieux, une dérive ici n'affiche aucune erreur).
 
-### 2.3 🟡 `release.yml` taguerait l'état obsolète de `main` — PR #444 ouverte
+### 2.3 🟢 `release.yml` taguerait l'état obsolète de `main` — PR #444 mergée
 
 **Constat** : le job `release` fait un `checkout` explicite sur `ref: main`
 avant de bump la version, créer le tag et pousser — sans jamais fusionner ou
@@ -162,7 +165,7 @@ direct de `develop` au moment du dispatch).
 non urgente (aucune release n'est prévue immédiatement — à traiter **avant**
 la prochaine, pas dans l'heure).
 
-### 2.4 🟡 Trigger `merge_group` mort dans `audit.yml` — PR #440 ouverte
+### 2.4 🟢 Trigger `merge_group` mort dans `audit.yml` — PR #440 mergée
 
 **Constat** : `audit.yml` déclenche sur `merge_group:`, mais
 `gh api repos/Burbanit0/Vote-App/rulesets` renvoie `[]` (aucune ruleset
@@ -176,8 +179,8 @@ native).
 
 **Effort** : S · **Priorité** : basse (config morte, pas un risque actif).
 
-### 2.5 🟡 Documentation obsolète — la « bonne nouvelle » du changement de
-branche par défaut n'est pas actée — PR #442 ouverte
+### 2.5 🟢 Documentation obsolète — la « bonne nouvelle » du changement de
+branche par défaut n'est pas actée — PR #442 mergée
 
 **Constat** : `mutation-testing.yml`, `schemathesis.yml`,
 `flaky-check-backend.yml`, `atheris-fuzzing.yml` (et le skill `voter-ci`)
@@ -199,7 +202,7 @@ problème déjà résolu.
 **Effort** : S · **Priorité** : basse (aucun impact fonctionnel, seulement
 un risque de travail en double futur).
 
-### 2.6 🟡 `ci-local/` a dérivé — trois gates réels absents du mirroir Docker — PR #439 ouverte
+### 2.6 🟢 `ci-local/` a dérivé — trois gates réels absents du mirroir Docker — PR #439 mergée
 
 **Constat** : vérifié en diffant chaque Dockerfile/script contre le workflow
 GitHub qu'il prétend reproduire, au-delà des 3 écarts déjà documentés dans

@@ -88,6 +88,10 @@ describe('useMonteCarloStream', () => {
     expect(result.current.partialResults).toEqual({
       plurality: { winner_distribution: { Alice: 0.6 }, most_common_winner: 'Alice' },
     });
+    // condorcetRate is a direct field rename of condorcet_exists_rate (see
+    // useMonteCarloStream.ts) -- zero arithmetic, so the exact literal
+    // sent above is guaranteed to come back unchanged.
+    // eslint-disable-next-line sonarjs/no-floating-point-equality -- see above
     expect(result.current.condorcetRate).toBe(0.8);
   });
 

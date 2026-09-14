@@ -31,7 +31,7 @@ fail() { printf '\n\033[31m✗ %s\033[0m\n' "$*" >&2; exit 1; }
 # ── 1. Toolchain check ──────────────────────────────────────────────────────
 say "Checking toolchain"
 command -v python3 >/dev/null 2>&1 || fail "python3 not found — install Python 3.11+"
-command -v node    >/dev/null 2>&1 || fail "node not found — install Node 20+"
+command -v node    >/dev/null 2>&1 || fail "node not found — install Node 24+ (matches CI)"
 command -v npm     >/dev/null 2>&1 || fail "npm not found"
 command -v docker  >/dev/null 2>&1 || fail "docker not found — install Docker Desktop"
 

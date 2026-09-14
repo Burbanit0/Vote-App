@@ -68,7 +68,9 @@ export function pseudoizeTree<T>(tree: T): T {
     return pseudoizeString(tree) as unknown as T;
   }
   if (Array.isArray(tree)) {
-    return tree.map((item) => pseudoizeTree(item)) as unknown as T;
+    // Array.isArray's own type predicate narrows to `any[]` regardless of T;
+    // routing through `unknown[]` keeps the element type honest instead.
+    return (tree as unknown[]).map((item) => pseudoizeTree(item)) as unknown as T;
   }
   if (tree !== null && typeof tree === 'object') {
     const out: Record<string, unknown> = {};

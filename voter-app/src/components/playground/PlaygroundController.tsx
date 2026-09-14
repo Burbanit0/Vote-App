@@ -207,7 +207,7 @@ function useController() {
     const ranks = computeRanks(expressedVoters, leaderCandidates);
     const scores = computeScores(expressedVoters, leaderCandidates);
     const winnerIdx = ruleWinnerFromRanks(ranks, m, leaderRule, scores);
-    const firstPrefCounts = new Array(m).fill(0);
+    const firstPrefCounts: number[] = new Array(m).fill(0);
     for (const r of ranks) firstPrefCounts[r[0]] += 1;
     const total = expressedVoters.length + blankSplit.blankCount;
     const shares = firstPrefCounts.map((c) => c / total);
@@ -454,16 +454,47 @@ function useController() {
     [mode, leaderSc, enabledRules, parlSc, structureLabels]
   );
 
+  // Split off from the main context on purpose: MethodMoment's checkbox
+  // toggles change only these three values, but the main context bundles
+  // ~70 fields behind one object, so every usePlaygroundCtx() consumer
+  // (InstrumentPanel, LeaderCanvas, every moment panel — see
+  // PlaygroundController.render.test.tsx) re-rendered on every toggle. That
+  // re-render storm was cheap enough to be invisible normally, but was root-
+  // caused as the reason a 28-checkbox uncheck loop intermittently hung past
+  // WebKit's actionability timeout under real CI-runner CPU contention
+  // (Chromium/Firefox unaffected by the identical contention) -- see the
+  // commit that introduced this split for the full reproduction. A separate,
+  // smaller context for just this slice means a checkbox toggle only
+  // re-renders its own three real consumers (MethodMoment, ValuesLabPanel,
+  // BilanMoment) on every engine, not just under load.
+  //
+  // Scope note: this closes the specific reproduced case, not the general
+  // class. `main` still bundles ~64 other fields (playground/assembly/
+  // config among them) read by roughly a dozen consumers including
+  // InstrumentPanel -> LeaderCanvas, so another rapid-fire control bound to
+  // one of those (e.g. MethodMoment's own assembly-seats slider, or
+  // ElectorateComposer's range inputs) could in principle hit the same
+  // WebKit-under-load ceiling. Splitting per newly-implicated field like
+  // this one, rather than migrating to per-field subscriptions (this repo's
+  // own useElectionStore.tsx Zustand selectors already do that for the
+  // store layer), is the fix that matched this bug's actual size -- revisit
+  // with the more general approach if this class of flake recurs on a
+  // different control.
+  const methodSelection = React.useMemo(
+    () => ({ enabledRules, setEnabledRules, lensItems }),
+    [enabledRules, setEnabledRules, lensItems]
+  );
+
   // Memoized so an unrelated re-render (a parent passing a new `children`
   // element, StrictMode's double-invoke, etc.) that changes none of these
-  // ~70 values doesn't hand every usePlaygroundCtx() consumer a new object
+  // ~67 values doesn't hand every usePlaygroundCtx() consumer a new object
   // reference — without this, every moment panel re-renders on ANY
   // PlaygroundProvider re-render, not just the ones that touched its slice.
   // It does NOT reduce re-renders when a dependency genuinely changes (most
   // interactions touch `config`/`playground`, which this honestly depends
   // on) — see PlaygroundController.render.test.tsx for what this does and
   // does not buy.
-  return React.useMemo(
+  const main = React.useMemo(
     () => ({
       // stores
       config,
@@ -495,8 +526,6 @@ function useController() {
       dims,
       leaderRule,
       setLeaderRule,
-      enabledRules,
-      setEnabledRules,
       lens,
       setLens,
       youPos,
@@ -534,7 +563,6 @@ function useController() {
       strategicOutcome,
       axisMeta,
       currentAxes,
-      lensItems,
     }),
     [
       config,
@@ -563,8 +591,6 @@ function useController() {
       dims,
       leaderRule,
       setLeaderRule,
-      enabledRules,
-      setEnabledRules,
       lens,
       setLens,
       youPos,
@@ -599,22 +625,37 @@ function useController() {
       strategicOutcome,
       axisMeta,
       currentAxes,
-      lensItems,
     ]
   );
+
+  return { main, methodSelection };
 }
 
-export type PlaygroundCtx = ReturnType<typeof useController>;
+export type PlaygroundCtx = ReturnType<typeof useController>['main'];
+export type MethodSelectionCtx = ReturnType<typeof useController>['methodSelection'];
 
 const Ctx = createContext<PlaygroundCtx | null>(null);
+const MethodSelectionContext = createContext<MethodSelectionCtx | null>(null);
 
 export const PlaygroundProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const value = useController();
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+  const { main, methodSelection } = useController();
+  return (
+    <MethodSelectionContext.Provider value={methodSelection}>
+      <Ctx.Provider value={main}>{children}</Ctx.Provider>
+    </MethodSelectionContext.Provider>
+  );
 };
 
 export function usePlaygroundCtx(): PlaygroundCtx {
   const c = useContext(Ctx);
   if (!c) throw new Error('usePlaygroundCtx must be used within a PlaygroundProvider');
+  return c;
+}
+
+// Split from usePlaygroundCtx() on purpose -- see the `methodSelection` memo
+// in useController() above for why.
+export function useMethodSelection(): MethodSelectionCtx {
+  const c = useContext(MethodSelectionContext);
+  if (!c) throw new Error('useMethodSelection must be used within a PlaygroundProvider');
   return c;
 }

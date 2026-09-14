@@ -14,6 +14,7 @@
  */
 import { writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import fr from '../src/i18n/locales/fr';
 import pgFr from '../src/i18n/locales/playground.fr';
 import { pseudoizeTree } from '../src/i18n/pseudoize';
@@ -61,28 +62,30 @@ function generate(
 
 generate(
   fr,
-  new URL('../src/i18n/locales/pseudo.ts', import.meta.url).pathname,
+  fileURLToPath(new URL('../src/i18n/locales/pseudo.ts', import.meta.url)),
   'TranslationKeys',
   './fr',
   'pseudo'
 );
 generate(
   pgFr,
-  new URL('../src/i18n/locales/playground.pseudo.ts', import.meta.url).pathname,
+  fileURLToPath(new URL('../src/i18n/locales/playground.pseudo.ts', import.meta.url)),
   'PlaygroundKeys',
   './playground.fr',
   'pgPseudo'
 );
 
+// Resolved to the local devDependency binary, not a bare "npx" looked up on
+// PATH -- sonarjs/no-os-command-from-path. fileURLToPath, not .pathname --
+// the latter is percent-encoded (breaks on a checkout path with a space).
 execFileSync(
-  'npx',
+  fileURLToPath(new URL('../node_modules/.bin/prettier', import.meta.url)),
   [
-    'prettier',
     '--config',
-    new URL('../.prettierrc', import.meta.url).pathname,
+    fileURLToPath(new URL('../.prettierrc', import.meta.url)),
     '--write',
-    new URL('../src/i18n/locales/pseudo.ts', import.meta.url).pathname,
-    new URL('../src/i18n/locales/playground.pseudo.ts', import.meta.url).pathname,
+    fileURLToPath(new URL('../src/i18n/locales/pseudo.ts', import.meta.url)),
+    fileURLToPath(new URL('../src/i18n/locales/playground.pseudo.ts', import.meta.url)),
   ],
   { stdio: 'inherit' }
 );

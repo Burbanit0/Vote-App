@@ -29,7 +29,14 @@ vi.mock('recharts', () => {
     LineChart: stub,
     Line: stub,
     XAxis: stub,
-    YAxis: stub,
+    // Real recharts computes its own tick values; the mock calls the
+    // formatter directly so its 0-1 → percentage rounding is exercised.
+    YAxis: ({ tickFormatter }: { tickFormatter?: (v: number) => string }) =>
+      tickFormatter ? (
+        <div data-testid="curve-y-tick">{tickFormatter(0.73)}</div>
+      ) : (
+        <div data-testid="recharts-stub" />
+      ),
     CartesianGrid: stub,
     Tooltip: stub,
     Legend: stub,
@@ -194,6 +201,12 @@ describe('MajorityTyrannyPanel', () => {
     fireEvent.click(screen.getByTestId('view-btn-curve'));
     expect(screen.getByTestId('curve-view')).toBeInTheDocument();
     expect(screen.queryByTestId('radar-view')).not.toBeInTheDocument();
+  });
+
+  it('formats the curve view y-axis ticks as rounded percentages', async () => {
+    await renderAndRun();
+    fireEvent.click(screen.getByTestId('view-btn-curve'));
+    expect(screen.getByTestId('curve-y-tick')).toHaveTextContent('73%');
   });
 
   it('switches to table view and shows rule rows', async () => {

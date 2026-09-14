@@ -3,6 +3,9 @@
   "type": "module",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=24.15.0"
+  },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.23",
     "@radix-ui/react-slot": "^1.2.4",
@@ -76,8 +79,8 @@
     "@babel/preset-react": "^8.0.1",
     "@babel/preset-typescript": "^8.0.1",
     "@eslint/js": "^9.39.5",
-    "@playwright/test": "^1.62.1",
-    "@size-limit/file": "12.1.0",
+    "@playwright/test": "^1.63.0",
+    "@size-limit/file": "13.1.1",
     "@stryker-mutator/core": "10.0.0",
     "@stryker-mutator/vitest-runner": "10.0.0",
     "@tailwindcss/vite": "^4.3.3",
@@ -88,7 +91,7 @@
     "@typescript-eslint/eslint-plugin": "^8.69.0",
     "@vitejs/plugin-react": "^6.1.1",
     "@vitest/coverage-v8": "^4.1.11",
-    "dependency-cruiser": "^17.4.3",
+    "dependency-cruiser": "^18.2.0",
     "eslint": "^9.39.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-jsx-a11y": "^6.10.2",
@@ -101,17 +104,17 @@
     "globals": "^17.12.0",
     "i18next-cli": "^1.73.1",
     "jiti": "^2.7.0",
-    "jsdom": "^29.1.1",
+    "jsdom": "^30.0.1",
     "knip": "^6.34.0",
-    "license-checker-rseidelsohn": "^4.4.2",
+    "license-checker-rseidelsohn": "^5.0.1",
     "madge": "^8.0.0",
     "nyc": "^18.0.0",
     "openapi-typescript": "^7.13.0",
     "prettier": "^3.9.6",
-    "size-limit": "12.1.0",
+    "size-limit": "13.1.1",
     "tailwindcss": "^4.3.0",
     "type-coverage": "^2.30.1",
-    "typescript": "^5.8.3",
+    "typescript": "6.0.3",
     "vite": "^8.2.2",
     "vite-plugin-istanbul": "^9.0.1",
     "vite-plugin-pwa": "^1.3.0",
@@ -119,7 +122,7 @@
     "workbox-window": "^7.4.1"
   },
   "overrides": {
-    "typescript": "^5.8.3",
+    "typescript": "6.0.3",
     "ws": "^8.21.0",
     "js-yaml": "^4.3.2",
     "qs": "^6.16.0",
@@ -127,5 +130,8 @@
     "@humanfs/node": "^0.16.8",
     "glob": "^11.1.0"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "typeCoverage": {
+    "atLeast": 99.76
+  }
 }
