@@ -7,7 +7,15 @@ from typing import Any
 
 import pytest
 
-from api.domain.polity.llm_time_attribution import attribute, attribute_run, by_tick, call_category, covered_seconds
+from api.domain.polity.llm_time_attribution import (
+    attempts,
+    attribute,
+    attribute_run,
+    by_tick,
+    call_category,
+    covered_seconds,
+    kept_calls,
+)
 
 
 def _call(kind: str = "decision", *, tick: int = 4, decision_type: str | None = "vote_cast", units: tuple[int, ...] = (1, 2, 3),
@@ -78,3 +86,19 @@ def test_each_tick_splits_its_wall_clock_into_model_time_and_the_rest() -> None:
     assert (second["span_seconds"], second["model_seconds"], second["outside_model_seconds"]) == (3.0, 3.0, 0.0)
     assert list(second["by_decision_type"]) == ["chamber_deliberation", "pressure_action"]  # largest first
     assert by_tick([]) == []
+
+
+def test_a_resumed_run_keeps_only_the_calls_its_journal_kept(tmp_path: Path) -> None:
+    warm = _call("warm_up", tick=None, decision_type=None, attempt=None)
+    first = [warm, warm, _call(tick=30), _call(tick=31), _call(tick=32, start=1.0), _call(tick=32, start=2.0)]
+    resumed = [warm, warm, _call(tick=32, start=10.0), _call(tick=33, start=11.0)]
+    calls = first + resumed
+    assert [len(a) for a in attempts(calls)] == [6, 4]
+    assert [c["tick"] for c in kept_calls(calls)] == [None, None, 30, 31, None, None, 32, 33]
+    assert kept_calls(first) == first and attempts([]) == []
+    assert kept_calls([_call(tick=1), warm, _call(tick=1)]) == [warm, _call(tick=1)]  # a log with no opening warm-up
+
+    (tmp_path / "llm_calls.jsonl").write_text("".join(json.dumps(c) + "\n" for c in calls), encoding="utf-8")
+    (tmp_path / "progress.json").write_text(json.dumps({"wall_clock_elapsed_seconds": 4.0}), encoding="utf-8")
+    report = attribute_run(tmp_path)
+    assert report["wall_clock_seconds"] is None and report["calls"] == 8

@@ -18,7 +18,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from api.domain.polity.llm_call_log import CALL_LOG_FILENAME, read_calls  # noqa: E402
-from api.domain.polity.llm_time_attribution import CATEGORIES, attribute_run, by_tick  # noqa: E402
+from api.domain.polity.llm_time_attribution import CATEGORIES, attribute_run, by_tick, kept_calls  # noqa: E402
 
 
 def _row(label: str, bucket: dict[str, float]) -> str:
@@ -75,7 +75,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"no llm_calls.jsonl in {args.run_dir}", file=sys.stderr)
         return 1
     if args.by_tick:
-        rows = by_tick(read_calls(args.run_dir / CALL_LOG_FILENAME))
+        rows = by_tick(kept_calls(read_calls(args.run_dir / CALL_LOG_FILENAME)))
         print(json.dumps(rows, indent=2) if args.json else render_by_tick(rows, args.run_dir))
         return 0
     report = attribute_run(args.run_dir)
