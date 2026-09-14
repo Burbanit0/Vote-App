@@ -29,7 +29,7 @@
 #
 # Expects, relative to the repo root (produced by the code-quality job):
 #   fast_api_voter/vulture.txt  fast_api_voter/radon.txt  fast_api_voter/deptry.txt
-#   voter-app/knip.txt          jscpd.txt
+#   voter-app/knip.txt          jscpd.txt          voter-app/sonarjs.txt
 
 set -euo pipefail
 
@@ -66,6 +66,7 @@ require fast_api_voter/radon.txt
 require fast_api_voter/deptry.txt
 require voter-app/knip.txt
 require jscpd.txt
+require voter-app/sonarjs.txt
 
 # vulture: one finding per line.
 vulture=$(strip_ansi < fast_api_voter/vulture.txt | grep -cve '^[[:space:]]*$' || true)
@@ -90,14 +91,24 @@ knip=$(strip_ansi < voter-app/knip.txt \
 jscpd=$(strip_ansi < jscpd.txt | sed -nE 's/^Found ([0-9]+) clones\..*/\1/p' | tail -1)
 jscpd=${jscpd:-0}
 
+# eslint-plugin-sonarjs (informational overlay, `npx eslint -c
+# eslint.sonarjs.config.js` — none of its rules run in the blocking
+# eslint.config.js, see that file's own comment): ESLint's stylish formatter
+# prints its own summary line, "✖ 288 problems (...)", but drops the trailing
+# "s" at exactly 1 ("✖ 1 problem (...)", confirmed against the formatter's own
+# `pluralize()`) -- `problems?` covers both. The line is omitted entirely at
+# zero findings, hence the same ${var:-0} fallback as jscpd above.
+sonarjs=$(strip_ansi < voter-app/sonarjs.txt | sed -nE 's/^✖ ([0-9]+) problems?.*/\1/p' | tail -1)
+sonarjs=${sonarjs:-0}
+
 if [[ $UPDATE -eq 1 ]]; then
   python -c "
 import json, sys
-json.dump({'vulture': $vulture, 'radon_c_plus': $radon, 'deptry': $deptry, 'knip': $knip, 'jscpd_clones': $jscpd},
+json.dump({'vulture': $vulture, 'radon_c_plus': $radon, 'deptry': $deptry, 'knip': $knip, 'jscpd_clones': $jscpd, 'sonarjs': $sonarjs},
           open('$BASELINE', 'w'), indent=2)
 open('$BASELINE', 'a').write('\n')
 "
-  echo "✅ Baseline updated: vulture=$vulture radon=$radon deptry=$deptry knip=$knip jscpd=$jscpd"
+  echo "✅ Baseline updated: vulture=$vulture radon=$radon deptry=$deptry knip=$knip jscpd=$jscpd sonarjs=$sonarjs"
   exit 0
 fi
 
@@ -108,11 +119,11 @@ fi
 
 # One python call does the compare + the report: the exit code and the table have
 # to agree, and splitting them across bash and python is how they drift apart.
-python - "$BASELINE" "$vulture" "$radon" "$deptry" "$knip" "$jscpd" <<'PY'
+python - "$BASELINE" "$vulture" "$radon" "$deptry" "$knip" "$jscpd" "$sonarjs" <<'PY'
 import json, sys
 
 baseline_path, *counts = sys.argv[1:]
-vulture, radon, deptry, knip, jscpd = (int(c) for c in counts)
+vulture, radon, deptry, knip, jscpd, sonarjs = (int(c) for c in counts)
 
 with open(baseline_path) as f:
     base = json.load(f)
@@ -123,6 +134,7 @@ rows = [
     ("deptry (unused/undeclared deps)",   "deptry",       deptry),
     ("knip (TS dead code / unused deps)", "knip",         knip),
     ("jscpd (duplicate clones)",          "jscpd_clones", jscpd),
+    ("sonarjs (informational overlay)",   "sonarjs",      sonarjs),
 ]
 
 grown, shrunk = [], []
@@ -147,8 +159,9 @@ if grown:
     print("   These tools are non-blocking on their own, but the total may not grow.", file=sys.stderr)
     print("   Fix the new findings, or — if a finding is a false positive — silence it", file=sys.stderr)
     print("   at the source (.vulture_whitelist.py, fast_api_voter/pyproject.toml's", file=sys.stderr)
-    print("   [tool.deptry], voter-app/knip.json, .jscpd.json)", file=sys.stderr)
-    print("   rather than raising the baseline.", file=sys.stderr)
+    print("   [tool.deptry], voter-app/knip.json, .jscpd.json, or for sonarjs a", file=sys.stderr)
+    print("   `// eslint-disable-next-line sonarjs/<rule>` comment / rule override in", file=sys.stderr)
+    print("   voter-app/eslint.sonarjs.config.js) rather than raising the baseline.", file=sys.stderr)
     sys.exit(1)
 
 if shrunk:
