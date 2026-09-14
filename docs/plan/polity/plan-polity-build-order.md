@@ -725,7 +725,7 @@ alongside it.
   stay off).
 
 | D8 | Free enough disk for S2.4's five candidate models (about 25–30 GB), and choose what goes | S2.4 | |
-| D9 | The three Stage 4 calibrations ran on a twin whose presidents are recalled after a median of 2 ticks (OBS-015). That churn leaves too few incumbents for S4.1 fact 1 and no full term for S4.3's E3, and it multiplies the terms in S4.2's L2. Nothing qualified. Options: accept the verdicts; or first make the twin's presidency last (the deterministic pressure rule is the suspect), then re-run all three under a new pre-registration | re-calibrating S4.1–S4.3 | |
+| D9 | The three Stage 4 calibrations ran on a twin whose presidents are recalled after a median of 2 ticks (OBS-015). That churn leaves too few incumbents for S4.1 fact 1 and no full term for S4.3's E3, and it multiplies the terms in S4.2's L2. Nothing qualified. Cause shown: a steady pressure gap above 0.055 walks legitimacy to the recall floor; with the pressure channels off there is no recall. Options: accept the verdicts; or first make the twin's presidency last (pressure weights, the recall floor, or a pressure rule calibrated against the LLM path's), then re-run all three under a new pre-registration | re-calibrating S4.1–S4.3 | |
 
 ### S4.1's grid, pre-registered before running (ADR-011 gave the facts, not the grid)
 
