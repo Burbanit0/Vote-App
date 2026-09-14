@@ -88,7 +88,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--rerun-fraction", type=float, default=DEFAULT_RERUN_FRACTION)
     parser.add_argument("--arm", choices=sorted(ARMS), default=None,
                         help="an A/B arm on the same cases: another schema (vote_grammar, S1.2) or request fields "
-                             "(thinking_budget_4096/2048, S1.3)")
+                             "(thinking_budget_4096/2048, S1.3; thinking_sampling, S1.4)")
     args = parser.parse_args(argv)
 
     bank = read_bank(args.bank)

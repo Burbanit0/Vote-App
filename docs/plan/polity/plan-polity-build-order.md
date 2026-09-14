@@ -307,6 +307,20 @@ Temperature 0 against Qwen's recommended thinking settings (temperature 0.6, top
 top-k 20, per-request seeds), same fixtures and metrics.
 **Adopt only if** truncations drop with no loss in agreement (D4).
 
+*Made precise when built, 2026-09-13, before any session:*
+
+- **The arm.** `thinking_sampling` is a bake-off request arm. Every thinking `vote_cast` and
+  `chamber_deliberation` case gets temperature 0.6, top-p 0.95 and top-k 20, with a seed of its own
+  derived from the case id.
+- **The fixture.** S1.3's: the bank's `vote_first_choice` and `chamber_poles`.
+- **The comparison.** Against S1.3's no-arm session.
+- **The readings.**
+  - *"Truncations drop"* means the arm's truncation rate, S1.3's measure, is below the no-arm
+    session's.
+  - *"No loss in agreement"* means at least as many voters agreeing with `build_ranking` on
+    `vote_first_choice`.
+- **Adoption.** It is D4's, even when both readings hold.
+
 ### S1.5 One config validator, one engine switch
 One `validate_config()` called from `load_config` and at `run_simulation` start;
 `_assert_coherent` removed; deterministic-vs-LLM resolved once instead of at nine

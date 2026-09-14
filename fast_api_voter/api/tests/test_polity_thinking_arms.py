@@ -94,3 +94,19 @@ def test_a_budget_arm_sends_the_budget_to_thinking_vote_and_chamber_cases_only(t
     assert request_resolver(None)(small.cases[0]) == {}
     assert ARMS["vote_grammar"].request is None and request_resolver("vote_grammar")(small.cases[0]) == {}
     assert ARMS["thinking_budget_4096"].request is not None
+
+
+def test_the_sampling_arm_sends_qwen_s_thinking_settings_with_a_seed_per_case(tmp_path: Path) -> None:
+    bank = reference_bank()
+    families = ("vote_first_choice", "candidacy_p500")
+    small = CaseBank(reference=bank.reference, cases=tuple(c for c in bank.cases if c.family in families))
+    client = _KwargsRecorder()
+    run_session(small, client, reference_config(), tmp_path / "sampled", metadata={"label": "sampled"}, warm_up=False,
+                rerun_fraction=0.0, families=list(families), arm="thinking_sampling")
+    votes = [r for r in client.requests if r["json_schema"]["title"] == "VoteCastBatch"]
+    assert votes and all((r["temperature"], r["extra_body"]) == (0.6, {"top_p": 0.95, "top_k": 20}) for r in votes)
+    assert len({r["seed"] for r in votes}) == len(votes)  # a seed per case
+    assert all("temperature" not in r and "seed" not in r for r in client.requests if r["json_schema"]["title"] == "CandidacyBatch")
+    resolve = request_resolver("thinking_sampling")
+    vote_case = next(c for c in small.cases if c.decision_type == "vote_cast")
+    assert resolve(vote_case) == resolve(vote_case)  # repeatable
