@@ -4,6 +4,7 @@ can differ in the last bits across BLAS builds); these tests pin what it is inst
 from __future__ import annotations
 
 import json
+import tempfile
 from collections import Counter
 from pathlib import Path
 
@@ -38,7 +39,7 @@ def test_the_fixture_replays_and_holds_no_machine_path() -> None:
     assert replay_mismatches(RUN_DIR) == []
     for path in RUN_DIR.iterdir():
         text = path.read_text(encoding="utf-8")
-        assert "/tmp/" not in text and "/home/" not in text, path.name
+        assert str(Path.home()) not in text and tempfile.gettempdir() not in text, path.name
 
 
 def test_the_fixture_is_the_one_run_its_root_lists() -> None:
