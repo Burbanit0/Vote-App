@@ -93,7 +93,7 @@ jobs:
       # this session has spent itself fixing elsewhere.
       - name: Python lockfiles up to date (informational)
         continue-on-error: true
-        run: ./scripts/check_python_lockfile_freshness.sh
+        run: bash scripts/check_python_lockfile_freshness.sh
 
       # ── Linting ────────────────────────────────────────────────────────────
       # Blocking. Replaces flake8 (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md) — rule

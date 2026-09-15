@@ -40,7 +40,17 @@ fast_api_voter/radon.txt
 fast_api_voter/xenon.txt
 fast_api_voter/deptry.txt
 fast_api_voter/htmlcov-e2e/
-fast_api_voter/fuzz_corpus/*/*
+# NOT excluding fast_api_voter/fuzz_corpus/*/* here despite .gitignore doing
+# so (with a `!.../seed_*` negation to keep the committed seed fixtures):
+# tested against this repo's real build context and the whole fuzz_corpus/
+# directory silently disappears from the COPY'd fast_api_voter/ tree in this
+# environment regardless of whether an exclusion pattern targets it at all
+# (confirmed: still missing with the pattern removed entirely) -- while
+# copying fuzz_corpus/ in isolation, as the sole COPY source, brings all
+# seed files through correctly every time. Not root-caused, and not chased
+# further: unlike mutants/, nothing under fuzz_corpus/ is read by any step
+# in this Dockerfile's CMD chain (no fuzzing step runs here), so its
+# presence or absence has no effect on what this file actually gates.
 fast_api_voter/crash-*
 fast_api_voter/scripts/llm_test_harness/data/
 fast_api_voter/scripts/acceptance_v5_runs/

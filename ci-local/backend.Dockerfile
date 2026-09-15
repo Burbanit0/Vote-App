@@ -57,7 +57,7 @@ COPY scripts/check_python_lockfile_freshness.sh scripts/
 # part of this base image's CPython build), so no extra install needed here.
 ENV FLASK_ENV=testing
 CMD ["bash","-euo","pipefail","-c","\
-echo '=== Python lockfiles up to date (non-blocking) ==='; ./scripts/check_python_lockfile_freshness.sh || echo '(lockfile freshness check failed — non-blocking)'; \
+echo '=== Python lockfiles up to date (non-blocking) ==='; bash scripts/check_python_lockfile_freshness.sh || echo '(lockfile freshness check failed — non-blocking)'; \
 echo '=== Ruff (gating) ===';           ruff check fast_api_voter; \
 echo '=== Import layering (gating) ==='; (cd fast_api_voter && lint-imports); \
 echo '=== Bandit (gating) ===';         bandit -r fast_api_voter/api -ll --skip B104,B311; \

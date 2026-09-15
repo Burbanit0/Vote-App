@@ -35,7 +35,12 @@ python3 - <<'PY'
 import re
 import sys
 
-PIN_RE = re.compile(r'^([A-Za-z0-9_.\-]+)(\[[a-z,]+\])?==([0-9A-Za-z.\-+]+)')
+# The extras charset (inside []) allowed only lowercase letters and commas
+# at first -- too narrow: a future direct pin with a digit/hyphen/underscore
+# in an extra name (e.g. `pkg[extra-two]==1.0.0`) would fail this whole
+# anchored match, silently vanishing from parse_pins() with no error. Widened
+# to match PEP 508's actual extra-name grammar (letters, digits, `-`, `_`, `.`).
+PIN_RE = re.compile(r'^([A-Za-z0-9_.\-]+)(\[[A-Za-z0-9_.\-,]+\])?==([0-9A-Za-z.\-+]+)')
 
 # PEP 503: package names are compared case-insensitively with runs of
 # -, _, . all treated as equivalent. requirements.txt spells some packages
