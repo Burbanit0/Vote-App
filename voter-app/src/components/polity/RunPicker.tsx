@@ -10,9 +10,12 @@ const RunPicker: React.FC = () => {
 
   return (
     // Capped on the label, not only the select: as a flex item the label otherwise keeps the
-    // width of the longest option, which a longer language pushes past the page (WebKit).
+    // width of the longest option. And clipped horizontally: WebKit adds an option wider than
+    // its <select> to the page's scrollable width even though the select stays inside, so
+    // /polity scrolled sideways in longer languages. The clip margin keeps the select's focus
+    // outline visible where overflow-clip-margin is supported.
     <label
-      className="flex min-w-0 max-w-[min(28rem,100%)] flex-col gap-1 text-sm"
+      className="flex min-w-0 max-w-[min(28rem,100%)] flex-col gap-1 overflow-x-clip text-sm [overflow-clip-margin:4px]"
       htmlFor="polity-run-picker"
     >
       <span className="font-mono text-[0.66rem] uppercase tracking-[0.18em] text-muted-foreground">
