@@ -26,13 +26,29 @@ test.describe('pseudo-locale layout sweep', () => {
       await expect(page.locator(ANCHORS[path])).toBeVisible();
       await page.waitForFunction(() => document.body.innerText.includes('⟦'));
 
-      const overflow = await page.evaluate(() => {
+      const { overflow, offenders } = await page.evaluate(() => {
         const root = document.documentElement;
-        return root.scrollWidth - root.clientWidth;
+        const limit = root.clientWidth;
+        // The elements reaching past the viewport, deepest first, so a failure names its cause.
+        const past = [...document.querySelectorAll('body *')].filter(
+          (el) => el.getBoundingClientRect().right > limit + 1
+        );
+        const deepest = past.filter(
+          (el) => !past.some((other) => other !== el && el.contains(other))
+        );
+        return {
+          overflow: root.scrollWidth - limit,
+          offenders: deepest.slice(0, 5).map((el) => {
+            const box = el.getBoundingClientRect();
+            const id =
+              el.getAttribute('data-testid') ?? el.getAttribute('class')?.slice(0, 50) ?? '';
+            return `<${el.tagName.toLowerCase()} ${id}> ${Math.round(box.left)}–${Math.round(box.right)}px`;
+          }),
+        };
       });
       expect(
         overflow,
-        `${path}: page is ${overflow}px wider than the viewport in pseudo-locale`
+        `${path}: page is ${overflow}px wider than the viewport in pseudo-locale; past its edge: ${offenders.join('; ') || 'none found'}`
       ).toBeLessThanOrEqual(OVERFLOW_TOLERANCE_PX);
     });
   }

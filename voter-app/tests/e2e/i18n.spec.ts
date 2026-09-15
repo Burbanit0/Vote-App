@@ -31,6 +31,10 @@ const NAMESPACES = [
   'timeline',
   'home',
   'story',
+  // the polity namespace (the run explorer); its masthead shares the name above
+  'runPicker',
+  'runStates',
+  'runFacts',
 ];
 const KEY_LEAK = new RegExp(`\\b(?:${NAMESPACES.join('|')})\\.[a-zA-Z][\\w]*(?:\\.[\\w]+)*`, 'g');
 
