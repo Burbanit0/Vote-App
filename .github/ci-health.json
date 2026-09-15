@@ -1,40 +1,39 @@
 {
-  "generated_at": "2026-09-13T15:44:11Z",
+  "generated_at": "2026-09-15T02:51:05Z",
   "workflows": {
     "mutation-testing.yml": {
       "display_name": "Mutation Testing",
       "expected_cadence_hours": 168,
-      "last_run_at": "2026-09-13T13:54:59Z",
+      "last_run_at": "2026-09-14T09:52:40Z",
       "recent_conclusions": [
-        "failure",
-        "failure",
-        "failure",
-        "failure",
+        "success",
+        "success",
+        "success",
         "failure"
       ],
-      "consecutive_failures": 5,
-      "status": "unhealthy",
-      "detail": "last 5 completed runs all failed"
+      "consecutive_failures": 0,
+      "status": "healthy",
+      "detail": "ok"
     },
     "schemathesis.yml": {
       "display_name": "Schemathesis Contract Fuzzing",
       "expected_cadence_hours": 168,
-      "last_run_at": "2026-09-13T13:54:59Z",
+      "last_run_at": "2026-09-14T14:13:03Z",
       "recent_conclusions": [
-        "failure",
+        "success",
         "success",
         "success",
         "success",
         "success"
       ],
-      "consecutive_failures": 1,
+      "consecutive_failures": 0,
       "status": "healthy",
       "detail": "ok"
     },
     "atheris-fuzzing.yml": {
       "display_name": "Coverage-Guided Fuzzing (atheris)",
       "expected_cadence_hours": 168,
-      "last_run_at": "2026-09-13T13:54:59Z",
+      "last_run_at": "2026-09-14T14:13:03Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -49,7 +48,7 @@
     "flaky-check-backend.yml": {
       "display_name": "Backend Flaky Test Hunt",
       "expected_cadence_hours": 24,
-      "last_run_at": "2026-09-13T13:54:59Z",
+      "last_run_at": "2026-09-14T14:13:03Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -64,7 +63,7 @@
     "dast.yml": {
       "display_name": "DAST \u2014 ZAP Baseline",
       "expected_cadence_hours": 24,
-      "last_run_at": "2026-09-13T13:54:59Z",
+      "last_run_at": "2026-09-14T14:13:03Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -79,13 +78,13 @@
     "scorecard.yml": {
       "display_name": "OpenSSF Scorecard",
       "expected_cadence_hours": 168,
-      "last_run_at": "2026-09-13T15:43:00Z",
+      "last_run_at": "2026-09-15T02:48:58Z",
       "recent_conclusions": [
         "success",
         "success",
         "success",
         "success",
-        "success"
+        "failure"
       ],
       "consecutive_failures": 0,
       "status": "healthy",
