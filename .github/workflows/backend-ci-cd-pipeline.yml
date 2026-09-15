@@ -86,9 +86,12 @@ jobs:
       # item 2.C added the lockfiles this guards; without this, they'd be
       # exactly the kind of "committed but nobody keeps it in sync" artifact
       # this session has spent itself fixing elsewhere. Runs BEFORE the
-      # install below, on purpose: if the lockfile has drifted, the actual
-      # install two steps down is about to silently use the stale pins, so
-      # the warning needs to land before that happens, not after.
+      # install (the very next step below), on purpose: if the lockfile has
+      # drifted, the warning should land before the install silently uses
+      # the stale pins, not after -- though `continue-on-error: true` means
+      # this only surfaces a visible warning, it doesn't block the install
+      # or fail the job if the lockfile really has drifted; closing that gap
+      # for real means ratcheting this the same way vulture/radon/etc. were.
       - name: Python lockfiles up to date (informational)
         continue-on-error: true
         run: bash scripts/check_python_lockfile_freshness.sh
@@ -97,12 +100,13 @@ jobs:
       # compiled together (uv pip compile, see PLAN_CI_STRUCTURAL_GAPS.md
       # item 2.C) -- a superset covering this job's full prod+dev need in one
       # install. Installing from the lockfile instead of resolving
-      # requirements*.txt live is what actually makes the reproducibility
-      # promise those files added real: two runs at different times now
-      # install the identical transitive tree, not just identical direct
-      # pins. The freshness check above is what keeps this from silently
-      # installing stale versions if requirements*.txt changes without the
-      # lockfile being regenerated to match.
+      # requirements*.txt live makes THIS job reproducible: two runs at
+      # different times now install the identical transitive tree here, not
+      # just identical direct pins. Scoped claim, not a repo-wide one: the
+      # actual shipped backend image (fast_api_voter/Dockerfile, built by
+      # audit.yml's image-scan job) still resolves requirements*.txt live
+      # and isn't touched by this -- rewiring every install site is tracked,
+      # separately, as still-open scope in PLAN_CI_STRUCTURAL_GAPS.md.
       - name: Install production + dev dependencies (from the lockfile)
         run: uv pip install --system -r fast_api_voter/requirements-dev.lock.txt
 
