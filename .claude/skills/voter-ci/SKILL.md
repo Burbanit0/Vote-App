@@ -5,7 +5,7 @@ description: Where Vote-App's CI gates actually live, job by job, how to reprodu
 
 # voter-ci — CI gates, diagnosis, and the quality ratchet
 
-Vote-App's CI is 14 workflow files (`.github/workflows/`). Most PRs only ever
+Vote-App's CI is 15 workflow files (`.github/workflows/`). Most PRs only ever
 see four of them; this skill maps every gate to its config file, explains the
 two gates that most often surprise people (the quality ratchet, diff-cover's
 100%-changed-lines rule), and gives the actual recipe for turning a red check
@@ -21,6 +21,8 @@ gates it — see "Why no top-level `paths:` filter" below). In order:
 
 | Step | Tool | Gate | Config |
 |---|---|---|---|
+| Lockfile freshness | `bash scripts/check_python_lockfile_freshness.sh` | informational (`continue-on-error`) | see the script's own header |
+| Install | `uv pip install --system -r fast_api_voter/requirements-dev.lock.txt` | blocking (install must succeed) | `fast_api_voter/requirements-dev.lock.txt` (the compiled lockfile, not `requirements*.txt` live — PLAN_CI_STRUCTURAL_GAPS.md item 2.C) |
 | Ruff | `ruff check fast_api_voter` | blocking, pyflakes (`F`) only | `fast_api_voter/pyproject.toml`'s `[tool.ruff]` |
 | Import layering | `lint-imports` | blocking — enforces routes→domain→engine | `[tool.importlinter]`, same file |
 | Bandit | `bandit -r fast_api_voter/api -ll --skip B104,B311` | blocking, medium+ severity | inline flags |
