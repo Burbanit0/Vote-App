@@ -7,7 +7,7 @@ here instead of on the PR. It mirrors the gating jobs:
 |---|---|---|
 | `frontend` | `.github/workflows/frontend-ci-cd-pipeline.yml` | **Ubuntu 24.04** (= `ubuntu-latest`), **Node 24** |
 | `backend`  | `.github/workflows/backend-ci-cd-pipeline.yml`  | **Python 3.14** |
-| `e2e`      | `.github/workflows/e2e.yml`                     | **Python 3.14** + **Node 24** + Playwright (chromium + firefox) |
+| `e2e`      | `.github/workflows/e2e.yml`                     | **Python 3.14** + **Node 24** + Playwright (chromium + firefox + webkit + mobile) |
 | `audit`    | `.github/workflows/audit.yml`                   | **Python 3.14** + Semgrep / Gitleaks / Trivy |
 
 Targets: `all` (default) = frontend + backend + e2e + audit (**run before each push**) ·
@@ -57,7 +57,11 @@ checks run as the container's `CMD`, so `docker run` failing == the PR failing.
 steps are blocking, matching the workflow (lint lost its `continue-on-error` once
 it reached 0 errors).
 
-**Backend** — `ruff check fast_api_voter` (gating; replaces flake8 as of Lot 1,
+**Backend** — installs from `requirements-dev.lock.txt` (the compiled lockfile,
+not `requirements.txt`/`requirements-dev.txt` resolved live — PLAN_CI_STRUCTURAL_
+GAPS.md item 2.C), preceded by a non-blocking `check_python_lockfile_freshness.sh`
+run that warns if the lockfile has drifted from those source files → `ruff check
+fast_api_voter` (gating; replaces flake8 as of Lot 1,
 scoped to pyflakes `F` only — rule selection lives in `fast_api_voter/
 pyproject.toml`'s `[tool.ruff]`) → `lint-imports` (gating; enforces the
 `routes → domain → engine` layering the `voter-api` skill documents — Lot 2,

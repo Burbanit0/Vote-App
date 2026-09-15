@@ -117,7 +117,7 @@ ruff check .                                   # pyflakes (F) errors are gating
 
 ```bash
 npm test                 # Vitest unit tests
-npm run test:e2e         # Playwright (Chromium + Firefox)
+npm run test:e2e         # Playwright (chromium + firefox + webkit + mobile)
 npm run test:a11y        # axe-core WCAG 2.1 AA audit
 npm run build            # tsc --noEmit && vite build (PWA manifest + service worker)
 npm run lint             # eslint (0 errors is gating)

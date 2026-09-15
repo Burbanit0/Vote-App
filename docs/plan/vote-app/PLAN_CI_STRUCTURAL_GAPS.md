@@ -183,25 +183,36 @@ lower-priority finding than one that does »).
 **Action** : aucune — retiré de la liste des items ouverts par cette
 vérification même.
 
-### 2.E 🟡 L'agent `doc-drift` existe mais ne tourne jamais sur un cycle régulier
+### 2.E 🟢 L'agent `doc-drift` existe mais ne tourne jamais sur un cycle régulier — corrigé : le constat initial était faux, un vrai routine mensuel existe déjà
 
-**Constat** : deux dérives de documentation réelles trouvées *cette même
-session* (le nombre de wheel `cp314` de `pygit2` dupliqué et faux dans 3
-fichiers, corrigé PR #481 — trouvé par hasard via `/code-review ultra` sur
-un autre commit, pas par une vérification systématique). L'agent
-`doc-drift` existe précisément pour ce genre de dérive mais n'a aucun
-déclenchement récurrent configuré (`CronList` de cette session : aucun job
-programmé).
+**Constat initial (2026-09-14, faux)** : deux dérives de documentation
+réelles trouvées *cette même session* (le nombre de wheel `cp314` de
+`pygit2` dupliqué et faux dans 3 fichiers, corrigé PR #481 — trouvé par
+hasard via `/code-review ultra` sur un autre commit, pas par une
+vérification systématique) avaient fait conclure que l'agent `doc-drift`
+n'avait « aucun déclenchement récurrent configuré », vérifié via `CronList`
+de cette session (aucun job programmé).
 
-**Pourquoi ce n'est *pas* un item de code** : `doc-drift` est un agent
-Claude Code, pas un script autonome — il ne peut pas être ajouté à
-`.github/workflows/` comme un job CI classique sans Claude Code pour
-l'exécuter. C'est une recommandation opérationnelle, pas une PR.
+**Corrigé (2026-09-15)** : ce constat vérifiait le mauvais mécanisme.
+`CronList` ne liste que les crons `ScheduleWakeup`/dynamic-loop
+propres à *cette session* — pas les routines cloud persistantes créées via
+`RemoteTrigger`, un mécanisme entièrement différent. `PLAN_SOLIDITE_
+TECHNIQUE.md` (Lot 11 — Outillage Claude avancé) documentait déjà, dès le
+2026-09-12, la création réelle
+d'une routine `doc-drift-monthly` (`trig_0183HpsWHKnLz8EFfFQgS6qA`,
+`cron_expression: "0 8 1 * *"`) — ce plan-ci la contredisait sans jamais
+vérifier laquelle des deux docs avait raison. Vérifié en direct via l'outil
+`RemoteTrigger` (`action: "get"`) le 2026-09-15 : la routine existe bien,
+`enabled: true`, `next_run_at: 2026-10-01T08:06:36Z` — correctement
+programmée, pas encore déclenchée pour de vrai (`list_runs` : aucune
+session encore, cohérent avec une première échéance au 1er du mois
+suivant sa création).
 
-**Action** : aucune dans ce plan. Recommandation notée : invoquer
-périodiquement l'agent `doc-drift` (par exemple après chaque PR touchant
-de la documentation, comme sa propre description le suggère) plutôt que de
-compter sur une relecture incidentelle.
+**Action** : aucune — la lacune que cet item décrivait n'existe pas.
+Recommandation qui reste valide : la routine ne couvre qu'un cycle mensuel,
+donc invoquer `doc-drift` ponctuellement après une PR qui touche beaucoup
+de documentation (comme cette même correction l'a fait) reste utile en
+complément, pas un remplacement du mensuel.
 
 ---
 
