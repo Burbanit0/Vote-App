@@ -4,20 +4,16 @@ import { Spinner } from '@/components/ui/spinner';
 import { PolityProvider, usePolityCtx } from '../components/polity/PolityController';
 import RunPicker from '../components/polity/RunPicker';
 import RunFacts from '../components/polity/RunFacts';
+import { messageOf } from '../lib/polity/errors';
 import TickPlayer from '../components/polity/TickPlayer';
 import InstitutionalTimeline from '../components/polity/InstitutionalTimeline';
 import PopulationMap from '../components/polity/PopulationMap';
 import MacroCurves from '../components/polity/MacroCurves';
+import CitizenBiography from '../components/polity/CitizenBiography';
 
 // The run explorer: a finished polity simulation replayed tick by tick. The page
 // is a layout shell over PolityController; each view (player, map, curves,
 // biography) is a thin consumer of its context.
-
-/** The API's error body carries `detail`; anything else is shown as text. */
-function messageOf(error: unknown): string {
-  if (error && typeof error === 'object' && 'detail' in error) return String(error.detail);
-  return String(error);
-}
 
 const Status: React.FC<{ testId: string; children: React.ReactNode; busy?: boolean }> = ({
   testId,
@@ -73,6 +69,7 @@ const PolityBody: React.FC = () => {
       <TickPlayer />
       <InstitutionalTimeline />
       <PopulationMap />
+      <CitizenBiography />
       <MacroCurves />
     </div>
   );
