@@ -171,10 +171,21 @@ jobs:
       # an arbitrary PR that happens to touch the same path.
       - name: Fetch the latest snapshot from develop
         id: fetch
+        # github.head_ref is a PR branch name -- fully attacker-controlled
+        # (anyone who can open a PR picks it), so interpolating it straight
+        # into `run:` via ${{ }} is a shell-injection hole (Semgrep's
+        # yaml.github-actions.security.run-shell-injection, caught gating on
+        # this exact line before merge). Passed through `env:` and read as a
+        # quoted shell variable instead -- GitHub Actions sets env vars
+        # without any shell parsing, so there's nothing for a crafted branch
+        # name to inject into.
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_REF: ${{ github.head_ref }}
         run: |
           git fetch --depth=1 origin develop
-          if [[ "${{ github.event_name }}" == "pull_request" ]] && \
-             [[ "${{ github.head_ref }}" == chore/ci-health-snapshot-* ]] && \
+          if [[ "$EVENT_NAME" == "pull_request" ]] && \
+             [[ "$HEAD_REF" == chore/ci-health-snapshot-* ]] && \
              [[ -f .github/ci-health.json ]] && \
              ! git diff --quiet origin/develop -- .github/ci-health.json; then
             cp .github/ci-health.json /tmp/ci-health.json
