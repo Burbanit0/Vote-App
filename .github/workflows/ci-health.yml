@@ -178,7 +178,9 @@ jobs:
         # this exact line before merge). Passed through `env:` and read as a
         # quoted shell variable instead -- GitHub Actions sets env vars
         # without any shell parsing, so there's nothing for a crafted branch
-        # name to inject into.
+        # name to inject into. EVENT_NAME rides along the same way purely for
+        # consistency -- it's a fixed GitHub-set enum, not attacker input, so
+        # it was never itself unsafe to interpolate.
         env:
           EVENT_NAME: ${{ github.event_name }}
           HEAD_REF: ${{ github.head_ref }}
