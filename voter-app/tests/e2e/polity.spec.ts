@@ -25,4 +25,34 @@ test.describe('Polity — run explorer', () => {
     await page.goto('/polity?tick=999');
     await expect(page.getByTestId('polity-fact-tick')).toContainText(/4\D+1/);
   });
+
+  test('the player scrubs, steps and plays to the end of the run', async ({ page }) => {
+    await page.goto('/polity');
+    const tick = () => new URL(page.url()).searchParams.get('tick');
+
+    await page.getByTestId('player-slider').fill('9');
+    await expect.poll(tick).toBe('9');
+    await page.getByTestId('player-step-forward').click();
+    await expect.poll(tick).toBe('10');
+
+    await page.getByTestId('player-speed').selectOption('8');
+    await page.getByTestId('player-toggle').click();
+    await expect.poll(tick).toBe('12');
+    await expect(page.getByTestId('player-toggle')).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  test('the timeline shows the fixture run’s recalls and jumps to them', async ({ page }) => {
+    await page.goto('/polity');
+    const timeline = page.getByTestId('polity-timeline');
+    await expect(
+      timeline.locator('[data-testid="timeline-glyph"][data-kind="recall"]')
+    ).toHaveCount(2);
+    await expect(timeline.getByTestId('timeline-term')).toHaveCount(3);
+
+    await timeline.locator('details > summary').click();
+    await timeline
+      .locator('[data-testid="timeline-event-jump"][data-event="recalled"][data-tick="11"]')
+      .click();
+    await expect.poll(() => new URL(page.url()).searchParams.get('tick')).toBe('11');
+  });
 });
