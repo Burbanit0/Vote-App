@@ -79,4 +79,18 @@ test.describe('Polity — run explorer', () => {
     await page.keyboard.press('ArrowUp');
     await expect.poll(() => param('citizen')).not.toBeNull();
   });
+
+  test('the curves panel opens on demand and lists the fixture run’s elections', async ({
+    page,
+  }) => {
+    await page.goto('/polity');
+    await expect(page.getByTestId('polity-macro-panel')).toHaveCount(0);
+    await page.getByTestId('polity-macro-toggle').click();
+    await expect(page.getByTestId('polity-macro-panel')).toBeVisible();
+    for (const tick of [0, 10, 12]) {
+      await expect(page.getByTestId(`polity-election-${tick}`)).toBeVisible();
+    }
+    await page.getByTestId('polity-election-10').getByRole('button').click();
+    await expect.poll(() => new URL(page.url()).searchParams.get('tick')).toBe('10');
+  });
 });
