@@ -352,22 +352,33 @@ def _read_json(path: Path) -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
-def read_census(path: Path, population: int) -> dict[int, list[dict[str, Any]]]:
+def census_by_year(rows: Sequence[Mapping[str, Any]], population: int) -> dict[int, list[dict[str, Any]]]:
     """Complete census years only, each ordered by citizen_id: a year cut short by an
     interrupted write is dropped."""
     years: dict[int, list[dict[str, Any]]] = defaultdict(list)
+    for row in rows:
+        years[int(row["year"])].append(dict(row))
+    return {
+        year: sorted(year_rows, key=lambda row: int(row["citizen_id"]))
+        for year, year_rows in sorted(years.items())
+        if len(year_rows) == population
+    }
+
+
+def read_rows(path: Path) -> list[dict[str, Any]]:
+    """A JSONL file's rows, a torn final row skipped; none when the file is missing."""
+    rows = []
     if path.is_file():
         for line in path.read_text(encoding="utf-8").splitlines():
             try:
-                row = json.loads(line)
+                rows.append(json.loads(line))
             except ValueError:
                 continue
-            years[int(row["year"])].append(row)
-    return {
-        year: sorted(rows, key=lambda row: int(row["citizen_id"]))
-        for year, rows in sorted(years.items())
-        if len(rows) == population
-    }
+    return rows
+
+
+def read_census(path: Path, population: int) -> dict[int, list[dict[str, Any]]]:
+    return census_by_year(read_rows(path), population)
 
 
 def _vote_coverage(events: Sequence[Mapping[str, Any]], audited: bool) -> VoteCoverage:
@@ -383,15 +394,20 @@ def _last_checkpoint_tick(run_dir: Path) -> int | None:
 
 
 def load_run_frames(run_dir: Path) -> RunFrames:
+    events, _skipped = read_journal_tolerant(run_dir / "events.jsonl")
+    return frames_for(run_dir, events, read_rows(run_dir / "snapshots.jsonl"))
+
+
+def frames_for(run_dir: Path, events: Sequence[Mapping[str, Any]], snapshot_rows: Sequence[Mapping[str, Any]]) -> RunFrames:
+    """The frames of the run in `run_dir`, from its journal and census rows already read."""
     config = _read_json(run_dir / "config.json")
     if config is None:
         raise NotExplorable(f"{run_dir}: no readable config.json")
     run = config["run"]
     population, ticks_per_year = int(run["population_size"]), int(run["ticks_per_year"])
-    events, _skipped = read_journal_tolerant(run_dir / "events.jsonl")
     if not events:
         raise NotExplorable(f"{run_dir}: no journal")
-    census = read_census(run_dir / "snapshots.jsonl", population)
+    census = census_by_year(snapshot_rows, population)
     if 0 not in census:
         raise NotExplorable(f"{run_dir}: no complete year-0 census")
     projection = build_projection(config, census)
