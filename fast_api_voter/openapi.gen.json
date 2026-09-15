@@ -9445,6 +9445,1190 @@
         "title": "PolisWithCandidatesResponse",
         "type": "object"
       },
+      "PolityBiographyEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "details": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Details",
+            "type": "object"
+          },
+          "event_type": {
+            "title": "Event Type",
+            "type": "string"
+          },
+          "motif": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motif"
+          },
+          "motif_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Motif Label"
+          },
+          "rationale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The model's rationale, cut at 280 characters.",
+            "title": "Rationale"
+          },
+          "role": {
+            "enum": [
+              "actor",
+              "target",
+              "listed"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "tick": {
+            "title": "Tick",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "tick",
+          "event_type",
+          "role",
+          "details"
+        ],
+        "title": "PolityBiographyEntry",
+        "type": "object"
+      },
+      "PolityBiographySections": {
+        "additionalProperties": false,
+        "properties": {
+          "candidacies": {
+            "items": {
+              "$ref": "#/components/schemas/PolityBiographyEntry"
+            },
+            "title": "Candidacies",
+            "type": "array"
+          },
+          "other": {
+            "items": {
+              "$ref": "#/components/schemas/PolityBiographyEntry"
+            },
+            "title": "Other",
+            "type": "array"
+          },
+          "petitions": {
+            "items": {
+              "$ref": "#/components/schemas/PolityBiographyEntry"
+            },
+            "title": "Petitions",
+            "type": "array"
+          },
+          "pressure_acts": {
+            "items": {
+              "$ref": "#/components/schemas/PolityBiographyEntry"
+            },
+            "title": "Pressure Acts",
+            "type": "array"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/PolityBiographyEntry"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "votes": {
+            "items": {
+              "$ref": "#/components/schemas/PolityBiographyEntry"
+            },
+            "title": "Votes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "roles",
+          "candidacies",
+          "votes",
+          "pressure_acts",
+          "petitions",
+          "other"
+        ],
+        "title": "PolityBiographySections",
+        "type": "object"
+      },
+      "PolityCensusPositions": {
+        "additionalProperties": false,
+        "properties": {
+          "xy": {
+            "description": "One [x, y] per citizen, in citizen_id order.",
+            "items": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "title": "Xy",
+            "type": "array"
+          },
+          "year": {
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "year",
+          "xy"
+        ],
+        "title": "PolityCensusPositions",
+        "type": "object"
+      },
+      "PolityCensusYear": {
+        "additionalProperties": false,
+        "properties": {
+          "office": {
+            "title": "Office",
+            "type": "string"
+          },
+          "party": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Party"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "year": {
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "year",
+          "role",
+          "office"
+        ],
+        "title": "PolityCensusYear",
+        "type": "object"
+      },
+      "PolityCitizen": {
+        "additionalProperties": false,
+        "properties": {
+          "census": {
+            "items": {
+              "$ref": "#/components/schemas/PolityCensusYear"
+            },
+            "title": "Census",
+            "type": "array"
+          },
+          "citizen_id": {
+            "title": "Citizen Id",
+            "type": "integer"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "received": {
+            "items": {
+              "$ref": "#/components/schemas/PolityReceived"
+            },
+            "title": "Received",
+            "type": "array"
+          },
+          "sections": {
+            "$ref": "#/components/schemas/PolityBiographySections"
+          }
+        },
+        "required": [
+          "key",
+          "citizen_id",
+          "sections",
+          "received",
+          "census"
+        ],
+        "title": "PolityCitizen",
+        "type": "object"
+      },
+      "PolityElection": {
+        "additionalProperties": false,
+        "properties": {
+          "blank_share": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blank Share"
+          },
+          "blank_source": {
+            "anyOf": [
+              {
+                "enum": [
+                  "invalidation_check",
+                  "ballots",
+                  "audit_sample"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Where blank_share comes from; null when the journal holds no reading.",
+            "title": "Blank Source"
+          },
+          "forced": {
+            "title": "Forced",
+            "type": "boolean"
+          },
+          "outcome": {
+            "enum": [
+              "elected",
+              "no_winner",
+              "invalidated"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "tick": {
+            "title": "Tick",
+            "type": "integer"
+          },
+          "turnout": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Share of the population casting a ballot; null when no vote was held or recorded.",
+            "title": "Turnout"
+          },
+          "winner": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Winner"
+          }
+        },
+        "required": [
+          "tick",
+          "outcome",
+          "forced"
+        ],
+        "title": "PolityElection",
+        "type": "object"
+      },
+      "PolityFrame": {
+        "additionalProperties": false,
+        "properties": {
+          "act": {
+            "description": "Per citizen: the pressure act taken this tick, -1 for none.",
+            "items": {
+              "enum": [
+                -1,
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              "type": "integer"
+            },
+            "title": "Act",
+            "type": "array"
+          },
+          "candidacy": {
+            "description": "Per citizen, the furthest stage reached this tick: -1 none, 0 declined, 1 declared, 2 nomination lost, 3 standing, 4 elected.",
+            "items": {
+              "enum": [
+                -1,
+                0,
+                1,
+                2,
+                3,
+                4
+              ],
+              "type": "integer"
+            },
+            "title": "Candidacy",
+            "type": "array"
+          },
+          "chamber": {
+            "description": "Per citizen: 1 when seated in the sortition chamber.",
+            "items": {
+              "enum": [
+                0,
+                1
+              ],
+              "type": "integer"
+            },
+            "title": "Chamber",
+            "type": "array"
+          },
+          "partial": {
+            "description": "The tick ran after the last checkpoint: journaled, never confirmed.",
+            "title": "Partial",
+            "type": "boolean"
+          },
+          "president": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PolityPresident"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "description": "Per citizen: 0 elector, 1 candidate, 2 elected.",
+            "items": {
+              "enum": [
+                0,
+                1,
+                2
+              ],
+              "type": "integer"
+            },
+            "title": "Status",
+            "type": "array"
+          },
+          "tick": {
+            "title": "Tick",
+            "type": "integer"
+          },
+          "vote": {
+            "description": "Per citizen: -1 no journaled ballot, 0 blank, 1 for the winner, 2 for another candidate.",
+            "items": {
+              "enum": [
+                -1,
+                0,
+                1,
+                2
+              ],
+              "type": "integer"
+            },
+            "title": "Vote",
+            "type": "array"
+          }
+        },
+        "required": [
+          "tick",
+          "partial",
+          "status",
+          "chamber",
+          "act",
+          "vote",
+          "candidacy"
+        ],
+        "title": "PolityFrame",
+        "type": "object"
+      },
+      "PolityFrames": {
+        "additionalProperties": false,
+        "properties": {
+          "frames": {
+            "items": {
+              "$ref": "#/components/schemas/PolityFrame"
+            },
+            "title": "Frames",
+            "type": "array"
+          },
+          "from_tick": {
+            "title": "From Tick",
+            "type": "integer"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "to_tick": {
+            "title": "To Tick",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "key",
+          "from_tick",
+          "to_tick",
+          "frames"
+        ],
+        "title": "PolityFrames",
+        "type": "object"
+      },
+      "PolityIssueWeight": {
+        "additionalProperties": false,
+        "properties": {
+          "issue": {
+            "description": "0-indexed issue dimension.",
+            "title": "Issue",
+            "type": "integer"
+          },
+          "weight": {
+            "description": "Signed loading of the issue on the axis.",
+            "title": "Weight",
+            "type": "number"
+          }
+        },
+        "required": [
+          "issue",
+          "weight"
+        ],
+        "title": "PolityIssueWeight",
+        "type": "object"
+      },
+      "PolityLegislative": {
+        "additionalProperties": false,
+        "properties": {
+          "blank_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blank Rate"
+          },
+          "seats": {
+            "items": {
+              "$ref": "#/components/schemas/PolitySeats"
+            },
+            "title": "Seats",
+            "type": "array"
+          },
+          "tick": {
+            "title": "Tick",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "tick",
+          "seats"
+        ],
+        "title": "PolityLegislative",
+        "type": "object"
+      },
+      "PolityMotif": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "label"
+        ],
+        "title": "PolityMotif",
+        "type": "object"
+      },
+      "PolityParty": {
+        "additionalProperties": false,
+        "properties": {
+          "party_id": {
+            "title": "Party Id",
+            "type": "integer"
+          },
+          "xy": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Xy",
+            "type": "array"
+          }
+        },
+        "required": [
+          "party_id",
+          "xy"
+        ],
+        "title": "PolityParty",
+        "type": "object"
+      },
+      "PolityPresident": {
+        "additionalProperties": false,
+        "properties": {
+          "citizen_id": {
+            "title": "Citizen Id",
+            "type": "integer"
+          },
+          "ecart": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ecart"
+          },
+          "lame_duck": {
+            "title": "Lame Duck",
+            "type": "boolean"
+          },
+          "legitimacy": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Legitimacy"
+          },
+          "mandate_strength": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mandate Strength"
+          },
+          "pledged_xy": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Where their pledge sits.",
+            "title": "Pledged Xy"
+          },
+          "xy": {
+            "description": "Where the president's revealed position sits on the map.",
+            "items": {
+              "type": "number"
+            },
+            "title": "Xy",
+            "type": "array"
+          }
+        },
+        "required": [
+          "citizen_id",
+          "xy",
+          "lame_duck"
+        ],
+        "title": "PolityPresident",
+        "type": "object"
+      },
+      "PolityProjection": {
+        "additionalProperties": false,
+        "properties": {
+          "axes": {
+            "description": "For each of the two axes, the issues loading most on it.",
+            "items": {
+              "items": {
+                "$ref": "#/components/schemas/PolityIssueWeight"
+              },
+              "type": "array"
+            },
+            "title": "Axes",
+            "type": "array"
+          },
+          "citizens": {
+            "items": {
+              "$ref": "#/components/schemas/PolityCensusPositions"
+            },
+            "title": "Citizens",
+            "type": "array"
+          },
+          "method": {
+            "description": "latent: the population's own two factors; pca: principal components of the tick-0 census.",
+            "enum": [
+              "latent",
+              "pca"
+            ],
+            "title": "Method",
+            "type": "string"
+          },
+          "positions": {
+            "description": "yearly: citizens move once a year, at each census (opinion dynamics).",
+            "enum": [
+              "static",
+              "yearly"
+            ],
+            "title": "Positions",
+            "type": "string"
+          }
+        },
+        "required": [
+          "method",
+          "positions",
+          "axes",
+          "citizens"
+        ],
+        "title": "PolityProjection",
+        "type": "object"
+      },
+      "PolityReceived": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The pressure act, the rank ballots gave the citizen (0 = first choice), or the event reacted to (1 scandal, 2 economic shock); null for a signature.",
+            "title": "Code"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "event_type": {
+            "title": "Event Type",
+            "type": "string"
+          },
+          "tick": {
+            "title": "Tick",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "tick",
+          "event_type",
+          "count"
+        ],
+        "title": "PolityReceived",
+        "type": "object"
+      },
+      "PolityRunList": {
+        "additionalProperties": false,
+        "properties": {
+          "runs": {
+            "items": {
+              "$ref": "#/components/schemas/PolityRunSummary"
+            },
+            "title": "Runs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "runs"
+        ],
+        "title": "PolityRunList",
+        "type": "object"
+      },
+      "PolityRunOverview": {
+        "additionalProperties": false,
+        "properties": {
+          "citizen_parties": {
+            "description": "Each citizen's party, in citizen_id order.",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Citizen Parties",
+            "type": "array"
+          },
+          "elections": {
+            "items": {
+              "$ref": "#/components/schemas/PolityElection"
+            },
+            "title": "Elections",
+            "type": "array"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "last_checkpoint_tick": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Checkpoint Tick"
+          },
+          "last_tick": {
+            "title": "Last Tick",
+            "type": "integer"
+          },
+          "legislative": {
+            "items": {
+              "$ref": "#/components/schemas/PolityLegislative"
+            },
+            "title": "Legislative",
+            "type": "array"
+          },
+          "motifs": {
+            "items": {
+              "$ref": "#/components/schemas/PolityMotif"
+            },
+            "title": "Motifs",
+            "type": "array"
+          },
+          "parties": {
+            "items": {
+              "$ref": "#/components/schemas/PolityParty"
+            },
+            "title": "Parties",
+            "type": "array"
+          },
+          "population": {
+            "title": "Population",
+            "type": "integer"
+          },
+          "projection": {
+            "$ref": "#/components/schemas/PolityProjection"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "standings": {
+            "items": {
+              "$ref": "#/components/schemas/PolityStanding"
+            },
+            "title": "Standings",
+            "type": "array"
+          },
+          "terms": {
+            "items": {
+              "$ref": "#/components/schemas/PolityTerm"
+            },
+            "title": "Terms",
+            "type": "array"
+          },
+          "ticks_per_year": {
+            "title": "Ticks Per Year",
+            "type": "integer"
+          },
+          "timeline": {
+            "items": {
+              "$ref": "#/components/schemas/PolityTimelineEntry"
+            },
+            "title": "Timeline",
+            "type": "array"
+          },
+          "unknown_event_types": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unknown Event Types",
+            "type": "array"
+          },
+          "vote_coverage": {
+            "description": "all: every ballot journaled; audit_sample: only S4.1's audit ballots; none: no ballot journaled.",
+            "enum": [
+              "all",
+              "audit_sample",
+              "none"
+            ],
+            "title": "Vote Coverage",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "run_id",
+          "population",
+          "ticks_per_year",
+          "last_tick",
+          "vote_coverage",
+          "unknown_event_types",
+          "projection",
+          "parties",
+          "citizen_parties",
+          "terms",
+          "timeline",
+          "standings",
+          "elections",
+          "legislative",
+          "motifs"
+        ],
+        "title": "PolityRunOverview",
+        "type": "object"
+      },
+      "PolityRunSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "engine": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "llm or deterministic.",
+            "title": "Engine"
+          },
+          "generation": {
+            "description": "Which files the run carries: provenanced, checkpointed or journal_only.",
+            "title": "Generation",
+            "type": "string"
+          },
+          "key": {
+            "description": "Stable run key: sha256 of the root label and the run's path inside it, 16 hex characters.",
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "description": "The run root's label.",
+            "title": "Label",
+            "type": "string"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The digest's outcome (completed, crashed, interrupted), when a digest exists.",
+            "title": "Outcome"
+          },
+          "population": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Population"
+          },
+          "relative_path": {
+            "description": "The run's directory inside its root.",
+            "title": "Relative Path",
+            "type": "string"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "seed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed"
+          },
+          "ticks_planned": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticks Planned"
+          },
+          "ticks_reached": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ticks Reached"
+          },
+          "years": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Years"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "relative_path",
+          "run_id",
+          "generation"
+        ],
+        "title": "PolityRunSummary",
+        "type": "object"
+      },
+      "PolitySeats": {
+        "additionalProperties": false,
+        "properties": {
+          "party_id": {
+            "title": "Party Id",
+            "type": "integer"
+          },
+          "seats": {
+            "title": "Seats",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "party_id",
+          "seats"
+        ],
+        "title": "PolitySeats",
+        "type": "object"
+      },
+      "PolityStanding": {
+        "additionalProperties": false,
+        "properties": {
+          "acts": {
+            "description": "Pressure actions journaled this tick, counted by act code 0-4.",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Acts",
+            "type": "array"
+          },
+          "ecart": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ecart"
+          },
+          "legitimacy": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Legitimacy"
+          },
+          "mandate_strength": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mandate Strength"
+          },
+          "president": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "President"
+          },
+          "tick": {
+            "title": "Tick",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "tick",
+          "acts"
+        ],
+        "title": "PolityStanding",
+        "type": "object"
+      },
+      "PolityTerm": {
+        "additionalProperties": false,
+        "properties": {
+          "end_tick": {
+            "title": "End Tick",
+            "type": "integer"
+          },
+          "ended_by": {
+            "description": "legitimacy_floor, confidence_vote, election or run_end.",
+            "title": "Ended By",
+            "type": "string"
+          },
+          "holder": {
+            "title": "Holder",
+            "type": "integer"
+          },
+          "lame_duck": {
+            "title": "Lame Duck",
+            "type": "boolean"
+          },
+          "mandate_strength": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mandate Strength"
+          },
+          "start_tick": {
+            "title": "Start Tick",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "holder",
+          "start_tick",
+          "end_tick",
+          "ended_by",
+          "lame_duck"
+        ],
+        "title": "PolityTerm",
+        "type": "object"
+      },
+      "PolityTimelineEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "citizen_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Citizen Id"
+          },
+          "details": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "description": "The event payload's scalar fields.",
+            "title": "Details",
+            "type": "object"
+          },
+          "event_type": {
+            "title": "Event Type",
+            "type": "string"
+          },
+          "tick": {
+            "title": "Tick",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "tick",
+          "event_type",
+          "details"
+        ],
+        "title": "PolityTimelineEntry",
+        "type": "object"
+      },
       "PowerIndicesRequest": {
         "additionalProperties": false,
         "description": "Shapley-Shubik and Banzhaf power indices.",
@@ -16032,6 +17216,365 @@
         "summary": "Metrics",
         "tags": [
           "meta"
+        ]
+      }
+    },
+    "/api/v2/polity/runs": {
+      "get": {
+        "operationId": "polity_runs_api_v2_polity_runs_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolityRunList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Finished simulation runs the explorer can open",
+        "tags": [
+          "polity"
+        ]
+      }
+    },
+    "/api/v2/polity/runs/{run_key}": {
+      "get": {
+        "operationId": "polity_run_api_v2_polity_runs__run_key__get",
+        "parameters": [
+          {
+            "description": "A run key from GET /runs.",
+            "in": "path",
+            "name": "run_key",
+            "required": true,
+            "schema": {
+              "description": "A run key from GET /runs.",
+              "pattern": "^[0-9a-f]{16}$",
+              "title": "Run Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolityRunOverview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "A run's map, institutional story and curves",
+        "tags": [
+          "polity"
+        ]
+      }
+    },
+    "/api/v2/polity/runs/{run_key}/citizens/{citizen_id}": {
+      "get": {
+        "operationId": "polity_citizen_biography_api_v2_polity_runs__run_key__citizens__citizen_id__get",
+        "parameters": [
+          {
+            "description": "A run key from GET /runs.",
+            "in": "path",
+            "name": "run_key",
+            "required": true,
+            "schema": {
+              "description": "A run key from GET /runs.",
+              "pattern": "^[0-9a-f]{16}$",
+              "title": "Run Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "citizen_id",
+            "required": true,
+            "schema": {
+              "maximum": 1000000,
+              "minimum": 0,
+              "title": "Citizen Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolityCitizen"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "One citizen's biography in a run",
+        "tags": [
+          "polity"
+        ]
+      }
+    },
+    "/api/v2/polity/runs/{run_key}/frames": {
+      "get": {
+        "operationId": "polity_frames_api_v2_polity_runs__run_key__frames_get",
+        "parameters": [
+          {
+            "description": "A run key from GET /runs.",
+            "in": "path",
+            "name": "run_key",
+            "required": true,
+            "schema": {
+              "description": "A run key from GET /runs.",
+              "pattern": "^[0-9a-f]{16}$",
+              "title": "Run Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from_tick",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 100000,
+              "minimum": 0,
+              "title": "From Tick",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Inclusive; defaults to 40 ticks from from_tick.",
+            "in": "query",
+            "name": "to_tick",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 100000,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Inclusive; defaults to 40 ticks from from_tick.",
+              "title": "To Tick"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolityFrames"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorDetail"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "A run's per-tick frames, at most 40 ticks at a time",
+        "tags": [
+          "polity"
         ]
       }
     },

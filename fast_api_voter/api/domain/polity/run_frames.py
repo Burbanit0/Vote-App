@@ -48,6 +48,10 @@ _ELECTION_OPENERS = frozenset({
 class NotExplorable(ValueError):
     """The run lacks what a replay needs: its config, its journal or its first census."""
 
+    def __init__(self, run_dir: Path, reason: str) -> None:
+        super().__init__(f"{run_dir}: {reason}")
+        self.reason = reason
+
 
 @dataclass
 class CitizenState:
@@ -402,14 +406,14 @@ def frames_for(run_dir: Path, events: Sequence[Mapping[str, Any]], snapshot_rows
     """The frames of the run in `run_dir`, from its journal and census rows already read."""
     config = _read_json(run_dir / "config.json")
     if config is None:
-        raise NotExplorable(f"{run_dir}: no readable config.json")
+        raise NotExplorable(run_dir, "no readable config.json")
     run = config["run"]
     population, ticks_per_year = int(run["population_size"]), int(run["ticks_per_year"])
     if not events:
-        raise NotExplorable(f"{run_dir}: no journal")
+        raise NotExplorable(run_dir, "no journal")
     census = census_by_year(snapshot_rows, population)
     if 0 not in census:
-        raise NotExplorable(f"{run_dir}: no complete year-0 census")
+        raise NotExplorable(run_dir, "no complete year-0 census")
     projection = build_projection(config, census)
     last_checkpoint = _last_checkpoint_tick(run_dir)
     frames, audited = build_frames(events, census, projection, ticks_per_year, last_checkpoint)

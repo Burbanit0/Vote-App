@@ -4,8 +4,9 @@ sorted into roles, candidacies, votes, pressure acts and petitions, each entry w
 motif decoded and the model's rationale cut short.
 
 What others did about a citizen is counted per tick rather than listed: a president of a
-population of 500 is the target of thousands of pressure acts and signatures and is named
-on every ballot that ranks them, and the panel needs how much came when, not each one.
+population of 500 is the target of thousands of pressure acts, signatures and reactions to
+their scandals, and is named on every ballot that ranks them; the panel needs how much came
+when, not each one.
 """
 from __future__ import annotations
 
@@ -33,7 +34,7 @@ _SECTION_OF: Mapping[str, Section] = {
     **dict.fromkeys(("petition_launched", "petition_signed", "petition_expired", "confidence_vote_triggered",
                      "confidence_vote_result"), "petitions"),
 }
-_RECEIVED_AS = {"pressure_action": "target", "petition_signed": "target", "vote_cast": "listed"}
+_RECEIVED_AS = {"pressure_action": "target", "petition_signed": "target", "reaction_to_event": "target", "vote_cast": "listed"}
 
 
 @dataclass(frozen=True)
@@ -53,7 +54,8 @@ class Received:
     tick: int
     event_type: str
     code: int | None
-    """The pressure act, or the rank the ballots gave this citizen (0 = first choice); None for a signature."""
+    """The pressure act, the rank the ballots gave this citizen (0 = first choice), or the exogenous
+    event reacted to (1 scandal, 2 economic shock); None for a signature."""
     count: int
 
 
@@ -106,8 +108,8 @@ def _received_code(event: Mapping[str, Any], citizen_id: int) -> int | None:
     payload = event.get("payload") or {}
     if event["event_type"] == "vote_cast":
         return list(payload["ranking"]).index(citizen_id)
-    act = payload.get("act")
-    return int(act) if act is not None else None
+    code = payload.get("event_type") if event["event_type"] == "reaction_to_event" else payload.get("act")
+    return int(code) if code is not None else None
 
 
 def build_biography(view: RunView, citizen_id: int) -> Biography:

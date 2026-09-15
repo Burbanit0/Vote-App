@@ -72,6 +72,18 @@ class Settings(BaseSettings):
     otel_exporter_otlp_endpoint: str = Field(default="")
     otel_service_name: str = Field(default="vote-lab-api")
 
+    # ── Polity run explorer (/api/v2/polity) ─────────────────────────────────
+    # Where finished simulation runs are read from: "label=path" pairs,
+    # comma-separated, e.g. "p500=/data/seed_sweep_runs". Empty (the default)
+    # serves only the committed fixture run (fast_api_voter/polity_fixtures),
+    # so no machine's run directories are exposed unless someone opts in.
+    polity_run_roots: str = Field(default="")
+    # Runs kept loaded at once; each is reloaded when its journal changes.
+    polity_explorer_cache_runs: int = Field(default=4, ge=1, le=64)
+    # A run whose events.jsonl is larger than this is not listed (an 8-year
+    # population-500 run journals about 4.4 MB).
+    polity_explorer_max_journal_bytes: int = Field(default=64_000_000, ge=1)
+
     # ── Derived ─────────────────────────────────────────────────────────────
     @property
     def is_production(self) -> bool:

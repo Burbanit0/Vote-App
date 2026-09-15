@@ -13,6 +13,7 @@ still being written is read again once it changes.
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from collections import OrderedDict
 from collections.abc import Sequence
@@ -27,6 +28,8 @@ from api.domain.polity.run_frames import RunFrames, frames_for
 from api.domain.polity.run_macro import RunMacro, build_macro
 from api.domain.polity.run_registry import discover_runs, run_record
 
+DEFAULT_RUN_ROOT = Path(__file__).resolve().parents[3] / "polity_fixtures" / "runs"
+"""The committed fixture run's root, served under the label "fixture" when no roots are configured."""
 RUN_KEY_PATTERN = re.compile(r"^[0-9a-f]{16}$")
 _LABEL_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,40}$")
 _REQUIRED_FILES = ("events.jsonl", "config.json", "snapshots.jsonl")
@@ -80,22 +83,29 @@ def _explorable_dir(run_dir: Path, root: Path, max_journal_bytes: int) -> bool:
     return (run_dir / "events.jsonl").stat().st_size <= max_journal_bytes
 
 
-def list_runs(roots: Sequence[RunRoot], max_journal_bytes: int) -> list[CatalogEntry]:
-    entries = []
+def _explorable(roots: Sequence[RunRoot], max_journal_bytes: int) -> list[tuple[str, RunRoot, str, Path]]:
+    """(key, root, relative path, run directory) for every explorable run, records unread."""
+    found = []
     for root in roots:
         for run_dir in discover_runs([root.path]):
-            if not _explorable_dir(run_dir, root.path, max_journal_bytes):
-                continue
-            relative = run_dir.relative_to(root.path).as_posix()
-            entries.append(CatalogEntry(key=run_key(root.label, relative), label=root.label, relative_path=relative,
-                                        run_dir=run_dir, record=run_record(run_dir)))
-    return entries
+            if _explorable_dir(run_dir, root.path, max_journal_bytes):
+                relative = run_dir.relative_to(root.path).as_posix()
+                found.append((run_key(root.label, relative), root, relative, run_dir))
+    return found
+
+
+def _entry(key: str, root: RunRoot, relative: str, run_dir: Path) -> CatalogEntry:
+    return CatalogEntry(key=key, label=root.label, relative_path=relative, run_dir=run_dir, record=run_record(run_dir))
+
+
+def list_runs(roots: Sequence[RunRoot], max_journal_bytes: int) -> list[CatalogEntry]:
+    return [_entry(*found) for found in _explorable(roots, max_journal_bytes)]
 
 
 def find_run(roots: Sequence[RunRoot], key: str, max_journal_bytes: int) -> CatalogEntry | None:
     if not RUN_KEY_PATTERN.match(key):
         return None
-    return next((entry for entry in list_runs(roots, max_journal_bytes) if entry.key == key), None)
+    return next((_entry(*found) for found in _explorable(roots, max_journal_bytes) if found[0] == key), None)
 
 
 @dataclass(frozen=True)
@@ -103,15 +113,26 @@ class LoadedRun:
     view: RunView
     frames: RunFrames
     macro: RunMacro
+    parties: tuple[tuple[int, tuple[float, ...]], ...]
+    """(party_id, platform) from the final checkpoint; platforms never move during a run."""
 
     def biography(self, citizen_id: int) -> Biography:
         return build_biography(self.view, citizen_id)
 
 
+def _parties(run_dir: Path) -> tuple[tuple[int, tuple[float, ...]], ...]:
+    try:
+        checkpoint = json.loads((run_dir / "checkpoint.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return ()
+    return tuple((int(p["party_id"]), tuple(float(x) for x in p["platform"])) for p in checkpoint.get("parties", []))
+
+
 def load_run(run_dir: Path) -> LoadedRun:
     view = RunView.load(run_dir)
     frames = frames_for(run_dir, view.events, view.snapshots)
-    return LoadedRun(view=view, frames=frames, macro=build_macro(view.events, frames.population, view.last_tick))
+    return LoadedRun(view=view, frames=frames, macro=build_macro(view.events, frames.population, view.last_tick),
+                     parties=_parties(run_dir))
 
 
 class RunCache:

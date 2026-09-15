@@ -12,6 +12,7 @@ from typing import Any
 from api.domain.polity.checkpoint import load_checkpoint
 from api.domain.polity.citizen import Role
 from api.domain.polity.config import PolityConfig
+from api.domain.polity.run_catalog import DEFAULT_RUN_ROOT
 from api.domain.polity.run_digest import read_journal_tolerant
 from api.domain.polity.run_frames import read_census, replay
 from api.domain.polity.run_polity_simulation import run_simulation
@@ -59,7 +60,7 @@ def explorer_runs(out: Path) -> dict[str, Path]:
 # ── the committed fixture run (B3) ────────────────────────────────────────
 
 FIXTURE_RUN_ID = "explorer-fixture"
-FIXTURE_ROOT = Path(__file__).resolve().parents[2] / "polity_fixtures" / "runs"
+FIXTURE_ROOT = DEFAULT_RUN_ROOT
 """The explorer's default run root: what the API serves when POLITY_RUN_ROOTS is unset."""
 FIXTURE_MANIFEST = "MANIFEST.json"
 
