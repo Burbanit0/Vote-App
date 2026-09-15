@@ -28,6 +28,27 @@ RUN uv pip install --system -r fast_api_voter/requirements.txt \
 
 # Source layer.
 COPY fast_api_voter/ fast_api_voter/
+# Belt-and-suspenders, not redundant with .dockerignore: reproduced a real
+# case where a Dockerfile referenced via `-f ci-local/...` (itself living
+# inside `ci-local/`, one of .dockerignore's own excluded paths) stopped
+# .dockerignore from being honored for THIS build specifically, even though
+# the exact same content/context correctly excludes these paths from every
+# other angle tested (a different -f path, the legacy non-BuildKit builder,
+# a fresh non-cached BuildKit instance) -- narrowed to that self-referential
+# combination but not fully root-caused. A host machine that ran `mutmut
+# run` locally leaves fast_api_voter/mutants/ full of deliberately-mutated
+# (non-idiomatic) code; if it leaks into this image, Ruff/mypy/pytest lint
+# and test it as if it were real source. Don't depend on any one exclusion
+# mechanism working: remove it explicitly too.
+RUN rm -rf fast_api_voter/mutants fast_api_voter/.mutmut-cache \
+           fast_api_voter/fuzz_corpus fast_api_voter/htmlcov-e2e \
+           fast_api_voter/vulture.txt fast_api_voter/radon.txt \
+           fast_api_voter/xenon.txt fast_api_voter/deptry.txt \
+           fast_api_voter/mutmut-run.log
+# Lives at the repo root, not under fast_api_voter/, so it needs its own COPY
+# — matches the real workflow's step order (PLAN_CI_STRUCTURAL_GAPS.md item
+# 2.C's freshness check, right after the install step).
+COPY scripts/check_python_lockfile_freshness.sh scripts/
 
 # Mirror the workflow steps in order (matches GitHub CI gating).
 # ruff (replaces flake8, Lot 1) + bandit = GATING. pip-audit = informational
@@ -36,6 +57,7 @@ COPY fast_api_voter/ fast_api_voter/
 # part of this base image's CPython build), so no extra install needed here.
 ENV FLASK_ENV=testing
 CMD ["bash","-euo","pipefail","-c","\
+echo '=== Python lockfiles up to date (non-blocking) ==='; bash scripts/check_python_lockfile_freshness.sh || echo '(lockfile freshness check failed — non-blocking)'; \
 echo '=== Ruff (gating) ===';           ruff check fast_api_voter; \
 echo '=== Import layering (gating) ==='; (cd fast_api_voter && lint-imports); \
 echo '=== Bandit (gating) ===';         bandit -r fast_api_voter/api -ll --skip B104,B311; \

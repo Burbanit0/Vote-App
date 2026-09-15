@@ -17,3 +17,48 @@ ci-local
 flask_voter_app
 **/.env
 **/.env.*
+
+# fast_api_voter local-only artifacts (all gitignored, see .gitignore's own
+# comments for why each exists). Found for real, not by inspection: `.git` is
+# excluded above for a small/reproducible build context, but ruff/most tools
+# respect `.gitignore` by asking git directly -- with no `.git` inside the
+# image, that lookup silently does nothing, so any of these left over on the
+# HOST at build time (e.g. `mutants/` from a local `mutmut run`) gets COPY'd
+# into the image and linted/type-checked/tested as if it were real source.
+# Reproduced: a stale fast_api_voter/mutants/ on the host made
+# ci-local/backend.Dockerfile's gating Ruff step fail on mutmut's own
+# deliberately-mutated (non-idiomatic) code, with a clean `ruff check` outside
+# Docker on the exact same host state (where `.git` IS present, so
+# gitignore-respecting behavior works normally). Excluding these here removes
+# the dependency on git context ever being available for it.
+fast_api_voter/mutants/
+fast_api_voter/.mutmut-cache
+fast_api_voter/mutmut-run.log
+fast_api_voter/seed.py
+fast_api_voter/vulture.txt
+fast_api_voter/radon.txt
+fast_api_voter/xenon.txt
+fast_api_voter/deptry.txt
+fast_api_voter/htmlcov-e2e/
+# NOT excluding fast_api_voter/fuzz_corpus/*/* here despite .gitignore doing
+# so (with a `!.../seed_*` negation to keep the committed seed fixtures):
+# tested against this repo's real build context and the whole fuzz_corpus/
+# directory silently disappears from the COPY'd fast_api_voter/ tree in this
+# environment regardless of whether an exclusion pattern targets it at all
+# (confirmed: still missing with the pattern removed entirely) -- while
+# copying fuzz_corpus/ in isolation, as the sole COPY source, brings all
+# seed files through correctly every time. Not root-caused, and not chased
+# further: unlike mutants/, nothing under fuzz_corpus/ is read by any step
+# in this Dockerfile's CMD chain (no fuzzing step runs here), so its
+# presence or absence has no effect on what this file actually gates.
+fast_api_voter/crash-*
+fast_api_voter/scripts/llm_test_harness/data/
+fast_api_voter/scripts/acceptance_v5_runs/
+fast_api_voter/scripts/acceptance_v6a_runs/
+fast_api_voter/scripts/acceptance_v6b_runs/
+fast_api_voter/scripts/acceptance_v6b_runs_electoral_only/
+fast_api_voter/scripts/acceptance_v6b_runs_recallfloor0/
+fast_api_voter/scripts/acceptance_v6b_runs_factor_structure/
+fast_api_voter/scripts/acceptance_v6b_runs_fs_electoral_only/
+fast_api_voter/scripts/sortition_calibration_runs/
+fast_api_voter/scripts/acceptance_cascade_runs/

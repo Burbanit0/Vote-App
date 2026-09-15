@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-14T14:58:30Z",
+  "generated_at": "2026-09-15T02:51:05Z",
   "workflows": {
     "mutation-testing.yml": {
       "display_name": "Mutation Testing",
@@ -78,13 +78,13 @@
     "scorecard.yml": {
       "display_name": "OpenSSF Scorecard",
       "expected_cadence_hours": 168,
-      "last_run_at": "2026-09-14T14:13:03Z",
+      "last_run_at": "2026-09-15T02:48:58Z",
       "recent_conclusions": [
         "success",
-        "failure",
         "success",
         "success",
-        "success"
+        "success",
+        "failure"
       ],
       "consecutive_failures": 0,
       "status": "healthy",
@@ -92,7 +92,7 @@
     }
   },
   "branch_protection": {
-    "status": "drifted",
-    "detail": "missing live required contexts: ['Playwright/Docker image version sync']"
+    "status": "healthy",
+    "detail": "matches setup-branch-protection.sh"
   }
 }
