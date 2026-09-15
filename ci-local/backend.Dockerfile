@@ -5,7 +5,9 @@
 #    Base distro is Debian (slim) rather than Ubuntu; irrelevant for pure-Python +
 #    manylinux wheels, and it guarantees the same 3.14.x the runner uses.
 #  - build-essential present so any sdist-only dep compiles (numpy/scipy ship wheels).
-#  - Installs BOTH requirements.txt and requirements-dev.txt (== the CI install step).
+#  - Installs from requirements-dev.lock.txt, matching the CI install step's own
+#    switch to the compiled lockfile -- not requirements.txt/requirements-dev.txt
+#    directly (those are still present for pip-audit/license-compliance/freshness).
 #
 # CI checks run as CMD, so `docker run` exits non-zero exactly when the PR would fail.
 FROM python:3.14-slim-bookworm
@@ -21,10 +23,15 @@ RUN apt-get update \
 
 WORKDIR /app
 
-# Install layer — cached unless the requirements files change.
-COPY fast_api_voter/requirements.txt fast_api_voter/requirements-dev.txt fast_api_voter/
-RUN uv pip install --system -r fast_api_voter/requirements.txt \
- && uv pip install --system -r fast_api_voter/requirements-dev.txt
+# Install layer — cached unless the requirements/lock files change. Installs
+# from requirements-dev.lock.txt (requirements.txt + requirements-dev.txt
+# compiled together, PLAN_CI_STRUCTURAL_GAPS.md item 2.C), matching the real
+# workflow's own switch to installing from the lockfile -- the loose
+# requirements*.txt files are still copied in because pip-audit and license
+# compliance both read requirements.txt directly, and the freshness check
+# below reads both requirements.txt and requirements-dev.txt.
+COPY fast_api_voter/requirements.txt fast_api_voter/requirements-dev.txt fast_api_voter/requirements-dev.lock.txt fast_api_voter/
+RUN uv pip install --system -r fast_api_voter/requirements-dev.lock.txt
 
 # Source layer.
 COPY fast_api_voter/ fast_api_voter/
@@ -46,8 +53,14 @@ RUN rm -rf fast_api_voter/mutants fast_api_voter/.mutmut-cache \
            fast_api_voter/xenon.txt fast_api_voter/deptry.txt \
            fast_api_voter/mutmut-run.log
 # Lives at the repo root, not under fast_api_voter/, so it needs its own COPY
-# — matches the real workflow's step order (PLAN_CI_STRUCTURAL_GAPS.md item
-# 2.C's freshness check, right after the install step).
+# (PLAN_CI_STRUCTURAL_GAPS.md item 2.C's freshness check). Unlike the real
+# workflow -- where the freshness check now runs as a step BEFORE the install
+# step, so a stale lockfile warns before it's used -- a Dockerfile can't
+# reproduce that ordering benefit: `RUN uv pip install` above already baked
+# the install into this image at BUILD time, before any CMD step (including
+# the freshness check, which only runs at container RUN time) ever executes.
+# The check here is purely informational after the fact, not a real "warn
+# before install" gate the way it is in CI.
 COPY scripts/check_python_lockfile_freshness.sh scripts/
 
 # Mirror the workflow steps in order (matches GitHub CI gating).
