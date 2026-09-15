@@ -140,26 +140,41 @@ jobs:
       # develop yet to read (the audit job hasn't run for real until this
       # merges and its first schedule/dispatch fires) -- that's a one-time
       # gap, not a health problem, so it passes with a notice instead of
-      # failing on a missing path.
+      # failing on a missing path. The branch-name check below keeps this
+      # case correctly routed through the notice, not the self-reference
+      # carve-out: that PR won't be on a chore/ci-health-snapshot-* branch
+      # (nothing but the audit job ever creates one), so it falls straight
+      # to the elif/found=false path exactly as this comment describes.
       #
       # Self-reference case (found the hard way, PR #493): a snapshot-update
-      # PR -- the only kind of PR that ever touches .github/ci-health.json,
-      # always opened by the audit job below -- fixes exactly the drift this
-      # check complains about, but still reads develop's PRE-fix tip, so it
-      # can never pass on its own. Mergify then correctly refuses to queue a
-      # PR whose own required check is red, deadlocking until a human runs a
-      # manual admin-merge override. When THIS PR's own diff touches that
-      # file, read its own (checked-out) copy instead of develop's: for that
-      # one file, in that one situation, the PR's version is the more
-      # current, intended source of truth, not a "possibly-stale PR branch
-      # copy" the way any other file would be -- every other PR never
-      # touches this file, so this carve-out only ever applies to the
-      # automated snapshot PRs it was written for.
+      # PR -- opened only by the audit job below, always from a branch named
+      # chore/ci-health-snapshot-<timestamp> (see its "Open a PR" step) --
+      # fixes exactly the drift this check complains about, but still reads
+      # develop's PRE-fix tip, so it can never pass on its own. Mergify then
+      # correctly refuses to queue a PR whose own required check is red,
+      # deadlocking until a human runs a manual admin-merge override. When
+      # THIS PR is one of those exact snapshot PRs, read its own (checked-out)
+      # copy instead of develop's: for that one file, in that one situation,
+      # the PR's version is the more current, intended source of truth.
+      #
+      # The branch-name check is load-bearing, not decorative -- caught by
+      # /code-review ultra on the first version of this fix, which only
+      # checked "did this PR's diff touch ci-health.json", with no check of
+      # who opened it or from where. check_ci_health.py --verify trusts the
+      # snapshot file's contents unconditionally (by design -- see its own
+      # docstring: cheap, no live API calls), so that version let ANY PR from
+      # ANY branch self-attest "everything is healthy" by editing this file
+      # in its own diff, and Mergify would have auto-merged on that green
+      # result with no visibility into why it was green. Scoping to the
+      # audit job's own well-known branch prefix closes that: only the branch
+      # name the automated job itself controls can trigger the carve-out, not
+      # an arbitrary PR that happens to touch the same path.
       - name: Fetch the latest snapshot from develop
         id: fetch
         run: |
           git fetch --depth=1 origin develop
           if [[ "${{ github.event_name }}" == "pull_request" ]] && \
+             [[ "${{ github.head_ref }}" == chore/ci-health-snapshot-* ]] && \
              [[ -f .github/ci-health.json ]] && \
              ! git diff --quiet origin/develop -- .github/ci-health.json; then
             cp .github/ci-health.json /tmp/ci-health.json

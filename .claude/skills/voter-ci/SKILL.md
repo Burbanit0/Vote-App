@@ -379,8 +379,15 @@ silently drifted from `scripts/setup-branch-protection.sh`.
 - **`verify`** (required, every PR, no paths filter — it's cheap enough
   that skipping it is never worth the PR #205 risk of a required check with
   no run) reads that snapshot from `develop`'s tip — not the PR branch's own
-  copy, since this is metadata about the *repo's* health, not the PR's diff
-  — and fails if:
+  copy, since this is metadata about the *repo's* health, not the PR's diff.
+  One narrow, scoped exception: a PR from a `chore/ci-health-snapshot-*`
+  branch (only ever opened by `audit` itself) reads its own copy instead —
+  otherwise the PR that fixes a drift could never pass the check reporting
+  that same drift, a real deadlock hit in PR #493 that needed a manual
+  admin-merge override to break. Scoped to that exact branch prefix, not
+  just "did this PR touch the file": an unscoped version of this exception
+  would let any PR self-attest a fabricated "healthy" snapshot in its own
+  diff, caught by `/code-review ultra` before it shipped. Fails if:
   - the snapshot is stale (the scheduled `audit` job has gone quiet — its
     own silence has to be as loud as any other failure it reports), or
   - any watched workflow is `unhealthy` (≥2 consecutive real failures),
