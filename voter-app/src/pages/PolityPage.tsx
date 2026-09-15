@@ -6,6 +6,7 @@ import RunPicker from '../components/polity/RunPicker';
 import RunFacts from '../components/polity/RunFacts';
 import TickPlayer from '../components/polity/TickPlayer';
 import InstitutionalTimeline from '../components/polity/InstitutionalTimeline';
+import PopulationMap from '../components/polity/PopulationMap';
 
 // The run explorer: a finished polity simulation replayed tick by tick. The page
 // is a layout shell over PolityController; each view (player, map, curves,
@@ -70,6 +71,7 @@ const PolityBody: React.FC = () => {
       <RunFacts />
       <TickPlayer />
       <InstitutionalTimeline />
+      <PopulationMap />
     </div>
   );
 };
