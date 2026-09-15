@@ -35,6 +35,8 @@ const NAMESPACES = [
   'runPicker',
   'runStates',
   'runFacts',
+  'player',
+  'map',
 ];
 const KEY_LEAK = new RegExp(`\\b(?:${NAMESPACES.join('|')})\\.[a-zA-Z][\\w]*(?:\\.[\\w]+)*`, 'g');
 

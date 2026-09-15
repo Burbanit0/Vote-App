@@ -55,4 +55,28 @@ test.describe('Polity — run explorer', () => {
       .click();
     await expect.poll(() => new URL(page.url()).searchParams.get('tick')).toBe('11');
   });
+
+  test('the map follows the player, switches lenses and selects a citizen', async ({ page }) => {
+    const param = (name: string) => new URL(page.url()).searchParams.get(name);
+    // Tick 10 of the fixture run holds an election: 40 ballots, one of them blank.
+    await page.goto('/polity?tick=10&lens=vote');
+    await expect(page.getByTestId('polity-map-canvas')).toBeVisible();
+    await expect(page.getByTestId('polity-legend-blank')).toContainText('1');
+    await expect(page.getByTestId('polity-legend-forWinner')).toBeVisible();
+
+    await page.getByTestId('polity-lens-act').click();
+    await expect.poll(() => param('lens')).toBe('act');
+    await expect(page.getByTestId('polity-lens-act')).toHaveAttribute('aria-checked', 'true');
+
+    await page.getByTestId('polity-table').locator('summary').click();
+    await page.getByTestId('polity-row-3').getByRole('button').click();
+    await expect.poll(() => param('citizen')).toBe('3');
+    await expect(page.getByTestId('polity-map-selection')).toBeVisible();
+
+    await page.getByTestId('polity-map-surface').focus();
+    await page.keyboard.press('Escape');
+    await expect.poll(() => param('citizen')).toBeNull();
+    await page.keyboard.press('ArrowUp');
+    await expect.poll(() => param('citizen')).not.toBeNull();
+  });
 });

@@ -66,6 +66,8 @@ const failed = (detail: string) => ({
 export interface PolityResponses {
   runs?: unknown;
   overview?: unknown;
+  /** The frame served for a tick; an empty frame by default. */
+  frame?: (tick: number) => unknown;
   failRuns?: boolean;
   failRun?: boolean;
 }
@@ -75,6 +77,7 @@ export function servePolity(
   {
     runs = [runSummary('aaaa', 'first'), runSummary('bbbb', 'second', 'deterministic')],
     overview,
+    frame = runFrame,
     failRuns,
     failRun,
   }: PolityResponses = {}
@@ -98,7 +101,7 @@ export function servePolity(
         key,
         from_tick,
         to_tick,
-        frames: Array.from({ length: to_tick - from_tick + 1 }, (_, i) => runFrame(from_tick + i)),
+        frames: Array.from({ length: to_tick - from_tick + 1 }, (_, i) => frame(from_tick + i)),
       });
     }
   );
