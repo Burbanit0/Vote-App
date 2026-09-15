@@ -141,11 +141,30 @@ jobs:
       # merges and its first schedule/dispatch fires) -- that's a one-time
       # gap, not a health problem, so it passes with a notice instead of
       # failing on a missing path.
+      #
+      # Self-reference case (found the hard way, PR #493): a snapshot-update
+      # PR -- the only kind of PR that ever touches .github/ci-health.json,
+      # always opened by the audit job below -- fixes exactly the drift this
+      # check complains about, but still reads develop's PRE-fix tip, so it
+      # can never pass on its own. Mergify then correctly refuses to queue a
+      # PR whose own required check is red, deadlocking until a human runs a
+      # manual admin-merge override. When THIS PR's own diff touches that
+      # file, read its own (checked-out) copy instead of develop's: for that
+      # one file, in that one situation, the PR's version is the more
+      # current, intended source of truth, not a "possibly-stale PR branch
+      # copy" the way any other file would be -- every other PR never
+      # touches this file, so this carve-out only ever applies to the
+      # automated snapshot PRs it was written for.
       - name: Fetch the latest snapshot from develop
         id: fetch
         run: |
           git fetch --depth=1 origin develop
-          if git show origin/develop:.github/ci-health.json > /tmp/ci-health.json 2>/dev/null; then
+          if [[ "${{ github.event_name }}" == "pull_request" ]] && \
+             [[ -f .github/ci-health.json ]] && \
+             ! git diff --quiet origin/develop -- .github/ci-health.json; then
+            cp .github/ci-health.json /tmp/ci-health.json
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          elif git show origin/develop:.github/ci-health.json > /tmp/ci-health.json 2>/dev/null; then
             echo "found=true" >> "$GITHUB_OUTPUT"
           else
             echo "found=false" >> "$GITHUB_OUTPUT"
