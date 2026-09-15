@@ -26,10 +26,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         gcc \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+COPY requirements.lock.txt .
 
-# Pre-build wheels — faster final install + smaller final layer.
-RUN pip wheel --no-cache-dir --wheel-dir=/wheels -r requirements.txt
+# Pre-build wheels — faster final install + smaller final layer. From the
+# compiled lockfile (uv pip compile, PLAN_CI_STRUCTURAL_GAPS.md item 2.C),
+# not requirements.txt resolved live -- the actual shipped image's whole
+# transitive dependency tree is now pinned, not just its direct pins.
+RUN pip wheel --no-cache-dir --wheel-dir=/wheels -r requirements.lock.txt
 
 
 # ── Stage 2: runtime ────────────────────────────────────────────────────────
@@ -51,10 +54,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Install pre-built wheels from the builder stage.
+# Install pre-built wheels from the builder stage. Same lockfile as the
+# builder stage above -- --no-index means this can ONLY resolve against the
+# wheelhouse just built from it, so the two must name the identical file.
 COPY --from=builder /wheels /wheels
-COPY requirements.txt .
-RUN uv pip install --system --no-cache --no-index --find-links=/wheels -r requirements.txt \
+COPY requirements.lock.txt .
+RUN uv pip install --system --no-cache --no-index --find-links=/wheels -r requirements.lock.txt \
     && rm -rf /wheels
 
 # Copy app code (after deps so layers cache well).
