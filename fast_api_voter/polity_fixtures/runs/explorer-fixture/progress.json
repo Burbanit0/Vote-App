@@ -1,0 +1,23 @@
+{
+  "decisions_by_type": {
+    "campaign_positioning": 15,
+    "candidacy_considered": 120,
+    "chamber_deliberation": 65,
+    "coalition_decision": 8,
+    "party_nomination_choice": 12,
+    "pressure_action": 85,
+    "reaction_to_event": 160,
+    "representative_response": 13,
+    "vote_cast": 120
+  },
+  "decisions_total": 598,
+  "fallback_by_type": {},
+  "fallback_count": 0,
+  "last_checkpoint_tick": 12,
+  "retry_count": 0,
+  "run_id": "explorer-fixture",
+  "simulated_year": 3.0,
+  "tick": 12,
+  "tick_in_progress": null,
+  "total_ticks": 12
+}

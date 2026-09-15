@@ -1,0 +1,15 @@
+{
+  "assembly_seats": 100,
+  "config_hash": "bbcdf3cdccc26135feb3cfbaf44678447191a1152286362d321615b2c179b9b6",
+  "duration_years": 3,
+  "engine": "llm",
+  "llm_enabled": true,
+  "llm_model": "qwen3:8b",
+  "llm_provider": "vllm",
+  "population_size": 40,
+  "run_id": "explorer-fixture",
+  "seed": 42,
+  "sortition_seats": 5,
+  "ticks_per_year": 4,
+  "total_ticks": 12
+}

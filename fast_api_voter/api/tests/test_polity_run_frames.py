@@ -6,14 +6,13 @@ from __future__ import annotations
 import dataclasses
 import json
 import shutil
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pytest
 
-from api.domain.polity.checkpoint import load_checkpoint
 from api.domain.polity.citizen import Role, generate_population, latent_structure
 from api.domain.polity.run_digest import read_journal_tolerant
 from api.domain.polity.run_frames import (
@@ -34,12 +33,11 @@ from api.domain.polity.run_frames import (
     TickMarks,
     load_run_frames,
     read_census,
-    replay,
 )
 from api.domain.polity.run_projection import TOP_ISSUES, build_projection
 from api.domain.polity.run_provenance import typed_config_mapping
 from api.domain.polity.snapshots import write_snapshot
-from api.tests.polity_explorer_fixtures import YEARS, explorer_runs
+from api.tests.polity_explorer_fixtures import YEARS, explorer_runs, replay_mismatches
 from api.tests.polity_golden import golden_config
 
 @pytest.fixture(scope="module")
@@ -60,44 +58,20 @@ def _census(run_dir: Path) -> dict[int, list[dict[str, Any]]]:
     return read_census(run_dir / "snapshots.jsonl", _config(run_dir)["run"]["population_size"])
 
 
-def _pledge(values: Sequence[float] | None) -> tuple[float, ...] | None:
-    return tuple(values) if values is not None else None
-
-
-def _view(role: str, office: str, pledged: Sequence[float] | None, revealed: Sequence[float] | None,
-          exact_pledges: bool) -> tuple[Any, ...]:
-    """Role, office and pledges. With opinion dynamics a standing candidate's pledge is
-    their view on the tick they declared, which only the census records; the president's
-    comes from the journal whole, so only candidates' pledges are left out there."""
-    if not exact_pledges and role == Role.CANDIDATE.value:
-        return role, office
-    return role, office, _pledge(pledged), _pledge(revealed)
-
-
 # ── the oracle ────────────────────────────────────────────────────────────
 
 @pytest.mark.parametrize("name", ["invalidated", "staggered", "audited", "deterministic", "dynamic"])
 def test_the_replay_reproduces_every_census_and_the_final_checkpoint(runs: dict[str, Path], name: str) -> None:
-    run_dir = runs[name]
-    census = _census(run_dir)
-    projection = build_projection(_config(run_dir), census)
-    exact = projection.positions == "static"
-    ticks_per_year = _config(run_dir)["run"]["ticks_per_year"]
-    compared = []
-    for tick, state, _marks in replay(_events(run_dir), census, projection, ticks_per_year, reset_yearly=False):
-        year = (tick + 1) // ticks_per_year
-        if (tick + 1) % ticks_per_year == 0 and year in census:
-            assert [_view(c.role, c.office, c.pledged, c.revealed, exact) for c in state.citizens] == [
-                _view(r["role"], r["office"], r["pledged_platform"], r["revealed_position"], exact) for r in census[year]
-            ], f"census of year {year}"
-            compared.append(year)
-    assert compared == list(range(1, YEARS + 1))
+    assert replay_mismatches(runs[name]) == []
 
-    checkpoint = load_checkpoint(run_dir / "checkpoint.json").state.citizens
-    assert [(*_view(c.role.value, c.office.value, c.pledged_platform, c.revealed_position, exact), c.sortition_seat_until_tick is not None)
-            for c in checkpoint] == [
-        (*_view(s.role, s.office, s.pledged, s.revealed, exact), cid in state.chamber) for cid, s in enumerate(state.citizens)
-    ]
+
+def test_the_oracle_catches_a_replay_that_goes_wrong(runs: dict[str, Path], tmp_path: Path) -> None:
+    run_dir = Path(shutil.copytree(runs["staggered"], tmp_path / "run"))
+    events = _lines(run_dir / "events.jsonl")
+    (run_dir / "events.jsonl").write_text("".join(line for line in events if json.loads(line)["event_type"] != "elected"))
+    assert any(m.startswith("census of year") for m in replay_mismatches(run_dir))
+    (run_dir / "events.jsonl").write_text("".join(line for line in events if json.loads(line)["tick"] <= 2))
+    assert "censuses compared [], recorded [0, 1, 2, 3]" in replay_mismatches(run_dir)  # a journal cut before a census
 
 
 def test_the_oracle_runs_exercise_what_the_replay_handles(runs: dict[str, Path]) -> None:
