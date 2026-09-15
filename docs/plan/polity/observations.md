@@ -42,6 +42,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-013](#obs-013) | Party nominations often don't match the reason the model gives, and lean to the last listed candidate | 2026-09-13 | open |
 | [OBS-014](#obs-014) | The p500 batch stopped: seed 1 received SIGTERM during the last vote of its last tick | 2026-09-13 | open |
 | [OBS-015](#obs-015) | In the deterministic twin, presidents are recalled after a median of two ticks | 2026-09-13 | cause found |
+| [OBS-016](#obs-016) | The root disk filled up: p500 seed 42 died at tick 13 and the GPU queue ran nothing | 2026-09-14 | open |
 
 ---
 
@@ -575,4 +576,49 @@ at the recall floor of 0.2.
 six ticks is a model question, not a bug: the pressure weights or the legitimacy floor, or a
 twin whose pressure rule is calibrated against the LLM path's. That is D9 in
 `plan-polity-build-order.md`.
+
+### OBS-016
+
+**The root disk filled up: p500 seed 42 died at tick 13 and the GPU queue ran nothing.**
+
+*Seen.* The root filesystem (`/dev/nvme0n1p6`, 128 GB) ran out of space between 10:20 and 10:24 on
+2026-09-14. It had 3.3 GB free at 07:52 that morning.
+
+- **Seed 42 died mid-tick.** Seed 42 of the S0.8 batch was on tick 13: its checkpoint for tick 12
+  was written at 09:05 and its last event at 09:06. It crashed at 10:24 with `No space left on
+  device` while rewriting `progress.json` after a model response. It left a 0-byte `digest.json`
+  and `llm_calls_summary.json`.
+- **The rest of the chain ran on a full disk.** The batch unit ended, the repeat-exclusion watcher
+  (D10) ran, and the GPU queue started at 10:25. Every step failed at once, and every log line hit
+  the same write error. No bake-off session, grammar arm, budget check, sampling arm or concurrency
+  sweep ran.
+- **Afterwards.** The machine was rebooted four times between 21:01 and 21:52. After the last boot
+  the root filesystem had 76 GB free.
+
+*Evidence.*
+
+```bash
+journalctl --since "2026-09-14 10:20" --until "2026-09-14 10:30" --no-pager | grep "No space"
+tail -30 Vote-App-p500/fast_api_voter/scripts/seed_sweep_runs/sweep-8y-p500-seed42.log
+ls -la Vote-App-p500/fast_api_voter/scripts/seed_sweep_runs/sweep-8y-p500-seed42/run/sweep-8y-p500-seed42
+```
+
+*Suspected cause.* Unknown: what took the space was gone by the time it was looked at.
+
+- **The batch itself writes little.** Seed 42's directory holds about 12 MB.
+- **What else wrote to the root disk that morning.** This work, between 09:50 and 10:25:
+  - the frontend dependencies reinstalled under Node 24 (the same size as before);
+  - coverage reports from the backend and frontend suites, and the quality-ratchet outputs;
+  - a `/code-review` run on the CI branch.
+
+  Other sessions and system updates were also active.
+- **A gap in the checks.** The hard constraint on local work checked free memory, not free disk,
+  although the disk was at 98%.
+
+*What would settle it.* A reproduction is not worth it. What would matter:
+
+- Long runs and queues checking free disk before each step, and stopping cleanly below a floor.
+- Local heavy work checking disk as well as memory.
+- A resume of seed 42 from its tick-12 checkpoint needs its empty `digest.json` moved aside first:
+  the sweep driver's `--resume-sweep` parses it and would fail on an empty file.
 
