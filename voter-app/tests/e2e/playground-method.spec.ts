@@ -113,6 +113,31 @@ test.describe('Playground — Méthode', () => {
     expect(crashes).toEqual([]);
   });
 
+  test('a lens click survives the robustness strip landing mid-click', async ({ page }) => {
+    // The strip above the lens switch fills in on a timer after the moment opens.
+    // It once pushed the switch down between a click's press and release, so the
+    // release missed the button (the Firefox flake of the test above). Hold the
+    // timer, press, let the strip land, release: the lens must still be selected.
+    await page.clock.install({ time: new Date('2026-01-01T08:00:00') });
+    await page.goto('/playground');
+    await expect(page.locator('[data-testid="moment-method"]')).toBeVisible();
+    await page.clock.pauseAt(new Date('2026-01-01T09:00:00'));
+
+    await page.locator('[data-testid="moment-method"]').click();
+    await expect(page.locator('[data-testid="winner-robustness-pending"]')).toBeAttached();
+    const lens = page.locator('[data-testid="lens-winner"]');
+    await expect(lens).toHaveAttribute('aria-checked', 'false');
+    const box = await lens.boundingBox();
+    expect(box).not.toBeNull();
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+    await page.mouse.down();
+
+    await page.clock.runFor(1_000);
+    await expect(page.locator('[data-testid="winner-robustness"]')).toBeVisible();
+    await page.mouse.up();
+    await expect(lens).toHaveAttribute('aria-checked', 'true');
+  });
+
   test('the count can be replayed step by step', async ({ page }) => {
     await page.locator('[data-testid="replay-open"]').click();
 
