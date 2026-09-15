@@ -107,7 +107,7 @@ détectée que si quelqu'un (humain ou agent) pense à relire la mémoire.
 **Effort** : S/M · **Priorité** : haute (ferme le dernier trou d'une
 philosophie « tout est cliqueté » par ailleurs cohérente).
 
-### 2.C 🟡 Pas de lockfile Python — reproductibilité transitive non garantie
+### 2.C 🟡 Pas de lockfile Python — reproductibilité transitive non garantie — PR #484 mergée, freshness check ajouté
 
 **Constat** : `requirements.txt`/`requirements-dev.txt` épinglent les 55
 dépendances directes en `==` exact (vérifié live : 49/55 déjà à la dernière
@@ -120,18 +120,39 @@ contraire du côté npm, reproductible byte pour byte via
 figé côté Python — deux installations à des instants différents peuvent
 résoudre des transitives différentes sans qu'aucun diff ne le montre.
 
-**Action, taille limitée pour cette session (GPU indisponible n'entre pas
-en jeu ici, c'est une question de rayon d'impact)** : générer `uv.lock` en
-ajout pur (nouveau fichier, aucun workflow ni `Dockerfile` reconfiguré
-pour le consommer) — donne un lockfile inspectable et diffable dès
-maintenant, sans changer aucun comportement CI existant. Rebrancher les ~12
-workflows et 4 `Dockerfile` qui font `uv pip install -r requirements*.txt`
-pour consommer `uv.lock` est un chantier plus large, à trancher et
-planifier séparément (risque de cascade sur une douzaine de jobs à la
-fois).
+**Fait (PR #484)** : `uv.lock` ne s'applique pas ici — il attend une table
+`[project.dependencies]` PEP 621 dans `pyproject.toml`, que ce dépôt n'a
+pas (essayé : produit un fichier de 3 lignes, vide). L'outil réel est
+`uv pip compile`, l'interface compatible pip-tools d'uv, qui prend
+`requirements*.txt` directement. Deux lockfiles générés, calquant le vrai
+découpage prod/dev (root `Dockerfile` installe `requirements.txt` seul,
+`fast_api_voter/Dockerfile`/`ci-local/backend.Dockerfile` installent les
+deux) : `requirements.lock.txt` (58 paquets), `requirements-dev.lock.txt`
+(176 paquets). Ajout pur, aucun workflow reconfiguré pour les consommer.
 
-**Effort** : S (cette session, ajout seul) → L (rebranchement complet,
-hors scope aujourd'hui) · **Priorité** : moyenne.
+**Fait (cette session, suite)** : un lockfile commité qu'on ne revérifie
+jamais dérive silencieusement — exactement la classe de bug que cette
+session corrige ailleurs. Ajouté `scripts/check_python_lockfile_freshness.sh`
+(informationnel, `continue-on-error`, câblé dans `backend-ci-cd-pipeline.yml`
+et `ci-local/backend.Dockerfile`) qui vérifie que chaque pin direct de
+`requirements*.txt` apparaît avec la même version dans le lockfile
+correspondant — **pas** une re-résolution `uv pip compile` + diff (ça
+signalerait une « dérive » à chaque fois qu'une transitive publie un
+nouveau patch en amont, sans aucun rapport avec ce dépôt). Détail réel
+trouvé en testant : `requirements.txt` épingle `prometheus_client`
+(underscore), `uv pip compile` normalise en `prometheus-client` (PEP 503)
+— même paquet, même version, pas une vraie dérive ; le script normalise
+les noms avant de comparer. Vérifié dans les deux sens (cas qui passe, et
+une dérive simulée réellement détectée) avant de committer.
+
+**Reste ouvert** : rebrancher les ~12 workflows et 4 `Dockerfile` qui font
+`uv pip install -r requirements*.txt` pour consommer les lockfiles
+eux-mêmes est un chantier plus large, à trancher et planifier séparément
+(risque de cascade sur une douzaine de jobs à la fois) — toujours hors
+scope.
+
+**Effort** : S (lockfiles + freshness check, fait) → L (rebranchement
+complet des installs CI, hors scope) · **Priorité** : moyenne.
 
 ### 2.D 🟢 « Redondance » gitleaks/trufflehog — déjà tranchée, aucune action
 

@@ -84,6 +84,17 @@ jobs:
           uv pip install --system -r fast_api_voter/requirements.txt
           uv pip install --system -r fast_api_voter/requirements-dev.txt
 
+      # Informational only (continue-on-error), same as this repo's other
+      # non-blocking checks before they're ratcheted -- see
+      # scripts/check_python_lockfile_freshness.sh's own header for what it
+      # does and (deliberately) doesn't check. PLAN_CI_STRUCTURAL_GAPS.md
+      # item 2.C added the lockfiles this guards; without this, they'd be
+      # exactly the kind of "committed but nobody keeps it in sync" artifact
+      # this session has spent itself fixing elsewhere.
+      - name: Python lockfiles up to date (informational)
+        continue-on-error: true
+        run: ./scripts/check_python_lockfile_freshness.sh
+
       # ── Linting ────────────────────────────────────────────────────────────
       # Blocking. Replaces flake8 (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md) — rule
       # selection (pyflakes real bugs only, not the cosmetic column-alignment
