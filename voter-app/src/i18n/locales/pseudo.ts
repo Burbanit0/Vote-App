@@ -21,6 +21,7 @@ const pseudo: TranslationKeys = {
     gallery: '⟦Gáléríé~~~⟧',
     electionLab: '⟦Éléçtíóñ~~~ Láb~~⟧',
     play: '⟦À~ vóús~~ dé~ jóúér~~⟧',
+    polity: '⟦Pólíty~~~⟧',
     playground: '⟦Pláygróúñd~~~~⟧',
     laboratoire: '⟦Lábórátóíré~~~~⟧',
     lexique: '⟦Léxíqúé~~~⟧',
