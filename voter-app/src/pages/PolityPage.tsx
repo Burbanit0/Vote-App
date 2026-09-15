@@ -4,6 +4,8 @@ import { Spinner } from '@/components/ui/spinner';
 import { PolityProvider, usePolityCtx } from '../components/polity/PolityController';
 import RunPicker from '../components/polity/RunPicker';
 import RunFacts from '../components/polity/RunFacts';
+import TickPlayer from '../components/polity/TickPlayer';
+import InstitutionalTimeline from '../components/polity/InstitutionalTimeline';
 
 // The run explorer: a finished polity simulation replayed tick by tick. The page
 // is a layout shell over PolityController; each view (player, map, curves,
@@ -63,7 +65,13 @@ const PolityBody: React.FC = () => {
       </Status>
     );
   }
-  return <RunFacts />;
+  return (
+    <div className="flex flex-col gap-3">
+      <RunFacts />
+      <TickPlayer />
+      <InstitutionalTimeline />
+    </div>
+  );
 };
 
 const PolityShell: React.FC = () => {

@@ -68,23 +68,37 @@ function useController(): PolityCtx {
     [setParams]
   );
 
+  const setRunKey = React.useCallback(
+    // Another run starts from its first tick, with nobody selected.
+    (key: string) => update({ run: key, tick: null, citizen: null }),
+    [update]
+  );
+  const setTick = React.useCallback(
+    (next: number) => update({ tick: String(clampTick(next, lastTick ?? 0)) }),
+    [update, lastTick]
+  );
+  const setLens = React.useCallback((next: PolityLens) => update({ lens: next }), [update]);
+  const setCitizen = React.useCallback(
+    (next: number | null) => update({ citizen: next === null ? null : String(next) }),
+    [update]
+  );
+
   return {
     runs,
     runsLoading: runsQuery.isLoading,
     runsError: runsQuery.error,
     run: runs?.find((r) => r.key === runKey),
     runKey,
-    // Another run starts from its first tick, with nobody selected.
-    setRunKey: (key) => update({ run: key, tick: null, citizen: null }),
+    setRunKey,
     overview,
     overviewLoading: overviewQuery.isLoading,
     overviewError: overviewQuery.error,
     tick,
-    setTick: (next) => update({ tick: String(clampTick(next, lastTick ?? 0)) }),
+    setTick,
     lens: parseLens(params.get('lens')),
-    setLens: (next) => update({ lens: next }),
+    setLens,
     citizen: parseCitizen(params.get('citizen'), overview?.population ?? 0),
-    setCitizen: (next) => update({ citizen: next === null ? null : String(next) }),
+    setCitizen,
     frame,
     frameLoading,
   };

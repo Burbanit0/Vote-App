@@ -1,110 +1,32 @@
 import React from 'react';
+import type { Mock } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter, useLocation } from 'react-router';
+import { MemoryRouter } from 'react-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import PolityPage from '../PolityPage';
 import { makeTestQueryClient } from '../../test/queryWrapper';
+import {
+  makeSearchSpy,
+  runOverview,
+  runSummary,
+  servePolity,
+  type PolityResponses,
+} from '../../test/polityApi';
 import { PolityProvider, usePolityCtx } from '../../components/polity/PolityController';
 
 vi.mock('../../api/client', () => ({
   apiClient: { GET: vi.fn(), POST: vi.fn(), PUT: vi.fn(), DELETE: vi.fn(), PATCH: vi.fn() },
 }));
 const { apiClient } = (await import('../../api/client')) as unknown as {
-  apiClient: { GET: ReturnType<typeof vi.fn> };
+  apiClient: { GET: Mock };
 };
 
-const run = (key: string, runId: string, engine = 'llm') => ({
-  key,
-  label: 'fixture',
-  relative_path: runId,
-  run_id: runId,
-  generation: 'checkpointed',
-  engine,
-  outcome: null,
-  population: 40,
-  years: 3,
-  seed: 42,
-  ticks_reached: 12,
-  ticks_planned: 12,
-});
-
-const overview = (key: string, voteCoverage = 'all') => ({
-  key,
-  label: 'fixture',
-  run_id: key,
-  population: 40,
-  ticks_per_year: 4,
-  last_tick: 12,
-  last_checkpoint_tick: 10,
-  vote_coverage: voteCoverage,
-  unknown_event_types: [],
-  projection: { method: 'latent', positions: 'static', axes: [[], []], citizens: [] },
-  parties: [],
-  citizen_parties: [],
-  terms: [],
-  timeline: [],
-  standings: [],
-  elections: [],
-  legislative: [],
-  motifs: [],
-});
-
-const frame = (tick: number) => ({
-  tick,
-  partial: tick > 10,
-  status: [],
-  chamber: [],
-  act: [],
-  vote: [],
-  candidacy: [],
-  president: null,
-});
-
-// openapi-fetch resolves to { data } or { error }, with the Response beside it.
-const ok = (data: unknown) => ({ data, response: { status: 200, headers: new Headers() } });
-const failed = (detail: string) => ({
-  error: { detail },
-  response: { status: 404, headers: new Headers() },
-});
-
-type Responses = { runs?: unknown; overview?: unknown; failRuns?: boolean; failRun?: boolean };
-
-function serve({
-  runs = [run('aaaa', 'first'), run('bbbb', 'second', 'deterministic')],
-  overview: body,
-  failRuns,
-  failRun,
-}: Responses) {
-  apiClient.GET.mockImplementation(
-    async (
-      path: string,
-      init: {
-        params?: { path?: { run_key?: string }; query?: { from_tick: number; to_tick: number } };
-      }
-    ) => {
-      if (path === '/api/v2/polity/runs') {
-        return failRuns ? failed('roots unreadable') : ok({ runs });
-      }
-      const key = init.params?.path?.run_key ?? '';
-      if (path === '/api/v2/polity/runs/{run_key}') {
-        return failRun ? failed('run not found') : ok(body ?? overview(key));
-      }
-      const { from_tick, to_tick } = init.params!.query!;
-      return ok({
-        key,
-        from_tick,
-        to_tick,
-        frames: Array.from({ length: to_tick - from_tick + 1 }, (_, i) => frame(from_tick + i)),
-      });
-    }
-  );
-}
-
-let lastSearch = '';
-const SearchSpy: React.FC = () => {
-  lastSearch = useLocation().search;
-  return null;
-};
+const run = runSummary;
+const overview = (key: string, voteCoverage = 'all') =>
+  runOverview(key, { vote_coverage: voteCoverage });
+const serve = (responses: PolityResponses) => servePolity(apiClient.GET, responses);
+const spy = makeSearchSpy();
+const SearchSpy = spy.SearchSpy;
 
 function renderAt(url: string) {
   return render(
@@ -120,7 +42,6 @@ function renderAt(url: string) {
 describe('PolityPage', () => {
   beforeEach(() => {
     apiClient.GET.mockReset();
-    lastSearch = '';
   });
 
   it('shows the first run listed, its facts and where the player stands', async () => {
@@ -164,7 +85,7 @@ describe('PolityPage', () => {
     const picker = await screen.findByTestId('polity-run-picker');
     await screen.findByTestId('polity-run-facts');
     fireEvent.change(picker, { target: { value: 'bbbb' } });
-    await waitFor(() => expect(lastSearch).toBe('?run=bbbb&lens=vote'));
+    await waitFor(() => expect(spy.search()).toBe('?run=bbbb&lens=vote'));
     expect(await screen.findByTestId('polity-fact-engine')).toHaveTextContent(
       'deterministic rules'
     );
@@ -198,7 +119,6 @@ describe('PolityPage', () => {
 describe('PolityProvider', () => {
   beforeEach(() => {
     apiClient.GET.mockReset();
-    lastSearch = '';
   });
 
   it('writes the tick, lens and citizen its consumers set into the URL', async () => {
@@ -237,10 +157,10 @@ describe('PolityProvider', () => {
     fireEvent.click(screen.getByText('tick'));
     fireEvent.click(screen.getByText('lens'));
     fireEvent.click(screen.getByText('citizen'));
-    await waitFor(() => expect(lastSearch).toBe('?tick=12&lens=vote&citizen=3'));
+    await waitFor(() => expect(spy.search()).toBe('?tick=12&lens=vote&citizen=3'));
     expect(screen.getByTestId('probe-state')).toHaveTextContent('12|vote|3');
     fireEvent.click(screen.getByText('nobody'));
-    await waitFor(() => expect(lastSearch).toBe('?tick=12&lens=vote'));
+    await waitFor(() => expect(spy.search()).toBe('?tick=12&lens=vote'));
   });
 
   it('shows placeholders for what a run summary leaves out', async () => {
