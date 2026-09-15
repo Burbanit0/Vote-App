@@ -24,6 +24,12 @@ skill; this skill is about *this app's* structure and its non-obvious traps.
   (`vite.config.ts` `manualChunks`) — idle-prefetched once on the playground
   (`PlaygroundController.tsx`), and per-fiche hover/focus-prefetched on the Laboratoire (see
   the form-lock invariant below for the difference).
+- **Canvas 2D only for dense point clouds** (ADR-013): the Polity page's population map, one
+  point per citizen redrawn every tick. Everything sparse on it (parties, the president and
+  their drift, the selection, axes) stays SVG layered over the canvas. The scene is computed
+  in `lib/polity/mapScene.ts` and drawn by a pure `drawScene(ctx, scene)`, tested against a
+  recording context; hit-testing goes through `d3-delaunay`. Any other view stays SVG or
+  Recharts — a new Canvas view needs its own ADR.
 
 ## The form-lock invariant (the #1 thing not to break)
 
