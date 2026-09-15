@@ -93,4 +93,27 @@ test.describe('Polity — run explorer', () => {
     await page.getByTestId('polity-election-10').getByRole('button').click();
     await expect.poll(() => new URL(page.url()).searchParams.get('tick')).toBe('10');
   });
+
+  test('a citizen’s biography opens from the map’s table and moves the player', async ({
+    page,
+  }) => {
+    // Citizen 3 of the fixture run takes a pressure act at nearly every tick.
+    await page.goto('/polity');
+    await expect(page.getByTestId('polity-biography')).toHaveCount(0);
+    await page.getByTestId('polity-table').locator('summary').click();
+    await page.getByTestId('polity-row-3').getByRole('button').click();
+
+    const biography = page.getByTestId('polity-biography');
+    await expect(biography).toBeVisible();
+    const acts = biography
+      .getByTestId('biography-section-pressure_acts')
+      .getByTestId('biography-entry');
+    await expect(acts.first()).toBeVisible();
+    expect(await acts.count()).toBeGreaterThan(5);
+
+    await acts.nth(2).getByTestId('biography-tick').click();
+    await expect.poll(() => new URL(page.url()).searchParams.get('tick')).not.toBeNull();
+    await biography.getByTestId('polity-biography-close').click();
+    await expect.poll(() => new URL(page.url()).searchParams.get('citizen')).toBeNull();
+  });
 });

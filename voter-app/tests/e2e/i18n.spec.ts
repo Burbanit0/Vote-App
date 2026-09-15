@@ -38,6 +38,8 @@ const NAMESPACES = [
   'player',
   'map',
   'macro',
+  'biography',
+  'motifs',
 ];
 const KEY_LEAK = new RegExp(`\\b(?:${NAMESPACES.join('|')})\\.[a-zA-Z][\\w]*(?:\\.[\\w]+)*`, 'g');
 

@@ -46,3 +46,15 @@ export function usePolityFrame(runKey: string | null, tick: number, lastTick: nu
   const frame: PolityFrame | undefined = query.data?.frames[tick - chunk.from];
   return { frame, isLoading: query.isLoading, error: query.error };
 }
+
+export type PolityCitizen = components['schemas']['PolityCitizen'];
+
+/** A citizen's biography in the shown run. */
+export function usePolityCitizen(runKey: string, citizen: number) {
+  return $api.useQuery(
+    'get',
+    '/api/v2/polity/runs/{run_key}/citizens/{citizen_id}',
+    { params: { path: { run_key: runKey, citizen_id: citizen } } },
+    IMMUTABLE
+  );
+}

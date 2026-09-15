@@ -68,6 +68,9 @@ export interface PolityResponses {
   overview?: unknown;
   /** The frame served for a tick; an empty frame by default. */
   frame?: (tick: number) => unknown;
+  /** The biography served for a citizen. */
+  citizen?: (id: number) => unknown;
+  failCitizen?: boolean;
   failRuns?: boolean;
   failRun?: boolean;
 }
@@ -78,6 +81,8 @@ export function servePolity(
     runs = [runSummary('aaaa', 'first'), runSummary('bbbb', 'second', 'deterministic')],
     overview,
     frame = runFrame,
+    citizen,
+    failCitizen,
     failRuns,
     failRun,
   }: PolityResponses = {}
@@ -86,7 +91,10 @@ export function servePolity(
     async (
       path: string,
       init: {
-        params?: { path?: { run_key?: string }; query?: { from_tick: number; to_tick: number } };
+        params?: {
+          path?: { run_key?: string; citizen_id?: number };
+          query?: { from_tick: number; to_tick: number };
+        };
       }
     ) => {
       if (path === '/api/v2/polity/runs') {
@@ -95,6 +103,10 @@ export function servePolity(
       const key = init.params?.path?.run_key ?? '';
       if (path === '/api/v2/polity/runs/{run_key}') {
         return failRun ? failed('run not found') : ok(overview ?? runOverview(key));
+      }
+      if (path === '/api/v2/polity/runs/{run_key}/citizens/{citizen_id}') {
+        const id = init.params!.path!.citizen_id!;
+        return failCitizen || !citizen ? failed('citizen not found') : ok(citizen(id));
       }
       const { from_tick, to_tick } = init.params!.query!;
       return ok({
