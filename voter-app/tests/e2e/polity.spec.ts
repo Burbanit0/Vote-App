@@ -116,4 +116,26 @@ test.describe('Polity — run explorer', () => {
     await biography.getByTestId('polity-biography-close').click();
     await expect.poll(() => new URL(page.url()).searchParams.get('citizen')).toBeNull();
   });
+
+  test('a journey through the run: to an election, its winner’s story, the curves', async ({
+    page,
+  }) => {
+    const param = (name: string) => new URL(page.url()).searchParams.get(name);
+    await page.goto('/polity');
+
+    // Tick 10 of the fixture run: the snap election citizen 21 won.
+    await page.getByTestId('player-slider').fill('10');
+    await expect.poll(() => param('tick')).toBe('10');
+    await page.getByTestId('polity-lens-vote').click();
+    await expect(page.getByTestId('polity-legend-forWinner')).toBeVisible();
+
+    await page.getByTestId('polity-table').locator('summary').click();
+    await page.getByTestId('polity-row-21').getByRole('button').click();
+    const roles = page.getByTestId('polity-biography').getByTestId('biography-section-roles');
+    await expect(roles.getByTestId('biography-entry').first()).toBeVisible();
+
+    await page.getByTestId('polity-macro-toggle').click();
+    await expect(page.getByTestId('polity-election-10')).toContainText('21');
+    expect(param('citizen')).toBe('21');
+  });
 });
