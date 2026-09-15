@@ -156,19 +156,30 @@ direct — les deux gardés en synchro ensemble dans le même commit
 lockfile, puis la suite de gating complète — ruff/mypy/pytest+coverage/
 benchmarks — passe de bout en bout).
 
+**Fait (suite)** : `fast_api_voter/Dockerfile.prod` — l'image
+*réellement déployée* (construite par le job `image-scan` d'`audit.yml`,
+pas `fast_api_voter/Dockerfile` qui est une image de dev) — installe
+maintenant depuis `requirements.lock.txt` dans ses deux stages (builder
+`pip wheel` + runtime `uv pip install --no-index`). Priorité plus haute
+que le reste : la reproductibilité de ce qui tourne réellement en
+production compte plus que celle des seuls jobs CI. Vérifié avec un
+build réel (`docker build` avec les arguments exacts d'`audit.yml`),
+les versions installées confirmées identiques au lockfile, et un smoke
+test réel — conteneur démarré, `curl` sur `/api/v2/health` répond
+`{"status":"ok",...}`.
+
 **Reste ouvert** : vérifié précisément (grep, pas une estimation) — 9
 autres workflows (`flaky-check-backend.yml`, `atheris-fuzzing.yml`,
 `release.yml`, `e2e.yml`, `audit.yml`, `openapi-contract.yml`,
-`mutation-testing.yml`, `schemathesis.yml`, `dast.yml`) et 4 autres
+`mutation-testing.yml`, `schemathesis.yml`, `dast.yml`) et 3 autres
 `Dockerfile` (`ci-local/e2e.Dockerfile`, `Dockerfile` racine,
-`fast_api_voter/Dockerfile`, `fast_api_voter/Dockerfile.prod`) qui
-installent encore `requirements*.txt` en direct restent hors scope —
-chacun a son propre rayon d'impact à évaluer séparément plutôt qu'un
-rebranchement en masse.
+`fast_api_voter/Dockerfile`) qui installent encore `requirements*.txt`
+en direct restent hors scope — chacun a son propre rayon d'impact à
+évaluer séparément plutôt qu'un rebranchement en masse.
 
 **Effort** : S (lockfiles + freshness check, fait) → M (Backend CI +
-son miroir, fait) → L (reste des 9 workflows/4 Dockerfile, hors scope)
-· **Priorité** : moyenne.
+son miroir + image de prod, fait) → L (reste des 9 workflows/3
+Dockerfile, hors scope) · **Priorité** : moyenne.
 
 ### 2.D 🟢 « Redondance » gitleaks/trufflehog — déjà tranchée, aucune action
 
