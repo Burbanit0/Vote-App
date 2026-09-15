@@ -102,11 +102,13 @@ jobs:
       # install. Installing from the lockfile instead of resolving
       # requirements*.txt live makes THIS job reproducible: two runs at
       # different times now install the identical transitive tree here, not
-      # just identical direct pins. Scoped claim, not a repo-wide one: the
-      # actual shipped backend image (fast_api_voter/Dockerfile, built by
-      # audit.yml's image-scan job) still resolves requirements*.txt live
-      # and isn't touched by this -- rewiring every install site is tracked,
-      # separately, as still-open scope in PLAN_CI_STRUCTURAL_GAPS.md.
+      # just identical direct pins. The actual shipped backend image
+      # (fast_api_voter/Dockerfile.prod, built by audit.yml's image-scan job
+      # -- NOT the similarly-named fast_api_voter/Dockerfile, which is a dev
+      # image) gets the same lockfile treatment in the same session, kept as
+      # its own follow-up commit rather than bundled here. Everything else
+      # (~9 other workflows, 3 other Dockerfiles) stays tracked, separately,
+      # as still-open scope in PLAN_CI_STRUCTURAL_GAPS.md.
       - name: Install production + dev dependencies (from the lockfile)
         run: uv pip install --system -r fast_api_voter/requirements-dev.lock.txt
 
