@@ -27,7 +27,8 @@ npm run test:e2e           # Playwright, chromium + firefox + webkit + mobile
 **The e2e suite is a gate on every PR** (`.github/workflows/e2e.yml`), not just at
 release. It needs the backend on `:4434` (`uvicorn api.main:app --port 4434` in
 `fast_api_voter/`) — Assemblée mode and two Laboratoire fiches hit it; Playwright
-starts the frontend itself.
+starts the frontend itself. Start it with `POLITY_RUN_ROOTS` unset, so `/api/v2/polity`
+serves exactly the committed fixture run (`fast_api_voter/polity_fixtures/`).
 
 Two rules keep it from rotting the way it did before (5 specs frozen against a
 UI that had moved on for two months):

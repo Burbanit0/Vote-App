@@ -139,6 +139,8 @@ def test_a_president_s_biography_sorts_their_story_and_counts_the_pressure_on_th
         payload, actor = e.get("payload") or {}, e.get("citizen_id")
         if e["event_type"] in ("pressure_action", "petition_signed") and payload.get("target") == president and actor != president:
             named[(e["tick"], e["event_type"], payload.get("act"))] += 1
+        elif e["event_type"] == "reaction_to_event" and payload.get("target") == president and actor != president:
+            named[(e["tick"], "reaction_to_event", payload["event_type"])] += 1
         elif e["event_type"] == "vote_cast" and president in payload["ranking"] and actor != president:
             named[(e["tick"], "vote_cast", payload["ranking"].index(president))] += 1
     assert Counter({(r.tick, r.event_type, r.code): r.count for r in biography.received}) == named
