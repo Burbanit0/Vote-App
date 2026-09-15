@@ -15,7 +15,6 @@ import pytest
 
 from api.domain.polity.checkpoint import load_checkpoint
 from api.domain.polity.citizen import Role, generate_population, latent_structure
-from api.domain.polity.config import PolityConfig
 from api.domain.polity.run_digest import read_journal_tolerant
 from api.domain.polity.run_frames import (
     ACT_NONE,
@@ -37,50 +36,15 @@ from api.domain.polity.run_frames import (
     read_census,
     replay,
 )
-from api.domain.polity.run_polity_simulation import run_simulation
 from api.domain.polity.run_projection import TOP_ISSUES, build_projection
 from api.domain.polity.run_provenance import typed_config_mapping
 from api.domain.polity.snapshots import write_snapshot
+from api.tests.polity_explorer_fixtures import YEARS, explorer_runs
 from api.tests.polity_golden import golden_config
-from api.tests.test_polity_dynamic_citizens import MOVING, QUIET
-from api.tests.test_polity_run_simulation import _ElectingFakeLlmClient, _FakeLlmClient
-
-YEARS = 3
-
-
-def _years(config: PolityConfig) -> PolityConfig:
-    return dataclasses.replace(config, run=dataclasses.replace(config.run, duration_years=YEARS))
-
-
-def _eventful(config: PolityConfig, *, vote_mode: str = "llm", **institutions: Any) -> PolityConfig:
-    """A yearly presidency and frequent rupture candidacies, so three years hold several
-    elections and candidates who stand across a census."""
-    config = _years(config)
-    return dataclasses.replace(
-        config,
-        candidacy=dataclasses.replace(config.candidacy, rupture_path_enabled=True, rupture_base_probability=0.03),
-        institutions=dataclasses.replace(config.institutions, president_term_years=1, **institutions),
-        vote=dataclasses.replace(config.vote, mode=vote_mode),
-    )
-
 
 @pytest.fixture(scope="module")
 def runs(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
-    out = tmp_path_factory.mktemp("frames")
-    dynamic = dataclasses.replace(_eventful(golden_config(out / "dynamic", llm=False)), dynamics=MOVING, emotions=QUIET)
-    return {
-        # blank ballots: every election invalidated, reruns and forced attempts
-        "invalidated": run_simulation(_eventful(golden_config(out / "invalidated", llm=True)), run_id="invalidated",
-                                      llm_client=_FakeLlmClient()).parent,
-        # a campaign a tick ahead of each election, recalls, representative responses
-        "staggered": run_simulation(_eventful(golden_config(out / "staggered", llm=True), staggered_election=True),
-                                    run_id="staggered", llm_client=_ElectingFakeLlmClient()).parent,
-        # the shipped utility vote, the model voting only for the audit sample
-        "audited": run_simulation(_years(golden_config(out / "audited", llm=True)), run_id="audited",
-                                  llm_client=_ElectingFakeLlmClient()).parent,
-        "deterministic": run_simulation(_eventful(golden_config(out / "deterministic", llm=False)), run_id="deterministic").parent,
-        "dynamic": run_simulation(dynamic, run_id="dynamic").parent,
-    }
+    return explorer_runs(tmp_path_factory.mktemp("frames"))
 
 
 def _events(run_dir: Path) -> list[dict[str, Any]]:
