@@ -578,6 +578,38 @@ six ticks is a model question, not a bug: the pressure weights or the legitimacy
 twin whose pressure rule is calibrated against the LLM path's. That is D9 in
 `plan-polity-build-order.md`.
 
+*Follow-up, 2026-09-16: which channel, whether D9's knobs reach it, and the gap to the LLM path.*
+`scripts/probe_twin_presidency.py` measures each option D9 names, alone, on this twin, then
+compares what its citizens do under pressure with the p500 LLM runs. It is exploratory and adopts
+nothing. Every number below is in `scripts/probe_twin_presidency_results.md`.
+
+- **It is the mobilization channel, not petitions.** With the petition channel off the twin is
+  unchanged: 0 full terms of the 20 possible, 79 of 92 presidencies recalled. With mobilization
+  off, 13 of 20 terms run their full 16 ticks and the median presidency lasts 13. Both off gives
+  20 of 20 and no recall, which checks the measure.
+- **No knob D9 names reaches it alone.** The recall floor at 0.10 or 0.05 yields 2 full terms of
+  20. Removing street pressure's memory entirely (decay 0.00) or halving legitimacy's
+  (0.5, so an écart is amplified ×2 rather than ×10) yields 6, and still recalls 71–74% of
+  presidencies. Amplification is not the cause: the rate is.
+- **The rate is the twin's, not the model's.** Of every consulted citizen's `pressure_action`:
+
+  | run | consulted acts | mobilize | mobilizing per tick | wait for the election |
+  |---|---:|---:|---:|---:|
+  | twin, p100, 10 seeds | 13,163 | 3,684 (28.0%) | 11.16% of the population | 0 |
+  | LLM, p500 seed 1 | 3,495 | 1 (0.0%) | 0.01% | 43 |
+  | LLM, p500 seed 2 | 4,074 | 74 (1.8%) | 0.45% | 61 |
+
+  The twin mobilizes 25 to 1,000 times as often as the LLM path it stands in for, and never waits
+  for an election. `simple_rules.deterministic_pressure_action` reaches "mobilize" before "wait"
+  for any consulted citizen whose gap passes their blank threshold, so waiting is only chosen
+  when petitioning and mobilizing are both unavailable.
+
+*What this changes for D9.* Of its options, the pressure weights and the recall floor are measured
+here as insufficient on their own. The one left is the one it names last: a deterministic
+pressure rule whose mobilization is calibrated against the LLM path's. Two cautions before
+reading it as settled: the twin is population 100 and the LLM runs are 500, and only two
+completed LLM seeds exist, one of which mobilized exactly once.
+
 ### OBS-016
 
 **The root disk filled up: p500 seed 42 died at tick 13 and the GPU queue ran nothing.**
