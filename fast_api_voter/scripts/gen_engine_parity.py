@@ -347,6 +347,18 @@ def _generate_exhaustive_cardinal_scenarios(
     filtered — same reasoning as `generate_exhaustive_scenarios`: that filter
     exists to drop "no comparable winner" ballast, but it also silently skips
     exactly the tied/degenerate profiles an exhaustive check exists to catch.
+
+    Known remaining overlap, left alone here on purpose: the final
+    `{"candidates":, "scores":, "winners": {rule: winner}}` scenario dict this
+    builds is structurally the same few lines `single_rule_scenarios` above
+    builds for its own (random-sample, strict-winner-filtered) scenarios. Not
+    merged into this helper too — the two functions' surrounding control flow
+    (this one's ballot-type combinatorics vs. single_rule_scenarios' per-(m,n)
+    random trials with strict_winner_cardinal) is different enough that
+    sharing just the closing dict literal would trade a few real duplicated
+    lines for an extra indirection, for a much smaller win than the ballot-
+    type/self-consistency duplication this function actually fixes. A
+    follow-up if the two ever grow a THIRD near-identical tail.
     """
     scenarios = []
     for n in n_range:
@@ -517,10 +529,16 @@ def generate_exhaustive_majority_judgment_scenarios() -> list[dict]:
 # (0, 2, 5) -> (1, 10, 100) -- a deliberately NON-linear, order-preserving
 # remap -- across 200k random profiles (n in 2..5, m in 1..8), then again with
 # a wider 0-5 grade set and a more aggressive remap across another 200k: 0
-# winner changes in either run. Reusing MJ's exact three values here is only
-# for fixture-reading consistency with the MJ section; any 3 strictly-
-# increasing values would do.
-MAXIMIN_EXHAUSTIVE_GRADES: tuple = (0, 2, 5)
+# winner changes in either run.
+#
+# Set to MJ_EXHAUSTIVE_GRADES itself (an alias, not a second literal) purely
+# for fixture-reading consistency with the MJ section -- any 3 strictly-
+# increasing values would do, and the two rules' soundness arguments are
+# otherwise independent. Aliasing instead of repeating the literal (0, 2, 5)
+# keeps that "same three values" claim, made in both this comment and the
+# parity test's, mechanically true rather than two numbers a future edit to
+# either constant could silently drift apart.
+MAXIMIN_EXHAUSTIVE_GRADES: tuple = MJ_EXHAUSTIVE_GRADES
 
 
 def generate_exhaustive_maximin_scenarios() -> list[dict]:
