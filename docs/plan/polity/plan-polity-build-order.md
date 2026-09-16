@@ -902,6 +902,96 @@ choice about which of these to change: the consultation gate, a target on the jo
 rather than on MOBILIZE and SIGN_PETITION separately, or accepting D9's first option — the Stage 4
 verdicts as they stand.
 
+### Stage 4 on the LLM path, pre-registered before running (2026-09-16)
+
+*Signed off by the owner on 2026-09-16 as written, before any calibration run; step 1 approved to start.*
+
+The owner chose to calibrate S4.1, S4.2 and S4.3 on the LLM path, since the deterministic twin
+cannot hold a president (D9; OBS-015). This replaces the twin as the bench under all three. Their
+grids, facts and selection rules stay exactly as ADR-011, ADR-009 and ADR-012 and §9 pre-registered
+them; what changes is the engine, the order in which settings are evaluated, and a budget. Nothing
+below is re-gridded or re-banded after a result is seen.
+
+**The bench.** The flagship's full-mechanism config on the LLM engine: vLLM 0.28.0 serving
+`Qwen/Qwen3-8B-AWQ` with the shipped defaults (the `vote_cast` grammar and the 2048-token thinking
+budget, #528); population 100, 30 chamber seats, seeds 1–10; 8 years for S4.1 and S4.3, 16 for
+S4.2; 12 workers with `llm.reproducibility: relaxed`. A relaxed run is reproducible by replaying its
+call log (S0.6), not by re-running its seed; every run keeps its call log.
+
+**The measured cost** (`scripts/stage4_llm_pilot_results.md`): 18 minutes for an 8-year run. A
+16-year run is taken as 36 minutes, unmeasured. A seed with recalls holds more elections and costs
+more; the budget below is in runs, and the hours are reported as they come.
+
+#### S4.3, dynamics: carried over, no runs
+
+D1–D3 never read the model: the opinion update uses the current factors, the anchors, a graph and a
+random stream seeded from the run seed and population alone. The twin's D1–D3 readings are
+therefore exactly the LLM path's, and on them no setting passes D1 and D2 together. **The dynamics
+verdict — none qualifies — stands.** D4 is not run: it is only reached by settings that pass D1–D3.
+
+#### S4.2, legislation
+
+- **L1–L3, recorded once per seed.** At `policy_retrospection` 0 a legislation setting changes
+  nothing the model is asked (checked on the fake client, and on real model output in the pilot).
+  One 16-year run per seed is recorded at interval 4, step 0.05, and replayed on CPU at each of the
+  nine (interval, step) settings. A replay that asks for a call it never recorded raises; if any
+  does, that setting is run closed-loop instead and the exception is reported.
+- **L4's baseline is 0 without a run:** with a static population no governing record exists
+  before the first assembly, so the zero-weight change is exactly 0 (ADR-009).
+- **L4 at a weight, in selection order.** The settings passing L1–L3 are taken longest interval
+  first, then smallest step; for each, weights 2, 5, 10 in turn, each a closed-loop 16-year run per
+  seed. The first setting and weight to meet L4 is the selection, and evaluation stops there. This
+  picks exactly what the full grid would, and runs nothing that could not be selected.
+
+#### S4.1, utility vote
+
+- **The zero-weight arm** first, once: F3 and F4 compare every setting against it.
+- **Settings in groups of equal `partisanship + approval`,** ascending: 0 (4 settings), 0.05 (8),
+  0.10 (12), 0.15 (8), 0.20 (4). A whole group runs, since its tie-break (mean turnout nearest
+  67.5%) needs every member. The first group holding a qualifying setting gives the selection, and
+  evaluation stops there.
+
+#### S4.3, emotions
+
+- **Prerequisite, not started by this pre-registration:** ADR-012 requires the bake-off to carry a
+  pressure family whose cases include emotions before an LLM run turns them on. That session and its
+  acceptance come first; until then emotions are not run.
+- **Then the all-zero weight set first,** on the static population. It sorts first in selection
+  order; if E1–E3 hold there, emotions stay off and the calibration is settled. Otherwise the sets
+  are taken by ascending total weight, a whole weight level at a time, as the grid's own tie-break
+  requires.
+- E3 reads full terms with the reading fixed in #535.
+
+#### Order and budget
+
+| step | runs | at the measured cost |
+|---|---:|---:|
+| 1. S4.2 L1–L3: record 10 seeds, replay 9 settings | 10 × 16 y | ≈ 6 h |
+| 2. S4.1: zero-weight arm, then group 0 | 50 × 8 y | ≈ 15 h |
+| 3. S4.2 L4: up to three (setting, weight) evaluations | ≤ 30 × 16 y | ≤ 18 h |
+| 4. S4.1: group 0.05, if group 0 had no qualifying setting | 80 × 8 y | ≈ 24 h |
+| 5. S4.3 emotions: the all-zero set, after its prerequisite | 10 × 8 y | ≈ 3 h |
+
+**Cap: 70 GPU-hours** for steps 1–5 together. A calibration that reaches the end of its steps
+without a qualifying setting is reported as **"none qualifies within the pre-registered budget"** —
+not as "none qualifies" — with what was measured, and what the next step would cost. Extending the
+budget is a new decision, not a continuation.
+
+#### Reported for every run, not used to select
+
+- Fallbacks by decision type. In the pilot, representative_response fell back in 16 of 33
+  decisions, each time on a motif the codebook rejects for a silence the model chose; the fallback
+  enacts the same silence, so behavioural facts are unaffected, but the rate is reported.
+- Recalls, full terms and wall-clock time, so the cost model is corrected as runs arrive.
+
+#### Cautions, stated now
+
+- Every run is population 100; the earlier LLM runs were 500.
+- F1 and F4 have few data points per seed — a standing incumbent at tick 16 or later, at most one
+  repeat winner — which is why the seeds stay at ten.
+- L4's effect on the twin was 0.07 points of vote share: at population 100 that is a handful of
+  ballots, and may not be distinguishable from zero in ten seeds.
+
 ### S4.1's grid, pre-registered before running (ADR-011 gave the facts, not the grid)
 
 - `partisanship` ∈ {0, 0.05, 0.1}
