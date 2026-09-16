@@ -54,8 +54,9 @@ test failed.
    ```
    This is the test CLAUDE.md and `scripts/check_engine_parity_drift.sh` both
    point at — it asserts the client's `ruleWinnerFromRanks` returns the same
-   winner as the fixture across ~590 ordinal scenarios (60 random-strict +
-   481 exhaustive n≤3 + cardinal scenarios), rule by rule via `it.each`.
+   winner as the fixture across ~720 scenarios (60 random-strict ordinal +
+   481 exhaustive n≤3 + 60 each of cardinal, approval and majority-judgment),
+   rule by rule via `it.each`.
 
 4. **Interpret the combination of (2) and (3) honestly:**
    - **Fixture unchanged, test green** → clean bill of health. Report it
@@ -79,9 +80,10 @@ test failed.
 
 5. **Investigate a real divergence — find the root cause, don't just report the symptom.**
    - Read the failing test's output: `it.each` names the failing rule id(s)
-     directly (`describe`/`it` titles), and `mismatchesFor`/
-     `exhaustiveMismatchesFor` print `#<index>: client=<X> backend=<Y>` for
-     every mismatching scenario.
+     directly (`describe`/`it` titles), and every block prints
+     `#<index>: client=<X> backend=<Y>` for each mismatching scenario (for a
+     rule in `KNOWN_DIVERGENT`, diff that against its pinned list: a
+     disappeared entry means a side got fixed, a new one is a new divergence).
    - Map the rule id to both implementations:
      - Client: `case '<rule_id>':` inside `ruleWinnerFromRanks` in
        `playgroundVoting.ts` (~line 887 at last check — grep to confirm).
@@ -93,8 +95,10 @@ test failed.
        naming mismatch is itself the bug.
    - Look up the exact failing scenario by index in
      `voter-app/src/lib/__fixtures__/engineParity.json` (`scenarios[N]`,
-     `cardinalScenarios[N]`, or `exhaustiveScenarios[N]` depending on which
-     `describe` block failed) to get the concrete ballots/candidates —
+     `exhaustiveScenarios[N]`, `cardinalScenarios[N]`, `approvalScenarios[N]`
+     or `majorityJudgmentScenarios[N]` depending on which `describe` block
+     failed; MJ `scores` are 0-5 grades the test divides by 5) to get the
+     concrete ballots/candidates —
      reason about the actual profile, not the algorithm in the abstract.
    - Read both implementations of the diverging rule side by side and
      pinpoint the concrete behavioral difference (tie-break order, rounding/
@@ -104,13 +108,15 @@ test failed.
      profile.
    - Per CLAUDE.md, **the backend is authoritative and a parity break is a
      bug until proven otherwise** — default to assuming the client needs to
-     match the backend, not the reverse. The only legitimate escape hatch is
-     a genuine, documented modeling difference (the pattern already used for
-     approval/majority-judgment, which are excluded from the cardinal
-     comparison in `gen_engine_parity.py` for stated reasons) — treat that
-     path as rare and justify it explicitly if you invoke it; `KNOWN_DIVERGENT`
-     in the test file is currently empty and should stay that way unless a
-     divergence is truly a modeling choice, not a bug.
+     match the backend, not the reverse. But check both against the rule's
+     textbook definition (THEORY.md) before proposing which side to change:
+     `majority_judgment` is a case where the backend is the wrong side (it
+     ranks median ties by p − q, not the Balinski–Laraki gauge). A
+     documented ballot-derivation difference is handled by feeding both
+     engines exact-value ballots (how approval and MJ are compared in
+     `gen_engine_parity.py`), not by excluding the rule. `KNOWN_DIVERGENT`
+     in the test file pins a confirmed divergence's exact mismatch list while
+     it waits for a fix; never propose adding to it just to turn a test green.
 
 ## Rules
 

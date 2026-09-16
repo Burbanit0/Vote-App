@@ -156,21 +156,30 @@ cd voter-app && npx vitest run src/lib/playgroundVoting.parity.test.ts
   in that file documents why (every scenario that used to compare against the
   wrong function happened to have a real Condorcet winner, masking the bug
   until an exhaustive small-profile check covered cases with none).
-- **`playgroundVoting.parity.test.ts` has three independent describe blocks**:
-  ~590 random "strict" scenarios (winners that survive 200 candidate-relabel +
-  ballot-shuffle trials — see `strict_winner`/`strict_winner_cardinal` in the
+- **`playgroundVoting.parity.test.ts` has three kinds of describe block**:
+  60 random ordinal "strict" scenarios (winners that survive 200
+  candidate-relabel + ballot-shuffle trials — see `strict_winner` in the
   generator — so a mismatch is never a tie-break artifact), an **exhaustive**
   domain of all 481 profiles for n≤3 candidates / m≤5 voters (a proof over
   that bounded domain, not a sample — this is where 4 of 5 real historical
   bugs were caught, because it doesn't filter out tied/degenerate cases the
-  way the strict-winner scenarios do), and cardinal rules (score, STAR,
-  cumulative, maximin, nash) over a shared score matrix.
-- **`KNOWN_DIVERGENT` is currently empty and should stay that way.** A parity
-  break is a bug until proven otherwise (CLAUDE.md); the only legitimate way
-  to add to this set is a genuine, documented modeling difference (the
-  pattern already used to exclude approval/majority-judgment from the
-  cardinal comparison entirely, for stated reasons in `gen_engine_parity.py`
-  — different ballot derivation / grade quantization, not an algorithm gap).
+  way the strict-winner scenarios do), and one `describe.each` over three
+  cardinal fixture sections of 60 scenarios each: `cardinalScenarios` (score,
+  STAR, cumulative, maximin, nash on a shared score matrix),
+  `approvalScenarios` (0/1 ballots) and `majorityJudgmentScenarios` (0-5
+  grades). Approval and MJ get exact-value ballots because each engine derives
+  those two from raw utility differently, so those sections lock the count,
+  not the ballot derivation. Each cardinal rule must also compare at least 40
+  strict winners.
+- **`KNOWN_DIVERGENT` maps a rule to its EXACT expected mismatch list**
+  (`#<index>: client=X backend=Y`), not a count. It holds one entry today:
+  `majority_judgment`, a backend tie-break bug (see the comment there and
+  PLAN_SURFACE_EXTERIEURE.md §2.E). A parity break is a bug until proven
+  otherwise (CLAUDE.md): add an entry only to track a confirmed divergence
+  while it waits for a fix, never to make a red test green, and delete it
+  once the fix regenerates to zero mismatches. Approval and MJ each draw from
+  their own seeded streams (`single_rule_scenarios`), so an unrelated rule
+  change doesn't re-roll their scenarios, or the MJ list's indices with them.
 - For the full triage playbook on an actual divergence (map the failing rule
   id to both implementations, read the concrete failing scenario by index,
   find the specific code difference), use the `parity-guardian` agent
