@@ -396,24 +396,32 @@ def _utility_to_grade(utility: float) -> int:
     return 0
 
 
-def _mj_median_grade(grade_list: List[int]) -> int:
+def _mj_lower_median_index(n: int) -> int:
     """
-    Majority Judgment median: the grade at index ceil(n/2) - 1 when sorted.
-    For odd n: exact middle.  For even n: lower median (conservative choice).
+    Majority Judgment median index: ceil(n/2) - 1 into a SORTED list of n
+    grades. For odd n: the exact middle. For even n: the lower of the two
+    middles (conservative choice) — a median must stay a real grade, never
+    an interpolated average of two.
     """
-    if not grade_list:
-        return 0
-    n = len(grade_list)
-    sorted_grades = sorted(grade_list)
-    return sorted_grades[(n - 1) // 2]
+    return (n - 1) // 2
 
 
-def _mj_winner(candidate_names: List[str], all_grades: Dict[str, List[int]]) -> Optional[str]:
+def _mj_lower_median(grades: List[int]) -> int:
+    # -1 (not 0 / "À Rejeter") for an empty list: a candidate that has run
+    # out of grades to strip must never look tied with one still holding a
+    # real grade of 0, only with another equally exhausted candidate. Real
+    # candidates never hit this branch (see `_mj_winner`'s `true_medians`) —
+    # only a candidate the tie-break has stripped down to nothing can.
+    return grades[_mj_lower_median_index(len(grades))] if grades else -1
+
+
+def _mj_strip_to_winner(pool: List[str], work: Dict[str, List[int]]) -> str:
     """
-    The Majority Judgment winner via the actual Balinski-Laraki (2010)
-    procedure: repeatedly strip one occurrence of the tied top median grade
-    from every candidate still tied for first, and recompare, until one
-    candidate stands alone or there is no more data to strip.
+    The actual Balinski-Laraki (2010) tie-break: repeatedly strip one
+    occurrence of the tied top median grade from every candidate still tied
+    for first, and recompare, until one candidate stands alone or there is
+    no more data to strip. `work` is mutated in place (each candidate's
+    private, already-sorted copy — see `_mj_winner`).
 
     This used to be approximated by a majority-gauge shortcut (compare p -
     q, the fraction of grades above vs. below the median) with a single
@@ -427,34 +435,52 @@ def _mj_winner(candidate_names: List[str], all_grades: Dict[str, List[int]]) -> 
     winMajorityJudgment (playgroundVoting.ts), the client's implementation,
     which the parity harness (gen_engine_parity.py) checks this against —
     not an attempt to derive an equivalent closed-form comparator.
-
-    Operates on a private copy of each candidate's grades. Never mutates
-    `all_grades`: callers still read that afterwards to report each
-    candidate's TRUE (un-stripped) median, distribution and score, so a
-    tie-break that had to look past the headline median never changes what
-    gets reported for the candidates it compared.
     """
-    if not candidate_names:
-        return None
-
-    work: Dict[str, List[int]] = {c: sorted(all_grades[c]) for c in candidate_names}
-
-    def lower_median(grades: List[int]) -> int:
-        # -1 (not 0 / "À Rejeter") for an empty list: a candidate that has run
-        # out of grades to strip must never look tied with one still holding a
-        # real grade of 0, only with another equally exhausted candidate.
-        return grades[(len(grades) - 1) // 2] if grades else -1
-
-    pool = list(candidate_names)
-    while len(pool) > 1 and work[pool[0]]:
-        best_median = max(lower_median(work[c]) for c in pool)
-        top = [c for c in pool if lower_median(work[c]) == best_median]
+    # Any pool member still holding a grade, not just the first — candidates
+    # can have unequal grade-list lengths (a voter who didn't rate everyone),
+    # and checking only pool[0] let an exhausted-but-first-encountered
+    # candidate win by default over a rival who still had a real, better
+    # grade left to compare (found by /code-review max on this branch: same
+    # votes, only the candidates' dict-insertion order differed, and the
+    # winner changed with it — see
+    # test_majority_judgment_tie_survives_a_shorter_grade_list's repro).
+    while len(pool) > 1 and any(work[c] for c in pool):
+        best_median = max(_mj_lower_median(work[c]) for c in pool)
+        top = [c for c in pool if _mj_lower_median(work[c]) == best_median]
         if len(top) == 1:
             return top[0]
         for c in top:
-            work[c].pop((len(work[c]) - 1) // 2)
+            work[c].pop(_mj_lower_median_index(len(work[c])))
         pool = top
     return pool[0]
+
+
+def _mj_winner(
+    candidate_names: List[str], all_grades: Dict[str, List[int]]
+) -> tuple[Optional[str], Dict[str, int]]:
+    """
+    The Majority Judgment winner (see `_mj_strip_to_winner` for the actual
+    tie-break), plus each candidate's TRUE (un-stripped) median — computed
+    here, once, from the same sorted copy the tie-break itself needs, so the
+    caller never has to re-sort `all_grades` just to report it.
+
+    Operates on a private copy of each candidate's grades. Never mutates
+    `all_grades`: the returned medians, and everything the caller reports
+    from `all_grades` afterwards (distribution, score), stay the TRUE
+    values, so a tie-break that had to look past the headline median never
+    changes what gets reported for the candidates it compared.
+    """
+    if not candidate_names:
+        return None, {}
+
+    work: Dict[str, List[int]] = {c: sorted(all_grades[c]) for c in candidate_names}
+    # Every real candidate has at least one grade (a candidate only enters
+    # `candidate_names` by being rated by some voter — see the caller's
+    # `_score_candidates` union), so this is always a real grade, never -1.
+    true_medians: Dict[str, int] = {c: _mj_lower_median(work[c]) for c in candidate_names}
+
+    winner = _mj_strip_to_winner(list(candidate_names), work)
+    return winner, true_medians
 
 
 def get_majority_judgment_winner(
@@ -503,30 +529,34 @@ def get_majority_judgment_winner(
     candidate_names: List[str] = _score_candidates(utility_scores)
 
     # 1. Build grade lists per candidate. This is the canonical, NEVER
-    # mutated source for every field reported below (medians, distributions,
-    # scores) as well as for winner determination — `_mj_winner` works on
-    # its own private copy.
+    # mutated source for every field reported below (distributions, scores)
+    # as well as for winner determination — `_mj_winner` works on its own
+    # private copy.
     all_grades: Dict[str, List[int]] = {c: [] for c in candidate_names}
     for voter_utils in utility_scores:
         for c, u in voter_utils.items():
             all_grades[c].append(_utility_to_grade(u))
 
-    winner: Optional[str] = _mj_winner(candidate_names, all_grades)
+    # 2. Determine the winner. `medians` here are the TRUE, un-stripped
+    # medians `_mj_winner` computed as a side effect of running the
+    # tie-break — not read from `all_grades` a second time, so ties don't
+    # cost an extra sort per candidate. A real past bug lived here: the old
+    # top-2-only tiebreak mutated `all_grades` in place while deciding a
+    # tie, so a tied pair's own reported median/distribution came back one
+    # ballot short (and, when both truly shared the same median, wrongly
+    # reported as unequal) — see `_mj_winner`'s docstring.
+    winner: Optional[str]
+    medians: Dict[str, int]
+    winner, medians = _mj_winner(candidate_names, all_grades)
 
-    # 2. Build grade distribution, median and continuous-score dicts for the
-    # frontend, all read from the TRUE, un-stripped grades — a real past bug
-    # here: the old top-2-only tiebreak mutated `all_grades` in place while
-    # deciding a tie, so a tied pair's own reported median/distribution came
-    # back one ballot short (and, when both truly shared the same median,
-    # wrongly reported as unequal).
+    # 3. Build grade distribution and continuous-score dicts for the
+    # frontend, read from the TRUE, un-stripped grades.
     n_grades = len(grade_labels)
     grade_distributions: Dict[str, List[int]] = {}
     grades_labeled:      Dict[str, Dict[str, int]] = {}
     scores_out:          Dict[str, float] = {}
-    medians:             Dict[str, int] = {}
 
     for c in candidate_names:
-        medians[c] = _mj_median_grade(all_grades[c])
         dist = [0] * n_grades
         for grade in all_grades[c]:
             if 0 <= grade < n_grades:

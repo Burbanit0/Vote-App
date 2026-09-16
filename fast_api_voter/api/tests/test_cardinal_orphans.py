@@ -17,7 +17,7 @@ operators aim.
 import pytest
 
 from api.engine.utils.simulation_score_utils import (
-    _mj_median_grade,
+    _mj_winner,
     _utility_to_grade,
     get_evaluative_winner,
     get_majority_judgment_winner,
@@ -238,12 +238,19 @@ def test_utility_to_grade_boundaries_are_inclusive_lower_bounds(utility, grade):
     assert _utility_to_grade(utility) == grade
 
 
-def test_mj_median_takes_the_lower_middle_on_an_even_count():
+def test_mj_winner_median_takes_the_lower_middle_on_an_even_count():
     """MJ's median must stay a real grade, never an average of two — so an even
-    count uses the lower of the two middles."""
-    assert _mj_median_grade([0, 1, 4, 5]) == 1
-    assert _mj_median_grade([0, 2, 4]) == 2
-    assert _mj_median_grade([]) == 0
+    count uses the lower of the two middles. Odd counts take the exact middle.
+    Checked via `_mj_winner`'s returned true-medians, the one place this
+    convention is computed (get_majority_judgment_winner reports these
+    directly rather than re-deriving them)."""
+    _, medians = _mj_winner(["A", "B"], {"A": [0, 1, 4, 5], "B": [0, 2, 4]})
+    assert medians["A"] == 1
+    assert medians["B"] == 2
+
+
+def test_mj_winner_no_candidates_has_no_winner_and_no_medians():
+    assert _mj_winner([], {}) == (None, {})
 
 
 def test_majority_judgment_highest_median_wins_over_higher_mean():
@@ -322,14 +329,13 @@ def test_majority_judgment_iterative_tiebreak_can_still_swap_the_ranking():
     assert out["scores"]["B"] == pytest.approx(3.0)  # (3+3+3)/3 over the TRUE grades
 
 
-def test_majority_judgment_three_way_tie_needs_two_strip_rounds():
+def test_majority_judgment_three_way_tie_strips_more_than_a_pair_at_once():
     """A, B and C all share the same true median (Bien, 3) on 5 voters each —
     a three-way tie the old top-2-only tiebreak could never even attempt.
-    Round 1 strips the median grade from all three and narrows straight to B
-    (A and C's post-drop medians both fall below B's), so this also exercises
-    stripping more than a single pair at once. Reported medians stay the TRUE,
-    un-stripped ones — all three "Bien" — regardless of how many rounds the
-    tiebreak needed internally."""
+    One round strips the median grade from all three at once (not just a
+    pair) and narrows straight to B (A and C's post-drop medians both fall
+    below B's). Reported medians stay the TRUE, un-stripped ones — all three
+    "Bien" — regardless of what the tiebreak did internally."""
     votes = [
         {"A": 0.20, "B": 0.40, "C": 0.05},
         {"A": 0.40, "B": 0.55, "C": 0.20},
@@ -341,6 +347,47 @@ def test_majority_judgment_three_way_tie_needs_two_strip_rounds():
 
     assert out["winner"] == "B"
     assert out["medians"]["A"] == out["medians"]["B"] == out["medians"]["C"] == "Bien"
+
+
+def test_majority_judgment_tie_survives_a_shorter_grade_list():
+    """A and B tie on the same median (Bien, 3), but A holds only one voter's
+    grade while B holds five — three Bien and two Excellent, unmistakably the
+    stronger candidate (score 3.8 vs A's 3.0). This is a real, supported
+    ballot shape, not a synthetic edge case: a voter who didn't rate every
+    candidate (see the "union of every voter's candidates" comment above
+    `candidate_names` in get_majority_judgment_winner).
+
+    Regression test for a real bug (found by /code-review max on this
+    branch): the tie-break loop's exhaustion check used to look only at the
+    first pooled candidate's remaining grades (`work[pool[0]]`). Once A's
+    single grade was stripped in round 1, that check went false and the loop
+    returned A by default — without ever comparing A's exhaustion against
+    B's still-real, better grades. B must win.
+
+    Checked in both candidate dict-key orders: the old bug made the winner
+    track whichever candidate happened to be declared first, not the votes.
+    """
+    votes = [
+        {"A": 0.55, "B": 0.55},
+        {"B": 0.55},
+        {"B": 0.55},
+        {"B": 0.90},
+        {"B": 0.90},
+    ]
+    out = get_majority_judgment_winner(votes)
+    assert out["winner"] == "B"
+    assert out["medians"]["A"] == out["medians"]["B"] == "Bien"
+    assert out["scores"]["A"] == pytest.approx(3.0)
+    assert out["scores"]["B"] == pytest.approx(3.8)
+
+    votes_b_declared_first = [
+        {"B": 0.55, "A": 0.55},
+        {"B": 0.55},
+        {"B": 0.55},
+        {"B": 0.90},
+        {"B": 0.90},
+    ]
+    assert get_majority_judgment_winner(votes_b_declared_first)["winner"] == "B"
 
 
 def test_majority_judgment_empty_ballots_have_no_winner():
