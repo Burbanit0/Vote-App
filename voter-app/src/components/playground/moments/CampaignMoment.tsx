@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent } from '@/components/ui/card';
-import { usePlaygroundCtx } from '../PlaygroundController';
+import { useStoreCtx } from '../PlaygroundController';
 import CampaignTimeline from '../../campaign/CampaignTimeline';
 
 // Moment ④ Campagne — how the vote reacts over time. The timeline reads the shared
@@ -11,7 +11,7 @@ import CampaignTimeline from '../../campaign/CampaignTimeline';
 // realism) live in /laboratoire — same components, reachable on demand.
 const CampaignMoment: React.FC = () => {
   const { t } = useTranslation('playground');
-  const { config, playground, pinToPlayground } = usePlaygroundCtx();
+  const { config, playground, pinToPlayground } = useStoreCtx();
 
   if (config.candidates.length === 0) {
     return (

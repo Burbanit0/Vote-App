@@ -67,8 +67,14 @@ together. Do not let them drift.
   simulation_ranked_utils.py` + `simulation_score_utils.py`.
 - Parity harness: `fast_api_voter/scripts/gen_engine_parity.py` generates golden
   winners → `voter-app/src/lib/__fixtures__/engineParity.json`; asserted by
-  `playgroundVoting.parity.test.ts`. 26 methods are locked identical (21 ordinal +
-  5 cardinal: score, STAR, cumulative, maximin, nash). `KNOWN_DIVERGENT` is empty.
+  `playgroundVoting.parity.test.ts`. 28 methods are locked identical: 21 ordinal,
+  score/STAR/cumulative/maximin/nash over a shared score matrix, approval, and
+  majority judgment. `KNOWN_DIVERGENT` (an exact mismatch list per rule, not a
+  count) is empty and should stay that way. Approval is locked **at the tally
+  only**: both sides get the same 0/1 ballot, because each engine derives
+  approvals from utility its own way (client ≥ 0.5; backend above the voter's
+  mean, or approve-top-2 in most backend callers), and those still disagree.
+  `random_ballot` stays excluded (a lottery).
 
 **If you change a rule on either side**: re-run `python fast_api_voter/scripts/
 gen_engine_parity.py`, then run the parity test. A change that breaks parity is a
@@ -84,12 +90,24 @@ hook reminds to regenerate parity whenever either side of the engine changes.
 
 The playground is a single "instrument" with a 5-moment rail (Électorat → Méthode →
 Stratégie → Campagne → Bilan) and a Dirigeant↔Assemblée toggle. All state and
-derivations live in `PlaygroundController.tsx`. Most of it flows through one context
-(`usePlaygroundCtx`); one slice (`enabledRules`/`setEnabledRules`/`lensItems`) has its
-own smaller context (`useMethodSelection`), split out so a rapid-fire control bound to
-just that slice (e.g. MethodMoment's rule checkboxes) doesn't re-render every other
-consumer — see the `methodSelection` memo in `PlaygroundController.tsx` for why. Moment
-panels and the instrument are thin consumers of whichever context(s) they need. Analytical
+derivations live in `PlaygroundController.tsx`, exposed through **contexts split by
+concern** so a consumer re-renders only when a slice it actually reads changes:
+
+- `useStoreCtx()` — config/playground bindings and pure reads of them (`mode`, `dims`,
+  `electorate`…). Changes only on a settings edit.
+- `useJourneyCtx()` — active moment, rule under examination, map lens. Discrete clicks.
+- `useInstrumentCtx()` — live spatial data (voters, candidates, drag/shake). The
+  **high-frequency** one: every candidate drag frame recomputes it.
+- `useScorecardCtx()` — async diagnostics + the Monte-Carlo scorecard/values dial.
+- `useMethodSelection()` — `enabledRules`/`setEnabledRules`/`lensItems` (the first
+  slice split out, for MethodMoment's rapid-fire rule checkboxes).
+
+`usePlaygroundCtx()` is a composed view over the first four — fine for a consumer that
+genuinely reads (nearly) every slice (`InstrumentPanel`, `StrategyMoment`,
+`BilanMoment`), but it re-renders on **any** slice changing. **For a new consumer, use the
+narrowest hook(s) it needs**, and put a new field in the context matching how often it
+changes — a low-frequency value placed in `instrumentCtx` drags its readers along on every
+drag. `PlaygroundController.render.test.tsx` asserts the isolation directly. Analytical
 panels (sincerity, equilibrium, robustness, real-election backtest, valence) are pure
 libs in `src/lib/` with a thin component each.
 

@@ -16,7 +16,7 @@
 
 Vote-App poursuit deux explorations en parallèle, et ce plan sert les deux :
 
-1. **Une exploration des méthodes de vote** — 26 méthodes en parité verrouillée
+1. **Une exploration des méthodes de vote** — 28 méthodes en parité verrouillée
    entre deux implémentations, une théorie formelle documentée, un objectif
    pédagogique.
 2. **Une exploration des technologies et pratiques de développement** — qu'est-ce

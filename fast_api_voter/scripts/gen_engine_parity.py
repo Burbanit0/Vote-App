@@ -42,6 +42,7 @@ sys.path.insert(0, ROOT)
 
 from api.engine.utils.simulation_ranked_utils import (  # noqa: E402
     get_anti_plurality_winner,
+    get_approval_winner_sincere,
     get_baldwin_winner,
     get_benham_winner,
     get_black_winner,
@@ -67,6 +68,7 @@ from api.engine.utils.simulation_score_utils import (  # noqa: E402
     get_simple_score_winner,
     get_star_voting_winner,
     get_cumulative_winner,
+    get_majority_judgment_winner,
     get_maximin_score_winner,
     get_nash_winner,
 )
@@ -107,10 +109,14 @@ RULES = {
 }
 
 # Cardinal rules that take the SAME per-voter score vector on both engines (so a
-# shared score matrix is a fair comparison). Approval is excluded — the two engines
-# derive the approval ballot differently (rankings/utility-threshold vs scores), a
-# modelling choice, not an algorithm. Majority judgment is excluded — its grade
-# quantisation differs (client round(s·5) vs backend threshold buckets).
+# shared score matrix is a fair comparison). Approval and majority judgment are
+# excluded from THIS dict specifically because the two engines derive/quantise
+# their ballots differently from a raw utility score (rankings/mean-threshold vs
+# fixed 0.5 cutoff for approval; round(s*5) vs threshold buckets for MJ) — an
+# arbitrary shared score matrix would flag that known, deliberate modelling
+# difference as a false "divergence" on the counting algorithm it isn't testing.
+# See _approval_winner/_mj_winner below, which sidestep this by generating ballots
+# at exactly the values both engines are guaranteed to quantise identically.
 CARDINAL = {
     "score": lambda b: get_simple_score_winner(b)["winner"],
     "star": lambda b: get_star_voting_winner(b)["winner"],
@@ -118,6 +124,31 @@ CARDINAL = {
     "maximin": get_maximin_score_winner,
     "nash": get_nash_winner,
 }
+
+# approval: fed a per-voter {candidate: 0.0 or 1.0} ballot instead of a raw
+# utility score. The client approves score >= 0.5 (winApproval); the backend's
+# sincere mode approves score > the voter's own mean (get_approval_winner_sincere)
+# — at exactly 0.0/1.0, with each voter approving a proper non-empty subset (so
+# the mean is strictly between 0 and 1), both reduce to the SAME approval set,
+# so this compares the tally, not ballot derivation. That's all it locks: every
+# cutoff strictly between 0 and 1 approves the same set here, so either side's
+# threshold can move without this noticing, and the two derivations (and the
+# backend's approve-top-2 get_approval_winner most callers use) still disagree
+# on real utility. Ties are filtered out by strict_winner_cardinal, not compared.
+def _approval_winner(ballots):
+    return get_approval_winner_sincere(dict(enumerate(ballots)))
+
+
+# majority_judgment: fed a per-voter {candidate: grade/5.0} ballot (grade in
+# 0..5) instead of a raw utility score. The client quantises via
+# round(score*5) (winMajorityJudgment); the backend via fixed thresholds
+# [0, .17, .33, .5, .67, .83] (_utility_to_grade). Those two quantisers
+# disagree at arbitrary utility values (e.g. 0.15) but agree exactly on every
+# multiple of 1/5 — the only values a grade can round-trip through both. Feeding
+# only those values means both engines score the SAME 0-5 grade per candidate,
+# so this compares median/tie-break selection, not grade quantisation.
+def _mj_winner(ballots):
+    return get_majority_judgment_winner(ballots)["winner"]
 
 NAMES = ["A", "B", "C", "D", "E"]
 SEED = 20260628
@@ -148,10 +179,18 @@ def strict_winner(fn, ballots, cands, rng):
     return base
 
 
-def strict_winner_cardinal(fn, ballots, cands, rng):
+def strict_winner_cardinal(fn, ballots, cands, rng, shuffle_keys=False):
     """As strict_winner, for score ballots (per-voter {candidate: score} dicts):
     keep the winner only if it survives relabeling the candidates and shuffling
-    the voters, so it isn't a tie-break artefact."""
+    the voters, so it isn't a tie-break artefact.
+
+    Relabeling alone keeps every candidate at the same dict position, so a
+    tie broken by first-seen key order survives it and passes as "strict".
+    shuffle_keys also reorders each trial's keys, which exposes that. The
+    CARDINAL section doesn't pass it yet: with it, 59/60 of today's maximin
+    winners (and a few score/STAR ones) turn out to be key-order tie-breaks
+    both engines happen to share, and would drop out -- a follow-up tracked in
+    PLAN_SURFACE_EXTERIEURE.md §2.E, not a silent change to that lock."""
     base = fn(ballots)
     if base is None:
         return None
@@ -161,11 +200,59 @@ def strict_winner_cardinal(fn, ballots, cands, rng):
         relabel = dict(zip(cands, shuffled))
         inv = {v: k for k, v in relabel.items()}
         rows = [{relabel[c]: v for c, v in b.items()} for b in ballots]
+        if shuffle_keys:
+            order = cands[:]
+            rng.shuffle(order)
+            rows = [{c: row[c] for c in order} for row in rows]
         rng.shuffle(rows)
         w = fn(rows)
         if w is None or inv[w] != base:
             return None
     return base
+
+
+def make_approval_ballot(cands, rng):
+    """One voter's {candidate: 0.0/1.0} approval ballot -- a random NON-EMPTY,
+    PROPER subset approved (never all-or-nothing), so the backend's
+    approve-above-my-own-mean threshold is strictly between 0 and 1 and
+    recovers exactly this same set (see _approval_winner's comment)."""
+    k = rng.randint(1, len(cands) - 1)
+    approved = set(rng.sample(cands, k))
+    return {c: (1.0 if c in approved else 0.0) for c in cands}
+
+
+def make_mj_ballot(cands, rng):
+    """One voter's {candidate: grade/5.0} ballot, grade drawn uniformly from
+    0..5 -- the only utility values the client's and backend's grade
+    quantisers are guaranteed to agree on (see _mj_winner's comment)."""
+    return {c: rng.randint(0, 5) / 5.0 for c in cands}
+
+
+def single_rule_scenarios(rule, fn, make_ballot, to_json):
+    """60 strict scenarios for one rule fed its own exact-value ballots, in the
+    cardinal shape ({candidates, scores, winners: {rule: w}}).
+
+    Each rule gets its OWN seeded streams, one for ballots and one for the
+    relabel trials, instead of main()'s shared `rng`. That stream shifts
+    whenever an earlier strict filter exits early, so any unrelated rule change
+    used to re-roll every scenario here, and with it the exact mismatch list a
+    tracked divergence is pinned to. A str seed is hashed with SHA-512, so it
+    doesn't depend on PYTHONHASHSEED."""
+    ballot_rng = random.Random(f"{SEED}:{rule}:ballots")
+    trial_rng = random.Random(f"{SEED}:{rule}:trials")
+    scenarios = []
+    for m in (3, 4, 5):
+        cands = NAMES[:m]
+        for n in (21, 31, 41, 51, 61):
+            for _ in range(4):
+                ballots = [make_ballot(cands, ballot_rng) for _ in range(n)]
+                winner = strict_winner_cardinal(fn, ballots, cands, trial_rng, shuffle_keys=True)
+                scenarios.append({
+                    "candidates": cands,
+                    "scores": [[to_json(b[c]) for c in cands] for b in ballots],
+                    "winners": {rule: winner},
+                })
+    return scenarios
 
 
 def generate_exhaustive_scenarios() -> list[dict]:
@@ -229,6 +316,13 @@ def main() -> None:
                     {"candidates": cands, "scores": matrix, "winners": winners}
                 )
 
+    approval_scenarios = single_rule_scenarios("approval", _approval_winner, make_approval_ballot, int)
+    # Stored as the integer grade 0..5, like cardinalScenarios' scores; the test
+    # divides by 5 again, since the client's MJ quantiser reads a [0, 1] score.
+    mj_scenarios = single_rule_scenarios(
+        "majority_judgment", _mj_winner, make_mj_ballot, lambda v: round(v * 5)
+    )
+
     exhaustive_scenarios = generate_exhaustive_scenarios()
 
     payload = {
@@ -237,6 +331,8 @@ def main() -> None:
         "_note": "Authoritative winners from the Python backend. Asserted by playgroundVoting.parity.test.ts.",
         "scenarios": scenarios,
         "cardinalScenarios": cardinal_scenarios,
+        "approvalScenarios": approval_scenarios,
+        "majorityJudgmentScenarios": mj_scenarios,
         "exhaustiveScenarios": exhaustive_scenarios,
     }
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
@@ -245,6 +341,7 @@ def main() -> None:
         f.write("\n")
     print(
         f"wrote {len(scenarios)} ordinal + {len(cardinal_scenarios)} cardinal + "
+        f"{len(approval_scenarios)} approval + {len(mj_scenarios)} majority-judgment + "
         f"{len(exhaustive_scenarios)} exhaustive (n<=3) scenarios -> {OUT}"
     )
 

@@ -234,7 +234,7 @@ parité en verrouille **26**. Les trois non couvertes, vérifiées par
 diff ensembliste contre `engineParity.json` :
 
 - `random_ballot` — **exclusion légitime**, c'est une loterie
-  (`gen_engine_parity.py:75` le dit).
+  (le commentaire au-dessus de `RULES` dans `gen_engine_parity.py` le dit).
 - `approval` — déterministe, implémentée côté backend
   (`simulation_ranked_utils.py`, `simulation_voting_utils.py`).
 - `majority_judgment` — déterministe, implémentée côté backend
@@ -255,6 +255,68 @@ cardinaux pour `approval` et `majority_judgment`, régénérer, lancer le test
 de parité. Si elles concordent, un trou réel dans la garantie la plus forte
 du dépôt est fermé ; sinon, on vient de trouver un bug dans une méthode que
 l'app enseigne.
+
+**Fait, avec un résultat mitigé** (`feat/extend-parity-approval-mj`) : un
+bulletin partagé aux valeurs exactes que les deux moteurs quantisent de façon
+identique (0.0/1.0 pour approval ; multiples de 1/5 pour les 6 niveaux de MJ)
+contourne la différence de modélisation déjà documentée dans
+`gen_engine_parity.py`, pour comparer l'algorithme de dépouillement lui-même.
+- `approval` : **concorde sur les 52 scénarios stricts** (60 générés, 8
+  égalités filtrées). Verrou réel mais **limité au dépouillement** : sur un
+  bulletin 0/1, tout seuil strictement entre 0 et 1 approuve le même
+  ensemble, donc ni le seuil client (≥ 0,5) ni celui du backend (> moyenne
+  du votant) n'est testé. Sur des utilités réelles ils divergent encore :
+  ~8 % des électorats spatiaux contre `get_approval_winner_sincere`, ~27 %
+  contre `get_approval_winner` (approuver ses 2 premiers), le chemin
+  qu'emprunte la plupart des appelants backend.
+- `majority_judgment` : **divergeait sur 6/58 scénarios stricts**, un bug
+  **backend** — corrigé (`fix/majority-judgment-gauge`, voir plus bas).
+  Le diagnostic de la première version de cette note (« un seul pas de
+  retrait au lieu de la procédure itérative ») était **faux**, et la revue
+  locale max l'a réfuté en exécutant le code : aucun des écarts n'atteignait
+  ce pas de retrait. Le backend départageait les médianes égales par
+  `p − q`, qui n'est pas la jauge majoritaire de Balinski-Laraki (`+p` si
+  `p > q`, sinon `−q`) ; la jauge donnait le vainqueur du client sur les 6,
+  mais n'est pas non plus la bonne généralisation (voir plus bas). 28
+  méthodes désormais identiques, `KNOWN_DIVERGENT` vide.
+
+**Revue locale max (10 angles) — corrigé dans ce PR** : assertion par
+compte (`toBe(3)`) remplacée par la liste exacte (un autre ensemble de même
+taille passait, et le compte faisait passer sonarjs de 288 à 289) ; flux
+aléatoires dédiés par règle (avant, tout changement d'une autre règle
+re-tirait les 120 scénarios : de 3 à 7 écarts MJ en ajoutant une règle
+cardinale) ; `strict_winner_cardinal` mélange aussi l'ordre des clés pour
+ces deux sections (sinon une égalité départagée par position passait pour
+« stricte » : 0/60 rejet MJ avant, 2 après) ; garde « au moins 40 vainqueurs
+comparés » ; notes entières dans la fixture (−37 ko, 460 ko contre la limite
+de 500 ko du hook `check-added-large-files`).
+
+**Fait** (`fix/majority-judgment-gauge`) : `get_majority_judgment_winner`
+réimplémente la procédure du client — retrait itératif de la médiane
+partagée, recomparaison, jusqu'à décision — au lieu de la clé `p − q`. Trois
+défauts corrigés au passage, pas seulement la clé de tri : le retrait
+s'applique à **tous** les candidats encore à égalité (pas seulement les
+deux premiers), les comparaisons de médianes se font en entiers (plus de
+`p`/`q` en flottant, donc plus d'égalité tranchée par un arrondi), et le
+retrait opère sur une copie — `all_grades` n'est plus muté, donc
+`grade_distributions`/`medians` renvoyés par l'API restent les vraies
+valeurs même pour un candidat départagé par le retrait (bug vérifié :
+l'ancien code rapportait des médianes différentes pour deux candidats
+réellement à égalité). `_mj_majority_gauge` était devenu mort code une fois
+la clé retirée — supprimé avec son test dédié plutôt que gardé sous un
+whitelist vulture. Fixture régénérée : seuls les 6 scénarios divergents
+bougent (dont 2 qui n'avaient pas de vainqueur strict avant, le backend
+étant désormais lui-même stable au relabel), `KNOWN_DIVERGENT` vidé. Reste
+en attente, non fait dans cette branche : ajouter MJ (et approval) au
+domaine exhaustif, avec des effectifs pairs — aujourd'hui passer à la
+médiane haute ne bougerait pas la fixture.
+- **Section `cardinalScenarios`** : sans mélange des clés, 59/60 vainqueurs
+  maximin (et 5 score, 4 STAR) y sont des départages par position que les
+  deux moteurs partagent. Activer `shuffle_keys` les ferait tomber : c'est une
+  décision sur ce que ce verrou prétend garantir, pas un correctif discret.
+- **Approval** : choisir une seule façon de dériver le bulletin d'approbation
+  à partir de l'utilité (décision produit), puis nourrir cette section en
+  utilités continues.
 
 **Effort** : S (une après-midi) · **Priorité** : haute — meilleur rapport
 valeur/effort du plan.
@@ -451,10 +513,28 @@ d'impact (chaque panneau de moment, `LeaderCanvas`, etc. devrait être
 réécrit pour choisir le bon sous-contexte) reste réel, même si le
 bénéfice par preuve d'existence (`methodSelection`) est maintenant établi,
 pas supposé. Le correctif eslint referme le vrai trou de ce chantier
-(silencieux, sans erreur) indépendamment de cette question. **Question
-ouverte, pas tranchée** : faire le split complet reste un chantier
-raisonnable à prioriser si souhaité — ce n'était pas dans le périmètre
-temporel de ce chantier-ci, pas écarté sur le fond.
+(silencieux, sans erreur) indépendamment de cette question.
+
+**Split fait ensuite** (`feat/playground-context-split`, à la demande) : quatre
+contextes par préoccupation, chacun mémoïsé séparément — `useStoreCtx()`
+(réglages + lectures pures du store : `mode`, `dims`, `electorate`…),
+`useJourneyCtx()` (moment actif, règle examinée, lentille — clics discrets),
+`useInstrumentCtx()` (données spatiales vivantes : électeurs, candidats,
+glisser/shake — **recalculé à chaque image de drag**), `useScorecardCtx()`
+(diagnostics async + scorecard Monte-Carlo). `usePlaygroundCtx()` reste comme
+vue composée rétro-compatible. 13 consommateurs migrés vers le(s) hook(s)
+étroit(s) qu'ils lisent réellement ; `InstrumentPanel`, `StrategyMoment` et
+`BilanMoment` restent volontairement sur la vue composée (ils lisent
+réellement presque toutes les tranches — les restreindre n'apporterait rien).
+Point de conception trouvé en cours de route : un premier découpage mettait
+`leaderRule`/`lens`/`dims` dans `instrumentCtx` à côté des électeurs — donc
+un consommateur ne lisant que la règle (`NonSpatialProfileMap`, `StoryPlayer`)
+restait entraîné par chaque drag ; déplacés vers `journeyCtx`/`storeCtx`
+selon leur fréquence réelle de changement. Deux tests ajoutés dans
+`PlaygroundController.render.test.tsx` (un drag ne re-rend ni un consommateur
+store-only ni journey-only ; un changement de moment ne re-rend pas un
+consommateur instrument-only), **vérifiés par mutation** : en faisant lire
+aux hooks étroits le contexte composé (faux split), les deux échouent.
 
 **Effort** : M (≈ 1 jour, surface bien testée) · **Priorité** : moyenne.
 
@@ -522,9 +602,10 @@ Chacun est de l'ordre de la minute à l'heure :
   ou `components/`, pas à une « lib pure ».
 
 **Fait** (`docs/plan-surface-2l-small-accuracies`), un à un :
-- 29 vs 26 (lié à §2.E) : **différé** — §2.E n'est pas encore mergé (attend
-  `/code-review ultra`), et le nombre exact changera (27, pas 26, une fois
-  mergé). À revisiter avec ce PR-là, pas avant.
+- 29 vs 26 (lié à §2.E) : **fait avec §2.E** (`feat/extend-parity-approval-mj`)
+  puis `fix/majority-judgment-gauge`. 29 règles côté client ; 28 verrouillées
+  en parité (approval au dépouillement seulement — voir §2.E) ; `random_ballot`
+  exclu (loterie). `README.md` le dit ainsi.
 - `auth` : **supprimé** des deux locales (`fr.ts`/`en.ts`) + régénéré la
   pseudo-locale. 0 référence confirmée avant suppression.
 - Budget de bundle : **fait** — `.size-limit.json` exclut désormais
@@ -640,7 +721,8 @@ grep -nE '^\s+(num_\w+|values|candidates)\s*:\s*(int|List)' \
 grep -n "participation" voter-app/src/data/methodCriteria.ts
 grep -n "Condorcet-cohérente" THEORY.md
 
-# 2.E — les règles hors parité (attendu : approval, majority_judgment, random_ballot)
+# 2.E — les règles hors parité (attendu, après fix/majority-judgment-gauge : random_ballot
+#   seule ; approval et majority_judgment sont désormais comparées)
 #   union Rule côté client vs clés présentes dans engineParity.json
 
 # 2.F — un vainqueur attendu en dur dans la suite e2e (attendu : aucun)

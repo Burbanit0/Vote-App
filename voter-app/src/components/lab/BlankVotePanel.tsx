@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import { candidateColor } from '../../lib/palette';
 import regimes, { type BlankVoteStatus } from '../../data/blankVoteRegimes';
 import { allBlankVerdicts, type BlankLens, type BlankOutcome } from '../../lib/blankVote';
-import { usePlaygroundCtx } from '../playground/PlaygroundController';
+import { useInstrumentCtx, useStoreCtx } from '../playground/PlaygroundController';
 import { applyBlankVote, computeRanks } from '../../lib/playgroundVoting';
 
 // BlankVotePanel — a reflection space, not an answer key. Two acts:
@@ -42,7 +42,8 @@ const BlankVotePanel: React.FC = () => {
   const { t } = useTranslation('playground');
   const [w, setW] = React.useState<Weights>(PRESETS.balanced);
   const [useReal, setUseReal] = React.useState(false);
-  const { leaderCandidates, votingVoters, blank: liveBlank } = usePlaygroundCtx();
+  const { leaderCandidates, votingVoters } = useInstrumentCtx();
+  const { blank: liveBlank } = useStoreCtx();
 
   // Real electorate: first-preference shares of the candidates actually
   // configured in the Playground, plus whoever's too far from all of them to

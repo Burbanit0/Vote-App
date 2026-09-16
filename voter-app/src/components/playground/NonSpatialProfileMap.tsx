@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { usePlaygroundCtx } from './PlaygroundController';
+import { useScorecardCtx, useJourneyCtx } from './PlaygroundController';
 import { RULE_LABELS, type Rule } from '../../lib/playgroundVoting';
 import { LEADER_RULES } from '../../lib/scorecard';
 import { selectCls } from './playgroundFields';
@@ -30,7 +30,8 @@ const candColor = (i: number): string => CANDIDATE_COLORS_LIGHT[i % CANDIDATE_CO
 
 const NonSpatialProfileMap: React.FC = () => {
   const { t } = useTranslation('playground');
-  const { result, loading, leaderRule, setLeaderRule } = usePlaygroundCtx();
+  const { result, loading } = useScorecardCtx();
+  const { leaderRule, setLeaderRule } = useJourneyCtx();
 
   if (!result || loading) {
     return (

@@ -165,7 +165,9 @@ All 29 rules — majoritarian, positional, 11 Condorcet variants, and cardinal �
 selectable in the Playground and defined in [THEORY.md §2](THEORY.md). Each rule
 exists in **two implementations** — a fast client engine
 (`voter-app/src/lib/playgroundVoting.ts`) and the authoritative backend engine
-(`fast_api_voter/api/engine/utils/`) — kept identical by a golden-fixture parity test.
+(`fast_api_voter/api/engine/utils/`) — held together by a golden-fixture parity test:
+28 rules are locked identical, and random ballot is a lottery (excluded — it's not
+deterministic).
 
 ---
 
