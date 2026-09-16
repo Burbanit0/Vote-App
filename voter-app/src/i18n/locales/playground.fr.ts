@@ -336,6 +336,7 @@ const pgFr = {
     theory: {
       intro:
         'Les paradoxes du choix social et la théorie démocratique — les limites formelles que toute règle de vote doit affronter. Chaque module se calcule à la demande.',
+      arrow: '🏛️ Théorème d’impossibilité d’Arrow (1951)',
       sen: '🔓 Paradoxe de Sen (libéral parétien)',
       judgment: '🧩 Agrégation de jugements (dilemme discursif)',
       agenda: '🎚️ Manipulation d’agenda (McKelvey)',

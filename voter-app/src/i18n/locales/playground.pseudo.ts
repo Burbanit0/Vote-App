@@ -365,6 +365,7 @@ const pgPseudo: PlaygroundKeys = {
     theory: {
       intro:
         '⟦Lés~~ párádóxés~~~~ dú~ çhóíx~~ sóçíál~~~ ét~ lá~ théóríé~~~ démóçrátíqúé~~~~~ —~ lés~~ límítés~~~ fórméllés~~~~ qúé~~ tóúté~~ règlé~~ dé~ vóté~~ dóít~~ áffróñtér.~~~~ Cháqúé~~~ módúlé~~~ sé~ çálçúlé~~~ à~ lá~ démáñdé.~~~⟧',
+      arrow: '⟦🏛️~~ Théórèmé~~~ d’ímpóssíbílíté~~~~~~ d’Árrów~~~ (1951)~~~⟧',
       sen: '⟦🔓~ Párádóxé~~~ dé~ Séñ~~ (líbérál~~~ párétíéñ)~~~~⟧',
       judgment: '⟦🧩~ Ágrégátíóñ~~~~ dé~ júgéméñts~~~~ (dílémmé~~~ dísçúrsíf)~~~~⟧',
       agenda: '⟦🎚️~~ Máñípúlátíóñ~~~~~ d’ágéñdá~~~ (MçKélvéy)~~~~⟧',

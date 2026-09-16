@@ -332,6 +332,7 @@ const pgEn: PlaygroundKeys = {
     theory: {
       intro:
         'The paradoxes of social choice and democratic theory — the formal limits every voting rule must face. Each module computes on demand.',
+      arrow: '🏛️ Arrow’s impossibility theorem (1951)',
       sen: '🔓 Sen’s paradox (liberal paretian)',
       judgment: '🧩 Judgment aggregation (discursive dilemma)',
       agenda: '🎚️ Agenda manipulation (McKelvey)',
