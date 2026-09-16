@@ -1126,33 +1126,6 @@ const pseudo: TranslationKeys = {
     gallagherFootnote:
       '⟦Gállághér~~~~ ≈~ 0~ =~ própórtíóññél~~~~~ párfáít~~~ ·~ >0.10~~ =~ fórt~~ bíáís~~ ·~ Sçrútíñ~~~ úñíñómíñál~~~~ =~ 100%~~ dés~~ síègés~~~ áú~ váíñqúéúr~~~~ (símúlátíóñ)~~~~~⟧',
   },
-  auth: {
-    loginTitle: '⟦Cóññéxíóñ~~~~⟧',
-    loginFailed: '⟦Éçhéç~~ dé~ lá~ çóññéxíóñ.~~~~ Vérífíéz~~~ vós~~ ídéñtífíáñts.~~~~~⟧',
-    loginSuccess: '⟦Cóññéxíóñ~~~~ réússíé~~~ !~⟧',
-    usernameLabel: "⟦Nóm~~ d'útílísátéúr~~~~~⟧",
-    usernamePlaceholder: "⟦Nóm~~ d'útílísátéúr~~~~~⟧",
-    passwordLabel: '⟦Mót~~ dé~ pássé~~⟧',
-    passwordPlaceholder: '⟦Mót~~ dé~ pássé~~⟧',
-    loginBtn: '⟦Sé~ çóññéçtér~~~~⟧',
-    noAccount: "⟦Pás~~ éñçóré~~~ dé~ çómpté~~~ ?~ S'íñsçríré~~~~⟧",
-    registerTitle: '⟦Créér~~ úñ~ çómpté~~~⟧',
-    confirmPassword: '⟦Cóñfírmér~~~~ lé~ mót~~ dé~ pássé~~⟧',
-    confirmPasswordPlaceholder: '⟦Cóñfírmér~~~~ lé~ mót~~ dé~ pássé~~⟧',
-    passwordMismatch: '⟦Lés~~ móts~~ dé~ pássé~~ ñé~ çórréspóñdéñt~~~~~ pás.~~⟧',
-    registerSuccess: '⟦Íñsçríptíóñ~~~~ réússíé~~~ !~ Rédíréçtíóñ…~~~~~⟧',
-    registerFailed: "⟦Éçhéç~~ dé~ l'íñsçríptíóñ.~~~~~ Véúílléz~~~ rééssáyér.~~~~⟧",
-    signup: '⟦Créér~~ úñ~ çómpté~~~⟧',
-    readOnlyBanner:
-      "⟦<stróñg>Módé~~~~~ léçtúré</stróñg>~~~~~~ —~ Cóññéçtéz-vóús~~~~~ póúr~~ sáúvégárdér~~~~ vós~~ sçéñáríós~~~~ ét~ áççédér~~~ à~ l'hístóríqúé.~~~~~⟧",
-    registerBtn: "⟦S'íñsçríré~~~~⟧",
-    registering: '⟦Íñsçríptíóñ…~~~~~⟧',
-    roleLabel: '⟦Rôlé~~⟧',
-    firstNameLabel: '⟦Préñóm~~~⟧',
-    firstNamePlaceholder: '⟦Préñóm~~~⟧',
-    lastNameLabel: '⟦Nóm~~ dé~ fámíllé~~~⟧',
-    lastNamePlaceholder: '⟦Nóm~~ dé~ fámíllé~~~⟧',
-  },
   lab: {
     fromElectionLab:
       "⟦Cóñfígúrátíóñ~~~~~ dépúís~~~ Éléçtíóñ~~~ Láb~~ —~ párámètrés~~~~ d'éléçtíóñ~~~~ pártágés~~~⟧",
