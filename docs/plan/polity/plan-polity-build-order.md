@@ -281,6 +281,19 @@ bytes change: golden updated deliberately.
   - its `vote_first_choice` accuracy is at least the baseline's on the same cases, with the
     scorecard's paired McNemar test reported.
 
+*Verdict, 2026-09-15* (`scripts/bakeoff_request_arms_results.md`). **Both readings hold.**
+
+- **The error is gone.** The grammar session is 14/14 valid; the control is 13/14, its one failure
+  being exactly `blank=1 requires an empty ranking`.
+- **Accuracy is not lower:** 36/40 on both, McNemar discordant 0/0, p = 1. The three control answers
+  that did not decode became blank ballots (`blank×22` against `blank×19`); nothing else moved.
+- **One thing to know before adopting.** The grammar is the only arm passing the logprob gate
+  (16/16 aligned against 13/16), and its separation is weaker: +0.652 against +0.942. Constraining
+  the decode narrows the distribution.
+
+Adoption is a separate change, as written above: flip `llm.vote_cast_grammar_invariants` and
+regenerate golden deliberately.
+
 ### S1.3 Thinking-budget A/B
 Arms: no budget, 4096, 2048 for `vote_cast` (chunk 3) and `chamber_deliberation`
 (chunk 5), including the known runaway state (`chamber_position == sincere_position`).
@@ -315,6 +328,23 @@ within one case of "no budget" on the fixture and whose truncation rate is ≤ 1
   - *The truncation rate* is the share of the arm's vote and chamber calls, rerun pass included,
     ending with finish reason `length`.
 
+*Verdict, 2026-09-15* (`scripts/bakeoff_request_arms_results.md`). The precondition holds first:
+`scripts/check_thinking_token_budget_results.md` shows the pinned vLLM stopping reasoning at 256 and
+64 tokens where the unbudgeted call runs to 972, every answer decoding.
+
+**2048 is the pre-registered choice.** It is the smaller budget, and it loses nothing:
+
+- **Agreement.** 39/40 against the no-budget session's 36/40 — three cases better, so "within one
+  case" is satisfied from the right side. The difference is not significant (McNemar discordant 3/0,
+  p = 0.25, Holm 1), and no arm is distinguishable from the control on this bank.
+- **Truncation.** 0 of its vote and chamber calls, against the control's one truncated
+  `chamber_deliberation` generation — the runaway reasoning this step targets.
+- **Cost.** `chamber_deliberation` halves: 9.8 s against 19.9 s, 1550 reasoning tokens against 3485.
+  4096 sits between at 14.5 s and buys nothing 2048 does not.
+
+So the reading is "no measurable loss at half the cost", not "better at voting". Whether to turn it
+on in production is the owner's.
+
 ### S1.4 Thinking-mode sampling A/B
 Temperature 0 against Qwen's recommended thinking settings (temperature 0.6, top-p 0.95,
 top-k 20, per-request seeds), same fixtures and metrics.
@@ -333,6 +363,16 @@ top-k 20, per-request seeds), same fixtures and metrics.
   - *"No loss in agreement"* means at least as many voters agreeing with `build_ranking` on
     `vote_first_choice`.
 - **Adoption.** It is D4's, even when both readings hold.
+
+*Verdict, 2026-09-15* (`scripts/bakeoff_request_arms_results.md`). **Not adopted: the second reading
+fails.**
+
+- **Truncations do drop:** 0, against the control's one truncated `chamber_deliberation`.
+- **Agreement does not hold.** 34/40 against 36/40, and `vote_cast` validity falls to 12/14 — two
+  ballots sending `blank=1` with a ranking, against the control's one. It is the weakest arm on both
+  counts.
+- Nothing here is significant on its own (McNemar discordant 4/6, p = 0.7539, Holm 1); the point is
+  that there is no gain to weigh against the cost, so D4 has nothing to decide.
 
 ### S1.5 One config validator, one engine switch
 One `validate_config()` called from `load_config` and at `run_simulation` start;
@@ -372,6 +412,18 @@ speedup reported whatever it is. Each run replayable through S0.6.
 - **The sweep.** `scripts/run_concurrency_sweep.py run --label <server config>` (GPU, once per
   FP8 KV cache setting), then `compare --label` (no GPU) writes `comparison.md`. The compare
   path was smoke-tested on fake-client arms.
+
+*Half measured, 2026-09-15* (`scripts/concurrency_sweep_kv_auto_results.md`). The `kv-auto` sweep
+ran at 1, 4, 8 and 12 workers. **Every arm is inside both pre-registered bands and replays to its
+own journal**: agreement 100% in all four (Δ 0.0 points), first-attempt vote failures 14.7% in all
+four (Δ 0.0), wall-clock 1411.6 s → 680.1 → 583.9 → 399.9, so ×2.08, ×2.42 and ×3.53.
+
+**The step stays open**: it asks for FP8 KV cache on *and* off, and the FP8 half needs the server
+restarted by hand. Two readings to carry forward, both in the results doc: agreement is partly
+tautological, since an exhausted `vote_cast` batch falls back to the same `build_ranking` it is
+scored against; and the failure count is identical to the case across all four arms (the same
+citizens 69-71), which greedy decoding makes plausible but this run cannot distinguish from a metric
+computed off a shared artefact.
 
 ### S2.2 Model bake-off harness
 Frozen, content-hashed case bank generated from the existing probes and ground-truth
@@ -458,6 +510,11 @@ with Qwen3-8B-AWQ as control in every session. Each candidate first passes
 `check_llm_stack_versions.py --discover` against the pinned image.
 **Pre-registered question:** does `coalition_decision`'s collapse (|separation| < 0.10)
 persist on at least two non-Qwen families? Every model tested is reported.
+
+*Not started, 2026-09-15.* The five sessions scored in `scripts/bakeoff_request_arms_results.md` all
+serve the same `Qwen/Qwen3-8B-AWQ` weights and differ only in what the request asks for (S1.2, S1.3,
+S1.4), so they answer nothing here. On the control the two collapse checks came back unmeasured, so
+the question is exactly where it started: no non-Qwen family has been run.
 
 ### S2.5 Permutation and rendering controls
 Permute option codes and orders, renumber citizen ids, and render each case at least
