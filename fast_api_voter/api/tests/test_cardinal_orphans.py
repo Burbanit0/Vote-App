@@ -17,7 +17,6 @@ operators aim.
 import pytest
 
 from api.engine.utils.simulation_score_utils import (
-    _mj_majority_gauge,
     _mj_median_grade,
     _utility_to_grade,
     get_evaluative_winner,
@@ -247,14 +246,6 @@ def test_mj_median_takes_the_lower_middle_on_an_even_count():
     assert _mj_median_grade([]) == 0
 
 
-def test_mj_majority_gauge_counts_strictly_above_and_below():
-    """Voters AT the median count in neither p nor q."""
-    p, q = _mj_majority_gauge([0, 1, 3, 3, 5], median=3)
-
-    assert p == pytest.approx(1 / 5)  # one grade of 5
-    assert q == pytest.approx(2 / 5)  # grades 0 and 1
-
-
 def test_majority_judgment_highest_median_wins_over_higher_mean():
     """A is graded Excellent by a minority and À Rejeter by the rest; B is
     solidly Bien throughout. MJ elects B — the resistance to enthusiastic
@@ -270,9 +261,12 @@ def test_majority_judgment_highest_median_wins_over_higher_mean():
     assert out["medians"]["A"] == "À Rejeter"
 
 
-def test_majority_judgment_breaks_an_equal_median_by_the_gauge():
-    """Both candidates sit at the same median grade, so the majority gauge (p−q)
-    decides: the one with more grades ABOVE the median wins."""
+def test_majority_judgment_breaks_an_equal_median_by_one_strip_round():
+    """Both candidates sit at the same median grade (Bien), so one round of the
+    tiebreak decides it: drop the median-valued grade from each and recompare.
+    A's remaining grades are [Bien, Excellent] (new median — the lower of the
+    two — is Bien); B's are [Passable, Bien] (new median Passable). A's new
+    median beats B's."""
     votes = [
         {"A": 0.90, "B": 0.55},  # A Excellent, B Bien
         {"A": 0.55, "B": 0.55},  # both Bien
@@ -294,9 +288,8 @@ def test_majority_judgment_reports_a_full_grade_distribution():
 
 
 def test_majority_judgment_iterative_tiebreak_can_still_swap_the_ranking():
-    """A and B tie exactly on (median, gauge): both median 'Bien' (3), gauge
-    diff 0. The gauge tiebreak alone can't separate them, so the iterative
-    step fires: drop one median-valued grade from each and recompute.
+    """A and B share the same true median (Bien, 3), so the strip fires: drop
+    one median-valued grade from each and recompute.
 
     A: grades [Assez Bien, Bien, Très Bien] -> drop the Bien -> [Assez Bien,
     Très Bien], new median Assez Bien (2).
@@ -304,11 +297,14 @@ def test_majority_judgment_iterative_tiebreak_can_still_swap_the_ranking():
     stays Bien (3).
 
     B's post-drop median (3) beats A's (2), so B overtakes A — a real rank
-    swap, not just a reached-and-noop branch. This also pins two things
-    nothing else asserts: the reported "medians" reflect the POST-tiebreak
-    grades (not the original tied median both started at), and "scores" (the
-    continuous weighted average) is computed over the shrunk, post-drop grade
-    list.
+    swap, not just a reached-and-noop branch. This also pins something
+    nothing else asserts: the strip is an internal tie-break device only.
+    The reported "medians"/"grade_distributions"/"scores" reflect the TRUE,
+    un-stripped grades for every candidate — both A and B report median Bien
+    here, since that's their real, tied median; only the tie-break used more
+    than that to decide. (A real past bug reported A's median as "Assez
+    Bien" here — the post-strip, one-ballot-short value — which wrongly
+    implied A and B weren't tied on the headline number at all.)
     """
     votes = [
         {"A": 0.40, "B": 0.55},  # A: Assez Bien, B: Bien
@@ -318,16 +314,48 @@ def test_majority_judgment_iterative_tiebreak_can_still_swap_the_ranking():
     out = get_majority_judgment_winner(votes)
 
     assert out["winner"] == "B"
-    assert out["medians"]["A"] == "Assez Bien"  # post-drop, not the original "Bien"
+    assert out["medians"]["A"] == "Bien"  # TRUE median — tied with B
     assert out["medians"]["B"] == "Bien"
-    assert out["grade_distributions"]["A"] == [0, 0, 1, 0, 1, 0]
-    assert out["grade_distributions"]["B"] == [0, 0, 0, 2, 0, 0]
-    assert out["scores"]["A"] == pytest.approx(3.0)  # (2+4)/2 over the shrunk list
-    assert out["scores"]["B"] == pytest.approx(3.0)  # (3+3)/2 over the shrunk list
+    assert out["grade_distributions"]["A"] == [0, 0, 1, 1, 1, 0]
+    assert out["grade_distributions"]["B"] == [0, 0, 0, 3, 0, 0]
+    assert out["scores"]["A"] == pytest.approx(3.0)  # (2+3+4)/3 over the TRUE grades
+    assert out["scores"]["B"] == pytest.approx(3.0)  # (3+3+3)/3 over the TRUE grades
+
+
+def test_majority_judgment_three_way_tie_needs_two_strip_rounds():
+    """A, B and C all share the same true median (Bien, 3) on 5 voters each —
+    a three-way tie the old top-2-only tiebreak could never even attempt.
+    Round 1 strips the median grade from all three and narrows straight to B
+    (A and C's post-drop medians both fall below B's), so this also exercises
+    stripping more than a single pair at once. Reported medians stay the TRUE,
+    un-stripped ones — all three "Bien" — regardless of how many rounds the
+    tiebreak needed internally."""
+    votes = [
+        {"A": 0.20, "B": 0.40, "C": 0.05},
+        {"A": 0.40, "B": 0.55, "C": 0.20},
+        {"A": 0.55, "B": 0.55, "C": 0.55},
+        {"A": 0.70, "B": 0.55, "C": 0.90},
+        {"A": 0.90, "B": 0.70, "C": 0.90},
+    ]
+    out = get_majority_judgment_winner(votes)
+
+    assert out["winner"] == "B"
+    assert out["medians"]["A"] == out["medians"]["B"] == out["medians"]["C"] == "Bien"
 
 
 def test_majority_judgment_empty_ballots_have_no_winner():
     out = get_majority_judgment_winner([])
+
+    assert out["winner"] is None
+    assert out["grades"] == {}
+    assert out["medians"] == {}
+
+
+def test_majority_judgment_a_voter_with_no_candidates_has_no_winner():
+    """Distinct from the empty-ballots case above: there IS a voter, they just
+    graded nobody, so `_score_candidates` returns an empty candidate list.
+    `_mj_winner`'s own empty-pool guard must handle this without crashing."""
+    out = get_majority_judgment_winner([{}])
 
     assert out["winner"] is None
     assert out["grades"] == {}

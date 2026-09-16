@@ -48,25 +48,15 @@ function mismatchesFor(rule: Rule): string[] {
 // EXACT mismatch list, not a count: a different set of the same size is a new
 // divergence, and reconciling one side turns the list stale, so neither slips by
 // silently. Reconcile, regenerate (gen_engine_parity.py), then delete the entry.
-const KNOWN_DIVERGENT: Partial<Record<Rule, string[]>> = {
-  // Backend bug, not a modelling choice (PLAN_SURFACE_EXTERIEURE.md §2.E). The
-  // client's winMajorityJudgment is the textbook Balinski–Laraki procedure:
-  // strip the tied median grade until the candidates separate. The backend's
-  // get_majority_judgment_winner ranks equal medians by p − q instead, which is
-  // not the majority gauge (+p if p > q, else −q); all six below come from that
-  // ordering, and the gauge picks the client's winner on each. Two further
-  // backend gaps don't show up in this fixture: it strips at most once and only
-  // the top two, and it compares p and q as floats, so an exact tie can be
-  // decided by rounding.
-  majority_judgment: [
-    '#6: client=C backend=A',
-    '#13: client=B backend=A',
-    '#21: client=D backend=C',
-    '#32: client=A backend=C',
-    '#36: client=C backend=A',
-    '#58: client=D backend=E',
-  ],
-};
+//
+// Currently empty and should stay that way — `majority_judgment` was the one
+// entry (fix/majority-judgment-gauge, following PLAN_SURFACE_EXTERIEURE.md
+// §2.E): the backend ranked equal medians by p − q instead of running the real
+// Balinski–Laraki procedure (repeatedly strip the tied median grade and
+// recompare). get_majority_judgment_winner now ports the client's
+// winMajorityJudgment directly (see `_mj_winner` in simulation_score_utils.py);
+// 0 mismatches on regeneration.
+const KNOWN_DIVERGENT: Partial<Record<Rule, string[]>> = {};
 
 describe('engine parity — client ruleWinnerFromRanks == backend golden winners', () => {
   it('has a non-trivial fixture', () => {

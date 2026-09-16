@@ -110,13 +110,17 @@ test failed.
      bug until proven otherwise** — default to assuming the client needs to
      match the backend, not the reverse. But check both against the rule's
      textbook definition (THEORY.md) before proposing which side to change:
-     `majority_judgment` is a case where the backend is the wrong side (it
-     ranks median ties by p − q, not the Balinski–Laraki gauge). A
+     `majority_judgment` was a case where the backend was the wrong side (it
+     ranked median ties by p − q instead of running the real Balinski–Laraki
+     procedure — repeatedly strip the tied median grade and recompare;
+     `_mj_winner` in `simulation_score_utils.py` now ports the client's
+     `winMajorityJudgment` directly, `fix/majority-judgment-gauge`). A
      documented ballot-derivation difference is handled by feeding both
      engines exact-value ballots (how approval and MJ are compared in
      `gen_engine_parity.py`), not by excluding the rule. `KNOWN_DIVERGENT`
      in the test file pins a confirmed divergence's exact mismatch list while
-     it waits for a fix; never propose adding to it just to turn a test green.
+     it waits for a fix; never propose adding to it just to turn a test green
+     — it's currently empty and should stay that way.
 
 ## Rules
 
