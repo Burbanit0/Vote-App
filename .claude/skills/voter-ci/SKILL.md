@@ -190,6 +190,17 @@ The ratchet is the actual gate, reading the `.txt` files those tools already
 
 ## The mutation score ratchet (`scripts/check_mutation_score.sh`)
 
+**Scope first, because the number invites over-reading**: the baseline score
+(66.57% as of this writing) is measured over a deliberately narrow,
+hand-picked file selection (`[tool.mutmut]` in `fast_api_voter/pyproject.toml`
+— currently 3 backend files, ~4,700 of the repo's ~40,000 backend lines;
+Stryker's frontend half is narrower still, one file,
+`playgroundVoting.ts`). It is **not** a repo-wide code-quality metric, and
+citing it as one (in a status update, a PR description, a dashboard) is a
+plan-doc-flagged mistake — `PLAN_SURFACE_EXTERIEURE.md` §2.L. Say "the
+mutation score on its current ~4%-of-the-codebase scope" or name the actual
+files, not "the mutation score."
+
 Same idiom as the quality ratchet above (`.github/mutation-baseline.json`
 records `{score, killed, total}`, `--update` accepts a new one), for the
 backend half of `mutation-testing.yml`. A hand-maintained percentage floor
