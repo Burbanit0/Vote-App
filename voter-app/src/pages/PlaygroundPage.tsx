@@ -5,7 +5,8 @@ import { cn } from '@/lib/utils';
 import { useMetaTags } from '../hooks/useMetaTags';
 import {
   PlaygroundProvider,
-  usePlaygroundCtx,
+  useStoreCtx,
+  useJourneyCtx,
 } from '../components/playground/PlaygroundController';
 import MomentRail, { MOMENTS } from '../components/playground/MomentRail';
 import InstrumentPanel from '../components/playground/InstrumentPanel';
@@ -35,7 +36,7 @@ const MOMENT_PANELS = {
 
 // Segmented hardware-style switch for the leader/assembly duality.
 const ModeSwitch: React.FC = () => {
-  const { mode, setMode } = usePlaygroundCtx();
+  const { mode, setMode } = useStoreCtx();
   const { t } = useTranslation('playground');
   return (
     <div
@@ -78,7 +79,7 @@ const ModeSwitch: React.FC = () => {
 };
 
 const PlaygroundShell: React.FC = () => {
-  const { activeMoment, setActiveMoment } = usePlaygroundCtx();
+  const { activeMoment, setActiveMoment } = useJourneyCtx();
   const { t } = useTranslation('playground');
   const meta = MOMENTS.find((m) => m.id === activeMoment) ?? MOMENTS[0];
   const Panel = activeMoment !== 'campaign' ? MOMENT_PANELS[activeMoment] : null;

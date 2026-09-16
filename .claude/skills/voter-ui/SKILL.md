@@ -8,7 +8,8 @@ description: Conventions for the Vote-App React/TypeScript frontend (voter-app/)
 Stack: **React 19 + TypeScript + Vite + Tailwind v4 + shadcn**. Data layer: **TanStack Query
 + openapi-fetch** (`src/api/client.ts`, typed on `src/api/types.gen.ts`). State: **Zustand**
 stores in `src/stores/` for global app state; the Playground's own state is the exception —
-it flows through a dedicated React Context (`usePlaygroundCtx`, see below), not a store.
+it flows through dedicated React Contexts split by concern (`useStoreCtx` / `useJourneyCtx` /
+`useInstrumentCtx` / `useScorecardCtx`, see below), not a store.
 Services in `src/services/*` wrap endpoints.
 For *visual* direction (palette, type, avoiding templated looks) use the **`frontend-design`**
 skill; this skill is about *this app's* structure and its non-obvious traps.
@@ -54,8 +55,15 @@ The Playground (`src/pages/PlaygroundPage.tsx` + `components/playground/*` + `li
 is one shared electorate with two questions (Dirigeant vs Assemblée), every assumption a knob.
 It is a **5-moment instrument** — Électorat → Méthode → Stratégie → Campagne → Bilan
 (`components/playground/moments/*Moment.tsx`). **All state and derivations live in
-`PlaygroundController.tsx`** and flow through one context (`usePlaygroundCtx`); moment panels
-and the instrument are thin consumers. When adding voting-theory features:
+`PlaygroundController.tsx`** and flow through contexts split by concern; moment panels and
+the instrument are thin consumers. **Consume the narrowest hook(s) a component needs**:
+`useStoreCtx()` (settings, changes on edit), `useJourneyCtx()` (moment/rule/lens, discrete
+clicks), `useInstrumentCtx()` (live voters/candidates — recomputed on **every drag frame**),
+`useScorecardCtx()` (async diagnostics + scorecard). `usePlaygroundCtx()` is a composed view
+over all four that re-renders on any of them — reserve it for a consumer that genuinely reads
+nearly everything (`InstrumentPanel`). Put a new field in the context matching how often it
+changes: a low-frequency value parked in `instrumentCtx` drags every reader along on each
+drag. See CLAUDE.md's "Playground architecture". When adding voting-theory features:
 
 - A **new method** is "free" — add a `Rule` in `lib/playgroundVoting.ts` (type + `RULE_LABELS`
   + a client `winRegion`) and it auto-renders in the win-region map, Scorecard, Pareto, and
@@ -67,7 +75,7 @@ and the instrument are thin consumers. When adding voting-theory features:
   playground. The 2026 simplification pass split the surface in two: the playground stays the
   clean < 2-min thesis walk (essential controls only), and the Laboratoire gathers the deep
   explorations (paradoxes, theory anchors, behavioural realism, the +12 exotic methods) by theme.
-  It reads the **same** electorate via `usePlaygroundCtx` — configure in the playground, explore
+  It reads the **same** electorate via the same contexts — configure in the playground, explore
   in the lab, no double state. Campaign/temporal dynamics are now the **Campagne moment** inside
   the rail (`/campagne` redirects to `/playground`; `CampaignDynamicsPage` is gone).
 

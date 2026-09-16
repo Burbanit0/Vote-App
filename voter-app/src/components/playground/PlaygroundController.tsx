@@ -483,35 +483,43 @@ function useController() {
   // re-renders its own three real consumers (MethodMoment, ValuesLabPanel,
   // BilanMoment) on every engine, not just under load.
   //
-  // Scope note: this closes the specific reproduced case, not the general
-  // class. `main` still bundles ~64 other fields (playground/assembly/
-  // config among them) read by roughly a dozen consumers including
-  // InstrumentPanel -> LeaderCanvas, so another rapid-fire control bound to
-  // one of those (e.g. MethodMoment's own assembly-seats slider, or
-  // ElectorateComposer's range inputs) could in principle hit the same
-  // WebKit-under-load ceiling. Splitting per newly-implicated field like
-  // this one, rather than migrating to per-field subscriptions (this repo's
-  // own useElectionStore.tsx Zustand selectors already do that for the
-  // store layer), is the fix that matched this bug's actual size -- revisit
-  // with the more general approach if this class of flake recurs on a
-  // different control.
+  // This split closed that one reproduced case first; the general class
+  // (every other field bundled in one blob) is now addressed by the four
+  // concern-split contexts below, which extend the same pattern to the rest.
   const methodSelection = React.useMemo(
     () => ({ enabledRules, setEnabledRules, lensItems }),
     [enabledRules, setEnabledRules, lensItems]
   );
 
-  // Memoized so an unrelated re-render (a parent passing a new `children`
-  // element, StrictMode's double-invoke, etc.) that changes none of these
-  // ~67 values doesn't hand every usePlaygroundCtx() consumer a new object
-  // reference — without this, every moment panel re-renders on ANY
-  // PlaygroundProvider re-render, not just the ones that touched its slice.
-  // It does NOT reduce re-renders when a dependency genuinely changes (most
-  // interactions touch `config`/`playground`, which this honestly depends
-  // on) — see PlaygroundController.render.test.tsx for what this does and
-  // does not buy.
-  const main = React.useMemo(
+  // ── Four contexts by concern (PLAN_SURFACE_EXTERIEURE.md §2.J) ────────────
+  // methodSelection above proved the pattern on one slice: a component that
+  // only reads that context is NOT re-rendered by a change elsewhere (see
+  // PlaygroundController.render.test.tsx). These four extend it to the rest
+  // of what used to be one ~67-field `main` blob, split by how the data
+  // actually behaves:
+  //   - storeCtx: the raw config/playground bindings and anything that is a
+  //     pure read of them (dims, electorate, composed). Coarse-grained --
+  //     almost every consumer reads `mode` at least -- but changes only on
+  //     an explicit settings edit, never on a drag/slider frame.
+  //   - journeyCtx: where the user is and what they're looking at -- the
+  //     active moment, the rule under examination, the map lens (whose
+  //     default is itself derived from the moment). Discrete clicks only.
+  //   - instrumentCtx: the live spatial data -- voters, candidates, the
+  //     drag/shake interactions. The HIGH-FREQUENCY one: every candidate
+  //     drag frame recomputes it. Deliberately holds nothing a consumer
+  //     would read without also needing that live data, so a consumer that
+  //     only wants e.g. the current rule isn't dragged along by it.
+  //   - scorecardCtx: async diagnostics + the Monte-Carlo scorecard/values
+  //     dial. Recomputes on a debounce, not every frame, but still more
+  //     often than storeCtx/journeyCtx.
+  // `main`/usePlaygroundCtx() stays as a composed, backward-compatible view
+  // over all four (see below) -- existing consumers and their tests keep
+  // working unchanged; only the ones migrated to the narrower hooks
+  // (storeCtx et al.) actually stop re-rendering on a slice they don't
+  // read. Migrating every remaining consumer is future work, not required
+  // to get the real isolation this item asked for.
+  const storeCtx = React.useMemo(
     () => ({
-      // stores
       config,
       setConfig,
       playground,
@@ -529,55 +537,15 @@ function useController() {
       turnout,
       blank,
       pointWord,
-      // diagnostics
-      result,
-      loading,
-      assemblyResult,
-      assemblyLoading,
-      // journey
-      activeMoment,
-      setActiveMoment,
-      // instrument
+      // Pure reads of the store (space.dims, playground.electorate) -- change
+      // only on a settings edit, never on a drag frame, so they live here
+      // rather than in instrumentCtx even though the map consumes them.
       dims,
-      leaderRule,
-      setLeaderRule,
-      lens,
-      setLens,
-      youPos,
-      setYouPos,
-      showYou,
       electorate,
       composed,
-      voters,
-      voterColors,
-      leaderCandidates,
-      votingVoters,
-      expressedVoters,
-      blankSplit,
-      blankVerdictLive,
-      sampleAtSeed,
-      baseSeed: config.seed,
-      moveCandidate,
+      // A stable store write-back (depends only on setConfig), unlike
+      // moveCandidate which changes identity on every drag -- see instrumentCtx.
       pinToPlayground,
-      // shake
-      shakeOn,
-      setShakeOn,
-      shake,
-      // scorecards
-      leaderSc,
-      parlSc,
-      lensMode,
-      setLensMode,
-      dial,
-      setDial,
-      effectiveWeights,
-      setLeaderWeights,
-      setParlWeights,
-      democracyEntries,
-      manipDetail,
-      strategicOutcome,
-      axisMeta,
-      currentAxes,
     }),
     [
       config,
@@ -597,22 +565,30 @@ function useController() {
       turnout,
       blank,
       pointWord,
-      result,
-      loading,
-      assemblyResult,
-      assemblyLoading,
+      dims,
+      electorate,
+      composed,
+      pinToPlayground,
+    ]
+  );
+
+  const journeyCtx = React.useMemo(
+    () => ({
       activeMoment,
       setActiveMoment,
-      dims,
       leaderRule,
       setLeaderRule,
       lens,
       setLens,
+      showYou,
+    }),
+    [activeMoment, setActiveMoment, leaderRule, setLeaderRule, lens, setLens, showYou]
+  );
+
+  const instrumentCtx = React.useMemo(
+    () => ({
       youPos,
       setYouPos,
-      showYou,
-      electorate,
-      composed,
       voters,
       voterColors,
       leaderCandidates,
@@ -621,11 +597,57 @@ function useController() {
       blankSplit,
       blankVerdictLive,
       sampleAtSeed,
+      baseSeed: config.seed,
       moveCandidate,
-      pinToPlayground,
       shakeOn,
       setShakeOn,
       shake,
+    }),
+    [
+      youPos,
+      setYouPos,
+      voters,
+      voterColors,
+      leaderCandidates,
+      votingVoters,
+      expressedVoters,
+      blankSplit,
+      blankVerdictLive,
+      sampleAtSeed,
+      config.seed,
+      moveCandidate,
+      shakeOn,
+      setShakeOn,
+      shake,
+    ]
+  );
+
+  const scorecardCtx = React.useMemo(
+    () => ({
+      result,
+      loading,
+      assemblyResult,
+      assemblyLoading,
+      leaderSc,
+      parlSc,
+      lensMode,
+      setLensMode,
+      dial,
+      setDial,
+      effectiveWeights,
+      setLeaderWeights,
+      setParlWeights,
+      democracyEntries,
+      manipDetail,
+      strategicOutcome,
+      axisMeta,
+      currentAxes,
+    }),
+    [
+      result,
+      loading,
+      assemblyResult,
+      assemblyLoading,
       leaderSc,
       parlSc,
       lensMode,
@@ -643,24 +665,58 @@ function useController() {
     ]
   );
 
-  return { main, methodSelection };
+  // Composed, backward-compatible view over the four contexts above. Each of
+  // the four is independently memoized, so this only recomputes when one of
+  // THEM changes (an unrelated ancestor re-render still yields the same
+  // object reference) -- the same contract `main` always had, see
+  // PlaygroundController.render.test.tsx. It still does NOT reduce re-render
+  // COUNTS for a usePlaygroundCtx() consumer when a dependency genuinely
+  // changes: that's exactly what migrating a consumer to the narrower
+  // hooks buys, which this composed view can't retroactively grant it.
+  const main = React.useMemo(
+    () => ({ ...storeCtx, ...journeyCtx, ...instrumentCtx, ...scorecardCtx }),
+    [storeCtx, journeyCtx, instrumentCtx, scorecardCtx]
+  );
+
+  return { main, methodSelection, storeCtx, journeyCtx, instrumentCtx, scorecardCtx };
 }
 
 export type PlaygroundCtx = ReturnType<typeof useController>['main'];
 export type MethodSelectionCtx = ReturnType<typeof useController>['methodSelection'];
+export type StoreCtx = ReturnType<typeof useController>['storeCtx'];
+export type JourneyCtx = ReturnType<typeof useController>['journeyCtx'];
+export type InstrumentCtx = ReturnType<typeof useController>['instrumentCtx'];
+export type ScorecardCtx = ReturnType<typeof useController>['scorecardCtx'];
 
 const Ctx = createContext<PlaygroundCtx | null>(null);
 const MethodSelectionContext = createContext<MethodSelectionCtx | null>(null);
+const StoreContext = createContext<StoreCtx | null>(null);
+const JourneyContext = createContext<JourneyCtx | null>(null);
+const InstrumentContext = createContext<InstrumentCtx | null>(null);
+const ScorecardContext = createContext<ScorecardCtx | null>(null);
 
 export const PlaygroundProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { main, methodSelection } = useController();
+  const { main, methodSelection, storeCtx, journeyCtx, instrumentCtx, scorecardCtx } =
+    useController();
   return (
-    <MethodSelectionContext.Provider value={methodSelection}>
-      <Ctx.Provider value={main}>{children}</Ctx.Provider>
-    </MethodSelectionContext.Provider>
+    <StoreContext.Provider value={storeCtx}>
+      <JourneyContext.Provider value={journeyCtx}>
+        <InstrumentContext.Provider value={instrumentCtx}>
+          <ScorecardContext.Provider value={scorecardCtx}>
+            <MethodSelectionContext.Provider value={methodSelection}>
+              <Ctx.Provider value={main}>{children}</Ctx.Provider>
+            </MethodSelectionContext.Provider>
+          </ScorecardContext.Provider>
+        </InstrumentContext.Provider>
+      </JourneyContext.Provider>
+    </StoreContext.Provider>
   );
 };
 
+/** The full, composed context -- convenient, but a consumer that reads it
+ * re-renders on ANY of the four slices below changing. Prefer useStoreCtx() /
+ * useJourneyCtx() / useInstrumentCtx() / useScorecardCtx() for a consumer
+ * that only actually needs one slice. */
 export function usePlaygroundCtx(): PlaygroundCtx {
   const c = useContext(Ctx);
   if (!c) throw new Error('usePlaygroundCtx must be used within a PlaygroundProvider');
@@ -672,5 +728,36 @@ export function usePlaygroundCtx(): PlaygroundCtx {
 export function useMethodSelection(): MethodSelectionCtx {
   const c = useContext(MethodSelectionContext);
   if (!c) throw new Error('useMethodSelection must be used within a PlaygroundProvider');
+  return c;
+}
+
+/** config/playground store bindings -- see the storeCtx memo above. */
+export function useStoreCtx(): StoreCtx {
+  const c = useContext(StoreContext);
+  if (!c) throw new Error('useStoreCtx must be used within a PlaygroundProvider');
+  return c;
+}
+
+/** Active moment, rule under examination, map lens -- see the journeyCtx memo
+ * above. */
+export function useJourneyCtx(): JourneyCtx {
+  const c = useContext(JourneyContext);
+  if (!c) throw new Error('useJourneyCtx must be used within a PlaygroundProvider');
+  return c;
+}
+
+/** Live, drag-driven spatial data (voters, candidates, shake) -- see the
+ * instrumentCtx memo above. */
+export function useInstrumentCtx(): InstrumentCtx {
+  const c = useContext(InstrumentContext);
+  if (!c) throw new Error('useInstrumentCtx must be used within a PlaygroundProvider');
+  return c;
+}
+
+/** Async diagnostics + the Monte-Carlo scorecard -- see the scorecardCtx
+ * memo above. */
+export function useScorecardCtx(): ScorecardCtx {
+  const c = useContext(ScorecardContext);
+  if (!c) throw new Error('useScorecardCtx must be used within a PlaygroundProvider');
   return c;
 }
