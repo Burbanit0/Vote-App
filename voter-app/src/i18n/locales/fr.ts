@@ -17,6 +17,7 @@ const fr = {
     gallery: 'Galerie',
     electionLab: 'Election Lab',
     play: 'À vous de jouer',
+    polity: 'Polity',
     playground: 'Playground',
     laboratoire: 'Laboratoire',
     lexique: 'Lexique',

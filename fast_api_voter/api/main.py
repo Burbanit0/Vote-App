@@ -36,9 +36,11 @@ from api.engine.utils.logger import configure_logging, get_logger
 from api.core.config import Settings, get_settings
 from api.core.ratelimit import limiter
 from api.core.tracing import configure_tracing, instrument_app
+from api.domain.polity.explorer_workers import explorer_roots
 from api.routes import election as election_routes
 from api.routes import export as export_routes
 from api.routes import health as health_routes
+from api.routes import polity as polity_routes
 from api.routes.metrics import setup_metrics
 from api.routes import public as public_routes
 from api.routes import simulations as simulations_routes
@@ -61,6 +63,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         cors_origins=settings.allowed_origins,
         log_level=settings.log_level,
     )
+    # POLITY_RUN_ROOTS is parsed per request by /api/v2/polity. A typo (a bare path with
+    # no "label=", a repeated label) would otherwise be a 500 on every polity request,
+    # with the reason only in the logs -- so the process refuses to start instead.
+    polity_roots = explorer_roots(settings.polity_run_roots)
+    log.info("api.startup.polity_run_roots", roots=[root.label for root in polity_roots])
     yield
     log.info("api.shutdown")
 
@@ -222,6 +229,7 @@ async def log_requests(
 app.include_router(health_routes.router)
 app.include_router(election_routes.router)
 app.include_router(export_routes.router)
+app.include_router(polity_routes.router)
 app.include_router(public_routes.router)
 app.include_router(simulations_routes.router)
 app.include_router(tech_routes.router)
