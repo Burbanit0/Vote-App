@@ -306,17 +306,41 @@ réellement à égalité). `_mj_majority_gauge` était devenu mort code une fois
 la clé retirée — supprimé avec son test dédié plutôt que gardé sous un
 whitelist vulture. Fixture régénérée : seuls les 6 scénarios divergents
 bougent (dont 2 qui n'avaient pas de vainqueur strict avant, le backend
-étant désormais lui-même stable au relabel), `KNOWN_DIVERGENT` vidé. Reste
-en attente, non fait dans cette branche : ajouter MJ (et approval) au
-domaine exhaustif, avec des effectifs pairs — aujourd'hui passer à la
-médiane haute ne bougerait pas la fixture.
-- **Section `cardinalScenarios`** : sans mélange des clés, 59/60 vainqueurs
-  maximin (et 5 score, 4 STAR) y sont des départages par position que les
-  deux moteurs partagent. Activer `shuffle_keys` les ferait tomber : c'est une
-  décision sur ce que ce verrou prétend garantir, pas un correctif discret.
+étant désormais lui-même stable au relabel), `KNOWN_DIVERGENT` vidé.
 - **Approval** : choisir une seule façon de dériver le bulletin d'approbation
   à partir de l'utilité (décision produit), puis nourrir cette section en
   utilités continues.
+
+**Section `cardinalScenarios` — fait** (`feat/cardinal-strict-key-shuffle`) :
+`shuffle_keys=True` activé pour cette section aussi (mesure indépendante
+confirmée : 59/60 maximin, 5/60 score, 4/60 STAR changent sous un simple
+réordonnancement des clés, votes et noms inchangés — mécanisme confirmé dans
+les deux moteurs : `_score_candidates` + `max(..., key=...)` côté backend et
+`argmax` côté client renvoient tous deux le premier candidat au rang maximal,
+donc un rang position/insertion, pas l'algorithme maximin lui-même). Après
+activation et régénération, vainqueurs stricts réels : score 57/60, star
+59/60, cumulative 60/60, nash 60/60 — largement au-dessus du seuil partagé de
+40 — mais **maximin 1/60**. Option (a) du plan (augmenter le nombre de
+scénarios pour rester au-dessus de 40 vainqueurs génuinement stricts) mesurée
+et rejetée : le taux réel de vainqueurs maximin non départagés par position
+est de ~1,7 % sur la grille (m, n) existante (n≥21, scores entiers 0-5 → un
+candidat a une probabilité ~98 % que son pire score touche 0, d'où des
+égalités massives) ; en tirer 40 demanderait ~2400 scénarios, soit +1,6 Mo de
+JSON à ~713 o/scénario — la fixture n'a que ~40 Ko (~56 scénarios) de marge
+avant la limite de 500 Ko du hook `check-added-large-files`. Option (b)
+retenue à la place : `MIN_STRICT_WINNERS_MAXIMIN = 1`, seuil propre à
+`maximin` dans `playgroundVoting.parity.test.ts`, fixé exactement au compte
+mesuré (le générateur est déterministe) — ne garde que la garantie « la
+section n'est pas totalement vide », pas un nombre à 40. La boucle
+`cardinalScenarios` de `main()` a aussi reçu ses propres flux RNG seedés : un
+flux de bulletins partagé entre les 5 règles (elles lisent volontairement la
+même matrice de scores par scénario) et un flux d'essais indépendant **par
+règle** pour la boucle de 200 essais de `strict_winner_cardinal`, pour qu'un
+changement futur sur une règle ne puisse plus décaler le flux aléatoire des
+autres règles ni de la section ordinale qui précède (même correctif que celui
+déjà appliqué à `single_rule_scenarios` pour `approval`/`majority_judgment`,
+poussé un cran plus loin après une revue `/code-review max` qui a relevé que
+mon premier passage partageait encore un seul flux entre les 5 règles).
 
 **Effort** : S (une après-midi) · **Priorité** : haute — meilleur rapport
 valeur/effort du plan.

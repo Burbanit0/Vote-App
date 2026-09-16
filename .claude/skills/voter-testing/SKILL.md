@@ -165,12 +165,20 @@ cd voter-app && npx vitest run src/lib/playgroundVoting.parity.test.ts
   bugs were caught, because it doesn't filter out tied/degenerate cases the
   way the strict-winner scenarios do), and one `describe.each` over three
   cardinal fixture sections of 60 scenarios each: `cardinalScenarios` (score,
-  STAR, cumulative, maximin, nash on a shared score matrix),
-  `approvalScenarios` (0/1 ballots) and `majorityJudgmentScenarios` (0-5
-  grades). Approval and MJ get exact-value ballots because each engine derives
-  those two from raw utility differently, so those sections lock the count,
-  not the ballot derivation. Each cardinal rule must also compare at least 40
-  strict winners.
+  STAR, cumulative, maximin, nash on a shared score matrix — its own seeded
+  RNG streams in `gen_engine_parity.py`'s `main()`, one shared ballot stream
+  plus one trial stream per rule, so an unrelated change to the ordinal RULES
+  section or to a sibling cardinal rule doesn't re-roll it), `approvalScenarios`
+  (0/1 ballots) and `majorityJudgmentScenarios` (0-5 grades). Approval and MJ
+  get exact-value ballots because each engine derives those two from raw
+  utility differently, so those sections lock the count, not the ballot
+  derivation. Each cardinal rule must also compare at least 40 strict winners
+  — **except `maximin`**, which only needs 1 (`MIN_STRICT_WINNERS_MAXIMIN` in
+  the test file): it structurally ties far more often than the other four, so
+  its genuinely-strict rate over this scenario grid measures ~1/60, not a bug
+  — see that constant's comment and PLAN_SURFACE_EXTERIEURE.md §2.E for the
+  full measurement and why raising the scenario count to compensate isn't
+  practical here (fixture size).
 - **`KNOWN_DIVERGENT` maps a rule to its EXACT expected mismatch list**
   (`#<index>: client=X backend=Y`), not a count. It's currently empty and
   should stay that way — its one past entry, `majority_judgment`, was a
