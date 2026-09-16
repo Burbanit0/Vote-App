@@ -211,13 +211,14 @@ describe.each([
   );
 });
 
-// ── Exhaustive cardinal domains (approval, majority judgment) ─────────────────
-// generate_exhaustive_approval_scenarios / generate_exhaustive_majority_judgment_scenarios
-// in gen_engine_parity.py extend the same exhaustive-domain proof used above
-// for the ordinal rules (n<=3 candidates, every profile, not a sample) to the
-// two rules that read `scores` instead of `ranks`. Same deal as that block:
-// winners are RAW (ties/no-winner → null, not filtered out by strict_winner),
-// so a mismatch is a real algorithmic divergence, not a tie-break artefact.
+// ── Exhaustive cardinal domains (approval, majority judgment, maximin) ────────
+// generate_exhaustive_approval_scenarios / generate_exhaustive_majority_judgment_scenarios /
+// generate_exhaustive_maximin_scenarios in gen_engine_parity.py extend the same
+// exhaustive-domain proof used above for the ordinal rules (n<=3 candidates,
+// every profile, not a sample) to the three rules that read `scores` instead
+// of `ranks`. Same deal as that block: winners are RAW (ties/no-winner →
+// null, not filtered out by strict_winner), so a mismatch is a real
+// algorithmic divergence, not a tie-break artefact.
 //
 // Domain sizes (see gen_engine_parity.py's docstrings for the measured
 // combinations_with_replacement counts behind these numbers):
@@ -229,8 +230,24 @@ describe.each([
 //   n<=3 candidates, m<=5 voters for n=2 (2,001 profiles) and m<=3 for n=3
 //   (4,059 profiles) — the full 6-grade domain explodes combinatorially at
 //   n=3 well before m=5, the same way ordinal n=4 does.
-const { exhaustiveApprovalScenarios, exhaustiveMajorityJudgmentScenarios } = fixtureJson as Record<
-  'exhaustiveApprovalScenarios' | 'exhaustiveMajorityJudgmentScenarios',
+// - maximin: the SAME 3-grade coarsening and n/m bounds as majority_judgment
+//   (MAXIMIN_EXHAUSTIVE_GRADES' comment in gen_engine_parity.py has the
+//   independent verification — both code-reading and a throwaway empirical
+//   check — that maximin has the same order-only-comparison property that
+//   makes the coarsening lossless), so the same 6,060-profile domain
+//   (2,001 for n=2 + 4,059 for n=3). Unlike MJ, maximin's ballots are fed to
+//   the engines UNSCALED (raw grade ints, not divided by 5): neither side's
+//   maximin implementation compares a score against a fixed threshold, only
+//   against each other, so no rescale is needed here — contrast with the
+//   `/ 5` map below for majority_judgment.
+const {
+  exhaustiveApprovalScenarios,
+  exhaustiveMajorityJudgmentScenarios,
+  exhaustiveMaximinScenarios,
+} = fixtureJson as Record<
+  | 'exhaustiveApprovalScenarios'
+  | 'exhaustiveMajorityJudgmentScenarios'
+  | 'exhaustiveMaximinScenarios',
   CardinalScenario[]
 >;
 
@@ -257,5 +274,17 @@ describe('engine parity — EXHAUSTIVE majority-judgment domain (3 grades, n<=3)
 
   it('majority_judgment matches the backend on EVERY profile, ties and all', () => {
     expect(exhaustiveMismatchesFor(prepared, 'majority_judgment')).toEqual([]);
+  });
+});
+
+describe('engine parity — EXHAUSTIVE maximin domain (3 grades, n<=3)', () => {
+  const prepared = exhaustiveMaximinScenarios.map(prepareCardinal);
+
+  it('covers the full 3-grade domain (m<=5 for n=2, m<=3 for n=3)', () => {
+    expect(prepared).toHaveLength(6060);
+  });
+
+  it('maximin matches the backend on EVERY profile, ties and all', () => {
+    expect(exhaustiveMismatchesFor(prepared, 'maximin')).toEqual([]);
   });
 });
