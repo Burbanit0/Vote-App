@@ -541,6 +541,31 @@ def generate_exhaustive_majority_judgment_scenarios() -> list[dict]:
 MAXIMIN_EXHAUSTIVE_GRADES: tuple = MJ_EXHAUSTIVE_GRADES
 
 
+def _maximin_tied_winners(candidates: list, scores: list) -> list:
+    """The exact set of candidates tied for the TRUE maximin value (the highest
+    worst-case score) for one profile, computed directly from `scores`
+    (voter-major: `scores[voter][candidate]`) -- independently of
+    get_maximin_score_winner's own single-pick tie-break, so it can serve as
+    ground truth.
+
+    Why this exists at all, not just a raw winner-vs-winner comparison (see
+    generate_exhaustive_maximin_scenarios' docstring for the full story): both
+    engines' single-candidate "winner" is a legitimately different, ARBITRARY
+    tie-break convention (the backend's comes from dict/`_score_candidates`
+    insertion order, which this generator's own ballot construction always
+    happens to make canonical -- an artifact of test construction, not a
+    property either engine actually guarantees), not a shared algorithm. What
+    IS a real, well-defined, order-independent, cross-engine-comparable fact
+    is this set: which candidates actually achieve the maximum worst-case
+    score. Both engines must return a member of it always, and when it has
+    exactly one member there is no tie left to break, so identity comparison
+    is meaningful there without qualification.
+    """
+    worst = [min(row[j] for row in scores) for j in range(len(candidates))]
+    best = max(worst)
+    return [c for c, w in zip(candidates, worst) if w == best]
+
+
 def generate_exhaustive_maximin_scenarios() -> list[dict]:
     """Every possible maximin profile over MAXIMIN_EXHAUSTIVE_GRADES for n<=3
     candidates -- the maximin instance of
@@ -576,21 +601,77 @@ def generate_exhaustive_maximin_scenarios() -> list[dict]:
     either side to read this domain correctly; `to_score` is left at the
     shared helper's default identity.
 
+    WHY THIS SECTION ALSO RECORDS `maximinTiedWinners`, not just `winners`:
+    a raw winner-identity comparison (what approval/MJ's exhaustive sections
+    rely on, and what this section itself did in an earlier version of this
+    PR) turned out to be validating a construction artifact here, not real
+    cross-engine agreement. get_maximin_score_winner's tie-break comes from
+    `_score_candidates`'s first-encountered dict-key order, which this
+    generator's ballots always build in canonical candidate order -- so it
+    always coincides with the client's own tie-break (lowest array index,
+    i.e. also canonical order) *only because of that shared construction
+    choice*, not because the two engines implement the same tie-break rule.
+    Confirmed by reversing per-voter dict key order on this exact fixture
+    (same elections, same score multisets): the backend's recorded winner
+    flips on 3,312 of 6,060 profiles (54.7%) -- i.e. for the majority of
+    scenarios, "winner" here was never a meaningful cross-engine check at
+    all, just a shared accident of how the ballots happen to be built.
+    Maximin's own tie-break has no principled "correct" convention to lock
+    (max() over an unordered set with equal keys is inherently
+    order-dependent; this is the same tie-heavy-rule reality
+    MIN_STRICT_WINNERS_MAXIMIN's comment in playgroundVoting.parity.test.ts
+    already documents for the random-sample cardinalScenarios section), so
+    asserting raw identity on every profile would be asserting something
+    neither engine actually promises.
+
+    `maximinTiedWinners` (`_maximin_tied_winners`, computed independently of
+    either engine) is the real, well-defined, order-independent ground
+    truth: every candidate genuinely tied for the highest worst-case score.
+    The generator asserts here, at BUILD time, that the backend's own raw
+    pick is always a member of it -- a correctness invariant on
+    get_maximin_score_winner itself, unrelated to tie-break convention; a
+    failure here would be a genuine backend bug to stop and report, not a
+    construction artifact. The parity test (playgroundVoting.parity.test.ts)
+    runs the equivalent check on the client, and additionally asserts EXACT
+    identity between client, backend, and the tied set specifically when
+    the tied set has exactly one member -- the ~45.3% of profiles where
+    maximin's answer is genuinely unambiguous, now validated exhaustively
+    instead of by construction-order luck.
+
     Fixture size: this section measured at ~730KB after generation (6,060
     scenarios, slightly lighter than MJ's ~790KB for the same count -- a
     shorter "maximin" rule key than "majority_judgment" and no median/
-    tie-break bookkeeping to record, just candidates/scores/winner), taking
-    engineParity.json from ~1.3MB to ~2.0MB -- the same acknowledged,
+    tie-break bookkeeping to record, just candidates/scores/winner/tied-set),
+    taking engineParity.json from ~1.3MB to ~2.0MB -- the same acknowledged,
     deliberate overage of the 500KB check-added-large-files precedent
     generate_exhaustive_majority_judgment_scenarios' docstring records (that
     hook only checks NEWLY ADDED files, not growth on an already-tracked one).
 
+    Known gap, out of scope here: every ballot in this domain is COMPLETE --
+    every voter rates every candidate (`ballot_types_for` builds one value per
+    candidate per ballot type, no omissions). Real backend callers
+    (`override_utilities` paths) and the project's own atheris fuzz harness
+    can produce RAGGED ballots (a voter who didn't rate every candidate) --
+    the exact ballot shape whose absence from majority-judgment's own domain
+    was a real bug class PR #538 fixed (a candidate no voter-0 ballot
+    mentioned used to KeyError). This domain doesn't exercise that shape for
+    maximin either. Not fixed here: it's a different, orthogonal generator
+    change (a ballot TYPE alphabet with holes, not a tie-break correctness
+    fix), and get_maximin_score_winner's own iteration (`for c, s in
+    vote.items()`) already tolerates missing keys per-voter structurally
+    (unlike the old MJ bug, there's no fixed-candidate-set pre-seeding here to
+    KeyError on) -- so this is a documented coverage gap, not a known bug, and
+    a reasonable follow-up rather than a blocker for this PR.
+
     Reuses get_maximin_score_winner directly: it already accepts a plain list
     of per-voter score dicts (no `dict(enumerate(...))` or `["winner"]`
     unwrapping needed, unlike approval/MJ's backend entry points) -- the
-    tally logic is not reimplemented here.
+    tally logic is not reimplemented here; only the auxiliary ground-truth
+    tied-set computation (_maximin_tied_winners) is new, and it is NOT a
+    second implementation of the tally -- it computes a strictly simpler,
+    order-independent property (a set membership test), not a winner pick.
     """
-    return _generate_exhaustive_cardinal_scenarios(
+    scenarios = _generate_exhaustive_cardinal_scenarios(
         rule="maximin",
         winner_fn=get_maximin_score_winner,
         ballot_types_for=lambda cands: list(
@@ -599,6 +680,17 @@ def generate_exhaustive_maximin_scenarios() -> list[dict]:
         n_range=(2, 3),
         mmax_for=lambda n: 5 if n == 2 else 3,
     )
+    for sc in scenarios:
+        tied = _maximin_tied_winners(sc["candidates"], sc["scores"])
+        winner = sc["winners"]["maximin"]
+        assert winner in tied, (
+            "get_maximin_score_winner returned a winner outside the "
+            f"analytically-true tied set -- a real backend bug, not a "
+            f"construction artifact: winner={winner!r} tied={tied!r} "
+            f"candidates={sc['candidates']!r} scores={sc['scores']!r}"
+        )
+        sc["maximinTiedWinners"] = tied
+    return scenarios
 
 
 def main() -> None:

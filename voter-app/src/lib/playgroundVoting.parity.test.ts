@@ -240,16 +240,37 @@ describe.each([
 //   maximin implementation compares a score against a fixed threshold, only
 //   against each other, so no rescale is needed here — contrast with the
 //   `/ 5` map below for majority_judgment.
+//
+//   Maximin gets a DIFFERENT check shape than approval/majority_judgment,
+//   below — it is the one rule here whose own tie-break has no principled,
+//   shared convention to lock. get_maximin_score_winner (backend) and
+//   winMaximin (client) each deterministically pick ONE candidate among
+//   those tied for the best worst-case score, but by genuinely different
+//   mechanisms — backend: `_score_candidates`'s first-encountered dict-key
+//   order; client: lowest array index — that only ever coincide here
+//   because this generator's ballots happen to always be built in canonical
+//   candidate order (see generate_exhaustive_maximin_scenarios' docstring in
+//   gen_engine_parity.py for the full story, including the empirical
+//   measurement that reversing per-voter dict key order flips the backend's
+//   own recorded pick on 3,312/6,060 = 54.7% of this exact domain). Asserting
+//   raw winner identity on every profile the way approval/MJ do would just be
+//   asserting that shared construction accident, not real cross-engine
+//   agreement — so this section instead asserts the two things that ARE
+//   real: every profile's client pick is a genuine maximin winner (a member
+//   of `maximinTiedWinners`, the analytically-true tied-for-best set,
+//   computed independently of either engine), and client/backend/tied-set
+//   agree exactly on the ~45.3% of profiles where that set has just one
+//   member — i.e. every profile where the rule actually has an unambiguous
+//   answer, with no tie-break convention involved to disagree about.
 const {
   exhaustiveApprovalScenarios,
   exhaustiveMajorityJudgmentScenarios,
   exhaustiveMaximinScenarios,
 } = fixtureJson as Record<
-  | 'exhaustiveApprovalScenarios'
-  | 'exhaustiveMajorityJudgmentScenarios'
-  | 'exhaustiveMaximinScenarios',
+  'exhaustiveApprovalScenarios' | 'exhaustiveMajorityJudgmentScenarios',
   CardinalScenario[]
->;
+> &
+  Record<'exhaustiveMaximinScenarios', (CardinalScenario & { maximinTiedWinners: string[] })[]>;
 
 describe('engine parity — EXHAUSTIVE approval domain (n<=3 candidates, m<=5 voters)', () => {
   const prepared = exhaustiveApprovalScenarios.map(prepareCardinal);
@@ -278,13 +299,48 @@ describe('engine parity — EXHAUSTIVE majority-judgment domain (3 grades, n<=3)
 });
 
 describe('engine parity — EXHAUSTIVE maximin domain (3 grades, n<=3)', () => {
-  const prepared = exhaustiveMaximinScenarios.map(prepareCardinal);
+  const prepared = exhaustiveMaximinScenarios.map((sc) => ({
+    ...prepareCardinal(sc),
+    maximinTiedWinners: sc.maximinTiedWinners,
+  }));
 
   it('covers the full 3-grade domain (m<=5 for n=2, m<=3 for n=3)', () => {
     expect(prepared).toHaveLength(6060);
   });
 
-  it('maximin matches the backend on EVERY profile, ties and all', () => {
-    expect(exhaustiveMismatchesFor(prepared, 'maximin')).toEqual([]);
+  // Real, order-independent claim #1: the client NEVER picks a candidate that
+  // isn't genuinely tied for the best worst-case score, on any of the 6,060
+  // profiles — i.e. it always computes a real maximin winner, whether or not
+  // that profile happens to have a tie. This does not assume or require any
+  // particular tie-break convention; it only requires the underlying min/max
+  // computation itself to be correct.
+  it('client always returns a genuine maximin winner (member of the analytically-true tied set)', () => {
+    const violations: string[] = [];
+    prepared.forEach((s, i) => {
+      const idx = ruleWinnerFromRanks(s.ranks, s.m, 'maximin', s.scores);
+      const got = s.candidates[idx];
+      if (!s.maximinTiedWinners.includes(got)) {
+        violations.push(
+          `#${i}: client picked ${got}, not in the true tied set ${JSON.stringify(s.maximinTiedWinners)}`
+        );
+      }
+    });
+    expect(violations).toEqual([]);
+  });
+
+  // Real, order-independent claim #2: on every profile where the tied set has
+  // exactly one member — the rule has an unambiguous answer, no tie-break
+  // convention involved at all — client and backend agree exactly. Reuses
+  // exhaustiveMismatchesFor (it only needs `winners.maximin`, which for a
+  // singleton tied set always equals that one candidate — enforced by the
+  // generator's own assertion when the fixture was built).
+  it('client matches the backend exactly on every profile with a UNIQUE analytically-true winner', () => {
+    const unambiguous = prepared.filter((s) => s.maximinTiedWinners.length === 1);
+    // Measured ~2,748/6,060 (45.3%) unambiguous profiles in this domain — floor
+    // set well below that so a small, legitimate shift elsewhere in the
+    // generator doesn't flake this, while still catching the check going
+    // vacuous (a real regression).
+    expect(unambiguous.length).toBeGreaterThanOrEqual(2000);
+    expect(exhaustiveMismatchesFor(unambiguous, 'maximin')).toEqual([]);
   });
 });
