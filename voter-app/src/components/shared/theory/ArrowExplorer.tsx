@@ -323,6 +323,32 @@ const ArrowExplorer: React.FC = () => {
           return [...checkedAxioms].every((ax) => !v[ax]);
         });
 
+  let compatibilityAlert: React.ReactNode;
+  if (compatibleMethods.length > 0) {
+    compatibilityAlert = (
+      <Alert variant="success" style={{ fontSize: '0.78rem' }}>
+        ✓ {t('arrow.compatible')}:{' '}
+        {compatibleMethods.map((m) => (
+          <code key={m} className="me-1">
+            {m}
+          </code>
+        ))}
+      </Alert>
+    );
+  } else if (checkedAxioms.size === AXIOMS.length) {
+    compatibilityAlert = (
+      <Alert variant="danger" style={{ fontSize: '0.78rem' }}>
+        ✗ {t('arrow.noCompatible')} — {t('arrow.arrowStatement')}
+      </Alert>
+    );
+  } else {
+    compatibilityAlert = (
+      <Alert variant="warning" style={{ fontSize: '0.78rem' }}>
+        {t('arrow.noCompatiblePartial')}
+      </Alert>
+    );
+  }
+
   return (
     <div>
       {/* Axiom filter */}
@@ -350,26 +376,7 @@ const ArrowExplorer: React.FC = () => {
             ))}
           </div>
           {checkedAxioms.size > 0 && (
-            <div data-testid="compatible-methods">
-              {compatibleMethods.length > 0 ? (
-                <Alert variant="success" style={{ fontSize: '0.78rem' }}>
-                  ✓ {t('arrow.compatible')}:{' '}
-                  {compatibleMethods.map((m) => (
-                    <code key={m} className="me-1">
-                      {m}
-                    </code>
-                  ))}
-                </Alert>
-              ) : checkedAxioms.size === AXIOMS.length ? (
-                <Alert variant="danger" style={{ fontSize: '0.78rem' }}>
-                  ✗ {t('arrow.noCompatible')} — {t('arrow.arrowStatement')}
-                </Alert>
-              ) : (
-                <Alert variant="warning" style={{ fontSize: '0.78rem' }}>
-                  {t('arrow.noCompatiblePartial')}
-                </Alert>
-              )}
-            </div>
+            <div data-testid="compatible-methods">{compatibilityAlert}</div>
           )}
         </CardBody>
       </Card>
