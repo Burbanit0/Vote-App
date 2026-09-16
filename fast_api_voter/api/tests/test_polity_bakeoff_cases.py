@@ -9,7 +9,9 @@ import pytest
 
 from api.domain.polity import bakeoff_bank as bb
 from api.domain.polity import bakeoff_cases as bc
+from api.domain.polity import bakeoff_runner as br
 from api.domain.polity.citizen import generate_population
+from api.domain.polity.config import PolityConfig
 from api.domain.polity.llm_behavior_engine import (
     _VLLM_MAX_TOKENS_SAFETY_MARGIN,
     cast_votes,
@@ -29,6 +31,14 @@ COMMITTED_BANK = Path(__file__).resolve().parents[2] / "scripts" / "bakeoff" / "
 class _FixedTokenCount:
     def count_prompt_tokens(self, **_: object) -> int:
         return 1000
+
+
+def _without_adopted_arms(config: PolityConfig) -> PolityConfig:
+    """Production with S1.2's grammar and S1.3's budget off: the request a bank case poses.
+    Both were adopted as defaults on 2026-09-16, and both are arms the bake-off adds to a case
+    rather than part of it -- which is what keeps the bank comparable across sessions."""
+    return dataclasses.replace(config, llm=dataclasses.replace(
+        config.llm, vote_cast_grammar_invariants=False, thinking_token_budget=None))
 
 
 def _case_hashes(cases: list[bb.Case], client: object) -> list[str]:
@@ -70,8 +80,9 @@ def test_the_committed_bank_is_intact_and_covers_every_family_and_decision_type(
 
 def test_captured_requests_are_byte_identical_to_what_production_sends() -> None:
     """Candidacy (a fixed budget), vote_cast (a probed budget) and campaign positioning (a
-    profile allowance): production run with an answering client sends exactly the cases."""
-    config = reference_config()
+    profile allowance): production run with an answering client, its adopted request arms
+    off, sends exactly the cases."""
+    config = _without_adopted_arms(reference_config())
     fake = _ElectingFakeLlmClient()
     bank = reference_bank()
 
@@ -91,6 +102,31 @@ def test_captured_requests_are_byte_identical_to_what_production_sends() -> None
     recorder = RecordingClient(fake)
     decide_campaign_positioning([c for c in citizens if c.citizen_id in nominee_ids], citizens, {p.party_id: p for p in parties}, config, recorder)
     assert [h for _, h in recorder.requests] == _case_hashes(positioning[:1], fake)
+
+
+def test_shipped_vote_requests_are_the_bank_cases_with_exactly_the_two_adopted_arms() -> None:
+    """S1.2 and S1.3 adopted two bake-off request arms as production defaults. A shipped
+    vote_cast request is therefore the bank's case with the `vote_grammar` arm's schema and the
+    `thinking_budget_2048` arm's field applied -- the same functions the sessions ran, so what
+    production sends is exactly what was measured, and nothing besides."""
+    config = reference_config()
+    assert (config.llm.vote_cast_grammar_invariants, config.llm.thinking_token_budget) == (True, 2048)
+    fake = _ElectingFakeLlmClient()
+    voters, nominees, truth = bc._vote_scenario(config)
+    recorder = RecordingClient(fake)
+    cast_votes(bc._balanced(voters, truth, per_class=8, skip=0), nominees, config, recorder)
+
+    budget = br.ARMS["thinking_budget_2048"].request
+    grammar = br.ARMS["vote_grammar"].schema
+    assert budget is not None and grammar is not None
+    expected = [
+        request_sha256(system_prompt=c.system_prompt, user_prompt=c.user_prompt,
+                       json_schema=grammar(c, bb.SCHEMAS[c.decision_type]),
+                       max_tokens=bc.resolve_max_tokens(c, fake, config), think=c.think,  # type: ignore[arg-type]
+                       extra_body=budget(c)["extra_body"])
+        for c in reference_bank().cases if c.family == bb.LOGPROB_GATE_FAMILY
+    ]
+    assert [h for _, h in recorder.requests] == expected
 
 
 def test_budget_rules_follow_how_production_sized_the_request() -> None:

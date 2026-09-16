@@ -53,8 +53,9 @@ def test_an_llm_run_on_an_unprofiled_model_is_refused_by_validate_config() -> No
     with pytest.raises(PolityConfigError, match="'llm.model' 'gemma4:12b' has no model profile on provider 'vllm'"):
         validate_config(_llm_config(model="gemma4:12b"))
     validate_config(dataclasses.replace(_llm_config(model="gemma4:12b"), llm=dataclasses.replace(_llm_config().llm, enabled=False, model="gemma4:12b")))
-    # An unsupported provider is _check_supported's error to raise, with its own message.
-    validate_config(_llm_config(provider="api", model="whatever:1"))
+    # An unsupported provider is _check_supported's error to raise, with its own message. Its
+    # thinking budget is null: a budget is a vLLM request field, refused on any other provider.
+    validate_config(_llm_config(provider="api", model="whatever:1", thinking_token_budget=None))
 
 
 def test_the_engine_reads_chunk_sizes_and_budgets_from_the_runs_profile(monkeypatch: pytest.MonkeyPatch) -> None:

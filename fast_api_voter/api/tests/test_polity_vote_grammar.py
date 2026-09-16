@@ -63,11 +63,11 @@ def _vote(grammar: bool, candidates: int) -> list[dict[str, Any]]:
     return client.schemas
 
 
-def test_the_flag_sends_each_field_its_own_ranking_limit_and_is_off_by_default() -> None:
+def test_the_flag_sends_each_field_its_own_ranking_limit_and_is_on_by_default() -> None:
     assert all(schema == VOTE_CAST_JSON_SCHEMA for schema in _vote(grammar=False, candidates=8))
     assert {s["$defs"]["VoteCastDecision"]["anyOf"][1]["properties"]["ranking"]["maxItems"] for s in _vote(True, 8)} == {5}  # top five
     assert {s["$defs"]["VoteCastDecision"]["anyOf"][1]["properties"]["ranking"]["maxItems"] for s in _vote(True, 4)} == {4}
-    assert reference_config().llm.vote_cast_grammar_invariants is False
+    assert reference_config().llm.vote_cast_grammar_invariants is True  # adopted 2026-09-16 (S1.2)
 
 
 def test_the_vote_grammar_arm_changes_only_vote_cases_and_is_recorded(tmp_path: Path) -> None:

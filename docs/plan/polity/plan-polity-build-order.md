@@ -294,6 +294,12 @@ bytes change: golden updated deliberately.
 Adoption is a separate change, as written above: flip `llm.vote_cast_grammar_invariants` and
 regenerate golden deliberately.
 
+*Adopted, 2026-09-16.* `llm.vote_cast_grammar_invariants` ships `true`. The golden references were
+regenerated on purpose; their journal changes only in `llm_call_id`, which follows the request
+hash — with the call ids set aside, every vote and chamber event is identical, and so is the
+explorer fixture's story. `test_shipped_vote_requests_are_the_bank_cases_with_exactly_the_two_adopted_arms`
+holds production to the arm the session measured, not to a lookalike.
+
 ### S1.3 Thinking-budget A/B
 Arms: no budget, 4096, 2048 for `vote_cast` (chunk 3) and `chamber_deliberation`
 (chunk 5), including the known runaway state (`chamber_position == sincere_position`).
@@ -344,6 +350,19 @@ within one case of "no budget" on the fixture and whose truncation rate is ≤ 1
 
 So the reading is "no measurable loss at half the cost", not "better at voting". Whether to turn it
 on in production is the owner's.
+
+*Adopted, 2026-09-16.* A new setting, `llm.thinking_token_budget`, ships at 2048 and is sent on
+`vote_cast` and `chamber_deliberation` only (`llm_behavior_engine.THINKING_BUDGET_TYPES`).
+`campaign_positioning` also reasons with thinking on, but S1.3 never measured it under a budget, so
+it gets none. The budget is a vLLM request field: `validate_config` refuses it on any other
+provider rather than dropping it silently. It enters the request hash, so a replay stays a total
+function of the request (S0.6).
+
+**Consequence for resuming an older run.** A resume rebuilds its config from the shipped defaults,
+and `run_simulation`'s `config_hash` check refuses a run whose defaults have since changed. p500
+seed 42 was checkpointed before this adoption, so it cannot be resumed from this commit: it refuses
+loudly rather than changing settings mid-run. Resume it from a worktree pinned before the adoption —
+`Vote-App-gpu-queue`, at `7376c702`, is one — with `POLITY_PYTHON` pointing at it.
 
 ### S1.4 Thinking-mode sampling A/B
 Temperature 0 against Qwen's recommended thinking settings (temperature 0.6, top-p 0.95,

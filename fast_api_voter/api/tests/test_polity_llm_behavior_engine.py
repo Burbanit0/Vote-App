@@ -597,7 +597,7 @@ class FakeLlmClient:
         # formula this probe is never reached for.
         return 500
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
         payload = json.loads(user_prompt)
         cids = [v["cid"] for v in payload["voters"]]
         self.calls.append(cids)
@@ -915,7 +915,7 @@ class FakeCandidacyLlmClient:
         self.calls: list[list[int]] = []
         self.received_support: dict[int, float] = {}
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
         citizens = _parse_toon_citizens(user_prompt)
         cids = [c["cid"] for c in citizens]
         self.calls.append(cids)
@@ -1139,7 +1139,7 @@ class FakePartyNominationLlmClient:
     def __init__(self):
         self.calls: list[list[int]] = []
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
         payload = json.loads(user_prompt)
         party_ids = [p["party_id"] for p in payload["parties"]]
         self.calls.append(party_ids)
@@ -1207,7 +1207,7 @@ def test_decide_party_nominations_falls_back_to_deterministic_tiebreak_on_an_out
     # exercised before at the shipped parties.initial_count=5 scale. This pins the fix: fall back
     # to select_party_nominee_from_declared's own highest-ambition tiebreak instead of crashing.
     class BadPositionClient:
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             payload = json.loads(user_prompt)
             decisions = [{"party_id": p["party_id"], "winner_position": 99, "motif": 206} for p in payload["parties"]]
             return json.dumps({"decisions": decisions})
@@ -1234,7 +1234,7 @@ def test_decide_party_nominations_per_party_retry_rescues_a_good_party_from_a_ba
     # decisions requested), but answers correctly when asked about either party ALONE (1 decision
     # requested) -- isolating exactly the scenario stage 2's per-party retry exists for.
     class BatchDependentClient:
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             payload = json.loads(user_prompt)
             party_blocks = payload["parties"]
             if len(party_blocks) == 2:
@@ -1515,7 +1515,7 @@ class FakePositioningLlmClient:
     def __init__(self):
         self.calls: list[list[int]] = []
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
         payload = json.loads(user_prompt)
         cids = [n["cid"] for n in payload["nominees"]]
         self.calls.append(cids)
@@ -1822,7 +1822,7 @@ class FakeResponseLlmClient:
     def __init__(self):
         self.calls: list[list[int]] = []
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
         payload = json.loads(user_prompt)
         cids = [h["cid"] for h in payload["holders"]]
         self.calls.append(cids)
@@ -2184,7 +2184,7 @@ class FakeChamberLlmClient:
         # compute_max_tokens's own floor.
         return 500
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
         payload = json.loads(user_prompt)
         cids = [m["cid"] for m in payload["members"]]
         self.calls.append(cids)
@@ -2545,7 +2545,7 @@ def test_decide_chamber_deliberation_retries_at_a_varied_temperature_and_marks_i
             return 500
 
         def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True,
-                           temperature=None, seed=None):
+                           temperature=None, seed=None, extra_body=None):
             self.calls += 1
             self.temperatures.append(temperature)
             self.seeds.append(seed)
@@ -2899,7 +2899,7 @@ class FakeCoalitionLlmClient:
     def __init__(self):
         self.calls: list[list[int]] = []
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
         payload = json.loads(user_prompt)
         party_ids = [r["party_id"] for r in payload["responders"]]
         self.calls.append(party_ids)
@@ -2980,7 +2980,7 @@ def test_decide_coalition_resolves_a_mixed_join_leave_batch_into_the_right_coali
     config = _config_with_llm_enabled()
 
     class MixedClient:
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             payload = json.loads(user_prompt)
             decisions = [
                 {"party_id": r["party_id"], "action": 2, "motif": 504} if r["party_id"] == 1
@@ -3003,7 +3003,7 @@ def test_decide_coalition_all_decline_returns_none_coalition():
     config = _config_with_llm_enabled()
 
     class AllDeclineClient:
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             payload = json.loads(user_prompt)
             decisions = [{"party_id": r["party_id"], "action": 2, "motif": 504} for r in payload["responders"]]
             return json.dumps({"decisions": decisions})
@@ -3114,7 +3114,7 @@ def test_decide_coalition_aborts_gracefully_on_a_round_two_failure():
         def __init__(self):
             self.calls = 0
 
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             self.calls += 1
             if self.calls > 1:
                 raise LlmResponseError("generation did not finish cleanly: done_reason='length'")
@@ -3151,7 +3151,7 @@ def test_decide_coalition_stops_early_on_a_fixed_point_before_the_hard_cap():
         def __init__(self):
             self.calls = 0
 
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             self.calls += 1
             payload = json.loads(user_prompt)
             decisions = []
@@ -3192,7 +3192,7 @@ def test_decide_coalition_stops_at_the_hard_cap_when_never_converging():
         def __init__(self):
             self.calls = 0
 
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             self.calls += 1
             payload = json.loads(user_prompt)
             decisions = []
@@ -3654,7 +3654,7 @@ class FakePressureLlmClient:
     def __init__(self):
         self.calls: list[list[int]] = []
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
         payload = json.loads(user_prompt)
         cids = [c["cid"] for c in payload["consulted"]]
         self.calls.append(cids)
@@ -3749,7 +3749,7 @@ def test_decide_pressure_actions_sends_blank_threshold_as_the_shipped_calibratio
             self.system_prompt = None
             self.user_prompt = None
 
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             self.system_prompt = system_prompt
             self.user_prompt = user_prompt
             return json.dumps({"decisions": [{"cid": 0, "target": 205, "act": 3, "motif": 301}]})
@@ -3999,7 +3999,7 @@ class FakeReactionLlmClient:
     def __init__(self):
         self.calls: list[list[int]] = []
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
         payload = json.loads(user_prompt)
         cids = [r["cid"] for r in payload["reactors"]]
         self.calls.append(cids)
@@ -4180,7 +4180,7 @@ class _FlakyClient:
         return 500
 
     def complete_json(
-        self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None, seed=None
+        self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None, seed=None, extra_body=None
     ):
         self.calls += 1
         self.prompts.append((system_prompt, user_prompt))
@@ -4215,7 +4215,7 @@ class _FlakyResponseClient:
         return 500
 
     def complete_json(
-        self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None, seed=None
+        self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None, seed=None, extra_body=None
     ):
         self.calls += 1
         self.prompts.append((system_prompt, user_prompt))
@@ -4231,7 +4231,7 @@ class _AlwaysTransportFailingClient:
         self.calls = 0
 
     def complete_json(
-        self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None, seed=None
+        self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None, seed=None, extra_body=None
     ):
         self.calls += 1
         raise LlmTransportError("connection refused")

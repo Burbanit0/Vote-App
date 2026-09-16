@@ -58,7 +58,7 @@ class _RecordingClient:
         self._inner = inner
         self.user_prompts: list[str] = []
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
         self.user_prompts.append(user_prompt)
         return self._inner.complete_json(
             system_prompt=system_prompt, user_prompt=user_prompt, json_schema=json_schema,

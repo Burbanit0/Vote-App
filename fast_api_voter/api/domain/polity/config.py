@@ -566,13 +566,19 @@ class LlmConfig:
     max_batch_replays: int
     recycle_after_n_calls: int | None
     vote_cast_grammar_invariants: bool
+    """S1.2: send vote_cast the grammar that enforces blank=1 <=> empty ranking and the
+    ranking length limit (llm_schemas.vote_cast_json_schema). Adopted 2026-09-16, on by
+    default: its bake-off A/B removed the blank-with-ranking error with no loss in agreement
+    (scripts/bakeoff_request_arms_results.md). It changes vote_cast's request bytes."""
     reproducibility: str
     """S2.1 / D1: "strict" -- one worker, so a run regenerates byte-for-byte from its seed;
     "relaxed" -- parallel decisions within a tick (parallel.intra_run_workers > 1), so a run
     is reproducible by replaying its llm_calls.jsonl (S0.6), not by re-running the seed."""
-    """S1.2: send vote_cast the grammar that enforces blank=1 <=> empty ranking and the
-    ranking length limit (llm_schemas.vote_cast_json_schema). Off until its bake-off A/B
-    is accepted; turning it on changes vote_cast's request bytes."""
+    thinking_token_budget: int | None
+    """S1.3: vLLM's `thinking_token_budget`, sent on `vote_cast` and `chamber_deliberation`
+    only (llm_behavior_engine.THINKING_BUDGET_TYPES). Adopted 2026-09-16 at 2048: it lost no
+    agreement and halved chamber_deliberation's time, with no truncation. null sends no
+    budget. vLLM only -- Ollama has no such field."""
 
 
 @dataclass(frozen=True)
@@ -1050,7 +1056,15 @@ def _parse_llm(raw: dict[str, Any]) -> LlmConfig:
         recycle_after_n_calls=recycle_after_n_calls,
         vote_cast_grammar_invariants=_get(s, "llm", "vote_cast_grammar_invariants", bool),
         reproducibility=_get_enum(s, "llm", "reproducibility", _LLM_REPRODUCIBILITY),
+        thinking_token_budget=_thinking_token_budget(s),
     )
+
+
+def _thinking_token_budget(s: dict[str, Any]) -> int | None:
+    budget = _get_optional_int(s, "llm", "thinking_token_budget")
+    if budget is not None and budget < 1:
+        raise PolityConfigError(f"'llm.thinking_token_budget': expected a positive int or null, got {budget}")
+    return budget
 
 
 def _parse_parallel(raw: dict[str, Any]) -> ParallelConfig:
@@ -1075,6 +1089,10 @@ _CONFIG_RULES: tuple[Callable[[PolityConfig], str | None], ...] = (
         "'parallel.intra_run_workers' > 1 needs 'llm.provider: vllm': Ollama unloads and reloads its "
         "model between calls (llm.recycle_after_n_calls), which parallel calls would interrupt"
     ) if c.llm.enabled and c.parallel.intra_run_workers > 1 and c.llm.provider != "vllm" else None,
+    lambda c: (
+        "'llm.thinking_token_budget' needs 'llm.provider: vllm' (S1.3): it is a vLLM request field, "
+        "which Ollama has no equivalent of -- set it to null for any other provider"
+    ) if c.llm.enabled and c.llm.thinking_token_budget is not None and c.llm.provider != "vllm" else None,
     lambda c: (
         "'institutions.blank_vote_competitive': true requires 'institutions.blank_vote_enabled' "
         "to also be true (v4 Lot 9, §6bis.2 -- nothing to be competitive about if blank isn't "
