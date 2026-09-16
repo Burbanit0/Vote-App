@@ -37,6 +37,18 @@ NumVoters = Annotated[int, Field(ge=10, le=1000)]
 NumRounds = Annotated[int, Field(ge=1, le=10)]
 NumRuns = Annotated[int, Field(ge=1, le=500)]
 
+# Added covering the remaining bare int/List fields in this file (audit:
+# docs/plan/vote-app/PLAN_SURFACE_EXTERIEURE.md §2.A). Each already had an
+# ad-hoc worker-side clamp except ArrowCriteriaRequest.num_voters and
+# SensitivityRequest.values, which had none at all. These promote each
+# worker's own clamp to the schema so an out-of-range request is rejected
+# with 422 before a worker thread is even spawned; the worker-side clamps
+# stay in place as defense in depth.
+NumCandidates   = Annotated[int, Field(ge=2, le=8)]     # matches campaign.py / whatif.py / compare.py clamps
+NumDays         = Annotated[int, Field(ge=1, le=90)]    # matches campaign.py's clamp
+NumSeats        = Annotated[int, Field(ge=1, le=1000)]  # advanced.py's multiwinner worker had no upper clamp
+ContagionRounds = Annotated[int, Field(ge=1, le=50)]    # matches advanced.py's blank-contagion clamp
+
 
 class LegacySimulateRequest(BaseModel):
     """POST /simulations (legacy form-based simulation)."""
@@ -49,14 +61,14 @@ class SimulateVotersRequest(BaseModel):
     """POST /simulations/simulate_voters."""
     model_config = ConfigDict(extra="ignore")
 
-    num_voters: int = 1000
+    num_voters: NumVoters = 1000
 
 
 class SimulateCandidatesRequest(BaseModel):
     """POST /simulations/simulate_candidates."""
     model_config = ConfigDict(extra="ignore")
 
-    num_candidates: int = 4
+    num_candidates: NumCandidates = 4
     issues:  List[str] = Field(default_factory=DEFAULT_ISSUES.copy)
     parties: List[str] = Field(default_factory=lambda: list(_DEFAULT_PARTIES))
 
@@ -66,7 +78,7 @@ class ClosestCandidateRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     voters:     List[Any] = Field(default_factory=list)
-    candidates: List[Any] = Field(default_factory=list)
+    candidates: List[Any] = Field(default_factory=list, max_length=8)
 
 
 class SimulateUtilityRequest(BaseModel):
@@ -119,9 +131,9 @@ class CampaignRequest(BaseModel):
     """POST /simulations/campaign (day-by-day campaign simulation)."""
     model_config = ConfigDict(extra="ignore")
 
-    num_candidates: int = 4
-    num_voters:     int = 500
-    num_days:       int = 30
+    num_candidates: NumCandidates = 4
+    num_voters:     NumVoters = 500
+    num_days:       NumDays = 30
     method:         str = "plurality"
     events:         List[Dict[str, Any]] = Field(default_factory=list)
     seed:           Optional[int] = None
@@ -138,9 +150,9 @@ class CompareMethodsRequest(BaseModel):
     """POST /simulations/compare."""
     model_config = ConfigDict(extra="ignore")
 
-    num_voters:            int = 500
+    num_voters:            NumVoters = 500
     ideology_distribution: str = "random"
-    candidates:            List[Any] = Field(default_factory=lambda: list(_DEFAULT_CANDIDATES))
+    candidates:            List[Any] = Field(default_factory=lambda: list(_DEFAULT_CANDIDATES), max_length=8)
     blank_vote:            bool = False
     blank_rule:            str = "symbolic"
     information_model:     Dict[str, Any] = Field(default_factory=dict)
@@ -150,9 +162,9 @@ class StrategicImpactRequest(BaseModel):
     """POST /simulations/strategic-impact."""
     model_config = ConfigDict(extra="ignore")
 
-    num_voters:            int = 500
+    num_voters:            NumVoters = 500
     ideology_distribution: str = "random"
-    candidates:            List[Any] = Field(default_factory=lambda: list(_DEFAULT_CANDIDATES))
+    candidates:            List[Any] = Field(default_factory=lambda: list(_DEFAULT_CANDIDATES), max_length=8)
     strategic_percentages: List[Any] = Field(default_factory=lambda: [0, 10, 20, 30, 40, 50])
 
 
@@ -160,9 +172,9 @@ class CondorcetMatrixRequest(BaseModel):
     """POST /simulations/condorcet-matrix."""
     model_config = ConfigDict(extra="ignore")
 
-    num_voters:            int = 500
+    num_voters:            NumVoters = 500
     ideology_distribution: str = "random"
-    candidates:            List[Any] = Field(default_factory=lambda: list(_DEFAULT_CANDIDATES))
+    candidates:            List[Any] = Field(default_factory=lambda: list(_DEFAULT_CANDIDATES), max_length=8)
 
 
 class SensitivityRequest(BaseModel):
@@ -171,16 +183,16 @@ class SensitivityRequest(BaseModel):
 
     base_config: Dict[str, Any] = Field(default_factory=dict)
     variable:    str = "ideology_distribution"
-    values:      List[Any] = Field(default_factory=list)
+    values:      List[Any] = Field(default_factory=list, max_length=10)
 
 
 class ArrowCriteriaRequest(BaseModel):
     """POST /simulations/arrow-criteria."""
     model_config = ConfigDict(extra="ignore")
 
-    num_voters:            int = 300
+    num_voters:            NumVoters = 300
     ideology_distribution: str = "random"
-    candidates:            List[Any] = Field(default_factory=lambda: list(_DEFAULT_CANDIDATES))
+    candidates:            List[Any] = Field(default_factory=lambda: list(_DEFAULT_CANDIDATES), max_length=8)
 
 
 class ScenarioRequest(BaseModel):
@@ -198,8 +210,8 @@ class VoteStepsRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     method:     str = "plurality"
-    num_voters: int = 100
-    candidates: List[Any] = Field(default_factory=lambda: list(_DEFAULT_CANDIDATES))
+    num_voters: NumVoters = 100
+    candidates: List[Any] = Field(default_factory=lambda: list(_DEFAULT_CANDIDATES), max_length=8)
     ideology:   str = "random"
     seed:       int = 42
 
@@ -208,7 +220,7 @@ class IdeologyMapRequest(BaseModel):
     """POST /simulations/ideology-map."""
     model_config = ConfigDict(extra="ignore")
 
-    num_voters: int = 200
+    num_voters: NumVoters = 200
     candidates: List[Dict[str, Any]] = Field(default_factory=list)
     ideology:   str = "random"
     seed:       int = 42
@@ -227,7 +239,7 @@ class BandwagonRequest(BaseModel):
     influence_strength:    float = 0.3
     ideology_distribution: str = "random"
     seed:                  Optional[int] = None
-    candidates:            List[Any] = Field(default_factory=lambda: list(_DEFAULT_CANDIDATES))
+    candidates:            List[Any] = Field(default_factory=lambda: list(_DEFAULT_CANDIDATES), max_length=8)
 
 
 class MonteCarloRequest(BaseModel):
@@ -237,7 +249,7 @@ class MonteCarloRequest(BaseModel):
     num_runs:              NumRuns = 100
     num_voters:            NumVoters = 150
     ideology_distribution: str = "random"
-    candidates:            List[Any] = Field(default_factory=lambda: list(_DEFAULT_CANDIDATES))
+    candidates:            List[Any] = Field(default_factory=lambda: list(_DEFAULT_CANDIDATES), max_length=8)
 
 
 class MultiwinnerRequest(BaseModel):
@@ -245,7 +257,7 @@ class MultiwinnerRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     party_votes: Dict[str, Any] = Field(default_factory=dict)
-    num_seats:   int = 10
+    num_seats:   NumSeats = 10
     mode:        str = "proportional"
 
 
@@ -272,11 +284,11 @@ class BlankContagionRequest(BaseModel):
     """POST /simulations/blank-contagion."""
     model_config = ConfigDict(extra="ignore")
 
-    num_voters:         int = 300
+    num_voters:         NumVoters = 300
     initial_blank_rate: float = 0.10
     contagion_rate:     float = 0.30
     recovery_rate:      float = 0.15
-    num_rounds:         int = 15
+    num_rounds:         ContagionRounds = 15
     network_type:       str = "random"
     seed:               Optional[int] = None
 
