@@ -118,7 +118,7 @@ const pgEn: PlaygroundKeys = {
         clone:
           'A’s camp fields a second candidate, A2, almost identical to A but a little further left. No voter changed their mind — yet under Borda, A now wins.',
         condorcet:
-          'Under Condorcet, cloning is pointless: B still beats both A AND A2 head-to-head, so B stays the winner. The flaw was specific to Borda.',
+          'Under Condorcet, cloning is pointless here: B still beats both A AND A2 head-to-head, so B stays the winner. But that’s not a general property of Condorcet methods — Copeland itself stays manipulable by cloning in other configurations.',
         irv: 'Under instant-runoff (IRV) too: B, still preferred by the majority, wins no matter how many clones the other camp lines up.',
       },
     },
