@@ -304,8 +304,16 @@ class ResponseDecision(BaseModel):
             raise ValueError("stance=1 (concession) requires motif 301, 302 or 303")
         if self.stance == 2 and self.motif != 307:
             raise ValueError("stance=2 (defiance) requires motif 307")
-        if self.stance == 3 and self.motif != 308:
-            raise ValueError("stance=3 (silence) requires motif 308")
+        # Widened 2026-09-16 (owner's decision): SILENCE may give 303, LEGITIMACY_FLOOR_APPROACHING,
+        # as well as 308. 303 names the situation, not the move, and a president facing it can
+        # concede or stay silent. The Stage 4 pilot found the model answering exactly that -- silence,
+        # no shifts, motif 303 -- in 16 of 33 responses, identically on every retry; refusing it cost
+        # two retries each and replaced the model's stated reason with a fallback enacting the same
+        # silence. 303 now grounds either a concession or a silence, so a motif distribution reads
+        # it beside the stance. This lives in a comment, not the class docstring: pydantic puts the
+        # docstring into the JSON schema every request carries, and the request must not change.
+        if self.stance == 3 and self.motif not in (303, 308):
+            raise ValueError("stance=3 (silence) requires motif 303 or 308")
         if self.stance == 4 and self.motif != 309:
             raise ValueError("stance=4 (counter_mobilization) requires motif 309")
         if self.stance == 1 and not self.shifts:
