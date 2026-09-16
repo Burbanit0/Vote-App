@@ -302,13 +302,35 @@ de 500 ko du hook `check-added-large-files`).
   Une fois corrigé, ajouter MJ (et approval) au domaine exhaustif, avec des
   effectifs pairs : aujourd'hui passer à la médiane haute ne bouge pas la
   fixture.
-- **Section `cardinalScenarios`** : sans mélange des clés, 59/60 vainqueurs
-  maximin (et 5 score, 4 STAR) y sont des départages par position que les
-  deux moteurs partagent. Activer `shuffle_keys` les ferait tomber : c'est une
-  décision sur ce que ce verrou prétend garantir, pas un correctif discret.
 - **Approval** : choisir une seule façon de dériver le bulletin d'approbation
   à partir de l'utilité (décision produit), puis nourrir cette section en
   utilités continues.
+
+**Section `cardinalScenarios` — fait** (`feat/cardinal-strict-key-shuffle`) :
+`shuffle_keys=True` activé pour cette section aussi (mesure indépendante
+confirmée : 59/60 maximin, 5/60 score, 4/60 STAR changent sous un simple
+réordonnancement des clés, votes et noms inchangés — mécanisme confirmé dans
+les deux moteurs : `_score_candidates` + `max(..., key=...)` côté backend et
+`argmax` côté client renvoient tous deux le premier candidat au rang maximal,
+donc un rang position/insertion, pas l'algorithme maximin lui-même). Après
+activation et régénération, vainqueurs stricts réels : score 59/60, star
+59/60, cumulative 60/60, nash 60/60 — largement au-dessus du seuil partagé de
+40 — mais **maximin 2/60**. Option (a) du plan (augmenter le nombre de
+scénarios pour rester au-dessus de 40 vainqueurs génuinement stricts) mesurée
+et rejetée : le taux réel de vainqueurs maximin non départagés par position
+est de ~2 % sur la grille (m, n) existante (n≥21, scores entiers 0-5 → un
+candidat a une probabilité ~98 % que son pire score touche 0, d'où des
+égalités massives) ; en tirer 40 demanderait ~1900 scénarios, soit +1,3 Mo de
+JSON à ~713 o/scénario — la fixture n'a que ~40 Ko (~56 scénarios) de marge
+avant la limite de 500 Ko du hook `check-added-large-files`. Option (b)
+retenue à la place : `MIN_STRICT_WINNERS_MAXIMIN = 1`, seuil propre à
+`maximin` dans `playgroundVoting.parity.test.ts`, documenté en commentaire
+avec les chiffres mesurés — ne garde que la garantie « la section n'est pas
+totalement vide », pas un nombre à 40. La boucle `cardinalScenarios` de
+`main()` a aussi reçu son propre flux RNG seedé (`cardinal_rng`), pour ne
+plus dépendre de l'ordre de tirage de la section ordinale qui la précède
+(même correctif que celui déjà appliqué à `single_rule_scenarios` pour
+`approval`/`majority_judgment`).
 
 **Effort** : S (une après-midi) · **Priorité** : haute — meilleur rapport
 valeur/effort du plan.

@@ -165,12 +165,22 @@ cd voter-app && npx vitest run src/lib/playgroundVoting.parity.test.ts
   bugs were caught, because it doesn't filter out tied/degenerate cases the
   way the strict-winner scenarios do), and one `describe.each` over three
   cardinal fixture sections of 60 scenarios each: `cardinalScenarios` (score,
-  STAR, cumulative, maximin, nash on a shared score matrix),
+  STAR, cumulative, maximin, nash on a shared score matrix, its own seeded
+  RNG stream — `cardinal_rng` in `gen_engine_parity.py`'s `main()` — so an
+  unrelated change to the ordinal RULES section above it doesn't re-roll it),
   `approvalScenarios` (0/1 ballots) and `majorityJudgmentScenarios` (0-5
   grades). Approval and MJ get exact-value ballots because each engine derives
   those two from raw utility differently, so those sections lock the count,
   not the ballot derivation. Each cardinal rule must also compare at least 40
-  strict winners.
+  strict winners — **except `maximin`**, which compares at least 1: it picks
+  the candidate whose worst rating is highest, and with this fixture's 0-5
+  integer scores and n≥21 voters, a candidate's worst rating lands on 0 with
+  probability ~98%, so most scenarios have several candidates tied for the
+  minimum. Since `gen_engine_parity.py`'s `strict_winner_cardinal(..., shuffle_keys=True)`
+  stopped a shared position-based tie-break from passing as "strict", maximin's genuinely tie-free rate over
+  this scenario grid measures at ~2/60 — a real property of the rule, not a
+  bug; see `MIN_STRICT_WINNERS_MAXIMIN`'s comment in the test file and
+  PLAN_SURFACE_EXTERIEURE.md §2.E for the full measurement.
 - **`KNOWN_DIVERGENT` maps a rule to its EXACT expected mismatch list**
   (`#<index>: client=X backend=Y`), not a count. It holds one entry today:
   `majority_judgment`, a backend tie-break bug (see the comment there and

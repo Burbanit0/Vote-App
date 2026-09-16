@@ -155,6 +155,28 @@ const prepareCardinal = (sc: CardinalScenario) => ({
 // that nulls every winner would otherwise pass by comparing nothing.
 const MIN_STRICT_WINNERS = 40;
 
+// maximin is structurally far tie-ier than the other four cardinal rules: it
+// picks the candidate whose WORST rating is highest, and with the 0-5 integer
+// score range and n>=21 voters this file uses everywhere, a given candidate's
+// worst rating lands on 0 with probability 1-(5/6)^21 ~= 98% -- so most
+// scenarios have two or more candidates tied for the minimum, and it's that
+// tie a shared position/key-order convention used to resolve (see
+// strict_winner_cardinal's docstring in gen_engine_parity.py). Once
+// shuffle_keys=True stopped letting that convention pass as "strict"
+// (PLAN_SURFACE_EXTERIEURE.md §2.E), maximin's genuinely tie-free rate over
+// the existing (m, n) grid measured at ~2% (2/60 in the committed fixture,
+// corroborated by a standalone probe over hundreds of scenarios). Reaching
+// the usual MIN_STRICT_WINNERS=40 would need ~1900 scenarios at that rate --
+// which, at this fixture's measured ~713 bytes/cardinal-scenario, would add
+// >1.3MB and blow the committed fixture (already at 459KB) well past the
+// repo's 500KB check-added-large-files pre-commit budget (only ~40KB / ~56
+// scenarios of headroom remain today). So maximin gets its own, much lower
+// floor instead of quietly lowering the shared one: it only guards against
+// the section going fully vacuous (a real regression), not against its
+// naturally tiny, single-digit count moving by one or two on an unrelated
+// change elsewhere in this generator.
+const MIN_STRICT_WINNERS_MAXIMIN = 1;
+
 describe.each([
   { section: 'shared score matrix', scenarios: cardinalScenarios.map(prepareCardinal) },
   { section: 'shared 0/1 approval ballot', scenarios: approvalScenarios.map(prepareCardinal) },
@@ -177,7 +199,8 @@ describe.each([
         const got = s.candidates[ruleWinnerFromRanks(s.ranks, s.m, rule, s.scores)];
         if (got !== expected) mismatches.push(`#${i}: client=${got} backend=${expected}`);
       });
-      expect(compared).toBeGreaterThanOrEqual(MIN_STRICT_WINNERS);
+      const minStrict = rule === 'maximin' ? MIN_STRICT_WINNERS_MAXIMIN : MIN_STRICT_WINNERS;
+      expect(compared).toBeGreaterThanOrEqual(minStrict);
       expect(mismatches).toEqual(KNOWN_DIVERGENT[rule] ?? []);
     }
   );
