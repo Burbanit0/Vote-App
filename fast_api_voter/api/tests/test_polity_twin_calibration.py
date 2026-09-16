@@ -196,3 +196,19 @@ def test_legislation_facts_on_hand_built_records() -> None:
     assert weight is None and not fact.holds
     assert lowest_qualifying_weight([], flat) == (None, lowest_qualifying_weight([], flat)[1])
     assert legislation_choice(Arm({"bill_interval_ticks": 4, "max_bill_step": 0.1}, ())) == (-4, 0.1)
+
+
+def test_a_full_term_is_one_neither_recalled_nor_succeeded_early() -> None:
+    """ADR-012 E3 reads a full term's first and last years. A snap-election winner replaced at
+    the next calendar election was never recalled, but its "last year" would be its successor's."""
+    from api.domain.polity.twin_calibration import full_terms
+
+    events = [
+        {"tick": 0, "event_type": "elected"},    # re-elected at 16, exactly a term later: full
+        {"tick": 16, "event_type": "elected"},   # recalled at 20: not full
+        {"tick": 20, "event_type": "recalled"},
+        {"tick": 21, "event_type": "elected"},   # the snap winner, succeeded at 32: not full
+        {"tick": 32, "event_type": "elected"},   # nothing interrupts it: full
+    ]
+    assert [term.start for term in full_terms(1, events, term_ticks=16)] == [0, 32]
+

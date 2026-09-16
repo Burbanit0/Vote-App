@@ -46,6 +46,7 @@ from api.domain.polity.twin_calibration import (  # noqa: E402
     closest_to,
     discontent_mobilizes,
     dispersion_kept,
+    full_terms,
     grid,
     hard_times_draw_in,
     homophily,
@@ -93,12 +94,6 @@ def _moods(seed: int, events: list[dict[str, Any]]) -> list[TickMood]:
             for e in events if e["event_type"] == "emotions_updated"]
 
 
-def _full_terms(seed: int, events: list[dict[str, Any]], term_ticks: int) -> list[Term]:
-    recalls = [e["tick"] for e in events if e["event_type"] == "recalled"]
-    return [Term(seed=seed, start=e["tick"]) for e in events if e["event_type"] == "elected"
-            and not any(e["tick"] <= r < e["tick"] + term_ticks for r in recalls)]
-
-
 def measure(dynamics: dict[str, float] | None, emotions: dict[str, float] | None) -> Runs:
     runs = Runs()
     for seed in SEEDS:
@@ -117,7 +112,7 @@ def measure(dynamics: dict[str, float] | None, emotions: dict[str, float] | None
         runs.winners.append([e["citizen_id"] for e in events if e["event_type"] == "elected"])
         runs.moods += _moods(seed, events)
         term_ticks = config.institutions.president_term_years * config.run.ticks_per_year
-        runs.terms += _full_terms(seed, events, term_ticks)
+        runs.terms += full_terms(seed, events, term_ticks)
     return runs
 
 

@@ -284,6 +284,24 @@ class Term:
     """The tick the president was elected; a full term holds office until start + its length."""
 
 
+def full_terms(seed: int, events: Sequence[Mapping[str, Any]], term_ticks: int) -> list[Term]:
+    """The presidencies that held office for their whole term: neither recalled nor succeeded
+    before `term_ticks` had passed.
+
+    A successor elected at exactly start + term_ticks is the next term, so a re-election at the
+    term's end still counts. A snap-election winner replaced at the next calendar election does
+    not: it was never recalled, but counting it would read its "last year" from its successor's
+    ticks. The twin never had such a term (its presidents were recalled after a median of two
+    ticks); the LLM path, with one or two recalls in eight years, does."""
+    starts = [int(e["tick"]) for e in events if e["event_type"] == "elected"]
+    recalls = [int(e["tick"]) for e in events if e["event_type"] == "recalled"]
+    return [
+        Term(seed=seed, start=start) for start in starts
+        if not any(start <= recall < start + term_ticks for recall in recalls)
+        and not any(start < other < start + term_ticks for other in starts)
+    ]
+
+
 def honeymoon_decline(moods: Sequence[TickMood], terms: Sequence[Term], term_ticks: int, ticks_per_year: int) -> Fact:
     """ADR-012 E3: mean enthusiasm over a full term's first year above its last year's, in a
     majority of full terms."""
