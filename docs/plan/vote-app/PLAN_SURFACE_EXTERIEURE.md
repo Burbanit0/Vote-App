@@ -398,8 +398,8 @@ Zustand **déjà utilisé dans ce dépôt** (`stores/useElectionStore.tsx`).
 
 ### 2.K 🟢 Complexité : 15 fonctions ≥ E, les 2 F sont dans polity
 
-**Constat** (mesuré : `uvx radon cc api/ -e "api/tests/*" -n E -s`) — 15
-fonctions de rang E ou pire. Les deux F :
+**Constat** (mesuré **sur `develop`** : `uvx radon cc api/ -e "api/tests/*"
+-n E -s`) — 15 fonctions de rang E ou pire. Les deux F :
 
 | Fonction | Rang | Emplacement |
 |---|---|---|
