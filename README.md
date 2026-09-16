@@ -166,8 +166,8 @@ selectable in the Playground and defined in [THEORY.md §2](THEORY.md). Each rul
 exists in **two implementations** — a fast client engine
 (`voter-app/src/lib/playgroundVoting.ts`) and the authoritative backend engine
 (`fast_api_voter/api/engine/utils/`) — held together by a golden-fixture parity test:
-27 rules are locked identical, majority judgment is compared but still diverges on a
-known backend tie-break bug, and random ballot is a lottery.
+28 rules are locked identical, and random ballot is a lottery (excluded — it's not
+deterministic).
 
 ---
 

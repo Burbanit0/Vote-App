@@ -53,9 +53,9 @@ themselves, then reconcile:
 3. Read `fast_api_voter/scripts/gen_engine_parity.py`'s `RULES` (ordinal)
    and `CARDINAL` (cardinal) dicts, plus the two `single_rule_scenarios`
    calls in `main()` (approval via `get_approval_winner_sincere`, majority
-   judgment via `get_majority_judgment_winner`) — together the parity set
-   CLAUDE.md refers to (21 + 5 + approval locked; MJ compared, with a
-   tracked divergence). A function from (1)/(2) absent here is
+   judgment via `get_majority_judgment_winner`) — together the 28-method
+   parity set CLAUDE.md refers to (21 ordinal + 5 cardinal + approval +
+   majority judgment, all locked identical). A function from (1)/(2) absent here is
    either brand new (not yet wired into parity either) or a deliberate
    non-member — don't assume either without checking the next point.
 4. Some `get_*_winner` functions are real, used-elsewhere code that is
