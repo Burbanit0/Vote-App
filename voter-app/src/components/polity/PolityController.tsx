@@ -8,8 +8,14 @@ import {
   type PolityRunOverview,
   type PolityRunSummary,
 } from '../../hooks/usePolityData';
-import { clampTick, parseTickParam } from '../../lib/polity/ticks';
-import { parseCitizen, parseLens, pickRun, type PolityLens } from '../../lib/polity/urlState';
+import { clampTick } from '../../lib/polity/ticks';
+import {
+  parseCitizen,
+  parseLens,
+  parseWholeNumberParam,
+  pickRun,
+  type PolityLens,
+} from '../../lib/polity/urlState';
 
 // PolityController — the run explorer's single source of truth, like the
 // Playground's controller: what is shown lives in the URL (run, tick, lens,
@@ -49,7 +55,7 @@ function useController(): PolityCtx {
   const overviewQuery = usePolityRun(runKey);
   const overview = overviewQuery.data;
   const lastTick = overview?.last_tick ?? null;
-  const tick = clampTick(parseTickParam(params.get('tick')) ?? 0, lastTick ?? 0);
+  const tick = clampTick(parseWholeNumberParam(params.get('tick')) ?? 0, lastTick ?? 0);
   const { frame, isLoading: frameLoading } = usePolityFrame(runKey, tick, lastTick);
 
   const update = React.useCallback(
@@ -83,25 +89,52 @@ function useController(): PolityCtx {
     [update]
   );
 
-  return {
-    runs,
-    runsLoading: runsQuery.isLoading,
-    runsError: runsQuery.error,
-    run: runs?.find((r) => r.key === runKey),
-    runKey,
-    setRunKey,
-    overview,
-    overviewLoading: overviewQuery.isLoading,
-    overviewError: overviewQuery.error,
-    tick,
-    setTick,
-    lens: parseLens(params.get('lens')),
-    setLens,
-    citizen: parseCitizen(params.get('citizen'), overview?.population ?? 0),
-    setCitizen,
-    frame,
-    frameLoading,
-  };
+  const lens = parseLens(params.get('lens'));
+  const citizen = parseCitizen(params.get('citizen'), overview?.population ?? 0);
+  const { isLoading: runsLoading, error: runsError } = runsQuery;
+  const { isLoading: overviewLoading, error: overviewError } = overviewQuery;
+
+  // One object per change, not one per render: the map redraws its canvas and the curves
+  // re-chart from this context, and playback pushes a new tick several times a second.
+  return React.useMemo(
+    () => ({
+      runs,
+      runsLoading,
+      runsError,
+      run: runs?.find((r) => r.key === runKey),
+      runKey,
+      setRunKey,
+      overview,
+      overviewLoading,
+      overviewError,
+      tick,
+      setTick,
+      lens,
+      setLens,
+      citizen,
+      setCitizen,
+      frame,
+      frameLoading,
+    }),
+    [
+      runs,
+      runsLoading,
+      runsError,
+      runKey,
+      setRunKey,
+      overview,
+      overviewLoading,
+      overviewError,
+      tick,
+      setTick,
+      lens,
+      setLens,
+      citizen,
+      setCitizen,
+      frame,
+      frameLoading,
+    ]
+  );
 }
 
 export const PolityProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => (

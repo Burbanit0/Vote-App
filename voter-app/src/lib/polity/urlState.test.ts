@@ -1,4 +1,11 @@
-import { DEFAULT_LENS, POLITY_LENSES, parseCitizen, parseLens, pickRun } from './urlState';
+import {
+  DEFAULT_LENS,
+  POLITY_LENSES,
+  parseCitizen,
+  parseLens,
+  parseWholeNumberParam,
+  pickRun,
+} from './urlState';
 
 describe('polity URL state', () => {
   it('reads a known lens and falls back to the default otherwise', () => {
@@ -13,6 +20,14 @@ describe('polity URL state', () => {
     expect(parseCitizen('40', 40)).toBeNull();
     expect(parseCitizen('x', 40)).toBeNull();
     expect(parseCitizen(null, 40)).toBeNull();
+  });
+
+  it('reads a whole number from the URL, and nothing else', () => {
+    expect(parseWholeNumberParam('12')).toBe(12);
+    expect(parseWholeNumberParam(null)).toBeNull();
+    expect(parseWholeNumberParam('-1')).toBeNull();
+    expect(parseWholeNumberParam('3.5')).toBeNull();
+    expect(parseWholeNumberParam('abc')).toBeNull();
   });
 
   it('shows the requested run when listed, the first run otherwise', () => {

@@ -86,9 +86,15 @@ def _readable(run_dir: Path, root: Path, name: str, max_bytes: int) -> bool:
     (`snapshots.jsonl` of a p500 run is the second large one).
     """
     path = run_dir / name
-    if not path.exists():  # a dangling symlink reads as absent too, and is read as {}
-        return True
-    return path.is_file() and inside(path, root) and path.stat().st_size <= max_bytes
+    try:
+        if not path.exists():  # a dangling symlink reads as absent too, and is read as {}
+            return True
+        return path.is_file() and inside(path, root) and path.stat().st_size <= max_bytes
+    except OSError:
+        # A run root is written by someone else: a file can vanish between the two calls,
+        # mid-rotation. That run is not listed this time, rather than everyone's listing
+        # failing on it.
+        return False
 
 
 def _explorable_dir(run_dir: Path, root: Path, max_journal_bytes: int) -> bool:

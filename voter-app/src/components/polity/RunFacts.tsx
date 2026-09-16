@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { simulatedDate } from '../../lib/polity/ticks';
+import { completedYears, simulatedDate } from '../../lib/polity/ticks';
 import { usePolityCtx } from './PolityController';
 
 const Fact: React.FC<{ label: string; value: string; testId: string }> = ({
@@ -51,7 +51,7 @@ const RunFacts: React.FC = () => {
         testId="polity-fact-duration"
         label={t('runFacts.duration')}
         value={t('runFacts.durationValue', {
-          years: Math.round(overview.last_tick / overview.ticks_per_year),
+          years: completedYears(overview.last_tick, overview.ticks_per_year),
           ticks: overview.last_tick + 1,
         })}
       />
