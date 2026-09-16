@@ -51,13 +51,16 @@ themselves, then reconcile:
 2. `grep -n "^def get_.*_winner" fast_api_voter/api/engine/utils/simulation_score_utils.py`
    — every cardinal (score-based) method function.
 3. Read `fast_api_voter/scripts/gen_engine_parity.py`'s `RULES` (ordinal)
-   and `CARDINAL` (cardinal) dicts — together the 26-method parity-locked
-   set CLAUDE.md refers to (21 + 5). A function from (1)/(2) absent here is
+   and `CARDINAL` (cardinal) dicts, plus the two `single_rule_scenarios`
+   calls in `main()` (approval via `get_approval_winner_sincere`, majority
+   judgment via `get_majority_judgment_winner`) — together the parity set
+   CLAUDE.md refers to (21 + 5 + approval locked; MJ compared, with a
+   tracked divergence). A function from (1)/(2) absent here is
    either brand new (not yet wired into parity either) or a deliberate
    non-member — don't assume either without checking the next point.
 4. Some `get_*_winner` functions are real, used-elsewhere code that is
    deliberately **not** a member of the locked/tested set — e.g.
-   `get_approval_winner`, `get_approval_winner_sincere`,
+   `get_approval_winner` (the approve-top-2 variant),
    `get_positional_score_winner` (a shared implementation behind other
    rules, aliased as `get_score_winner`), `get_random_ballot_winner`. Each
    exclusion is already explained somewhere (a comment above
