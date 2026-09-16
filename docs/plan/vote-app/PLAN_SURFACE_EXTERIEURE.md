@@ -256,6 +256,25 @@ de parité. Si elles concordent, un trou réel dans la garantie la plus forte
 du dépôt est fermé ; sinon, on vient de trouver un bug dans une méthode que
 l'app enseigne.
 
+**Fait, avec un résultat mitigé** (`feat/extend-parity-approval-mj`) : un
+bulletin partagé aux valeurs exactes que les deux moteurs quantisent de façon
+identique (0.0/1.0 pour approval ; multiples de 1/5 pour les 6 niveaux de MJ)
+contourne la différence de modélisation déjà documentée dans
+`gen_engine_parity.py`, pour comparer l'algorithme de dépouillement lui-même.
+- `approval` : **concorde sur les 50 scénarios non-nuls** (60 générés, 10
+  filtrés comme non stables au tie-break) — le trou est fermé, méthode
+  verrouillée (27 méthodes désormais identiques).
+- `majority_judgment` : **diverge sur 3/60 scénarios**, un vrai bug de
+  tie-break et non un artefact — le backend (médiane → jauge majoritaire p−q
+  → *un seul* pas de retrait supplémentaire) est une approximation de la
+  procédure Balinski-Laraki canonique (retirer itérativement une occurrence
+  de la médiane et recomparer jusqu'à distinction), que le client implémente
+  correctement. Documenté et tracké (pas masqué) dans
+  `playgroundVoting.parity.test.ts`. Reste à trancher : faire converger le
+  backend vers la procédure itérative complète, ou justifier l'approximation
+  — décision volontairement laissée hors de ce chantier (moteur de vote,
+  `/code-review ultra` requis avant PR).
+
 **Effort** : S (une après-midi) · **Priorité** : haute — meilleur rapport
 valeur/effort du plan.
 

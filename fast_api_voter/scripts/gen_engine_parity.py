@@ -42,6 +42,7 @@ sys.path.insert(0, ROOT)
 
 from api.engine.utils.simulation_ranked_utils import (  # noqa: E402
     get_anti_plurality_winner,
+    get_approval_winner_sincere,
     get_baldwin_winner,
     get_benham_winner,
     get_black_winner,
@@ -67,6 +68,7 @@ from api.engine.utils.simulation_score_utils import (  # noqa: E402
     get_simple_score_winner,
     get_star_voting_winner,
     get_cumulative_winner,
+    get_majority_judgment_winner,
     get_maximin_score_winner,
     get_nash_winner,
 )
@@ -107,10 +109,14 @@ RULES = {
 }
 
 # Cardinal rules that take the SAME per-voter score vector on both engines (so a
-# shared score matrix is a fair comparison). Approval is excluded — the two engines
-# derive the approval ballot differently (rankings/utility-threshold vs scores), a
-# modelling choice, not an algorithm. Majority judgment is excluded — its grade
-# quantisation differs (client round(s·5) vs backend threshold buckets).
+# shared score matrix is a fair comparison). Approval and majority judgment are
+# excluded from THIS dict specifically because the two engines derive/quantise
+# their ballots differently from a raw utility score (rankings/mean-threshold vs
+# fixed 0.5 cutoff for approval; round(s*5) vs threshold buckets for MJ) — an
+# arbitrary shared score matrix would flag that known, deliberate modelling
+# difference as a false "divergence" on the counting algorithm it isn't testing.
+# See APPROVAL_BALLOT/MJ_BALLOT below, which sidestep this by generating ballots
+# at exactly the values both engines are guaranteed to quantise identically.
 CARDINAL = {
     "score": lambda b: get_simple_score_winner(b)["winner"],
     "star": lambda b: get_star_voting_winner(b)["winner"],
@@ -118,6 +124,27 @@ CARDINAL = {
     "maximin": get_maximin_score_winner,
     "nash": get_nash_winner,
 }
+
+# approval: fed a per-voter {candidate: 0.0 or 1.0} ballot instead of a raw
+# utility score. The client approves score >= 0.5 (winApproval); the backend's
+# sincere mode approves score > the voter's own mean (get_approval_winner_sincere)
+# — at exactly 0.0/1.0, with each voter approving a proper non-empty subset (so
+# the mean is strictly between 0 and 1), both reduce to the SAME approval set,
+# so this compares the winner-tally/tie-break algorithm, not ballot derivation.
+def _approval_winner(ballots):
+    return get_approval_winner_sincere(dict(enumerate(ballots)))
+
+
+# majority_judgment: fed a per-voter {candidate: grade/5.0} ballot (grade in
+# 0..5) instead of a raw utility score. The client quantises via
+# round(score*5) (winMajorityJudgment); the backend via fixed thresholds
+# [0, .17, .33, .5, .67, .83] (_utility_to_grade). Those two quantisers
+# disagree at arbitrary utility values (e.g. 0.15) but agree exactly on every
+# multiple of 1/5 — the only values a grade can round-trip through both. Feeding
+# only those values means both engines score the SAME 0-5 grade per candidate,
+# so this compares median/tie-break selection, not grade quantisation.
+def _mj_winner(ballots):
+    return get_majority_judgment_winner(ballots)["winner"]
 
 NAMES = ["A", "B", "C", "D", "E"]
 SEED = 20260628
@@ -166,6 +193,23 @@ def strict_winner_cardinal(fn, ballots, cands, rng):
         if w is None or inv[w] != base:
             return None
     return base
+
+
+def make_approval_ballot(cands, rng):
+    """One voter's {candidate: 0.0/1.0} approval ballot -- a random NON-EMPTY,
+    PROPER subset approved (never all-or-nothing), so the backend's
+    approve-above-my-own-mean threshold is strictly between 0 and 1 and
+    recovers exactly this same set (see _approval_winner's comment)."""
+    k = rng.randint(1, len(cands) - 1)
+    approved = set(rng.sample(cands, k))
+    return {c: (1.0 if c in approved else 0.0) for c in cands}
+
+
+def make_mj_ballot(cands, rng):
+    """One voter's {candidate: grade/5.0} ballot, grade drawn uniformly from
+    0..5 -- the only utility values the client's and backend's grade
+    quantisers are guaranteed to agree on (see _mj_winner's comment)."""
+    return {c: rng.randint(0, 5) / 5.0 for c in cands}
 
 
 def generate_exhaustive_scenarios() -> list[dict]:
@@ -229,6 +273,28 @@ def main() -> None:
                     {"candidates": cands, "scores": matrix, "winners": winners}
                 )
 
+    approval_scenarios = []
+    mj_scenarios = []
+    for m in (3, 4, 5):
+        cands = NAMES[:m]
+        for n in (21, 31, 41, 51, 61):
+            for _ in range(4):
+                approval_ballots = [make_approval_ballot(cands, rng) for _ in range(n)]
+                approval_winner = strict_winner_cardinal(_approval_winner, approval_ballots, cands, rng)
+                approval_scenarios.append({
+                    "candidates": cands,
+                    "scores": [[b[c] for c in cands] for b in approval_ballots],
+                    "winner": approval_winner,
+                })
+
+                mj_ballots = [make_mj_ballot(cands, rng) for _ in range(n)]
+                mj_winner = strict_winner_cardinal(_mj_winner, mj_ballots, cands, rng)
+                mj_scenarios.append({
+                    "candidates": cands,
+                    "scores": [[b[c] for c in cands] for b in mj_ballots],
+                    "winner": mj_winner,
+                })
+
     exhaustive_scenarios = generate_exhaustive_scenarios()
 
     payload = {
@@ -237,6 +303,8 @@ def main() -> None:
         "_note": "Authoritative winners from the Python backend. Asserted by playgroundVoting.parity.test.ts.",
         "scenarios": scenarios,
         "cardinalScenarios": cardinal_scenarios,
+        "approvalScenarios": approval_scenarios,
+        "majorityJudgmentScenarios": mj_scenarios,
         "exhaustiveScenarios": exhaustive_scenarios,
     }
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
@@ -245,6 +313,7 @@ def main() -> None:
         f.write("\n")
     print(
         f"wrote {len(scenarios)} ordinal + {len(cardinal_scenarios)} cardinal + "
+        f"{len(approval_scenarios)} approval + {len(mj_scenarios)} majority-judgment + "
         f"{len(exhaustive_scenarios)} exhaustive (n<=3) scenarios -> {OUT}"
     )
 

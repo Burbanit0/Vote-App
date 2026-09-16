@@ -118,9 +118,13 @@ describe('engine parity — EXHAUSTIVE small-profile domain (n<=3 candidates, m<
   });
 });
 
-// ── Cardinal rules (score / STAR) — same per-voter score matrix on both engines.
-// Approval (different ballot model) and MJ (different grade quantisation) are out
-// of scope for an input-identical comparison; see gen_engine_parity.py.
+// ── Cardinal rules (score / STAR / cumulative / maximin / nash) — same
+// per-voter score matrix on both engines. Approval and majority judgment are
+// handled separately below: an arbitrary shared score matrix isn't a fair
+// comparison for them (each engine derives/quantises those two ballots
+// differently from a raw utility score — see gen_engine_parity.py's CARDINAL
+// comment), so those two scenarios feed ballots at the exact values both
+// sides are guaranteed to interpret identically instead.
 interface CardinalScenario {
   candidates: string[];
   scores: number[][];
@@ -149,5 +153,65 @@ describe('engine parity — cardinal rules over a shared score matrix', () => {
       if (got !== expected) mismatches.push(`#${i}: client=${got} backend=${expected}`);
     });
     expect(mismatches).toEqual([]);
+  });
+});
+
+// ── Approval / Majority Judgment — ballots pinned to the exact values both
+// engines are guaranteed to quantise identically (0.0/1.0 for approval;
+// multiples of 1/5 for MJ's 6-level grade), so a mismatch here is a real
+// divergence in the winner-selection algorithm, not the (known, documented)
+// difference in how each engine would derive that ballot from raw utility.
+interface SingleWinnerScenario {
+  candidates: string[];
+  scores: number[][];
+  winner: string | null;
+}
+
+function singleWinnerMismatches(scenarios: SingleWinnerScenario[], rule: Rule): string[] {
+  const mismatches: string[] = [];
+  scenarios.forEach((sc, i) => {
+    if (sc.winner == null) return; // no relabel-stable winner on the backend either
+    const m = sc.candidates.length;
+    // ranks only satisfy ruleWinnerFromRanks' shape; approval/MJ read `scores`.
+    const ranks = sc.scores.map((row) => row.map((_, j) => j).sort((a, b) => row[b] - row[a]));
+    const idx = ruleWinnerFromRanks(ranks, m, rule, sc.scores);
+    const got = idx >= 0 ? sc.candidates[idx] : null;
+    if (got !== sc.winner) mismatches.push(`#${i}: client=${got} backend=${sc.winner}`);
+  });
+  return mismatches;
+}
+
+const approvalScenarios = (fixtureJson as { approvalScenarios: SingleWinnerScenario[] })
+  .approvalScenarios;
+const majorityJudgmentScenarios = (
+  fixtureJson as { majorityJudgmentScenarios: SingleWinnerScenario[] }
+).majorityJudgmentScenarios;
+
+describe('engine parity — approval (shared 0/1 approval ballot)', () => {
+  it('matches the backend on every strict scenario', () => {
+    expect(singleWinnerMismatches(approvalScenarios, 'approval')).toEqual([]);
+  });
+});
+
+describe('engine parity — majority judgment (shared grade/5 ballot)', () => {
+  // KNOWN DIVERGENCE (tracked, not silently accepted — PLAN_SURFACE_EXTERIEURE.md
+  // §2.E). The backend's tie-break (median → majority-gauge p−q → ONE extra
+  // median-strip step, get_majority_judgment_winner) is a heuristic
+  // approximation of the textbook Balinski–Laraki procedure — repeatedly
+  // strip one instance of the tied median grade and recompare until
+  // distinguished — which is what the client's winMajorityJudgment actually
+  // implements (no gauge at all). The two agree except when the backend's
+  // single extra step doesn't fully resolve a tie the full iterative strip
+  // would have: confirmed on exactly 3/60 scenarios here (#22, #50, #59) —
+  // e.g. #22, candidates tied on median=4, backend's gauge ranks them
+  // p−q=−0.238 vs −0.286 (picks the first), the client's iterative strip
+  // picks the other. This needs a human call on which convention the
+  // backend should implement (or whether the "single step suffices" backend
+  // docstring claim should be corrected) — not a silent client-side patch.
+  const MJ_KNOWN_MISMATCH_COUNT = 3;
+
+  it('matches the backend except for the tracked tie-break divergence above', () => {
+    const mismatches = singleWinnerMismatches(majorityJudgmentScenarios, 'majority_judgment');
+    expect(mismatches.length).toBe(MJ_KNOWN_MISMATCH_COUNT);
   });
 });
