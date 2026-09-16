@@ -26,6 +26,7 @@ import dataclasses
 import hashlib
 import json
 from pathlib import Path
+from collections.abc import Mapping
 from typing import Any
 
 from api.domain.polity.config import PolityConfig, load_config
@@ -85,10 +86,11 @@ class RecordingClient:
         think: bool = True,
         temperature: float | None = None,
         seed: int | None = None,
+        extra_body: Mapping[str, Any] | None = None,
     ) -> str:
         digest = request_sha256(
             system_prompt=system_prompt, user_prompt=user_prompt, json_schema=json_schema,
-            max_tokens=max_tokens, think=think, temperature=temperature, seed=seed,
+            max_tokens=max_tokens, think=think, temperature=temperature, seed=seed, extra_body=extra_body,
         )
         self.requests.append((decision_type_for_schema(json_schema), digest))
         return str(

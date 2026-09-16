@@ -32,7 +32,7 @@ import hashlib
 import json
 import logging
 import math
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -114,7 +114,10 @@ class CapturingClient:
     def complete_json(
         self, *, system_prompt: str, user_prompt: str, json_schema: dict[str, Any], max_tokens: int,
         think: bool = True, temperature: float | None = None, seed: int | None = None,
+        extra_body: Mapping[str, Any] | None = None,
     ) -> str:
+        # `extra_body` (the production thinking budget) is not captured: the bank holds the
+        # request a case poses, and a budget is an arm the bake-off adds, not part of the case.
         if temperature is None and seed is None:
             context = current_call_context()
             unit_ids = tuple(context.unit_ids) if context is not None and context.unit_ids is not None else ()

@@ -709,6 +709,23 @@ def _check_supported(config: PolityConfig) -> None:
     check_codebook_version(config.llm.codebook_version)
 
 
+THINKING_BUDGET_TYPES = frozenset({"vote_cast", "chamber_deliberation"})
+"""The decisions `llm.thinking_token_budget` applies to: the two S1.3 measured. Others made
+with thinking on -- `campaign_positioning` reasons thousands of tokens too -- were not
+measured under a budget, so they are not given one."""
+
+
+def thinking_budget_body(config: PolityConfig, decision_type: str) -> dict[str, Any] | None:
+    """The request field S1.3 adopted, for a decision it applies to, or None.
+
+    None when no budget is configured, so a run without one sends -- and hashes -- exactly the
+    request it always did."""
+    budget = config.llm.thinking_token_budget
+    if budget is None or decision_type not in THINKING_BUDGET_TYPES:
+        return None
+    return {"thinking_token_budget": budget}
+
+
 def _complete_and_decode_with_replay(
     client: LlmClientProtocol,
     *,
@@ -724,6 +741,7 @@ def _complete_and_decode_with_replay(
     retry_info: dict[str, Any],
     retry_temperature: float | None = None,
     retry_seed_base: int | None = None,
+    extra_body: Mapping[str, Any] | None = None,
 ) -> _BatchT:
     """§3.6.10's "un batch invalide est rejoue integralement, jamais
     corrige partiellement" -- the half of that rule the codebase never
@@ -847,7 +865,10 @@ def _complete_and_decode_with_replay(
     a retry needs its own fake client to accept the kwarg."""
     attempt = 0
     while True:
-        call_kwargs = _retry_sampling(attempt, retry_temperature, retry_seed_base)
+        sampling = _retry_sampling(attempt, retry_temperature, retry_seed_base)
+        # `extra_body` (S1.3's thinking budget) goes to the hash and the call alike, and only
+        # when set -- the same rule as the sampling overrides, for the same fake clients.
+        call_kwargs: dict[str, Any] = {**sampling, **({"extra_body": extra_body} if extra_body else {})}
         # Before the call, every attempt: a decision that ends in a fallback still
         # points at the call whose failure caused it.
         retry_info["call_id"] = llm_call_id(request_sha256(
@@ -866,7 +887,7 @@ def _complete_and_decode_with_replay(
                 )
             result = decode(raw)
             retry_info["attempts"] = attempt
-            retry_info["sampling_varied"] = bool(call_kwargs)
+            retry_info["sampling_varied"] = bool(sampling)
             return result
         except LlmResponseError as exc:
             if attempt >= replays:
@@ -1709,6 +1730,7 @@ def cast_votes(
                 think=True,
                 decode=lambda raw: decode_vote_batch(raw, expected_cids),
                 replays=config.llm.max_batch_replays,
+                extra_body=thinking_budget_body(config, "vote_cast"),
                 decision_type="vote_cast",
                 unit_ids=expected_cids,
                 # A deliberate, local exception to temperature=0 determinism --
@@ -4802,6 +4824,7 @@ def decide_chamber_deliberation(
                 think=True,
                 decode=lambda raw: decode_chamber_batch(raw, expected_cids),
                 replays=config.llm.max_batch_replays,
+                extra_body=thinking_budget_body(config, "chamber_deliberation"),
                 decision_type="chamber_deliberation",
                 unit_ids=expected_cids,
                 # A deliberate, local exception to temperature=0 determinism --
