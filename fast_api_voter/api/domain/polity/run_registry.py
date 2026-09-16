@@ -24,6 +24,8 @@ from typing import Any
 
 import duckdb
 
+from api.domain.polity.explorer_paths import inside
+
 COLUMNS: tuple[tuple[str, str], ...] = (
     ("run_id", "VARCHAR"),
     ("run_dir", "VARCHAR"),
@@ -100,19 +102,28 @@ class _RunFiles:
     call_summary: dict[str, Any]
 
     @classmethod
-    def read(cls, run_dir: Path) -> _RunFiles:
+    def read(cls, run_dir: Path, confine: Path | None = None) -> _RunFiles:
+        """Every JSON source of `run_dir`. With `confine`, a file that resolves outside
+        that root reads as absent, and the runner's outer directory is skipped when it
+        sits outside it -- the explorer serves roots it does not own (see
+        api/domain/polity/explorer_paths.py)."""
+        def read_json(path: Path) -> dict[str, Any]:
+            return _read_json(path) if confine is None or inside(path, confine) else {}
+
         outer = run_dir.parent.parent if run_dir.parent.name == "run" else None
-        inner_config = _read_json(run_dir / "config.json")
-        outer_config = _read_json(outer / "config.json") if outer is not None else {}
-        metrics = _read_json(outer / "metrics.json") if outer is not None else {}
+        if outer is not None and confine is not None and not inside(outer, confine):
+            outer = None
+        inner_config = read_json(run_dir / "config.json")
+        outer_config = read_json(outer / "config.json") if outer is not None else {}
+        metrics = read_json(outer / "metrics.json") if outer is not None else {}
         return cls(
             run_dir=run_dir,
-            metadata=_read_json(run_dir / "run_metadata.json"),
-            progress=_read_json(run_dir / "progress.json"),
-            digest=_read_json(run_dir / "digest.json"),
+            metadata=read_json(run_dir / "run_metadata.json"),
+            progress=read_json(run_dir / "progress.json"),
+            digest=read_json(run_dir / "digest.json"),
             run_config=dict((inner_config or outer_config).get("run") or {}),
             meta=dict(metrics.get("_meta") or {}),
-            call_summary=_read_json(run_dir / "llm_calls_summary.json"),
+            call_summary=read_json(run_dir / "llm_calls_summary.json"),
         )
 
     def generation(self) -> str:
@@ -163,9 +174,13 @@ class _RunFiles:
         }
 
 
-def run_record(run_dir: Path) -> dict[str, Any]:
-    """One registry row for the run whose journal is `run_dir/events.jsonl`."""
-    files = _RunFiles.read(run_dir)
+def run_record(run_dir: Path, confine: Path | None = None) -> dict[str, Any]:
+    """One registry row for the run whose journal is `run_dir/events.jsonl`.
+
+    `confine` is the root the run was found under: files resolving outside it are not
+    read (the explorer passes it; the registry CLI, reading roots it owns, does not).
+    """
+    files = _RunFiles.read(run_dir, confine)
     journal = run_dir / "events.jsonl"
     metadata = files.metadata
     return {

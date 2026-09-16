@@ -24,7 +24,7 @@ cd ../voter-app && npm start        # then open http://localhost:3000/polity
 - **Roots:** `POLITY_RUN_ROOTS` takes `label=path` pairs, separated by commas.
 - **Run keys:** a run is known by a key derived from its root's label and its path inside that root. The same run has the same key on any machine that mounts it under the same label.
 - **No paths leave the server:** no absolute path appears in a response.
-- **When a run is listed:** it must have a journal (`events.jsonl`, at most `POLITY_EXPLORER_MAX_JOURNAL_BYTES`, 64 MB by default), a `config.json` and a census (`snapshots.jsonl`). Every file must resolve inside its root; a symlink out of the root is not followed.
+- **When a run is listed:** it must have a journal (`events.jsonl`), a `config.json` and a census (`snapshots.jsonl`), and every file the explorer reads from it — those three plus `checkpoint.json`, `progress.json`, `run_metadata.json`, `digest.json` and `llm_calls_summary.json` — must resolve inside its root and be at most `POLITY_EXPLORER_MAX_JOURNAL_BYTES` (64 MB by default; each is read whole into memory). A run holding a file that escapes its root, by symlink or otherwise, is not listed at all, so no reader downstream has to be careful.
 - **Crashed and interrupted runs** are listed too. Ticks after the last checkpoint are marked unconfirmed.
 - **Caching:** the last `POLITY_EXPLORER_CACHE_RUNS` runs opened (4 by default) stay loaded. Each is reloaded when its journal changes.
 - **E2E:** the e2e backend runs with `POLITY_RUN_ROOTS` unset (CLAUDE.md), so the Polity specs see exactly the fixture run.
@@ -100,6 +100,18 @@ The plan's budgets are 1.5 s cold, 50 ms cached and 400 KB of frames.
 - **Pseudo-locale:** the sweep names the elements that overflow. Two WebKit-only overflows were found while building the page:
   - the React Query Devtools toggle, now kept out of automated browsers;
   - an option wider than its `<select>`, which WebKit counts into the page's scrollable width. The run picker's label clips horizontal overflow for that reason.
+
+## Known limits
+
+- **`GET /runs` is not paginated, and it re-walks every root on each request.** Each run costs a
+  directory scan and its registry row (five small JSON reads and the journal's last 64 KB): measured
+  at about 1 ms per run, so 100 runs answer in roughly 0.1 s and a root of a few thousand runs would
+  take seconds. The three single-run routes pay only the scan, not the rows. Roots are a deliberate
+  opt-in for a handful of batches; a root large enough for this to matter wants pagination and a
+  cached scan, which v1 does not have.
+- **The cache bounds runs, not bytes.** `POLITY_EXPLORER_CACHE_RUNS` counts runs, and a loaded run
+  holds several times its journal in memory, so a large `POLITY_EXPLORER_MAX_JOURNAL_BYTES` and a
+  large cache multiply. The defaults (4 runs, 64 MB) are sized for the p500 batch.
 
 ## Not in v1
 

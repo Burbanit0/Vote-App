@@ -78,10 +78,13 @@ class Settings(BaseSettings):
     # serves only the committed fixture run (fast_api_voter/polity_fixtures),
     # so no machine's run directories are exposed unless someone opts in.
     polity_run_roots: str = Field(default="")
-    # Runs kept loaded at once; each is reloaded when its journal changes.
+    # Runs kept loaded at once; each is reloaded when any file it was read
+    # from changes.
     polity_explorer_cache_runs: int = Field(default=4, ge=1, le=64)
-    # A run whose events.jsonl is larger than this is not listed (an 8-year
-    # population-500 run journals about 4.4 MB).
+    # The largest file the explorer will read from a run: a run holding a
+    # bigger events.jsonl, snapshots.jsonl, config.json, checkpoint.json or
+    # progress.json is not listed, since each is read whole into memory (an
+    # 8-year population-500 run journals about 4.4 MB).
     polity_explorer_max_journal_bytes: int = Field(default=64_000_000, ge=1)
 
     # ── Derived ─────────────────────────────────────────────────────────────
