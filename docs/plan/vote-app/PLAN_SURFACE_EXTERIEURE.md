@@ -513,10 +513,28 @@ d'impact (chaque panneau de moment, `LeaderCanvas`, etc. devrait être
 réécrit pour choisir le bon sous-contexte) reste réel, même si le
 bénéfice par preuve d'existence (`methodSelection`) est maintenant établi,
 pas supposé. Le correctif eslint referme le vrai trou de ce chantier
-(silencieux, sans erreur) indépendamment de cette question. **Question
-ouverte, pas tranchée** : faire le split complet reste un chantier
-raisonnable à prioriser si souhaité — ce n'était pas dans le périmètre
-temporel de ce chantier-ci, pas écarté sur le fond.
+(silencieux, sans erreur) indépendamment de cette question.
+
+**Split fait ensuite** (`feat/playground-context-split`, à la demande) : quatre
+contextes par préoccupation, chacun mémoïsé séparément — `useStoreCtx()`
+(réglages + lectures pures du store : `mode`, `dims`, `electorate`…),
+`useJourneyCtx()` (moment actif, règle examinée, lentille — clics discrets),
+`useInstrumentCtx()` (données spatiales vivantes : électeurs, candidats,
+glisser/shake — **recalculé à chaque image de drag**), `useScorecardCtx()`
+(diagnostics async + scorecard Monte-Carlo). `usePlaygroundCtx()` reste comme
+vue composée rétro-compatible. 13 consommateurs migrés vers le(s) hook(s)
+étroit(s) qu'ils lisent réellement ; `InstrumentPanel`, `StrategyMoment` et
+`BilanMoment` restent volontairement sur la vue composée (ils lisent
+réellement presque toutes les tranches — les restreindre n'apporterait rien).
+Point de conception trouvé en cours de route : un premier découpage mettait
+`leaderRule`/`lens`/`dims` dans `instrumentCtx` à côté des électeurs — donc
+un consommateur ne lisant que la règle (`NonSpatialProfileMap`, `StoryPlayer`)
+restait entraîné par chaque drag ; déplacés vers `journeyCtx`/`storeCtx`
+selon leur fréquence réelle de changement. Deux tests ajoutés dans
+`PlaygroundController.render.test.tsx` (un drag ne re-rend ni un consommateur
+store-only ni journey-only ; un changement de moment ne re-rend pas un
+consommateur instrument-only), **vérifiés par mutation** : en faisant lire
+aux hooks étroits le contexte composé (faux split), les deux échouent.
 
 **Effort** : M (≈ 1 jour, surface bien testée) · **Priorité** : moyenne.
 

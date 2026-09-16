@@ -1,6 +1,6 @@
 import React from 'react';
 import { lazyWithPreload } from '../lazyWithPreload';
-import { usePlaygroundCtx } from '../playground/PlaygroundController';
+import { useInstrumentCtx, useStoreCtx } from '../playground/PlaygroundController';
 import { useElection } from '../../stores/useElectionStore';
 
 // labCatalog — the Laboratoire's entire content as DATA. One entry per
@@ -190,7 +190,8 @@ const AnimatorBody: React.FC = () => {
   );
 };
 const SincerityBody: React.FC = () => {
-  const { votingVoters, leaderCandidates, dims, youPos, setYouPos } = usePlaygroundCtx();
+  const { votingVoters, leaderCandidates, youPos, setYouPos } = useInstrumentCtx();
+  const { dims } = useStoreCtx();
   return (
     <SincerityModule
       voters={votingVoters}
@@ -202,15 +203,15 @@ const SincerityBody: React.FC = () => {
   );
 };
 const StrategicBody: React.FC = () => {
-  const { config, playground } = usePlaygroundCtx();
+  const { config, playground } = useStoreCtx();
   return <StrategicModule config={config} playground={playground} />;
 };
 const EquilibriumBody: React.FC = () => {
-  const { votingVoters, leaderCandidates } = usePlaygroundCtx();
+  const { votingVoters, leaderCandidates } = useInstrumentCtx();
   return <EquilibriumModule voters={votingVoters} candidates={leaderCandidates} />;
 };
 const VseBody: React.FC = () => {
-  const { sampleAtSeed, baseSeed, leaderCandidates } = usePlaygroundCtx();
+  const { sampleAtSeed, baseSeed, leaderCandidates } = useInstrumentCtx();
   return (
     <VseModule sampleAtSeed={sampleAtSeed} baseSeed={baseSeed} candidates={leaderCandidates} />
   );
