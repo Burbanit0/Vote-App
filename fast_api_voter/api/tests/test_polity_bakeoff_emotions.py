@@ -75,3 +75,12 @@ def test_the_sweep_is_reported_per_anger_level(bank_cases: list[Case]) -> None:
         (0.0, 4, 0), (0.25, 4, 0), (0.5, 4, 2), (0.75, 4, 0), (1.0, 4, 4)]
     text = verdict_markdown(verdict, "control")
     assert "**Accepted.**" in text and "| 1 | 4 | 4 | 100% |" in text
+
+
+def test_a_citizen_asked_in_only_one_family_is_reported_and_not_paired(bank_cases: list[Case]) -> None:
+    dropped = next(case for case in bank_cases if case.family == FELT)
+    unit = next(iter(dropped.labels["truth"]))
+    cases = [case for case in bank_cases if case is not dropped]
+    verdict = read_verdict(cases, _session(cases))
+    assert (verdict.paired_citizens, verdict.unpaired_citizens) == (23, (unit,))
+    assert f"Citizens asked in only one family, not paired: {unit}." in verdict_markdown(verdict, "control")

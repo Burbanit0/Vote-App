@@ -73,37 +73,39 @@ def _by_citizen(cases: Iterable[Case], family: str) -> dict[str, tuple[Case, boo
     return {unit: (case, expected) for case in cases if case.family == family for unit, expected in case.labels["truth"].items()}
 
 
+def _valid(cases: list[Case], main: Mapping[str, Mapping[str, Any]], family: str) -> int:
+    return sum(1 for case in cases if case.family == family and main.get(case.case_id, {}).get("valid"))
+
+
+def _correct(main: Mapping[str, Mapping[str, Any]], case: Case, unit: str, expected: bool) -> bool:
+    result = main.get(case.case_id)
+    return result is not None and bool(result.get("valid")) and _acts_correct(result["answers"].get(unit), expected)
+
+
+def _sweep_level(cases: list[Case], main: Mapping[str, Mapping[str, Any]], anger: float) -> SweepLevel:
+    answers = [main[case.case_id]["answers"].get(str(unit))
+               for case in cases if case.family == SWEEP and float(case.labels["t"]) == anger and case.case_id in main
+               for unit in case.labels["units"]]
+    answered = [a for a in answers if a is not None]
+    return SweepLevel(anger=anger, answered=len(answered),
+                      mobilize=sum(1 for a in answered if a == int(PressureAct.MOBILIZE)))
+
+
 def read_verdict(cases: Iterable[Case], main: Mapping[str, Mapping[str, Any]]) -> EmotionsVerdict:
     """The verdict from a session's main-pass results, keyed by case id."""
     cases = list(cases)
     plain, felt = _by_citizen(cases, PLAIN), _by_citizen(cases, FELT)
-
-    def valid(family: str) -> int:
-        return sum(1 for case in cases if case.family == family and main.get(case.case_id, {}).get("valid"))
-
-    def correct(case: Case, unit: str, expected: bool) -> bool:
-        result = main.get(case.case_id)
-        return result is not None and bool(result.get("valid")) and _acts_correct(result["answers"].get(unit), expected)
-
     paired = sorted(set(plain) & set(felt), key=int)
-    plain_outcomes = [correct(plain[unit][0], unit, plain[unit][1]) for unit in paired]
-    felt_outcomes = [correct(felt[unit][0], unit, felt[unit][1]) for unit in paired]
-
-    sweep = []
-    for anger in sorted({float(case.labels["t"]) for case in cases if case.family == SWEEP}):
-        answers = [main[case.case_id]["answers"].get(str(unit))
-                   for case in cases if case.family == SWEEP and float(case.labels["t"]) == anger and case.case_id in main
-                   for unit in case.labels["units"]]
-        answered = [a for a in answers if a is not None]
-        sweep.append(SweepLevel(anger=anger, answered=len(answered),
-                                mobilize=sum(1 for a in answered if a == int(PressureAct.MOBILIZE))))
-
+    plain_outcomes = [_correct(main, plain[unit][0], unit, plain[unit][1]) for unit in paired]
+    felt_outcomes = [_correct(main, felt[unit][0], unit, felt[unit][1]) for unit in paired]
+    angers = sorted({float(case.labels["t"]) for case in cases if case.family == SWEEP})
     return EmotionsVerdict(
-        valid_plain=valid(PLAIN), valid_felt=valid(FELT),
+        valid_plain=_valid(cases, main, PLAIN), valid_felt=_valid(cases, main, FELT),
         cases_per_family=sum(1 for case in cases if case.family == PLAIN),
         correct_plain=sum(plain_outcomes), correct_felt=sum(felt_outcomes),
         paired_citizens=len(paired), unpaired_citizens=tuple(sorted(set(plain) ^ set(felt), key=int)),
-        mcnemar=mcnemar_exact(plain_outcomes, felt_outcomes), sweep=tuple(sweep),
+        mcnemar=mcnemar_exact(plain_outcomes, felt_outcomes),
+        sweep=tuple(_sweep_level(cases, main, anger) for anger in angers),
     )
 
 
