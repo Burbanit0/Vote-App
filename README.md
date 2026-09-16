@@ -31,7 +31,7 @@ complete election and watch it through several lenses at once:
 - **Vote yourself** in a real 41-voter election under 5 ballot languages at
   `/a-vous-de-jouer`
 
-The **Laboratoire** (`/laboratoire`) gathers 62 fiches of deeper, on-demand content
+The **Laboratoire** (`/laboratoire`) gathers 63 fiches of deeper, on-demand content
 (paradoxes, impossibility theorems, alternative governance systems, behavioural
 realism) reading the **same election state** as the Playground — configure once,
 explore in depth.
