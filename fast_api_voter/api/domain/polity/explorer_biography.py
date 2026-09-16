@@ -17,7 +17,7 @@ from functools import lru_cache
 from typing import Any, Literal
 
 from api.domain.polity.codebook import motif_labels
-from api.domain.polity.run_explorer import RunView, citizen_biography, citizen_census
+from api.domain.polity.run_explorer import RunView, citizen_census, citizen_events
 from api.domain.polity.run_macro import Scalar
 
 RATIONALE_LIMIT = 280
@@ -113,15 +113,14 @@ def _received_code(event: Mapping[str, Any], citizen_id: int) -> int | None:
 
 
 def build_biography(view: RunView, citizen_id: int) -> Biography:
-    events_by_id = {e.get("event_id"): e for e in view.events}
     sections: dict[Section, list[BiographyEntry]] = {section: [] for section in SECTIONS}
     received: Counter[tuple[int, str, int | None]] = Counter()
-    for row in citizen_biography(view, citizen_id):
-        event = events_by_id[row["event_id"]]
-        if _RECEIVED_AS.get(row["event_type"]) == row["role"]:
-            received[(int(row["tick"]), str(row["event_type"]), _received_code(event, citizen_id))] += 1
+    for event, role in citizen_events(view, citizen_id):
+        event_type = str(event["event_type"])
+        if _RECEIVED_AS.get(event_type) == role:
+            received[(int(event["tick"]), event_type, _received_code(event, citizen_id))] += 1
             continue
-        sections[_SECTION_OF.get(row["event_type"], "other")].append(_entry(event, row["role"]))
+        sections[_SECTION_OF.get(event_type, "other")].append(_entry(event, role))
     return Biography(
         citizen_id=citizen_id,
         sections={section: tuple(entries) for section, entries in sections.items()},

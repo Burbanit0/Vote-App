@@ -370,14 +370,12 @@ def census_by_year(rows: Sequence[Mapping[str, Any]], population: int) -> dict[i
 
 
 def read_rows(path: Path) -> list[dict[str, Any]]:
-    """A JSONL file's rows, a torn final row skipped; none when the file is missing."""
-    rows = []
-    if path.is_file():
-        for line in path.read_text(encoding="utf-8").splitlines():
-            try:
-                rows.append(json.loads(line))
-            except ValueError:
-                continue
+    """A JSONL file's rows, a torn final row skipped; none when the file is missing.
+
+    The census is read with the journal's own tolerant reader: one definition of what a
+    torn line is, for both files a run writes line by line.
+    """
+    rows, _skipped = read_journal_tolerant(path)
     return rows
 
 
