@@ -804,6 +804,60 @@ alongside it.
 | D10 | Run the p500 batch without its second seed-1 run | S0.8's red flag 3 | 2026-09-14: excluded. The batch is seeds 1, 2 and 42. The sweep driver was paused during seed 42 and its unit is stopped when seed 42 ends (`Vote-App-gpu-queue/exclude_repeat.sh`). The summary is generated for those three seeds, so flag 3 (same-seed divergence) is not evaluable and is reported as such; S0.7's other two flags stand as pre-registered |
 | D9 | The three Stage 4 calibrations ran on a twin whose presidents are recalled after a median of 2 ticks (OBS-015). That churn leaves too few incumbents for S4.1 fact 1 and no full term for S4.3's E3, and it multiplies the terms in S4.2's L2. Nothing qualified. Cause shown: a steady pressure gap above 0.055 walks legitimacy to the recall floor; with the pressure channels off there is no recall. Options: accept the verdicts; or first make the twin's presidency last (pressure weights, the recall floor, or a pressure rule calibrated against the LLM path's), then re-run all three under a new pre-registration | re-calibrating S4.1–S4.3 | |
 
+### D9's recalibration, pre-registered before running (2026-09-16)
+
+*Signed off by the owner on 2026-09-16, before any calibration run.*
+
+The owner chose D9's third option: a deterministic pressure rule whose mobilization is calibrated
+against the LLM path's (evidence: OBS-015's follow-up, `scripts/probe_twin_presidency_results.md`).
+Everything below is fixed before any calibration run. A result that misses its band is reported as
+a miss; nothing is re-gridded or re-banded without a new pre-registration.
+
+**The one knob.** `pressure_menu.mobilization_threshold_scale`, a new setting, default `1.0` (today's
+rule, unchanged). `deterministic_pressure_action` mobilizes only when a citizen's gap reaches
+`scale × blank_threshold × tolerance_scale`; a citizen past the ordinary threshold but short of this
+one does nothing, which is what the LLM path chooses for most such citizens (NOTHING is 84% and 80%
+of its consulted acts). The petition branches are untouched: they are checked first, and the
+twin's petition share already matches the LLM path's.
+
+**The target, measured on the LLM path and fixed now.** From the two completed p500 LLM seeds
+(`sweep-8y-p500-seed1`, `-seed2`), of every consulted citizen's `pressure_action`:
+
+| | seed 1 | seed 2 | band for the twin |
+|---|---:|---:|---|
+| MOBILIZE, share of consulted acts | 0.03% | 1.8% | **≤ 2.0%** |
+| SIGN_PETITION, share of consulted acts | 15.2% | 16.9% | **12% – 20%** (a guard: the knob must not move it) |
+
+**The grid, fixed without running it.** `scale` ∈ {1.00, 1.05, 1.10, 1.15, 1.20, 1.30, 1.40, 1.50,
+1.75, 2.00, 2.50, 3.00}, on the Stage 4 calibrations' own twin (population 100, seeds 1–10,
+8 years, every Stage 4 mechanism at its shipped setting). About 25 seconds of CPU; no GPU.
+
+**Selection.** The smallest `scale` whose pooled MOBILIZE share is inside its band **and** whose
+SIGN_PETITION share is inside its guard. The smallest, because it is the least departure from the
+rule as written. If no grid point qualifies, the result is "none qualifies" and D9 stays open.
+
+**The gate before Stage 4 is re-run** — reported for the selected `scale`, and not used to select it:
+
+- **Recalls:** at most 3 per seed on average. The LLM seeds had 1 and 2 in eight years.
+- **Full terms:** at least 10 of the 20 possible.
+
+If the gate fails, the twin still cannot stand in for the LLM path's presidency. The result is
+recorded as such, and the Stage 4 calibrations are not re-run.
+
+**If the gate holds.** The selected `scale` becomes the deterministic engine's shipped default,
+since the twin exists to stand in for the LLM path; golden references are regenerated deliberately.
+Then S4.1, S4.3 and S4.2 are re-run **unchanged**: their grids, facts and selection rules stay as
+pre-registered in their ADRs and in §9. Only the twin under them changes. Each fact is reported
+again, and a verdict that flips is recorded as a flip, not re-tuned.
+
+**Cautions, stated now.**
+
+- The twin is population 100; the LLM runs are 500.
+- Two LLM seeds is a thin target, and seed 1 mobilized exactly once. The band is effectively
+  "rarely", not a measured rate.
+- A second divergence stays untouched: the twin *consults* 41% of its population per tick, the LLM
+  runs 20–25%. This recalibration does not claim to fix who is consulted, only what the consulted do.
+
 ### S4.1's grid, pre-registered before running (ADR-011 gave the facts, not the grid)
 
 - `partisanship` ∈ {0, 0.05, 0.1}
