@@ -27,6 +27,9 @@ import {
   PlaygroundProvider,
   usePlaygroundCtx,
   useMethodSelection,
+  useStoreCtx,
+  useJourneyCtx,
+  useInstrumentCtx,
   type PlaygroundCtx,
 } from '../PlaygroundController';
 
@@ -39,15 +42,17 @@ import {
 // reference* — this test asserts exactly that: object identity survives an
 // unrelated ancestor re-render.
 //
-// It does NOT assert that consumer *render counts* drop, because they mostly
-// don't: every direct usePlaygroundCtx() consumer (ElectorateMoment,
-// InstrumentPanel, …) subscribes to ONE monolithic context via useContext, so
-// React re-renders all of them whenever ANY of its ~67 fields legitimately
-// changes — which is most interactions, since almost everything here derives
-// from the same `config`/`playground` store slices. Memoizing the container
-// object cannot fix that; only splitting into several smaller contexts would
-// (the escape hatch this component's own review flagged, previously not
-// attempted — a much larger, separate change touching every consumer).
+// That first test does NOT assert that consumer *render counts* drop, because
+// for a usePlaygroundCtx() consumer they don't: it subscribes to the composed
+// view of every slice, so React re-renders it whenever ANY of the ~67 fields
+// legitimately changes. Memoizing the container object cannot fix that; only
+// splitting into several smaller contexts and having a consumer subscribe to
+// just the one(s) it reads can — which is what the four concern-split contexts
+// (useStoreCtx / useJourneyCtx / useInstrumentCtx / useScorecardCtx,
+// PLAN_SURFACE_EXTERIEURE.md §2.J) now do, asserted in the last two tests.
+// InstrumentPanel, StrategyMoment and BilanMoment stay on usePlaygroundCtx()
+// deliberately: they genuinely read (nearly) every slice, so narrowing them
+// would buy nothing.
 //
 // One slice HAS been split out since: `enabledRules`/`setEnabledRules`/
 // `lensItems` moved to their own useMethodSelection() context (2026-09-13,
@@ -159,5 +164,112 @@ describe('PlaygroundController context memoization', () => {
     // by that change — the whole point of splitting this slice into its own
     // context (see the comment above this describe block).
     expect(mainRenders).toBe(rendersBeforeToggle);
+  });
+
+  // The same isolation, extended to the four concern-split contexts
+  // (PLAN_SURFACE_EXTERIEURE.md §2.J). The high-frequency case is the one that
+  // matters: dragging on the map must not re-render consumers that never read
+  // the live spatial data.
+  it('a drag-driven instrument change does not re-render store-only or journey-only consumers', async () => {
+    let storeRenders = 0;
+    let journeyRenders = 0;
+    let composedRenders = 0;
+    let lastYouX: number | null = null;
+
+    function StoreOnly() {
+      useStoreCtx();
+      storeRenders++;
+      return null;
+    }
+    function JourneyOnly() {
+      useJourneyCtx();
+      journeyRenders++;
+      return null;
+    }
+    function ComposedConsumer() {
+      usePlaygroundCtx();
+      composedRenders++;
+      return null;
+    }
+    function YouDragger() {
+      const { youPos, setYouPos } = useInstrumentCtx();
+      lastYouX = youPos.x;
+      return <button onClick={() => setYouPos((p) => ({ ...p, x: p.x + 0.1 }))}>drag-you</button>;
+    }
+
+    render(
+      <PlaygroundProvider>
+        <StoreOnly />
+        <JourneyOnly />
+        <ComposedConsumer />
+        <YouDragger />
+      </PlaygroundProvider>
+    );
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 500));
+    });
+    await waitFor(() => expect(storeRenders).toBeGreaterThan(0));
+
+    const storeBefore = storeRenders;
+    const journeyBefore = journeyRenders;
+    const composedBefore = composedRenders;
+    const youXBefore = lastYouX;
+
+    fireEvent.click(screen.getByText('drag-you'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // The instrument slice really did change...
+    expect(lastYouX).toBeCloseTo((youXBefore ?? 0) + 0.1);
+    // ...the composed usePlaygroundCtx() view saw it (proves the change
+    // genuinely propagated, not that nothing happened)...
+    expect(composedRenders).toBeGreaterThan(composedBefore);
+    // ...but consumers that don't read the live spatial data did not re-render.
+    expect(storeRenders).toBe(storeBefore);
+    expect(journeyRenders).toBe(journeyBefore);
+  });
+
+  it('a moment change does not re-render instrument-only consumers', async () => {
+    let instrumentRenders = 0;
+    let lastMoment: string | null = null;
+
+    function InstrumentOnly() {
+      useInstrumentCtx();
+      instrumentRenders++;
+      return null;
+    }
+    function MomentSwitcher() {
+      const { activeMoment, setActiveMoment } = useJourneyCtx();
+      lastMoment = activeMoment;
+      return <button onClick={() => setActiveMoment('method')}>go-method</button>;
+    }
+
+    render(
+      <PlaygroundProvider>
+        <InstrumentOnly />
+        <MomentSwitcher />
+      </PlaygroundProvider>
+    );
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 500));
+    });
+    await waitFor(() => expect(instrumentRenders).toBeGreaterThan(0));
+
+    const instrumentBefore = instrumentRenders;
+    expect(lastMoment).toBe('electorate');
+
+    fireEvent.click(screen.getByText('go-method'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // The journey slice really did change (and its useLayoutEffect swapped
+    // the lens to 'criteria' alongside it)...
+    expect(lastMoment).toBe('method');
+    // ...but the live spatial data didn't, so its consumer wasn't re-rendered.
+    expect(instrumentRenders).toBe(instrumentBefore);
   });
 });

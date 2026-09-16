@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { usePlaygroundCtx, useMethodSelection } from '../PlaygroundController';
+import { useStoreCtx, useMethodSelection } from '../PlaygroundController';
 import { Field, selectCls } from '../playgroundFields';
 import { type Rule } from '../../../lib/playgroundVoting';
 import { LEADER_RULES } from '../../../lib/scorecard';
@@ -38,7 +38,7 @@ const FAMILIES: RuleFamily[] = [
 
 const MethodMoment: React.FC = () => {
   const { t } = useTranslation('playground');
-  const { setPlaygroundDeep, mode, assembly } = usePlaygroundCtx();
+  const { setPlaygroundDeep, mode, assembly } = useStoreCtx();
   const { enabledRules, setEnabledRules } = useMethodSelection();
 
   const toggle = (rule: Rule) =>

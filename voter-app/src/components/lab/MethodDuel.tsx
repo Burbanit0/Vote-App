@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RotateCcw, Shuffle } from 'lucide-react';
-import { usePlaygroundCtx } from '../playground/PlaygroundController';
+import { useInstrumentCtx } from '../playground/PlaygroundController';
 import { useVotingLabels } from '../../hooks/useVotingLabels';
 import { useVoteReplay, SPEEDS } from '../../hooks/useVoteReplay';
 import ReplayStage from '../playground/ReplayStage';
@@ -112,7 +112,7 @@ const DuelSide: React.FC<{
 const MethodDuel: React.FC = () => {
   const { t } = useTranslation('playground');
   const { ruleLabels } = useVotingLabels();
-  const { votingVoters, leaderCandidates } = usePlaygroundCtx();
+  const { votingVoters, leaderCandidates } = useInstrumentCtx();
 
   const [left, setLeft] = useState<Rule>('plurality');
   const [right, setRight] = useState<Rule>('condorcet');
