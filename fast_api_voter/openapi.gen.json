@@ -1006,6 +1006,7 @@
         "properties": {
           "candidates": {
             "items": {},
+            "maxItems": 8,
             "title": "Candidates",
             "type": "array"
           },
@@ -1016,6 +1017,8 @@
           },
           "num_voters": {
             "default": 300,
+            "maximum": 1000.0,
+            "minimum": 10.0,
             "title": "Num Voters",
             "type": "integer"
           }
@@ -2028,6 +2031,7 @@
         "properties": {
           "candidates": {
             "items": {},
+            "maxItems": 8,
             "title": "Candidates",
             "type": "array"
           },
@@ -2294,11 +2298,15 @@
           },
           "num_rounds": {
             "default": 15,
+            "maximum": 50.0,
+            "minimum": 1.0,
             "title": "Num Rounds",
             "type": "integer"
           },
           "num_voters": {
             "default": 300,
+            "maximum": 1000.0,
+            "minimum": 10.0,
             "title": "Num Voters",
             "type": "integer"
           },
@@ -2599,16 +2607,22 @@
           },
           "num_candidates": {
             "default": 4,
+            "maximum": 8.0,
+            "minimum": 2.0,
             "title": "Num Candidates",
             "type": "integer"
           },
           "num_days": {
             "default": 30,
+            "maximum": 90.0,
+            "minimum": 1.0,
             "title": "Num Days",
             "type": "integer"
           },
           "num_voters": {
             "default": 500,
+            "maximum": 1000.0,
+            "minimum": 10.0,
             "title": "Num Voters",
             "type": "integer"
           },
@@ -3257,6 +3271,7 @@
         "properties": {
           "candidates": {
             "items": {},
+            "maxItems": 8,
             "title": "Candidates",
             "type": "array"
           },
@@ -3884,6 +3899,7 @@
           },
           "candidates": {
             "items": {},
+            "maxItems": 8,
             "title": "Candidates",
             "type": "array"
           },
@@ -3899,6 +3915,8 @@
           },
           "num_voters": {
             "default": 500,
+            "maximum": 1000.0,
+            "minimum": 10.0,
             "title": "Num Voters",
             "type": "integer"
           }
@@ -4091,6 +4109,7 @@
         "properties": {
           "candidates": {
             "items": {},
+            "maxItems": 8,
             "title": "Candidates",
             "type": "array"
           },
@@ -4101,6 +4120,8 @@
           },
           "num_voters": {
             "default": 500,
+            "maximum": 1000.0,
+            "minimum": 10.0,
             "title": "Num Voters",
             "type": "integer"
           }
@@ -6746,6 +6767,8 @@
           },
           "num_voters": {
             "default": 200,
+            "maximum": 1000.0,
+            "minimum": 10.0,
             "title": "Num Voters",
             "type": "integer"
           },
@@ -8416,6 +8439,7 @@
         "properties": {
           "candidates": {
             "items": {},
+            "maxItems": 8,
             "title": "Candidates",
             "type": "array"
           },
@@ -8589,6 +8613,8 @@
           },
           "num_seats": {
             "default": 10,
+            "maximum": 1000.0,
+            "minimum": 1.0,
             "title": "Num Seats",
             "type": "integer"
           },
@@ -10830,6 +10856,7 @@
           },
           "values": {
             "items": {},
+            "maxItems": 10,
             "title": "Values",
             "type": "array"
           },
@@ -11042,6 +11069,8 @@
           },
           "num_candidates": {
             "default": 4,
+            "maximum": 8.0,
+            "minimum": 2.0,
             "title": "Num Candidates",
             "type": "integer"
           },
@@ -11383,6 +11412,8 @@
         "properties": {
           "num_voters": {
             "default": 1000,
+            "maximum": 1000.0,
+            "minimum": 10.0,
             "title": "Num Voters",
             "type": "integer"
           }
@@ -11529,6 +11560,7 @@
         "properties": {
           "candidates": {
             "items": {},
+            "maxItems": 8,
             "title": "Candidates",
             "type": "array"
           },
@@ -11539,6 +11571,8 @@
           },
           "num_voters": {
             "default": 500,
+            "maximum": 1000.0,
+            "minimum": 10.0,
             "title": "Num Voters",
             "type": "integer"
           },
@@ -12279,6 +12313,7 @@
         "properties": {
           "candidates": {
             "items": {},
+            "maxItems": 8,
             "title": "Candidates",
             "type": "array"
           },
@@ -12294,6 +12329,8 @@
           },
           "num_voters": {
             "default": 100,
+            "maximum": 1000.0,
+            "minimum": 10.0,
             "title": "Num Voters",
             "type": "integer"
           },

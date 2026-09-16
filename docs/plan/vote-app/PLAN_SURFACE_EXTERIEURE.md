@@ -168,7 +168,7 @@ fois ailleurs.
 **Effort** : S (les deux corrections) → M (le garde-fou) · **Priorité** :
 haute — c'est du contenu faux, publié, sur le cœur de métier.
 
-### 2.C 🔴 Décision structurante : publier, ou dire qu'on ne publie pas
+### 2.C 🟢 Décision structurante : publier, ou dire qu'on ne publie pas
 
 Ce n'est pas une tâche, c'est **une décision à prendre** (voir §3), et
 plusieurs items en dépendent.
@@ -189,6 +189,15 @@ entonnoir vide.
 
 **Action** : trancher §3. Les deux branches sont légitimes ; l'état actuel
 ne l'est pas.
+
+**Tranché (2026-09-16) : Branche B — c'est un labo personnel public, pas un
+produit.** `README.md` porte désormais une ligne explicite en tête de
+fichier (« No hosted instance ») et le placeholder « Public URL:
+`https://<app>.fly.dev` » a été retiré de la section Deploy — elle documente
+maintenant comment se déployer *soi-même*, pas une instance qui existerait
+déjà. Conséquence sur le reste du plan (§5) : §2.A reste fait (bloqueur dur
+même en labo), §2.D/§2.G/§2.I retombent à « quand ça arrangera » plutôt que
+d'être séquencés maintenant ; §2.H/§2.J/§2.L reprennent leur place.
 
 **Effort** : S (décision) → M (si publication : §2.A d'abord, puis CORS,
 `--forwarded-allow-ips`, et le plafond de concurrence ci-dessous) ·
@@ -433,6 +442,8 @@ Chacun est de l'ordre de la minute à l'heure :
 ---
 
 ## 3. Décision structurante — à trancher avant de séquencer
+
+> **Tranché (2026-09-16) : Branche B.** Voir §2.C pour ce qui a été fait.
 
 **La question** : Vote Lab est-il un produit destiné à des visiteurs, ou un
 laboratoire personnel public en lecture seule ?
