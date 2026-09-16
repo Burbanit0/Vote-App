@@ -256,11 +256,33 @@ def test_concurrent_first_readers_of_a_run_wait_for_one_load(monkeypatch: pytest
     assert loads == 1 and len({id(run) for run in loaded}) == 1 and len(cache) == 1
 
 
-def test_a_run_evicted_from_the_cache_is_loaded_again() -> None:
+def test_a_run_evicted_from_the_cache_is_loaded_again(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    other = _root(tmp_path, monkeypatch, "other")["other"]
     cache = RunCache(capacity=1)
+
     first = cache.get(FIXTURE)
     assert cache.get(FIXTURE) is first  # a warm hit, not a second load
+    cache.get(other)  # one slot, so the fixture is evicted
     assert len(cache) == 1
+    assert cache.get(FIXTURE) is not first  # loaded again, not served from the evicted entry
+
+
+def test_a_run_whose_file_vanishes_while_the_roots_are_read_is_only_dropped(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A run root is written by someone else. A file that goes between the existence
+    check and the size check costs that run its place in the listing, not the listing."""
+    runs = _root(tmp_path, monkeypatch, "racing", "settled")
+    vanishing = runs["racing"] / "progress.json"
+    real_stat = Path.stat
+
+    def stat_once_then_vanish(self: Path, *args: Any, **kwargs: Any) -> Any:
+        if self == vanishing:
+            raise FileNotFoundError(2, "No such file or directory")
+        return real_stat(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", stat_once_then_vanish)
+    assert {e.relative_path for e in list_runs([RunRoot(label="lab", path=tmp_path / "root")], BIG)} == {"settled"}
 
 
 # ── The configured roots ──────────────────────────────────────────────────────

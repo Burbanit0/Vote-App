@@ -5,8 +5,6 @@
  * view can be linked and the browser's back button walks through it. Anything
  * unreadable falls back to the page's default instead of breaking it.
  */
-import { parseTickParam } from './ticks';
-
 /** How the population map colours citizens (population map, F3). */
 export const POLITY_LENSES = ['activity', 'act', 'vote', 'candidacy', 'party'] as const;
 export type PolityLens = (typeof POLITY_LENSES)[number];
@@ -18,9 +16,21 @@ export function parseLens(raw: string | null): PolityLens {
     : DEFAULT_LENS;
 }
 
+/**
+ * A URL search value as a whole number, or null when absent or not one.
+ *
+ * Both numbers this page keeps in the URL -- the tick and the citizen id -- are whole
+ * and non-negative, and each is bounded by its own caller afterwards (`clampTick`, the
+ * population below).
+ */
+export function parseWholeNumberParam(raw: string | null): number | null {
+  if (raw === null || !/^\d+$/.test(raw)) return null;
+  return Number(raw);
+}
+
 /** A citizen id inside the population, or null. */
 export function parseCitizen(raw: string | null, population: number): number | null {
-  const id = parseTickParam(raw);
+  const id = parseWholeNumberParam(raw);
   return id !== null && id < population ? id : null;
 }
 

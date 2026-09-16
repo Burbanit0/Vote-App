@@ -1,4 +1,4 @@
-import { FRAME_CHUNK, chunkOf, clampTick, parseTickParam, simulatedDate } from './ticks';
+import { FRAME_CHUNK, chunkOf, clampTick, completedYears, simulatedDate } from './ticks';
 
 describe('polity ticks', () => {
   it('maps every tick to a fixed chunk of the API span, cut at the last tick', () => {
@@ -23,11 +23,13 @@ describe('polity ticks', () => {
     expect(simulatedDate(3, 0)).toEqual({ year: 4, quarter: 1 });
   });
 
-  it('accepts only whole, non-negative numbers from the URL', () => {
-    expect(parseTickParam('12')).toBe(12);
-    expect(parseTickParam(null)).toBeNull();
-    expect(parseTickParam('-1')).toBeNull();
-    expect(parseTickParam('3.5')).toBeNull();
-    expect(parseTickParam('abc')).toBeNull();
+  it('counts the years a run completed, never the one it stopped inside', () => {
+    expect(completedYears(11, 4)).toBe(3); // three full years
+    expect(completedYears(12, 4)).toBe(3); // one tick into the fourth
+    expect(completedYears(13, 4)).toBe(3); // halfway through it, still three
+    expect(completedYears(15, 4)).toBe(4);
+    expect(completedYears(0, 4)).toBe(0);
+    expect(completedYears(-3, 4)).toBe(0); // a run with no tick at all
+    expect(completedYears(3, 0)).toBe(4); // no ticks per year reads as one, as simulatedDate does
   });
 });

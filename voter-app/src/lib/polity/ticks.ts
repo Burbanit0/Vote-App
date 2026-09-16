@@ -40,8 +40,14 @@ export function simulatedDate(tick: number, ticksPerYear: number): SimulatedDate
   return { year: Math.floor(tick / perYear) + 1, quarter: (tick % perYear) + 1 };
 }
 
-/** A URL search value as a tick, or null when absent or not a whole number. */
-export function parseTickParam(raw: string | null): number | null {
-  if (raw === null || !/^\d+$/.test(raw)) return null;
-  return Number(raw);
+/**
+ * The years a run covers, counting only years it completed.
+ *
+ * A run's last tick can land mid-year: an 8-year run killed in its fifth year covers 4,
+ * not 5, and not "4 or 5 depending on the quarter it stopped in". The tick fact beside
+ * this one says which year the tick shown belongs to (`simulatedDate`), so this one is
+ * the run's length, never rounded up to a year it did not finish.
+ */
+export function completedYears(lastTick: number, ticksPerYear: number): number {
+  return Math.floor((Math.max(lastTick, 0) + 1) / Math.max(ticksPerYear, 1));
 }
