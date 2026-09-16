@@ -121,7 +121,7 @@ const pgFr = {
         clone:
           'Le camp de A aligne un second candidat, A2, presque identique à A mais un peu plus à gauche. Aucun électeur n’a changé d’avis — et pourtant, en Borda, c’est désormais A qui gagne.',
         condorcet:
-          'Avec Condorcet, le clonage ne sert à rien : B bat toujours A ET A2 en duel, donc B reste vainqueur. La faille était propre à Borda.',
+          'Avec Condorcet, le clonage ne sert à rien ici : B bat toujours A ET A2 en duel, donc B reste vainqueur. Mais ce n’est pas une propriété générale des méthodes de Condorcet — Copeland elle-même reste manipulable par clonage dans d’autres configurations.',
         irv: 'Au vote alternatif (IRV) non plus : B, toujours préféré par la majorité, l’emporte quel que soit le nombre de clones alignés en face.',
       },
     },

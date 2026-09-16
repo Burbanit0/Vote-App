@@ -7,6 +7,10 @@ on the same electorate.
 
 > Full theory reference: [THEORY.md](THEORY.md) · User guide: [GUIDE_UTILISATEUR.md](GUIDE_UTILISATEUR.md)
 
+> **No hosted instance.** This is a personal, public-source research project, not a
+> deployed product — there's no live demo URL. See **Quick Start** below to run it
+> yourself; **Deploy** documents how you could self-host a copy.
+
 ---
 
 ## What it does
@@ -97,9 +101,10 @@ fly launch --no-deploy   # once — claims a unique app name, updates [app] in f
 fly deploy               # builds the Dockerfile and ships it
 ```
 
-Public URL: `https://<app>.fly.dev`. No env vars are required. The container scales
-to zero when idle (free allowance); set `min_machines_running = 1` in `fly.toml` for
-an always-warm demo, or `REDIS_URL` if you later add a cache.
+No env vars are required. The container scales to zero when idle (free allowance);
+set `min_machines_running = 1` in `fly.toml` for an always-warm demo, or `REDIS_URL`
+if you later add a cache. `fly launch` picks its own `<app>.fly.dev` URL — there is
+no pre-existing hosted instance to link to (see the note at the top of this file).
 
 ---
 
