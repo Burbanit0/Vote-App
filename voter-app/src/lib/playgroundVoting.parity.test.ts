@@ -91,11 +91,24 @@ const preparedExhaustive = exhaustive.map((sc) => {
 
 const EXHAUSTIVE_RULES = Object.keys(exhaustive[0].winners) as Rule[];
 
-function exhaustiveMismatchesFor(rule: Rule): string[] {
+// Shared by every exhaustive block below (ordinal here, approval/majority-
+// judgment further down): raw winner vs. raw winner, ties/no-winner (null)
+// included, no strict_winner-style filtering. `scores` is optional — the
+// ordinal shape below doesn't have it, ruleWinnerFromRanks falls back to
+// `ranks` alone; the cardinal shapes further down always pass it.
+function exhaustiveMismatchesFor<
+  T extends {
+    m: number;
+    candidates: string[];
+    ranks: number[][];
+    winners: Record<string, string | null>;
+    scores?: number[][];
+  },
+>(scenarios: T[], rule: Rule): string[] {
   const out: string[] = [];
-  preparedExhaustive.forEach((s, i) => {
+  scenarios.forEach((s, i) => {
     const expected = s.winners[rule];
-    const idx = ruleWinnerFromRanks(s.ranks, s.m, rule);
+    const idx = ruleWinnerFromRanks(s.ranks, s.m, rule, s.scores);
     const got = idx >= 0 ? s.candidates[idx] : null;
     if (got !== expected) out.push(`#${i}: client=${got} backend=${expected}`);
   });
@@ -108,7 +121,7 @@ describe('engine parity — EXHAUSTIVE small-profile domain (n<=3 candidates, m<
   });
 
   it.each(EXHAUSTIVE_RULES)('%s matches the backend on EVERY profile, ties and all', (rule) => {
-    expect(exhaustiveMismatchesFor(rule)).toEqual([]);
+    expect(exhaustiveMismatchesFor(preparedExhaustive, rule)).toEqual([]);
   });
 });
 
@@ -196,20 +209,6 @@ const { exhaustiveApprovalScenarios, exhaustiveMajorityJudgmentScenarios } = fix
   CardinalScenario[]
 >;
 
-function exhaustiveCardinalMismatchesFor(
-  scenarios: ReturnType<typeof prepareCardinal>[],
-  rule: Rule
-): string[] {
-  const out: string[] = [];
-  scenarios.forEach((s, i) => {
-    const expected = s.winners[rule];
-    const idx = ruleWinnerFromRanks(s.ranks, s.m, rule, s.scores);
-    const got = idx >= 0 ? s.candidates[idx] : null;
-    if (got !== expected) out.push(`#${i}: client=${got} backend=${expected}`);
-  });
-  return out;
-}
-
 describe('engine parity — EXHAUSTIVE approval domain (n<=3 candidates, m<=5 voters)', () => {
   const prepared = exhaustiveApprovalScenarios.map(prepareCardinal);
 
@@ -218,7 +217,7 @@ describe('engine parity — EXHAUSTIVE approval domain (n<=3 candidates, m<=5 vo
   });
 
   it('approval matches the backend on EVERY profile, ties and all', () => {
-    expect(exhaustiveCardinalMismatchesFor(prepared, 'approval')).toEqual([]);
+    expect(exhaustiveMismatchesFor(prepared, 'approval')).toEqual([]);
   });
 });
 
@@ -232,6 +231,6 @@ describe('engine parity — EXHAUSTIVE majority-judgment domain (3 grades, n<=3)
   });
 
   it('majority_judgment matches the backend on EVERY profile, ties and all', () => {
-    expect(exhaustiveCardinalMismatchesFor(prepared, 'majority_judgment')).toEqual([]);
+    expect(exhaustiveMismatchesFor(prepared, 'majority_judgment')).toEqual([]);
   });
 });

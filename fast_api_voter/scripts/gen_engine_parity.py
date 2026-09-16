@@ -354,10 +354,21 @@ def generate_exhaustive_approval_scenarios() -> list[dict]:
 # generate_exhaustive_majority_judgment_scenarios' docstring for why the full
 # scale isn't tractable at n=3 and why coarsening loses no algorithmic
 # coverage: get_majority_judgment_winner only ever compares grade INTEGERS
-# with <, >, == (median + p/q gauge, iterative strip) -- never their
-# magnitudes -- so any three strictly-increasing grades produce exactly the
-# same set of order-patterns as any other three. These specific values are
-# chosen only so the fixture reads as real MJ grades, not for coverage.
+# with <, >, == (median, then the iterative strip-and-recompare tie-break --
+# see _mj_strip_to_winner in simulation_score_utils.py; the older p-q
+# majority-gauge shortcut this used to be approximated by is gone as of
+# PR #538) -- never their magnitudes -- so any three strictly-increasing
+# grades produce exactly the same set of order-patterns as any other three.
+# These specific values are chosen only so the fixture reads as real MJ
+# grades, not for coverage.
+#
+# This is a real premise, not just an implementation detail -- it's WHY 3
+# grades is a legitimate coarsening rather than a silent loss of coverage.
+# It holds for the algorithm as it exists today; if a future majority-
+# judgment change ever made the tie-break magnitude-sensitive (e.g. a
+# weighted or distance-based step, not just <, >, ==), this domain would
+# need re-widening back toward the full 0-5 scale to keep meaning what its
+# own "matches the backend on EVERY profile" test description claims.
 MJ_EXHAUSTIVE_GRADES: tuple = (0, 2, 5)
 
 
@@ -389,6 +400,23 @@ def generate_exhaustive_majority_judgment_scenarios() -> list[dict]:
     = 6,060 profiles total (~700KB of fixture). Winners are RAW, as above.
     Reuses _mj_winner (get_majority_judgment_winner) -- the tally/tie-break
     logic is not reimplemented here.
+
+    Fixture size, acknowledged directly: this section alone adds ~700KB (plus
+    ~58KB from generate_exhaustive_approval_scenarios), taking
+    engineParity.json from ~460KB to ~1.3MB -- well past the 500KB budget
+    PLAN_SURFACE_EXTERIEURE.md §2.E records this exact file being trimmed to
+    respect (`check-added-large-files --maxkb=500`). That hook only checks
+    NEWLY ADDED files, not growth on an already-tracked one, so this doesn't
+    fail CI -- but it's still a real, deliberate overage of the established
+    precedent, not an oversight. Judged worth it here: this is a generated
+    test fixture, not shipped app code (the 1MB brotli budget that DOES gate
+    the real build is voter-app's own `.size-limit.json`, unaffected by this
+    file), and the whole point of the exhaustive domain is that a smaller one
+    would re-introduce exactly the "silently skips the tied/degenerate cases"
+    gap this file's own history says is where the real bugs hide. If this
+    trade needs revisiting, the lever is m<=3 -> m<=2 for n=3 above (4,059 ->
+    405 profiles, saving ~410KB) at the cost of the n=3 domain no longer
+    exercising a real 3-way median.
     """
     scenarios = []
     for n, mmax in ((2, 5), (3, 3)):
