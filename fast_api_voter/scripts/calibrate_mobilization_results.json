@@ -1,0 +1,126 @@
+{
+  "grid": [
+    {
+      "scale": 1.0,
+      "consulted_acts": 13163,
+      "mobilize_share": 0.2798754083415635,
+      "sign_petition_share": 0.161665273873737,
+      "in_band": false,
+      "recalls_per_seed": 7.7,
+      "full_terms": 0,
+      "median_presidency_ticks": 2.0
+    },
+    {
+      "scale": 1.05,
+      "consulted_acts": 12948,
+      "mobilize_share": 0.25934507259808465,
+      "sign_petition_share": 0.15886623416743897,
+      "in_band": false,
+      "recalls_per_seed": 7.3,
+      "full_terms": 2,
+      "median_presidency_ticks": 2.0
+    },
+    {
+      "scale": 1.1,
+      "consulted_acts": 12758,
+      "mobilize_share": 0.23593039661388931,
+      "sign_petition_share": 0.15174792287192349,
+      "in_band": false,
+      "recalls_per_seed": 6.7,
+      "full_terms": 2,
+      "median_presidency_ticks": 2.0
+    },
+    {
+      "scale": 1.15,
+      "consulted_acts": 12792,
+      "mobilize_share": 0.22091932457786118,
+      "sign_petition_share": 0.15040650406504066,
+      "in_band": false,
+      "recalls_per_seed": 6.2,
+      "full_terms": 2,
+      "median_presidency_ticks": 3
+    },
+    {
+      "scale": 1.2,
+      "consulted_acts": 12775,
+      "mobilize_share": 0.2055577299412916,
+      "sign_petition_share": 0.14849315068493152,
+      "in_band": false,
+      "recalls_per_seed": 6.2,
+      "full_terms": 2,
+      "median_presidency_ticks": 3
+    },
+    {
+      "scale": 1.3,
+      "consulted_acts": 12387,
+      "mobilize_share": 0.18075401630741908,
+      "sign_petition_share": 0.13659481714700897,
+      "in_band": false,
+      "recalls_per_seed": 5.7,
+      "full_terms": 2,
+      "median_presidency_ticks": 3.0
+    },
+    {
+      "scale": 1.4,
+      "consulted_acts": 12347,
+      "mobilize_share": 0.16117275451526686,
+      "sign_petition_share": 0.13728031100672228,
+      "in_band": false,
+      "recalls_per_seed": 5.3,
+      "full_terms": 2,
+      "median_presidency_ticks": 3.0
+    },
+    {
+      "scale": 1.5,
+      "consulted_acts": 12040,
+      "mobilize_share": 0.13770764119601328,
+      "sign_petition_share": 0.1318936877076412,
+      "in_band": false,
+      "recalls_per_seed": 4.6,
+      "full_terms": 4,
+      "median_presidency_ticks": 3
+    },
+    {
+      "scale": 1.75,
+      "consulted_acts": 11246,
+      "mobilize_share": 0.10039125022230126,
+      "sign_petition_share": 0.12128756891339143,
+      "in_band": false,
+      "recalls_per_seed": 3.7,
+      "full_terms": 8,
+      "median_presidency_ticks": 3.0
+    },
+    {
+      "scale": 2.0,
+      "consulted_acts": 10939,
+      "mobilize_share": 0.075875308529116,
+      "sign_petition_share": 0.11481853917177073,
+      "in_band": false,
+      "recalls_per_seed": 2.9,
+      "full_terms": 8,
+      "median_presidency_ticks": 5.0
+    },
+    {
+      "scale": 2.5,
+      "consulted_acts": 10768,
+      "mobilize_share": 0.05209881129271917,
+      "sign_petition_share": 0.10540490341753343,
+      "in_band": false,
+      "recalls_per_seed": 2.3,
+      "full_terms": 8,
+      "median_presidency_ticks": 5
+    },
+    {
+      "scale": 3.0,
+      "consulted_acts": 10560,
+      "mobilize_share": 0.033522727272727273,
+      "sign_petition_share": 0.10700757575757576,
+      "in_band": false,
+      "recalls_per_seed": 1.9,
+      "full_terms": 9,
+      "median_presidency_ticks": 7
+    }
+  ],
+  "selected": null,
+  "gate": null
+}

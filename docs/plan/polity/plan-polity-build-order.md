@@ -858,6 +858,31 @@ again, and a verdict that flips is recorded as a flip, not re-tuned.
 - A second divergence stays untouched: the twin *consults* 41% of its population per tick, the LLM
   runs 20–25%. This recalibration does not claim to fix who is consulted, only what the consulted do.
 
+*Result, 2026-09-16* (`scripts/calibrate_mobilization_results.md`, run after this section was
+committed). **None qualifies, so D9 stays open.** Run exactly as pre-registered:
+
+- **The rule is reproduced.** Scale 1.00 gives the shipped twin to the act: MOBILIZE 27.99% of 13,163
+  consulted acts, 7.7 recalls per seed, no full term.
+- **MOBILIZE never enters its band.** It falls monotonically with the scale, and at the grid's
+  ceiling (3.00) it is still 3.35% against the 2.0% allowed.
+- **The petition guard breaks first.** The knob never touches a petition branch, yet SIGN_PETITION
+  falls from 16.2% to 11.5% at scale 2.00 and 10.7% at 3.00, below the 12% guard: a president who
+  lasts changes the simulation, and fewer petitions get signed.
+- **The gate would not have held either.** At 2.00: 2.9 recalls per seed, but 8 full terms of the 10
+  needed. At 3.00: 1.9 recalls and 9 full terms.
+
+*What this implies, recorded as an observation and not as a new pre-registration.* A wider grid
+is unlikely to help under this target. MOBILIZE would need a scale above 3.00 to reach 2.0%, and
+from 2.00 up SIGN_PETITION sits at 10.5–11.5%, under its guard and not climbing back. That is an
+extrapolation past the grid, not a measurement of it. What was measured is that the two acts move
+together: one knob on mobilization alone lowers petitioning too, through the run's dynamics rather
+than through the rule.
+The other divergence the pre-registration set aside may be part of it: the twin consults 41% of its
+population per tick, the LLM runs 20–25%. A next attempt needs its own pre-registration, and a
+choice about which of these to change: the consultation gate, a target on the joint mix of acts
+rather than on MOBILIZE and SIGN_PETITION separately, or accepting D9's first option — the Stage 4
+verdicts as they stand.
+
 ### S4.1's grid, pre-registered before running (ADR-011 gave the facts, not the grid)
 
 - `partisanship` ∈ {0, 0.05, 0.1}
