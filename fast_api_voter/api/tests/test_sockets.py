@@ -338,6 +338,39 @@ async def test_run_failure_emits_error_and_logs(live_server, monkeypatch, caplog
     assert "sockets.monte_carlo_run_failed" in caplog.text
 
 
+@pytest.mark.asyncio
+async def test_run_timeout_emits_error_and_logs(live_server, monkeypatch, caplog):
+    """Each run now goes through api.core.worker_dispatch.run_bounded (the
+    same shared semaphore + timeout every HTTP route uses) instead of a raw
+    asyncio.to_thread — PLAN_SURFACE_EXTERIEURE.md §2.A. A timeout from that
+    shared bound must surface as a clean client-facing error, not hang."""
+    async def _timeout(*a, **kw):
+        raise asyncio.TimeoutError
+
+    monkeypatch.setattr(sockets_module, "run_bounded", _timeout)
+
+    error_event = []
+    async with _connected(live_server) as client:
+        @client.on("monte_carlo_error")
+        async def _e(data):
+            error_event.append(data)
+
+        with caplog.at_level("ERROR"):
+            await client.emit("start_monte_carlo", {
+                "num_iterations": 5,
+                "num_voters":     50,
+                "num_candidates": 3,
+            })
+            for _ in range(50):
+                if error_event:
+                    break
+                await asyncio.sleep(0.05)
+
+    assert error_event, "Server never emitted monte_carlo_error"
+    assert "too long" in error_event[0]["message"]
+    assert "sockets.monte_carlo_run_timeout" in caplog.text
+
+
 class TestMonteCarloParseInputExplicitCandidates:
     """No live_server test exercised the "explicit `candidates` list"
     branch — every one sends `num_candidates` and lets the default

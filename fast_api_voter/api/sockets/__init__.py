@@ -29,6 +29,7 @@ import numpy as np
 import socketio
 
 from api.core.config import get_settings
+from api.core.worker_dispatch import run_bounded
 from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.logger import get_logger
 from api.engine.utils.simulation_metrics      import compare_all_methods_mc
@@ -307,12 +308,19 @@ async def start_monte_carlo(sid: str, data: dict[str, Any]) -> None:
             return
 
         try:
-            # _run_one is CPU-bound — offload to a worker thread so we
-            # don't block the asyncio loop. Same role as eventlet's
-            # cooperative scheduling on the Flask side.
-            run = await asyncio.to_thread(
-                _run_one, candidate_configs, num_voters, ideology,
+            # _run_one is CPU-bound — offload to a worker thread through the
+            # same shared semaphore + timeout every HTTP route goes through
+            # (api.core.worker_dispatch.run_bounded), not a raw
+            # asyncio.to_thread: this loop used to bypass that bound
+            # entirely, so a flood of concurrent socket sessions could pile
+            # up unlimited CPU-bound threads with no timeout at all.
+            run = await run_bounded(_run_one, candidate_configs, num_voters, ideology)
+        except asyncio.TimeoutError:
+            log.error("sockets.monte_carlo_run_timeout", sid=sid)
+            await sio.emit(
+                "monte_carlo_error", {"message": "Run took too long to process"}, to=sid,
             )
+            return
         except Exception as exc:  # noqa: BLE001
             log.warning("sockets.monte_carlo_run_failed", sid=sid, exc_info=True)
             await sio.emit("monte_carlo_error", {"message": str(exc)}, to=sid)
