@@ -1,7 +1,7 @@
 # ADR-013: Canvas 2D pour les nuages de points denses, une exception bornée à ADR-005
 
-**Status**: Proposé — à accepter avant la fusion de `polity-ui` dans `polity` (étape F0 de
-l'explorateur de runs)
+**Status**: Adopté, en vigueur — accepté par le propriétaire le 2026-09-15, avant la fusion de
+`polity-ui` dans `polity` (étape F0 de l'explorateur de runs)
 **Date**: 2026-09-15
 **Contexte de décision** : la page Polity de la Vote App, qui rejoue un run de simulation tick par
 tick. Son plan (backend B1–B4, pages F0–F6, branches `feat/polity-ui-*` vers `polity-ui`) a été
