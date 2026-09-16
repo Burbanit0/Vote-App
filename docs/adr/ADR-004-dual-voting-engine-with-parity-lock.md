@@ -35,6 +35,11 @@ référence sur des profils de vote seedés →
 `playgroundVoting.parity.test.ts`. 26 méthodes sont verrouillées identiques
 (21 ordinales + 5 cardinales) ; `KNOWN_DIVERGENT` est vide.
 
+> **Mise à jour 2026-09-16** (PLAN_SURFACE_EXTERIEURE.md §2.E) : 27 méthodes
+> verrouillées (+ approval, au dépouillement seulement). `majority_judgment`
+> est comparé et diverge (bug backend) ; `KNOWN_DIVERGENT` épingle désormais
+> la liste exacte de ses écarts, et n'est donc plus vide.
+
 ## Alternatives considérées
 
 - **Un seul moteur côté serveur, le client interroge l'API à chaque

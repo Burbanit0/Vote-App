@@ -1099,7 +1099,9 @@ Les règles de vote existent en **deux implémentations** — un moteur client r
 (`fast_api_voter/api/engine/utils/`). Un harnais de fixtures « golden » génère les
 vainqueurs de référence côté backend et un test de parité vérifie que le client
 produit exactement les mêmes vainqueurs. Toute divergence est un bug jusqu'à preuve
-du contraire — le harnais a effectivement débusqué des bugs des deux côtés.
+du contraire — le harnais a effectivement débusqué des bugs des deux côtés. Une seule
+reste ouverte, et suivie : le Jugement majoritaire, dont le backend départage les
+médianes égales par p − q au lieu de la jauge majoritaire de Balinski-Laraki.
 
 ### 9.4 Sources de données
 

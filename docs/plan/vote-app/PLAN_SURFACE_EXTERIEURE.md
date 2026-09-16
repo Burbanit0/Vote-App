@@ -234,7 +234,7 @@ parité en verrouille **26**. Les trois non couvertes, vérifiées par
 diff ensembliste contre `engineParity.json` :
 
 - `random_ballot` — **exclusion légitime**, c'est une loterie
-  (`gen_engine_parity.py:75` le dit).
+  (le commentaire au-dessus de `RULES` dans `gen_engine_parity.py` le dit).
 - `approval` — déterministe, implémentée côté backend
   (`simulation_ranked_utils.py`, `simulation_voting_utils.py`).
 - `majority_judgment` — déterministe, implémentée côté backend
@@ -261,19 +261,54 @@ bulletin partagé aux valeurs exactes que les deux moteurs quantisent de façon
 identique (0.0/1.0 pour approval ; multiples de 1/5 pour les 6 niveaux de MJ)
 contourne la différence de modélisation déjà documentée dans
 `gen_engine_parity.py`, pour comparer l'algorithme de dépouillement lui-même.
-- `approval` : **concorde sur les 50 scénarios non-nuls** (60 générés, 10
-  filtrés comme non stables au tie-break) — le trou est fermé, méthode
-  verrouillée (27 méthodes désormais identiques).
-- `majority_judgment` : **diverge sur 3/60 scénarios**, un vrai bug de
-  tie-break et non un artefact — le backend (médiane → jauge majoritaire p−q
-  → *un seul* pas de retrait supplémentaire) est une approximation de la
-  procédure Balinski-Laraki canonique (retirer itérativement une occurrence
-  de la médiane et recomparer jusqu'à distinction), que le client implémente
-  correctement. Documenté et tracké (pas masqué) dans
-  `playgroundVoting.parity.test.ts`. Reste à trancher : faire converger le
-  backend vers la procédure itérative complète, ou justifier l'approximation
-  — décision volontairement laissée hors de ce chantier (moteur de vote,
-  `/code-review ultra` requis avant PR).
+- `approval` : **concorde sur les 52 scénarios stricts** (60 générés, 8
+  égalités filtrées). Verrou réel mais **limité au dépouillement** : sur un
+  bulletin 0/1, tout seuil strictement entre 0 et 1 approuve le même
+  ensemble, donc ni le seuil client (≥ 0,5) ni celui du backend (> moyenne
+  du votant) n'est testé. Sur des utilités réelles ils divergent encore :
+  ~8 % des électorats spatiaux contre `get_approval_winner_sincere`, ~27 %
+  contre `get_approval_winner` (approuver ses 2 premiers), le chemin
+  qu'emprunte la plupart des appelants backend.
+- `majority_judgment` : **diverge sur 6/58 scénarios stricts**, un bug
+  **backend**. Le diagnostic de la première version de cette note (« un
+  seul pas de retrait au lieu de la procédure itérative ») était **faux**,
+  et la revue locale max l'a réfuté en exécutant le code : aucun des écarts
+  n'atteint ce pas de retrait. Le backend départage les médianes égales par
+  `p − q`, qui n'est pas la jauge majoritaire de Balinski-Laraki (`+p` si
+  `p > q`, sinon `−q`) ; la jauge donne le vainqueur du client sur les 6.
+  Rendre le retrait itératif sans changer la clé n'en corrige **aucun**.
+  Épinglé comme liste exacte dans `KNOWN_DIVERGENT`
+  (`playgroundVoting.parity.test.ts`).
+
+**Revue locale max (10 angles) — corrigé dans ce PR** : assertion par
+compte (`toBe(3)`) remplacée par la liste exacte (un autre ensemble de même
+taille passait, et le compte faisait passer sonarjs de 288 à 289) ; flux
+aléatoires dédiés par règle (avant, tout changement d'une autre règle
+re-tirait les 120 scénarios : de 3 à 7 écarts MJ en ajoutant une règle
+cardinale) ; `strict_winner_cardinal` mélange aussi l'ordre des clés pour
+ces deux sections (sinon une égalité départagée par position passait pour
+« stricte » : 0/60 rejet MJ avant, 2 après) ; garde « au moins 40 vainqueurs
+comparés » ; notes entières dans la fixture (−37 ko, 460 ko contre la limite
+de 500 ko du hook `check-added-large-files`).
+
+**Reste à faire, hors de ce PR** :
+- **Corriger `get_majority_judgment_winner`** (moteur, branche dédiée,
+  revue requise avant PR) : la procédure du client, en comptes entiers.
+  Changer la clé seule ne suffit pas, trois défauts s'ajoutent : égalités de
+  jauge, retrait limité aux deux premiers, `p` et `q` comparés en flottants
+  (une égalité exacte peut être tranchée par un arrondi, ~1 % des profils).
+  Et le retrait écrase `all_grades`, donc `grade_distributions`/`medians`
+  renvoyés par l'API perdent un bulletin pour les deux candidats départagés.
+  Une fois corrigé, ajouter MJ (et approval) au domaine exhaustif, avec des
+  effectifs pairs : aujourd'hui passer à la médiane haute ne bouge pas la
+  fixture.
+- **Section `cardinalScenarios`** : sans mélange des clés, 59/60 vainqueurs
+  maximin (et 5 score, 4 STAR) y sont des départages par position que les
+  deux moteurs partagent. Activer `shuffle_keys` les ferait tomber : c'est une
+  décision sur ce que ce verrou prétend garantir, pas un correctif discret.
+- **Approval** : choisir une seule façon de dériver le bulletin d'approbation
+  à partir de l'utilité (décision produit), puis nourrir cette section en
+  utilités continues.
 
 **Effort** : S (une après-midi) · **Priorité** : haute — meilleur rapport
 valeur/effort du plan.
@@ -541,9 +576,10 @@ Chacun est de l'ordre de la minute à l'heure :
   ou `components/`, pas à une « lib pure ».
 
 **Fait** (`docs/plan-surface-2l-small-accuracies`), un à un :
-- 29 vs 26 (lié à §2.E) : **différé** — §2.E n'est pas encore mergé (attend
-  `/code-review ultra`), et le nombre exact changera (27, pas 26, une fois
-  mergé). À revisiter avec ce PR-là, pas avant.
+- 29 vs 26 (lié à §2.E) : **fait avec §2.E** (`feat/extend-parity-approval-mj`).
+  29 règles côté client ; 27 verrouillées en parité (approval au dépouillement
+  seulement) ; `majority_judgment` comparé mais divergent (bug backend
+  tracké) ; `random_ballot` exclu (loterie). `README.md` le dit ainsi.
 - `auth` : **supprimé** des deux locales (`fr.ts`/`en.ts`) + régénéré la
   pseudo-locale. 0 référence confirmée avant suppression.
 - Budget de bundle : **fait** — `.size-limit.json` exclut désormais

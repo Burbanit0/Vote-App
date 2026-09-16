@@ -115,7 +115,7 @@ RULES = {
 # fixed 0.5 cutoff for approval; round(s*5) vs threshold buckets for MJ) — an
 # arbitrary shared score matrix would flag that known, deliberate modelling
 # difference as a false "divergence" on the counting algorithm it isn't testing.
-# See APPROVAL_BALLOT/MJ_BALLOT below, which sidestep this by generating ballots
+# See _approval_winner/_mj_winner below, which sidestep this by generating ballots
 # at exactly the values both engines are guaranteed to quantise identically.
 CARDINAL = {
     "score": lambda b: get_simple_score_winner(b)["winner"],
@@ -130,7 +130,11 @@ CARDINAL = {
 # sincere mode approves score > the voter's own mean (get_approval_winner_sincere)
 # — at exactly 0.0/1.0, with each voter approving a proper non-empty subset (so
 # the mean is strictly between 0 and 1), both reduce to the SAME approval set,
-# so this compares the winner-tally/tie-break algorithm, not ballot derivation.
+# so this compares the tally, not ballot derivation. That's all it locks: every
+# cutoff strictly between 0 and 1 approves the same set here, so either side's
+# threshold can move without this noticing, and the two derivations (and the
+# backend's approve-top-2 get_approval_winner most callers use) still disagree
+# on real utility. Ties are filtered out by strict_winner_cardinal, not compared.
 def _approval_winner(ballots):
     return get_approval_winner_sincere(dict(enumerate(ballots)))
 
@@ -175,10 +179,18 @@ def strict_winner(fn, ballots, cands, rng):
     return base
 
 
-def strict_winner_cardinal(fn, ballots, cands, rng):
+def strict_winner_cardinal(fn, ballots, cands, rng, shuffle_keys=False):
     """As strict_winner, for score ballots (per-voter {candidate: score} dicts):
     keep the winner only if it survives relabeling the candidates and shuffling
-    the voters, so it isn't a tie-break artefact."""
+    the voters, so it isn't a tie-break artefact.
+
+    Relabeling alone keeps every candidate at the same dict position, so a
+    tie broken by first-seen key order survives it and passes as "strict".
+    shuffle_keys also reorders each trial's keys, which exposes that. The
+    CARDINAL section doesn't pass it yet: with it, 59/60 of today's maximin
+    winners (and a few score/STAR ones) turn out to be key-order tie-breaks
+    both engines happen to share, and would drop out -- a follow-up tracked in
+    PLAN_SURFACE_EXTERIEURE.md §2.E, not a silent change to that lock."""
     base = fn(ballots)
     if base is None:
         return None
@@ -188,6 +200,10 @@ def strict_winner_cardinal(fn, ballots, cands, rng):
         relabel = dict(zip(cands, shuffled))
         inv = {v: k for k, v in relabel.items()}
         rows = [{relabel[c]: v for c, v in b.items()} for b in ballots]
+        if shuffle_keys:
+            order = cands[:]
+            rng.shuffle(order)
+            rows = [{c: row[c] for c in order} for row in rows]
         rng.shuffle(rows)
         w = fn(rows)
         if w is None or inv[w] != base:
@@ -210,6 +226,33 @@ def make_mj_ballot(cands, rng):
     0..5 -- the only utility values the client's and backend's grade
     quantisers are guaranteed to agree on (see _mj_winner's comment)."""
     return {c: rng.randint(0, 5) / 5.0 for c in cands}
+
+
+def single_rule_scenarios(rule, fn, make_ballot, to_json):
+    """60 strict scenarios for one rule fed its own exact-value ballots, in the
+    cardinal shape ({candidates, scores, winners: {rule: w}}).
+
+    Each rule gets its OWN seeded streams, one for ballots and one for the
+    relabel trials, instead of main()'s shared `rng`. That stream shifts
+    whenever an earlier strict filter exits early, so any unrelated rule change
+    used to re-roll every scenario here, and with it the exact mismatch list a
+    tracked divergence is pinned to. A str seed is hashed with SHA-512, so it
+    doesn't depend on PYTHONHASHSEED."""
+    ballot_rng = random.Random(f"{SEED}:{rule}:ballots")
+    trial_rng = random.Random(f"{SEED}:{rule}:trials")
+    scenarios = []
+    for m in (3, 4, 5):
+        cands = NAMES[:m]
+        for n in (21, 31, 41, 51, 61):
+            for _ in range(4):
+                ballots = [make_ballot(cands, ballot_rng) for _ in range(n)]
+                winner = strict_winner_cardinal(fn, ballots, cands, trial_rng, shuffle_keys=True)
+                scenarios.append({
+                    "candidates": cands,
+                    "scores": [[to_json(b[c]) for c in cands] for b in ballots],
+                    "winners": {rule: winner},
+                })
+    return scenarios
 
 
 def generate_exhaustive_scenarios() -> list[dict]:
@@ -273,27 +316,12 @@ def main() -> None:
                     {"candidates": cands, "scores": matrix, "winners": winners}
                 )
 
-    approval_scenarios = []
-    mj_scenarios = []
-    for m in (3, 4, 5):
-        cands = NAMES[:m]
-        for n in (21, 31, 41, 51, 61):
-            for _ in range(4):
-                approval_ballots = [make_approval_ballot(cands, rng) for _ in range(n)]
-                approval_winner = strict_winner_cardinal(_approval_winner, approval_ballots, cands, rng)
-                approval_scenarios.append({
-                    "candidates": cands,
-                    "scores": [[b[c] for c in cands] for b in approval_ballots],
-                    "winner": approval_winner,
-                })
-
-                mj_ballots = [make_mj_ballot(cands, rng) for _ in range(n)]
-                mj_winner = strict_winner_cardinal(_mj_winner, mj_ballots, cands, rng)
-                mj_scenarios.append({
-                    "candidates": cands,
-                    "scores": [[b[c] for c in cands] for b in mj_ballots],
-                    "winner": mj_winner,
-                })
+    approval_scenarios = single_rule_scenarios("approval", _approval_winner, make_approval_ballot, int)
+    # Stored as the integer grade 0..5, like cardinalScenarios' scores; the test
+    # divides by 5 again, since the client's MJ quantiser reads a [0, 1] score.
+    mj_scenarios = single_rule_scenarios(
+        "majority_judgment", _mj_winner, make_mj_ballot, lambda v: round(v * 5)
+    )
 
     exhaustive_scenarios = generate_exhaustive_scenarios()
 

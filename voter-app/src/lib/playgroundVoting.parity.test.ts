@@ -44,34 +44,38 @@ function mismatchesFor(rule: Rule): string[] {
 }
 
 // Methods whose client implementation does NOT match the authoritative backend
-// on strict profiles — a real divergence this harness surfaced. Tracked debt:
-// reconcile each (fix the client engine to the tested backend), then delete it
-// from this set. See gen_engine_parity.py to regenerate the golden winners.
-const KNOWN_DIVERGENT = new Set<Rule>([]);
+// on strict profiles — a real divergence this harness surfaced — pinned to the
+// EXACT mismatch list, not a count: a different set of the same size is a new
+// divergence, and reconciling one side turns the list stale, so neither slips by
+// silently. Reconcile, regenerate (gen_engine_parity.py), then delete the entry.
+const KNOWN_DIVERGENT: Partial<Record<Rule, string[]>> = {
+  // Backend bug, not a modelling choice (PLAN_SURFACE_EXTERIEURE.md §2.E). The
+  // client's winMajorityJudgment is the textbook Balinski–Laraki procedure:
+  // strip the tied median grade until the candidates separate. The backend's
+  // get_majority_judgment_winner ranks equal medians by p − q instead, which is
+  // not the majority gauge (+p if p > q, else −q); all six below come from that
+  // ordering, and the gauge picks the client's winner on each. Two further
+  // backend gaps don't show up in this fixture: it strips at most once and only
+  // the top two, and it compares p and q as floats, so an exact tie can be
+  // decided by rounding.
+  majority_judgment: [
+    '#6: client=C backend=A',
+    '#13: client=B backend=A',
+    '#21: client=D backend=C',
+    '#32: client=A backend=C',
+    '#36: client=C backend=A',
+    '#58: client=D backend=E',
+  ],
+};
 
 describe('engine parity — client ruleWinnerFromRanks == backend golden winners', () => {
   it('has a non-trivial fixture', () => {
     expect(prepared.length).toBeGreaterThanOrEqual(40);
   });
 
-  it.each(RULES.filter((r) => !KNOWN_DIVERGENT.has(r)))(
-    '%s matches the backend on every strict scenario',
-    (rule) => {
-      expect(mismatchesFor(rule)).toEqual([]);
-    }
-  );
-
-  // Keep the debt honest: if a known-divergent method now agrees (0 mismatches),
-  // this fails so the method gets promoted out of KNOWN_DIVERGENT; if a NEW method
-  // starts diverging, its locked test above fails — neither slips by silently.
-  if (KNOWN_DIVERGENT.size > 0) {
-    it.each([...KNOWN_DIVERGENT])(
-      '%s is still a tracked divergence (reconcile, then unlist)',
-      (rule) => {
-        expect(mismatchesFor(rule).length).toBeGreaterThan(0);
-      }
-    );
-  }
+  it.each(RULES)('%s matches the backend on every strict scenario', (rule) => {
+    expect(mismatchesFor(rule)).toEqual(KNOWN_DIVERGENT[rule] ?? []);
+  });
 });
 
 // ── Exhaustive small-profile domain (Lot 4.3, PLAN_SOLIDITE_TECHNIQUE.md) ──────
@@ -118,100 +122,63 @@ describe('engine parity — EXHAUSTIVE small-profile domain (n<=3 candidates, m<
   });
 });
 
-// ── Cardinal rules (score / STAR / cumulative / maximin / nash) — same
-// per-voter score matrix on both engines. Approval and majority judgment are
-// handled separately below: an arbitrary shared score matrix isn't a fair
-// comparison for them (each engine derives/quantises those two ballots
-// differently from a raw utility score — see gen_engine_parity.py's CARDINAL
-// comment), so those two scenarios feed ballots at the exact values both
-// sides are guaranteed to interpret identically instead.
+// ── Cardinal rules — per-voter score ballots, strict winners only. Three
+// fixture sections share this shape and these checks:
+// - cardinalScenarios: score / STAR / cumulative / maximin / nash over one
+//   shared 0-5 score matrix.
+// - approvalScenarios / majorityJudgmentScenarios: each engine derives those
+//   two ballots from raw utility differently (see gen_engine_parity.py's
+//   CARDINAL comment), so they're fed ballots at the exact values both sides
+//   read identically instead — 0/1 approvals, and 0-5 MJ grades (divided by 5
+//   below, since the client's MJ quantiser reads a [0, 1] score). That locks
+//   the count, not the ballot derivation, which still differs.
 interface CardinalScenario {
   candidates: string[];
   scores: number[][];
   winners: Record<string, string | null>;
 }
-const cardinal = (fixtureJson as { cardinalScenarios: CardinalScenario[] }).cardinalScenarios;
+const { cardinalScenarios, approvalScenarios, majorityJudgmentScenarios } = fixtureJson as Record<
+  'cardinalScenarios' | 'approvalScenarios' | 'majorityJudgmentScenarios',
+  CardinalScenario[]
+>;
 
-const preparedCardinal = cardinal.map((sc) => ({
+const prepareCardinal = (sc: CardinalScenario) => ({
   m: sc.candidates.length,
   candidates: sc.candidates,
   scores: sc.scores,
   // Ranks (best→worst) only satisfy ruleWinnerFromRanks' shape; cardinal rules read `scores`.
   ranks: sc.scores.map((row) => row.map((_, i) => i).sort((a, b) => row[b] - row[a])),
   winners: sc.winners,
-}));
-
-const CARDINAL_RULES = Object.keys(cardinal[0].winners) as Rule[];
-
-describe('engine parity — cardinal rules over a shared score matrix', () => {
-  it.each(CARDINAL_RULES)('%s matches the backend on every strict scenario', (rule) => {
-    const mismatches: string[] = [];
-    preparedCardinal.forEach((s, i) => {
-      const expected = s.winners[rule];
-      if (expected == null) return;
-      const got = s.candidates[ruleWinnerFromRanks(s.ranks, s.m, rule, s.scores)];
-      if (got !== expected) mismatches.push(`#${i}: client=${got} backend=${expected}`);
-    });
-    expect(mismatches).toEqual([]);
-  });
 });
 
-// ── Approval / Majority Judgment — ballots pinned to the exact values both
-// engines are guaranteed to quantise identically (0.0/1.0 for approval;
-// multiples of 1/5 for MJ's 6-level grade), so a mismatch here is a real
-// divergence in the winner-selection algorithm, not the (known, documented)
-// difference in how each engine would derive that ballot from raw utility.
-interface SingleWinnerScenario {
-  candidates: string[];
-  scores: number[][];
-  winner: string | null;
-}
+// Enough strict winners that "no mismatches" means something: a backend change
+// that nulls every winner would otherwise pass by comparing nothing.
+const MIN_STRICT_WINNERS = 40;
 
-function singleWinnerMismatches(scenarios: SingleWinnerScenario[], rule: Rule): string[] {
-  const mismatches: string[] = [];
-  scenarios.forEach((sc, i) => {
-    if (sc.winner == null) return; // no relabel-stable winner on the backend either
-    const m = sc.candidates.length;
-    // ranks only satisfy ruleWinnerFromRanks' shape; approval/MJ read `scores`.
-    const ranks = sc.scores.map((row) => row.map((_, j) => j).sort((a, b) => row[b] - row[a]));
-    const idx = ruleWinnerFromRanks(ranks, m, rule, sc.scores);
-    const got = idx >= 0 ? sc.candidates[idx] : null;
-    if (got !== sc.winner) mismatches.push(`#${i}: client=${got} backend=${sc.winner}`);
-  });
-  return mismatches;
-}
-
-const approvalScenarios = (fixtureJson as { approvalScenarios: SingleWinnerScenario[] })
-  .approvalScenarios;
-const majorityJudgmentScenarios = (
-  fixtureJson as { majorityJudgmentScenarios: SingleWinnerScenario[] }
-).majorityJudgmentScenarios;
-
-describe('engine parity — approval (shared 0/1 approval ballot)', () => {
-  it('matches the backend on every strict scenario', () => {
-    expect(singleWinnerMismatches(approvalScenarios, 'approval')).toEqual([]);
-  });
-});
-
-describe('engine parity — majority judgment (shared grade/5 ballot)', () => {
-  // KNOWN DIVERGENCE (tracked, not silently accepted — PLAN_SURFACE_EXTERIEURE.md
-  // §2.E). The backend's tie-break (median → majority-gauge p−q → ONE extra
-  // median-strip step, get_majority_judgment_winner) is a heuristic
-  // approximation of the textbook Balinski–Laraki procedure — repeatedly
-  // strip one instance of the tied median grade and recompare until
-  // distinguished — which is what the client's winMajorityJudgment actually
-  // implements (no gauge at all). The two agree except when the backend's
-  // single extra step doesn't fully resolve a tie the full iterative strip
-  // would have: confirmed on exactly 3/60 scenarios here (#22, #50, #59) —
-  // e.g. #22, candidates tied on median=4, backend's gauge ranks them
-  // p−q=−0.238 vs −0.286 (picks the first), the client's iterative strip
-  // picks the other. This needs a human call on which convention the
-  // backend should implement (or whether the "single step suffices" backend
-  // docstring claim should be corrected) — not a silent client-side patch.
-  const MJ_KNOWN_MISMATCH_COUNT = 3;
-
-  it('matches the backend except for the tracked tie-break divergence above', () => {
-    const mismatches = singleWinnerMismatches(majorityJudgmentScenarios, 'majority_judgment');
-    expect(mismatches.length).toBe(MJ_KNOWN_MISMATCH_COUNT);
-  });
+describe.each([
+  { section: 'shared score matrix', scenarios: cardinalScenarios.map(prepareCardinal) },
+  { section: 'shared 0/1 approval ballot', scenarios: approvalScenarios.map(prepareCardinal) },
+  {
+    section: 'shared 0-5 grade ballot',
+    scenarios: majorityJudgmentScenarios.map((sc) =>
+      prepareCardinal({ ...sc, scores: sc.scores.map((row) => row.map((g) => g / 5)) })
+    ),
+  },
+])('engine parity — cardinal rules over a $section', ({ scenarios }) => {
+  it.each(Object.keys(scenarios[0].winners) as Rule[])(
+    '%s matches the backend on every strict scenario',
+    (rule) => {
+      const mismatches: string[] = [];
+      let compared = 0;
+      scenarios.forEach((s, i) => {
+        const expected = s.winners[rule];
+        if (expected == null) return;
+        compared += 1;
+        const got = s.candidates[ruleWinnerFromRanks(s.ranks, s.m, rule, s.scores)];
+        if (got !== expected) mismatches.push(`#${i}: client=${got} backend=${expected}`);
+      });
+      expect(compared).toBeGreaterThanOrEqual(MIN_STRICT_WINNERS);
+      expect(mismatches).toEqual(KNOWN_DIVERGENT[rule] ?? []);
+    }
+  );
 });
