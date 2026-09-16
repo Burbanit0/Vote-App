@@ -20,11 +20,19 @@ interface ElectorateDump {
   communities: Community[];
 }
 
+// The parsed shape we assume for a pasted dump before the defensive checks
+// below validate each field; JSON.parse itself can't tell us this is right.
+interface RawElectorateDump {
+  correlation?: unknown;
+  noise?: unknown;
+  communities?: Record<string, unknown>[];
+}
+
 function parseDump(text: string): ElectorateDump | null {
   try {
-    const o = JSON.parse(text);
+    const o = JSON.parse(text) as RawElectorateDump | null;
     if (!o || !Array.isArray(o.communities) || !o.communities.length) return null;
-    const communities: Community[] = o.communities.map((c: Record<string, unknown>, i: number) => ({
+    const communities: Community[] = o.communities.map((c, i) => ({
       id: typeof c.id === 'string' && c.id ? c.id : `c${i}`,
       label: typeof c.label === 'string' ? c.label : `Bloc ${i + 1}`,
       x: Number(c.x) || 0,

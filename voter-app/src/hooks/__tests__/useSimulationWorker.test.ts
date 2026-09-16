@@ -82,6 +82,9 @@ describe('WorkerResponse contracts', () => {
     };
     expect(response.type).toBe('MATRIX_DONE');
     expect(typeof response.matrix).toBe('object');
+    // A literal fixture value read back with zero arithmetic in between --
+    // toBeCloseTo would accept a spurious near-match this shape check can't produce.
+    // eslint-disable-next-line sonarjs/no-floating-point-equality -- see above
     expect(response.matrix.plurality.borda).toBe(0.8);
   });
 

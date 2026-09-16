@@ -1,5 +1,7 @@
 import fr from './locales/fr';
 import en from './locales/en';
+import polityFr from './locales/polity.fr';
+import polityEn from './locales/polity.en';
 
 // Recursively collect all leaf key paths from a nested object
 function collectKeys(obj: Record<string, unknown>, prefix = ''): string[] {
@@ -21,16 +23,12 @@ const enKeys = collectKeys(en as unknown as Record<string, unknown>);
 describe('i18n parity', () => {
   test('all fr keys exist in en', () => {
     const missing = frKeys.filter((k) => !enKeys.includes(k));
-    if (missing.length > 0) {
-      throw new Error(`Missing en keys:\n${missing.join('\n')}`);
-    }
+    expect(missing).toEqual([]);
   });
 
   test('all en keys exist in fr', () => {
     const missing = enKeys.filter((k) => !frKeys.includes(k));
-    if (missing.length > 0) {
-      throw new Error(`Missing fr keys:\n${missing.join('\n')}`);
-    }
+    expect(missing).toEqual([]);
   });
 
   test('no empty string values in fr', () => {
@@ -40,9 +38,7 @@ describe('i18n parity', () => {
       for (const p of parts) val = (val as Record<string, unknown>)[p];
       return val === '';
     });
-    if (empty.length > 0) {
-      throw new Error(`Empty fr values:\n${empty.join('\n')}`);
-    }
+    expect(empty).toEqual([]);
   });
 
   test('no empty string values in en', () => {
@@ -52,9 +48,7 @@ describe('i18n parity', () => {
       for (const p of parts) val = (val as Record<string, unknown>)[p];
       return val === '';
     });
-    if (empty.length > 0) {
-      throw new Error(`Empty en values:\n${empty.join('\n')}`);
-    }
+    expect(empty).toEqual([]);
   });
 
   test('interpolation placeholders match between fr and en', () => {
@@ -79,8 +73,30 @@ describe('i18n parity', () => {
       }
     }
 
-    if (mismatches.length > 0) {
-      throw new Error(`Interpolation placeholder mismatches:\n${mismatches.join('\n')}`);
-    }
+    expect(mismatches).toEqual([]);
+  });
+});
+
+// The polity namespace's key parity is enforced by tsc (polity.en.ts is typed on
+// polity.fr.ts); what tsc cannot see is an empty string or a placeholder that one
+// language dropped.
+describe('polity namespace', () => {
+  const leaves = (obj: Record<string, unknown>): [string, string][] =>
+    collectKeys(obj).map((key) => [
+      key,
+      key.split('.').reduce<unknown>((v, p) => (v as Record<string, unknown>)[p], obj) as string,
+    ]);
+  const placeholders = (text: string) =>
+    [...text.matchAll(/\{\{(\w+)\}\}/g)].map((m) => m[1]).sort();
+
+  test('no empty strings and the same placeholders in fr and en', () => {
+    const fr = new Map(leaves(polityFr as unknown as Record<string, unknown>));
+    const en = new Map(leaves(polityEn as unknown as Record<string, unknown>));
+    expect([...fr.values(), ...en.values()].filter((v) => v === '')).toEqual([]);
+    expect(
+      [...fr.keys()].filter(
+        (k) => placeholders(fr.get(k)!).join() !== placeholders(en.get(k) ?? '').join()
+      )
+    ).toEqual([]);
   });
 });

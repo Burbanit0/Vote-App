@@ -5,9 +5,9 @@ here instead of on the PR. It mirrors the gating jobs:
 
 | Local target | Mirrors workflow | Environment |
 |---|---|---|
-| `frontend` | `.github/workflows/frontend-ci-cd-pipeline.yml` | **Ubuntu 24.04** (= `ubuntu-latest`), **Node 20** |
+| `frontend` | `.github/workflows/frontend-ci-cd-pipeline.yml` | **Ubuntu 24.04** (= `ubuntu-latest`), **Node 24** |
 | `backend`  | `.github/workflows/backend-ci-cd-pipeline.yml`  | **Python 3.14** |
-| `e2e`      | `.github/workflows/e2e.yml`                     | **Python 3.14** + **Node 20** + Playwright (chromium + firefox) |
+| `e2e`      | `.github/workflows/e2e.yml`                     | **Python 3.14** + **Node 24** + Playwright (chromium + firefox) |
 | `audit`    | `.github/workflows/audit.yml`                   | **Python 3.14** + Semgrep / Gitleaks / Trivy |
 
 Targets: `all` (default) = frontend + backend + e2e + audit (**run before each push**) ·

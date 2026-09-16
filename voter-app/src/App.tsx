@@ -15,6 +15,7 @@ const PlaygroundPage = React.lazy(() => import('./pages/PlaygroundPage'));
 const LaboratoirePage = React.lazy(() => import('./pages/LaboratoirePage'));
 const DecouvrirPage = React.lazy(() => import('./pages/DecouvrirPage'));
 const AVousDeJouerPage = React.lazy(() => import('./pages/AVousDeJouerPage'));
+const PolityPage = React.lazy(() => import('./pages/PolityPage'));
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage'));
 
 import { useTheme } from './stores/useUIStore';
@@ -48,6 +49,7 @@ const AppContent: React.FC = () => {
             <Route path="/a-vous-de-jouer" element={<AVousDeJouerPage />} />
             <Route path="/playground" element={<PlaygroundPage />} />
             <Route path="/laboratoire" element={<LaboratoirePage />} />
+            <Route path="/polity" element={<PolityPage />} />
 
             {/* Retired routes — the table lives in routes.ts, which the e2e
                 suite reads too, so a redirect can never go untested. */}

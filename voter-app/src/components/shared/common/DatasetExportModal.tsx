@@ -68,6 +68,11 @@ interface PreviewRow {
   [col: string]: string | number;
 }
 
+interface DatasetExportResponse {
+  rows: PreviewRow[];
+  [key: string]: unknown;
+}
+
 // ── Simple CSV parser for preview (no quoted-field support needed) ─────────────
 
 function parseCSVPreview(csv: string, maxRows = 5): PreviewRow[] {
@@ -151,7 +156,9 @@ const DatasetExportModal: React.FC<Props> = ({ show, onHide, defaultCandidates }
       });
 
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: res.statusText }));
+        const err = (await res.json().catch(() => ({ error: res.statusText }))) as {
+          error?: string;
+        };
         throw new Error(err.error ?? res.statusText);
       }
 
@@ -181,8 +188,8 @@ const DatasetExportModal: React.FC<Props> = ({ show, onHide, defaultCandidates }
         setPreviewRows(preview);
         setPreviewCols(selectedCols.filter((c) => text.split('\n')[0].split(',').includes(c)));
       } else {
-        const json = await res.json();
-        const filteredRows = (json.rows as PreviewRow[]).map((row) =>
+        const json = (await res.json()) as DatasetExportResponse;
+        const filteredRows = json.rows.map((row) =>
           Object.fromEntries(Object.entries(row).filter(([k]) => selectedCols.includes(k)))
         );
         const blob = new Blob([JSON.stringify({ ...json, rows: filteredRows }, null, 2)], {

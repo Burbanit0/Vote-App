@@ -27,9 +27,9 @@ name: Generated Artifacts Contract
 # instead, which GitHub treats as a passing required check.
 on:
   push:
-    branches: [main, develop, polity]
+    branches: [main, develop, polity, polity-ui]
   pull_request:
-    branches: [main, develop, polity]
+    branches: [main, develop, polity, polity-ui]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -95,7 +95,7 @@ jobs:
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: "20"
+          node-version: "24"
           cache: "npm"
           cache-dependency-path: voter-app/package-lock.json
 

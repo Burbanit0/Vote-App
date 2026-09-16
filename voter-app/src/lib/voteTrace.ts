@@ -333,7 +333,7 @@ function traceElimGeneric(
   m: number,
   spec: ElimSpec
 ): TraceFrame[] {
-  const alive = new Array(m).fill(true);
+  const alive: boolean[] = new Array(m).fill(true);
   let remaining = m;
   let round = 1;
   const frames: TraceFrame[] = [];
@@ -395,7 +395,7 @@ function traceTwoRound(cands: NamedPt[], ranks: number[][], m: number): TraceFra
   }
   const order = counts.map((_, i) => i).sort((a, b) => counts[b] - counts[a]);
   const [a, b] = [order[0], order[1]];
-  const alive = new Array(m).fill(false);
+  const alive: boolean[] = new Array(m).fill(false);
   alive[a] = true;
   alive[b] = true;
   const runoff = firstPrefs(ranks, alive, m);
@@ -457,7 +457,7 @@ function traceBucklin(cands: NamedPt[], ranks: number[][], m: number): TraceFram
 // winSmithIRV's docstring above for why (Lot 4.2, PLAN_SOLIDITE_TECHNIQUE.md).
 function traceSmithIRV(cands: NamedPt[], ranks: number[][], m: number): TraceFrame[] {
   const frames: TraceFrame[] = [];
-  const alive = new Array(m).fill(true);
+  const alive: boolean[] = new Array(m).fill(true);
   let remaining = m;
   let round = 1;
   const S = smithSet(ranks, m);
@@ -516,7 +516,7 @@ function traceSmithIRV(cands: NamedPt[], ranks: number[][], m: number): TraceFra
 // remaining candidates if there is one; otherwise IRV-eliminate the plurality loser.
 function traceBenham(cands: NamedPt[], ranks: number[][], m: number): TraceFrame[] {
   const frames: TraceFrame[] = [];
-  const alive = new Array(m).fill(true);
+  const alive: boolean[] = new Array(m).fill(true);
   let remaining = m;
   let round = 1;
   while (remaining > 1) {
@@ -583,7 +583,7 @@ function pairwiseMatrix(ranks: number[][], m: number): number[][] {
 // among the survivors (context for who's strong).
 function traceRaynaud(cands: NamedPt[], ranks: number[][], m: number): TraceFrame[] {
   const b = pairwiseMatrix(ranks, m);
-  const alive = new Array(m).fill(true);
+  const alive: boolean[] = new Array(m).fill(true);
   const wins = (): number[] => {
     const w = new Array(m).fill(0);
     for (let i = 0; i < m; i++)
@@ -686,7 +686,7 @@ function tracePairwise(cands: NamedPt[], ranks: number[][], m: number, rule: Rul
 
 // ── twophase ──────────────────────────────────────────────────────────────────
 function traceStar(cands: NamedPt[], scores: number[][], m: number): TraceFrame[] {
-  const totals = new Array(m).fill(0);
+  const totals: number[] = new Array(m).fill(0);
   for (const s of scores) for (let i = 0; i < m; i++) totals[i] += s[i];
   const frames: TraceFrame[] = [
     { caption: { key: 'replay.phase.starScores' }, bars: totals.slice() },

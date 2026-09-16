@@ -17,8 +17,14 @@ vi.mock('recharts', () => {
   return {
     LineChart: ({ children }: any) => <div data-testid="affect-line-chart">{children}</div>,
     Line: ({ name }: any) => <div data-testid={`line-${name ?? 'unknown'}`} />,
-    XAxis: () => null,
-    YAxis: () => null,
+    // Real recharts computes its own tick values; the mock calls the
+    // formatter directly so its 0-1 → percentage rounding is exercised.
+    XAxis: ({ tickFormatter }: { tickFormatter?: (value: number) => string }) => (
+      <div data-testid="affect-curve-x-tick">{tickFormatter ? tickFormatter(0.37) : null}</div>
+    ),
+    YAxis: ({ tickFormatter }: { tickFormatter?: (value: number) => string }) => (
+      <div data-testid="affect-curve-y-tick">{tickFormatter ? tickFormatter(0.8) : null}</div>
+    ),
     CartesianGrid: () => null,
     Tooltip: () => null,
     Legend: () => null,
@@ -165,6 +171,17 @@ describe('AffectivePolarizationPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('affect-curve-chart')).toBeInTheDocument());
+    vi.runAllTimers();
+  });
+
+  it('formats affect-curve axis ticks as rounded percentages', async () => {
+    apiClient.POST.mockResolvedValue(makeData());
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
+    await waitFor(() => {
+      expect(screen.getByTestId('affect-curve-x-tick')).toHaveTextContent('37%');
+      expect(screen.getByTestId('affect-curve-y-tick')).toHaveTextContent('80%');
+    });
     vi.runAllTimers();
   });
 

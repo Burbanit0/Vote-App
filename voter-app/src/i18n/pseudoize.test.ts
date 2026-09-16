@@ -3,6 +3,8 @@ import fr from './locales/fr';
 import pseudo from './locales/pseudo';
 import pgFr from './locales/playground.fr';
 import pgPseudo from './locales/playground.pseudo';
+import polityFr from './locales/polity.fr';
+import polityPseudo from './locales/polity.pseudo';
 import i18n, { loadLanguage } from './index';
 
 describe('pseudoizeString', () => {
@@ -63,6 +65,10 @@ describe('pseudo-locale is in sync with fr.ts', () => {
   test('playground namespace matches what regenerating now would produce', () => {
     expect(pgPseudo).toEqual(pseudoizeTree(pgFr));
   });
+
+  test('polity namespace matches what regenerating now would produce', () => {
+    expect(polityPseudo).toEqual(pseudoizeTree(polityFr));
+  });
 });
 
 // loadLanguage('pseudo') exercises the same lazy-load path as 'en' (already
@@ -70,10 +76,11 @@ describe('pseudo-locale is in sync with fr.ts', () => {
 // else calls it with 'pseudo' — the app's own language switcher never offers
 // it (see src/i18n/index.ts's comment on `lazyLoaders.pseudo`).
 describe('loadLanguage("pseudo")', () => {
-  test('registers both the translation and playground pseudo bundles', async () => {
+  test('registers the translation, playground and polity pseudo bundles', async () => {
     await loadLanguage('pseudo');
     expect(i18n.hasResourceBundle('pseudo', 'translation')).toBe(true);
     expect(i18n.hasResourceBundle('pseudo', 'playground')).toBe(true);
+    expect(i18n.hasResourceBundle('pseudo', 'polity')).toBe(true);
     expect(i18n.getResourceBundle('pseudo', 'translation').nav.simulator).toBe(
       pseudo.nav.simulator
     );

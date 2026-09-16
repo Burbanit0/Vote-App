@@ -58,24 +58,26 @@ updates:
           - "minor"
           - "patch"
     ignore:
-      # 2026-09-11: vitest@5.0.0 and jsdom@30.0.1 both declare
-      # `engines.node: >=22.x` -- every CI workflow here pins Node 20
-      # (frontend-ci-cd-pipeline.yml, e2e.yml, audit.yml, etc.). Confirmed
-      # locally: jsdom 30 crashes every jsdom-pool test under Node 20
-      # ("TypeError: webidl.util.markAsUncloneable is not a function",
-      # PR #324's real CI failure); vitest 5 + @vitest/coverage-v8 5
-      # install and run under Node 20 despite the EBADENGINE warning, but
-      # break `tsc --noEmit` because @testing-library/jest-dom@7.0.1 (its
-      # own latest release) hasn't updated its matcher typings for
-      # vitest 5's new `Assertion` generic shape (PR #370). Unblocking
-      # these needs a deliberate, repo-wide Node 20->22 CI bump, not a
-      # routine dependency PR -- ignored until that happens.
+      # 2026-09-11, updated 2026-09-14: vitest@5.0.0 and jsdom@30.0.1 both
+      # declare `engines.node: >=22.x`, which every CI workflow's Node 20
+      # pin used to violate (jsdom 30 crashed every jsdom-pool test under
+      # Node 20 with "TypeError: webidl.util.markAsUncloneable is not a
+      # function", PR #324's real CI failure). That part is resolved: CI
+      # bumped to Node 24 on 2026-09-14 (Node 20 hit its official
+      # end-of-life 2026-04-30) -- jsdom's ignore entry is lifted below.
+      #
+      # vitest / @vitest/coverage-v8 5.x stay ignored for a DIFFERENT,
+      # still-live reason, unrelated to Node: they break `tsc --noEmit`
+      # because @testing-library/jest-dom@7.0.1 (still its latest release
+      # as of 2026-09-14 -- checked `npm view @testing-library/jest-dom
+      # versions`, nothing newer) hasn't updated its matcher typings for
+      # vitest 5's new `Assertion` generic shape (PR #370). Re-open once
+      # jest-dom ships a vitest-5-compatible release; the Node bump alone
+      # doesn't fix this one.
       - dependency-name: "vitest"
         versions: [">=5.0.0"]
       - dependency-name: "@vitest/coverage-v8"
         versions: [">=5.0.0"]
-      - dependency-name: "jsdom"
-        versions: [">=30.0.0"]
       # eslint@10.x: eslint-plugin-jsx-a11y's latest release (6.10.2, no
       # newer one on npm as of 2026-09-11) still declares
       # `peer eslint@"^3 || ... || ^9"` -- npm ci hard-fails with ERESOLVE
@@ -85,6 +87,34 @@ updates:
         versions: [">=10.0.0"]
       - dependency-name: "@eslint/js"
         versions: [">=10.0.0"]
+      # @typescript-eslint/eslint-plugin@8.70.0's peer range is
+      # `typescript: ">=4.8.4 <6.1.0"` (checked 2026-09-14) -- a ceiling
+      # INSIDE the 6.x line, not at 7.0 (typescript@7.x is a separate,
+      # bigger jump anyway: the new Go-based native compiler line,
+      # confirmed by its npm package pulling in per-platform
+      # `@typescript/typescript-*` binary packages, not a JS rewrite).
+      # Bumped to 6.0.3 -- the last release inside typescript-eslint's
+      # supported range, and itself a real, tested step: it turns two
+      # now-hard-error-deprecated options, baseUrl and downlevelIteration,
+      # into full removals in 7.0. `typescript` is pinned to the exact
+      # `6.0.3` (no caret) in package.json/overrides specifically so this
+      # ignore rule's `>=6.1.0` boundary can't be silently exceeded by a
+      # plain `npm install`/`npm update` between now and whenever
+      # typescript-eslint's own range moves -- ignoring only `>=7.0.0`
+      # would have left 6.1.x-6.x.x, an equally untested range, open.
+      # Re-open (and loosen the pin back to a caret range) once
+      # typescript-eslint ships a release supporting the new ceiling.
+      #
+      # Not the only typescript peer in this tree: openapi-typescript also
+      # declares a required (non-optional) `typescript: "^5.x"` peer, which
+      # 6.0.3 already violates today -- silently fine only because
+      # voter-app/package.json's own `overrides` block forces one
+      # typescript version across the whole tree regardless of what any
+      # package's peer range asks for. Noted here so a future typescript
+      # bump doesn't assume this ignore rule was the full compatibility
+      # picture.
+      - dependency-name: "typescript"
+        versions: [">=6.1.0"]
 
   # Actions are pinned by commit hash (see any workflow's `# v4`-style
   # comments) — Dependabot proposes hash bumps for these, not just version tags.

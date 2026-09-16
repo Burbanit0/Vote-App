@@ -42,6 +42,8 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-013](#obs-013) | Party nominations often don't match the reason the model gives, and lean to the last listed candidate | 2026-09-13 | open |
 | [OBS-014](#obs-014) | The p500 batch stopped: seed 1 received SIGTERM during the last vote of its last tick | 2026-09-13 | open |
 | [OBS-015](#obs-015) | In the deterministic twin, presidents are recalled after a median of two ticks | 2026-09-13 | cause found |
+| [OBS-016](#obs-016) | The root disk filled up: p500 seed 42 died at tick 13 and the GPU queue ran nothing | 2026-09-14 | open |
+| [OBS-017](#obs-017) | WebKit crashed mid-navigation to /polity in CI, once, while the other worker ran the heavy fiches | 2026-09-16 | open |
 
 ---
 
@@ -576,3 +578,106 @@ six ticks is a model question, not a bug: the pressure weights or the legitimacy
 twin whose pressure rule is calibrated against the LLM path's. That is D9 in
 `plan-polity-build-order.md`.
 
+### OBS-016
+
+**The root disk filled up: p500 seed 42 died at tick 13 and the GPU queue ran nothing.**
+
+*Seen.* The root filesystem (`/dev/nvme0n1p6`, 128 GB) ran out of space between 10:20 and 10:24 on
+2026-09-14. It had 3.3 GB free at 07:52 that morning.
+
+- **Seed 42 died mid-tick.** Seed 42 of the S0.8 batch was on tick 13: its checkpoint for tick 12
+  was written at 09:05 and its last event at 09:06. It crashed at 10:24 with `No space left on
+  device` while rewriting `progress.json` after a model response. It left a 0-byte `digest.json`
+  and `llm_calls_summary.json`.
+- **The rest of the chain ran on a full disk.** The batch unit ended, the repeat-exclusion watcher
+  (D10) ran, and the GPU queue started at 10:25. Every step failed at once, and every log line hit
+  the same write error. No bake-off session, grammar arm, budget check, sampling arm or concurrency
+  sweep ran.
+- **Afterwards.** The machine was rebooted four times between 21:01 and 21:52. After the last boot
+  the root filesystem had 76 GB free.
+
+*Evidence.*
+
+```bash
+journalctl --since "2026-09-14 10:20" --until "2026-09-14 10:30" --no-pager | grep "No space"
+tail -30 Vote-App-p500/fast_api_voter/scripts/seed_sweep_runs/sweep-8y-p500-seed42.log
+ls -la Vote-App-p500/fast_api_voter/scripts/seed_sweep_runs/sweep-8y-p500-seed42/run/sweep-8y-p500-seed42
+```
+
+*Suspected cause.* Unknown: what took the space was gone by the time it was looked at.
+
+- **The batch itself writes little.** Seed 42's directory holds about 12 MB.
+- **What else wrote to the root disk that morning.** This work, between 09:50 and 10:25:
+  - the frontend dependencies reinstalled under Node 24 (the same size as before);
+  - coverage reports from the backend and frontend suites, and the quality-ratchet outputs;
+  - a `/code-review` run on the CI branch.
+
+  Other sessions and system updates were also active.
+- **A gap in the checks.** The hard constraint on local work checked free memory, not free disk,
+  although the disk was at 98%.
+
+*What would settle it.* A reproduction is not worth it. What would matter:
+
+- Long runs and queues checking free disk before each step, and stopping cleanly below a floor.
+- Local heavy work checking disk as well as memory.
+- A resume of seed 42 from its tick-12 checkpoint needs its empty `digest.json` moved aside first:
+  the sweep driver's `--resume-sweep` parses it and would fail on an empty file.
+
+### OBS-017
+
+**WebKit crashed mid-navigation to `/polity` in CI, once, while the other worker ran the heavy
+fiches.**
+
+*Seen.* GitHub CI's Playwright E2E job on PR #512 (run `35047429948`, job `104640251246`,
+2026-09-16). `navigation.spec.ts`'s "navbar is visible on every surface" walks the six surfaces of
+`src/routes.ts` in one WebKit context. The sixth navigation, `/laboratoire` -> `/polity`, failed:
+
+```
+Error: page.goto: WebKit encountered an internal error
+Call log: - navigating to "http://localhost:3000/polity", waiting until "load"
+```
+
+It passed on retry in 7.6 s. `check-flaky.mjs` then failed the job, as it does for any test that
+passes only on a retry. 391 tests passed.
+
+- **The page's own code never ran.** The error-context snapshot in the job's report artifact still
+  shows the *previous* page's DOM at the moment of failure, so the navigation died inside
+  Playwright's WebKit driver before `/polity`'s JavaScript started: no canvas, no queries, no
+  Recharts. `/polity` had loaded cleanly in the same job 90 seconds earlier
+  (`/polity renders its own screen without a JS crash`, 2.2 s).
+- **The timing points at the runner.** The job runs 392 tests on 2 workers
+  (`fullyParallel: false` serialises within a file, not across files). The failing navigation's
+  9.5 s window overlaps almost exactly with the other worker running `laboratoire.spec.ts`'s
+  "systems" family fiches, the CPU-heavy Monte-Carlo mounts the Playwright config's own comment
+  calls out.
+- **Not the local WebKit failure.** This machine cannot navigate *any* page in WebKit; that is the
+  snap-confined `libpthread` problem written up in `RETROSPECTIVE.md`, reproducible on every URL and
+  absent on the runner. This one is a single intermittent hit on one navigation.
+- **Not the two known `/polity` WebKit quirks** (the devtools logo's width, a `<select>` option wider
+  than its box). Both are layout-width bugs, both were fixed and merged before this run.
+
+*Evidence.*
+
+```bash
+gh api repos/Burbanit0/Vote-App/actions/jobs/104640251246/logs
+gh api repos/Burbanit0/Vote-App/actions/artifacts/10428100988/zip   # playwright-report, error context
+```
+
+*Suspected cause.* Resource contention on the runner: two Playwright workers on a small shared-core
+box, one driving a WebKit navigation while the other runs the heavy fiches. "WebKit encountered an
+internal error" is what Playwright reports when its connection to the browser process is starved or
+dropped, rather than anything the page did.
+
+- **A reproduction attempt failed to reproduce it.** In the pinned
+  `mcr.microsoft.com/playwright:v1.63.0-noble` image, `navigation.spec.ts` and `laboratoire.spec.ts`
+  together, `--project=webkit --workers=2 --repeat-each=6` (276 tests) under a 4-CPU cap: 276
+  passed, no crash. A 4-CPU allowance may simply be more slack than the runner had.
+
+*What would settle it.*
+
+- A second occurrence. If it lands on a different surface in the same loop, `/polity` is ruled out
+  entirely; if it lands on `/polity` again, the page is worth another look.
+- Forcing it under a tighter CPU cap than the 4 CPUs already tried.
+- If it recurs, the fix belongs in CI scheduling -- `workers: 1` for the webkit project, or keeping
+  `laboratoire.spec.ts` and `navigation.spec.ts` off the same runner at the same time -- not in the
+  page.

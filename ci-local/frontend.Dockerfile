@@ -2,7 +2,7 @@
 #
 # Fidelity choices that matter:
 #  - ubuntu:24.04 == GitHub `ubuntu-latest` (same distro, case-SENSITIVE filesystem).
-#  - Node 20 via NodeSource (== actions/setup-node node-version 20).
+#  - Node 24 via NodeSource (== actions/setup-node node-version 24).
 #  - Source is COPYed in (native ext4), NOT bind-mounted from the Windows host —
 #    a Windows bind-mount masked the `@/` coverage-resolve bug we were chasing.
 #  - `npm ci` from the committed lockfile (== the CI install step).
@@ -15,7 +15,7 @@ FROM ubuntu:24.04
 ENV DEBIAN_FRONTEND=noninteractive CI=true
 RUN apt-get update \
  && apt-get install -y --no-install-recommends curl ca-certificates git \
- && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+ && curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
  && apt-get install -y --no-install-recommends nodejs \
  && node --version && npm --version \
  && rm -rf /var/lib/apt/lists/*

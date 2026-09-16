@@ -36,7 +36,12 @@ i18nReady.finally(() => {
     <React.StrictMode>
       <QueryClientProvider client={queryClient}>
         <App />
-        {process.env.NODE_ENV !== 'production' && <ReactQueryDevtools initialIsOpen={false} />}
+        {/* Dev only, and not under browser automation: the floating toggle overlays the page
+            under test, and its logo animates while queries are in flight, which WebKit counted
+            into the page's width in the pseudo-locale sweep (/polity, 15 px). */}
+        {process.env.NODE_ENV !== 'production' && !navigator.webdriver && (
+          <ReactQueryDevtools initialIsOpen={false} />
+        )}
       </QueryClientProvider>
     </React.StrictMode>
   );

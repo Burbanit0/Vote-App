@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import PowerIndicesPanel from '../PowerIndicesPanel';
 import { makeTestQueryClient } from '../../../../test/queryWrapper';
@@ -27,7 +27,16 @@ vi.mock('recharts', () => {
     XAxis: stub,
     YAxis: stub,
     CartesianGrid: stub,
-    Tooltip: stub,
+    // Real recharts calls `content` with the hovered point's payload; the
+    // mock invokes it directly with a representative point so the
+    // scatter tooltip's own rendering (name + seat/Shapley %) is exercised
+    // instead of only handing recharts an unused closure.
+    Tooltip: ({ content }: { content?: (p: { payload: unknown[] }) => React.ReactNode }) =>
+      typeof content === 'function' ? (
+        content({ payload: [{ payload: { x: 40, y: 50, name: 'A', color: '#0d6efd' } }] })
+      ) : (
+        <div data-testid="recharts-stub" />
+      ),
     ReferenceLine: stub,
     Cell: stub,
     ResponsiveContainer: ({ children }: { children?: React.ReactNode }) =>
@@ -200,6 +209,16 @@ describe('PowerIndicesPanel', () => {
   it('renders scatter view by default', async () => {
     await renderAndRun();
     expect(screen.getByTestId('scatter-view')).toBeInTheDocument();
+  });
+
+  it('scatter tooltip shows the hovered party name with its seat and Shapley shares', async () => {
+    await renderAndRun();
+    // Party A: seat_pct 0.4 → 40%, shapley_index 0.5 → 50% (mirrors the
+    // PowerScatter data mapping the real tooltip content reads from).
+    // Scoped to the scatter view — the power table below also renders "A".
+    const scatterView = within(screen.getByTestId('scatter-view'));
+    expect(scatterView.getByText('A')).toBeInTheDocument();
+    expect(scatterView.getByText(/Sièges: 40% · Shapley: 50%/)).toBeInTheDocument();
   });
 
   it('switches to hemicycle view', async () => {

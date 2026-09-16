@@ -36,8 +36,8 @@ if (typeof window !== 'undefined' && !window.matchMedia) {
 
 // jsdom also lacks ResizeObserver — used by recharts <ResponsiveContainer>
 // and any component that watches its own size.
-if (typeof window !== 'undefined' && !(window as any).ResizeObserver) {
-  (window as any).ResizeObserver = class {
+if (typeof window !== 'undefined' && !window.ResizeObserver) {
+  window.ResizeObserver = class {
     observe() {}
     unobserve() {}
     disconnect() {}

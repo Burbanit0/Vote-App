@@ -10,9 +10,9 @@ import { SURFACES, ANCHORS, assertEverySurfaceAnchored } from './routes';
 // `testIgnore` on chromium/firefox/webkit) — running it at desktop width
 // would just assert the wrong things about a nav that isn't collapsed there.
 
-test.describe('Mobile viewport — the five real surfaces', () => {
+test.describe('Mobile viewport — the six real surfaces', () => {
   test('every surface in src/routes.ts is covered here', () => {
-    assertEverySurfaceAnchored();
+    expect(assertEverySurfaceAnchored).not.toThrow();
   });
 
   for (const path of SURFACES) {
@@ -56,5 +56,25 @@ test.describe('Mobile viewport — the five real surfaces', () => {
     // The moment rail is the primary mobile interaction surface for this
     // page — confirm it's actually reachable, not just present off-screen.
     await expect(page.locator('[data-testid="moment-method"]')).toBeInViewport();
+  });
+
+  test('/polity fits a phone: no sideways scroll, and the player and map respond to taps', async ({
+    page,
+  }) => {
+    await page.goto('/polity');
+    await expect(page.getByTestId('polity-map-canvas')).toBeVisible();
+    await expect(page.getByTestId('timeline-svg')).toBeVisible();
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => document.documentElement.scrollWidth - document.documentElement.clientWidth
+        )
+      )
+      .toBeLessThanOrEqual(2);
+
+    await page.getByTestId('player-step-forward').tap();
+    await expect.poll(() => new URL(page.url()).searchParams.get('tick')).toBe('1');
+    await page.getByTestId('polity-lens-party').tap();
+    await expect.poll(() => new URL(page.url()).searchParams.get('lens')).toBe('party');
   });
 });

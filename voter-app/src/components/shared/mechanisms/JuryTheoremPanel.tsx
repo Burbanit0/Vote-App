@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Range } from '@/components/ui/form-controls';
 import { Col, Row } from '@/components/ui/grid';
 import { Spinner } from '@/components/ui/spinner';
-import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+import { numericTooltipFormatter, numericTickFormatter } from '@/lib/rechartsFormatters';
 
 import {
   LineChart,
@@ -270,7 +270,7 @@ const JuryTheoremPanel: React.FC = () => {
                     <CartesianGrid strokeDasharray="3 3" stroke="#e9ecef" />
                     <XAxis
                       dataKey="competence"
-                      tickFormatter={(v) => `${Math.round(v * 100)}%`}
+                      tickFormatter={numericTickFormatter((v) => `${Math.round(v * 100)}%`)}
                       tick={{ fontSize: 10 }}
                       label={{
                         value: t('jury.axisCompetence'),
@@ -281,7 +281,7 @@ const JuryTheoremPanel: React.FC = () => {
                     />
                     <YAxis
                       domain={[0.4, 1]}
-                      tickFormatter={(v) => `${Math.round(v * 100)}%`}
+                      tickFormatter={numericTickFormatter((v) => `${Math.round(v * 100)}%`)}
                       tick={{ fontSize: 10 }}
                       width={40}
                     />

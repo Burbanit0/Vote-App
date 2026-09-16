@@ -1172,6 +1172,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v2/polity/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Finished simulation runs the explorer can open */
+        get: operations["polity_runs_api_v2_polity_runs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/polity/runs/{run_key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A run's map, institutional story and curves */
+        get: operations["polity_run_api_v2_polity_runs__run_key__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/polity/runs/{run_key}/citizens/{citizen_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One citizen's biography in a run */
+        get: operations["polity_citizen_biography_api_v2_polity_runs__run_key__citizens__citizen_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v2/polity/runs/{run_key}/frames": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A run's per-tick frames, at most 40 ticks at a time */
+        get: operations["polity_frames_api_v2_polity_runs__run_key__frames_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v2/simulations": {
         parameters: {
             query?: never;
@@ -6675,6 +6743,401 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        /** PolityBiographyEntry */
+        PolityBiographyEntry: {
+            /** Details */
+            details: {
+                [key: string]: boolean | number | string | null;
+            };
+            /** Event Type */
+            event_type: string;
+            /** Motif */
+            motif?: number | null;
+            /** Motif Label */
+            motif_label?: string | null;
+            /**
+             * Rationale
+             * @description The model's rationale, cut at 280 characters.
+             */
+            rationale?: string | null;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "actor" | "target" | "listed";
+            /** Tick */
+            tick: number;
+        };
+        /** PolityBiographySections */
+        PolityBiographySections: {
+            /** Candidacies */
+            candidacies: components["schemas"]["PolityBiographyEntry"][];
+            /** Other */
+            other: components["schemas"]["PolityBiographyEntry"][];
+            /** Petitions */
+            petitions: components["schemas"]["PolityBiographyEntry"][];
+            /** Pressure Acts */
+            pressure_acts: components["schemas"]["PolityBiographyEntry"][];
+            /** Roles */
+            roles: components["schemas"]["PolityBiographyEntry"][];
+            /** Votes */
+            votes: components["schemas"]["PolityBiographyEntry"][];
+        };
+        /** PolityCensusPositions */
+        PolityCensusPositions: {
+            /**
+             * Xy
+             * @description One [x, y] per citizen, in citizen_id order.
+             */
+            xy: number[][];
+            /** Year */
+            year: number;
+        };
+        /** PolityCensusYear */
+        PolityCensusYear: {
+            /** Office */
+            office: string;
+            /** Party */
+            party?: number | null;
+            /** Role */
+            role: string;
+            /** Year */
+            year: number;
+        };
+        /** PolityCitizen */
+        PolityCitizen: {
+            /** Census */
+            census: components["schemas"]["PolityCensusYear"][];
+            /** Citizen Id */
+            citizen_id: number;
+            /** Key */
+            key: string;
+            /** Received */
+            received: components["schemas"]["PolityReceived"][];
+            sections: components["schemas"]["PolityBiographySections"];
+        };
+        /** PolityElection */
+        PolityElection: {
+            /** Blank Share */
+            blank_share?: number | null;
+            /**
+             * Blank Source
+             * @description Where blank_share comes from; null when the journal holds no reading.
+             */
+            blank_source?: ("invalidation_check" | "ballots" | "audit_sample") | null;
+            /** Forced */
+            forced: boolean;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "elected" | "no_winner" | "invalidated";
+            /** Tick */
+            tick: number;
+            /**
+             * Turnout
+             * @description Share of the population casting a ballot; null when no vote was held or recorded.
+             */
+            turnout?: number | null;
+            /** Winner */
+            winner?: number | null;
+        };
+        /** PolityFrame */
+        PolityFrame: {
+            /**
+             * Act
+             * @description Per citizen: the pressure act taken this tick, -1 for none.
+             */
+            act: (-1 | 0 | 1 | 2 | 3 | 4)[];
+            /**
+             * Candidacy
+             * @description Per citizen, the furthest stage reached this tick: -1 none, 0 declined, 1 declared, 2 nomination lost, 3 standing, 4 elected.
+             */
+            candidacy: (-1 | 0 | 1 | 2 | 3 | 4)[];
+            /**
+             * Chamber
+             * @description Per citizen: 1 when seated in the sortition chamber.
+             */
+            chamber: (0 | 1)[];
+            /**
+             * Partial
+             * @description The tick ran after the last checkpoint: journaled, never confirmed.
+             */
+            partial: boolean;
+            president?: components["schemas"]["PolityPresident"] | null;
+            /**
+             * Status
+             * @description Per citizen: 0 elector, 1 candidate, 2 elected.
+             */
+            status: (0 | 1 | 2)[];
+            /** Tick */
+            tick: number;
+            /**
+             * Vote
+             * @description Per citizen: -1 no journaled ballot, 0 blank, 1 for the winner, 2 for another candidate.
+             */
+            vote: (-1 | 0 | 1 | 2)[];
+        };
+        /** PolityFrames */
+        PolityFrames: {
+            /** Frames */
+            frames: components["schemas"]["PolityFrame"][];
+            /** From Tick */
+            from_tick: number;
+            /** Key */
+            key: string;
+            /** To Tick */
+            to_tick: number;
+        };
+        /** PolityIssueWeight */
+        PolityIssueWeight: {
+            /**
+             * Issue
+             * @description 0-indexed issue dimension.
+             */
+            issue: number;
+            /**
+             * Weight
+             * @description Signed loading of the issue on the axis.
+             */
+            weight: number;
+        };
+        /** PolityLegislative */
+        PolityLegislative: {
+            /** Blank Rate */
+            blank_rate?: number | null;
+            /** Seats */
+            seats: components["schemas"]["PolitySeats"][];
+            /** Tick */
+            tick: number;
+        };
+        /** PolityMotif */
+        PolityMotif: {
+            /** Code */
+            code: number;
+            /** Label */
+            label: string;
+        };
+        /** PolityParty */
+        PolityParty: {
+            /** Party Id */
+            party_id: number;
+            /** Xy */
+            xy: number[];
+        };
+        /** PolityPresident */
+        PolityPresident: {
+            /** Citizen Id */
+            citizen_id: number;
+            /** Ecart */
+            ecart?: number | null;
+            /** Lame Duck */
+            lame_duck: boolean;
+            /** Legitimacy */
+            legitimacy?: number | null;
+            /** Mandate Strength */
+            mandate_strength?: number | null;
+            /**
+             * Pledged Xy
+             * @description Where their pledge sits.
+             */
+            pledged_xy?: number[] | null;
+            /**
+             * Xy
+             * @description Where the president's revealed position sits on the map.
+             */
+            xy: number[];
+        };
+        /** PolityProjection */
+        PolityProjection: {
+            /**
+             * Axes
+             * @description For each of the two axes, the issues loading most on it.
+             */
+            axes: components["schemas"]["PolityIssueWeight"][][];
+            /** Citizens */
+            citizens: components["schemas"]["PolityCensusPositions"][];
+            /**
+             * Method
+             * @description latent: the population's own two factors; pca: principal components of the tick-0 census.
+             * @enum {string}
+             */
+            method: "latent" | "pca";
+            /**
+             * Positions
+             * @description yearly: citizens move once a year, at each census (opinion dynamics).
+             * @enum {string}
+             */
+            positions: "static" | "yearly";
+        };
+        /** PolityReceived */
+        PolityReceived: {
+            /**
+             * Code
+             * @description The pressure act, the rank ballots gave the citizen (0 = first choice), or the event reacted to (1 scandal, 2 economic shock); null for a signature.
+             */
+            code?: number | null;
+            /** Count */
+            count: number;
+            /** Event Type */
+            event_type: string;
+            /** Tick */
+            tick: number;
+        };
+        /** PolityRunList */
+        PolityRunList: {
+            /** Runs */
+            runs: components["schemas"]["PolityRunSummary"][];
+        };
+        /** PolityRunOverview */
+        PolityRunOverview: {
+            /**
+             * Citizen Parties
+             * @description Each citizen's party, in citizen_id order.
+             */
+            citizen_parties: (number | null)[];
+            /** Elections */
+            elections: components["schemas"]["PolityElection"][];
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /** Last Checkpoint Tick */
+            last_checkpoint_tick?: number | null;
+            /** Last Tick */
+            last_tick: number;
+            /** Legislative */
+            legislative: components["schemas"]["PolityLegislative"][];
+            /** Motifs */
+            motifs: components["schemas"]["PolityMotif"][];
+            /** Parties */
+            parties: components["schemas"]["PolityParty"][];
+            /** Population */
+            population: number;
+            projection: components["schemas"]["PolityProjection"];
+            /** Run Id */
+            run_id: string;
+            /** Standings */
+            standings: components["schemas"]["PolityStanding"][];
+            /** Terms */
+            terms: components["schemas"]["PolityTerm"][];
+            /** Ticks Per Year */
+            ticks_per_year: number;
+            /** Timeline */
+            timeline: components["schemas"]["PolityTimelineEntry"][];
+            /** Unknown Event Types */
+            unknown_event_types: string[];
+            /**
+             * Vote Coverage
+             * @description all: every ballot journaled; audit_sample: only S4.1's audit ballots; none: no ballot journaled.
+             * @enum {string}
+             */
+            vote_coverage: "all" | "audit_sample" | "none";
+        };
+        /** PolityRunSummary */
+        PolityRunSummary: {
+            /**
+             * Engine
+             * @description llm or deterministic.
+             */
+            engine?: string | null;
+            /**
+             * Generation
+             * @description Which files the run carries: provenanced, checkpointed or journal_only.
+             */
+            generation: string;
+            /**
+             * Key
+             * @description Stable run key: sha256 of the root label and the run's path inside it, 16 hex characters.
+             */
+            key: string;
+            /**
+             * Label
+             * @description The run root's label.
+             */
+            label: string;
+            /**
+             * Outcome
+             * @description The digest's outcome (completed, crashed, interrupted), when a digest exists.
+             */
+            outcome?: string | null;
+            /** Population */
+            population?: number | null;
+            /**
+             * Relative Path
+             * @description The run's directory inside its root.
+             */
+            relative_path: string;
+            /** Run Id */
+            run_id: string;
+            /** Seed */
+            seed?: number | null;
+            /** Ticks Planned */
+            ticks_planned?: number | null;
+            /** Ticks Reached */
+            ticks_reached?: number | null;
+            /** Years */
+            years?: number | null;
+        };
+        /** PolitySeats */
+        PolitySeats: {
+            /** Party Id */
+            party_id: number;
+            /** Seats */
+            seats: number;
+        };
+        /** PolityStanding */
+        PolityStanding: {
+            /**
+             * Acts
+             * @description Pressure actions journaled this tick, counted by act code 0-4.
+             */
+            acts: number[];
+            /** Ecart */
+            ecart?: number | null;
+            /** Legitimacy */
+            legitimacy?: number | null;
+            /** Mandate Strength */
+            mandate_strength?: number | null;
+            /** President */
+            president?: number | null;
+            /** Tick */
+            tick: number;
+        };
+        /** PolityTerm */
+        PolityTerm: {
+            /** End Tick */
+            end_tick: number;
+            /**
+             * Ended By
+             * @description legitimacy_floor, confidence_vote, election or run_end.
+             */
+            ended_by: string;
+            /** Holder */
+            holder: number;
+            /** Lame Duck */
+            lame_duck: boolean;
+            /** Mandate Strength */
+            mandate_strength?: number | null;
+            /** Start Tick */
+            start_tick: number;
+        };
+        /** PolityTimelineEntry */
+        PolityTimelineEntry: {
+            /** Citizen Id */
+            citizen_id?: number | null;
+            /**
+             * Details
+             * @description The event payload's scalar fields.
+             */
+            details: {
+                [key: string]: boolean | number | string | null;
+            };
+            /** Event Type */
+            event_type: string;
+            /** Tick */
+            tick: number;
+        };
         /**
          * PowerIndicesRequest
          * @description Shapley-Shubik and Banzhaf power indices.
@@ -11243,6 +11706,271 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    polity_runs_api_v2_polity_runs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolityRunList"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    polity_run_api_v2_polity_runs__run_key__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A run key from GET /runs. */
+                run_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolityRunOverview"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    polity_citizen_biography_api_v2_polity_runs__run_key__citizens__citizen_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description A run key from GET /runs. */
+                run_key: string;
+                citizen_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolityCitizen"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+        };
+    };
+    polity_frames_api_v2_polity_runs__run_key__frames_get: {
+        parameters: {
+            query?: {
+                from_tick?: number;
+                /** @description Inclusive; defaults to 40 ticks from from_tick. */
+                to_tick?: number | null;
+            };
+            header?: never;
+            path: {
+                /** @description A run key from GET /runs. */
+                run_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolityFrames"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
         };

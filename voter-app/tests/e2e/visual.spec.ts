@@ -77,4 +77,13 @@ test.describe('Visual regression — screenshot baselines', () => {
       'playground-parliament-canvas.png'
     );
   });
+
+  test('polity — the population map at an election tick (canvas and overlay)', async ({ page }) => {
+    // Tick 10 of the committed fixture run: the snap election after the first recall.
+    await page.goto('/polity?tick=10&lens=vote');
+    await expect(page.getByTestId('polity-map-canvas')).toBeVisible();
+    await expect(page.getByTestId('polity-legend-forWinner')).toBeVisible();
+    await page.evaluate(() => document.fonts.ready);
+    await expect(page.getByTestId('polity-map')).toHaveScreenshot('polity-map-election.png');
+  });
 });
