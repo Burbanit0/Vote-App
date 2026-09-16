@@ -100,9 +100,17 @@ def run_report(seed: int, events: list[dict[str, Any]], elapsed: float | None) -
         "wall_clock_minutes": round(elapsed / 60, 1) if elapsed is not None else None,
         "elections": sum(e["event_type"] == "elected" for e in events),
         "recalls": sum(e["event_type"] == "recalled" for e in events),
-        "full_terms": len(full_terms(seed, events, TERM_TICKS)),
+        "full_terms": _completed_terms(seed, events),
         "fallbacks": {t: f"{fell_back[t]}/{decided[t]}" for t in sorted(decided) if fell_back[t]},
     }
+
+
+def _completed_terms(seed: int, events: list[dict[str, Any]]) -> int:
+    """Full terms that fit inside the run. `full_terms` also counts a presidency elected too late to
+    run its term before the run ends -- honeymoon_decline leaves that one unmeasured -- and a report
+    of how many terms completed should not."""
+    last_tick = max((int(e["tick"]) for e in events), default=0)
+    return sum(1 for term in full_terms(seed, events, TERM_TICKS) if term.start + TERM_TICKS <= last_tick)
 
 
 def _free_gb() -> int:
@@ -225,7 +233,13 @@ def replay() -> int:
             print(f"[replay] interval {interval}, step {step}: "
                   + " | ".join(f"{f.name} {'holds' if f.holds else 'fails'}" for f in result), flush=True)
 
-    reports = [json.loads((RUNS / f"seed-{seed}" / "run_report.json").read_text()) for seed in SEEDS]
+    # Re-read every count from the run's own journal: only the wall clock is taken from the stored
+    # report, so a report written before a counting fix cannot carry the old count forward.
+    reports = []
+    for seed, run_dir in recorded:
+        stored = json.loads((RUNS / f"seed-{seed}" / "run_report.json").read_text())
+        elapsed = stored["wall_clock_minutes"] * 60 if stored.get("wall_clock_minutes") is not None else None
+        reports.append(run_report(seed, _events(run_dir / "events.jsonl"), elapsed))
     RESULTS.with_suffix(".json").write_text(json.dumps({"settings": settings, "runs": reports}, indent=2) + "\n", encoding="utf-8")
 
     names = [f["name"] for f in settings[0]["facts"]]

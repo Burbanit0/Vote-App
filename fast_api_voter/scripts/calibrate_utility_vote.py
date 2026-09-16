@@ -26,12 +26,14 @@ from __future__ import annotations
 import dataclasses
 import json
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from api.domain.polity.config import PolityConfig  # noqa: E402
 from api.domain.polity.simple_rules import BLANK_LABEL, citizen_id_from_label  # noqa: E402
 from api.domain.polity.twin_calibration import (  # noqa: E402
     Arm,
@@ -51,42 +53,52 @@ YEARS = 8
 RESULTS = Path(__file__).resolve().parent / "calibrate_utility_vote_results"
 
 
+def measure_run(seed: int, config: PolityConfig,
+                run: Callable[[PolityConfig], list[dict[str, Any]]]) -> tuple[list[Election], FirstChoices]:
+    """One run's election attempts and first choices, read by wrapping the engine while `run`
+    runs it. The journal does not carry these; the twin runs the deterministic engine, and the
+    LLM-path calibration (scripts/stage4_llm_utility_vote.py) replays a recorded call log."""
+    attempts: list[dict[str, Any]] = []
+    tally = [0, 0]
+
+    def on_ballots(args: tuple[Any, ...], kwargs: dict[str, Any], result: Any) -> None:
+        citizens, nominees, _, _, tick, _, incumbent = args
+        ballots, _abstained = result
+        attempts.append({"tick": tick, "voters": len(citizens), "ballots": len(ballots), "incumbent": incumbent,
+                         "standing": incumbent is not None and incumbent.citizen_id in {c.citizen_id for c in nominees}})
+
+    def on_ballot(args: tuple[Any, ...], kwargs: dict[str, Any], result: Any) -> None:
+        voter, candidates = args[0], args[1]
+        if result is None or voter.party_affiliation is None:
+            return
+        parties = {c.citizen_id: c.party_affiliation for c in candidates}
+        if voter.party_affiliation not in parties.values():
+            return
+        tally[0] += 1
+        tally[1] += result[0] != BLANK_LABEL and parties[citizen_id_from_label(result[0])] == voter.party_affiliation
+
+    with recording("_presidential_ballots", on_ballots), recording("utility_ballot", on_ballot):
+        events = run(config)
+    winners = {e["tick"]: e["citizen_id"] for e in events if e["event_type"] == "elected"}
+    elections = [
+        Election(seed=seed, tick=a["tick"], voters=a["voters"], ballots=a["ballots"],
+                 incumbent_id=a["incumbent"].citizen_id if a["incumbent"] else None,
+                 incumbent_record=a["incumbent"].record if a["incumbent"] else None,
+                 incumbent_standing=a["standing"], winner_id=winners.get(a["tick"]))
+        for a in attempts
+    ]
+    return elections, FirstChoices(eligible=tally[0], own_party_first=tally[1])
+
+
 def measure(vote: dict[str, float]) -> tuple[list[Election], FirstChoices]:
     elections: list[Election] = []
     choices = FirstChoices()
     for seed in SEEDS:
         config = twin_config(seed, YEARS)
         config = dataclasses.replace(config, vote=dataclasses.replace(config.vote, **vote))
-        attempts: list[dict[str, Any]] = []
-        tally = [0, 0]
-
-        def on_ballots(args: tuple[Any, ...], kwargs: dict[str, Any], result: Any) -> None:
-            citizens, nominees, _, _, tick, _, incumbent = args
-            ballots, _abstained = result
-            attempts.append({"tick": tick, "voters": len(citizens), "ballots": len(ballots), "incumbent": incumbent,
-                             "standing": incumbent is not None and incumbent.citizen_id in {c.citizen_id for c in nominees}})
-
-        def on_ballot(args: tuple[Any, ...], kwargs: dict[str, Any], result: Any) -> None:
-            voter, candidates = args[0], args[1]
-            if result is None or voter.party_affiliation is None:
-                return
-            parties = {c.citizen_id: c.party_affiliation for c in candidates}
-            if voter.party_affiliation not in parties.values():
-                return
-            tally[0] += 1
-            tally[1] += result[0] != BLANK_LABEL and parties[citizen_id_from_label(result[0])] == voter.party_affiliation
-
-        with recording("_presidential_ballots", on_ballots), recording("utility_ballot", on_ballot):
-            events = run_twin(config)
-        winners = {e["tick"]: e["citizen_id"] for e in events if e["event_type"] == "elected"}
-        elections += [
-            Election(seed=seed, tick=a["tick"], voters=a["voters"], ballots=a["ballots"],
-                     incumbent_id=a["incumbent"].citizen_id if a["incumbent"] else None,
-                     incumbent_record=a["incumbent"].record if a["incumbent"] else None,
-                     incumbent_standing=a["standing"], winner_id=winners.get(a["tick"]))
-            for a in attempts
-        ]
-        choices = choices + FirstChoices(eligible=tally[0], own_party_first=tally[1])
+        run_elections, run_choices = measure_run(seed, config, run_twin)
+        elections += run_elections
+        choices = choices + run_choices
     return elections, choices
 
 
