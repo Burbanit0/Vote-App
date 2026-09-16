@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-15T13:27:21Z",
+  "generated_at": "2026-09-16T13:26:10Z",
   "workflows": {
     "mutation-testing.yml": {
       "display_name": "Mutation Testing",
@@ -18,7 +18,7 @@
     "schemathesis.yml": {
       "display_name": "Schemathesis Contract Fuzzing",
       "expected_cadence_hours": 168,
-      "last_run_at": "2026-09-14T14:13:03Z",
+      "last_run_at": "2026-09-16T04:27:17Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -48,7 +48,7 @@
     "flaky-check-backend.yml": {
       "display_name": "Backend Flaky Test Hunt",
       "expected_cadence_hours": 24,
-      "last_run_at": "2026-09-15T08:36:14Z",
+      "last_run_at": "2026-09-16T08:30:20Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -63,7 +63,7 @@
     "dast.yml": {
       "display_name": "DAST \u2014 ZAP Baseline",
       "expected_cadence_hours": 24,
-      "last_run_at": "2026-09-15T13:00:02Z",
+      "last_run_at": "2026-09-16T12:44:42Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -78,15 +78,15 @@
     "scorecard.yml": {
       "display_name": "OpenSSF Scorecard",
       "expected_cadence_hours": 168,
-      "last_run_at": "2026-09-15T13:00:02Z",
+      "last_run_at": "2026-09-16T12:44:42Z",
       "recent_conclusions": [
-        "failure",
+        "success",
         "success",
         "success",
         "success",
         "success"
       ],
-      "consecutive_failures": 1,
+      "consecutive_failures": 0,
       "status": "healthy",
       "detail": "ok"
     }
