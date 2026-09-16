@@ -13,6 +13,12 @@ into a real error message.
 
 ## The gates, job by job
 
+**Branches.** Every workflow below triggers on `develop` and `main`. The required ones also
+trigger on `polity` (the polity simulation's integration branch) and `polity-ui` (where the
+Polity run explorer page is built before merging into `polity`). Those two branches are
+protected with the same required checks as `develop`, minus "CI health check", which
+`ci-health.yml` runs only for `develop`/`main` (`scripts/setup-branch-protection.sh polity|polity-ui`).
+
 ### `backend-ci-cd-pipeline.yml` — "Backend: Tests + Coverage + Security" (required)
 
 Triggers on every push/PR to `develop`/`main` but only *runs* its real job
@@ -47,14 +53,21 @@ Same `changes`-gated shape, scoped to `voter-app/**`:
 
 ### `e2e.yml` — "Playwright E2E" (required) + "Visual regression" (not yet required — see EXP-004)
 
-Called on every PR (paths-gated the same way), on push to `develop`, and via
+Called on every PR (paths-gated the same way: `voter-app/**`, or backend files outside
+`fast_api_voter/scripts/`, `fast_api_voter/api/tests/` and Markdown), on push to `develop`,
+`polity` and `polity-ui`, and via
 `workflow_call` from `release.yml`. Boots the real FastAPI backend on `:4434`
 as a fixture, then `npm run test:e2e` (chromium + firefox + mobile). A
-separate `visual-regression` job runs pixel-diff screenshots inside the
-**exact pinned** `mcr.microsoft.com/playwright:v1.62.1-noble` image (kept in
-lockstep with `voter-app/package.json`'s `@playwright/test` version) — never
-on a bare `ubuntu-latest`, because the OS image itself can silently drift
-renderer output between runs (`docs/exploration/EXP-004`). `check-flaky.mjs`
+separate `visual-regression` job runs pixel-diff screenshots inside an
+**exact pinned** `mcr.microsoft.com/playwright:v<X>-noble` image (`e2e.yml`
+has the current tag; must match `voter-app/package.json`'s
+`@playwright/test` version exactly — a mismatch fails to find the
+pre-installed browsers, or worse, silently renders against a different
+browser build than the one that produced the committed baselines, e.g.
+PR #477's live break when a Dependabot `@playwright/test` bump landed
+without this tag moving in lockstep) — never on a bare `ubuntu-latest`,
+because the OS image itself can silently drift renderer output between
+runs (`docs/exploration/EXP-004`). `check-flaky.mjs`
 runs after the main e2e job (`if: always()`) and fails the run if any test
 passed only on retry.
 
@@ -206,6 +219,32 @@ a suggestion to `--update`, not forced.
 Same "measure on an up-to-date branch" caveat as the quality ratchet — CI
 measures against the PR's merge result.
 
+## The type-coverage ratchet (frontend, `package.json`'s `typeCoverage.atLeast`)
+
+A third ratchet, same family, but this one needs no wrapper script: the
+`type-coverage` tool (frontend, TS) has the mechanism built in natively.
+`voter-app/package.json`'s `"typeCoverage": {"atLeast": <percent>}` is read
+automatically by a bare `type-coverage` invocation (`npm run type-coverage`,
+also the step in `frontend-ci-cd-pipeline.yml`) — no CLI flag needed — and it
+fails the run if the real percentage drops below it.
+
+Was informational-only (PLAN_SOLIDITE_TECHNIQUE.md §6.4) until Lot 14 reduced
+the 238 real (non-test) implicit-`any` positions it was measuring — gating an
+unreduced baseline would have meant enforcing debt, not preventing it, the
+same reasoning that kept the quality/mutation ratchets from gating anything
+before they had a real, reduced number to hold. Lock in a genuine future
+improvement with:
+
+```bash
+cd voter-app && npx type-coverage --update-if-higher   # writes the new atLeast into package.json
+```
+
+`--update-if-higher` only ever raises the stored value (never lowers it, and
+does nothing at all if `package.json` has no `typeCoverage.atLeast` key yet
+to compare against) — never hand-edit the number down to make a red run
+green; that's a real regression, not noise, since `type-coverage` is fully
+deterministic (unlike mutmut, there's no tolerance band here).
+
 ## diff-cover — 100% coverage on changed lines
 
 This is a *different, stricter* gate than the 90%/global coverage floor:
@@ -289,7 +328,7 @@ gh run view --job <job-id> --log-failed
 This exact technique (and the repo's own catalogue of previously-seen failure
 signatures — `uv pip install --system` resolver conflicts, `npm ci`
 `ERESOLVE` peer-dependency caps, `engines.node` mismatches against this repo's
-pinned Node 20) is written up in `.claude/agents/dep-triage.md` for the
+pinned Node version, currently 24) is written up in `.claude/agents/dep-triage.md` for the
 Dependabot-PR case specifically; the same "get the real log, don't guess from
 the job name" discipline applies to any red check, not just a dependency bump.
 

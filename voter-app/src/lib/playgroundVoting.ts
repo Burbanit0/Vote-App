@@ -171,7 +171,7 @@ function winTwoRound(ranks: number[][], m: number): number {
 }
 
 function winIRV(ranks: number[][], m: number): number {
-  const alive = new Array(m).fill(true);
+  const alive: boolean[] = new Array(m).fill(true);
   let remaining = m;
   while (remaining > 1) {
     const counts = pluralityCounts(ranks, alive, m);
@@ -333,11 +333,11 @@ function winBucklin(ranks: number[][], m: number): number {
 
 /** Coombs: IRV but eliminate the candidate with the most LAST-place votes. */
 function winCoombs(ranks: number[][], m: number): number {
-  const alive = new Array(m).fill(true);
+  const alive: boolean[] = new Array(m).fill(true);
   let remaining = m;
   while (remaining > 1) {
-    const first = new Array(m).fill(0);
-    const last = new Array(m).fill(0);
+    const first: number[] = new Array(m).fill(0);
+    const last: number[] = new Array(m).fill(0);
     for (const r of ranks) {
       const top = r.find((i) => alive[i]);
       if (top !== undefined) first[top] += 1;
@@ -382,7 +382,7 @@ function bordaAlive(ranks: number[][], m: number, alive: boolean[]): number[] {
 
 /** Nanson: iteratively eliminate every candidate with below-average Borda. */
 function winNanson(ranks: number[][], m: number): number {
-  const alive = new Array(m).fill(true);
+  const alive: boolean[] = new Array(m).fill(true);
   let remaining = m;
   while (remaining > 1) {
     const score = bordaAlive(ranks, m, alive);
@@ -411,7 +411,7 @@ function winNanson(ranks: number[][], m: number): number {
  * independent `pref_voting` library).
  */
 function winBaldwin(ranks: number[][], m: number): number {
-  const alive = new Array(m).fill(true);
+  const alive: boolean[] = new Array(m).fill(true);
   let remaining = m;
   while (remaining > 1) {
     const score = bordaAlive(ranks, m, alive);
@@ -479,7 +479,7 @@ function winRankedPairs(ranks: number[][], m: number): number {
 
 /** STAR: score, then an automatic runoff between the two highest totals. */
 function winStar(scores: number[][], m: number): number {
-  const total = new Array(m).fill(0);
+  const total: number[] = new Array(m).fill(0);
   for (const s of scores) for (let i = 0; i < m; i++) total[i] += s[i];
   const order = total.map((_, i) => i).sort((a, b) => total[b] - total[a]);
   const [a, b] = [order[0], order[1]];
@@ -513,7 +513,7 @@ function winMajorityJudgment(scores: number[][], m: number): number {
 
 /** Score / evaluative: highest summed cardinal score. */
 function winScore(scores: number[][], m: number): number {
-  const total = new Array(m).fill(0);
+  const total: number[] = new Array(m).fill(0);
   for (const s of scores) for (let i = 0; i < m; i++) total[i] += s[i];
   return argmax(total);
 }
@@ -627,7 +627,7 @@ export function smithSet(ranks: number[][], m: number, alive?: boolean[]): numbe
  * PLAN_SOLIDITE_TECHNIQUE.md).
  */
 function winSmithIRV(ranks: number[][], m: number): number {
-  const alive = new Array(m).fill(true);
+  const alive: boolean[] = new Array(m).fill(true);
   let remaining = m;
   const S = smithSet(ranks, m);
   if (S.length === 1) return S[0];
@@ -750,7 +750,7 @@ function winMaximin(scores: number[][], m: number): number {
  * method with IRV's clone-resistance.
  */
 function winBenham(ranks: number[][], m: number): number {
-  const alive = new Array(m).fill(true);
+  const alive: boolean[] = new Array(m).fill(true);
   let remaining = m;
   while (remaining > 1) {
     const cw = condorcetWinnerIdx(ranks, m, alive);
@@ -790,7 +790,7 @@ function winRiver(ranks: number[][], m: number): number {
   majorities.sort((a, b) => b.margin - a.margin || b.support - a.support || a.w - b.w || a.l - b.l);
 
   const locked: boolean[][] = Array.from({ length: m }, () => new Array(m).fill(false));
-  const inLock = new Array(m).fill(false); // does l already have an incoming lock?
+  const inLock: boolean[] = new Array(m).fill(false); // does l already have an incoming lock?
   const reaches = (src: number, dst: number): boolean => {
     const stack = [src];
     const seen = new Array(m).fill(false);
@@ -860,7 +860,7 @@ export function raynaudWorstLoss(b: number[][], alive: boolean[], m: number): nu
  */
 function winRaynaud(ranks: number[][], m: number): number {
   const b = pairwise(ranks, m);
-  const alive = new Array(m).fill(true);
+  const alive: boolean[] = new Array(m).fill(true);
   let remaining = m;
   while (remaining > 1) {
     const worstLoss = raynaudWorstLoss(b, alive, m);
@@ -1064,7 +1064,7 @@ export function randomBallotProbGrid(
  */
 export function randomBallotShares(voters: Pt[], cands: NamedPt[]): number[] {
   const m = cands.length;
-  const counts = new Array(m).fill(0);
+  const counts: number[] = new Array(m).fill(0);
   if (m === 0) return counts;
   for (const v of voters) {
     let best = -1;

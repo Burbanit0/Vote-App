@@ -52,14 +52,9 @@ class RunView:
 
 
 def _read_snapshots(path: Path) -> list[dict[str, Any]]:
-    if not path.is_file():
-        return []
-    rows = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        try:
-            rows.append(json.loads(line))
-        except ValueError:
-            continue  # a torn final row from an interrupted write
+    """The census rows, sharing the journal's tolerant reader: a torn final row from an
+    interrupted write is skipped, a missing file reads as no rows."""
+    rows, _skipped = read_journal_tolerant(path)
     return rows
 
 
@@ -128,21 +123,36 @@ def _role_in(event: Mapping[str, Any], citizen_id: int) -> str | None:
     return None
 
 
-def citizen_biography(view: RunView, citizen_id: int) -> list[dict[str, Any]]:
-    """Every event this citizen acted in, was targeted by, or was named in, in order."""
-    rows = []
+def citizen_events(view: RunView, citizen_id: int) -> list[tuple[dict[str, Any], str]]:
+    """Every event this citizen acted in, was targeted by, or was named in, with the role
+    they held in it, in journal order.
+
+    `citizen_biography` projects these into table rows; a caller that needs the event
+    itself (the explorer's biography panel needs its rationale and payload) takes them
+    from here rather than indexing the rows back onto the journal by event id -- older
+    runs do not all carry one.
+    """
+    found = []
     for event in view.events:
         role = _role_in(event, citizen_id)
         if role is not None:
-            rows.append({
-                "tick": event["tick"],
-                "event_id": event.get("event_id"),
-                "event_type": event["event_type"],
-                "role": role,
-                "motif": event.get("motif"),
-                "payload": json.dumps(event.get("payload"), sort_keys=True),
-            })
-    return rows
+            found.append((event, role))
+    return found
+
+
+def citizen_biography(view: RunView, citizen_id: int) -> list[dict[str, Any]]:
+    """Every event this citizen acted in, was targeted by, or was named in, in order."""
+    return [
+        {
+            "tick": event["tick"],
+            "event_id": event.get("event_id"),
+            "event_type": event["event_type"],
+            "role": role,
+            "motif": event.get("motif"),
+            "payload": json.dumps(event.get("payload"), sort_keys=True),
+        }
+        for event, role in citizen_events(view, citizen_id)
+    ]
 
 
 def citizen_census(view: RunView, citizen_id: int) -> list[dict[str, Any]]:

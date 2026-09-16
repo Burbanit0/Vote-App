@@ -12,9 +12,9 @@ name: Security Audit
 
 on:
   push:
-    branches: [main, develop, polity]
+    branches: [main, develop, polity, polity-ui]
   pull_request:
-    branches: [main, develop, polity]
+    branches: [main, develop, polity, polity-ui]
   schedule:
     - cron: "0 6 * * 1" # weekly Monday 06:00 UTC
   # No merge_group trigger: that event only fires under GitHub's own native
@@ -188,9 +188,12 @@ jobs:
   # GuardDog (Lot 9, PLAN_SOLIDITE_TECHNIQUE.md): detects MALICIOUS packages
   # (typosquatting, hostile install scripts) — a blind spot of every CVE
   # scanner above, which only sees already-disclosed vulnerabilities.
-  # Own job, own setup-python: guarddog pins pygit2<1.19, and pygit2 only
-  # ships cp314 wheels from 1.20.0 onward (verified against PyPI's own file
-  # index) — installing it against this repo's real 3.14-pinned backend venv
+  # Own job, own setup-python: guarddog pins pygit2<1.19,>=1.11, and pygit2
+  # only started shipping cp314 wheels at 1.19.0 (verified against PyPI's own
+  # file index: 1.18.2 and earlier have none) — so guarddog can never resolve
+  # a cp314-compatible pygit2 build regardless of how new pygit2 itself gets;
+  # the real, permanent ceiling is guarddog's own pin, not pygit2's wheel
+  # history. Installing it against this repo's real 3.14-pinned backend venv
   # would force a from-source pygit2 build. 3.13 is the newest version with a
   # compatible pygit2 wheel.
   # Cron + push-to-develop only, same reasoning as the image-scan job below:
@@ -245,7 +248,7 @@ jobs:
   # ---------------------------------------------------------------
   # Built-image scan + SBOM. Neither Dockerfile is exercised by any other
   # workflow — the `trivy` job above only scans the filesystem, never a built
-  # image, so the actual base images (python:3.11-slim, node:20,
+  # image, so the actual base images (python:3.14-slim, node:26-slim,
   # nginxinc/nginx-unprivileged:alpine) and whatever the multi-stage builds
   # layer on top were previously unscanned and could silently bit-rot.
   #
@@ -422,7 +425,7 @@ jobs:
         with: { python-version: "3.14" }
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: "20"
+          node-version: "24"
           cache: "npm"
           cache-dependency-path: voter-app/package-lock.json
 

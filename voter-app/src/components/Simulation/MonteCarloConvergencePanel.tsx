@@ -21,7 +21,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useChartTheme } from '../../hooks/useChartTheme';
 
-import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+import { numericTooltipFormatter, numericTickFormatter } from '@/lib/rechartsFormatters';
 
 // ── WCAG-AA accessible palette for method lines ───────────────────────────────
 const METHOD_COLORS = [
@@ -100,7 +100,7 @@ const RegretConvergenceChart: React.FC<{
         <YAxis
           tick={{ fontSize: 10, fill: ct.tickFill }}
           width={52}
-          tickFormatter={(v) => v.toFixed(3)}
+          tickFormatter={numericTickFormatter((v) => v.toFixed(3))}
         />
         <Tooltip
           contentStyle={ct.tooltipStyle}
@@ -226,7 +226,7 @@ const CIStabilityChart: React.FC<{
         <XAxis
           type="number"
           tick={{ fontSize: 10, fill: ct.tickFill }}
-          tickFormatter={(v) => v.toFixed(3)}
+          tickFormatter={numericTickFormatter((v) => v.toFixed(3))}
         />
         <YAxis
           type="category"

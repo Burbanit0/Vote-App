@@ -228,7 +228,7 @@ const PowerScatter: React.FC<ScatterProps> = ({ parties, colors }) => {
         <Tooltip
           content={({ payload }) => {
             if (!payload?.length) return null;
-            const d = payload[0].payload;
+            const d = payload[0].payload as (typeof pts)[number];
             return (
               <div
                 style={{

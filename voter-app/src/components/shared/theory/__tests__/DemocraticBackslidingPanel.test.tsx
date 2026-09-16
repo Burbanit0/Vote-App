@@ -28,7 +28,14 @@ vi.mock('recharts', () => {
     LineChart: stub,
     Line: stub,
     XAxis: stub,
-    YAxis: stub,
+    // Real recharts computes its own tick values; the mock calls the
+    // formatter directly so its 0-1 → percentage rounding is exercised.
+    YAxis: ({ tickFormatter }: { tickFormatter?: (v: number) => string }) =>
+      tickFormatter ? (
+        <div data-testid="quality-y-tick">{tickFormatter(0.42)}</div>
+      ) : (
+        <div data-testid="recharts-stub" />
+      ),
     CartesianGrid: stub,
     Tooltip: stub,
     Legend: stub,
@@ -187,6 +194,11 @@ describe('DemocraticBackslidingPanel', () => {
   it('renders timeline chart after simulation', async () => {
     await renderAndRun();
     expect(screen.getByTestId('timeline-chart')).toBeInTheDocument();
+  });
+
+  it('formats the quality-axis ticks as rounded percentages', async () => {
+    await renderAndRun();
+    expect(screen.getByTestId('quality-y-tick')).toHaveTextContent('42%');
   });
 
   it('renders election cards for each election', async () => {

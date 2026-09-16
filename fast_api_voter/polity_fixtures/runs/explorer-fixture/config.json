@@ -1,0 +1,225 @@
+{
+  "awakening": {
+    "context_modulation": {
+      "event_salience": true,
+      "mandate_deviation": true,
+      "neighbors_acting": true,
+      "ticks_to_election": true
+    },
+    "enabled": true,
+    "modulation_amplitude": 0.5,
+    "no_consultation_cap": true,
+    "source": "persona_base_threshold"
+  },
+  "campaign": {
+    "max_positioning_delta": 0.3,
+    "max_positioning_shifts": 3
+  },
+  "candidacy": {
+    "ambition_threshold": 0.3,
+    "max_candidates_hard_cap": 20,
+    "rupture_base_probability": 0.03,
+    "rupture_distance_multiplier": 2.0,
+    "rupture_path_enabled": true,
+    "rupture_signature_ratio": 0.005
+  },
+  "citizens": {
+    "ambition_dist": "beta(2,8)",
+    "base_threshold_dist": "beta(3,5)",
+    "blank_threshold_dist": "beta(3,5)",
+    "issue_count": 20,
+    "memory_window_terms": 2,
+    "position_dist": "factor_structure",
+    "priority_dist": "dirichlet",
+    "static_population": true
+  },
+  "dynamics": {
+    "confidence_bound": 1.0,
+    "drift_std": 0.0,
+    "enabled": false,
+    "influence_step": 0.0,
+    "susceptibility": 1.0
+  },
+  "emotions": {
+    "awakening_anger": 0.0,
+    "awakening_anxiety": 0.0,
+    "awakening_enthusiasm": 0.0,
+    "decay": 0.7,
+    "enabled": false,
+    "mobilization_anger": 0.0
+  },
+  "events": {
+    "economic_shock_enabled": true,
+    "economy_ar1_phi": 0.8,
+    "economy_ar1_sigma": 0.1,
+    "economy_shock_threshold": 0.5,
+    "enabled": true,
+    "max_reaction_delta": 0.3,
+    "salience_decay": 0.85,
+    "scandal_enabled": true,
+    "scandal_magnitude": 0.3,
+    "scandal_rate_per_tick": 0.5
+  },
+  "institutions": {
+    "assembly_mode": "party_list",
+    "assembly_offset_years": 2,
+    "assembly_seats": 100,
+    "assembly_term_limit": null,
+    "assembly_term_years": 4,
+    "barred_from_immediate_rerun": true,
+    "blank_invalidation_threshold": 0.5,
+    "blank_vote_competitive": true,
+    "blank_vote_enabled": true,
+    "electoral_threshold": 0.05,
+    "legislative_campaign_ticks": 2,
+    "president_term_limit": 2,
+    "president_term_years": 3,
+    "presidential_campaign_ticks": 4,
+    "presidential_method": "two_round",
+    "recalled_barred_from_snap_election": true,
+    "reelection_delay_ticks": 1,
+    "reelection_max_attempts": 2,
+    "seat_allocation": "dhondt",
+    "snap_election_on_recall": true,
+    "staggered_election": false
+  },
+  "journal": {
+    "decode_codebook_on_index": true,
+    "enabled": true,
+    "format": "jsonl",
+    "index_after_run": true,
+    "log_non_events": true,
+    "output_dir": "polity_fixtures/runs",
+    "snapshot_every_ticks": 4
+  },
+  "legislation": {
+    "assembly_majority_ratio": 0.5,
+    "bill_interval_ticks": 2,
+    "cohabitation_block": true,
+    "enabled": false,
+    "max_bill_dimensions": 2,
+    "max_bill_step": 0.1
+  },
+  "legitimacy": {
+    "decay": 0.9,
+    "enabled": true,
+    "passive_erosion_weight": 0.0,
+    "recall_cooldown_ticks": 4,
+    "recall_floor": 0.2,
+    "recall_floor_indexed_on_l0": false
+  },
+  "llm": {
+    "base_url": "http://localhost:8000/v1",
+    "batch_sharding": "static",
+    "cache_backend": "redis",
+    "cache_url": "redis://localhost:6379/0",
+    "codebook_version": "1.6",
+    "enabled": true,
+    "max_batch_replays": 0,
+    "max_batch_size": 25,
+    "model": "qwen3:8b",
+    "personas_count": 30,
+    "provider": "vllm",
+    "rationale_mode": "codes",
+    "recycle_after_n_calls": null,
+    "reproducibility": "strict",
+    "temperature": 0.0,
+    "vote_cast_grammar_invariants": false
+  },
+  "mandate": {
+    "deviation_log_threshold": 0.1,
+    "deviation_metric": "weighted_euclidean",
+    "enabled": true,
+    "max_response_delta": 0.3,
+    "max_response_shifts": 3,
+    "pledge_scope": "top_k_priorities",
+    "pledge_top_k": 5
+  },
+  "metrics": {
+    "coalition_lifespan": true,
+    "cohabitation_rate": true,
+    "compute_every_ticks": 1,
+    "effective_parties": true,
+    "inaction_rate": true,
+    "lame_duck_deviation_delta": true,
+    "mandate_deviation": true,
+    "petition_success_rate": true,
+    "pressure_lever_mix": true,
+    "stance_distribution": true
+  },
+  "parallel": {
+    "intra_run_workers": 1,
+    "runs_in_parallel": 1
+  },
+  "parties": {
+    "birth_enabled": false,
+    "coalition_initiator": "largest_seats",
+    "coalition_majority_ratio": 0.5,
+    "coalition_max_negotiation_rounds": 3,
+    "coalition_tiebreak": [
+      "seats",
+      "votes",
+      "party_id"
+    ],
+    "death_enabled": false,
+    "init_strategy": "kmeans_on_citizens",
+    "initial_count": 5,
+    "manual_platforms": []
+  },
+  "petition": {
+    "concurrent_allowed": false,
+    "confidence_vote_format": "binary",
+    "cooldown_ticks": 4,
+    "enabled": true,
+    "petition_lifespan_ticks": 4,
+    "signature_threshold": 0.25,
+    "weight_in_ecart": 0.5
+  },
+  "pressure_menu": {
+    "electoral_only": false,
+    "mobilization_enabled": true,
+    "petition_enabled": true
+  },
+  "run": {
+    "duration_years": 3,
+    "population_size": 40,
+    "run_label": "golden",
+    "seed": 42,
+    "ticks_per_year": 4
+  },
+  "social_graph": {
+    "enabled": true,
+    "evolving": false,
+    "mean_degree": 8,
+    "rewiring_prob": 0.1,
+    "topology": "watts_strogatz"
+  },
+  "sortition_chamber": {
+    "enabled": true,
+    "max_deliberation_delta": 0.3,
+    "max_deliberation_shifts": 3,
+    "overlaps_with_assembly": false,
+    "renewable": false,
+    "seats": 5,
+    "selection": "uniform_random",
+    "term_years": 1,
+    "veto_delay_ticks": 2,
+    "veto_power": "suspensive_limited"
+  },
+  "street_pressure": {
+    "decay": 0.85,
+    "enabled": true,
+    "visible_to_representative": true,
+    "weight_in_ecart": 0.5
+  },
+  "vote": {
+    "approval": 0.0,
+    "approval_party_carryover": 0.0,
+    "audit_fraction": 0.1,
+    "mode": "llm",
+    "partisanship": 0.0,
+    "policy_retrospection": 0.0,
+    "turnout_cost": 0.0,
+    "valence": 0.0
+  }
+}

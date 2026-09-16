@@ -107,8 +107,8 @@ z3-solver==5.1.0.0     # SMT proofs over symbolic vote counts, ALL electorates a
                        # see api/tests/test_z3_formal_proofs.py and
                        # docs/exploration/EXP-002-z3-formal-voting-proofs.md)
 types-redis==4.6.0.20241004  # Redis type stubs
-types-requests==2.33.0.20260712  # Requests type stubs
-types-PyYAML==6.0.12.20260815  # domain/polity/config.py — polity_config.yaml loader
+types-requests==2.33.0.20260906  # Requests type stubs
+types-PyYAML==6.0.12.20260906  # domain/polity/config.py — polity_config.yaml loader
 
 # Diff coverage (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md) — 100% coverage required
 # on lines *changed* by a PR, read from coverage.xml (see

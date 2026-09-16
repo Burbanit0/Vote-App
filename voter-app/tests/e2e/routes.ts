@@ -16,6 +16,7 @@ export const ANCHORS: Record<Surface, string> = {
   '/a-vous-de-jouer': '[data-testid="play-vote-open"]',
   '/playground': '[data-testid="playground-page"]',
   '/laboratoire': '[data-testid="lab-family-rail"]',
+  '/polity': '[data-testid="polity-page"]',
 };
 
 /** Route patterns carry params ("/users/:id"); browsers need a concrete URL. */

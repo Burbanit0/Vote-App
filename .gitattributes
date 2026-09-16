@@ -14,3 +14,7 @@ Dockerfile      text eol=lf
 # lisible pour le signaler. `eol=lf` corrige la moitié CRLF ; pour l'encodage,
 # écrire avec `Out-File -Encoding utf8` (jamais la redirection `>` nue).
 requirements*.txt   text eol=lf
+
+# The run explorer's fixture run is checked byte for byte against its MANIFEST.json
+# sha256s: no end-of-line conversion on checkout.
+fast_api_voter/polity_fixtures/** -text

@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
 # ── Vote Lab — Branch protection setup ────────────────────────────────────────
 # Usage:
-#   bash scripts/setup-branch-protection.sh [main|develop|all] [GH_TOKEN]
-#   bash scripts/setup-branch-protection.sh              # both branches, gh CLI
+#   bash scripts/setup-branch-protection.sh [main|develop|polity|polity-ui|all] [GH_TOKEN]
+#   bash scripts/setup-branch-protection.sh              # main and develop, gh CLI
 #   bash scripts/setup-branch-protection.sh develop      # develop only, gh CLI
-#   bash scripts/setup-branch-protection.sh all <TOKEN>  # both, curl + token
+#   bash scripts/setup-branch-protection.sh all <TOKEN>  # main and develop, curl + token
+#   bash scripts/setup-branch-protection.sh polity-ui    # one Polity branch, gh CLI
+#
+# `all` means main and develop only: polity and polity-ui are protected one at a time,
+# on purpose, each when its branch exists and its checks are known to report there.
 #
 # Get a token: GitHub → Settings → Developer settings → Personal access tokens
 # Required scopes: repo (or Administration for fine-grained tokens)
@@ -94,6 +98,34 @@ REQUIRED_CONTEXTS='[
       "CI health check"
     ]'
 
+# The Polity branches (polity, and polity-ui where the run explorer is built) require the
+# same checks, less "CI health check": ci-health.yml runs only on PRs to main and develop,
+# and a required check that never reports blocks every PR forever (the PR #205 lesson
+# above). Derived from REQUIRED_CONTEXTS so the two lists cannot drift apart; computed
+# here, not at the top, so the main/develop targets never need jq.
+protect_polity_branch() {
+  local branch="$1"
+  local POLITY_CONTEXTS
+  POLITY_CONTEXTS=$(printf '%s' "$REQUIRED_CONTEXTS" | jq -c 'map(select(. != "CI health check"))')
+  echo "Protecting '${branch}'..."
+  api_call PUT "repos/${OWNER}/${REPO}/branches/${branch}/protection" "{
+    \"required_status_checks\": {
+      \"strict\": true,
+      \"contexts\": ${POLITY_CONTEXTS}
+    },
+    \"enforce_admins\": false,
+    \"required_pull_request_reviews\": {
+      \"required_approving_review_count\": 0,
+      \"dismiss_stale_reviews\": false
+    },
+    \"restrictions\": null,
+    \"required_linear_history\": false,
+    \"allow_force_pushes\": false,
+    \"allow_deletions\": false
+  }"
+  echo "✅  '${branch}' protected."
+}
+
 protect_main() {
   echo "Protecting 'main'..."
   api_call PUT "repos/${OWNER}/${REPO}/branches/main/protection" "{
@@ -141,8 +173,9 @@ echo ""
 case "$TARGET" in
   main)    protect_main ;;
   develop) protect_develop ;;
+  polity|polity-ui) protect_polity_branch "$TARGET" ;;
   all)     protect_main; echo ""; protect_develop ;;
-  *) echo "❌ Unknown target '$TARGET' — use main, develop, or all"; exit 1 ;;
+  *) echo "❌ Unknown target '$TARGET' — use main, develop, polity, polity-ui, or all (= main and develop)"; exit 1 ;;
 esac
 
 echo ""

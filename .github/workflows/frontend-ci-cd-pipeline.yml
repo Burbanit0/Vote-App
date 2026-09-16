@@ -10,9 +10,9 @@ name: Frontend CI
 # instead, which GitHub treats as a passing required check.
 on:
   push:
-    branches: [develop, main]
+    branches: [develop, main, polity, polity-ui]
   pull_request:
-    branches: [develop, main]
+    branches: [develop, main, polity, polity-ui]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -66,7 +66,7 @@ jobs:
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
           cache-dependency-path: voter-app/package-lock.json
 
@@ -92,6 +92,18 @@ jobs:
       # and a11y debt is surfaced as non-failing warnings (burn-down backlog).
       - name: Lint (blocking — 0 errors)
         run: npm run lint
+        working-directory: ./voter-app
+
+      # Lot 14 (PLAN_SOLIDITE_TECHNIQUE.md): package.json's `typeCoverage.atLeast`
+      # is the ratchet -- type-coverage reads it itself (no CLI flag needed) and
+      # fails below it. Was informational-only (§6.4) until the 280 real `any`s
+      # measured there were actually reduced (238 by the time this gate was
+      # added); gating an unreduced baseline would have meant enforcing debt, not
+      # preventing it. A genuine future improvement is locked in with
+      # `npx type-coverage --update-if-higher`, committing the new package.json
+      # value -- never hand-edit the number down to make a red run green.
+      - name: Type coverage — no regression (blocking)
+        run: npm run type-coverage
         working-directory: ./voter-app
 
       # Frontend equivalent of the backend's import-linter layering contract

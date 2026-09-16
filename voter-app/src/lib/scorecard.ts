@@ -199,7 +199,7 @@ export function compressRanks(
   m: number
 ): { ranks: number[][]; scores: number[][] } {
   // Frontrunners = top-2 by sincere first preferences.
-  const firsts = new Array(m).fill(0);
+  const firsts: number[] = new Array(m).fill(0);
   for (const r of ranks) firsts[r[0]] += 1;
   const order = firsts.map((_, i) => i).sort((a, b) => firsts[b] - firsts[a]);
   const [f1, f2] = [order[0], order[1]];
@@ -434,7 +434,7 @@ export function manipulationProbe(voters: Pt[], cands: NamedPt[], rule: Rule): M
   if (w < 0) return { minCoalitionShare: null, backfired: false };
 
   // Two strongest challengers by first preferences (excluding the winner).
-  const firsts = new Array(m).fill(0);
+  const firsts: number[] = new Array(m).fill(0);
   for (const r of ranks) firsts[r[0]] += 1;
   const challengers = firsts
     .map((_, i) => i)
