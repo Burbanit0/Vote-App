@@ -16,6 +16,7 @@ from api.domain.polity.events import INSTITUTIONAL_EVENT_TYPES
 from api.domain.polity.explorer_biography import RATIONALE_LIMIT, SECTIONS, build_biography
 from api.domain.polity.indexer import segment_terms
 from api.domain.polity.run_catalog import (
+    _LOADED_FILES,
     RunCache,
     RunRoot,
     RunRootsError,
@@ -195,8 +196,9 @@ def test_the_catalog_lists_explorable_runs_under_their_keys(runs: dict[str, Path
     assert [(e.relative_path, e.key) for e in entries] == [
         ("batch/deterministic", run_key("lab", "batch/deterministic")), ("batch/staggered", run_key("lab", "batch/staggered"))]
     assert entries[1].record["run_id"] == "staggered"
-    small = (root / "batch" / "deterministic" / "events.jsonl").stat().st_size
-    assert [e.relative_path for e in list_runs(roots, small)] == ["batch/deterministic"]  # the larger journal is left out
+    # The limit is per file, over every file a load reads -- each is read whole into memory.
+    small = max((root / "batch" / "deterministic" / name).stat().st_size for name in _LOADED_FILES)
+    assert [e.relative_path for e in list_runs(roots, small)] == ["batch/deterministic"]  # the larger run is left out
 
     assert find_run(roots, entries[1].key, UNLIMITED) == entries[1]
     assert find_run(roots, "0" * 16, UNLIMITED) is None

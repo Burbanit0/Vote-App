@@ -25,6 +25,10 @@ from api.domain.polity.run_catalog import (
     parse_roots,
 )
 from api.domain.polity.run_frames import NotExplorable, TickFrame
+from api.domain.polity.run_projection import Projection
+from api.engine.utils.logger import get_logger
+
+_log = get_logger(__name__)
 
 MAX_FRAME_SPAN = 40
 XY_DECIMALS = 4
@@ -48,14 +52,32 @@ def _xy(point: Sequence[float]) -> list[float]:
     return [round(float(point[0]), XY_DECIMALS), round(float(point[1]), XY_DECIMALS)]
 
 
+def _as_int(value: Any) -> int | None:
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def _as_str(value: Any) -> str | None:
+    return value if isinstance(value, str) else None
+
+
 def list_polity_runs(context: ExplorerContext) -> Body:
+    """Every run the explorer can open.
+
+    A run record is built from whatever its own files hold, and `run_registry` is
+    deliberate about never raising on a damaged run ("a registry that crashes on one
+    damaged run lists none"). The strict response model would undo that, so each field
+    is narrowed to what the schema declares here: one run with a population of
+    "quarante" costs that run its shape, not everybody else their listing.
+    """
     runs = []
     for entry in list_runs(context.roots, context.max_journal_bytes):
         record = entry.record
         runs.append({
             "key": entry.key, "label": entry.label, "relative_path": entry.relative_path, "run_id": str(record["run_id"]),
-            **{field: record.get(field) for field in (
-                "generation", "engine", "outcome", "population", "years", "seed", "ticks_reached", "ticks_planned")},
+            "generation": str(record["generation"]),
+            **{field: _as_str(record.get(field)) for field in ("engine", "outcome")},
+            **{field: _as_int(record.get(field)) for field in (
+                "population", "years", "seed", "ticks_reached", "ticks_planned")},
         })
     return {"runs": runs}, 200
 
@@ -67,6 +89,15 @@ class _Refused(Exception):
 
 
 def _load(context: ExplorerContext, run_key: str) -> tuple[CatalogEntry, LoadedRun]:
+    """The run behind a key, loaded once and cached.
+
+    A run root is a directory a batch wrote, not a validated payload: a listed run can
+    still turn out to be unreadable (a config without a `run` section, a population that
+    is a word, a census row missing a field). That is a 400 about that run, not a 500
+    about the server, so the replay's own failures are mapped here rather than escaping
+    as an unhandled exception. They are logged, since a shape the replay cannot read is
+    worth seeing even when the answer to the caller is short.
+    """
     entry = find_run(context.roots, run_key, context.max_journal_bytes)
     if entry is None:
         raise _Refused("run not found", 404)
@@ -74,10 +105,35 @@ def _load(context: ExplorerContext, run_key: str) -> tuple[CatalogEntry, LoadedR
         return entry, context.cache.get(entry.run_dir)
     except NotExplorable as exc:
         raise _Refused(f"run cannot be explored: {exc.reason}", 400) from exc
+    except OSError as exc:
+        _log.warning("polity run %s could not be read: %s", entry.relative_path, exc)
+        raise _Refused("run cannot be explored: its files could not be read", 400) from exc
+    except (ArithmeticError, AssertionError, LookupError, TypeError, ValueError) as exc:
+        _log.warning("polity run %s is not the shape the replay expects", entry.relative_path, exc_info=True)
+        raise _Refused("run cannot be explored: its files are not the shape the replay expects", 400) from exc
 
 
 def _plain(value: Any) -> Any:
     return dataclasses.asdict(value)
+
+
+def _party(projection: Projection, party_id: int, platform: Sequence[float]) -> dict[str, Any] | None:
+    """A party's marker on the map, or None when its platform cannot be placed there.
+
+    A checkpoint written by another engine version can hold a platform of a different
+    length than the run's issues, which no projection can place. The map then shows the
+    citizens without that party's marker, rather than the page failing.
+    """
+    try:
+        return {"party_id": party_id, "xy": _xy(projection.point_xy(platform))}
+    except (AssertionError, ValueError):
+        _log.warning("polity party %s has a platform the projection cannot place", party_id)
+        return None
+
+
+def _party_markers(projection: Projection, parties: Sequence[tuple[int, tuple[float, ...]]]) -> list[dict[str, Any]]:
+    markers = (_party(projection, party_id, platform) for party_id, platform in parties)
+    return [marker for marker in markers if marker is not None]
 
 
 def _map(loaded: LoadedRun) -> dict[str, Any]:
@@ -90,7 +146,7 @@ def _map(loaded: LoadedRun) -> dict[str, Any]:
             "axes": [[_plain(weight) for weight in axis] for axis in projection.axes],
             "citizens": [{"year": year, "xy": [_xy(p) for p in xy]} for year, xy in sorted(projection.citizen_xy.items())],
         },
-        "parties": [{"party_id": party_id, "xy": _xy(projection.point_xy(platform))} for party_id, platform in loaded.parties],
+        "parties": _party_markers(projection, loaded.parties),
         "citizen_parties": [row.get("party_affiliation") for row in census_zero],
     }
 
