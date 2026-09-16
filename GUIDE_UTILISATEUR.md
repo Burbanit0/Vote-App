@@ -16,7 +16,7 @@ La réponse est oui — et c'est fascinant. Avec le même groupe d'électeurs ay
 - Comparer 29 méthodes de vote sur la même élection, groupées en 5 familles
 - Vivre 14 « histoires » guidées qui font surgir un paradoxe précis sous vos yeux
 - Voter vous-même dans une vraie élection à 41 électeurs, sous 5 langages de bulletin différents
-- Explorer 62 fiches en profondeur dans le Laboratoire (mécanismes, dynamiques temporelles, théorie, vote blanc…)
+- Explorer 63 fiches en profondeur dans le Laboratoire (mécanismes, dynamiques temporelles, théorie, vote blanc…)
 - Comparer un même phénomène sur deux électorats différents côte à côte
 
 **Trois destinations, une seule appli** : Vote Lab n'a pas de compte, pas de connexion — juste trois pages accessibles depuis la barre de navigation : **Playground** (l'instrument principal), **Laboratoire** (l'exploration approfondie) et **À vous de jouer** (vous votez vous-même).
@@ -120,10 +120,10 @@ Le Laboratoire lit le **même électorat** que celui configuré dans le Playgrou
 | **Règles & stratégie** | 6 | Forme du bulletin, sincérité, vulnérabilité stratégique, équilibre, VSE (efficacité du vote), valeurs |
 | **Systèmes & mécanismes** | 15 | Jury de Condorcet, démocratie liquide, tirage au sort, délibération, vote de conviction, épistocratie, vote identitaire, coalitions, multi-gagnants, circonscriptions, gerrymandering, STV (vote transférable), complexité du bulletin, animation du décompte, atlas mondial des régimes électoraux |
 | **Dynamiques** | 15 | Trajectoires de campagne, mécanismes temporels (primaires, abstention différentielle, contagion du vote blanc…), réalisme comportemental (biais, fatigue électorale, polarisation affective…) |
-| **Théorie & analyse** | 19 | Paradoxes, théorèmes d'impossibilité, lexique interactif, analyses approfondies, résultats détaillés |
+| **Théorie & analyse** | 20 | Paradoxes, théorèmes d'impossibilité (Arrow, Sen…), lexique interactif, analyses approfondies, résultats détaillés |
 | **Vote blanc & abstention** | 4 | La fiche vote blanc (voir plus bas), la divergence qu'il crée selon la méthode, le NOTA (« aucun des candidats »), l'abstention différentielle |
 
-Soit **62 fiches** au total.
+Soit **63 fiches** au total.
 
 **Le mode Comparer** : le bouton « Comparer un électorat » ouvre une seconde colonne à côté de la première, affichant **la même fiche** mais lue sur un **second électorat** au choix (les candidats restent fixes, seule la distribution des électeurs change). C'est un vrai « même phénomène, deux électorats » côte à côte, pas deux panneaux sans lien — et ça reste synchronisé si vous changez de fiche en cours de route.
 

@@ -310,7 +310,7 @@ repli `ResultsMethodTable` sur les graphiques porteurs de résultat ;
 **Effort** : M · **Priorité** : haute si §2.C bascule côté publication,
 moyenne sinon.
 
-### 2.H 🟡 Le théorème d'Arrow est écrit mais inatteignable
+### 2.H 🟢 Le théorème d'Arrow est écrit mais inatteignable
 
 **Constat** : `fr.ts:2563-2625` contient 63 lignes d'excellente prose sur
 Arrow, y compris une prémisse interactive (« cochez les axiomes que vous
@@ -322,6 +322,26 @@ du domaine est absent du produit. Même schéma pour ~11 autres namespaces
 orphelins (~360 lignes), dont `mj` (jugement majoritaire) et `plott`.
 
 **Action** : une fiche + un panneau. La copie est déjà écrite et relue.
+
+**Fait** (`feat/restore-arrow-theorem-fiche`) : la copie était bien prête,
+mais pas pour la raison supposée — `ArrowExplorer.tsx` **existait déjà**
+(pentagone SVG des 4 axiomes, contre-exemples, courbe de taux de violation
+IIA, filtre interactif) et appelait déjà `/api/v2/theory/arrow` +
+`/api/v2/theory/iia-rate`, deux endpoints backend toujours vivants et
+testés. Il a été supprimé par erreur collatérale (778b0c6d, nettoyage de
+l'arbre `Simulation/` mort, sans rapport avec Arrow lui-même) plutôt que
+jamais construit. Restauré à `components/shared/theory/ArrowExplorer.tsx`
+(aux côtés de `SenParadoxPanel` et consorts), enregistré comme fiche
+`thy-arrow` (1ʳᵉ de la famille « Théorie & analyse », désormais 20 fiches,
+63 au total — `README.md`/`GUIDE_UTILISATEUR.md`/`labCatalog.test.ts` mis à
+jour). `ArrowCriteriaMatrix.tsx` (supprimé dans le même commit) n'a **pas**
+été restauré : dépendait d'infrastructure elle aussi supprimée, et son
+contenu (6 critères × toutes les méthodes) est déjà couvert par la fiche
+`MethodsMatrix` existante — l'aurait rendu redondant, pas manquant.
+
+Les ~11 namespaces orphelins restants (`mj`, `plott`, …) ne sont pas
+traités ici —à vérifier au cas par cas si le même schéma (code supprimé
+par erreur collatérale vs jamais construit) s'applique.
 
 **Effort** : S-M · **Priorité** : moyenne — meilleur retour sur contenu déjà
 payé.
