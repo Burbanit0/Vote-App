@@ -962,6 +962,35 @@ verdict — none qualifies — stands.** D4 is not run: it is only reached by se
   requires.
 - E3 reads full terms with the reading fixed in #535.
 
+##### ADR-012's prerequisite, pre-registered before its session (2026-09-16)
+
+*Signed off by the owner on 2026-09-16 as written, before the session.*
+
+**The bank.** `scripts/bakeoff/case_bank_emotions.jsonl` (68 cases, sha256 `62e82147e930e6ca`), its
+own bank so the frozen one is unchanged:
+
+- `pressure_act` — the frozen bank's 24 cases, byte for byte;
+- `pressure_act_emotions` — the same 24 unambiguous citizens and the same truth, with the emotion
+  fields in the prompt **at rest**: anger, anxiety and enthusiasm all 0;
+- `pressure_anger_sweep` — four citizens just past their tolerance, at anger 0, 0.25, 0.5, 0.75
+  and 1, anxiety and enthusiasm 0.
+
+**The session.** One session of the control model (`Qwen/Qwen3-8B-AWQ` on the pinned vLLM, the
+shipped defaults) answering the whole bank, run right after step 1's recording and before step 2.
+
+**Accepted when both hold:**
+
+1. **Validity:** `pressure_act_emotions` has at least as many valid answers as `pressure_act`.
+2. **Accuracy:** `pressure_act_emotions` answers at most one fewer of the 24 citizens correctly than
+   `pressure_act` does, with the paired per-citizen McNemar test reported.
+
+**Reported, not accepted on:** `pressure_anger_sweep`'s share of MOBILIZE at each anger level. It
+says whether anger in the prompt can move the model at all, which E1 reads on a run.
+
+**If both hold,** an LLM run may turn emotions on, and step 5 proceeds. **If either fails,** emotions
+stay off on the LLM path, and step 5 is reported as not run because the model does not read the
+emotion fields reliably.
+
 #### Order and budget
 
 | step | runs | at the measured cost |
