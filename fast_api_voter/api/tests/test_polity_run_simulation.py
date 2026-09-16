@@ -162,7 +162,7 @@ class _RecordingClient:
         self.calls: list[bool] = []
         self._fail_think = fail_think
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
         self.calls.append(think)
         if think is self._fail_think:
             raise RuntimeError("simulated warm-up failure")
@@ -2063,7 +2063,7 @@ class _FakeLlmClient:
     # on sampling, so it only needs to tolerate them -- but it must, or a
     # retry raises TypeError instead of exercising the path under test.
     def complete_json(
-        self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None, seed=None
+        self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None, seed=None, extra_body=None
     ):
         if user_prompt.startswith("citizens["):
             # decide_candidacies ships TOON (§5.E), not JSON -- see
@@ -2299,7 +2299,7 @@ def test_representative_response_sees_the_previous_ticks_street_pressure(tmp_pat
     seen_street = []
 
     class RecordingClient:
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             payload = json.loads(user_prompt)
             if "consulted" in payload:
                 # dt=10 now also fires (llm.enabled + awakening.enabled): every
@@ -2372,7 +2372,7 @@ def test_ctx_mandate_dev_is_the_pre_decision_deviation(tmp_path):
     seen_mandate_devs = []
 
     class RecordingClient:
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             payload = json.loads(user_prompt)
             seen_mandate_devs.append(payload["holders"][0]["ctx"]["mandate_dev"])
             decisions = [
@@ -2408,7 +2408,7 @@ def test_unified_deviation_is_the_pre_decision_value_like_ctx_mandate_dev(tmp_pa
     holder.revealed_position = (0.5,)
 
     class RecordingClient:
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             payload = json.loads(user_prompt)
             decisions = [
                 {"cid": h["cid"], "shifts": [{"dimension": 0, "delta": 0.2}], "stance": 1, "motif": 301}
@@ -2449,7 +2449,7 @@ def test_unified_deviation_is_nonzero_where_the_top_k_scoped_ctx_reads_zero(tmp_
     holder.revealed_position = (0.5, 0.5, 0.5)
 
     class ShiftDim0Client:
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             payload = json.loads(user_prompt)
             decisions = [
                 {"cid": h["cid"], "shifts": [{"dimension": 0, "delta": 0.3}], "stance": 1, "motif": 301}
@@ -2481,7 +2481,7 @@ def test_no_representative_response_while_the_presidency_is_vacant(tmp_path):
         contested coalition round doesn't fail schema validation on an
         empty decisions list."""
 
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             if user_prompt.startswith("citizens["):  # decide_candidacies ships TOON (§5.E)
                 decisions = [{"cid": c["cid"], "outcome": 0, "motif": 201} for c in _parse_toon_citizens(user_prompt)]
                 return json.dumps({"decisions": decisions})
@@ -2578,7 +2578,7 @@ def test_llm_batch_misalignment_falls_back_instead_of_aborting_the_run(tmp_path)
         def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
             return 500
 
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             if user_prompt.startswith("citizens["):  # decide_candidacies ships TOON (§5.E)
                 decisions = [
                     {"cid": c["cid"], "outcome": 1, "motif": 203}
@@ -2671,7 +2671,7 @@ class _FlakyVoteClient:
         return self._inner.count_prompt_tokens(**kwargs)
 
     def complete_json(
-        self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None, seed=None
+        self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None, seed=None, extra_body=None
     ):
         self.temperatures.append(temperature)
         self.seeds.append(seed)
@@ -2832,7 +2832,7 @@ def test_a_second_launch_in_the_same_tick_is_journaled_as_act_2_then_petition_si
     citizens = [holder] + [_pressure_test_citizen(i) for i in range(1, 4)]
 
     class AllLaunchClient:
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             payload = json.loads(user_prompt)
             decisions = [
                 {"cid": c["cid"], "target": c["target"], "act": 2, "motif": 301} for c in payload["consulted"]
@@ -2901,7 +2901,7 @@ def test_a_stale_sign_does_not_abort_the_run(tmp_path):
     citizen = _pressure_test_citizen(1)
 
     class AlwaysSignClient:
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             payload = json.loads(user_prompt)
             decisions = [
                 {"cid": c["cid"], "target": c["target"], "act": 1, "motif": 301} for c in payload["consulted"]
@@ -2938,7 +2938,7 @@ def test_pressure_action_ctx_reflects_this_ticks_revealed_position(tmp_path):
     seen_self_gap = []
 
     class RecordingClient:
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             payload = json.loads(user_prompt)
             if "holders" in payload:
                 decisions = [
@@ -3045,7 +3045,7 @@ def test_street_pressure_counts_llm_mobilize_decisions(tmp_path):
     citizens = [holder] + [_pressure_test_citizen(i) for i in range(1, 4)]
 
     class MobilizeClient:
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             payload = json.loads(user_prompt)
             decisions = [
                 {"cid": c["cid"], "target": c["target"], "act": 3, "motif": 301} for c in payload["consulted"]
@@ -3070,7 +3070,7 @@ def test_no_pressure_action_llm_call_while_the_presidency_is_vacant(tmp_path):
         def __init__(self):
             self.pressure_calls = 0
 
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             # decide_candidacies ships TOON (§5.E), never a "consulted" pressure call -- skip the
             # JSON parse entirely for that shape rather than teaching this check to read TOON too.
             if not user_prompt.startswith("citizens[") and "consulted" in json.loads(user_prompt):
@@ -3107,7 +3107,7 @@ def test_a_cohort_of_one_still_produces_a_single_call(tmp_path):
         def __init__(self):
             self.calls = 0
 
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             self.calls += 1
             payload = json.loads(user_prompt)
             decisions = [
@@ -3168,7 +3168,7 @@ def test_pressure_action_ctx_reflects_the_previous_ticks_mobilization(tmp_path):
         def __init__(self):
             self.call_index = 0
 
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             decisions = []
             for c in json.loads(user_prompt)["consulted"]:
                 if c["cid"] == citizen_b.citizen_id:
@@ -3227,7 +3227,7 @@ def test_neighbors_acting_can_bring_a_marginal_citizen_above_their_own_threshold
         citizens = [holder, mobilizer, marginal]
 
         class RecordingClient:
-            def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+            def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
                 decisions = [
                     {"cid": c["cid"], "target": c["target"], "act": 3 if c["cid"] == 1 else 4, "motif": 301}
                     for c in json.loads(user_prompt)["consulted"]
@@ -3500,7 +3500,7 @@ def test_chamber_deliberation_journals_chamber_deviation_after_the_shift_lands(t
         def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
             return 500
 
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             payload = json.loads(user_prompt)
             decisions = [
                 {"cid": m["cid"], "shifts": [{"dimension": 0, "delta": 0.1}], "motif": 702}
@@ -3538,7 +3538,7 @@ def test_chamber_deviation_is_zero_when_the_model_returns_a_sincere_decision(tmp
         def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
             return 500
 
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             payload = json.loads(user_prompt)
             decisions = [{"cid": m["cid"], "shifts": [], "motif": 701} for m in payload["members"]]
             return json.dumps({"decisions": decisions})
@@ -3652,7 +3652,7 @@ def test_chamber_deliberation_clamp_journals_clamped_at_bound_adjacent_to_the_de
         def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
             return 500
 
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             payload = json.loads(user_prompt)
             decisions = [
                 {"cid": m["cid"], "shifts": [{"dimension": 0, "delta": 0.3}], "motif": 702}
@@ -3688,7 +3688,7 @@ def test_chamber_deliberation_without_a_clamp_emits_no_clamped_at_bound_event(tm
         def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
             return 500
 
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             payload = json.loads(user_prompt)
             decisions = [
                 {"cid": m["cid"], "shifts": [{"dimension": 0, "delta": 0.1}], "motif": 702}
@@ -3715,7 +3715,7 @@ def test_representative_response_clamp_journals_clamped_at_bound(tmp_path):
     holder.revealed_position = (0.9,)
 
     class _BigShiftClient:
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             payload = json.loads(user_prompt)
             decisions = [
                 {"cid": h["cid"], "shifts": [{"dimension": 0, "delta": 0.3}], "stance": 1, "motif": 301}
@@ -3757,7 +3757,7 @@ def test_campaign_positioning_clamp_journals_clamped_at_bound(tmp_path):
     parties = [Party(party_id=1, platform=(0.5,))]
 
     class _BigShiftClient:
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             if user_prompt.startswith("citizens["):  # decide_candidacies ships TOON (§5.E)
                 decisions = [
                     {"cid": c["cid"], "outcome": 1 if c["cid"] == 0 else 0, "motif": 203 if c["cid"] == 0 else 201}
@@ -3950,7 +3950,7 @@ class _CoalitionRoundTwoFailsClient(_FakeLlmClient):
     def __init__(self):
         self._coalition_calls = 0
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
         # decide_candidacies ships TOON (§5.E), never a "responders" coalition call -- skip the
         # JSON parse entirely for that shape, matching every other fake client's own guard above.
         payload = None if user_prompt.startswith("citizens[") else json.loads(user_prompt)
@@ -4012,7 +4012,7 @@ def test_llm_path_all_decline_produces_coalition_failed(tmp_path):
         def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
             return 500
 
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             if user_prompt.startswith("citizens["):  # decide_candidacies ships TOON (§5.E)
                 decisions = [
                     {"cid": c["cid"], "outcome": 1, "motif": 203}
@@ -4495,7 +4495,7 @@ def test_an_out_of_bound_salience_delta_degrades_instead_of_aborting_the_run(tmp
         out-of-bound salience_delta for reaction_to_event specifically --
         isolates the failure to this lot's own validator."""
 
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             # decide_candidacies ships TOON (§5.E), never a "reactors" call -- skip the JSON parse
             # entirely for that shape, matching every other fake client's own guard above.
             payload = None if user_prompt.startswith("citizens[") else json.loads(user_prompt)

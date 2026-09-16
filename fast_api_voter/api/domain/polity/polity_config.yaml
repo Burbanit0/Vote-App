@@ -600,13 +600,21 @@ llm:
                               #      (parallel.intra_run_workers > 1, vllm
                               #      seulement), un run se rejoue depuis son
                               #      llm_calls.jsonl (S0.6).
-  vote_cast_grammar_invariants: false  # [S1.2] grammaire vote_cast imposant
+  vote_cast_grammar_invariants: true  # [S1.2] grammaire vote_cast imposant
                               #      blank=1 <=> ranking vide et la longueur
                               #      maximale du classement
                               #      (llm_schemas.vote_cast_json_schema).
-                              #      false tant que l'A/B du bake-off n'est
-                              #      pas accepté : l'activer change les
-                              #      octets des requêtes vote_cast.
+                              #      Adoptée le 2026-09-16 : l'A/B du bake-off
+                              #      supprime l'erreur blank-avec-classement
+                              #      sans perte d'accord. Change les octets
+                              #      des requêtes vote_cast.
+  thinking_token_budget: 2048 # [S1.3] budget de raisonnement vLLM, envoyé
+                              #      sur vote_cast et chamber_deliberation
+                              #      seulement (les deux décisions mesurées).
+                              #      Adopté le 2026-09-16 : aucune perte
+                              #      d'accord, aucune troncature, temps de
+                              #      chamber_deliberation divisé par deux.
+                              #      null = aucun budget. vllm seulement.
 
 # =============================================================================
 # JOURNAL ET DONNÉES (§16)

@@ -372,6 +372,35 @@ def test_llm_max_batch_replays_positive_is_legal(tmp_path):
     assert load_config(path).llm.max_batch_replays == 2
 
 
+# ── S1.2 and S1.3, adopted 2026-09-16 ─────────────────────────────────────
+
+def test_the_shipped_config_adopts_the_vote_grammar_and_a_2048_thinking_budget():
+    llm = load_config().llm
+    assert (llm.vote_cast_grammar_invariants, llm.thinking_token_budget) == (True, 2048)
+
+
+def test_llm_thinking_token_budget_null_sends_no_budget(tmp_path):
+    path = _write(tmp_path, lambda d: d["llm"].__setitem__("thinking_token_budget", None))
+    assert load_config(path).llm.thinking_token_budget is None
+
+
+@pytest.mark.parametrize("budget", [0, -64])
+def test_llm_thinking_token_budget_not_positive_raises(tmp_path, budget):
+    path = _write(tmp_path, lambda d: d["llm"].__setitem__("thinking_token_budget", budget))
+    with pytest.raises(PolityConfigError, match="thinking_token_budget.*positive int or null"):
+        load_config(path)
+
+
+def test_llm_thinking_token_budget_needs_vllm(tmp_path):
+    """A budget is a vLLM request field. On another provider it is refused rather than
+    silently dropped, so a config never claims a budget its runs did not send."""
+    config = load_config()
+    on_ollama = dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=True, provider="ollama"))
+    with pytest.raises(PolityConfigError, match="thinking_token_budget.*needs 'llm.provider: vllm'"):
+        validate_config(on_ollama)
+    validate_config(dataclasses.replace(on_ollama, llm=dataclasses.replace(on_ollama.llm, thinking_token_budget=None)))
+
+
 # ── llm.recycle_after_n_calls (bug 4 investigation, 2026-08-19/20) ────────
 
 def test_llm_recycle_after_n_calls_null_is_legal(tmp_path):

@@ -124,7 +124,8 @@
     "recycle_after_n_calls": null,
     "reproducibility": "strict",
     "temperature": 0.0,
-    "vote_cast_grammar_invariants": false
+    "thinking_token_budget": 2048,
+    "vote_cast_grammar_invariants": true
   },
   "mandate": {
     "deviation_log_threshold": 0.1,
