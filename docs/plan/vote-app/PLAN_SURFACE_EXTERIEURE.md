@@ -439,6 +439,31 @@ Chacun est de l'ordre de la minute à l'heure :
   fichiers de `src/lib/` qui importent React : ils appartiennent à `hooks/`
   ou `components/`, pas à une « lib pure ».
 
+**Fait** (`docs/plan-surface-2l-small-accuracies`), un à un :
+- 29 vs 26 (lié à §2.E) : **différé** — §2.E n'est pas encore mergé (attend
+  `/code-review ultra`), et le nombre exact changera (27, pas 26, une fois
+  mergé). À revisiter avec ce PR-là, pas avant.
+- `auth` : **supprimé** des deux locales (`fr.ts`/`en.ts`) + régénéré la
+  pseudo-locale. 0 référence confirmée avant suppression.
+- Budget de bundle : **fait** — `.size-limit.json` exclut désormais
+  `pseudo-*.js`/`playground.pseudo-*.js`. Mesuré : 810 ko → 739 ko brotli
+  (marge 79 % → 72 % du budget 1 Mo), cohérent avec l'estimation.
+- `quizQuestions.ts` : **déjà résolu** — le fichier n'existe plus (0 résultat
+  de recherche), quelqu'un l'a supprimé ou animé depuis l'audit. Rien à faire.
+- Score de mutation : **fait** — un avertissement de périmètre explicite
+  ajouté à `.claude/skills/voter-ci/SKILL.md` (le score ne couvre que
+  ~4 % du code). Élargir le périmètre reste hors scope (mesuré comme
+  l'option lourde par le plan lui-même).
+- Reliquats `PLAN_METHODES_HISTOIRES_ATLAS.md` : **non traité** —
+  explicitement hors périmètre de ce plan-ci (« le reprendre », pas le
+  réécrire ici).
+- `lazyWithPreload.ts`/`rechartsFormatters.ts` : **le constat était à
+  moitié faux, vérifié avant d'agir**. `rechartsFormatters.ts` n'importe
+  React qu'en `import type { ReactNode }` — zéro empreinte runtime, rien à
+  déplacer. Seul `lazyWithPreload.ts` importe réellement `lazy` de React ;
+  déplacé vers `components/lazyWithPreload.ts` (son unique consommateur,
+  `labCatalog.tsx`, vit sous `components/lab/`).
+
 ---
 
 ## 3. Décision structurante — à trancher avant de séquencer

@@ -1,5 +1,5 @@
 import React from 'react';
-import { lazyWithPreload } from '../../lib/lazyWithPreload';
+import { lazyWithPreload } from '../lazyWithPreload';
 import { usePlaygroundCtx } from '../playground/PlaygroundController';
 import { useElection } from '../../stores/useElectionStore';
 
