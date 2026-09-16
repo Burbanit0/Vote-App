@@ -44,6 +44,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-015](#obs-015) | In the deterministic twin, presidents are recalled after a median of two ticks | 2026-09-13 | cause found |
 | [OBS-016](#obs-016) | The root disk filled up: p500 seed 42 died at tick 13 and the GPU queue ran nothing | 2026-09-14 | open |
 | [OBS-017](#obs-017) | WebKit crashed mid-navigation to /polity in CI, once, while the other worker ran the heavy fiches | 2026-09-16 | open |
+| [OBS-018](#obs-018) | The response contract, not the model, sets the president's stance in 22 of 650 responses | 2026-09-16 | cause found |
 
 ---
 
@@ -713,3 +714,73 @@ dropped, rather than anything the page did.
 - If it recurs, the fix belongs in CI scheduling -- `workers: 1` for the webkit project, or keeping
   `laboratoire.spec.ts` and `navigation.spec.ts` off the same runner at the same time -- not in the
   page.
+
+### OBS-018
+
+**The response contract, not the model, sets the president's stance in 22 of 650 responses.**
+
+*Seen.* In Stage 4's step-1 recordings (LLM path, population 100, seeds 1–10, 16 years, recorded at
+15a18d74), representative_response took 650 decisions and fell back in 246 of them. Every fallback
+enacts silence with motif 308. Traced through each decision's attempts in the call log:
+
+- **The common case: a silence cited 303.** 235 fallbacks came after three answers the schema
+  rejects, because silence requires motif 308. In 234 of them all three answers were silence with
+  motif 303, the legitimacy floor. The fallback enacts the silence the model chose, with another
+  motif.
+- **11 retried out of silence.** The first answer was a rejected silence (10 with motif 303, 1 with
+  301). A retry at temperature 0.3 was then accepted as a concession (5) or a defiance (6), in
+  seeds 1, 2, 5, 7, 8 and 10.
+- **11 concessions dropped to silence without a retry.** The model's single answer was a valid
+  concession, but a shift broke a config bound: 8 were larger than `mandate.max_response_delta`, 3
+  aimed at dimension 20 with `issue_count` 20. Those bounds are checked after the retry loop.
+- **The chamber shows the same gap at scale.** All 227 chamber_deliberation fallback batches, which
+  covered 1,135 of 19,500 member decisions, broke a config bound on their only attempt, 220 of them
+  by shifting more than `sortition_chamber.max_deliberation_shifts` (3) dimensions. Each fell back
+  to the sincere, no-shift decision. campaign_positioning checks its bounds the same way, but did
+  not fall back in these runs.
+
+*Evidence.*
+
+```bash
+cd fast_api_voter && python3 - <<'PY'
+import json
+from collections import Counter, defaultdict
+from pathlib import Path
+paths = Counter()
+for seed in range(1, 11):
+    run = Path(f"scripts/stage4_llm_runs/s42-record/seed-{seed}/run/seed-{seed}")
+    calls = defaultdict(list)
+    for line in (run / "llm_calls.jsonl").read_text().splitlines():
+        c = json.loads(line)
+        if c.get("decision_type") == "representative_response":
+            calls[(c["tick"], tuple(c["unit_ids"]))].append(c)
+    for line in (run / "events.jsonl").read_text().splitlines():
+        e = json.loads(line)
+        if e["event_type"] != "representative_response":
+            continue
+        answers = [json.loads(c["content"])["decisions"][0] for c in sorted(calls[(e["tick"], (e["citizen_id"],))], key=lambda c: c["attempt"])]
+        seq = " > ".join(f"{a['stance']}/{a['motif']}" for a in answers)
+        paths[f"{'fallback' if e['payload']['llm_fallback'] else 'accepted'} {seq} => {e['payload']['stance']}/{e['motif']}"] += 1
+for path, n in paths.most_common():
+    print(n, path)
+PY
+journalctl --user -u polity-stage4-s42-record --no-pager | grep -E 'exhausted every recovery attempt' | grep -oE '(schema validation|max_response_delta|max_deliberation_shifts|max_deliberation_delta|out of range)' | sort | uniq -c
+```
+
+*Cause (shown 2026-09-16).* Two separate mechanisms, both in `llm_behavior_engine`:
+
+- **The silence–motif rule.** `ResponseDecision._check_stance_coherence` accepts silence only with
+  motif 308. The model keeps citing 303 for a silence, so the decision is retried, and a retry
+  samples at temperature 0.3 (`_RESPONSE_RETRY_TEMPERATURE`), which can land on another stance.
+- **Bounds checked outside the retry.** `validate_response_decision`, `validate_chamber_decision`
+  and `validate_positioning_decision` run after `_complete_and_decode_with_replay` returns. Their
+  failure goes straight to the fallback, which the chamber's own comment states: "neither is
+  retried further".
+
+*Status and what would change it.* Nothing is changed while Stage 4 runs: every step must run on
+the bench step 1 recorded (plan-polity-build-order.md, "Stage 4 on the LLM path"). After the runs:
+
+- #545 lets a silence cite 303. That would end the 235 fallbacks and keep the 10 retried silences
+  silent.
+- Moving the bound checks inside the decode, so a bound failure is retried like a schema failure,
+  is a separate decision. It would change the chamber most.
