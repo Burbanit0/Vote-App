@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
 import LeaderCanvas from '../LeaderCanvas';
+import * as playgroundVoting from '../../../lib/playgroundVoting';
 import { sampleVoters, type NamedPt } from '../../../lib/playgroundVoting';
 
 const CANDS: NamedPt[] = [
@@ -153,5 +154,86 @@ describe('LeaderCanvas', () => {
     expect(screen.getByTestId('z-controls')).toBeInTheDocument();
     fireEvent.change(screen.getByTestId('z-slider-2'), { target: { value: '0.6' } });
     expect(onMoveCandidate).toHaveBeenCalledWith(2, cands[2].x, cands[2].y, 0.6);
+  });
+
+  // ── React.memo isolation (perf/leader-canvas-drag-and-memo) ────────────────
+  //
+  // LeaderCanvas can render up to VOTER_CAP+num_voters SVG <circle>s; it sits
+  // behind InstrumentPanel's deliberately broad usePlaygroundCtx(), so without
+  // a memo boundary any unrelated context slice changing forces a full
+  // re-render + reconcile of every node here. `fieldWinnerName` (imported from
+  // lib/playgroundVoting) is called unconditionally at the top of LeaderCanvas's
+  // render body, NOT behind any useMemo/useEffect -- so it fires exactly once
+  // per actual invocation of the component function, making it a precise proxy
+  // for "did React actually re-render this component" (as opposed to "did an
+  // ancestor merely re-render", which a snapshot or DOM assertion can't tell
+  // apart). Mirrors the render-count-via-spy methodology in
+  // PlaygroundController.render.test.tsx.
+  describe('React.memo', () => {
+    it('does not re-render when the parent re-renders with referentially-identical props', () => {
+      const spy = vi.spyOn(playgroundVoting, 'fieldWinnerName');
+      const onRuleChange = vi.fn();
+      const onMoveCandidate = vi.fn();
+      // Computed ONCE and reused as the same array reference across every
+      // Harness render below -- exactly like PlaygroundController's real
+      // `voters`/`leaderCandidates` useMemo. Calling this inline inside
+      // Harness would return a fresh array every render and defeat the memo
+      // for the wrong reason (an unstable test prop, not a real bug).
+      const voters = sampleVoters(60, 42, 'random');
+
+      function Harness() {
+        const [, bump] = React.useReducer((c: number) => c + 1, 0);
+        return (
+          <div>
+            <button onClick={() => bump()}>bump</button>
+            <LeaderCanvas
+              candidates={CANDS}
+              voters={voters}
+              rule="plurality"
+              dims={2}
+              onRuleChange={onRuleChange}
+              onMoveCandidate={onMoveCandidate}
+            />
+          </div>
+        );
+      }
+
+      render(<Harness />);
+      const rendersAfterMount = spy.mock.calls.length;
+      expect(rendersAfterMount).toBeGreaterThan(0);
+
+      // The parent re-renders (its own local state changed) but every single
+      // LeaderCanvas prop is the exact same reference as before.
+      fireEvent.click(screen.getByText('bump'));
+
+      expect(spy.mock.calls).toHaveLength(rendersAfterMount);
+    });
+
+    it('still re-renders when a real prop changes (e.g. the rule)', () => {
+      const spy = vi.spyOn(playgroundVoting, 'fieldWinnerName');
+      const voters = sampleVoters(60, 42, 'random');
+      const onRuleChange = vi.fn();
+      const onMoveCandidate = vi.fn();
+
+      function Harness({ rule }: { rule: 'plurality' | 'irv' }) {
+        return (
+          <LeaderCanvas
+            candidates={CANDS}
+            voters={voters}
+            rule={rule}
+            dims={2}
+            onRuleChange={onRuleChange}
+            onMoveCandidate={onMoveCandidate}
+          />
+        );
+      }
+
+      const { rerender } = render(<Harness rule="plurality" />);
+      const rendersAfterMount = spy.mock.calls.length;
+
+      rerender(<Harness rule="irv" />);
+
+      expect(spy.mock.calls.length).toBeGreaterThan(rendersAfterMount);
+    });
   });
 });
