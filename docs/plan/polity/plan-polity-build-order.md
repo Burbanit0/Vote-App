@@ -981,6 +981,16 @@ path either, and step 3 has nothing to run.** Run exactly as pre-registered:
   requires.
 - E3 reads full terms with the reading fixed in #535.
 
+*Amended 2026-09-16, signed off by the owner before any step-5 run.* **If E1–E3 hold at the all-zero
+set, the LLM path adopts emotions on with every weight at zero, not off.** The rule above came from
+the twin, where zero weights left emotions acting on nothing, so on and off were the same run. On
+the LLM path, `emotions.enabled` also puts anger, anxiety and enthusiasm into the pressure prompt
+whatever the weights (`llm_behavior_engine.pressure_signals`), and the model reads them: in the
+prerequisite session, MOBILIZE went from 0 of 4 borderline citizens at anger 0 to 4 of 4 at 0.75.
+The all-zero set is therefore measured with the fields in the prompt, and adopting it off would
+ship a setup E1–E3 were never read on. Nothing else changes: the order, the grid, the selection
+and the budget stay as signed, and when the all-zero set fails, the next level runs as before.
+
 ##### ADR-012's prerequisite, pre-registered before its session (2026-09-16)
 
 *Signed off by the owner on 2026-09-16 as written, before the session.*
