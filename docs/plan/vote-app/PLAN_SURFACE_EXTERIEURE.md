@@ -329,7 +329,7 @@ repli `ResultsMethodTable` sur les graphiques porteurs de résultat ;
 **Effort** : M · **Priorité** : haute si §2.C bascule côté publication,
 moyenne sinon.
 
-### 2.H 🟡 Le théorème d'Arrow est écrit mais inatteignable
+### 2.H 🟢 Le théorème d'Arrow est écrit mais inatteignable
 
 **Constat** : `fr.ts:2563-2625` contient 63 lignes d'excellente prose sur
 Arrow, y compris une prémisse interactive (« cochez les axiomes que vous
@@ -341,6 +341,26 @@ du domaine est absent du produit. Même schéma pour ~11 autres namespaces
 orphelins (~360 lignes), dont `mj` (jugement majoritaire) et `plott`.
 
 **Action** : une fiche + un panneau. La copie est déjà écrite et relue.
+
+**Fait** (`feat/restore-arrow-theorem-fiche`) : la copie était bien prête,
+mais pas pour la raison supposée — `ArrowExplorer.tsx` **existait déjà**
+(pentagone SVG des 4 axiomes, contre-exemples, courbe de taux de violation
+IIA, filtre interactif) et appelait déjà `/api/v2/theory/arrow` +
+`/api/v2/theory/iia-rate`, deux endpoints backend toujours vivants et
+testés. Il a été supprimé par erreur collatérale (778b0c6d, nettoyage de
+l'arbre `Simulation/` mort, sans rapport avec Arrow lui-même) plutôt que
+jamais construit. Restauré à `components/shared/theory/ArrowExplorer.tsx`
+(aux côtés de `SenParadoxPanel` et consorts), enregistré comme fiche
+`thy-arrow` (1ʳᵉ de la famille « Théorie & analyse », désormais 20 fiches,
+63 au total — `README.md`/`GUIDE_UTILISATEUR.md`/`labCatalog.test.ts` mis à
+jour). `ArrowCriteriaMatrix.tsx` (supprimé dans le même commit) n'a **pas**
+été restauré : dépendait d'infrastructure elle aussi supprimée, et son
+contenu (6 critères × toutes les méthodes) est déjà couvert par la fiche
+`MethodsMatrix` existante — l'aurait rendu redondant, pas manquant.
+
+Les ~11 namespaces orphelins restants (`mj`, `plott`, …) ne sont pas
+traités ici —à vérifier au cas par cas si le même schéma (code supprimé
+par erreur collatérale vs jamais construit) s'applique.
 
 **Effort** : S-M · **Priorité** : moyenne — meilleur retour sur contenu déjà
 payé.
@@ -393,12 +413,74 @@ pas un angle mort.
 **Action** : 3-4 contextes par préoccupation, ou le motif de sélecteurs
 Zustand **déjà utilisé dans ce dépôt** (`stores/useElectionStore.tsx`).
 
+**Fait, différemment** (`refactor/enable-exhaustive-deps-lint`, corrigé
+ensuite sur `fix/dependency-array-staleness-review` après un
+`/code-review ultra`) : vérifié avant d'exécuter l'action littérale, et le
+vrai problème n'était pas celui décrit. `eslint-plugin-react-hooks` est
+importé dans `eslint.config.js` mais **aucune de ses règles n'était activée
+nulle part dans le dépôt** (ni ici, ni en config informationnelle séparée
+comme `sonarjs`) — c'est *exactement* la raison technique du risque cité
+(« périmé sans erreur de type ») : rien ne peut jamais détecter l'oubli, pas
+seulement dans ce fichier, dans tout le dépôt. Corrigé à la racine plutôt
+que dans ce seul fichier : `react-hooks/exhaustive-deps` activée en `warn`
+(informationnel, non bloquant — même statut que sonarjs, 51 avertissements
+pré-existants sur 37 fichiers non triés un par un) ; `react-hooks/rules-of-hooks`
+activée en `error` directement (0 violation existante — même traitement que
+`jsx-a11y`/`unused-imports` quand leur passif est tombé à zéro, pas de
+raison de la faire transiter par `warn`). 0 erreur sur le `main` memo
+(`PlaygroundController.tsx:512-644`) lui-même : son tableau, bien que
+dupliqué à la main, est actuellement correct.
+
+**Ce que le `/code-review ultra` a trouvé** : les 3 avertissements
+`shakeKey`/`leaderScKey`/`parlScKey` de ce même fichier avaient d'abord été
+qualifiés de « clé sérialisée volontaire, pas un bug » — faux pour 2 des 3.
+`shakeKey`/`leaderScKey` omettaient `c.valence` de la clé alors que
+`leaderCandidates` l'y inclut et que l'utilité de vote en dépend
+(`playgroundVoting.ts:109`) : activer la valence et glisser son curseur ne
+rafraîchissait ni le panneau « Shake » ni la fiche de score. `parlScKey`
+omettait `turnout` et l'électorat composé en entier, alors que
+`runAssemblyScorecard` envoie les deux (`assemblyApi.ts:117-131`) : changer
+le modèle d'abstention ou l'électorat composé en mode Assemblée ne
+rafraîchissait pas le Bilan. Les trois clés incluent maintenant tous les
+champs réellement lus ; les commentaires ont été corrigés pour cesser de
+certifier ces motifs comme sûrs sans l'avoir vérifié.
+
+**Le split 3-4 contextes n'a délibérément PAS été fait — mais une des deux
+raisons initialement citées ici était fausse**, trouvé par un
+`/code-review ultra` sur ce chantier lui-même : la phrase précédente de
+cette section disait « le test existant dit lui-même que le split
+`methodSelection` ne réduit pas les rendus », citée comme preuve que le
+bénéfice d'un split général n'était pas démontré. C'est l'inverse de ce que
+dit `PlaygroundController.render.test.tsx` (lignes 32-50, 107-162) : le
+fichier distingue explicitement deux choses — mémoïser l'objet-valeur
+`main` ne réduit **pas** les rendus (tout le monde reste abonné au même
+contexte monolithique) ; le split `methodSelection`, lui, **réduit bien les
+rendus**, mesuré directement (« Toggling a rule now only re-renders
+MethodMoment, ValuesLabPanel and BilanMoment »). Contradit aussi
+CLAUDE.md, « Playground architecture », qui décrit correctement ce même
+split comme conçu pour empêcher exactement ces re-renders.
+
+Corrigé : l'évidence disponible **penche donc en faveur** du split par
+préoccupation, pas contre. Les deux raisons qui restent, honnêtes cette
+fois : (1) l'auteur d'origine a lui-même écrit, sur place
+(`PlaygroundController.tsx:472-497`), qu'il fallait « revisiter avec
+l'approche plus générale si cette classe de flake se reproduit sur un
+autre contrôle » — aucune récidive constatée depuis ; (2) le rayon
+d'impact (chaque panneau de moment, `LeaderCanvas`, etc. devrait être
+réécrit pour choisir le bon sous-contexte) reste réel, même si le
+bénéfice par preuve d'existence (`methodSelection`) est maintenant établi,
+pas supposé. Le correctif eslint referme le vrai trou de ce chantier
+(silencieux, sans erreur) indépendamment de cette question. **Question
+ouverte, pas tranchée** : faire le split complet reste un chantier
+raisonnable à prioriser si souhaité — ce n'était pas dans le périmètre
+temporel de ce chantier-ci, pas écarté sur le fond.
+
 **Effort** : M (≈ 1 jour, surface bien testée) · **Priorité** : moyenne.
 
 ### 2.K 🟢 Complexité : 15 fonctions ≥ E, les 2 F sont dans polity
 
-**Constat** (mesuré : `uvx radon cc api/ -e "api/tests/*" -n E -s`) — 15
-fonctions de rang E ou pire. Les deux F :
+**Constat** (mesuré **sur `develop`** : `uvx radon cc api/ -e "api/tests/*"
+-n E -s`) — 15 fonctions de rang E ou pire. Les deux F :
 
 | Fonction | Rang | Emplacement |
 |---|---|---|
@@ -457,6 +539,31 @@ Chacun est de l'ordre de la minute à l'heure :
 - **`lazyWithPreload.ts` et `rechartsFormatters.ts`** sont les deux seuls
   fichiers de `src/lib/` qui importent React : ils appartiennent à `hooks/`
   ou `components/`, pas à une « lib pure ».
+
+**Fait** (`docs/plan-surface-2l-small-accuracies`), un à un :
+- 29 vs 26 (lié à §2.E) : **différé** — §2.E n'est pas encore mergé (attend
+  `/code-review ultra`), et le nombre exact changera (27, pas 26, une fois
+  mergé). À revisiter avec ce PR-là, pas avant.
+- `auth` : **supprimé** des deux locales (`fr.ts`/`en.ts`) + régénéré la
+  pseudo-locale. 0 référence confirmée avant suppression.
+- Budget de bundle : **fait** — `.size-limit.json` exclut désormais
+  `pseudo-*.js`/`playground.pseudo-*.js`. Mesuré : 810 ko → 739 ko brotli
+  (marge 79 % → 72 % du budget 1 Mo), cohérent avec l'estimation.
+- `quizQuestions.ts` : **déjà résolu** — le fichier n'existe plus (0 résultat
+  de recherche), quelqu'un l'a supprimé ou animé depuis l'audit. Rien à faire.
+- Score de mutation : **fait** — un avertissement de périmètre explicite
+  ajouté à `.claude/skills/voter-ci/SKILL.md` (le score ne couvre que
+  ~4 % du code). Élargir le périmètre reste hors scope (mesuré comme
+  l'option lourde par le plan lui-même).
+- Reliquats `PLAN_METHODES_HISTOIRES_ATLAS.md` : **non traité** —
+  explicitement hors périmètre de ce plan-ci (« le reprendre », pas le
+  réécrire ici).
+- `lazyWithPreload.ts`/`rechartsFormatters.ts` : **le constat était à
+  moitié faux, vérifié avant d'agir**. `rechartsFormatters.ts` n'importe
+  React qu'en `import type { ReactNode }` — zéro empreinte runtime, rien à
+  déplacer. Seul `lazyWithPreload.ts` importe réellement `lazy` de React ;
+  déplacé vers `components/lazyWithPreload.ts` (son unique consommateur,
+  `labCatalog.tsx`, vit sous `components/lab/`).
 
 ---
 

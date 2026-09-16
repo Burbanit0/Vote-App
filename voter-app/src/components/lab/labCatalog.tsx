@@ -1,11 +1,14 @@
 import React from 'react';
-import { lazyWithPreload } from '../../lib/lazyWithPreload';
+import { lazyWithPreload } from '../lazyWithPreload';
 import { usePlaygroundCtx } from '../playground/PlaygroundController';
 import { useElection } from '../../stores/useElectionStore';
 
 // labCatalog — the Laboratoire's entire content as DATA. One entry per
 // experiment: 53 former anchor leaves + the strategy panel split into its four
-// modules + ballot + values + the methods duel, matrix and gallery = 62 fiches.
+// modules + ballot + values + the methods duel, matrix and gallery = 62 fiches,
+// plus thy-arrow (Arrow's impossibility theorem), restored after an unrelated
+// route consolidation orphaned it (see labCatalog.test.ts's RESTORED comment)
+// = 63 fiches.
 // The page (LaboratoirePage) is a thin reader: a family rail, a catalogue of
 // chips, and one full-width bench ("établi") that renders the selected entry —
 // so no experiment ever stacks under another and nothing mounts unpicked.
@@ -97,6 +100,7 @@ const AffectivePolarizationPanel = lazyWithPreload(
 );
 
 // Théorie & paradoxes
+const ArrowExplorer = lazyWithPreload(() => import('../shared/theory/ArrowExplorer'));
 const SenParadoxPanel = lazyWithPreload(() => import('../shared/theory/SenParadoxPanel'));
 const JudgmentAggregationPanel = lazyWithPreload(
   () => import('../shared/theory/JudgmentAggregationPanel')
@@ -534,6 +538,7 @@ export const LAB_FAMILIES: LabFamily[] = [
         introKey: 'anchorBody.theory.intro',
         experiments: [
           exp('lexique', 'lexique.title', LexiquePanel, LexiquePanel.preload),
+          exp('thy-arrow', 'anchorBody.theory.arrow', ArrowExplorer, ArrowExplorer.preload),
           exp('thy-sen', 'anchorBody.theory.sen', SenParadoxPanel, SenParadoxPanel.preload),
           exp(
             'thy-judgment',

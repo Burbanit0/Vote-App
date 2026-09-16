@@ -264,7 +264,7 @@ function useController() {
   const shakeKey = JSON.stringify({
     on: shakeOn,
     rule: leaderRule,
-    cands: leaderCandidates.map((c) => [c.name, c.x, c.y, c.z]),
+    cands: leaderCandidates.map((c) => [c.name, c.x, c.y, c.z, c.valence]),
     n: config.num_voters,
     seed: config.seed,
     ideology: config.ideology,
@@ -293,13 +293,21 @@ function useController() {
       );
     }, 200);
     return () => clearTimeout(t);
+    // shakeKey is a deliberate serialized digest of every value this effect
+    // actually reads (including c.valence — omitted until a /code-review
+    // ultra pass caught it: valence-only edits were silently not
+    // re-triggering a shake), so the effect re-fires on VALUE change only,
+    // not on every new object identity (turnout/electorateSampler are
+    // recreated each render). Depending on the raw fields instead would
+    // defeat that — react-hooks/exhaustive-deps flags this as informational
+    // only (see eslint.config.js), not silenced.
   }, [shakeKey]);
 
   // ── Scorecard + values lens (P5) ──────────────────────────────────────────
   const [leaderSc, setLeaderSc] = React.useState<LeaderScorecard | null>(null);
   const leaderScKey = JSON.stringify({
     on: mode === 'leader',
-    cands: leaderCandidates.map((c) => [c.name, c.x, c.y, c.z]),
+    cands: leaderCandidates.map((c) => [c.name, c.x, c.y, c.z, c.valence]),
     n: config.num_voters,
     seed: config.seed,
     ideology: config.ideology,
@@ -324,6 +332,8 @@ function useController() {
       );
     }, 250);
     return () => clearTimeout(t);
+    // leaderScKey is a deliberate serialized digest (incl. c.valence) — see
+    // shakeKey above.
   }, [leaderScKey]);
 
   const [parlSc, setParlSc] = React.useState<AssemblyScorecardResult | null>(null);
@@ -337,6 +347,8 @@ function useController() {
     threshold: assembly.threshold,
     appt: assembly.apportionment,
     des: assembly.strategic_desertion,
+    turnout,
+    electorate: electorateSampler,
   });
   React.useEffect(() => {
     if (mode !== 'parliament') return;
@@ -354,6 +366,12 @@ function useController() {
       alive = false;
       clearTimeout(t);
     };
+    // parlScKey is a deliberate serialized digest of everything
+    // runAssemblyScorecard's payload actually sends (turnout + composed-
+    // electorate settings included — both were missing until a
+    // /code-review ultra pass caught it: changing the abstention model or
+    // electorate composition in Assemblée mode silently didn't refresh the
+    // Bilan scorecard). See shakeKey above for why a digest, not raw deps.
   }, [parlScKey]);
 
   const [leaderWeights, setLeaderWeights] = React.useState(() => defaultWeights(LEADER_AXES_KEYS));
