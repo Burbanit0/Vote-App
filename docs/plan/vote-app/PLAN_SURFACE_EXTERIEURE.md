@@ -313,24 +313,29 @@ réordonnancement des clés, votes et noms inchangés — mécanisme confirmé d
 les deux moteurs : `_score_candidates` + `max(..., key=...)` côté backend et
 `argmax` côté client renvoient tous deux le premier candidat au rang maximal,
 donc un rang position/insertion, pas l'algorithme maximin lui-même). Après
-activation et régénération, vainqueurs stricts réels : score 59/60, star
+activation et régénération, vainqueurs stricts réels : score 57/60, star
 59/60, cumulative 60/60, nash 60/60 — largement au-dessus du seuil partagé de
-40 — mais **maximin 2/60**. Option (a) du plan (augmenter le nombre de
+40 — mais **maximin 1/60**. Option (a) du plan (augmenter le nombre de
 scénarios pour rester au-dessus de 40 vainqueurs génuinement stricts) mesurée
 et rejetée : le taux réel de vainqueurs maximin non départagés par position
-est de ~2 % sur la grille (m, n) existante (n≥21, scores entiers 0-5 → un
+est de ~1,7 % sur la grille (m, n) existante (n≥21, scores entiers 0-5 → un
 candidat a une probabilité ~98 % que son pire score touche 0, d'où des
-égalités massives) ; en tirer 40 demanderait ~1900 scénarios, soit +1,3 Mo de
+égalités massives) ; en tirer 40 demanderait ~2400 scénarios, soit +1,6 Mo de
 JSON à ~713 o/scénario — la fixture n'a que ~40 Ko (~56 scénarios) de marge
 avant la limite de 500 Ko du hook `check-added-large-files`. Option (b)
 retenue à la place : `MIN_STRICT_WINNERS_MAXIMIN = 1`, seuil propre à
-`maximin` dans `playgroundVoting.parity.test.ts`, documenté en commentaire
-avec les chiffres mesurés — ne garde que la garantie « la section n'est pas
-totalement vide », pas un nombre à 40. La boucle `cardinalScenarios` de
-`main()` a aussi reçu son propre flux RNG seedé (`cardinal_rng`), pour ne
-plus dépendre de l'ordre de tirage de la section ordinale qui la précède
-(même correctif que celui déjà appliqué à `single_rule_scenarios` pour
-`approval`/`majority_judgment`).
+`maximin` dans `playgroundVoting.parity.test.ts`, fixé exactement au compte
+mesuré (le générateur est déterministe) — ne garde que la garantie « la
+section n'est pas totalement vide », pas un nombre à 40. La boucle
+`cardinalScenarios` de `main()` a aussi reçu ses propres flux RNG seedés : un
+flux de bulletins partagé entre les 5 règles (elles lisent volontairement la
+même matrice de scores par scénario) et un flux d'essais indépendant **par
+règle** pour la boucle de 200 essais de `strict_winner_cardinal`, pour qu'un
+changement futur sur une règle ne puisse plus décaler le flux aléatoire des
+autres règles ni de la section ordinale qui précède (même correctif que celui
+déjà appliqué à `single_rule_scenarios` pour `approval`/`majority_judgment`,
+poussé un cran plus loin après une revue `/code-review max` qui a relevé que
+mon premier passage partageait encore un seul flux entre les 5 règles).
 
 **Effort** : S (une après-midi) · **Priorité** : haute — meilleur rapport
 valeur/effort du plan.

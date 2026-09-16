@@ -179,20 +179,25 @@ def strict_winner(fn, ballots, cands, rng):
     return base
 
 
-def strict_winner_cardinal(fn, ballots, cands, rng, shuffle_keys=False):
+def strict_winner_cardinal(fn, ballots, cands, rng, shuffle_keys=True):
     """As strict_winner, for score ballots (per-voter {candidate: score} dicts):
     keep the winner only if it survives relabeling the candidates and shuffling
     the voters, so it isn't a tie-break artefact.
 
     Relabeling alone keeps every candidate at the same dict position, so a
     tie broken by first-seen key order survives it and passes as "strict".
-    shuffle_keys also reorders each trial's keys, which exposes that. Every
-    caller below now passes shuffle_keys=True, including the CARDINAL section
-    (main()'s cardinal_scenarios loop) -- it used not to: without it, 59/60 of
+    shuffle_keys also reorders each trial's keys, which exposes that -- it
+    defaults True because False is now a known-weaker mode with no upside, not
+    a real alternative: pass shuffle_keys=False only to deliberately reproduce
+    the pre-fix behavior (e.g. bisecting when it changed something), never for
+    a new caller. single_rule_scenarios still passes it explicitly for
+    clarity at the call site; main()'s cardinal loop relies on the default.
+    The default used to be False, and the CARDINAL section (main()'s
+    cardinal_scenarios loop) used to skip it entirely: without it, 59/60 of
     that section's maximin winners (and a few score/STAR ones) were key-order
     tie-breaks both engines happen to share, not genuine algorithmic
     agreement. Turning it on for CARDINAL dropped maximin's strict-winner
-    count to a measured ~2/60 (a real property of the rule, not a bug -- see
+    count to a measured 1/60 (a real property of the rule, not a bug -- see
     MIN_STRICT_WINNERS_MAXIMIN's comment in playgroundVoting.parity.test.ts);
     score/STAR/cumulative/nash stayed comfortably above the shared 40-winner
     floor. PLAN_SURFACE_EXTERIEURE.md §2.E has the full before/after."""
@@ -306,19 +311,27 @@ def main() -> None:
                 winners = {rule: strict_winner(fn, ballots, cands, rng) for rule, fn in RULES.items()}
                 scenarios.append({"candidates": cands, "ballots": ballots, "winners": winners})
 
-    # Own seeded stream, like single_rule_scenarios' — so a change to the
-    # ordinal RULES section above (or its own strict_winner trial count)
-    # doesn't re-roll every cardinal ballot too, the same coupling bug fixed
-    # for approval/majority_judgment (PLAN_SURFACE_EXTERIEURE.md §2.E).
-    cardinal_rng = random.Random(f"{SEED}:cardinal")
+    # Own seeded streams, like single_rule_scenarios' — so a change to the
+    # ordinal RULES section above doesn't re-roll every cardinal ballot too
+    # (the same coupling bug fixed for approval/majority_judgment,
+    # PLAN_SURFACE_EXTERIEURE.md §2.E). The 5 CARDINAL rules still share ONE
+    # ballot stream, since they're deliberately fed the SAME score matrix per
+    # scenario (that's the whole point of this section) — but each gets its
+    # OWN trial stream for strict_winner_cardinal's 200-trial relabel/shuffle
+    # loop, so a future change to one rule's tie-break behavior (e.g. finally
+    # fixing get_maximin_score_winner's) can't shift how many relabel/shuffle
+    # calls run before it and silently re-roll the OTHER rules' recorded
+    # winners and ballots for later scenarios too.
+    cardinal_ballot_rng = random.Random(f"{SEED}:cardinal:ballots")
+    cardinal_trial_rngs = {rule: random.Random(f"{SEED}:cardinal:trials:{rule}") for rule in CARDINAL}
     cardinal_scenarios = []
     for m in (3, 4, 5):
         cands = NAMES[:m]
         for n in (21, 31, 41, 51, 61):
             for _ in range(4):
-                score_ballots = [{c: cardinal_rng.randint(0, 5) for c in cands} for _ in range(n)]
+                score_ballots = [{c: cardinal_ballot_rng.randint(0, 5) for c in cands} for _ in range(n)]
                 winners = {
-                    rule: strict_winner_cardinal(fn, score_ballots, cands, cardinal_rng, shuffle_keys=True)
+                    rule: strict_winner_cardinal(fn, score_ballots, cands, cardinal_trial_rngs[rule])
                     for rule, fn in CARDINAL.items()
                 }
                 matrix = [[b[c] for c in cands] for b in score_ballots]
