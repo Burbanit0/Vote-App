@@ -269,16 +269,16 @@ contourne la différence de modélisation déjà documentée dans
   ~8 % des électorats spatiaux contre `get_approval_winner_sincere`, ~27 %
   contre `get_approval_winner` (approuver ses 2 premiers), le chemin
   qu'emprunte la plupart des appelants backend.
-- `majority_judgment` : **diverge sur 6/58 scénarios stricts**, un bug
-  **backend**. Le diagnostic de la première version de cette note (« un
-  seul pas de retrait au lieu de la procédure itérative ») était **faux**,
-  et la revue locale max l'a réfuté en exécutant le code : aucun des écarts
-  n'atteint ce pas de retrait. Le backend départage les médianes égales par
+- `majority_judgment` : **divergeait sur 6/58 scénarios stricts**, un bug
+  **backend** — corrigé (`fix/majority-judgment-gauge`, voir plus bas).
+  Le diagnostic de la première version de cette note (« un seul pas de
+  retrait au lieu de la procédure itérative ») était **faux**, et la revue
+  locale max l'a réfuté en exécutant le code : aucun des écarts n'atteignait
+  ce pas de retrait. Le backend départageait les médianes égales par
   `p − q`, qui n'est pas la jauge majoritaire de Balinski-Laraki (`+p` si
-  `p > q`, sinon `−q`) ; la jauge donne le vainqueur du client sur les 6.
-  Rendre le retrait itératif sans changer la clé n'en corrige **aucun**.
-  Épinglé comme liste exacte dans `KNOWN_DIVERGENT`
-  (`playgroundVoting.parity.test.ts`).
+  `p > q`, sinon `−q`) ; la jauge donnait le vainqueur du client sur les 6,
+  mais n'est pas non plus la bonne généralisation (voir plus bas). 28
+  méthodes désormais identiques, `KNOWN_DIVERGENT` vide.
 
 **Revue locale max (10 angles) — corrigé dans ce PR** : assertion par
 compte (`toBe(3)`) remplacée par la liste exacte (un autre ensemble de même
@@ -291,17 +291,22 @@ ces deux sections (sinon une égalité départagée par position passait pour
 comparés » ; notes entières dans la fixture (−37 ko, 460 ko contre la limite
 de 500 ko du hook `check-added-large-files`).
 
-**Reste à faire, hors de ce PR** :
-- **Corriger `get_majority_judgment_winner`** (moteur, branche dédiée,
-  revue requise avant PR) : la procédure du client, en comptes entiers.
-  Changer la clé seule ne suffit pas, trois défauts s'ajoutent : égalités de
-  jauge, retrait limité aux deux premiers, `p` et `q` comparés en flottants
-  (une égalité exacte peut être tranchée par un arrondi, ~1 % des profils).
-  Et le retrait écrase `all_grades`, donc `grade_distributions`/`medians`
-  renvoyés par l'API perdent un bulletin pour les deux candidats départagés.
-  Une fois corrigé, ajouter MJ (et approval) au domaine exhaustif, avec des
-  effectifs pairs : aujourd'hui passer à la médiane haute ne bouge pas la
-  fixture.
+**Fait** (`fix/majority-judgment-gauge`) : `get_majority_judgment_winner`
+réimplémente la procédure du client — retrait itératif de la médiane
+partagée, recomparaison, jusqu'à décision — au lieu de la clé `p − q`. Trois
+défauts corrigés au passage, pas seulement la clé de tri : le retrait
+s'applique à **tous** les candidats encore à égalité (pas seulement les
+deux premiers), les comparaisons de médianes se font en entiers (plus de
+`p`/`q` en flottant, donc plus d'égalité tranchée par un arrondi), et le
+retrait opère sur une copie — `all_grades` n'est plus muté, donc
+`grade_distributions`/`medians` renvoyés par l'API restent les vraies
+valeurs même pour un candidat départagé par le retrait (bug vérifié :
+l'ancien code rapportait des médianes différentes pour deux candidats
+réellement à égalité). `_mj_majority_gauge` était devenu mort code une fois
+la clé retirée — supprimé avec son test dédié plutôt que gardé sous un
+whitelist vulture. Fixture régénérée : seuls les 6 scénarios divergents
+bougent (dont 2 qui n'avaient pas de vainqueur strict avant, le backend
+étant désormais lui-même stable au relabel), `KNOWN_DIVERGENT` vidé.
 - **Approval** : choisir une seule façon de dériver le bulletin d'approbation
   à partir de l'utilité (décision produit), puis nourrir cette section en
   utilités continues.
@@ -621,10 +626,10 @@ Chacun est de l'ordre de la minute à l'heure :
   ou `components/`, pas à une « lib pure ».
 
 **Fait** (`docs/plan-surface-2l-small-accuracies`), un à un :
-- 29 vs 26 (lié à §2.E) : **fait avec §2.E** (`feat/extend-parity-approval-mj`).
-  29 règles côté client ; 27 verrouillées en parité (approval au dépouillement
-  seulement) ; `majority_judgment` comparé mais divergent (bug backend
-  tracké) ; `random_ballot` exclu (loterie). `README.md` le dit ainsi.
+- 29 vs 26 (lié à §2.E) : **fait avec §2.E** (`feat/extend-parity-approval-mj`)
+  puis `fix/majority-judgment-gauge`. 29 règles côté client ; 28 verrouillées
+  en parité (approval au dépouillement seulement — voir §2.E) ; `random_ballot`
+  exclu (loterie). `README.md` le dit ainsi.
 - `auth` : **supprimé** des deux locales (`fr.ts`/`en.ts`) + régénéré la
   pseudo-locale. 0 référence confirmée avant suppression.
 - Budget de bundle : **fait** — `.size-limit.json` exclut désormais
@@ -740,7 +745,8 @@ grep -nE '^\s+(num_\w+|values|candidates)\s*:\s*(int|List)' \
 grep -n "participation" voter-app/src/data/methodCriteria.ts
 grep -n "Condorcet-cohérente" THEORY.md
 
-# 2.E — les règles hors parité (attendu : approval, majority_judgment, random_ballot)
+# 2.E — les règles hors parité (attendu, après fix/majority-judgment-gauge : random_ballot
+#   seule ; approval et majority_judgment sont désormais comparées)
 #   union Rule côté client vs clés présentes dans engineParity.json
 
 # 2.F — un vainqueur attendu en dur dans la suite e2e (attendu : aucun)

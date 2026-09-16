@@ -115,6 +115,14 @@ function useController() {
   // moment is active (the sincerity module lives there).
   const [youPos, setYouPos] = React.useState<Pt>({ x: -0.5, y: 0, z: 0 });
   const showYou = mode === 'leader' && activeMoment === 'strategy';
+  // Stable identity across renders (unlike the inline arrow InstrumentPanel used
+  // to pass as onMoveYou) — required for LeaderCanvas's React.memo to actually
+  // bail when nothing it reads changed; see moveCandidate/pinToPlayground below
+  // for the same pattern, already established before this one.
+  const moveYou = React.useCallback(
+    (x: number, y: number) => setYouPos((p) => ({ ...p, x, y })),
+    []
+  );
 
   // The composable electorate (engine): when 'composed', a community mixture
   // replaces the single ideology Gaussian and tags each voter with its bloc.
@@ -499,8 +507,21 @@ function useController() {
   // actually behaves:
   //   - storeCtx: the raw config/playground bindings and anything that is a
   //     pure read of them (dims, electorate, composed). Coarse-grained --
-  //     almost every consumer reads `mode` at least -- but changes only on
-  //     an explicit settings edit, never on a drag/slider frame.
+  //     almost every consumer reads `mode` at least. CORRECTION (perf audit,
+  //     see useElectionStore.tsx's debounced-persistence comment): this used
+  //     to claim `config` changes only on an explicit settings edit, never on
+  //     a drag/slider frame -- verified false. moveCandidate (below) writes
+  //     into `config` via setConfig on EVERY drag frame/slider tick, same as
+  //     any other settings edit, so storeCtx (and every plain
+  //     usePlaygroundCtx() consumer: ModeSwitch, StoryPlayer, GuidedFooter,
+  //     the active moment panel) re-renders on every one of those too -- this
+  //     slice does NOT get the drag-frame isolation instrumentCtx gives a
+  //     narrowly-scoped consumer. What the persistence fix removed was only
+  //     the synchronous localStorage WRITE per frame, not the config update
+  //     or the re-renders it causes; decoupling the live drag position from
+  //     `config` entirely (so a drag doesn't touch storeCtx at all) was
+  //     evaluated and deliberately deferred -- see the PR that introduced
+  //     this correction for why.
   //   - journeyCtx: where the user is and what they're looking at -- the
   //     active moment, the rule under examination, the map lens (whose
   //     default is itself derived from the moment). Discrete clicks only.
@@ -589,6 +610,7 @@ function useController() {
     () => ({
       youPos,
       setYouPos,
+      moveYou,
       voters,
       voterColors,
       leaderCandidates,
@@ -606,6 +628,7 @@ function useController() {
     [
       youPos,
       setYouPos,
+      moveYou,
       voters,
       voterColors,
       leaderCandidates,

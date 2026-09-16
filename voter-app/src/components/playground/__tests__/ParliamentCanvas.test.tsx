@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
 import ParliamentCanvas, { hemicycleSeats } from '../ParliamentCanvas';
+import * as cnUtils from '@/lib/utils';
 import { sampleVoters, type NamedPt } from '../../../lib/playgroundVoting';
 import type { AssemblyResult } from '../../../services/assemblyApi';
 
@@ -191,5 +192,73 @@ describe('ParliamentCanvas', () => {
     expect(mirror).toHaveTextContent('Left · conservative');
     expect(mirror).toHaveTextContent('20 % → 0 %'); // the unrepresented region
     expect(mirror).toHaveTextContent('25 % → 41 %');
+  });
+
+  // ── React.memo isolation (perf/leader-canvas-drag-and-memo) ────────────────
+  //
+  // Same rationale as LeaderCanvas's memo test: ParliamentCanvas renders one
+  // <circle> per voter with no cap, behind the same broad InstrumentPanel
+  // context read. `cn` (from lib/utils) is called unconditionally, multiple
+  // times, in the render body whenever `result` is present (the coalition
+  // toggle buttons + status div) -- not behind any useMemo -- so its call
+  // count is a precise proxy for "did the component function actually run".
+  describe('React.memo', () => {
+    it('does not re-render when the parent re-renders with referentially-identical props', () => {
+      const spy = vi.spyOn(cnUtils, 'cn');
+      const onMoveParty = vi.fn();
+      // Computed once, reused as the same reference -- see LeaderCanvas's
+      // equivalent test for why an inline call here would be a false negative.
+      const voters = sampleVoters(60, 42, 'random');
+
+      function Harness() {
+        const [, bump] = React.useReducer((c: number) => c + 1, 0);
+        return (
+          <div>
+            <button onClick={() => bump()}>bump</button>
+            <ParliamentCanvas
+              parties={PARTIES}
+              voters={voters}
+              result={RESULT}
+              loading={false}
+              onMoveParty={onMoveParty}
+            />
+          </div>
+        );
+      }
+
+      render(<Harness />);
+      const rendersAfterMount = spy.mock.calls.length;
+      expect(rendersAfterMount).toBeGreaterThan(0);
+
+      fireEvent.click(screen.getByText('bump'));
+
+      expect(spy.mock.calls).toHaveLength(rendersAfterMount);
+    });
+
+    it('still re-renders when a real prop changes (e.g. the assembly result)', () => {
+      const spy = vi.spyOn(cnUtils, 'cn');
+      const voters = sampleVoters(60, 42, 'random');
+      const onMoveParty = vi.fn();
+      const result2: AssemblyResult = { ...RESULT, gallagher_index: 9.9 };
+
+      function Harness({ result }: { result: AssemblyResult }) {
+        return (
+          <ParliamentCanvas
+            parties={PARTIES}
+            voters={voters}
+            result={result}
+            loading={false}
+            onMoveParty={onMoveParty}
+          />
+        );
+      }
+
+      const { rerender } = render(<Harness result={RESULT} />);
+      const rendersAfterMount = spy.mock.calls.length;
+
+      rerender(<Harness result={result2} />);
+
+      expect(spy.mock.calls.length).toBeGreaterThan(rendersAfterMount);
+    });
   });
 });
