@@ -40,10 +40,22 @@ A decision whose every attempt fails validation falls back to the deterministic 
 | chamber_deliberation | 40 (4.0%) | 990 |
 | candidacy, nomination, positioning, vote, pressure, coalition, reaction | 0 | 1,120 |
 
-**Nearly half of the president's responses to pressure are the fallback's, not the model's.** The
-journal shows the cause: the model answers `stance` 3 (silence) with motif 303, the validator
-requires 308 for silence, every retry repeats it, and the engine substitutes silence. On the LLM
-path, facts about incumbents and their terms rest partly on that substitute.
+**Nearly half of the president's responses are recorded as fallbacks — but the president's
+behaviour is the model's.** The call log holds every raw answer:
+
+| the model's answer | attempt 0 | retry 1 | retry 2 |
+|---|---:|---:|---:|
+| concession (stance 1), motif 301, with shifts | 17 | — | — |
+| silence (stance 3), motif 303, no shifts | 16 | 16 | 16 |
+
+In all 16 fallbacks the model chose silence with no position change, and repeated it unchanged on
+both retries. The validator allows silence only with motif 308 (strategic ambiguity); the model's
+motif 303 (legitimacy floor approaching) is a reason the codebook reserves for concessions. The
+fallback then substitutes silence with no position change — the same action the model chose.
+
+So a fact about what presidents *do* reads the model's behaviour exactly. What is lost is the
+model's stated reason, and each such decision costs two wasted retries. A first draft of this
+section said facts about incumbents rest partly on a substitute; the raw answers show they do not.
 
 ## The record-and-replay shortcut holds on real model output
 
