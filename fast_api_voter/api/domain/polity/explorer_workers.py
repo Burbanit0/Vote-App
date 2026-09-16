@@ -131,6 +131,11 @@ def _party(projection: Projection, party_id: int, platform: Sequence[float]) -> 
         return None
 
 
+def _party_markers(projection: Projection, parties: Sequence[tuple[int, tuple[float, ...]]]) -> list[dict[str, Any]]:
+    markers = (_party(projection, party_id, platform) for party_id, platform in parties)
+    return [marker for marker in markers if marker is not None]
+
+
 def _map(loaded: LoadedRun) -> dict[str, Any]:
     """Where citizens and parties sit, and each citizen's party."""
     projection = loaded.frames.projection
@@ -141,7 +146,7 @@ def _map(loaded: LoadedRun) -> dict[str, Any]:
             "axes": [[_plain(weight) for weight in axis] for axis in projection.axes],
             "citizens": [{"year": year, "xy": [_xy(p) for p in xy]} for year, xy in sorted(projection.citizen_xy.items())],
         },
-        "parties": [party for party in (_party(projection, pid, platform) for pid, platform in loaded.parties) if party],
+        "parties": _party_markers(projection, loaded.parties),
         "citizen_parties": [row.get("party_affiliation") for row in census_zero],
     }
 
