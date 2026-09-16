@@ -290,6 +290,127 @@ def generate_exhaustive_scenarios() -> list[dict]:
     return scenarios
 
 
+def _approval_ballot_types(cands: list) -> list:
+    """Every NON-DEGENERATE proper subset of `cands` (0 < |S| < n) -- the same
+    domain make_approval_ballot draws from at random, enumerated exhaustively
+    instead of sampled. Degenerate subsets (approve nobody / approve everybody)
+    are excluded on purpose: at those two profiles the client's own >=0.5
+    cutoff and the backend's above-own-mean cutoff structurally disagree (the
+    mean equals the single value every candidate shares, so "strictly above"
+    collapses to empty) -- a known ballot-DERIVATION difference (see
+    _approval_winner's comment above CARDINAL), not the tally bug this
+    exhaustive check exists to catch. Including them would flag that known,
+    accepted modelling gap as a false "divergence" on every run."""
+    n = len(cands)
+    return [frozenset(s) for r in range(1, n) for s in itertools.combinations(cands, r)]
+
+
+def generate_exhaustive_approval_scenarios() -> list[dict]:
+    """Every possible approval profile for n<=3 candidates, m<=5 voters -- the
+    same exhaustive-domain proof as generate_exhaustive_scenarios() above,
+    applied to approval instead of the ordinal rules.
+
+    A ballot TYPE here is one of the 2^n - 2 non-degenerate proper subsets of
+    candidates (_approval_ballot_types) instead of one of n! permutations;
+    anonymity again means only the MULTISET of ballot types matters, so
+    combinations_with_replacement over ballot types (not raw voters)
+    enumerates the space without redundant voter-relabellings. 2^n - 2 happens
+    to equal n! for n in {2, 3} (2 and 6), so this domain is exactly the same
+    shape and size as the ordinal one: 481 profiles (20 for n=2, 461 for
+    n=3) -- measured with combinations_with_replacement before committing to
+    it, same as every other domain in this file (see gen_engine_parity.py's
+    git history / the PR that added this function for the measured counts).
+
+    Winners are RAW (ties/no-winner -> None), not strict_winner_cardinal-
+    filtered, for the same reason as generate_exhaustive_scenarios: that
+    filter exists to drop "no comparable winner" ballast, but it also
+    silently skips exactly the tied/degenerate profiles this check is for.
+    Reuses _approval_winner (get_approval_winner_sincere) -- the tally logic
+    is not reimplemented here.
+    """
+    scenarios = []
+    for n in (2, 3):
+        cands = NAMES[:n]
+        ballot_types = _approval_ballot_types(cands)
+        k = len(ballot_types)
+        for m in range(1, 6):
+            for combo in itertools.combinations_with_replacement(range(k), m):
+                ballots = [
+                    {c: (1.0 if c in ballot_types[i] else 0.0) for c in cands} for i in combo
+                ]
+                winner = _approval_winner(ballots)
+                scenarios.append(
+                    {
+                        "candidates": cands,
+                        "scores": [[1 if c in ballot_types[i] else 0 for c in cands] for i in combo],
+                        "winners": {"approval": winner},
+                    }
+                )
+    return scenarios
+
+
+# Coarsened grade set for the exhaustive majority-judgment domain below: three
+# of the six real quantisation points (worst / mid / best), not all six. See
+# generate_exhaustive_majority_judgment_scenarios' docstring for why the full
+# scale isn't tractable at n=3 and why coarsening loses no algorithmic
+# coverage: get_majority_judgment_winner only ever compares grade INTEGERS
+# with <, >, == (median + p/q gauge, iterative strip) -- never their
+# magnitudes -- so any three strictly-increasing grades produce exactly the
+# same set of order-patterns as any other three. These specific values are
+# chosen only so the fixture reads as real MJ grades, not for coverage.
+MJ_EXHAUSTIVE_GRADES: tuple = (0, 2, 5)
+
+
+def generate_exhaustive_majority_judgment_scenarios() -> list[dict]:
+    """Every possible majority-judgment profile over MJ_EXHAUSTIVE_GRADES for
+    n<=3 candidates -- same exhaustive-domain proof, applied to majority
+    judgment, with two tractability concessions measured (not guessed) before
+    picking them (exact combinations_with_replacement(k, m) counts):
+
+    1. Grades. A ballot type is one of G^n grade-vectors. The full G=6 scale
+       is fine at n=2 (36 types: the full m<=5 domain is 749,397 profiles, a
+       ~90MB fixture) but explodes at n=3 (216 types: m<=5 is ~4.2 BILLION
+       profiles, and even m<=4 alone is ~95 million) -- nowhere near
+       committable. Coarsening to G=3 (MJ_EXHAUSTIVE_GRADES) drops that to 9
+       types at n=2, 27 at n=3, without losing coverage of the winner-
+       selection algorithm's actual decision surface (see
+       MJ_EXHAUSTIVE_GRADES' own comment: it's a purely ordinal algorithm
+       over grade integers, so 3 coarse grades exercise the same code paths
+       as any other 3 distinct grades would).
+    2. Voters. Even at G=3, n=3's ballot-type count (27) makes m explode
+       fast: m<=3 is 4,059 profiles, m<=4 is 31,464 -- an ~8x jump for one
+       more voter, the same kind of blow-up that keeps ordinal n=4 out of
+       this file (see generate_exhaustive_scenarios' docstring). m<=3 is the
+       cutoff for n=3; it still exercises a real median (not just the min/max
+       of a 1-2 voter list) and the iterative strip tie-break, without the
+       blow-up. n=2 stays at the full m<=5 (only 2,001 profiles -- cheap).
+
+    Domain: n=2, m in 1..5 (2,001 profiles) + n=3, m in 1..3 (4,059 profiles)
+    = 6,060 profiles total (~700KB of fixture). Winners are RAW, as above.
+    Reuses _mj_winner (get_majority_judgment_winner) -- the tally/tie-break
+    logic is not reimplemented here.
+    """
+    scenarios = []
+    for n, mmax in ((2, 5), (3, 3)):
+        cands = NAMES[:n]
+        ballot_types = list(itertools.product(MJ_EXHAUSTIVE_GRADES, repeat=n))
+        k = len(ballot_types)
+        for m in range(1, mmax + 1):
+            for combo in itertools.combinations_with_replacement(range(k), m):
+                ballots = [
+                    {c: ballot_types[i][j] / 5.0 for j, c in enumerate(cands)} for i in combo
+                ]
+                winner = _mj_winner(ballots)
+                scenarios.append(
+                    {
+                        "candidates": cands,
+                        "scores": [[ballot_types[i][j] for j in range(n)] for i in combo],
+                        "winners": {"majority_judgment": winner},
+                    }
+                )
+    return scenarios
+
+
 def main() -> None:
     rng = random.Random(SEED)
     scenarios = []
@@ -324,6 +445,8 @@ def main() -> None:
     )
 
     exhaustive_scenarios = generate_exhaustive_scenarios()
+    exhaustive_approval_scenarios = generate_exhaustive_approval_scenarios()
+    exhaustive_mj_scenarios = generate_exhaustive_majority_judgment_scenarios()
 
     payload = {
         "_generatedBy": "fast_api_voter/scripts/gen_engine_parity.py",
@@ -334,6 +457,8 @@ def main() -> None:
         "approvalScenarios": approval_scenarios,
         "majorityJudgmentScenarios": mj_scenarios,
         "exhaustiveScenarios": exhaustive_scenarios,
+        "exhaustiveApprovalScenarios": exhaustive_approval_scenarios,
+        "exhaustiveMajorityJudgmentScenarios": exhaustive_mj_scenarios,
     }
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, "w", encoding="utf-8") as f:
@@ -342,7 +467,9 @@ def main() -> None:
     print(
         f"wrote {len(scenarios)} ordinal + {len(cardinal_scenarios)} cardinal + "
         f"{len(approval_scenarios)} approval + {len(mj_scenarios)} majority-judgment + "
-        f"{len(exhaustive_scenarios)} exhaustive (n<=3) scenarios -> {OUT}"
+        f"{len(exhaustive_scenarios)} exhaustive ordinal (n<=3) + "
+        f"{len(exhaustive_approval_scenarios)} exhaustive approval (n<=3) + "
+        f"{len(exhaustive_mj_scenarios)} exhaustive majority-judgment scenarios -> {OUT}"
     )
 
 

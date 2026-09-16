@@ -172,3 +172,66 @@ describe.each([
     }
   );
 });
+
+// ── Exhaustive cardinal domains (approval, majority judgment) ─────────────────
+// generate_exhaustive_approval_scenarios / generate_exhaustive_majority_judgment_scenarios
+// in gen_engine_parity.py extend the same exhaustive-domain proof used above
+// for the ordinal rules (n<=3 candidates, every profile, not a sample) to the
+// two rules that read `scores` instead of `ranks`. Same deal as that block:
+// winners are RAW (ties/no-winner → null, not filtered out by strict_winner),
+// so a mismatch is a real algorithmic divergence, not a tie-break artefact.
+//
+// Domain sizes (see gen_engine_parity.py's docstrings for the measured
+// combinations_with_replacement counts behind these numbers):
+// - approval: every non-degenerate profile for n<=3 candidates, m<=5 voters —
+//   481 profiles, exactly the same shape as the ordinal exhaustive domain
+//   (2^n - 2 non-degenerate ballot subsets happens to equal n! for n in {2,3}).
+// - majority_judgment: coarsened to 3 grades (0/2/5 of the 0-5 scale — see
+//   MJ_EXHAUSTIVE_GRADES' comment for why that loses no algorithmic coverage),
+//   n<=3 candidates, m<=5 voters for n=2 (2,001 profiles) and m<=3 for n=3
+//   (4,059 profiles) — the full 6-grade domain explodes combinatorially at
+//   n=3 well before m=5, the same way ordinal n=4 does.
+const { exhaustiveApprovalScenarios, exhaustiveMajorityJudgmentScenarios } = fixtureJson as Record<
+  'exhaustiveApprovalScenarios' | 'exhaustiveMajorityJudgmentScenarios',
+  CardinalScenario[]
+>;
+
+function exhaustiveCardinalMismatchesFor(
+  scenarios: ReturnType<typeof prepareCardinal>[],
+  rule: Rule
+): string[] {
+  const out: string[] = [];
+  scenarios.forEach((s, i) => {
+    const expected = s.winners[rule];
+    const idx = ruleWinnerFromRanks(s.ranks, s.m, rule, s.scores);
+    const got = idx >= 0 ? s.candidates[idx] : null;
+    if (got !== expected) out.push(`#${i}: client=${got} backend=${expected}`);
+  });
+  return out;
+}
+
+describe('engine parity — EXHAUSTIVE approval domain (n<=3 candidates, m<=5 voters)', () => {
+  const prepared = exhaustiveApprovalScenarios.map(prepareCardinal);
+
+  it('covers the full non-degenerate n<=3, m<=5 domain', () => {
+    expect(prepared).toHaveLength(481);
+  });
+
+  it('approval matches the backend on EVERY profile, ties and all', () => {
+    expect(exhaustiveCardinalMismatchesFor(prepared, 'approval')).toEqual([]);
+  });
+});
+
+describe('engine parity — EXHAUSTIVE majority-judgment domain (3 grades, n<=3)', () => {
+  const prepared = exhaustiveMajorityJudgmentScenarios.map((sc) =>
+    prepareCardinal({ ...sc, scores: sc.scores.map((row) => row.map((g) => g / 5)) })
+  );
+
+  it('covers the full 3-grade domain (m<=5 for n=2, m<=3 for n=3)', () => {
+    expect(prepared).toHaveLength(6060);
+  });
+
+  it('majority_judgment matches the backend on EVERY profile, ties and all', () => {
+    expect(exhaustiveCardinalMismatchesFor(prepared, 'majority_judgment')).toEqual([]);
+  });
+});
