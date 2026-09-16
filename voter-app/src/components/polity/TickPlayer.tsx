@@ -44,6 +44,10 @@ const TickPlayer: React.FC = () => {
     dispatch({ type: 'toggle' });
   };
   const onKeyDown = (event: React.KeyboardEvent) => {
+    // Space belongs to whichever control has focus: it opens the speed menu and presses
+    // the buttons (the play button's own Space toggles playback, the same as this
+    // shortcut). The toolbar claims it only when the key came from the toolbar itself.
+    if (event.key === ' ' && event.target !== event.currentTarget) return;
     const target = keyTarget(event.key, tick, lastTick, ticksPerYear);
     if (target === null) return;
     event.preventDefault();
