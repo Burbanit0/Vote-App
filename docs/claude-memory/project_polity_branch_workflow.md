@@ -19,12 +19,24 @@ directly. `polity → develop` is a separate merge.
 "after the polity plan is fully complete" — the whole `polity-simulation-
 design-v2.md` §13 roadmap (v0–v8), not an earlier checkpoint like a single
 palier's close. As of 2026-08-30, v0–v7 are complete and merged into
-`polity`; v8 (auto-hébergement/fine-tuning) is not — the vLLM half is
-blocked on an upstream bug (`plan-vllm-switch-readiness.md`, dated
-reopening conditions) and the fine-tuning half has its terminology resolved
-but no chantier written yet. Do not propose or ask about `polity → develop`
-again until v8 is actually done (or the user says otherwise) — this
-question is answered, not open.
+`polity`; v8 (auto-hébergement/fine-tuning) is not. Do not propose or ask
+about `polity → develop` again until v8 is actually done (or the user says
+otherwise) — this question is answered, not open.
+
+**Correction 2026-09-15 on v8's state** (the trigger above is unchanged):
+the vLLM half is no longer blocked — it is done. The upstream WSL2 bug this
+entry rested on stopped applying when the project moved to native Linux, and
+vLLM has since served the bake-off and the concurrency sweep; see
+[[project_polity_vllm_switch]]. The fine-tuning half still has its
+terminology resolved and no chantier written, so v8 as a whole is still open.
+
+**2026-09-16:** the owner raised `polity → develop` themselves, so answering
+was not a breach of the rule above. The answer given was "not yet", for
+reasons that are mechanical rather than a matter of taste: `branch-policy.yml`
+rejects `polity` as a PR source into `develop`, the merged quality baseline
+would sit below what the merge result measures (a ratchet failure needing a
+measured `--update`), and `polity` was 41 commits behind `develop`. The
+roadmap trigger above was not what blocked it, and was not reopened.
 
 **Why:** the user's own call, made explicit 2026-08-29, right after PR #216
 (ten commits, four chantiers) merged straight into `develop`. The polity
