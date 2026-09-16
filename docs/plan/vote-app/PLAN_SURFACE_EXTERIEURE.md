@@ -394,40 +394,67 @@ pas un angle mort.
 **Action** : 3-4 contextes par préoccupation, ou le motif de sélecteurs
 Zustand **déjà utilisé dans ce dépôt** (`stores/useElectionStore.tsx`).
 
-**Fait, différemment** (`refactor/enable-exhaustive-deps-lint`) : vérifié
-avant d'exécuter l'action littérale, et le vrai problème n'était pas celui
-décrit. `eslint-plugin-react-hooks` est importé dans `eslint.config.js` mais
-**aucune de ses règles n'était activée nulle part dans le dépôt** (ni ici, ni
-en config informationnelle séparée comme `sonarjs`) — c'est *exactement* la
-raison technique du risque cité (« périmé sans erreur de type ») : rien ne
-peut jamais détecter l'oubli, pas seulement dans ce fichier, dans tout le
-dépôt. Corrigé à la racine plutôt que dans ce seul fichier :
-`react-hooks/exhaustive-deps` + `react-hooks/rules-of-hooks` activées en
-`warn` (informationnel, non bloquant — même statut que sonarjs), 0 erreur
-sur le `main` memo (494-626) lui-même : son tableau, bien que dupliqué à la
-main, est actuellement correct. 3 avertissements sont apparus ailleurs dans
-CE fichier (les motifs `shakeKey`/`leaderScKey`/`parlScKey` — une clé
-sérialisée volontaire, un choix de conception documenté, pas un bug) :
-commentés avec `eslint-disable-next-line` + justification plutôt que
-« corrigés » vers la suggestion automatique, qui aurait cassé l'intention.
-48 avertissements supplémentaires sont apparus dans 33 autres fichiers
-(surtout des fiches Laboratoire) — non triés un par un (hors périmètre de
-ce chantier, probablement en grande partie le même motif « clé sérialisée
-volontaire ») ; comptés ici comme point de départ visible plutôt que
-silencieux, dans le même esprit que le suivi sonarjs déjà en mémoire.
+**Fait, différemment** (`refactor/enable-exhaustive-deps-lint`, corrigé
+ensuite sur `fix/dependency-array-staleness-review` après un
+`/code-review ultra`) : vérifié avant d'exécuter l'action littérale, et le
+vrai problème n'était pas celui décrit. `eslint-plugin-react-hooks` est
+importé dans `eslint.config.js` mais **aucune de ses règles n'était activée
+nulle part dans le dépôt** (ni ici, ni en config informationnelle séparée
+comme `sonarjs`) — c'est *exactement* la raison technique du risque cité
+(« périmé sans erreur de type ») : rien ne peut jamais détecter l'oubli, pas
+seulement dans ce fichier, dans tout le dépôt. Corrigé à la racine plutôt
+que dans ce seul fichier : `react-hooks/exhaustive-deps` activée en `warn`
+(informationnel, non bloquant — même statut que sonarjs, 51 avertissements
+pré-existants sur 37 fichiers non triés un par un) ; `react-hooks/rules-of-hooks`
+activée en `error` directement (0 violation existante — même traitement que
+`jsx-a11y`/`unused-imports` quand leur passif est tombé à zéro, pas de
+raison de la faire transiter par `warn`). 0 erreur sur le `main` memo
+(`PlaygroundController.tsx:512-644`) lui-même : son tableau, bien que
+dupliqué à la main, est actuellement correct.
 
-**Le split 3-4 contextes n'a délibérément PAS été fait.** Trois raisons,
-pas une hésitation : (1) l'auteur d'origine a lui-même écrit, sur place
-(lignes 468-479), qu'il fallait « revisiter avec l'approche plus générale
-si cette classe de flake se reproduit sur un autre contrôle » — aucune
-récidive constatée depuis ; (2) le test existant dit lui-même que le split
-`methodSelection` déjà en place **ne réduit pas les rendus** — le bénéfice
-du split général n'est donc pas prouvé sur ce code précis, seulement
-supposé ; (3) le rayon d'impact (chaque panneau de moment, `LeaderCanvas`,
-etc. devrait être réécrit pour choisir le bon sous-contexte) est large pour
-un bénéfice non démontré. Le correctif eslint referme le vrai trou
-(silencieux, sans erreur) sans ce risque. Rouvrir si une vraie récidive de
-re-render apparaît sur un nouveau contrôle — pas avant.
+**Ce que le `/code-review ultra` a trouvé** : les 3 avertissements
+`shakeKey`/`leaderScKey`/`parlScKey` de ce même fichier avaient d'abord été
+qualifiés de « clé sérialisée volontaire, pas un bug » — faux pour 2 des 3.
+`shakeKey`/`leaderScKey` omettaient `c.valence` de la clé alors que
+`leaderCandidates` l'y inclut et que l'utilité de vote en dépend
+(`playgroundVoting.ts:109`) : activer la valence et glisser son curseur ne
+rafraîchissait ni le panneau « Shake » ni la fiche de score. `parlScKey`
+omettait `turnout` et l'électorat composé en entier, alors que
+`runAssemblyScorecard` envoie les deux (`assemblyApi.ts:117-131`) : changer
+le modèle d'abstention ou l'électorat composé en mode Assemblée ne
+rafraîchissait pas le Bilan. Les trois clés incluent maintenant tous les
+champs réellement lus ; les commentaires ont été corrigés pour cesser de
+certifier ces motifs comme sûrs sans l'avoir vérifié.
+
+**Le split 3-4 contextes n'a délibérément PAS été fait — mais une des deux
+raisons initialement citées ici était fausse**, trouvé par un
+`/code-review ultra` sur ce chantier lui-même : la phrase précédente de
+cette section disait « le test existant dit lui-même que le split
+`methodSelection` ne réduit pas les rendus », citée comme preuve que le
+bénéfice d'un split général n'était pas démontré. C'est l'inverse de ce que
+dit `PlaygroundController.render.test.tsx` (lignes 32-50, 107-162) : le
+fichier distingue explicitement deux choses — mémoïser l'objet-valeur
+`main` ne réduit **pas** les rendus (tout le monde reste abonné au même
+contexte monolithique) ; le split `methodSelection`, lui, **réduit bien les
+rendus**, mesuré directement (« Toggling a rule now only re-renders
+MethodMoment, ValuesLabPanel and BilanMoment »). Contradit aussi
+CLAUDE.md, « Playground architecture », qui décrit correctement ce même
+split comme conçu pour empêcher exactement ces re-renders.
+
+Corrigé : l'évidence disponible **penche donc en faveur** du split par
+préoccupation, pas contre. Les deux raisons qui restent, honnêtes cette
+fois : (1) l'auteur d'origine a lui-même écrit, sur place
+(`PlaygroundController.tsx:472-497`), qu'il fallait « revisiter avec
+l'approche plus générale si cette classe de flake se reproduit sur un
+autre contrôle » — aucune récidive constatée depuis ; (2) le rayon
+d'impact (chaque panneau de moment, `LeaderCanvas`, etc. devrait être
+réécrit pour choisir le bon sous-contexte) reste réel, même si le
+bénéfice par preuve d'existence (`methodSelection`) est maintenant établi,
+pas supposé. Le correctif eslint referme le vrai trou de ce chantier
+(silencieux, sans erreur) indépendamment de cette question. **Question
+ouverte, pas tranchée** : faire le split complet reste un chantier
+raisonnable à prioriser si souhaité — ce n'était pas dans le périmètre
+temporel de ce chantier-ci, pas écarté sur le fond.
 
 **Effort** : M (≈ 1 jour, surface bien testée) · **Priorité** : moyenne.
 
