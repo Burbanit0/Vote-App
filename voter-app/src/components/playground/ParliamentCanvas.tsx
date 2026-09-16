@@ -566,4 +566,9 @@ const ParliamentCanvas: React.FC<ParliamentCanvasProps> = ({
   );
 };
 
-export default ParliamentCanvas;
+// Memoized — same shape and rationale as LeaderCanvas (see its comment): one
+// <circle>/voter with no cap, sitting behind the same broad InstrumentPanel
+// context read. Its props (parties = config.candidates, voters, result,
+// onMoveParty = moveCandidate) are all already stable references upstream in
+// PlaygroundController, so the default shallow comparison is sufficient.
+export default React.memo(ParliamentCanvas);
