@@ -49,6 +49,18 @@ export default [
       sonarjs,
     },
     rules: {
+      // The plugin was registered above but never actually wired to a rule —
+      // found while investigating PLAN_SURFACE_EXTERIEURE.md §2.J
+      // (PlaygroundController.tsx's manually-duplicated dependency array):
+      // nothing in this repo could ever catch a missing/stale hook
+      // dependency, in that file or any other. `warn`, not `error` — same
+      // informational status as sonarjs above, since enabling surfaced 51
+      // pre-existing warnings across 34 files that haven't been triaged one
+      // by one (most look like the deliberate serialized-key effect pattern
+      // PlaygroundController.tsx itself uses, not bugs, but that needs
+      // confirming file by file, not assumed here).
+      'react-hooks/exhaustive-deps': 'warn',
+      'react-hooks/rules-of-hooks': 'warn',
       'react/react-in-jsx-scope': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
       // TypeScript already resolves identifiers + reports unused symbols far more

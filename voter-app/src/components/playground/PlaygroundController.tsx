@@ -293,6 +293,11 @@ function useController() {
       );
     }, 200);
     return () => clearTimeout(t);
+    // shakeKey is a deliberate serialized digest of everything below, so the
+    // effect re-fires on VALUE change only, not on every new object identity
+    // (turnout/electorateSampler are recreated each render). Depending on the
+    // raw fields instead would defeat that — react-hooks/exhaustive-deps
+    // flags this as informational only (see eslint.config.js), not silenced.
   }, [shakeKey]);
 
   // ── Scorecard + values lens (P5) ──────────────────────────────────────────
@@ -324,6 +329,7 @@ function useController() {
       );
     }, 250);
     return () => clearTimeout(t);
+    // leaderScKey is a deliberate serialized digest — see shakeKey above.
   }, [leaderScKey]);
 
   const [parlSc, setParlSc] = React.useState<AssemblyScorecardResult | null>(null);
@@ -354,6 +360,7 @@ function useController() {
       alive = false;
       clearTimeout(t);
     };
+    // parlScKey is a deliberate serialized digest — see shakeKey above.
   }, [parlScKey]);
 
   const [leaderWeights, setLeaderWeights] = React.useState(() => defaultWeights(LEADER_AXES_KEYS));
