@@ -172,14 +172,17 @@ cd voter-app && npx vitest run src/lib/playgroundVoting.parity.test.ts
   not the ballot derivation. Each cardinal rule must also compare at least 40
   strict winners.
 - **`KNOWN_DIVERGENT` maps a rule to its EXACT expected mismatch list**
-  (`#<index>: client=X backend=Y`), not a count. It holds one entry today:
-  `majority_judgment`, a backend tie-break bug (see the comment there and
-  PLAN_SURFACE_EXTERIEURE.md §2.E). A parity break is a bug until proven
-  otherwise (CLAUDE.md): add an entry only to track a confirmed divergence
-  while it waits for a fix, never to make a red test green, and delete it
-  once the fix regenerates to zero mismatches. Approval and MJ each draw from
-  their own seeded streams (`single_rule_scenarios`), so an unrelated rule
-  change doesn't re-roll their scenarios, or the MJ list's indices with them.
+  (`#<index>: client=X backend=Y`), not a count. It's currently empty and
+  should stay that way — its one past entry, `majority_judgment`, was a
+  backend tie-break bug (ranking median ties by p − q instead of running the
+  real Balinski–Laraki procedure), fixed in `fix/majority-judgment-gauge` by
+  porting the client's `winMajorityJudgment` into `_mj_winner`. A parity break
+  is a bug until proven otherwise (CLAUDE.md): add an entry only to track a
+  confirmed divergence while it waits for a fix, never to make a red test
+  green, and delete it once the fix regenerates to zero mismatches. Approval
+  and MJ each draw from their own seeded streams (`single_rule_scenarios`), so
+  an unrelated rule change doesn't re-roll their scenarios, or a mismatch
+  list's indices with them.
 - For the full triage playbook on an actual divergence (map the failing rule
   id to both implementations, read the concrete failing scenario by index,
   find the specific code difference), use the `parity-guardian` agent

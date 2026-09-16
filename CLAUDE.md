@@ -67,15 +67,14 @@ together. Do not let them drift.
   simulation_ranked_utils.py` + `simulation_score_utils.py`.
 - Parity harness: `fast_api_voter/scripts/gen_engine_parity.py` generates golden
   winners → `voter-app/src/lib/__fixtures__/engineParity.json`; asserted by
-  `playgroundVoting.parity.test.ts`. 27 methods are locked identical: 21 ordinal,
-  score/STAR/cumulative/maximin/nash over a shared score matrix, and approval.
-  Approval is locked **at the tally only**: both sides get the same 0/1 ballot,
-  because each engine derives approvals from utility its own way (client ≥ 0.5;
-  backend above the voter's mean, or approve-top-2 in most backend callers), and
-  those still disagree. `majority_judgment` is compared too, but diverges: a
-  backend bug (median ties ranked by p − q, not the Balinski–Laraki gauge),
-  pinned in `KNOWN_DIVERGENT` as the exact mismatch list, which must shrink to
-  nothing once the backend is fixed. `random_ballot` stays excluded (a lottery).
+  `playgroundVoting.parity.test.ts`. 28 methods are locked identical: 21 ordinal,
+  score/STAR/cumulative/maximin/nash over a shared score matrix, approval, and
+  majority judgment. `KNOWN_DIVERGENT` (an exact mismatch list per rule, not a
+  count) is empty and should stay that way. Approval is locked **at the tally
+  only**: both sides get the same 0/1 ballot, because each engine derives
+  approvals from utility its own way (client ≥ 0.5; backend above the voter's
+  mean, or approve-top-2 in most backend callers), and those still disagree.
+  `random_ballot` stays excluded (a lottery).
 
 **If you change a rule on either side**: re-run `python fast_api_voter/scripts/
 gen_engine_parity.py`, then run the parity test. A change that breaks parity is a
