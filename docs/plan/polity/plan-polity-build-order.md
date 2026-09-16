@@ -762,7 +762,10 @@ alongside it.
      interaction, and no setting is re-tuned for it.
    - The S1.3 and S1.4 arms, built and tested against a fake client, ready for their sessions.
 3. **After the batch, one GPU session at a time**, each on the unchanged `vllm-polity` server
-   unless stated:
+   unless stated. `scripts/gpu_queue.sh` runs them in this order and nothing in parallel; it waits
+   for the server to answer and refuses to start a step with less than 10 GB free on `/` (OBS-016).
+   A step resumes from its session's `results.jsonl`, so `scripts/gpu_queue.sh sweep` or
+   `scripts/gpu_queue.sh thinking-sampling sweep` picks the queue up where an interruption left it:
    1. S0.8's generated summary. S2.2's candidacy acceptance by replaying seed 42's call log.
    2. S2.2's control session (Qwen3-8B-AWQ, no arm): the rest of S2.2's acceptance, and the
       control that S1.2 and S2.4 compare against.
