@@ -1918,7 +1918,7 @@ commande, sans pipe, avant de faire confiance au signal.
 | **Fuzzing à couverture** (`atheris` ou `hypofuzz`) | Bien plus profond qu'Hypothesis seul sur le moteur et les parseurs. | L | ⭐⭐ | 📝📝📝 | ✅ `atheris`, 2 harnais + workflow CI planifié, 4 bugs réels trouvés et corrigés (voir sous le tableau) |
 | **`guarddog`** (Datadog) | Détecte les paquets *malveillants* (typosquatting, install-scripts hostiles) — angle mort de pip-audit/Trivy qui ne voient que les CVE connues. | S | ⭐⭐ | 📝📝📝 | ✅ CI (cron + push develop, informational — voir sous le tableau) |
 | **`trufflehog`** | Secrets **vérifiés actifs**, pas juste des motifs (complète gitleaks + detect-secrets). | S | ⭐ | 📝 | ✅ local + CI, informational (voir sous le tableau) |
-| **OSV-Scanner** | Base de vulnérabilités différente de Trivy, recouvrement imparfait. Mesurer l'écart réel est une bonne expérience. | S | ⭐ | 📝📝📝 | ✅ local + CI, informational (voir sous le tableau) |
+| **OSV-Scanner** | Base de vulnérabilités différente de Trivy, recouvrement imparfait. Mesurer l'écart réel est une bonne expérience. | S | ⭐ | 📝📝📝 | ⏹️ Retiré le 2026-09-17 : aucun écart mesuré avec Trivy + pip-audit sur ce repo (EXP-009) — voir sous le tableau pour l'historique |
 | **Signature d'images + provenance SLSA** (cosign/sigstore) | Suite logique du SBOM + Scorecard déjà en place. | M | ⭐⭐ | 📝📝📝 | ⏹️ Retiré le 2026-09-17 : signait le SBOM d'images jamais publiées — l'image de prod (Dockerfile racine) reste scannée + SBOM, sans signature (voir sous le tableau pour l'historique) |
 | **`minimumReleaseAge`** (via Renovate) | Attendre 3-7 j avant d'adopter une release : vraie défense contre les paquets compromis. | S | ⭐⭐⭐ | 📝📝 | ✅ déjà satisfait (Dependabot `cooldown`, sans migration — voir sous le tableau) |
 
@@ -1954,8 +1954,8 @@ trouve silencieusement 0 source de paquets depuis ce worktree, alors que les
 mêmes lockfiles sont trouvés sans problème via `-L` explicite ou depuis une
 copie hors-worktree — `scripts/audit.sh` utilise `-L` par fichier pour cette
 raison (plus rapide de toute façon, pas besoin d'exclure `node_modules`/`.venv`).
-Local + CI (job `osv-scanner`, workflow réutilisable officiel des
-mainteneurs, non-bloquant).
+Était local + CI (job `osv-scanner`, non-bloquant) ; retiré le 2026-09-17,
+faute d'écart mesuré avec Trivy + pip-audit.
 
 *`guarddog`* : pas de carnet d'expérience dédié (item bas-cérémonie — un
 outil trouve quelque chose ou pas contre un dépôt propre), mais vérifié pour

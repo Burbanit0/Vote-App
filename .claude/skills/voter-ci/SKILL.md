@@ -90,9 +90,9 @@ watching requirements too.
 | Semgrep SAST | **required**, `--error` on any finding | rules in `.semgrep/vote-app-rules.yml` + `p/python`, `p/javascript`, `p/react`, `p/security-audit`, `p/secrets`, `p/sql-injection`, `p/owasp-top-ten` |
 | Secret Scan (Gitleaks) | **required** | `.gitleaks.toml`; TruffleHog alongside is informational only |
 | Dependencies, Containers & Misconfig (Trivy) | **required**, HIGH/CRITICAL fs scan | `.trivyignore.yaml` for triaged false positives |
-| Code Quality | **required**, but only via the ratchet at the end — see below | vulture/radon/xenon/deptry/knip/sonarjs/jscpd all run `continue-on-error: true` |
+| Code Quality | **required**, via two gates at the end: the ratchet, then `xenon -a A` (repo-wide average complexity must stay rank A) — see below | vulture/radon/deptry/knip/sonarjs/jscpd all run `continue-on-error: true`; only those two final steps can fail the job |
 | CodeQL (`javascript-typescript`, `python`) | **required**, non-gating by itself | results land in the Security tab, not a hard fail |
-| OSV-Scanner, GuardDog, Docker image scan/SBOM | informational only | second opinions / supply-chain, not PR blockers |
+| GuardDog, Docker image scan/SBOM | informational only | second opinions / supply-chain, not PR blockers |
 
 `CodeQL` and `Semgrep`/`Gitleaks`/`Trivy` all live in this one file, not
 scattered — if you're looking for "where is CodeQL configured", it's here,

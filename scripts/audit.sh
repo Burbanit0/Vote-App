@@ -8,7 +8,7 @@
 # per finding), never the whole codebase — keeps token usage minimal.
 #
 # Scope note: the project's BLOCKING gates already live in CI + the local commands
-# (flake8, mypy, pytest, eslint, tsc, bandit, pip-audit). This script is a
+# (ruff, mypy, pytest, eslint, tsc, bandit, pip-audit). This script is a
 # SUPPLEMENTARY pass whose new value is the SAST / secret / CVE scanners the repo
 # doesn't otherwise run locally (Semgrep, Gitleaks, Trivy). Everything degrades
 # gracefully when a tool isn't installed.
@@ -102,10 +102,16 @@ if [ "$MODE" != "quality" ]; then
   section "SAST (Semgrep)"
   if have semgrep; then
     SEMGREP_TARGET="."
-    [ -n "$CHANGED_FILES" ] && SEMGREP_TARGET="$CHANGED_FILES"
+    if [ -n "$CHANGED_FILES" ]; then
+      SEMGREP_TARGET=""
+      for f in $CHANGED_FILES; do [ -e "$f" ] && SEMGREP_TARGET="$SEMGREP_TARGET $f"; done
+      [ -z "$SEMGREP_TARGET" ] && SEMGREP_TARGET="."
+    fi
+    rm -f "$REPORT_DIR/semgrep.json" "$REPORT_DIR/semgrep.sarif"
     semgrep --config=p/python --config=p/javascript --config=p/react \
             --config=p/security-audit --config=p/secrets \
             --config=p/sql-injection --config=p/owasp-top-ten \
+            --config=.semgrep/vote-app-rules.yml \
             --sarif-output="$REPORT_DIR/semgrep.sarif" \
             --json-output="$REPORT_DIR/semgrep.json" \
             --metrics=off --quiet $SEMGREP_TARGET 2>/dev/null
@@ -124,41 +130,18 @@ if [ "$MODE" != "quality" ]; then
   section "Dependencies, containers & misconfig (Trivy)"
   if have trivy; then
     trivy fs --scanners vuln,secret,misconfig --severity HIGH,CRITICAL \
+         --skip-dirs voter-app/node_modules,.claude,graphify-out,fast_api_voter/.venv,fast_api_voter/mutants,voter-app/coverage,audit-reports \
+         --ignorefile .trivyignore.yaml \
          --format json --output "$REPORT_DIR/trivy.json" --quiet . 2>/dev/null
     [ -f "$REPORT_DIR/trivy.json" ] && \
-      note "🔴 $(count '[.Results[]?.Vulnerabilities[]?]|length' "$REPORT_DIR/trivy.json") HIGH/CRITICAL vuln(s). See \`$REPORT_DIR/trivy.json\`."
+      note "🔴 $(count '[.Results[]? | (.Vulnerabilities // [])[], (.Misconfigurations // [])[], (.Secrets // [])[]] | length' "$REPORT_DIR/trivy.json") HIGH/CRITICAL finding(s) (vulns, misconfig, secrets — CI gates on all three). See \`$REPORT_DIR/trivy.json\`."
   else
     note "⚠️ trivy not installed — runs in CI."
   fi
 
-  # --- Dependency vulnerabilities, second opinion: OSV-Scanner (Lot 9,
-  # PLAN_SOLIDITE_TECHNIQUE.md — a different vuln DB than Trivy above; see
-  # docs/exploration/ for the measured overlap). Explicit -L per lockfile
-  # rather than `-r .`: a recursive directory scan silently finds zero
-  # package sources when run from inside a git *worktree* (confirmed
-  # reproducible — the same lockfiles are found fine via -L, or via -r in a
-  # plain non-worktree checkout; likely irrelevant to CI's normal checkout,
-  # but -L sidesteps it either way and is faster). --data-source native
-  # avoids a deps.dev gRPC resolution call that timed out in this sandboxed
-  # dev environment (plain HTTPS to both osv.dev and deps.dev is reachable —
-  # the gRPC transport specifically was the problem); detection verified
-  # against known-CVE pins (urllib3==1.26.4, Jinja2==2.4.1 -> 18 real
-  # findings each) before trusting a clean result on this repo's real deps.
-  section "Dependency vulnerabilities — second opinion (OSV-Scanner, informational)"
-  if have osv-scanner; then
-    osv-scanner scan source \
-      -L "$PY_DIRS/requirements.txt" -L "$PY_DIRS/requirements-dev.txt" \
-      -L "$TS_DIR/package-lock.json" \
-      --data-source native \
-      --format json --output-file "$REPORT_DIR/osv-scanner.json" >/dev/null 2>&1
-    note "$(count '[.results[]?.packages[]?.vulnerabilities[]?]|length' "$REPORT_DIR/osv-scanner.json") vulnerability finding(s) (any severity). See \`$REPORT_DIR/osv-scanner.json\`. Not gated — see PLAN_SOLIDITE_TECHNIQUE.md §9."
-  else
-    note "⚠️ osv-scanner not installed — runs in CI. Local: download a release binary from https://github.com/google/osv-scanner/releases."
-  fi
-
   # --- Malicious packages (not just known CVEs): GuardDog (Lot 9,
   # PLAN_SOLIDITE_TECHNIQUE.md — typosquatting, hostile install scripts; a
-  # blind spot of pip-audit/Trivy/OSV-Scanner above, which only see already-
+  # blind spot of pip-audit/Trivy above, which only see already-
   # disclosed CVEs). NOT in requirements-dev.txt: guarddog pins
   # pygit2<1.19,>=1.11, and pygit2 only started shipping cp314 wheels at
   # 1.19.0 (verified against PyPI's file index: 1.18.2 and earlier have
@@ -197,7 +180,7 @@ if [ "$MODE" != "quality" ]; then
   if have_py bandit; then
     python -m bandit -r "$PY_PKG" -ll --skip B104,B311 \
       -f json -o "$REPORT_DIR/bandit.json" -q 2>/dev/null
-    note "🔴 $(count '[.results[]|select(.issue_severity=="HIGH")]|length' "$REPORT_DIR/bandit.json") HIGH-severity issue(s). See \`$REPORT_DIR/bandit.json\`."
+    note "🔴 $(count '.results|length' "$REPORT_DIR/bandit.json") MEDIUM+ issue(s) (CI gates on these). See \`$REPORT_DIR/bandit.json\`."
   else
     note "⚠️ bandit not installed — \`pip install bandit\` (already in backend CI)."
   fi
@@ -226,13 +209,13 @@ fi
 # =====================================================================
 if [ "$MODE" != "security" ]; then
 
-  # --- Python lint: Flake8 (project .flake8 — E9 + pyflakes, the blocking gate) ---
-  section "Python lint (Flake8)"
-  if have_py flake8; then
-    python -m flake8 --config="$PY_DIRS/.flake8" "$PY_DIRS" > "$REPORT_DIR/flake8.txt" 2>&1
-    note "Issues: $(grep -c ':' "$REPORT_DIR/flake8.txt" 2>/dev/null || echo 0). See \`$REPORT_DIR/flake8.txt\`."
+  # --- Python lint: Ruff (pyproject.toml [tool.ruff], the blocking gate) ---
+  section "Python lint (Ruff)"
+  if have_py ruff; then
+    ( cd "$PY_DIRS" && python -m ruff check . ) > "$REPORT_DIR/ruff.txt" 2>&1
+    note "$(grep -m1 -E '^(Found [0-9]+ errors?\.|All checks passed!)' "$REPORT_DIR/ruff.txt" 2>/dev/null || echo 'see report') See \`$REPORT_DIR/ruff.txt\`."
   else
-    note "⚠️ flake8 not installed — \`pip install flake8\`."
+    note "⚠️ ruff not installed — \`pip install ruff\` (in requirements-dev.txt)."
   fi
 
   # --- Python types: mypy (strict, on api/, with the project's config) ---
@@ -399,11 +382,13 @@ if [ "$MODE" != "security" ]; then
     note "⚠️ radon not installed — \`pip install radon\` (in requirements-dev.txt)."
   fi
   if have_py xenon; then
-    # Lenient thresholds (F = worst rank = never fails): this is a report,
-    # not a gate, until the backlog in CODE_AUDIT.md is resorbed.
-    ( cd "$PY_DIRS" && python -m xenon api/ -e "api/tests/*" -b F -m F -a F ) \
-      > "$REPORT_DIR/xenon.txt" 2>&1
-    note "See \`$REPORT_DIR/xenon.txt\`. Not gated — see CODE_AUDIT.md."
+    # Same thresholds as CI's gating step: the repo-wide average must stay rank A.
+    if ( cd "$PY_DIRS" && python -m xenon api/ -e "api/tests/*" -b F -m F -a A ) \
+        > "$REPORT_DIR/xenon.txt" 2>&1; then
+      note "✅ Average complexity rank A (CI gate passes)."
+    else
+      note "🔴 Average complexity below rank A — CI's Code Quality job will fail. See \`$REPORT_DIR/xenon.txt\`."
+    fi
   else
     note "⚠️ xenon not installed — \`pip install xenon\` (in requirements-dev.txt)."
   fi

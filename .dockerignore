@@ -41,7 +41,6 @@ fast_api_voter/mutmut-run.log
 fast_api_voter/seed.py
 fast_api_voter/vulture.txt
 fast_api_voter/radon.txt
-fast_api_voter/xenon.txt
 fast_api_voter/deptry.txt
 fast_api_voter/htmlcov-e2e/
 # NOT excluding fast_api_voter/fuzz_corpus/*/* here despite .gitignore doing
