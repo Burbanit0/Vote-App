@@ -1,0 +1,226 @@
+{
+  "zero": {
+    "setting": {
+      "partisanship": 0.0,
+      "approval": 0.0,
+      "turnout_cost": 0.0,
+      "approval_party_carryover": 0.0,
+      "valence": 0.0
+    },
+    "facts": [
+      {
+        "name": "retrospective voting",
+        "holds": false,
+        "reading": "re-elected 3/4 (75.0%) with a record below 0, 4/7 (57.1%) with 0 or more"
+      },
+      {
+        "name": "turnout",
+        "holds": false,
+        "reading": "mean turnout 100.0%"
+      },
+      {
+        "name": "partisanship",
+        "holds": false,
+        "reading": "own-party first choice 69.6% (zero-weight arm 69.6%)"
+      },
+      {
+        "name": "repeat winners (OBS-001)",
+        "holds": false,
+        "reading": "won by the previous winner 28.0% (zero-weight arm 28.0%)"
+      }
+    ],
+    "measures": {
+      "turnout": 1.0,
+      "own_party_first": 0.6957142857142857,
+      "repeat_winners": 0.28
+    }
+  },
+  "groups": [
+    {
+      "partisanship_plus_approval": 0.0,
+      "arms": [
+        {
+          "setting": {
+            "partisanship": 0.0,
+            "approval": 0.0,
+            "turnout_cost": 0.005,
+            "approval_party_carryover": 0.5,
+            "valence": 0.0
+          },
+          "facts": [
+            {
+              "name": "retrospective voting",
+              "holds": false,
+              "reading": "re-elected 3/4 (75.0%) with a record below 0, 3/5 (60.0%) with 0 or more"
+            },
+            {
+              "name": "turnout",
+              "holds": false,
+              "reading": "mean turnout 94.4%"
+            },
+            {
+              "name": "partisanship",
+              "holds": true,
+              "reading": "own-party first choice 71.7% (zero-weight arm 69.6%)"
+            },
+            {
+              "name": "repeat winners (OBS-001)",
+              "holds": true,
+              "reading": "won by the previous winner 24.0% (zero-weight arm 28.0%)"
+            }
+          ],
+          "measures": {
+            "turnout": 0.944,
+            "own_party_first": 0.7170096852300242,
+            "repeat_winners": 0.24
+          }
+        },
+        {
+          "setting": {
+            "partisanship": 0.0,
+            "approval": 0.0,
+            "turnout_cost": 0.01,
+            "approval_party_carryover": 0.5,
+            "valence": 0.0
+          },
+          "facts": [
+            {
+              "name": "retrospective voting",
+              "holds": true,
+              "reading": "re-elected 2/7 (28.6%) with a record below 0, 2/5 (40.0%) with 0 or more"
+            },
+            {
+              "name": "turnout",
+              "holds": false,
+              "reading": "mean turnout 88.3%"
+            },
+            {
+              "name": "partisanship",
+              "holds": true,
+              "reading": "own-party first choice 71.9% (zero-weight arm 69.6%)"
+            },
+            {
+              "name": "repeat winners (OBS-001)",
+              "holds": true,
+              "reading": "won by the previous winner 14.8% (zero-weight arm 28.0%)"
+            }
+          ],
+          "measures": {
+            "turnout": 0.8829729729729731,
+            "own_party_first": 0.71900826446281,
+            "repeat_winners": 0.14814814814814814
+          }
+        },
+        {
+          "setting": {
+            "partisanship": 0.0,
+            "approval": 0.0,
+            "turnout_cost": 0.02,
+            "approval_party_carryover": 0.5,
+            "valence": 0.0
+          },
+          "facts": [
+            {
+              "name": "retrospective voting",
+              "holds": false,
+              "reading": "re-elected 1/2 (50.0%) with a record below 0, 3/7 (42.9%) with 0 or more"
+            },
+            {
+              "name": "turnout",
+              "holds": true,
+              "reading": "mean turnout 77.9%"
+            },
+            {
+              "name": "partisanship",
+              "holds": true,
+              "reading": "own-party first choice 75.0% (zero-weight arm 69.6%)"
+            },
+            {
+              "name": "repeat winners (OBS-001)",
+              "holds": true,
+              "reading": "won by the previous winner 15.4% (zero-weight arm 28.0%)"
+            }
+          ],
+          "measures": {
+            "turnout": 0.7794444444444444,
+            "own_party_first": 0.7501781895937277,
+            "repeat_winners": 0.15384615384615385
+          }
+        },
+        {
+          "setting": {
+            "partisanship": 0.0,
+            "approval": 0.0,
+            "turnout_cost": 0.04,
+            "approval_party_carryover": 0.5,
+            "valence": 0.0
+          },
+          "facts": [
+            {
+              "name": "retrospective voting",
+              "holds": true,
+              "reading": "re-elected 1/3 (33.3%) with a record below 0, 3/7 (42.9%) with 0 or more"
+            },
+            {
+              "name": "turnout",
+              "holds": true,
+              "reading": "mean turnout 60.5%"
+            },
+            {
+              "name": "partisanship",
+              "holds": true,
+              "reading": "own-party first choice 79.8% (zero-weight arm 69.6%)"
+            },
+            {
+              "name": "repeat winners (OBS-001)",
+              "holds": true,
+              "reading": "won by the previous winner 14.3% (zero-weight arm 28.0%)"
+            }
+          ],
+          "measures": {
+            "turnout": 0.605,
+            "own_party_first": 0.7981731187472815,
+            "repeat_winners": 0.14285714285714285
+          }
+        }
+      ]
+    }
+  ],
+  "selected": {
+    "setting": {
+      "partisanship": 0.0,
+      "approval": 0.0,
+      "turnout_cost": 0.04,
+      "approval_party_carryover": 0.5,
+      "valence": 0.0
+    },
+    "facts": [
+      {
+        "name": "retrospective voting",
+        "holds": true,
+        "reading": "re-elected 1/3 (33.3%) with a record below 0, 3/7 (42.9%) with 0 or more"
+      },
+      {
+        "name": "turnout",
+        "holds": true,
+        "reading": "mean turnout 60.5%"
+      },
+      {
+        "name": "partisanship",
+        "holds": true,
+        "reading": "own-party first choice 79.8% (zero-weight arm 69.6%)"
+      },
+      {
+        "name": "repeat winners (OBS-001)",
+        "holds": true,
+        "reading": "won by the previous winner 14.3% (zero-weight arm 28.0%)"
+      }
+    ],
+    "measures": {
+      "turnout": 0.605,
+      "own_party_first": 0.7981731187472815,
+      "repeat_winners": 0.14285714285714285
+    }
+  },
+  "through_group": 0.0
+}
