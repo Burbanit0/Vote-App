@@ -102,7 +102,8 @@ export const CARDINAL_RULES: ReadonlySet<Rule> = new Set<Rule>([
   'nash',
 ]);
 
-const dist = (a: Pt, b: Pt): number => Math.hypot(a.x - b.x, a.y - b.y, (a.z ?? 0) - (b.z ?? 0));
+export const dist = (a: Pt, b: Pt): number =>
+  Math.hypot(a.x - b.x, a.y - b.y, (a.z ?? 0) - (b.z ?? 0));
 
 // Voter utility for a candidate: closer is better, lifted by the candidate's
 // valence. Higher utility = preferred. Valence defaults to 0 (positional model).
@@ -119,7 +120,7 @@ export function computeRanks(voters: Pt[], cands: Pt[]): number[][] {
 
 const rankings = computeRanks;
 
-function pluralityCounts(ranks: number[][], alive: boolean[], m: number): number[] {
+export function pluralityCounts(ranks: number[][], alive: boolean[], m: number): number[] {
   const counts = new Array(m).fill(0);
   for (const r of ranks) {
     const top = r.find((i) => alive[i]);
@@ -128,7 +129,7 @@ function pluralityCounts(ranks: number[][], alive: boolean[], m: number): number
   return counts;
 }
 
-function argmax(arr: number[]): number {
+export function argmax(arr: number[]): number {
   let best = 0;
   for (let i = 1; i < arr.length; i++) if (arr[i] > arr[best]) best = i;
   return best;
@@ -224,7 +225,7 @@ function winApproval(scores: number[][], m: number): number {
 }
 
 /** Pairwise tally: beats[i][j] = number of voters ranking i above j. */
-function pairwise(ranks: number[][], m: number): number[][] {
+export function pairwise(ranks: number[][], m: number): number[][] {
   const beats = Array.from({ length: m }, () => new Array(m).fill(0));
   for (const r of ranks) {
     const pos = new Array(m).fill(0);
@@ -366,7 +367,7 @@ function winCoombs(ranks: number[][], m: number): number {
 }
 
 /** Borda scores counting only candidates still alive. */
-function bordaAlive(ranks: number[][], m: number, alive: boolean[]): number[] {
+export function bordaAlive(ranks: number[][], m: number, alive: boolean[]): number[] {
   const k = alive.filter(Boolean).length;
   const score = new Array(m).fill(0);
   for (const r of ranks) {
@@ -1161,7 +1162,7 @@ export function applyBlankVote(
 
 // ── Seeded spatial electorate (deterministic from seed/ideology) ──────────────
 
-function mulberry32(seed: number): () => number {
+export function mulberry32(seed: number): () => number {
   let a = seed >>> 0;
   return () => {
     a |= 0;
@@ -1173,7 +1174,7 @@ function mulberry32(seed: number): () => number {
 }
 
 /** Standard normal via Box–Muller from a uniform PRNG. */
-function gauss(rng: () => number, mu: number, sigma: number): number {
+export function gauss(rng: () => number, mu: number, sigma: number): number {
   const u = Math.max(rng(), 1e-9);
   const v = rng();
   return mu + sigma * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
