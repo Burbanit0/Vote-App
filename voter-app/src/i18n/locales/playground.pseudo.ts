@@ -45,15 +45,11 @@ const pgPseudo: PlaygroundKeys = {
     launch: '⟦Hístóírés~~~~⟧',
     launchHint:
       '⟦Dés~~ réçíts~~~ gúídés~~~ qúí~~ fóñt~~ súrgír~~~ úñ~ phéñómèñé~~~~ sóús~~ vós~~ yéúx,~~ dáñs~~ l’íñstrúméñt.~~~~~⟧',
-    pick: '⟦Chóísír~~~ úñé~~ hístóíré~~~⟧',
-    close: '⟦Férmér~~~⟧',
     quit: '⟦Qúíttér~~~⟧',
     step: '⟦Sçèñé~~ {{n}} /~ {{total}}⟧',
     next: '⟦Súíváñt~~~ →~⟧',
     prev: '⟦←~ Préçédéñt~~~~⟧',
     restart: '⟦↻~ Réjóúér~~~⟧',
-    replayHint:
-      '⟦Vóús~~ répréñéz~~~ lá~ máíñ~~ :~ l’íñstrúméñt~~~~~ résté~~ súr~~ lá~ dérñíèré~~~ sçèñé.~~~⟧',
     spoiler: {
       title: '⟦L’éffét~~~ spóílér~~~⟧',
       tagline:
@@ -626,8 +622,6 @@ const pgPseudo: PlaygroundKeys = {
   },
   vse: {
     title: '⟦Lé~ çóût~~ dú~ vóté~~ strátégíqúé~~~~ (VSÉ)~~⟧',
-    subtitle:
-      '⟦Cómbíéñ~~~ dé~ bíéñ-êtré~~~~ çháqúé~~~ méthódé~~~ gáspíllé~~~ qúáñd~~ lés~~ éléçtéúrs~~~~ çésséñt~~~ d’êtré~~~ síñçèrés~~~⟧',
     intro:
       '⟦Éffíçáçíté~~~~ dé~ sátísfáçtíóñ~~~~~ dés~~ éléçtéúrs~~~~ (VSÉ,~~ Qúíññ~~ 2017,~~ d’áprès~~~ Mérríll~~~ 1984)~~ :~ 1~ =~ lá~ méthódé~~~ élít~~ lé~ çáñdídát~~~ qúí~~ máxímísé~~~ lé~ bíéñ-êtré,~~~~ 0~ =~ éllé~~ ñé~ fáít~~ pás~~ míéúx~~ qú’úñ~~ tírágé~~~ áú~ sórt,~~ ñégátíf~~~ =~ éllé~~ fáít~~ píré.~~ Óñ~ fáít~~ váríér~~~ lá~ párt~~ d’éléçtéúrs~~~~ qúí~~ vótéñt~~~ «~ útílé~~ ».~⟧',
     aria: '⟦Cóúrbés~~~ dé~ VSÉ~~ pár~~ méthódé~~~ sélóñ~~ lá~ párt~~ d’éléçtéúrs~~~~ strátégíqúés~~~~~⟧',
@@ -849,7 +843,6 @@ const pgPseudo: PlaygroundKeys = {
   },
   realElection: {
     title: '⟦🗳~ Épréúvé~~~ dú~ réél~~ :~ dé~ vráís~~ sçrútíñs~~~⟧',
-    sub: '⟦mêmés~~ búllétíñs,~~~~ méthódés~~~ dífféréñtés~~~~ —~ sçrútíñs~~~ rééls~~ ét~ fígés~~ (Búrlíñgtóñ~~~~ 2009,~~ Áláská~~~ 2022),~~~ sáñs~~ ráppórt~~~ ávéç~~ l’éléçtórát~~~~ qúé~~ vóús~~ çóñfígúréz~~~~ súr~~ lá~ çárté~~⟧',
     pick: '⟦Sçrútíñ~~~⟧',
     headlinePre: '⟦Súr~~ lés~~ mêmés~~ búllétíñs,~~~~⟧',
     headlineEnd: '⟦váíñqúéúrs~~~~ dífféréñts~~~~ sélóñ~~ lá~ séúlé~~ méthódé.~~~⟧',
@@ -1210,7 +1203,6 @@ const pgPseudo: PlaygroundKeys = {
     paradoxTitle:
       '⟦Párt~~ dés~~ éléçtóráts~~~~ ré-éçháñtíllóññés~~~~~~ sáñs~~ váíñqúéúr~~~~ dé~ Cóñdórçét~~~~ —~ úñ~ táúx~~ élévé~~ sígñálé~~~ qúé~~ lé~ résúltát~~~ dépéñd~~~ fórtéméñt~~~~ dés~~ hypóthèsés.~~~~⟧',
     condorcet: '⟦Cóñdórçét~~~~ :~ {{name}}⟧',
-    condorcetNone: '⟦áúçúñ~~ váíñqúéúr~~~~ dé~ Cóñdórçét~~~~ (çyçlé)~~~⟧',
     shake: '⟦🎲~ Séçóúér~~~ lés~~ hypóthèsés~~~~⟧',
     shakeTitle:
       "⟦Ré-éçháñtíllóññé~~~~~~ l'éléçtórát~~~~ 60~ fóís~~ (mêmés~~~ hypóthèsés,~~~~ ñóúvéáúx~~~ tírágés)~~~ —~ sépáré~~~ úñé~~ própríété~~~~ strúçtúréllé~~~~~ d'úñ~~ réglágé~~~ çhóísí.~~~⟧",
