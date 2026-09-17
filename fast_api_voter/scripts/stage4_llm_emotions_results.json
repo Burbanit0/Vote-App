@@ -1,0 +1,39 @@
+{
+  "levels": [
+    {
+      "total_weight": 0.0,
+      "arms": [
+        {
+          "setting": {
+            "awakening_anger": 0.0,
+            "awakening_anxiety": 0.0,
+            "awakening_enthusiasm": 0.0,
+            "mobilization_anger": 0.0
+          },
+          "facts": [
+            {
+              "name": "E1 discontent mobilizes",
+              "holds": true,
+              "reading": "mobilizations 963 in the angriest third, 489 in the calmest"
+            },
+            {
+              "name": "E2 hard times draw people in",
+              "holds": false,
+              "reading": "pressure actions 3269 in the most anxious third, 3437 in the least"
+            },
+            {
+              "name": "E3 honeymoon decline",
+              "holds": false,
+              "reading": "declined in 0 of 1 full terms"
+            }
+          ],
+          "measures": {
+            "total_weight": 0.0
+          }
+        }
+      ]
+    }
+  ],
+  "selected": null,
+  "through_level": 0.0
+}

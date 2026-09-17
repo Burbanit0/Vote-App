@@ -1000,6 +1000,23 @@ and it keeps 0. `approval_party_carryover` is not carried over: with `approval` 
 it. The adoption records how thin the pass is, in the constant's docstring. Step 5 still runs on the
 bench as signed, from fe4bad5a, with the vote weights at 0.
 
+*Result of step 5's first level, 2026-09-17* (`scripts/stage4_llm_emotions_results.md`, recorded and
+measured from fe4bad5a). **The all-zero set does not qualify: E1 holds, E2 and E3 do not.** Level
+0.25 is recording, as the selection order above directs.
+
+- **E1 holds, strongly.** 963 mobilizations in the angriest third of ticks against 489 in the
+  calmest.
+- **E2 fails.** 3,269 pressure acts in the most anxious third against 3,437 in the least.
+- **E3 cannot be read.** The ten runs hold one full term between them, and enthusiasm did not
+  decline over it.
+- **Turning emotions on is not neutral, even at zero weight** (OBS-019). The switch is a prompt
+  change only — the deterministic twin is identical with it on and off — and on the LLM path it
+  takes the ten seeds from 6 recalls to 44, full terms from 15 to 1, and MOBILIZE from 1.5% to
+  21.8% of acts. E3's failure follows from that: a polity this unstable holds no full terms to read
+  enthusiasm over.
+- **Cost.** 10 runs in 208 minutes: 3.47 GPU-hours against the 3 estimated. Stage 4 so far: 23.9 of
+  the 70-hour cap. Level 0.25 is 40 runs, about 14 hours more.
+
 #### S4.3, emotions
 
 - **Prerequisite, not started by this pre-registration:** ADR-012 requires the bake-off to carry a
