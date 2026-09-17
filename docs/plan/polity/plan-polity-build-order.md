@@ -1067,9 +1067,12 @@ the 650 responses (OBS-018).
   checked after the retry loop: 8 shifts larger than `mandate.max_response_delta`, 3 aimed at a
   dimension that does not exist.
 
-**#545 stays unmerged until Stage 4's runs have ended.** It lets a silence cite motif 303, which
-would keep 10 of those 11 silent, so it changes behaviour. Holding it keeps steps 2, 4 and 5 on the
-bench step 1 ran on and this section was signed on.
+**#545 is merged (2026-09-16, at the owner's request), but Stage 4 stays on its bench.** #545 lets
+a silence cite motif 303, which would keep 10 of those 11 silent, so it changes behaviour. Every
+remaining Stage 4 recording and measurement therefore runs from `polity` at fe4bad5a, the last
+commit before #545. Step 2 records from ab256d2a, which differs from fe4bad5a only in results
+documents and the step-5 script. This also covers the replays: under #545 a replay would not re-ask
+the recorded retries, and would stop on unserved calls.
 
 #### Cautions, stated now
 
