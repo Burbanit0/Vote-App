@@ -25,22 +25,8 @@ export default defineConfig(({ mode }) => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
-        devOptions: {
-          enabled: false,
-        },
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-          runtimeCaching: [
-            {
-              urlPattern:
-                /^http:\/\/localhost:4434\/api\/(v1\/methods|scenarios\/gallery\/featured)/,
-              handler: 'StaleWhileRevalidate',
-              options: {
-                cacheName: 'api-cache',
-                expiration: { maxAgeSeconds: 3600 },
-              },
-            },
-          ],
         },
         manifest: {
           name: 'Vote Lab — Théorie du vote',
@@ -109,7 +95,6 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       outDir: 'build',
-      sourcemap: false,
       // Manual vendor splits so heavy libs (recharts, d3) land in separate
       // chunks that the browser can cache long-term and that pages not
       // needing them never have to download.
@@ -118,14 +103,13 @@ export default defineConfig(({ mode }) => {
           manualChunks(id: string): string | undefined {
             if (id.includes('node_modules')) {
               if (id.includes('recharts')) return 'recharts';
-              if (/[\\/]d3-(delaunay|hexbin|force)[\\/]/.test(id)) return 'd3';
+              if (/[\\/]d3-(delaunay|force)[\\/]/.test(id)) return 'd3';
             }
             return undefined;
           },
         },
       },
     },
-    envPrefix: 'VITE_',
     define: {
       // Single-origin prod: default to '' (same-origin, relative /api + /socket.io)
       // so the FastAPI container that serves this build also answers the API.

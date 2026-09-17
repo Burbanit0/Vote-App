@@ -45,8 +45,6 @@ from api.schemas import (
     MajorityTyrannyResponse,
     ManipulationAnalysisRequest,
     ManipulationAnalysisResponse,
-    PlottChaosRequest,
-    PlottChaosResponse,
     SenParadoxRequest,
     SenParadoxResponse,
 )
@@ -65,7 +63,6 @@ from api.domain.theory import (
     judgment_aggregation as judgment_aggregation_domain,
     majority_tyranny as majority_tyranny_domain,
     manipulation_analysis as manipulation_analysis_domain,
-    plott_chaos as plott_chaos_domain,
     sen_paradox as sen_paradox_domain,
 )
 
@@ -132,19 +129,6 @@ async def iia_rate_endpoint(request: IIARateRequest) -> IIARateResponse:
 
 # ── /plott-chaos ────────────────────────────────────────────────────────────
 
-@router.post(
-    "/plott-chaos",
-    response_model=PlottChaosResponse,
-    summary="Plott's Chaos Theorem in 2-D policy space",
-    response_description="Condorcet-winner flag, top cycle (Smith set), and "
-                         "two BFS paths showing the agenda-setter can reach "
-                         "diametrically opposite outcomes from the same start.",
-)
-async def plott_chaos_endpoint(request: PlottChaosRequest) -> PlottChaosResponse:
-    """In ≥2-D policy space with ≥3 voters, a Condorcet winner almost
-    never exists, and from any starting point the agenda-setter can
-    reach ANY other point via a sequence of majority votes."""
-    return await _run_typed(plott_chaos_domain, request, PlottChaosResponse)
 
 
 # ── /judgment-aggregation ──────────────────────────────────────────────────

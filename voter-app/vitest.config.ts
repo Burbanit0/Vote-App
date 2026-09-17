@@ -24,8 +24,6 @@ export default defineConfig({
       { find: '@', replacement: r('./src') },
       // virtual:pwa-register/react → no-op mock (was moduleNameMapper in Jest)
       { find: /^virtual:pwa-register\/react$/, replacement: r('./src/__mocks__/pwa-register.ts') },
-      // Static image imports → file stub.
-      { find: /^.*\.(jpg|jpeg|png|gif|webp|svg)$/, replacement: r('./src/__mocks__/fileMock.ts') },
     ],
   },
   test: {
@@ -44,14 +42,7 @@ export default defineConfig({
       // pass, `?vitest-uncovered-coverage=true`, was a rolldown-parser crash on
       // Linux). Coverage reflects only files exercised by tests — essentially the
       // whole app, since every src file is imported by a test.
-      exclude: [
-        'src/**/*.d.ts',
-        'src/index.tsx',
-        'src/reportWebVitals.ts',
-        'src/declarations.d.ts',
-        'src/**/*.test.{ts,tsx}',
-        'src/**/*.stories.{ts,tsx}',
-      ],
+      exclude: ['src/**/*.d.ts', 'src/index.tsx', 'src/**/*.test.{ts,tsx}'],
       // Each floor sits just under what the suite actually reaches, so it locks
       // in what exists rather than describing an aspiration nobody is working
       // toward. Measured 2026-08-24: statements 84.57, branches 74.77,

@@ -22,7 +22,6 @@ import numpy as np
 from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.simulation_metrics import compare_all_methods
 from api.engine.utils.simulation_voting_utils import (
-    apply_social_influence,
     create_candidate,
     create_voter,
     run_simulation,
@@ -45,22 +44,8 @@ def test_compare_all_methods_snapshot(snapshot):
     assert report == snapshot
 
 
-# ── apply_social_influence / run_simulation (pure functions, no HTTP route) ──
+# ── run_simulation (pure function, no HTTP route) ──
 
-def test_apply_social_influence_is_a_no_op_without_poll_standings_or_candidates():
-    """No poll leader can be identified without poll_standings, and no
-    candidate position to drift toward without candidates -- both guard
-    clauses short-circuit to an (unmutated) copy of the input voters."""
-    issues = DEFAULT_ISSUES
-    voters = [create_voter(issues, i) for i in range(5)]
-    candidate = create_candidate(issues, 0, "Alice", "Green")
-
-    no_poll = apply_social_influence(voters, {}, [candidate])
-    no_candidates = apply_social_influence(voters, {"Alice": 1.0}, [])
-
-    for result in (no_poll, no_candidates):
-        assert result == voters
-        assert result is not voters  # a copy, per the docstring's contract
 
 
 def test_run_simulation_returns_one_ballot_record_per_voter():

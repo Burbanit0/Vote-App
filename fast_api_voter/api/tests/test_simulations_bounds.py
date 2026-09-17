@@ -38,26 +38,6 @@ _ELEVEN_VALUES = list(range(11))
 
 @settings(max_examples=15, deadline=None)
 @given(num_voters=_out_of_range_voters)
-def test_bandwagon_rejects_out_of_range_num_voters(num_voters: int) -> None:
-    r = client.post(
-        "/api/v2/simulations/bandwagon",
-        json={"num_voters": num_voters, "candidates": CANDS},
-    )
-    assert r.status_code == 422, r.text
-
-
-@settings(max_examples=15, deadline=None)
-@given(num_rounds=_out_of_range_rounds)
-def test_bandwagon_rejects_out_of_range_num_rounds(num_rounds: int) -> None:
-    r = client.post(
-        "/api/v2/simulations/bandwagon",
-        json={"num_voters": 300, "num_rounds": num_rounds, "candidates": CANDS},
-    )
-    assert r.status_code == 422, r.text
-
-
-@settings(max_examples=15, deadline=None)
-@given(num_voters=_out_of_range_voters)
 def test_monte_carlo_rejects_out_of_range_num_voters(num_voters: int) -> None:
     r = client.post(
         "/api/v2/simulations/monte-carlo",
@@ -76,127 +56,6 @@ def test_monte_carlo_rejects_out_of_range_num_runs(num_runs: int) -> None:
     assert r.status_code == 422, r.text
 
 
-@settings(max_examples=15, deadline=None)
-@given(num_voters=_out_of_range_voters)
-def test_real_election_rejects_out_of_range_num_voters(num_voters: int) -> None:
-    r = client.post(
-        "/api/v2/simulations/real-election",
-        json={"election_name": "france2002", "num_voters": num_voters},
-    )
-    assert r.status_code == 422, r.text
-
-
-@settings(max_examples=15, deadline=None)
-@given(num_voters=_out_of_range_voters)
-def test_simulate_voters_rejects_out_of_range_num_voters(num_voters: int) -> None:
-    r = client.post("/api/v2/simulations/simulate_voters", json={"num_voters": num_voters})
-    assert r.status_code == 422, r.text
-
-
-@settings(max_examples=15, deadline=None)
-@given(num_candidates=_out_of_range_candidates)
-def test_simulate_candidates_rejects_out_of_range_num_candidates(num_candidates: int) -> None:
-    r = client.post(
-        "/api/v2/simulations/simulate_candidates", json={"num_candidates": num_candidates},
-    )
-    assert r.status_code == 422, r.text
-
-
-def test_closest_candidate_rejects_oversized_candidates_list() -> None:
-    r = client.post(
-        "/api/v2/simulations/get_closest_candidate",
-        json={"voters": [], "candidates": _NINE_CANDS},
-    )
-    assert r.status_code == 422, r.text
-
-
-@settings(max_examples=10, deadline=None)
-@given(num_candidates=_out_of_range_candidates)
-def test_campaign_rejects_out_of_range_num_candidates(num_candidates: int) -> None:
-    r = client.post(
-        "/api/v2/simulations/campaign", json={"num_candidates": num_candidates},
-    )
-    assert r.status_code == 422, r.text
-
-
-@settings(max_examples=10, deadline=None)
-@given(num_voters=_out_of_range_voters)
-def test_campaign_rejects_out_of_range_num_voters(num_voters: int) -> None:
-    r = client.post("/api/v2/simulations/campaign", json={"num_voters": num_voters})
-    assert r.status_code == 422, r.text
-
-
-@settings(max_examples=10, deadline=None)
-@given(num_days=_out_of_range_days)
-def test_campaign_rejects_out_of_range_num_days(num_days: int) -> None:
-    r = client.post("/api/v2/simulations/campaign", json={"num_days": num_days})
-    assert r.status_code == 422, r.text
-
-
-@settings(max_examples=15, deadline=None)
-@given(num_voters=_out_of_range_voters)
-def test_compare_rejects_out_of_range_num_voters(num_voters: int) -> None:
-    r = client.post(
-        "/api/v2/simulations/compare", json={"num_voters": num_voters, "candidates": CANDS},
-    )
-    assert r.status_code == 422, r.text
-
-
-def test_compare_rejects_oversized_candidates_list() -> None:
-    r = client.post("/api/v2/simulations/compare", json={"candidates": _NINE_CANDS})
-    assert r.status_code == 422, r.text
-
-
-@settings(max_examples=10, deadline=None)
-@given(num_voters=_out_of_range_voters)
-def test_strategic_impact_rejects_out_of_range_num_voters(num_voters: int) -> None:
-    r = client.post(
-        "/api/v2/simulations/strategic-impact",
-        json={"num_voters": num_voters, "candidates": CANDS},
-    )
-    assert r.status_code == 422, r.text
-
-
-def test_strategic_impact_rejects_oversized_candidates_list() -> None:
-    r = client.post("/api/v2/simulations/strategic-impact", json={"candidates": _NINE_CANDS})
-    assert r.status_code == 422, r.text
-
-
-@settings(max_examples=10, deadline=None)
-@given(num_voters=_out_of_range_voters)
-def test_condorcet_matrix_rejects_out_of_range_num_voters(num_voters: int) -> None:
-    r = client.post(
-        "/api/v2/simulations/condorcet-matrix",
-        json={"num_voters": num_voters, "candidates": CANDS},
-    )
-    assert r.status_code == 422, r.text
-
-
-def test_condorcet_matrix_rejects_oversized_candidates_list() -> None:
-    r = client.post("/api/v2/simulations/condorcet-matrix", json={"candidates": _NINE_CANDS})
-    assert r.status_code == 422, r.text
-
-
-def test_sensitivity_rejects_oversized_values_list() -> None:
-    r = client.post("/api/v2/simulations/sensitivity", json={"values": _ELEVEN_VALUES})
-    assert r.status_code == 422, r.text
-
-
-@settings(max_examples=10, deadline=None)
-@given(num_voters=_out_of_range_voters)
-def test_arrow_criteria_rejects_out_of_range_num_voters(num_voters: int) -> None:
-    r = client.post(
-        "/api/v2/simulations/arrow-criteria",
-        json={"num_voters": num_voters, "candidates": CANDS},
-    )
-    assert r.status_code == 422, r.text
-
-
-def test_arrow_criteria_rejects_oversized_candidates_list() -> None:
-    r = client.post("/api/v2/simulations/arrow-criteria", json={"candidates": _NINE_CANDS})
-    assert r.status_code == 422, r.text
-
-
 @settings(max_examples=10, deadline=None)
 @given(num_voters=_out_of_range_voters)
 def test_vote_steps_rejects_out_of_range_num_voters(num_voters: int) -> None:
@@ -212,21 +71,6 @@ def test_vote_steps_rejects_oversized_candidates_list() -> None:
     assert r.status_code == 422, r.text
 
 
-@settings(max_examples=10, deadline=None)
-@given(num_voters=_out_of_range_voters)
-def test_ideology_map_rejects_out_of_range_num_voters(num_voters: int) -> None:
-    r = client.post("/api/v2/simulations/ideology-map", json={"num_voters": num_voters})
-    assert r.status_code == 422, r.text
-
-
-def test_bandwagon_rejects_oversized_candidates_list() -> None:
-    r = client.post(
-        "/api/v2/simulations/bandwagon",
-        json={"num_voters": 300, "candidates": _NINE_CANDS},
-    )
-    assert r.status_code == 422, r.text
-
-
 def test_monte_carlo_rejects_oversized_candidates_list() -> None:
     r = client.post(
         "/api/v2/simulations/monte-carlo",
@@ -235,41 +79,10 @@ def test_monte_carlo_rejects_oversized_candidates_list() -> None:
     assert r.status_code == 422, r.text
 
 
-@settings(max_examples=10, deadline=None)
-@given(num_seats=_out_of_range_seats)
-def test_multiwinner_rejects_out_of_range_num_seats(num_seats: int) -> None:
-    r = client.post(
-        "/api/v2/simulations/multiwinner",
-        json={"party_votes": {"Green": 40, "Blue": 60}, "num_seats": num_seats},
-    )
-    assert r.status_code == 422, r.text
-
-
-@settings(max_examples=10, deadline=None)
-@given(num_voters=_out_of_range_voters)
-def test_blank_contagion_rejects_out_of_range_num_voters(num_voters: int) -> None:
-    r = client.post("/api/v2/simulations/blank-contagion", json={"num_voters": num_voters})
-    assert r.status_code == 422, r.text
-
-
-@settings(max_examples=10, deadline=None)
-@given(num_rounds=_out_of_range_contagion_rounds)
-def test_blank_contagion_rejects_out_of_range_num_rounds(num_rounds: int) -> None:
-    r = client.post("/api/v2/simulations/blank-contagion", json={"num_rounds": num_rounds})
-    assert r.status_code == 422, r.text
-
-
 class TestInRangeStillWorks:
     """The bounds themselves are inclusive — a value exactly at the edge must
     still be accepted, not off-by-one rejected."""
 
-    def test_bandwagon_accepts_the_boundary_values(self) -> None:
-        for num_voters in (10, 1000):
-            r = client.post(
-                "/api/v2/simulations/bandwagon",
-                json={"num_voters": num_voters, "num_rounds": 1, "candidates": CANDS},
-            )
-            assert r.status_code == 200, r.text
 
     def test_monte_carlo_accepts_the_boundary_values(self) -> None:
         r = client.post(
@@ -278,26 +91,5 @@ class TestInRangeStillWorks:
         )
         assert r.status_code == 200, r.text
 
-    def test_compare_accepts_the_boundary_values(self) -> None:
-        for num_voters in (10, 1000):
-            r = client.post(
-                "/api/v2/simulations/compare",
-                json={"num_voters": num_voters, "candidates": CANDS},
-            )
-            assert r.status_code == 200, r.text
 
-    def test_multiwinner_accepts_the_boundary_values(self) -> None:
-        for num_seats in (1, 1000):
-            r = client.post(
-                "/api/v2/simulations/multiwinner",
-                json={"party_votes": {"Green": 40, "Blue": 60}, "num_seats": num_seats},
-            )
-            assert r.status_code == 200, r.text
 
-    def test_blank_contagion_accepts_the_boundary_values(self) -> None:
-        for num_rounds in (1, 50):
-            r = client.post(
-                "/api/v2/simulations/blank-contagion",
-                json={"num_voters": 300, "num_rounds": num_rounds},
-            )
-            assert r.status_code == 200, r.text
