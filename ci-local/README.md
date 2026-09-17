@@ -151,7 +151,7 @@ because it isn't *testing the app* — it's testing the workflow itself.
   coverage into the 85–90% band would pass here and fail on the PR.
 - `audit.yml` now has more jobs than this `audit` target reproduces: this
   mirror covers Semgrep, Gitleaks and the filesystem Trivy scan only. It does
-  **not** run the `image-scan` job (Trivy image scan + SBOM on the two prod
+  **not** run the `image-scan` job (Trivy image scan + SBOM on the production
   Dockerfiles — schedule/`push`-to-`develop` only, non-gating for now), the
   `code-quality` job (vulture/deptry/knip/jscpd/radon/sonarjs behind a
   ratchet — see `.github/quality-baseline.json`), or CodeQL (GitHub-native,

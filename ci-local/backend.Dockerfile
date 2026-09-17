@@ -27,9 +27,9 @@ WORKDIR /app
 # from requirements-dev.lock.txt (requirements.txt + requirements-dev.txt
 # compiled together, PLAN_CI_STRUCTURAL_GAPS.md item 2.C), matching the real
 # workflow's own switch to installing from the lockfile -- the loose
-# requirements*.txt files are still copied in because pip-audit and license
-# compliance both read requirements.txt directly, and the freshness check
-# below reads both requirements.txt and requirements-dev.txt.
+# requirements*.txt files are still copied in because license compliance
+# reads requirements.txt directly, and the freshness check below compares them
+# with the lockfiles.
 COPY fast_api_voter/requirements.txt fast_api_voter/requirements-dev.txt fast_api_voter/requirements-dev.lock.txt fast_api_voter/
 RUN uv pip install --system -r fast_api_voter/requirements-dev.lock.txt
 
@@ -64,17 +64,18 @@ RUN rm -rf fast_api_voter/mutants fast_api_voter/.mutmut-cache \
 COPY scripts/check_python_lockfile_freshness.sh scripts/
 
 # Mirror the workflow steps in order (matches GitHub CI gating).
-# ruff (replaces flake8, Lot 1) + bandit = GATING. pip-audit = informational
-# (continue-on-error upstream). License compliance (Lot 6.7) = GATING —
+# Lockfile freshness, ruff (replaces flake8, Lot 1), bandit and pip-audit (on
+# requirements.lock.txt, the pins the production image installs) = GATING,
+# as upstream. License compliance (Lot 6.7) = GATING —
 # check_license_compliance.sh builds its own isolated venv (python3-venv is
 # part of this base image's CPython build), so no extra install needed here.
 ENV FLASK_ENV=testing
 CMD ["bash","-euo","pipefail","-c","\
-echo '=== Python lockfiles up to date (non-blocking) ==='; bash scripts/check_python_lockfile_freshness.sh || echo '(lockfile freshness check failed — non-blocking)'; \
+echo '=== Python lockfiles up to date (gating) ==='; bash scripts/check_python_lockfile_freshness.sh; \
 echo '=== Ruff (gating) ===';           ruff check fast_api_voter; \
 echo '=== Import layering (gating) ==='; (cd fast_api_voter && lint-imports); \
 echo '=== Bandit (gating) ===';         bandit -r fast_api_voter/api -ll --skip B104,B311; \
-echo '=== pip-audit (non-blocking) ==='; pip-audit --requirement fast_api_voter/requirements.txt || echo '(pip-audit failed — non-blocking)'; \
+echo '=== pip-audit (gating) ===';      pip-audit --requirement fast_api_voter/requirements.lock.txt --no-deps --disable-pip; \
 echo '=== License compliance (gating) ==='; bash fast_api_voter/scripts/check_license_compliance.sh; \
 cd fast_api_voter; \
 echo '=== Mypy (gating) ===';           python -m mypy api/ --config-file mypy.ini; \

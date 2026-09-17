@@ -1919,7 +1919,7 @@ commande, sans pipe, avant de faire confiance au signal.
 | **`guarddog`** (Datadog) | Détecte les paquets *malveillants* (typosquatting, install-scripts hostiles) — angle mort de pip-audit/Trivy qui ne voient que les CVE connues. | S | ⭐⭐ | 📝📝📝 | ✅ CI (cron + push develop, informational — voir sous le tableau) |
 | **`trufflehog`** | Secrets **vérifiés actifs**, pas juste des motifs (complète gitleaks + detect-secrets). | S | ⭐ | 📝 | ✅ local + CI, informational (voir sous le tableau) |
 | **OSV-Scanner** | Base de vulnérabilités différente de Trivy, recouvrement imparfait. Mesurer l'écart réel est une bonne expérience. | S | ⭐ | 📝📝📝 | ✅ local + CI, informational (voir sous le tableau) |
-| **Signature d'images + provenance SLSA** (cosign/sigstore) | Suite logique du SBOM + Scorecard déjà en place. | M | ⭐⭐ | 📝📝📝 | ✅ SBOM signé (cosign, keyless) + provenance SLSA (`attest-build-provenance`), pas l'image (voir sous le tableau) |
+| **Signature d'images + provenance SLSA** (cosign/sigstore) | Suite logique du SBOM + Scorecard déjà en place. | M | ⭐⭐ | 📝📝📝 | ⏹️ Retiré le 2026-09-17 : signait le SBOM d'images jamais publiées — l'image de prod (Dockerfile racine) reste scannée + SBOM, sans signature (voir sous le tableau pour l'historique) |
 | **`minimumReleaseAge`** (via Renovate) | Attendre 3-7 j avant d'adopter une release : vraie défense contre les paquets compromis. | S | ⭐⭐⭐ | 📝📝 | ✅ déjà satisfait (Dependabot `cooldown`, sans migration — voir sous le tableau) |
 
 **`guarddog` + `trufflehog` + OSV-Scanner, détail.** Les trois exécutés pour de

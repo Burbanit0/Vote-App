@@ -156,26 +156,21 @@ direct — les deux gardés en synchro ensemble dans le même commit
 lockfile, puis la suite de gating complète — ruff/mypy/pytest+coverage/
 benchmarks — passe de bout en bout).
 
-**Fait (suite)** : `fast_api_voter/Dockerfile.prod` — l'image
-*réellement déployée* (construite par le job `image-scan` d'`audit.yml`,
-pas `fast_api_voter/Dockerfile` qui est une image de dev) — installe
-maintenant depuis `requirements.lock.txt` dans ses deux stages (builder
-`pip wheel` + runtime `uv pip install --no-index`). Priorité plus haute
-que le reste : la reproductibilité de ce qui tourne réellement en
-production compte plus que celle des seuls jobs CI. Vérifié avec un
-build réel (`docker build` avec les arguments exacts d'`audit.yml`),
-les versions installées confirmées identiques au lockfile, et un smoke
-test réel — conteneur démarré, `curl` sur `/api/v2/health` répond
-`{"status":"ok",...}`.
+**Fait (suite)** : l'image *réellement déployée* est le `Dockerfile` racine
+(celui que `fly.toml` déploie) — `fast_api_voter/Dockerfile.prod`, qu'`audit.yml`
+scannait sans que rien ne le déploie, a été supprimé le 2026-09-17. Le
+`Dockerfile` racine installe maintenant depuis les lockfiles (`npm ci` +
+`requirements.lock.txt`), le job `image-scan` le construit, le check de
+fraîcheur des lockfiles est devenu bloquant et `pip-audit` audite
+`requirements.lock.txt`. Vérifié avec un build réel et un smoke test
+(`/api/v2/health`, SPA servie, conteneur non-root).
 
-**Reste ouvert** : vérifié précisément (grep, pas une estimation) — 9
-autres workflows (`flaky-check-backend.yml`, `atheris-fuzzing.yml`,
-`release.yml`, `e2e.yml`, `audit.yml`, `openapi-contract.yml`,
-`mutation-testing.yml`, `schemathesis.yml`, `dast.yml`) et 3 autres
-`Dockerfile` (`ci-local/e2e.Dockerfile`, `Dockerfile` racine,
-`fast_api_voter/Dockerfile`) qui installent encore `requirements*.txt`
-en direct restent hors scope — chacun a son propre rayon d'impact à
-évaluer séparément plutôt qu'un rebranchement en masse.
+**Reste ouvert** : 9 workflows (`flaky-check-backend.yml`,
+`atheris-fuzzing.yml`, `release.yml`, `e2e.yml`, `audit.yml`,
+`openapi-contract.yml`, `mutation-testing.yml`, `schemathesis.yml`,
+`dast.yml`) et 2 `Dockerfile` (`ci-local/e2e.Dockerfile`,
+`fast_api_voter/Dockerfile`) installent encore `requirements*.txt` en
+direct — chacun a son propre rayon d'impact à évaluer séparément.
 
 **Effort** : S (lockfiles + freshness check, fait) → M (Backend CI +
 son miroir + image de prod, fait) → L (reste des 9 workflows/3
