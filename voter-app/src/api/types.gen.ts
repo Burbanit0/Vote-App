@@ -3787,10 +3787,10 @@ export interface components {
          * ErrorDetail
          * @description Shape of a domain-level error response.
          *
-         *     Every `routes/*.py` module's `_run_worker`/`_run_passthrough`/`_run_typed`
-         *     helper lifts a domain worker's `(body, status_code)` tuple into
-         *     `HTTPException(status_code=status_code, detail=body["error"])` when
-         *     `status_code != 200`; FastAPI serializes that as `{"detail": "<message>"}`.
+         *     `api.core.worker_dispatch.raise_for_status` lifts a domain worker's
+         *     `(body, status_code)` tuple into `HTTPException(detail=body["error"])`
+         *     when `status_code != 200` (400 and 503 keep their code, anything else
+         *     becomes 500); FastAPI serializes that as `{"detail": "<message>"}`.
          *     `api/main.py`'s catch-all `Exception` handler uses the same shape for any
          *     uncaught error, so it's also the 500 contract for every route in the app,
          *     not just the ones that reach for it explicitly. Referenced via each
@@ -9128,15 +9128,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorDetail"];
-                };
-            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9197,15 +9188,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorDetail"];
                 };
             };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorDetail"];
-                };
-            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -9259,15 +9241,6 @@ export interface operations {
             };
             /** @description Bad Request */
             400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorDetail"];
-                };
-            };
-            /** @description Not Found */
-            404: {
                 headers: {
                     [name: string]: unknown;
                 };

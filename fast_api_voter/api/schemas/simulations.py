@@ -95,8 +95,9 @@ class MonteCarloResponse(BaseModel):
 
 
 # ── GET endpoints (Phase 6, batch 3) ──────────────────────────────────────────
-# FastAPI validates the returned dict/list against `response_model` on the way
-# out, so these keep their `_run_worker` dict return + query-param signature.
+# FastAPI validates the returned dict against `response_model` on the way out,
+# so a query-param route needs no request model of its own: it hands
+# `run_passthrough` a plain payload and returns the dict.
 
 
 class ManipulabilityResponse(BaseModel):
