@@ -7,6 +7,7 @@ functions against a capturing client. See api/domain/polity/bakeoff_cases.py.
 Usage (from fast_api_voter/):
     python scripts/bakeoff_cases.py generate    # writes scripts/bakeoff/case_bank.jsonl
     python scripts/bakeoff_cases.py check       # the frozen hash holds, and what production renders differently today
+    python scripts/bakeoff_cases.py generate --set emotions   # ADR-012's prerequisite bank, case_bank_emotions.jsonl
 
 A bank is frozen once sessions have answered it: regenerate only on purpose, and say why
 in the commit, since sessions on different banks do not compare.
@@ -21,11 +22,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from api.domain.polity.bakeoff_bank import BankIntegrityError, read_bank, write_bank  # noqa: E402
-from api.domain.polity.bakeoff_cases import drift, generate_bank  # noqa: E402
+from api.domain.polity.bakeoff_cases import drift, generate_bank, generate_emotions_bank  # noqa: E402
 from api.domain.polity.config import PolityConfig  # noqa: E402
 from run_polity_flagship import _flagship_config  # noqa: E402
 
 DEFAULT_BANK = Path(__file__).resolve().parent / "bakeoff" / "case_bank.jsonl"
+EMOTIONS_BANK = Path(__file__).resolve().parent / "bakeoff" / "case_bank_emotions.jsonl"
+"""ADR-012's prerequisite: a bank of its own, so the frozen bank earlier sessions answered is unchanged."""
 REFERENCE_SEED = 42
 
 
@@ -48,11 +51,15 @@ def _summary(bank_path: Path) -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("command", choices=("generate", "check"))
-    parser.add_argument("--bank", type=Path, default=DEFAULT_BANK)
+    parser.add_argument("--bank", type=Path, default=None)
+    parser.add_argument("--set", choices=("reference", "emotions"), default="reference",
+                        help="reference: the frozen bank; emotions: ADR-012's prerequisite bank")
     args = parser.parse_args(argv)
+    generate = generate_emotions_bank if args.set == "emotions" else generate_bank
+    args.bank = args.bank or (EMOTIONS_BANK if args.set == "emotions" else DEFAULT_BANK)
 
     if args.command == "generate":
-        write_bank(generate_bank(reference_config()), args.bank)
+        write_bank(generate(reference_config()), args.bank)
         print(_summary(args.bank))
         return 0
     try:
@@ -61,7 +68,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"FROZEN HASH BROKEN: {exc}")
         return 1
     print(_summary(args.bank))
-    changes = drift(bank, generate_bank(reference_config()))
+    changes = drift(bank, generate(reference_config()))
     if not any(changes.values()):
         print("production renders every case identically today")
         return 0

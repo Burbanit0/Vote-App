@@ -195,3 +195,35 @@ def test_drift_names_the_cases_production_no_longer_renders() -> None:
     current = dataclasses.replace(bank, cases=(changed, *bank.cases[1:]))
     assert bc.drift(bank, current) == {"no_longer_rendered": [bank.cases[0].case_id], "newly_rendered": [changed.case_id]}
     assert bc.drift(bank, bank) == {"no_longer_rendered": [], "newly_rendered": []}
+
+
+# ── ADR-012's prerequisite: a bank whose pressure cases carry emotions ────────
+
+def test_the_emotions_bank_leaves_pressure_act_exactly_as_the_frozen_bank_renders_it() -> None:
+    """One session answers both halves of the comparison only if `pressure_act` is the same case,
+    byte for byte, in both banks."""
+    emotions = bc.generate_emotions_bank(reference_config())
+    assert {case.family for case in emotions.cases} == set(bc.EMOTION_FAMILIES)
+    frozen = {c.case_id for c in reference_bank().cases if c.family == "pressure_act"}
+    assert {c.case_id for c in emotions.cases if c.family == "pressure_act"} == frozen and len(frozen) == 24
+    assert bc.generate_emotions_bank(reference_config()).content_sha256 == emotions.content_sha256  # deterministic
+
+
+def test_the_emotion_fields_are_the_only_difference_and_the_truth_is_the_same() -> None:
+    cases = bc.generate_emotions_bank(reference_config()).cases
+    plain = [c for c in cases if c.family == "pressure_act"]
+    felt = [c for c in cases if c.family == "pressure_act_emotions"]
+    assert len(felt) == len(plain) == 24
+    assert all("ctx.anger" in c.user_prompt or '"anger"' in c.user_prompt for c in felt)
+    assert not any("anger" in c.user_prompt for c in plain)
+    assert [c.labels["truth"] for c in felt] == [c.labels["truth"] for c in plain]
+
+
+def test_the_anger_sweep_asks_the_same_citizens_at_each_level() -> None:
+    sweep = [c for c in bc.generate_emotions_bank(reference_config()).cases if c.family == "pressure_anger_sweep"]
+    assert sorted({c.labels["t"] for c in sweep}) == list(bc.ANGER_LEVELS)
+    units_by_level = {t: sorted(u for c in sweep if c.labels["t"] == t for u in c.labels["units"]) for t in bc.ANGER_LEVELS}
+    assert len({tuple(units) for units in units_by_level.values()}) == 1  # the same four citizens throughout
+    assert all(len(units) == 4 for units in units_by_level.values())
+    assert all(c.labels["kind"] == "contrast" and c.labels["field"] == "act" for c in sweep)
+

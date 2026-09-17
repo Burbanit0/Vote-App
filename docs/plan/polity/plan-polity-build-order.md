@@ -943,6 +943,25 @@ verdict — none qualifies — stands.** D4 is not run: it is only reached by se
   seed. The first setting and weight to meet L4 is the selection, and evaluation stops there. This
   picks exactly what the full grid would, and runs nothing that could not be selected.
 
+*Result of step 1, 2026-09-16* (`scripts/stage4_llm_legislation_results.md`, recorded and replayed
+after this section was committed). **No setting passes L1–L3, so S4.2 selects nothing on the LLM
+path either, and step 3 has nothing to run.** Run exactly as pre-registered:
+
+- **The replay held.** At all nine settings every recorded call was served and no unrecorded call
+  was asked for. Each seed served the same number of calls at every setting (2,224–3,328), so no
+  setting had to be run closed-loop.
+- **L2 fails at every setting; L1 and L3 hold at every one.** Bills enacted per presidential term
+  are 0.12–0.36 against the 1 required, and policy moved in 4–6 of the 10 runs against the 9
+  required. No bill passed under cohabitation at any setting.
+- **The twin failed the same way.** Its L2 read 0.04–0.23 bills per term
+  (`scripts/calibrate_legislation_results.md`). The LLM runs hold fewer presidential terms (5–8
+  elections per seed), which raises the per-term rate, but not near 1.
+- **More drafting does not pass more bills.** At step 0.05, intervals 4, 2 and 1 enact 19, 21 and
+  20 bills over the ten runs, from 150, 276 and 542 bills drafted under cohabitation or unified
+  government. That is what was measured; why enactment saturates is not examined here.
+- **Cost.** The ten recordings took 339 minutes, 5.65 GPU-hours of the 6 budgeted; the replay took
+  9 minutes on CPU.
+
 #### S4.1, utility vote
 
 - **The zero-weight arm** first, once: F3 and F4 compare every setting against it.
@@ -961,6 +980,59 @@ verdict — none qualifies — stands.** D4 is not run: it is only reached by se
   are taken by ascending total weight, a whole weight level at a time, as the grid's own tie-break
   requires.
 - E3 reads full terms with the reading fixed in #535.
+
+*Amended 2026-09-16, signed off by the owner before any step-5 run.* **If E1–E3 hold at the all-zero
+set, the LLM path adopts emotions on with every weight at zero, not off.** The rule above came from
+the twin, where zero weights left emotions acting on nothing, so on and off were the same run. On
+the LLM path, `emotions.enabled` also puts anger, anxiety and enthusiasm into the pressure prompt
+whatever the weights (`llm_behavior_engine.pressure_signals`), and the model reads them: in the
+prerequisite session, MOBILIZE went from 0 of 4 borderline citizens at anger 0 to 4 of 4 at 0.75.
+The all-zero set is therefore measured with the fields in the prompt, and adopting it off would
+ship a setup E1–E3 were never read on. Nothing else changes: the order, the grid, the selection
+and the budget stay as signed, and when the all-zero set fails, the next level runs as before.
+
+##### ADR-012's prerequisite, pre-registered before its session (2026-09-16)
+
+*Signed off by the owner on 2026-09-16 as written, before the session.*
+
+**The bank.** `scripts/bakeoff/case_bank_emotions.jsonl` (68 cases, sha256 `62e82147e930e6ca`), its
+own bank so the frozen one is unchanged:
+
+- `pressure_act` — the frozen bank's 24 cases, byte for byte;
+- `pressure_act_emotions` — the same 24 unambiguous citizens and the same truth, with the emotion
+  fields in the prompt **at rest**: anger, anxiety and enthusiasm all 0;
+- `pressure_anger_sweep` — four citizens just past their tolerance, at anger 0, 0.25, 0.5, 0.75
+  and 1, anxiety and enthusiasm 0.
+
+**The session.** One session of the control model (`Qwen/Qwen3-8B-AWQ` on the pinned vLLM, the
+shipped defaults) answering the whole bank, run right after step 1's recording and before step 2.
+
+**Accepted when both hold:**
+
+1. **Validity:** `pressure_act_emotions` has at least as many valid answers as `pressure_act`.
+2. **Accuracy:** `pressure_act_emotions` answers at most one fewer of the 24 citizens correctly than
+   `pressure_act` does, with the paired per-citizen McNemar test reported.
+
+**Reported, not accepted on:** `pressure_anger_sweep`'s share of MOBILIZE at each anger level. It
+says whether anger in the prompt can move the model at all, which E1 reads on a run.
+
+**If both hold,** an LLM run may turn emotions on, and step 5 proceeds. **If either fails,** emotions
+stay off on the LLM path, and step 5 is reported as not run because the model does not read the
+emotion fields reliably.
+
+*Result, 2026-09-16* (`scripts/bakeoff_emotions_prerequisite_results.md`; session
+`qwen3-8b-awq-emotions-prerequisite`, run at `polity` 1b058728 after step 1's recording ended and
+before step 2). **Accepted: an LLM run may turn emotions on, and step 5 proceeds.**
+
+- **Validity holds.** 24/24 valid answers in both families.
+- **Accuracy holds.** 15 of the 24 citizens answered correctly without the fields, 18 with them at
+  rest. Paired McNemar: 1 right only without them, 4 right only with them, exact p = 0.375. The
+  difference is in the fields' favour but not distinguishable from noise; the criterion only asks
+  that they cost no more than one citizen.
+- **The control reproduces.** The 24 `pressure_act` answers are identical, case for case, to the
+  frozen bank's control session (`qwen3-8b-awq-control`), and the 7 reruns match their main pass.
+- **Reported only: anger moves the model.** Across the four borderline citizens, MOBILIZE is 0 of 4
+  at anger 0 and 0.25, 1 of 4 at 0.5, and 4 of 4 at 0.75 and 1.
 
 #### Order and budget
 
@@ -983,6 +1055,21 @@ budget is a new decision, not a continuation.
   decisions, each time on a motif the codebook rejects for a silence the model chose; the fallback
   enacts the same silence, so behavioural facts are unaffected, but the rate is reported.
 - Recalls, full terms and wall-clock time, so the cost model is corrected as runs arrive.
+
+*Step 1, 2026-09-16.* Per seed, representative_response fell back in 16–48 of 65 decisions (seed 4
+highest), and chamber_deliberation in 50–175 of 1,950 member decisions. Read from the call logs, the
+pilot's sentence above is too strong: the response contract, not the model, set the stance in 22 of
+the 650 responses (OBS-018).
+
+- **11 were retried out of silence.** The first answer was a silence the contract rejects (10 with
+  motif 303, 1 with 301). A retry was then accepted as a concession (5) or a defiance (6).
+- **11 concessions were dropped to silence without a retry.** Each broke a config bound that is
+  checked after the retry loop: 8 shifts larger than `mandate.max_response_delta`, 3 aimed at a
+  dimension that does not exist.
+
+**#545 stays unmerged until Stage 4's runs have ended.** It lets a silence cite motif 303, which
+would keep 10 of those 11 silent, so it changes behaviour. Holding it keeps steps 2, 4 and 5 on the
+bench step 1 ran on and this section was signed on.
 
 #### Cautions, stated now
 

@@ -252,31 +252,83 @@ def vote_first_choice(config: PolityConfig) -> list[Case]:
     return _vote_cases(config, "vote_first_choice", per_class=20, skip=8)
 
 
-def pressure_act(config: PolityConfig) -> list[Case]:
-    """check_pressure_calibration_matrix.py's unambiguous citizens: a president pledged at
-    the centre who drifted +0.3 on every issue; truth is whether the citizen's own gap is
-    far above their tolerance (act) or far below it (don't), 12 of each, asked one at a time."""
+def _pressure_scene(config: PolityConfig) -> tuple[Citizen, list[Citizen], dict[int, float]]:
+    """check_pressure_calibration_matrix.py's scene: a president pledged at the centre who drifted
+    +0.3 on every issue, and 300 citizens with their gap to that president."""
     citizens = _population(config, 300)
     issues = config.citizens.issue_count
     holder = Citizen(citizen_id=10_000, issue_positions=(0.5,) * issues, issue_priorities=(1 / issues,) * issues,
                      blank_threshold=0.5, ambition_score=0.5)
     declare_candidacy(holder)
     holder.revealed_position = (0.8,) * issues
-    gaps = {c.citizen_id: self_gap(c, holder) for c in citizens}
-    below = [c for c in citizens if gaps[c.citizen_id] < 0.5 * c.blank_threshold][:12]
-    above = [c for c in citizens if gaps[c.citizen_id] > 1.5 * c.blank_threshold][:12]
-    consulted = sorted(below + above, key=lambda c: c.citizen_id)
+    return holder, citizens, {c.citizen_id: self_gap(c, holder) for c in citizens}
+
+
+def _pressure_requests(consulted: list[Citizen], holder: Citizen, gaps: dict[int, float],
+                       config: PolityConfig) -> list[CapturedRequest]:
     deviation = mandate_deviation(holder, config.mandate)
     contexts = {
         c.citizen_id: _pressure_context(c, holder, gaps[c.citizen_id], tick=0, mandate_dev=deviation, config=config,
                                         can_sign=False, can_launch=True)
         for c in consulted
     }
-    should_act = {c.citizen_id: c in above for c in consulted}
-    requests = capture(lambda client: decide_pressure_actions(consulted, contexts, config, client))
-    return cases_from(requests, "pressure_act", lambda r: {
+    return capture(lambda client: decide_pressure_actions(consulted, contexts, config, client))
+
+
+def _unambiguous(citizens: list[Citizen], gaps: dict[int, float]) -> tuple[list[Citizen], dict[int, bool]]:
+    """12 citizens far below their tolerance (don't act) and 12 far above it (act)."""
+    below = [c for c in citizens if gaps[c.citizen_id] < 0.5 * c.blank_threshold][:12]
+    above = [c for c in citizens if gaps[c.citizen_id] > 1.5 * c.blank_threshold][:12]
+    return sorted(below + above, key=lambda c: c.citizen_id), {c.citizen_id: c in above for c in below + above}
+
+
+def pressure_act(config: PolityConfig) -> list[Case]:
+    """The scene's unambiguous citizens: truth is whether the citizen's own gap is far above their
+    tolerance (act) or far below it (don't), 12 of each, asked one at a time."""
+    holder, citizens, gaps = _pressure_scene(config)
+    consulted, should_act = _unambiguous(citizens, gaps)
+    return cases_from(_pressure_requests(consulted, holder, gaps, config), "pressure_act", lambda r: {
         "kind": "truth", "truth": {str(cid): should_act[cid] for cid in r.unit_ids}, "match": "acts",
     })
+
+
+def _with_emotions(config: PolityConfig) -> PolityConfig:
+    return dataclasses.replace(config, emotions=dataclasses.replace(config.emotions, enabled=True))
+
+
+def pressure_act_emotions(config: PolityConfig) -> list[Case]:
+    """ADR-012's prerequisite, part 1: `pressure_act`'s citizens and truth, with the emotion fields
+    in the prompt at rest (anger, anxiety and enthusiasm 0). The fields describe, and prescribe no
+    reaction; if the model answers these citizens worse than without them, the fields confuse it."""
+    holder, citizens, gaps = _pressure_scene(config)
+    consulted, should_act = _unambiguous(citizens, gaps)
+    for citizen in consulted:
+        citizen.anger, citizen.anxiety, citizen.enthusiasm = 0.0, 0.0, 0.0
+    requests = _pressure_requests(consulted, holder, gaps, _with_emotions(config))
+    return cases_from(requests, "pressure_act_emotions", lambda r: {
+        "kind": "truth", "truth": {str(cid): should_act[cid] for cid in r.unit_ids}, "match": "acts",
+    })
+
+
+ANGER_LEVELS = (0.0, 0.25, 0.5, 0.75, 1.0)
+
+
+def pressure_anger_sweep(config: PolityConfig) -> list[Case]:
+    """ADR-012's prerequisite, part 2: four citizens just past their tolerance (gap 1.0-1.3 times
+    it), each asked at five anger levels with anxiety and enthusiasm at 0. A contrast, not a truth:
+    it shows whether anger in the prompt moves the model toward mobilizing, which S4.3's E1 reads."""
+    holder, citizens, gaps = _pressure_scene(config)
+    borderline = [c for c in citizens if 1.0 < gaps[c.citizen_id] / c.blank_threshold <= 1.3][:4]
+    cases = []
+    for anger in ANGER_LEVELS:
+        for citizen in borderline:
+            citizen.anger, citizen.anxiety, citizen.enthusiasm = anger, 0.0, 0.0
+        requests = _pressure_requests(borderline, holder, gaps, _with_emotions(config))
+        cases += cases_from(requests, "pressure_anger_sweep", lambda r: {
+            "kind": "contrast", "group": "anger", "t": anger, "control": BASE_CONTROL,
+            "units": list(r.unit_ids), "field": "act", "value": "3",
+        })
+    return cases
 
 
 def _lerp(a: float, b: float, t: float) -> float:
@@ -474,6 +526,23 @@ FAMILIES: dict[str, Callable[[PolityConfig], list[Case]]] = {
     "positioning_poles": positioning_poles,
     "nomination_permutation": nomination_permutation,
 }
+
+
+EMOTION_FAMILIES: dict[str, Callable[[PolityConfig], list[Case]]] = {
+    "pressure_act": pressure_act,
+    "pressure_act_emotions": pressure_act_emotions,
+    "pressure_anger_sweep": pressure_anger_sweep,
+}
+"""ADR-012's prerequisite bank. A bank of its own, so the frozen bank every earlier session
+answered stays unchanged. It carries `pressure_act` exactly as the frozen bank renders it, so one
+session answers both halves of the comparison."""
+
+
+def generate_emotions_bank(config: PolityConfig) -> CaseBank:
+    cases = [case for family in EMOTION_FAMILIES.values() for case in family(config)]
+    reference = {"provider": config.llm.provider, "model": config.llm.model, "seed": config.run.seed,
+                 "max_batch_size": config.llm.max_batch_size, "bank": "emotions"}
+    return CaseBank(reference=reference, cases=tuple(cases))
 
 
 def generate_bank(config: PolityConfig, *, families: Iterable[str] | None = None) -> CaseBank:
