@@ -21,6 +21,7 @@ import json
 import os
 import random
 import sys
+from typing import Any
 
 # Reproducibility: `random.Random(SEED)` alone is NOT enough. The engine iterates
 # sets/dicts of candidate names, so Python's per-process string-hash randomisation
@@ -300,6 +301,87 @@ def generate_exhaustive_scenarios() -> list[dict]:
     return scenarios
 
 
+def _generate_exhaustive_cardinal_scenarios(
+    rule: str,
+    winner_fn: Any,
+    ballot_types_for: Any,
+    n_range: tuple,
+    mmax_for: Any,
+    to_score: Any = lambda v: v,
+) -> list[dict]:
+    """Shared body for the exhaustive small-profile CARDINAL domains (approval,
+    majority_judgment, maximin — anything that reads `scores`, not `ranks`) —
+    the same "every profile over a small ballot-type alphabet, not a sample"
+    proof as generate_exhaustive_scenarios' ordinal domain above, parametrized
+    over what a ballot TYPE means for each rule. Extracted from what used to be
+    three (now: two, plus this one) near-identical ~40-line bodies differing
+    only in the ballot-type source and the winner fn — see the git history of
+    the PR that added this function for the duplication it replaced.
+
+    Anonymity (test_anonymity.py) means only the MULTISET of ballot types
+    matters, so `combinations_with_replacement` over `ballot_types_for(cands)`
+    (not raw voters) enumerates the space without redundant voter-relabellings,
+    the same argument generate_exhaustive_scenarios makes for `itertools.
+    permutations` + `combinations_with_replacement` over ordinal ballots.
+
+    `ballot_types_for(cands)` returns one tuple of per-candidate raw values per
+    ballot type, in `cands` order, already in whatever unit `winner_fn` reads
+    (0.0/1.0 for approval, a grade/5.0 utility for MJ, a raw grade int for
+    maximin — each caller's own docstring explains its choice). That tuple is
+    the SINGLE source both the ballot dict fed to `winner_fn` and the recorded
+    `"scores"` JSON field are built from: `scores` is read back from the actual
+    `ballots` that were scored (`to_score` applied to each cell), not
+    reconstructed a second time from `ballot_types`/`combo` in a parallel
+    expression. That second, independent expression is exactly what the
+    approval and majority-judgment generators used to do individually — a
+    real (if today-harmless, since both expressions compute the same thing
+    from the same source) self-consistency risk multiple review passes
+    flagged: if the ballot-derivation logic ever changed, the two expressions
+    would have to be kept in lockstep by hand. Here there is exactly one.
+
+    `to_score` converts a ballot cell's raw value into the JSON-friendly value
+    the fixture records (int 0/1 for approval, the integer grade 0-5 for MJ,
+    unchanged for maximin's already-integer grades). Defaults to the identity.
+
+    Winners are RAW (ties/no-winner -> None), never `strict_winner_cardinal`-
+    filtered — same reasoning as `generate_exhaustive_scenarios`: that filter
+    exists to drop "no comparable winner" ballast, but it also silently skips
+    exactly the tied/degenerate profiles an exhaustive check exists to catch.
+
+    Known remaining overlap, left alone here on purpose: the final
+    `{"candidates":, "scores":, "winners": {rule: winner}}` scenario dict this
+    builds is structurally the same few lines `single_rule_scenarios` above
+    builds for its own (random-sample, strict-winner-filtered) scenarios. Not
+    merged into this helper too — the two functions' surrounding control flow
+    (this one's ballot-type combinatorics vs. single_rule_scenarios' per-(m,n)
+    random trials with strict_winner_cardinal) is different enough that
+    sharing just the closing dict literal would trade a few real duplicated
+    lines for an extra indirection, for a much smaller win than the ballot-
+    type/self-consistency duplication this function actually fixes. A
+    follow-up if the two ever grow a THIRD near-identical tail.
+    """
+    scenarios = []
+    for n in n_range:
+        cands = NAMES[:n]
+        ballot_types = ballot_types_for(cands)
+        k = len(ballot_types)
+        mmax = mmax_for(n)
+        for m in range(1, mmax + 1):
+            for combo in itertools.combinations_with_replacement(range(k), m):
+                ballots = [
+                    {c: ballot_types[i][j] for j, c in enumerate(cands)} for i in combo
+                ]
+                winner = winner_fn(ballots)
+                scenarios.append(
+                    {
+                        "candidates": cands,
+                        "scores": [[to_score(vote[c]) for c in cands] for vote in ballots],
+                        "winners": {rule: winner},
+                    }
+                )
+    return scenarios
+
+
 def _approval_ballot_types(cands: list) -> list:
     """Every NON-DEGENERATE proper subset of `cands` (0 < |S| < n) -- the same
     domain make_approval_ballot draws from at random, enumerated exhaustively
@@ -317,46 +399,32 @@ def _approval_ballot_types(cands: list) -> list:
 
 def generate_exhaustive_approval_scenarios() -> list[dict]:
     """Every possible approval profile for n<=3 candidates, m<=5 voters -- the
-    same exhaustive-domain proof as generate_exhaustive_scenarios() above,
-    applied to approval instead of the ordinal rules.
+    approval instance of _generate_exhaustive_cardinal_scenarios' shared
+    domain proof (see its docstring for the anonymity/combinations_with_
+    replacement argument and the ballots -> scores self-consistency fix).
 
     A ballot TYPE here is one of the 2^n - 2 non-degenerate proper subsets of
-    candidates (_approval_ballot_types) instead of one of n! permutations;
-    anonymity again means only the MULTISET of ballot types matters, so
-    combinations_with_replacement over ballot types (not raw voters)
-    enumerates the space without redundant voter-relabellings. 2^n - 2 happens
-    to equal n! for n in {2, 3} (2 and 6), so this domain is exactly the same
-    shape and size as the ordinal one: 481 profiles (20 for n=2, 461 for
-    n=3) -- measured with combinations_with_replacement before committing to
-    it, same as every other domain in this file (see gen_engine_parity.py's
-    git history / the PR that added this function for the measured counts).
+    candidates (_approval_ballot_types) instead of one of n! permutations,
+    turned into a per-candidate 0.0/1.0 tuple. 2^n - 2 happens to equal n! for
+    n in {2, 3} (2 and 6), so this domain is exactly the same shape and size
+    as the ordinal one: 481 profiles (20 for n=2, 461 for n=3) -- measured
+    with combinations_with_replacement before committing to it, same as every
+    other domain in this file (see gen_engine_parity.py's git history / the
+    PR that added this function for the measured counts).
 
-    Winners are RAW (ties/no-winner -> None), not strict_winner_cardinal-
-    filtered, for the same reason as generate_exhaustive_scenarios: that
-    filter exists to drop "no comparable winner" ballast, but it also
-    silently skips exactly the tied/degenerate profiles this check is for.
     Reuses _approval_winner (get_approval_winner_sincere) -- the tally logic
     is not reimplemented here.
     """
-    scenarios = []
-    for n in (2, 3):
-        cands = NAMES[:n]
-        ballot_types = _approval_ballot_types(cands)
-        k = len(ballot_types)
-        for m in range(1, 6):
-            for combo in itertools.combinations_with_replacement(range(k), m):
-                ballots = [
-                    {c: (1.0 if c in ballot_types[i] else 0.0) for c in cands} for i in combo
-                ]
-                winner = _approval_winner(ballots)
-                scenarios.append(
-                    {
-                        "candidates": cands,
-                        "scores": [[1 if c in ballot_types[i] else 0 for c in cands] for i in combo],
-                        "winners": {"approval": winner},
-                    }
-                )
-    return scenarios
+    return _generate_exhaustive_cardinal_scenarios(
+        rule="approval",
+        winner_fn=_approval_winner,
+        ballot_types_for=lambda cands: [
+            tuple(1.0 if c in s else 0.0 for c in cands) for s in _approval_ballot_types(cands)
+        ],
+        n_range=(2, 3),
+        mmax_for=lambda n: 5,
+        to_score=int,
+    )
 
 
 # Coarsened grade set for the exhaustive majority-judgment domain below: three
@@ -384,9 +452,11 @@ MJ_EXHAUSTIVE_GRADES: tuple = (0, 2, 5)
 
 def generate_exhaustive_majority_judgment_scenarios() -> list[dict]:
     """Every possible majority-judgment profile over MJ_EXHAUSTIVE_GRADES for
-    n<=3 candidates -- same exhaustive-domain proof, applied to majority
-    judgment, with two tractability concessions measured (not guessed) before
-    picking them (exact combinations_with_replacement(k, m) counts):
+    n<=3 candidates -- the majority-judgment instance of
+    _generate_exhaustive_cardinal_scenarios' shared domain proof (see its
+    docstring for the anonymity argument and the ballots -> scores fix), with
+    two tractability concessions measured (not guessed) before picking them
+    (exact combinations_with_replacement(k, m) counts):
 
     1. Grades. A ballot type is one of G^n grade-vectors. The full G=6 scale
        is fine at n=2 (36 types: the full m<=5 domain is 749,397 profiles, a
@@ -407,9 +477,7 @@ def generate_exhaustive_majority_judgment_scenarios() -> list[dict]:
        blow-up. n=2 stays at the full m<=5 (only 2,001 profiles -- cheap).
 
     Domain: n=2, m in 1..5 (2,001 profiles) + n=3, m in 1..3 (4,059 profiles)
-    = 6,060 profiles total (~700KB of fixture). Winners are RAW, as above.
-    Reuses _mj_winner (get_majority_judgment_winner) -- the tally/tie-break
-    logic is not reimplemented here.
+    = 6,060 profiles total (~700KB of fixture).
 
     Fixture size, acknowledged directly: this section alone adds ~700KB (plus
     ~58KB from generate_exhaustive_approval_scenarios), taking
@@ -427,25 +495,201 @@ def generate_exhaustive_majority_judgment_scenarios() -> list[dict]:
     trade needs revisiting, the lever is m<=3 -> m<=2 for n=3 above (4,059 ->
     405 profiles, saving ~410KB) at the cost of the n=3 domain no longer
     exercising a real 3-way median.
+
+    Reuses _mj_winner (get_majority_judgment_winner) -- the tally/tie-break
+    logic is not reimplemented here.
     """
-    scenarios = []
-    for n, mmax in ((2, 5), (3, 3)):
-        cands = NAMES[:n]
-        ballot_types = list(itertools.product(MJ_EXHAUSTIVE_GRADES, repeat=n))
-        k = len(ballot_types)
-        for m in range(1, mmax + 1):
-            for combo in itertools.combinations_with_replacement(range(k), m):
-                ballots = [
-                    {c: ballot_types[i][j] / 5.0 for j, c in enumerate(cands)} for i in combo
-                ]
-                winner = _mj_winner(ballots)
-                scenarios.append(
-                    {
-                        "candidates": cands,
-                        "scores": [[ballot_types[i][j] for j in range(n)] for i in combo],
-                        "winners": {"majority_judgment": winner},
-                    }
-                )
+    return _generate_exhaustive_cardinal_scenarios(
+        rule="majority_judgment",
+        winner_fn=_mj_winner,
+        ballot_types_for=lambda cands: [
+            tuple(g / 5.0 for g in gv)
+            for gv in itertools.product(MJ_EXHAUSTIVE_GRADES, repeat=len(cands))
+        ],
+        n_range=(2, 3),
+        mmax_for=lambda n: 5 if n == 2 else 3,
+        to_score=lambda v: round(v * 5),
+    )
+
+
+# Coarsened grade set for the exhaustive maximin domain below, legitimate for
+# the SAME reason MJ_EXHAUSTIVE_GRADES is legitimate for majority judgment
+# (see its comment above): get_maximin_score_winner (simulation_score_utils.py)
+# computes, per candidate, `min()` over that candidate's own voters' raw
+# scores, then `max()` over candidates keyed by that per-candidate minimum --
+# both are ORDER comparisons (Python's min/max compare with `<`), never
+# arithmetic on the score magnitudes. So maximin's winner is invariant under
+# any strictly-increasing relabeling of the score alphabet, exactly like MJ's
+# grade comparisons.
+#
+# This was verified independently before building this domain, not assumed
+# from MJ's premise just because the technique looks the same: by re-reading
+# get_maximin_score_winner's body (confirms the min/max-only argument above),
+# AND empirically with a throwaway script (not committed) that relabeled
+# (0, 2, 5) -> (1, 10, 100) -- a deliberately NON-linear, order-preserving
+# remap -- across 200k random profiles (n in 2..5, m in 1..8), then again with
+# a wider 0-5 grade set and a more aggressive remap across another 200k: 0
+# winner changes in either run.
+#
+# Set to MJ_EXHAUSTIVE_GRADES itself (an alias, not a second literal) purely
+# for fixture-reading consistency with the MJ section -- any 3 strictly-
+# increasing values would do, and the two rules' soundness arguments are
+# otherwise independent. Aliasing instead of repeating the literal (0, 2, 5)
+# keeps that "same three values" claim, made in both this comment and the
+# parity test's, mechanically true rather than two numbers a future edit to
+# either constant could silently drift apart.
+MAXIMIN_EXHAUSTIVE_GRADES: tuple = MJ_EXHAUSTIVE_GRADES
+
+
+def _maximin_tied_winners(candidates: list, scores: list) -> list:
+    """The exact set of candidates tied for the TRUE maximin value (the highest
+    worst-case score) for one profile, computed directly from `scores`
+    (voter-major: `scores[voter][candidate]`) -- independently of
+    get_maximin_score_winner's own single-pick tie-break, so it can serve as
+    ground truth.
+
+    Why this exists at all, not just a raw winner-vs-winner comparison (see
+    generate_exhaustive_maximin_scenarios' docstring for the full story): both
+    engines' single-candidate "winner" is a legitimately different, ARBITRARY
+    tie-break convention (the backend's comes from dict/`_score_candidates`
+    insertion order, which this generator's own ballot construction always
+    happens to make canonical -- an artifact of test construction, not a
+    property either engine actually guarantees), not a shared algorithm. What
+    IS a real, well-defined, order-independent, cross-engine-comparable fact
+    is this set: which candidates actually achieve the maximum worst-case
+    score. Both engines must return a member of it always, and when it has
+    exactly one member there is no tie left to break, so identity comparison
+    is meaningful there without qualification.
+    """
+    worst = [min(row[j] for row in scores) for j in range(len(candidates))]
+    best = max(worst)
+    return [c for c, w in zip(candidates, worst) if w == best]
+
+
+def generate_exhaustive_maximin_scenarios() -> list[dict]:
+    """Every possible maximin profile over MAXIMIN_EXHAUSTIVE_GRADES for n<=3
+    candidates -- the maximin instance of
+    _generate_exhaustive_cardinal_scenarios' shared domain proof, extending
+    the same coarsened-grade technique generate_exhaustive_majority_judgment_
+    scenarios uses (see MAXIMIN_EXHAUSTIVE_GRADES' comment for why it's sound
+    for THIS rule specifically -- verified independently, not assumed from
+    MJ's).
+
+    Unlike MJ, maximin only ever computes min()/max() -- no median, no
+    iterative strip-and-recompare tie-break -- but its ballot-TYPE alphabet is
+    built exactly like MJ's: one of G^n grade-vectors, G=3. The
+    combinations_with_replacement(k, m) counts behind the domain size are
+    therefore IDENTICAL to MJ's -- measured explicitly here, not assumed from
+    the shared technique, because that count is a pure function of (n, m, G),
+    independent of which winner algorithm is layered on top of the same
+    ballot-type alphabet:
+
+      n=2, G=3 -> k=9  ballot types, m in 1..5 -> 2,001 profiles
+      n=3, G=3 -> k=27 ballot types, m in 1..3 -> 4,059 profiles
+      total: 6,060 profiles
+
+    n=3 stays capped at m<=3 for the same reason as MJ: k=27 makes m<=4 jump
+    to 31,464 profiles (~8x), and m<=3 already exercises a real 3+-way
+    minimum comparison across candidates, not just a 1-2 voter edge case.
+
+    Grades are fed to get_maximin_score_winner as UNSCALED raw ints (0, 2, 5)
+    -- not divided by 5 like MJ's utility ballots. Unlike MJ's fixed [0, 1]
+    grade-quantisation thresholds, neither engine's maximin implementation
+    (get_maximin_score_winner here; winMaximin in playgroundVoting.ts) ever
+    compares a score against an absolute threshold -- both only ever compare
+    scores against EACH OTHER (min, then max) -- so no rescaling is needed for
+    either side to read this domain correctly; `to_score` is left at the
+    shared helper's default identity.
+
+    WHY THIS SECTION ALSO RECORDS `maximinTiedWinners`, not just `winners`:
+    a raw winner-identity comparison (what approval/MJ's exhaustive sections
+    rely on, and what this section itself did in an earlier version of this
+    PR) turned out to be validating a construction artifact here, not real
+    cross-engine agreement. get_maximin_score_winner's tie-break comes from
+    `_score_candidates`'s first-encountered dict-key order, which this
+    generator's ballots always build in canonical candidate order -- so it
+    always coincides with the client's own tie-break (lowest array index,
+    i.e. also canonical order) *only because of that shared construction
+    choice*, not because the two engines implement the same tie-break rule.
+    Confirmed by reversing per-voter dict key order on this exact fixture
+    (same elections, same score multisets): the backend's recorded winner
+    flips on 3,312 of 6,060 profiles (54.7%) -- i.e. for the majority of
+    scenarios, "winner" here was never a meaningful cross-engine check at
+    all, just a shared accident of how the ballots happen to be built.
+    Maximin's own tie-break has no principled "correct" convention to lock
+    (max() over an unordered set with equal keys is inherently
+    order-dependent; this is the same tie-heavy-rule reality
+    MIN_STRICT_WINNERS_MAXIMIN's comment in playgroundVoting.parity.test.ts
+    already documents for the random-sample cardinalScenarios section), so
+    asserting raw identity on every profile would be asserting something
+    neither engine actually promises.
+
+    `maximinTiedWinners` (`_maximin_tied_winners`, computed independently of
+    either engine) is the real, well-defined, order-independent ground
+    truth: every candidate genuinely tied for the highest worst-case score.
+    The generator asserts here, at BUILD time, that the backend's own raw
+    pick is always a member of it -- a correctness invariant on
+    get_maximin_score_winner itself, unrelated to tie-break convention; a
+    failure here would be a genuine backend bug to stop and report, not a
+    construction artifact. The parity test (playgroundVoting.parity.test.ts)
+    runs the equivalent check on the client, and additionally asserts EXACT
+    identity between client, backend, and the tied set specifically when
+    the tied set has exactly one member -- the ~45.3% of profiles where
+    maximin's answer is genuinely unambiguous, now validated exhaustively
+    instead of by construction-order luck.
+
+    Fixture size: this section measured at ~730KB after generation (6,060
+    scenarios, slightly lighter than MJ's ~790KB for the same count -- a
+    shorter "maximin" rule key than "majority_judgment" and no median/
+    tie-break bookkeeping to record, just candidates/scores/winner/tied-set),
+    taking engineParity.json from ~1.3MB to ~2.0MB -- the same acknowledged,
+    deliberate overage of the 500KB check-added-large-files precedent
+    generate_exhaustive_majority_judgment_scenarios' docstring records (that
+    hook only checks NEWLY ADDED files, not growth on an already-tracked one).
+
+    Known gap, out of scope here: every ballot in this domain is COMPLETE --
+    every voter rates every candidate (`ballot_types_for` builds one value per
+    candidate per ballot type, no omissions). Real backend callers
+    (`override_utilities` paths) and the project's own atheris fuzz harness
+    can produce RAGGED ballots (a voter who didn't rate every candidate) --
+    the exact ballot shape whose absence from majority-judgment's own domain
+    was a real bug class PR #538 fixed (a candidate no voter-0 ballot
+    mentioned used to KeyError). This domain doesn't exercise that shape for
+    maximin either. Not fixed here: it's a different, orthogonal generator
+    change (a ballot TYPE alphabet with holes, not a tie-break correctness
+    fix), and get_maximin_score_winner's own iteration (`for c, s in
+    vote.items()`) already tolerates missing keys per-voter structurally
+    (unlike the old MJ bug, there's no fixed-candidate-set pre-seeding here to
+    KeyError on) -- so this is a documented coverage gap, not a known bug, and
+    a reasonable follow-up rather than a blocker for this PR.
+
+    Reuses get_maximin_score_winner directly: it already accepts a plain list
+    of per-voter score dicts (no `dict(enumerate(...))` or `["winner"]`
+    unwrapping needed, unlike approval/MJ's backend entry points) -- the
+    tally logic is not reimplemented here; only the auxiliary ground-truth
+    tied-set computation (_maximin_tied_winners) is new, and it is NOT a
+    second implementation of the tally -- it computes a strictly simpler,
+    order-independent property (a set membership test), not a winner pick.
+    """
+    scenarios = _generate_exhaustive_cardinal_scenarios(
+        rule="maximin",
+        winner_fn=get_maximin_score_winner,
+        ballot_types_for=lambda cands: list(
+            itertools.product(MAXIMIN_EXHAUSTIVE_GRADES, repeat=len(cands))
+        ),
+        n_range=(2, 3),
+        mmax_for=lambda n: 5 if n == 2 else 3,
+    )
+    for sc in scenarios:
+        tied = _maximin_tied_winners(sc["candidates"], sc["scores"])
+        winner = sc["winners"]["maximin"]
+        assert winner in tied, (
+            "get_maximin_score_winner returned a winner outside the "
+            f"analytically-true tied set -- a real backend bug, not a "
+            f"construction artifact: winner={winner!r} tied={tied!r} "
+            f"candidates={sc['candidates']!r} scores={sc['scores']!r}"
+        )
+        sc["maximinTiedWinners"] = tied
     return scenarios
 
 
@@ -498,6 +742,7 @@ def main() -> None:
     exhaustive_scenarios = generate_exhaustive_scenarios()
     exhaustive_approval_scenarios = generate_exhaustive_approval_scenarios()
     exhaustive_mj_scenarios = generate_exhaustive_majority_judgment_scenarios()
+    exhaustive_maximin_scenarios = generate_exhaustive_maximin_scenarios()
 
     payload = {
         "_generatedBy": "fast_api_voter/scripts/gen_engine_parity.py",
@@ -510,6 +755,7 @@ def main() -> None:
         "exhaustiveScenarios": exhaustive_scenarios,
         "exhaustiveApprovalScenarios": exhaustive_approval_scenarios,
         "exhaustiveMajorityJudgmentScenarios": exhaustive_mj_scenarios,
+        "exhaustiveMaximinScenarios": exhaustive_maximin_scenarios,
     }
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, "w", encoding="utf-8") as f:
@@ -520,7 +766,8 @@ def main() -> None:
         f"{len(approval_scenarios)} approval + {len(mj_scenarios)} majority-judgment + "
         f"{len(exhaustive_scenarios)} exhaustive ordinal (n<=3) + "
         f"{len(exhaustive_approval_scenarios)} exhaustive approval (n<=3) + "
-        f"{len(exhaustive_mj_scenarios)} exhaustive majority-judgment scenarios -> {OUT}"
+        f"{len(exhaustive_mj_scenarios)} exhaustive majority-judgment + "
+        f"{len(exhaustive_maximin_scenarios)} exhaustive maximin scenarios -> {OUT}"
     )
 
 
