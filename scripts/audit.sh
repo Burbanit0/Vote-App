@@ -297,7 +297,7 @@ if [ "$MODE" != "security" ]; then
       > "$REPORT_DIR/refurb.txt" 2>&1
     note "Findings: $(grep -c '^api/' "$REPORT_DIR/refurb.txt" 2>/dev/null || echo 0). See \`$REPORT_DIR/refurb.txt\`. Not gated — see PLAN_SOLIDITE_TECHNIQUE.md §6.3."
   else
-    note "⚠️ refurb not installed — \`pip install refurb\` (in requirements-dev.txt)."
+    note "⚠️ refurb not installed — on demand: \`uv pip install refurb==2.3.1\` (config: pyproject.toml [tool.refurb])."
   fi
 
   # --- Python performance anti-patterns: perflint (pylint plugin) ---
@@ -307,7 +307,7 @@ if [ "$MODE" != "security" ]; then
       > "$REPORT_DIR/perflint.txt" 2>&1
     note "Findings: $(grep -cE '^api/.*\(use-|\(loop-|\(dotted-|\(memoryview-|\(unnecessary-|\(incorrect-' "$REPORT_DIR/perflint.txt" 2>/dev/null || echo 0). See \`$REPORT_DIR/perflint.txt\`. Not gated — see PLAN_SOLIDITE_TECHNIQUE.md §6.3 (loop-invariant-statement disabled — too noisy at whole-repo scale, see [tool.pylint] in pyproject.toml)."
   else
-    note "⚠️ pylint/perflint not installed — \`pip install perflint pylint\` (in requirements-dev.txt)."
+    note "⚠️ pylint/perflint not installed — on demand: \`uv pip install perflint==0.8.1 'pylint<4'\` (config: pyproject.toml [tool.pylint])."
   fi
 
   # --- Python second type-checker opinion: basedpyright ---
@@ -317,7 +317,7 @@ if [ "$MODE" != "security" ]; then
       > "$REPORT_DIR/basedpyright.txt" 2>&1
     note "$(grep -m1 -E '^[0-9]+ errors?, [0-9]+ warnings?' "$REPORT_DIR/basedpyright.txt" 2>/dev/null || echo 'see report'). See \`$REPORT_DIR/basedpyright.txt\`. Not gated — see PLAN_SOLIDITE_TECHNIQUE.md §6.2 (baseline is ~32 known pydantic/pyright false positives, not zero)."
   else
-    note "⚠️ basedpyright not installed — \`pip install basedpyright\` (in requirements-dev.txt)."
+    note "⚠️ basedpyright not installed — on demand: \`uv pip install basedpyright==1.40.1\` (config: pyproject.toml [tool.basedpyright])."
   fi
 
   # --- Python unused/undeclared deps: deptry ---

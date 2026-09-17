@@ -32,4 +32,4 @@ primary_region = "cdg"  # Paris
 
 [[vm]]
   size = "shared-cpu-1x"
-  memory = "512mb"  # numpy + scipy import comfortably; 256mb is tight
+  memory = "512mb"  # numpy imports comfortably; 256mb is tight

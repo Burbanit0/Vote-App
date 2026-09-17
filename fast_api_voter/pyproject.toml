@@ -99,9 +99,6 @@ extend_exclude = [
 DEP002 = [
     "python-dotenv",  # never `import dotenv` directly; used internally by
                        # pydantic-settings' `SettingsConfigDict(env_file=...)`.
-    "scipy",           # unused by api/ itself, but IS used by scripts/llm_test_
-                       # harness/sample_size.py — excluded above, so it reads
-                       # as unused from this scan's (correct) narrower view.
     "uvicorn",         # not `import`ed by api/ or api/tests/ (also excluded
                        # above) — invoked as a CLI process (Dockerfile CMD /
                        # workflow `run:` steps), never as a library.
