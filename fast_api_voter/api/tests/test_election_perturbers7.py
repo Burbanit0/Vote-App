@@ -148,30 +148,6 @@ class TestInterpret:
 
 # ── /quadratic-funding ──────────────────────────────────────────────────────
 
-class TestQuadraticFunding:
-    payload = {
-        "projects": [
-            {"name": "Education", "x": -0.4},
-            {"name": "Health",    "x":  0.0},
-            {"name": "Infra",     "x":  0.5},
-        ],
-        "num_voters": 80, "seed": 42,
-        "budget_per_voter": 100.0, "matching_pool": 5000.0,
-    }
-
-    def test_happy_path(self, client):
-        r = client.post("/api/v2/election/quadratic-funding", json=self.payload)
-        assert r.status_code == 200, r.text
-        body = r.json()
-        for k in ("projects", "winner", "mechanism_comparison",
-                  "gini_coefficients", "vote_shares", "matching_pool",
-                  "budget_per_voter", "pedagogical_note"):
-            assert k in body
-
-    def test_rejects_single_project(self, client):
-        bad = {**self.payload, "projects": [self.payload["projects"][0]]}
-        assert client.post("/api/v2/election/quadratic-funding",
-                           json=bad).status_code == 422
 
 
 # ── /liquid-democracy ──────────────────────────────────────────────────────

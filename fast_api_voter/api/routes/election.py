@@ -93,8 +93,6 @@ from api.schemas import (
     PowerIndicesResponse,
     PrimaryRequest,
     PrimaryResponse,
-    QuadraticFundingRequest,
-    QuadraticFundingResponse,
     ShyVoterRequest,
     ShyVoterResponse,
     SimulatePipelineRequest,
@@ -103,8 +101,6 @@ from api.schemas import (
     AssemblyResponse,
     AssemblyScorecardRequest,
     AssemblyScorecardResponse,
-    TemporalRequest,
-    TemporalResponse,
     IssueVotingRequest,
     IssueVotingResponse,
     StructuralFairnessRequest,
@@ -126,7 +122,6 @@ from api.domain.election import (
     assembly_scorecard as assembly_scorecard_domain,
     issue_voting as issue_voting_domain,
     structural_fairness as structural_fairness_domain,
-    temporal as temporal_domain,
     affective_polarization as affective_polarization_domain,
     ballot_complexity as ballot_complexity_domain,
     behavioral_biases as behavioral_biases_domain,
@@ -155,7 +150,6 @@ from api.domain.election import (
     power_indices as power_indices_domain,
     primary as primary_domain,
     profile_simulate as profile_simulate_domain,
-    quadratic_funding as quadratic_funding_domain,
     shy_voter as shy_voter_domain,
     simulate as simulate_domain,
     simulate_pipeline as simulate_pipeline_domain,
@@ -276,20 +270,6 @@ async def assembly_scorecard_endpoint(
 
 # ── /temporal (frontier FA-3) ─────────────────────────────────────────────────
 
-@router.post(
-    "/temporal",
-    response_model=TemporalResponse,
-    summary="Democracy as a repeated game: N sequential elections",
-    response_description="Per-round positions, seats, winner, ENP, Gallagher, "
-                         "polarization, alternation and congruence over N rounds of "
-                         "party adaptation + voter attachment.",
-)
-async def temporal_endpoint(request: TemporalRequest) -> TemporalResponse:
-    """A system good ONCE can degrade over repeated play. Parties chase votes
-    (Downsian local search), voters attach to their party — watch ENP,
-    polarization and alternation evolve. Duverger's law shows up over time:
-    FPTP with strategic desertion compresses the party system, PR sustains it."""
-    return await _run_typed(temporal_domain, request, TemporalResponse)
 
 
 # ── /issue-voting (frontier FB-2) ─────────────────────────────────────────────
@@ -822,22 +802,6 @@ async def interpret_endpoint(request: InterpretRequest) -> InterpretResponse:
     """Pure rule-based text interpretation of an existing /simulate
     response. No new simulation."""
     return await _run_typed(interpret_domain, request, InterpretResponse)
-
-
-@router.post(
-    "/quadratic-funding",
-    response_model=QuadraticFundingResponse,
-    summary="Buterin/Hitzig/Weyl 2019 quadratic funding for public goods",
-    response_description="Per-project funding + mechanism comparison + "
-                         "Gini coefficients + pedagogical note.",
-)
-async def quadratic_funding_endpoint(
-    request: QuadraticFundingRequest,
-) -> QuadraticFundingResponse:
-    """QF amplifies projects with many small donors over those with few
-    large ones via matching(P) ∝ (Σᵢ √c_ip)². Compared against 1p1v
-    and proportional allocations on the same matching pool."""
-    return await _run_typed(quadratic_funding_domain, request, QuadraticFundingResponse)
 
 
 @router.post(

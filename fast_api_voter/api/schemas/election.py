@@ -333,70 +333,6 @@ class AssemblyScorecardResponse(BaseModel):
 
 # ── /temporal (frontier FA-3) ─────────────────────────────────────────────────
 
-class TemporalRequest(BaseModel):
-    """POST /api/v2/election/temporal — N sequential elections on one starting
-    electorate. Between rounds, parties local-search toward vote-maximising
-    positions (`adaptation_step`) and voters drift toward the party they voted
-    for (`loyalty_drift`). Stated dynamics; reproducible by seed."""
-    model_config = ConfigDict(extra="forbid")
-
-    parties: List[AssemblyPartySpec] = Field(..., min_length=2, max_length=8)
-    num_voters: int = Field(400, ge=10, le=1000)
-    ideology:   str = Field("random")
-    seed:       int = Field(42, ge=0)
-    structure: Literal["pr", "fptp", "mmp"] = Field("pr")
-    seats:     int   = Field(100, ge=10, le=500)
-    threshold: float = Field(0.05, ge=0.0, le=0.15)
-    apportionment: Literal["dhondt", "sainte_lague"] = Field("dhondt")
-    strategic_desertion: bool = Field(False)
-    electorate: Optional[ElectorateConfig] = Field(
-        None, description="Composed electorate (community mixture); overrides `ideology` when mode='composed'."
-    )
-    rounds: int = Field(20, ge=2, le=30)
-    adaptation_step: float = Field(0.06, ge=0.0, le=0.2,
-                                   description="Party vote-seeking step per round.")
-    loyalty_drift: float = Field(0.05, ge=0.0, le=0.2,
-                                 description="Voter drift toward their party per round.")
-
-    @field_validator("parties")
-    @classmethod
-    def _no_duplicate_parties(cls, v: List[AssemblyPartySpec]) -> List[AssemblyPartySpec]:
-        return _reject_duplicate_names(v)
-
-
-class TemporalPartyState(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    name: str
-    x: float
-    y: float
-    vote_share: float = Field(..., ge=0.0, le=1.0)
-    seats: int
-
-
-class TemporalRound(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    round: int
-    parties: List[TemporalPartyState]
-    winner: str = Field(..., description="Largest party this round.")
-    enp_votes: Optional[float] = Field(None)
-    enp_seats: Optional[float] = Field(None)
-    gallagher: Optional[float] = Field(None)
-    polarization: float = Field(..., description="Vote-weighted dispersion of party positions.")
-    alternation: bool = Field(..., description="Largest party changed vs the previous round.")
-    congruence_gap: float = Field(..., description="Distance between the seat-weighted assembly position and the voter median.")
-
-
-class TemporalResponse(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    rounds: List[TemporalRound]
-    alternation_rate:     float = Field(..., ge=0.0, le=1.0)
-    enp_votes_initial:    Optional[float] = Field(None)
-    enp_votes_final:      Optional[float] = Field(None)
-    polarization_initial: float
-    polarization_final:   float
 
 
 # ── /issue-voting (frontier FB-2) ─────────────────────────────────────────────
@@ -1304,18 +1240,6 @@ class DivergenceResponse(BaseModel):
 
 # ── /quadratic-funding ────────────────────────────────────────────────────────
 
-class QuadraticFundingResponse(BaseModel):
-    """Quadratic funding vs 1p1v/plutocracy with Gini inequality metrics."""
-    model_config = ConfigDict(extra="allow")
-
-    projects:             List[Dict[str, Any]]
-    winner:               Optional[str] = None
-    mechanism_comparison: Dict[str, Any]
-    gini_coefficients:    Dict[str, Any]
-    vote_shares:          Dict[str, float]
-    matching_pool:        Any
-    budget_per_voter:     Any
-    pedagogical_note:     str
 
 
 # ── /power-indices ────────────────────────────────────────────────────────────

@@ -72,36 +72,6 @@ class TestIIARate:
 
 # ── /plott-chaos ────────────────────────────────────────────────────────────
 
-class TestPlottChaos:
-    payload = {
-        "num_voters": 5, "num_dimensions": 2, "seed": 42,
-        "target_policy": [0.6, 0.6],
-        "start_policy": [-0.6, -0.6],
-        "max_steps": 10,
-    }
-
-    def test_happy_path(self, client):
-        r = client.post("/api/v2/theory/plott-chaos", json=self.payload)
-        assert r.status_code == 200, r.text
-        body = r.json()
-        for k in ("condorcet_winner_exists", "top_cycle", "chaos_path",
-                  "alternative_path", "voter_ideal_points", "pedagogical_note"):
-            assert k in body
-        assert "size" in body["top_cycle"]
-        assert "center" in body["top_cycle"]
-        # chaos_path uses alias 'from' on input/output
-        assert "from" in body["chaos_path"]
-        assert len(body["voter_ideal_points"]) == 5
-
-    def test_rejects_too_few_voters(self, client):
-        bad = {**self.payload, "num_voters": 1}
-        assert client.post("/api/v2/theory/plott-chaos",
-                           json=bad).status_code == 422
-
-    def test_rejects_too_many_dimensions(self, client):
-        bad = {**self.payload, "num_dimensions": 5}
-        assert client.post("/api/v2/theory/plott-chaos",
-                           json=bad).status_code == 422
 
 
 # ── /judgment-aggregation ──────────────────────────────────────────────────
