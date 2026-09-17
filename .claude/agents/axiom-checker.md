@@ -61,13 +61,14 @@ themselves, then reconcile:
 4. Some `get_*_winner` functions are real, used-elsewhere code that is
    deliberately **not** a member of the locked/tested set — e.g.
    `get_approval_winner` (the approve-top-2 variant),
-   `get_positional_score_winner` (a shared implementation behind other
-   rules, aliased as `get_score_winner`), `get_random_ballot_winner`. Each
-   exclusion is already explained somewhere (a comment above
-   `RULES`/`CARDINAL` in `gen_engine_parity.py`, or above the relevant
-   `case` in `playgroundVoting.ts`) — read the actual comment before
-   flagging one of these as "missing," or you will manufacture a false
-   positive on day one.
+   `get_positional_score_winner` (a standalone positional rule whose only
+   caller is `gibbard_satterthwaite.py`; no client-side twin, never in
+   `METHODS`, whose length the matrix test asserts is 21 — this list is its
+   only record). `get_approval_winner`'s exclusion is explained where it is
+   excluded (a comment above `RULES`/`CARDINAL` in `gen_engine_parity.py`,
+   or above the relevant `case` in `playgroundVoting.ts`) — read the actual
+   comment before flagging one of these as "missing," or you will
+   manufacture a false positive on day one.
 5. Cross-check the client side: `grep -n "case '" voter-app/src/lib/playgroundVoting.ts`
    inside `ruleWinnerFromRanks`. Most cases just call a `win<Rule>` wrapper
    whose logic mirrors an existing backend function 1:1 — no new backend

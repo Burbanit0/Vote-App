@@ -659,15 +659,6 @@ def candidate_centroids(
     return out
 
 
-def gallagher_index(vote_shares: List[float], seat_shares: List[float]) -> float:
-    """Gallagher (least-squares) disproportionality index, in percent:
-    sqrt( 0.5 * Σ (vᵢ − sᵢ)² ). Shares are fractions in [0, 1]. Pure math, reused by
-    the assembly playground (P3)."""
-    v = np.array(vote_shares, dtype=float) * 100.0
-    s = np.array(seat_shares, dtype=float) * 100.0
-    return round(float(np.sqrt(0.5 * np.sum((v - s) ** 2))), 4)
-
-
 # ── Top-level builder ─────────────────────────────────────────────────────────
 
 

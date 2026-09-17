@@ -175,6 +175,12 @@ def compare_all_methods(
     def _bayesian_regret(winner_name: Optional[str]) -> Optional[float]:
         if not winner_name:
             return None
+        # max() on an empty row would raise, taking every method's regret down
+        # with it, not just this voter's contribution (atheris found exactly that
+        # shape in the since-deleted calculate_bayesian_regret). Safe here because
+        # every caller builds one utility per candidate for every voter; a voter
+        # who rated nobody must be excluded from the sum AND its denominator, the
+        # same convention .get(winner_name, 0) applies to a missing candidate.
         total = sum(
             max(utilities[v["id"]].values()) - utilities[v["id"]].get(winner_name, 0)
             for v in voters

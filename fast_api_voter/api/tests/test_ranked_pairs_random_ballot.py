@@ -2,7 +2,6 @@
 
 from api.engine.utils.simulation_ranked_utils import (
     get_ranked_pairs_winner,
-    get_random_ballot_winner,
     random_ballot_probabilities,
 )
 from api.engine.utils.simulation_metrics import compare_all_methods
@@ -58,11 +57,14 @@ def test_random_ballot_probabilities_are_first_preference_shares():
     assert abs(sum(probs.values()) - 1.0) < 1e-9
 
 
-def test_random_ballot_modal_winner_and_alpha_tiebreak():
-    assert get_random_ballot_winner([["A", "B"]] * 3 + [["B", "A"]]) == "A"
-    # Exact tie → alphabetical.
-    assert get_random_ballot_winner([["B", "A"], ["A", "B"]]) == "A"
-    assert get_random_ballot_winner([]) is None
+def test_random_ballot_probabilities_read_dict_ballots_the_same_as_lists():
+    """`_is_dict_format`/`_get_ranking` shape, the one test_ballot_dict_format.py
+    exercises for every `get_*_winner` — this function is not a `get_*_winner`, so
+    it needs its own: a dict ballot's first preference is `ranking[0]`, not the
+    dict itself."""
+    lists = [["A", "B"]] * 3 + [["B", "A"]]
+    dicts = [{"voter_id": i, "ranking": r} for i, r in enumerate(lists)]
+    assert random_ballot_probabilities(dicts) == random_ballot_probabilities(lists)
 
 
 # ── Wiring into the comparison report ───────────────────────────────────────
@@ -88,3 +90,8 @@ def test_compare_all_methods_registers_new_methods():
     rb = methods["random_ballot"]
     assert rb["strategic_vulnerability"] == 0.0
     assert abs(sum(rb["rb_probabilities"].values()) - 1.0) < 1e-3
+    # The reported winner is the MOST probable candidate (4 first choices of 9),
+    # alphabetical among ties -- the report's only statement of that direction.
+    top = max(rb["rb_probabilities"].values())
+    assert rb["winner"] == min(c for c, p in rb["rb_probabilities"].items() if p == top)
+    assert rb["winner"] == "A"

@@ -2,10 +2,10 @@
 """fuzz_engine.py — coverage-guided fuzzing harness for the voting engine
 (Lot 9, PLAN_SOLIDITE_TECHNIQUE.md — "Fuzzing à couverture").
 
-Targets every winner function in `simulation_ranked_utils.py` (21 ordinal
-rules) and `simulation_score_utils.py` (12 cardinal/analysis functions) —
-the SAME two files the dual-voting-engine parity harness locks against the
-frontend (CLAUDE.md, "The dual voting engine"). This harness does not check
+Targets every winner function in `simulation_ranked_utils.py` and
+`simulation_score_utils.py` — the lists below are the authority on which — the
+SAME two files the dual-voting-engine parity harness locks against the frontend
+(CLAUDE.md, "The dual voting engine"). This harness does not check
 parity or any axiom; it only asks whether a call can raise an exception the
 function never means to raise.
 
@@ -81,18 +81,17 @@ with atheris.instrument_imports():
         get_minimax_winner,
         get_nanson_winner,
         get_plurality_winner,
-        get_random_ballot_winner,
+        get_positional_score_winner,
         get_ranked_pairs_winner,
         get_raynaud_winner,
         get_river_winner,
         get_schulze_winner,
-        get_score_winner,
         get_smith_irv_winner,
         get_split_cycle_winner,
         get_two_round_winner,
+        random_ballot_probabilities,
     )
     from api.engine.utils.simulation_score_utils import (
-        calculate_bayesian_regret,
         get_cumulative_winner,
         get_evaluative_winner,
         get_majority_judgment_winner,
@@ -100,7 +99,6 @@ with atheris.instrument_imports():
         get_mean_median_hybrid_winner,
         get_median_voting_winner,
         get_nash_winner,
-        get_score_distribution_analysis,
         get_simple_score_winner,
         get_star_voting_winner,
         get_variance_based_winner,
@@ -120,7 +118,7 @@ _RANKED_RULES: list[Callable[..., Any]] = [
     get_approval_winner,
     get_irv_winner,
     get_coombs_winner,
-    get_score_winner,
+    get_positional_score_winner,
     get_kemeny_young_winner,
     get_bucklin_winner,
     get_minimax_winner,
@@ -133,7 +131,6 @@ _RANKED_RULES: list[Callable[..., Any]] = [
     get_river_winner,
     get_smith_irv_winner,
     get_split_cycle_winner,
-    get_random_ballot_winner,
 ]
 
 # Cardinal rules: take a single `all_scores: list[dict[candidate, score]]`.
@@ -146,8 +143,6 @@ _SCORE_RULES: list[Callable[..., Any]] = [
     get_median_voting_winner,
     get_mean_median_hybrid_winner,
     get_variance_based_winner,
-    get_score_distribution_analysis,
-    calculate_bayesian_regret,
 ]
 
 # get_majority_judgment_winner/get_evaluative_winner take `utility_scores`
@@ -235,8 +230,12 @@ def TestOneInput(data: bytes) -> None:
 
     if lane == 0:
         votes, blank = _build_ranked_votes(fdp)
+        # Not a `get_*_winner` (it returns the whole win-probability map), so it
+        # is not in _RANKED_RULES -- but it is live code behind compare_all_methods
+        # and takes the same ballots, so it gets the same malformed shapes.
+        random_ballot_probabilities(votes)
         for rule in _RANKED_RULES:
-            # Keyword, not positional: get_score_winner/get_kemeny_young_winner
+            # Keyword, not positional: get_positional_score_winner/get_kemeny_young_winner
             # only accept `votes, **kwargs` (silently absorb it) and
             # get_approval_winner's 2nd positional is `approval_threshold`,
             # not `blank_candidate_name` -- a positional call there would

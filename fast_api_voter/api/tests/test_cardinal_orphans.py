@@ -1,11 +1,15 @@
-"""Tests for the six cardinal rules that no test file covered.
+"""Tests for the cardinal rules that no test file covered.
 
-simulation_score_utils.py exports 11 rules. Before this file, six of them had no
+Before this file, six of simulation_score_utils.py's rules had no
 dedicated test and were absent from the engine-parity harness (which locks only
 score, star, cumulative, maximin and nash). Widening mutmut's test selection from
 14 to 25 files moved the ordinal module from 440 to 337 survivors and left the
 cardinal module at 284 — not one mutant died, because every file added tested an
-ordinal rule. That isolated the gap to exactly these six functions.
+ordinal rule. That isolated the gap to exactly those six functions — five of them
+here, plus get_score_distribution_analysis, since deleted because nothing but its
+tests called it. get_simple_score_winner (never one of the six, but just as
+unasserted: only domain workers and TestClient routes this selection excludes
+exercised it) moved in from the file that used to hold it and the regret tests.
 
 These assert on the NUMBERS, not just the winner. A test that only checks who won
 leaves every arithmetic mutant alive: 0.5*mean + 0.5*median survives becoming
@@ -23,7 +27,7 @@ from api.engine.utils.simulation_score_utils import (
     get_majority_judgment_winner,
     get_mean_median_hybrid_winner,
     get_median_voting_winner,
-    get_score_distribution_analysis,
+    get_simple_score_winner,
     get_variance_based_winner,
 )
 
@@ -143,78 +147,6 @@ def test_variance_based_empty_ballots_have_no_winner():
     out = get_variance_based_winner([])
 
     assert out["winner"] is None
-
-
-# ------------------------------------------------------- distribution analysis
-
-
-def test_distribution_bins_scores_by_half_point():
-    """Bins are [0,0.5), [0.5,1.0), … — a score lands in exactly one."""
-    votes = [{"A": 0.0}, {"A": 0.4}, {"A": 0.5}, {"A": 2.7}]
-    out = get_score_distribution_analysis(votes)
-
-    dist = out["details"][0]["distribution"]
-    assert dist[0] == 2  # 0.0 and 0.4 → [0, 0.5)
-    assert dist[1] == 1  # 0.5        → [0.5, 1.0)
-    assert dist[5] == 1  # 2.7        → [2.5, 3.0)
-    assert sum(dist) == 4
-
-
-def test_distribution_keeps_a_perfect_score_of_five():
-    """Regression: every bin is half-open [lo, hi), so a score of exactly 5.0 —
-    the top of the scale and a perfectly ordinary ballot — matched no bin and was
-    dropped from the very distribution it belongs to. The final bin is closed on
-    the right so the top of the scale is counted."""
-    votes = [{"A": 5.0}, {"A": 5.0}, {"A": 4.9}]
-    out = get_score_distribution_analysis(votes)
-
-    row = out["details"][0]
-    assert row["total"] == 3, "a maximum score must not vanish from the analysis"
-    assert row["distribution"][9] == 3  # [4.5, 5.0] — all three
-    assert row["mode_range"] == "4.5-5.0"
-
-
-def test_distribution_percentages_sum_to_one_and_mode_is_the_fullest_bin():
-    votes = [{"A": 1.0}, {"A": 1.2}, {"A": 4.0}]
-    out = get_score_distribution_analysis(votes)
-
-    row = out["details"][0]
-    assert sum(row["percentages"]) == pytest.approx(1.0)
-    assert row["percentages"][2] == pytest.approx(2 / 3)  # [1.0, 1.5)
-    assert row["mode_range"] == "1.0-1.5"
-
-
-def test_distribution_orders_candidates_by_ballot_count():
-    votes = [{"A": 1, "B": 1}, {"B": 2}, {"B": 3}]
-    out = get_score_distribution_analysis(votes)
-
-    assert [r["candidate"] for r in out["details"]] == ["B", "A"]
-    assert out["method"] == "Score Distribution Analysis"
-
-
-def test_distribution_drops_out_of_range_scores_silently():
-    """`0 <= score <= bins[-1]` guards both ends. A negative score or one above
-    the top of the scale must be excluded from the distribution entirely —
-    not clamped into the first/last bin, not counted in `total`."""
-    votes = [{"A": -1.0}, {"A": 0.2}, {"A": 5.5}, {"A": 4.0}]
-    out = get_score_distribution_analysis(votes)
-
-    row = out["details"][0]
-    assert row["total"] == 2, "only 0.2 and 4.0 are in [0, 5]"
-    assert sum(row["distribution"]) == 2
-
-
-def test_distribution_mode_tie_keeps_the_lower_bin():
-    """`max(..., key=...)` returns the FIRST maximum on a tie: when two bins are
-    equally full, the lower-scoring bin is reported as the mode, not the
-    higher one — pins which side of the tie the mutation operators can flip."""
-    votes = [{"A": 0.0}, {"A": 4.9}]  # bin 0 and bin 9, each count 1
-    out = get_score_distribution_analysis(votes)
-
-    row = out["details"][0]
-    assert row["distribution"][0] == 1
-    assert row["distribution"][9] == 1
-    assert row["mode_range"] == "0.0-0.5"
 
 
 # ------------------------------------------------------------ majority judgment
@@ -518,3 +450,32 @@ def test_evaluative_a_later_voters_extra_candidate_is_not_silently_dropped():
     out = get_evaluative_winner(votes)
 
     assert set(out["scores"].keys()) == {"A", "B"}
+
+
+# ------------------------------------------------------------------ simple score
+
+
+def test_simple_score_picks_the_highest_average_not_the_highest_total():
+    """A: 5 from one voter -> avg 5.0. B: 4+4+4 from three voters -> avg 4.0.
+    A has the lower TOTAL (5 vs 12) but wins on average -- pins the /count
+    division rather than a raw sum."""
+    votes = [{"A": 5, "B": 4}, {"B": 4}, {"B": 4}]
+    out = get_simple_score_winner(votes)
+
+    assert out["winner"] == "A"
+    assert out["details"] == {"A": 5.0, "B": 4.0}
+    assert out["method"] == "Simple Score"
+
+
+def test_simple_score_orders_every_candidate_by_average_descending():
+    votes = [{"A": 1, "B": 5, "C": 3}]
+    out = get_simple_score_winner(votes)
+
+    assert list(out["details"].keys()) == ["B", "C", "A"]
+
+
+def test_simple_score_empty_ballots_have_no_winner():
+    out = get_simple_score_winner([])
+
+    assert out["winner"] is None
+    assert out["details"] == {}

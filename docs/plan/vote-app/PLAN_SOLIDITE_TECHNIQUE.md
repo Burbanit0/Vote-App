@@ -2634,8 +2634,8 @@ a construit l'inventaire par grep des fonctions `get_*_winner` réelles (pas
 seulement les dicts déjà câblés, puisqu'une méthode neuve n'y figure par
 définition pas encore), correctement écarté les vraies exclusions déjà
 documentées (`get_approval_winner`, `get_positional_score_winner`,
-`get_random_ballot_winner`, le jumeau condorcet/Copeland) sans en signaler
-aucune à tort, puis identifié la fonction scratch comme absente de `METHODS`
+`get_random_ballot_winner` — supprimé depuis, en PR 8b —, le jumeau
+condorcet/Copeland) sans en signaler aucune à tort, puis identifié la fonction scratch comme absente de `METHODS`
 et des 6 critères classifiables — avec, en particulier, la bonne distinction
 entre le critère Condorcet gagnant (assertion de module qui casserait la
 collecte entière du fichier si non traité) et les 5 autres (balayage

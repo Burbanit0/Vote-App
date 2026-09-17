@@ -11,7 +11,6 @@ from api.main import app
 from api.engine.utils.profile_engine import (
     condorcet_winner,
     cycle_rate,
-    gallagher_index,
     handcrafted_profile,
     build_profile,
     community_voters,
@@ -82,15 +81,6 @@ def test_textbook_irv_diverges_from_plurality():
     assert res["methods"]["plurality"]["winner"] == "A"
     assert res["methods"]["irv"]["winner"] == "C"
     assert res["condorcet_winner"] is None
-
-
-# ── Gallagher disproportionality math ─────────────────────────────────────────
-
-def test_gallagher_index_known_value():
-    """vote=[50,30,20]%, seats=[60,30,10]% → diffs [10,0,10] → sqrt(0.5*200) = 10."""
-    assert gallagher_index([0.5, 0.3, 0.2], [0.6, 0.3, 0.1]) == 10.0
-    # Perfect proportionality → zero.
-    assert gallagher_index([0.5, 0.5], [0.5, 0.5]) == 0.0
 
 
 # ── Statistical-culture samplers (non-spatial profiles) ───────────────────────
