@@ -4,15 +4,7 @@ from Flask to FastAPI in Phase 2 of the strategic refactor.
 These tests pin behavioural parity with the Flask /api/election/simulate
 endpoint, so the frontend can switch from v1 to v2 transparently.
 """
-import pytest
-from fastapi.testclient import TestClient
 
-from api.main import app
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
 
 
 # ── Minimal valid payload reused across tests ───────────────────────────────

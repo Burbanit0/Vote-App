@@ -1,14 +1,6 @@
 """Tests for Phase 4 batch 1:
 /api/v2/theory/{arrow, iia-rate, plott-chaos, judgment-aggregation}."""
-import pytest
-from fastapi.testclient import TestClient
 
-from api.main import app
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
 
 
 # ── /arrow ──────────────────────────────────────────────────────────────────
@@ -71,7 +63,6 @@ class TestIIARate:
 
 
 # ── /plott-chaos ────────────────────────────────────────────────────────────
-
 
 
 # ── /judgment-aggregation ──────────────────────────────────────────────────
