@@ -10,15 +10,7 @@ TestRateLimits.
 default, so `{}` is a valid, cheap request (~10 ms). slowapi keys by path
 (key_style="url"), so this is isolated from every other v2 endpoint.
 """
-import pytest
-from fastapi.testclient import TestClient
 
-from api.main import app
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
 
 
 def test_v2_rate_limit_triggers_after_120(client):

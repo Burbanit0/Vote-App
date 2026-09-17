@@ -1,14 +1,6 @@
 """Tests for Phase 4 batch 3:
 /api/v2/theory/{majority-tyranny, democratic-backsliding, intergenerational, epistocracy}."""
-import pytest
-from fastapi.testclient import TestClient
 
-from api.main import app
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
 
 
 # ── /majority-tyranny ──────────────────────────────────────────────────────
