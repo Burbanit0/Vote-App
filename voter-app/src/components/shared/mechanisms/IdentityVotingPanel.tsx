@@ -68,117 +68,6 @@ interface IdentityData {
 
 const GROUP_COLORS = ['#0d6efd', '#dc3545', '#198754', '#fd7e14', '#6f42c1'];
 
-// ── Preset scenarios ──────────────────────────────────────────────────────────
-
-const PRESETS = {
-  usa2020: {
-    label: '🇺🇸 USA 2020',
-    groups: [
-      {
-        name: 'Blancs sans diplôme',
-        pct: 0.34,
-        ideology_center: 0.4,
-        loyalty: 0.82,
-        candidate_affiliation: 'Trump',
-      },
-      {
-        name: 'Blancs diplômés',
-        pct: 0.28,
-        ideology_center: 0.1,
-        loyalty: 0.55,
-        candidate_affiliation: 'Biden',
-      },
-      {
-        name: 'Noirs américains',
-        pct: 0.12,
-        ideology_center: -0.3,
-        loyalty: 0.92,
-        candidate_affiliation: 'Biden',
-      },
-      {
-        name: 'Latinos',
-        pct: 0.13,
-        ideology_center: -0.1,
-        loyalty: 0.68,
-        candidate_affiliation: 'Biden',
-      },
-      {
-        name: 'Autres',
-        pct: 0.13,
-        ideology_center: 0.0,
-        loyalty: 0.5,
-        candidate_affiliation: 'Biden',
-      },
-    ],
-    candidates: [
-      { name: 'Biden', x: -0.35, y: 0.0 },
-      { name: 'Trump', x: 0.55, y: 0.0 },
-    ],
-  },
-  france2022: {
-    label: '🇫🇷 France 2022',
-    groups: [
-      {
-        name: 'Périphérie ouvrière',
-        pct: 0.25,
-        ideology_center: 0.3,
-        loyalty: 0.75,
-        candidate_affiliation: 'Le Pen',
-      },
-      {
-        name: 'Métropoles diplômés',
-        pct: 0.3,
-        ideology_center: -0.2,
-        loyalty: 0.65,
-        candidate_affiliation: 'Macron',
-      },
-      {
-        name: 'Gauche syndicale',
-        pct: 0.2,
-        ideology_center: -0.5,
-        loyalty: 0.8,
-        candidate_affiliation: 'Mélenchon',
-      },
-      {
-        name: 'Centre modéré',
-        pct: 0.25,
-        ideology_center: 0.0,
-        loyalty: 0.4,
-        candidate_affiliation: 'Macron',
-      },
-    ],
-    candidates: [
-      { name: 'Macron', x: -0.05, y: 0.0 },
-      { name: 'Le Pen', x: 0.55, y: 0.0 },
-      { name: 'Mélenchon', x: -0.6, y: 0.0 },
-    ],
-  },
-  uk_brexit: {
-    label: '🇬🇧 Brexit identity',
-    groups: [
-      {
-        name: 'Leavers',
-        pct: 0.52,
-        ideology_center: 0.3,
-        loyalty: 0.88,
-        candidate_affiliation: 'Tories',
-      },
-      {
-        name: 'Remainers',
-        pct: 0.48,
-        ideology_center: -0.2,
-        loyalty: 0.84,
-        candidate_affiliation: 'Labour',
-      },
-    ],
-    candidates: [
-      { name: 'Tories', x: 0.4, y: 0.0 },
-      { name: 'Labour', x: -0.3, y: 0.0 },
-    ],
-  },
-};
-type PresetKey = keyof typeof PRESETS;
-
 // ── Winner change indicator ───────────────────────────────────────────────────
 
 const WinnerBadge: React.FC<{ label: string; winner: string; highlight?: boolean }> = ({
@@ -202,12 +91,6 @@ const WinnerBadge: React.FC<{ label: string; winner: string; highlight?: boolean
 
 // ── Main panel ────────────────────────────────────────────────────────────────
 
-const DEFAULT_CANDIDATES = [
-  { name: 'Alice', x: -0.5, y: 0.0 },
-  { name: 'Bob', x: 0.0, y: 0.0 },
-  { name: 'Carol', x: 0.5, y: 0.0 },
-];
-
 const DEFAULT_GROUPS: IdentityGroup[] = [
   {
     name: 'Groupe A',
@@ -227,54 +110,34 @@ const DEFAULT_GROUPS: IdentityGroup[] = [
 ];
 
 export interface IdentityVotingLabProps {
-  labMode?: boolean;
-  labCandidates?: Array<{ name: string; x: number; y: number }>;
-  labNumVoters?: number;
-  labSeed?: number;
+  candidates: Array<{ name: string; x: number; y: number }>;
+  numVoters: number;
+  seed: number;
 }
 
-const IdentityVotingPanel: React.FC<IdentityVotingLabProps> = ({
-  labMode = false,
-  labCandidates,
-  labNumVoters,
-  labSeed,
-}) => {
+const IdentityVotingPanel: React.FC<IdentityVotingLabProps> = ({ candidates, numVoters, seed }) => {
   const { t } = useTranslation();
 
   const sim = $api.useMutation('post', '/api/v2/theory/identity-voting');
   const data: IdentityData | null = (sim.data as IdentityData | undefined) ?? null;
   const loading = sim.isPending;
   const error = sim.isError ? t('identity.error') : null;
-  const [candidates, setCandidates] = useState(DEFAULT_CANDIDATES);
   const [groups, setGroups] = useState<IdentityGroup[]>(DEFAULT_GROUPS);
-  const [numVoters, setNumVoters] = useState(300);
-  const [seed, setSeed] = useState(42);
   const [identityWeight, setIdentityWeight] = useState(0.5);
   const [crossPressure, setCrossPressure] = useState(true);
   const [activeView, setActiveView] = useState<'groups' | 'curve' | 'table'>('groups');
 
-  // Sync lab candidates into groups affiliation when in lab mode
+  // Each group's affiliation follows the Lab's candidates, cycling if there
+  // are more groups than candidates.
   useEffect(() => {
-    if (labMode && labCandidates?.length) {
-      setCandidates(labCandidates);
-      // Reset groups to use first lab candidate as affiliation
-      setGroups((prev) =>
-        prev.map((g, i) => ({
-          ...g,
-          candidate_affiliation:
-            labCandidates[i % labCandidates.length]?.name ?? g.candidate_affiliation,
-        }))
-      );
-    }
-  }, [labMode, labCandidates]);
-
-  const loadPreset = (key: PresetKey) => {
-    if (labMode) return; // presets locked in lab mode
-    const p = PRESETS[key];
-    setCandidates(p.candidates);
-    setGroups(p.groups.map((g) => ({ ...g })));
-    sim.reset();
-  };
+    if (!candidates.length) return;
+    setGroups((prev) =>
+      prev.map((g, i) => ({
+        ...g,
+        candidate_affiliation: candidates[i % candidates.length].name,
+      }))
+    );
+  }, [candidates]);
 
   const updateGroup = (i: number, field: keyof IdentityGroup, val: string | number) =>
     setGroups((prev) => prev.map((g, j) => (j === i ? { ...g, [field]: val } : g)));
@@ -282,29 +145,16 @@ const IdentityVotingPanel: React.FC<IdentityVotingLabProps> = ({
   const run = useCallback(() => {
     sim.mutate({
       body: {
-        candidates: labMode ? (labCandidates ?? candidates) : candidates,
-        num_voters: labMode ? (labNumVoters ?? numVoters) : numVoters,
-        seed: labMode ? (labSeed ?? seed) : seed,
+        candidates,
+        num_voters: numVoters,
+        seed,
         identity_groups: groups,
         identity_weight: identityWeight,
         cross_pressure: crossPressure,
         method: 'plurality',
       },
     });
-  }, [
-    candidates,
-    numVoters,
-    seed,
-    groups,
-    identityWeight,
-    crossPressure,
-    t,
-    labMode,
-    labCandidates,
-    labNumVoters,
-    labSeed,
-    sim,
-  ]);
+  }, [candidates, numVoters, seed, groups, identityWeight, crossPressure, t, sim]);
 
   // ── Chart data ─────────────────────────────────────────────────────────────
   const groupsChartData =
@@ -348,31 +198,12 @@ const IdentityVotingPanel: React.FC<IdentityVotingLabProps> = ({
         <strong>{t('identity.greenQuoteTitle')}</strong> {t('identity.greenQuote')}
       </Alert>
 
-      {/* ── Lab mode badge ── */}
-      {labMode && (
-        <div className="mb-2">
-          <Badge variant="dark" style={{ fontSize: '0.68rem' }}>
-            🔬 {t('lab.fromElectionLab')}
-          </Badge>
-        </div>
-      )}
-
-      {/* ── Presets (hidden in lab mode) ── */}
-      {!labMode && (
-        <div className="flex flex-wrap gap-2 mb-3" data-testid="presets">
-          {(Object.keys(PRESETS) as PresetKey[]).map((key) => (
-            <Button
-              key={key}
-              size="sm"
-              variant="outline-secondary"
-              data-testid={`preset-${key}`}
-              onClick={() => loadPreset(key)}
-            >
-              {PRESETS[key].label}
-            </Button>
-          ))}
-        </div>
-      )}
+      {/* The candidates and the electorate come from the Lab's shared config. */}
+      <div className="mb-2">
+        <Badge variant="dark" style={{ fontSize: '0.68rem' }}>
+          🔬 {t('lab.fromElectionLab')}
+        </Badge>
+      </div>
 
       {/* ── Group editor ── */}
       <div
@@ -449,32 +280,6 @@ const IdentityVotingPanel: React.FC<IdentityVotingLabProps> = ({
 
       {/* ── Controls ── */}
       <Row className="g-2 mb-3 items-end">
-        {!labMode && (
-          <>
-            <Col xs={6} md={2}>
-              <label className="mb-1 inline-block text-sm mb-0">{t('identity.voters')}</label>
-              <Control
-                type="number"
-                size="sm"
-                min={20}
-                max={2000}
-                value={numVoters}
-                data-testid="voters-input"
-                onChange={(e) => setNumVoters(Number(e.target.value))}
-              />
-            </Col>
-            <Col xs={6} md={1}>
-              <label className="mb-1 inline-block text-sm mb-0">{t('identity.seed')}</label>
-              <Control
-                type="number"
-                size="sm"
-                value={seed}
-                data-testid="seed-input"
-                onChange={(e) => setSeed(Number(e.target.value))}
-              />
-            </Col>
-          </>
-        )}
         <Col xs={12} md={4}>
           <label className="mb-1 inline-block text-sm mb-0">
             {t('identity.identityWeight')} — {Math.round(identityWeight * 100)}%

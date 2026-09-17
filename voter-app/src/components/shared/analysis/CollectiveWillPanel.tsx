@@ -6,10 +6,7 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Control, Select } from '@/components/ui/form-controls';
 import { Col, Row } from '@/components/ui/grid';
-import { Spinner } from '@/components/ui/spinner';
 import { $api } from '../../../api/hooks';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -289,161 +286,59 @@ const PhilosophersSection: React.FC<{ score: number; t: (k: string) => string }>
   );
 };
 
-// ── Lab-mode props ────────────────────────────────────────────────────────────
+// ── Props: the Lab's shared electorate ────────────────────────────────────────
 
 export interface CollectiveWillLabProps {
-  labMode?: boolean;
-  labCandidates?: Array<{ name: string; x: number; y: number }>;
-  labNumVoters?: number;
-  labSeed?: number;
-  labIdeology?: string;
+  candidates: Array<{ name: string; x: number; y: number }>;
+  numVoters: number;
+  seed: number;
+  ideology: string;
 }
 
 // ── Main panel ────────────────────────────────────────────────────────────────
 
 const CollectiveWillPanel: React.FC<CollectiveWillLabProps> = ({
-  labMode = false,
-  labCandidates,
-  labNumVoters,
-  labSeed,
-  labIdeology,
+  candidates,
+  numVoters,
+  seed,
+  ideology,
 }) => {
   const { t } = useTranslation();
 
   const sim = $api.useMutation('post', '/api/v2/theory/collective-will');
   const data: CollectiveWillData | null = (sim.data as CollectiveWillData | undefined) ?? null;
-  const loading = sim.isPending;
   const error = sim.isError ? t('will.error') : null;
-  const [numVoters, setNumVoters] = useState(100);
-  const [seed, setSeed] = useState(42);
-  const [numMethods, setNumMethods] = useState(5);
-  const [numAgendas, setNumAgendas] = useState(4);
-  const [ideology, setIdeology] = useState('random');
+  // How many methods and agendas the sweep compares. Fixed: the pickers that
+  // set them only ever rendered for a non-Lab caller that never existed.
+  const NUM_METHODS = 5;
+  const NUM_AGENDAS = 4;
 
-  const DEFAULT_CANDS = [
-    { name: 'Alice', x: -0.5, y: 0.0 },
-    { name: 'Bob', x: 0.0, y: 0.0 },
-    { name: 'Carol', x: 0.5, y: 0.0 },
-  ];
-
-  const handleRun = (
-    overrideCands?: typeof DEFAULT_CANDS,
-    overrideVoters?: number,
-    overrideSeed?: number,
-    overrideIdeology?: string
-  ) => {
+  // Runs itself whenever the Lab's electorate changes; the panel has no run
+  // button of its own.
+  useEffect(() => {
+    if (!candidates.length) return;
     sim.mutate({
       body: {
-        candidates: overrideCands ?? DEFAULT_CANDS,
-        num_voters: overrideVoters ?? numVoters,
-        ideology: overrideIdeology ?? ideology,
-        seed: overrideSeed ?? seed,
-        num_methods: numMethods,
-        num_agendas: numAgendas,
+        candidates,
+        num_voters: numVoters,
+        ideology,
+        seed,
+        num_methods: NUM_METHODS,
+        num_agendas: NUM_AGENDAS,
         num_simulations: 1,
       },
     });
-  };
-
-  // Auto-run when lab context changes
-  useEffect(() => {
-    if (labMode && labCandidates?.length) {
-      handleRun(labCandidates, labNumVoters, labSeed, labIdeology);
-    }
-  }, [labMode, labCandidates, labNumVoters, labSeed, labIdeology]);
+  }, [candidates, numVoters, seed, ideology]);
 
   const score = data?.rousseau_score ?? 0;
 
   return (
     <div>
-      {/* ── Lab mode badge ── */}
-      {labMode && (
-        <div className="mb-2">
-          <Badge variant="dark" style={{ fontSize: '0.68rem' }}>
-            🔬 {t('lab.fromElectionLab')}
-          </Badge>
-        </div>
-      )}
-      {/* ── Controls (hidden in lab mode) ── */}
-      {!labMode && (
-        <Row className="g-2 mb-3 items-end">
-          <Col xs={6} md={2}>
-            <label className="mb-1 inline-block text-sm mb-0">{t('will.voters')}</label>
-            <Control
-              type="number"
-              size="sm"
-              min={10}
-              max={500}
-              value={numVoters}
-              data-testid="voters-input"
-              onChange={(e) => setNumVoters(Number(e.target.value))}
-            />
-          </Col>
-          <Col xs={6} md={2}>
-            <label className="mb-1 inline-block text-sm mb-0">{t('will.methods')}</label>
-            <Control
-              type="number"
-              size="sm"
-              min={2}
-              max={10}
-              value={numMethods}
-              data-testid="methods-input"
-              onChange={(e) => setNumMethods(Number(e.target.value))}
-            />
-          </Col>
-          <Col xs={6} md={2}>
-            <label className="mb-1 inline-block text-sm mb-0">{t('will.agendas')}</label>
-            <Control
-              type="number"
-              size="sm"
-              min={2}
-              max={6}
-              value={numAgendas}
-              data-testid="agendas-input"
-              onChange={(e) => setNumAgendas(Number(e.target.value))}
-            />
-          </Col>
-          <Col xs={6} md={2}>
-            <label className="mb-1 inline-block text-sm mb-0">{t('will.ideology')}</label>
-            <Select
-              size="sm"
-              value={ideology}
-              data-testid="ideology-select"
-              onChange={(e) => setIdeology(e.target.value)}
-            >
-              <option value="random">{t('will.ideologyRandom')}</option>
-              <option value="polarized">{t('will.ideologyPolarized')}</option>
-            </Select>
-          </Col>
-          <Col xs={6} md={1}>
-            <label className="mb-1 inline-block text-sm mb-0">{t('will.seed')}</label>
-            <Control
-              type="number"
-              size="sm"
-              value={seed}
-              data-testid="seed-input"
-              onChange={(e) => setSeed(Number(e.target.value))}
-            />
-          </Col>
-          <Col xs="auto">
-            <Button
-              variant="dark"
-              size="sm"
-              onClick={() => handleRun()}
-              disabled={loading}
-              data-testid="run-btn"
-            >
-              {loading ? <Spinner size="sm" /> : t('will.run')}
-            </Button>
-          </Col>
-        </Row>
-      )}
-
-      {!data && !loading && !error && !labMode && (
-        <Alert variant="secondary" data-testid="prompt-alert">
-          {t('will.prompt')}
-        </Alert>
-      )}
+      <div className="mb-2">
+        <Badge variant="dark" style={{ fontSize: '0.68rem' }}>
+          🔬 {t('lab.fromElectionLab')}
+        </Badge>
+      </div>
       {error && (
         <Alert variant="danger" data-testid="error-alert">
           {error}
