@@ -459,7 +459,17 @@ def test_response_every_valid_stance_motif_pairing_is_accepted():
     ResponseDecision.model_validate(_response_decision(stance=1, motif=303))
     ResponseDecision.model_validate(_response_decision(shifts=[], stance=2, motif=307))
     ResponseDecision.model_validate(_response_decision(shifts=[], stance=3, motif=308))
+    ResponseDecision.model_validate(_response_decision(shifts=[], stance=3, motif=303))
     ResponseDecision.model_validate(_response_decision(shifts=[], stance=4, motif=309))
+
+
+def test_response_silence_may_cite_the_legitimacy_floor_but_no_other_concession_motif():
+    """Widened 2026-09-16: a president facing the recall floor may stay silent, and 303 is the reason
+    the model gives when it does. The other concession motifs still describe a move silence never makes."""
+    assert ResponseDecision.model_validate(_response_decision(shifts=[], stance=3, motif=303)).motif == 303
+    for motif in (301, 302, 307, 309):
+        with pytest.raises(ValidationError, match="stance=3"):
+            ResponseDecision.model_validate(_response_decision(shifts=[], stance=3, motif=motif))
 
 
 def test_response_duplicate_dimension_raises():

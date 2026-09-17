@@ -44,7 +44,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-015](#obs-015) | In the deterministic twin, presidents are recalled after a median of two ticks | 2026-09-13 | cause found |
 | [OBS-016](#obs-016) | The root disk filled up: p500 seed 42 died at tick 13 and the GPU queue ran nothing | 2026-09-14 | open |
 | [OBS-017](#obs-017) | WebKit crashed mid-navigation to /polity in CI, once, while the other worker ran the heavy fiches | 2026-09-16 | open |
-| [OBS-018](#obs-018) | The response contract, not the model, sets the president's stance in 22 of 650 responses | 2026-09-16 | cause found |
+| [OBS-018](#obs-018) | The response contract, not the model, sets the president's stance in 22 of 650 responses | 2026-09-16 | cause found, partly fixed |
 
 ---
 
@@ -777,10 +777,12 @@ journalctl --user -u polity-stage4-s42-record --no-pager | grep -E 'exhausted ev
   failure goes straight to the fallback, which the chamber's own comment states: "neither is
   retried further".
 
-*Status and what would change it.* Nothing is changed while Stage 4 runs: every step must run on
-the bench step 1 recorded (plan-polity-build-order.md, "Stage 4 on the LLM path"). After the runs:
+*Status and what would change it.*
 
-- #545 lets a silence cite 303. That would end the 235 fallbacks and keep the 10 retried silences
-  silent.
-- Moving the bound checks inside the decode, so a bound failure is retried like a schema failure,
-  is a separate decision. It would change the chamber most.
+- **The silence–motif rule is fixed** by #545 (4e8975c8, merged 2026-09-16): a silence may cite 303.
+  That ends the 235 fallbacks and keeps the 10 retried silences silent. Stage 4's remaining runs
+  stay on fe4bad5a, the commit before it, so they match step 1 (plan-polity-build-order.md, "Stage
+  4 on the LLM path").
+- **The bound checks outside the retry are unchanged.** Moving them inside the decode, so a bound
+  failure is retried like a schema failure, is a separate decision. It would change the chamber
+  most.

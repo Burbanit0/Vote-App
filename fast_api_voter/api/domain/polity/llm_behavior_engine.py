@@ -2966,10 +2966,11 @@ def _deterministic_response_fallback(holders: Sequence[Citizen]) -> list[Respons
     baseline behaviour rather than inventing a stance the model never took.
 
     The motif is forced, not chosen: ResponseDecision's own stance/motif
-    validator requires 308 for stance=3, and 308 is STRATEGIC_AMBIGUITY -- a
-    name that describes a representative's deliberate reticence, which is NOT
-    what happened here. Nothing legal describes "the engine gave up", so the
-    provenance lives in ResponseBatchOutcome.llm_fallback instead, and an
+    validator allows only 303 or 308 for stance=3, and the fallback takes 308,
+    STRATEGIC_AMBIGUITY -- a name that describes a representative's deliberate
+    reticence, which is NOT what happened here (and 303 would claim a reason
+    the engine never read). Nothing legal describes "the engine gave up", so
+    the provenance lives in ResponseBatchOutcome.llm_fallback instead, and an
     analyst reading motif distributions must subtract fallbacks before reading
     308 as a behavioural signal."""
     return [
