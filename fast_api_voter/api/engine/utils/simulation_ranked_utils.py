@@ -440,10 +440,6 @@ def get_positional_score_winner(votes: list[Any], **kwargs: Any) -> Optional[str
     return str(min(scores, key=lambda c: (-scores[c], c)))
 
 
-# Backward-compatible alias used by existing route code.
-get_score_winner = get_positional_score_winner
-
-
 def _kwik_sort(candidates: list[str], pairwise: dict[tuple[str, str], int]) -> list[str]:
     """
     KwikSort approximation of Kemeny-Young — O(n log n) expected time.
@@ -1160,18 +1156,3 @@ def random_ballot_probabilities(votes: list[Any]) -> dict[str, float]:
     if cast == 0:
         return {}
     return {c: n / cast for c, n in first_choice.items()}
-
-
-def get_random_ballot_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
-    """
-    Random ballot / random dictator (Gibbard, 1977) — the canonical strategyproof
-    rule. The realised winner is a lottery (see :func:`random_ballot_probabilities`);
-    this returns the *most probable* outcome — the candidate with the largest
-    first-preference share, alphabetical tie-break — so the rule has a stable,
-    comparable representative winner. Its strategyproofness and full distribution
-    are surfaced separately (the comparison report weights metrics by probability).
-    """
-    probs = random_ballot_probabilities(votes)
-    if not probs:
-        return None
-    return min(probs, key=lambda c: (-probs[c], c))

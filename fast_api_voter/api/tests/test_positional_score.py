@@ -1,4 +1,4 @@
-"""Unit tests for `get_positional_score_winner` (aliased as `get_score_winner`):
+"""Unit tests for `get_positional_score_winner`:
 a positional rule that, unlike Borda, normalises each ballot's weights to a
 fixed [0, 1] range (1 - position / (num_candidates - 1)) instead of raw
 integer counts. This lets ballots of different lengths (partial rankings)
@@ -7,9 +7,7 @@ Borda when ballot lengths vary within the same profile.
 
 No dedicated test file existed before -- CODE_AUDIT.md §7 item 6. This
 function is live production code (used by
-`api/domain/simulations/base.py`'s "score_winner",
-`api/engine/utils/gibbard_satterthwaite.py`, and
-`api/engine/utils/arrow_criteria.py`), not dead code, and is currently absent
+`api/engine/utils/gibbard_satterthwaite.py`), not dead code, and is currently absent
 from `test_voting_criteria_matrix.py`'s METHODS registry -- unlike the other
 21 "locked" ordinal methods, it (like `approval` and `random_ballot`) was
 never axiomatically classified there. See CODE_AUDIT.md's 2026-09-12 "(bis)"
@@ -18,14 +16,7 @@ update for the full re-derivation of this file's test-coverage gap."""
 from api.engine.utils.simulation_ranked_utils import (
     get_borda_winner,
     get_positional_score_winner,
-    get_score_winner,
 )
-
-
-def test_score_winner_is_the_positional_score_winner_alias():
-    ballots = [["A", "B", "C"], ["A", "C", "B"]]
-    assert get_score_winner is get_positional_score_winner
-    assert get_score_winner(ballots) == get_positional_score_winner(ballots)
 
 
 def test_positional_score_elects_the_unanimous_first_choice():

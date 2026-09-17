@@ -132,28 +132,6 @@ def apply_quadratic_voting(
     }
 
 
-# ── Gini coefficient helper ───────────────────────────────────────────────────
-
-def gini_coefficient(values: list[float]) -> float:
-    """
-    Compute the Gini coefficient (0 = perfect equality, 1 = maximum inequality)
-    for a list of non-negative values.  Returns 0.0 for empty or zero-sum lists.
-
-    Formula (sorted ascending, 1-indexed):
-        G = (2 × Σᵢ i·xᵢ) / (n × Σxᵢ) − (n + 1) / n
-    """
-    n = len(values)
-    if n < 2:
-        return 0.0
-    total = sum(values)
-    if total <= 0:
-        return 0.0
-    sorted_v = sorted(values)
-    # 1-indexed sum: Σ_{i=1}^{n} i · x_(i)
-    weighted = sum((i + 1) * v for i, v in enumerate(sorted_v))
-    return round(2.0 * weighted / (n * total) - (n + 1) / n, 4)
-
-
 # ── Private helpers ───────────────────────────────────────────────────────────
 
 def _empty_result() -> dict[str, Any]:

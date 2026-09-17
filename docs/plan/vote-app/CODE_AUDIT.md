@@ -207,10 +207,12 @@ croisé sur `api/tests/`, plus `--cov-report=term-missing` sur
 `simulation_ranked_utils.py`) : seules **3** fonctions n'avaient réellement
 aucun test dédié — `get_borda_winner` (seulement exercée en comparaison
 incidentelle dans `test_black.py`/`test_dowdall.py` et dans l'axiome §5),
-`get_positional_score_winner` (alias `get_score_winner` — zéro test de
+`get_positional_score_winner` (zéro test de
 toute nature, y compris dans `test_voting_criteria_matrix.py`, alors que
-c'est du code de production réel utilisé par `domain/simulations/base.py`,
-`gibbard_satterthwaite.py` et `arrow_criteria.py`), et
+c'est du code de production réel — appelé, depuis la PR 8b, par le seul
+`gibbard_satterthwaite.py` : `domain/simulations/base.py` et
+`arrow_criteria.py` ont été supprimés en PR 2, et l'alias `get_score_winner`
+en PR 8b), et
 `get_approval_winner_sincere` (le mode de vote sincère par seuil
 d'utilité — la branche correspondante dans `get_approval_winner`,
 lignes ~276-298, n'avait elle-même aucune couverture, pas seulement le
