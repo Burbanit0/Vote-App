@@ -52,9 +52,7 @@ limits==5.8.0
 networkx==3.6.1
     # via -r requirements.txt
 numpy==2.5.3
-    # via
-    #   -r requirements.txt
-    #   scipy
+    # via -r requirements.txt
 opentelemetry-api==1.44.0
     # via
     #   -r requirements.txt
@@ -134,8 +132,6 @@ redis==8.1.0
     # via -r requirements.txt
 requests==2.34.2
     # via opentelemetry-exporter-otlp-proto-http
-scipy==1.18.1
-    # via -r requirements.txt
 sentry-sdk==2.69.1
     # via -r requirements.txt
 simple-websocket==1.1.0

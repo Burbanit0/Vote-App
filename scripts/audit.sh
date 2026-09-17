@@ -297,7 +297,7 @@ if [ "$MODE" != "security" ]; then
       > "$REPORT_DIR/refurb.txt" 2>&1
     note "Findings: $(grep -c '^api/' "$REPORT_DIR/refurb.txt" 2>/dev/null || echo 0). See \`$REPORT_DIR/refurb.txt\`. Not gated — see PLAN_SOLIDITE_TECHNIQUE.md §6.3."
   else
-    note "⚠️ refurb not installed — \`pip install refurb\` (in requirements-dev.txt)."
+    note "⚠️ refurb not installed — on demand: \`uv pip install refurb==2.3.1\` (config: pyproject.toml [tool.refurb])."
   fi
 
   # --- Python performance anti-patterns: perflint (pylint plugin) ---
@@ -307,7 +307,7 @@ if [ "$MODE" != "security" ]; then
       > "$REPORT_DIR/perflint.txt" 2>&1
     note "Findings: $(grep -cE '^api/.*\(use-|\(loop-|\(dotted-|\(memoryview-|\(unnecessary-|\(incorrect-' "$REPORT_DIR/perflint.txt" 2>/dev/null || echo 0). See \`$REPORT_DIR/perflint.txt\`. Not gated — see PLAN_SOLIDITE_TECHNIQUE.md §6.3 (loop-invariant-statement disabled — too noisy at whole-repo scale, see [tool.pylint] in pyproject.toml)."
   else
-    note "⚠️ pylint/perflint not installed — \`pip install perflint pylint\` (in requirements-dev.txt)."
+    note "⚠️ pylint/perflint not installed — on demand: \`uv pip install perflint==0.8.1 'pylint<4'\` (config: pyproject.toml [tool.pylint])."
   fi
 
   # --- Python second type-checker opinion: basedpyright ---
@@ -317,7 +317,7 @@ if [ "$MODE" != "security" ]; then
       > "$REPORT_DIR/basedpyright.txt" 2>&1
     note "$(grep -m1 -E '^[0-9]+ errors?, [0-9]+ warnings?' "$REPORT_DIR/basedpyright.txt" 2>/dev/null || echo 'see report'). See \`$REPORT_DIR/basedpyright.txt\`. Not gated — see PLAN_SOLIDITE_TECHNIQUE.md §6.2 (baseline is ~32 known pydantic/pyright false positives, not zero)."
   else
-    note "⚠️ basedpyright not installed — \`pip install basedpyright\` (in requirements-dev.txt)."
+    note "⚠️ basedpyright not installed — on demand: \`uv pip install basedpyright==1.40.1\` (config: pyproject.toml [tool.basedpyright])."
   fi
 
   # --- Python unused/undeclared deps: deptry ---
@@ -338,16 +338,6 @@ if [ "$MODE" != "security" ]; then
       note "Unused files: $(count '[.issues[]|select(.files|length>0)]|length' "$REPORT_DIR/knip.json"). See \`$REPORT_DIR/knip.json\`. Not gated — see CODE_AUDIT.md."
     else
       note "⚠️ knip not found in $TS_DIR/node_modules (run \`npm install\` there)."
-    fi
-
-    # --- TS/React circular imports: madge ---
-    section "Circular imports (madge, informational)"
-    if ( cd "$TS_DIR" && npx --no-install madge --version >/dev/null 2>&1 ); then
-      ( cd "$TS_DIR" && npx --no-install madge --circular --extensions ts,tsx src ) \
-        > "$REPORT_DIR/madge.txt" 2>&1
-      note "$(grep -m1 '^✖ Found\|^No circular' "$REPORT_DIR/madge.txt" 2>/dev/null || echo 'see report'). See \`$REPORT_DIR/madge.txt\`. Not gated — see CODE_AUDIT.md. Graph image needs graphviz (\`dot\`) installed: \`npx madge --image graph.svg --extensions ts,tsx src\`."
-    else
-      note "⚠️ madge not found in $TS_DIR/node_modules (run \`npm install\` there)."
     fi
 
     # --- TS/React hardcoded strings & i18n key hygiene: i18next-cli lint ---

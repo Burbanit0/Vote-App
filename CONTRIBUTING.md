@@ -308,7 +308,6 @@ pour l'état des lieux) :
 | `radon`/`xenon` | Complexité cyclomatique backend (fonctions trop ramifiées) | `cd fast_api_voter && python -m radon cc api/ -e "api/tests/*" -n C -s` |
 | `deptry` | Dépendances Python déclarées-mais-inutilisées / utilisées-mais-non-déclarées | `cd fast_api_voter && python -m deptry .` (config dans `pyproject.toml`'s `[tool.deptry]`) |
 | `knip` | Fichiers/exports/dépendances inutilisés côté frontend | `cd voter-app && npm run knip` |
-| `madge` | Imports circulaires côté frontend + visualisation du graphe | `cd voter-app && npm run madge:circular` (graphe image : `npx madge --image graph.svg --extensions ts,tsx src`, nécessite `graphviz`) |
 | `jscpd` | Duplication de code cross-langage (Python + TS) | `npx jscpd --config .jscpd.json fast_api_voter/api voter-app/src` |
 
 `dependency-cruiser` n'est **pas** dans ce tableau : contrairement aux outils
@@ -770,7 +769,7 @@ lourdes tournent en même temps ?
 cd fast_api_voter
 uvicorn api.main:app --port 4436 &          # un port dédié — vérifiez qu'il
 curl -X POST http://localhost:4436/api/v2/simulations/monte-carlo -d '{}'  # est bien le vôtre avant de faire confiance aux résultats
-locust -f scripts/loadtest_v2_engine.py --headless \
+uvx --from locust==2.46.5 locust -f scripts/loadtest_v2_engine.py --headless \
     -u 16 -r 4 -t 30s --host http://localhost:4436 --csv=/tmp/loadtest
 ```
 
