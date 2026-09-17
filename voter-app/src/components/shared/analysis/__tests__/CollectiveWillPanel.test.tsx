@@ -50,61 +50,56 @@ const MOCK_FRAGILE: object = {
 /** openapi-fetch resolves to { data, error }. */
 const ok = (d: unknown) => ({ data: d, error: undefined });
 
+/** The Lab's shared electorate, the only way this panel is ever mounted. */
+const LAB = {
+  candidates: [
+    { name: 'Alice', x: -0.5, y: 0.0 },
+    { name: 'Bob', x: 0.0, y: 0.0 },
+    { name: 'Carol', x: 0.5, y: 0.0 },
+  ],
+  numVoters: 100,
+  seed: 42,
+  ideology: 'random',
+};
+
 function renderPanel() {
   return render(
     <QueryClientProvider client={makeTestQueryClient()}>
-      <CollectiveWillPanel />
+      <CollectiveWillPanel {...LAB} />
     </QueryClientProvider>
   );
 }
 
+/** Mounting IS the run: this panel has no run button, it follows the Lab. */
 async function renderAndRun(responseData: object = MOCK_ROBUST) {
-  apiClient.POST.mockResolvedValueOnce(ok(responseData));
+  apiClient.POST.mockResolvedValue(ok(responseData));
   renderPanel();
-  await act(async () => {
-    fireEvent.click(screen.getByTestId('run-btn'));
-  });
   await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
   await act(async () => {});
 }
 
 describe('CollectiveWillPanel', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    apiClient.POST.mockResolvedValue(ok(MOCK_ROBUST));
+  });
 
   // ── Initial render ──────────────────────────────────────────────────────────
 
-  it('renders controls on mount', () => {
-    renderPanel();
-    expect(screen.getByTestId('run-btn')).toBeInTheDocument();
-    expect(screen.getByTestId('voters-input')).toBeInTheDocument();
-    expect(screen.getByTestId('methods-input')).toBeInTheDocument();
-    expect(screen.getByTestId('agendas-input')).toBeInTheDocument();
-    expect(screen.getByTestId('ideology-select')).toBeInTheDocument();
-    expect(screen.getByTestId('seed-input')).toBeInTheDocument();
-  });
-
-  it('shows prompt alert before simulation', () => {
-    renderPanel();
-    expect(screen.getByTestId('prompt-alert')).toBeInTheDocument();
-  });
-
-  it('has random and polarized ideology options', () => {
-    renderPanel();
-    const select = screen.getByTestId('ideology-select') as HTMLSelectElement;
-    expect(select.options).toHaveLength(2);
-  });
-
   // ── API call ────────────────────────────────────────────────────────────────
 
-  it('calls API with correct payload on run', async () => {
+  it('runs itself on mount with the Lab electorate', async () => {
     await renderAndRun();
-    const [url, init] = apiClient.POST.mock.calls[0];
+    const [url, init] = apiClient.POST.mock.calls[0] as [string, { body: Record<string, unknown> }];
     expect(url).toBe('/api/v2/theory/collective-will');
-    const payload = (init as { body: Record<string, unknown> }).body;
-    expect(payload).toHaveProperty('candidates');
-    expect(payload).toHaveProperty('num_voters');
-    expect(payload).toHaveProperty('num_methods');
-    expect(payload).toHaveProperty('num_agendas');
+    const payload = init.body;
+    expect(payload.candidates).toEqual(LAB.candidates);
+    expect(payload.num_voters).toBe(LAB.numVoters);
+    expect(payload.ideology).toBe(LAB.ideology);
+    expect(payload.seed).toBe(LAB.seed);
+    // The sweep's breadth is fixed now that no picker sets it.
+    expect(payload.num_methods).toBe(5);
+    expect(payload.num_agendas).toBe(4);
   });
 
   // ── Robust scenario ─────────────────────────────────────────────────────────
@@ -193,11 +188,8 @@ describe('CollectiveWillPanel', () => {
   // ── Error handling ──────────────────────────────────────────────────────────
 
   it('shows error alert on API failure', async () => {
-    apiClient.POST.mockRejectedValueOnce(new Error('Network error'));
+    apiClient.POST.mockRejectedValue(new Error('Network error'));
     renderPanel();
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('run-btn'));
-    });
     await waitFor(() => expect(screen.getByTestId('error-alert')).toBeInTheDocument());
   });
 });

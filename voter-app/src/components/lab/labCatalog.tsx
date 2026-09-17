@@ -150,10 +150,10 @@ const RegimeGlobe = lazyWithPreload(() => import('./RegimeGlobe'));
 const useLabProps = () => {
   const { config } = useElection();
   return {
-    labMode: true as const,
-    labCandidates: config.candidates,
-    labNumVoters: config.num_voters,
-    labSeed: config.seed,
+    candidates: config.candidates,
+    numVoters: config.num_voters,
+    seed: config.seed,
+    ideology: config.ideology,
   };
 };
 const useBaseParams = () => {
@@ -171,12 +171,8 @@ const EpistocracyBody: React.FC = () => <EpistocracyPanel {...useLabProps()} />;
 const IdentityBody: React.FC = () => <IdentityVotingPanel {...useLabProps()} />;
 const MonteCarloBody: React.FC = () => <MonteCarloResults baseParams={useBaseParams()} />;
 const ManipulabilityBody: React.FC = () => <ManipulabilityChart baseParams={useBaseParams()} />;
-const CollectiveBody: React.FC = () => (
-  <CollectiveWillPanel {...useLabProps()} labIdeology={useElection().config.ideology} />
-);
-const AssumptionsBody: React.FC = () => (
-  <AssumptionTesterPanel {...useLabProps()} labIdeology={useElection().config.ideology} />
-);
+const CollectiveBody: React.FC = () => <CollectiveWillPanel {...useLabProps()} />;
+const AssumptionsBody: React.FC = () => <AssumptionTesterPanel {...useLabProps()} />;
 const AnimatorBody: React.FC = () => {
   const { config } = useElection();
   return (

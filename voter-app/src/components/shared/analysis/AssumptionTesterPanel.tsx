@@ -7,9 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Check, Control } from '@/components/ui/form-controls';
-import { Col, Row } from '@/components/ui/grid';
-import { Spinner } from '@/components/ui/spinner';
+import { Check } from '@/components/ui/form-controls';
 import {
   BarChart,
   Bar,
@@ -227,34 +225,29 @@ const AssumptionCard: React.FC<AssumptionCardProps> = ({
   );
 };
 
-// ── Lab-mode props ────────────────────────────────────────────────────────────
+// ── Props: the Lab's shared electorate ────────────────────────────────────────
 
 export interface AssumptionTesterLabProps {
-  labMode?: boolean;
-  labCandidates?: Array<{ name: string; x: number; y: number }>;
-  labNumVoters?: number;
-  labSeed?: number;
-  labIdeology?: string;
+  candidates: Array<{ name: string; x: number; y: number }>;
+  numVoters: number;
+  seed: number;
+  ideology: string;
 }
 
 // ── Main panel ────────────────────────────────────────────────────────────────
 
 const AssumptionTesterPanel: React.FC<AssumptionTesterLabProps> = ({
-  labMode = false,
-  labCandidates,
-  labNumVoters,
-  labSeed,
-  labIdeology,
+  candidates,
+  numVoters,
+  seed,
+  ideology,
 }) => {
   const { t } = useTranslation();
 
   const sim = $api.useMutation('post', '/api/v2/theory/assumption-testing');
   const data: AssumptionData | null = (sim.data as AssumptionData | undefined) ?? null;
-  const loading = sim.isPending;
   const error = sim.isError ? t('assumptions.error') : null;
   const [selected, setSelected] = useState<Set<Assumption>>(new Set(ALL_ASSUMPTIONS));
-  const [numVoters, setNumVoters] = useState(100);
-  const [seed, setSeed] = useState(42);
 
   const toggle = (a: Assumption) =>
     setSelected((prev) => {
@@ -263,37 +256,19 @@ const AssumptionTesterPanel: React.FC<AssumptionTesterLabProps> = ({
       return next;
     });
 
-  const DEFAULT_CANDS = [
-    { name: 'Alice', x: -0.4, y: 0.0 },
-    { name: 'Bob', x: 0.1, y: 0.0 },
-    { name: 'Carol', x: 0.5, y: 0.0 },
-  ];
-
-  const handleRun = (
-    overrideCands?: typeof DEFAULT_CANDS,
-    overrideVoters?: number,
-    overrideSeed?: number,
-    overrideIdeology?: string
-  ) => {
+  // Runs itself whenever the Lab's electorate changes. There is no run button:
+  // toggling an assumption card re-reads the last result, it does not
+  // re-request (unchanged -- the button only ever rendered for a caller that
+  // passed labMode={false}, i.e. never).
+  useEffect(() => {
+    if (!candidates.length) return;
     sim.mutate({
       body: {
-        base_simulation: {
-          candidates: overrideCands ?? DEFAULT_CANDS,
-          num_voters: overrideVoters ?? numVoters,
-          ideology: overrideIdeology ?? 'random',
-          seed: overrideSeed ?? seed,
-        },
+        base_simulation: { candidates, num_voters: numVoters, ideology, seed },
         assumptions_to_relax: [...selected],
       },
     });
-  };
-
-  // Auto-run when lab context changes
-  useEffect(() => {
-    if (labMode && labCandidates?.length) {
-      handleRun(labCandidates, labNumVoters, labSeed, labIdeology);
-    }
-  }, [labMode, labCandidates, labNumVoters, labSeed, labIdeology]);
+  }, [candidates, numVoters, seed, ideology]);
 
   // ── Fragility radar data ─────────────────────────────────────────────────
   const fragilityData = data
@@ -310,78 +285,12 @@ const AssumptionTesterPanel: React.FC<AssumptionTesterLabProps> = ({
       {/* ── Philosophy quote (always visible) ── */}
       <PhilosophyQuote />
 
-      {/* ── Lab mode badge ── */}
-      {labMode && (
-        <div className="mt-2 mb-1">
-          <Badge variant="dark" style={{ fontSize: '0.68rem' }}>
-            🔬 {t('lab.fromElectionLab')}
-          </Badge>
-        </div>
-      )}
+      <div className="mt-2 mb-1">
+        <Badge variant="dark" style={{ fontSize: '0.68rem' }}>
+          🔬 {t('lab.fromElectionLab')}
+        </Badge>
+      </div>
 
-      {/* ── Controls (hidden in lab mode for election config) ── */}
-      {!labMode && (
-        <Row className="g-2 my-3 items-end">
-          <Col xs={6} md={2}>
-            <label className="mb-1 inline-block text-sm mb-0">{t('assumptions.voters')}</label>
-            <Control
-              type="number"
-              size="sm"
-              min={20}
-              max={500}
-              value={numVoters}
-              data-testid="voters-input"
-              onChange={(e) => setNumVoters(Number(e.target.value))}
-            />
-          </Col>
-          <Col xs={6} md={1}>
-            <label className="mb-1 inline-block text-sm mb-0">{t('assumptions.seed')}</label>
-            <Control
-              type="number"
-              size="sm"
-              value={seed}
-              data-testid="seed-input"
-              onChange={(e) => setSeed(Number(e.target.value))}
-            />
-          </Col>
-          <Col xs="auto">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => handleRun()}
-              disabled={loading || selected.size === 0}
-              data-testid="run-btn"
-            >
-              {loading ? <Spinner size="sm" /> : t('assumptions.run')}
-            </Button>
-          </Col>
-          <Col xs="auto" className="ml-auto">
-            <Button
-              size="sm"
-              variant="link"
-              className="text-muted-foreground p-0"
-              onClick={() => setSelected(new Set(ALL_ASSUMPTIONS))}
-            >
-              {t('assumptions.selectAll')}
-            </Button>
-            {' · '}
-            <Button
-              size="sm"
-              variant="link"
-              className="text-muted-foreground p-0"
-              onClick={() => setSelected(new Set())}
-            >
-              {t('assumptions.selectNone')}
-            </Button>
-          </Col>
-        </Row>
-      )}
-
-      {!data && !loading && !error && !labMode && (
-        <Alert variant="secondary" data-testid="prompt-alert">
-          {t('assumptions.prompt')}
-        </Alert>
-      )}
       {error && (
         <Alert variant="danger" data-testid="error-alert">
           {error}
