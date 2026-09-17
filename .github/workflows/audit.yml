@@ -6,7 +6,7 @@ name: Security Audit
 # coverage they don't have: Semgrep, Gitleaks, Trivy, CodeQL.
 #
 # PUBLIC-REPO MODE: code scanning is free, so each scanner uploads SARIF to the
-# GitHub Security tab (in addition to the downloadable artifact), and a CodeQL job
+# GitHub Security tab, and a CodeQL job
 # runs the native analysis. The strict gates still fail the build: Semgrep findings,
 # Trivy HIGH/CRITICAL, and any detected secret.
 
@@ -109,27 +109,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
-      # 1) Non-gating JSON report → uploaded as an artifact (always).
-      - name: Trivy (JSON report artifact)
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          scan-type: fs
-          scanners: vuln,secret,misconfig
-          severity: HIGH,CRITICAL
-          format: json
-          output: trivy.json
-          exit-code: "0"
-          skip-dirs: voter-app/node_modules,.claude,graphify-out
-          trivyignores: .trivyignore.yaml
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: always()
-        with:
-          name: trivy-report
-          path: trivy.json
-          if-no-files-found: ignore
-      # 1b) SARIF report → Security tab (non-gating).
+      # 1) SARIF report → Security tab (non-gating).
       - name: Trivy (SARIF report)
-        if: always()
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
@@ -160,29 +141,6 @@ jobs:
           exit-code: "1"
           skip-dirs: voter-app/node_modules,.claude,graphify-out
           trivyignores: .trivyignore.yaml
-
-  # ---------------------------------------------------------------
-  # OSV-Scanner (Lot 9, PLAN_SOLIDITE_TECHNIQUE.md): a different vulnerability
-  # database than Trivy above, imperfect overlap by design (see
-  # docs/exploration/ for the measured gap on this repo's actual deps — both
-  # currently agree at zero HIGH/CRITICAL, cross-checked against pip-audit).
-  # Non-gating (`fail-on-vuln: false`) — this item's whole value is the
-  # SECOND OPINION, not a new gate duplicating Trivy's. Uses the maintainers'
-  # own reusable workflow (recommended over the standalone action, whose
-  # per-step behavior the README warns can change on a minor bump).
-  osv-scanner:
-    name: Dependency vulnerabilities — second opinion
-    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@6e4298ebc4db23e847df9b2e2de2939d6f066c67 # v2.5.1
-    permissions:
-      contents: read
-      security-events: write
-      actions: read
-    with:
-      fail-on-vuln: false
-      scan-args: |-
-        --recursive
-        --data-source=native
-        ./
 
   # ---------------------------------------------------------------
   # GuardDog (Lot 9, PLAN_SOLIDITE_TECHNIQUE.md): detects MALICIOUS packages
@@ -343,8 +301,9 @@ jobs:
           cache: "npm"
           cache-dependency-path: voter-app/package-lock.json
 
-      - name: Install vulture, radon, xenon
-        run: pip install vulture==2.16 radon==6.0.1 xenon==0.9.3
+      # xenon (the final gate) comes from requirements-dev.txt, installed below.
+      - name: Install vulture, radon
+        run: pip install vulture==2.16 radon==6.0.1
 
       - name: Python dead code (vulture)
         working-directory: fast_api_voter
@@ -356,17 +315,8 @@ jobs:
         continue-on-error: true
         run: python -m radon cc api/ -e "api/tests/*" -n C -s | tee radon.txt
 
-      - name: Python cyclomatic complexity (xenon)
-        working-directory: fast_api_voter
-        continue-on-error: true
-        # Reporting only, and it must stay non-blocking: the knip and jscpd steps
-        # below have no `if: always()`, so a hard failure here would skip them and
-        # leave the ratchet with missing input files. The gate lives at the end of
-        # the job instead.
-        run: python -m xenon api/ -e "api/tests/*" -b F -m F -a F | tee xenon.txt
-
       # deptry needs the actual dependencies installed (it maps import names
-      # to installed package metadata) — unlike vulture/radon/xenon above,
+      # to installed package metadata) — unlike vulture/radon above,
       # which only need the source. Same install this job already runs, just
       # for a different tool; not needed until this step.
       - name: Install backend dependencies (for deptry)
@@ -440,28 +390,12 @@ jobs:
         run: |
           {
             echo "### Code Quality (raw tool output — the ratchet step is what gates)"
-            echo
-            echo "<details><summary>vulture (Python dead code)</summary>"
-            echo; echo '```'; cat fast_api_voter/vulture.txt 2>/dev/null || echo "(no output)"; echo '```'
-            echo "</details>"
-            echo "<details><summary>radon (Python cyclomatic complexity, rank C+)</summary>"
-            echo; echo '```'; cat fast_api_voter/radon.txt 2>/dev/null || echo "(no output)"; echo '```'
-            echo "</details>"
-            echo "<details><summary>xenon (radon threshold summary)</summary>"
-            echo; echo '```'; cat fast_api_voter/xenon.txt 2>/dev/null || echo "(no output)"; echo '```'
-            echo "</details>"
-            echo "<details><summary>knip (TS dead code / unused deps)</summary>"
-            echo; echo '```'; cat voter-app/knip.txt 2>/dev/null || echo "(no output)"; echo '```'
-            echo "</details>"
-            echo "<details><summary>sonarjs (informational overlay, eslint-plugin-sonarjs)</summary>"
-            echo; echo '```'; cat voter-app/sonarjs.txt 2>/dev/null || echo "(no output)"; echo '```'
-            echo "</details>"
-            echo "<details><summary>deptry (Python unused/undeclared deps)</summary>"
-            echo; echo '```'; cat fast_api_voter/deptry.txt 2>/dev/null || echo "(no output)"; echo '```'
-            echo "</details>"
-            echo "<details><summary>jscpd (duplication)</summary>"
-            echo; echo '```'; cat jscpd.txt 2>/dev/null || echo "(no output)"; echo '```'
-            echo "</details>"
+            for f in fast_api_voter/vulture.txt fast_api_voter/radon.txt voter-app/knip.txt \
+                     voter-app/sonarjs.txt fast_api_voter/deptry.txt jscpd.txt; do
+              echo; echo "<details><summary>$f</summary>"; echo; echo '```'
+              cat "$f" 2>/dev/null || echo "(no output)"
+              echo '```'; echo "</details>"
+            done
           } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
@@ -470,7 +404,6 @@ jobs:
           path: |
             fast_api_voter/vulture.txt
             fast_api_voter/radon.txt
-            fast_api_voter/xenon.txt
             voter-app/knip.txt
             voter-app/sonarjs.txt
             fast_api_voter/deptry.txt

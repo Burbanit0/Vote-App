@@ -800,10 +800,9 @@ fichier ciblé par la baseline mutation-testing de la PR #157 (score ≈62 %),
 et 9 de ces fonctions `get_*_winner` n'ont pas de test dédié — la complexité
 mesurée ici recoupe indépendamment ce gap de test déjà identifié.
 
-`xenon` tourne deux fois dans le job CI : une fois en rapport pur avec des
-seuils permissifs (`-b F -m F -a F`, jamais d'échec, pour ne pas court-
-circuiter les étapes suivantes du job en cas de crash), puis une seconde fois
-en **gate réel** (`-b F -m F -a A`, ajouté depuis l'édition d'août) qui fait
+`xenon` tourne une fois dans le job CI, en **gate réel** (`-b F -m F -a A`,
+ajouté depuis l'édition d'août ; le passage en rapport pur `-a F`, qui ne
+pouvait jamais échouer, a été retiré le 2026-09-17) qui fait
 échouer le job si la moyenne globale du repo retombe sous le rang A — la
 moyenne actuelle (A, 4.73, §5 ci-dessus) passe avec de la marge. `-b`/`-m`
 restent à F (jamais d'échec par bloc/module) tant que les 6 fonctions rang F

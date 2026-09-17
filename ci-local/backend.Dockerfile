@@ -50,7 +50,7 @@ COPY fast_api_voter/ fast_api_voter/
 RUN rm -rf fast_api_voter/mutants fast_api_voter/.mutmut-cache \
            fast_api_voter/fuzz_corpus fast_api_voter/htmlcov-e2e \
            fast_api_voter/vulture.txt fast_api_voter/radon.txt \
-           fast_api_voter/xenon.txt fast_api_voter/deptry.txt \
+           fast_api_voter/deptry.txt \
            fast_api_voter/mutmut-run.log
 # Lives at the repo root, not under fast_api_voter/, so it needs its own COPY
 # (PLAN_CI_STRUCTURAL_GAPS.md item 2.C's freshness check). Unlike the real
