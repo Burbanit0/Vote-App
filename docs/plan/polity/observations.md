@@ -45,6 +45,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-016](#obs-016) | The root disk filled up: p500 seed 42 died at tick 13 and the GPU queue ran nothing | 2026-09-14 | open |
 | [OBS-017](#obs-017) | WebKit crashed mid-navigation to /polity in CI, once, while the other worker ran the heavy fiches | 2026-09-16 | open |
 | [OBS-018](#obs-018) | The response contract, not the model, sets the president's stance in 22 of 650 responses | 2026-09-16 | cause found, partly fixed |
+| [OBS-019](#obs-019) | Showing the model its citizens' emotions, at zero weight, multiplies mobilization fourteenfold | 2026-09-17 | cause found |
 
 ---
 
@@ -786,3 +787,79 @@ journalctl --user -u polity-stage4-s42-record --no-pager | grep -E 'exhausted ev
 - **The bound checks outside the retry are unchanged.** Moving them inside the decode, so a bound
   failure is retried like a schema failure, is a separate decision. It would change the chamber
   most.
+
+### OBS-019
+
+**Showing the model its citizens' emotions, at zero weight, multiplies mobilization fourteenfold.**
+
+*Seen.* Stage 4's step 2 and step 5 recorded the same bench twice on the LLM path (population 100,
+30 chamber seats, seeds 1–10, 8 years, 12 relaxed workers, from fe4bad5a). The two run sets differ
+in exactly one config field, `emotions.enabled`, with all four emotion weights at 0 in both:
+
+| over 10 seeds | emotions off (`s41/zero`) | emotions on, zero weights (`s43-emotions/zero`) |
+|---|---:|---:|
+| presidential elections | 35 | 70 |
+| recalls | 6 | 44 |
+| full terms | 15 | 1 |
+| pressure acts | 8,825 | 10,308 |
+| MOBILIZE share of acts | 1.5% | 21.8% |
+| NOTHING share of acts | 87.4% | 61.3% |
+| mean legitimacy | 0.566 | 0.464 |
+
+- **The weights do nothing here, and the mechanism confirms it.** The deterministic twin, run at the
+  same ten seeds with emotions on at zero weights and then off, is identical on every count:
+  101 elections, 77 recalls, 13,163 acts, 3,684 mobilizations both ways. No RNG draw and no
+  threshold moves at zero weight.
+- **So the channel is the prompt.** `emotions.enabled` adds anger, anxiety and enthusiasm to dt=10's
+  pressure prompt (`llm_behavior_engine.pressure_signals`), whatever the weights. The model reads
+  them and acts: the polity goes from one recall per two seeds to more than four per seed.
+- **It lands near the twin's own rate.** The twin mobilizes 28% of consulted acts and the LLM path
+  1.5% with emotions off (OBS-015, D9's divergence); with the fields in the prompt the LLM path
+  reaches 21.8%.
+- **E1 holds on it, E2 and E3 do not** (`scripts/stage4_llm_emotions_results.md`): 963 mobilizations
+  in the angriest third of ticks against 489 in the calmest; 3,269 pressure acts in the most anxious
+  third against 3,437 in the least; and E3 is unmeasurable, since the ten runs hold one full term.
+
+*Evidence.*
+
+```bash
+cd fast_api_voter && python3 - <<'PY'
+import json
+from collections import Counter
+from pathlib import Path
+root = Path("scripts/stage4_llm_runs")
+for label, base in (("off", root / "s41/zero"), ("on, zero weights", root / "s43-emotions/zero")):
+    tot, acts = Counter(), Counter()
+    for seed in range(1, 11):
+        run = base / f"seed-{seed}" / "run" / f"seed-{seed}"
+        for line in (run / "events.jsonl").read_text().splitlines():
+            e = json.loads(line)
+            tot[e["event_type"]] += 1
+            if e["event_type"] == "pressure_action":
+                acts[e["payload"]["act"]] += 1
+    n = sum(acts.values())
+    print(label, "elected", tot["elected"], "recalled", tot["recalled"], "acts", n,
+          {a: f"{100 * c / n:.1f}%" for a, c in sorted(acts.items())})
+PY
+# the two configs differ in emotions.enabled alone
+diff <(jq -S .emotions scripts/stage4_llm_runs/s41/zero/seed-1/config.json) \
+     <(jq -S .emotions scripts/stage4_llm_runs/s43-emotions/zero/seed-1/config.json)
+```
+
+*Cause (shown 2026-09-17).* The emotion fields in the prompt, and nothing else. The twin's
+identical runs rule out every mechanical path; the fields are the only difference the model sees.
+ADR-012's prerequisite session had already measured that the model reacts to anger in a single
+decision (`scripts/bakeoff_emotions_prerequisite_results.md`: MOBILIZE 0 of 4 borderline citizens
+at anger 0, 4 of 4 at 0.75). This is the same reaction compounded over a whole run.
+
+*What would settle what to do about it.*
+
+- **For S4.3:** whether any weight level restores full terms, so E3 can be read at all. Step 5's
+  level 0.25 is recording for that reason; the runs, not this entry, answer it.
+- **For D9 (OBS-015):** the twin's 28% mobilization was treated as the twin's defect against an LLM
+  path that mobilized almost never. With emotions in the prompt, the LLM path sits at 21.8%. Which
+  of the two rates is the target is a question for a new pre-registration, not a re-reading of this
+  one.
+- **For the runs already published:** every LLM run before step 5 had emotions off, so none of them
+  is affected. What changes is that "emotions off" is not a neutral baseline: it is a choice that
+  suppresses mobilization.
