@@ -970,6 +970,31 @@ path either, and step 3 has nothing to run.** Run exactly as pre-registered:
   67.5%) needs every member. The first group holding a qualifying setting gives the selection, and
   evaluation stops there.
 
+*Result of step 2, 2026-09-17* (`scripts/stage4_llm_utility_vote_results.md`, recorded from ab256d2a
+and measured from fe4bad5a, both before #545). **Group 0 holds one qualifying setting, so S4.1
+selects `turnout_cost` 0.04 with `partisanship` and `approval` at 0, and step 4 is not run.** Run
+exactly as pre-registered:
+
+- **Only 0.04 meets all four facts.** 0.005 and 0.01 fail turnout (94.4% and 88.3%, against the
+  50–85% band). 0.02 fails retrospective voting: 1 of 2 low-record incumbents re-elected, against 3
+  of 7 with a record of 0 or more.
+- **What the setting does is abstention.** Mean turnout falls from 100% to 60.5%. With it, own-party
+  first choices rise from 69.6% to 79.8%, and elections won by the previous winner fall from 28.0%
+  to 14.3%, although the weights on party and record stay at 0.
+- **Retrospective voting holds on 10 incumbents.** 1 of 3 with a record below 0 was re-elected,
+  against 3 of 7 with 0 or more. One more re-elected low-record incumbent would have failed it.
+  With `approval` at 0 the vote does not read the record, so this pass does not come from the
+  mechanism the fact describes. The caution below anticipated how thin F1 would be.
+- **The replays held.** All 50 runs replayed single-threaded with every recorded call served.
+- **Reported, not selected on.** Per arm, over 10 seeds: 35–38 elections, 6–8 recalls, 12–15 full
+  terms. representative_response fell back in 30–41% of decisions, chamber_deliberation in
+  4.7–6.2% of member decisions.
+- **Cost.** 50 runs in 885 minutes: 14.76 GPU-hours of the 15 budgeted. Stage 4 so far: 20.4 of
+  the 70-hour cap.
+
+Writing the selection into `polity_config.yaml` is a separate change, not made here. Step 5 runs on
+the bench as signed, with the vote weights at 0.
+
 #### S4.3, emotions
 
 - **Prerequisite, not started by this pre-registration:** ADR-012 requires the bake-off to carry a
