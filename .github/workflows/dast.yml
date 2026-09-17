@@ -91,18 +91,16 @@ jobs:
           cd fast_api_voter
           FLASK_ENV=testing \
           uvicorn api.main:app --host 0.0.0.0 --port 4434 &
-          python - <<'EOF'
-          import urllib.request, time, sys
-          for _ in range(30):
-              try:
-                  urllib.request.urlopen('http://localhost:4434/api/v2/health')
-                  print('Backend is ready')
-                  sys.exit(0)
-              except Exception:
-                  time.sleep(1)
-          print('Backend did not start in time', file=sys.stderr)
-          sys.exit(1)
-          EOF
+          # Retries every error for ~30 attempts (like the loop it replaced); each
+          # attempt is capped at 5s so a server that accepts but never answers can't
+          # hold the step until the job timeout.
+          if curl -sSfL -o /dev/null --max-time 5 --retry 30 --retry-delay 1 --retry-all-errors \
+              http://localhost:4434/api/v2/health; then
+            echo 'Backend is ready'
+          else
+            echo 'Backend did not start in time' >&2
+            exit 1
+          fi
 
       # ── Frontend: real production build + preview, same command
       # playwright.visual.config.ts uses to serve the visual-regression job —
@@ -126,18 +124,16 @@ jobs:
         run: |
           cd voter-app
           npx vite preview --host 0.0.0.0 --port 3000 --strictPort &
-          python - <<'EOF'
-          import urllib.request, time, sys
-          for _ in range(30):
-              try:
-                  urllib.request.urlopen('http://localhost:3000/')
-                  print('Frontend is ready')
-                  sys.exit(0)
-              except Exception:
-                  time.sleep(1)
-          print('Frontend did not start in time', file=sys.stderr)
-          sys.exit(1)
-          EOF
+          # Retries every error for ~30 attempts (like the loop it replaced); each
+          # attempt is capped at 5s so a server that accepts but never answers can't
+          # hold the step until the job timeout.
+          if curl -sSfL -o /dev/null --max-time 5 --retry 30 --retry-delay 1 --retry-all-errors \
+              http://localhost:3000/; then
+            echo 'Frontend is ready'
+          else
+            echo 'Frontend did not start in time' >&2
+            exit 1
+          fi
 
       # ── ZAP baseline scans ─────────────────────────────────────────────────
       # `-j`/client-spider deliberately omitted — see the workflow header
