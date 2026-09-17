@@ -15,7 +15,6 @@ import { Col, Row } from '@/components/ui/grid';
 import { Spinner } from '@/components/ui/spinner';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useElection } from '../../../stores/useElectionStore';
-import PinToCentralButton from '../ui/PinToCentralButton';
 
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
 
@@ -260,30 +259,6 @@ const CompulsoryVotingPanel: React.FC = () => {
             <Button variant="primary" onClick={handleSimulate} disabled={loading}>
               {loading ? <Spinner size="sm" /> : t('compulsory.run')}
             </Button>
-            {data &&
-              (() => {
-                const vbm = data.voluntary.winners_by_method ?? {};
-                const cbm = data.compulsory.winners_by_method ?? {};
-                let changedCount = 0;
-                Object.entries(cbm).forEach(([m, w]) => {
-                  if (w !== vbm[m]) changedCount += 1;
-                });
-                if (changedCount === 0 && data.winner_changed) changedCount = 1;
-                return (
-                  <PinToCentralButton
-                    type="compulsory"
-                    icon="⚖️"
-                    label={`${t('compulsory.run')} — ${Math.round(compTurnout * 100)}%`}
-                    summary={
-                      changedCount > 0
-                        ? `${changedCount}/${Object.keys(cbm).length || 1} ${t('lab.methodsChanged')}`
-                        : `${t('compulsory.run')}: ${data.compulsory.winner ?? '—'}`
-                    }
-                    methodsChanged={changedCount}
-                    winnersByMethod={data.compulsory.winners_by_method}
-                  />
-                );
-              })()}
           </div>
 
           {!data && !loading && !error && (

@@ -24,14 +24,6 @@ export default defineConfig({
       { find: '@', replacement: r('./src') },
       // virtual:pwa-register/react → no-op mock (was moduleNameMapper in Jest)
       { find: /^virtual:pwa-register\/react$/, replacement: r('./src/__mocks__/pwa-register.ts') },
-      // useSimulationWorker uses `new Worker(new URL(..., import.meta.url))` →
-      // replace project-wide with the no-op mock so chart/heatmap tests work.
-      // NB: Vite regex aliases do a *substring* replace, so anchor with ^.* to
-      // swallow the whole specifier (else the `../../` prefix is kept → bad path).
-      {
-        find: /^.*hooks\/useSimulationWorker$/,
-        replacement: r('./src/__mocks__/useSimulationWorker.ts'),
-      },
       // Static image imports → file stub.
       { find: /^.*\.(jpg|jpeg|png|gif|webp|svg)$/, replacement: r('./src/__mocks__/fileMock.ts') },
     ],
@@ -42,9 +34,6 @@ export default defineConfig({
     // Match Jest's default testURL (http://localhost/) so history.replaceState
     // to same-origin paths like /app doesn't throw a jsdom SecurityError.
     environmentOptions: { jsdom: { url: 'http://localhost/' } },
-    // Process CSS Modules (so `import styles from './x.module.css'` has a default
-    // export of class names); plain CSS imports stay ignored (no-op).
-    css: { include: [/\.module\.css$/], modules: { classNameStrategy: 'non-scoped' } },
     setupFiles: ['./src/setupTests.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
     coverage: {

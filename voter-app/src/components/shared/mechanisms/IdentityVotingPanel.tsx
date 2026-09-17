@@ -24,7 +24,6 @@ import {
   ResponsiveContainer,
   Cell,
 } from 'recharts';
-import PinToCentralButton from '../ui/PinToCentralButton';
 import { $api } from '../../../api/hooks';
 
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
@@ -498,22 +497,6 @@ const IdentityVotingPanel: React.FC<IdentityVotingLabProps> = ({
             data-testid="cross-pressure-toggle"
             onChange={(e) => setCrossPressure(e.target.checked)}
           />
-        </Col>
-        <Col xs="auto">
-          {labMode && data && (
-            <PinToCentralButton
-              type="identity"
-              icon="🏳"
-              label={`${t('identity.cardTitle')} — ${Math.round(identityWeight * 100)}%`}
-              summary={
-                data.winner_changed
-                  ? `${data.sincere_winner} → ${data.mixed_winner}`
-                  : `${t('identity.mixedWinner')}: ${data.mixed_winner}`
-              }
-              methodsChanged={data.winner_changed ? 1 : 0}
-              disabled={!data}
-            />
-          )}
         </Col>
         <Col xs="auto">
           <Button

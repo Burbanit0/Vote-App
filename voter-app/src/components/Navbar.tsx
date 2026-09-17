@@ -180,11 +180,10 @@ const Navbar: React.FC = () => {
             </Nav.Link>
 
             {/* ── User / Settings dropdown ── */}
-            <Dropdown align="end">
+            <Dropdown>
               <Dropdown.Toggle
                 variant="outline-secondary"
                 size="sm"
-                caret={false}
                 className="flex items-center gap-2"
                 style={{ border: '1px solid var(--bs-border-color)' }}
                 id="user-settings-dropdown"

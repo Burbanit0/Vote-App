@@ -24,7 +24,6 @@ import {
   ReferenceLine,
 } from 'recharts';
 import { useElection } from '../../../stores/useElectionStore';
-import PinToCentralButton from '../ui/PinToCentralButton';
 
 const DEBOUNCE_MS = 400;
 
@@ -348,33 +347,6 @@ const AbstentionPanel: React.FC = () => {
             {loading ? <Spinner size="sm" /> : `📉 ${t('abstention.run')}`}
           </Button>
         </Col>
-        {data &&
-          (() => {
-            // Count how many methods changed winner under abstention
-            let changedCount = data.winner_changed ? 1 : 0;
-            if (data.winners_by_method && data.sincere_winners_by_method) {
-              changedCount = 0;
-              Object.entries(data.winners_by_method).forEach(([m, w]) => {
-                if (w !== data.sincere_winners_by_method![m]) changedCount += 1;
-              });
-            }
-            return (
-              <Col xs={12} sm="auto">
-                <PinToCentralButton
-                  type="abstention"
-                  icon="📉"
-                  label={`${t('abstention.run')} — ${Math.round(demob * 100)}% démob.`}
-                  summary={
-                    changedCount > 0
-                      ? `${changedCount}/${Object.keys(data.winners_by_method ?? {}).length || 1} ${t('lab.methodsChanged')}`
-                      : `${t('abstention.sincere')}: ${data.sincere_winner}`
-                  }
-                  methodsChanged={changedCount}
-                  winnersByMethod={data.winners_by_method}
-                />
-              </Col>
-            );
-          })()}
       </Row>
 
       {error && <Alert variant="danger">{error}</Alert>}

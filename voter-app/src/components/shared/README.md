@@ -11,19 +11,19 @@ that catalogue's grouping rather than inventing a new taxonomy: a panel
 lives where `labCatalog.tsx` already classifies it, based on what it
 actually renders (its content, imports and i18n keys), not on its filename.
 
-| Sub-folder      | What goes here                                                                                                                                             |
-|-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `mechanisms/`   | Alternative governance mechanisms (JuryTheorem, LiquidDemocracy, Sortition, Deliberation, ConvictionVoting, Epistocracy, IdentityVoting, E2EVDemo).           |
-| `systems/`      | Electoral systems and their visualisations (Coalition, MultiwinnerCompare, DistrictMap, GerrymanderMap, STV, BallotComplexity, ElectionPipelineAnimator, HemicycleLegend). |
-| `campaign/`     | Campaign & spatial dynamics (Hotelling, CampaignSensitivity + its CampaignSwimlane helper, Polarization, PartyDynamics).                                      |
-| `temporal/`     | Temporal/strategic mechanisms (AdaptiveVoting, HistoricalReplay, PrimarySimulator, Cascade, ElectoralFatigue).                                                |
-| `behavioral/`   | Behavioural & psychological effects (BehavioralBias, ShyVoter, ChoiceOverload, CompulsoryVoting, DemographicTurnout, AffectivePolarization).                  |
-| `theory/`       | Paradoxes and impossibility theorems (SenParadox, JudgmentAggregation, AgendaManipulation, MajorityTyranny, Apportionment, PowerIndices, DemocraticBacksliding, Intergenerational, Polis). |
-| `analysis/`     | Deep/meta-analysis panels (ManipulationAnalysis, CollectiveWill, AssumptionTester, CombinedEffectsMatrix).                                                    |
-| `blank/`        | The blank-vote / none-of-the-above family (NOTA, BlankVoteDivergence, Abstention).                                                                            |
-| `results/`      | Results-reporting helpers consumed by `playground/FullResultsModule` (ElectionInsightPanel, HistoricalReferencePanel, ResultsMethodTable, MethodGroupDonut). |
-| `ui/`           | Generic, app-wide UI primitives (ToastNotification, LiveBadge, UpdatePrompt, OfflineBanner, ResponsiveTable, MetricTooltip, SkeletonCard, PinToCentralButton). |
-| `common/`       | Genuinely cross-cutting, non-panel, non-primitive components used in exactly one page each and not fitting the panel taxonomy (CuriosityQuestions, DatasetExportModal, OnboardingTour). |
+| Sub-folder    | What goes here                                                                                                                                                                             |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `mechanisms/` | Alternative governance mechanisms (JuryTheorem, LiquidDemocracy, Sortition, Deliberation, ConvictionVoting, Epistocracy, IdentityVoting).                                                  |
+| `systems/`    | Electoral systems and their visualisations (Coalition, MultiwinnerCompare, DistrictMap, GerrymanderMap, STV, BallotComplexity, ElectionPipelineAnimator, HemicycleLegend).                 |
+| `campaign/`   | Campaign & spatial dynamics (Hotelling, CampaignSensitivity + its CampaignSwimlane helper, Polarization, PartyDynamics).                                                                   |
+| `temporal/`   | Temporal/strategic mechanisms (AdaptiveVoting, HistoricalReplay, PrimarySimulator, Cascade, ElectoralFatigue).                                                                             |
+| `behavioral/` | Behavioural & psychological effects (BehavioralBias, ShyVoter, ChoiceOverload, CompulsoryVoting, DemographicTurnout, AffectivePolarization).                                               |
+| `theory/`     | Paradoxes and impossibility theorems (SenParadox, JudgmentAggregation, AgendaManipulation, MajorityTyranny, Apportionment, PowerIndices, DemocraticBacksliding, Intergenerational, Polis). |
+| `analysis/`   | Deep/meta-analysis panels (ManipulationAnalysis, CollectiveWill, AssumptionTester, CombinedEffectsMatrix).                                                                                 |
+| `blank/`      | The blank-vote / none-of-the-above family (NOTA, BlankVoteDivergence, Abstention).                                                                                                         |
+| `results/`    | Results-reporting helpers consumed by `playground/FullResultsModule` (ElectionInsightPanel, HistoricalReferencePanel, ResultsMethodTable, MethodGroupDonut).                               |
+| `ui/`         | Generic, app-wide UI primitives (LiveBadge, UpdatePrompt, OfflineBanner, ResponsiveTable, MetricTooltip, SkeletonCard).                                                                    |
+| `common/`     | Genuinely cross-cutting, non-panel, non-primitive components used in exactly one page each and not fitting the panel taxonomy (CuriosityQuestions, OnboardingTour).                        |
 
 Each sub-folder has its own `__tests__/`, matching the convention already
 used elsewhere in `components/` (`playground/__tests__/`, `lab/__tests__/`,

@@ -20,7 +20,6 @@ import { useTranslation } from 'react-i18next';
 import { VoteStepsResult, IRVRound, BordaStep } from '../../types';
 import { getVoteSteps, VoteStepsParams } from '../../services/simulationCompareApi';
 import { useChartTheme } from '../../hooks/useChartTheme';
-import { useAnimationBroadcast } from '../../stores/useLabStore';
 
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
 
@@ -467,7 +466,6 @@ const VoteStepAnimator: React.FC<Props> = ({
 }) => {
   const { t } = useTranslation();
   const ct = useChartTheme();
-  const { publish: publishFrame, clear: clearFrame } = useAnimationBroadcast();
 
   const [method, setMethod] = useState<(typeof ANIMATED_METHODS)[number]>('irv');
   const [speed, setSpeed] = useState<'slow' | 'normal' | 'fast'>('normal');
@@ -538,74 +536,8 @@ const VoteStepAnimator: React.FC<Props> = ({
     fetchSteps(method, apiCandidates);
   }, [method, apiCandsKey, numVoters, ideology, seed]);
 
-  // Clear central-view broadcast when the animator unmounts (user switches tab)
-  useEffect(
-    () => () => {
-      clearFrame();
-    },
-    [clearFrame]
-  );
-
   // Reveal approval animation on first show
   useEffect(() => {
-    // Broadcast current frame to the central view (so the main matrix and
-    // map can highlight the active method/round/eliminated candidate).
-    if (stepData) {
-      let eliminated: string | null | undefined = null;
-      let currentWinner: string | null | undefined = null;
-      let isFinal = false;
-      let eliminatedSet: string[] = [];
-      let transfers: Record<string, number> | undefined;
-
-      switch (stepData.method) {
-        case 'irv': {
-          // Accumulate every candidate eliminated up to and including the
-          // current round, so the central map can grey them out cumulatively
-          // (rd.eliminated may contain "Bob + Carol" when there's a tie).
-          for (let i = 0; i <= currentStep; i++) {
-            const r = stepData.rounds[i];
-            if (r && 'eliminated' in r && r.eliminated) {
-              for (const name of r.eliminated.split(' + ')) {
-                const trimmed = name.trim();
-                if (trimmed) eliminatedSet.push(trimmed);
-              }
-            }
-          }
-          const rd = stepData.rounds[currentStep];
-          if (rd) {
-            if ('winner' in rd && rd.winner) {
-              currentWinner = rd.winner;
-              isFinal = true;
-            } else if ('eliminated' in rd) {
-              eliminated = rd.eliminated ?? null;
-              if (rd.transfers) transfers = rd.transfers;
-            }
-          }
-          break;
-        }
-        case 'plurality':
-        case 'approval':
-        case 'schulze':
-        case 'borda':
-          if (currentStep === totalSteps - 1) {
-            currentWinner = stepData.winner ?? null;
-            isFinal = true;
-          }
-          break;
-      }
-
-      publishFrame({
-        method: stepData.method,
-        step: currentStep + 1,
-        totalSteps,
-        eliminated,
-        eliminatedSet,
-        transfers,
-        currentWinner,
-        final: isFinal,
-      });
-    }
-
     if (stepData?.method === 'approval' && currentStep === 0 && !approvalAnimated) {
       setTimeout(() => setApprovalAnimated(true), 100);
     }

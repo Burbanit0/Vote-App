@@ -26,7 +26,6 @@ import {
 } from '../../../services/electionApi';
 import { useChartTheme } from '../../../hooks/useChartTheme';
 import LiveBadge from '../ui/LiveBadge';
-import PinToCentralButton from '../ui/PinToCentralButton';
 
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
 
@@ -199,32 +198,6 @@ const BlankVoteDivergencePanel: React.FC = () => {
           )}
         </Button>
         <LiveBadge loading={loading && !!result} />
-        {result &&
-          (() => {
-            // Build winners-by-method from with_blank run, count changes vs without_blank
-            const winnersByMethod: Record<string, string | null> = {};
-            let changedCount = 0;
-            Object.entries(result.with_blank.methods).forEach(([m, md]) => {
-              const wb = md.winner_after_rule ?? md.winner;
-              winnersByMethod[m] = wb;
-              const baseline = result.without_blank.methods[m]?.winner;
-              if (wb !== baseline) changedCount += 1;
-            });
-            return (
-              <PinToCentralButton
-                type="blank-divergence"
-                icon="⬜"
-                label={`${t('divergence.compute')} — ${rule}`}
-                summary={
-                  changedCount > 0
-                    ? `${changedCount}/${Object.keys(winnersByMethod).length} ${t('lab.methodsChanged')}`
-                    : t('lab.winnerStable')
-                }
-                methodsChanged={changedCount}
-                winnersByMethod={winnersByMethod}
-              />
-            );
-          })()}
       </div>
 
       {error && (

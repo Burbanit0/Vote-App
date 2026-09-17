@@ -24,7 +24,7 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe('apiPost/apiGet/apiDelete', () => {
+describe('apiPost', () => {
   it('resolves with the parsed body on a 2xx response', async () => {
     const { apiPost } = await freshClient();
     mockFetch.mockResolvedValueOnce(jsonResponse(200, { winner: 'Alice' }));
@@ -45,22 +45,13 @@ describe('apiPost/apiGet/apiDelete', () => {
   });
 
   it('falls back to a generic message when the error body has no detail string', async () => {
-    const { apiGet, ApiError } = await freshClient();
+    const { apiPost, ApiError } = await freshClient();
     mockFetch.mockResolvedValueOnce(jsonResponse(500, { error: 'boom' }));
-    const err: unknown = await apiGet('/api/v2/simulations/real-elections').catch((e) => e);
+    const err: unknown = await apiPost('/api/v2/simulations/monte-carlo', {}).catch((e) => e);
     expect(err).toBeInstanceOf(ApiError);
     const apiErr = err as InstanceType<typeof ApiError>;
     expect(apiErr.status).toBe(500);
     expect(apiErr.message).toBe('Request failed with status 500');
     expect(apiErr.body).toEqual({ error: 'boom' });
-  });
-
-  it('apiDelete throws ApiError on a non-2xx response too', async () => {
-    const { apiDelete } = await freshClient();
-    mockFetch.mockResolvedValueOnce(jsonResponse(404, { detail: 'not found' }));
-    await expect(apiDelete('/api/v2/some-resource/1')).rejects.toMatchObject({
-      status: 404,
-      message: 'not found',
-    });
   });
 });

@@ -38,14 +38,6 @@ function defaultToDomain(clientX: number, clientY: number, rect: DOMRect) {
 }
 
 /**
- * Builds a toDomain converter for an SVG canvas with a fixed viewBox
- * (`width` × `height`) and a plot-area inset of `pad` on every side — the
- * shared shape behind every hand-rolled `svgToDomain` in the playground
- * canvases (LeaderCanvas/ParliamentCanvas pass width === height for the
- * square case, HistoricalReplay passes distinct width/height for the general
- * rect case).
- */
-/**
  * Keyboard equivalent of a drag: arrow keys nudge a domain point (0.02 step,
  * 0.1 with Shift), clamped to [-1, 1]. Ignores every other key. Shared by
  * LeaderCanvas (candidates) and ParliamentCanvas (parties) — both call this
@@ -81,6 +73,14 @@ export function arrowKeyNudge(
   onMove(Math.max(-1, Math.min(1, current.x + dx)), Math.max(-1, Math.min(1, current.y + dy)));
 }
 
+/**
+ * Builds a toDomain converter for an SVG canvas with a fixed viewBox
+ * (`width` × `height`) and a plot-area inset of `pad` on every side — the
+ * shared shape behind every hand-rolled `svgToDomain` in the playground
+ * canvases (LeaderCanvas/ParliamentCanvas pass width === height for the
+ * square case, HistoricalReplay passes distinct width/height for the general
+ * rect case).
+ */
 export function makeSvgToDomain(viewBox: { width: number; height: number; pad: number }) {
   const { width, height, pad } = viewBox;
   const plotW = width - 2 * pad;
@@ -173,59 +173,4 @@ export function useDragTouch(
       svg.removeEventListener('touchcancel', handleTouchEnd);
     };
   }, [svgRef]);
-
-  // ── Expose a startDrag helper on the ref so SVG elements can call it ────────
-
-  // We attach it as a property so callers can trigger start from onMouseDown/onTouchStart
-  // without knowing about internals. Access via useDragTouch.startDrag in same scope.
-  // → Instead we return startDrag and let the caller wire it to their event handlers.
-
-  // (startDrag is not returned here — callers call it from their own onMouseDown/onTouchStart
-  //  handlers and then set draggingRef.current = true via the returned setter)
-
-  // Actually: expose a `startDrag` function via a ref property pattern.
-  // We use an effect to attach a named property to the SVG element.
-  // → Simpler: export a separate `startDrag` factory function.
-}
-
-/**
- * Returns an onMouseDown / onTouchStart handler pair that starts a drag
- * managed by useDragTouch. Call this for each draggable child element.
- *
- * @param svgRef   The same ref passed to useDragTouch
- * @param dragging Mutable ref that useDragTouch reads — set to true on start
- * @param onStart  The same onStart callback
- * @param toDomain Optional domain converter
- */
-export function makeDragHandlers(
-  svgRef: RefObject<SVGSVGElement | null>,
-  dragging: { current: boolean },
-  onStart: (x: number, y: number) => void,
-  toDomain: (
-    clientX: number,
-    clientY: number,
-    rect: DOMRect
-  ) => { x: number; y: number } = defaultToDomain
-) {
-  function getCoords(clientX: number, clientY: number) {
-    if (!svgRef.current) return { x: 0, y: 0 };
-    return toDomain(clientX, clientY, svgRef.current.getBoundingClientRect());
-  }
-
-  return {
-    onMouseDown: (e: React.MouseEvent) => {
-      e.preventDefault();
-      dragging.current = true;
-      const { x, y } = getCoords(e.clientX, e.clientY);
-      onStart(x, y);
-    },
-    onTouchStart: (e: React.TouchEvent) => {
-      e.stopPropagation();
-      const touch = e.touches[0];
-      if (!touch) return;
-      dragging.current = true;
-      const { x, y } = getCoords(touch.clientX, touch.clientY);
-      onStart(x, y);
-    },
-  };
 }

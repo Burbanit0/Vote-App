@@ -115,18 +115,6 @@ export function ballotFrom(
   }
 }
 
-/** Grades actually written on a `score` ballot (1..levels) — for display. */
-export function gradesOf(affinity: number[], opt: BallotOptions = {}): number[] {
-  const levels = opt.levels ?? 5;
-  const contrast = opt.contrast ?? 1;
-  return affinity.map((x) => Math.round(Math.pow(clamp(x, 0, 1), contrast) * (levels - 1)) + 1);
-}
-
-/** Points actually written on a `points` ballot, out of `budget` — for display. */
-export function pointsOf(affinity: number[], budget = 10, opt: BallotOptions = {}): number[] {
-  return pipsFrom(ballotFrom(affinity, 'points', opt).score ?? [], budget);
-}
-
 /** Largest-remainder split of `budget` following `share` — the pips drawn on paper. */
 export function pipsFrom(share: number[], budget = 10): number[] {
   const total = share.reduce((a, x) => a + x, 0);

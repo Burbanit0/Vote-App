@@ -734,18 +734,12 @@ export function __flushPersistedStoreForTests(): void {
 
 // ── Store ─────────────────────────────────────────────────────────────────
 
-export const SCENARIO_NAMES = Object.keys(SCENARIOS);
-
 interface ElectionState {
   config: ElectionConfig;
   scenarioMeta: ScenarioMeta | null;
   playground: PlaygroundState;
   setConfig: (patch: Partial<ElectionConfig>) => void;
-  setConfigDeep: (path: string, value: unknown) => void;
-  replaceConfig: (next: ElectionConfig) => void;
-  resetConfig: () => void;
   applyScenario: (name: string) => void;
-  clearScenarioMeta: () => void;
   setMode: (mode: PlaygroundMode) => void;
   setPlayground: (patch: Partial<PlaygroundState>) => void;
   setPlaygroundDeep: (path: string, value: unknown) => void;
@@ -770,23 +764,6 @@ export const useElectionStore = create<ElectionState>((set) => ({
       return { config, scenarioMeta: null };
     }),
 
-  setConfigDeep: (path, value) =>
-    set((s) => {
-      const config = deepSet(s.config, path, value) as ElectionConfig;
-      saveConfig(config);
-      return { config, scenarioMeta: null };
-    }),
-
-  replaceConfig: (next) => {
-    saveConfig(next);
-    set({ config: next, scenarioMeta: null });
-  },
-
-  resetConfig: () => {
-    saveConfig(DEFAULT_CONFIG);
-    set({ config: DEFAULT_CONFIG, scenarioMeta: null });
-  },
-
   applyScenario: (name) => {
     const scenario = SCENARIOS[name];
     if (!scenario) return;
@@ -803,8 +780,6 @@ export const useElectionStore = create<ElectionState>((set) => ({
         : null,
     });
   },
-
-  clearScenarioMeta: () => set({ scenarioMeta: null }),
 
   // ── Playground actions ──────────────────────────────────────────────────
   setMode: (mode) =>
@@ -913,13 +888,8 @@ export const useElectionStore = create<ElectionState>((set) => ({
 export interface ElectionContextValue {
   config: ElectionConfig;
   setConfig: (patch: Partial<ElectionConfig>) => void;
-  setConfigDeep: (path: string, value: unknown) => void;
-  replaceConfig: (next: ElectionConfig) => void;
-  resetConfig: () => void;
   applyScenario: (name: string) => void;
-  scenarioNames: string[];
   scenarioMeta: ScenarioMeta | null;
-  clearScenarioMeta: () => void;
 }
 
 /**
@@ -968,36 +938,17 @@ export function useElection(): ElectionContextValue {
   const override = React.useContext(ElectorateOverrideContext);
   const config = useElectionStore((s) => s.config);
   const setConfig = useElectionStore((s) => s.setConfig);
-  const setConfigDeep = useElectionStore((s) => s.setConfigDeep);
-  const replaceConfig = useElectionStore((s) => s.replaceConfig);
-  const resetConfig = useElectionStore((s) => s.resetConfig);
   const applyScenario = useElectionStore((s) => s.applyScenario);
   const scenarioMeta = useElectionStore((s) => s.scenarioMeta);
-  const clearScenarioMeta = useElectionStore((s) => s.clearScenarioMeta);
   if (override) {
     return {
       config: override.config,
       setConfig: _noop,
-      setConfigDeep: _noop,
-      replaceConfig: _noop,
-      resetConfig: _noop,
       applyScenario: _noop,
-      scenarioNames: SCENARIO_NAMES,
       scenarioMeta: null,
-      clearScenarioMeta: _noop,
     };
   }
-  return {
-    config,
-    setConfig,
-    setConfigDeep,
-    replaceConfig,
-    resetConfig,
-    applyScenario,
-    scenarioNames: SCENARIO_NAMES,
-    scenarioMeta,
-    clearScenarioMeta,
-  };
+  return { config, setConfig, applyScenario, scenarioMeta };
 }
 
 // ── Playground convenience hook ───────────────────────────────────────────────

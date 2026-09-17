@@ -8,7 +8,6 @@
 @import 'tailwindcss';
 
 /* ── shadcn/ui design tokens — light (default) ────────────────────────────── */
-/* Values mirror src/theme/tokens.ts (the existing single source of truth). */
 :root {
   --radius: 0.5rem;
 
