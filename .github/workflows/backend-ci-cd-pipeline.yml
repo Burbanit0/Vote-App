@@ -79,21 +79,12 @@ jobs:
           enable-cache: true
           cache-dependency-glob: 'fast_api_voter/requirements*.txt'
 
-      # Informational only (continue-on-error), same as this repo's other
-      # non-blocking checks before they're ratcheted -- see
-      # scripts/check_python_lockfile_freshness.sh's own header for what it
-      # does and (deliberately) doesn't check. PLAN_CI_STRUCTURAL_GAPS.md
-      # item 2.C added the lockfiles this guards; without this, they'd be
-      # exactly the kind of "committed but nobody keeps it in sync" artifact
-      # this session has spent itself fixing elsewhere. Runs BEFORE the
-      # install (the very next step below), on purpose: if the lockfile has
-      # drifted, the warning should land before the install silently uses
-      # the stale pins, not after -- though `continue-on-error: true` means
-      # this only surfaces a visible warning, it doesn't block the install
-      # or fail the job if the lockfile really has drifted; closing that gap
-      # for real means ratcheting this the same way vulture/radon/etc. were.
-      - name: Python lockfiles up to date (informational)
-        continue-on-error: true
+      # Blocking: the production image (repo-root Dockerfile) installs
+      # requirements.lock.txt, so a pin bumped in requirements*.txt without
+      # regenerating the lockfiles would never reach production. See
+      # scripts/check_python_lockfile_freshness.sh's header for what it checks.
+      # Runs before the install below, so a drifted lock fails fast.
+      - name: Python lockfiles up to date (blocking)
         run: bash scripts/check_python_lockfile_freshness.sh
 
       # requirements-dev.lock.txt is requirements.txt + requirements-dev.txt
@@ -102,13 +93,9 @@ jobs:
       # install. Installing from the lockfile instead of resolving
       # requirements*.txt live makes THIS job reproducible: two runs at
       # different times now install the identical transitive tree here, not
-      # just identical direct pins. The actual shipped backend image
-      # (fast_api_voter/Dockerfile.prod, built by audit.yml's image-scan job
-      # -- NOT the similarly-named fast_api_voter/Dockerfile, which is a dev
-      # image) gets the same lockfile treatment in the same session, kept as
-      # its own follow-up commit rather than bundled here. Everything else
-      # (~9 other workflows, 3 other Dockerfiles) stays tracked, separately,
-      # as still-open scope in PLAN_CI_STRUCTURAL_GAPS.md.
+      # just identical direct pins. The shipped image (the repo-root Dockerfile)
+      # installs requirements.lock.txt, which this dev lock is constrained to
+      # (see scripts/check_python_lockfile_freshness.sh), so shared pins agree.
       - name: Install production + dev dependencies (from the lockfile)
         run: uv pip install --system -r fast_api_voter/requirements-dev.lock.txt
 
@@ -138,8 +125,9 @@ jobs:
         # B324 md5 findings were switched to sha256). B104 (bind-all) / B311 (non-crypto
         # random) stay skipped — both are intentional in this study app.
 
+      # Audits the exact pins the production image installs (no re-resolution).
       - name: pip-audit (dependency CVEs)
-        run: pip-audit --requirement fast_api_voter/requirements.txt
+        run: pip-audit --requirement fast_api_voter/requirements.lock.txt --no-deps --disable-pip
 
       - name: License compliance — production dependencies (gating)
         run: bash fast_api_voter/scripts/check_license_compliance.sh

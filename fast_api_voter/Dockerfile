@@ -14,8 +14,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install dependencies first (better layer caching). Dev tools (requirements-
-# dev.txt) too, so `docker compose exec backend pytest` works, unlike the lean
-# Dockerfile.prod.
+# dev.txt) too, so `docker compose exec backend pytest` works — this is the dev
+# image; production is the repo-root Dockerfile.
 COPY requirements.txt requirements-dev.txt ./
 RUN uv pip install --system --no-cache -r requirements.txt -r requirements-dev.txt
 

@@ -92,7 +92,7 @@ watching requirements too.
 | Dependencies, Containers & Misconfig (Trivy) | **required**, HIGH/CRITICAL fs scan | `.trivyignore.yaml` for triaged false positives |
 | Code Quality | **required**, but only via the ratchet at the end — see below | vulture/radon/xenon/deptry/knip/sonarjs/jscpd all run `continue-on-error: true` |
 | CodeQL (`javascript-typescript`, `python`) | **required**, non-gating by itself | results land in the Security tab, not a hard fail |
-| OSV-Scanner, GuardDog, Docker image scan/SBOM/signing | informational only | second opinions / supply-chain, not PR blockers |
+| OSV-Scanner, GuardDog, Docker image scan/SBOM | informational only | second opinions / supply-chain, not PR blockers |
 
 `CodeQL` and `Semgrep`/`Gitleaks`/`Trivy` all live in this one file, not
 scattered — if you're looking for "where is CodeQL configured", it's here,
