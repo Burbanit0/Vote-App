@@ -37,7 +37,6 @@ from api.core.config import Settings, get_settings
 from api.core.ratelimit import limiter
 from api.core.tracing import configure_tracing, instrument_app
 from api.routes import election as election_routes
-from api.routes import export as export_routes
 from api.routes import health as health_routes
 from api.routes.metrics import setup_metrics
 from api.routes import public as public_routes
@@ -221,7 +220,6 @@ async def log_requests(
 # ── Routers ─────────────────────────────────────────────────────────────────
 app.include_router(health_routes.router)
 app.include_router(election_routes.router)
-app.include_router(export_routes.router)
 app.include_router(public_routes.router)
 app.include_router(simulations_routes.router)
 app.include_router(tech_routes.router)

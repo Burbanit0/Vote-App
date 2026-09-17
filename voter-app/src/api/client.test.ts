@@ -28,7 +28,7 @@ describe('apiPost', () => {
   it('resolves with the parsed body on a 2xx response', async () => {
     const { apiPost } = await freshClient();
     mockFetch.mockResolvedValueOnce(jsonResponse(200, { winner: 'Alice' }));
-    const result = await apiPost<{ winner: string }>('/api/v2/simulations/compare', {});
+    const result = await apiPost<{ winner: string }>('/api/v2/simulations/monte-carlo', {});
     expect(result).toEqual({ winner: 'Alice' });
   });
 
@@ -37,7 +37,7 @@ describe('apiPost', () => {
     mockFetch.mockResolvedValueOnce(
       jsonResponse(422, { detail: 'num_voters must be between 10 and 1000' })
     );
-    await expect(apiPost('/api/v2/simulations/bandwagon', {})).rejects.toMatchObject({
+    await expect(apiPost('/api/v2/simulations/vote-steps', {})).rejects.toMatchObject({
       name: 'ApiError',
       status: 422,
       message: 'num_voters must be between 10 and 1000',

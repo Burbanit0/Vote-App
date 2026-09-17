@@ -32,11 +32,10 @@ def _boom(*args, **kwargs):
 class TestRateLimiterResilience:
     def test_v2_route_survives_storage_failure(self, client, monkeypatch):
         monkeypatch.setattr(limiter.limiter.storage, "incr", _boom)
-        r = client.post("/api/v2/simulations/get_closest_candidate", json={})
-        # 400: the worker's own validation (empty voters/candidates), reached
-        # normally — proves the request was NOT rejected by the rate limiter
-        # or the app's catch-all 500 handler.
-        assert r.status_code == 400, r.text
+        r = client.post("/api/v2/simulations/vote-steps", json={})
+        # 200: the request reached the worker normally — proves it was NOT
+        # rejected by the rate limiter or the app's catch-all 500 handler.
+        assert r.status_code == 200, r.text
 
     def test_v1_route_survives_storage_failure(self, client, monkeypatch):
         monkeypatch.setattr(limiter.limiter.storage, "incr", _boom)

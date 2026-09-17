@@ -67,12 +67,7 @@ themselves, then reconcile:
    `RULES`/`CARDINAL` in `gen_engine_parity.py`, or above the relevant
    `case` in `playgroundVoting.ts`) — read the actual comment before
    flagging one of these as "missing," or you will manufacture a false
-   positive on day one. Also don't confuse `arrow_criteria.py`'s
-   `RANKED_METHODS` with the axiom matrix: that module measures empirical
-   violation *frequency* on simulated populations — an older, different
-   tool. It is not a substitute for a pinned row in
-   `test_voting_criteria_matrix.py`, and its presence never counts as
-   coverage.
+   positive on day one.
 5. Cross-check the client side: `grep -n "case '" voter-app/src/lib/playgroundVoting.ts`
    inside `ruleWinnerFromRanks`. Most cases just call a `win<Rule>` wrapper
    whose logic mirrors an existing backend function 1:1 — no new backend

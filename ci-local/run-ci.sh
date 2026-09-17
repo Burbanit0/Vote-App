@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Portable runner for the local CI mirror (same Docker images as run-ci.ps1).
+# Portable runner for the local CI mirror.
 # Usage: ci-local/run-ci.sh [frontend|backend|e2e|audit|code|all] [--no-cache]
 #   all   = frontend + backend + e2e + audit (run before each push)
 #   code  = frontend + backend (quick iteration, skips e2e and the audit)

@@ -5,8 +5,7 @@ import { SURFACES, ANCHORS } from './routes';
 // string is ~35% longer and accented (see src/i18n/pseudoize.ts) — this
 // catches layout overflow/truncation before a real second language, or a
 // future one, exposes it for real. `votelab_lang` in localStorage is the
-// same key `i18next-browser-languagedetector` reads on init
-// (src/i18n/index.ts), so seeding it before the app boots is enough to
+// key src/i18n/index.ts reads on init, so seeding it before the app boots is enough to
 // activate the pseudo bundle — no UI language switcher needed (`pseudo` is
 // intentionally not offered there).
 //
