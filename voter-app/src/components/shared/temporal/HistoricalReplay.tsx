@@ -62,10 +62,8 @@ const IdeologyMap: React.FC<IdeologyMapProps> = ({ candidates, onMove, candidate
   const draggingRef = useRef<string | null>(null);
 
   useDragTouch(svgRef, {
-    onStart: () => {},
-    onMove: (x, y) => {
-      if (draggingRef.current) onMove(draggingRef.current, x, y);
-    },
+    isDragging: () => draggingRef.current !== null,
+    onMove: (x, y) => onMove(draggingRef.current!, x, y),
     onEnd: () => {
       draggingRef.current = null;
     },
@@ -133,6 +131,9 @@ const IdeologyMap: React.FC<IdeologyMapProps> = ({ candidates, onMove, candidate
             }}
             data-testid={`candidate-star-${c.name}`}
           >
+            {/* Hit area: the ★ and its label ignore the pointer, so without this the
+                <g> has nothing to press and the drag never starts. */}
+            <circle r={14} fill="transparent" />
             {c.modified && (
               <circle r={16} fill="none" stroke={color} strokeWidth={2} strokeDasharray="3 2" />
             )}
