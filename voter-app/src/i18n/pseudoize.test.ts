@@ -74,8 +74,8 @@ describe('loadLanguage("pseudo")', () => {
     await loadLanguage('pseudo');
     expect(i18n.hasResourceBundle('pseudo', 'translation')).toBe(true);
     expect(i18n.hasResourceBundle('pseudo', 'playground')).toBe(true);
-    expect(i18n.getResourceBundle('pseudo', 'translation').nav.simulator).toBe(
-      pseudo.nav.simulator
+    expect(i18n.getResourceBundle('pseudo', 'translation').nav.playground).toBe(
+      pseudo.nav.playground
     );
   });
 });
