@@ -9,8 +9,7 @@ representational proportionality rather than a single collective choice.
 import math
 from collections import defaultdict
 from itertools import combinations, chain
-from operator import itemgetter
-from typing import Callable, Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any
 
 
 # ── Internal helpers ───────────────────────────────────────────────────────
@@ -22,92 +21,6 @@ def _normalise_votes(party_votes: Dict[str, float]) -> Dict[str, float]:
 
 # ── Single Transferable Vote ───────────────────────────────────────────────
 
-def get_stv_winners(votes: list[Any], num_winners: int) -> List[str]:
-    """
-    Single Transferable Vote with Droop quota and fractional surplus transfer.
-
-    Each vote is either a list of candidate names (ranking) or a dict with a
-    'ranking' key (same format as simulation_ranked_utils).
-
-    Returns the ordered list of elected candidates.
-    """
-    if not votes or num_winners <= 0:
-        return []
-
-    # Normalise input
-    ballots: List[List[str]] = []
-    for v in votes:
-        if isinstance(v, dict):
-            ballots.append(list(v.get("ranking", [])))
-        else:
-            ballots.append(list(v))
-
-    n = len(ballots)
-    droop_quota = n // (num_winners + 1) + 1
-
-    # Pool: list of (weight, remaining_ranking)
-    pool: List[tuple[float, List[str]]] = [(1.0, r.copy()) for r in ballots]
-
-    elected: List[str] = []
-    eliminated: set[str] = set()
-
-    def _first_active(ranking: List[str], excl: set[str]) -> Optional[str]:
-        return next((c for c in ranking if c not in excl), None)
-
-    while len(elected) < num_winners:
-        excluded = eliminated | set(elected)
-
-        # Tally first active choices
-        counts: Dict[str, float] = defaultdict(float)
-        for w, r in pool:
-            c = _first_active(r, excluded)
-            if c:
-                counts[c] += w
-
-        if not counts:
-            break
-
-        remaining_seats = num_winners - len(elected)
-
-        # If ≤ remaining seats left, elect them all
-        if len(counts) <= remaining_seats:
-            elected.extend(sorted(counts, key=lambda c: -counts[c]))
-            break
-
-        # Any candidate at or above quota?
-        above_quota = [(c, v) for c, v in counts.items() if v >= droop_quota]
-
-        if above_quota:
-            above_quota.sort(key=lambda x: -x[1])
-            winner, winner_votes = above_quota[0]
-
-            surplus = winner_votes - droop_quota
-            transfer_factor = surplus / winner_votes if winner_votes > 0 else 0.0
-
-            # Rebuild pool: ballots going to winner get multiplied by transfer_factor
-            prev_excluded = eliminated | set(elected)  # state BEFORE electing winner
-            new_pool: List[tuple[float, List[str]]] = []
-            for w, r in pool:
-                first = _first_active(r, prev_excluded)
-                new_r = [c for c in r if c != winner]
-                if not new_r:
-                    continue  # exhausted ballot
-                if first == winner:
-                    new_pool.append((w * transfer_factor, new_r))
-                else:
-                    new_pool.append((w, new_r))
-
-            pool = new_pool
-            elected.append(winner)
-
-        else:
-            # Eliminate candidate with fewest first-choice votes (tie-break: alphabetical)
-            min_v = min(counts.values())
-            loser = min(c for c, v in counts.items() if v == min_v)
-            eliminated.add(loser)
-            # Ballots referencing loser will skip them via _first_active
-
-    return elected[:num_winners]
 
 
 # ── STV with full round-by-round detail ──────────────────────────────────────
@@ -369,61 +282,6 @@ def compute_proportionality_metrics(
 
 # ── Main comparison function ───────────────────────────────────────────────
 
-def compare_multiwinner_methods(
-    party_votes: Dict[str, float],
-    num_seats: int,
-    voter_rankings: Optional[List[Any]] = None,
-) -> Dict[str, Any]:
-    """
-    Run all proportional methods on the same vote distribution and return
-    seats + proportionality metrics for each, plus a ranking by Gallagher index.
-
-    party_votes  — {party_name: vote_count_or_pct}
-    num_seats    — total seats to fill
-    voter_rankings — optional ranked ballots for STV (same format as
-                     simulation_ranked_utils; candidates used as proxies)
-    """
-    pv = _normalise_votes(party_votes)
-    results: Dict[str, Any] = {}
-
-    party_list_methods: List[tuple[str, Callable[[], Any]]] = [
-        ("dhondt",                  lambda: get_dhondt_winners(pv, num_seats)),
-        ("sainte_lague",            lambda: get_sainte_lague_winners(pv, num_seats)),
-        ("largest_remainder_hare",  lambda: get_largest_remainder_winners(pv, num_seats, "hare")),
-        ("largest_remainder_droop", lambda: get_largest_remainder_winners(pv, num_seats, "droop")),
-    ]
-    for key, fn in party_list_methods:
-        seats = fn()
-        results[key] = {
-            "seats": seats,
-            "metrics": compute_proportionality_metrics(pv, seats),
-        }
-
-    # STV (individual rankings)
-    if voter_rankings:
-        stv_elected = get_stv_winners(voter_rankings, num_seats)
-        results["stv"] = {
-            "winners": stv_elected,
-            "seats": {},  # no party mapping without external lookup
-        }
-
-    # Comparison: rank by Gallagher index (lower = more proportional)
-    ranked = sorted(
-        [
-            (key, results[key]["metrics"]["gallagher_index"])
-            for key in ("dhondt", "sainte_lague", "largest_remainder_hare", "largest_remainder_droop")
-            if results[key]["metrics"].get("gallagher_index") is not None
-        ],
-        key=itemgetter(1),
-    )
-
-    results["comparison"] = {
-        "most_proportional":  ranked[0][0]  if ranked else None,
-        "least_proportional": ranked[-1][0] if ranked else None,
-        "gallagher_ranking":  [m for m, _ in ranked],
-    }
-
-    return results
 
 
 # ── SPAV ──────────────────────────────────────────────────────────────────────

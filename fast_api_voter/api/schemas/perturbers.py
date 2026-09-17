@@ -538,22 +538,6 @@ class InterpretRequest(BaseModel):
 
 # ── /quadratic-funding ──────────────────────────────────────────────────────
 
-class QFProject(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    name: str   = Field(..., min_length=1, max_length=64)
-    x:    float = Field(..., ge=-1.0, le=1.0)
-
-
-class QuadraticFundingRequest(BaseModel):
-    """Buterin/Hitzig/Weyl 2019 quadratic funding for public goods."""
-    model_config = ConfigDict(extra="forbid")
-
-    projects:         List[QFProject] = Field(..., min_length=2, max_length=8)
-    num_voters:       int   = Field(100, ge=20, le=1000)
-    ideology:         str   = Field("random")
-    seed:             int   = Field(42, ge=0)
-    budget_per_voter: float = Field(100.0, ge=1.0, le=1000.0)
-    matching_pool:    float = Field(10000.0, ge=0.0)
 
 
 # ── /liquid-democracy ──────────────────────────────────────────────────────
