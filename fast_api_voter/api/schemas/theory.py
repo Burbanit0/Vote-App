@@ -75,46 +75,6 @@ class IIARateResponse(BaseModel):
 
 # ── /plott-chaos ────────────────────────────────────────────────────────────
 
-class PlottChaosRequest(BaseModel):
-    """Plott's Chaos Theorem in 2-D policy space."""
-    model_config = ConfigDict(extra="forbid")
-
-    num_voters:     int   = Field(5, ge=3, le=21)
-    num_dimensions: int   = Field(2, ge=1, le=2)
-    seed:           int   = Field(42, ge=0)
-    target_policy:  List[float] = Field(default_factory=lambda: [0.6, 0.6],
-                                        min_length=1, max_length=2)
-    start_policy:   List[float] = Field(default_factory=lambda: [-0.6, -0.6],
-                                        min_length=1, max_length=2)
-    max_steps:      int   = Field(15, ge=1, le=30)
-
-
-class TopCycle(BaseModel):
-    size:   int
-    center: List[float]
-
-
-class ChaosPath(BaseModel):
-    from_:     List[float] = Field(..., alias="from")
-    to:        List[float]
-    steps:     List[List[float]]
-    num_steps: int
-
-    model_config = ConfigDict(populate_by_name=True)
-
-
-class AlternativePath(BaseModel):
-    to:    List[float]
-    steps: List[List[float]]
-
-
-class PlottChaosResponse(BaseModel):
-    condorcet_winner_exists: bool
-    top_cycle:               TopCycle
-    chaos_path:              ChaosPath
-    alternative_path:        AlternativePath
-    voter_ideal_points:      List[List[float]]
-    pedagogical_note:        str
 
 
 # ── /judgment-aggregation ──────────────────────────────────────────────────

@@ -21,16 +21,10 @@ from pydantic import BaseModel
 from api.core.ratelimit import check_v2_rate_limit
 from api.core.worker_dispatch import raise_for_status, run_worker_bounded
 from api.domain.tech import (
-    _e2e_demo_worker,
-    _polis_simulation_worker,
     _polis_with_candidates_worker,
 )
 from api.schemas import (
-    E2EDemoRequest,
-    E2EDemoResponse,
     ErrorDetail,
-    PolisSimulationRequest,
-    PolisSimulationResponse,
     PolisWithCandidatesRequest,
     PolisWithCandidatesResponse,
 )
@@ -70,30 +64,6 @@ async def _run_typed(
     (which carries `extra="allow"`, so unmodeled fields still pass through)."""
     body = await _run_passthrough(domain_fn, request)
     return response_model.model_validate(body)
-
-
-@router.post(
-    "/e2e-demo",
-    response_model=E2EDemoResponse,
-    summary="End-to-end verifiable voting pedagogical simulation",
-    response_description="Per-voter encrypted ballots + shuffled bulletin "
-                         "board + homomorphic aggregate + audit proof.",
-)
-async def e2e_demo_endpoint(request: E2EDemoRequest) -> E2EDemoResponse:
-    return await _run_typed(_e2e_demo_worker, request, E2EDemoResponse)
-
-
-@router.post(
-    "/polis-simulation",
-    response_model=PolisSimulationResponse,
-    summary="Pol.is consensus clustering on a statement set",
-    response_description="PCA-2D coords + k-means cluster labels + per-cluster "
-                         "vote rates + consensus / polarising statements.",
-)
-async def polis_simulation_endpoint(
-    request: PolisSimulationRequest,
-) -> PolisSimulationResponse:
-    return await _run_typed(_polis_simulation_worker, request, PolisSimulationResponse)
 
 
 @router.post(

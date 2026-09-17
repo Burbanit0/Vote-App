@@ -203,7 +203,7 @@ The frontend consumes the OpenAPI schema via a typed `openapi-fetch` client
 fast_api_voter/api/          # FastAPI backend — stateless (no DB, no auth)
 ├── main.py                  # FastAPI app + CORS + slowapi + Socket.IO ASGI wrap
 ├── routes/                  # thin HTTP adapters — election, simulations, theory,
-│                            #   tech, export, public (/api/v1), health
+│                            #   tech, public (/api/v1), health
 ├── domain/                  # pure compute workers (0 import FastAPI)
 │   ├── election/  simulations/  theory/
 ├── engine/utils/            # the simulation engine (0 import FastAPI)
@@ -212,7 +212,7 @@ fast_api_voter/api/          # FastAPI backend — stateless (no DB, no auth)
 │   ├── simulation_multiwinner_utils.py# proportional / parliament
 │   ├── simulation_metrics.py          # compare_all_methods(), Bayesian regret
 │   ├── campaign_dynamics.py  blank_contagion.py  information_model.py
-│   ├── gibbard_satterthwaite.py  quadratic_voting.py  arrow_criteria.py
+│   ├── gibbard_satterthwaite.py  quadratic_voting.py
 │   └── demographic_data.py  real_election_data.py  cache.py (Redis)
 ├── core/ (config, ratelimit)  schemas/  sockets/  tests/
 

@@ -47,7 +47,8 @@ class TestWorkerTimeoutSurfacesAs503:
         assert r.status_code == 503, r.text
 
     def test_tech_run_passthrough(self, client, force_timeout):
-        r = client.post("/api/v2/tech/e2e-demo", json={})
+        cands = [{"name": "A", "x": -0.5, "y": 0.0}, {"name": "B", "x": 0.5, "y": 0.0}]
+        r = client.post("/api/v2/tech/polis", json={"candidates": cands})
         assert r.status_code == 503, r.text
 
     def test_theory_run_typed(self, client, force_timeout):
@@ -59,10 +60,4 @@ class TestWorkerTimeoutSurfacesAs503:
         r = client.post("/api/v1/simulate", json=payload)
         assert r.status_code == 503, r.text
 
-    def test_export_csv(self, client, force_timeout):
-        r = client.post("/api/v2/export/simulation-dataset", json={})
-        assert r.status_code == 503, r.text
 
-    def test_export_json(self, client, force_timeout):
-        r = client.post("/api/v2/export/simulation-dataset-json", json={})
-        assert r.status_code == 503, r.text
