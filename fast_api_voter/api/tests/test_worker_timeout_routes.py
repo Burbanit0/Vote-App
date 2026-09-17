@@ -23,14 +23,7 @@ regardless of which module imported `run_bounded`/`run_worker_bounded`.
 import asyncio
 
 import pytest
-from fastapi.testclient import TestClient
 
-from api.main import app
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
 
 
 @pytest.fixture

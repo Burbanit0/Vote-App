@@ -1,14 +1,6 @@
 """Tests for Phase 4.5.a.4 — public research API /api/v1 on FastAPI."""
-import pytest
-from fastapi.testclient import TestClient
 
 import api.domain.public as public_module
-from api.main import app
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
 
 
 # ── GET /api/v1/methods ─────────────────────────────────────────────────────

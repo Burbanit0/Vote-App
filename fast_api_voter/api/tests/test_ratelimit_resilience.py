@@ -13,16 +13,8 @@ at a dead host) so this exercises the same failure regardless of whether the
 test environment's limiter backend is memory:// or a real Redis — the
 resilience code path being tested doesn't care which storage raised.
 """
-import pytest
-from fastapi.testclient import TestClient
 
 from api.core.ratelimit import limiter
-from api.main import app
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
 
 
 def _boom(*args, **kwargs):

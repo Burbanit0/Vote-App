@@ -1,21 +1,11 @@
 """Tests for Phase 4.5.a.3 — tech-democracy demos on FastAPI."""
-import pytest
-from fastapi.testclient import TestClient
 
-from api.main import app
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
 
 
 # ── /tech/e2e-demo ─────────────────────────────────────────────────────────
 
 
-
 # ── /tech/polis-simulation ─────────────────────────────────────────────────
-
 
 
 # ── /tech/polis ────────────────────────────────────────────────────────────

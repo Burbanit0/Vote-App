@@ -5,22 +5,8 @@ Bundled in a single file because each endpoint is small and tested
 for the same 3 properties: happy-path response, response shape, and
 422 on invalid input.
 """
-import pytest
-from fastapi.testclient import TestClient
 
-from api.main import app
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
-
-
-CANDS = [
-    {"name": "Alice", "x": -0.5, "y": -0.2},
-    {"name": "Bob",   "x":  0.5, "y":  0.2},
-    {"name": "Carol", "x":  0.0, "y":  0.1},
-]
+from api.tests.conftest import CANDS
 
 
 # ── /nota ────────────────────────────────────────────────────────────────────
