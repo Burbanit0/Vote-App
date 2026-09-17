@@ -76,6 +76,52 @@ vi.mock('../../playground/VseModule', () => ({
   ),
 }));
 
+// The four theory panels take the shared electorate as plain props (they used
+// to take it as optional `lab*` props next to a `labMode` flag that was always
+// true). Stubbed to expose what the catalog's wrappers actually hand them.
+vi.mock('../../shared/mechanisms/EpistocracyPanel', () => ({
+  default: (p: { candidates: unknown[]; numVoters: number; seed: number }) => (
+    <div
+      data-testid="stub-episto"
+      data-candidates={p.candidates.length}
+      data-num-voters={p.numVoters}
+      data-seed={p.seed}
+    />
+  ),
+}));
+vi.mock('../../shared/mechanisms/IdentityVotingPanel', () => ({
+  default: (p: { candidates: unknown[]; numVoters: number; seed: number }) => (
+    <div
+      data-testid="stub-identity"
+      data-candidates={p.candidates.length}
+      data-num-voters={p.numVoters}
+      data-seed={p.seed}
+    />
+  ),
+}));
+vi.mock('../../shared/analysis/CollectiveWillPanel', () => ({
+  default: (p: { candidates: unknown[]; numVoters: number; seed: number; ideology: string }) => (
+    <div
+      data-testid="stub-collective"
+      data-candidates={p.candidates.length}
+      data-num-voters={p.numVoters}
+      data-seed={p.seed}
+      data-ideology={p.ideology}
+    />
+  ),
+}));
+vi.mock('../../shared/analysis/AssumptionTesterPanel', () => ({
+  default: (p: { candidates: unknown[]; numVoters: number; seed: number; ideology: string }) => (
+    <div
+      data-testid="stub-assumptions"
+      data-candidates={p.candidates.length}
+      data-num-voters={p.numVoters}
+      data-seed={p.seed}
+      data-ideology={p.ideology}
+    />
+  ),
+}));
+
 import { ALL_EXPERIMENTS } from '../labCatalog';
 import { PlaygroundProvider } from '../../playground/PlaygroundController';
 import { DEFAULT_CONFIG } from '../../../stores/useElectionStore';
@@ -125,6 +171,29 @@ describe('Laboratoire fiches read the right playground context slices', () => {
     expect(stub).toHaveAttribute('data-sampler', 'function');
     expect(stub).toHaveAttribute('data-base-seed', String(DEFAULT_CONFIG.seed));
     expect(stub).toHaveAttribute('data-candidates', CANDIDATES);
+  });
+
+  it.each([
+    ['mech-epistocracy', 'stub-episto'],
+    ['mech-identity', 'stub-identity'],
+  ])('%s: the shared electorate reaches the panel as plain props', async (id, testid) => {
+    renderFiche(id);
+    const stub = await screen.findByTestId(testid);
+    expect(stub).toHaveAttribute('data-candidates', CANDIDATES);
+    expect(stub).toHaveAttribute('data-num-voters', String(DEFAULT_CONFIG.num_voters));
+    expect(stub).toHaveAttribute('data-seed', String(DEFAULT_CONFIG.seed));
+  });
+
+  it.each([
+    ['ana-collective', 'stub-collective'],
+    ['ana-assumptions', 'stub-assumptions'],
+  ])('%s: the electorate and the ideology reach the panel', async (id, testid) => {
+    renderFiche(id);
+    const stub = await screen.findByTestId(testid);
+    expect(stub).toHaveAttribute('data-candidates', CANDIDATES);
+    expect(stub).toHaveAttribute('data-num-voters', String(DEFAULT_CONFIG.num_voters));
+    expect(stub).toHaveAttribute('data-seed', String(DEFAULT_CONFIG.seed));
+    expect(stub).toHaveAttribute('data-ideology', DEFAULT_CONFIG.ideology);
   });
 
   it('lab-duel renders against the real instrument context', async () => {
