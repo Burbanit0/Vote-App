@@ -32,14 +32,11 @@ const pgFr = {
   stories: {
     launch: 'Histoires',
     launchHint: 'Des récits guidés qui font surgir un phénomène sous vos yeux, dans l’instrument.',
-    pick: 'Choisir une histoire',
-    close: 'Fermer',
     quit: 'Quitter',
     step: 'Scène {{n}} / {{total}}',
     next: 'Suivant →',
     prev: '← Précédent',
     restart: '↻ Rejouer',
-    replayHint: 'Vous reprenez la main : l’instrument reste sur la dernière scène.',
     spoiler: {
       title: 'L’effet spoiler',
       tagline: 'Un troisième candidat qui ne peut pas gagner peut quand même décider du vainqueur.',
@@ -588,8 +585,6 @@ const pgFr = {
   },
   vse: {
     title: 'Le coût du vote stratégique (VSE)',
-    subtitle:
-      'Combien de bien-être chaque méthode gaspille quand les électeurs cessent d’être sincères',
     intro:
       'Efficacité de satisfaction des électeurs (VSE, Quinn 2017, d’après Merrill 1984) : 1 = la méthode élit le candidat qui maximise le bien-être, 0 = elle ne fait pas mieux qu’un tirage au sort, négatif = elle fait pire. On fait varier la part d’électeurs qui votent « utile ».',
     aria: 'Courbes de VSE par méthode selon la part d’électeurs stratégiques',
@@ -788,7 +783,6 @@ const pgFr = {
   },
   realElection: {
     title: '🗳 Épreuve du réel : de vrais scrutins',
-    sub: 'mêmes bulletins, méthodes différentes — scrutins réels et figés (Burlington 2009, Alaska 2022), sans rapport avec l’électorat que vous configurez sur la carte',
     pick: 'Scrutin',
     headlinePre: 'Sur les mêmes bulletins,',
     headlineEnd: 'vainqueurs différents selon la seule méthode.',
@@ -1133,7 +1127,6 @@ const pgFr = {
     paradoxTitle:
       'Part des électorats ré-échantillonnés sans vainqueur de Condorcet — un taux élevé signale que le résultat dépend fortement des hypothèses.',
     condorcet: 'Condorcet : {{name}}',
-    condorcetNone: 'aucun vainqueur de Condorcet (cycle)',
     shake: '🎲 Secouer les hypothèses',
     shakeTitle:
       "Ré-échantillonne l'électorat 60 fois (mêmes hypothèses, nouveaux tirages) — sépare une propriété structurelle d'un réglage choisi.",

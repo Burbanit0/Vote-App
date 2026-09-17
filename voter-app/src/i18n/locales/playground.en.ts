@@ -29,14 +29,11 @@ const pgEn: PlaygroundKeys = {
     launch: 'Stories',
     launchHint:
       'Guided narratives that make a phenomenon surface in front of you, inside the instrument.',
-    pick: 'Pick a story',
-    close: 'Close',
     quit: 'Quit',
     step: 'Scene {{n}} / {{total}}',
     next: 'Next →',
     prev: '← Back',
     restart: '↻ Replay',
-    replayHint: 'You have the controls back: the instrument stays on the last scene.',
     spoiler: {
       title: 'The spoiler effect',
       tagline: 'A third candidate who cannot win can still decide who does.',
@@ -578,7 +575,6 @@ const pgEn: PlaygroundKeys = {
   },
   vse: {
     title: 'The welfare cost of strategic voting (VSE)',
-    subtitle: 'How much welfare each method throws away once voters stop being sincere',
     intro:
       'Voter Satisfaction Efficiency (VSE, Quinn 2017, after Merrill 1984): 1 = the method elects the welfare-maximising candidate, 0 = it does no better than drawing a name from a hat, negative = it does worse. We sweep the share of voters who vote tactically.',
     aria: 'VSE curves per method against the share of strategic voters',
@@ -767,7 +763,6 @@ const pgEn: PlaygroundKeys = {
   },
   realElection: {
     title: '🗳 Reality check: real elections',
-    sub: 'same ballots, different methods — fixed real elections (Burlington 2009, Alaska 2022), unrelated to the electorate you configure on the map',
     pick: 'Ballot box',
     headlinePre: 'On the very same ballots,',
     headlineEnd: 'different winners by method alone.',
@@ -1111,7 +1106,6 @@ const pgEn: PlaygroundKeys = {
     paradoxTitle:
       'Share of resampled electorates with no Condorcet winner — a high rate signals the result depends heavily on the assumptions.',
     condorcet: 'Condorcet: {{name}}',
-    condorcetNone: 'no Condorcet winner (cycle)',
     shake: '🎲 Shake the assumptions',
     shakeTitle:
       'Resamples the electorate 60 times (same assumptions, new draws) — separates a structural property from a chosen setting.',
