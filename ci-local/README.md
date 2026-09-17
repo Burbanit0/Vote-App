@@ -30,18 +30,9 @@ from the committed lockfile, exactly like the runner. That is the whole point.
 
 ## Usage
 
-From anywhere in the repo (Docker Desktop must be running):
-
-```powershell
-# PowerShell (Windows)
-./ci-local/run-ci.ps1                  # both jobs
-./ci-local/run-ci.ps1 -Target frontend
-./ci-local/run-ci.ps1 -Target backend
-./ci-local/run-ci.ps1 -NoCache         # clean rebuild
-```
+From anywhere in the repo (Docker must be running; on Windows use git-bash or WSL):
 
 ```bash
-# bash / git-bash / WSL
 ci-local/run-ci.sh                     # both jobs
 ci-local/run-ci.sh frontend
 ci-local/run-ci.sh --no-cache
