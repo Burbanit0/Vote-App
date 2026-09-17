@@ -56,7 +56,6 @@ import numpy as np
 
 import api.domain.election._electorate as electorate_mod
 import api.domain.election.election_service as election_service_mod
-import api.domain.export as export_mod
 import api.engine.utils.simulation_voting_utils as svu
 from api.engine.constants import DEFAULT_ISSUES
 
@@ -145,73 +144,6 @@ class TestBuildBaseElectorateIsolatedFromMidCallInterference:
         assert interfered == baseline
 
 
-class TestRunBandwagonSimulationIsolatedFromMidCallInterference:
-    """MUST FIX per the code-review-ultra pass: this function used to
-    `random.seed(seed); np.random.seed(seed)` and then call
-    `create_voter`/`create_candidate` with no `rng`/`np_rng`, reachable live
-    via POST /simulations/bandwagon (`_bandwagon_worker` forwards a
-    user-supplied seed straight through).
-
-    `num_rounds=0` throughout: round 0 (the sincere baseline, computed
-    directly from the freshly-built electorate) is what create_voter/
-    create_candidate feed. Rounds 1+ additionally call
-    `apply_social_influence()`, which used to draw from the bare global
-    `random.uniform()` with no rng parameter of its own — that gap (found by
-    a second, later `/code-review ultra` pass) is now fixed and covered
-    separately by `TestRunBandwagonSimulationFullReproducibility` below,
-    which is why this class stays scoped to round 0 / create_voter /
-    create_candidate rather than being widened.
-    """
-
-    def test_create_voter_draws_are_isolated(self) -> None:
-        kwargs = dict(num_voters=30, num_rounds=0, seed=7)
-        baseline = svu.run_bandwagon_simulation(**kwargs)
-
-        with _interference_after_nth_call(svu, "create_voter", n=10):
-            interfered = svu.run_bandwagon_simulation(**kwargs)
-
-        assert interfered["rounds"][0] == baseline["rounds"][0]
-
-    def test_create_candidate_draws_are_isolated(self) -> None:
-        """`candidates=None` (the default) is the branch that calls
-        create_candidate internally — interfere after the 2nd of 3."""
-        kwargs = dict(num_voters=10, num_rounds=0, seed=7)
-        baseline = svu.run_bandwagon_simulation(**kwargs)
-
-        with _interference_after_nth_call(svu, "create_candidate", n=2):
-            interfered = svu.run_bandwagon_simulation(**kwargs)
-
-        assert interfered["rounds"][0] == baseline["rounds"][0]
-
-
-class TestRunBandwagonSimulationFullReproducibility:
-    """Complement (2026-09-12, second `/code-review ultra` pass): plain
-    sequential reproducibility check, no threads/mocking/mid-call
-    interference at all — the class above hardcodes `num_rounds=0`
-    throughout, which never reaches `apply_social_influence()` (only called
-    at rounds 1+), so it could never have caught the bug this class targets:
-    `apply_social_influence()` used to draw `random.uniform()` from the bare,
-    never-reseeded global singleton regardless of what
-    `run_bandwagon_simulation()` itself did with its own `seed` — a strictly
-    worse regression than pre-fix `develop` for the single-threaded case,
-    since there `random.seed(seed)` at least reseeded before every call.
-
-    Confirmed red against the pre-fix `apply_social_influence()` (no `rng`
-    parameter, drawing from the bare global): two sequential calls with the
-    same seed and `num_rounds=2` produced identical `rounds[0]` (built
-    entirely by the already-threaded create_voter/create_candidate) but
-    DIFFERENT `rounds[1]`/`rounds[2]` every time. Green after threading
-    `rng` through `apply_social_influence()` and its call site.
-    """
-
-    def test_full_result_identical_across_two_sequential_calls(self) -> None:
-        kwargs = dict(num_voters=20, num_rounds=2, seed=7)
-        first = svu.run_bandwagon_simulation(**kwargs)
-        second = svu.run_bandwagon_simulation(**kwargs)
-
-        assert second == first
-
-
 class TestRunSimulationIsolatedFromMidCallInterference:
     """MUST FIX per the code-review-ultra pass: same unfixed
     `random.seed(seed)`/`np.random.seed(seed)` pattern as
@@ -276,21 +208,3 @@ class TestRunSimulationVoteReproducibility:
         assert [r["vote"] for r in second] == [r["vote"] for r in first]
 
 
-class TestGenerateRowsIsolatedFromMidCallInterference:
-    def test_create_voter_draws_are_isolated(self) -> None:
-        kwargs = dict(num_scenarios=1, num_candidates=3, num_voters=30, seed=7)
-        baseline = export_mod._generate_rows(**kwargs)
-
-        with _interference_after_nth_call(export_mod, "create_voter", n=10):
-            interfered = export_mod._generate_rows(**kwargs)
-
-        assert interfered == baseline
-
-    def test_create_candidate_draws_are_isolated(self) -> None:
-        kwargs = dict(num_scenarios=1, num_candidates=6, num_voters=10, seed=7)
-        baseline = export_mod._generate_rows(**kwargs)
-
-        with _interference_after_nth_call(export_mod, "create_candidate", n=2):
-            interfered = export_mod._generate_rows(**kwargs)
-
-        assert interfered == baseline

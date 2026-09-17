@@ -37,7 +37,6 @@ from api.domain.election.workers_dynamics import (
     _affective_polarization_worker,
     _hotelling_worker,
     _polarization_worker,
-    _quadratic_funding_worker,
 )
 # Behavioural / research-panel workers (workers.py decomposition).
 from api.domain.election.workers_behavioral import (
@@ -58,7 +57,6 @@ from api.domain.election.workers_playground import (
     _issue_voting_worker,
     _profile_simulate_worker,
     _structural_fairness_worker,
-    _temporal_worker,
 )
 # Governance / advanced-mechanism workers (workers.py decomposition).
 from api.domain.election.workers_advanced import (
@@ -93,12 +91,6 @@ def assembly_scorecard(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Lab reshape P5: Monte-Carlo scorecard — six [0,1] axes with bands for
     each structure (pr/fptp/mmp) over re-rolled electorates."""
     return _assembly_scorecard_worker(data)
-
-
-def temporal(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """Frontier FA-3: N sequential elections with party adaptation and voter
-    attachment — is the system still good after repeated play?"""
-    return _temporal_worker(data)
 
 
 def issue_voting(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
@@ -277,11 +269,6 @@ def divergence(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
 def interpret(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Deterministic interpretation of a /simulate result."""
     return _interpret_worker(data)
-
-
-def quadratic_funding(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """Buterin/Hitzig/Weyl 2019 quadratic funding."""
-    return _quadratic_funding_worker(data)
 
 
 def liquid_democracy(data: dict[str, Any]) -> tuple[dict[str, Any], int]:

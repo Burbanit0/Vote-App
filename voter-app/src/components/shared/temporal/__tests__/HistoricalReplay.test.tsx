@@ -198,6 +198,37 @@ describe('HistoricalReplay', () => {
     vi.runAllTimers();
   });
 
+  it('dragging a candidate replays with its new position', async () => {
+    apiClient.POST.mockResolvedValue(makeReplay());
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
+    await waitFor(() => expect(screen.getByTestId('candidate-star-Jospin')).toBeInTheDocument());
+
+    // jsdom has no layout: give the SVG its viewBox size (360×300) so the pointer
+    // maps back to domain coordinates. The plot centre is domain (0, 0).
+    screen.getByTestId('ideology-map-svg').getBoundingClientRect = () =>
+      ({ left: 0, top: 0, width: 360, height: 300 }) as DOMRect;
+    const svg = screen.getByTestId('ideology-map-svg');
+    fireEvent.mouseDown(screen.getByTestId('candidate-star-Jospin'));
+    fireEvent.mouseMove(window, { clientX: 180, clientY: 150 });
+    fireEvent.mouseUp(window);
+    // Touch drags Chirac to the plot's top-right corner, domain (1, 1).
+    fireEvent.touchStart(screen.getByTestId('candidate-star-Chirac'));
+    fireEvent.touchMove(svg, { touches: [{ clientX: 332, clientY: 28 }] });
+    fireEvent.touchEnd(svg);
+    // Once released, moves no longer drag anything.
+    fireEvent.mouseMove(window, { clientX: 0, clientY: 0 });
+    fireEvent.touchMove(svg, { touches: [{ clientX: 0, clientY: 0 }] });
+    fireEvent.click(screen.getByTestId('apply-drag-btn'));
+
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
+    expect(apiClient.POST.mock.calls[1][1].body.overrides).toEqual([
+      { name: 'Chirac', x: 1, y: 1 },
+      { name: 'Jospin', x: 0, y: 0 },
+    ]);
+    vi.runAllTimers();
+  });
+
   it('switching scenario card changes selection', () => {
     renderPanel();
     fireEvent.click(screen.getByTestId('scenario-card-usa1992'));
