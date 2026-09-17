@@ -4887,7 +4887,7 @@
       },
       "ErrorDetail": {
         "additionalProperties": false,
-        "description": "Shape of a domain-level error response.\n\nEvery `routes/*.py` module's `_run_worker`/`_run_passthrough`/`_run_typed`\nhelper lifts a domain worker's `(body, status_code)` tuple into\n`HTTPException(status_code=status_code, detail=body[\"error\"])` when\n`status_code != 200`; FastAPI serializes that as `{\"detail\": \"<message>\"}`.\n`api/main.py`'s catch-all `Exception` handler uses the same shape for any\nuncaught error, so it's also the 500 contract for every route in the app,\nnot just the ones that reach for it explicitly. Referenced via each\nrouter's `responses=` (Schemathesis, Lot 3 of the plan, found these\ncodes were reachable but undocumented).",
+        "description": "Shape of a domain-level error response.\n\n`api.core.worker_dispatch.raise_for_status` lifts a domain worker's\n`(body, status_code)` tuple into `HTTPException(detail=body[\"error\"])`\nwhen `status_code != 200` (400 and 503 keep their code, anything else\nbecomes 500); FastAPI serializes that as `{\"detail\": \"<message>\"}`.\n`api/main.py`'s catch-all `Exception` handler uses the same shape for any\nuncaught error, so it's also the 500 contract for every route in the app,\nnot just the ones that reach for it explicitly. Referenced via each\nrouter's `responses=` (Schemathesis, Lot 3 of the plan, found these\ncodes were reachable but undocumented).",
         "properties": {
           "detail": {
             "description": "Human-readable error message.",
@@ -13409,16 +13409,6 @@
             },
             "description": "Bad Request"
           },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorDetail"
-                }
-              }
-            },
-            "description": "Not Found"
-          },
           "422": {
             "content": {
               "application/json": {
@@ -13490,16 +13480,6 @@
             },
             "description": "Bad Request"
           },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorDetail"
-                }
-              }
-            },
-            "description": "Not Found"
-          },
           "422": {
             "content": {
               "application/json": {
@@ -13570,16 +13550,6 @@
               }
             },
             "description": "Bad Request"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorDetail"
-                }
-              }
-            },
-            "description": "Not Found"
           },
           "422": {
             "content": {

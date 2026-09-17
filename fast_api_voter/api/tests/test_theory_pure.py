@@ -12,8 +12,8 @@ Per this repo's test_cardinal_orphans.py precedent: assert on the NUMBERS a
 worker actually returns, not just on structure or the winner. Most of the
 input/output pairs here are transcribed from the batch tests' request
 payloads and JSON assertions (the direct-call response IS the same dict the
-route layer would hand back as JSON — api/routes/theory.py's `_run_typed`
-helper does nothing but `body, status = worker(request.model_dump())`).
+route layer would hand back as JSON — `api.core.worker_dispatch.run_typed`
+does nothing but `body, status = worker(request.model_dump())`).
 Values that are not already pinned upstream were derived either by hand
 (documented inline) or, where the arithmetic is genuinely RNG-driven, by
 executing the worker at the fixed seed used throughout this module (42) and
