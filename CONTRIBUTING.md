@@ -769,7 +769,7 @@ lourdes tournent en même temps ?
 cd fast_api_voter
 uvicorn api.main:app --port 4436 &          # un port dédié — vérifiez qu'il
 curl -X POST http://localhost:4436/api/v2/simulations/monte-carlo -d '{}'  # est bien le vôtre avant de faire confiance aux résultats
-locust -f scripts/loadtest_v2_engine.py --headless \
+uvx --from locust==2.46.5 locust -f scripts/loadtest_v2_engine.py --headless \
     -u 16 -r 4 -t 30s --host http://localhost:4436 --csv=/tmp/loadtest
 ```
 

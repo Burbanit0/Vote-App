@@ -47,25 +47,10 @@ pytest-benchmark==5.3.0  # Wall-clock ceilings on the voting engine (Lot 8.1,
                          # simulation_ranked_utils.py/simulation_score_utils.py that was
                          # previously invisible. Own invocation, not -n auto (pytest-xdist
                          # auto-disables it) -- see api/tests/test_engine_benchmarks.py.
-locust==2.46.5           # Manual load test for /api/v2 (Lot 8.2, PLAN_SOLIDITE_TECHNIQUE.md)
-                         # -- finds the real thread-pool ceiling the 120/min rate limit was
-                         # guessed against. Python-based (no new language toolchain beyond
-                         # this venv, unlike k6/JS), a local/manual tool only, never wired
-                         # into CI (load tests are slow and machine-dependent -- see
-                         # scripts/loadtest_v2_engine.py and CONTRIBUTING.md's "Charge"
-                         # section). Pulls in Flask as its own internal web UI dependency --
-                         # unrelated to this app (which migrated OFF Flask, see CLAUDE.md);
-                         # dev-only, never imported by api/.
 
 # Security
 bandit==1.9.4        # Python SAST (static analysis)
 pip-audit==2.10.1     # Dependency CVE scan
-pip-licenses==5.5.5   # License compliance on a public MIT repo (Lot 6.7,
-                       # PLAN_SOLIDITE_TECHNIQUE.md) -- for ad-hoc local
-                       # inspection of the CURRENT (dev+prod) venv; the actual
-                       # gate (scripts/check_license_compliance.sh, also run
-                       # by scripts/audit.sh) installs its own copy into an
-                       # isolated venv scoped to requirements.txt only.
 
 # Mutation testing (weekly CI job, non-blocking — scope limited to the
 # file(s) in [tool.mutmut] below). Native Windows isn't supported upstream
@@ -82,16 +67,7 @@ ruff==0.16.6         # Replaces flake8 (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md) — s
                      # fast_api_voter/pyproject.toml's [tool.ruff]/[tool.ruff.lint]
                      # for the deliberately narrow rule selection this carries over.
 mypy==2.3.1         # Static type checking
-basedpyright==1.40.1  # Second static-analysis opinion alongside mypy (Lot 6.2,
-                      # PLAN_SOLIDITE_TECHNIQUE.md — informational, see
-                      # pyproject.toml [tool.basedpyright])
 vulture==2.16        # Dead-code detection (informational, see pyproject.toml [tool.vulture])
-refurb==2.3.1         # Python modernization suggestions (Lot 6, PLAN_SOLIDITE_TECHNIQUE.md
-                       # — informational, see pyproject.toml [tool.refurb])
-perflint==0.8.1       # Pylint plugin: performance anti-patterns (Lot 6,
-pylint==3.3.9          # PLAN_SOLIDITE_TECHNIQUE.md — informational, see pyproject.toml
-                        # [tool.pylint.main]/["messages control"]; pylint itself is perflint's
-                        # runtime, not used directly for anything else in this repo)
 radon==6.0.1          # Cyclomatic complexity report (informational, see CODE_AUDIT.md)
 xenon==0.9.3          # radon threshold runner — same report, informational here too
 deptry==0.25.1        # Unused/undeclared deps (Lot 2, PLAN_SOLIDITE_TECHNIQUE.md — knip's
@@ -104,8 +80,6 @@ z3-solver==5.1.0.0     # SMT proofs over symbolic vote counts, ALL electorates a
                        # rather than sampled ones (Lot 4.6, PLAN_SOLIDITE_TECHNIQUE.md;
                        # see api/tests/test_z3_formal_proofs.py and
                        # docs/exploration/EXP-002-z3-formal-voting-proofs.md)
-types-redis==4.6.0.20241004  # Redis type stubs
-types-requests==2.33.0.20260906  # Requests type stubs
 types-PyYAML==6.0.12.20260906  # domain/polity/config.py — polity_config.yaml loader
 
 # Diff coverage (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md) — 100% coverage required

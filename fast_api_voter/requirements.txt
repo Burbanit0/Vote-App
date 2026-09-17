@@ -51,9 +51,6 @@ opentelemetry-instrumentation-fastapi==0.65b0  # matching contrib pre-release li
 
 # ── Data / science (the simulation engine) ───────────────────────────────────
 numpy==2.5.3
-scipy==1.18.1                  # 1.15.3 has no Python 3.14 wheel (cp314); this is the version
-                                # already proposed by the stalled scipy Dependabot PR (#266),
-                                # blocked for the same reason (needs Python >=3.12)
 duckdb==1.5.5                  # §16.6 — compaction post-run du journal JSONL en base
                                 # analytique (domain/polity/compaction.py). Embarqué,
                                 # sans serveur : un fichier .duckdb par run.

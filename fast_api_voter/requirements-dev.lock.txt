@@ -20,35 +20,24 @@ asgiref==3.12.1
     # via opentelemetry-instrumentation-asgi
 ast-serialize==0.11.2
     # via mypy
-astroid==3.3.11
-    # via pylint
 atheris==3.1.0
     # via -r requirements-dev.txt
 attrs==26.1.0
     # via aiohttp
 bandit==1.9.4
     # via -r requirements-dev.txt
-basedpyright==1.40.1
-    # via -r requirements-dev.txt
 bidict==0.24.1
     # via python-socketio
-blinker==1.9.0
-    # via flask
 boolean-py==5.0
     # via license-expression
-brotli==1.2.0
-    # via geventhttpclient
 cachecontrol==0.14.4
     # via pip-audit
 certifi==2026.7.22
     # via
-    #   geventhttpclient
     #   httpcore
     #   httpx
     #   requests
     #   sentry-sdk
-cffi==2.1.1
-    # via cryptography
 chardet==7.6.0
     # via diff-cover
 charset-normalizer==3.5.1
@@ -56,23 +45,16 @@ charset-normalizer==3.5.1
 click==8.5.0
     # via
     #   deptry
-    #   flask
     #   import-linter
     #   mutmut
     #   schemathesis
     #   uvicorn
 colorama==0.4.6
     # via radon
-configargparse==1.7.7
-    # via locust
 coverage==7.16.1
     # via
     #   mutmut
     #   pytest-cov
-cryptography==50.0.1
-    # via
-    #   types-pyopenssl
-    #   types-redis
 cyclonedx-python-lib==11.12.0
     # via pip-audit
 defusedxml==0.7.1
@@ -85,8 +67,6 @@ deptry==0.25.1
     # via -r requirements-dev.txt
 diff-cover==10.5.1
     # via -r requirements-dev.txt
-dill==0.4.1
-    # via pylint
 duckdb==1.5.5
     # via -r requirements.txt
 execnet==2.1.2
@@ -95,31 +75,14 @@ fastapi==0.141.1
     # via -r requirements.txt
 filelock==3.32.6
     # via cachecontrol
-flask==3.1.3
-    # via
-    #   flask-cors
-    #   flask-login
-    #   locust
-flask-cors==6.0.5
-    # via locust
-flask-login==0.6.3
-    # via locust
 frozenlist==1.8.0
     # via
     #   aiohttp
     #   aiosignal
-gevent==26.8.0
-    # via
-    #   geventhttpclient
-    #   locust
-geventhttpclient==2.3.9
-    # via locust
 googleapis-common-protos==1.75.3
     # via opentelemetry-exporter-otlp-proto-http
 graphql-core==3.2.12
     # via hypothesis-graphql
-greenlet==3.5.5
-    # via gevent
 grimp==3.17
     # via import-linter
 h11==0.16.0
@@ -152,14 +115,8 @@ import-linter==2.15
     # via -r requirements-dev.txt
 iniconfig==2.3.0
     # via pytest
-isort==6.1.0
-    # via pylint
-itsdangerous==2.2.0
-    # via flask
 jinja2==3.1.6
-    # via
-    #   diff-cover
-    #   flask
+    # via diff-cover
 jsonschema-rs==0.55.1
     # via schemathesis
 libcst==1.9.0
@@ -172,8 +129,6 @@ limits==5.8.0
     # via slowapi
 linkify-it-py==2.2.0
     # via markdown-it-py
-locust==2.46.5
-    # via -r requirements-dev.txt
 mando==0.7.1
     # via radon
 markdown-it-py==4.2.0
@@ -183,19 +138,14 @@ markdown-it-py==4.2.0
     #   textual
 markupsafe==3.0.3
     # via
-    #   flask
     #   jinja2
     #   werkzeug
-mccabe==0.7.0
-    # via pylint
 mdit-py-plugins==0.6.1
     # via textual
 mdurl==0.1.2
     # via markdown-it-py
 msgpack==1.2.2
-    # via
-    #   cachecontrol
-    #   locust
+    # via cachecontrol
 multidict==6.8.0
     # via
     #   aiohttp
@@ -203,19 +153,13 @@ multidict==6.8.0
 mutmut==3.8.0
     # via -r requirements-dev.txt
 mypy==2.3.1
-    # via
-    #   -r requirements-dev.txt
-    #   refurb
+    # via -r requirements-dev.txt
 mypy-extensions==1.1.0
     # via mypy
 networkx==3.6.1
     # via -r requirements.txt
-nodejs-wheel-binaries==24.19.0
-    # via basedpyright
 numpy==2.5.3
-    # via
-    #   -r requirements.txt
-    #   scipy
+    # via -r requirements.txt
 opentelemetry-api==1.44.0
     # via
     #   -r requirements.txt
@@ -268,30 +212,23 @@ packaging==26.3
     #   requirements-parser
 pathspec==1.1.1
     # via mypy
-perflint==0.8.1
-    # via -r requirements-dev.txt
 pip==26.2.1
     # via pip-api
 pip-api==0.0.35
     # via pip-audit
 pip-audit==2.10.1
     # via -r requirements-dev.txt
-pip-licenses==5.5.5
-    # via -r requirements-dev.txt
 pip-requirements-parser==32.0.1
     # via pip-audit
 platformdirs==4.11.8
     # via
     #   pip-audit
-    #   pylint
     #   textual
 pluggy==1.6.0
     # via
     #   diff-cover
     #   pytest
     #   pytest-cov
-prettytable==3.18.0
-    # via pip-licenses
 prometheus-client==0.26.0
     # via
     #   -r requirements.txt
@@ -306,14 +243,10 @@ protobuf==7.36.1
     # via
     #   googleapis-common-protos
     #   opentelemetry-proto
-psutil==7.2.2
-    # via locust
 py-cpuinfo2==10.1.1
     # via pytest-benchmark
 py-serializable==2.1.0
     # via cyclonedx-python-lib
-pycparser==3.0
-    # via cffi
 pydantic==2.13.5
     # via
     #   -r requirements.txt
@@ -329,10 +262,6 @@ pygments==2.21.0
     #   pytest
     #   rich
     #   textual
-pylint==3.3.9
-    # via
-    #   -r requirements-dev.txt
-    #   perflint
 pyparsing==3.3.2
     # via pip-requirements-parser
 pyrate-limiter==4.5.0
@@ -340,7 +269,6 @@ pyrate-limiter==4.5.0
 pytest==9.1.1
     # via
     #   -r requirements-dev.txt
-    #   locust
     #   mutmut
     #   pytest-asyncio
     #   pytest-benchmark
@@ -365,13 +293,9 @@ python-dotenv==1.2.3
     #   pydantic-settings
     #   uvicorn
 python-engineio==4.14.0
-    # via
-    #   locust
-    #   python-socketio
+    # via python-socketio
 python-socketio==5.16.4
-    # via
-    #   -r requirements.txt
-    #   locust
+    # via -r requirements.txt
 pyyaml==6.0.3
     # via
     #   -r requirements.txt
@@ -380,23 +304,17 @@ pyyaml==6.0.3
     #   schemathesis
     #   uvicorn
     #   xenon
-pyzmq==27.2.0
-    # via locust
 radon==6.0.1
     # via
     #   -r requirements-dev.txt
     #   xenon
 redis==8.1.0
     # via -r requirements.txt
-refurb==2.3.1
-    # via -r requirements-dev.txt
 requests==2.34.2
     # via
     #   cachecontrol
-    #   locust
     #   opentelemetry-exporter-otlp-proto-http
     #   pip-audit
-    #   python-socketio
     #   schemathesis
     #   xenon
 requirements-parser==0.13.1
@@ -412,8 +330,6 @@ ruff==0.16.6
     # via -r requirements-dev.txt
 schemathesis==4.26.1
     # via -r requirements-dev.txt
-scipy==1.18.1
-    # via -r requirements.txt
 sentry-sdk==2.69.1
     # via -r requirements.txt
 setproctitle==1.3.7
@@ -446,20 +362,8 @@ tomli==2.4.1
     #   pip-audit
 tomli-w==1.2.0
     # via pip-audit
-tomlkit==0.15.1
-    # via pylint
-types-cffi==2.1.0.20260827
-    # via types-pyopenssl
-types-pyopenssl==24.1.0.20240722
-    # via types-redis
 types-pyyaml==6.0.12.20260906
     # via -r requirements-dev.txt
-types-redis==4.6.0.20241004
-    # via -r requirements-dev.txt
-types-requests==2.33.0.20260906
-    # via -r requirements-dev.txt
-types-setuptools==84.0.0.20260812
-    # via types-cffi
 typing-extensions==4.16.0
     # via
     #   anyio
@@ -483,10 +387,8 @@ typing-inspection==0.4.4
     #   pydantic-settings
 urllib3==2.7.0
     # via
-    #   geventhttpclient
     #   requests
     #   sentry-sdk
-    #   types-requests
 uvicorn==0.52.4
     # via -r requirements.txt
 uvloop==0.22.1
@@ -495,19 +397,10 @@ vulture==2.16
     # via -r requirements-dev.txt
 watchfiles==1.2.0
     # via uvicorn
-wcwidth==0.8.3
-    # via prettytable
-websocket-client==1.9.2
-    # via python-socketio
 websockets==17.1
     # via uvicorn
 werkzeug==3.1.8
-    # via
-    #   flask
-    #   flask-cors
-    #   flask-login
-    #   locust
-    #   schemathesis
+    # via schemathesis
 wrapt==2.4.1
     # via
     #   deprecated
@@ -520,7 +413,3 @@ yarl==1.24.5
     # via aiohttp
 z3-solver==5.1.0.0
     # via -r requirements-dev.txt
-zope-event==6.2
-    # via gevent
-zope-interface==8.6
-    # via gevent
