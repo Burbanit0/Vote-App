@@ -11,6 +11,7 @@
 import {
   computeRanks,
   computeScores,
+  pairwise,
   ruleWinnerFromRanks,
   fieldWinnerName,
   ruleWinner,
@@ -146,23 +147,6 @@ const RANDOM_BALLOT_PROPS: Record<CriterionId, CritResult> = {
   pareto: true,
   iia: true,
 };
-
-/** Local pairwise tally pw[i][j] = ballots ranking i above j. */
-function pairwise(ranks: number[][], m: number): number[][] {
-  const pw = Array.from({ length: m }, () => new Array(m).fill(0));
-  for (const r of ranks) {
-    const pos = new Array(m).fill(0);
-    r.forEach((c, i) => {
-      pos[c] = i;
-    });
-    for (let i = 0; i < m; i++)
-      for (let j = i + 1; j < m; j++) {
-        if (pos[i] < pos[j]) pw[i][j] += 1;
-        else pw[j][i] += 1;
-      }
-  }
-  return pw;
-}
 
 export interface CriteriaRow {
   rule: Rule;
