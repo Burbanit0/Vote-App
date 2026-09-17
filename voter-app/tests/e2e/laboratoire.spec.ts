@@ -147,6 +147,33 @@ test.describe('Laboratoire — the modules that compute', () => {
     expect(crashes, 'the page must not throw while streaming').toEqual([]);
   });
 
+  test('the historical replay replays with a dragged candidate', async ({ page }) => {
+    // Regression test: the stars had no hit area (their glyphs ignore the pointer)
+    // and the drag hook never armed, so a drag was silently ignored. jsdom does no
+    // hit-testing, so only a real browser can see the first half of that.
+    await openFiche(page, 'dynamics', 'tdyn-replay');
+    await page
+      .getByRole('button', { name: /simuler|simulate/i })
+      .first()
+      .click();
+    const star = page.locator('[data-testid^="candidate-star-"]').first();
+    await expect(star).toBeVisible({ timeout: 30_000 });
+    await star.scrollIntoViewIfNeeded();
+    const name = (await star.getAttribute('data-testid'))!.replace('candidate-star-', '');
+    const box = (await star.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 60, box.y + 40, { steps: 8 });
+    await page.mouse.up();
+
+    const replay = page.waitForRequest(
+      (r) => r.url().includes('historical-replay') && r.method() === 'POST'
+    );
+    await page.locator('[data-testid="apply-drag-btn"]').click();
+    const { overrides } = (await replay).postDataJSON();
+    expect(overrides.map((o: { name: string }) => o.name)).toEqual([name]);
+  });
+
   test('real elections are backtested against every method', async ({ page }) => {
     await openFiche(page, 'theory', 'res-real-election');
     // The fiche is lazily loaded: wait for the panel itself, not just the bench.
