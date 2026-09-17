@@ -23,6 +23,7 @@ from .common import (
     CandidateSpec,
     ContagionConfig,
     ErrorDetail,
+    WORKER_ERROR_RESPONSES,
     InformationModelConfig,
     MethodResult,
     VoterSnapshot,
@@ -163,6 +164,7 @@ __all__ = [
     # common
     "BlankVoteConfig", "CampaignConfig", "CandidateSpec",
     "ContagionConfig", "ErrorDetail", "InformationModelConfig", "MethodResult",
+    "WORKER_ERROR_RESPONSES",
     "VoterSnapshot",
     # election
     "AbstentionRequest", "AbstentionResponse",

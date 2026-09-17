@@ -6,7 +6,7 @@ generated OpenAPI spec carries real explanations into the frontend types.
 """
 from __future__ import annotations
 
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -14,10 +14,10 @@ from pydantic import BaseModel, ConfigDict, Field
 class ErrorDetail(BaseModel):
     """Shape of a domain-level error response.
 
-    Every `routes/*.py` module's `_run_worker`/`_run_passthrough`/`_run_typed`
-    helper lifts a domain worker's `(body, status_code)` tuple into
-    `HTTPException(status_code=status_code, detail=body["error"])` when
-    `status_code != 200`; FastAPI serializes that as `{"detail": "<message>"}`.
+    `api.core.worker_dispatch.raise_for_status` lifts a domain worker's
+    `(body, status_code)` tuple into `HTTPException(detail=body["error"])`
+    when `status_code != 200` (400 and 503 keep their code, anything else
+    becomes 500); FastAPI serializes that as `{"detail": "<message>"}`.
     `api/main.py`'s catch-all `Exception` handler uses the same shape for any
     uncaught error, so it's also the 500 contract for every route in the app,
     not just the ones that reach for it explicitly. Referenced via each
@@ -123,3 +123,17 @@ class VoterSnapshot(BaseModel):
     x:                      float
     y:                      float
     blank_threshold_final:  float
+
+
+# The statuses every worker-backed route can return, for its `responses=`.
+# 400 is one representative 4xx (`raise_for_status` passes through any 4xx a
+# worker returns); 503 is worker_dispatch's timeout; 500 is main.py's
+# catch-all. Five routers each carried their own copy of this dict, and
+# simulations.py's copy still advertised a 404 from a worker deleted two PRs
+# earlier — a route with a genuinely different status set spreads this one and
+# adds to it.
+WORKER_ERROR_RESPONSES: Dict[int | str, Dict[str, Any]] = {
+    400: {"model": ErrorDetail},
+    500: {"model": ErrorDetail},
+    503: {"model": ErrorDetail},
+}

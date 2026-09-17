@@ -24,10 +24,9 @@ module. With stringized (PEP 563) annotations FastAPI can't resolve the
 Pydantic body type there and silently demotes it to a query param (→ 422
 "field required"). Keeping real annotation objects sidesteps that entirely.
 """
-from typing import Any, Callable, Dict, Tuple
+from typing import Any, Dict
 
 from fastapi import APIRouter, Request
-from pydantic import BaseModel
 
 from api.domain.public import (
     OPENAPI_SPEC,
@@ -37,9 +36,9 @@ from api.domain.public import (
     _simulate_worker,
 )
 from api.core.ratelimit import limiter
-from api.core.worker_dispatch import raise_for_status, run_worker_bounded
+from api.core.worker_dispatch import run_passthrough
 from api.schemas import (
-    ErrorDetail,
+    WORKER_ERROR_RESPONSES,
     PublicCompareRequest,
     PublicCompareResponse,
     PublicMethodsResponse,
@@ -52,25 +51,9 @@ from api.schemas import (
 router = APIRouter(
     prefix="/api/v1",
     tags=["public-v1"],
-    # See routes/election.py's router for why 400/500/503 apply to every
-    # route here (this module's own _run_passthrough/_run_worker follow the
-    # same (body, status) -> HTTPException pattern).
-    responses={
-        400: {"model": ErrorDetail},
-        500: {"model": ErrorDetail},
-        503: {"model": ErrorDetail},
-    },
+    # See election.py's router for why 400/500/503 apply to every route here.
+    responses=WORKER_ERROR_RESPONSES,
 )
-
-
-async def _run_passthrough(
-    domain_fn: Callable[[Dict[str, Any]], Tuple[Dict[str, Any], int]],
-    request_model: BaseModel,
-) -> Dict[str, Any]:
-    """Run the sync worker off the event loop and lift its (body, status)
-    tuple into an HTTPException on error. Same helper as the other routers."""
-    body, status_code = await run_worker_bounded(domain_fn, request_model.model_dump())
-    return raise_for_status(body, status_code)
 
 
 @router.get(
@@ -91,7 +74,7 @@ async def list_methods(family: str = "") -> Dict[str, Any]:
 )
 @limiter.limit("10/minute")
 async def simulate(request: Request, body: PublicSimulateRequest) -> Dict[str, Any]:
-    return await _run_passthrough(_simulate_worker, body)
+    return await run_passthrough(_simulate_worker, body)
 
 
 @router.post(
@@ -103,7 +86,7 @@ async def simulate(request: Request, body: PublicSimulateRequest) -> Dict[str, A
 )
 @limiter.limit("5/minute")
 async def compare(request: Request, body: PublicCompareRequest) -> Dict[str, Any]:
-    return await _run_passthrough(_compare_worker, body)
+    return await run_passthrough(_compare_worker, body)
 
 
 @router.get(
