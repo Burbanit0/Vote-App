@@ -105,6 +105,14 @@ from api.domain.polity.viz_export import export_run  # noqa: E402
 from api.domain.polity.run_polity_simulation import run_simulation  # noqa: E402
 
 
+LLM_TURNOUT_COST = 0.04
+"""S4.1 on the LLM path (plan-polity-build-order.md, "Result of step 2"): the only setting of the
+first group meeting ADR-011's four facts, adopted for the LLM engine only. The deterministic twin,
+which shares polity_config.yaml, qualified nothing, so the file keeps 0. The pass is thin: its
+retrospective voting rests on 10 incumbents with `approval` at 0, and what the cost does is make
+about 40% of voters abstain."""
+
+
 def _flagship_config(
     *,
     engine: str,
@@ -208,6 +216,7 @@ def _flagship_config(
 
     if engine == "llm":
         llm = dataclasses.replace(config.llm, enabled=True, max_batch_replays=max_batch_replays, reproducibility=reproducibility)
+        config = dataclasses.replace(config, vote=dataclasses.replace(config.vote, turnout_cost=LLM_TURNOUT_COST))
         if vote_mode is not None:
             # S4.1 (ADR-011): the shipped utility mode asks the model for an audit sample of
             # ballots only; `llm` has it cast every ballot, as every run before S4.1 did.

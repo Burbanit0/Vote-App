@@ -992,8 +992,13 @@ exactly as pre-registered:
 - **Cost.** 50 runs in 885 minutes: 14.76 GPU-hours of the 15 budgeted. Stage 4 so far: 20.4 of
   the 70-hour cap.
 
-Writing the selection into `polity_config.yaml` is a separate change, not made here. Step 5 runs on
-the bench as signed, with the vote weights at 0.
+*Adopted 2026-09-17, on the owner's decision, for the LLM engine only.* `turnout_cost` 0.04 is set in
+`run_polity_flagship._flagship_config` when the engine is `llm` (`LLM_TURNOUT_COST`), not in
+`polity_config.yaml`. That file is shared with the deterministic twin, on which nothing qualified,
+and it keeps 0. `approval_party_carryover` is not carried over: with `approval` and
+`policy_retrospection` at 0 it multiplies only zero terms, so the measured runs are the same without
+it. The adoption records how thin the pass is, in the constant's docstring. Step 5 still runs on the
+bench as signed, from fe4bad5a, with the vote weights at 0.
 
 #### S4.3, emotions
 
