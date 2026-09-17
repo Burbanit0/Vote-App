@@ -26,7 +26,6 @@ import {
   CartesianGrid,
 } from 'recharts';
 import { useElection } from '../../../stores/useElectionStore';
-import PinToCentralButton from '../ui/PinToCentralButton';
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
 
 const DEBOUNCE_MS = 400;
@@ -330,21 +329,6 @@ const CascadePanel: React.FC = () => {
             {loading ? <Spinner size="sm" /> : t('cascade.run')}
           </Button>
         </Col>
-        {data && (
-          <Col xs={12} sm="auto">
-            <PinToCentralButton
-              type="cascade"
-              icon="📡"
-              label={t('cascade.cascadeWinner')}
-              summary={
-                data.sincere_winner !== data.cascade_winner
-                  ? `${data.sincere_winner} → ${data.cascade_winner}`
-                  : `${t('cascade.sincereWinner')}: ${data.sincere_winner}`
-              }
-              methodsChanged={data.sincere_winner !== data.cascade_winner ? 1 : 0}
-            />
-          </Col>
-        )}
       </Row>
 
       {/* Prompt */}

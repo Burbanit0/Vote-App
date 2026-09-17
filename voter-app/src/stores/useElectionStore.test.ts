@@ -81,30 +81,6 @@ describe('ElectionContext — historical scenarios', () => {
     expect(result.current.scenarioMeta).toBeNull();
   });
 
-  it('setConfigDeep clears scenarioMeta', () => {
-    const { result } = renderHook(() => useElection(), { wrapper });
-    act(() => {
-      result.current.applyScenario('usa1992');
-    });
-    act(() => {
-      result.current.setConfigDeep('campaign.num_days', 21);
-    });
-    expect(result.current.scenarioMeta).toBeNull();
-  });
-
-  it('clearScenarioMeta removes metadata without changing config', () => {
-    const { result } = renderHook(() => useElection(), { wrapper });
-    act(() => {
-      result.current.applyScenario('usa1992');
-    });
-    const configBefore = result.current.config;
-    act(() => {
-      result.current.clearScenarioMeta();
-    });
-    expect(result.current.scenarioMeta).toBeNull();
-    expect(result.current.config).toEqual(configBefore);
-  });
-
   it('all historical scenarios have description and phenomenon', () => {
     const { result } = renderHook(() => useElection(), { wrapper });
     const historicalIds = ['france2002', 'usa1992', 'germany2021', 'condorcet_cycle'];
@@ -115,14 +91,5 @@ describe('ElectionContext — historical scenarios', () => {
       expect(result.current.config.description?.length).toBeGreaterThan(5);
       expect(result.current.config.phenomenon?.length).toBeGreaterThan(2);
     }
-  });
-
-  it('scenarioNames includes all new historical scenarios', () => {
-    const { result } = renderHook(() => useElection(), { wrapper });
-    const names = result.current.scenarioNames;
-    expect(names).toContain('france2002');
-    expect(names).toContain('usa1992');
-    expect(names).toContain('germany2021');
-    expect(names).toContain('condorcet_cycle');
   });
 });

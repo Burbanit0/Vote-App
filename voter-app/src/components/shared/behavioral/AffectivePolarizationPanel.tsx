@@ -23,7 +23,6 @@ import {
   CartesianGrid,
 } from 'recharts';
 import { useElection } from '../../../stores/useElectionStore';
-import PinToCentralButton from '../ui/PinToCentralButton';
 import { $api } from '../../../api/hooks';
 
 import { numericTooltipFormatter, numericTickFormatter } from '@/lib/rechartsFormatters';
@@ -337,22 +336,6 @@ const AffectivePolarizationPanel: React.FC = () => {
             {loading ? <Spinner size="sm" /> : `💔 ${t('affect.run')}`}
           </Button>
         </Col>
-        {data && (
-          <Col xs={12} sm="auto">
-            <PinToCentralButton
-              type="affective"
-              icon="💔"
-              label={`${t('affect.run')} — hostilité ${Math.round(hostility * 100)}%`}
-              summary={
-                data.winner_changed
-                  ? `${changedMethods.length}/${allMethods.length} ${t('affect.methodsChanged')}`
-                  : t('affect.winnerUnchanged')
-              }
-              methodsChanged={changedMethods.length}
-              winnersByMethod={data.affective_results}
-            />
-          </Col>
-        )}
       </Row>
 
       {error && <Alert variant="danger">{error}</Alert>}

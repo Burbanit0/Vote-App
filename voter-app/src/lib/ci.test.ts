@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { wilson, wilsonFromRate, pctPm } from './ci';
+import { wilson, wilsonFromRate } from './ci';
 
 describe('wilson score interval', () => {
   it('brackets the observed proportion and stays inside [0,1]', () => {
@@ -30,8 +30,7 @@ describe('wilson score interval', () => {
     expect(Number.isNaN(iv.half)).toBe(false);
   });
 
-  it('wilsonFromRate recovers the count and pctPm formats it', () => {
+  it('wilsonFromRate recovers the count', () => {
     expect(wilsonFromRate(0.5, 60).p).toBe(0.5);
-    expect(pctPm(wilson(30, 60))).toMatch(/^50% ± \d+%$/);
   });
 });

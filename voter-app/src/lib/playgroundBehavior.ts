@@ -122,17 +122,6 @@ export function vseOfWinner(meanU: number[], winner: number): number {
   return (meanU[winner] - rand) / (best - rand);
 }
 
-/** VSE of one rule on ONE electorate at a given strategic share. */
-export function vseAt(voters: Pt[], cands: NamedPt[], rule: Rule, share: number): number {
-  const m = cands.length;
-  if (m === 0 || voters.length === 0) return 0;
-  const ranks = computeRanks(voters, cands);
-  const scores = computeScores(voters, cands);
-  const meanU = meanUtility(scores, m);
-  const b = ballotsAtShare(ranks, scores, m, share);
-  return vseOfWinner(meanU, ruleWinnerFromRanks(b.ranks, m, rule, b.scores));
-}
-
 export interface VseSweepOpts {
   rules?: Rule[];
   shares?: number[];

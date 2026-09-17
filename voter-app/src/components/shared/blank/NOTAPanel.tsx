@@ -24,7 +24,6 @@ import {
   Legend,
 } from 'recharts';
 import { useElection } from '../../../stores/useElectionStore';
-import PinToCentralButton from '../ui/PinToCentralButton';
 import { $api } from '../../../api/hooks';
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
 
@@ -179,21 +178,6 @@ const NOTAPanel: React.FC = () => {
             {loading ? <Spinner size="sm" /> : t('nota.run')}
           </Button>
         </Col>
-        {data && (
-          <Col xs="auto">
-            <PinToCentralButton
-              type="nota"
-              icon="🚫"
-              label={`${t('nota.run')} — ${Math.round(threshold * 100)}%`}
-              summary={
-                data.winner === 'NOTA'
-                  ? `${t('nota.runoffRequired')}`
-                  : `${t('nota.electionValid')}: ${data.winner ?? '—'}`
-              }
-              methodsChanged={data.winner === 'NOTA' ? 1 : 0}
-            />
-          </Col>
-        )}
       </Row>
 
       {/* Rule explanations */}

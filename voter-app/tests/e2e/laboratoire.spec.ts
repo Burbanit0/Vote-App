@@ -132,31 +132,19 @@ test.describe('Laboratoire — the modules that compute', () => {
     await expect(page.locator('[data-testid="lab-bench"]')).not.toContainText('Erreur lors de');
   });
 
-  test('the Monte-Carlo fiche runs through the Web Worker', async ({ page }) => {
-    // Regression test for the dead worker: simulationWorker.ts used to import
-    // React components for three pure helpers, so the worker threw "window is not
-    // defined" on start-up and every dispatch died — the heatmap, the agreement
-    // matrix and the sorting were silently lost. No unit test could see it: the
-    // Vitest mock of useSimulationWorker replaces the worker with those same pure
-    // functions called inline, so it certifies the boundary away. Only a real
-    // browser runs a real worker.
+  test('the Monte-Carlo fiche streams results into the agreement graph', async ({ page }) => {
     test.setTimeout(120_000);
     const crashes: string[] = [];
     page.on('pageerror', (err) => crashes.push(err.message));
 
     await openFiche(page, 'theory', 'ana-montecarlo');
-    // Streaming is the default and the only path that dispatches to the worker
-    // (COMPUTE_MATRIX on each partial result).
+    // Streaming is the default: the agreement matrix is recomputed on each
+    // partial result over the Socket.IO stream.
     await page.locator('[data-testid="mc-run"]').click();
 
-    // The agreement graph only renders once the stream has produced results, so
-    // it proves the dispatch round-trip happened.
+    // The agreement graph only renders once the stream has produced results.
     await expect(page.locator('[data-testid="mc-stream-graph"]')).toBeVisible({ timeout: 90_000 });
-
-    // The assertion that actually guards the regression: every consumer of the
-    // worker falls back to computing inline on error, so a dead worker degrades
-    // in silence — the uncaught start-up error is the only signal it leaves.
-    expect(crashes, 'the worker must not throw on start-up').toEqual([]);
+    expect(crashes, 'the page must not throw while streaming').toEqual([]);
   });
 
   test('real elections are backtested against every method', async ({ page }) => {

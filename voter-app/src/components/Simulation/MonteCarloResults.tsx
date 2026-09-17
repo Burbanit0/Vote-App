@@ -33,7 +33,6 @@ import MethodSimilarityGraph, {
   flatToMatrix,
   partialResultsToMatrix,
 } from './MethodSimilarityGraph';
-import { useSimulationWorker } from '../../hooks/useSimulationWorker';
 import MetricTooltip from '../shared/ui/MetricTooltip';
 
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
@@ -65,14 +64,12 @@ interface Props {
 const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
   const { t } = useTranslation();
   const ct = useChartTheme();
-  const { dispatch: workerDispatch } = useSimulationWorker();
   const [sortByRegret, setSortByRegret] = useState(false);
   const [numRuns, setNumRuns] = useState(100);
   const [numVoters, setNumVoters] = useState(baseParams.num_voters ?? 150);
   const [ideologyDist, setIdeologyDist] = useState(baseParams.ideology_distribution ?? 'random');
   const [result, setResult] = useState<MonteCarloResult | null>(null);
   const [loading, setLoading] = useState(false);
-  const [streamMatrix, setStreamMatrix] = useState<Record<string, Record<string, number>>>({});
   const [error, setError] = useState<string | null>(null);
   const [useStreaming, setUseStreaming] = useState(true);
 
@@ -137,14 +134,14 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
     }
   };
 
-  // ── Offload matrix computation to worker on each streaming tick ───────
-  React.useEffect(() => {
-    const keys = Object.keys(stream.partialResults);
-    if (keys.length < 2) return;
-    workerDispatch('COMPUTE_MATRIX', { partialResults: stream.partialResults })
-      .then(({ matrix }) => setStreamMatrix(matrix))
-      .catch(() => setStreamMatrix(partialResultsToMatrix(stream.partialResults)));
-  }, [stream.partialResults, workerDispatch]);
+  // ── Agreement matrix, recomputed on each streaming tick ────────────────
+  const streamMatrix = useMemo(
+    () =>
+      Object.keys(stream.partialResults).length < 2
+        ? {}
+        : partialResultsToMatrix(stream.partialResults),
+    [stream.partialResults]
+  );
 
   // ── Derived ────────────────────────────────────────────────────────────
 

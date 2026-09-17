@@ -2,7 +2,7 @@
   "vulture": 0,
   "radon_c_plus": 135,
   "deptry": 0,
-  "knip": 92,
+  "knip": 54,
   "jscpd_clones": 18,
-  "sonarjs": 288
+  "sonarjs": 269
 }

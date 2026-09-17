@@ -25,7 +25,6 @@ import {
   Cell,
 } from 'recharts';
 import { useElection } from '../../../stores/useElectionStore';
-import PinToCentralButton from '../ui/PinToCentralButton';
 
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
 
@@ -292,32 +291,6 @@ const DemographicTurnoutPanel: React.FC = () => {
             {loading ? <Spinner size="sm" /> : t('demo.run')}
           </Button>
         </Col>
-        {data &&
-          (() => {
-            const bbm = data.biased_result.winners_by_method ?? {};
-            const cbm = data.corrected_result.winners_by_method ?? {};
-            let changedCount = 0;
-            Object.entries(bbm).forEach(([m, w]) => {
-              if (w !== cbm[m]) changedCount += 1;
-            });
-            if (changedCount === 0 && data.winner_changed) changedCount = 1;
-            return (
-              <Col xs="auto">
-                <PinToCentralButton
-                  type="demographic"
-                  icon="👥"
-                  label={t('demo.run')}
-                  summary={
-                    changedCount > 0
-                      ? `${changedCount}/${Object.keys(bbm).length || 1} ${t('lab.methodsChanged')}`
-                      : `${t('demo.biasedWinner')}: ${data.biased_result.winner}`
-                  }
-                  methodsChanged={changedCount}
-                  winnersByMethod={data.biased_result.winners_by_method}
-                />
-              </Col>
-            );
-          })()}
       </Row>
 
       {/* Turnout sliders */}

@@ -13,7 +13,6 @@ import { Col, Row } from '@/components/ui/grid';
 import { Spinner } from '@/components/ui/spinner';
 import { Table } from '@/components/ui/table';
 import { useElection } from '../../../stores/useElectionStore';
-import PinToCentralButton from '../ui/PinToCentralButton';
 import { $api } from '../../../api/hooks';
 const SVG_SIZE = 340;
 const PAD = 28;
@@ -242,21 +241,6 @@ const ManipulationAnalysisPanel: React.FC = () => {
             {loading ? <Spinner size="sm" /> : t('gs.analyze')}
           </Button>
         </Col>
-        {data && (
-          <Col xs="auto">
-            <PinToCentralButton
-              type="manipulation"
-              icon="🕵"
-              label={t('gs.analyze')}
-              summary={
-                data.manipulable
-                  ? `${t('gs.manipulable')}: ${data.manipulation_count} ${t('electionLab.voters')}`
-                  : t('gs.notManipulable')
-              }
-              methodsChanged={data.manipulable ? 1 : 0}
-            />
-          </Col>
-        )}
       </Row>
 
       {!data && !loading && !error && (

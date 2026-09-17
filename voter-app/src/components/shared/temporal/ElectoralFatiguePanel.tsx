@@ -25,7 +25,6 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { useElection } from '../../../stores/useElectionStore';
-import PinToCentralButton from '../ui/PinToCentralButton';
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
 
 const DEBOUNCE_MS = 400;
@@ -261,21 +260,6 @@ const ElectoralFatiguePanel: React.FC = () => {
             {loading ? <Spinner size="sm" /> : t('fatigue.run')}
           </Button>
         </Col>
-        {data && (
-          <Col xs="auto">
-            <PinToCentralButton
-              type="fatigue"
-              icon="😴"
-              label={t('fatigue.run')}
-              summary={
-                data.winner_changed_at != null
-                  ? `${t('fatigue.winnerChangedAt')} E${data.winner_changed_at}`
-                  : `${data.winner_drift[0] ?? '—'} → ${data.winner_drift[data.winner_drift.length - 1] ?? '—'}`
-              }
-              methodsChanged={data.winner_changed_at != null ? 1 : 0}
-            />
-          </Col>
-        )}
       </Row>
 
       {!data && !loading && !error && (

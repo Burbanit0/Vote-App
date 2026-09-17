@@ -124,14 +124,14 @@ libs in `src/lib/` with a thin component each.
 - Open a PR per step against `develop`. Merge with `--no-ff`. `develop → main` for
   releases.
 - Repo is public (MIT). Commit author email is the `noreply` form for new commits.
-- **Run `/code-review ultra` on the branch *before opening* a PR that touches the
+- **Run `/code-review max` on the branch *before opening* a PR that touches the
   voting engine** (`simulation_ranked_utils.py`, `simulation_score_utils.py`,
   `playgroundVoting.ts`) or any other high-blast-radius surface (auth-adjacent
   config, CI/CD workflows, the parity/axiom test harnesses) — not "before merging":
   `develop`'s Mergify queue auto-merges the moment required checks go green, often
   within minutes of opening the PR, so a review gated on merge time can be (and has
-  been) raced and skipped entirely. The no-arg form reviews the local branch
-  directly and needs no PR or GitHub remote, so there's no reason to wait for one.
+  been) raced and skipped entirely. It runs locally on the branch's diff and needs
+  no PR or GitHub remote, so there's no reason to wait for one.
   It exists and is underused — standard CI gates catch regressions in what's
   already tested, not a subtly-wrong new rule implementation or a logic error a
   human reviewer would have caught.

@@ -1,5 +1,4 @@
 import { useTranslation } from 'react-i18next';
-import { SimulationCompareResult } from '../../types';
 
 // Static keys — used as fallback IDs and in non-React contexts (report generation, CSV export)
 const METHOD_KEYS = [
@@ -50,17 +49,4 @@ export function useMethodLabels(): Record<string, string> {
   return Object.fromEntries(
     METHOD_KEYS.map((k) => [k, t(`methods.${k}.label`, { defaultValue: METHOD_LABELS[k] })])
   );
-}
-
-export function mostCommonWinner(
-  results: SimulationCompareResult[],
-  method: string
-): string | null {
-  const winners = results.map((r) => r.methods[method]?.winner).filter((w): w is string => !!w);
-  if (!winners.length) return null;
-  const counts = winners.reduce(
-    (acc, w) => ({ ...acc, [w]: (acc[w] ?? 0) + 1 }),
-    {} as Record<string, number>
-  );
-  return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
 }

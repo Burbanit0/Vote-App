@@ -15,7 +15,6 @@ import { Col, Row } from '@/components/ui/grid';
 import { Spinner } from '@/components/ui/spinner';
 import { Table } from '@/components/ui/table';
 import { useElection } from '../../../stores/useElectionStore';
-import PinToCentralButton from '../ui/PinToCentralButton';
 const DEBOUNCE_MS = 400;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -370,19 +369,6 @@ const BehavioralBiasPanel: React.FC = () => {
         <Button variant="primary" onClick={handleSimulate} disabled={loading}>
           {loading ? <Spinner size="sm" /> : t('behavioral.run')}
         </Button>
-        {data && (
-          <PinToCentralButton
-            type="behavioral"
-            icon="🧠"
-            label={t('behavioral.run')}
-            summary={
-              data.winner_changed
-                ? `${data.sincere_winner} → ${data.biased_winner}`
-                : `${data.biased_winner}`
-            }
-            methodsChanged={data.winner_changed ? 1 : 0}
-          />
-        )}
       </div>
 
       {!data && !loading && !error && (
