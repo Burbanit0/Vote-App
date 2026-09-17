@@ -5,8 +5,12 @@
 **/*.pyc
 **/.pytest_cache
 **/.mypy_cache
-.coverage
-htmlcov
+**/.coverage
+**/htmlcov
+**/coverage.xml
+**/.venv
+**/.hypothesis
+**/.ruff_cache
 voter-app/build
 voter-app/dist
 voter-app/coverage

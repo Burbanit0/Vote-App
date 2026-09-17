@@ -38,10 +38,7 @@ This repository is continuously scanned (see `.github/workflows/audit.yml` and
 **pip-audit** and **npm audit** in the CI pipelines. Semgrep findings, Trivy
 HIGH/CRITICAL, and any detected secret fail the build.
 
-The two Docker images (`fast_api_voter/Dockerfile.prod`, `voter-app/Dockerfile`)
-are built and scanned in CI but never published to a registry, so there is no
-image to sign or verify — instead, the SBOM generated for each is signed with
-**cosign** (keyless, Sigstore) and carries a **SLSA build provenance**
-attestation (`actions/attest-build-provenance`); see
-[`docs/exploration/EXP-008`](docs/exploration/EXP-008-cosign-slsa-provenance-signing-scope.md)
-for why the scope stops at the SBOM.
+The production image (the repo-root `Dockerfile`, which `fly.toml` deploys) is
+built from the committed lockfiles and scanned weekly and on every push to
+`develop`, with an SPDX SBOM kept as a workflow artifact. It is never pushed to a
+registry from CI.

@@ -74,7 +74,7 @@ export default defineConfig(({ mode }) => {
         // Socket.IO stream is served by uvicorn on :4434 by default.
         // Anchored on the segment, not the prefix: a plain '/api' key also
         // swallows sibling paths like the legacy '/api-docs' route, which must
-        // reach the SPA (nginx serves it from index.html in production).
+        // reach the SPA (FastAPI serves it from index.html in production).
         // Same VITE_API_URL override as src/api/client.ts's API_BASE below —
         // needed by scripts/e2e_coverage.sh (Lot 6) to point at a coverage-
         // instrumented backend on a non-default port when :4434 is already

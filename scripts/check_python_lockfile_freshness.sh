@@ -89,8 +89,8 @@ if problems:
         print(f"  {p}", file=sys.stderr)
     print("", file=sys.stderr)
     print("Regenerate with (from fast_api_voter/):", file=sys.stderr)
-    print("  uv pip compile requirements.txt -o requirements.lock.txt", file=sys.stderr)
-    print("  uv pip compile requirements.txt requirements-dev.txt -o requirements-dev.lock.txt", file=sys.stderr)
+    print("  uv pip compile --python-platform linux --python-version 3.14 requirements.txt -o requirements.lock.txt", file=sys.stderr)
+    print("  uv pip compile --python-platform linux --python-version 3.14 requirements.txt requirements-dev.txt -c requirements.lock.txt -o requirements-dev.lock.txt", file=sys.stderr)
     sys.exit(1)
 
 print("Python lockfiles match the direct pins in requirements.txt/requirements-dev.txt.")
