@@ -2,16 +2,18 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import MetricTooltip from '../MetricTooltip';
 
+// The ⓘ mechanics live in InfoPopover (see its own callers' tests); what is
+// specific here is that each metric key resolves to its own content.
+
 describe('MetricTooltip', () => {
   it('renders the ⓘ icon button', () => {
     render(<MetricTooltip metric="bayesian_regret" />);
-    expect(screen.getByTestId('metric-tooltip-bayesian_regret')).toBeInTheDocument();
+    expect(screen.getByTestId('info-metric-bayesian_regret')).toBeInTheDocument();
     expect(screen.getByText('ⓘ')).toBeInTheDocument();
   });
 
   it('popover is not visible before click', () => {
     render(<MetricTooltip metric="bayesian_regret" />);
-    // Popover body should not be in the DOM before opening
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 
@@ -23,38 +25,28 @@ describe('MetricTooltip', () => {
     expect(btn).toHaveAttribute('aria-expanded', 'true');
   });
 
-  it('clicking ⓘ for condorcet_compliance shows different content', () => {
+  it('opens a popover carrying the metric title and its plain-language line', () => {
     render(<MetricTooltip metric="condorcet_compliance" />);
-    expect(screen.getByTestId('metric-tooltip-condorcet_compliance')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('ⓘ'));
+    const pop = screen.getByTestId('pop-metric-condorcet_compliance');
+    expect(pop).toHaveTextContent('Condorcet Compliance');
+    expect(pop).toHaveTextContent('beat all others in direct head-to-head matchups');
   });
 
-  it('size="md" button has testid reflecting the metric', () => {
-    render(<MetricTooltip metric="manipulability" size="md" />);
-    const btn = screen.getByTestId('metric-tooltip-manipulability');
-    expect(btn).toBeInTheDocument();
-  });
-
-  it('size="sm" is the default — button renders without explicit size', () => {
-    const { container } = render(<MetricTooltip metric="method_agreement" />);
-    const btn = container.querySelector('[data-testid="metric-tooltip-method_agreement"]');
-    expect(btn).not.toBeNull();
-    // Default size = sm → fontSize 0.72rem
-    expect((btn as HTMLElement).style.fontSize).toBe('0.72rem');
-  });
-
-  it('size="md" button has larger font', () => {
-    const { container } = render(<MetricTooltip metric="method_agreement" size="md" />);
-    const btn = container.querySelector('[data-testid="metric-tooltip-method_agreement"]');
-    expect((btn as HTMLElement).style.fontSize).toBe('1rem');
+  it('labels the button for screen readers with the metric title', () => {
+    render(<MetricTooltip metric="manipulability" />);
+    expect(screen.getByTestId('info-metric-manipulability')).toHaveAttribute(
+      'aria-label',
+      'Metric information: Strategic Vulnerability'
+    );
   });
 
   it('clicking twice toggles the popover off', () => {
     render(<MetricTooltip metric="winner_stability" />);
     const btn = screen.getByText('ⓘ');
-    fireEvent.click(btn); // open
-    fireEvent.click(btn); // close
-    // No assertion error — just verifying no crash on double-click
-    expect(btn).toBeInTheDocument();
+    fireEvent.click(btn);
+    fireEvent.click(btn);
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 
   it('all supported metrics render without error', () => {
@@ -71,7 +63,7 @@ describe('MetricTooltip', () => {
     ];
     for (const metric of metrics) {
       const { unmount } = render(<MetricTooltip metric={metric} />);
-      expect(screen.getByTestId(`metric-tooltip-${metric}`)).toBeInTheDocument();
+      expect(screen.getByTestId(`info-metric-${metric}`)).toBeInTheDocument();
       unmount();
     }
   });
