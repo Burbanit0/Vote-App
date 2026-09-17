@@ -84,7 +84,7 @@ types-PyYAML==6.0.12.20260906  # domain/polity/config.py — polity_config.yaml 
 
 # Diff coverage (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md) — 100% coverage required
 # on lines *changed* by a PR, read from coverage.xml (see
-# backend-ci-cd-pipeline.yml). Also installed standalone in
-# frontend-ci-cd-pipeline.yml (against lcov.info) since that job has no other
-# Python dependency of its own.
+# backend-ci-cd-pipeline.yml). frontend-ci-cd-pipeline.yml also runs it (against
+# lcov.info) via `pipx run`, constrained to requirements-dev.lock.txt, so this is
+# the only place the version is pinned.
 diff-cover==10.5.1
