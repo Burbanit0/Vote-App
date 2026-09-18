@@ -318,100 +318,40 @@ export interface ManipProbe {
   backfired: boolean;
 }
 
-export const MANIP_COMPLEXITY: Record<Rule, { hard: boolean; label: string; ref: string }> = {
-  plurality: { hard: false, label: 'P (calcul trivial)', ref: 'compromission directe' },
-  approval: { hard: false, label: 'P (calcul trivial)', ref: 'approuver le challenger' },
-  score: { hard: false, label: 'P (calcul trivial)', ref: 'note maximale au challenger' },
-  star: { hard: false, label: 'P (note + finale)', ref: 'STAR — note puis duel' },
-  majority_judgment: { hard: false, label: 'P (médiane)', ref: 'Balinski–Laraki 2010' },
-  borda: {
-    hard: false,
-    label: 'P pour un manipulateur · NP-difficile en coalition',
-    ref: 'Bartholdi–Tovey–Trick 1989 ; Betzler et al. / Davies et al. 2011',
-  },
-  two_round: { hard: false, label: 'P (un manipulateur)', ref: 'Conitzer–Sandholm–Lang 2007' },
-  condorcet: { hard: false, label: 'P (Copeland)', ref: 'Bartholdi–Tovey–Trick 1989' },
-  minimax: { hard: false, label: 'P (paires)', ref: 'minimax — calcul polynomial' },
-  schulze: { hard: false, label: 'P (chemin le plus fort)', ref: 'Schulze 2011' },
-  bucklin: { hard: false, label: 'P (calcul direct)', ref: 'Xia et al. 2009' },
-  coombs: { hard: false, label: 'P (élimination par derniers)', ref: 'élimination, cf. IRV' },
-  nanson: {
-    hard: true,
-    label: 'NP-difficile à manipuler',
-    ref: 'Narodytska–Walsh–Xia 2011',
-  },
-  baldwin: {
-    hard: true,
-    label: 'NP-difficile à manipuler',
-    ref: 'Narodytska–Walsh–Xia 2011',
-  },
-  irv: {
-    hard: true,
-    label: 'NP-difficile, même pour un seul manipulateur',
-    ref: 'Bartholdi–Orlin 1991 (STV/IRV)',
-  },
-  ranked_pairs: {
-    hard: false,
-    label: 'P (paires ordonnées)',
-    ref: 'Tideman 1987 — calcul polynomial',
-  },
-  random_ballot: {
-    hard: true,
-    label: 'Inmanipulable — la stratégie n’apporte rien',
-    ref: 'Gibbard 1977 (seule règle non-manipulable, au prix du hasard)',
-  },
-  kemeny: {
-    hard: true,
-    label: 'NP-difficile, y compris pour calculer le vainqueur lui-même',
-    ref: 'Bartholdi–Tovey–Trick 1989',
-  },
-  black: {
-    hard: false,
-    label: 'P (hérite de Condorcet, sinon de Borda)',
-    ref: 'Bartholdi–Tovey–Trick 1989',
-  },
-  anti_plurality: { hard: false, label: 'P (calcul trivial)', ref: 'enterrement du rival' },
-  dowdall: { hard: false, label: 'P (calcul trivial)', ref: 'favori en tête, rival en dernier' },
-  cumulative: {
-    hard: false,
-    label: 'P (calcul trivial)',
-    ref: 'tout le budget sur le favori (bullet voting)',
-  },
-  maximin: {
-    hard: false,
-    label: 'P (calcul trivial)',
-    ref: 'extrémiser les notes (min/max), comme Score',
-  },
-  nash: {
-    hard: false,
-    label: 'P (calcul trivial)',
-    ref: 'noter zéro écarte un rival (produit nul)',
-  },
-  raynaud: {
-    hard: false,
-    label: 'P (élimination de paires)',
-    ref: 'gonfler la défaite d’un rival pour l’éliminer tôt',
-  },
-  benham: {
-    hard: true,
-    label: 'NP-difficile (hérite de l’IRV)',
-    ref: 'Bartholdi–Orlin 1991 (STV/IRV)',
-  },
-  river: {
-    hard: false,
-    label: 'P (paires ordonnées)',
-    ref: 'Heitzig — variante arborescente des paires ordonnées',
-  },
-  smith_irv: {
-    hard: true,
-    label: 'NP-difficile (hérite de l’IRV)',
-    ref: 'Bartholdi–Orlin 1991 (STV/IRV)',
-  },
-  split_cycle: {
-    hard: false,
-    label: 'P (chemin le plus fort)',
-    ref: 'Holliday–Pacuit 2021 — calcul polynomial',
-  },
+// Is the rule NP-hard to manipulate? The complexity class shown to the reader
+// and its reference live in i18n (`manip.<rule>.label` / `.ref`); this map used
+// to carry a French copy of both, which `useVotingLabels` replaced with the
+// translated ones on every read.
+export const MANIP_COMPLEXITY: Record<Rule, boolean> = {
+  plurality: false,
+  approval: false,
+  score: false,
+  star: false,
+  majority_judgment: false,
+  borda: false,
+  two_round: false,
+  condorcet: false,
+  minimax: false,
+  schulze: false,
+  bucklin: false,
+  coombs: false,
+  nanson: true,
+  baldwin: true,
+  irv: true,
+  ranked_pairs: false,
+  random_ballot: true,
+  kemeny: true,
+  black: false,
+  anti_plurality: false,
+  dowdall: false,
+  cumulative: false,
+  maximin: false,
+  nash: false,
+  raynaud: false,
+  benham: true,
+  river: false,
+  smith_irv: true,
+  split_cycle: false,
 };
 
 const COALITION_STEPS = [0.02, 0.05, 0.1, 0.15, 0.2, 0.3, 0.4];

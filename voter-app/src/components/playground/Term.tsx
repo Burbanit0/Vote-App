@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
-import InfoPopover from './InfoPopover';
+import InfoPopover from '../shared/ui/InfoPopover';
 import { GLOSSARY, seeInActionHref } from '../../lib/glossary';
 import { track } from '../../lib/analytics';
 
