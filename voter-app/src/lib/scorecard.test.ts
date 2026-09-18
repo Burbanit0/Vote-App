@@ -135,6 +135,8 @@ describe('values lens (Pareto + spotlight)', () => {
 // ── Manipulation hardness (FC-1) ──────────────────────────────────────────────
 
 import { manipulationProbe, MANIP_COMPLEXITY } from './scorecard';
+import { RULE_LABELS, type Rule } from './playgroundVoting';
+import playgroundFr from '../i18n/locales/playground.fr';
 import type { Pt } from './playgroundVoting';
 
 describe('manipulation hardness (FC-1)', () => {
@@ -169,11 +171,20 @@ describe('manipulation hardness (FC-1)', () => {
   });
 
   it('literature flags: IRV NP-hard, plurality/Borda/approval easy', () => {
-    expect(MANIP_COMPLEXITY.irv.hard).toBe(true);
-    expect(MANIP_COMPLEXITY.irv.ref).toContain('Bartholdi');
-    expect(MANIP_COMPLEXITY.plurality.hard).toBe(false);
-    expect(MANIP_COMPLEXITY.borda.hard).toBe(false);
-    expect(MANIP_COMPLEXITY.approval.hard).toBe(false);
+    expect(MANIP_COMPLEXITY.irv).toBe(true);
+    expect(MANIP_COMPLEXITY.plurality).toBe(false);
+    // Borda: P for a lone manipulator, NP-hard only in coalition (Bartholdi-
+    // Tovey-Trick 1989) -- this flag is the single-manipulator case.
+    expect(MANIP_COMPLEXITY.borda).toBe(false);
+    expect(MANIP_COMPLEXITY.approval).toBe(false);
+  });
+
+  it('every rule carries a hardness flag, and the i18n copy names its class', () => {
+    const rules = Object.keys(RULE_LABELS) as Rule[];
+    for (const r of rules) expect(typeof MANIP_COMPLEXITY[r]).toBe('boolean');
+    // The reader-facing class and reference come from i18n, not from this map.
+    expect(playgroundFr.manip.irv.ref).toContain('Bartholdi');
+    expect(playgroundFr.manip.irv.label).toContain('NP');
   });
 
   it('returns null cleanly on degenerate inputs', () => {
