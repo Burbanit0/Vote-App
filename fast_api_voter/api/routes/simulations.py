@@ -26,8 +26,8 @@ from api.domain.simulations.compare import (
     _manipulability_worker,
     _vote_steps_worker,
 )
-from api.schemas import (
-    WORKER_ERROR_RESPONSES,
+from api.schemas.common import WORKER_ERROR_RESPONSES
+from api.schemas.simulations import (
     ManipulabilityResponse,
     MonteCarloRequest,
     MonteCarloResponse,

@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends
 
 from api.core.ratelimit import check_v2_rate_limit
 from api.core.worker_dispatch import run_typed
-from api.schemas import (
+from api.schemas.theory import (
     AgendaManipulationRequest,
     AgendaManipulationResponse,
     ApportionmentRequest,
@@ -30,11 +30,10 @@ from api.schemas import (
     DemocraticBacksliddingResponse,
     EpistocracyRequest,
     EpistocracyResponse,
-    WORKER_ERROR_RESPONSES,
-    IdentityVotingRequest,
-    IdentityVotingResponse,
     IIARateRequest,
     IIARateResponse,
+    IdentityVotingRequest,
+    IdentityVotingResponse,
     IntergenerationalRequest,
     IntergenerationalResponse,
     JudgmentAggregationRequest,
@@ -46,6 +45,7 @@ from api.schemas import (
     SenParadoxRequest,
     SenParadoxResponse,
 )
+from api.schemas.common import WORKER_ERROR_RESPONSES
 
 from api.domain.theory import (
     agenda_manipulation as agenda_manipulation_domain,
