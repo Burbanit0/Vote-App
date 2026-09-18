@@ -2,15 +2,8 @@
 from __future__ import annotations
 
 import pytest
-from fastapi.testclient import TestClient
 
 from api.core.config import get_settings
-from api.main import app
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
 
 
 @pytest.fixture(autouse=True)

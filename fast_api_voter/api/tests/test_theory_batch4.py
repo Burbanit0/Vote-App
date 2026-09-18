@@ -1,14 +1,6 @@
 """Tests for Phase 4 batch 4 (final theory batch):
 /api/v2/theory/{identity-voting, assumption-testing, collective-will}."""
-import pytest
-from fastapi.testclient import TestClient
 
-from api.main import app
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
 
 
 CANDS = [

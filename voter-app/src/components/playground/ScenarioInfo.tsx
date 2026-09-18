@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import InfoPopover, { InfoLine } from './InfoPopover';
+import InfoPopover, { InfoLine } from '../shared/ui/InfoPopover';
 import { getScenarioInfo, type ScenarioLang } from '@/lib/scenarioInfo';
 
 // ScenarioInfo — the ⓘ next to a synthetic preset: explains what the scenario is,

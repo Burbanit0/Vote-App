@@ -1,22 +1,8 @@
 """Tests for Phase 3 batch 4: /api/v2/election/{cascade,behavioral-biases,
 choice-overload,deliberation}. Same pattern as test_election_perturbers.py
 from batch 3 — 3-4 tests per endpoint covering happy path + validation."""
-import pytest
-from fastapi.testclient import TestClient
 
-from api.main import app
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
-
-
-CANDS = [
-    {"name": "Alice", "x": -0.5, "y": -0.2},
-    {"name": "Bob",   "x":  0.5, "y":  0.2},
-    {"name": "Carol", "x":  0.0, "y":  0.1},
-]
+from api.tests.conftest import CANDS
 
 
 # ── /cascade ────────────────────────────────────────────────────────────────
