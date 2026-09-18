@@ -1241,6 +1241,8 @@ const pgPseudo: PlaygroundKeys = {
     anti_plurality: '⟦Áñtí-plúrálíté~~~~~ (vétó)~~~⟧',
     dowdall: '⟦Dówdáll~~~ (Náúrú)~~~⟧',
     black: '⟦Bláçk~~ (Cóñdórçét-Bórdá)~~~~~~⟧',
+    copeland: '⟦Cópéláñd~~~⟧',
+    evaluative: '⟦Éválúátíf~~~~ (ñótés)~~~⟧',
     smith_irv: '⟦Smíth-ÍRV~~~~ (Tídémáñ)~~~~⟧',
     split_cycle: '⟦Splít~~ Cyçlé~~⟧',
     kemeny: '⟦Kéméñy-Yóúñg~~~~~⟧',

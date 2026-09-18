@@ -763,7 +763,7 @@ const pseudo: TranslationKeys = {
       simple:
         '⟦Póúrçéñtágé~~~~ dés~~ méthódés~~~ dé~ vóté~~ qúí~~ élíséñt~~~ lé~ mêmé~~ váíñqúéúr.~~~~⟧',
       example:
-        "⟦Sí~ 12~ méthódés~~~ súr~~ 14~ élíséñt~~~ Álíçé,~~~ l'áççórd~~~ ést~~ dé~ 86%.~~ Úñ~ áççórd~~~ fáíblé~~~ sígñífíé~~~ qúé~~ lé~ résúltát~~~ dépéñd~~~ fórtéméñt~~~~ dú~ systèmé~~~ dé~ vóté~~ çhóísí.~~~⟧",
+        "⟦Sí~ 29~ méthódés~~~ súr~~ 34~ élíséñt~~~ Álíçé,~~~ l'áççórd~~~ ést~~ dé~ 85%.~~ Úñ~ áççórd~~~ fáíblé~~~ sígñífíé~~~ qúé~~ lé~ résúltát~~~ dépéñd~~~ fórtéméñt~~~~ dú~ systèmé~~~ dé~ vóté~~ çhóísí.~~~⟧",
       interpretation:
         "⟦100%~~ =~ tóútés~~~ lés~~ méthódés~~~ s'áççórdéñt.~~~~~ Éñ~ déssóús~~~ dé~ 60%,~~ lé~ résúltát~~~ ést~~ très~~ séñsíblé~~~ áú~ systèmé~~~ dé~ vóté.~~⟧",
     },

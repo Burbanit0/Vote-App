@@ -1143,6 +1143,8 @@ const pgEn: PlaygroundKeys = {
     anti_plurality: 'Anti-plurality (veto)',
     dowdall: 'Dowdall (Nauru)',
     black: 'Black (Condorcet-Borda)',
+    copeland: 'Copeland',
+    evaluative: 'Evaluative (scores)',
     smith_irv: 'Smith-IRV (Tideman)',
     split_cycle: 'Split Cycle',
     kemeny: 'Kemeny-Young',

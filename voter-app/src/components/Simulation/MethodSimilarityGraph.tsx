@@ -43,6 +43,29 @@ const FAMILY: Record<string, 'ranked' | 'score' | 'special'> = {
   variance_based: 'score',
   approval: 'special',
   quadratic: 'special',
+  // The rules the simulation surfaces only started reporting once
+  // /monte-carlo answered the engine's full registry instead of 14 of it.
+  // Without these, `FAMILY[id] ?? 'ranked'` drew every score and lottery rule
+  // in the ranked colour and, with "group by family" on, pulled them to the
+  // ranked centre -- so the legend asserted a split the graph did not show.
+  copeland: 'ranked',
+  nanson: 'ranked',
+  baldwin: 'ranked',
+  ranked_pairs: 'ranked',
+  black: 'ranked',
+  anti_plurality: 'ranked',
+  dowdall: 'ranked',
+  raynaud: 'ranked',
+  benham: 'ranked',
+  river: 'ranked',
+  smith_irv: 'ranked',
+  split_cycle: 'ranked',
+  cumulative: 'score',
+  maximin: 'score',
+  nash: 'score',
+  majority_judgment: 'special',
+  evaluative: 'score',
+  random_ballot: 'special',
 };
 
 const FAMILY_COLOR: Record<string, string> = {
