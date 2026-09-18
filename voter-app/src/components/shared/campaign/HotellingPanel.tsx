@@ -5,7 +5,7 @@
  * With Plurality they converge to the median voter (Downs 1957).
  * With other methods (Approval, Borda) they may disperse or oscillate.
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -143,7 +143,7 @@ const HotellingPanel: React.FC = () => {
     : 'transparent';
 
   // Pedagogical message
-  const pedagMsg = useCallback(() => {
+  const pedagMsg = () => {
     if (!data) return '';
     const fp = data.final_positions;
     if (data.equilibrium_type === 'center_convergence') {
@@ -155,7 +155,7 @@ const HotellingPanel: React.FC = () => {
       return t('hotelling.pedagogicalDispersed', { method, pairs });
     }
     return t('hotelling.pedagogicalUnstable', { method });
-  }, [data, method, t]);
+  };
 
   return (
     <div>

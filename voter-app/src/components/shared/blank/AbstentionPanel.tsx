@@ -4,7 +4,7 @@
  * Shows how voters demobilise round by round as their preferred candidate
  * trails in the polls, and how this can flip the election result.
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { $api } from '../../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
@@ -222,23 +222,20 @@ const AbstentionPanel: React.FC = () => {
 
   const candidateNames = config.candidates.map((c) => c.name);
 
-  const run = useCallback(
-    (d: number, inf: number, nr: number) => {
-      setRound(0);
-      setPlaying(false);
-      const body: AbstentionRequest = {
-        candidates: config.candidates,
-        num_voters: config.num_voters,
-        ideology: config.ideology,
-        seed: config.seed,
-        demobilization_factor: d,
-        poll_influence: inf,
-        num_rounds: nr,
-      };
-      sim.mutate({ body });
-    },
-    [config, sim]
-  );
+  const run = (d: number, inf: number, nr: number) => {
+    setRound(0);
+    setPlaying(false);
+    const body: AbstentionRequest = {
+      candidates: config.candidates,
+      num_voters: config.num_voters,
+      ideology: config.ideology,
+      seed: config.seed,
+      demobilization_factor: d,
+      poll_influence: inf,
+      num_rounds: nr,
+    };
+    sim.mutate({ body });
+  };
 
   // Debounced re-run on slider change
   const handleChange = (d: number, inf: number, nr: number) => {

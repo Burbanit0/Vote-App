@@ -8,7 +8,7 @@
  *
  * Debounced competence slider triggers a new simulation call.
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { $api } from '../../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
@@ -96,21 +96,18 @@ const JuryTheoremPanel: React.FC = () => {
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const run = useCallback(
-    (comp: number, voters: number, opts: number, sims: number) => {
-      sim.mutate({
-        body: {
-          num_voters: voters,
-          num_options: opts,
-          correct_option_index: 0,
-          voter_competence: comp,
-          num_simulations: sims,
-          seed: 42,
-        },
-      });
-    },
-    [t, sim]
-  );
+  const run = (comp: number, voters: number, opts: number, sims: number) => {
+    sim.mutate({
+      body: {
+        num_voters: voters,
+        num_options: opts,
+        correct_option_index: 0,
+        voter_competence: comp,
+        num_simulations: sims,
+        seed: 42,
+      },
+    });
+  };
 
   // Debounced competence change
   const handleCompetenceChange = (v: number) => {

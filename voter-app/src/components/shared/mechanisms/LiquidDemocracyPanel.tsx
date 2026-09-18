@@ -3,7 +3,7 @@
  * Voters either vote directly or delegate to a representative (who may
  * further delegate). Super-voters accumulate weight; cycles vote directly.
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
@@ -229,22 +229,19 @@ const LiquidDemocracyPanel: React.FC = () => {
   const error = sim.isError ? t('liquid.error') : null;
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const runSimulation = useCallback(
-    (prob: number, strat: string, chain: number) => {
-      sim.mutate({
-        body: {
-          candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
-          num_voters: config.num_voters,
-          ideology: config.ideology,
-          seed: config.seed,
-          delegation_probability: prob,
-          delegation_strategy: strat,
-          max_chain_length: chain,
-        },
-      });
-    },
-    [config, t, sim]
-  );
+  const runSimulation = (prob: number, strat: string, chain: number) => {
+    sim.mutate({
+      body: {
+        candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
+        num_voters: config.num_voters,
+        ideology: config.ideology,
+        seed: config.seed,
+        delegation_probability: prob,
+        delegation_strategy: strat,
+        max_chain_length: chain,
+      },
+    });
+  };
 
   const handleSimulate = () => runSimulation(delegProb, strategy, maxChain);
 

@@ -2,7 +2,7 @@
  * EpistocracyPanel — Caplan (2007) rational irrationality & Brennan (2016) Against Democracy.
  * Simulates how voter competence distribution affects collective decision quality.
  */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { $api } from '../../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
@@ -201,7 +201,7 @@ const EpistocracyPanel: React.FC<EpistocracyLabProps> = ({ candidates, numVoters
   const [threshold, setThreshold] = useState(0.7);
   const [activeView, setActiveView] = useState<'quality' | 'table'>('quality');
 
-  const run = useCallback(() => {
+  const run = () => {
     sim.mutate({
       body: {
         candidates,
@@ -218,18 +218,7 @@ const EpistocracyPanel: React.FC<EpistocracyLabProps> = ({ candidates, numVoters
         epistocracy_threshold: threshold,
       },
     });
-  }, [
-    candidates,
-    numVoters,
-    seed,
-    compDist,
-    compMean,
-    compStd,
-    expertPct,
-    caplanBias,
-    threshold,
-    sim,
-  ]);
+  };
 
   useEffect(() => {
     if (candidates.length) run();

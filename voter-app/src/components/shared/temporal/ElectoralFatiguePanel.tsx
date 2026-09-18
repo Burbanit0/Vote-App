@@ -2,7 +2,7 @@
  * ElectoralFatiguePanel — simulates how repeated elections reduce turnout
  * and progressively shift the residual electorate toward engaged (partisan) voters.
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { $api } from '../../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
@@ -163,33 +163,27 @@ const ElectoralFatiguePanel: React.FC = () => {
   const error = sim.isError ? t('fatigue.error') : null;
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const runSimulation = useCallback(
-    (fr: number, ep: number, ne: number) => {
-      sim.mutate({
-        body: {
-          candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
-          num_voters: config.num_voters,
-          ideology: config.ideology,
-          seed: config.seed,
-          num_elections: ne,
-          fatigue_rate: fr,
-          engaged_voter_pct: ep,
-          method: 'plurality',
-        },
-      });
-    },
-    [config, t, sim]
-  );
+  const runSimulation = (fr: number, ep: number, ne: number) => {
+    sim.mutate({
+      body: {
+        candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
+        num_voters: config.num_voters,
+        ideology: config.ideology,
+        seed: config.seed,
+        num_elections: ne,
+        fatigue_rate: fr,
+        engaged_voter_pct: ep,
+        method: 'plurality',
+      },
+    });
+  };
 
   const handleSimulate = () => runSimulation(fatigueRate, engagedPct, numElections);
 
-  const schedule = useCallback(
-    (fr: number, ep: number, ne: number) => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => runSimulation(fr, ep, ne), DEBOUNCE_MS);
-    },
-    [runSimulation]
-  );
+  const schedule = (fr: number, ep: number, ne: number) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => runSimulation(fr, ep, ne), DEBOUNCE_MS);
+  };
 
   const hasData = data !== null;
   useEffect(() => {

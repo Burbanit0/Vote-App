@@ -3,7 +3,7 @@
  * identifies voters who can profitably misrepresent their preferences,
  * and shows which strategy they use (compromising, burying, push-over, truncating).
  */
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -190,7 +190,7 @@ const ManipulationAnalysisPanel: React.FC = () => {
   const error = sim.isError ? t('gs.error') : null;
   const [selected, setSelected] = useState<number | null>(null);
 
-  const runAnalysis = useCallback(() => {
+  const runAnalysis = () => {
     setSelected(null);
     sim.mutate({
       body: {
@@ -202,7 +202,7 @@ const ManipulationAnalysisPanel: React.FC = () => {
         manipulation_strategies: ['compromising', 'burying', 'pushover', 'truncating'],
       },
     });
-  }, [config, method, t, sim]);
+  };
 
   const selectedManip = data?.manipulators.find((m) => m.voter_id === selected) ?? null;
 

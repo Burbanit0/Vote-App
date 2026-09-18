@@ -3,7 +3,7 @@
  * For each voting method, shows which axioms are violated and provides
  * minimal counterexamples.
  */
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -299,10 +299,10 @@ const ArrowExplorer: React.FC = () => {
   const error = simArrow.isError || simRate.isError ? t('arrow.error') : null;
   const [checkedAxioms, setChecked] = useState<Set<string>>(new Set());
 
-  const runAnalysis = useCallback(() => {
+  const runAnalysis = () => {
     simArrow.mutate({ body: { method, seed: 42 } });
     simRate.mutate({ body: { method, max_candidates: 8, num_trials: 100, seed: 42 } });
-  }, [method, t, simArrow, simRate]);
+  };
 
   const toggleAxiom = (key: string) => {
     setChecked((prev) => {

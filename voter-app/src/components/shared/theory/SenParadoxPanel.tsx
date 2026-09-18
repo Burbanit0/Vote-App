@@ -3,7 +3,7 @@
  * no social choice rule can simultaneously satisfy Pareto efficiency and
  * minimal individual liberalism.
  */
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -123,7 +123,7 @@ const SenParadoxPanel: React.FC = () => {
   const loading = sim.isPending;
   const error = sim.isError ? t('sen.error') : null;
 
-  const runSimulation = useCallback(() => {
+  const runSimulation = () => {
     sim.mutate({
       body: {
         num_voters: 2,
@@ -131,7 +131,7 @@ const SenParadoxPanel: React.FC = () => {
         rights_definition: 'liberal',
       },
     });
-  }, [seed, sim]);
+  };
 
   const altLabel = (a: string) => data?.alternative_names[a] ?? a;
 

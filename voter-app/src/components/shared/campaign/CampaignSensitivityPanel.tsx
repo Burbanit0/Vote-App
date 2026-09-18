@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -197,7 +197,7 @@ const CampaignSensitivityPanel: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const run = useCallback(async () => {
+  const run = async () => {
     setLoading(true);
     setError(null);
     try {
@@ -220,7 +220,7 @@ const CampaignSensitivityPanel: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [config, numDays, pollingEffect, withContagion, t]);
+  };
 
   return (
     <div>

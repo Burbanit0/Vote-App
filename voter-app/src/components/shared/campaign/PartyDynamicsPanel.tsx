@@ -2,7 +2,7 @@
  * PartyDynamicsPanel — simulates multi-election party system evolution.
  * Shows Duverger's Law: FPTP → bipartism; PR → multipartism.
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -245,7 +245,7 @@ const PartyDynamicsPanel: React.FC<Props> = ({ onDataLoaded }) => {
     setParties(PRESETS[key]?.parties ?? PRESETS.default.parties);
   };
 
-  const runSimulation = useCallback(() => {
+  const runSimulation = () => {
     setPlaying(false);
     setElectionIdx(0);
     sim.mutate(
@@ -267,7 +267,7 @@ const PartyDynamicsPanel: React.FC<Props> = ({ onDataLoaded }) => {
         onSuccess: (res) => onDataLoaded?.(res),
       }
     );
-  }, [parties, numElections, method, survThr, emerge, hotelling, tactical, t, onDataLoaded, sim]);
+  };
 
   // Animation
   useEffect(() => {

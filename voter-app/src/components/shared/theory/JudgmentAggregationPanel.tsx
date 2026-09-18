@@ -3,7 +3,7 @@
  * majority rule on logically linked propositions can produce collectively incoherent
  * results even when every individual voter is perfectly coherent.
  */
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -191,7 +191,7 @@ const JudgmentAggregationPanel: React.FC = () => {
   const loading = sim.isPending;
   const error = sim.isError ? t('judg.error') : null;
 
-  const runSimulation = useCallback(() => {
+  const runSimulation = () => {
     sim.mutate({
       body: {
         num_voters: numVoters,
@@ -199,7 +199,7 @@ const JudgmentAggregationPanel: React.FC = () => {
         scenario,
       },
     });
-  }, [scenario, numVoters, seed, t, sim]);
+  };
 
   return (
     <div>

@@ -200,6 +200,29 @@ describe('BehavioralBiasPanel', () => {
     vi.runAllTimers();
   });
 
+  // The three "sends X=0 when toggle is off" tests only ever exercised the
+  // `: 0` side of `bulletOn ? params.bulPct : 0`. These are the other side.
+  // They drive the slider rather than trusting the default, so a value wired to
+  // the wrong field -- three near-identical lines, the obvious copy-paste slip
+  // -- fails instead of passing on "some non-zero number".
+  it.each([
+    ['expressive-switch', 'expressive-slider', 'expressive_pct', '0.45'],
+    ['bullet-switch', 'bullet-slider', 'bullet_voting_pct', '0.35'],
+    ['primacy-switch', 'primacy-slider', 'primacy_bonus', '0.07'],
+  ])('sends the %s slider value through as %s', async (sw, slider, field, value) => {
+    apiClient.POST.mockResolvedValue(makeData());
+    renderPanel();
+
+    fireEvent.click(screen.getByTestId(sw));
+    fireEvent.change(screen.getByTestId(slider), { target: { value } });
+    fireEvent.click(screen.getByRole('button', { name: /simulate/i }));
+
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
+    const body = (apiClient.POST.mock.calls[0][1] as { body: Record<string, unknown> }).body;
+    expect(body[field]).toBe(Number(value));
+    vi.runAllTimers();
+  });
+
   it('sends primacy_bonus=0 when toggle is off', async () => {
     apiClient.POST.mockResolvedValue(makeData());
     renderPanel();

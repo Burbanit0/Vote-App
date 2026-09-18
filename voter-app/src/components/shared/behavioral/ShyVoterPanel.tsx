@@ -2,7 +2,7 @@
  * ShyVoterPanel — simulates the Bradley / Shy Tory effect:
  * voters declare a socially acceptable preference in polls but vote sincerely.
  */
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -102,22 +102,19 @@ const ShyVoterPanel: React.FC = () => {
   const error = sim.isError ? t('shyVoter.apiError') : null;
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const runSimulation = useCallback(
-    (factor: number, idx: number) => {
-      sim.mutate({
-        body: {
-          candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
-          num_voters: config.num_voters,
-          ideology: config.ideology,
-          seed: config.seed,
-          shy_candidate_idx: idx,
-          social_desirability_factor: factor,
-          num_polls: 10,
-        },
-      });
-    },
-    [config, t, sim]
-  );
+  const runSimulation = (factor: number, idx: number) => {
+    sim.mutate({
+      body: {
+        candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
+        num_voters: config.num_voters,
+        ideology: config.ideology,
+        seed: config.seed,
+        shy_candidate_idx: idx,
+        social_desirability_factor: factor,
+        num_polls: 10,
+      },
+    });
+  };
 
   const handleSimulate = () => runSimulation(sdFactor, shyIdx);
 

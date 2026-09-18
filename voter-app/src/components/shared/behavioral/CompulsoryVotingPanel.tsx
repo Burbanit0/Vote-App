@@ -3,7 +3,7 @@
  * on the same electorate (Bradley effect of compulsion: reluctant voters
  * add null ballots and random votes, but improve representation).
  */
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { $api } from '../../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
@@ -153,34 +153,28 @@ const CompulsoryVotingPanel: React.FC = () => {
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const runSimulation = useCallback(
-    (vt: number, ct: number, rn: number, rr: number) => {
-      sim.mutate({
-        body: {
-          candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
-          num_voters: config.num_voters,
-          ideology: config.ideology,
-          seed: config.seed,
-          voluntary_turnout: vt,
-          compulsory_turnout: ct,
-          reluctant_null_rate: rn,
-          reluctant_random_pct: rr,
-          method: 'plurality',
-        },
-      });
-    },
-    [config, sim]
-  );
+  const runSimulation = (vt: number, ct: number, rn: number, rr: number) => {
+    sim.mutate({
+      body: {
+        candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
+        num_voters: config.num_voters,
+        ideology: config.ideology,
+        seed: config.seed,
+        voluntary_turnout: vt,
+        compulsory_turnout: ct,
+        reluctant_null_rate: rn,
+        reluctant_random_pct: rr,
+        method: 'plurality',
+      },
+    });
+  };
 
   const handleSimulate = () => runSimulation(volTurnout, compTurnout, relNull, relRandom);
 
-  const schedule = useCallback(
-    (vt: number, ct: number, rn: number, rr: number) => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => runSimulation(vt, ct, rn, rr), DEBOUNCE_MS);
-    },
-    [runSimulation]
-  );
+  const schedule = (vt: number, ct: number, rn: number, rr: number) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => runSimulation(vt, ct, rn, rr), DEBOUNCE_MS);
+  };
 
   return (
     <div>
