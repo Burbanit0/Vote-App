@@ -16,25 +16,17 @@ export interface ModalProps extends React.HTMLAttributes<HTMLDivElement> {
   onHide?: () => void;
   size?: 'sm' | 'lg' | 'xl';
   centered?: boolean;
-  backdrop?: boolean | 'static';
   scrollable?: boolean;
-  fullscreen?: boolean | string;
-  keyboard?: boolean;
-  animation?: boolean;
 }
 
 const ModalBase: React.FC<ModalProps> = ({
   show,
   onHide,
   size,
-  backdrop,
   className,
   children,
   centered,
   scrollable,
-  fullscreen,
-  keyboard,
-  animation,
   ...rest
 }) => (
   <DialogPrimitive.Root
@@ -51,9 +43,6 @@ const ModalBase: React.FC<ModalProps> = ({
           SIZE[size ?? ''] ?? 'max-w-lg',
           className
         )}
-        onInteractOutside={(e) => {
-          if (backdrop === 'static') e.preventDefault();
-        }}
         aria-describedby={undefined}
         {...rest}
       >

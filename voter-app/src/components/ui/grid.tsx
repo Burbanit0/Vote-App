@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
  *
  * Faithful to Bootstrap's 12-column flex grid:
  *  - Row = `display:flex; flex-wrap:wrap` with negative horizontal gutters.
- *  - Col = `flex:0 0 auto; width: n/12` (responsive via xs/sm/md/lg/xl), or
+ *  - Col = `flex:0 0 auto; width: n/12` (responsive via xs/sm/md/lg), or
  *    `flex:1` when unsized, or `width:auto` for the "auto" value.
  *  - Gutters come from a context (Row sets it from its `g-{n}` className, default
  *    1.5rem) and are applied as half-padding on each Col + negative Row margin.
@@ -82,7 +82,6 @@ export interface ColProps extends React.HTMLAttributes<HTMLDivElement> {
   sm?: ColSize;
   md?: ColSize;
   lg?: ColSize;
-  xl?: ColSize;
 }
 
 /**
@@ -147,34 +146,18 @@ const W = {
     'lg:w-11/12',
     'lg:w-full',
   ],
-  xl: [
-    'xl:w-1/12',
-    'xl:w-2/12',
-    'xl:w-3/12',
-    'xl:w-4/12',
-    'xl:w-5/12',
-    'xl:w-6/12',
-    'xl:w-7/12',
-    'xl:w-8/12',
-    'xl:w-9/12',
-    'xl:w-10/12',
-    'xl:w-11/12',
-    'xl:w-full',
-  ],
 } as const;
 const W_AUTO: Record<string, string> = {
   xs: 'w-auto',
   sm: 'sm:w-auto',
   md: 'md:w-auto',
   lg: 'lg:w-auto',
-  xl: 'xl:w-auto',
 };
 const W_FLEX: Record<string, string> = {
   xs: 'flex-1',
   sm: 'sm:flex-1',
   md: 'md:flex-1',
   lg: 'lg:flex-1',
-  xl: 'xl:flex-1',
 };
 
 function sizeClass(bp: keyof typeof W, v: ColSize): string {
@@ -185,14 +168,13 @@ function sizeClass(bp: keyof typeof W, v: ColSize): string {
 }
 
 export const Col = React.forwardRef<HTMLDivElement, ColProps>(
-  ({ className, style, xs, sm, md, lg, xl, ...props }, ref) => {
+  ({ className, style, xs, sm, md, lg, ...props }, ref) => {
     const half = React.useContext(GutterContext);
     const entries: Array<[string, ColSize | undefined]> = [
       ['xs', xs],
       ['sm', sm],
       ['md', md],
       ['lg', lg],
-      ['xl', xl],
     ];
     const widthClasses: string[] = [];
     let sized = false;
