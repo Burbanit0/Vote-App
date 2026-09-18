@@ -19,6 +19,7 @@ from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.error_handling import safe_call
 from api.engine.utils.logger import get_logger
 from api.engine.utils.simulation_voting_utils import calculate_utility, create_voter
+from api.engine.utils.method_registry import rule_winner
 from api.engine.utils.simulation_ranked_utils import (
     get_borda_winner, get_condorcet_winner, get_irv_winner, get_plurality_winner,
     get_schulze_winner,
@@ -879,6 +880,11 @@ def _nota_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
+    if primary_method not in _NOTA_TRACKED:
+        return {
+            "error": f"unknown voting method {primary_method!r} -- "
+                     f"supported: {', '.join(_NOTA_TRACKED)}"
+        }, 400
 
     candidates, voters, sincere_utilities, cand_names, issues = _reseed_and_build_electorate(
         cand_specs, num_voters, ideology, seed
@@ -911,10 +917,6 @@ def _nota_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         return raw_winner, round(np, 4)
 
     # ── Sincere winners per method (without NOTA) ─────────────────────────
-    from api.engine.utils.simulation_ranked_utils import (
-        get_borda_winner as _borda, get_irv_winner as _irv,
-        get_schulze_winner as _schulze,
-    )
     from api.engine.utils.simulation_score_utils import get_majority_judgment_winner as _mj
 
     def _sincere_winner(method: str) -> Optional[str]:
@@ -923,16 +925,10 @@ def _nota_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
                    key=lambda n: -sincere_utilities[v["id"]][n])
             for v in voters
         ]
-        if method in ("plurality", "two_round"):
-            return get_plurality_winner(rnk)
-        if method == "borda":
-            return _borda(rnk)
-        if method == "irv":
-            return _irv(rnk)
-        if method == "schulze":
-            return _schulze(rnk)
         if method == "approval":
-            # sincere approval: approve above voter mean
+            # sincere approval: approve above voter mean -- a ranking cannot
+            # express where a voter's own mean falls, so this one is not a
+            # registry lookup
             tally: Counter[Any] = Counter()
             for v in voters:
                 u  = sincere_utilities[v["id"]]
@@ -951,7 +947,10 @@ def _nota_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
                 _mj_winner, lambda: None,
                 log=log, event="workers_behavioral.method_failed", method="majority_judgment",
             )
-        return get_plurality_winner(rnk)
+        # Every other tracked rule reads the rankings. The registry raises
+        # UnknownMethod for a name no rule answers to; the worker rejects those
+        # up front, so this is the ordinary path, not a fallback.
+        return rule_winner(method, rnk)
 
     # ── Main computation ──────────────────────────────────────────────────
     nota_pct_main = _nota_pct(nota_threshold, primary_method)
@@ -1042,6 +1041,14 @@ _DEFAULT_BALLOT_METHODS = (
     "star_voting", "majority_judgment", "schulze",
 )
 
+# What these panels can actually compare. `two_round` is here because the engine
+# ships the rule: both dispatchers below used to answer it with
+# get_plurality_winner, so the panel reported plurality's winner under the
+# two_round label -- and the two differ exactly when nobody holds a majority,
+# the case these panels are about. A name outside this set is a 400, not a cue
+# to fall back to plurality.
+BALLOT_METHODS = _DEFAULT_BALLOT_METHODS + ("two_round",)
+
 
 def _ballot_complexity_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     """/ballot-complexity — Null-vote rate per method as a function of ballot complexity."""
@@ -1053,6 +1060,12 @@ def _ballot_complexity_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
     # Pydantic Optional[List[str]]=None may pass null explicitly — fall back
     # to the server default in that case rather than indexing into None.
     methods_compare  = (data.get("methods_to_compare") or _DEFAULT_BALLOT_METHODS)[:8]
+    unknown = [m for m in methods_compare if m not in BALLOT_METHODS]
+    if unknown:
+        return {
+            "error": f"unknown voting method(s) {', '.join(repr(m) for m in unknown)} -- "
+                     f"supported: {', '.join(BALLOT_METHODS)}"
+        }, 400
     cand_specs       = data.get("candidates", [
         {"name": "Alice", "x": -0.5, "y": -0.2},
         {"name": "Bob",   "x":  0.5, "y":  0.2},
@@ -1083,11 +1096,6 @@ def _ballot_complexity_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
     )
 
     # ── Fast winner per method ────────────────────────────────────────────
-    from api.engine.utils.simulation_ranked_utils import (
-        get_borda_winner as _borda_w,
-        get_irv_winner   as _irv_w,
-        get_schulze_winner as _sch_w,
-    )
     from api.engine.utils.simulation_score_utils import (
         get_star_voting_winner       as _star_w,
         get_majority_judgment_winner as _mj_w,
@@ -1106,14 +1114,6 @@ def _ballot_complexity_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
              for n in cand_names}
             for v in vlist
         ]
-        if method in ("plurality", "two_round"):
-            return get_plurality_winner(rnk)
-        if method == "borda":
-            return _borda_w(rnk)
-        if method == "irv":
-            return _irv_w(rnk)
-        if method == "schulze":
-            return _sch_w(rnk)
         if method == "approval":
             tally: Counter[Any] = Counter()
             for v in vlist:
@@ -1142,7 +1142,10 @@ def _ballot_complexity_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
                 _mj_winner, lambda: get_plurality_winner(rnk),
                 log=log, event="workers_behavioral.method_failed", method="majority_judgment",
             )
-        return get_plurality_winner(rnk)
+        # Every other supported rule reads the rankings. The registry raises
+        # UnknownMethod for a name no rule answers to; the worker rejects those
+        # up front, so this is the ordinary path, not a fallback.
+        return rule_winner(method, rnk)
 
     # ── Per-method simulation ─────────────────────────────────────────────
     results: list[Dict[str, Any]] = []
