@@ -44,3 +44,51 @@ export const candidateColorByName = (name: string | null, names: string[]): stri
   const i = names.indexOf(name);
   return i >= 0 ? candidateColor(i) : '#9ca3af';
 };
+
+// ── Laboratoire panels ───────────────────────────────────────────────────────
+//
+// The fiches predate CANDIDATE_PALETTE and carry their own, darker set. Fifteen
+// of them had a byte-identical `candColor(name, names)` copied in, over four
+// palettes that all start `#005CAB #C8590A #007A33` and then disagree. The
+// lookup is shared below; the palettes are kept apart on purpose, because
+// merging them would change which colour a candidate gets — a visual decision,
+// not a refactor. Naming them here at least makes the divergence visible.
+//
+// They are NOT CANDIDATE_PALETTE: these are tuned for the fiches' light cards,
+// and unifying the two is the same open visual question, one level up.
+
+/** Six colours. The most common fiche set (8 panels). */
+export const LAB_PALETTE: string[] = [
+  '#005CAB', // blue
+  '#C8590A', // orange
+  '#007A33', // green
+  '#6c757d', // grey
+  '#9b59b6', // purple
+  '#e67e22', // amber
+];
+
+/** LAB_PALETTE plus two, for panels that can show more than six (STV, multiwinner). */
+export const LAB_PALETTE_WIDE: string[] = [...LAB_PALETTE, '#2A9D8F', '#E76F51'];
+
+/** Six, but no grey and ending pink. Differs from LAB_PALETTE from index 3 on. */
+export const LAB_PALETTE_PINK: string[] = [
+  '#005CAB',
+  '#C8590A',
+  '#007A33',
+  '#9b59b6',
+  '#e67e22',
+  '#e83e8c',
+];
+
+/** LAB_PALETTE_PINK without the pink — five colours (deliberation). */
+export const LAB_PALETTE_FIVE: string[] = LAB_PALETTE_PINK.slice(0, 5);
+
+/**
+ * Colour for `name`, by its position in `names`.
+ *
+ * `#888` when the name is absent: `indexOf` returns -1, and `-1 % n` is -1 in
+ * JS, so the lookup would be `undefined` rather than wrapping to the last
+ * entry. Every copy of this had the same fallback; it is load-bearing.
+ */
+export const colorByName = (name: string, names: string[], palette: string[]): string =>
+  palette[names.indexOf(name) % palette.length] ?? '#888';

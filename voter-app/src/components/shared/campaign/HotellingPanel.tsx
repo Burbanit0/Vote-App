@@ -18,6 +18,7 @@ import { useElection } from '../../../stores/useElectionStore';
 import { $api } from '../../../api/hooks';
 import { apiClient } from '../../../api/client';
 import type { HotellingResponse } from '../../../api';
+import { colorByName, LAB_PALETTE } from '@/lib/palette';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 // Source of truth is the generated `HotellingResponse` (Phase 6 response_model).
@@ -26,10 +27,7 @@ type HotellingData = HotellingResponse;
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 
-const PALETTE = ['#005CAB', '#C8590A', '#007A33', '#6c757d', '#9b59b6', '#e67e22'];
-function candColor(name: string, names: string[]) {
-  return PALETTE[names.indexOf(name) % PALETTE.length] ?? '#888';
-}
+const candColor = (name: string, names: string[]) => colorByName(name, names, LAB_PALETTE);
 
 // ── SVG constants ─────────────────────────────────────────────────────────────
 
