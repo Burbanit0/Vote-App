@@ -153,98 +153,15 @@ exclude = ["api/tests/"]
 python_version = "3.14"
 
 [tool.mutmut]
-# First pass, scoped deliberately (see prompt-mutation-testing.md). The doc's
-# §1 scope named two files; api/domain/theory/workers.py was EXCLUDED here at
-# first, not by the doc's choice but by a tooling incompatibility discovered
-# while setting this up (see prompt-mutation-testing.md's companion note / PR
-# description): its only test coverage ran through FastAPI's TestClient
-# (test_theory_batch1-4.py), and mutmut 3.7.0 runs pytest in-process,
-# repeatedly, inside the same interpreter — every attempt to include any
-# TestClient-based test in the selection reproducibly broke with "NumPy
-# module reloaded" + asyncio "cancelled via cancel scope" / "invalid state"
-# errors during mutmut's own stats-gathering pass (reproduced 3x; the exact
-# same pytest invocation and flags run clean outside mutmut, isolating this
-# to mutmut's in-process re-exec model, not a bug in the test suite itself).
+# Score de mutation du moteur de vote. Le fichier a longtemps porté 177 lignes
+# de commentaire pour 52 de config : l'historique complet (pourquoi la sélection
+# de tests est dérivée et non curée à la main, la panne numpy 2.4+ / mutmut
+# 3.7.0 qui a tenu le job rouge 17 jours, pourquoi le correctif 3.8.0 a triplé
+# le nombre de mutants sans que ce soit une régression, et pourquoi le plancher
+# reste à 70 %) vit maintenant dans
+# docs/exploration/EXP-015-mutmut-mutation-testing-scope.md.
 #
-# UPDATE (2026-08-29): the incompatibility lives in the TEST FILES (TestClient
-# coupling), not in workers.py itself — the module has zero FastAPI/Pydantic
-# coupling of its own (confirmed by reading + grep). test_theory_pure.py calls
-# 11 of its 15 `_xxx_worker(data: dict) -> (body, status)` functions directly
-# with a plain dict, with no TestClient/fastapi/numpy import anywhere in that
-# file, so mutmut's auto-detection can select it — added to source_paths and
-# the selection below. The other 4 workers (_plott_chaos_worker,
-# _agenda_manipulation_worker, _manipulation_analysis_worker,
-# _democratic_backsliding_worker) touch numpy directly and stay excluded: no
-# file in this selection has imported numpy before, so whether mutmut's
-# in-process reload failure is specifically a TestClient problem or a numpy
-# problem is still untested — confirm on a clean run of the 11-worker file
-# before adding the numpy-touching 4 (also blocked on the regression below).
-#
-# 🟢 REGRESSION (2026-08-29), FIXED (2026-09-13): the entire mutmut job (both
-# files, no test-file changes needed to trigger it) failed deterministically
-# before producing any score — "ImportError: cannot load module more than
-# once per process" while collecting test_anti_plurality.py's `import numpy`,
-# during mutmut's own stats-gathering pass. Confirmed broken on every push/
-# schedule run for 17 days straight (2026-08-29 through 2026-09-13, ~17
-# runs), not flaky. Root cause confirmed (not just circumstantial): numpy
-# 2.4+ added a guard refusing to re-initialize its C extension in the same
-# process (numpy/numpy#29030, same failure family as
-# github.com/DataDog/dd-trace-py#18276) — mutmut 3.7.0's in-process coverage
-# re-exec model does exactly that. mutmut 3.8.0's changelog fixes this
-# specific case ("gather coverage in a separate process", #528/#566) —
-# bumped in requirements-dev.txt, verified locally by reproducing the crash
-# on 3.7.0 then confirming 3.8.0 runs cleanly past stats collection into
-# actual mutant testing on the exact same config, same numpy 2.5.2, same
-# Python 3.14.7 as CI. The workers.py/TestClient exclusion above is a
-# different, still-open incompatibility — not resolved by this bump, since
-# it was never confirmed to be the same trigger (see that note's own caveat).
-#
-# UPDATE (2026-09-13), the same day: the first real post-fix score was
-# 64.4% (4063/6322) — well below the 70% floor above, but NOT simply "17
-# days of decay". Total mutant count more than TRIPLED (1906 -> 6322)
-# versus the 73.3% baseline (1397/1906 killed) measured under mutmut
-# 3.7.0. That's not the codebase growing 3x; it's near-certainly the same
-# 3.8.0 coverage fix above (separate-process gathering) now correctly
-# recognizing far more covered lines than 3.7.0's in-process model ever
-# could — the same silent-undercount failure family as the crash itself,
-# just not severe enough to crash outright everywhere. So most of the
-# ~2245 survivors are mutants that were simply never GENERATED before,
-# not mutants the test suite regressed on. Confirmed real and fixable,
-# not noise, on one concrete case: `is_dict = _is_dict_format(votes)` ->
-# `is_dict = None` survived on every single rule that reads it (19+
-# functions sharing `_ballots_and_candidates`/`_build_pairwise`) because
-# nothing in this suite ever exercised the dict-wrapped ballot format
-# (`{"ranking": [...]}`) those functions' own logic explicitly branches
-# on — real, reachable code in their accepted `Any`-typed contract, even
-# though tracing every actual caller (verified, not assumed — see
-# test_ballot_dict_format.py's own module docstring for the corrected
-# account after `/code-review ultra` caught an earlier wrong claim here)
-# found none currently produces that shape.
-# api/tests/test_ballot_dict_format.py closed that one gap, confirmed by
-# re-running mutmut and diffing the survivor list: 58 mutants flipped
-# survived -> killed (64.4% -> 65.2%; exact count has a few-mutant
-# run-to-run wobble from mutmut's own timeout non-determinism, not from
-# the fix itself), exactly where predicted.
-#
-# SECOND PASS, same day: get_star_voting_winner was the single worst-covered
-# function in either engine file (57 survivors — more than any other),
-# because every existing STAR fixture used exactly two candidates scored
-# identically enough that the first-round accumulator, the runoff counters,
-# and the `.get(candidate, 0)` defaults could all be wrong without ever
-# changing which of the two candidates won. api/tests/test_star_runoff_tie.py
-# added cases where each of those actually matters — a genuine underdog
-# runoff win, a ballot that omits a finalist, two tied ballots not one, a
-# candidate scored by exactly one ballot — closing 53 of the 57 (65.2% ->
-# 66.1%). The remaining 4 are confirmed equivalent mutants (`data["count"]
-# > 0`'s branch is unreachable by construction — every candidate in
-# candidate_scores was added by at least one ballot), documented in that
-# file's own docstring rather than left unexplained.
-#
-# Floor stays at 70% and the snooze in .github/ci-health-snoozes.json stays
-# in place (until 2026-09-27) while more gaps like this one get found and
-# closed one at a time — raising the floor to a number nobody has
-# earned yet would be exactly the "get a red run green" shortcut this
-# file's own check_mutation_score.sh warns against.
+# Ne restent ici que les notes qui expliquent une clé à son point d'usage.
 source_paths = [
     "api/engine/utils/simulation_ranked_utils.py",
     # The cardinal half of the engine-parity harness. Both files are locked
@@ -253,8 +170,8 @@ source_paths = [
     # check — mutating only the ordinal half left half the invariant unmeasured.
     "api/engine/utils/simulation_score_utils.py",
     # 11 of 15 workers here are numpy-free and now have direct-call tests
-    # (test_theory_pure.py) that mutmut's auto-detection can select — see the
-    # UPDATE (2026-08-29) note above. The 4 numpy-touching workers are not
+    # (test_theory_pure.py) that mutmut's auto-detection can select — see
+    # EXP-015 for why. The 4 numpy-touching workers are not
     # covered here; they stay excluded pending confirmation numpy itself
     # doesn't retrigger the in-process reload failure.
     "api/domain/theory/workers.py",
@@ -333,43 +250,6 @@ pytest_add_cli_args_test_selection = [
     "api/tests/test_theory_pure.py",
     "api/tests/test_two_round.py",
 ]
-# WHAT THE WIDER RUN REVEALED, and what it did not fix:
-# simulation_ranked_utils   440 → 337 survivors (71.3%)
-# simulation_score_utils    284 → 284 survivors (51.7%)  ← not one mutant
-# Every file added above tests an ORDINAL rule, so the cardinal module did not
-# move at all. That settled the ambiguity the old caveat left open: 51.7% was a
-# real assertion deficit, not an artifact of the selection.
-#
-# UPDATE (2026-08-23, same day): test_cardinal_orphans.py landed, asserting on
-# the numbers (not just the winner) for all six previously-untested rules —
-# median_voting, mean_median_hybrid, variance_based, score_distribution_analysis
-# (since deleted, only its tests called it), majority_judgment, evaluative — and
-# was added to the selection above. Combined
-# score (both files) measured 73.3% on the next CI run (2026-08-28,
-# 1397/1906 killed) — up from the 72.9% floor set right after this file first
-# got wired in, confirming the six-rule gap is mostly closed rather than fixing
-# it by chance.
-#
-# UPDATE (2026-08-29): two remaining gaps found by reading, not measuring (no
-# survivor artifact was retrievable from CI — the .mutmut-cache upload found no
-# files on the last run) — closed in test_cardinal_orphans.py:
-# get_majority_judgment_winner's iterative tiebreak branch (fires only when two
-# candidates tie on BOTH median and gauge) was never reached by any test, and
-# its "scores" output was never asserted anywhere; get_score_distribution_
-# analysis's out-of-range/negative-score exclusion and its mode-tie-break
-# (first bin wins) were likewise untested (that rule and those tests are both
-# gone now — nothing but the tests called it). Also added test_cardinal_score_and_
-# regret.py for get_simple_score_winner and calculate_bayesian_regret — same
-# file, outside the six named rules, but with zero dedicated tests of their own
-# (only exercised indirectly through domain workers/routes, which mutmut's
-# TestClient exclusion above keeps out of this selection). Both of those tests
-# now live in test_cardinal_orphans.py: calculate_bayesian_regret has since been
-# deleted (only its tests called it), which left one rule in a file of its own.
-#
-# Next real chantier here, if the score doesn't clear ~85%+ on the next run:
-# get_simple_score_winner is the only function left in this file without
-# hand-picked adversarial fixtures — worth a second pass once a fresh survivor
-# list is available.
 
 # Makes the voter-api skill's documented layering blocking instead of just
 # written down (Lot 2, PLAN_SOLIDITE_TECHNIQUE.md — see .claude/skills/
