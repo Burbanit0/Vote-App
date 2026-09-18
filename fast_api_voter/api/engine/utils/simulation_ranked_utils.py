@@ -443,19 +443,30 @@ def get_positional_score_winner(votes: list[Any], **kwargs: Any) -> Optional[str
 def _kwik_sort(candidates: list[str], pairwise: dict[tuple[str, str], int]) -> list[str]:
     """
     KwikSort approximation of Kemeny-Young — O(n log n) expected time.
-    Randomly picks a pivot; partitions candidates by majority pairwise preference.
-    Returns a ranking whose first element is the approximate KY winner.
+    Partitions candidates by majority pairwise preference around a pivot and
+    returns a ranking BEST FIRST, so `ranking[0]` is the approximate KY winner.
+
+    `left` holds the candidates that BEAT the pivot (they rank above it). That
+    direction used to be inverted -- the pivot's victims were placed before it --
+    so the function returned the ranking upside down and every caller above
+    `_KY_EXACT_CAP` got the Kemeny LOSER: 11 unanimous A>B>...>G ballots
+    returned "G". A tie against the pivot ranks below it, matching the
+    tie-breaks elsewhere in this module.
+
+    The pivot is the middle element rather than a random one: the caller's seed
+    must decide the whole result (this runs behind a `seed` request field), and
+    a random pivot read from the global `random` module made the winner differ
+    between identical calls.
     """
-    import random as _rnd
     if len(candidates) <= 1:
         return candidates.copy()
-    pivot = _rnd.choice(candidates)
+    pivot = candidates[len(candidates) // 2]
     left: list[str] = []
     right: list[str] = []
     for c in candidates:
         if c == pivot:
             continue
-        (left if pairwise.get((pivot, c), 0) >= pairwise.get((c, pivot), 0) else right).append(c)
+        (left if pairwise.get((c, pivot), 0) > pairwise.get((pivot, c), 0) else right).append(c)
     return _kwik_sort(left, pairwise) + [pivot] + _kwik_sort(right, pairwise)
 
 
