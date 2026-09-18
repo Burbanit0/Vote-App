@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Check, Control, Range, Select } from '@/components/ui/form-controls';
+import { Check, Range, Select } from '@/components/ui/form-controls';
 import { Col, Row } from '@/components/ui/grid';
 import { Spinner } from '@/components/ui/spinner';
 import {
@@ -180,18 +180,12 @@ const CompetenceHistogram: React.FC<HistogramProps> = ({
 // ── Main panel ────────────────────────────────────────────────────────────────
 
 export interface EpistocracyLabProps {
-  labMode?: boolean;
-  labCandidates?: Array<{ name: string; x: number; y: number }>;
-  labNumVoters?: number;
-  labSeed?: number;
+  candidates: Array<{ name: string; x: number; y: number }>;
+  numVoters: number;
+  seed: number;
 }
 
-const EpistocracyPanel: React.FC<EpistocracyLabProps> = ({
-  labMode = false,
-  labCandidates,
-  labNumVoters,
-  labSeed,
-}) => {
+const EpistocracyPanel: React.FC<EpistocracyLabProps> = ({ candidates, numVoters, seed }) => {
   const { t } = useTranslation();
 
   const sim = $api.useMutation('post', '/api/v2/theory/epistocracy');
@@ -199,8 +193,6 @@ const EpistocracyPanel: React.FC<EpistocracyLabProps> = ({
   const loading = sim.isPending;
   const error = sim.isError ? t('episto.error') : null;
 
-  const [numVoters, setNumVoters] = useState(200);
-  const [seed, setSeed] = useState(42);
   const [compDist, setCompDist] = useState('uniform');
   const [compMean, setCompMean] = useState(0.55);
   const [compStd] = useState(0.15);
@@ -209,39 +201,39 @@ const EpistocracyPanel: React.FC<EpistocracyLabProps> = ({
   const [threshold, setThreshold] = useState(0.7);
   const [activeView, setActiveView] = useState<'quality' | 'table'>('quality');
 
-  const DEFAULT_CANDS = [
-    { name: 'A', x: -0.5, y: 0.0 },
-    { name: 'B', x: 0.0, y: 0.0 },
-    { name: 'C', x: 0.5, y: 0.0 },
-  ];
-
-  const run = useCallback(
-    (overrideCands?: typeof DEFAULT_CANDS, overrideVoters?: number, overrideSeed?: number) => {
-      sim.mutate({
-        body: {
-          candidates: overrideCands ?? DEFAULT_CANDS,
-          num_voters: overrideVoters ?? numVoters,
-          seed: overrideSeed ?? seed,
-          voter_competence_distribution: compDist,
-          competence_params: {
-            mean: compMean,
-            std: compStd,
-            expert_pct: expertPct,
-            caplan_bias: caplanBias,
-          },
-          weighting_scheme: 'equal',
-          epistocracy_threshold: threshold,
+  const run = useCallback(() => {
+    sim.mutate({
+      body: {
+        candidates,
+        num_voters: numVoters,
+        seed,
+        voter_competence_distribution: compDist,
+        competence_params: {
+          mean: compMean,
+          std: compStd,
+          expert_pct: expertPct,
+          caplan_bias: caplanBias,
         },
-      });
-    },
-    [numVoters, seed, compDist, compMean, compStd, expertPct, caplanBias, threshold, sim]
-  );
+        weighting_scheme: 'equal',
+        epistocracy_threshold: threshold,
+      },
+    });
+  }, [
+    candidates,
+    numVoters,
+    seed,
+    compDist,
+    compMean,
+    compStd,
+    expertPct,
+    caplanBias,
+    threshold,
+    sim,
+  ]);
 
   useEffect(() => {
-    if (labMode && labCandidates?.length) {
-      run(labCandidates, labNumVoters, labSeed);
-    }
-  }, [labMode, labCandidates, labNumVoters, labSeed]);
+    if (candidates.length) run();
+  }, [candidates, numVoters, seed]);
 
   // ── Chart data ─────────────────────────────────────────────────────────────
   const qualityChartData = data
@@ -280,42 +272,14 @@ const EpistocracyPanel: React.FC<EpistocracyLabProps> = ({
         <strong>{t('episto.caplanQuoteTitle')}</strong> {t('episto.caplanQuote')}
       </Alert>
 
-      {/* ── Lab mode badge ── */}
-      {labMode && (
-        <div className="mb-2">
-          <Badge variant="dark" style={{ fontSize: '0.68rem' }}>
-            🔬 {t('lab.fromElectionLab')}
-          </Badge>
-        </div>
-      )}
-      {/* ── Controls: election config hidden in lab mode, episto params always shown ── */}
+      {/* The electorate comes from the Lab's shared config; only the
+          epistocracy parameters are set here. */}
+      <div className="mb-2">
+        <Badge variant="dark" style={{ fontSize: '0.68rem' }}>
+          🔬 {t('lab.fromElectionLab')}
+        </Badge>
+      </div>
       <Row className="g-2 mb-2 items-end">
-        {!labMode && (
-          <>
-            <Col xs={6} md={2}>
-              <label className="mb-1 inline-block text-sm mb-0">{t('episto.voters')}</label>
-              <Control
-                type="number"
-                size="sm"
-                min={10}
-                max={1000}
-                value={numVoters}
-                data-testid="voters-input"
-                onChange={(e) => setNumVoters(Number(e.target.value))}
-              />
-            </Col>
-            <Col xs={6} md={2}>
-              <label className="mb-1 inline-block text-sm mb-0">{t('episto.seed')}</label>
-              <Control
-                type="number"
-                size="sm"
-                value={seed}
-                data-testid="seed-input"
-                onChange={(e) => setSeed(Number(e.target.value))}
-              />
-            </Col>
-          </>
-        )}
         <Col xs={12} md={3}>
           <label className="mb-1 inline-block text-sm mb-0">{t('episto.distribution')}</label>
           <Select
@@ -343,13 +307,7 @@ const EpistocracyPanel: React.FC<EpistocracyLabProps> = ({
           <Button
             variant="warning"
             size="sm"
-            onClick={() =>
-              run(
-                labMode ? labCandidates : undefined,
-                labMode ? labNumVoters : undefined,
-                labMode ? labSeed : undefined
-              )
-            }
+            onClick={() => run()}
             disabled={loading}
             data-testid="run-btn"
           >

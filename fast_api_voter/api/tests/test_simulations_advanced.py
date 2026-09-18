@@ -1,16 +1,8 @@
 """Tests for Phase 4.5.a.8 — simulation_advanced on FastAPI (/api/v2/simulations)."""
-import pytest
-from fastapi.testclient import TestClient
 
 import api.domain.simulations.advanced as advanced_module
-from api.main import app
 
 CANDS = ["Alice", "Bob", "Charlie"]
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
 
 
 class TestMonteCarlo:

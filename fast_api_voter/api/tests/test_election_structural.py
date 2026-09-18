@@ -4,15 +4,8 @@ Acceptance: malapportionment visibly distorts the seat-vote relationship;
 cumulative voting visibly lifts minority representation; Penrose equalises
 citizen power.
 """
-import pytest
 from fastapi.testclient import TestClient
 
-from api.main import app
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
 
 
 PARTIES = [
