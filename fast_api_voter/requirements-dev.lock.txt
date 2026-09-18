@@ -126,7 +126,7 @@ httpx==0.28.1
     # via
     #   -c requirements.lock.txt
     #   -r requirements.txt
-hypothesis==6.167.1
+hypothesis==6.168.0
     # via
     #   -r requirements-dev.txt
     #   hypothesis-graphql
@@ -394,7 +394,7 @@ rich==15.0.0
     #   pip-audit
     #   schemathesis
     #   textual
-ruff==0.16.6
+ruff==0.16.7
     # via -r requirements-dev.txt
 schemathesis==4.26.1
     # via -r requirements-dev.txt
