@@ -9,7 +9,7 @@ method-comparison wrapper, and a lightweight winners-only snapshot.
 from __future__ import annotations
 
 import random
-from typing import Any, Dict, List, Optional  # noqa: F401
+from typing import Any, Dict
 
 import numpy as np
 
@@ -200,94 +200,42 @@ def _snapshot_election_winners(
     blank_enabled: bool,
     blank_rule: BlankVoteRule,
 ) -> Dict[str, Dict[str, Any]]:
+    """Winner + vote share per method for one snapshot (a campaign day, a
+    factor combination).
+
+    This was a hand-rolled registry justified as "lighter than
+    compare_all_methods() -- skips strategic_vulnerability". That metric is off
+    by default now, so the engine IS the lighter path -- and it answers all 34
+    rules where the copy answered 14, silently omitting 20 (kemeny_young,
+    copeland, ranked_pairs, majority_judgment, nash, ...) for the same
+    electorate /simulate reported in full. `inter_method_agreement`, built on
+    top of this and labelled "toutes les methodes" in the UI, was therefore
+    measured over 41% of them.
+
+    `vote_share` is the engine's `majority_satisfaction`: the same formula the
+    copy computed, under a different name.
     """
-    Run all voting methods from pre-computed utilities.
-
-    Lighter than compare_all_methods() — skips strategic_vulnerability so
-    calling it once per snapshot day is tractable.
-    """
-    from api.engine.utils.simulation_ranked_utils import (
-        get_plurality_winner,
-        get_two_round_winner, get_borda_winner, get_approval_winner,
-        get_irv_winner, get_coombs_winner, get_bucklin_winner,
-        get_minimax_winner, get_schulze_winner,
+    report = compare_all_methods(
+        voters, candidates, issues,
+        blank_vote=blank_enabled,
+        override_utilities=utilities,
     )
-    from api.engine.utils.simulation_score_utils import (
-        get_simple_score_winner, get_star_voting_winner,
-        get_median_voting_winner, get_mean_median_hybrid_winner,
-        get_variance_based_winner,
-    )
-
-    cand_names = [str(c["name"]) for c in candidates]
-    n          = len(voters) or 1
-
-    # Build sincere rankings and score votes from the provided utilities
-    rankings: list[list[str]] = [
-        sorted(cand_names, key=lambda name: -utilities[v["id"]][name])
-        for v in voters
-    ]
-    score_votes: list[dict[str, int]] = [
-        {name: max(0, min(5, round(5 * utilities[v["id"]][name]))) for name in cand_names}
-        for v in voters
-    ]
-
-    # Majority satisfaction helper (vote_share proxy)
-    def _satisfaction(winner: Optional[str]) -> float:
-        if not winner:
-            return 0.0
-        return round(sum(
-            1 for v in voters
-            if all(
-                utilities[v["id"]].get(winner, 0) > utilities[v["id"]].get(other, 0)
-                for other in cand_names if other != winner
-            )
-        ) / n, 4)
-
-    # blank_pct: voters whose first ranking choice is the blank slot
-    blank_pct = 0.0
-    if blank_enabled:
-        blank_pct = round(sum(
-            1 for v, r in zip(voters, rankings)
-            if max(utilities[v["id"]].values(), default=0.0) < v.get("blank_threshold", 0.375)
-        ) / n, 4)
-
-    ranked: dict[str, Any] = {
-        "plurality":   get_plurality_winner(rankings),
-        "two_round":   get_two_round_winner(rankings),
-        "borda":       get_borda_winner(rankings),
-        "approval":    get_approval_winner(rankings),
-        "irv":         get_irv_winner(rankings),
-        "coombs":      get_coombs_winner(rankings),
-        "bucklin":     get_bucklin_winner(rankings),
-        "minimax":     get_minimax_winner(rankings),
-        "schulze":     get_schulze_winner(rankings),
-    }
-    def _sw(raw: Any) -> Optional[str]:
-        """Extract winner string from a score-method result (dict or str)."""
-        if isinstance(raw, dict):
-            return str(raw["winner"]) if raw.get("winner") is not None else None
-        return str(raw) if raw is not None else None
-
-    scored: dict[str, Any] = {
-        "simple_score":       _sw(get_simple_score_winner(score_votes)),
-        "star_voting":        _sw(get_star_voting_winner(score_votes)),
-        "median_voting":      get_median_voting_winner(score_votes),
-        "mean_median_hybrid": get_mean_median_hybrid_winner(score_votes),
-        "variance_based":     get_variance_based_winner(score_votes),
-    }
+    blank_pct = report.get("blank_pct") or 0.0
 
     methods_out: Dict[str, Dict[str, Any]] = {}
-    for method, winner in (ranked | scored).items():
-        # score methods may return dicts
-        if isinstance(winner, dict):
-            winner = winner.get("winner")
+    for method, md in report.get("methods", {}).items():
+        winner = md.get("winner")
         entry: Dict[str, Any] = {
             "winner":     winner,
-            "vote_share": _satisfaction(winner),
+            # None when no winner; the copy reported 0.0, so keep that.
+            "vote_share": md.get("majority_satisfaction") or 0.0,
         }
         if blank_enabled:
-            rule_res = apply_blank_rule(winner=winner, blank_pct=blank_pct, rule=blank_rule)
+            rule_res = apply_blank_rule(
+                winner=winner, blank_pct=blank_pct, rule=blank_rule
+            )
             entry["winner_after_rule"] = rule_res.get("winner")
         methods_out[method] = entry
 
     return methods_out
+

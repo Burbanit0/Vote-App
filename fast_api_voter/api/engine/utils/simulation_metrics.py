@@ -469,9 +469,25 @@ def compare_all_methods_mc(
     """
     Lightweight version of compare_all_methods optimised for Monte Carlo runs.
 
-    Skips strategic_vulnerability (permutation search) which is O(n! × voters)
-    and would make 500-run MC unfeasibly slow. Returns winner, bayesian_regret,
-    majority_satisfaction, and condorcet_consistent for every method.
+    Returns winner, bayesian_regret, majority_satisfaction and
+    condorcet_consistent for a deliberately narrower 14-rule set.
+
+    It originally existed to skip strategic_vulnerability, which is off by
+    default now -- but the 14-rule set is the reason it survives. Measured at
+    MonteCarloRequest's own ceiling (num_runs=500, num_voters=1000, 8
+    candidates): this 82 ms/run -> 41 s, `compare_all_methods` 168 ms/run ->
+    84 s, against WORKER_TIMEOUT_SECONDS = 180. worker_dispatch.py records that
+    budget as calibrated against this exact request at 34 s, and that a 90 s
+    timeout already failed for real in CI, so a 2.1x margin on the documented
+    maximum is not enough. The tally is pure Python, so the inner
+    ThreadPoolExecutor does not recover it.
+
+    The cost of keeping it is real and should be said out loud: /monte-carlo and
+    the Socket.IO stream report 14 of the engine's 34 rules, so a rule added to
+    `compare_all_methods` never reaches them. Closing that wants a method
+    allow-list on the engine (or a lower num_runs cap), not a second registry --
+    but a 2x regression on a documented-max request is the wrong way to pay for
+    it.
     """
     if not voters or not candidates:
         return {"condorcet_winner": None, "methods": {}}

@@ -740,7 +740,7 @@ const fr = {
       title: 'Accord inter-méthodes',
       simple: 'Pourcentage des méthodes de vote qui élisent le même vainqueur.',
       example:
-        "Si 12 méthodes sur 14 élisent Alice, l'accord est de 86%. Un accord faible signifie que le résultat dépend fortement du système de vote choisi.",
+        "Si 29 méthodes sur 34 élisent Alice, l'accord est de 85%. Un accord faible signifie que le résultat dépend fortement du système de vote choisi.",
       interpretation:
         "100% = toutes les méthodes s'accordent. En dessous de 60%, le résultat est très sensible au système de vote.",
     },

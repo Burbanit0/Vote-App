@@ -735,7 +735,7 @@ const en: TranslationKeys = {
       title: 'Inter-method Agreement',
       simple: 'Percentage of voting methods that elect the same winner.',
       example:
-        'If 12 out of 14 methods elect Alice, agreement is 86%. Low agreement means the result depends heavily on the voting system chosen.',
+        'If 29 of 34 methods elect Alice, agreement is 85%. Low agreement means the result depends heavily on the voting system chosen.',
       interpretation:
         '100% = all methods agree. Below 60%, the result is very sensitive to the voting system.',
     },
