@@ -61,7 +61,7 @@ export function useVotingLabels() {
     const manipComplexity = Object.fromEntries(
       (Object.keys(MANIP_COMPLEXITY) as Rule[]).map((r) => [
         r,
-        { hard: MANIP_COMPLEXITY[r].hard, label: t(`manip.${r}.label`), ref: t(`manip.${r}.ref`) },
+        { hard: MANIP_COMPLEXITY[r], label: t(`manip.${r}.label`), ref: t(`manip.${r}.ref`) },
       ])
     ) as Record<Rule, { hard: boolean; label: string; ref: string }>;
 

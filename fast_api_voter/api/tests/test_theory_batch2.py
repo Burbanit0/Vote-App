@@ -1,21 +1,7 @@
 """Tests for Phase 4 batch 2:
 /api/v2/theory/{agenda-manipulation, apportionment, sen-paradox, manipulation-analysis}."""
-import pytest
-from fastapi.testclient import TestClient
 
-from api.main import app
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
-
-
-CANDS = [
-    {"name": "Alice", "x": -0.5, "y": -0.2},
-    {"name": "Bob",   "x":  0.5, "y":  0.2},
-    {"name": "Carol", "x":  0.0, "y":  0.1},
-]
+from api.tests.conftest import CANDS
 
 
 # ── /agenda-manipulation ────────────────────────────────────────────────────

@@ -1,21 +1,7 @@
 """Tests for Phase 3 batch 7:
 /api/v2/election/{simulate-pipeline, districts, primary, stv}."""
-import pytest
-from fastapi.testclient import TestClient
 
-from api.main import app
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
-
-
-CANDS = [
-    {"name": "Alice", "x": -0.5, "y": -0.2},
-    {"name": "Bob",   "x":  0.5, "y":  0.2},
-    {"name": "Carol", "x":  0.0, "y":  0.1},
-]
+from api.tests.conftest import CANDS
 
 
 # ── /simulate-pipeline ──────────────────────────────────────────────────────

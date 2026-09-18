@@ -119,7 +119,8 @@ libs in `src/lib/` with a thin component each.
 
 ## Workflow (mandated)
 
-- One `feat/*` branch per step, **from `develop`**. Never commit features directly
+- One branch per step, **from `develop`**, named for what it does: `feat/*`,
+  `fix/*`, `refactor/*`, `ci/*`, `chore/*`. Never commit features directly
   to `develop`; never rewrite already-pushed `develop` history.
 - Open a PR per step against `develop`. Merge with `--no-ff`. `develop → main` for
   releases.

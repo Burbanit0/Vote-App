@@ -7,7 +7,6 @@ matrix lets us build exact paradoxes and check the methods reproduce them.
 import pytest
 from fastapi.testclient import TestClient
 
-from api.main import app
 from api.engine.utils.profile_engine import (
     condorcet_winner,
     cycle_rate,
@@ -21,11 +20,6 @@ from api.engine.utils.profile_engine import (
     polya_urn_profile,
 )
 from api.engine.utils.simulation_metrics import compare_all_methods
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
