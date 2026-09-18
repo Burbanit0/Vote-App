@@ -1,4 +1,5 @@
 from itertools import permutations
+from math import factorial
 import random
 from typing import Any, Callable, Dict, List, Optional
 
@@ -102,7 +103,7 @@ def compare_all_methods(
     blank_vote: bool = False,
     blank_candidate_name: str = "Blank",
     override_utilities: Optional[Dict[Any, Dict[str, float]]] = None,
-    compute_strategic: bool = True,
+    compute_strategic: bool = False,
 ) -> Dict[str, Any]:
     """
     Run every available voting method on the same population and return a
@@ -238,13 +239,24 @@ def compare_all_methods(
             u = utilities[voter["id"]]
             current_winner_u = u.get(winner_name, 0)
             sincere = rankings[i]
-            others = rankings[:i] + rankings[i + 1:]
-            # Cap permutations to avoid factorial explosion
-            perms = list(permutations(sincere))
-            if len(perms) > _MAX_STRATEGIC_PERMS:
-                perms = random.sample(perms, _MAX_STRATEGIC_PERMS)
+            # `list(permutations(sincere))` materialised the whole factorial
+            # BEFORE sampling it down, so the cap ran after the explosion it
+            # names: 8 candidates built 40,320 tuples (~4.9 MB) to keep 100, and
+            # that ran once per (sampled voter x ranked method) -- 330 times per
+            # call. Below the cap the enumeration is exhaustive and cheaper than
+            # sampling, so it stays; above it, k shuffles draw the same k
+            # samples with no enumeration and stay O(k x n) at any width.
+            if factorial(len(sincere)) <= _MAX_STRATEGIC_PERMS:
+                perms = [list(p) for p in permutations(sincere)]
+            else:
+                perms = [random.sample(sincere, len(sincere))
+                         for _ in range(_MAX_STRATEGIC_PERMS)]
+            ballots = list(rankings)
             for perm in perms:
-                new_winner = method_fn(others + [list(perm)])
+                # One ballot differs per iteration; reuse the list rather than
+                # rebuilding `others + [perm]` 33,000 times per call.
+                ballots[i] = perm
+                new_winner = method_fn(ballots)
                 if (
                     new_winner
                     and new_winner != winner_name
