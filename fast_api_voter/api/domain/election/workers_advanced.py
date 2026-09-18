@@ -21,7 +21,7 @@ from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.error_handling import safe_call
 from api.engine.utils.logger import get_logger
 from api.engine.utils.simulation_voting_utils import calculate_utility, create_voter
-from api.engine.utils.simulation_metrics import compare_all_methods
+from api.engine.utils.simulation_metrics import bayesian_regret, compare_all_methods
 from api.engine.utils.simulation_ranked_utils import (
     get_borda_winner, get_condorcet_winner, get_irv_winner, get_plurality_winner,
     get_schulze_winner,
@@ -1093,12 +1093,9 @@ def _deliberation_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         return {c: round(tally.get(c, 0) / total, 4) for c in cand_names}
 
     def _regret(utils: Dict[Any, Dict[str, float]], winner: Optional[str]) -> float:
-        if winner is None:
-            return 0.0
-        return round(
-            sum(max(utils[v["id"]].values()) - utils[v["id"]].get(winner, 0)
-                for v in voters) / len(voters), 4
-        )
+        # 4 digits here, and no winner scores 0.0 rather than None -- this panel
+        # feeds numbers straight into a chart.
+        return bayesian_regret(utils, voters, winner, ndigits=4) or 0.0
 
     def _cw(utils: Dict[Any, Dict[str, float]]) -> Optional[str]:
         rnk = [sorted(utils[v["id"]], key=lambda k: -utils[v["id"]][k]) for v in voters]

@@ -70,6 +70,31 @@ def _insert_blank(
     return sorted_names[:pos] + [blank_name] + sorted_names[pos:]
 
 
+
+def bayesian_regret(
+    utilities: Dict[Any, Dict[str, float]],
+    voters: List[Dict[str, Any]],
+    winner: Optional[str],
+    ndigits: int = 6,
+) -> Optional[float]:
+    """Mean utility a voter loses by the election choosing `winner` instead of
+    that voter's own favourite. 0 means every voter got their best candidate.
+
+    `None` winner (no result to score) gives `None`. A candidate missing from a
+    voter's row counts as utility 0, the same convention the callers' own
+    `.get(winner, 0)` used. `max()` on an empty row would raise and take every
+    method's regret with it, not just that voter's contribution -- atheris found
+    exactly that shape in the since-deleted calculate_bayesian_regret -- but no
+    caller can produce one: each builds a utility per candidate for every voter.
+    """
+    if not winner:
+        return None
+    total = sum(
+        max(utilities[v["id"]].values()) - utilities[v["id"]].get(winner, 0) for v in voters
+    )
+    return round(total / len(voters), ndigits)
+
+
 def compare_all_methods(
     voters: List[Dict[str, Any]],
     candidates: List[Dict[str, Any]],
@@ -173,19 +198,7 @@ def compare_all_methods(
     # ------------------------------------------------------------------
 
     def _bayesian_regret(winner_name: Optional[str]) -> Optional[float]:
-        if not winner_name:
-            return None
-        # max() on an empty row would raise, taking every method's regret down
-        # with it, not just this voter's contribution (atheris found exactly that
-        # shape in the since-deleted calculate_bayesian_regret). Safe here because
-        # every caller builds one utility per candidate for every voter; a voter
-        # who rated nobody must be excluded from the sum AND its denominator, the
-        # same convention .get(winner_name, 0) applies to a missing candidate.
-        total = sum(
-            max(utilities[v["id"]].values()) - utilities[v["id"]].get(winner_name, 0)
-            for v in voters
-        )
-        return round(total / len(voters), 6)
+        return bayesian_regret(utilities, voters, winner_name)
 
     def _majority_satisfaction(winner_name: Optional[str]) -> Optional[float]:
         if not winner_name:
@@ -476,15 +489,7 @@ def compare_all_methods_mc(
     condorcet_winner: Optional[str] = get_condorcet_winner(rankings)
 
     def _regret(winner: Optional[str]) -> Optional[float]:
-        if not winner:
-            return None
-        return round(
-            sum(
-                max(utilities[v["id"]].values()) - utilities[v["id"]].get(winner, 0)
-                for v in voters
-            ) / len(voters),
-            6,
-        )
+        return bayesian_regret(utilities, voters, winner)
 
     def _satisfaction(winner: Optional[str]) -> Optional[float]:
         if not winner:
