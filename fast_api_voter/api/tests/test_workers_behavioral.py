@@ -1,22 +1,28 @@
 """Tests for api.domain.election.workers_behavioral — per-method winner fallbacks."""
 import api.domain.election.workers_behavioral as workers_behavioral
+from api.engine.utils import method_registry
 
 
 def _boom(*a, **kw):
     raise RuntimeError("method exploded")
 
 
+def _break(monkeypatch, *methods: str) -> None:
+    """Make each named rule raise, wherever `winner_from_utilities` looks it up.
+
+    The dispatchers used to re-import their rules per call, so a test could
+    patch the source module; they now go through the registry, which binds the
+    functions once at import. Patching `simulation_score_utils` from here would
+    silently no-op -- the registry entry is the live lookup.
+    """
+    for method in methods:
+        table = (method_registry.SCORE_RULES if method in method_registry.SCORE_RULES
+                 else method_registry.RANKED_RULES)
+        monkeypatch.setitem(table, method, _boom)
+
+
 def test_behavioral_biases_worker_falls_back_and_logs_on_method_failures(monkeypatch, caplog):
-    # get_plurality_winner is imported at module level in workers_behavioral.py
-    # (unlike _star/_mj, locally re-imported per call inside _compute_winners),
-    # so it must be patched on this module, not on its source module.
-    monkeypatch.setattr(workers_behavioral, "get_plurality_winner", _boom)
-    monkeypatch.setattr(
-        "api.engine.utils.simulation_score_utils.get_star_voting_winner", _boom,
-    )
-    monkeypatch.setattr(
-        "api.engine.utils.simulation_score_utils.get_majority_judgment_winner", _boom,
-    )
+    _break(monkeypatch, "plurality", "star_voting", "majority_judgment")
 
     with caplog.at_level("WARNING"):
         body, status = workers_behavioral._behavioral_biases_worker(
@@ -32,9 +38,7 @@ def test_behavioral_biases_worker_falls_back_and_logs_on_method_failures(monkeyp
 
 
 def test_nota_worker_falls_back_and_logs_on_mj_failure(monkeypatch, caplog):
-    monkeypatch.setattr(
-        "api.engine.utils.simulation_score_utils.get_majority_judgment_winner", _boom,
-    )
+    _break(monkeypatch, "majority_judgment")
 
     with caplog.at_level("WARNING"):
         body, status = workers_behavioral._nota_worker(
@@ -47,12 +51,7 @@ def test_nota_worker_falls_back_and_logs_on_mj_failure(monkeypatch, caplog):
 
 
 def test_ballot_complexity_worker_falls_back_and_logs_on_method_failures(monkeypatch, caplog):
-    monkeypatch.setattr(
-        "api.engine.utils.simulation_score_utils.get_star_voting_winner", _boom,
-    )
-    monkeypatch.setattr(
-        "api.engine.utils.simulation_score_utils.get_majority_judgment_winner", _boom,
-    )
+    _break(monkeypatch, "star_voting", "majority_judgment")
 
     with caplog.at_level("WARNING"):
         body, status = workers_behavioral._ballot_complexity_worker({

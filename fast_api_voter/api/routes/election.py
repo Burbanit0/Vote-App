@@ -363,6 +363,7 @@ async def abstention_endpoint(request: AbstentionRequest) -> AbstentionResponse:
 @router.post(
     "/nota",
     response_model=NotaResponse,
+    responses=WORKER_ERROR_RESPONSES,
     summary="NOTA (None Of The Above) as a ballot option",
     response_description=(
         "Sincere winner, NOTA percentage, election validity per the "
@@ -381,6 +382,7 @@ async def nota_endpoint(request: NotaRequest) -> NotaResponse:
 @router.post(
     "/ballot-complexity",
     response_model=BallotComplexityResponse,
+    responses=WORKER_ERROR_RESPONSES,
     summary="Null-vote rate per method as a function of ballot complexity",
     response_description=(
         "Per-method null rate, winner with and without nulls, and a "
@@ -416,6 +418,7 @@ async def shy_voter_endpoint(request: ShyVoterRequest) -> ShyVoterResponse:
 @router.post(
     "/electoral-fatigue",
     response_model=ElectoralFatigueResponse,
+    responses=WORKER_ERROR_RESPONSES,
     summary="Turnout decay across repeated elections",
     response_description=(
         "Per-election turnout, winner, ideology drift, and a "
@@ -452,6 +455,7 @@ async def cascade_endpoint(request: CascadeRequest) -> CascadeResponse:
 @router.post(
     "/behavioral-biases",
     response_model=BehavioralBiasesResponse,
+    responses=WORKER_ERROR_RESPONSES,
     summary="Expressive voting + bullet voting + primacy effect",
     response_description="Sincere vs biased winner, per-method sensitivity, "
                          "and breakdown of which voters were affected.",

@@ -18,8 +18,10 @@ import numpy as _np
 from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.error_handling import safe_call
 from api.engine.utils.logger import get_logger
+from api.engine.utils.method_registry import (
+    UTILITY_METHODS, rankings_from_utilities, winner_from_utilities,
+)
 from api.engine.utils.simulation_voting_utils import calculate_utility, create_voter
-from api.engine.utils.method_registry import rule_winner
 from api.engine.utils.simulation_ranked_utils import (
     get_borda_winner, get_condorcet_winner, get_irv_winner, get_plurality_winner,
     get_schulze_winner,
@@ -140,6 +142,17 @@ def _cascade_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
 # ── Behavioral Biases ─────────────────────────────────────────────────────────
 
+# The panel builds a sincere/biased winner pair for each of these, then reports
+# the one `method` names. An unnamed method used to read `sincere_winners.get(m)
+# or cand_names[0]`, so the panel answered `not_a_method` with the first
+# candidate in the list -- no votes involved -- and said the winner held "sous la
+# méthode 'not_a_method'". Approval is absent because this panel models bullet
+# voting separately, in `_approval_winner`.
+BIAS_TRACKED = (
+    "plurality", "borda", "irv", "schulze", "star_voting", "majority_judgment",
+)
+
+
 def _behavioral_biases_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     """Pure worker for /behavioral-biases — extracted for FastAPI v2 reuse.
 
@@ -170,6 +183,11 @@ def _behavioral_biases_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
 
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
+    if primary_method not in BIAS_TRACKED:
+        return {
+            "error": f"unknown voting method {primary_method!r} -- "
+                     f"supported: {', '.join(BIAS_TRACKED)}"
+        }, 400
 
     candidates, voters, sincere_utilities, cand_names, issues = _reseed_and_build_electorate(
         cand_specs, num_voters, ideology, seed
@@ -209,54 +227,17 @@ def _behavioral_biases_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
             u[first_listed] = curr_max + 0.1
 
     # ── Fast winner computation (no strategic-vulnerability overhead) ──────
-    from api.engine.utils.simulation_ranked_utils import (
-        get_borda_winner as _borda,
-        get_irv_winner   as _irv,
-        get_schulze_winner as _schulze,
-    )
-    from api.engine.utils.simulation_score_utils import (
-        get_star_voting_winner        as _star,
-        get_majority_judgment_winner  as _mj,
-    )
-
     def _compute_winners(utils: Dict[Any, Dict[str, float]]) -> Dict[str, Optional[str]]:
-        rnk = [
-            sorted(utils[v["id"]].keys(), key=lambda n: -utils[v["id"]][n])
-            for v in voters
-        ]
-        sv = [
-            {n: max(0, min(5, round(5 * val))) for n, val in utils[v["id"]].items()}
-            for v in voters
-        ]
-        out: Dict[str, Optional[str]] = {}
-        for mname, fn in (("plurality", get_plurality_winner),
-                           ("borda",    _borda),
-                           ("irv",      _irv),
-                           ("schulze",  _schulze)):
-            out[mname] = safe_call(
-                lambda: fn(rnk), lambda: None,
-                log=log, event="workers_behavioral.method_failed", method=mname,
+        """Every tracked method's winner for one utility matrix. A rule that
+        raises is reported as None rather than taking the whole panel down."""
+        def _winner(method: str) -> Optional[str]:
+            return safe_call(
+                lambda: winner_from_utilities(method, utils, voters),
+                lambda: None,
+                log=log, event="workers_behavioral.method_failed", method=method,
             )
 
-        def _star_winner() -> Optional[str]:
-            raw = _star(sv)
-            return raw.get("winner") if isinstance(raw, dict) else raw
-
-        out["star_voting"] = safe_call(
-            _star_winner, lambda: None,
-            log=log, event="workers_behavioral.method_failed", method="star_voting",
-        )
-
-        def _mj_winner() -> Optional[str]:
-            mj_utils = [utils[v["id"]].copy() for v in voters]
-            mj_raw   = _mj(mj_utils)
-            return str(mj_raw["winner"]) if mj_raw.get("winner") else None
-
-        out["majority_judgment"] = safe_call(
-            _mj_winner, lambda: None,
-            log=log, event="workers_behavioral.method_failed", method="majority_judgment",
-        )
-        return out
+        return {m: _winner(m) for m in BIAS_TRACKED}
 
     # ── Approval with bullet voting ───────────────────────────────────────
     def _approval_winner(utils: Dict[Any, Dict[str, float]], bids: set[Any]) -> str:
@@ -858,6 +839,11 @@ _NOTA_ADJ: Dict[str, float] = {
     "quadratic":          0.75,
 }
 
+# /electoral-fatigue runs one method over successive elections. Its dispatcher
+# used to end in `else: w = get_plurality_winner(rnk)`, so `kemeny_young`, a
+# misspelling, and the three rules the engine *can* answer here (two_round,
+# star_voting, majority_judgment) all silently became plurality.
+
 _NOTA_TRACKED = (
     "plurality", "approval", "borda", "irv", "schulze", "majority_judgment",
 )
@@ -917,40 +903,13 @@ def _nota_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         return raw_winner, round(np, 4)
 
     # ── Sincere winners per method (without NOTA) ─────────────────────────
-    from api.engine.utils.simulation_score_utils import get_majority_judgment_winner as _mj
 
     def _sincere_winner(method: str) -> Optional[str]:
-        rnk = [
-            sorted(sincere_utilities[v["id"]].keys(),
-                   key=lambda n: -sincere_utilities[v["id"]][n])
-            for v in voters
-        ]
-        if method == "approval":
-            # sincere approval: approve above voter mean -- a ranking cannot
-            # express where a voter's own mean falls, so this one is not a
-            # registry lookup
-            tally: Counter[Any] = Counter()
-            for v in voters:
-                u  = sincere_utilities[v["id"]]
-                th = sum(u.values()) / len(u) if u else 0.5
-                for cname, val in u.items():
-                    if val > th:
-                        tally[cname] += 1
-            return max(tally, key=tally.__getitem__) if tally else cand_names[0]
-        if method == "majority_judgment":
-            def _mj_winner() -> Optional[str]:
-                mj_utils = [sincere_utilities[v["id"]].copy() for v in voters]
-                mj_raw   = _mj(mj_utils)
-                return str(mj_raw["winner"]) if mj_raw.get("winner") else None
-
-            return safe_call(
-                _mj_winner, lambda: None,
-                log=log, event="workers_behavioral.method_failed", method="majority_judgment",
-            )
-        # Every other tracked rule reads the rankings. The registry raises
-        # UnknownMethod for a name no rule answers to; the worker rejects those
-        # up front, so this is the ordinary path, not a fallback.
-        return rule_winner(method, rnk)
+        return safe_call(
+            lambda: winner_from_utilities(method, sincere_utilities, voters),
+            lambda: None,
+            log=log, event="workers_behavioral.method_failed", method=method,
+        )
 
     # ── Main computation ──────────────────────────────────────────────────
     nota_pct_main = _nota_pct(nota_threshold, primary_method)
@@ -1096,56 +1055,18 @@ def _ballot_complexity_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
     )
 
     # ── Fast winner per method ────────────────────────────────────────────
-    from api.engine.utils.simulation_score_utils import (
-        get_star_voting_winner       as _star_w,
-        get_majority_judgment_winner as _mj_w,
-    )
 
     def _winner_for(method: str, vlist: list[Dict[str, Any]]) -> Optional[str]:
+        """`vlist` is the subset that actually voted (the panel drops voters a
+        ballot's complexity turned away), so the winner is read off their
+        utilities alone."""
         if not vlist:
             return None
-        rnk = [
-            sorted(sincere_utilities[v["id"]].keys(),
-                   key=lambda n: -sincere_utilities[v["id"]][n])
-            for v in vlist
-        ]
-        sv = [
-            {n: max(0, min(5, round(5 * sincere_utilities[v["id"]][n])))
-             for n in cand_names}
-            for v in vlist
-        ]
-        if method == "approval":
-            tally: Counter[Any] = Counter()
-            for v in vlist:
-                u  = sincere_utilities[v["id"]]
-                th = sum(u.values()) / len(u) if u else 0.5
-                for cname, val in u.items():
-                    if val > th:
-                        tally[cname] += 1
-            return max(tally, key=tally.__getitem__) if tally else cand_names[0]
-        if method == "star_voting":
-            def _star_winner() -> Optional[str]:
-                raw = _star_w(sv)
-                return raw.get("winner") if isinstance(raw, dict) else raw
-
-            return safe_call(
-                _star_winner, lambda: get_plurality_winner(rnk),
-                log=log, event="workers_behavioral.method_failed", method="star_voting",
-            )
-        if method == "majority_judgment":
-            def _mj_winner() -> Optional[str]:
-                mj_u = [sincere_utilities[v["id"]].copy() for v in vlist]
-                raw  = _mj_w(mj_u)
-                return str(raw["winner"]) if raw.get("winner") else None
-
-            return safe_call(
-                _mj_winner, lambda: get_plurality_winner(rnk),
-                log=log, event="workers_behavioral.method_failed", method="majority_judgment",
-            )
-        # Every other supported rule reads the rankings. The registry raises
-        # UnknownMethod for a name no rule answers to; the worker rejects those
-        # up front, so this is the ordinary path, not a fallback.
-        return rule_winner(method, rnk)
+        return safe_call(
+            lambda: winner_from_utilities(method, sincere_utilities, vlist),
+            lambda: None,
+            log=log, event="workers_behavioral.method_failed", method=method,
+        )
 
     # ── Per-method simulation ─────────────────────────────────────────────
     results: list[Dict[str, Any]] = []
@@ -1368,6 +1289,11 @@ def _electoral_fatigue_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
 
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
+    if primary_method not in UTILITY_METHODS:
+        return {
+            "error": f"unknown voting method {primary_method!r} -- "
+                     f"supported: {', '.join(UTILITY_METHODS)}"
+        }, 400
 
     candidates, voters, sincere_utilities, cand_names, issues = _reseed_and_build_electorate(
         cand_specs, num_voters, ideology, seed
@@ -1393,37 +1319,16 @@ def _electoral_fatigue_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
     partisan_ids: set[Any] = {vid for vid, mu in voter_max_util.items() if mu > partisan_threshold}
 
     # ── Fast winner per method ────────────────────────────────────────────
-    from api.engine.utils.simulation_ranked_utils import (
-        get_borda_winner   as _bw,
-        get_irv_winner     as _iw,
-        get_schulze_winner as _sw,
-    )
-
     def _fast_winner(vlist: list[Dict[str, Any]]) -> tuple[Optional[str], Dict[str, float]]:
+        """The winner among the voters who still turned out, plus their first-
+        preference shares. `primary_method` is checked against UTILITY_METHODS
+        up front, so an unknown name is a 400 rather than plurality's answer
+        under another rule's name."""
         if not vlist:
             return cand_names[0], {c: 0.0 for c in cand_names}
-        rnk = [
-            sorted(sincere_utilities[v["id"]].keys(),
-                   key=lambda n: -sincere_utilities[v["id"]][n])
-            for v in vlist
-        ]
-        if primary_method == "borda":
-            w: Optional[str] = _bw(rnk)
-        elif primary_method == "irv":
-            w = _iw(rnk)
-        elif primary_method == "schulze":
-            w = _sw(rnk)
-        elif primary_method == "approval":
-            tally: Counter[Any] = Counter()
-            for v in vlist:
-                u  = sincere_utilities[v["id"]]
-                th = sum(u.values()) / len(u) if u else 0.5
-                for cname, val in u.items():
-                    if val > th:
-                        tally[cname] += 1
-            w = max(tally, key=tally.__getitem__) if tally else cand_names[0]
-        else:
-            w = get_plurality_winner(rnk)
+        rnk = rankings_from_utilities(sincere_utilities, vlist)
+        w = winner_from_utilities(primary_method, sincere_utilities, vlist)
+
         total  = len(vlist)
         fc     = Counter(r[0] for r in rnk)
         shares = {c: round(fc.get(c, 0) / total, 4) for c in cand_names}

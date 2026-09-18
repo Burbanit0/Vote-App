@@ -9,17 +9,22 @@ and the literal string `not_a_method`.
 import pytest
 
 from api.domain.election.workers_behavioral import (
+    BIAS_TRACKED,
     _NOTA_TRACKED,
     _ballot_complexity_worker,
+    _behavioral_biases_worker,
+    _electoral_fatigue_worker,
     _nota_worker,
 )
 from api.domain.election.workers_mechanisms import _adaptive_worker
 from api.engine.utils.method_registry import (
     RANKED_RULES,
     SCORE_RULES,
+    UTILITY_METHODS,
     UnknownMethod,
     rule_winner,
     supported,
+    winner_from_utilities,
 )
 
 # 3 ballots A>B>C against 2 ballots C>B>A: A wins every duel 3-2.
@@ -139,6 +144,46 @@ class TestWorkersRejectUnknownMethods:
         assert status == 400
         assert "kemeny_young" in body["error"]
 
+    def test_electoral_fatigue_400s_on_an_unsupported_name(self):
+        """The fourth endpoint of the family: it ran `else: get_plurality_winner`
+        over every election in the series, so a whole fatigue curve was
+        plurality's under another rule's name."""
+        base = {"candidates": self.CANDIDATES, "num_voters": 200, "seed": 3,
+                "ideology": "polarized"}
+        body, status = _electoral_fatigue_worker({**base, "method": "kemeny_young"})
+        assert status == 400
+        assert "kemeny_young" in body["error"]
+        assert "plurality" in body["error"]  # names what it does support
+
+        # …and the rules it does support give genuinely different curves, which
+        # is what the silent plurality fallback was hiding. star_voting is one of
+        # the three the old `else:` branch swallowed outright.
+        curves = {}
+        for method in ("plurality", "borda", "star_voting"):
+            panel, status = _electoral_fatigue_worker({**base, "method": method})
+            assert status == 200, method
+            curves[method] = panel["winner_drift"]
+        assert curves["borda"] != curves["plurality"]
+        assert curves["star_voting"] != curves["plurality"]
+
+    def test_behavioral_biases_400s_instead_of_naming_the_first_candidate(self):
+        """The worst of the four fallbacks: `_compute_winners` only builds the
+        tracked names, so `sincere_winners.get(method) or cand_names[0]` handed
+        back whoever was first in the candidate list -- no votes involved -- and
+        the pedagogical note asserted the winner held "sous la méthode
+        'not_a_method'"."""
+        base = {"candidates": self.CANDIDATES, "num_voters": 200, "seed": 5}
+        for bad in ("not_a_method", "kemeny_young", "two_round"):
+            body, status = _behavioral_biases_worker({**base, "method": bad})
+            assert status == 400, bad
+            assert bad in body["error"]
+
+        ok, status = _behavioral_biases_worker({**base, "method": "borda"})
+        assert status == 200
+        # Every tracked rule still gets its sincere/biased pair, plus approval,
+        # which this panel models separately through bullet voting.
+        assert set(ok["method_sensitivity"]) == set(BIAS_TRACKED) | {"approval"}
+
     def test_the_methods_each_worker_does_support_still_answer(self):
         """The guard rejects names, not work: every tracked method still runs."""
         body, status = _nota_worker({
@@ -146,3 +191,62 @@ class TestWorkersRejectUnknownMethods:
         })
         assert status == 200
         assert set(body["method_comparison"]) == set(_NOTA_TRACKED)
+
+
+def test_schema_method_literals_match_workers():
+    """The request schemas enumerate each panel's methods so a bad name is a 422
+    at the contract boundary, not a 400 from inside the worker (Schemathesis
+    reads that 400 as a broken contract, and it was one). The worker guard stays
+    as the defence for direct calls -- these are two copies of one list, so this
+    fails if either drifts."""
+    from typing import get_args
+
+    from api.domain.election.workers_behavioral import (
+        BALLOT_METHODS, BIAS_TRACKED, _NOTA_TRACKED,
+    )
+    from api.domain.election.workers_mechanisms import ADAPTIVE_METHODS
+    from api.schemas import perturbers
+
+    for literal, worker_tuple in (
+        (perturbers.AdaptiveMethod, ADAPTIVE_METHODS),
+        (perturbers.BiasMethod,     BIAS_TRACKED),
+        (perturbers.NotaMethod,     _NOTA_TRACKED),
+        (perturbers.BallotMethod,   BALLOT_METHODS),
+        (perturbers.FatigueMethod,  UTILITY_METHODS),
+    ):
+        assert set(get_args(literal)) == set(worker_tuple), literal
+
+
+def test_every_panel_method_is_one_winner_from_utilities_can_answer():
+    """Each guard is a subset of UTILITY_METHODS, so a name the request accepts
+    can never reach UnknownMethod inside a worker."""
+    from api.domain.election.workers_behavioral import (
+        BALLOT_METHODS, BIAS_TRACKED, _NOTA_TRACKED,
+    )
+
+    for guard in (BALLOT_METHODS, BIAS_TRACKED, _NOTA_TRACKED):
+        assert set(guard) <= set(UTILITY_METHODS), sorted(set(guard) - set(UTILITY_METHODS))
+
+
+def test_winner_from_utilities_refuses_a_rule_a_utility_matrix_cannot_express():
+    """The docstring promised this and did not do it: kemeny_young used to come
+    back with a confident winner, and a score rule would have been handed raw
+    0..1 utilities as if they were 0-5 ballots."""
+    utilities = {1: {"A": 0.9, "B": 0.1}, 2: {"A": 0.2, "B": 0.8}}
+    voters = [{"id": 1}, {"id": 2}]
+    for method in ("kemeny_young", "minimax", "copeland", "nash", "not_a_method"):
+        with pytest.raises(UnknownMethod):
+            winner_from_utilities(method, utilities, voters)
+
+
+def test_sincere_approval_agrees_with_the_engine_on_ties():
+    """Four panels had their own copy of the tally, which broke ties by Counter
+    insertion order -- so the same electorate could elect Bob here and Alice on
+    /adaptive. Both now call the engine helper, which breaks ties lexicographically
+    and returns None when nobody clears their own mean."""
+    voters = [{"id": 1}, {"id": 2}]
+    tied = {1: {"Bob": 0.9, "Alice": 0.1}, 2: {"Bob": 0.1, "Alice": 0.9}}
+    assert winner_from_utilities("approval", tied, voters) == "Alice"
+
+    flat = {1: {"Bob": 0.5, "Alice": 0.5}, 2: {"Bob": 0.5, "Alice": 0.5}}
+    assert winner_from_utilities("approval", flat, voters) is None
