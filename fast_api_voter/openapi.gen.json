@@ -346,6 +346,13 @@
           },
           "method": {
             "default": "plurality",
+            "enum": [
+              "plurality",
+              "irv",
+              "borda",
+              "schulze",
+              "approval"
+            ],
             "title": "Method",
             "type": "string"
           },
@@ -1819,6 +1826,16 @@
             "anyOf": [
               {
                 "items": {
+                  "enum": [
+                    "plurality",
+                    "approval",
+                    "irv",
+                    "borda",
+                    "star_voting",
+                    "majority_judgment",
+                    "schulze",
+                    "two_round"
+                  ],
                   "type": "string"
                 },
                 "maxItems": 8,
@@ -2022,6 +2039,14 @@
           },
           "method": {
             "default": "plurality",
+            "enum": [
+              "plurality",
+              "borda",
+              "irv",
+              "schulze",
+              "star_voting",
+              "majority_judgment"
+            ],
             "title": "Method",
             "type": "string"
           },
@@ -4604,6 +4629,16 @@
           },
           "method": {
             "default": "plurality",
+            "enum": [
+              "plurality",
+              "borda",
+              "irv",
+              "schulze",
+              "two_round",
+              "approval",
+              "majority_judgment",
+              "star_voting"
+            ],
             "title": "Method",
             "type": "string"
           },
@@ -7507,7 +7542,15 @@
           },
           "method": {
             "default": "plurality",
-            "description": "Primary method to display in the curve ('plurality' | 'irv' | 'borda' | 'schulze' | ...).",
+            "description": "Primary method to display in the curve.",
+            "enum": [
+              "plurality",
+              "approval",
+              "borda",
+              "irv",
+              "schulze",
+              "majority_judgment"
+            ],
             "title": "Method",
             "type": "string"
           },

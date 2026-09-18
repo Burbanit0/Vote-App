@@ -1,5 +1,4 @@
 """Tests for api.domain.election.workers_behavioral — per-method winner fallbacks."""
-import api.domain.election._helpers as helpers
 import api.domain.election.workers_behavioral as workers_behavioral
 from api.engine.utils import method_registry
 
@@ -14,16 +13,12 @@ def _break(monkeypatch, *methods: str) -> None:
     The dispatchers used to re-import their rules per call, so a test could
     patch the source module; they now go through the registry, which binds the
     functions once at import. Patching `simulation_score_utils` from here would
-    silently no-op -- the registry entry is the live lookup, and
-    majority_judgment is a direct name in `_helpers`.
+    silently no-op -- the registry entry is the live lookup.
     """
     for method in methods:
-        if method == "majority_judgment":
-            monkeypatch.setattr(helpers, "get_majority_judgment_winner", _boom)
-        elif method in method_registry.SCORE_RULES:
-            monkeypatch.setitem(method_registry.SCORE_RULES, method, _boom)
-        else:
-            monkeypatch.setitem(method_registry.RANKED_RULES, method, _boom)
+        table = (method_registry.SCORE_RULES if method in method_registry.SCORE_RULES
+                 else method_registry.RANKED_RULES)
+        monkeypatch.setitem(table, method, _boom)
 
 
 def test_behavioral_biases_worker_falls_back_and_logs_on_method_failures(monkeypatch, caplog):

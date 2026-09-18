@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Range, Select } from '@/components/ui/form-controls';
 import { Col, Row } from '@/components/ui/grid';
 import { Spinner } from '@/components/ui/spinner';
+import type { AdaptiveMethod } from '@/api';
 import {
   LineChart,
   Line,
@@ -112,13 +113,13 @@ const IdeologyOverlay: React.FC<IdeologyOverlayProps> = ({ snapshot, candidateNa
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-const AVAILABLE_METHODS = ['plurality', 'irv', 'borda', 'schulze', 'approval'];
+const AVAILABLE_METHODS: AdaptiveMethod[] = ['plurality', 'irv', 'borda', 'schulze', 'approval'];
 
 const AdaptiveVotingPanel: React.FC = () => {
   const { t } = useTranslation();
   const { config } = useElection();
 
-  const [method, setMethod] = useState('plurality');
+  const [method, setMethod] = useState<AdaptiveMethod>('plurality');
   const [numRounds, setNumRounds] = useState(6);
   const [strategicThreshold, setStrategicThreshold] = useState(0.15);
 
@@ -194,7 +195,11 @@ const AdaptiveVotingPanel: React.FC = () => {
       <Row className="g-2 items-end mb-3">
         <Col xs={12} sm={4}>
           <label className="mb-1 inline-block text-sm mb-0">{t('adaptive.method')}</label>
-          <Select size="sm" value={method} onChange={(e) => setMethod(e.target.value)}>
+          <Select
+            size="sm"
+            value={method}
+            onChange={(e) => setMethod(e.target.value as AdaptiveMethod)}
+          >
             {AVAILABLE_METHODS.map((m) => (
               <option key={m} value={m}>
                 {t(`adaptive.method_${m}`)}

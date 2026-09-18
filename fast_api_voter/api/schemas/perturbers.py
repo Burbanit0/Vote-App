@@ -24,12 +24,36 @@ the worker's actual output shape.
 """
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import Any, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from .common import CandidateSpec
 
+
+
+# Each panel below accepts a method name, and each worker answers a name it does
+# not support with a 400. Schemathesis fuzzes `str` fields with arbitrary strings
+# and reads that 400 as a broken contract -- correctly: an enumerable set of
+# names belongs in the request schema, next to `extra="forbid"`, not only in the
+# worker. As a Literal the bad name is a 422 at the boundary and the generated
+# frontend types carry the list. `test_schema_method_literals_match_workers`
+# fails if either side drifts.
+AdaptiveMethod = Literal["plurality", "irv", "borda", "schulze", "approval"]
+BiasMethod = Literal[
+    "plurality", "borda", "irv", "schulze", "star_voting", "majority_judgment",
+]
+NotaMethod = Literal[
+    "plurality", "approval", "borda", "irv", "schulze", "majority_judgment",
+]
+BallotMethod = Literal[
+    "plurality", "approval", "irv", "borda", "star_voting", "majority_judgment",
+    "schulze", "two_round",
+]
+FatigueMethod = Literal[
+    "plurality", "borda", "irv", "schulze", "two_round", "approval",
+    "majority_judgment", "star_voting",
+]
 
 # ── /nota ────────────────────────────────────────────────────────────────────
 
@@ -47,9 +71,8 @@ class NotaRequest(BaseModel):
     nota_rule:      str   = Field("invalidate",
                                   description="Constitutional response when NOTA wins: "
                                               "'invalidate' | 'runoff' | 'winner_take_all'.")
-    method:         str   = Field("plurality",
-                                  description="Primary method to display in the curve "
-                                              "('plurality' | 'irv' | 'borda' | 'schulze' | ...).")
+    method:         NotaMethod = Field("plurality",
+                                  description="Primary method to display in the curve.")
 
 
 # ── /ballot-complexity ──────────────────────────────────────────────────────
@@ -66,7 +89,7 @@ class BallotComplexityRequest(BaseModel):
                                         description="Higher = lower null-vote rate.")
     first_time_voter_pct: float = Field(0.1, ge=0.0, le=1.0,
                                         description="Higher = higher null-vote rate.")
-    methods_to_compare:   Optional[List[str]] = Field(
+    methods_to_compare:   Optional[List[BallotMethod]] = Field(
         None, max_length=8,
         description="Voting methods to compare. If None, uses the server default set.",
     )
@@ -104,7 +127,7 @@ class ElectoralFatigueRequest(BaseModel):
                                      description="Per-election turnout drop (0.07 = 7 pp).")
     engaged_voter_pct: float = Field(0.2, ge=0.05, le=0.5,
                                      description="Share of always-voting partisans.")
-    method:            str   = Field("plurality")
+    method:            FatigueMethod = Field("plurality")
 
 
 # ── /cascade ────────────────────────────────────────────────────────────────
@@ -141,7 +164,7 @@ class BehavioralBiasesRequest(BaseModel):
                                      description="Vote bonus for the first-listed candidate.")
     candidate_order:   Optional[List[str]] = Field(None,
                                                    description="Optional ballot ordering for primacy effect.")
-    method:            str   = Field("plurality")
+    method:            BiasMethod = Field("plurality")
 
 
 # ── /choice-overload ────────────────────────────────────────────────────────
@@ -442,7 +465,7 @@ class AdaptiveRequest(BaseModel):
     ideology:            str   = Field("random")
     seed:                int   = Field(42, ge=0)
     num_rounds:          int   = Field(5, ge=1, le=10)
-    method:              str   = Field("plurality")
+    method:              AdaptiveMethod = Field("plurality")
     strategic_threshold: float = Field(0.15, ge=0.0, le=1.0,
                                        description="Polling level below which voters become tactical.")
 

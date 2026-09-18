@@ -1565,8 +1565,9 @@ export interface components {
             /**
              * Method
              * @default plurality
+             * @enum {string}
              */
-            method: string;
+            method: "plurality" | "irv" | "borda" | "schulze" | "approval";
             /**
              * Num Rounds
              * @default 5
@@ -2259,7 +2260,7 @@ export interface components {
              * Methods To Compare
              * @description Voting methods to compare. If None, uses the server default set.
              */
-            methods_to_compare?: string[] | null;
+            methods_to_compare?: ("plurality" | "approval" | "irv" | "borda" | "star_voting" | "majority_judgment" | "schulze" | "two_round")[] | null;
             /**
              * Num Voters
              * @default 200
@@ -2356,8 +2357,9 @@ export interface components {
             /**
              * Method
              * @default plurality
+             * @enum {string}
              */
-            method: string;
+            method: "plurality" | "borda" | "irv" | "schulze" | "star_voting" | "majority_judgment";
             /**
              * Num Voters
              * @default 200
@@ -3641,8 +3643,9 @@ export interface components {
             /**
              * Method
              * @default plurality
+             * @enum {string}
              */
-            method: string;
+            method: "plurality" | "borda" | "irv" | "schulze" | "two_round" | "approval" | "majority_judgment" | "star_voting";
             /**
              * Num Elections
              * @default 6
@@ -5052,10 +5055,11 @@ export interface components {
             ideology: string;
             /**
              * Method
-             * @description Primary method to display in the curve ('plurality' | 'irv' | 'borda' | 'schulze' | ...).
+             * @description Primary method to display in the curve.
              * @default plurality
+             * @enum {string}
              */
-            method: string;
+            method: "plurality" | "approval" | "borda" | "irv" | "schulze" | "majority_judgment";
             /**
              * Nota Rule
              * @description Constitutional response when NOTA wins: 'invalidate' | 'runoff' | 'winner_take_all'.

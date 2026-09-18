@@ -21,11 +21,12 @@ unwraps the dict shape and both kinds end up with one signature.
 """
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence
 
 from .simulation_ranked_utils import (
     get_anti_plurality_winner,
     get_approval_winner,
+    get_approval_winner_sincere,
     get_baldwin_winner,
     get_black_winner,
     get_borda_winner,
@@ -103,7 +104,7 @@ def supported(*, ranked: bool = True, score: bool = True) -> List[str]:
 def rule_winner(
     method: str,
     rankings: Optional[List[List[str]]] = None,
-    scores: Optional[List[Dict[str, Any]]] = None,
+    scores: Optional[Sequence[Mapping[str, float]]] = None,
 ) -> Optional[str]:
     """The winner under `method`, or None if the rule elects nobody.
 
@@ -121,3 +122,66 @@ def rule_winner(
         winner = result.get("winner") if isinstance(result, dict) else result
         return str(winner) if winner else None
     raise UnknownMethod(f"unknown voting method {method!r} -- supported: {', '.join(supported())}")
+
+
+#: The rules a voter -> candidate -> utility map can express. Ranked rules read
+#: the rankings it induces; `approval` and `majority_judgment` read the
+#: utilities themselves, which is why neither is a plain registry lookup.
+UTILITY_METHODS: tuple[str, ...] = (
+    "plurality", "borda", "irv", "schulze", "two_round",
+    "approval", "majority_judgment", "star_voting",
+)
+
+
+def rankings_from_utilities(
+    utilities: Mapping[Any, Mapping[str, float]], voters: Sequence[Mapping[str, Any]]
+) -> List[List[str]]:
+    """Each voter's candidates, their favourite first."""
+    return [
+        sorted(utilities[v["id"]].keys(), key=lambda n: -utilities[v["id"]][n])
+        for v in voters
+    ]
+
+
+def winner_from_utilities(
+    method: str,
+    utilities: Mapping[Any, Mapping[str, float]],
+    voters: Sequence[Mapping[str, Any]],
+) -> Optional[str]:
+    """The winner under `method`, read off a voter -> candidate -> utility map.
+
+    Five dispatchers each rebuilt this: rankings from the utilities, 0-5 score
+    ballots from the same, an if-chain over method names, and a silent
+    `get_plurality_winner` at the end -- so /adaptive, /nota, /ballot-complexity
+    and /electoral-fatigue all reported plurality's winner under whatever name
+    was asked for. This is that, once, and it raises `UnknownMethod` instead.
+
+    `voters` is the subset that actually voted (panels drop voters a ballot's
+    complexity turned away, or who did not turn out), so every rule reads those
+    voters' utilities alone.
+
+    Returns None when the rule elects nobody -- an exact tie, or an approval
+    round where no candidate cleared any voter's own mean.
+    """
+    if method not in UTILITY_METHODS:
+        raise UnknownMethod(
+            f"{method!r} cannot be read off a utility matrix -- "
+            f"supported: {', '.join(UTILITY_METHODS)}"
+        )
+    if method == "approval":
+        # Sincere approval: approve above your own mean. A ranking cannot
+        # express where a voter's mean falls, so this reads the utilities --
+        # and it is the engine's own helper, so these panels tie-break the same
+        # way /adaptive does.
+        return get_approval_winner_sincere({v["id"]: utilities[v["id"]] for v in voters})
+    if method == "majority_judgment":
+        # Also utility-native: MJ grades on the raw values, not a 0-5 rounding.
+        raw = SCORE_RULES[method]([dict(utilities[v["id"]]) for v in voters])
+        return str(raw["winner"]) if raw.get("winner") else None
+    if method in SCORE_RULES:
+        scores = [
+            {n: max(0, min(5, round(5 * val))) for n, val in utilities[v["id"]].items()}
+            for v in voters
+        ]
+        return rule_winner(method, scores=scores)
+    return rule_winner(method, rankings_from_utilities(utilities, voters))

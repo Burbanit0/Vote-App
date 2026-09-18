@@ -28,3 +28,6 @@ export type DistrictsResponse = components['schemas']['DistrictsResponse'];
 export type PartyDynamicsResponse = components['schemas']['PartyDynamicsResponse'];
 export type HistoricalReplayResponse = components['schemas']['HistoricalReplayResponse'];
 export type SenParadoxResponse = components['schemas']['SenParadoxResponse'];
+
+/** /adaptive's method names, straight from the backend's request schema. */
+export type AdaptiveMethod = NonNullable<components['schemas']['AdaptiveRequest']['method']>;

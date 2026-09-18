@@ -18,6 +18,9 @@ import numpy as _np
 from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.error_handling import safe_call
 from api.engine.utils.logger import get_logger
+from api.engine.utils.method_registry import (
+    UTILITY_METHODS, rankings_from_utilities, winner_from_utilities,
+)
 from api.engine.utils.simulation_voting_utils import calculate_utility, create_voter
 from api.engine.utils.simulation_ranked_utils import (
     get_borda_winner, get_condorcet_winner, get_irv_winner, get_plurality_winner,
@@ -25,11 +28,7 @@ from api.engine.utils.simulation_ranked_utils import (
 )
 from api.engine.utils.simulation_score_utils import get_majority_judgment_winner
 from ._electorate import _reseed_and_build_electorate
-from ._helpers import (
-    build_candidate_from_xy as _build_candidate_from_xy,
-    rankings_from_utilities,
-    winner_from_utilities,
-)
+from ._helpers import build_candidate_from_xy as _build_candidate_from_xy
 
 log = get_logger(__name__)
 
@@ -143,6 +142,17 @@ def _cascade_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
 # ── Behavioral Biases ─────────────────────────────────────────────────────────
 
+# The panel builds a sincere/biased winner pair for each of these, then reports
+# the one `method` names. An unnamed method used to read `sincere_winners.get(m)
+# or cand_names[0]`, so the panel answered `not_a_method` with the first
+# candidate in the list -- no votes involved -- and said the winner held "sous la
+# méthode 'not_a_method'". Approval is absent because this panel models bullet
+# voting separately, in `_approval_winner`.
+BIAS_TRACKED = (
+    "plurality", "borda", "irv", "schulze", "star_voting", "majority_judgment",
+)
+
+
 def _behavioral_biases_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     """Pure worker for /behavioral-biases — extracted for FastAPI v2 reuse.
 
@@ -173,6 +183,11 @@ def _behavioral_biases_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
 
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
+    if primary_method not in BIAS_TRACKED:
+        return {
+            "error": f"unknown voting method {primary_method!r} -- "
+                     f"supported: {', '.join(BIAS_TRACKED)}"
+        }, 400
 
     candidates, voters, sincere_utilities, cand_names, issues = _reseed_and_build_electorate(
         cand_specs, num_voters, ideology, seed
@@ -217,16 +232,12 @@ def _behavioral_biases_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
         raises is reported as None rather than taking the whole panel down."""
         def _winner(method: str) -> Optional[str]:
             return safe_call(
-                lambda: winner_from_utilities(method, utils, voters, cand_names),
+                lambda: winner_from_utilities(method, utils, voters),
                 lambda: None,
                 log=log, event="workers_behavioral.method_failed", method=method,
             )
 
-        return {
-            m: _winner(m)
-            for m in ("plurality", "borda", "irv", "schulze", "star_voting",
-                      "majority_judgment")
-        }
+        return {m: _winner(m) for m in BIAS_TRACKED}
 
     # ── Approval with bullet voting ───────────────────────────────────────
     def _approval_winner(utils: Dict[Any, Dict[str, float]], bids: set[Any]) -> str:
@@ -829,9 +840,9 @@ _NOTA_ADJ: Dict[str, float] = {
 }
 
 # /electoral-fatigue runs one method over successive elections. Its dispatcher
-# used to end in `else: w = get_plurality_winner(rnk)`, so `kemeny_young` and a
-# misspelling both silently became plurality.
-FATIGUE_METHODS = ("plurality", "borda", "irv", "schulze", "approval")
+# used to end in `else: w = get_plurality_winner(rnk)`, so `kemeny_young`, a
+# misspelling, and the three rules the engine *can* answer here (two_round,
+# star_voting, majority_judgment) all silently became plurality.
 
 _NOTA_TRACKED = (
     "plurality", "approval", "borda", "irv", "schulze", "majority_judgment",
@@ -895,7 +906,7 @@ def _nota_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     def _sincere_winner(method: str) -> Optional[str]:
         return safe_call(
-            lambda: winner_from_utilities(method, sincere_utilities, voters, cand_names),
+            lambda: winner_from_utilities(method, sincere_utilities, voters),
             lambda: None,
             log=log, event="workers_behavioral.method_failed", method=method,
         )
@@ -1052,8 +1063,8 @@ def _ballot_complexity_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
         if not vlist:
             return None
         return safe_call(
-            lambda: winner_from_utilities(method, sincere_utilities, vlist, cand_names),
-            lambda: get_plurality_winner(rankings_from_utilities(sincere_utilities, vlist)),
+            lambda: winner_from_utilities(method, sincere_utilities, vlist),
+            lambda: None,
             log=log, event="workers_behavioral.method_failed", method=method,
         )
 
@@ -1278,10 +1289,10 @@ def _electoral_fatigue_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
 
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
-    if primary_method not in FATIGUE_METHODS:
+    if primary_method not in UTILITY_METHODS:
         return {
             "error": f"unknown voting method {primary_method!r} -- "
-                     f"supported: {', '.join(FATIGUE_METHODS)}"
+                     f"supported: {', '.join(UTILITY_METHODS)}"
         }, 400
 
     candidates, voters, sincere_utilities, cand_names, issues = _reseed_and_build_electorate(
@@ -1310,13 +1321,14 @@ def _electoral_fatigue_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
     # ── Fast winner per method ────────────────────────────────────────────
     def _fast_winner(vlist: list[Dict[str, Any]]) -> tuple[Optional[str], Dict[str, float]]:
         """The winner among the voters who still turned out, plus their first-
-        preference shares. `primary_method` is checked against FATIGUE_METHODS
+        preference shares. `primary_method` is checked against UTILITY_METHODS
         up front, so an unknown name is a 400 rather than plurality's answer
         under another rule's name."""
         if not vlist:
             return cand_names[0], {c: 0.0 for c in cand_names}
         rnk = rankings_from_utilities(sincere_utilities, vlist)
-        w = winner_from_utilities(primary_method, sincere_utilities, vlist, cand_names)
+        w = winner_from_utilities(primary_method, sincere_utilities, vlist)
+
         total  = len(vlist)
         fc     = Counter(r[0] for r in rnk)
         shares = {c: round(fc.get(c, 0) / total, 4) for c in cand_names}
