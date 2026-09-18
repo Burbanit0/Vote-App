@@ -28,6 +28,23 @@ updates:
           - "minor"
           - "patch"
 
+    # Transitive pins owned by a parent package: bumping them alone is
+    # unresolvable ("No solution found"), and Dependabot reopens the same dead
+    # PR every week. Each is capped by something else in this lockfile, so the
+    # fix is to bump the parent, not the child.
+    ignore:
+      # pydantic hard-pins `pydantic-core==<exact>`, and pydantic-core releases
+      # ahead of pydantic, so there is routinely a version no stable pydantic
+      # accepts. 2.49.0 is one: checked every release on PyPI 2026-09-18, and
+      # the only thing pairing with it is pydantic 2.14.0b2 -- a beta, which is
+      # a lot of blast radius for a transitive patch bump given pydantic backs
+      # every request/response schema here. Re-open when 2.14.0 ships stable.
+      - dependency-name: "pydantic-core"
+      # radon 6.0.1 declares `mando>=0.6,<0.8`, so the 0.8.x line cannot be
+      # installed at all while radon is pinned -- and radon feeds the quality
+      # ratchet's complexity count. Moves when radon does.
+      - dependency-name: "mando"
+
   - package-ecosystem: "npm"
     directory: "/voter-app"
     schedule:

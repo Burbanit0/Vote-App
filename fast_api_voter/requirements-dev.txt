@@ -14,7 +14,7 @@ pytest-asyncio==1.4.0
 aiohttp==3.14.3   # 3.14.3: GHSA-cq5v-8q36-5273 (chunked-response parser OOB read),
                   #         GHSA-mfx4-hv73-q22v (ws upgrade smuggling),
                   #         GHSA-mq44-7p77-q5h7 (ws permessage-deflate)
-hypothesis==6.167.1  # Property-based testing for the theoretical invariants
+hypothesis==6.168.0  # Property-based testing for the theoretical invariants
                       # (Condorcet, monotonicity, legitimacy bounds)
 atheris==3.1.0         # Coverage-guided fuzzing on top of Hypothesis's own narrow
                         # strategies (Lot 9, PLAN_SOLIDITE_TECHNIQUE.md) -- targets
@@ -63,7 +63,7 @@ mutmut==3.8.0  # 3.7.0 crashed under numpy>=2.4 (numpy/numpy#29030's new
                # by gathering coverage in a separate process (#528, #566).
 
 # Code quality
-ruff==0.16.6         # Replaces flake8 (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md) — see
+ruff==0.16.7         # Replaces flake8 (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md) — see
                      # fast_api_voter/pyproject.toml's [tool.ruff]/[tool.ruff.lint]
                      # for the deliberately narrow rule selection this carries over.
 mypy==2.3.1         # Static type checking
