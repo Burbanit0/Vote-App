@@ -2,7 +2,7 @@
  * AffectivePolarizationPanel — models how inter-partisan hostility
  * distorts voting utilities and destabilises election results.
  */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -26,8 +26,7 @@ import { useElection } from '../../../stores/useElectionStore';
 import { $api } from '../../../api/hooks';
 
 import { numericTooltipFormatter, numericTickFormatter } from '@/lib/rechartsFormatters';
-
-const DEBOUNCE_MS = 400;
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -250,8 +249,6 @@ const AffectivePolarizationPanel: React.FC = () => {
   const loading = sim.isPending;
   const error = sim.isError ? t('affect.error') : null;
 
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const run = (h: number, sims: number) => {
     sim.mutate({
       body: {
@@ -266,18 +263,12 @@ const AffectivePolarizationPanel: React.FC = () => {
     });
   };
 
+  const scheduleRun = useDebouncedCallback(run);
+
   const handleHostilityChange = (v: number) => {
     setHostility(v);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => run(v, numSims), DEBOUNCE_MS);
+    scheduleRun(v, numSims);
   };
-
-  useEffect(
-    () => () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    },
-    []
-  );
 
   const candNames = data?.candidates.map((c) => c.name) ?? [];
   const allMethods = data ? Object.keys(data.sincere_results) : [];

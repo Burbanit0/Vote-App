@@ -2,7 +2,7 @@
  * ShyVoterPanel — simulates the Bradley / Shy Tory effect:
  * voters declare a socially acceptable preference in polls but vote sincerely.
  */
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -28,8 +28,7 @@ import type { DotItemDotProps } from 'recharts';
 import { useElection } from '../../../stores/useElectionStore';
 import { $api } from '../../../api/hooks';
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
-
-const DEBOUNCE_MS = 400;
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -100,7 +99,6 @@ const ShyVoterPanel: React.FC = () => {
   const data: ShyData | null = (sim.data as ShyData | undefined) ?? null;
   const loading = sim.isPending;
   const error = sim.isError ? t('shyVoter.apiError') : null;
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const runSimulation = (factor: number, idx: number) => {
     sim.mutate({
@@ -118,10 +116,11 @@ const ShyVoterPanel: React.FC = () => {
 
   const handleSimulate = () => runSimulation(sdFactor, shyIdx);
 
+  const scheduleRun = useDebouncedCallback(runSimulation);
+
   const handleFactorChange = (v: number) => {
     setSdFactor(v);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => runSimulation(v, shyIdx), DEBOUNCE_MS);
+    scheduleRun(v, shyIdx);
   };
 
   // ── Grouped bar chart data (avg poll vs real) ───────────────────────────

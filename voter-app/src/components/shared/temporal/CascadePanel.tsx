@@ -27,8 +27,8 @@ import {
 } from 'recharts';
 import { useElection } from '../../../stores/useElectionStore';
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
 
-const DEBOUNCE_MS = 400;
 const ANIM_STEP_MS = 80;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -233,7 +233,6 @@ const CascadePanel: React.FC = () => {
   const error = sim.isError ? t('cascade.error') : null;
   const [animIndex, setAnimIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const animRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const runSimulation = (strength: number, window: number) => {
@@ -253,11 +252,12 @@ const CascadePanel: React.FC = () => {
 
   const handleSimulate = () => runSimulation(cascadeStrength, observationWindow);
 
+  const scheduleRun = useDebouncedCallback(runSimulation);
+
   // Debounced slider recalculation
   const handleStrengthChange = (v: number) => {
     setCascadeStrength(v);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => runSimulation(v, observationWindow), DEBOUNCE_MS);
+    scheduleRun(v, observationWindow);
   };
 
   // Animation

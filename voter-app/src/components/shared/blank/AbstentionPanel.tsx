@@ -25,13 +25,12 @@ import {
 } from 'recharts';
 import { useElection } from '../../../stores/useElectionStore';
 
-const DEBOUNCE_MS = 400;
-
 // Request type from the generated OpenAPI contract (single source of truth:
 // the Pydantic schema, regenerated via `npm run gen:api`).
 import type { AbstentionRequest } from '../../../api';
 
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -217,7 +216,6 @@ const AbstentionPanel: React.FC = () => {
   const loading = sim.isPending;
   const error = sim.isError ? t('abstention.error') : null;
 
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const candidateNames = config.candidates.map((c) => c.name);
@@ -238,14 +236,10 @@ const AbstentionPanel: React.FC = () => {
   };
 
   // Debounced re-run on slider change
-  const handleChange = (d: number, inf: number, nr: number) => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => run(d, inf, nr), DEBOUNCE_MS);
-  };
+  const handleChange = useDebouncedCallback(run);
 
   useEffect(
     () => () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
       if (timerRef.current) clearTimeout(timerRef.current);
     },
     []
