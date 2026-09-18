@@ -2,7 +2,9 @@
 api.domain.election — pure election compute, no Flask, no FastAPI, no DB.
 
 All functions accept a `data: dict` and return `(body, http_status)`.
-They are pure: same input = same output (modulo any `seed` field).
+They are pure: same input = same output (modulo any `seed` field) --
+except `simulate`, which is memoised in Redis below when REDIS_URL is set.
+The underlying `election_service.simulate` stays pure for direct callers.
 
 The actual worker implementations live in this package's sibling
 `workers*.py` modules (workers.py plus the mechanisms/dynamics/behavioral/
@@ -13,8 +15,13 @@ _nota_worker(data)`) whose docstring was the endpoint's one-liner; the aliases
 below do the same job, and that one-liner now opens the worker's own docstring.
 """
 
-from typing import Any
-from api.domain.election.election_service import ElectionService
+from api.engine.utils.cache import cache_result
+from api.domain.election.election_service import simulate as _simulate
+
+#: The routes reach `simulate` through this namespace, so the cache goes here
+#: rather than on the pure function. `election_service.simulate` stays
+#: uncached for direct callers (tests, CLI, batch).
+simulate = cache_result("election:simulate", ttl_seconds=3600)(_simulate)
 
 from api.domain.election.workers_playground import (
     _profile_simulate_worker as profile_simulate,
@@ -81,6 +88,3 @@ __all__ = [
     "simulate", "simulate_pipeline", "sortition", "structural_fairness", "stv",
 ]
 
-def simulate(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """Run the unified election pipeline."""
-    return ElectionService.simulate(data)

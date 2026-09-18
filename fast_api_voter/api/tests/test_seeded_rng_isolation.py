@@ -92,7 +92,7 @@ def _interference_after_nth_call(target_module: object, attr_name: str, n: int):
 
     `target_module` must be the module that *calls* `attr_name` (mock's
     "patch where it's used, not where it's defined" rule) — e.g. for
-    `ElectionService.simulate`, which does `from ...simulation_voting_utils
+    `simulate`, which does `from ...simulation_voting_utils
     import create_voter`, that's `election_service_mod` itself, not
     `simulation_voting_utils`.
     """
@@ -116,16 +116,16 @@ _CAND_SPECS = [
 ]
 
 
-class TestElectionServiceSimulateIsolatedFromMidCallInterference:
+class TestSimulateIsolatedFromMidCallInterference:
     def test_create_voter_draws_are_isolated(self) -> None:
         # build_candidate_from_xy() (election_service's own candidate
         # builder) is purely deterministic from x/y, no RNG at all — only
         # create_voter needs covering here.
         data = {"num_voters": 30, "seed": 7, "candidates": _CAND_SPECS}
-        baseline, status0 = election_service_mod.ElectionService.simulate(dict(data))
+        baseline, status0 = election_service_mod.simulate(dict(data))
 
         with _interference_after_nth_call(election_service_mod, "create_voter", n=10):
-            interfered, status1 = election_service_mod.ElectionService.simulate(dict(data))
+            interfered, status1 = election_service_mod.simulate(dict(data))
 
         assert status0 == 200
         assert status1 == 200

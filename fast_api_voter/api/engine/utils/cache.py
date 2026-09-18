@@ -6,16 +6,18 @@ Vote Lab's simulation endpoints are deterministic: the same input config
 ideal candidates for memoisation in Redis — a user rerunning the same
 simulation gets the answer in ~5 ms instead of 200–500 ms.
 
-Usage:
+Usage — decorate the name the ROUTE reaches, not an inner worker. This
+decorator spent its whole life on `workers._simulate_worker`, which nothing
+imported, so /simulate paid full compute on every identical request and no test
+noticed:
+
     from api.engine.utils.cache import cache_result
 
-    @cache_result("election:simulate", ttl_seconds=3600)
-    def _simulate_worker(data: dict) -> tuple[dict, int]:
-        ...
-        return body, 200
+    # api/domain/election/__init__.py — the namespace the routes import from
+    simulate = cache_result("election:simulate", ttl_seconds=3600)(_simulate)
 
-Stack this BELOW @heavy_endpoint so the cache check runs in the tpool
-thread alongside the compute (avoids holding the eventlet event loop).
+Wrapping the namespace rather than the implementation also keeps the underlying
+function callable uncached, which the seeded-RNG isolation tests need.
 
 Failure modes (cache miss, redis down, serialisation errors) all log a
 warning and fall through to the wrapped worker — never crash the request.
@@ -31,9 +33,8 @@ from typing import Any, Callable, Dict, Tuple
 
 from api.engine.utils.error_handling import safe_call
 
-# Use a module-level logger, NOT current_app.logger — workers wrapped here may
-# run inside eventlet.tpool (a real OS thread) where the Flask app context is
-# not available. current_app would raise RuntimeError there.
+# Module-level logger: workers wrapped here run inside `asyncio.to_thread`
+# (a real OS thread), so anything context-local to the request is unavailable.
 log = logging.getLogger(__name__)
 
 WorkerFn = Callable[[Dict[str, Any]], Tuple[Dict[str, Any], int]]
@@ -71,6 +72,14 @@ def _get_redis_client() -> Any:
     return _redis_client
 
 
+#: Folded into every key so a deploy cannot serve results computed by the
+#: previous build. The voting rules are the highest-blast-radius surface in the
+#: repo; without this, fixing one and shipping it leaves /simulate answering
+#: with the pre-fix winner for up to a full TTL, and no gate can see it (the
+#: parity harness tests the engine, not what Redis returns).
+_BUILD = os.environ.get("GIT_SHA", "dev")[:12]
+
+
 def cache_result(prefix: str, ttl_seconds: int = 3600) -> Callable[[WorkerFn], WorkerFn]:
     """Memoise worker results in Redis by hash of the input dict.
 
@@ -86,7 +95,7 @@ def cache_result(prefix: str, ttl_seconds: int = 3600) -> Callable[[WorkerFn], W
                 return worker(data)
 
             try:
-                key = f"{prefix}:{_stable_hash(data)}"
+                key = f"{prefix}:{_BUILD}:{_stable_hash(data)}"
             except (TypeError, ValueError):
                 # Input not JSON-serialisable — skip cache entirely.
                 return worker(data)
@@ -94,7 +103,15 @@ def cache_result(prefix: str, ttl_seconds: int = 3600) -> Callable[[WorkerFn], W
             try:
                 cached = redis_client.get(key)
                 if cached is not None:
-                    return json.loads(cached), 200
+                    parsed = json.loads(cached)
+                    # A value that decodes to a list/None/number is not a body.
+                    # Returning it would 500 in the route's response_model and,
+                    # since the read succeeded, nothing would overwrite the key
+                    # -- so it would keep 500ing for the rest of the TTL.
+                    # Falling through recomputes and rewrites it.
+                    if isinstance(parsed, dict):
+                        return parsed, 200
+                    log.warning("cache held a non-object at %s; recomputing", key)
             except Exception:
                 # Redis down or transient error — log and fall through.
                 log.warning("cache read failed for %s", key, exc_info=True)
