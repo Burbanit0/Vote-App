@@ -3,7 +3,7 @@
  * beyond a threshold of candidates, voters resort to heuristics instead
  * of their true preferences, degrading election quality.
  */
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { $api } from '../../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
@@ -28,6 +28,7 @@ import {
 } from 'recharts';
 import { useElection } from '../../../stores/useElectionStore';
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
 
 const DEFAULT_COUNTS = [2, 3, 5, 7, 10];
 
@@ -66,7 +67,6 @@ const ChoiceOverloadPanel: React.FC = () => {
   const data: OverloadData | null = (sim.data as OverloadData | undefined) ?? null;
   const loading = sim.isPending;
   const error = sim.isError ? t('overload.error') : null;
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const runSimulation = (hn: number, hp: number, hpa: number, thr: number) => {
     sim.mutate({
@@ -84,10 +84,7 @@ const ChoiceOverloadPanel: React.FC = () => {
 
   const handleSimulate = () => runSimulation(hNotoriety, hPrimacy, hPartisan, threshold);
 
-  const schedule = (hn: number, hp: number, hpa: number, thr: number) => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => runSimulation(hn, hp, hpa, thr), 400);
-  };
+  const schedule = useDebouncedCallback(runSimulation);
 
   // ── Line chart data ─────────────────────────────────────────────────────
   const lineData =

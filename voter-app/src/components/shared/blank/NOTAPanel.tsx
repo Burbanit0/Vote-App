@@ -3,7 +3,7 @@
  * Voters cast NOTA if their best candidate's utility falls below the threshold.
  * Three constitutional rules: invalidate, force runoff, or seat NOTA (Nevada).
  */
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -26,8 +26,7 @@ import {
 import { useElection } from '../../../stores/useElectionStore';
 import { $api } from '../../../api/hooks';
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
-
-const DEBOUNCE_MS = 400;
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -113,7 +112,6 @@ const NOTAPanel: React.FC = () => {
   const data: NotaData | null = (sim.data as NotaData | undefined) ?? null;
   const loading = sim.isPending;
   const error = sim.isError ? t('nota.error') : null;
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const runSimulation = (thr: number, rule: string) => {
     sim.mutate({
@@ -131,10 +129,11 @@ const NOTAPanel: React.FC = () => {
 
   const handleSimulate = () => runSimulation(threshold, notaRule);
 
+  const scheduleRun = useDebouncedCallback(runSimulation);
+
   const handleThresholdChange = (v: number) => {
     setThreshold(v);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => runSimulation(v, notaRule), DEBOUNCE_MS);
+    scheduleRun(v, notaRule);
   };
 
   const tippingPoint = data ? findTippingPoint(data.nota_curve) : null;

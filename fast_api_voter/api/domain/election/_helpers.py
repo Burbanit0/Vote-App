@@ -103,7 +103,7 @@ def parse_optional_election_configs(
     params.
 
     Extracted from the identical block duplicated between
-    `election_service.py`'s `ElectionService.simulate` and
+    `election_service.py`'s `simulate` and
     `workers.py`'s `_simulate_pipeline_worker` (jscpd-flagged,
     CODE_AUDIT.md §4/§7). The candidate-count validation that immediately
     follows this block at both call sites stays there — it depends on each

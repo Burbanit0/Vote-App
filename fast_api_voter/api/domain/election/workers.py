@@ -1,15 +1,10 @@
 """
-election.py — Unified election simulation endpoint.
+workers.py — the core election workers.
 
-POST /api/election/simulate orchestrates all existing models in the correct
-logical order:
-
-  1. Build electorate (voters + candidates from explicit x/y positions)
-  2. Campaign dynamics   — if campaign.enabled, adjust vote intentions
-  3. Blank-vote contagion — if blank_vote.contagion.enabled, lower blank thresholds
-  4. Information model   — if information_model.enabled, distort perceived utilities
-  5. All voting methods  — compare_all_methods with possibly overridden utilities
-  6. Blank-vote rules    — if blank_vote.enabled, apply constitutional rule to each winner
+Divergence, campaign sensitivity, combined effects, interpret, the stepped
+pipeline, coalition, districts and primary. The unified /simulate pipeline this
+docstring used to describe lives in `election_service.py`; only a two-line
+delegator remained here, and nothing imported it.
 """
 from __future__ import annotations
 
@@ -48,28 +43,6 @@ from ._electorate import (
     _snapshot_election_winners,
     _apply_blank_contagion,
 )
-
-
-
-# ── Endpoint ──────────────────────────────────────────────────────────────────
-
-@cache_result("election:simulate", ttl_seconds=3600)
-def _simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Thin route worker: delegates to ElectionService (pure orchestration).
-
-    The cache + tpool wrappers stay at this layer (cross-cutting HTTP concern).
-    The service is callable from anywhere — tests, CLIs, future entry points.
-
-    Cached via Redis: identical input dicts (same seed = same result) return
-    in ~5 ms instead of 200-500 ms. Cache is keyed by SHA-256 of the JSON-
-    serialised data with a 1h TTL.
-    """
-    from api.domain.election.election_service import ElectionService
-    return ElectionService.simulate(data)
-
-
-
-
 
 
 # ── Divergence endpoint ───────────────────────────────────────────────────────
@@ -298,8 +271,8 @@ def _campaign_sensitivity_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], 
 
 @cache_result("election:combined-effects", ttl_seconds=3600)
 def _combined_effects_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure-compute worker for /combined-effects. Runs in eventlet.tpool via
-    @heavy_endpoint so the matrix of 8 simulations doesn't block the event loop.
+    """Pure-compute worker for /combined-effects. Runs in a worker thread via
+    run_typed so the matrix of 8 simulations doesn't block the event loop.
 
     Cached via Redis (1h TTL) — the factorial 2³ matrix is fully deterministic,
     so re-running the same input is a guaranteed cache hit.

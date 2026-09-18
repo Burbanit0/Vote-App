@@ -114,7 +114,7 @@ def _seeded_rng_pair(
     Centralises the `if seed is not None: rng = random.Random(seed); np_rng =
     np.random.RandomState(seed)` block that was duplicated verbatim across 5
     call sites (`_electorate.py::_build_base_electorate`,
-    `election_service.py::ElectionService.simulate`, `export.py::
+    `election_service.py::simulate`, `export.py::
     _generate_rows`, `simulation_voting_utils.py::run_bandwagon_simulation`
     and `::run_simulation`) — flagged by a `/code-review ultra` pass as a real
     drift risk, not just style: the same class of bug (a reseeded shared

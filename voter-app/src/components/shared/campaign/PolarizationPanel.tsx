@@ -7,7 +7,7 @@
  *   - Winner stability
  * And reveals which methods are most robust under polarized electorates.
  */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -29,6 +29,7 @@ import { useElection } from '../../../stores/useElectionStore';
 import { $api } from '../../../api/hooks';
 
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -188,8 +189,6 @@ const PolarizationPanel: React.FC = () => {
   const loading = sim.isPending;
   const error = sim.isError ? t('polarization.error') : null;
 
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const run = (ideologies: string[], sims: number) => {
     if (ideologies.length === 0) return;
     sim.mutate({
@@ -203,18 +202,12 @@ const PolarizationPanel: React.FC = () => {
     });
   };
 
+  const scheduleRun = useDebouncedCallback(run, 500);
+
   const handleSimsChange = (v: number) => {
     setNumSims(v);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => run(selectedIdeologies, v), 500);
+    scheduleRun(selectedIdeologies, v);
   };
-
-  useEffect(
-    () => () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    },
-    []
-  );
 
   const toggleIdeology = (id: string) => {
     setSelectedIdeologies((prev) =>

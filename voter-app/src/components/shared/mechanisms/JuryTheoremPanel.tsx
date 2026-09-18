@@ -8,7 +8,7 @@
  *
  * Debounced competence slider triggers a new simulation call.
  */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { $api } from '../../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
@@ -18,6 +18,7 @@ import { Range } from '@/components/ui/form-controls';
 import { Col, Row } from '@/components/ui/grid';
 import { Spinner } from '@/components/ui/spinner';
 import { numericTooltipFormatter, numericTickFormatter } from '@/lib/rechartsFormatters';
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
 
 import {
   LineChart,
@@ -33,8 +34,6 @@ import {
   Cell,
   CartesianGrid,
 } from 'recharts';
-const DEBOUNCE_MS = 400;
-
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface MethodResult {
@@ -94,8 +93,6 @@ const JuryTheoremPanel: React.FC = () => {
   const loading = sim.isPending;
   const error = sim.isError ? t('jury.error') : null;
 
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const run = (comp: number, voters: number, opts: number, sims: number) => {
     sim.mutate({
       body: {
@@ -109,22 +106,13 @@ const JuryTheoremPanel: React.FC = () => {
     });
   };
 
+  const scheduleRun = useDebouncedCallback(run);
+
   // Debounced competence change
   const handleCompetenceChange = (v: number) => {
     setCompetence(v);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(
-      () => run(v, numVoters, numOptions, numSimulations),
-      DEBOUNCE_MS
-    );
+    scheduleRun(v, numVoters, numOptions, numSimulations);
   };
-
-  useEffect(
-    () => () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    },
-    []
-  );
 
   // ── Bar chart data ─────────────────────────────────────────────────────
   const barData = data

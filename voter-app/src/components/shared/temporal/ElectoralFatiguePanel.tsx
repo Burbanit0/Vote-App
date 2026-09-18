@@ -2,7 +2,7 @@
  * ElectoralFatiguePanel — simulates how repeated elections reduce turnout
  * and progressively shift the residual electorate toward engaged (partisan) voters.
  */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { $api } from '../../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
@@ -26,8 +26,7 @@ import {
 } from 'recharts';
 import { useElection } from '../../../stores/useElectionStore';
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
-
-const DEBOUNCE_MS = 400;
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -161,7 +160,6 @@ const ElectoralFatiguePanel: React.FC = () => {
   const data: FatigueData | null = (sim.data as FatigueData | undefined) ?? null;
   const loading = sim.isPending;
   const error = sim.isError ? t('fatigue.error') : null;
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const runSimulation = (fr: number, ep: number, ne: number) => {
     sim.mutate({
@@ -180,10 +178,7 @@ const ElectoralFatiguePanel: React.FC = () => {
 
   const handleSimulate = () => runSimulation(fatigueRate, engagedPct, numElections);
 
-  const schedule = (fr: number, ep: number, ne: number) => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => runSimulation(fr, ep, ne), DEBOUNCE_MS);
-  };
+  const schedule = useDebouncedCallback(runSimulation);
 
   const hasData = data !== null;
   useEffect(() => {
