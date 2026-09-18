@@ -33,7 +33,7 @@ log = get_logger(__name__)
 # ── Information Cascade ───────────────────────────────────────────────────────
 
 def _cascade_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /cascade — extracted for FastAPI v2 reuse."""
+    """/cascade — Sequential voting with information cascades (Bikhchandani 1992)."""
     num_voters         = max(20,  min(500,  int(data.get("num_voters",         100))))
     ideology           = str(data.get("ideology",          "random"))
     seed               = int(data.get("seed",               42))
@@ -511,7 +511,7 @@ def _ld_note(
 
 
 def _liquid_democracy_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /liquid-democracy — extracted for FastAPI v2."""
+    """/liquid-democracy — Transitive delegation up to max_chain_length hops."""
     num_voters      = max(2, min(500, int(data.get("num_voters", 100))))
     ideology        = str(data.get("ideology", "random"))
     seed            = int(data.get("seed", 42))
@@ -767,7 +767,7 @@ def _cv_note(
 
 
 def _conviction_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /conviction-voting — extracted for FastAPI v2."""
+    """/conviction-voting — Polkadot-style conviction voting: tokens × multiplier(lock_days)."""
     num_voters   = max(20, min(500, int(data.get("num_voters", 200))))
     ideology     = str(data.get("ideology", "random"))
     seed         = int(data.get("seed", 42))
@@ -863,7 +863,7 @@ _NOTA_TRACKED = (
 
 
 def _nota_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /nota — extracted for FastAPI v2 reuse (Phase 3 batch 3)."""
+    """/nota — NOTA (None Of The Above) as an official ballot option."""
 
     num_voters     = max(50,  min(500, int(data.get("num_voters",     200))))
     ideology       = str(data.get("ideology",      "random"))
@@ -1044,7 +1044,7 @@ _DEFAULT_BALLOT_METHODS = (
 
 
 def _ballot_complexity_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /ballot-complexity — extracted for FastAPI v2 reuse."""
+    """/ballot-complexity — Null-vote rate per method as a function of ballot complexity."""
     num_voters       = max(50, min(500, int(data.get("num_voters",              200))))
     ideology         = str(data.get("ideology",              "random"))
     seed             = int(data.get("seed",                   42))
@@ -1787,7 +1787,8 @@ def _co_parse(data: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _choice_overload_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /choice-overload — extracted for FastAPI v2 reuse."""
+    """/choice-overload — Schwartz 2004 paradox: heuristics dominate beyond overload_threshold.
+"""
     p = _co_parse(data)
     num_voters, ideology, seed = p["num_voters"], p["ideology"], p["seed"]
     cand_counts, overload_threshold = p["cand_counts"], p["overload_threshold"]

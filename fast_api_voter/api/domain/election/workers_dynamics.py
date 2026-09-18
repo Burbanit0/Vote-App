@@ -74,7 +74,7 @@ def _hotelling_score(
 
 
 def _hotelling_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /hotelling — extracted for FastAPI v2 reuse."""
+    """/hotelling — Hotelling-Downs iterative best-response Nash equilibrium."""
     num_voters     = max(50,  min(500, int(data.get("num_voters",   200))))
     ideology       = str(data.get("ideology",   "random"))
     seed           = int(data.get("seed",         42))
@@ -262,7 +262,7 @@ def _winner_entropy(winners: List[Optional[str]]) -> float:
 
 
 def _polarization_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /polarization — extracted for FastAPI v2 reuse."""
+    """/polarization — Per-ideology Esteban-Ray index + method robustness scan."""
     num_voters     = max(50,  min(300, int(data.get("num_voters",   150))))
     seed           = int(data.get("seed", 42))
     num_simulations = max(5, min(50,  int(data.get("num_simulations", 20))))
@@ -465,7 +465,8 @@ def _run_all_on_utilities(
 
 
 def _affective_polarization_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /affective-polarization — extracted for FastAPI v2."""
+    """/affective-polarization — Iyengar 2019: voters penalise candidates from the opposing
+    political camp."""
     num_voters       = max(50,  min(500, int(data.get("num_voters",   200))))
     ideology         = str(data.get("ideology",    "random"))
     seed             = int(data.get("seed",          42))
