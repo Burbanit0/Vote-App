@@ -24,8 +24,7 @@ import {
 import { useElection } from '../../../stores/useElectionStore';
 import { $api } from '../../../api/hooks';
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
-
-const DEBOUNCE_MS = 400;
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -227,7 +226,6 @@ const LiquidDemocracyPanel: React.FC = () => {
   const data: LiquidData | null = (sim.data as LiquidData | undefined) ?? null;
   const loading = sim.isPending;
   const error = sim.isError ? t('liquid.error') : null;
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const runSimulation = (prob: number, strat: string, chain: number) => {
     sim.mutate({
@@ -245,10 +243,11 @@ const LiquidDemocracyPanel: React.FC = () => {
 
   const handleSimulate = () => runSimulation(delegProb, strategy, maxChain);
 
+  const scheduleRun = useDebouncedCallback(runSimulation);
+
   const handleProbChange = (v: number) => {
     setDelegProb(v);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => runSimulation(v, strategy, maxChain), DEBOUNCE_MS);
+    scheduleRun(v, strategy, maxChain);
   };
 
   const { comparison } = data ?? {};

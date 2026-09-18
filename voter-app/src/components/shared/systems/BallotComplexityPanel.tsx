@@ -2,7 +2,7 @@
  * BallotComplexityPanel — simulates how ballot design complexity
  * causes spoiled (null) ballots and which voting methods lose the most votes.
  */
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { $api } from '../../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
@@ -27,8 +27,7 @@ import {
 } from 'recharts';
 import { useElection } from '../../../stores/useElectionStore';
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
-
-const DEBOUNCE_MS = 400;
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -119,7 +118,6 @@ const BallotComplexityPanel: React.FC = () => {
   const data: ComplexityData | null = (sim.data as ComplexityData | undefined) ?? null;
   const loading = sim.isPending;
   const error = sim.isError ? t('ballot.error') : null;
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const runSimulation = (edu: number, ftv: number) => {
     sim.mutate({
@@ -136,10 +134,7 @@ const BallotComplexityPanel: React.FC = () => {
 
   const handleSimulate = () => runSimulation(eduLevel, ftvPct);
 
-  const schedule = (edu: number, ftv: number) => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => runSimulation(edu, ftv), DEBOUNCE_MS);
-  };
+  const schedule = useDebouncedCallback(runSimulation);
 
   // Auto-recalculate when sliders change after first run
   const hasData = data !== null;

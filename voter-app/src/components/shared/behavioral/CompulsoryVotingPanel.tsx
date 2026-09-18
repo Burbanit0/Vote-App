@@ -3,7 +3,7 @@
  * on the same electorate (Bradley effect of compulsion: reluctant voters
  * add null ballots and random votes, but improve representation).
  */
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { $api } from '../../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
@@ -17,8 +17,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 
 import { useElection } from '../../../stores/useElectionStore';
 
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
-
-const DEBOUNCE_MS = 400;
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -151,8 +150,6 @@ const CompulsoryVotingPanel: React.FC = () => {
   const loading = sim.isPending;
   const error = sim.isError ? t('compulsory.error') : null;
 
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const runSimulation = (vt: number, ct: number, rn: number, rr: number) => {
     sim.mutate({
       body: {
@@ -171,10 +168,7 @@ const CompulsoryVotingPanel: React.FC = () => {
 
   const handleSimulate = () => runSimulation(volTurnout, compTurnout, relNull, relRandom);
 
-  const schedule = (vt: number, ct: number, rn: number, rr: number) => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => runSimulation(vt, ct, rn, rr), DEBOUNCE_MS);
-  };
+  const schedule = useDebouncedCallback(runSimulation);
 
   return (
     <div>

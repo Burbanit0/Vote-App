@@ -15,7 +15,7 @@ import { Col, Row } from '@/components/ui/grid';
 import { Spinner } from '@/components/ui/spinner';
 import { Table } from '@/components/ui/table';
 import { useElection } from '../../../stores/useElectionStore';
-const DEBOUNCE_MS = 400;
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -216,7 +216,6 @@ const BehavioralBiasPanel: React.FC = () => {
   const data: BiasData | null = (sim.data as BiasData | undefined) ?? null;
   const loading = sim.isPending;
   const error = sim.isError ? t('behavioral.error') : null;
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const runSimulation = (params: {
     expPct: number;
@@ -239,10 +238,7 @@ const BehavioralBiasPanel: React.FC = () => {
     });
   };
 
-  const scheduleRun = (params: Parameters<typeof runSimulation>[0]) => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => runSimulation(params), DEBOUNCE_MS);
-  };
+  const scheduleRun = useDebouncedCallback(runSimulation);
 
   const currentParams = {
     expPct: expressivePct,

@@ -3,7 +3,7 @@
  * election, pure sortition (random sample), stratified sortition.
  * Metrics: representativity, diversity, decision regret, Gini of representation.
  */
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -23,7 +23,7 @@ import {
 } from 'recharts';
 import { useElection } from '../../../stores/useElectionStore';
 import { $api } from '../../../api/hooks';
-const DEBOUNCE_MS = 400;
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -162,7 +162,6 @@ const SortitionPanel: React.FC = () => {
   const data: SortitionData | null = (sim.data as SortitionData | undefined) ?? null;
   const loading = sim.isPending;
   const error = sim.isError ? t('sortition.error') : null;
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const runSimulation = (sz: number, real: boolean, gp: boolean, eq: boolean) => {
     sim.mutate({
@@ -182,10 +181,7 @@ const SortitionPanel: React.FC = () => {
 
   const handleSimulate = () => runSimulation(assemblySize, realisticCands, genderParity, eduQuota);
 
-  const schedule = (sz: number, real: boolean, gp: boolean, eq: boolean) => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => runSimulation(sz, real, gp, eq), DEBOUNCE_MS);
-  };
+  const schedule = useDebouncedCallback(runSimulation);
 
   // ── Radar data ──────────────────────────────────────────────────────────
   const radarData = data
