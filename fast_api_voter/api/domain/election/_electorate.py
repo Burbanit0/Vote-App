@@ -219,6 +219,12 @@ def _snapshot_election_winners(
         voters, candidates, issues,
         blank_vote=blank_enabled,
         override_utilities=utilities,
+        # Explicit, not inherited: the default flipped True -> False one commit
+        # ago, and at these endpoints' own cap (6 candidates, 200 voters) the
+        # True path measures 13 s per call -- 8 combos of /combined-effects would
+        # be ~104 s against a 180 s worker timeout. Too load-bearing to leave to
+        # a default in another module.
+        compute_strategic=False,
     )
     blank_pct = report.get("blank_pct") or 0.0
 
