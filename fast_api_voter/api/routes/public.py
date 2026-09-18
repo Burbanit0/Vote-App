@@ -37,8 +37,8 @@ from api.domain.public import (
 )
 from api.core.ratelimit import limiter
 from api.core.worker_dispatch import run_passthrough
-from api.schemas import (
-    WORKER_ERROR_RESPONSES,
+from api.schemas.common import WORKER_ERROR_RESPONSES
+from api.schemas.public_api import (
     PublicCompareRequest,
     PublicCompareResponse,
     PublicMethodsResponse,

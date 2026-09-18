@@ -17,8 +17,8 @@ from api.core.worker_dispatch import run_typed
 from api.domain.tech import (
     _polis_with_candidates_worker,
 )
-from api.schemas import (
-    WORKER_ERROR_RESPONSES,
+from api.schemas.common import WORKER_ERROR_RESPONSES
+from api.schemas.tech import (
     PolisWithCandidatesRequest,
     PolisWithCandidatesResponse,
 )
