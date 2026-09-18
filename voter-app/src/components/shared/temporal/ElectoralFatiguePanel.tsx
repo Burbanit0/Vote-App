@@ -27,6 +27,7 @@ import {
 import { useElection } from '../../../stores/useElectionStore';
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
 import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
+import { colorByName, LAB_PALETTE_PINK } from '@/lib/palette';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -53,10 +54,7 @@ interface FatigueData {
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 
-const CAND_COLORS = ['#005CAB', '#C8590A', '#007A33', '#9b59b6', '#e67e22', '#e83e8c'];
-function candColor(name: string, names: string[]): string {
-  return CAND_COLORS[names.indexOf(name) % CAND_COLORS.length] ?? '#888';
-}
+const candColor = (name: string, names: string[]) => colorByName(name, names, LAB_PALETTE_PINK);
 
 // ── Who stops voting SVG ──────────────────────────────────────────────────────
 

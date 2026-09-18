@@ -16,6 +16,7 @@ import { Table } from '@/components/ui/table';
 import { useElection } from '../../../stores/useElectionStore';
 import { $api } from '../../../api/hooks';
 import { hemicyclePath, hemicycleSegments } from '@/lib/hemicycleGeometry';
+import { colorByName, LAB_PALETTE_WIDE } from '@/lib/palette';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -52,19 +53,7 @@ interface CompareData {
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 
-const CAND_COLORS = [
-  '#005CAB',
-  '#C8590A',
-  '#007A33',
-  '#6c757d',
-  '#9b59b6',
-  '#e67e22',
-  '#2A9D8F',
-  '#E76F51',
-];
-function candColor(name: string, names: string[]) {
-  return CAND_COLORS[names.indexOf(name) % CAND_COLORS.length] ?? '#888';
-}
+const candColor = (name: string, names: string[]) => colorByName(name, names, LAB_PALETTE_WIDE);
 
 const METHOD_LABELS: Record<string, string> = {
   stv: 'STV',

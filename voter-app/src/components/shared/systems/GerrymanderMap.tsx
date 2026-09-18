@@ -16,6 +16,7 @@ import { useElection } from '../../../stores/useElectionStore';
 import { $api } from '../../../api/hooks';
 import { hemicyclePath, hemicycleSegments } from '@/lib/hemicycleGeometry';
 import HemicycleLegend from './HemicycleLegend';
+import { colorByName, LAB_PALETTE } from '@/lib/palette';
 
 // ── Grid constants ────────────────────────────────────────────────────────────
 
@@ -93,10 +94,7 @@ const DIST_STROKE = [
   '#b71c1c',
 ];
 
-const CAND_COLORS = ['#005CAB', '#C8590A', '#007A33', '#6c757d', '#9b59b6', '#e67e22'];
-function candColor(name: string, names: string[]) {
-  return CAND_COLORS[names.indexOf(name) % CAND_COLORS.length] ?? '#888';
-}
+const candColor = (name: string, names: string[]) => colorByName(name, names, LAB_PALETTE);
 
 // ── Grid cell → domain bounds ──────────────────────────────────────────────
 

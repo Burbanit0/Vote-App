@@ -13,6 +13,7 @@ import { $api } from '../../../api/hooks';
 import type { HistoricalReplayResponse } from '../../../api';
 
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+import { colorByName, LAB_PALETTE } from '@/lib/palette';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 // Source of truth is the generated `HistoricalReplayResponse` (Phase 6 response_model).
@@ -31,11 +32,7 @@ const SCENARIOS = [
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 
-const PALETTE = ['#005CAB', '#C8590A', '#007A33', '#6c757d', '#9b59b6', '#e67e22'];
-
-function candColor(name: string, names: string[]): string {
-  return PALETTE[names.indexOf(name) % PALETTE.length] ?? '#888';
-}
+const candColor = (name: string, names: string[]) => colorByName(name, names, LAB_PALETTE);
 
 // ── SVG ideology map ──────────────────────────────────────────────────────────
 

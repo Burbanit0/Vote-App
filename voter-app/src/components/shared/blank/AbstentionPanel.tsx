@@ -31,6 +31,7 @@ import type { AbstentionRequest } from '../../../api';
 
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
 import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
+import { colorByName, LAB_PALETTE } from '@/lib/palette';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -65,10 +66,7 @@ interface AbstentionData {
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 
-const PALETTE = ['#005CAB', '#C8590A', '#007A33', '#6c757d', '#9b59b6', '#e67e22'];
-function candColor(name: string, names: string[]) {
-  return PALETTE[names.indexOf(name) % PALETTE.length] ?? '#888';
-}
+const candColor = (name: string, names: string[]) => colorByName(name, names, LAB_PALETTE);
 
 // ── SVG ideology map with abstention overlay ──────────────────────────────────
 
