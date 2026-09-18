@@ -293,7 +293,7 @@ _REPLAY_SCENARIOS: Dict[str, Dict[str, Any]] = {
 
 
 def _historical_replay_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /historical-replay — extracted for FastAPI v2."""
+    """/historical-replay — Day-by-day historical replay with candidate overrides."""
     scenario_id = str(data.get("scenario_id", "france2002"))
     overrides   = data.get("overrides") or []
     num_days    = max(1, min(60, int(data.get("num_days", 30))))
@@ -505,7 +505,7 @@ def _run_jury_simulation(
 
 
 def _jury_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /jury — extracted for FastAPI v2 reuse."""
+    """/jury — Condorcet Jury Theorem: P(majority correct | per-voter competence p)."""
     num_voters        = max(10, min(500, int(data.get("num_voters",        100))))
     num_options       = max(2,  min(5,   int(data.get("num_options",         2))))
     correct_idx       = max(0,  min(num_options - 1,
@@ -632,7 +632,7 @@ def _abstention_prob(
 
 
 def _abstention_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /abstention — extracted for FastAPI v2 reuse."""
+    """/abstention — Iterated abstention model with poll-feedback over N rounds."""
 
     num_voters             = max(50,  min(1000, int(data.get("num_voters", 300))))
     ideology               = str(data.get("ideology", "random"))
@@ -829,7 +829,7 @@ def _validate_multiwinner_candidates(
 
 
 def _stv_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /stv — extracted for FastAPI v2."""
+    """/stv — Single Transferable Vote + D'Hondt + FPTP comparison."""
     num_voters = max(50,  min(1000, int(data.get("num_voters",  300))))
     ideology   = str(data.get("ideology",  "random"))
     seed       = int(data.get("seed",        42))
@@ -918,7 +918,7 @@ def _closest_district(
 
 
 def _gerrymander_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /gerrymander — extracted for FastAPI v2."""
+    """/gerrymander — Voters assigned to user-drawn rectangular districts."""
     num_voters = max(50,  min(1000, int(data.get("num_voters",  300))))
     ideology   = str(data.get("ideology",  "random"))
     seed       = int(data.get("seed",        42))
