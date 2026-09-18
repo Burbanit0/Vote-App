@@ -208,6 +208,11 @@ def _real_elections_payload() -> dict[str, Any]:
 
 
 # ── GET /api/v1/openapi.json ──────────────────────────────────────────────────
+# Hand-written on purpose, not `app.openapi()` filtered to /api/v1: this is the
+# EXTERNAL contract, and the v1 response models carry extra="allow" so the app
+# returns a superset of what it promises (see api/schemas/public_api.py). A
+# generated spec would publish that superset -- every unmodeled field and every
+# /api/v2 schema -- as the promise.
 
 OPENAPI_SPEC: dict[str, Any] = {
     "openapi": "3.0.0",
@@ -224,7 +229,7 @@ OPENAPI_SPEC: dict[str, Any] = {
         "license": {"name": "MIT"},
     },
     "servers": [
-        {"url": "http://localhost:4433", "description": "Local development"},
+        {"url": "http://localhost:4434", "description": "Local development"},
     ],
     "paths": {
         "/api/v1/methods": {

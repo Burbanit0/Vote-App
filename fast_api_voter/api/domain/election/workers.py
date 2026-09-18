@@ -75,7 +75,7 @@ def _simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 # ── Divergence endpoint ───────────────────────────────────────────────────────
 
 def _divergence_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /divergence — extracted for FastAPI v2."""
+    """/divergence — Same electorate, with vs without blank vote."""
     num_voters  = max(10, min(500, int(data.get("num_voters", 200))))
     ideology    = str(data.get("ideology", "random"))
     seed        = int(data.get("seed", 42))
@@ -1149,7 +1149,7 @@ def _run_district_fptp(
 
 
 def _districts_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /districts — extracted for FastAPI v2."""
+    """/districts — N districts with locally shifted ideology, FPTP vs proportional."""
     num_districts            = max(5,   min(50,  int(data.get("num_districts",            10))))
     voters_per_district      = max(50,  min(500, int(data.get("voters_per_district",      100))))
     district_ideology_variance = max(0.0, min(1.0, float(data.get("district_ideology_variance", 0.3))))
@@ -1315,7 +1315,7 @@ def _run_primary(
 
 
 def _primary_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /primary — extracted for FastAPI v2."""
+    """/primary — Internal primaries + general election."""
     parties_raw        = data.get("parties", [])
     general_num_voters = max(50, min(2000, int(data.get("general_num_voters", 500))))
     general_ideology   = str(data.get("general_ideology", "random"))

@@ -6,281 +6,81 @@ They are pure: same input = same output (modulo any `seed` field).
 
 The actual worker implementations live in this package's sibling
 `workers*.py` modules (workers.py plus the mechanisms/dynamics/behavioral/
-playground/advanced decompositions). This `__init__.py` re-exports them
-under the `api.domain.election` namespace and wraps each one in a small
-typed function for the FastAPI routes to call.
+playground/advanced decompositions). This `__init__.py` re-exports them under
+the `api.domain.election` namespace, the only one the routes import from. Each
+name used to arrive through a typed wrapper (`def nota(data): return
+_nota_worker(data)`) whose docstring was the endpoint's one-liner; the aliases
+below do the same job, and that one-liner now opens the worker's own docstring.
 """
-from typing import Any
 
-from api.domain.election.workers import (
-    _campaign_sensitivity_worker,
-    _coalition_worker,
-    _combined_effects_worker,
-    _districts_worker,
-    _divergence_worker,
-    _interpret_worker,
-    _primary_worker,
-    _simulate_pipeline_worker,
-)
-# Electoral-mechanism workers (workers.py decomposition).
-from api.domain.election.workers_mechanisms import (
-    _abstention_worker,
-    _adaptive_worker,
-    _gerrymander_worker,
-    _historical_replay_worker,
-    _jury_worker,
-    _multiwinner_compare_worker,
-    _stv_worker,
-)
-# Spatial-dynamics / equilibrium workers (workers.py decomposition).
-from api.domain.election.workers_dynamics import (
-    _affective_polarization_worker,
-    _hotelling_worker,
-    _polarization_worker,
-)
-# Behavioural / research-panel workers (workers.py decomposition).
-from api.domain.election.workers_behavioral import (
-    _ballot_complexity_worker,
-    _behavioral_biases_worker,
-    _cascade_worker,
-    _choice_overload_worker,
-    _conviction_voting_worker,
-    _electoral_fatigue_worker,
-    _liquid_democracy_worker,
-    _nota_worker,
-    _shy_voter_worker,
-)
-# Lab-reshape playground workers, split into their own module (workers.py decomposition).
-from api.domain.election.workers_playground import (
-    _assembly_scorecard_worker,
-    _assembly_worker,
-    _issue_voting_worker,
-    _profile_simulate_worker,
-    _structural_fairness_worker,
-)
-# Governance / advanced-mechanism workers (workers.py decomposition).
-from api.domain.election.workers_advanced import (
-    _compulsory_voting_worker,
-    _deliberation_worker,
-    _demographic_turnout_worker,
-    _party_dynamics_worker,
-    _power_indices_worker,
-    _sortition_worker,
-)
+from typing import Any
 from api.domain.election.election_service import ElectionService
 
+from api.domain.election.workers_playground import (
+    _profile_simulate_worker as profile_simulate,
+    _assembly_worker as assembly,
+    _assembly_scorecard_worker as assembly_scorecard,
+    _issue_voting_worker as issue_voting,
+    _structural_fairness_worker as structural_fairness,
+)
+from api.domain.election.workers import (
+    _combined_effects_worker as combined_effects,
+    _campaign_sensitivity_worker as campaign_sensitivity,
+    _coalition_worker as coalition,
+    _simulate_pipeline_worker as simulate_pipeline,
+    _districts_worker as districts,
+    _primary_worker as primary,
+    _divergence_worker as divergence,
+    _interpret_worker as interpret,
+)
+from api.domain.election.workers_mechanisms import (
+    _abstention_worker as abstention,
+    _jury_worker as jury,
+    _stv_worker as stv,
+    _adaptive_worker as adaptive,
+    _historical_replay_worker as historical_replay,
+    _gerrymander_worker as gerrymander,
+    _multiwinner_compare_worker as multiwinner_compare,
+)
+from api.domain.election.workers_behavioral import (
+    _nota_worker as nota,
+    _ballot_complexity_worker as ballot_complexity,
+    _shy_voter_worker as shy_voter,
+    _electoral_fatigue_worker as electoral_fatigue,
+    _cascade_worker as cascade,
+    _behavioral_biases_worker as behavioral_biases,
+    _choice_overload_worker as choice_overload,
+    _liquid_democracy_worker as liquid_democracy,
+    _conviction_voting_worker as conviction_voting,
+)
+from api.domain.election.workers_advanced import (
+    _deliberation_worker as deliberation,
+    _sortition_worker as sortition,
+    _demographic_turnout_worker as demographic_turnout,
+    _compulsory_voting_worker as compulsory_voting,
+    _party_dynamics_worker as party_dynamics,
+    _power_indices_worker as power_indices,
+)
+from api.domain.election.workers_dynamics import (
+    _hotelling_worker as hotelling,
+    _polarization_worker as polarization,
+    _affective_polarization_worker as affective_polarization,
+)
+
+# The namespace the routes import from — re-exported aliases need this to be
+# explicit (a bare `X as Y` import reads as unused otherwise).
+__all__ = [
+    "abstention", "adaptive", "affective_polarization", "assembly",
+    "assembly_scorecard", "ballot_complexity", "behavioral_biases",
+    "campaign_sensitivity", "cascade", "choice_overload", "coalition",
+    "combined_effects", "compulsory_voting", "conviction_voting", "deliberation",
+    "demographic_turnout", "districts", "divergence", "electoral_fatigue",
+    "gerrymander", "historical_replay", "hotelling", "interpret", "issue_voting",
+    "jury", "liquid_democracy", "multiwinner_compare", "nota", "party_dynamics",
+    "polarization", "power_indices", "primary", "profile_simulate", "shy_voter",
+    "simulate", "simulate_pipeline", "sortition", "structural_fairness", "stv",
+]
 
 def simulate(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Run the unified election pipeline."""
     return ElectionService.simulate(data)
-
-
-def profile_simulate(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """Lab reshape P1: run every method over a profile built from a user-chosen
-    preference source (spatial / impartial / mallows / urn / handcrafted)."""
-    return _profile_simulate_worker(data)
-
-
-def assembly(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """Lab reshape P3: party-level seats under PR / FPTP / MMP over one shared
-    electorate — proportionality, fragmentation, wasted votes, coalitions."""
-    return _assembly_worker(data)
-
-
-def assembly_scorecard(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """Lab reshape P5: Monte-Carlo scorecard — six [0,1] axes with bands for
-    each structure (pr/fptp/mmp) over re-rolled electorates."""
-    return _assembly_scorecard_worker(data)
-
-
-def issue_voting(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """Frontier FB-2: issue-by-issue majorities vs the bundled platform vote —
-    the Ostrogorski paradox / discursive dilemma."""
-    return _issue_voting_worker(data)
-
-
-def structural_fairness(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """Frontier FC-2: malapportionment, efficiency gap, Penrose square-root
-    council, and cumulative-vs-bloc at-large voting."""
-    return _structural_fairness_worker(data)
-
-
-def combined_effects(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """2x2x2 factorial: run the same electorate under all 8 combinations
-    of blank-vote / campaign / information-model ON-OFF."""
-    return _combined_effects_worker(data)
-
-
-def campaign_sensitivity(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """Snapshot the same electorate at multiple campaign days to measure
-    method-by-method winner stability over time."""
-    return _campaign_sensitivity_worker(data)
-
-
-def coalition(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """Per-method D'Hondt seat allocation + greedy coalition formation."""
-    return _coalition_worker(data)
-
-
-def abstention(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """Iterated abstention model with poll-feedback over N rounds."""
-    return _abstention_worker(data)
-
-
-# ── Perturber endpoints (Phase 3 batch 3) ──────────────────────────────────
-
-def nota(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """NOTA (None Of The Above) as an official ballot option."""
-    return _nota_worker(data)
-
-
-def ballot_complexity(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """Null-vote rate per method as a function of ballot complexity."""
-    return _ballot_complexity_worker(data)
-
-
-def shy_voter(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """Bradley / Shy Tory effect: socially-sensitive candidates underpolled."""
-    return _shy_voter_worker(data)
-
-
-def electoral_fatigue(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """Turnout decay over repeated elections; residual electorate drifts toward partisans."""
-    return _electoral_fatigue_worker(data)
-
-
-# ── Perturber endpoints (Phase 3 batch 4) ──────────────────────────────────
-
-def cascade(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """Sequential voting with information cascades (Bikhchandani 1992)."""
-    return _cascade_worker(data)
-
-
-def behavioral_biases(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """Expressive voting + bullet voting + primacy effect on outcomes."""
-    return _behavioral_biases_worker(data)
-
-
-def choice_overload(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """Schwartz 2004 paradox: heuristics dominate beyond overload_threshold."""
-    return _choice_overload_worker(data)
-
-
-def deliberation(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """DeGroot opinion update across a network, then vote."""
-    return _deliberation_worker(data)
-
-
-# ── Perturber endpoints (Phase 3 batch 5) ──────────────────────────────────
-
-def jury(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """Condorcet Jury Theorem: P(majority correct | per-voter competence p)."""
-    return _jury_worker(data)
-
-
-def hotelling(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """Hotelling-Downs iterative best-response Nash equilibrium."""
-    return _hotelling_worker(data)
-
-
-def polarization(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """Per-ideology Esteban-Ray index + method robustness scan."""
-    return _polarization_worker(data)
-
-
-def sortition(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """Elected vs sortition pure vs stratified assembly comparison."""
-    return _sortition_worker(data)
-
-
-# ── Perturber endpoints (Phase 3 batch 6) ──────────────────────────────────
-
-def affective_polarization(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """Iyengar 2019: voters penalise candidates from the opposing political camp."""
-    return _affective_polarization_worker(data)
-
-
-def demographic_turnout(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """Full population vs effective electorate via age × education turnout gaps."""
-    return _demographic_turnout_worker(data)
-
-
-def compulsory_voting(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """Voluntary vs compulsory voting: reluctant voters add null/random ballots."""
-    return _compulsory_voting_worker(data)
-
-
-def party_dynamics(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """Multi-election party-system evolution (Duverger's Law)."""
-    return _party_dynamics_worker(data)
-
-
-# ── Phase 3 batch 7 ─────────────────────────────────────────────────────────
-
-def simulate_pipeline(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """Step-by-step pipeline animation for the simulation hub."""
-    return _simulate_pipeline_worker(data)
-
-
-def districts(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """N districts with locally shifted ideology, FPTP vs proportional."""
-    return _districts_worker(data)
-
-
-def primary(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """Internal primaries + general election."""
-    return _primary_worker(data)
-
-
-def stv(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """Single Transferable Vote + D'Hondt + FPTP comparison."""
-    return _stv_worker(data)
-
-
-# ── Phase 3 batch 8 ─────────────────────────────────────────────────────────
-
-def adaptive(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """N rounds of adaptive/tactical voting with poll feedback."""
-    return _adaptive_worker(data)
-
-
-def historical_replay(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """Day-by-day historical replay with candidate overrides."""
-    return _historical_replay_worker(data)
-
-
-def gerrymander(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """Voters assigned to user-drawn rectangular districts."""
-    return _gerrymander_worker(data)
-
-
-def multiwinner_compare(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """STV / D'Hondt / SPAV / Phragmén / FPTP on the same electorate."""
-    return _multiwinner_compare_worker(data)
-
-
-# ── Phase 3 batch 9 (final) ────────────────────────────────────────────────
-
-def divergence(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """Same electorate, with vs without blank vote."""
-    return _divergence_worker(data)
-
-
-def interpret(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """Deterministic interpretation of a /simulate result."""
-    return _interpret_worker(data)
-
-
-def liquid_democracy(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """Transitive delegation up to max_chain_length hops."""
-    return _liquid_democracy_worker(data)
-
-
-def conviction_voting(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """Polkadot-style conviction voting: tokens × multiplier(lock_days)."""
-    return _conviction_voting_worker(data)
-
-
-def power_indices(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """Shapley-Shubik and Banzhaf power indices for coalition bargaining."""
-    return _power_indices_worker(data)
