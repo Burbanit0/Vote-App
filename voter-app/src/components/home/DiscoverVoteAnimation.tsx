@@ -30,16 +30,8 @@ const prefersReducedMotion = () =>
   window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
 
 // A count as groups of five: 12 → [5,5,2].
-const gatesOf = (n: number): number[] => {
-  const g: number[] = [];
-  let r = n;
-  while (r >= 5) {
-    g.push(5);
-    r -= 5;
-  }
-  if (r > 0) g.push(r);
-  return g;
-};
+const gatesOf = (n: number): number[] =>
+  Array.from({ length: Math.ceil(n / 5) }, (_, i) => Math.min(5, n - i * 5));
 
 // One tally gate: up to four uprights, the fifth a diagonal slash across them.
 const Gate: React.FC<{ k: number }> = ({ k }) => {

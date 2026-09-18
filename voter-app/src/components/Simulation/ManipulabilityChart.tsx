@@ -1,5 +1,4 @@
 import React, { useCallback, useState } from 'react';
-import { errorMessage } from '../../utils/errorMessage';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardBody, CardHeader } from '@/components/ui/card';
@@ -132,7 +131,7 @@ const ManipulabilityChart: React.FC<Props> = ({ baseParams }) => {
       const results = (resp as { results: ManipResult[] }).results;
       setData(results.filter((r) => r.manipulability_rate !== null));
     } catch (e: unknown) {
-      setError(errorMessage(e, "Erreur lors de l'analyse"));
+      setError(e instanceof Error ? e.message : "Erreur lors de l'analyse");
     } finally {
       setLoading(false);
     }
