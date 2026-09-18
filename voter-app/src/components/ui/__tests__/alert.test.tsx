@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { Alert } from '../alert';
 
 describe('Alert (shadcn/ui)', () => {
@@ -10,20 +10,11 @@ describe('Alert (shadcn/ui)', () => {
     expect(alert.className).toContain('border-red-300');
   });
 
-  it('shows a translated, accessible close button when dismissible and calls onClose', () => {
-    const onClose = vi.fn();
-    render(
-      <Alert dismissible onClose={onClose}>
-        Dismiss me
-      </Alert>
-    );
-    const closeButton = screen.getByLabelText(/Close/);
-    fireEvent.click(closeButton);
-    expect(onClose).toHaveBeenCalledTimes(1);
-  });
-
-  it('renders no close button when not dismissible', () => {
-    render(<Alert>Static</Alert>);
-    expect(screen.queryByLabelText(/Close/)).not.toBeInTheDocument();
+  it('is an alert landmark whatever the variant', () => {
+    // `dismissible`/`onClose` used to live here too, with a close button; no
+    // caller ever passed them, so the only thing rendering that button was the
+    // test that asserted it.
+    render(<Alert variant="info">Heads up</Alert>);
+    expect(screen.getByRole('alert')).toHaveTextContent('Heads up');
   });
 });

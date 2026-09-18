@@ -13,7 +13,6 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: 'bg-primary text-primary-foreground hover:bg-primary/90',
-        destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
         outline: 'border border-input bg-background hover:bg-accent hover:text-accent-foreground',
         secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
         ghost: 'hover:bg-accent hover:text-accent-foreground',
@@ -33,10 +32,6 @@ const buttonVariants = cva(
           'border border-input bg-background hover:bg-accent hover:text-accent-foreground',
         'outline-success': 'border border-[#198754] text-[#198754] hover:bg-[#198754]/10',
         'outline-danger': 'border border-[#dc3545] text-[#dc3545] hover:bg-[#dc3545]/10',
-        'outline-warning': 'border border-[#ffc107] text-[#9a7400] hover:bg-[#ffc107]/10',
-        'outline-info': 'border border-[#0dcaf0] text-[#0a93ad] hover:bg-[#0dcaf0]/10',
-        'outline-dark': 'border border-slate-900 text-slate-900 hover:bg-slate-900/10',
-        'outline-light': 'border border-slate-300 text-slate-100 hover:bg-white/10',
       },
       size: {
         default: 'h-9 px-4 py-2',

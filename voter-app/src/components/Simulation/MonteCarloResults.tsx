@@ -29,6 +29,7 @@ import { useMonteCarloStream } from '../../hooks/useMonteCarloStream';
 import MonteCarloLiveChart from './MonteCarloLiveChart';
 import MonteCarloRaceChart from './MonteCarloRaceChart';
 import MonteCarloConvergencePanel from './MonteCarloConvergencePanel';
+import { useMethodLabels } from './simulationConstants';
 import MethodSimilarityGraph, {
   flatToMatrix,
   partialResultsToMatrix,
@@ -75,25 +76,9 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
 
   const stream = useMonteCarloStream();
 
-  const METHOD_LABELS: Record<string, string> = useMemo(
-    () => ({
-      plurality: t('methods.plurality.label'),
-      two_round: t('methods.two_round.label'),
-      borda: t('methods.borda.label'),
-      approval: t('methods.approval.label'),
-      irv: t('methods.irv.label'),
-      coombs: t('methods.coombs.label'),
-      bucklin: t('methods.bucklin.label'),
-      minimax: t('methods.minimax.label'),
-      schulze: t('methods.schulze.label'),
-      simple_score: t('methods.simple_score.label'),
-      star_voting: t('methods.star_voting.label'),
-      median_voting: t('methods.median_voting.label'),
-      mean_median_hybrid: t('methods.mean_median_hybrid.label'),
-      variance_based: t('methods.variance_based.label'),
-    }),
-    [t]
-  );
+  // 14 of the 18 keys useMethodLabels() covers -- the extra entries are simply
+  // never looked up here.
+  const METHOD_LABELS = useMethodLabels();
 
   const ideologyOptions = [
     { value: 'random', label: t('ideology.random') },

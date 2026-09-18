@@ -10,8 +10,6 @@ const FILL: Record<string, string> = {
   success: 'bg-[#198754]',
   danger: 'bg-[#dc3545]',
   warning: 'bg-[#ffc107]',
-  info: 'bg-[#0dcaf0]',
-  secondary: 'bg-slate-500',
 };
 
 export interface ProgressProps extends React.HTMLAttributes<HTMLDivElement> {
