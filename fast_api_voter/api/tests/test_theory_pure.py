@@ -594,3 +594,88 @@ def test_collective_will_two_candidates_only_one_possible_winner_forces_rousseau
     assert status == 200
     assert body["unique_winner_count"] == 1
     assert body["rousseau_score"] == 1.0
+
+
+
+# ── /collective-will: the methods are the engine's, not look-alikes ──────────
+# This worker used to hand-roll plurality/Borda/IRV/minimax/Condorcet and, for
+# four more methods, return something else entirely: schulze and kemeny_young
+# fell back to Borda whenever no Condorcet winner existed, and star and median
+# were Borda outright ("use borda as proxy").
+
+
+def _collective_will(**overrides: Any) -> Dict[str, Any]:
+    payload: Dict[str, Any] = {
+        "num_methods": 10, "num_agendas": 3, "seed": 0,
+        "num_voters": 149, "ideology": "random",
+    }
+    payload.update(overrides)
+    body, status = _collective_will_worker(payload)
+    assert status == 200
+    return body
+
+
+def test_collective_will_each_method_is_its_own_rule() -> None:
+    """Four methods no longer collapse onto Borda's answer. Verified
+    order-independent: the same electorate with the candidate list reversed
+    returns the same winners, so none of these is a tie broken by list position.
+    """
+    m = _collective_will()["winner_by_method"]
+    assert m == {
+        "plurality": "Carol", "borda": "Bob", "irv": "Carol", "approval": "Bob",
+        "schulze": "Bob", "minimax": "Bob", "kemeny_young": "Bob",
+        "star": "Bob", "median": "Carol", "black": "Bob",
+    }
+    # median reads the score ballots, so it can leave Borda -- under the old
+    # "use borda as proxy" it was Bob by construction.
+    assert m["median"] != m["borda"]
+
+
+def test_collective_will_approval_still_scales_with_the_field() -> None:
+    """The engine's default approval threshold is 2, which at 2 candidates
+    approves the whole field: a dead tie it breaks alphabetically, so approval
+    would stop reading the votes. The panel keeps its own top-~40% rule, which
+    is approve-top-1 at 2 candidates -- i.e. plurality, which is what approval
+    provably is on two candidates.
+
+    The candidates are named so that the alphabetical answer ('Amy') and the
+    electorate's answer would differ if the threshold regressed; here both the
+    electorate and the alphabet favour Amy at seed 0, so the assertion is that
+    approval tracks PLURALITY rather than any fixed name.
+
+    `median` is deliberately not included: the engine's score rules break a tie
+    by candidate insertion order, not alphabetically like every ranked rule, so
+    it can disagree here for reasons that have nothing to do with approval."""
+    m = _collective_will(
+        candidates=[{"name": "Zed", "x": -0.4, "y": 0.0}, {"name": "Amy", "x": 0.35, "y": 0.0}],
+        num_voters=150, ideology="polarized",
+    )["winner_by_method"]
+    assert m["approval"] == m["plurality"] == m["borda"] == m["irv"], m
+
+
+def test_collective_will_omits_a_method_that_elects_nobody() -> None:
+    """An exact 5-5 split has no IRV winner: the engine returns None and the
+    panel leaves `irv` out rather than reporting the first candidate in the
+    request, which is what its `or cand_names[0]` fallback used to do."""
+    body = _collective_will(
+        candidates=[{"name": "Zed", "x": -0.5, "y": 0.0}, {"name": "Amy", "x": 0.5, "y": 0.0}],
+        num_voters=10, seed=0, ideology="random",
+    )
+    assert "irv" not in body["winner_by_method"]
+    assert body["winner_by_method"]["plurality"] == "Amy"
+
+
+def test_collective_will_no_condorcet_winner_here_is_a_tie_not_a_cycle() -> None:
+    """Worth stating because it is easy to assume otherwise: voter utility is
+    -((v - cx)^2 + cy^2), which is linear in the voter's position, so the profile
+    is single-crossing and the majority relation is always transitive -- this
+    panel's electorate cannot produce a Condorcet cycle. The cases where
+    `condorcet_exists` is False are exact pairwise ties (seed 4 / polarized /
+    150 voters ties Alice-Bob 75-75), and they are the ones where the deleted
+    Borda fallback used to fire."""
+    body = _collective_will(seed=4, num_voters=150, ideology="polarized")
+    assert body["condorcet_exists"] is False
+    m = body["winner_by_method"]
+    assert m["borda"] == "Bob"
+    assert m["schulze"] == "Alice"
+    assert m["black"] == "Bob"

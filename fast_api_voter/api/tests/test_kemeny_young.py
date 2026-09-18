@@ -59,9 +59,23 @@ def test_kemeny_young_approximation_path_actually_runs_kwiksort():
     ballots = [list("ABCDEFG")] * 3 + [list("GFEDCBA")] * 2  # 7 candidates > cap
     assert kemeny_used_approximation(ballots) is True
 
-    winner = get_kemeny_young_winner(ballots)
+    # 3 ballots A>...>G against 2 ballots G>...>A: A wins every pairwise duel
+    # 3-2, so it is the Condorcet winner and Kemeny-Young, being
+    # Condorcet-consistent, must elect it. `assert winner in "ABCDEFG"` used to
+    # stand here -- a substring test that passes for any single letter, which is
+    # how _kwik_sort shipped returning the ranking upside down (this profile
+    # returned "G", the unanimous last place).
+    assert get_kemeny_young_winner(ballots) == "A"
 
-    assert winner in "ABCDEFG"
+
+def test_kemeny_young_approximation_is_condorcet_consistent_and_deterministic():
+    """Above the exact cap the winner still has to be the Condorcet winner when
+    one exists (a theorem, not a heuristic), and it must not move between
+    identical calls -- _kwik_sort used to pick its pivot from the global
+    `random` module, so a seeded caller got different answers."""
+    ballots = [list("ABCDEFGH")] * 5 + [list("BACDEFGH")] * 4  # A beats all, 9 ballots
+    assert kemeny_used_approximation(ballots) is True
+    assert {get_kemeny_young_winner(ballots) for _ in range(25)} == {"A"}
 
 
 def test_compare_all_methods_registers_kemeny_young():

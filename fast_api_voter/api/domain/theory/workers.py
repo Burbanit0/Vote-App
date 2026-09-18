@@ -9,7 +9,23 @@ from __future__ import annotations
 import random as _rnd
 from collections import Counter
 from operator import itemgetter
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
+
+from api.engine.utils.simulation_ranked_utils import (
+    get_approval_winner,
+    get_black_winner,
+    get_borda_winner,
+    get_condorcet_winner,
+    get_irv_winner,
+    get_kemeny_young_winner,
+    get_minimax_winner,
+    get_plurality_winner,
+    get_schulze_winner,
+)
+from api.engine.utils.simulation_score_utils import (
+    get_median_voting_winner,
+    get_star_voting_winner,
+)
 
 
 
@@ -2449,9 +2465,12 @@ def _collective_will_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     # Voting methods pool (subset used based on num_methods)
     _method_pool = [
         "plurality", "borda", "irv", "approval",
-        "schulze", "minimax", "kemeny_young", "star", "median", "condorcet"
+        "schulze", "minimax", "kemeny_young", "star", "median", "black",
     ]
     methods_used = _method_pool[:min(num_methods, len(_method_pool))]
+    # Approve the top ~40% of the field, at least one: plurality at 2 candidates,
+    # 2 at 3-4, 3 at 5-7, 4 at 8.
+    _approval_threshold = max(1, int(n_cands * 0.4) + 1)
 
     rng = _rnd.Random(seed)
 
@@ -2483,109 +2502,67 @@ def _collective_will_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         for i in range(num_voters)
     ]
 
-    # ── Plurality tally helper ─────────────────────────────────────────────────
-    def _plurality(rankings: List[List[str]]) -> str:
-        from collections import Counter as _C
-        return _C(r[0] for r in rankings if r).most_common(1)[0][0]
-
-    # ── Borda helper ──────────────────────────────────────────────────────────
-    def _borda(rankings: List[List[str]]) -> str:
-        scores: Dict[str, float] = {c: 0.0 for c in cand_names}
-        for ranking in rankings:
-            for pos, cand in enumerate(ranking):
-                scores[cand] += n_cands - 1 - pos
-        return max(scores, key=scores.get)  # type: ignore[arg-type]
-
-    # ── Condorcet helper ──────────────────────────────────────────────────────
-    def _condorcet_winner(rankings: List[List[str]]) -> Optional[str]:
-        n_v = len(rankings)
-        for cand in cand_names:
-            beats_all = True
-            for other in cand_names:
-                if other == cand:
-                    continue
-                prefer_cand = sum(
-                    1 for r in rankings
-                    if r.index(cand) < r.index(other)
-                    if cand in r and other in r
-                )
-                if prefer_cand <= n_v / 2:
-                    beats_all = False
-                    break
-            if beats_all:
-                return str(cand)
-        return None
-
-    # ── IRV helper ────────────────────────────────────────────────────────────
-    def _irv(rankings: List[List[str]]) -> str:
-        remaining = list(cand_names)
-        current   = [r.copy() for r in rankings]
-        while len(remaining) > 1:
-            from collections import Counter as _C2
-            tally = _C2(
-                next((c for c in r if c in remaining), None)
-                for r in current
-            )
-            tally.pop(None, None)
-            if not tally:
-                break
-            total = sum(tally.values())
-            # Check majority
-            leader = tally.most_common(1)[0][0]
-            if leader is not None and tally[leader] > total / 2:
-                return leader
-            # Eliminate last
-            last = tally.most_common()[-1][0]
-            # None was already removed via tally.pop(None, None) above (and
-            # the `if not tally: break` guard rules out an empty Counter);
-            # basedpyright doesn't narrow Counter[str | None] after a
-            # targeted key pop, so it can't see this is unreachable
-            # (PLAN_SOLIDITE_TECHNIQUE.md Lot 14.5)
-            remaining.remove(last)  # pyright: ignore[reportArgumentType]
-        return str(remaining[0]) if remaining else cand_names[0]
-
-    # ── Minimax helper ────────────────────────────────────────────────────────
-    def _minimax(rankings: List[List[str]]) -> str:
-        len(rankings)
-        worst_loss: Dict[str, int] = {}
-        for cand in cand_names:
-            losses = []
-            for other in cand_names:
-                if other == cand:
-                    continue
-                prefer_other = sum(
-                    1 for r in rankings
-                    if cand in r and other in r and r.index(other) < r.index(cand)
-                )
-                losses.append(prefer_other)
-            worst_loss[cand] = max(losses) if losses else 0
-        return min(worst_loss, key=worst_loss.get)  # type: ignore[arg-type]
+    # ── Score ballots (0-5), the convention every score rule in the engine
+    # expects. The panel's raw utility is a negative squared distance, so the
+    # matrix is min-maxed first -- globally, not per voter, so a voter who
+    # dislikes everyone still scores everyone low (that intensity is what a score
+    # rule is meant to read). Built per electorate, and only when `star` or
+    # `median` is in the pool: they sit at indices 7 and 8, and num_methods
+    # defaults to 5, so the deployed panel never asks for them.
+    def _score_votes(util_matrix: List[List[float]]) -> List[Dict[str, int]]:
+        flat = [u for row in util_matrix for u in row]
+        lo, hi = min(flat), max(flat)
+        span = (hi - lo) or 1.0
+        return [
+            {cand_names[j]: round(5 * (util_matrix[i][j] - lo) / span) for j in range(n_cands)}
+            for i in range(len(util_matrix))
+        ]
 
     # ── Method dispatcher ─────────────────────────────────────────────────────
-    def _run_method(method: str, rankings: List[List[str]]) -> str:
-        if method == "plurality":
-            return _plurality(rankings)
-        if method == "borda":
-            return _borda(rankings)
-        if method == "irv":
-            return _irv(rankings)
-        if method == "approval":
-            # Approve top 40% of candidates
-            threshold = max(1, int(n_cands * 0.4) + 1)
-            scores: Dict[str, int] = {c: 0 for c in cand_names}
-            for r in rankings:
-                for c in r[:threshold]:
-                    scores[c] += 1
-            return max(scores, key=scores.get)  # type: ignore[arg-type]
-        if method in ("schulze", "kemeny_young", "condorcet"):
-            cw = _condorcet_winner(rankings)
-            return cw or _borda(rankings)
-        if method == "minimax":
-            return _minimax(rankings)
-        if method in ("star", "median"):
-            # Score-based: use borda as proxy
-            return _borda(rankings)
-        return _plurality(rankings)
+    # Every rule here is the engine's own implementation. This worker used to
+    # carry hand-rolled copies of plurality/Borda/IRV/minimax/Condorcet and, for
+    # schulze, kemeny_young, star and median, returned something else entirely:
+    # the first two fell back to Borda whenever there was no Condorcet winner --
+    # i.e. exactly in the cycles this panel exists to show -- and the last two
+    # were Borda outright ("use borda as proxy"). Those four agreeing by
+    # construction inflated the rousseau_score the panel reports.
+    _RANKED: Dict[str, Callable[..., Optional[str]]] = {
+        "plurality":    get_plurality_winner,
+        "borda":        get_borda_winner,
+        "irv":          get_irv_winner,
+        # The engine's default threshold is 2, which at 2 candidates approves the
+        # whole field -- a dead tie it then breaks alphabetically, so approval
+        # would stop reading the votes at all. The panel's own rule (top ~40%,
+        # at least 1) is kept, which is also plurality at 2 candidates.
+        "approval":     lambda r: get_approval_winner(r, _approval_threshold),
+        "schulze":      get_schulze_winner,
+        "minimax":      get_minimax_winner,
+        "kemeny_young": get_kemeny_young_winner,
+        # Condorcet alone has no winner when the top pair ties, and the schema
+        # promises a name per method. Black's method IS "Condorcet winner, else
+        # Borda" -- which is what the old `condorcet` entry computed, under a
+        # name that claimed more than it did.
+        "black":        get_black_winner,
+    }
+    _SCORED: Dict[str, Callable[..., Dict[str, Any]]] = {
+        "star":   get_star_voting_winner,
+        "median": get_median_voting_winner,
+    }
+
+    def _run_method(
+        method: str, rankings: List[List[str]], util_matrix: List[List[float]]
+    ) -> Optional[str]:
+        """The winner, or None when the rule genuinely elects nobody (an exact
+        tie IRV cannot break). Reporting a name there is what this worker used to
+        do for four methods; `winner_by_method` omits the method instead.
+
+        `util_matrix` must be the one the rankings came from: a score rule reads
+        it rather than the rankings, and the multi-simulation loop below hands
+        both a re-drawn electorate."""
+        if method in _SCORED:
+            winner = _SCORED[method](_score_votes(util_matrix))["winner"]
+            return str(winner) if winner else None
+        return _RANKED[method](rankings)
 
     # ── Binary elimination for agenda comparison ───────────────────────────────
     def _binary_elim(agenda_order: List[str], pair_matrix: Dict[str, Dict[str, float]]) -> str:
@@ -2621,9 +2598,12 @@ def _collective_will_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     winner_by_agenda: Dict[str, str]   = {}
 
     for method in methods_used:
-        w = _run_method(method, sincere_rankings)
-        winner_by_method[method] = w
-        all_results.append(w)
+        w = _run_method(method, sincere_rankings, utilities)
+        # A rule that elects nobody (IRV on an exact tie) is reported by its
+        # absence rather than by a name it did not choose.
+        if w is not None:
+            winner_by_method[method] = w
+            all_results.append(w)
 
     for perm, label in zip(selected_perms, agenda_labels):
         w = _binary_elim(list(perm), pair_matrix)
@@ -2649,8 +2629,13 @@ def _collective_will_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
                              key=lambda k, sp=sp: -_utility(sp, candidates_raw[k]))]  # type: ignore
             for sp in sim_pos
         ]
+        sim_utilities = [[_utility(sp, c) for c in candidates_raw] for sp in sim_pos]
         # lightweight: top 3 methods only
-        all_results.extend(_run_method(method, sim_rankings) for method in methods_used[:3])
+        all_results.extend(
+            w
+            for method in methods_used[:3]
+            if (w := _run_method(method, sim_rankings, sim_utilities)) is not None
+        )
 
     # ── Aggregate ─────────────────────────────────────────────────────────────
     from collections import Counter as _Cfinal
@@ -2661,7 +2646,8 @@ def _collective_will_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     most_frequent        = winner_counts.most_common(1)[0][0]
     most_frequent_pct    = winner_counts[most_frequent] / len(all_results)
     rousseau_score       = round(1 / n_unique, 4) if n_unique > 0 else 1.0
-    condorcet_w          = _condorcet_winner(sincere_rankings)
+    # get_black_winner computes this internally too; once is enough.
+    condorcet_w          = get_condorcet_winner(sincere_rankings)
     condorcet_exists     = condorcet_w is not None
 
     # ── Philosophical conclusion ──────────────────────────────────────────────
