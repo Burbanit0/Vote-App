@@ -267,7 +267,8 @@ def _dt_note(
 
 
 def _demographic_turnout_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /demographic-turnout — extracted for FastAPI v2."""
+    """/demographic-turnout — Full population vs effective electorate via age × education
+    turnout gaps."""
     num_voters     = max(50, min(500, int(data.get("num_voters", 300))))
     seed           = int(data.get("seed", 42))
     primary_method = str(data.get("method", "plurality"))
@@ -524,7 +525,7 @@ def _compulsory_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
 
 
 def _sortition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /sortition — extracted for FastAPI v2 reuse."""
+    """/sortition — Elected vs sortition pure vs stratified assembly comparison."""
     num_voters      = max(50,  min(500, int(data.get("num_voters",        300))))
     assembly_size   = max(5,   min(300, int(data.get("assembly_size",      50))))
     ideology        = str(data.get("ideology",          "random"))
@@ -1467,7 +1468,7 @@ def _pi_zeros(names: List[str]) -> tuple[Dict[str, float], Dict[str, int]]:
 
 
 def _power_indices_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /power-indices — extracted for FastAPI v2."""
+    """/power-indices — Shapley-Shubik and Banzhaf power indices for coalition bargaining."""
     raw_parties: List[Dict[str, Any]] = data.get("parties") or []
     if not raw_parties:
         return {"error": "parties required"}, 400
