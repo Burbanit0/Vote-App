@@ -18,6 +18,7 @@ import numpy as _np
 
 from api.engine.utils.error_handling import safe_call
 from api.engine.utils.logger import get_logger
+from api.engine.utils.method_registry import rule_winner
 from api.engine.utils.simulation_metrics import compare_all_methods
 from api.engine.utils.simulation_ranked_utils import (
     get_plurality_winner, get_condorcet_winner, get_irv_winner,
@@ -35,12 +36,12 @@ log = get_logger(__name__)
 
 # ── Adaptive voting endpoint ──────────────────────────────────────────────────
 
-_METHOD_WINNERS: Dict[str, Any] = {
-    "plurality": get_plurality_winner,
-    "irv":       get_irv_winner,
-    "borda":     get_borda_winner,
-    "schulze":   get_schulze_winner,
-}
+# The rules /adaptive offers (the Lab panel's dropdown lists exactly these).
+# Anything else is a caller error, not a cue to fall back to plurality: this
+# table used to end in `.get(method, get_plurality_winner)`, so `kemeny_young`,
+# `minimax`, `star_voting` and the literal string `not_a_method` all returned
+# plurality's winner under the requested name.
+ADAPTIVE_METHODS = ("plurality", "irv", "borda", "schulze", "approval")
 
 
 def _compute_winner(
@@ -48,12 +49,15 @@ def _compute_winner(
     utilities: Dict[Any, Dict[str, float]],
     method: str,
 ) -> Optional[str]:
-    """Dispatch to the correct winner function for the given method."""
+    """The winner under `method`, which `_adaptive_worker` has already checked
+    against ADAPTIVE_METHODS (it answers a bad name with a 400). An unlisted
+    name reaching here raises UnknownMethod from the registry rather than
+    quietly returning plurality's winner, which is what this used to do."""
     if method == "approval":
+        # Sincere approval reads utilities (approve above your own mean), which
+        # rankings cannot express.
         return get_approval_winner_sincere(utilities)
-    fn = _METHOD_WINNERS.get(method, get_plurality_winner)
-    result: Optional[str] = fn(rankings)
-    return result
+    return rule_winner(method, rankings)
 
 
 def _tactical_vote(
@@ -104,6 +108,11 @@ def _adaptive_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
+    if method not in ADAPTIVE_METHODS:
+        return {
+            "error": f"unknown voting method {method!r} -- "
+                     f"supported: {', '.join(ADAPTIVE_METHODS)}"
+        }, 400
 
     candidates, voters, true_utilities, cand_names, issues = _reseed_and_build_electorate(
         cand_specs, num_voters, ideology, seed
