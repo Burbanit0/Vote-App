@@ -12,9 +12,11 @@ Future PRs will progressively move route groups into sibling modules
 from __future__ import annotations
 
 from collections import Counter
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from api.engine.constants import ECONOMY_ISSUES, ENV_ISSUES, SOCIAL_ISSUES
+from api.engine.utils.method_registry import SCORE_RULES, rule_winner
+from api.engine.utils.simulation_score_utils import get_majority_judgment_winner
 
 # Used to assign a party label deterministically by candidate index.
 PARTY_CYCLE: List[str] = ["Green", "Liberal", "Conservative", "Independent"]
@@ -133,3 +135,72 @@ def parse_optional_election_configs(
         info_cfg, info_enabled, campaign_cfg, campaign_on,
         num_days, polling_effect,
     )
+
+# ── Winner from a utility matrix ──────────────────────────────────────────────
+# Four dispatchers in workers_behavioral.py each rebuilt this: rankings from the
+# utilities, 0-5 score ballots from the same, then an if-chain over method names
+# ending in a silent `get_plurality_winner` fallback. The sincere-approval tally
+# was written out three times. `winner_from_utilities` is that, once.
+
+#: The rules a utility matrix can express. Ranked rules read the rankings it
+#: induces; `approval` and `majority_judgment` read the utilities themselves,
+#: which is why neither is a plain registry lookup.
+UTILITY_METHODS: tuple[str, ...] = (
+    "plurality", "borda", "irv", "schulze", "two_round",
+    "approval", "majority_judgment", "star_voting",
+)
+
+
+def rankings_from_utilities(
+    utilities: Dict[Any, Dict[str, float]], voters: List[Dict[str, Any]]
+) -> List[List[str]]:
+    """Each voter's candidates, their favourite first."""
+    return [
+        sorted(utilities[v["id"]].keys(), key=lambda n: -utilities[v["id"]][n])
+        for v in voters
+    ]
+
+
+def sincere_approval_winner(
+    utilities: Dict[Any, Dict[str, float]],
+    voters: List[Dict[str, Any]],
+    cand_names: List[str],
+) -> str:
+    """Approve everyone above your own mean utility, then count. A ranking
+    cannot express where a voter's mean falls, so this reads the utilities."""
+    tally: "Counter[Any]" = Counter()
+    for v in voters:
+        u = utilities[v["id"]]
+        threshold = sum(u.values()) / len(u) if u else 0.5
+        for name, value in u.items():
+            if value > threshold:
+                tally[name] += 1
+    return str(max(tally, key=tally.__getitem__)) if tally else cand_names[0]
+
+
+def winner_from_utilities(
+    method: str,
+    utilities: Dict[Any, Dict[str, float]],
+    voters: List[Dict[str, Any]],
+    cand_names: List[str],
+) -> Optional[str]:
+    """The winner under `method`, read off a voter -> candidate -> utility map.
+
+    Raises `UnknownMethod` for a method outside UTILITY_METHODS: a caller that
+    accepts a method name from a request should check it first and answer a bad
+    one with a 400. These dispatchers used to end in `get_plurality_winner`,
+    so /adaptive, /nota, /ballot-complexity and /electoral-fatigue all reported
+    plurality's winner under whatever name was asked for.
+    """
+    if method == "approval":
+        return sincere_approval_winner(utilities, voters, cand_names)
+    if method == "majority_judgment":
+        raw = get_majority_judgment_winner([utilities[v["id"]].copy() for v in voters])
+        return str(raw["winner"]) if raw.get("winner") else None
+    if method in SCORE_RULES:
+        scores = [
+            {n: max(0, min(5, round(5 * val))) for n, val in utilities[v["id"]].items()}
+            for v in voters
+        ]
+        return rule_winner(method, scores=scores)
+    return rule_winner(method, rankings_from_utilities(utilities, voters))

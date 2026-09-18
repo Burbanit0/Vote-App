@@ -103,7 +103,7 @@ def supported(*, ranked: bool = True, score: bool = True) -> List[str]:
 def rule_winner(
     method: str,
     rankings: Optional[List[List[str]]] = None,
-    scores: Optional[List[Dict[str, float]]] = None,
+    scores: Optional[List[Dict[str, Any]]] = None,
 ) -> Optional[str]:
     """The winner under `method`, or None if the rule elects nobody.
 
