@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useDragTouch, makeSvgToDomain } from '../../../hooks/useDragTouch';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
@@ -237,11 +237,11 @@ const HistoricalReplay: React.FC = () => {
     []
   );
 
-  const handleCandidateMove = useCallback((name: string, x: number, y: number) => {
+  const handleCandidateMove = (name: string, x: number, y: number) => {
     setPositions((prev) => ({ ...prev, [name]: { x, y } }));
-  }, []);
+  };
 
-  const applyDragAndReplay = useCallback(() => {
+  const applyDragAndReplay = () => {
     if (!data) return;
     const overrides = data.candidates
       .filter((c) => {
@@ -250,7 +250,7 @@ const HistoricalReplay: React.FC = () => {
       })
       .map((c) => ({ name: c.name, ...positions[c.name] }));
     run(overrides);
-  }, [data, positions, scenarioId, numDays]);
+  };
 
   const snapshot = data?.days[currentDay];
   const differs = data?.final.differs_from_real;

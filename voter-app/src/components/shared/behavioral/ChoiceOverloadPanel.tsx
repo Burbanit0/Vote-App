@@ -3,7 +3,7 @@
  * beyond a threshold of candidates, voters resort to heuristics instead
  * of their true preferences, degrading election quality.
  */
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { $api } from '../../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
@@ -68,22 +68,19 @@ const ChoiceOverloadPanel: React.FC = () => {
   const error = sim.isError ? t('overload.error') : null;
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const runSimulation = useCallback(
-    (hn: number, hp: number, hpa: number, thr: number) => {
-      sim.mutate({
-        body: {
-          num_voters: config.num_voters,
-          ideology: config.ideology,
-          seed: config.seed,
-          candidate_counts: DEFAULT_COUNTS,
-          overload_threshold: thr,
-          heuristic_weights: { notoriety: hn, primacy: hp, partisan: hpa },
-          methods: ['plurality', 'approval', 'borda', 'majority_judgment'],
-        },
-      });
-    },
-    [config, t, sim]
-  );
+  const runSimulation = (hn: number, hp: number, hpa: number, thr: number) => {
+    sim.mutate({
+      body: {
+        num_voters: config.num_voters,
+        ideology: config.ideology,
+        seed: config.seed,
+        candidate_counts: DEFAULT_COUNTS,
+        overload_threshold: thr,
+        heuristic_weights: { notoriety: hn, primacy: hp, partisan: hpa },
+        methods: ['plurality', 'approval', 'borda', 'majority_judgment'],
+      },
+    });
+  };
 
   const handleSimulate = () => runSimulation(hNotoriety, hPrimacy, hPartisan, threshold);
 

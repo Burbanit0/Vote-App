@@ -3,7 +3,7 @@
  * electorate (full population) and the effective electorate (those who vote)
  * due to differential turnout across demographic groups.
  */
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { $api } from '../../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
@@ -209,28 +209,25 @@ const DemographicTurnoutPanel: React.FC = () => {
     setProfile(PROFILES[key] ?? PROFILES.france_2022);
   };
 
-  const runSimulation = useCallback(
-    (p: DemoProfile) => {
-      sim.mutate({
-        body: {
-          candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
-          num_voters: config.num_voters,
-          seed: config.seed,
-          method: 'plurality',
-          correct_for_turnout: true,
-          demographic_profile: {
-            age_distribution: p.age_distribution,
-            turnout_by_age: p.turnout_by_age,
-            ideology_by_age: p.ideology_by_age,
-            education_distribution: p.education_distribution,
-            turnout_by_education: p.turnout_by_education,
-            ideology_by_education: p.ideology_by_education,
-          },
+  const runSimulation = (p: DemoProfile) => {
+    sim.mutate({
+      body: {
+        candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
+        num_voters: config.num_voters,
+        seed: config.seed,
+        method: 'plurality',
+        correct_for_turnout: true,
+        demographic_profile: {
+          age_distribution: p.age_distribution,
+          turnout_by_age: p.turnout_by_age,
+          ideology_by_age: p.ideology_by_age,
+          education_distribution: p.education_distribution,
+          turnout_by_education: p.turnout_by_education,
+          ideology_by_education: p.ideology_by_education,
         },
-      });
-    },
-    [config, t, sim]
-  );
+      },
+    });
+  };
 
   const handleSimulate = () => runSimulation(profile);
 

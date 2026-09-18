@@ -5,7 +5,7 @@
  * Voters see previous votes and may follow the public signal instead of
  * their private (sincere) preference.
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { $api } from '../../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
@@ -236,23 +236,20 @@ const CascadePanel: React.FC = () => {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const animRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const runSimulation = useCallback(
-    (strength: number, window: number) => {
-      setPlaying(false);
-      setAnimIndex(0);
-      sim.mutate({
-        body: {
-          candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
-          num_voters: config.num_voters,
-          ideology: config.ideology,
-          seed: config.seed,
-          cascade_strength: strength,
-          observation_window: window,
-        },
-      });
-    },
-    [config, t, sim]
-  );
+  const runSimulation = (strength: number, window: number) => {
+    setPlaying(false);
+    setAnimIndex(0);
+    sim.mutate({
+      body: {
+        candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
+        num_voters: config.num_voters,
+        ideology: config.ideology,
+        seed: config.seed,
+        cascade_strength: strength,
+        observation_window: window,
+      },
+    });
+  };
 
   const handleSimulate = () => runSimulation(cascadeStrength, observationWindow);
 

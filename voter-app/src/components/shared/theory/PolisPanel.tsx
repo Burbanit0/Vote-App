@@ -4,7 +4,7 @@
  * classical election winner. Shows consensus, polarizing, and silent-majority
  * statements via PCA scatter + statement table.
  */
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -254,7 +254,7 @@ const PolisPanel: React.FC = () => {
   const loading = sim.isPending;
   const error = sim.isError ? t('polis.error') : null;
 
-  const runSimulation = useCallback(() => {
+  const runSimulation = () => {
     sim.mutate({
       body: {
         candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
@@ -266,7 +266,7 @@ const PolisPanel: React.FC = () => {
         method_to_compare: 'plurality',
       },
     });
-  }, [config, numClusters, threshold, ideology, t, sim]);
+  };
 
   return (
     <div>

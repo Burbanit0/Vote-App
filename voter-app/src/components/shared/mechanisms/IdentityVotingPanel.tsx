@@ -2,7 +2,7 @@
  * IdentityVotingPanel — identity vs ideology in voting behaviour.
  * Green, Palmquist & Schickler (2002) "Partisan Hearts and Minds".
  */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -142,7 +142,7 @@ const IdentityVotingPanel: React.FC<IdentityVotingLabProps> = ({ candidates, num
   const updateGroup = (i: number, field: keyof IdentityGroup, val: string | number) =>
     setGroups((prev) => prev.map((g, j) => (j === i ? { ...g, [field]: val } : g)));
 
-  const run = useCallback(() => {
+  const run = () => {
     sim.mutate({
       body: {
         candidates,
@@ -154,7 +154,7 @@ const IdentityVotingPanel: React.FC<IdentityVotingLabProps> = ({ candidates, num
         method: 'plurality',
       },
     });
-  }, [candidates, numVoters, seed, groups, identityWeight, crossPressure, t, sim]);
+  };
 
   // ── Chart data ─────────────────────────────────────────────────────────────
   const groupsChartData =

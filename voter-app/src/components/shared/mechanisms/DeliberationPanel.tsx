@@ -4,7 +4,7 @@
  * Shows how network structure (echo chamber vs. bridge) determines
  * whether deliberation polarises or converges the electorate.
  */
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { $api } from '../../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
@@ -88,7 +88,7 @@ const DeliberationPanel: React.FC = () => {
   const loading = sim.isPending;
   const error = sim.isError ? t('delib.error') : null;
 
-  const runSimulation = useCallback(() => {
+  const runSimulation = () => {
     sim.mutate({
       body: {
         candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
@@ -103,7 +103,7 @@ const DeliberationPanel: React.FC = () => {
         method: 'plurality',
       },
     });
-  }, [config, rounds, influence, network, groupSize, argQuality, t, sim]);
+  };
 
   // Chart data: per_round evolution
   const chartData = data

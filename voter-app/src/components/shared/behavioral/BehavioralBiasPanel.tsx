@@ -4,7 +4,7 @@
  *   2. Bullet voting in Approval
  *   3. Primacy effect / ballot-order bias (Krosnick 1991)
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { $api } from '../../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
@@ -218,32 +218,31 @@ const BehavioralBiasPanel: React.FC = () => {
   const error = sim.isError ? t('behavioral.error') : null;
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const runSimulation = useCallback(
-    (params: { expPct: number; bulPct: number; primBonus: number; order: string[] }) => {
-      sim.mutate({
-        body: {
-          candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
-          num_voters: config.num_voters,
-          ideology: config.ideology,
-          seed: config.seed,
-          expressive_pct: expressiveOn ? params.expPct : 0,
-          bullet_voting_pct: bulletOn ? params.bulPct : 0,
-          primacy_bonus: primacyOn ? params.primBonus : 0,
-          candidate_order: params.order,
-          method: 'plurality',
-        },
-      });
-    },
-    [config, expressiveOn, bulletOn, primacyOn, t, sim]
-  );
+  const runSimulation = (params: {
+    expPct: number;
+    bulPct: number;
+    primBonus: number;
+    order: string[];
+  }) => {
+    sim.mutate({
+      body: {
+        candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
+        num_voters: config.num_voters,
+        ideology: config.ideology,
+        seed: config.seed,
+        expressive_pct: expressiveOn ? params.expPct : 0,
+        bullet_voting_pct: bulletOn ? params.bulPct : 0,
+        primacy_bonus: primacyOn ? params.primBonus : 0,
+        candidate_order: params.order,
+        method: 'plurality',
+      },
+    });
+  };
 
-  const scheduleRun = useCallback(
-    (params: Parameters<typeof runSimulation>[0]) => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => runSimulation(params), DEBOUNCE_MS);
-    },
-    [runSimulation]
-  );
+  const scheduleRun = (params: Parameters<typeof runSimulation>[0]) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => runSimulation(params), DEBOUNCE_MS);
+  };
 
   const currentParams = {
     expPct: expressivePct,

@@ -2,7 +2,7 @@
  * AffectivePolarizationPanel — models how inter-partisan hostility
  * distorts voting utilities and destabilises election results.
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -252,22 +252,19 @@ const AffectivePolarizationPanel: React.FC = () => {
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const run = useCallback(
-    (h: number, sims: number) => {
-      sim.mutate({
-        body: {
-          candidates: config.candidates,
-          num_voters: config.num_voters,
-          ideology: config.ideology,
-          seed: config.seed,
-          affect_hostility: h,
-          camp_threshold: 0.1,
-          num_simulations: sims,
-        },
-      });
-    },
-    [config, t, sim]
-  );
+  const run = (h: number, sims: number) => {
+    sim.mutate({
+      body: {
+        candidates: config.candidates,
+        num_voters: config.num_voters,
+        ideology: config.ideology,
+        seed: config.seed,
+        affect_hostility: h,
+        camp_threshold: 0.1,
+        num_simulations: sims,
+      },
+    });
+  };
 
   const handleHostilityChange = (v: number) => {
     setHostility(v);

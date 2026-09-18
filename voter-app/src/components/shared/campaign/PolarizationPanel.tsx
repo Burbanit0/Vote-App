@@ -7,7 +7,7 @@
  *   - Winner stability
  * And reveals which methods are most robust under polarized electorates.
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -190,21 +190,18 @@ const PolarizationPanel: React.FC = () => {
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const run = useCallback(
-    (ideologies: string[], sims: number) => {
-      if (ideologies.length === 0) return;
-      sim.mutate({
-        body: {
-          candidates: config.candidates,
-          num_voters: Math.min(config.num_voters, 150),
-          ideology_range: ideologies,
-          seed: config.seed,
-          num_simulations: sims,
-        },
-      });
-    },
-    [config, t, sim]
-  );
+  const run = (ideologies: string[], sims: number) => {
+    if (ideologies.length === 0) return;
+    sim.mutate({
+      body: {
+        candidates: config.candidates,
+        num_voters: Math.min(config.num_voters, 150),
+        ideology_range: ideologies,
+        seed: config.seed,
+        num_simulations: sims,
+      },
+    });
+  };
 
   const handleSimsChange = (v: number) => {
     setNumSims(v);

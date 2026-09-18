@@ -3,7 +3,7 @@
  * no apportionment method can simultaneously satisfy quota rule, house monotonicity
  * (no Alabama paradox) and population monotonicity.
  */
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -70,19 +70,16 @@ const ApportionmentPanel: React.FC = () => {
     { name: 'C', votes: 5000 },
   ];
 
-  const runSimulation = useCallback(
-    (n: number) => {
-      sim.mutate({
-        body: {
-          parties: defaultParties,
-          num_seats: n,
-          methods: ['hamilton', 'jefferson', 'webster', 'adams', 'huntington_hill'],
-          find_paradoxes: true,
-        },
-      });
-    },
-    [t, sim]
-  );
+  const runSimulation = (n: number) => {
+    sim.mutate({
+      body: {
+        parties: defaultParties,
+        num_seats: n,
+        methods: ['hamilton', 'jefferson', 'webster', 'adams', 'huntington_hill'],
+        find_paradoxes: true,
+      },
+    });
+  };
 
   const handleSimulate = () => {
     setSliderN(numSeats);

@@ -3,7 +3,7 @@
  * Voters cast NOTA if their best candidate's utility falls below the threshold.
  * Three constitutional rules: invalidate, force runoff, or seat NOTA (Nevada).
  */
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -115,22 +115,19 @@ const NOTAPanel: React.FC = () => {
   const error = sim.isError ? t('nota.error') : null;
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const runSimulation = useCallback(
-    (thr: number, rule: string) => {
-      sim.mutate({
-        body: {
-          candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
-          num_voters: config.num_voters,
-          ideology: config.ideology,
-          seed: config.seed,
-          nota_threshold: thr,
-          nota_rule: rule,
-          method: 'plurality',
-        },
-      });
-    },
-    [config, t, sim]
-  );
+  const runSimulation = (thr: number, rule: string) => {
+    sim.mutate({
+      body: {
+        candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
+        num_voters: config.num_voters,
+        ideology: config.ideology,
+        seed: config.seed,
+        nota_threshold: thr,
+        nota_rule: rule,
+        method: 'plurality',
+      },
+    });
+  };
 
   const handleSimulate = () => runSimulation(threshold, notaRule);
 
