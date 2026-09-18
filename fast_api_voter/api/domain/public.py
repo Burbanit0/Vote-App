@@ -107,7 +107,9 @@ def _simulate_worker(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
 
     try:
         voters, candidates, issues = _build_simple_population(num_voters, num_candidates, ideology)
-        result = compare_all_methods(voters, candidates, issues)
+        # v1 publishes strategic_vulnerability in its response envelope
+        # (see this module's OPENAPI_SPEC example), so it opts in.
+        result = compare_all_methods(voters, candidates, issues, compute_strategic=True)
     except Exception as exc:
         return log_and_error_response(
             log, "public.simulate.failed", {"error": f"Simulation failed: {exc}"},
@@ -152,7 +154,9 @@ def _compare_worker(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
 
     try:
         voters, candidates, issues = _build_simple_population(num_voters, num_candidates, ideology)
-        result = compare_all_methods(voters, candidates, issues, blank_vote=blank_vote)
+        result = compare_all_methods(
+            voters, candidates, issues, blank_vote=blank_vote, compute_strategic=True,
+        )
     except Exception as exc:
         return log_and_error_response(
             log, "public.compare.failed", {"error": f"Simulation failed: {exc}"},
