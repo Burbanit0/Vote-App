@@ -517,7 +517,21 @@ def get_kemeny_young_winner(votes: list[Any], **kwargs: Any) -> Optional[str]:
     cand_set: set[str] = set()
     for vote in votes:
         cand_set.update(_get_ranking(vote, is_dict))
-    candidates = list(cand_set)
+    # sorted(), not list(): set iteration order is unspecified and varies with
+    # PYTHONHASHSEED, so the same request could answer differently per process.
+    # Two mechanisms read this order, not one:
+    #   - above the cap it is KwikSort's pivot (`candidates[len//2]`). One
+    #     7-candidate profile returned four different winners -- C, A, D and G.
+    #   - `_build_pairwise` credits a phantom duel win to whichever candidate
+    #     comes SECOND here, on any ballot that ranks NEITHER of the pair (both
+    #     `pos.get(c, len(ranking))` defaults collide, so the `<` is False and
+    #     the `else` fires). That reaches the exact path too, so <= 6 candidates
+    #     were order-dependent as well whenever ballots are truncated.
+    # Sorting settles both. It does NOT fix the phantom win itself -- it makes
+    # its victim the alphabetically-later candidate instead of a random one;
+    # `_pairwise_wins` below already handles the same tie correctly with `elif`,
+    # and reconciling the two changes winners, so it needs its own PR.
+    candidates = sorted(cand_set)
 
     pairwise = _build_pairwise(candidates, votes, is_dict)
 
@@ -526,17 +540,21 @@ def get_kemeny_young_winner(votes: list[Any], **kwargs: Any) -> Optional[str]:
         ranking = _kwik_sort(candidates, pairwise)
         return ranking[0] if ranking else None
 
-    # Exact path — enumerate all permutations
+    # Exact path — enumerate all permutations. `candidates` is already sorted,
+    # so `permutations` yields lexicographic order and `max` returns the first
+    # maximum: the tie-break is "lexicographically smallest optimal ranking".
     def _kemeny_score(ranking: tuple[str, ...]) -> int:
-        pos = {c: i for i, c in enumerate(ranking)}
+        # No position guard: `ranking` is a permutation of a set, so every
+        # element is distinct and `pos[ranking[k]] == k`. The old
+        # `if pos[ranking[i]] < pos[ranking[j]]` was `i < j`, which the
+        # comprehension's own bounds already give -- always True, 0 False
+        # evaluations over every permutation up to the cap.
         return sum(
             pairwise.get((ranking[i], ranking[j]), 0)
-            for i in range(len(ranking))
-            for j in range(i + 1, len(ranking))
-            if pos[ranking[i]] < pos[ranking[j]]
+            for i, j in combinations(range(len(ranking)), 2)
         )
 
-    best = max(permutations(sorted(candidates)), key=_kemeny_score)
+    best = max(permutations(candidates), key=_kemeny_score)
     return best[0] if best else None
 
 

@@ -4,8 +4,11 @@ with the electorate's pairwise preferences; its first-place candidate wins.
 No dedicated test file existed before (PR #157's mutation-testing baseline
 found 21 surviving mutants here)."""
 
+import random
+
 from api.engine.utils.simulation_ranked_utils import (
     get_kemeny_young_winner, get_condorcet_winner, kemeny_used_approximation,
+    _build_pairwise, _kwik_sort,
 )
 from api.engine.utils.simulation_metrics import compare_all_methods
 
@@ -94,3 +97,50 @@ def test_compare_all_methods_registers_kemeny_young():
     )
     assert "kemeny_young" in res["methods"]
     assert res["methods"]["kemeny_young"]["winner"] in names
+
+
+def test_the_documented_hash_order_regression():
+    """The pinned counterexample for the PYTHONHASHSEED bug, per the repo's
+    "a discovered violation gets pinned, not left to the random search" rule.
+
+    These 9 ballots over 7 candidates (> _KY_EXACT_CAP, so KwikSort decides)
+    returned four different winners -- C, A, D and G -- across orderings of the
+    same candidate list, because the list was `list(cand_set)` and KwikSort's
+    pivot is `candidates[len(candidates) // 2]`. Sorted order answers C.
+
+    The literal "C" is deliberate: computing the expectation with _kwik_sort
+    would move with any change to _kwik_sort itself, and this profile is the one
+    place the >cap path's ranking logic is pinned to a value.
+    """
+    votes = [
+        list(b) for b in (
+            "ECGDBFA", "EAFDGBC", "DGAECBF", "FCEDGBA", "GACDEFB",
+            "FGCDBEA", "ADCBEGF", "ABCFEGD", "DGABFCE",
+        )
+    ]
+    assert kemeny_used_approximation(votes) is True
+    assert get_kemeny_young_winner(votes) == "C"
+
+
+def test_the_winner_never_depends_on_candidate_discovery_order():
+    """Guards the fix itself, at every hash seed.
+
+    One profile cannot do that: whether `list(cand_set)` disagrees with sorted
+    order on any given profile depends on the interpreter's hash seed, and on
+    ~1 seed in 3 the two agree on the profile above -- including seed 0, the one
+    this repo's own tooling pins. So the first version of this test passed with
+    the bug restored. Nothing pins PYTHONHASHSEED for pytest, so a single-profile
+    assertion is a coin flip, not a guard.
+
+    Sweeping 200 profiles removes the luck: measured against the reverted code,
+    52 of these 200 disagree. It also rejects orders that are merely
+    deterministic -- reverse-sorted fails 11, first-seen-ballot order fails 54 --
+    so what is pinned is `sorted`, not just "some fixed order".
+    """
+    rng = random.Random(11)
+    names = list("ABCDEFG")
+    for _ in range(200):
+        votes = [rng.sample(names, len(names)) for _ in range(9)]
+        candidates = sorted({c for ballot in votes for c in ballot})
+        pairwise = _build_pairwise(candidates, votes, False)
+        assert get_kemeny_young_winner(votes) == _kwik_sort(candidates, pairwise)[0]
