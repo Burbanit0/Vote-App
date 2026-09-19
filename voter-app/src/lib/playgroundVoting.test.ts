@@ -904,10 +904,12 @@ describe('anonymity — ballot order must not decide', () => {
 
 /**
  * Kemeny-Young's exact path is a DP over candidate subsets, replacing a brute
- * force over the m! orderings. Nothing client-side verified it: the parity
- * fixture is the only other Kemeny coverage, and `strict_winner` drops every
- * profile whose winner moves under relabelling — i.e. every tied optimum, which
- * is exactly where a DP tie-break can go wrong.
+ * force over the m! orderings. The parity fixture checks it against the backend,
+ * but only up to 3 candidates where ties are concerned: its sampled blocks drop
+ * every profile whose winner moves under relabelling — every tied optimum, which
+ * is where a DP tie-break goes wrong — and its exhaustive block, which keeps
+ * them, stops at 3 candidates. This checks the DP against brute force up to 7,
+ * ties included.
  */
 describe('kemeny exact DP', () => {
   /** Brute-force Kemeny over all m! orderings, returning the first element of
