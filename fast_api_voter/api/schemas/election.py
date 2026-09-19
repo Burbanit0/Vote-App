@@ -708,8 +708,9 @@ class JuryResponse(BaseModel):
 
     theoretical_accuracy: float
     methods:              Dict[str, JuryMethodResult]
-    best_method:          str
-    worst_method:         str
+    # Every method tied at the top / bottom; empty when all tie (tied_extremes).
+    best_method:          List[str]
+    worst_method:         List[str]
     voter_competence:     float
     num_voters:           int
     # Curve points carry dynamic per-method keys alongside competence/theoretical,
@@ -1220,8 +1221,9 @@ class MultiwinnerCompareResponse(BaseModel):
     proportional_reference: Dict[str, Any]
     num_seats:              int
     candidates:             List[str]
-    best_method:            str
-    worst_method:           str
+    # Every method tied at the least / most distortion; empty when all tie.
+    best_method:            List[str]
+    worst_method:           List[str]
 
 
 # ── /divergence ───────────────────────────────────────────────────────────────
@@ -1277,8 +1279,8 @@ class InterpretResponse(BaseModel):
     condorcet_analysis: Any
     divergence_reason:  Any
     method_groups:      Any
-    best_by_regret:     Any
-    worst_by_regret:    Any
+    best_by_regret:     List[str]
+    worst_by_regret:    List[str]
     blank_analysis:     Any
     pedagogical_note:   str
     key_facts:          Any

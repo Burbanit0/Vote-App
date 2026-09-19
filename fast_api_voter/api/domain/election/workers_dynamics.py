@@ -17,7 +17,7 @@ import numpy as _np
 
 from api.engine.utils.simulation_metrics import compare_all_methods
 from ._electorate import _build_base_electorate, _reseed_and_build_electorate
-from ._helpers import reject_unknown_methods
+from ._helpers import reject_unknown_methods, tied_extremes
 
 
 # ── Hotelling-Downs equilibrium ────────────────────────────────────────────────
@@ -354,8 +354,7 @@ def _polarization_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             m: round(sum(v) / len(v), 6)
             for m, v in method_regrets.items() if v
         }
-        best_method  = min(avg_regrets, key=lambda k: avg_regrets[k]) if avg_regrets else ""
-        worst_method = max(avg_regrets, key=lambda k: avg_regrets[k]) if avg_regrets else ""
+        best_method, worst_method = tied_extremes(avg_regrets)
 
         results.append({
             "ideology":          ideology,
@@ -382,20 +381,6 @@ def _polarization_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             f"À partir de P ≈ {threshold:.2f}, le vainqueur de Condorcet disparaît "
             f"dans {pct}% des simulations."
         )
-
-    # 2. Most robust method under high polarization
-    high_pol = [r for r in results_sorted if r["polarization_index"] > 0.2]
-    if high_pol:
-        all_best: Counter[str] = Counter(r["best_method"] for r in high_pol if r["best_method"])
-        if all_best:
-            robust = all_best.most_common(1)[0][0]
-            # Compare to worst
-            all_worst: Counter[str] = Counter(r["worst_method"] for r in high_pol if r["worst_method"])
-            fragile = all_worst.most_common(1)[0][0] if all_worst else ""
-            findings.append(
-                f"{robust.capitalize()} est la méthode la plus robuste dans les "
-                f"électorats polarisés — régret bayésien moyen inférieur à {fragile}."
-            )
 
     # 3. Agreement drops
     if len(results_sorted) >= 2:

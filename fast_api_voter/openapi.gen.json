@@ -6077,7 +6077,11 @@
         "description": "Deterministic textual interpretation of a simulation result.",
         "properties": {
           "best_by_regret": {
-            "title": "Best By Regret"
+            "items": {
+              "type": "string"
+            },
+            "title": "Best By Regret",
+            "type": "array"
           },
           "blank_analysis": {
             "title": "Blank Analysis"
@@ -6103,7 +6107,11 @@
             "type": "string"
           },
           "worst_by_regret": {
-            "title": "Worst By Regret"
+            "items": {
+              "type": "string"
+            },
+            "title": "Worst By Regret",
+            "type": "array"
           }
         },
         "required": [
@@ -6609,8 +6617,11 @@
         "description": "Condorcet Jury Theorem — per-method accuracy + competence-curve scan.",
         "properties": {
           "best_method": {
+            "items": {
+              "type": "string"
+            },
             "title": "Best Method",
-            "type": "string"
+            "type": "array"
           },
           "competence_curve": {
             "items": {
@@ -6650,8 +6661,11 @@
             "type": "number"
           },
           "worst_method": {
+            "items": {
+              "type": "string"
+            },
             "title": "Worst Method",
-            "type": "string"
+            "type": "array"
           }
         },
         "required": [
@@ -7495,8 +7509,11 @@
         "description": "Several multiwinner methods scored against a proportional reference.",
         "properties": {
           "best_method": {
+            "items": {
+              "type": "string"
+            },
             "title": "Best Method",
-            "type": "string"
+            "type": "array"
           },
           "candidates": {
             "items": {
@@ -7527,8 +7544,11 @@
             "type": "object"
           },
           "worst_method": {
+            "items": {
+              "type": "string"
+            },
             "title": "Worst Method",
-            "type": "string"
+            "type": "array"
           }
         },
         "required": [
