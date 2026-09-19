@@ -39,6 +39,14 @@ class TestVoteSteps:
         assert r.status_code == 200, r.text
         assert r.json()["method"] == "plurality"
 
+    def test_approval_elects_the_most_approved(self, client):
+        r = client.post("/api/v2/simulations/vote-steps",
+                        json={"method": "approval", "num_voters": 50, "candidates": CANDS})
+        assert r.status_code == 200, r.text
+        body = r.json()
+        scores = body["approval_scores"]
+        assert body["winner"] == min(scores, key=lambda c: (-scores[c], c))
+
     def test_irv(self, client):
         r = client.post("/api/v2/simulations/vote-steps",
                         json={"method": "irv", "num_voters": 50, "candidates": CANDS})

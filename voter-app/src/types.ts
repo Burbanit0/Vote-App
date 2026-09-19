@@ -28,7 +28,8 @@ export interface IRVRound {
   scores?: Record<string, number>;
   eliminated?: string | null;
   transfers?: Record<string, number> | null;
-  winner?: string;
+  /** On the final round; null when every remaining candidate ties for last. */
+  winner?: string | null;
 }
 
 export interface BordaStep {
