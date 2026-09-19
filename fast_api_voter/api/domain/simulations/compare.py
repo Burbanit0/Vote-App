@@ -28,6 +28,7 @@ from api.domain.simulations.helpers import (
 from api.engine.constants import DEFAULT_ISSUES, ECONOMY_ISSUES, ENV_ISSUES, SOCIAL_ISSUES
 from api.engine.utils.error_handling import log_and_error_response
 from api.engine.utils.logger import get_logger
+from api.engine.utils.simulation_ranked_utils import get_plurality_winner, get_schulze_winner
 
 log = get_logger(__name__)
 
@@ -181,7 +182,7 @@ def _irv_steps(rankings: list[list[str]], n_voters: int) -> list[dict[str, Any]]
     Each non-final round:
         { "round": N, "scores": {name: pct}, "eliminated": name|null, "transfers": {name: pct}|null }
     Final round:
-        { "round": N, "winner": name }
+        { "round": N, "winner": name|null }   (null: a dead tie, as in get_irv_winner)
 
     The "eliminated" / "transfers" fields on round N describe what happened
     at the *end of round N-1* (i.e. why the scores changed from N-1 to N).
@@ -194,7 +195,9 @@ def _irv_steps(rankings: list[list[str]], n_voters: int) -> list[dict[str, Any]]
     last_transfers:  Optional[dict[str, float]]     = None
 
     while True:
-        counts: Counter[str] = Counter()
+        # Every surviving candidate starts at 0, as in get_irv_winner, so one
+        # with no first preferences is eliminated rather than protected.
+        counts: Counter[str] = Counter({c: 0 for c in active})
         for r in rankings:
             for c in r:
                 if c in active:
@@ -216,15 +219,7 @@ def _irv_steps(rankings: list[list[str]], n_voters: int) -> list[dict[str, Any]]
             ))
             break
 
-        # Find ALL candidates at the minimum count (canonical IRV: eliminate
-        # all ties at once, matching app/utils/simulation_ranked_utils.py
-        # get_irv_winner). Importantly: get_irv_winner ignores candidates with
-        # 0 first-choice votes (they are not in votes_count), so they survive
-        # the round. We mirror that to keep the same elimination sequence.
-        if not counts:
-            # No one has any votes left → pick any active as winner placeholder
-            rounds.append({"round": rnum + 1, "winner": next(iter(active))})
-            break
+        # Eliminate ALL candidates at the minimum count at once, as get_irv_winner does.
         min_c = min(counts.values())
         eliminated_set = {c for c, v in counts.items() if v == min_c}
 
@@ -249,9 +244,10 @@ def _irv_steps(rankings: list[list[str]], n_voters: int) -> list[dict[str, Any]]
         last_eliminated = elim_label
         last_transfers  = transfer_pct
 
-        # Safety: if we eliminated everyone (all tied at 0), break to avoid loop
+        # Every remaining candidate tied for last: a dead tie elects nobody, as in
+        # get_irv_winner. This used to crown the alphabetically first of them.
         if not active:
-            rounds.append({"round": rnum + 1, "winner": elim_label.split(" + ")[0]})
+            rounds.append({"round": rnum + 1, "winner": None})
             break
 
     return rounds
@@ -277,7 +273,7 @@ def _borda_steps(
             "tally":          cumulative.copy(),
         })
 
-    winner: Optional[str] = max(cumulative, key=lambda k: cumulative[k]) if cumulative else None
+    winner: Optional[str] = min(cumulative, key=lambda k: (-cumulative[k], k)) if cumulative else None
     return steps, winner
 
 
@@ -303,23 +299,23 @@ def _schulze_matrices(
 
     duel_pct = {c1: {c2: round(pref[c1][c2] / n, 4) for c2 in cands if c2 != c1} for c1 in cands}
 
-    # Strongest-path (Floyd-Warshall style)
-    strength: dict[str, dict[str, int]] = {c1: {c2: pref[c1][c2] for c2 in cands if c2 != c1} for c1 in cands}
-    for c1, c2, c3 in permutations(cands, 3):
-        strength[c1][c2] = max(strength[c1][c2], min(strength[c1][c3], strength[c3][c2]))
+    # Strongest paths as get_schulze_winner computes them: seed only the winning
+    # direction of each duel, then widest-path Floyd-Warshall with the
+    # intermediate candidate outermost. This seeded both directions and put the
+    # intermediate innermost, so some displayed paths were not Schulze's.
+    strength: dict[str, dict[str, int]] = {
+        c1: {c2: pref[c1][c2] if pref[c1][c2] > pref[c2][c1] else 0 for c2 in cands if c2 != c1}
+        for c1 in cands
+    }
+    for k in cands:
+        for c1, c2 in permutations([c for c in cands if c != k], 2):
+            strength[c1][c2] = max(strength[c1][c2], min(strength[c1][k], strength[k][c2]))
 
     path_pct = {c1: {c2: round(strength[c1][c2] / n, 4) for c2 in cands if c2 != c1} for c1 in cands}
 
-    wins: dict[str, int] = {c: 0 for c in cands}
-    for c1, c2 in combinations(cands, 2):
-        if strength[c1][c2] > strength[c2][c1]:
-            wins[c1] += 1
-        elif strength[c2][c1] > strength[c1][c2]:
-            wins[c2] += 1
-    winner: Optional[str] = (
-        max(wins, key=lambda k: wins[k]) if any(wins.values()) else (cands[0] if cands else None)
-    )
-    return duel_pct, path_pct, winner
+    # The engine's winner, so the animation cannot name another. Counting beat-path
+    # wins here disagreed with it on about 1 profile in 20 with a cycle.
+    return duel_pct, path_pct, get_schulze_winner(rankings)
 
 
 def _vote_steps_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
@@ -421,8 +417,7 @@ def _vote_steps_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
     if method == "plurality":
         fc: Counter[str] = Counter(r[0] for r in rankings if r)
         pct = {c: round(fc.get(c, 0) / num_voters, 4) for c in cand_names}
-        winner_p: Optional[str] = max(pct, key=lambda k: pct[k]) if pct else None
-        return {"method": "plurality", "first_choices": pct, "winner": winner_p}, 200
+        return {"method": "plurality", "first_choices": pct, "winner": get_plurality_winner(rankings)}, 200
 
     if method == "schulze":
         duel, path, winner_s = _schulze_matrices(rankings, cand_names)
@@ -438,7 +433,7 @@ def _vote_steps_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
             if score >= threshold:
                 approval[cname] += 1
     approval_pct = {c: round(approval.get(c, 0) / num_voters, 4) for c in cand_names}
-    winner_a: Optional[str] = max(approval_pct, key=lambda k: approval_pct[k]) if approval_pct else None
+    winner_a: Optional[str] = min(approval_pct, key=lambda k: (-approval_pct[k], k)) if approval_pct else None
     return {"method": "approval", "threshold_used": threshold,
             "approval_scores": approval_pct, "winner": winner_a}, 200
 

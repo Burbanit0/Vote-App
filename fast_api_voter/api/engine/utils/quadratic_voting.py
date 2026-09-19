@@ -65,6 +65,9 @@ def apply_quadratic_voting(
     n_candidates = len(candidates)
     if n_candidates == 0:
         return _empty_result()
+    # Leftover votes go to the first name among equally rated candidates, so a
+    # tie is settled by name here too, not by candidate-list order.
+    by_name = sorted(candidates)
 
     n_voters = len(utilities)
     total_qv_votes: dict[str, float] = {c: 0.0 for c in candidates}
@@ -95,7 +98,7 @@ def apply_quadratic_voting(
         while remaining > 0:
             best_c: Optional[str] = None
             best_ratio = -1.0
-            for c in candidates:
+            for c in by_name:
                 marginal_cost = 2 * votes[c] + 1   # cost of one more vote
                 if marginal_cost <= remaining:
                     ratio = util_values[c] / marginal_cost
@@ -116,8 +119,7 @@ def apply_quadratic_voting(
         total_budget_used += credits_used
 
     # Determine winner (most total QV votes; tie → alphabetical first)
-    winner: Optional[str] = max(candidates, key=lambda c: total_qv_votes[c]) \
-        if candidates else None
+    winner: Optional[str] = min(candidates, key=lambda c: (-total_qv_votes[c], c))
 
     avg_credits: dict[str, float] = {
         c: round(total_credits_spent[c] / n_voters, 3)

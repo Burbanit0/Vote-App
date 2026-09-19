@@ -98,7 +98,8 @@ def _cascade_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
                 "followed_cascade": followed,
             })
 
-        winner: str = Counter(votes).most_common(1)[0][0] if votes else cand_names[0]
+        vc = Counter(votes)
+        winner: str = min(vc, key=lambda c: (-vc[c], c)) if votes else cand_names[0]
         rate: float = round(cascade_count / len(voters), 4) if voters else 0.0
         return sequence, winner, cascade_start, rate
 
@@ -106,9 +107,8 @@ def _cascade_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     rng  = _random.Random(seed)
     vote_sequence, cascade_winner, cascade_start_at, _ = _run_cascade(cascade_strength, rng)
 
-    # Sincere winner (strength = 0, no randomness needed)
-    sincere_votes   = [_sincere_choice(v["id"]) for v in voters]
-    sincere_winner: str = Counter(sincere_votes).most_common(1)[0][0]
+    # Sincere winner: a pass at strength 0 follows no signal and draws nothing.
+    _, sincere_winner, _, _ = _run_cascade(0.0, _random.Random(seed))
 
     cascade_occurred = (cascade_winner != sincere_winner)
 
@@ -256,7 +256,7 @@ def _behavioral_biases_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
                 for cname, val in u.items():
                     if val > threshold:
                         tally[cname] += 1
-        return max(tally, key=tally.__getitem__) if tally else cand_names[0]
+        return min(tally, key=lambda c: (-tally[c], c)) if tally else cand_names[0]
 
     sincere_winners  = _compute_winners(sincere_utilities)
     biased_winners   = _compute_winners(biased_utilities)
@@ -446,7 +446,7 @@ def _ld_tally(
     tally: Counter[Any] = Counter()
     for vid, w in weighted_ids:
         tally[_ld_top_choice(sincere_utilities, vid)] += w
-    return tally, (max(tally, key=tally.__getitem__) if tally else fallback)
+    return tally, (min(tally, key=lambda c: (-tally[c], c)) if tally else fallback)
 
 
 def _ld_gini_curve(
@@ -902,7 +902,10 @@ def _nota_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             else:
                 choice = max(sincere_utilities[vid], key=lambda k: sincere_utilities[vid][k])
                 tally[choice] += 1
-        raw_winner = max(tally, key=tally.__getitem__) if tally else cand_names[0]
+        # NOTA must beat every candidate outright: a tie goes to the candidate
+        # (then by name), so whether it voids the election can't hang on how
+        # the candidates' names sort against "NOTA".
+        raw_winner = min(tally, key=lambda c: (-tally[c], c == "NOTA", c)) if tally else cand_names[0]
         np         = tally.get("NOTA", 0) / num_voters if num_voters else 0.0
         return raw_winner, round(np, 4)
 
@@ -1168,7 +1171,7 @@ def _shy_voter_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     real_results: Dict[str, float] = {
         c: round(real_counts.get(c, 0) / num_voters, 4) for c in cand_names
     }
-    real_winner: str = max(real_results, key=real_results.__getitem__)
+    real_winner: str = min(real_results, key=lambda c: (-real_results[c], c))
 
     # ── Second choices for shy voters ─────────────────────────────────────
     second_choices: Dict[int, str] = {}
@@ -1211,7 +1214,8 @@ def _shy_voter_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         c: round(sum(pr["predicted"][c] for pr in poll_results_out) / num_polls, 4)
         for c in cand_names
     }
-    poll_winner: str = max(avg_pred, key=avg_pred.__getitem__)
+    # Same tie-break as real_winner, or an exact tie reads as the polls being wrong.
+    poll_winner: str = min(avg_pred, key=lambda c: (-avg_pred[c], c))
     polls_wrong       = poll_winner != real_winner
 
     systematic_error: Dict[str, float] = {
@@ -1233,7 +1237,7 @@ def _shy_voter_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             for c in other_cands
         }
         poll_f          = {shy_candidate: poll_shy} | poll_others
-        poll_win_f      = max(poll_f, key=poll_f.__getitem__)
+        poll_win_f      = min(poll_f, key=lambda c: (-poll_f[c], c))
         winner_wrong_f  = 1.0 if poll_win_f != real_winner else 0.0
         curve.append({
             "factor":           f,
