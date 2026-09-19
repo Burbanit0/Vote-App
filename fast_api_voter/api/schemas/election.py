@@ -836,8 +836,10 @@ class ChoiceOverloadResponse(BaseModel):
 
     results_by_n:        List[Dict[str, Any]]
     regret_curve:        List[Dict[str, Any]]
-    most_robust_method:  Optional[str]
-    least_robust_method: Optional[str]
+    # Every method tied at the highest / lowest sincere-match rate; empty when
+    # all tie (tied_extremes).
+    most_robust_method:  List[str]
+    least_robust_method: List[str]
     overload_threshold:  int
     heuristic_weights:   Dict[str, float]
     pedagogical_note:    str

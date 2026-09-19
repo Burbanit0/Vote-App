@@ -2715,26 +2715,18 @@
             "type": "object"
           },
           "least_robust_method": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Least Robust Method"
+            "items": {
+              "type": "string"
+            },
+            "title": "Least Robust Method",
+            "type": "array"
           },
           "most_robust_method": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Most Robust Method"
+            "items": {
+              "type": "string"
+            },
+            "title": "Most Robust Method",
+            "type": "array"
           },
           "overload_threshold": {
             "title": "Overload Threshold",

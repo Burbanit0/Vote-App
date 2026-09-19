@@ -22,12 +22,13 @@ from api.engine.utils.method_registry import (
     SCORE_RULES, UTILITY_METHODS, rankings_from_utilities, rule_winner,
     winner_from_utilities,
 )
+from api.engine.utils.demographic_data import _seeded_rng_pair
 from api.engine.utils.simulation_voting_utils import calculate_utility, create_voter
 from api.engine.utils.simulation_ranked_utils import (
     get_condorcet_winner, get_plurality_winner,
 )
 from ._electorate import _reseed_and_build_electorate
-from ._helpers import build_candidate_from_xy as _build_candidate_from_xy
+from ._helpers import build_candidate_from_xy as _build_candidate_from_xy, prose_list, tied_extremes
 
 log = get_logger(__name__)
 
@@ -1441,13 +1442,26 @@ def _co_approval_tally(
 def _co_majority_judgment(
     v_list: List[Dict[str, Any]],
     utils: Dict[Any, Dict[str, float]],
+    voted: Dict[int, str],
+    is_h: Dict[int, bool],
     rnk: List[List[str]],
     cnames: List[str],
 ) -> Optional[str]:
-    """Majority judgment over the utility grades, falling back to plurality when
-    the grade profile is one the MJ implementation cannot resolve."""
+    """Majority judgment, falling back to plurality when the grade profile is one
+    the MJ implementation cannot resolve.
+
+    A voter running on a heuristic grades the one candidate it picked top and
+    everyone else bottom -- the grade ballot of a single choice, as
+    `_co_approval_tally` does for approval. This used to grade every voter's
+    sincere utilities, so the heuristic never reached MJ: its winner could not
+    differ from the sincere one, and it was "the most robust method" by
+    construction (57 of 60 seeds at the default settings and notoriety 1.0)."""
     def _resolve() -> Optional[str]:
-        r = SCORE_RULES["majority_judgment"]([utils[v["id"]].copy() for v in v_list])
+        r = SCORE_RULES["majority_judgment"]([
+            {c: float(c == voted[v["id"]]) for c in cnames} if is_h[v["id"]]
+            else utils[v["id"]].copy()
+            for v in v_list
+        ])
         return str(r["winner"]) if r.get("winner") else cnames[0]
 
     return safe_call(
@@ -1468,14 +1482,15 @@ def _co_winner(
     """Winner under one method, for one candidate count."""
     if not v_list:
         return cnames[0] if cnames else None
-    if method == "plurality":
-        t: Counter[Any] = Counter(voted[v["id"]] for v in v_list)
-        return max(t, key=t.__getitem__) if t else cnames[0]
     if method == "approval":
+        # Name breaks an exact tie, as in every engine rule; `max(counter)`
+        # broke it by whichever voter happened to be counted first.
         t2 = _co_approval_tally(v_list, utils, voted, is_h)
-        return max(t2, key=t2.__getitem__) if t2 else cnames[0]
+        return min(t2, key=lambda c: (-t2[c], c)) if t2 else cnames[0]
     if method == "majority_judgment":
-        return _co_majority_judgment(v_list, utils, rnk, cnames)
+        return _co_majority_judgment(v_list, utils, voted, is_h, rnk, cnames)
+    # Plurality included: each ballot in `rnk` already leads with the voter's
+    # actual pick (`_co_rankings` promotes the heuristic choice to the top).
     return rule_winner(method, rnk)
 
 
@@ -1596,7 +1611,12 @@ def _co_method_comparison(
         sincere_winner = _co_winner(
             meth, voters, s_rnk, utils_n, s_voted, s_is_h, cnames_n,
         )
-        matches[meth] = int(overloaded and winner_by_method[meth] == sincere_winner)
+        # None == None is not agreement: a rule electing nobody both times has
+        # not shown it is robust.
+        matches[meth] = int(
+            overloaded and sincere_winner is not None
+            and winner_by_method[meth] == sincere_winner
+        )
     return winner_by_method, matches
 
 
@@ -1646,28 +1666,48 @@ def _co_round(
         "winner_by_method":    winner_by_method,
         "condorcet_winner":    condorcet_w,
         "methods_elect_condorcet": {
-            m: winner_by_method[m] == condorcet_w for m in methods_req
+            m: condorcet_w is not None and winner_by_method[m] == condorcet_w
+            for m in methods_req
         },
     }, matches
 
 
 def _co_note(
     overload_threshold: int,
-    total_h: float,
-    regret_curve: List[Dict[str, Any]],
-    most_robust: str,
+    results_by_n: List[Dict[str, Any]],
+    most_robust: List[str],
 ) -> str:
-    over_regrets = [
-        r["regret"] for r in regret_curve if r["n_candidates"] > overload_threshold
-    ]
-    avg = round(sum(over_regrets) / len(over_regrets), 4) if over_regrets else 0.0
+    """The share quoted is the one measured on the overloaded rows. It used to
+    be the configured heuristic weight, stated even when no candidate count
+    exceeded the threshold -- nobody used a heuristic, yet the note said half
+    the electorate did."""
+    over = [r for r in results_by_n if r["num_candidates"] > overload_threshold]
+    if not over:
+        return (
+            f"Aucun des nombres de candidats testés ne dépasse le seuil de "
+            f"{overload_threshold} : personne ne vote par heuristique, et chaque "
+            f"méthode élit son vainqueur sincère."
+        )
+    share = sum(r["heuristic_voters"] for r in over) / len(over)
+    regret = sum(r["mean_voter_regret"] for r in over) / len(over)
     return (
         f"Au-delà de {overload_threshold} candidats, "
-        f"{round(total_h * 100)}% des électeurs utilisent une heuristique "
+        f"{round(share * 100)}% des électeurs ont voté par heuristique "
         f"(notoriété, primauté ou partisane). "
-        f"Le regret moyen de vote est de {round(avg * 100, 1)} points d'utilité. "
-        f"'{most_robust}' est la méthode la plus robuste à la surcharge cognitive."
+        f"Le regret moyen de vote est de {round(regret * 100, 1)} points d'utilité. "
+        + _co_robust_sentence(most_robust)
     )
+
+
+def _co_robust_sentence(most_robust: List[str]) -> str:
+    """Names every method tied at the top, or none when all tie."""
+    if not most_robust:
+        return ("Toutes les méthodes retrouvent leur vainqueur sincère aussi souvent : "
+                "aucune n'est plus robuste.")
+    if len(most_robust) == 1:
+        return f"'{most_robust[0]}' est la méthode la plus robuste à la surcharge cognitive."
+    names = prose_list([f"'{m}'" for m in most_robust])
+    return f"{names} sont les méthodes les plus robustes à la surcharge cognitive."
 
 
 def _co_parse(data: Dict[str, Any]) -> Dict[str, Any]:
@@ -1682,7 +1722,7 @@ def _co_parse(data: Dict[str, Any]) -> Dict[str, Any]:
     h_pri = max(0.0, min(1.0, float(hw.get("primacy", 0.10))))
     h_par = max(0.0, min(1.0, float(hw.get("partisan", 0.20))))
     return {
-        "num_voters":         max(50, min(300, int(data.get("num_voters", 150)))),
+        "num_voters":         max(50, min(1000, int(data.get("num_voters", 150)))),
         "ideology":           str(data.get("ideology", "random")),
         "seed":               int(data.get("seed", 42)),
         "cand_counts":        sorted({
@@ -1716,13 +1756,15 @@ def _choice_overload_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     if not cand_counts:
         return {"error": "candidate_counts must be non-empty"}, 400
 
-    _random.seed(seed)
-    _np.random.seed(seed)
     issues = DEFAULT_ISSUES
 
     # Fixed electorate — the same voters are reused at every candidate count.
+    # A call-scoped RNG pair, not `random.seed` / `np.random.seed`: reseeding the
+    # process-wide generators let any concurrent request draw from them
+    # mid-build, so the same seed could return a different electorate.
+    rng, np_rng = _seeded_rng_pair(seed)
     voters = [
-        create_voter(issues, i, ideology_distribution=ideology)
+        create_voter(issues, i, ideology_distribution=ideology, rng=rng, np_rng=np_rng)
         for i in range(num_voters)
     ]
     voter_ideo: Dict[int, float] = {
@@ -1748,13 +1790,12 @@ def _choice_overload_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             for meth, hit in matches.items():
                 sincere_match[meth] += hit
 
-    match_rates = (
-        {m: sincere_match[m] / n_overload_cases for m in methods_req}
-        if n_overload_cases > 0
-        else {m: 1.0 for m in methods_req}
-    )
-    most_robust  = max(match_rates, key=match_rates.__getitem__)
-    least_robust = min(match_rates, key=match_rates.__getitem__)
+    # No overloaded row: nothing measured, and tied_extremes({}) crowns nobody.
+    match_rates = ({m: sincere_match[m] / n_overload_cases for m in methods_req}
+                   if n_overload_cases else {})
+    # A higher match rate is more robust. Methods that elect the same winners
+    # tie, and naming one of them used to depend on request order.
+    least_robust, most_robust = tied_extremes(match_rates)
 
     return {
         "results_by_n":         results_by_n,
@@ -1763,6 +1804,6 @@ def _choice_overload_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         "least_robust_method":  least_robust,
         "overload_threshold":   overload_threshold,
         "heuristic_weights":    {"notoriety": h_not, "primacy": h_pri, "partisan": h_par},
-        "pedagogical_note":     _co_note(overload_threshold, total_h, regret_curve, most_robust),
+        "pedagogical_note":     _co_note(overload_threshold, results_by_n, most_robust),
     }, 200
 
