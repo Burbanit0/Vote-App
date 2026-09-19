@@ -29,6 +29,7 @@ import {
 import { useElection } from '../../../stores/useElectionStore';
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
 import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
+import { listNames } from '@/lib/listNames';
 
 const DEFAULT_COUNTS = [2, 3, 5, 7, 10];
 
@@ -46,8 +47,9 @@ interface NResult {
 interface OverloadData {
   results_by_n: NResult[];
   regret_curve: { n_candidates: number; regret: number }[];
-  most_robust_method: string;
-  least_robust_method: string;
+  /** Every method tied at the top / bottom; empty when all tie. */
+  most_robust_method: string[];
+  least_robust_method: string[];
   overload_threshold: number;
   heuristic_weights: { notoriety: number; primacy: number; partisan: number };
   pedagogical_note: string;
@@ -204,12 +206,16 @@ const ChoiceOverloadPanel: React.FC = () => {
         <>
           {/* Robustness badges */}
           <div className="flex flex-wrap gap-2 mb-3">
-            <Badge variant="success" data-testid="most-robust-badge">
-              {t('overload.mostRobust')}: {data.most_robust_method}
-            </Badge>
-            <Badge variant="danger" data-testid="least-robust-badge">
-              {t('overload.leastRobust')}: {data.least_robust_method}
-            </Badge>
+            {data.most_robust_method.length > 0 && (
+              <Badge variant="success" data-testid="most-robust-badge">
+                {t('overload.mostRobust')}: {listNames(data.most_robust_method)}
+              </Badge>
+            )}
+            {data.least_robust_method.length > 0 && (
+              <Badge variant="danger" data-testid="least-robust-badge">
+                {t('overload.leastRobust')}: {listNames(data.least_robust_method)}
+              </Badge>
+            )}
             <Badge variant="info">
               {t('overload.threshold')} = {data.overload_threshold}
             </Badge>
@@ -313,7 +319,7 @@ const ChoiceOverloadPanel: React.FC = () => {
                 {methods.map((m) => (
                   <th key={m} style={{ fontSize: '0.78rem' }}>
                     <code>{m}</code>
-                    {m === data.most_robust_method && (
+                    {data.most_robust_method.includes(m) && (
                       <Badge variant="success" className="ms-1" style={{ fontSize: '0.55rem' }}>
                         ✓
                       </Badge>

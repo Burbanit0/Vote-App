@@ -77,7 +77,9 @@ def test_co_majority_judgment_falls_back_and_logs_on_failure(monkeypatch, caplog
     cnames = ["Alice", "Bob"]
 
     with caplog.at_level("WARNING"):
-        winner = workers_behavioral._co_majority_judgment(v_list, utils, rnk, cnames)
+        winner = workers_behavioral._co_majority_judgment(
+            v_list, utils, {1: "Alice", 2: "Bob"}, {1: False, 2: False}, rnk, cnames,
+        )
 
     assert winner in ("Alice", "Bob")  # falls back to plurality
     assert "workers_behavioral.method_failed" in caplog.text

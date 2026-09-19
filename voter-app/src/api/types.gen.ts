@@ -2688,9 +2688,9 @@ export interface components {
                 [key: string]: number;
             };
             /** Least Robust Method */
-            least_robust_method: string | null;
+            least_robust_method: string[];
             /** Most Robust Method */
-            most_robust_method: string | null;
+            most_robust_method: string[];
             /** Overload Threshold */
             overload_threshold: number;
             /** Pedagogical Note */
