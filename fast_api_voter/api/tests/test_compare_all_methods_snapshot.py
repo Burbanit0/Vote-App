@@ -146,6 +146,26 @@ def test_majority_judgment_and_evaluative_can_be_manipulated():
         ), method
 
 
+def test_strategic_vulnerability_does_not_depend_on_the_global_rng():
+    """Above 5! permutations the ranked metric samples manipulations. It drew
+    them from the process-wide `random`, so the same electorate measured
+    differently per process -- Black read 0.8 in one run and 0.7333 in the
+    next, same input. Two different global states must now agree."""
+    rng = random.Random(8)
+    names = [f"C{i}" for i in range(5)]           # 5! = 120 > the 100 cap
+    util = {i: {n: round(rng.random(), 3) for n in names} for i in range(21)}
+
+    def run(global_seed):
+        random.seed(global_seed)
+        report = compare_all_methods(
+            [{"id": v} for v in util], [{"name": n} for n in names], [],
+            override_utilities=util, compute_strategic=True,
+        )
+        return {m: md["strategic_vulnerability"] for m, md in report["methods"].items()}
+
+    assert run(1) == run(2)
+
+
 # ── run_simulation (pure function, no HTTP route) ──
 
 
