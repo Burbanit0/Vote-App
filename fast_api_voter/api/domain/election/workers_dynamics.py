@@ -8,7 +8,6 @@ engine utils + the shared ._electorate / ._helpers.
 """
 from __future__ import annotations
 
-import random as _random
 from collections import Counter
 from operator import itemgetter
 from typing import Any, Dict, List, Optional  # noqa: F401
@@ -16,7 +15,7 @@ from typing import Any, Dict, List, Optional  # noqa: F401
 import numpy as _np
 
 from api.engine.utils.simulation_metrics import compare_all_methods
-from ._electorate import _build_base_electorate, _reseed_and_build_electorate
+from ._electorate import _build_base_electorate, _build_electorate_from_seed
 from ._helpers import reject_unknown_methods, tied_extremes
 
 
@@ -94,7 +93,7 @@ def _hotelling_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         return {"error": "At least 2 candidates required"}, 400
 
     # ── Build fixed electorate ─────────────────────────────────────────────
-    candidates, voters, _, cand_names, issues = _reseed_and_build_electorate(
+    candidates, voters, _, cand_names, issues = _build_electorate_from_seed(
         cand_specs, num_voters, ideology, seed
     )
 
@@ -286,7 +285,7 @@ def _polarization_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     for ideology in ideology_range:
         # ── Build reference electorate to compute polarization index ──────
-        candidates, voters, true_utilities, cand_names, issues = _reseed_and_build_electorate(
+        candidates, voters, true_utilities, cand_names, issues = _build_electorate_from_seed(
             cand_specs, num_voters, ideology, seed
         )
 
@@ -306,8 +305,6 @@ def _polarization_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
         for sim_idx in range(num_simulations):
             sim_seed = seed + sim_idx + 1
-            _random.seed(sim_seed)
-            _np.random.seed(sim_seed)
 
             _, sim_voters, sim_utils, _ = _build_base_electorate(
                 cand_specs, num_voters, ideology, sim_seed, issues
@@ -470,7 +467,7 @@ def _affective_polarization_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any]
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
 
-    candidates, voters, sincere_utilities, cand_names, issues = _reseed_and_build_electorate(
+    candidates, voters, sincere_utilities, cand_names, issues = _build_electorate_from_seed(
         cand_specs, num_voters, ideology, seed
     )
 
@@ -520,7 +517,6 @@ def _affective_polarization_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any]
     method_changes: Counter[str] = Counter()
     for sim_idx in range(num_simulations):
         s = seed + sim_idx + 1
-        _random.seed(s); _np.random.seed(s)
         _, sv, su, _ = _build_base_electorate(cand_specs, num_voters, ideology, s, issues)
         vcamps = {}
         for v in sv:
@@ -540,7 +536,6 @@ def _affective_polarization_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any]
     }
 
     # ── Affect curve (hostility 0 → 1 in 11 steps) ────────────────────────
-    _random.seed(seed); _np.random.seed(seed)
     affect_curve: List[Dict[str, Any]] = []
     for step in range(11):
         h = round(step / 10, 1)

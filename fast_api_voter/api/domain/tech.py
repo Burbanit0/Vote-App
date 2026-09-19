@@ -12,6 +12,8 @@ from typing import Any, Dict, List
 
 import numpy as _np
 
+from api.engine.utils.demographic_data import _seeded_rng_pair
+
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -114,20 +116,19 @@ def _polis_with_candidates_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
     if len(stmts_raw) < 2:
         return {"error": "At least 2 statements required"}, 400
 
-    _np.random.seed(seed)
-    _random.seed(seed)
+    _, np_rng = _seeded_rng_pair(seed)
 
     # ── Participant ideology positions ────────────────────────────────────
     if ideology == "polarized":
         h = num_participants // 2
         pax = _np.clip(_np.concatenate([
-            _np.random.normal(-0.65, 0.18, h),
-            _np.random.normal( 0.65, 0.18, num_participants - h),
+            np_rng.normal(-0.65, 0.18, h),
+            np_rng.normal( 0.65, 0.18, num_participants - h),
         ]), -1, 1)
     elif ideology == "centrist":
-        pax = _np.clip(_np.random.normal(0.0, 0.25, num_participants), -1, 1)
+        pax = _np.clip(np_rng.normal(0.0, 0.25, num_participants), -1, 1)
     else:
-        pax = _np.random.uniform(-1, 1, num_participants)
+        pax = np_rng.uniform(-1, 1, num_participants)
 
     # ── Statement positions ───────────────────────────────────────────────
     stmt_rng = _random.Random(seed + 100)

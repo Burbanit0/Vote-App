@@ -8,10 +8,8 @@ method-comparison wrapper, and a lightweight winners-only snapshot.
 """
 from __future__ import annotations
 
-import random
 from typing import Any, Dict
 
-import numpy as np
 
 from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.simulation_voting_utils import calculate_utility, create_voter
@@ -43,8 +41,6 @@ def _build_base_electorate(
     touched random/np.random between the reseed and this call — false under
     any concurrent access (see election_service.py for the full writeup).
     """
-    import copy  # noqa: F401 — kept for symmetry, not actually needed here
-
     rng, np_rng = _seeded_rng_pair(seed)
 
     cand_names = [str(s.get("name", f"C{i}")) for i, s in enumerate(cand_specs)]
@@ -73,7 +69,7 @@ def _build_base_electorate(
     return candidates, voters, true_utilities, cand_names
 
 
-def _reseed_and_build_electorate(
+def _build_electorate_from_seed(
     cand_specs: list[dict[str, Any]],
     num_voters: int,
     ideology: str,
@@ -81,27 +77,12 @@ def _reseed_and_build_electorate(
 ) -> tuple[
     list[Dict[str, Any]], list[Dict[str, Any]], Dict[Any, Dict[str, float]], list[str], list[str]
 ]:
-    """Reseed the shared `random`/`numpy.random` singletons from *seed*, then
-    build the electorate via `_build_base_electorate`.
+    """`_build_base_electorate`, which seeds its own RNG pair, plus `issues`
+    echoed back so each call site keeps it in scope (always `DEFAULT_ISSUES`).
 
-    This is the *legacy* reseed pattern used by several older `workers_*.py`
-    workers (`workers_advanced.py`, `workers_behavioral.py`,
-    `workers_dynamics.py`, `workers_mechanisms.py`) — predating the local
-    seeded-RNG-pair fix documented on `_build_base_electorate`/
-    `election_service.py` for the concurrency issue with reseeding shared
-    singletons. Kept exactly as-is here: this is a pure duplication
-    extraction (the same 4-line block was copy-pasted across 13 call sites,
-    jscpd-flagged, CODE_AUDIT.md §4/§7), not a behaviour change — do not use
-    this as a template for new workers, prefer `_build_base_electorate`
-    directly with `_seeded_rng_pair`.
-
-    Returns (candidates, voters, true_utilities, cand_names, issues) so
-    every call site keeps `issues` in scope afterwards exactly as before
-    (it is always `DEFAULT_ISSUES`, echoed back rather than re-imported at
-    each site).
+    A worker that draws after this call takes its own `_seeded_rng_pair(seed)`;
+    nothing here touches the process-wide generators.
     """
-    random.seed(seed)
-    np.random.seed(seed)
     issues = DEFAULT_ISSUES
     candidates, voters, true_utilities, cand_names = _build_base_electorate(
         cand_specs, num_voters, ideology, seed, issues

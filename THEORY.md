@@ -88,7 +88,6 @@ issue_score = Σ_k  priorité_v[k] · (1 − |position_v[k] − policy_c[k]|)
 
 où `k` parcourt les enjeux prioritaires de l'électeur, `loyalty_bonus` récompense
 l'alignement partisan, et `scandal_penalty = −0.3·scandales` (×1.5 si charisme < 0.5).
-La condition `will_vote` requiert `utility > 0.3`.
 
 **Vote blanc comme candidat implicite** — dans le modèle backend, le blanc est
 inséré dans le classement de chaque électeur à la position égale au nombre de

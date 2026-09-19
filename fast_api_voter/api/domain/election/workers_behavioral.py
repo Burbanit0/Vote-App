@@ -27,7 +27,7 @@ from api.engine.utils.simulation_voting_utils import calculate_utility, create_v
 from api.engine.utils.simulation_ranked_utils import (
     get_condorcet_winner, get_plurality_winner,
 )
-from ._electorate import _reseed_and_build_electorate
+from ._electorate import _build_electorate_from_seed
 from ._helpers import (
     build_candidate_from_xy as _build_candidate_from_xy, prose_list, result_label, tied_extremes,
 )
@@ -53,7 +53,7 @@ def _cascade_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
 
-    candidates, voters, sincere_utilities, cand_names, issues = _reseed_and_build_electorate(
+    candidates, voters, sincere_utilities, cand_names, issues = _build_electorate_from_seed(
         cand_specs, num_voters, ideology, seed
     )
 
@@ -191,7 +191,7 @@ def _behavioral_biases_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
                      f"supported: {', '.join(BIAS_TRACKED)}"
         }, 400
 
-    candidates, voters, sincere_utilities, cand_names, issues = _reseed_and_build_electorate(
+    candidates, voters, sincere_utilities, cand_names, issues = _build_electorate_from_seed(
         cand_specs, num_voters, ideology, seed
     )
 
@@ -509,7 +509,7 @@ def _liquid_democracy_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
 
-    candidates, voters, sincere_utilities, cand_names, issues = _reseed_and_build_electorate(
+    candidates, voters, sincere_utilities, cand_names, issues = _build_electorate_from_seed(
         cand_specs, num_voters, ideology, seed
     )
     all_ids: list[int] = [v["id"] for v in voters]
@@ -601,12 +601,13 @@ def _cv_tokens_and_locks(
     cv_dist: str,
     whale_pct: float,
     small_lock_d: int,
-    seed: int,
+    lock_rng: "_random.Random",
+    np_rng: "_np.random.RandomState",
 ) -> tuple[Dict[int, float], Dict[int, int], Dict[int, float], Dict[int, float]]:
     """Token holdings (Pareto — realistic crypto inequality), each voter's lock
     duration under the chosen distribution, the multiplier that duration buys,
     and the resulting conviction weight (tokens × multiplier)."""
-    raw_tokens = _np.random.pareto(1.16, len(voters)) + 1.0
+    raw_tokens = np_rng.pareto(1.16, len(voters)) + 1.0
     tokens_arr = raw_tokens / raw_tokens.mean() * 1000.0          # mean ≈ 1000
     voter_tokens: Dict[int, float] = {
         v["id"]: float(tokens_arr[i]) for i, v in enumerate(voters)
@@ -618,8 +619,6 @@ def _cv_tokens_and_locks(
         all_ids[i]: float(rank_arr[i]) for i in range(len(all_ids))
     }
 
-    rng = _random.Random(seed + 1)
-
     def assign_lock(voter_id: int) -> int:
         rank = token_ranks[voter_id]
         if cv_dist == "skewed":
@@ -630,7 +629,7 @@ def _cv_tokens_and_locks(
             return 0 if rank >= (1.0 - whale_pct) else small_lock_d
         if cv_dist == "zero_lock":
             return 0
-        return rng.choice(_CV_LOCK_OPTIONS)  # "uniform" and any unknown value
+        return lock_rng.choice(_CV_LOCK_OPTIONS)  # "uniform" and any unknown value
 
     voter_lock = {vid: assign_lock(vid) for vid in all_ids}
     voter_mult = {vid: _CV_MULTIPLIERS[voter_lock[vid]] for vid in all_ids}
@@ -766,18 +765,17 @@ def _conviction_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
     if len(proposals_in) < 2:
         return {"error": "At least 2 proposals required"}, 400
 
-    _random.seed(seed)
-    _np.random.seed(seed)
+    rng, np_rng = _seeded_rng_pair(seed)
     issues = DEFAULT_ISSUES
 
     voters = [
-        create_voter(issues, i, ideology_distribution=ideology)
+        create_voter(issues, i, ideology_distribution=ideology, rng=rng, np_rng=np_rng)
         for i in range(num_voters)
     ]
     all_ids: list[int] = [v["id"] for v in voters]
 
     voter_tokens, voter_lock, voter_mult, voter_cv_w = _cv_tokens_and_locks(
-        voters, all_ids, cv_dist, whale_pct, small_lock_d, seed,
+        voters, all_ids, cv_dist, whale_pct, small_lock_d, _random.Random(seed + 1), np_rng,
     )
     voter_choice = _cv_voter_choice(voters, all_ids, proposals_in)
     prop_names = [p["name"] for p in proposals_in]
@@ -876,7 +874,7 @@ def _nota_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
                      f"supported: {', '.join(_NOTA_TRACKED)}"
         }, 400
 
-    candidates, voters, sincere_utilities, cand_names, issues = _reseed_and_build_electorate(
+    candidates, voters, sincere_utilities, cand_names, issues = _build_electorate_from_seed(
         cand_specs, num_voters, ideology, seed
     )
 
@@ -1041,7 +1039,7 @@ def _ballot_complexity_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
 
-    candidates, voters, sincere_utilities, cand_names, issues = _reseed_and_build_electorate(
+    candidates, voters, sincere_utilities, cand_names, issues = _build_electorate_from_seed(
         cand_specs, num_voters, ideology, seed
     )
     n_cands = len(cand_names)
@@ -1155,7 +1153,7 @@ def _shy_voter_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
 
-    candidates, voters, sincere_utilities, cand_names, issues = _reseed_and_build_electorate(
+    candidates, voters, sincere_utilities, cand_names, issues = _build_electorate_from_seed(
         cand_specs, num_voters, ideology, seed
     )
     shy_idx       = min(shy_idx, len(cand_names) - 1)
@@ -1303,7 +1301,7 @@ def _electoral_fatigue_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
                      f"supported: {', '.join(UTILITY_METHODS)}"
         }, 400
 
-    candidates, voters, sincere_utilities, cand_names, issues = _reseed_and_build_electorate(
+    candidates, voters, sincere_utilities, cand_names, issues = _build_electorate_from_seed(
         cand_specs, num_voters, ideology, seed
     )
     all_ids: list[int] = [v["id"] for v in voters]

@@ -21,13 +21,12 @@ from __future__ import annotations
 
 import asyncio
 import math
-import random
 from collections import defaultdict
 from typing import Any
 
-import numpy as np
 import socketio
 
+from api.engine.utils.demographic_data import unseeded_rng_pair
 from api.core.config import get_settings
 from api.core.worker_dispatch import run_bounded
 from api.engine.constants import DEFAULT_ISSUES
@@ -70,8 +69,7 @@ def _run_one(candidate_configs: list[dict[str, Any]],
     request in the same process (e.g. a seeded election_service.simulate()
     call elsewhere) — unrelated to whether this loop itself needs a seed.
     """
-    rng        = random.Random()
-    np_rng     = np.random.RandomState()
+    rng, np_rng = unseeded_rng_pair()
     issues     = DEFAULT_ISSUES
     candidates = [
         create_candidate(issues, i, cfg["name"], _PARTY_CYCLE[i % len(_PARTY_CYCLE)], rng=rng)
