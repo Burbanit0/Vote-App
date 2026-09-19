@@ -66,22 +66,12 @@ class UnknownMethod(ValueError):
 
 
 #: Every rule a name resolves to, in the order `compare_all_methods` reports
-#: them -- which is why these two dicts are not alphabetical, and why
-#: `test_compare_all_methods_reports_in_the_registry_order` pins it. The order
-#: is load-bearing: `/interpret` takes the best and worst method by regret with
-#: min/max over a list where many rules tie, so the first-listed of the tied
-#: ones wins; re-alphabetising these dicts flips its default answer from
-#: plurality to baldwin. (compare_all_methods also reports evaluative, quadratic
-#: and random_ballot, which are not name-resolvable rules -- see the test.)
-#:
-#: This used to be one of three tables: `compare_all_methods` and
-#: `compare_all_methods_mc` each kept their own. They had drifted apart both
-#: ways -- five ranked rules the engine reported were unknown here, so a caller
-#: asking this registry for `split_cycle` got UnknownMethod for a rule
-#: `/simulate` reports, and this held `condorcet`, which nothing reported. That
-#: one is the Condorcet *criterion* (`get_condorcet_winner` returns None when a
-#: cycle leaves no Condorcet winner), not a rule; `compare_all_methods` reports
-#: it separately as `condorcet_winner`, and no request can name it here.
+#: them -- not alphabetical, because the order reaches the screen: a panel that
+#: lists methods as they arrive, StrategicModule's stable sort among equal
+#: scores, and the tied-method lists /interpret and /polarization return all
+#: follow it. `test_compare_all_methods_reports_in_the_registry_order` pins it.
+#: (compare_all_methods also reports evaluative, quadratic and random_ballot,
+#: which are not name-resolvable rules -- see the test.)
 RANKED_RULES: Dict[str, Callable[..., Optional[str]]] = {
     "plurality":      get_plurality_winner,
     "two_round":      get_two_round_winner,

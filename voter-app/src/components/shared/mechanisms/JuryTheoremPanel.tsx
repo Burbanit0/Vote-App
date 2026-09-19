@@ -19,6 +19,7 @@ import { Col, Row } from '@/components/ui/grid';
 import { Spinner } from '@/components/ui/spinner';
 import { numericTooltipFormatter, numericTickFormatter } from '@/lib/rechartsFormatters';
 import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
+import { listNames } from '@/lib/listNames';
 
 import {
   LineChart,
@@ -55,8 +56,9 @@ interface CurvePoint {
 interface JuryData {
   theoretical_accuracy: number;
   methods: Record<string, MethodResult>;
-  best_method: string;
-  worst_method: string;
+  /** Every method tied at the top / bottom; empty when all five tie. */
+  best_method: string[];
+  worst_method: string[];
   voter_competence: number;
   num_voters: number;
   competence_curve: CurvePoint[];
@@ -220,17 +222,26 @@ const JuryTheoremPanel: React.FC = () => {
             <Badge variant="danger" data-testid="theory-badge">
               {t('jury.theory')}: {theoryPct}%
             </Badge>
-            <Badge
-              style={{ background: METHOD_COLORS[data.best_method] }}
-              data-testid="best-method-badge"
-            >
-              🏆 {data.best_method}:{' '}
-              {Math.round((data.methods[data.best_method]?.accuracy ?? 0) * 100)}%
-            </Badge>
-            <Badge variant="secondary">
-              ↓ {data.worst_method}:{' '}
-              {Math.round((data.methods[data.worst_method]?.accuracy ?? 0) * 100)}%
-            </Badge>
+            {/* Tied methods share one accuracy, so the first stands for all. */}
+            {data.best_method.length > 0 && (
+              <Badge
+                style={
+                  data.best_method.length === 1
+                    ? { background: METHOD_COLORS[data.best_method[0]] }
+                    : undefined
+                }
+                data-testid="best-method-badge"
+              >
+                🏆 {listNames(data.best_method)}:{' '}
+                {Math.round(data.methods[data.best_method[0]].accuracy * 100)}%
+              </Badge>
+            )}
+            {data.worst_method.length > 0 && (
+              <Badge variant="secondary">
+                ↓ {listNames(data.worst_method)}:{' '}
+                {Math.round(data.methods[data.worst_method[0]].accuracy * 100)}%
+              </Badge>
+            )}
           </div>
 
           {/* Pedagogical note */}

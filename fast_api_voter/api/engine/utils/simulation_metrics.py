@@ -406,12 +406,8 @@ def compare_all_methods(
     return output
 
 
-#: `compare_all_methods_mc`'s narrower rule set, by name -- the functions come
-#: from the registry, so a rule fixed there is fixed here too. Why narrower is
-#: in the function's docstring: at MonteCarloRequest's own ceiling the full set
-#: measures 84 s against the 180 s worker budget, a margin that has already
-#: failed in CI. These tuples, not the registry's dict order, set the order of
-#: the Monte-Carlo table.
+#: `compare_all_methods_mc`'s narrower rule set (why narrower: its docstring),
+#: looked up in the registry. These tuples set the Monte-Carlo table's order.
 _MC_RANKED = (
     "plurality", "two_round", "borda", "approval", "irv",
     "coombs", "bucklin", "minimax", "schulze",
