@@ -3419,6 +3419,7 @@
             "type": "string"
           },
           "method": {
+            "const": "plurality",
             "default": "plurality",
             "title": "Method",
             "type": "string"
@@ -3797,6 +3798,7 @@
             "type": "number"
           },
           "method": {
+            "const": "plurality",
             "default": "plurality",
             "title": "Method",
             "type": "string"
@@ -4142,6 +4144,12 @@
           },
           "method": {
             "default": "plurality",
+            "enum": [
+              "plurality",
+              "borda",
+              "irv",
+              "schulze"
+            ],
             "title": "Method",
             "type": "string"
           },
@@ -5335,6 +5343,11 @@
           },
           "method": {
             "default": "plurality",
+            "enum": [
+              "plurality",
+              "borda",
+              "approval"
+            ],
             "title": "Method",
             "type": "string"
           },
@@ -7732,6 +7745,10 @@
           },
           "method": {
             "default": "plurality",
+            "enum": [
+              "plurality",
+              "proportional"
+            ],
             "title": "Method",
             "type": "string"
           },
@@ -8282,6 +8299,11 @@
           },
           "general_method": {
             "default": "plurality",
+            "enum": [
+              "plurality",
+              "irv",
+              "approval"
+            ],
             "title": "General Method",
             "type": "string"
           },
@@ -8303,6 +8325,11 @@
           },
           "primary_method": {
             "default": "plurality",
+            "enum": [
+              "plurality",
+              "irv",
+              "approval"
+            ],
             "title": "Primary Method",
             "type": "string"
           },
@@ -9609,6 +9636,7 @@
             "type": "string"
           },
           "method": {
+            "const": "plurality",
             "default": "plurality",
             "title": "Method",
             "type": "string"

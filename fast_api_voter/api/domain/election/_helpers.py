@@ -12,7 +12,7 @@ Future PRs will progressively move route groups into sibling modules
 from __future__ import annotations
 
 from collections import Counter
-from typing import Any, Dict, List
+from typing import Any, Dict, Iterable, List, Optional, Sequence
 
 from api.engine.constants import ECONOMY_ISSUES, ENV_ISSUES, SOCIAL_ISSUES
 
@@ -136,3 +136,17 @@ def parse_optional_election_configs(
         info_cfg, info_enabled, campaign_cfg, campaign_on,
         num_days, polling_effect,
     )
+
+
+def reject_unknown_methods(
+    requested: Iterable[str], supported: Sequence[str],
+) -> Optional[tuple[Dict[str, Any], int]]:
+    """A 400 naming every unsupported method, or None. For the direct-call path:
+    over HTTP each request schema's Literal already turns a bad name into a 422."""
+    unknown = [m for m in requested if m not in supported]
+    if not unknown:
+        return None
+    return {
+        "error": f"unknown voting method(s) {', '.join(repr(m) for m in unknown)} -- "
+                 f"supported: {', '.join(supported)}"
+    }, 400

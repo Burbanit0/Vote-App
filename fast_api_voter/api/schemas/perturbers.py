@@ -57,6 +57,13 @@ FatigueMethod = Literal[
 ChoiceOverloadMethod = Literal[
     "plurality", "approval", "borda", "majority_judgment", "irv", "schulze",
 ]
+HotellingMethod = Literal["plurality", "borda", "approval"]
+DemographicTurnoutMethod = Literal["plurality", "borda", "irv", "schulze"]
+PrimaryMethod = Literal["plurality", "irv", "approval"]
+PartyDynamicsMethod = Literal["plurality", "proportional"]
+# /sortition, /compulsory-voting and /deliberation always count by plurality and
+# never read the field; it accepted any string and changed nothing.
+PluralityOnly = Literal["plurality"]
 
 # ── /nota ────────────────────────────────────────────────────────────────────
 
@@ -217,7 +224,7 @@ class DeliberationRequest(BaseModel):
     group_size:          int   = Field(5, ge=3, le=20)
     argument_quality:    float = Field(0.5, ge=0.0, le=1.0,
                                        description="Higher = updates pull toward better-informed positions.")
-    method:              str   = Field("plurality")
+    method:              PluralityOnly = Field("plurality")
 
 
 # ── /jury ───────────────────────────────────────────────────────────────────
@@ -245,7 +252,7 @@ class HotellingRequest(BaseModel):
     num_voters:     int   = Field(200, ge=50, le=1000)
     ideology:       str   = Field("random")
     seed:           int   = Field(42, ge=0)
-    method:         str   = Field("plurality")
+    method:         HotellingMethod = Field("plurality")
     num_iterations: int   = Field(10, ge=1, le=20)
     step_size:      float = Field(0.05, ge=0.01, le=0.15,
                                   description="Per-step distance each candidate moves on the (x, y) grid.")
@@ -286,7 +293,7 @@ class SortitionRequest(BaseModel):
     assembly_size:        int   = Field(50, ge=5, le=300)
     ideology:             str   = Field("random")
     seed:                 int   = Field(42, ge=0)
-    method:               str   = Field("plurality")
+    method:               PluralityOnly = Field("plurality")
     num_simulations:      int   = Field(20, ge=5, le=100)
     realistic_candidates: bool  = Field(True)
     stratification:       Optional[StratificationConfig] = Field(default_factory=StratificationConfig)  # pyright: ignore[reportArgumentType]
@@ -328,7 +335,7 @@ class DemographicTurnoutRequest(BaseModel):
     candidates:           List[CandidateSpec] = Field(..., min_length=2, max_length=8)
     num_voters:           int   = Field(300, ge=50, le=1000)
     seed:                 int   = Field(42, ge=0)
-    method:               str   = Field("plurality")
+    method:               DemographicTurnoutMethod = Field("plurality")
     correct_for_turnout:  bool  = Field(True,
                                         description="Whether to apply the turnout-correction model.")
     demographic_profile:  Optional[DemographicProfile] = Field(default_factory=DemographicProfile)
@@ -350,7 +357,7 @@ class CompulsoryVotingRequest(BaseModel):
                                         description="Fraction of reluctant voters who cast null ballots.")
     reluctant_random_pct: float = Field(0.08, ge=0.0, le=1.0,
                                         description="Fraction who vote randomly rather than sincerely.")
-    method:               str   = Field("plurality")
+    method:               PluralityOnly = Field("plurality")
 
 
 # ── /party-dynamics ─────────────────────────────────────────────────────────
@@ -371,7 +378,7 @@ class PartyDynamicsRequest(BaseModel):
     ideology:              str   = Field("random")
     seed:                  int   = Field(42, ge=0)
     num_elections:         int   = Field(10, ge=1, le=30)
-    method:                str   = Field("plurality")
+    method:                PartyDynamicsMethod = Field("plurality")
     survival_threshold:    float = Field(0.05, ge=0.01, le=0.20,
                                          description="Vote share below which a party is eliminated.")
     emergence_probability: float = Field(0.10, ge=0.0, le=1.0,
@@ -437,8 +444,8 @@ class PrimaryRequest(BaseModel):
     parties:            List[PartySpec] = Field(..., min_length=2, max_length=6)
     general_num_voters: int             = Field(500, ge=50, le=2000)
     general_ideology:   str             = Field("random")
-    primary_method:     str             = Field("plurality")
-    general_method:     str             = Field("plurality")
+    primary_method:     PrimaryMethod   = Field("plurality")
+    general_method:     PrimaryMethod   = Field("plurality")
     seed:               int             = Field(42, ge=0)
 
 

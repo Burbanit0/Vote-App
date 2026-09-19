@@ -20,8 +20,6 @@ from api.engine.utils.demographic_data       import _seeded_rng_pair
 from api.engine.utils.simulation_metrics      import compare_all_methods
 from api.engine.utils.simulation_ranked_utils import (
     get_plurality_winner,
-    get_irv_winner,
-    get_approval_winner_sincere,
 )
 from api.engine.utils.blank_vote_rules        import BlankVoteRule
 from api.engine.utils.campaign_dynamics       import simulate_campaign
@@ -31,11 +29,13 @@ from api.engine.utils.cache import cache_result
 # Generic helpers extracted to _helpers.py during the incremental split of
 # this package. Re-exported under their original private names so the
 # 30+ existing call sites in this file continue to work unchanged.
+from api.engine.utils.method_registry import winner_from_utilities
 from ._helpers import (
     build_candidate_from_xy       as _build_candidate_from_xy,
     inter_method_agreement        as _inter_method_agreement,
     dhondt                        as _dhondt,
     parse_optional_election_configs as _parse_optional_election_configs,
+    reject_unknown_methods        as _reject_unknown_methods,
 )
 from ._electorate import (
     _build_base_electorate,
@@ -1270,14 +1270,12 @@ def _run_primary(
     total = len(party_voters) or 1
     vote_shares = {n: round(first.get(n, 0) / total, 4) for n in cand_names}
 
-    if method == "irv":
-        winner = get_irv_winner(rankings)
-    elif method == "approval":
-        uid_utilities = {v["id"]: {n: utilities.get(v["id"], {}).get(n, 0.0) for n in cand_names}
-                         for v in party_voters}
-        winner = get_approval_winner_sincere(uid_utilities)
-    else:  # plurality (default)
-        winner = get_plurality_winner(rankings)
+    winner = winner_from_utilities(
+        method,
+        {v["id"]: {n: utilities.get(v["id"], {}).get(n, 0.0) for n in cand_names}
+         for v in party_voters},
+        party_voters,
+    )
 
     winner = winner or (cand_names[0] if cand_names else "")
 
@@ -1285,6 +1283,10 @@ def _run_primary(
     runner_up = next((n for n in sorted_by_share if n != winner), None)
 
     return {"winner": winner, "runner_up": runner_up, "vote_shares": vote_shares}
+
+
+#: The rules /primary's three elections (primaries, general, no-primaries) run.
+PRIMARY_METHODS = ("plurality", "irv", "approval")
 
 
 def _primary_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
@@ -1295,6 +1297,8 @@ def _primary_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     primary_method     = str(data.get("primary_method", "plurality"))
     general_method     = str(data.get("general_method",  "plurality"))
     seed               = int(data.get("seed", 42))
+    if err := _reject_unknown_methods([primary_method, general_method], PRIMARY_METHODS):
+        return err
 
     if len(parties_raw) < 2:
         return {"error": "At least 2 parties required"}, 400
@@ -1413,12 +1417,7 @@ def _primary_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         for c in general_ballot_cands
     }
 
-    if general_method == "irv":
-        general_winner_name = get_irv_winner(gen_rankings)
-    elif general_method == "approval":
-        general_winner_name = get_approval_winner_sincere(gen_utils)
-    else:
-        general_winner_name = get_plurality_winner(gen_rankings)
+    general_winner_name = winner_from_utilities(general_method, gen_utils, general_voters)
     general_winner_name = general_winner_name or general_ballot_cands[0]["name"]
 
     sorted_gen = sorted(general_ballot_cands, key=lambda c: -gen_vote_shares.get(c["name"], 0))
@@ -1449,12 +1448,7 @@ def _primary_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             sorted(center_utils[uid].keys(), key=lambda n: -center_utils[uid][n])
         )
 
-    if general_method == "irv":
-        no_primary_winner = get_irv_winner(center_rankings)
-    elif general_method == "approval":
-        no_primary_winner = get_approval_winner_sincere(center_utils)
-    else:
-        no_primary_winner = get_plurality_winner(center_rankings)
+    no_primary_winner = winner_from_utilities(general_method, center_utils, general_voters)
 
     # Map back from "PartyNameCentre" → party name
     if no_primary_winner:

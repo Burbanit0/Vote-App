@@ -111,6 +111,23 @@ describe('PrimarySimulator', () => {
     );
   });
 
+  it('sends the primary and general methods picked', async () => {
+    apiClient.POST.mockResolvedValue(makeData());
+    renderPanel();
+    fireEvent.change(screen.getByTestId('primary-method-select'), { target: { value: 'irv' } });
+    fireEvent.change(screen.getByTestId('general-method-select'), {
+      target: { value: 'approval' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
+    expect(apiClient.POST).toHaveBeenCalledWith(
+      expect.stringMatching(/primary/),
+      expect.objectContaining({
+        body: expect.objectContaining({ primary_method: 'irv', general_method: 'approval' }),
+      })
+    );
+  });
+
   it('renders Phase 1 primaries section after data loads', async () => {
     apiClient.POST.mockResolvedValue(makeData());
     renderPanel();

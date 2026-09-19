@@ -17,6 +17,7 @@ import numpy as _np
 
 from api.engine.utils.simulation_metrics import compare_all_methods
 from ._electorate import _build_base_electorate, _reseed_and_build_electorate
+from ._helpers import reject_unknown_methods
 
 
 # ── Hotelling-Downs equilibrium ────────────────────────────────────────────────
@@ -49,11 +50,7 @@ def _hotelling_score(
         return 0.0
 
     score: float
-    if method in ("plurality", "irv"):
-        winners = utilities.argmax(axis=1)
-        score = int((winners == cand_idx).sum()) / N
-
-    elif method == "borda":
+    if method == "borda":
         ranks  = _np.argsort(-utilities, axis=1)
         points = _np.zeros((N, C))
         for k in range(C):
@@ -66,11 +63,15 @@ def _hotelling_score(
         approved = utilities > means
         score = int(approved[:, cand_idx].sum()) / N
 
-    else:
+    else:   # plurality -- the worker has already rejected any other name
         winners = utilities.argmax(axis=1)
         score = int((winners == cand_idx).sum()) / N
 
     return score
+
+
+#: The candidate objectives /hotelling can climb (no IRV: it has no smooth share).
+HOTELLING_METHODS = ("plurality", "borda", "approval")
 
 
 def _hotelling_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
@@ -79,6 +80,8 @@ def _hotelling_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     ideology       = str(data.get("ideology",   "random"))
     seed           = int(data.get("seed",         42))
     method         = str(data.get("method",     "plurality"))
+    if err := reject_unknown_methods([method], HOTELLING_METHODS):
+        return err
     num_iterations = max(1,  min(20,  int(data.get("num_iterations", 10))))
     step_size      = max(0.01, min(0.15, float(data.get("step_size",   0.05))))
     cand_specs     = data.get("candidates", [

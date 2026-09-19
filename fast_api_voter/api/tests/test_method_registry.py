@@ -207,6 +207,9 @@ def test_schema_method_literals_match_workers():
     from api.domain.election.workers_behavioral import (
         BALLOT_METHODS, BIAS_TRACKED, CO_METHODS, _NOTA_TRACKED,
     )
+    from api.domain.election.workers import PRIMARY_METHODS
+    from api.domain.election.workers_advanced import DT_METHODS, PD_METHODS
+    from api.domain.election.workers_dynamics import HOTELLING_METHODS
     from api.domain.election.workers_mechanisms import ADAPTIVE_METHODS
     from api.schemas import perturbers
 
@@ -217,6 +220,10 @@ def test_schema_method_literals_match_workers():
         (perturbers.BallotMethod,         BALLOT_METHODS),
         (perturbers.FatigueMethod,        UTILITY_METHODS),
         (perturbers.ChoiceOverloadMethod, CO_METHODS),
+        (perturbers.HotellingMethod,          HOTELLING_METHODS),
+        (perturbers.DemographicTurnoutMethod, DT_METHODS),
+        (perturbers.PrimaryMethod,            PRIMARY_METHODS),
+        (perturbers.PartyDynamicsMethod,      PD_METHODS),
     ):
         assert set(get_args(literal)) == set(worker_tuple), literal
 
