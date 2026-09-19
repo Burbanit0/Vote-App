@@ -89,6 +89,40 @@ class TestChoiceOverload:
         r = client.post("/api/v2/election/choice-overload", json=ok)
         assert r.status_code == 200
 
+    def test_rejects_a_method_the_panel_does_not_implement(self, client):
+        """This returned 200 with plurality's winner under the requested name --
+        the request field was a bare List[str] and the worker's lookup ended in
+        `.get(method, get_plurality_winner)` -- and the pedagogical note then
+        named 'not_a_method' the method most robust to choice overload.
+        `kemeny_young` is a real rule, just not one this panel tallies."""
+        for method in ("not_a_method", "kemeny_young"):
+            bad = {**self.payload, "methods": ["plurality", method]}
+            r = client.post("/api/v2/election/choice-overload", json=bad)
+            assert r.status_code == 422, (method, r.text)
+
+    def test_a_direct_call_with_an_unknown_method_is_a_400_not_plurality(self):
+        """Placed last on purpose: the worker used to cut the list to five
+        before its guard looked, so a sixth name was dropped rather than
+        rejected."""
+        from api.domain.election.workers_behavioral import CO_METHODS, _choice_overload_worker
+
+        body, status = _choice_overload_worker(
+            {**self.payload, "methods": [*CO_METHODS, "not_a_method"]}
+        )
+        assert status == 400
+        assert "not_a_method" in body["error"]
+
+    def test_every_advertised_method_can_be_requested_at_once(self, client):
+        """The enum advertises six names; the list was capped at five, so the
+        one request asking for all of them was a 422."""
+        from api.domain.election.workers_behavioral import CO_METHODS
+
+        r = client.post("/api/v2/election/choice-overload",
+                        json={**self.payload, "methods": list(CO_METHODS)})
+        assert r.status_code == 200, r.text
+        for row in r.json()["results_by_n"]:
+            assert set(row["winner_by_method"]) == set(CO_METHODS)
+
 
 # ── /deliberation ───────────────────────────────────────────────────────────
 

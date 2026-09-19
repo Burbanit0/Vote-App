@@ -67,10 +67,9 @@ def test_ballot_complexity_worker_falls_back_and_logs_on_method_failures(monkeyp
 
 
 def test_co_majority_judgment_falls_back_and_logs_on_failure(monkeypatch, caplog):
-    # Imported at module level in workers_behavioral.py (unlike the other
-    # sites' local per-call imports), so it must be patched on this module,
-    # not on its source module.
-    monkeypatch.setattr(workers_behavioral, "get_majority_judgment_winner", _boom)
+    # /choice-overload reads majority judgment from the registry now, like every
+    # other panel, so it is broken where the others are.
+    _break(monkeypatch, "majority_judgment")
 
     v_list = [{"id": 1}, {"id": 2}]
     utils = {1: {"Alice": 0.9, "Bob": 0.4}, 2: {"Alice": 0.3, "Bob": 0.8}}

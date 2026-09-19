@@ -6,43 +6,13 @@ from typing import Any, Callable, Dict, List, Optional
 from .simulation_voting_utils import calculate_utility
 from .simulation_ranked_utils import (
     get_condorcet_winner,
-    get_plurality_winner,
-    get_two_round_winner,
-    get_borda_winner,
-    get_approval_winner,
-    get_irv_winner,
-    get_coombs_winner,
-    get_kemeny_young_winner,
     kemeny_used_approximation,
-    get_bucklin_winner,
-    get_minimax_winner,
-    get_schulze_winner,
-    get_copeland_winner,
-    get_nanson_winner,
-    get_baldwin_winner,
-    get_ranked_pairs_winner,
-    get_black_winner,
-    get_anti_plurality_winner,
-    get_dowdall_winner,
-    get_raynaud_winner,
-    get_benham_winner,
-    get_river_winner,
-    get_smith_irv_winner,
-    get_split_cycle_winner,
     random_ballot_probabilities,
 )
 from .simulation_score_utils import (
-    get_simple_score_winner,
-    get_star_voting_winner,
-    get_median_voting_winner,
-    get_mean_median_hybrid_winner,
-    get_variance_based_winner,
-    get_majority_judgment_winner,
     get_evaluative_winner,
-    get_cumulative_winner,
-    get_maximin_score_winner,
-    get_nash_winner,
 )
+from .method_registry import RANKED_RULES, SCORE_RULES
 from .quadratic_voting import apply_quadratic_voting
 
 # Maximum number of voters sampled when computing strategic_vulnerability.
@@ -329,54 +299,11 @@ def compare_all_methods(
         }
 
     # ------------------------------------------------------------------
-    # Method registries
-    # ------------------------------------------------------------------
-    ranked_methods: Dict[str, Callable[..., Optional[str]]] = {
-        "plurality": get_plurality_winner,
-        "two_round": get_two_round_winner,
-        "borda": get_borda_winner,
-        "approval": get_approval_winner,
-        "irv": get_irv_winner,
-        "coombs": get_coombs_winner,
-        "bucklin": get_bucklin_winner,
-        "minimax": get_minimax_winner,
-        "schulze": get_schulze_winner,
-        # Kemeny-Young is the costliest rule here: exact by DP over candidate
-    # subsets, O(2^m · m²) in the CANDIDATE count (not the voter count), above
-    # `_KY_EXACT_CAP` a KwikSort approximation. ~4 ms at 8 candidates / 1000
-    # voters, of which the shared `_pairwise_wins` build is most.
-        "kemeny_young": get_kemeny_young_winner,
-        "copeland":     get_copeland_winner,
-        "nanson":       get_nanson_winner,
-        "baldwin":      get_baldwin_winner,
-        "ranked_pairs": get_ranked_pairs_winner,
-        "black":        get_black_winner,
-        "anti_plurality": get_anti_plurality_winner,
-        "dowdall":      get_dowdall_winner,
-        "raynaud":      get_raynaud_winner,
-        "benham":       get_benham_winner,
-        "river":        get_river_winner,
-        "smith_irv":    get_smith_irv_winner,
-        "split_cycle":  get_split_cycle_winner,
-    }
-
-    score_methods: Dict[str, Callable[..., Any]] = {
-        "simple_score": get_simple_score_winner,
-        "star_voting": get_star_voting_winner,
-        "median_voting": get_median_voting_winner,
-        "mean_median_hybrid": get_mean_median_hybrid_winner,
-        "variance_based": get_variance_based_winner,
-        "cumulative": get_cumulative_winner,
-        "maximin": get_maximin_score_winner,
-        "nash": get_nash_winner,
-    }
-
-    # ------------------------------------------------------------------
     # Run all methods
     # ------------------------------------------------------------------
     methods_result: Dict[str, Dict[str, Any]] = {}
 
-    for name, fn in ranked_methods.items():
+    for name, fn in RANKED_RULES.items():
         winner = fn(rankings)
         entry = _build_metrics_ranked(fn, winner)
         if name == "kemeny_young":
@@ -389,7 +316,9 @@ def compare_all_methods(
             entry["kemeny_exact"] = not kemeny_used_approximation(rankings)
         methods_result[name] = entry
 
-    for name, fn in score_methods.items():
+    for name, fn in SCORE_RULES.items():
+        if name == "majority_judgment":
+            continue   # reads raw utilities, not 0-5 ballots -- run just below
         raw = fn(score_votes)
         winner = raw.get("winner") if isinstance(raw, dict) else raw
         methods_result[name] = _build_metrics_score(fn, winner)
@@ -398,7 +327,7 @@ def compare_all_methods(
     mj_utility_scores: List[Dict[str, float]] = [
         utilities[v["id"]].copy() for v in voters
     ]
-    mj_raw: Dict[str, Any]   = get_majority_judgment_winner(mj_utility_scores)
+    mj_raw: Dict[str, Any]   = SCORE_RULES["majority_judgment"](mj_utility_scores)
     mj_winner: Optional[str] = str(mj_raw["winner"]) if mj_raw.get("winner") else None
     mj_entry = _build_metrics_score(
         lambda sv: {"winner": mj_winner},
@@ -470,6 +399,22 @@ def compare_all_methods(
     return output
 
 
+#: `compare_all_methods_mc`'s narrower rule set, by name -- the functions come
+#: from the registry, so a rule fixed there is fixed here too. Why narrower is
+#: in the function's docstring: at MonteCarloRequest's own ceiling the full set
+#: measures 84 s against the 180 s worker budget, a margin that has already
+#: failed in CI. These tuples, not the registry's dict order, set the order of
+#: the Monte-Carlo table.
+_MC_RANKED = (
+    "plurality", "two_round", "borda", "approval", "irv",
+    "coombs", "bucklin", "minimax", "schulze",
+)
+_MC_SCORE = (
+    "simple_score", "star_voting", "median_voting",
+    "mean_median_hybrid", "variance_based",
+)
+
+
 def compare_all_methods_mc(
     voters: List[Dict[str, Any]],
     candidates: List[Dict[str, Any]],
@@ -493,7 +438,7 @@ def compare_all_methods_mc(
 
     The cost of keeping it is real and should be said out loud: /monte-carlo and
     the Socket.IO stream report 14 of the engine's 34 rules, so a rule added to
-    `compare_all_methods` never reaches them. Closing that wants a method
+    the registry never reaches them. Closing that wants a method
     allow-list on the engine (or a lower num_runs cap), not a second registry --
     but a 2x regression on a documented-max request is the wrong way to pay for
     it.
@@ -542,29 +487,10 @@ def compare_all_methods_mc(
             4,
         )
 
-    ranked_methods_mc: Dict[str, Callable[..., Optional[str]]] = {
-        "plurality":        get_plurality_winner,
-        "two_round":        get_two_round_winner,
-        "borda":            get_borda_winner,
-        "approval":         get_approval_winner,
-        "irv":              get_irv_winner,
-        "coombs":           get_coombs_winner,
-        "bucklin":          get_bucklin_winner,
-        "minimax":          get_minimax_winner,
-        "schulze":          get_schulze_winner,
-    }
-    score_methods_mc: Dict[str, Callable[..., Any]] = {
-        "simple_score":       get_simple_score_winner,
-        "star_voting":        get_star_voting_winner,
-        "median_voting":      get_median_voting_winner,
-        "mean_median_hybrid": get_mean_median_hybrid_winner,
-        "variance_based":     get_variance_based_winner,
-    }
-
     methods_result_mc: Dict[str, Dict[str, Any]] = {}
 
-    for name, fn in ranked_methods_mc.items():
-        winner = fn(rankings)
+    for name in _MC_RANKED:
+        winner = RANKED_RULES[name](rankings)
         methods_result_mc[name] = {
             "winner":                winner,
             "bayesian_regret":       _regret(winner),
@@ -572,8 +498,8 @@ def compare_all_methods_mc(
             "condorcet_consistent":  (winner == condorcet_winner) if condorcet_winner else None,
         }
 
-    for name, fn in score_methods_mc.items():
-        raw_mc = fn(score_votes)
+    for name in _MC_SCORE:
+        raw_mc = SCORE_RULES[name](score_votes)
         winner = raw_mc.get("winner") if isinstance(raw_mc, dict) else raw_mc
         methods_result_mc[name] = {
             "winner":                winner,

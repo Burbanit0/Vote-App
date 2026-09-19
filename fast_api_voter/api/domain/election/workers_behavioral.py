@@ -19,14 +19,13 @@ from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.error_handling import safe_call
 from api.engine.utils.logger import get_logger
 from api.engine.utils.method_registry import (
-    UTILITY_METHODS, rankings_from_utilities, winner_from_utilities,
+    SCORE_RULES, UTILITY_METHODS, rankings_from_utilities, rule_winner,
+    winner_from_utilities,
 )
 from api.engine.utils.simulation_voting_utils import calculate_utility, create_voter
 from api.engine.utils.simulation_ranked_utils import (
-    get_borda_winner, get_condorcet_winner, get_irv_winner, get_plurality_winner,
-    get_schulze_winner,
+    get_condorcet_winner, get_plurality_winner,
 )
-from api.engine.utils.simulation_score_utils import get_majority_judgment_winner
 from ._electorate import _reseed_and_build_electorate
 from ._helpers import build_candidate_from_xy as _build_candidate_from_xy
 
@@ -1406,11 +1405,14 @@ def _electoral_fatigue_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
 
 _CO_DEFAULT_METHODS = ("plurality", "approval", "borda", "majority_judgment")
 _CO_DEFAULT_COUNTS  = (2, 3, 5, 7, 10)
-_CO_RANKED_RULES = {
-    "borda":   get_borda_winner,
-    "irv":     get_irv_winner,
-    "schulze": get_schulze_winner,
-}
+# What `_co_winner` can answer: three rules it tallies itself, because a
+# heuristic voter casts a single choice rather than a ranking, and three ranked
+# rules from the registry. Its ranked-rule lookup used to end in
+# `.get(method, get_plurality_winner)`, and the request field was a bare
+# List[str], so `"methods": ["not_a_method"]` returned 200 with plurality's
+# winner reported under that name -- and the pedagogical note then crowned
+# 'not_a_method' "la méthode la plus robuste à la surcharge cognitive".
+CO_METHODS = (*_CO_DEFAULT_METHODS, "irv", "schulze")
 
 
 def _co_approval_tally(
@@ -1445,7 +1447,7 @@ def _co_majority_judgment(
     """Majority judgment over the utility grades, falling back to plurality when
     the grade profile is one the MJ implementation cannot resolve."""
     def _resolve() -> Optional[str]:
-        r = get_majority_judgment_winner([utils[v["id"]].copy() for v in v_list])
+        r = SCORE_RULES["majority_judgment"]([utils[v["id"]].copy() for v in v_list])
         return str(r["winner"]) if r.get("winner") else cnames[0]
 
     return safe_call(
@@ -1474,7 +1476,7 @@ def _co_winner(
         return max(t2, key=t2.__getitem__) if t2 else cnames[0]
     if method == "majority_judgment":
         return _co_majority_judgment(v_list, utils, rnk, cnames)
-    return _CO_RANKED_RULES.get(method, get_plurality_winner)(rnk)
+    return rule_winner(method, rnk)
 
 
 def _co_candidates(
@@ -1689,8 +1691,10 @@ def _co_parse(data: Dict[str, Any]) -> Dict[str, Any]:
         "overload_threshold": max(2, min(12, int(data.get("overload_threshold", 5)))),
         "h_not": h_not, "h_pri": h_pri, "h_par": h_par,
         "total_h": min(1.0, h_not + h_pri + h_par),
-        # Pydantic Optional[List[str]] may pass null — fall back to the default.
-        "methods_req": (data.get("methods") or _CO_DEFAULT_METHODS)[:5],
+        # null falls back to the default. Not truncated: the schema caps the list
+        # at 6 (one per CO_METHODS name), and the worker's guard has to see every
+        # name a direct caller passed, not the first few.
+        "methods_req": list(data.get("methods") or _CO_DEFAULT_METHODS),
     }
 
 
@@ -1702,6 +1706,12 @@ def _choice_overload_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     cand_counts, overload_threshold = p["cand_counts"], p["overload_threshold"]
     h_not, h_pri, h_par, total_h = p["h_not"], p["h_pri"], p["h_par"], p["total_h"]
     methods_req = p["methods_req"]
+    unknown = [m for m in methods_req if m not in CO_METHODS]
+    if unknown:
+        return {
+            "error": f"unknown voting method(s) {', '.join(repr(m) for m in unknown)} -- "
+                     f"supported: {', '.join(CO_METHODS)}"
+        }, 400
 
     if not cand_counts:
         return {"error": "candidate_counts must be non-empty"}, 400

@@ -56,9 +56,12 @@ def test_every_ranked_rule_returns_a_real_candidate(method):
 
 @pytest.mark.parametrize(
     "method",
-    ["plurality", "borda", "irv", "two_round", "condorcet", "black", "schulze",
+    ["plurality", "borda", "irv", "two_round", "black", "schulze",
      "minimax", "copeland", "ranked_pairs", "kemeny_young", "bucklin", "coombs",
-     "baldwin", "nanson", "dowdall"],
+     "baldwin", "nanson", "dowdall",
+     # Registered alongside the rest once the registry became the one table;
+     # all five are Condorcet methods, so they must elect A here too.
+     "raynaud", "benham", "river", "smith_irv", "split_cycle"],
 )
 def test_the_condorcet_family_elects_the_condorcet_winner(method):
     """A beats B and C 3-2 in this profile and leads on first preferences, so
@@ -202,19 +205,27 @@ def test_schema_method_literals_match_workers():
     from typing import get_args
 
     from api.domain.election.workers_behavioral import (
-        BALLOT_METHODS, BIAS_TRACKED, _NOTA_TRACKED,
+        BALLOT_METHODS, BIAS_TRACKED, CO_METHODS, _NOTA_TRACKED,
     )
     from api.domain.election.workers_mechanisms import ADAPTIVE_METHODS
     from api.schemas import perturbers
 
     for literal, worker_tuple in (
-        (perturbers.AdaptiveMethod, ADAPTIVE_METHODS),
-        (perturbers.BiasMethod,     BIAS_TRACKED),
-        (perturbers.NotaMethod,     _NOTA_TRACKED),
-        (perturbers.BallotMethod,   BALLOT_METHODS),
-        (perturbers.FatigueMethod,  UTILITY_METHODS),
+        (perturbers.AdaptiveMethod,       ADAPTIVE_METHODS),
+        (perturbers.BiasMethod,           BIAS_TRACKED),
+        (perturbers.NotaMethod,           _NOTA_TRACKED),
+        (perturbers.BallotMethod,         BALLOT_METHODS),
+        (perturbers.FatigueMethod,        UTILITY_METHODS),
+        (perturbers.ChoiceOverloadMethod, CO_METHODS),
     ):
         assert set(get_args(literal)) == set(worker_tuple), literal
+
+    # _co_winner tallies these three itself and hands every other name to
+    # rule_winner as a ranked rule. A score rule added here (star_voting is the
+    # obvious one) would pass both schema and guard and then raise inside the
+    # worker -- a 500, since nothing catches UnknownMethod.
+    self_tallied = {"plurality", "approval", "majority_judgment"}
+    assert set(CO_METHODS) - self_tallied <= set(RANKED_RULES)
 
 
 def test_every_panel_method_is_one_winner_from_utilities_can_answer():
@@ -250,3 +261,68 @@ def test_sincere_approval_agrees_with_the_engine_on_ties():
 
     flat = {1: {"Bob": 0.5, "Alice": 0.5}, 2: {"Bob": 0.5, "Alice": 0.5}}
     assert winner_from_utilities("approval", flat, voters) is None
+
+
+def test_the_registry_answers_every_rule_the_engine_reports():
+    """The registry and `compare_all_methods` used to keep separate tables, and
+    they drifted both ways: the engine reported `split_cycle`, `river`,
+    `raynaud`, `benham` and `smith_irv` while `rule_winner` raised UnknownMethod
+    for all five. The engine reads the registry now; this fails if a rule is
+    added to one without the other.
+
+    Three reports are not registry rules and say why here rather than silently:
+    evaluative reads raw utilities through a +1/0/-1 threshold, quadratic spends
+    a credit budget, and random_ballot is a lottery reported by its most
+    probable winner."""
+    from api.engine.utils.simulation_metrics import compare_all_methods
+
+    names = ["A", "B", "C"]
+    utils = {
+        i: {n: float(u) for n, u in zip(names, row)}
+        for i, row in enumerate([(1.0, 0.5, 0.0)] * 4 + [(0.0, 1.0, 0.5)] * 3)
+    }
+    reported = set(compare_all_methods(
+        [{"id": v} for v in utils], [{"name": n} for n in names], [],
+        override_utilities=utils,
+    )["methods"])
+    not_registry_rules = {"evaluative", "quadratic", "random_ballot"}
+    assert reported - not_registry_rules == set(RANKED_RULES) | set(SCORE_RULES)
+    assert not_registry_rules <= reported
+
+
+def test_each_name_resolves_to_the_rule_of_that_name():
+    """A copy-paste swap -- `"raynaud": get_benham_winner` -- is lint-clean,
+    and no behavioural test in this file catches it: the profiles here elect the
+    same candidate under most Condorcet methods, so two of them trading places
+    changes nothing observed while every compare_all_methods surface reports the
+    wrong rule under both names. The functions follow `get_<name>_winner`, so
+    say that. One documented exception."""
+    exceptions = {"maximin": "get_maximin_score_winner"}
+    for name, fn in {**RANKED_RULES, **SCORE_RULES}.items():
+        assert fn.__name__ == exceptions.get(name, f"get_{name}_winner"), name
+
+
+def test_compare_all_methods_reports_in_the_registry_order():
+    """The key order is load-bearing, and no other test holds it: the snapshot
+    serializer sorts keys and the drift test above compares sets.
+    `_interpret_best_worst_by_regret` takes min/max by regret over a dict where
+    many rules tie, so the first-listed tied rule wins -- measured on the default
+    seed-42 /simulate, this order answers (plurality, approval) and the same
+    dicts alphabetised answer (baldwin, anti_plurality)."""
+    from api.engine.utils.simulation_metrics import compare_all_methods
+
+    names = ["A", "B", "C"]
+    utils = {i: {n: float(u) for n, u in zip(names, (1.0, 0.5, 0.0))} for i in range(5)}
+    reported = list(compare_all_methods(
+        [{"id": v} for v in utils], [{"name": n} for n in names], [],
+        override_utilities=utils,
+    )["methods"])
+    assert reported == [
+        "plurality", "two_round", "borda", "approval", "irv", "coombs",
+        "bucklin", "minimax", "schulze", "kemeny_young", "copeland", "nanson",
+        "baldwin", "ranked_pairs", "black", "anti_plurality", "dowdall",
+        "raynaud", "benham", "river", "smith_irv", "split_cycle",
+        "simple_score", "star_voting", "median_voting", "mean_median_hybrid",
+        "variance_based", "cumulative", "maximin", "nash", "majority_judgment",
+        "evaluative", "quadratic", "random_ballot",
+    ]
