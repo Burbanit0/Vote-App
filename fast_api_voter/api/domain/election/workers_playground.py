@@ -175,7 +175,8 @@ def _profile_simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
     winner_flips: List[str] = []
     if ballot_type != "full":
         full_run = compare_all_methods(
-            voters, candidates, [], override_utilities=matrix, compute_strategic=False
+            voters, candidates, [], override_utilities=project_ballot(matrix, names, "full"),
+            compute_strategic=False,
         )
         full_methods = full_run.get("methods", {})
         winner_flips = sorted(

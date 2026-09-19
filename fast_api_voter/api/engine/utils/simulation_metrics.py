@@ -237,13 +237,15 @@ def compare_all_methods(
         return round(vulnerable / len(sample), 4)
 
     def _strategic_vulnerability_score(
-        method_fn: Callable[..., Any], winner_name: Optional[str]
+        method_fn: Callable[..., Any], winner_name: Optional[str],
+        ballots: List[Dict[str, Any]],
     ) -> Optional[float]:
         """
         Proportion of sampled voters who can improve their outcome via
         bullet voting (give preferred candidate 5, everyone else 0).
 
-        Each candidate is tried as the 'bullet' target in turn.
+        Each candidate is tried as the 'bullet' target in turn, against
+        `ballots` -- the ones the rule grades (5 is the top grade on either scale).
         """
         if not winner_name:
             return None
@@ -252,7 +254,7 @@ def compare_all_methods(
         for i, voter in enumerate(sample):
             u = utilities[voter["id"]]
             current_winner_u = u.get(winner_name, 0)
-            others = score_votes[:i] + score_votes[i + 1:]
+            others = ballots[:i] + ballots[i + 1:]
             found = False
             for preferred in u:
                 bullet = {name: (5 if name == preferred else 0) for name in u}
@@ -286,7 +288,8 @@ def compare_all_methods(
         }
 
     def _build_metrics_score(
-        method_fn: Callable[..., Any], winner_name: Optional[str]
+        method_fn: Callable[..., Any], winner_name: Optional[str],
+        ballots: List[Dict[str, Any]],
     ) -> Dict[str, Any]:
         return {
             "winner": winner_name,
@@ -294,7 +297,7 @@ def compare_all_methods(
             "condorcet_consistent": _condorcet_consistent(winner_name),
             "majority_satisfaction": _majority_satisfaction(winner_name),
             "strategic_vulnerability":
-                _strategic_vulnerability_score(method_fn, winner_name)
+                _strategic_vulnerability_score(method_fn, winner_name, ballots)
                 if compute_strategic else None,
         }
 
@@ -321,7 +324,7 @@ def compare_all_methods(
             continue   # reads raw utilities, not 0-5 ballots -- run just below
         raw = fn(score_votes)
         winner = raw.get("winner") if isinstance(raw, dict) else raw
-        methods_result[name] = _build_metrics_score(fn, winner)
+        methods_result[name] = _build_metrics_score(fn, winner, score_votes)
 
     # ── Majority Judgment — uses raw float utilities, not 0-5 scaled ──────────
     mj_utility_scores: List[Dict[str, float]] = [
@@ -329,9 +332,9 @@ def compare_all_methods(
     ]
     mj_raw: Dict[str, Any]   = SCORE_RULES["majority_judgment"](mj_utility_scores)
     mj_winner: Optional[str] = str(mj_raw["winner"]) if mj_raw.get("winner") else None
+    # The real rule on the ballots it grades: a stub here pinned MJ/EV at 0.0.
     mj_entry = _build_metrics_score(
-        lambda sv: {"winner": mj_winner},
-        mj_winner,
+        SCORE_RULES["majority_judgment"], mj_winner, mj_utility_scores,
     )
     mj_entry["mj_grades"]             = mj_raw.get("grades", {})
     mj_entry["mj_medians"]            = mj_raw.get("medians", {})
@@ -343,8 +346,7 @@ def compare_all_methods(
     ev_raw: Dict[str, Any]    = get_evaluative_winner(mj_utility_scores)
     ev_winner: Optional[str]  = str(ev_raw["winner"]) if ev_raw.get("winner") else None
     ev_entry = _build_metrics_score(
-        lambda sv: {"winner": ev_winner},
-        ev_winner,
+        get_evaluative_winner, ev_winner, mj_utility_scores,
     )
     ev_entry["ev_scores"]       = ev_raw.get("scores", {})
     ev_entry["ev_distribution"] = ev_raw.get("distribution", {})

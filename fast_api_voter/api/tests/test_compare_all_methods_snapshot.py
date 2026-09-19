@@ -103,6 +103,49 @@ def test_strategic_vulnerability_samples_above_the_permutation_cap():
         assert all(0.0 <= v <= 1.0 for v in svs), svs
 
 
+def test_majority_judgment_and_evaluative_can_be_manipulated():
+    """Both used to report strategic_vulnerability 0.0 on every electorate: the
+    metric re-runs a rule on manipulated ballots, and these two were handed a
+    stub returning their sincere winner whatever it was given. The playground's
+    Stratégie panel then ranked them the most resistant methods of all.
+
+    The witnesses are counted here with the rules themselves, not through the
+    metric: a sampled voter who, bullet-grading one candidate (1.0, everyone
+    else 0.0) instead of reporting their utilities, changes the winner to
+    someone they prefer. The metric is that count over the sample -- exactly,
+    so feeding it the wrong ballots, the wrong rule or a double vote fails."""
+    from api.engine.utils.simulation_metrics import _STRATEGIC_SAMPLE
+    from api.engine.utils.simulation_score_utils import (
+        get_evaluative_winner, get_majority_judgment_winner,
+    )
+
+    rng = random.Random(2)
+    names = ["C0", "C1", "C2", "C3", "C4"]
+    util = {i: {n: round(rng.random(), 3) for n in names} for i in range(21)}
+    report = compare_all_methods(
+        [{"id": v} for v in util], [{"name": n} for n in names], [],
+        override_utilities=util, compute_strategic=True,
+    )
+    ballots = [util[v].copy() for v in util]
+
+    for rule, method in ((get_majority_judgment_winner, "majority_judgment"),
+                         (get_evaluative_winner, "evaluative")):
+        sincere = rule(ballots)["winner"]
+        manipulators = sum(
+            any(
+                (w := rule(ballots[:i] + [{n: float(n == pick) for n in names}]
+                           + ballots[i + 1:])["winner"])
+                and w != sincere and util[i][w] > util[i][sincere]
+                for pick in names
+            )
+            for i in range(_STRATEGIC_SAMPLE)
+        )
+        assert manipulators, f"{method}: this profile has no manipulation to find"
+        assert report["methods"][method]["strategic_vulnerability"] == round(
+            manipulators / _STRATEGIC_SAMPLE, 4
+        ), method
+
+
 # ── run_simulation (pure function, no HTTP route) ──
 
 
