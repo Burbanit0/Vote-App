@@ -696,34 +696,59 @@ function winSplitCycle(ranks: number[][], m: number): number {
 
 /**
  * Kemeny-Young: the consensus ranking that most agrees with every ballot (fewest
- * pairwise disagreements). Brute-forces the m! orderings — fine for a handful of
- * candidates; falls back to Borda beyond 8 to avoid factorial blow-up.
+ * pairwise disagreements).
+ *
+ * Exact by DP over candidate subsets, mirroring the backend's
+ * `_kemeny_exact_winner`: `f(S)` is the best score achievable ranking exactly
+ * the candidates in `S`, choosing which of them goes FIRST. O(2^m · m²) against
+ * the m! this used to enumerate.
+ *
+ * This replaced a brute force that ran to m = 8 and fell back to Borda above.
+ * It was exact, but the backend approximated (KwikSort) above 6 candidates, so
+ * the two engines answered 7- and 8-candidate fields — both inside every request
+ * schema's limit, and reachable from the France 2002 preset's 8 candidates —
+ * with different algorithms, disagreeing on about a quarter of profiles. The
+ * parity fixture could not see it: its scenarios stopped at 5 candidates.
+ *
+ * The tie-break has to match too, and it did not before: this walked the
+ * orderings by successive swaps and kept the first maximum, so on tied optima it
+ * returned whichever ordering the swap sequence reached first, while the backend
+ * returned the lexicographically smallest. Iterating `i` ascending and improving
+ * only on a strict `>` makes `lead[mask]` the lowest-indexed candidate that can
+ * head an optimal ordering, which is the lexicographically smallest one — the
+ * backend's rule. `strict_winner` in the parity generator discards profiles whose
+ * winner moves under relabelling, so it filtered tied profiles out rather than
+ * catching the mismatch.
+ *
+ * Above the cap the two still differ (Borda here, KwikSort there), but no
+ * request schema admits more than 8 candidates plus a spliced blank, so nothing
+ * a client can ask for reaches it.
  */
+const KEMENY_EXACT_CAP = 10;
+
 function winKemeny(ranks: number[][], m: number): number {
-  if (m > 8) return winBorda(ranks, m);
+  if (m > KEMENY_EXACT_CAP) return winBorda(ranks, m);
   const b = pairwise(ranks, m);
-  let bestFirst = 0;
-  let bestScore = -Infinity;
-  const perm = Array.from({ length: m }, (_, i) => i);
-  const permute = (k: number): void => {
-    if (k === m) {
-      // Kemeny score of this ordering = agreements over all ordered pairs.
-      let score = 0;
-      for (let i = 0; i < m; i++) for (let j = i + 1; j < m; j++) score += b[perm[i]][perm[j]];
-      if (score > bestScore) {
-        bestScore = score;
-        bestFirst = perm[0];
+  const full = (1 << m) - 1;
+  const score = new Int32Array(full + 1); // score[0] = 0: the empty set
+  const lead = new Int8Array(full + 1);
+  for (let mask = 1; mask <= full; mask++) {
+    let bestScore = -1;
+    let bestI = -1;
+    for (let i = 0; i < m; i++) {
+      if (!((mask >> i) & 1)) continue;
+      const rest = mask ^ (1 << i); // always < mask, so already solved
+      let gain = 0;
+      for (let j = 0; j < m; j++) if ((rest >> j) & 1) gain += b[i][j];
+      if (score[rest] + gain > bestScore) {
+        bestScore = score[rest] + gain;
+        bestI = i;
       }
-      return;
     }
-    for (let i = k; i < m; i++) {
-      [perm[k], perm[i]] = [perm[i], perm[k]];
-      permute(k + 1);
-      [perm[k], perm[i]] = [perm[i], perm[k]];
-    }
-  };
-  permute(0);
-  return bestFirst;
+    score[mask] = bestScore;
+    lead[mask] = bestI;
+  }
+  return lead[full];
 }
 
 /** Cumulative voting: each voter splits ONE point across candidates in proportion

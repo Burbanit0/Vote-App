@@ -9452,7 +9452,7 @@
             "$ref": "#/components/schemas/CampaignConfig"
           },
           "candidates": {
-            "description": "2 to 8 candidates. Beyond that, Kemeny-Young falls back to KwikSort approximation.",
+            "description": "2 to 8 candidates. Every rule is exact over that whole range.",
             "items": {
               "$ref": "#/components/schemas/CandidateSpec"
             },

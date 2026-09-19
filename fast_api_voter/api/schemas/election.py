@@ -474,7 +474,7 @@ class SimulateRequest(BaseModel):
         ...,
         min_length=2,
         max_length=8,
-        description="2 to 8 candidates. Beyond that, Kemeny-Young falls back to KwikSort approximation.",
+        description="2 to 8 candidates. Every rule is exact over that whole range.",
     )
     num_voters: int   = Field(300, ge=10, le=1000)
     ideology:   str   = Field("random",

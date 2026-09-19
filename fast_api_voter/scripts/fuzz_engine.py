@@ -27,9 +27,9 @@ means the engine's contract with a MALFORMED-but-plausible input isn't
 
 Candidate pool is small and FIXED (not raw fuzzer bytes) on purpose: letting
 every ballot position be an arbitrary fuzzer-chosen string would blow up the
-number of DISTINCT candidates per call past `_KY_EXACT_CAP` (6), and
-`get_kemeny_young_winner`'s exact path is O(n!) — every call would then
-spend its time in a factorial enumeration unrelated to any real bug rather
+number of DISTINCT candidates per call past `_KY_EXACT_CAP` (10), and
+`get_kemeny_young_winner`'s exact path is O(2^n · n²) — every call would then
+spend its time in that DP unrelated to any real bug rather
 than exploring new code paths. Bounding the pool keeps each execution fast
 (this is what actually makes coverage-guided search work: high exec/sec)
 while still covering weird individual identities (empty string, unicode,
@@ -158,8 +158,10 @@ _UTILITY_RULES: list[Callable[..., Any]] = [
 # Hypothesis strategies (["A","B","C","D"] only) never generate: an empty
 # name, a name that collides with common blank-ballot sentinels, unicode,
 # and a name with leading/trailing whitespace. Kept at 7 entries -- see the
-# module docstring for why this must stay well under get_kemeny_young_winner's
-# `_KY_EXACT_CAP` (6).
+# module docstring for why this must stay under get_kemeny_young_winner's
+# `_KY_EXACT_CAP` (10). It previously claimed to stay under a cap of 6 while
+# holding 7 entries, which was false: the fuzzer did reach the approximation
+# path. At 10 the claim is finally true.
 _CANDIDATE_POOL = ["A", "B", "C", "", "Ω", " ", "A "]
 
 _MAX_BALLOTS = 30

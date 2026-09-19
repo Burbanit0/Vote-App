@@ -151,7 +151,7 @@ def _approval_winner(ballots):
 def _mj_winner(ballots):
     return get_majority_judgment_winner(ballots)["winner"]
 
-NAMES = ["A", "B", "C", "D", "E"]
+NAMES = ["A", "B", "C", "D", "E", "F", "G", "H"]
 SEED = 20260628
 OUT = os.path.abspath(
     os.path.join(ROOT, "..", "voter-app", "src", "lib", "__fixtures__", "engineParity.json")
@@ -700,6 +700,24 @@ def main() -> None:
         cands = NAMES[:m]
         for n in (21, 31, 41, 51, 61):
             for _ in range(4):  # 4 profiles per (m, n) → 60 scenarios
+                ballots = [rng.sample(cands, m) for _ in range(n)]
+                winners = {rule: strict_winner(fn, ballots, cands, rng) for rule, fn in RULES.items()}
+                scenarios.append({"candidates": cands, "ballots": ballots, "winners": winners})
+
+    # 6 to 8 candidates. This band had NO ordinal parity coverage — the loop
+    # above stopped at 5 — and two real bugs lived in the gap: a Kemeny winner
+    # decided by the interpreter's hash seed, and a client/backend algorithm
+    # split at 7-8 candidates (the client brute-forced exact Kemeny, the backend
+    # approximated above 6) that disagreed on about a quarter of profiles. 8 is
+    # the ceiling every request schema allows, so this closes the fixture's
+    # coverage up to the real production limit.
+    #
+    # Fewer profiles per width than above on purpose: `strict_winner` relabels
+    # 200x per rule per scenario, and the widths are where that gets expensive.
+    for m in (6, 7, 8):
+        cands = NAMES[:m]
+        for n in (21, 41):
+            for _ in range(2):
                 ballots = [rng.sample(cands, m) for _ in range(n)]
                 winners = {rule: strict_winner(fn, ballots, cands, rng) for rule, fn in RULES.items()}
                 scenarios.append({"candidates": cands, "ballots": ballots, "winners": winners})
