@@ -109,7 +109,6 @@ def _polis_with_candidates_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
     ideology           = str(data.get("ideology",              "random"))
     seed               = int(data.get("seed",                   42))
     num_clusters       = max(1,   min(5,   int(data.get("num_clusters",          3))))
-    method_compare     = str(data.get("method_to_compare",     "plurality"))
     min_thr            = max(0.0, min(1.0, float(data.get("min_consensus_threshold", 0.80))))
 
     if len(stmts_raw) < 2:
@@ -249,7 +248,7 @@ def _polis_with_candidates_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
         f"sur {n_stmts} propositions. "
         f"Candidat Pol.is : '{polis_winner}' "
         f"({'= ' if winners_agree else '≠ '}"
-        f"vainqueur {method_compare} : '{election_winner}')."
+        f"vainqueur à la pluralité : '{election_winner}')."
     )
 
     return {

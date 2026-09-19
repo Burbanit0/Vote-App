@@ -186,7 +186,6 @@ def _campaign_sensitivity_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], 
     # ── Run campaign to get day-by-day polling shares ─────────────────────
     camp       = simulate_campaign(
         num_candidates=len(candidates),
-        num_voters=num_voters,
         num_days=num_days,
         events=[],
         seed=seed,
@@ -317,7 +316,6 @@ def _combined_effects_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
     # ── Pre-compute campaign-adjusted utilities ────────────────────────────
     camp       = simulate_campaign(
         num_candidates=len(candidates),
-        num_voters=num_voters,
         num_days=num_days,
         events=[],
         seed=seed,
@@ -782,7 +780,7 @@ def _simulate_pipeline_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
     # ── Step 2: Campaign ──────────────────────────────────────────────────
     if campaign_on:
         camp         = simulate_campaign(
-            num_candidates=len(candidates), num_voters=num_voters,
+            num_candidates=len(candidates),
             num_days=num_days, events=[], seed=seed,
         )
         camp_cands   = camp.get("candidates", [])

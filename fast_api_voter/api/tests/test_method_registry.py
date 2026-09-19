@@ -235,6 +235,25 @@ def test_schema_method_literals_match_workers():
     assert set(CO_METHODS) - self_tallied <= set(RANKED_RULES)
 
 
+def test_theory_method_literals_match_workers():
+    """The theory endpoints' Literals and the tuples their workers guard with are
+    two copies of one list; this fails if either drifts."""
+    from typing import get_args
+
+    from api.domain.theory.workers import (
+        _VIOLATIONS, IIA_METHODS, MA_METHODS, MT_RULES,
+    )
+    from api.schemas import theory
+
+    for literal, worker_names in (
+        (theory.ArrowMethod,        tuple(_VIOLATIONS)),
+        (theory.IIAMethod,          IIA_METHODS),
+        (theory.ManipulationMethod, MA_METHODS),
+        (theory.TyrannyRule,        MT_RULES),
+    ):
+        assert set(get_args(literal)) == set(worker_names), literal
+
+
 def test_every_panel_method_is_one_winner_from_utilities_can_answer():
     """Each guard is a subset of UTILITY_METHODS, so a name the request accepts
     can never reach UnknownMethod inside a worker."""

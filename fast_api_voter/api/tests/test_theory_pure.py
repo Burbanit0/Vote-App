@@ -30,6 +30,7 @@ import pytest
 from api.domain.theory.workers import (
     _IIA_BORDA,
     _IIA_PLURALITY,
+    _VIOLATIONS,
     _apportionment_worker,
     _arrow_worker,
     _assumption_testing_worker,
@@ -99,30 +100,27 @@ def test_arrow_borda_gets_the_borda_specific_iia_counterexample_not_pluralitys()
     assert "IIA" in body["arrow_summary"] or "spoiler" in body["arrow_summary"]
 
 
-def test_arrow_unknown_method_falls_back_to_plurality_violations_and_default_tradeoff() -> None:
-    """workers.py:100 falls back to _VIOLATIONS['plurality'] for an unrecognised
-    method (no schema is validating `method` at this layer, so the worker's own
-    .get(method, ...) fallback is what's under test — the route's schema doesn't
-    even restrict `method` to an enum, so this is real reachable behaviour, not
-    a hypothetical). tradeoff_type falls back separately via .get(method,
-    'majority_focus') at workers.py:146 since the unknown method has no entry
-    in _TRADEOFF_TYPE either."""
+def test_arrow_rejects_a_method_it_has_no_facts_for() -> None:
+    """It used to answer an unknown name with plurality's violation row and the
+    default "majority_focus" trade-off, under the requested name."""
     body, status = _arrow_worker({"method": "totally_unknown_xyz"})
 
-    assert status == 200
-    assert body["violations"]["iia"]["counterexample"] == _IIA_PLURALITY
-    assert body["violations"]["transitivity"]["violated"] is False
-    assert body["tradeoff_type"] == "majority_focus"
+    assert status == 400
+    assert "totally_unknown_xyz" in body["error"]
 
 
-# ── /iia-rate ───────────────────────────────────────────────────────────────
+def test_every_rule_arrow_describes_violates_iia() -> None:
+    """Arrow's theorem, and what lets the summary skip a no-violation case."""
+    assert all(row["iia"] for row in _VIOLATIONS.values())
 
 
 def test_iia_rate_plurality_curve_pins_the_exact_empirical_rates() -> None:
     """Transcribed payload from test_theory_batch1.py::TestIIARate.test_happy_path,
     but asserting the actual numbers (seed=42 makes this fully reproducible)
     instead of just bounds — a mutant in the hit-counting or the round(...,4)
-    would move these exact values."""
+    would move these exact values. (0.14 / 0.16 / 0.14 before plurality went
+    through the engine's rule, which breaks a first-choice tie by name rather
+    than by whichever candidate was counted first.)"""
     body, status = _iia_rate_worker({
         "method": "plurality", "max_candidates": 5, "num_trials": 50, "seed": 42,
     })
@@ -132,30 +130,36 @@ def test_iia_rate_plurality_curve_pins_the_exact_empirical_rates() -> None:
     # n=2 is hard-coded to 0.0 (workers.py:191) -- too few candidates to matter
     assert body["curve"] == [
         {"n_candidates": 2, "violation_rate": 0.0},
-        {"n_candidates": 3, "violation_rate": 0.14},
+        {"n_candidates": 3, "violation_rate": 0.12},
         {"n_candidates": 4, "violation_rate": 0.16},
-        {"n_candidates": 5, "violation_rate": 0.14},
+        {"n_candidates": 5, "violation_rate": 0.16},
     ]
 
 
-def test_iia_rate_scale_factor_multiplies_the_same_underlying_empirical_rate() -> None:
-    """The per-n empirical simulation (workers.py:161-179) always uses plurality
-    internally regardless of the requested `method` -- `method` only selects a
-    scale factor (_SCALE) applied afterwards. So schulze's curve at the same
-    seed/trials must equal plurality's curve times 0.35, exactly. This pins
-    both the _SCALE lookup AND that the multiplication (not e.g. an additive
-    fudge) is what connects them."""
-    plurality_body, _ = _iia_rate_worker({
-        "method": "plurality", "max_candidates": 5, "num_trials": 50, "seed": 42,
-    })
-    schulze_body, status = _iia_rate_worker({
-        "method": "schulze", "max_candidates": 5, "num_trials": 50, "seed": 42,
-    })
+def test_iia_rate_measures_each_rule_instead_of_scaling_plurality() -> None:
+    """Every rule but plurality used to be reported as plurality's measured rate
+    times a constant -- this test pinned schulze at exactly 0.35x. The numbers
+    below come from running each rule, and they disagree with the old constants
+    in both directions: approval (0.55x, i.e. 0.077 at n=3) is in fact the most
+    IIA-violating rule here, and schulze (0.35x) nearly never violates it."""
+    def curve(method):
+        body, status = _iia_rate_worker({
+            "method": method, "max_candidates": 5, "num_trials": 50, "seed": 42,
+        })
+        assert status == 200
+        return [c["violation_rate"] for c in body["curve"]]
 
-    assert status == 200
-    for base, scaled in zip(plurality_body["curve"], schulze_body["curve"]):
-        assert scaled["violation_rate"] == round(min(1.0, base["violation_rate"] * 0.35), 4)
-    assert schulze_body["curve"][1]["violation_rate"] == 0.049  # n=3: 0.14 * 0.35
+    assert curve("schulze") == [0.0, 0.02, 0.0, 0.0]
+    assert curve("approval") == [0.0, 0.44, 0.36, 0.14]
+    assert curve("kemeny_young") == [0.0, 0.02, 0.02, 0.02]
+    assert curve("condorcet") == [0.0, 0.04, 0.04, 0.04]    # measured as Copeland
+
+
+def test_iia_rate_rejects_majority_judgment() -> None:
+    """MJ needs grades and these profiles are rankings, so there is nothing to
+    measure; it used to be plurality's rate x 0.50."""
+    body, status = _iia_rate_worker({"method": "majority_judgment"})
+    assert status == 400 and "majority_judgment" in body["error"]
 
 
 def test_iia_rate_defensively_clamps_max_candidates_even_without_pydantic() -> None:

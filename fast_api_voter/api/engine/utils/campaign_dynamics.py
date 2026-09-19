@@ -9,7 +9,7 @@ Model
   cleanly on the day they occur).
 * Events instantly modify a candidate's utility on the scheduled day.
 * Vote shares are derived from a softmax over utilities (smooth, bounded).
-* The daily leader is computed via the requested voting method.
+* The daily leader is the candidate with the highest utility (plurality).
 """
 from __future__ import annotations
 
@@ -17,17 +17,9 @@ import math
 import random
 from typing import Any, Optional
 
-from api.engine.utils.error_handling import safe_call
-from api.engine.utils.logger import get_logger
-
-log = get_logger(__name__)
-
 # ── Constants ────────────────────────────────────────────────────────────────
 
 _NAMES: list[str] = ["Alice", "Bob", "Carol", "Dave", "Eve", "Frank", "Grace", "Hugo"]
-
-# Number of synthetic voters used for ballot-based methods (kept low for speed)
-_BALLOT_SAMPLE = 150
 
 # Standard deviation of daily Brownian noise
 _SIGMA = 0.02
@@ -63,69 +55,12 @@ def _plurality_winner(utilities: dict[str, float]) -> str:
     return max(utilities, key=lambda n: utilities[n])
 
 
-def _borda_winner(utilities: dict[str, float], names: list[str]) -> str:
-    """Deterministic Borda: rank by utility, award n−1 … 0 points."""
-    ranked = sorted(names, key=lambda n: -utilities[n])
-    n = len(names)
-    borda = {name: n - 1 - i for i, name in enumerate(ranked)}
-    return max(borda, key=lambda n: borda[n])
-
-
-def _balloted_winner(
-    utilities: dict[str, float],
-    names: list[str],
-    method: str,
-    rng: random.Random,
-) -> str:
-    """
-    Generate _BALLOT_SAMPLE synthetic ranked ballots from utilities (with
-    per-voter noise) and apply the requested ranked voting method.
-    Falls back to plurality on error.
-    """
-    from api.engine.utils.simulation_ranked_utils import (
-        get_plurality_winner,
-        get_borda_winner,
-        get_irv_winner,
-        get_approval_winner,
-        get_schulze_winner,
-        get_coombs_winner,
-        get_bucklin_winner,
-        get_minimax_winner,
-    )
-
-    method_fns: dict[str, Any] = {
-        "plurality": get_plurality_winner,
-        "borda":     get_borda_winner,
-        "irv":       get_irv_winner,
-        "approval":  get_approval_winner,
-        "schulze":   get_schulze_winner,
-        "coombs":    get_coombs_winner,
-        "bucklin":   get_bucklin_winner,
-        "minimax":   get_minimax_winner,
-    }
-    fn = method_fns.get(method, get_plurality_winner)
-
-    ballots = []
-    for _ in range(_BALLOT_SAMPLE):
-        voter_utils = {n: utilities[n] + rng.gauss(0, 0.08) for n in names}
-        ranking = sorted(names, key=lambda n: -voter_utils[n])
-        ballots.append(ranking)
-
-    return safe_call(
-        lambda: fn(ballots) or _plurality_winner(utilities),
-        lambda: _plurality_winner(utilities),
-        log=log, event="campaign_dynamics.balloted_winner_failed", method=method,
-    )
-
-
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def simulate_campaign(
     num_candidates: int,
-    num_voters: int,
     num_days: int,
     events: list[dict[str, Any]],
-    method: str = "plurality",
     seed: Optional[int] = None,
 ) -> dict[str, Any]:
     """
@@ -134,14 +69,12 @@ def simulate_campaign(
     Parameters
     ----------
     num_candidates : int   2–8
-    num_voters     : int   10–2 000 (used for context; ballot methods use _BALLOT_SAMPLE)
     num_days       : int   1–90
     events         : list  of dicts with keys:
                         day       (int, 0 … num_days)
                         type      (str, see _apply_event)
                         candidate (int index, 0-based)
                         magnitude (float 0–1)
-    method         : str   voting method key ("plurality", "borda", "irv", …)
     seed           : int | None  for reproducibility in tests
 
     Returns
@@ -194,13 +127,8 @@ def simulate_campaign(
         for name, share in zip(names, shares):
             daily_scores[name].append(round(share * 100, 2))
 
-        # 3. Daily leader (method-specific)
-        if method == "plurality":
-            leader = _plurality_winner(utilities)
-        elif method == "borda":
-            leader = _borda_winner(utilities, names)
-        else:
-            leader = _balloted_winner(utilities, names, method, rng)
+        # 3. Daily leader: the candidate most voters currently prefer
+        leader = _plurality_winner(utilities)
 
         daily_leader.append(leader)
         days_list.append(day)
