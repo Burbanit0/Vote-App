@@ -219,7 +219,12 @@ def compare_all_methods(
             if factorial(len(sincere)) <= _MAX_STRATEGIC_PERMS:
                 perms = [list(p) for p in permutations(sincere)]
             else:
-                perms = [random.sample(sincere, len(sincere))
+                # A generator of our own, seeded per voter -- not the process-wide
+                # one, which left identical requests with different numbers per
+                # process above the cap. Per voter, every rule is also probed
+                # with the same manipulations, so their numbers compare.
+                rng = random.Random(i)
+                perms = [rng.sample(sincere, len(sincere))
                          for _ in range(_MAX_STRATEGIC_PERMS)]
             ballots = list(rankings)
             for perm in perms:
