@@ -21,7 +21,10 @@ const { apiClient } = (await import('../../../../api/client')) as unknown as {
 
 const NAMES = ['Alice', 'Bob', 'Carol', 'Dave'];
 
-function makeData() {
+function makeData(
+  best: string[] = ['stv', 'spav', 'phragmen', 'equal_shares'],
+  worst: string[] = ['fptp']
+) {
   const jrAll = { jr: true, pjr: true, ejr: true };
   const makeMethod = (seats: Record<string, number>, distortion: number, jr = jrAll) => ({
     seats,
@@ -50,8 +53,8 @@ function makeData() {
       proportional_reference: { Alice: 2, Bob: 1, Carol: 1, Dave: 0 },
       // stv, spav, phragmen and equal_shares all sit at 0.04 below, so all four
       // are the least-distortion method -- as /multiwinner_compare now reports.
-      best_method: ['stv', 'spav', 'phragmen', 'equal_shares'],
-      worst_method: ['fptp'],
+      best_method: best,
+      worst_method: worst,
       methods: {
         stv: makeMethod({ Alice: 2, Bob: 1, Carol: 1, Dave: 0 }, 0.04),
         dhondt: makeMethod({ Alice: 2, Bob: 2, Carol: 0, Dave: 0 }, 0.1),
@@ -163,10 +166,7 @@ describe('MultiwinnerCompare', () => {
   });
 
   it('names no "most proportional" method when every method ties', async () => {
-    const allTie = makeData();
-    allTie.data.best_method = [];
-    allTie.data.worst_method = [];
-    apiClient.POST.mockResolvedValue(allTie);
+    apiClient.POST.mockResolvedValue(makeData([], []));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /comparer|compare/i }));
     await waitFor(() => {
