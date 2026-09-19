@@ -1,5 +1,7 @@
 """Tests for Phase 4.5.a.3 — tech-democracy demos on FastAPI."""
 
+import pytest
+
 
 
 # ── /tech/e2e-demo ─────────────────────────────────────────────────────────
@@ -23,6 +25,12 @@ class TestPolisWithCandidates:
         "num_clusters": 3,
         "method_to_compare": "plurality",
     }
+
+    @pytest.mark.parametrize("ideology", ["polarized", "centrist", "random"])
+    def test_each_ideology_draws_its_own_participant_axis(self, client, ideology):
+        """One branch per distribution, each drawing from the call's own RNG."""
+        r = client.post("/api/v2/tech/polis", json={**self.payload, "ideology": ideology})
+        assert r.status_code == 200, r.text
 
     def test_happy_path(self, client):
         r = client.post("/api/v2/tech/polis", json=self.payload)

@@ -20,11 +20,12 @@ import numpy as _np
 from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.error_handling import safe_call
 from api.engine.utils.logger import get_logger
+from api.engine.utils.demographic_data import _seeded_rng_pair
 from api.engine.utils.simulation_voting_utils import calculate_utility, create_voter
 from api.engine.utils.simulation_metrics import bayesian_regret, compare_all_methods
 from api.engine.utils.method_registry import rule_winner
 from api.engine.utils.simulation_ranked_utils import get_condorcet_winner, get_plurality_winner
-from ._electorate import _reseed_and_build_electorate
+from ._electorate import _build_electorate_from_seed
 from ._helpers import (
     build_candidate_from_xy as _build_candidate_from_xy, reject_unknown_methods, result_label,
 )
@@ -284,13 +285,12 @@ def _demographic_turnout_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
 
     prof = _dt_profile(data.get("demographic_profile") or {})
 
-    _random.seed(seed)
-    _np.random.seed(seed)
+    rng, np_rng = _seeded_rng_pair(seed)
     issues = DEFAULT_ISSUES
     cand_names, candidates = _dt_candidates(cand_specs, issues)
 
     raw_voters = [
-        create_voter(issues, i, ideology_distribution="random")
+        create_voter(issues, i, ideology_distribution="random", rng=rng, np_rng=np_rng)
         for i in range(num_voters)
     ]
     voter_demo = _dt_assign_demographics(raw_voters, seed, prof)
@@ -377,7 +377,7 @@ def _compulsory_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
 
-    candidates, voters, sincere_utilities, cand_names, issues = _reseed_and_build_electorate(
+    candidates, voters, sincere_utilities, cand_names, issues = _build_electorate_from_seed(
         cand_specs, num_voters, ideology, seed
     )
     voter_ideo:     Dict[int, float] = {
@@ -550,7 +550,7 @@ def _sortition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
 
-    candidates, voters, sincere_utilities, cand_names, issues = _reseed_and_build_electorate(
+    candidates, voters, sincere_utilities, cand_names, issues = _build_electorate_from_seed(
         cand_specs, num_voters, ideology, seed
     )
     all_ids: list[int] = [v["id"] for v in voters]
@@ -792,19 +792,19 @@ _PD_DEFAULT_PARTIES = [
 PD_METHODS = ("plurality", "proportional")
 
 
-def _pd_voter_ideology(ideology: str, num_voters: int) -> Any:
+def _pd_voter_ideology(ideology: str, num_voters: int, np_rng: "_np.random.RandomState") -> Any:
     """The fixed voter ideology axis for the whole run — one draw, reused across
     every election, since it's the parties that move, not the electorate."""
     if ideology == "polarized":
         h = num_voters // 2
         return _np.clip(
-            _np.concatenate([_np.random.normal(-0.6, 0.2, h),
-                             _np.random.normal(0.6, 0.2, num_voters - h)]),
+            _np.concatenate([np_rng.normal(-0.6, 0.2, h),
+                             np_rng.normal(0.6, 0.2, num_voters - h)]),
             -1.0, 1.0,
         )
     if ideology == "normal":
-        return _np.clip(_np.random.normal(0, 0.3, num_voters), -1.0, 1.0)
-    return _np.random.uniform(-1.0, 1.0, num_voters)
+        return _np.clip(np_rng.normal(0, 0.3, num_voters), -1.0, 1.0)
+    return np_rng.uniform(-1.0, 1.0, num_voters)
 
 
 def _pd_normalise_parties(initial_pts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -1018,10 +1018,9 @@ def _party_dynamics_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     if len(initial_pts) < 2:
         return {"error": "At least 2 initial parties required"}, 400
 
-    _random.seed(seed)
-    _np.random.seed(seed)
+    _, np_rng = _seeded_rng_pair(seed)
 
-    voter_x = _pd_voter_ideology(ideology, num_voters)
+    voter_x = _pd_voter_ideology(ideology, num_voters, np_rng)
     voter_median = float(_np.median(voter_x))
     active = _pd_normalise_parties(initial_pts)
 
@@ -1074,7 +1073,7 @@ def _deliberation_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
 
-    candidates, voters, sincere_utilities, cand_names, issues = _reseed_and_build_electorate(
+    candidates, voters, sincere_utilities, cand_names, issues = _build_electorate_from_seed(
         cand_specs, num_voters, ideology, seed
     )
 

@@ -12,15 +12,16 @@ functions (return `(body, status)`) so the FastAPI sibling
 (api/routes/simulations.py) can reuse it. The Flask routes below are thin
 delegates kept as a rollback target.
 """
+import random
 from contextlib import suppress
 from itertools import chain
 from typing import Any, Dict, List, Optional, Tuple
 
 
-import random as _rng
 
-import numpy as _np
 
+
+from api.engine.utils.demographic_data import _seeded_rng_pair, unseeded_rng_pair
 from api.engine.utils.simulation_voting_utils import calculate_utility, create_candidate, create_voter
 from api.domain.simulations.helpers import (
     _build_population,
@@ -102,9 +103,12 @@ def _manipulability_worker(params: Dict[str, Any]) -> Tuple[Dict[str, Any], int]
         for n in candidate_names
     ]
 
+    # No seed on this endpoint: random either way, but from its own pair.
+    rng, np_rng = unseeded_rng_pair()
+
     try:
         voters, candidates, issues = _build_population(
-            candidate_configs, num_voters, ideology_dist
+            candidate_configs, num_voters, ideology_dist, rng=rng, np_rng=np_rng
         )
     except Exception as exc:
         return log_and_error_response(
@@ -136,10 +140,16 @@ def _manipulability_worker(params: Dict[str, Any]) -> Tuple[Dict[str, Any], int]
     # ── Compute manipulability per method ──────────────────────────────────
     from api.engine.utils.gibbard_satterthwaite import compute_manipulability_index
 
+    # One sample seed for the whole loop: every method is scored on the same
+    # sampled voters, so the rates are comparable. Threading one advancing
+    # generator through gave each method its own subset.
+    sample_seed = rng.randrange(2**32)
+
     results = []
     for method in target_methods:
         try:
-            result = compute_manipulability_index(method, rankings, num_trials=num_trials_arg)
+            result = compute_manipulability_index(method, rankings, num_trials=num_trials_arg,
+                                                  rng=random.Random(sample_seed))
             results.append(result)
         except Exception as exc:
             log.warning("simulation.manipulability.method_failed", method=method, exc_info=True)
@@ -354,8 +364,7 @@ def _vote_steps_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
     if method not in _VOTE_STEPS_METHODS:
         return {"error": f"method must be one of: {', '.join(sorted(_VOTE_STEPS_METHODS))}"}, 400
 
-    _rng.seed(seed)
-    _np.random.seed(seed)
+    rng, np_rng = _seeded_rng_pair(seed)
 
     issues     = DEFAULT_ISSUES
 
@@ -390,9 +399,10 @@ def _vote_steps_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
             candidates.append(_build_from_xy(i, name, pos[0], pos[1]))
         else:
             candidates.append(create_candidate(
-                issues, i, name, _PARTY_CYCLE_STEPS[i % len(_PARTY_CYCLE_STEPS)]
+                issues, i, name, _PARTY_CYCLE_STEPS[i % len(_PARTY_CYCLE_STEPS)], rng=rng,
             ))
-    voters = [create_voter(issues, i, ideology_distribution=ideology) for i in range(num_voters)]
+    voters = [create_voter(issues, i, ideology_distribution=ideology, rng=rng, np_rng=np_rng)
+              for i in range(num_voters)]
 
     cand_names: list[str] = [str(c["name"]) for c in candidates]
     utilities: Dict[Any, Dict[str, float]] = {

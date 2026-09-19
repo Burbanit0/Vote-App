@@ -347,7 +347,10 @@ l'extraction elle-même (voir plus bas) :
    `_np.random.seed`/`_build_base_electorate`, le pattern *legacy* qui a
    précédé le couple `_seeded_rng_pair`/RNG locale documenté sur
    `election_service.py`) → `_reseed_and_build_electorate()`, nouvelle
-   fonction dans `_electorate.py`. C'est le plus gros cluster : jscpd en
+   fonction dans `_electorate.py`. *(2026-09-19 : elle ne reseede plus rien —
+   tous les workers tirent d'une paire locale — et s'appelle désormais
+   `_build_electorate_from_seed`. Voir PLAN_SOLIDITE_TECHNIQUE.md, « Lot séparé
+   fait ».)* C'est le plus gros cluster : jscpd en
    avait flaggé 13 physiquement distincts via 7 paires qui se recoupaient
    (ex. `workers_advanced.py:366-382` matchait à la fois avec
    `workers_behavioral.py:41-57` ET `:167-183` — un seul bloc canonique, pas

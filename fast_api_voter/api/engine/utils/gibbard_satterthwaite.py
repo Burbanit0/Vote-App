@@ -23,6 +23,7 @@ from __future__ import annotations
 import random
 from typing import Any, Callable, Optional
 
+from api.engine.utils.demographic_data import _resolve_rng
 from api.engine.utils.error_handling import safe_call
 from api.engine.utils.logger import get_logger
 
@@ -69,6 +70,7 @@ def compute_manipulability_index(
     method_name: str,
     ballots: list[list[str]],
     num_trials: int = 200,
+    rng: Optional[random.Random] = None,
 ) -> dict[str, Any]:
     """
     Estimate the manipulability rate of a voting method.
@@ -92,6 +94,10 @@ def compute_manipulability_index(
     num_trials : int
         Maximum number of voters to sample.  Use a smaller value for speed;
         larger values give more accurate estimates at the cost of time.
+    rng : random.Random, optional
+        Draws the voter sample.  The caller compares methods against each other,
+        so pass one seeded the same way per method: every method must see the
+        same sample, and a worker must not draw from the process-wide generator.
 
     Returns
     -------
@@ -127,7 +133,7 @@ def compute_manipulability_index(
     # ── Sample voters ──────────────────────────────────────────────────────
     sample_indices = list(range(n_voters))
     if n_voters > num_trials:
-        sample_indices = random.sample(sample_indices, num_trials)
+        sample_indices = _resolve_rng(rng).sample(sample_indices, num_trials)
 
     # ── Compute sincere winner (all ballots, no manipulation) ──────────────
     sincere_winner: Optional[str] = safe_call(

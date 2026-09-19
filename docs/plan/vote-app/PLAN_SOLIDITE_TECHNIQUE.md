@@ -702,6 +702,24 @@ de ce correctif** (aucun flake confirmé ne leur est attribué, et forcer
 lignes non planifié) — signalé ici comme dette de suivi, même famille de
 bug, à traiter dans un lot séparé.
 
+**Lot séparé fait (2026-09-19)** — les `~8 autres fichiers` ci-dessus (et les
+deux endpoints sans seed) ne touchent plus les singletons : chaque worker tire
+d'une paire locale (`_seeded_rng_pair(seed)`, ou `unseeded_rng_pair()` quand il
+n'y a pas de seed). `_reseed_and_build_electorate` ne reseede plus rien et
+s'appelle donc `_build_electorate_from_seed`. Le tirage mort
+`will_vote = random.random() < ...` de `calculate_utility()` est supprimé : rien
+ne le lisait, et il avançait le flux global à chaque appel (9 endpoints
+redevenus propres rien qu'en l'enlevant). Les mentions du nom de fonction et de
+`will_vote` plus haut dans ce document décrivent l'état d'alors et restent
+telles quelles. Garde-fous : `api/tests/test_no_global_rng.py` vérifie la
+propriété sur chaque route (POST et GET) et qu'une réponse ne bouge pas quand
+un autre appel tire en cours de route, et `ruff` applique `NPY002` (la moitié
+numpy, statiquement). Reste ouvert : `_resolve_rng`/`_resolve_np_rng`
+substituent encore le singleton quand `rng is None`, et `_seeded_rng_pair(None)`
+renvoie `(None, None)` — rendre les paramètres obligatoires demande de
+re-figer le golden de `test_compare_all_methods_snapshot.py`, donc un lot à
+part.
+
 Sous-espèce différente du même problème, cette fois *à l'intérieur* de
 `simulation_voting_utils.py` : `calculate_utility()` (~ligne 483,
 `will_vote = random.random() < voter["likelihood_to_vote"]`,

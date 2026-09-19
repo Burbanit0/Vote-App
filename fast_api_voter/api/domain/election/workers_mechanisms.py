@@ -28,7 +28,7 @@ from api.engine.utils.simulation_multiwinner_utils import (
     get_stv_result, get_dhondt_winners, get_spav_result, get_phragmen_result,
     get_equal_shares_result, check_justified_representation,
 )
-from ._electorate import _reseed_and_build_electorate
+from ._electorate import _build_electorate_from_seed
 from ._helpers import dhondt as _dhondt, prose_list, tied_extremes
 
 log = get_logger(__name__)
@@ -97,6 +97,9 @@ def _adaptive_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     num_voters          = max(50, min(1000, int(data.get("num_voters",          300))))
     ideology            = str(data.get("ideology",            "random"))
     seed                = int(data.get("seed",                 42))
+    # seed + 1, not seed: `seed` builds the electorate, and a roll must not be
+    # the same draw that set the voter's own attributes.
+    rng                 = _random.Random(seed + 1)
     num_rounds          = max(1,  min(10,  int(data.get("num_rounds",           5))))
     method              = str(data.get("method",              "plurality"))
     strategic_threshold = max(0.0, min(1.0, float(data.get("strategic_threshold", 0.15))))
@@ -114,7 +117,7 @@ def _adaptive_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
                      f"supported: {', '.join(ADAPTIVE_METHODS)}"
         }, 400
 
-    candidates, voters, true_utilities, cand_names, issues = _reseed_and_build_electorate(
+    candidates, voters, true_utilities, cand_names, issues = _build_electorate_from_seed(
         cand_specs, num_voters, ideology, seed
     )
 
@@ -149,7 +152,7 @@ def _adaptive_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         for v in voters:
             uid       = v["id"]
             propensity: float = float(v.get("strategic_propensity", 0.2))
-            roll: float = _random.random()
+            roll: float = rng.random()
             if rnd > 0 and propensity > roll:
                 tactical = _tactical_vote(
                     uid, sincere_rankings[uid], true_utilities[uid], polls, strategic_threshold
@@ -312,6 +315,11 @@ def _historical_replay_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
     if not cfg:
         return {"error": f"Unknown scenario: {scenario_id}"}, 400
 
+    # After the scenario check: RandomState rejects a seed above 2**32-1, and the
+    # schema only bounds it below, so building it earlier turned a 400 into a 500.
+    # seed + 1 keeps the daily shocks off the electorate's own draws.
+    np_rng      = _np.random.RandomState((seed + 1) % 2**32)
+
     # Apply user overrides to candidate positions
     override_map: Dict[str, Dict[str, float]] = {
         o["name"]: {"x": float(o["x"]), "y": float(o["y"])}
@@ -322,7 +330,7 @@ def _historical_replay_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
         for c in cfg["candidates"]
     ]
 
-    candidates, voters, base_utilities, cand_names, issues = _reseed_and_build_electorate(
+    candidates, voters, base_utilities, cand_names, issues = _build_electorate_from_seed(
         cand_specs, int(cfg["num_voters"]), str(cfg["ideology"]), seed
     )
 
@@ -335,7 +343,7 @@ def _historical_replay_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
 
     for day in range(num_days + 1):
         if day > 0:
-            shocks = {n: float(_np.random.normal(0, sigma)) for n in cand_names}
+            shocks = {n: float(np_rng.normal(0, sigma)) for n in cand_names}
             for v in voters:
                 uid = v["id"]
                 for n in cand_names:
@@ -647,6 +655,7 @@ def _abstention_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     num_voters             = max(50,  min(1000, int(data.get("num_voters", 300))))
     ideology               = str(data.get("ideology", "random"))
     seed                   = int(data.get("seed", 42))
+    rng                    = _random.Random(seed + 1)   # not the electorate's own draws
     demobilization_factor  = max(0.0, min(1.0, float(data.get("demobilization_factor", 0.5))))
     poll_influence         = max(0.0, min(1.0, float(data.get("poll_influence", 0.8))))
     num_rounds             = max(1, min(5, int(data.get("num_rounds", 3))))
@@ -659,7 +668,7 @@ def _abstention_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
 
-    candidates, voters, true_utilities, cand_names, issues = _reseed_and_build_electorate(
+    candidates, voters, true_utilities, cand_names, issues = _build_electorate_from_seed(
         cand_specs, num_voters, ideology, seed
     )
 
@@ -718,7 +727,7 @@ def _abstention_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
                 p        = _abstention_prob(poll_gap, util_gap,
                                              demobilization_factor, poll_influence)
                 abs_probs[uid] = round(p, 4)
-                if _random.random() < p:
+                if rng.random() < p:
                     abstained.add(uid)
             active = [v for v in voters if v["id"] not in abstained]
 
@@ -851,7 +860,7 @@ def _stv_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     if error is not None:
         return error
 
-    candidates, voters, true_utilities, cand_names, issues = _reseed_and_build_electorate(
+    candidates, voters, true_utilities, cand_names, issues = _build_electorate_from_seed(
         cand_specs, num_voters, ideology, seed
     )
 
@@ -943,7 +952,7 @@ def _gerrymander_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     if not districts_raw:
         return {"error": "At least 1 district required"}, 400
 
-    candidates, voters, true_utilities, cand_names, issues = _reseed_and_build_electorate(
+    candidates, voters, true_utilities, cand_names, issues = _build_electorate_from_seed(
         cand_specs, num_voters, ideology, seed
     )
 
@@ -1088,7 +1097,7 @@ def _multiwinner_compare_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
     if error is not None:
         return error
 
-    candidates, voters, true_utilities, cand_names, issues = _reseed_and_build_electorate(
+    candidates, voters, true_utilities, cand_names, issues = _build_electorate_from_seed(
         cand_specs, num_voters, ideology, seed
     )
 

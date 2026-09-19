@@ -482,14 +482,10 @@ def calculate_utility(voter: Dict[str, Any], candidate: Dict[str, Any], issues: 
         + mood_effect
     )
 
-    # Determine if voter will vote for this candidate
-    will_vote = random.random() < voter["likelihood_to_vote"] and utility > 0.3
-
     return {
         "voter_id": voter["id"],
         "candidate_id": candidate["id"],
         "utility": round(utility, 4),
-        "will_vote": will_vote,
         "breakdown": {
             "issue_score": round(issue_score, 4),
             "loyalty_bonus": round(loyalty_bonus, 4),

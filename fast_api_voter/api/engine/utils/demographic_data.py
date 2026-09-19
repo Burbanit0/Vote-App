@@ -138,7 +138,16 @@ def _seeded_rng_pair(
     """
     if seed is None:
         return None, None
-    return random.Random(seed), np.random.RandomState(seed)
+    # numpy rejects a seed above 2**32-1 while every schema bounds it only
+    # below, so a large seed used to be a 500. Wrapping keeps it reproducible.
+    return random.Random(seed), np.random.RandomState(seed % 2**32)
+
+
+def unseeded_rng_pair() -> tuple[random.Random, np.random.RandomState]:
+    """A fresh, entropy-seeded `(random.Random, RandomState)` pair for a worker
+    with no seed: its numbers are random either way, but it must not draw from
+    the process-wide singletons other requests are drawing from."""
+    return random.Random(), np.random.RandomState()
 
 
 def sample_age(rng: Optional[random.Random] = None) -> int:

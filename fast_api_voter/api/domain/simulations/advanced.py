@@ -17,10 +17,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Dict, List, Optional, Tuple
 
 
-import random as _rng2
 
-import numpy as np
 
+from api.engine.utils.demographic_data import unseeded_rng_pair
 from api.engine.utils.simulation_metrics import compare_all_methods_mc
 from api.engine.utils.error_handling import log_and_error_response
 from api.domain.simulations.helpers import (
@@ -63,8 +62,7 @@ def _monte_carlo_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
         # ThreadPoolExecutor worker thread, so drawing from the shared
         # random/np.random singletons would race every other concurrent run
         # (in this pool and any other seeded/unseeded caller in the process).
-        rng    = _rng2.Random()
-        np_rng = np.random.RandomState()
+        rng, np_rng = unseeded_rng_pair()
         voters, candidates, issues = _build_population(
             candidate_configs, num_voters, ideology_dist, rng=rng, np_rng=np_rng
         )

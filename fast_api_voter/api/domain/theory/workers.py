@@ -441,11 +441,11 @@ def _agenda_manipulation_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
     if target not in alternatives:
         target = alternatives[0]
 
-    _np_t.random.seed(seed)
+    np_rng = _np_t.random.RandomState(seed)
     alt_idx = {a: i for i, a in enumerate(alternatives)}
 
     # ── Random voter utilities ────────────────────────────────────────────
-    utils: _np_t.ndarray = _np_t.random.uniform(0, 1, (num_voters, n))
+    utils: _np_t.ndarray = np_rng.uniform(0, 1, (num_voters, n))
 
     # ── Pairwise matrix ───────────────────────────────────────────────────
     pairwise: Dict[str, Dict[str, float]] = {}
@@ -898,7 +898,6 @@ MA_METHODS = ("plurality", "borda", "irv", "schulze", "two_round")
 
 def _manipulation_analysis_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     """Pure worker for /manipulation-analysis — extracted for FastAPI v2."""
-    import copy as _cp_m  # noqa: F401  (kept for parity with original imports)
     from api.domain.election.workers import _build_base_electorate  # type: ignore[attr-defined]
     from api.engine.constants import DEFAULT_ISSUES as _DI
 
@@ -934,8 +933,6 @@ def _manipulation_analysis_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
             ),
         }, 200
 
-    _np_t.random.seed(seed)
-    _rnd.seed(seed)
     issues = _DI
 
     candidates, voters, sincere_utilities, cand_names = _build_base_electorate(
@@ -1100,8 +1097,6 @@ def _majority_tyranny_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
     rules: List[str]         = data.get("decision_rules") or list(MT_RULES)
     if err := reject_unknown_methods(rules, MT_RULES):
         return err
-
-    _rnd.Random(seed)
 
     n_majority = int(round(num_voters * majority_pct))
     n_minority = num_voters - n_majority

@@ -15,6 +15,7 @@ from __future__ import annotations
 from typing import Any
 
 
+from api.engine.utils.demographic_data import unseeded_rng_pair
 from api.engine.utils.simulation_voting_utils import create_voter, create_candidate
 from api.engine.utils.simulation_metrics import compare_all_methods
 from api.engine.constants import DEFAULT_ISSUES
@@ -55,14 +56,22 @@ def _build_simple_population(
     num_candidates: int,
     ideology: str = "random",
 ) -> tuple[list[Any], list[Any], list[Any]]:
-    """Create a synthetic population for API simulations."""
+    """Create a synthetic population for API simulations.
+
+    These endpoints take no seed, so the draws are genuinely random -- but from
+    a call-scoped RNG pair, not the process-wide singletons another request may
+    be drawing from at the same time.
+    """
     issues     = DEFAULT_ISSUES
     names      = _CANDIDATE_NAMES[:num_candidates]
+    rng, np_rng = unseeded_rng_pair()
     candidates = [
-        create_candidate(issues, i, name, ["Green", "Conservative", "Liberal", "Independent"][i % 4])
+        create_candidate(issues, i, name, ["Green", "Conservative", "Liberal", "Independent"][i % 4],
+                         rng=rng)
         for i, name in enumerate(names)
     ]
-    voters = [create_voter(issues, i, ideology_distribution=ideology) for i in range(num_voters)]
+    voters = [create_voter(issues, i, ideology_distribution=ideology, rng=rng, np_rng=np_rng)
+              for i in range(num_voters)]
     return voters, candidates, issues
 
 
