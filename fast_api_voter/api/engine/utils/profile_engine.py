@@ -363,9 +363,13 @@ def project_ballot(
     score_levels: int = 6,
 ) -> UtilityMatrix:
     """Project true utilities onto the expressed ballot (as an effective
-    utility matrix consumable by compare_all_methods unchanged)."""
+    utility matrix consumable by compare_all_methods unchanged).
+
+    "full" is normalised per voter to [0, 1] like every other type (and the
+    client's computeScores): raw -distance utilities, all <= 0, made every
+    score rule tie and elect the first-listed candidate."""
     if ballot_type == "full":
-        return matrix
+        return {vid: _normalise_row(utils) for vid, utils in matrix.items()}
     k = max(1, min(len(names), truncate_at or 3))
     levels = max(2, min(10, score_levels))
     out: UtilityMatrix = {}

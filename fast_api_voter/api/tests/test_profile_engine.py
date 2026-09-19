@@ -461,6 +461,35 @@ def test_advanced_modules_accept_composed_electorate(client: TestClient):
     assert all(v == v and v not in (float("inf"), float("-inf")) for v in penrose.values())
 
 
+def test_project_full_normalises_each_voter_to_unit_range():
+    names = ["A", "B", "C"]
+    matrix = handcrafted_profile([[-1.2, -0.3, -0.9], [0.4, 0.4, 0.4]], names)
+    out = project_ballot(matrix, names, "full")
+    assert out[0] == {"A": 0.0, "B": 1.0, "C": 0.3 / 0.9}
+    assert out[1] == {"A": 0.0, "B": 0.0, "C": 0.0}   # no span: no preference
+
+
+def test_score_rules_on_a_full_spatial_ballot_do_not_elect_the_first_listed(
+    client: TestClient,
+):
+    """The spatial source's utilities are -distance, all <= 0, and "full" passed
+    them through unnormalised: every 0-5 score rounded to 0, every grade was
+    "À Rejeter", and each score rule elected whoever came first in the list --
+    Alice listed first, Alice; Carol listed first, Carol -- on an electorate
+    whose Condorcet winner is Carol. This was the playground's default request."""
+    cands = [{"name": "Alice", "x": -0.5, "y": -0.2}, {"name": "Bob", "x": 0.5, "y": 0.2},
+             {"name": "Carol", "x": 0.0, "y": 0.3}]
+    rules = ("simple_score", "star_voting", "majority_judgment", "evaluative",
+             "cumulative", "nash")
+    for order in (cands, cands[::-1], [cands[1], cands[2], cands[0]]):
+        body = client.post("/api/v2/election/profile-simulate", json={
+            "source": "spatial", "ballot": {"type": "full"}, "candidates": order,
+            "num_voters": 300, "seed": 42,
+        }).json()
+        assert body["condorcet_winner"] == "Carol"
+        assert {r: body["methods"][r]["winner"] for r in rules} == dict.fromkeys(rules, "Carol")
+
+
 def test_strategic_vulnerability_opt_in(client: TestClient):
     """Off by default (winners only); opt-in adds a per-method manipulability
     rate in [0,1]. Plurality is gameable, so its rate is > 0."""
