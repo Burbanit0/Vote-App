@@ -28,7 +28,9 @@ from api.engine.utils.simulation_ranked_utils import (
     get_condorcet_winner, get_plurality_winner,
 )
 from ._electorate import _reseed_and_build_electorate
-from ._helpers import build_candidate_from_xy as _build_candidate_from_xy, prose_list, tied_extremes
+from ._helpers import (
+    build_candidate_from_xy as _build_candidate_from_xy, prose_list, result_label, tied_extremes,
+)
 
 log = get_logger(__name__)
 
@@ -273,8 +275,9 @@ def _behavioral_biases_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
     }
 
     # ── Headline comparison ───────────────────────────────────────────────
-    sincere_winner = sincere_winners.get(primary_method) or cand_names[0]
-    biased_winner  = biased_winners.get(primary_method)  or cand_names[0]
+    # None: an exact tie (or a rule that failed), never the first-listed name.
+    sincere_winner = sincere_winners.get(primary_method)
+    biased_winner  = biased_winners.get(primary_method)
     winner_changed = sincere_winner != biased_winner
 
     # ── Pedagogical note ──────────────────────────────────────────────────
@@ -282,15 +285,16 @@ def _behavioral_biases_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
                        if d["sincere"] != d["biased"]]
     if winner_changed:
         note = (
-            f"Ces biais comportementaux changent le vainqueur de {sincere_winner}"
-            f" à {biased_winner} sous la méthode '{primary_method}'. "
+            f"Sous la méthode '{primary_method}', ces biais comportementaux changent "
+            f"le résultat : {result_label(sincere_winner)} → {result_label(biased_winner)}. "
             f"{len(changed_methods)} méthode(s) affectée(s) : "
             f"{', '.join(changed_methods[:4])}."
         )
     else:
         if changed_methods:
             note = (
-                f"Le vainqueur sincère ({sincere_winner}) est maintenu sous '{primary_method}', "
+                f"Le résultat sincère ({result_label(sincere_winner)}) est maintenu sous "
+                f"'{primary_method}', "
                 f"mais {len(changed_methods)} autre(s) méthode(s) changent de vainqueur "
                 f"sous ces biais : {', '.join(changed_methods[:4])}."
             )

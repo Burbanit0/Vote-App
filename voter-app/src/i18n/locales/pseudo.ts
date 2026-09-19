@@ -494,6 +494,7 @@ const pseudo: TranslationKeys = {
     electorate: '⟦Éléçtórát~~~~⟧',
     blankBadge: '⟦⬜~ Vóté~~ Bláñç~~⟧',
     changed: '⟦Cháñgéméñt~~~~ ?~⟧',
+    tie: '⟦Égálíté~~~ (áúçúñ~~~ váíñqúéúr)~~~~⟧',
   },
   methods: {
     plurality: {
@@ -1213,6 +1214,8 @@ const pseudo: TranslationKeys = {
       "⟦Lés~~ prímáírés~~~~ óñt~~ séléçtíóññé~~~~ {{winner}} çómmé~~ váíñqúéúr~~~~ géñérál,~~~ álórs~~ qúé~~ sáñs~~ prímáírés~~~~ ç'ést~~ {{noWinner}} qúí~~ áúráít~~~ gágñé.~~~ Lá~ dístáñçé~~~ áú~ éléçtéúr~~~ médíáñ~~~ ést~~ dé~ {{medianDist}} —~ lés~~ prímáírés~~~~ élóígñéñt~~~~ lés~~ çáñdídáts~~~~ dú~ çéñtré.~~~⟧",
     pedagogicalSame:
       "⟦{{winner}} rémpórté~~~ l'éléçtíóñ~~~~ géñérálé~~~ áússí~~ bíéñ~~ ávéç~~ qúé~~ sáñs~~ prímáírés~~~~ —~ dáñs~~ çé~ sçéñáríó,~~~~ lés~~ prímáírés~~~~ ñ'óñt~~ pás~~ dístórdú~~~ l'óffré~~~ pólítíqúé.~~~~⟧",
+    pedagogicalTie:
+      "⟦L'éléçtíóñ~~~~ géñérálé~~~ ést~~ úñé~~ égálíté~~~ párfáíté~~~ :~ lá~ règlé~~ ñé~ dépártágé~~~~ pás~~ lés~~ fíñálístés,~~~~ íl~ ñ'y~~ á~ dóñç~~ pás~~ dé~ váíñqúéúr~~~~ à~ çómpárér~~~ áú~ résúltát~~~ sáñs~~ prímáírés.~~~~⟧",
   },
   districts: {
     prompt:

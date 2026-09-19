@@ -25,7 +25,9 @@ from api.engine.utils.simulation_metrics import bayesian_regret, compare_all_met
 from api.engine.utils.method_registry import rule_winner
 from api.engine.utils.simulation_ranked_utils import get_condorcet_winner, get_plurality_winner
 from ._electorate import _reseed_and_build_electorate
-from ._helpers import build_candidate_from_xy as _build_candidate_from_xy, reject_unknown_methods
+from ._helpers import (
+    build_candidate_from_xy as _build_candidate_from_xy, reject_unknown_methods, result_label,
+)
 
 log = get_logger(__name__)
 
@@ -137,15 +139,15 @@ def _dt_winner(
     utils: Dict[Any, Dict[str, float]],
     cand_names: List[str],
     method: str,
-) -> tuple[str, Dict[str, float]]:
-    """Winner and first-choice shares for one voter subset."""
+) -> tuple[Optional[str], Dict[str, float]]:
+    """Winner and first-choice shares for one voter subset. No winner on an
+    exact tie, or when nobody voted."""
     if not vlist:
-        return cand_names[0], {c: 0.0 for c in cand_names}
+        return None, {c: 0.0 for c in cand_names}
     rnk = [sorted(utils[v["id"]].keys(), key=lambda n: -utils[v["id"]][n]) for v in vlist]
-    w: Optional[str] = rule_winner(method, rnk)
     fc = Counter(r[0] for r in rnk)
     shares = {c: round(fc.get(c, 0) / len(vlist), 4) for c in cand_names}
-    return w or cand_names[0], shares
+    return rule_winner(method, rnk), shares
 
 
 def _dt_mean(
@@ -247,8 +249,8 @@ def _dt_note(
     n_actual: int,
     num_voters: int,
     ideo_drift: float,
-    biased_winner: str,
-    corrected_winner: str,
+    biased_winner: Optional[str],
+    corrected_winner: Optional[str],
 ) -> str:
     note = (
         f"Avec les taux de participation configurés, "
@@ -256,8 +258,14 @@ def _dt_note(
         f"est décalé de {ideo_drift:+.3f} sur l'axe idéologique par rapport à la population totale. "
     )
     if biased_winner != corrected_winner:
-        return note + f"Si tous votaient, le résultat serait différent : '{biased_winner}' → '{corrected_winner}'."
-    return note + f"La méthode produit le même vainqueur ('{biased_winner}') malgré le biais de participation."
+        return note + (
+            f"Si tous votaient, le résultat serait différent : "
+            f"{result_label(biased_winner)} → {result_label(corrected_winner)}."
+        )
+    return note + (
+        f"La méthode produit le même résultat ({result_label(biased_winner)}) "
+        f"malgré le biais de participation."
+    )
 
 
 def _demographic_turnout_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:

@@ -473,6 +473,7 @@ const en: TranslationKeys = {
     electorate: 'Electorate',
     blankBadge: '⬜ Blank Vote',
     changed: 'Changed?',
+    tie: 'Tie (no winner)',
   },
 
   methods: {
@@ -1186,6 +1187,8 @@ const en: TranslationKeys = {
       'Primaries selected {{winner}} as the general election winner, whereas without primaries {{noWinner}} would have won. The distance to the median voter is {{medianDist}} — primaries push candidates away from the centre.',
     pedagogicalSame:
       '{{winner}} wins the general election both with and without primaries — in this scenario, primaries did not distort the political offer.',
+    pedagogicalTie:
+      'The general election is an exact tie: the rule cannot separate the finalists, so there is no winner to compare with the no-primaries result.',
   },
 
   districts: {

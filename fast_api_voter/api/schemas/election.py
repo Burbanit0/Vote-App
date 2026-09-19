@@ -1077,7 +1077,7 @@ class PrimaryResponse(BaseModel):
     general_winner:           Optional[str] = None
     general_runner_up:        Optional[str] = None
     general_vote_shares:      Dict[str, Any]
-    median_voter_distance:    Any
+    median_voter_distance:    Optional[float] = None   # None when the general election ties
     without_primaries_winner: Optional[str] = None
 
 

@@ -31,11 +31,15 @@ vi.mock('recharts', () => {
 
 // ── Fixture ───────────────────────────────────────────────────────────────────
 
-function makeData(winnerChanged = false) {
+function makeData(
+  winnerChanged = false,
+  biasedWinner: string | null = winnerChanged ? 'Bob' : 'Alice',
+  correctedWinner: string | null = 'Alice'
+) {
   return {
     data: {
       biased_result: {
-        winner: winnerChanged ? 'Bob' : 'Alice',
+        winner: biasedWinner,
         vote_shares: {
           Alice: winnerChanged ? 0.35 : 0.44,
           Bob: winnerChanged ? 0.45 : 0.33,
@@ -45,7 +49,7 @@ function makeData(winnerChanged = false) {
         voter_profile: { mean_age_group: 1.4, mean_education_level: 0.6, mean_ideology_x: 0.08 },
       },
       corrected_result: {
-        winner: 'Alice',
+        winner: correctedWinner,
         vote_shares: { Alice: 0.44, Bob: 0.33, Carol: 0.23 },
         mean_ideology_x: -0.01,
       },
@@ -165,6 +169,23 @@ describe('DemographicTurnoutPanel', () => {
     await waitFor(() => expect(screen.getByTestId('biased-winner-badge')).toBeInTheDocument());
     vi.runAllTimers();
   });
+
+  it.each([
+    ['actual voters', null, 'Alice', 'Tie (no winner)', 'Alice'],
+    ['everyone voting', 'Bob', null, 'Bob', 'Tie (no winner)'],
+  ])(
+    'shows a tie among %s as a tie',
+    async (_who, biased, corrected, biasedText, correctedText) => {
+      apiClient.POST.mockResolvedValue(makeData(true, biased, corrected));
+      renderPanel();
+      fireEvent.click(screen.getByTestId('simulate-btn'));
+      await waitFor(() =>
+        expect(screen.getByTestId('biased-winner-badge')).toHaveTextContent(biasedText)
+      );
+      expect(screen.getByTestId('corrected-winner-badge')).toHaveTextContent(correctedText);
+      vi.runAllTimers();
+    }
+  );
 
   it('shows ideology drift badge', async () => {
     apiClient.POST.mockResolvedValue(makeData());

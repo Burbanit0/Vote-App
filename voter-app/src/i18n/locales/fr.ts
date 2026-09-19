@@ -475,6 +475,7 @@ const fr = {
     electorate: 'Électorat',
     blankBadge: '⬜ Vote Blanc',
     changed: 'Changement ?',
+    tie: 'Égalité (aucun vainqueur)',
   },
 
   methods: {
@@ -1198,6 +1199,8 @@ const fr = {
       "Les primaires ont sélectionné {{winner}} comme vainqueur général, alors que sans primaires c'est {{noWinner}} qui aurait gagné. La distance au électeur médian est de {{medianDist}} — les primaires éloignent les candidats du centre.",
     pedagogicalSame:
       "{{winner}} remporte l'élection générale aussi bien avec que sans primaires — dans ce scénario, les primaires n'ont pas distordu l'offre politique.",
+    pedagogicalTie:
+      "L'élection générale est une égalité parfaite : la règle ne départage pas les finalistes, il n'y a donc pas de vainqueur à comparer au résultat sans primaires.",
   },
 
   districts: {

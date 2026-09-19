@@ -26,8 +26,9 @@ interface MethodEntry {
 }
 
 interface BiasData {
-  sincere_winner: string;
-  biased_winner: string;
+  /** Null on an exact tie. */
+  sincere_winner: string | null;
+  biased_winner: string | null;
   winner_changed: boolean;
   vote_breakdown: {
     expressive_voters: number;
@@ -43,7 +44,8 @@ interface BiasData {
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 
-const candColor = (name: string, names: string[]) => colorByName(name, names, LAB_PALETTE);
+const candColor = (name: string | null, names: string[]) =>
+  colorByName(name ?? '', names, LAB_PALETTE); // a tie gets the neutral fallback
 
 // ── Draggable ballot ──────────────────────────────────────────────────────────
 
@@ -394,7 +396,7 @@ const BehavioralBiasPanel: React.FC = () => {
                 }}
                 data-testid="sincere-winner-badge"
               >
-                {data.sincere_winner}
+                {data.sincere_winner ?? t('common.tie')}
               </Badge>
             </div>
 
@@ -419,7 +421,7 @@ const BehavioralBiasPanel: React.FC = () => {
                 data-testid="biased-winner-badge"
                 className={data.winner_changed ? 'border border-border border-danger' : ''}
               >
-                {data.biased_winner}
+                {data.biased_winner ?? t('common.tie')}
               </Badge>
             </div>
           </div>

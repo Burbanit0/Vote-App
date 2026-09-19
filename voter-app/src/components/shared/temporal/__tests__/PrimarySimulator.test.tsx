@@ -28,7 +28,11 @@ vi.mock('recharts', () => {
   };
 });
 
-const makeData = (winnerChanged = false) => ({
+const makeData = (
+  winnerChanged = false,
+  generalWinner: string | null = winnerChanged ? 'Marc' : 'Anna',
+  withoutPrimariesWinner: string | null = 'Anna'
+) => ({
   data: {
     primaries: [
       {
@@ -63,11 +67,11 @@ const makeData = (winnerChanged = false) => ({
       },
     ],
     general_ballot: ['Marc', 'Paul', 'Anna'],
-    general_winner: winnerChanged ? 'Marc' : 'Anna',
+    general_winner: generalWinner,
     general_runner_up: winnerChanged ? 'Anna' : 'Marc',
     general_vote_shares: { Marc: 0.38, Paul: 0.35, Anna: 0.27 },
-    median_voter_distance: 0.18,
-    without_primaries_winner: winnerChanged ? 'Anna' : 'Anna',
+    median_voter_distance: generalWinner === null ? null : 0.18,
+    without_primaries_winner: withoutPrimariesWinner,
   },
   error: undefined,
 });
@@ -155,6 +159,19 @@ describe('PrimarySimulator', () => {
     });
   });
 
+  it('reports a tied general election as a tie, with no median distance', async () => {
+    apiClient.POST.mockResolvedValue(makeData(false, null));
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
+    await waitFor(() =>
+      expect(screen.getByTestId('general-winner-badge')).toHaveTextContent('Tie (no winner)')
+    );
+    expect(screen.queryByText(/Median voter distance/)).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/exact tie: the rule cannot separate the finalists/)
+    ).toBeInTheDocument();
+  });
+
   it('shows drift badge when distortion > 0.1', async () => {
     apiClient.POST.mockResolvedValue(makeData());
     renderPanel();
@@ -191,6 +208,17 @@ describe('PrimarySimulator', () => {
       const alerts = document.querySelectorAll('.bg-amber-100');
       expect(alerts.length).toBeGreaterThan(0);
     });
+  });
+
+  it('names a tie without primaries as a tie, not "?"', async () => {
+    apiClient.POST.mockResolvedValue(makeData(true, 'Marc', null));
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
+    await waitFor(() =>
+      expect(
+        screen.getByText(/without primaries Tie \(no winner\) would have won/)
+      ).toBeInTheDocument()
+    );
   });
 
   it('shows error on API failure', async () => {
