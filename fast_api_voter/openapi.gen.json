@@ -8435,6 +8435,14 @@
             "title": "General Winner"
           },
           "median_voter_distance": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Median Voter Distance"
           },
           "primaries": {
@@ -8455,8 +8463,7 @@
         "required": [
           "primaries",
           "general_ballot",
-          "general_vote_shares",
-          "median_voter_distance"
+          "general_vote_shares"
         ],
         "title": "PrimaryResponse",
         "type": "object"

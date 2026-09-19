@@ -1416,20 +1416,24 @@ def _primary_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         for c in general_ballot_cands
     }
 
+    # None on an exact tie. It used to become the first candidate on the
+    # ballot, who then also got a runner-up and a median-voter distance.
     general_winner_name = winner_from_utilities(general_method, gen_utils, general_voters)
-    general_winner_name = general_winner_name or general_ballot_cands[0]["name"]
 
     sorted_gen = sorted(general_ballot_cands, key=lambda c: -gen_vote_shares.get(c["name"], 0))
-    general_runner_up = next((c["name"] for c in sorted_gen if c["name"] != general_winner_name), None)
+    general_runner_up = next(
+        (c["name"] for c in sorted_gen if c["name"] != general_winner_name), None,
+    ) if general_winner_name else None
 
     # ── Median voter distance ─────────────────────────────────────────────
     winner_cand_obj = next(
-        (c for c in general_ballot_cands if c["name"] == general_winner_name),
-        general_ballot_cands[0],
+        (c for c in general_ballot_cands if c["name"] == general_winner_name), None,
     )
-    winner_econ = winner_cand_obj["ideology_position"]
     median_econ = float(_np.median([v["issue_positions"].get("economy", 0.5) for v in general_voters]))
-    median_voter_distance = round(abs(winner_econ - median_econ), 4)
+    median_voter_distance = (
+        round(abs(winner_cand_obj["ideology_position"] - median_econ), 4)
+        if winner_cand_obj else None
+    )
 
     # ── Without-primaries: party centres run directly ─────────────────────
     center_cands = [

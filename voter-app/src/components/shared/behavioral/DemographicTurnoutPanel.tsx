@@ -323,12 +323,12 @@ const DemographicTurnoutPanel: React.FC = () => {
           {/* Headline badges */}
           <div className="flex flex-wrap gap-2 mb-3">
             <Badge variant="primary" data-testid="biased-winner-badge">
-              {t('demo.biasedWinner')}: {data.biased_result.winner}
+              {t('demo.biasedWinner')}: {data.biased_result.winner ?? t('common.tie')}
             </Badge>
             {data.winner_changed && (
               <>
                 <Badge variant="success" data-testid="corrected-winner-badge">
-                  {t('demo.correctedWinner')}: {data.corrected_result.winner}
+                  {t('demo.correctedWinner')}: {data.corrected_result.winner ?? t('common.tie')}
                 </Badge>
                 <Alert
                   variant="danger"

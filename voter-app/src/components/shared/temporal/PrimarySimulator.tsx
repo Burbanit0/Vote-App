@@ -41,10 +41,11 @@ interface PrimaryResult {
 interface PrimaryData {
   primaries: PrimaryResult[];
   general_ballot: string[];
-  general_winner: string;
+  /** Null on an exact tie, as are the runner-up and the median distance. */
+  general_winner: string | null;
   general_runner_up: string | null;
   general_vote_shares: Record<string, number>;
-  median_voter_distance: number;
+  median_voter_distance: number | null;
   without_primaries_winner: string | null;
 }
 
@@ -355,6 +356,20 @@ const PrimarySimulator: React.FC = () => {
   const anyDrift = data ? data.primaries.some((p) => p.distortion > 0.1) : false;
   const primaryChanged = data && data.general_winner !== data.without_primaries_winner;
 
+  const primaryMessage = (d: PrimaryData): string => {
+    if (d.general_winner === null || d.median_voter_distance === null) {
+      return t('primary.pedagogicalTie');
+    }
+    if (d.general_winner === d.without_primaries_winner) {
+      return t('primary.pedagogicalSame', { winner: d.general_winner });
+    }
+    return t('primary.pedagogicalChanged', {
+      winner: d.general_winner,
+      noWinner: d.without_primaries_winner ?? t('common.tie'),
+      medianDist: d.median_voter_distance.toFixed(3),
+    });
+  };
+
   return (
     <div>
       <Row className="g-3">
@@ -430,7 +445,7 @@ const PrimarySimulator: React.FC = () => {
               {/* Summary badges */}
               <div className="flex flex-wrap gap-2 mb-3">
                 <Badge variant="primary" data-testid="general-winner-badge">
-                  {t('primary.generalWinner')}: {data.general_winner}
+                  {t('primary.generalWinner')}: {data.general_winner ?? t('common.tie')}
                 </Badge>
                 {data.without_primaries_winner && (
                   <Badge
@@ -440,9 +455,11 @@ const PrimarySimulator: React.FC = () => {
                     {t('primary.withoutPrimaries')}: {data.without_primaries_winner}
                   </Badge>
                 )}
-                <Badge variant="secondary">
-                  {t('primary.medianDistance')}: {data.median_voter_distance.toFixed(3)}
-                </Badge>
+                {data.median_voter_distance !== null && (
+                  <Badge variant="secondary">
+                    {t('primary.medianDistance')}: {data.median_voter_distance.toFixed(3)}
+                  </Badge>
+                )}
                 {anyDrift && (
                   <Badge variant="danger" data-testid="drift-badge">
                     ⚠ {t('primary.driftDetected')}
@@ -456,13 +473,7 @@ const PrimarySimulator: React.FC = () => {
                 className="py-2 mb-3"
                 style={{ fontSize: '0.84rem' }}
               >
-                {primaryChanged
-                  ? t('primary.pedagogicalChanged', {
-                      winner: data.general_winner,
-                      noWinner: data.without_primaries_winner ?? '?',
-                      medianDist: data.median_voter_distance.toFixed(3),
-                    })
-                  : t('primary.pedagogicalSame', { winner: data.general_winner })}
+                {primaryMessage(data)}
               </Alert>
 
               {/* Phase 1: Primaries */}

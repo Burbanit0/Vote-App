@@ -5468,7 +5468,7 @@ export interface components {
             /** General Winner */
             general_winner?: string | null;
             /** Median Voter Distance */
-            median_voter_distance: unknown;
+            median_voter_distance?: number | null;
             /** Primaries */
             primaries: unknown;
             /** Without Primaries Winner */

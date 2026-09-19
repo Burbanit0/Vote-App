@@ -108,6 +108,13 @@ def tied_extremes(values: Mapping[str, float]) -> tuple[List[str], List[str]]:
     )
 
 
+def result_label(winner: Optional[str]) -> str:
+    """A winner for prose, or "égalité" when the rule elected nobody (an exact
+    tie). `winner or cand_names[0]` used to report such a tie as a win for the
+    first-listed candidate."""
+    return f"'{winner}'" if winner else "égalité"
+
+
 def prose_list(names: List[str], conj: str = "et", others: str = "autres", shown: int = 3) -> str:
     """'a, b et c' -- or 'a, b, c et 28 autres' past `shown` names, since a tie
     can span 30 methods. Pass conj="and", others="others" for English."""

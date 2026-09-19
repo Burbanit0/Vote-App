@@ -15,11 +15,15 @@ const { apiClient } = (await import('../../../../api/client')) as unknown as {
 
 // ── Fixture ───────────────────────────────────────────────────────────────────
 
-function makeData(winnerChanged = false) {
+function makeData(
+  winnerChanged = false,
+  sincereWinner: string | null = 'Alice',
+  biasedWinner: string | null = winnerChanged ? 'Bob' : 'Alice'
+) {
   return {
     data: {
-      sincere_winner: 'Alice',
-      biased_winner: winnerChanged ? 'Bob' : 'Alice',
+      sincere_winner: sincereWinner,
+      biased_winner: biasedWinner,
       winner_changed: winnerChanged,
       vote_breakdown: {
         expressive_voters: 20,
@@ -105,6 +109,17 @@ describe('BehavioralBiasPanel', () => {
       expect(screen.getByTestId('sincere-winner-badge')).toBeInTheDocument();
       expect(screen.getByTestId('biased-winner-badge')).toBeInTheDocument();
     });
+    vi.runAllTimers();
+  });
+
+  it('shows a tie on either side as a tie', async () => {
+    apiClient.POST.mockResolvedValue(makeData(false, null, null));
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
+    await waitFor(() =>
+      expect(screen.getByTestId('sincere-winner-badge')).toHaveTextContent('Tie (no winner)')
+    );
+    expect(screen.getByTestId('biased-winner-badge')).toHaveTextContent('Tie (no winner)');
     vi.runAllTimers();
   });
 
