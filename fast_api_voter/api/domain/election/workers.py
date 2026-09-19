@@ -1248,6 +1248,7 @@ def _run_primary(
     party_voters: list[Dict[str, Any]],
     utilities: Dict[Any, Dict[str, float]],
     method: str,
+    lots: "_np.random.Generator",
 ) -> Dict[str, Any]:
     """
     Run a single party primary among party_voters.
@@ -1276,7 +1277,13 @@ def _run_primary(
         party_voters,
     )
 
-    winner = winner or (cand_names[0] if cand_names else "")
+    # A party must field a nominee even when its rule elects nobody (an IRV
+    # dead tie). The nominee used to be the first-listed candidate; it is now
+    # drawn by lot among those tied for the most first preferences, sorted so
+    # listing order doesn't matter.
+    if not winner:
+        top = max(vote_shares.values())
+        winner = str(lots.choice(sorted(n for n in cand_names if vote_shares[n] == top)))
 
     sorted_by_share = sorted(cand_names, key=lambda n: -vote_shares.get(n, 0))
     runner_up = next((n for n in sorted_by_share if n != winner), None)
@@ -1357,6 +1364,7 @@ def _primary_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     primaries_out: list[Dict[str, Any]] = []
     general_ballot_cands: list[Dict[str, Any]] = []
 
+    lots = _np.random.default_rng(seed)   # tied primaries only
     for pm in party_meta:
         pcenter = pm["center"]
 
@@ -1371,7 +1379,7 @@ def _primary_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         n_primary = max(2, int(len(general_voters) * pm["voters_pct"]))
         party_voters = sorted_voters[:n_primary]
 
-        prim_result = _run_primary(pm["prim_cands"], party_voters, all_utils, primary_method)
+        prim_result = _run_primary(pm["prim_cands"], party_voters, all_utils, primary_method, lots)
         winner_name = prim_result["winner"]
 
         # Find winner candidate object
