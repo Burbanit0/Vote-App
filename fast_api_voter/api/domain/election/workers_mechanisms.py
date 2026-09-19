@@ -29,7 +29,7 @@ from api.engine.utils.simulation_multiwinner_utils import (
     get_equal_shares_result, check_justified_representation,
 )
 from ._electorate import _reseed_and_build_electorate
-from ._helpers import dhondt as _dhondt
+from ._helpers import dhondt as _dhondt, prose_list, tied_extremes
 
 log = get_logger(__name__)
 
@@ -543,8 +543,8 @@ def _jury_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         for m, acc in accuracies.items()
     }
 
-    best_method  = max(accuracies, key=lambda k: accuracies[k])
-    worst_method = min(accuracies, key=lambda k: accuracies[k])
+    # Higher accuracy is better, so the high end is the best.
+    worst_method, best_method = tied_extremes(accuracies)
 
     # ── Competence curve (20 points, 100 sims each for speed) ────────────
     curve_rng = _random.Random(seed + 1)
@@ -564,22 +564,33 @@ def _jury_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     # ── Pedagogical note ──────────────────────────────────────────────────
     pct_theory = round(theoretical * 100, 1)
-    pct_best   = round(accuracies[best_method] * 100, 1)
-    delta      = round((accuracies[best_method] - theoretical) * 100, 1)
+    top_acc    = max(accuracies.values())
+    pct_best   = round(top_acc * 100, 1)
+    delta      = round((top_acc - theoretical) * 100, 1)
     if delta > 0:
+        # Name every method at the top, not one of them: 4 or 5 of the 5 tie on
+        # most runs. An empty best list means all five tie.
+        if not best_method:
+            who_fr, who_en = "Toutes les méthodes atteignent", "Every method reaches"
+        elif len(best_method) == 1:
+            who_fr = f"{best_method[0].capitalize()} atteint"
+            who_en = f"{best_method[0].capitalize()} reaches"
+        else:
+            fr = prose_list(best_method)
+            en = prose_list(best_method, conj="and", others="others")
+            who_fr = f"{fr[0].upper()}{fr[1:]} atteignent"
+            who_en = f"{en[0].upper()}{en[1:]} reach"
         note_fr = (
             f"Avec P={voter_competence} et {num_voters} électeurs, "
             f"la théorie prédit {pct_theory}%. "
-            f"{best_method.capitalize()} atteint {pct_best}% "
-            f"(+{delta}% vs théorie) — il agrège mieux l'information collective "
-            f"que la simple majorité."
+            f"{who_fr} {pct_best}% (+{delta}% vs théorie) — une agrégation qui "
+            f"exploite mieux l'information collective que la simple majorité."
         )
         note_en = (
             f"With P={voter_competence} and {num_voters} voters, "
             f"theory predicts {pct_theory}%. "
-            f"{best_method.capitalize()} reaches {pct_best}% "
-            f"(+{delta}% vs theory) — it aggregates collective information "
-            f"better than simple majority."
+            f"{who_en} {pct_best}% (+{delta}% vs theory) — aggregating collective "
+            f"information better than simple majority."
         )
     else:
         note_fr = (
@@ -1166,8 +1177,9 @@ def _multiwinner_compare_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
             for c in cand_names
         }
 
-    best_method  = min(methods, key=lambda m: methods[m]["distortion"])
-    worst_method = max(methods, key=lambda m: methods[m]["distortion"])
+    best_method, worst_method = tied_extremes(
+        {name: md["distortion"] for name, md in methods.items()}
+    )
 
     return {
         "methods":      methods,

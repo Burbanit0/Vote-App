@@ -60,8 +60,8 @@ function makeData(bestMethod = 'schulze'): { data: any; error: undefined } {
     data: {
       theoretical_accuracy: 0.89,
       methods,
-      best_method: bestMethod,
-      worst_method: 'plurality',
+      best_method: [bestMethod],
+      worst_method: ['plurality'],
       voter_competence: 0.7,
       num_voters: 100,
       competence_curve: curvePoints,
@@ -164,6 +164,33 @@ describe('JuryTheoremPanel', () => {
       const badge = screen.getByTestId('best-method-badge');
       expect(badge.textContent).toContain('schulze');
     });
+    vi.runAllTimers();
+  });
+
+  it('names every method tied at the top in the badge', async () => {
+    // 4 or 5 of the 5 methods tie on most real runs; the badge used to name one.
+    const tied = makeData();
+    tied.data.best_method = ['irv', 'schulze'];
+    apiClient.POST.mockResolvedValue(tied);
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
+    await waitFor(() => {
+      expect(screen.getByTestId('best-method-badge').textContent).toContain('irv, schulze');
+    });
+    vi.runAllTimers();
+  });
+
+  it('shows no best-method badge when all five methods tie', async () => {
+    const allTie = makeData();
+    allTie.data.best_method = [];
+    allTie.data.worst_method = [];
+    apiClient.POST.mockResolvedValue(allTie);
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
+    await waitFor(() => {
+      expect(screen.getByTestId('theory-badge')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('best-method-badge')).not.toBeInTheDocument();
     vi.runAllTimers();
   });
 

@@ -30,6 +30,7 @@ import { $api } from '../../../api/hooks';
 
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
 import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
+import { listNames } from '@/lib/listNames';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -39,8 +40,9 @@ interface PolarResult {
   condorcet_rate: number;
   agreement_rate: number;
   winner_stability: number;
-  best_method: string;
-  worst_method: string;
+  /** Every method tied at the lowest / highest mean regret; empty when all tie. */
+  best_method: string[];
+  worst_method: string[];
   method_regrets: Record<string, number>;
 }
 
@@ -429,13 +431,13 @@ const PolarizationPanel: React.FC = () => {
               <div className="mt-2 flex flex-wrap gap-2">
                 {sorted.slice(-2).map((r) => (
                   <React.Fragment key={r.ideology}>
-                    {r.best_method && (
+                    {r.best_method.length > 0 && (
                       <Badge
                         variant="success"
                         style={{ fontSize: '0.7rem' }}
                         data-testid={`best-badge-${r.ideology}`}
                       >
-                        {r.ideology}: 🏆 {r.best_method}
+                        {r.ideology}: 🏆 {listNames(r.best_method)}
                       </Badge>
                     )}
                   </React.Fragment>
