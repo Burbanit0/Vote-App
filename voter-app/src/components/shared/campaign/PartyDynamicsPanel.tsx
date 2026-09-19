@@ -22,6 +22,7 @@ import {
 } from 'recharts';
 import { $api } from '../../../api/hooks';
 import type { PartyDynamicsResponse } from '../../../api';
+import type { PartyDynamicsMethod } from '@/api';
 const ANIM_MS = 800;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -223,7 +224,7 @@ interface Props {
 const PartyDynamicsPanel: React.FC<Props> = ({ onDataLoaded }) => {
   const { t } = useTranslation();
 
-  const [method, setMethod] = useState('plurality');
+  const [method, setMethod] = useState<PartyDynamicsMethod>('plurality');
   const [numElections, setNumElections] = useState(15);
   const [survThr, setSurvThr] = useState(0.05);
   const [hotelling] = useState(0.1);
@@ -323,11 +324,11 @@ const PartyDynamicsPanel: React.FC<Props> = ({ onDataLoaded }) => {
             size="sm"
             value={method}
             data-testid="method-select"
-            onChange={(e) => setMethod(e.target.value)}
+            onChange={(e) => setMethod(e.target.value as PartyDynamicsMethod)}
           >
+            {/* Two share models: tactical FPTP and sincere nearest-party. "IRV"
+                was computed as FPTP and "Borda" as the sincere model. */}
             <option value="plurality">Plurality (FPTP)</option>
-            <option value="irv">Vote alternatif (IRV)</option>
-            <option value="borda">Borda</option>
             <option value="proportional">Proportionnelle</option>
           </Select>
         </Col>

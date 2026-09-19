@@ -3029,8 +3029,9 @@ export interface components {
             /**
              * Method
              * @default plurality
+             * @constant
              */
-            method: string;
+            method: "plurality";
             /**
              * Num Voters
              * @default 300
@@ -3250,8 +3251,9 @@ export interface components {
             /**
              * Method
              * @default plurality
+             * @constant
              */
-            method: string;
+            method: "plurality";
             /**
              * Network Type
              * @description 'random' | 'echo_chamber' | 'bridge' | 'complete'.
@@ -3397,8 +3399,9 @@ export interface components {
             /**
              * Method
              * @default plurality
+             * @enum {string}
              */
-            method: string;
+            method: "plurality" | "borda" | "irv" | "schulze";
             /**
              * Num Voters
              * @default 300
@@ -4010,8 +4013,9 @@ export interface components {
             /**
              * Method
              * @default plurality
+             * @enum {string}
              */
-            method: string;
+            method: "plurality" | "borda" | "approval";
             /**
              * Num Iterations
              * @default 10
@@ -5150,8 +5154,9 @@ export interface components {
             /**
              * Method
              * @default plurality
+             * @enum {string}
              */
-            method: string;
+            method: "plurality" | "proportional";
             /**
              * Num Elections
              * @default 10
@@ -5421,8 +5426,9 @@ export interface components {
             /**
              * General Method
              * @default plurality
+             * @enum {string}
              */
-            general_method: string;
+            general_method: "plurality" | "irv" | "approval";
             /**
              * General Num Voters
              * @default 500
@@ -5433,8 +5439,9 @@ export interface components {
             /**
              * Primary Method
              * @default plurality
+             * @enum {string}
              */
-            primary_method: string;
+            primary_method: "plurality" | "irv" | "approval";
             /**
              * Seed
              * @default 42
@@ -6098,8 +6105,9 @@ export interface components {
             /**
              * Method
              * @default plurality
+             * @constant
              */
-            method: string;
+            method: "plurality";
             /**
              * Num Simulations
              * @default 20

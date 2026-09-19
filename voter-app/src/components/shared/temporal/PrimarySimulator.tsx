@@ -11,6 +11,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 
 import { $api } from '../../../api/hooks';
 
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+import type { PrimaryMethod } from '@/api';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -328,8 +329,8 @@ const PrimarySimulator: React.FC = () => {
   const { t } = useTranslation();
 
   const [parties, setParties] = useState<PartyConfig[]>(DEFAULT_PARTIES);
-  const [primaryMethod, setPrimaryMethod] = useState('plurality');
-  const [generalMethod, setGeneralMethod] = useState('plurality');
+  const [primaryMethod, setPrimaryMethod] = useState<PrimaryMethod>('plurality');
+  const [generalMethod, setGeneralMethod] = useState<PrimaryMethod>('plurality');
   const [numVoters, setNumVoters] = useState(500);
   const sim = $api.useMutation('post', '/api/v2/election/primary');
   const data: PrimaryData | null = (sim.data as PrimaryData | undefined) ?? null;
@@ -369,7 +370,8 @@ const PrimarySimulator: React.FC = () => {
             <Select
               size="sm"
               value={primaryMethod}
-              onChange={(e) => setPrimaryMethod(e.target.value)}
+              data-testid="primary-method-select"
+              onChange={(e) => setPrimaryMethod(e.target.value as PrimaryMethod)}
               className="mb-2"
             >
               <option value="plurality">{t('primary.methodPlurality')}</option>
@@ -381,7 +383,8 @@ const PrimarySimulator: React.FC = () => {
             <Select
               size="sm"
               value={generalMethod}
-              onChange={(e) => setGeneralMethod(e.target.value)}
+              data-testid="general-method-select"
+              onChange={(e) => setGeneralMethod(e.target.value as PrimaryMethod)}
               className="mb-2"
             >
               <option value="plurality">{t('primary.methodPlurality')}</option>

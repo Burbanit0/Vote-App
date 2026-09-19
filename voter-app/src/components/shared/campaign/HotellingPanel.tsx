@@ -19,6 +19,7 @@ import { $api } from '../../../api/hooks';
 import { apiClient } from '../../../api/client';
 import type { HotellingResponse } from '../../../api';
 import { colorByName, LAB_PALETTE } from '@/lib/palette';
+import type { HotellingMethod } from '@/api';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 // Source of truth is the generated `HotellingResponse` (Phase 6 response_model).
@@ -44,7 +45,7 @@ function dy(v: number) {
 
 // ── Comparison methods ────────────────────────────────────────────────────────
 
-const COMPARE_METHODS = ['plurality', 'borda', 'irv', 'approval'] as const;
+const COMPARE_METHODS: HotellingMethod[] = ['plurality', 'borda', 'approval'];
 
 // ── Main component ────────────────────────────────────────────────────────────
 
@@ -52,7 +53,7 @@ const HotellingPanel: React.FC = () => {
   const { t } = useTranslation();
   const { config } = useElection();
 
-  const [method, setMethod] = useState('plurality');
+  const [method, setMethod] = useState<HotellingMethod>('plurality');
   const [numIter, setNumIter] = useState(10);
   const [stepSize, setStepSize] = useState(0.05);
   const sim = $api.useMutation('post', '/api/v2/election/hotelling');
@@ -161,8 +162,13 @@ const HotellingPanel: React.FC = () => {
       <Row className="g-2 mb-3 items-end">
         <Col xs={12} sm={3}>
           <label className="mb-1 inline-block text-sm mb-0">{t('hotelling.method')}</label>
-          <Select size="sm" value={method} onChange={(e) => setMethod(e.target.value)}>
-            {['plurality', 'borda', 'irv', 'approval'].map((m) => (
+          <Select
+            size="sm"
+            value={method}
+            data-testid="hotelling-method-select"
+            onChange={(e) => setMethod(e.target.value as HotellingMethod)}
+          >
+            {COMPARE_METHODS.map((m) => (
               <option key={m} value={m}>
                 {m}
               </option>

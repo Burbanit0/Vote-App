@@ -29,5 +29,12 @@ export type PartyDynamicsResponse = components['schemas']['PartyDynamicsResponse
 export type HistoricalReplayResponse = components['schemas']['HistoricalReplayResponse'];
 export type SenParadoxResponse = components['schemas']['SenParadoxResponse'];
 
+/** Method names straight from each backend request schema's Literal. */
+export type HotellingMethod = NonNullable<components['schemas']['HotellingRequest']['method']>;
+export type PartyDynamicsMethod = NonNullable<
+  components['schemas']['PartyDynamicsRequest']['method']
+>;
+export type PrimaryMethod = NonNullable<components['schemas']['PrimaryRequest']['primary_method']>;
+
 /** /adaptive's method names, straight from the backend's request schema. */
 export type AdaptiveMethod = NonNullable<components['schemas']['AdaptiveRequest']['method']>;
