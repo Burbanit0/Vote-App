@@ -48,8 +48,10 @@ function makeData() {
       num_seats: 4,
       vote_shares: { Alice: 0.4, Bob: 0.3, Carol: 0.2, Dave: 0.1 },
       proportional_reference: { Alice: 2, Bob: 1, Carol: 1, Dave: 0 },
-      best_method: 'spav',
-      worst_method: 'fptp',
+      // stv, spav, phragmen and equal_shares all sit at 0.04 below, so all four
+      // are the least-distortion method -- as /multiwinner_compare now reports.
+      best_method: ['stv', 'spav', 'phragmen', 'equal_shares'],
+      worst_method: ['fptp'],
       methods: {
         stv: makeMethod({ Alice: 2, Bob: 1, Carol: 1, Dave: 0 }, 0.04),
         dhondt: makeMethod({ Alice: 2, Bob: 2, Carol: 0, Dave: 0 }, 0.1),
@@ -147,6 +149,31 @@ describe('MultiwinnerCompare', () => {
     await waitFor(() => {
       expect(screen.getByTestId('multiwinner-pedagogical')).toBeInTheDocument();
     });
+    vi.runAllTimers();
+  });
+
+  it('marks every method tied at the least distortion as most PR', async () => {
+    apiClient.POST.mockResolvedValue(makeData());
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: /comparer|compare/i }));
+    await waitFor(() => {
+      expect(screen.getAllByText('most PR')).toHaveLength(4);
+    });
+    vi.runAllTimers();
+  });
+
+  it('names no "most proportional" method when every method ties', async () => {
+    const allTie = makeData();
+    allTie.data.best_method = [];
+    allTie.data.worst_method = [];
+    apiClient.POST.mockResolvedValue(allTie);
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: /comparer|compare/i }));
+    await waitFor(() => {
+      expect(screen.getAllByText('STV').length).toBeGreaterThan(0);
+    });
+    expect(screen.queryByTestId('multiwinner-pedagogical')).not.toBeInTheDocument();
+    expect(screen.queryByText('most PR')).not.toBeInTheDocument();
     vi.runAllTimers();
   });
 
