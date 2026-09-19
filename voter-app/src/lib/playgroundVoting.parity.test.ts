@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ruleWinnerFromRanks, type Rule } from './playgroundVoting';
+import { KEMENY_EXACT_CAP, ruleWinnerFromRanks, type Rule } from './playgroundVoting';
 import fixtureJson from './__fixtures__/engineParity.json';
 
 // Engine parity: the Playground computes winners client-side, but the repo's
@@ -17,7 +17,7 @@ interface Scenario {
   ballots: string[][];
   winners: Record<string, string | null>;
 }
-const fixture = fixtureJson as { scenarios: Scenario[] };
+const fixture = fixtureJson as { scenarios: Scenario[]; _kemenyExactCap: number };
 
 const prepared = fixture.scenarios.map((sc) => {
   const idxOf: Record<string, number> = {};
@@ -342,5 +342,43 @@ describe('engine parity — EXHAUSTIVE maximin domain (3 grades, n<=3)', () => {
     // vacuous (a real regression).
     expect(unambiguous.length).toBeGreaterThanOrEqual(2000);
     expect(exhaustiveMismatchesFor(unambiguous, 'maximin')).toEqual([]);
+  });
+});
+
+// Two engine-boundary invariants the scenario comparisons above structurally
+// cannot check, both learned the hard way on fix/kemeny-exact-and-neutral.
+describe('kemeny engine boundary', () => {
+  // The caps must be equal or the two engines silently answer different
+  // algorithms above whichever is lower — backend KwikSort, client Borda. No
+  // fixture scenario can catch that: the widest is 8 candidates, and a scenario
+  // above the cap would be comparing Borda against KwikSort by construction. So
+  // the generator emits the backend's value and this pins the client to it.
+  it('the client exact cap equals the backend _KY_EXACT_CAP', () => {
+    expect(KEMENY_EXACT_CAP).toBe(fixture._kemenyExactCap);
+  });
+
+  // The one place the engines still part company, pinned so it cannot drift
+  // unnoticed and cannot be mistaken for the divergence the branch fixed.
+  //
+  // On TIED optima both return an optimal Kemeny ordering — neither is wrong —
+  // but they break the tie on different keys: the client on lowest candidate
+  // INDEX, the backend on lowest candidate NAME (it works from `sorted(pw)`).
+  // Those agree only when the caller's array is alphabetical, which every
+  // fixture scenario is (`NAMES[:m]`) and no shipped preset is. `strict_winner`
+  // drops every relabel-sensitive winner, so the fixture cannot express this.
+  //
+  // Below: two ballots, B>A and A>B. Both orderings score 1, so the tie-break
+  // decides. The client returns index 0; with the array ['B','A'] that names B,
+  // where the backend's sorted order names A.
+  it('breaks ties by candidate index, where the backend breaks them by name', () => {
+    const ranks = [
+      [0, 1],
+      [1, 0],
+    ];
+    expect(ruleWinnerFromRanks(ranks, 2, 'kemeny')).toBe(0);
+    const alphabetical = ['A', 'B'];
+    const asShipped = ['B', 'A']; // e.g. the France 2002 preset's authored order
+    expect(alphabetical[0]).toBe('A'); // agrees with the backend
+    expect(asShipped[0]).toBe('B'); // disagrees: the backend would answer 'A'
   });
 });

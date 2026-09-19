@@ -2151,7 +2151,7 @@ backend, et la cible exacte que l'item vise.
   dict sans clé `ranking`, scores NaN/inf) qu'`st.permutations(["A","B","C","D"])`
   (les tests Hypothesis existants) ne peut structurellement jamais produire.
   Pool de candidats volontairement petit et FIXE pour ne pas faire exploser
-  le chemin exact O(n!) de Kemeny-Young.
+  le chemin exact de Kemeny-Young (alors en O(n!), aujourd'hui en O(2^m·m²)).
 - `scripts/fuzz_llm_parsers.py` — mutation directe des octets bruts d'une
   réponse LLM, corpus de départ (`fuzz_corpus/llm_parsers/seed_*`, committé)
   = quelques payloads réalistes (batch valide, `<think>`-wrappé, JSON

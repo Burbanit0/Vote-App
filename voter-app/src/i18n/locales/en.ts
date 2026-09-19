@@ -524,7 +524,7 @@ const en: TranslationKeys = {
     kemeny_young: {
       label: 'Kemeny-Young',
       pro: 'Theoretically optimal: maximises global consensus on the complete ranking.',
-      con: 'Exponential O(n!) computation — unusable with 6 or more candidates.',
+      con: 'Cost grows exponentially with the number of candidates — exact up to 10, approximated beyond.',
     },
     condorcet: {
       label: 'Condorcet',

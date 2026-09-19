@@ -128,7 +128,7 @@ intercepte avant FastAPI).
 **Déjà sain, ne pas y toucher** : la surface publique `/api/v1` est
 correctement bornée (10/min sur `/simulate`, 5/min sur `/compare`,
 50-2000 électeurs clampés dans le worker) ; `schemas/election.py` compte 81
-`ge=`/`le=` ; Kemeny-Young n'est pas NP-dur ici (`_KY_EXACT_CAP = 6`) ; CORS
+`ge=`/`le=` ; Kemeny-Young n'est pas NP-dur ici (`_KY_EXACT_CAP = 10`) ; CORS
 est en liste blanche, pas `*`.
 
 ### 2.B 🔴 Deux affirmations fausses dans le contenu pédagogique

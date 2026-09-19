@@ -901,3 +901,105 @@ describe('anonymity — ballot order must not decide', () => {
     expect(ruleWinnerFromRanks(tied.slice().reverse(), 3, 'dowdall')).toBe(0);
   });
 });
+
+/**
+ * Kemeny-Young's exact path is a DP over candidate subsets, replacing a brute
+ * force over the m! orderings. Nothing client-side verified it: the parity
+ * fixture is the only other Kemeny coverage, and `strict_winner` drops every
+ * profile whose winner moves under relabelling — i.e. every tied optimum, which
+ * is exactly where a DP tie-break can go wrong.
+ */
+describe('kemeny exact DP', () => {
+  /** Brute-force Kemeny over all m! orderings, returning the first element of
+   *  the index-lexicographically smallest optimal ordering. */
+  function bruteKemeny(ranks: number[][], m: number): number {
+    const b: number[][] = Array.from({ length: m }, () => new Array(m).fill(0));
+    for (const r of ranks) {
+      const pos = new Array(m).fill(0);
+      r.forEach((c, rank) => (pos[c] = rank));
+      for (let i = 0; i < m; i++)
+        for (let j = i + 1; j < m; j++) {
+          if (pos[i] < pos[j]) b[i][j] += 1;
+          else b[j][i] += 1;
+        }
+    }
+    let best: number[] | null = null;
+    let bestScore = -1;
+    const permute = (chosen: number[], left: number[]): void => {
+      if (left.length === 0) {
+        let s = 0;
+        for (let i = 0; i < m; i++) for (let j = i + 1; j < m; j++) s += b[chosen[i]][chosen[j]];
+        // `>` only, and `left` is walked in ascending order, so the first
+        // maximum found is the index-lexicographically smallest optimum.
+        if (s > bestScore) {
+          bestScore = s;
+          best = chosen.slice();
+        }
+        return;
+      }
+      for (const c of left)
+        permute(
+          [...chosen, c],
+          left.filter((x) => x !== c)
+        );
+    };
+    permute(
+      [],
+      Array.from({ length: m }, (_, i) => i)
+    );
+    return best![0];
+  }
+
+  // A mulberry32 PRNG: seeded so a failure is reproducible, unlike Math.random.
+  function rng(seed: number): () => number {
+    let a = seed;
+    return () => {
+      a = (a + 0x6d2b79f5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  it('agrees with brute force over the m! orderings, ties included', () => {
+    const rand = rng(20260918);
+    let tiedProfiles = 0;
+    for (let m = 2; m <= 7; m++) {
+      for (let trial = 0; trial < 12; trial++) {
+        const nb = 1 + Math.floor(rand() * 7);
+        const ranks: number[][] = [];
+        for (let v = 0; v < nb; v++) {
+          const perm = Array.from({ length: m }, (_, i) => i);
+          for (let i = m - 1; i > 0; i--) {
+            const j = Math.floor(rand() * (i + 1));
+            [perm[i], perm[j]] = [perm[j], perm[i]];
+          }
+          ranks.push(perm);
+        }
+        // Mirroring every ballot ties every ordering, so the tie-break decides.
+        if (trial % 3 === 0) {
+          tiedProfiles += 1;
+          ranks.push(...ranks.map((r) => r.slice().reverse()));
+        }
+        expect(ruleWinnerFromRanks(ranks, m, 'kemeny')).toBe(bruteKemeny(ranks, m));
+      }
+    }
+    expect(tiedProfiles).toBeGreaterThan(0);
+  });
+
+  it('elects the Condorcet winner when one exists, at every width up to the cap', () => {
+    // 3 ballots A>B>...>rest against 2 reversed: candidate 0 wins every duel 3-2,
+    // so Kemeny, being Condorcet-consistent, must elect it.
+    for (let m = 2; m <= 10; m++) {
+      const asc = Array.from({ length: m }, (_, i) => i);
+      const ranks = [asc, asc, asc, asc.slice().reverse(), asc.slice().reverse()];
+      expect(ruleWinnerFromRanks(ranks, m, 'kemeny')).toBe(0);
+    }
+  });
+
+  it('returns no winner for an empty field instead of candidate 0', () => {
+    // The DP's mask loop never runs at m = 0, so a zero-filled lead array would
+    // have made this a confident-looking index 0.
+    expect(ruleWinnerFromRanks([], 0, 'kemeny')).toBe(-1);
+  });
+});

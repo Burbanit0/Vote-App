@@ -65,11 +65,15 @@ gates a PR:
 **Input sizes.** `num_voters=1000` is the actual production ceiling
 (`ProfileSimulateRequest.num_voters`, `api/schemas/election.py`, `le=1000`),
 not an arbitrary round number. `num_candidates=8` is likewise the production
-ceiling (`ProfileCandidateSpec` list, `max_length=8`). Kemeny-Young gets two
-cases instead of one: `_KY_EXACT_CAP = 6` in simulation_ranked_utils.py means
-6 candidates is the worst case for the exact O(n!) path, and 8 candidates
-exercises the KwikSort O(n log n) approximation fallback -- two genuinely
-different algorithms behind one function name, both worth a floor.
+ceiling (`ProfileCandidateSpec` list, `max_length=8`). Kemeny-Young gets
+three cases instead of one, because two genuinely different algorithms sit
+behind one function name and the boundary between them moved: exact Kemeny is
+now DP over candidate subsets (O(2^m * m^2)) rather than m! enumeration, so
+`_KY_EXACT_CAP` is 10 and the whole production range 2..8 is exact. 8
+candidates is therefore the exact worst case a request can reach, 10 is the
+exact worst case at all, and 11 is the first width that reaches the KwikSort
+O(n log n) fallback -- which polity can, its `max_candidates_hard_cap` being
+20.
 """
 from __future__ import annotations
 
@@ -126,11 +130,13 @@ def _make_scores(num_voters: int, num_candidates: int, seed: int, max_score: int
     return [{c: rng.randint(0, max_score) for c in candidates} for _ in range(num_voters)]
 
 
-def _assert_under_ceiling(benchmark: Any, name: str, ceiling_s: float) -> None:
+def _assert_under_ceiling(
+    benchmark: Any, name: str, ceiling_s: float, num_candidates: int = NUM_CANDIDATES
+) -> None:
     mean_s = benchmark.stats.stats.mean
     assert mean_s < ceiling_s, (
         f"{name}: mean {mean_s * 1000:.1f}ms exceeds the {ceiling_s * 1000:.0f}ms "
-        f"ceiling at {NUM_VOTERS} voters / {NUM_CANDIDATES} candidates. This "
+        f"ceiling at {NUM_VOTERS} voters / {num_candidates} candidates. This "
         "ceiling is deliberately generous (15-500x the measured baseline, see "
         "module docstring) -- a real trip here means a genuine algorithmic "
         "regression, not CI noise."
@@ -202,10 +208,10 @@ def test_cardinal_engine_benchmark(
 
 @pytest.mark.parametrize(
     "case_name,num_candidates",
-    [("kemeny_exact_6cand", 6), ("kemeny_approx_8cand", 8)],
-    ids=["kemeny_exact_6cand", "kemeny_approx_8cand"],
+    [("kemeny_exact_8cand", 8), ("kemeny_exact_10cand", 10), ("kemeny_approx_11cand", 11)],
+    ids=["kemeny_exact_8cand", "kemeny_exact_10cand", "kemeny_approx_11cand"],
 )
 def test_kemeny_young_engine_benchmark(benchmark: Any, case_name: str, num_candidates: int) -> None:
     votes = _make_votes(NUM_VOTERS, num_candidates, seed=_KEMENY_SEED)
     benchmark.pedantic(ranked.get_kemeny_young_winner, args=(votes,), rounds=BENCHMARK_ROUNDS, warmup_rounds=WARMUP_ROUNDS)
-    _assert_under_ceiling(benchmark, case_name, HEAVY_CEILING_S)
+    _assert_under_ceiling(benchmark, case_name, HEAVY_CEILING_S, num_candidates)

@@ -21,8 +21,11 @@ PARTY_CYCLE: List[str] = ["Green", "Liberal", "Conservative", "Independent"]
 
 # Standard candidate cap for single-winner endpoints. Raised from 6 to 8 so
 # France 2002 (8 historical candidates) is processed without silent truncation.
-# Kemeny-Young falls back to KwikSort approximation beyond 6 (see
-# simulation_ranked_utils.get_kemeny_young_winner — graceful degradation).
+# Every rule is exact across the whole 2..8 range: Kemeny-Young used to
+# approximate above 6, which meant the 8-candidate case this cap exists for was
+# the one getting a degraded answer — and a different one from the client, which
+# brute-forced it exactly. Its exact path is now DP over candidate subsets and
+# `_KY_EXACT_CAP` is 10 (simulation_ranked_utils).
 SINGLE_WINNER_CAP: int = 8
 
 

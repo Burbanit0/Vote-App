@@ -6020,7 +6020,7 @@ export interface components {
             campaign?: components["schemas"]["CampaignConfig"];
             /**
              * Candidates
-             * @description 2 to 8 candidates. Beyond that, Kemeny-Young falls back to KwikSort approximation.
+             * @description 2 to 8 candidates. Every rule is exact over that whole range.
              */
             candidates: components["schemas"]["CandidateSpec"][];
             /**
