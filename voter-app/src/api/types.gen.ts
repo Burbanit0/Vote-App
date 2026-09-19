@@ -2660,7 +2660,7 @@ export interface components {
              * Methods
              * @description Voting methods to compare.
              */
-            methods?: string[] | null;
+            methods?: ("plurality" | "approval" | "borda" | "majority_judgment" | "irv" | "schulze")[] | null;
             /**
              * Num Voters
              * @default 150

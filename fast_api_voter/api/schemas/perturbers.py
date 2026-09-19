@@ -54,6 +54,9 @@ FatigueMethod = Literal[
     "plurality", "borda", "irv", "schulze", "two_round", "approval",
     "majority_judgment", "star_voting",
 ]
+ChoiceOverloadMethod = Literal[
+    "plurality", "approval", "borda", "majority_judgment", "irv", "schulze",
+]
 
 # ── /nota ────────────────────────────────────────────────────────────────────
 
@@ -192,8 +195,8 @@ class ChoiceOverloadRequest(BaseModel):
     # no pydantic.mypy-equivalent plugin, false positive (see
     # PLAN_SOLIDITE_TECHNIQUE.md Lot 14.5)
     heuristic_weights:  Optional[HeuristicWeights] = Field(default_factory=HeuristicWeights)  # pyright: ignore[reportArgumentType]
-    methods:            Optional[List[str]] = Field(None, max_length=5,
-                                                    description="Voting methods to compare.")
+    methods:            Optional[List[ChoiceOverloadMethod]] = Field(
+                            None, max_length=6, description="Voting methods to compare.")
 
 
 # ── /deliberation ───────────────────────────────────────────────────────────

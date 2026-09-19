@@ -2658,9 +2658,17 @@
             "anyOf": [
               {
                 "items": {
+                  "enum": [
+                    "plurality",
+                    "approval",
+                    "borda",
+                    "majority_judgment",
+                    "irv",
+                    "schulze"
+                  ],
                   "type": "string"
                 },
-                "maxItems": 5,
+                "maxItems": 6,
                 "type": "array"
               },
               {

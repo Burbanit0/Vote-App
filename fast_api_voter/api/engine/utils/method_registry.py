@@ -28,10 +28,10 @@ from .simulation_ranked_utils import (
     get_approval_winner,
     get_approval_winner_sincere,
     get_baldwin_winner,
+    get_benham_winner,
     get_black_winner,
     get_borda_winner,
     get_bucklin_winner,
-    get_condorcet_winner,
     get_coombs_winner,
     get_copeland_winner,
     get_dowdall_winner,
@@ -41,7 +41,11 @@ from .simulation_ranked_utils import (
     get_nanson_winner,
     get_plurality_winner,
     get_ranked_pairs_winner,
+    get_raynaud_winner,
+    get_river_winner,
     get_schulze_winner,
+    get_smith_irv_winner,
+    get_split_cycle_winner,
     get_two_round_winner,
 )
 from .simulation_score_utils import (
@@ -61,37 +65,63 @@ class UnknownMethod(ValueError):
     """A method name no rule answers to."""
 
 
+#: Every rule a name resolves to, in the order `compare_all_methods` reports
+#: them -- which is why these two dicts are not alphabetical, and why
+#: `test_compare_all_methods_reports_in_the_registry_order` pins it. The order
+#: is load-bearing: `/interpret` takes the best and worst method by regret with
+#: min/max over a list where many rules tie, so the first-listed of the tied
+#: ones wins; re-alphabetising these dicts flips its default answer from
+#: plurality to baldwin. (compare_all_methods also reports evaluative, quadratic
+#: and random_ballot, which are not name-resolvable rules -- see the test.)
+#:
+#: This used to be one of three tables: `compare_all_methods` and
+#: `compare_all_methods_mc` each kept their own. They had drifted apart both
+#: ways -- five ranked rules the engine reported were unknown here, so a caller
+#: asking this registry for `split_cycle` got UnknownMethod for a rule
+#: `/simulate` reports, and this held `condorcet`, which nothing reported. That
+#: one is the Condorcet *criterion* (`get_condorcet_winner` returns None when a
+#: cycle leaves no Condorcet winner), not a rule; `compare_all_methods` reports
+#: it separately as `condorcet_winner`, and no request can name it here.
 RANKED_RULES: Dict[str, Callable[..., Optional[str]]] = {
-    "anti_plurality": get_anti_plurality_winner,
-    "approval":       get_approval_winner,
-    "baldwin":        get_baldwin_winner,
-    "black":          get_black_winner,
-    "borda":          get_borda_winner,
-    "bucklin":        get_bucklin_winner,
-    "condorcet":      get_condorcet_winner,
-    "coombs":         get_coombs_winner,
-    "copeland":       get_copeland_winner,
-    "dowdall":        get_dowdall_winner,
-    "irv":            get_irv_winner,
-    "kemeny_young":   get_kemeny_young_winner,
-    "minimax":        get_minimax_winner,
-    "nanson":         get_nanson_winner,
     "plurality":      get_plurality_winner,
-    "ranked_pairs":   get_ranked_pairs_winner,
-    "schulze":        get_schulze_winner,
     "two_round":      get_two_round_winner,
+    "borda":          get_borda_winner,
+    "approval":       get_approval_winner,
+    "irv":            get_irv_winner,
+    "coombs":         get_coombs_winner,
+    "bucklin":        get_bucklin_winner,
+    "minimax":        get_minimax_winner,
+    "schulze":        get_schulze_winner,
+    # The costliest rule here: exact by DP over candidate subsets, O(2^m · m²)
+    # in the CANDIDATE count, KwikSort above `_KY_EXACT_CAP`. ~4 ms at 8
+    # candidates / 1000 voters, most of it the shared `_pairwise_wins` build.
+    "kemeny_young":   get_kemeny_young_winner,
+    "copeland":       get_copeland_winner,
+    "nanson":         get_nanson_winner,
+    "baldwin":        get_baldwin_winner,
+    "ranked_pairs":   get_ranked_pairs_winner,
+    "black":          get_black_winner,
+    "anti_plurality": get_anti_plurality_winner,
+    "dowdall":        get_dowdall_winner,
+    "raynaud":        get_raynaud_winner,
+    "benham":         get_benham_winner,
+    "river":          get_river_winner,
+    "smith_irv":      get_smith_irv_winner,
+    "split_cycle":    get_split_cycle_winner,
 }
 
 SCORE_RULES: Dict[str, Callable[..., Any]] = {
-    "cumulative":         get_cumulative_winner,
-    "majority_judgment":  get_majority_judgment_winner,
-    "maximin":            get_maximin_score_winner,
-    "mean_median_hybrid": get_mean_median_hybrid_winner,
-    "median_voting":      get_median_voting_winner,
-    "nash":               get_nash_winner,
     "simple_score":       get_simple_score_winner,
     "star_voting":        get_star_voting_winner,
+    "median_voting":      get_median_voting_winner,
+    "mean_median_hybrid": get_mean_median_hybrid_winner,
     "variance_based":     get_variance_based_winner,
+    "cumulative":         get_cumulative_winner,
+    "maximin":            get_maximin_score_winner,
+    "nash":               get_nash_winner,
+    # Grades on the raw utilities, not the 0-5 ballots the rules above read, so
+    # `compare_all_methods` and `winner_from_utilities` both call it separately.
+    "majority_judgment":  get_majority_judgment_winner,
 }
 
 
