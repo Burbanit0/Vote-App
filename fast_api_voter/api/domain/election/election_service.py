@@ -131,7 +131,6 @@ def simulate(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     if campaign_on:
         camp = simulate_campaign(
             num_candidates=len(candidates),
-            num_voters=num_voters,
             num_days=num_days,
             events=[],
             seed=seed,

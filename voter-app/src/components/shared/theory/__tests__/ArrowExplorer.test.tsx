@@ -248,6 +248,29 @@ describe('ArrowExplorer', () => {
     vi.runAllTimers();
   });
 
+  it('skips the IIA rate for majority judgment instead of showing the previous rule curve', async () => {
+    apiClient.POST.mockResolvedValueOnce(makeArrowData())
+      .mockResolvedValueOnce(makeRateData())
+      .mockResolvedValueOnce(makeArrowData('majority_judgment'));
+    renderExplorer();
+    fireEvent.click(screen.getByTestId('analyze-btn'));
+    await waitFor(() => expect(screen.getByTestId('iia-rate-chart')).toBeInTheDocument());
+    expect(screen.queryByTestId('iia-rate-unmeasurable')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByTestId('method-select'), {
+      target: { value: 'majority_judgment' },
+    });
+    fireEvent.click(screen.getByTestId('analyze-btn'));
+    await waitFor(() => expect(screen.getByTestId('iia-rate-unmeasurable')).toBeInTheDocument());
+    expect(screen.queryByTestId('iia-rate-chart')).not.toBeInTheDocument();
+    expect(apiClient.POST).toHaveBeenCalledTimes(3); // no third call to /iia-rate
+    expect(apiClient.POST).toHaveBeenLastCalledWith(
+      expect.stringMatching(/\/api\/(v2\/)?theory\/arrow/),
+      expect.objectContaining({ body: expect.objectContaining({ method: 'majority_judgment' }) })
+    );
+    vi.runAllTimers();
+  });
+
   it('feeds the IIA-rate chart axis/tooltip formatters real values', async () => {
     apiClient.POST.mockResolvedValueOnce(makeArrowData()).mockResolvedValueOnce(makeRateData());
     renderExplorer();

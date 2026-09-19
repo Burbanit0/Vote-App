@@ -8,7 +8,7 @@ pass the response through as Dict[str, Any].
 """
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import Any, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -25,7 +25,9 @@ class PolisWithCandidatesRequest(BaseModel):
     ideology:                str   = Field("random")
     seed:                    int   = Field(42, ge=0)
     num_clusters:            int   = Field(3, ge=1, le=5)
-    method_to_compare:       str   = Field("plurality")
+    # The comparison election is a nearest-candidate tally, i.e. plurality; any
+    # other name only changed which method the note claimed to compare against.
+    method_to_compare:       Literal["plurality"] = Field("plurality")
     min_consensus_threshold: float = Field(0.80, ge=0.0, le=1.0)
 
 

@@ -30,6 +30,10 @@ export type HistoricalReplayResponse = components['schemas']['HistoricalReplayRe
 export type SenParadoxResponse = components['schemas']['SenParadoxResponse'];
 
 /** Method names straight from each backend request schema's Literal. */
+export type IIAMethod = NonNullable<components['schemas']['IIARateRequest']['method']>;
+export type ManipulationMethod = NonNullable<
+  components['schemas']['ManipulationAnalysisRequest']['method']
+>;
 export type HotellingMethod = NonNullable<components['schemas']['HotellingRequest']['method']>;
 export type PartyDynamicsMethod = NonNullable<
   components['schemas']['PartyDynamicsRequest']['method']

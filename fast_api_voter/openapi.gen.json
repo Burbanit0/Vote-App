@@ -987,7 +987,19 @@
         "properties": {
           "method": {
             "default": "plurality",
-            "description": "One of plurality | borda | irv | schulze | condorcet | approval | majority_judgment | kemeny_young | minimax | star_voting | two_round.",
+            "enum": [
+              "plurality",
+              "borda",
+              "irv",
+              "schulze",
+              "condorcet",
+              "approval",
+              "majority_judgment",
+              "kemeny_young",
+              "minimax",
+              "star_voting",
+              "two_round"
+            ],
             "title": "Method",
             "type": "string"
           },
@@ -5587,6 +5599,15 @@
           },
           "method": {
             "default": "plurality",
+            "enum": [
+              "plurality",
+              "borda",
+              "irv",
+              "schulze",
+              "condorcet",
+              "approval",
+              "kemeny_young"
+            ],
             "title": "Method",
             "type": "string"
           },
@@ -5736,6 +5757,7 @@
             "type": "number"
           },
           "method": {
+            "const": "plurality",
             "default": "plurality",
             "title": "Method",
             "type": "string"
@@ -6853,6 +6875,14 @@
             "anyOf": [
               {
                 "items": {
+                  "enum": [
+                    "simple_majority",
+                    "supermajority_2_3",
+                    "supermajority_3_4",
+                    "unanimous",
+                    "qv",
+                    "mj"
+                  ],
                   "type": "string"
                 },
                 "type": "array"
@@ -7089,6 +7119,13 @@
           },
           "method": {
             "default": "plurality",
+            "enum": [
+              "plurality",
+              "borda",
+              "irv",
+              "schulze",
+              "two_round"
+            ],
             "title": "Method",
             "type": "string"
           },
@@ -8033,6 +8070,7 @@
             "type": "string"
           },
           "method_to_compare": {
+            "const": "plurality",
             "default": "plurality",
             "title": "Method To Compare",
             "type": "string"

@@ -11,21 +11,32 @@ heterogeneous (e.g. axiom counterexamples), we keep it as
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
 # ── /arrow ──────────────────────────────────────────────────────────────────
 
+# What each worker computes; any other name is a 422 here and a 400 from the
+# worker. `test_theory_method_literals_match_workers` fails if either drifts.
+ArrowMethod = Literal[
+    "plurality", "borda", "irv", "schulze", "condorcet", "approval",
+    "majority_judgment", "kemeny_young", "minimax", "star_voting", "two_round",
+]
+IIAMethod = Literal[
+    "plurality", "borda", "irv", "schulze", "condorcet", "approval", "kemeny_young",
+]
+ManipulationMethod = Literal["plurality", "borda", "irv", "schulze", "two_round"]
+TyrannyRule = Literal[
+    "simple_majority", "supermajority_2_3", "supermajority_3_4", "unanimous", "qv", "mj",
+]
+
 class ArrowRequest(BaseModel):
     """Per-method Arrow axiom violation analysis."""
     model_config = ConfigDict(extra="forbid")
 
-    method: str = Field("plurality",
-                        description="One of plurality | borda | irv | schulze | "
-                                    "condorcet | approval | majority_judgment | "
-                                    "kemeny_young | minimax | star_voting | two_round.")
+    method: ArrowMethod = Field("plurality")
     seed:   int = Field(42, ge=0)
 
 
@@ -57,7 +68,7 @@ class IIARateRequest(BaseModel):
     """Empirical IIA violation rate vs number of candidates."""
     model_config = ConfigDict(extra="forbid")
 
-    method:         str = Field("plurality")
+    method:         IIAMethod = Field("plurality")
     max_candidates: int = Field(8, ge=2, le=8)
     num_trials:     int = Field(100, ge=20, le=500)
     seed:           int = Field(42, ge=0)
@@ -254,7 +265,7 @@ class ManipulationAnalysisRequest(BaseModel):
     num_voters:               int = Field(30, ge=10, le=100)
     ideology:                 str = Field("random")
     seed:                     int = Field(42, ge=0)
-    method:                   str = Field("plurality")
+    method:                   ManipulationMethod = Field("plurality")
     manipulation_strategies:  List[str] = Field(
         default_factory=lambda: ["compromising", "burying", "pushover", "truncating"],
     )
@@ -298,7 +309,7 @@ class MajorityTyrannyRequest(BaseModel):
     minority_intensity: float = Field(3.0, ge=1.0, le=10.0)
     num_decisions:      int   = Field(50, ge=10, le=200)
     seed:               int   = Field(42, ge=0)
-    decision_rules:     Optional[List[str]] = Field(None,
+    decision_rules:     Optional[List[TyrannyRule]] = Field(None,
                                                     description="Defaults to all 6 rules.")
 
 
@@ -530,7 +541,9 @@ class IdentityVotingRequest(BaseModel):
     seed:             int   = Field(42, ge=0)
     identity_weight:  float = Field(0.5, ge=0.0, le=1.0)
     cross_pressure:   bool  = Field(True)
-    method:           str   = Field("plurality")
+    # Identity voting casts single choices, counted by plurality; the field was
+    # never read.
+    method:           Literal["plurality"] = Field("plurality")
     identity_groups:  Optional[List[IdentityGroup]] = Field(None,
                                                             description="Defaults to 3 groups derived from candidates.")
 

@@ -26,6 +26,7 @@ import {
 import { $api } from '../../../api/hooks';
 
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+import type { IIAMethod } from '@/api';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -64,7 +65,10 @@ const AXIOMS = [
   { key: 'non_dictatorship', labelKey: 'arrow.nonDictatorship', icon: '⚖️' },
 ] as const;
 
-const METHODS = [
+/** The rules this panel offers: every one /iia-rate measures, plus majority judgment. */
+type Method = IIAMethod | 'majority_judgment';
+
+const METHODS: Method[] = [
   'plurality',
   'borda',
   'irv',
@@ -290,7 +294,7 @@ const CounterexampleCard: React.FC<{
 const ArrowExplorer: React.FC = () => {
   const { t } = useTranslation();
 
-  const [method, setMethod] = useState('plurality');
+  const [method, setMethod] = useState<Method>('plurality');
   const simArrow = $api.useMutation('post', '/api/v2/theory/arrow');
   const simRate = $api.useMutation('post', '/api/v2/theory/iia-rate');
   const data: ArrowData | null = (simArrow.data as ArrowData | undefined) ?? null;
@@ -301,7 +305,12 @@ const ArrowExplorer: React.FC = () => {
 
   const runAnalysis = () => {
     simArrow.mutate({ body: { method, seed: 42 } });
-    simRate.mutate({ body: { method, max_candidates: 8, num_trials: 100, seed: 42 } });
+    // /iia-rate ranks candidates; majority judgment needs grades, so it has no rate there.
+    if (method !== 'majority_judgment') {
+      simRate.mutate({ body: { method, max_candidates: 8, num_trials: 100, seed: 42 } });
+    } else {
+      simRate.reset(); // never leave another rule's curve under this one's name
+    }
   };
 
   const toggleAxiom = (key: string) => {
@@ -389,7 +398,7 @@ const ArrowExplorer: React.FC = () => {
             size="sm"
             value={method}
             data-testid="method-select"
-            onChange={(e) => setMethod(e.target.value)}
+            onChange={(e) => setMethod(e.target.value as Method)}
           >
             {METHODS.map((m) => (
               <option key={m} value={m}>
@@ -446,6 +455,15 @@ const ArrowExplorer: React.FC = () => {
       )}
 
       {/* IIA violation rate chart */}
+      {data?.method === 'majority_judgment' && (
+        <p
+          className="mt-4 text-muted-foreground"
+          style={{ fontSize: '0.78rem' }}
+          data-testid="iia-rate-unmeasurable"
+        >
+          {t('arrow.iiaRateNotMeasurable')}
+        </p>
+      )}
       {rateData && (
         <div className="mt-4" data-testid="iia-rate-chart">
           <div className="font-semibold mb-1" style={{ fontSize: '0.85rem' }}>

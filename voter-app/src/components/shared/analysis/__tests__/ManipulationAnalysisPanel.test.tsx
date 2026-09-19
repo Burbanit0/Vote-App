@@ -112,6 +112,20 @@ describe('ManipulationAnalysisPanel', () => {
     vi.runAllTimers();
   });
 
+  it('sends the selected rule', async () => {
+    apiClient.POST.mockResolvedValue(makeData());
+    renderPanel();
+    fireEvent.change(screen.getByTestId('method-select'), { target: { value: 'irv' } });
+    fireEvent.click(screen.getByTestId('analyze-btn'));
+    await waitFor(() =>
+      expect(apiClient.POST).toHaveBeenCalledWith(
+        expect.stringMatching(/\/api\/(v2\/)?theory\/manipulation-analysis/),
+        expect.objectContaining({ body: expect.objectContaining({ method: 'irv' }) })
+      )
+    );
+    vi.runAllTimers();
+  });
+
   it('shows manipulable badge (danger) when manipulable', async () => {
     apiClient.POST.mockResolvedValue(makeData(true));
     renderPanel();
