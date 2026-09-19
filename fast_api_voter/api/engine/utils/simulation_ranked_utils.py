@@ -449,9 +449,12 @@ def _kwik_sort(candidates: list[str], pw: dict[str, dict[str, int]]) -> list[str
     `left` holds the candidates that BEAT the pivot (they rank above it). That
     direction used to be inverted -- the pivot's victims were placed before it --
     so the function returned the ranking upside down and every caller above
-    `_KY_EXACT_CAP` got the Kemeny LOSER: 11 unanimous A>B>...>G ballots
-    returned "G". A tie against the pivot ranks below it, matching the
-    tie-breaks elsewhere in this module.
+    `_KY_EXACT_CAP` got the Kemeny LOSER: unanimous A>B>...>K ballots returned
+    "K". (That reproduction needs 11 candidates now. It was written when the
+    cap was 6 and said 7; at a cap of 10 a 7-candidate profile takes the exact
+    path and returns "A", so the recipe silently stopped exercising this
+    function.) A tie against the pivot ranks below it, matching the tie-breaks
+    elsewhere in this module.
 
     The pivot is the middle element rather than a random one: the caller's seed
     must decide the whole result (this runs behind a `seed` request field), and
@@ -492,9 +495,12 @@ def _kemeny_exact_winner(candidates: list[str], pw: dict[str, dict[str, int]]) -
     candidates in `S`, choosing which of them ranks FIRST: picking `c` scores
     every ballot that ranks `c` above each remaining candidate, then the
     subproblem `S \\ {c}` is independent. That is O(2^m · m²) against the m!
-    of enumerating orderings, and returns the same ranking — verified against
-    brute force on 886 profiles (identical score, winner and full ordering),
-    including forced ties, unanimous and truncated ballots.
+    of enumerating orderings. `test_exact_kemeny_agrees_with_brute_force_...`
+    pins it against `max(permutations(...))` over complete, truncated,
+    mirrored-so-every-ordering-ties and unanimous profiles at every width up
+    to the cap. That test compares the WINNER, which is all this function
+    returns; the score and the full ordering agreed too when the DP was
+    developed, but nothing committed re-checks them.
 
     `candidates` must be sorted. Iterating it in ascending order and improving
     on a strict `>` makes `lead[mask]` the FIRST candidate that can head an
@@ -504,7 +510,12 @@ def _kemeny_exact_winner(candidates: list[str], pw: dict[str, dict[str, int]]) -
     """
     n = len(candidates)
     # Duel counts as a dense matrix: the DP reads them 2^m · m² times.
-    w = [[pw[a].get(b, 0) for b in candidates] for a in candidates]
+    # Indexed, not `.get(b, 0)`: `_pairwise_wins` returns a row for every
+    # candidate against every other, so a missing key means the caller built
+    # `candidates` and `pw` from different profiles. A silent 0 there would
+    # make that candidate draw every duel it is missing from and possibly win
+    # -- the same silent-default shape as the phantom duel win deleted above.
+    w = [[pw[a][b] for b in candidates] for a in candidates]
     score = [-1] * (1 << n)
     lead = [-1] * (1 << n)
     score[0] = 0
@@ -561,8 +572,11 @@ def get_kemeny_young_winner(votes: list[Any], **kwargs: Any) -> Optional[str]:
     # sorted(), not set order: set iteration varies with PYTHONHASHSEED, and
     # above the cap this list decides KwikSort's pivot (`candidates[len//2]`) --
     # one 7-candidate profile returned four different winners, C, A, D and G,
-    # across orderings of the same ballots. Matches the other Condorcet-family
-    # rules, which all read `sorted(pw.keys())`.
+    # across orderings of the same ballots. ranked_pairs, river and split_cycle
+    # read `sorted(pw.keys())` for the same reason; copeland (`list(pw.keys())`)
+    # and raynaud (`set(pw.keys())`) do not, and are safe only because their
+    # tie-breaks end on the candidate name -- swept under 5 hash seeds, no
+    # winner moves. Don't read them as precedent for leaving order unsorted.
     candidates = sorted(pw)
     if not candidates:
         return None

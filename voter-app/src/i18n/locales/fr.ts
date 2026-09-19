@@ -526,7 +526,7 @@ const fr = {
     kemeny_young: {
       label: 'Kemeny-Young',
       pro: 'Théoriquement optimal : maximise le consensus global sur le classement complet.',
-      con: 'Calcul exponentiel O(n!) — inutilisable dès 6 candidats ou plus.',
+      con: 'Coût exponentiel en nombre de candidats — exact jusqu’à 10, approché au-delà.',
     },
     condorcet: {
       label: 'Condorcet',

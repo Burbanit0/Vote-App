@@ -1,6 +1,9 @@
-"""Unit tests for Kemeny-Young: the exact algorithm (<= 6 candidates)
-enumerates every candidate ordering and picks the one maximizing agreement
-with the electorate's pairwise preferences; its first-place candidate wins.
+"""Unit tests for Kemeny-Young: the ranking that most agrees with the
+electorate's pairwise preferences wins, and its first-place candidate is the
+winner. Exact up to `_KY_EXACT_CAP` candidates by DP over candidate subsets
+(it enumerated all m! orderings until that got too slow to allow a cap wide
+enough for the 8 candidates every request schema admits); KwikSort
+approximation above the cap, which only polity reaches.
 No dedicated test file existed before (PR #157's mutation-testing baseline
 found 21 surviving mutants here)."""
 
@@ -9,7 +12,7 @@ import random
 
 from api.engine.utils.simulation_ranked_utils import (
     get_kemeny_young_winner, get_condorcet_winner, kemeny_used_approximation,
-    _pairwise_wins, _kwik_sort, _kemeny_exact_winner,
+    _pairwise_wins, _kwik_sort, _kemeny_exact_winner, _KY_EXACT_CAP,
 )
 from api.engine.utils.simulation_metrics import compare_all_methods
 
@@ -66,8 +69,8 @@ def test_kemeny_young_single_and_empty():
 def test_kemeny_young_approximation_path_actually_runs_kwiksort():
     """kemeny_used_approximation() only checks the candidate-count predicate --
     it never calls get_kemeny_young_winner, so it doesn't exercise _kwik_sort
-    itself. This test drives the real approximation path (> 6 candidates,
-    the >_KY_EXACT_CAP branch in get_kemeny_young_winner) end to end, which a
+    itself. This test drives the real approximation path (the >_KY_EXACT_CAP
+    branch in get_kemeny_young_winner) end to end, which a
     coordinated seven-way sweep found had zero coverage in the non-benchmark
     suite despite the predicate having its own test above."""
     ballots = [list("ABCDEFGHIJK")] * 3 + [list("KJIHGFEDCBA")] * 2  # 11 > cap
@@ -141,14 +144,18 @@ def test_exact_kemeny_agrees_with_brute_force_across_the_whole_cap_range():
     enumeration returned -- including the tie-break, which callers depend on:
     the lexicographically smallest optimal ranking.
 
-    7 and 8 candidates are the interesting widths. Both are inside every request
-    schema's limit, and both used to be answered by KwikSort, so this is the band
-    where the winner actually changes.
+    7 and 8 are the interesting widths: both are inside every request schema's
+    limit and both used to be answered by KwikSort, so that is the band where
+    the winner actually changed. 9 and 10 are covered too because the cap
+    reaches them, even though only polity can.
     """
     rng = random.Random(21)
-    for m in range(2, 9):
-        names = sorted(list("ABCDEFGH")[:m])
-        for kind in range(4):
+    # Up to the cap, not to 8: 9 and 10 are the widths the cap raise newly made
+    # exact, and 10! = 3.6M orderings is still ~1s of brute force per profile,
+    # so they get one profile each rather than four.
+    for m in range(2, _KY_EXACT_CAP + 1):
+        names = sorted([f"C{i:02d}" for i in range(m)])
+        for kind in range(1 if m > 8 else 4):
             nb = rng.randint(1, 8)
             if kind == 0:     # truncated
                 votes = [rng.sample(names, rng.randint(1, m)) for _ in range(nb)]
@@ -220,7 +227,7 @@ def test_the_winner_never_depends_on_candidate_discovery_order():
             winner = get_kemeny_young_winner(votes)
             pw = _pairwise_wins(votes)
             assert winner == (
-                _kwik_sort(sorted(pw), pw)[0] if len(names) > 10
+                _kwik_sort(sorted(pw), pw)[0] if len(names) > _KY_EXACT_CAP
                 else _kemeny_exact_winner(sorted(pw), pw)
             )
             # Same candidate set either way, so the answer must not move when the

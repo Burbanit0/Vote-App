@@ -130,11 +130,13 @@ def _make_scores(num_voters: int, num_candidates: int, seed: int, max_score: int
     return [{c: rng.randint(0, max_score) for c in candidates} for _ in range(num_voters)]
 
 
-def _assert_under_ceiling(benchmark: Any, name: str, ceiling_s: float) -> None:
+def _assert_under_ceiling(
+    benchmark: Any, name: str, ceiling_s: float, num_candidates: int = NUM_CANDIDATES
+) -> None:
     mean_s = benchmark.stats.stats.mean
     assert mean_s < ceiling_s, (
         f"{name}: mean {mean_s * 1000:.1f}ms exceeds the {ceiling_s * 1000:.0f}ms "
-        f"ceiling at {NUM_VOTERS} voters / {NUM_CANDIDATES} candidates. This "
+        f"ceiling at {NUM_VOTERS} voters / {num_candidates} candidates. This "
         "ceiling is deliberately generous (15-500x the measured baseline, see "
         "module docstring) -- a real trip here means a genuine algorithmic "
         "regression, not CI noise."
@@ -212,4 +214,4 @@ def test_cardinal_engine_benchmark(
 def test_kemeny_young_engine_benchmark(benchmark: Any, case_name: str, num_candidates: int) -> None:
     votes = _make_votes(NUM_VOTERS, num_candidates, seed=_KEMENY_SEED)
     benchmark.pedantic(ranked.get_kemeny_young_winner, args=(votes,), rounds=BENCHMARK_ROUNDS, warmup_rounds=WARMUP_ROUNDS)
-    _assert_under_ceiling(benchmark, case_name, HEAVY_CEILING_S)
+    _assert_under_ceiling(benchmark, case_name, HEAVY_CEILING_S, num_candidates)

@@ -76,8 +76,9 @@ together. Do not let them drift.
   mean, or approve-top-2 in most backend callers), and those still disagree.
   `random_ballot` stays excluded (a lottery).
 
-**If you change a rule on either side**: re-run `python fast_api_voter/scripts/
-gen_engine_parity.py`, then run the parity test. A change that breaks parity is a
+**If you change a rule on either side**: re-run `PYTHONHASHSEED=0 python
+fast_api_voter/scripts/gen_engine_parity.py` (it refuses to run without the seed
+pinned, so the fixture stays reproducible), then run the parity test. A change that breaks parity is a
 bug until proven otherwise (the harness has caught real bugs on both sides).
 
 `engineParity.json` is a **generated artifact** — never hand-edit it (not even to

@@ -269,8 +269,12 @@ Kemeny(σ) = Σᵢ |{(a,b) : a ≻σ b mais b ≻ᵢ a}|
 ```
 Le vainqueur est le premier élément de `argmin_σ Kemeny(σ)`.
 
-**Complexité** : NP-difficile en général. Exact pour ≤6 candidats (6!=720
-permutations). Vote Lab utilise KwikSort pour approximer avec >6 candidats.
+**Complexité** : NP-difficile en général, mais pas au nombre de candidats qui
+nous concerne. Vote Lab calcule l'optimum **exact jusqu'à 10 candidats** par
+programmation dynamique sur les sous-ensembles (O(2^m·m²) au lieu des m!
+permutations : 0,8 ms à 8 candidats contre 75 ms pour l'énumération), ce qui
+couvre tout ce qu'une requête peut demander — les schémas plafonnent à 8
+candidats. Au-delà de 10, approximation KwikSort (seul polity y arrive).
 
 **Propriétés** :
 - Maximise l'accord avec les préférences collectives

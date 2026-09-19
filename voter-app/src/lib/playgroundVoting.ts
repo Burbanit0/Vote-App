@@ -695,6 +695,24 @@ function winSplitCycle(ranks: number[][], m: number): number {
 }
 
 /**
+ * Exact Kemeny is a DP over candidate subsets, so the cap is what the DP can
+ * afford rather than what m! could: 10 covers every field the backend's request
+ * schemas admit (8 candidates, plus one spliced blank). Must stay equal to
+ * `_KY_EXACT_CAP` in simulation_ranked_utils.py — above the cap the two engines
+ * deliberately differ (Borda here, KwikSort there), so a one-sided change
+ * reintroduces a silent cross-engine disagreement. The parity fixture carries
+ * the backend's value and the parity test asserts this matches it.
+ */
+export const KEMENY_EXACT_CAP = 10;
+
+/** Ballots ranking `i` above every candidate still left in `rest`. */
+function kemenyGain(b: number[][], i: number, rest: number, m: number): number {
+  let gain = 0;
+  for (let j = 0; j < m; j++) if ((rest >> j) & 1) gain += b[i][j];
+  return gain;
+}
+
+/**
  * Kemeny-Young: the consensus ranking that most agrees with every ballot (fewest
  * pairwise disagreements).
  *
@@ -710,45 +728,36 @@ function winSplitCycle(ranks: number[][], m: number): number {
  * with different algorithms, disagreeing on about a quarter of profiles. The
  * parity fixture could not see it: its scenarios stopped at 5 candidates.
  *
- * The tie-break has to match too, and it did not before: this walked the
- * orderings by successive swaps and kept the first maximum, so on tied optima it
- * returned whichever ordering the swap sequence reached first, while the backend
- * returned the lexicographically smallest. Iterating `i` ascending and improving
- * only on a strict `>` makes `lead[mask]` the lowest-indexed candidate that can
- * head an optimal ordering, which is the lexicographically smallest one — the
- * backend's rule. `strict_winner` in the parity generator discards profiles whose
- * winner moves under relabelling, so it filtered tied profiles out rather than
- * catching the mismatch.
- *
- * Above the cap the two still differ (Borda here, KwikSort there), but no
- * request schema admits more than 8 candidates plus a spliced blank, so nothing
- * a client can ask for reaches it.
+ * Ties are the one case where the two engines still part company, and it is a
+ * convention difference rather than a wrong answer — both return an optimal
+ * ranking. Improving only on a strict `>` while `i` ascends returns the optimal
+ * ordering that is smallest by candidate INDEX; the backend runs the same rule
+ * over `sorted(pw)`, so its answer is smallest by candidate NAME. Those coincide
+ * only when the caller's array happens to be alphabetical, which every parity
+ * scenario is (`NAMES[:m]`) and no shipped preset is. See
+ * `kemeny_tie_break_convention` in the parity test for the pinned example.
  */
-const KEMENY_EXACT_CAP = 10;
-
 function winKemeny(ranks: number[][], m: number): number {
+  if (m < 1) return -1;
   if (m > KEMENY_EXACT_CAP) return winBorda(ranks, m);
   const b = pairwise(ranks, m);
   const full = (1 << m) - 1;
   const score = new Int32Array(full + 1); // score[0] = 0: the empty set
-  const lead = new Int8Array(full + 1);
+  let lead = -1;
   for (let mask = 1; mask <= full; mask++) {
     let bestScore = -1;
-    let bestI = -1;
     for (let i = 0; i < m; i++) {
       if (!((mask >> i) & 1)) continue;
       const rest = mask ^ (1 << i); // always < mask, so already solved
-      let gain = 0;
-      for (let j = 0; j < m; j++) if ((rest >> j) & 1) gain += b[i][j];
-      if (score[rest] + gain > bestScore) {
-        bestScore = score[rest] + gain;
-        bestI = i;
+      const total = score[rest] + kemenyGain(b, i, rest, m);
+      if (total > bestScore) {
+        bestScore = total;
+        if (mask === full) lead = i; // only the full set names the winner
       }
     }
     score[mask] = bestScore;
-    lead[mask] = bestI;
   }
-  return lead[full];
+  return lead;
 }
 
 /** Cumulative voting: each voter splits ONE point across candidates in proportion

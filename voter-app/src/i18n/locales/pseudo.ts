@@ -544,7 +544,7 @@ const pseudo: TranslationKeys = {
     kemeny_young: {
       label: '⟦Kéméñy-Yóúñg~~~~~⟧',
       pro: '⟦Théóríqúéméñt~~~~~ óptímál~~~ :~ máxímísé~~~ lé~ çóñséñsús~~~~ glóbál~~~ súr~~ lé~ çlásséméñt~~~~ çómplét.~~~⟧',
-      con: '⟦Cálçúl~~~ éxpóñéñtíél~~~~ Ó(ñ!)~~ —~ íñútílísáblé~~~~~ dès~~ 6~ çáñdídáts~~~~ óú~ plús.~~⟧',
+      con: '⟦Cóût~~ éxpóñéñtíél~~~~ éñ~ ñómbré~~~ dé~ çáñdídáts~~~~ —~ éxáçt~~ júsqú’à~~~ 10,~~ áppróçhé~~~ áú-délà.~~~⟧',
     },
     condorcet: {
       label: '⟦Cóñdórçét~~~~⟧',

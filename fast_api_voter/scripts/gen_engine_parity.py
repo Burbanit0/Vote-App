@@ -42,6 +42,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, ROOT)
 
 from api.engine.utils.simulation_ranked_utils import (  # noqa: E402
+    _KY_EXACT_CAP,
     get_anti_plurality_winner,
     get_approval_winner_sincere,
     get_baldwin_winner,
@@ -712,12 +713,17 @@ def main() -> None:
     # the ceiling every request schema allows, so this closes the fixture's
     # coverage up to the real production limit.
     #
-    # Fewer profiles per width than above on purpose: `strict_winner` relabels
-    # 200x per rule per scenario, and the widths are where that gets expensive.
+    # 4 profiles per width was too thin to rely on: replaying the pre-fix engine
+    # over the band showed only 3 of 12 scenarios actually discriminating it (the
+    # 4 at m=6 cannot -- 6 was already at the old cap), and at the ~25%
+    # per-profile divergence rate the whole band had roughly a 1-in-10 chance of
+    # catching nothing. 6 profiles per width at 7 and 8 takes that to ~0.4%.
+    # `strict_winner` relabels 200x per rule per scenario, so this is the
+    # expensive part of the generator; measured 20.0s -> 23.4s total.
     for m in (6, 7, 8):
         cands = NAMES[:m]
-        for n in (21, 41):
-            for _ in range(2):
+        for n in (21, 41, 61):
+            for _ in range(1 if m == 6 else 2):
                 ballots = [rng.sample(cands, m) for _ in range(n)]
                 winners = {rule: strict_winner(fn, ballots, cands, rng) for rule, fn in RULES.items()}
                 scenarios.append({"candidates": cands, "ballots": ballots, "winners": winners})
@@ -766,6 +772,11 @@ def main() -> None:
         "_generatedBy": "fast_api_voter/scripts/gen_engine_parity.py",
         "_seed": SEED,
         "_note": "Authoritative winners from the Python backend. Asserted by playgroundVoting.parity.test.ts.",
+        # The backend's Kemeny exact/approximate boundary, carried so the client
+        # constant cannot drift from it. Above this the two engines deliberately
+        # differ (KwikSort here, Borda there), and no fixture scenario can reach
+        # that band to catch a one-sided change — the widest is 8 candidates.
+        "_kemenyExactCap": _KY_EXACT_CAP,
         "scenarios": scenarios,
         "cardinalScenarios": cardinal_scenarios,
         "approvalScenarios": approval_scenarios,

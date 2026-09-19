@@ -341,7 +341,10 @@ def compare_all_methods(
         "bucklin": get_bucklin_winner,
         "minimax": get_minimax_winner,
         "schulze": get_schulze_winner,
-        # Kemeny-Young is O(n!) per election call — keep sample small for large simulations.
+        # Kemeny-Young is the costliest rule here: exact by DP over candidate
+    # subsets, O(2^m · m²) in the CANDIDATE count (not the voter count), above
+    # `_KY_EXACT_CAP` a KwikSort approximation. ~4 ms at 8 candidates / 1000
+    # voters, of which the shared `_pairwise_wins` build is most.
         "kemeny_young": get_kemeny_young_winner,
         "copeland":     get_copeland_winner,
         "nanson":       get_nanson_winner,
@@ -377,6 +380,12 @@ def compare_all_methods(
         winner = fn(rankings)
         entry = _build_metrics_ranked(fn, winner)
         if name == "kemeny_young":
+            # Informative on the polity path only. Every request schema caps
+            # candidates at 8, and a blank rule splices in at most one more, so
+            # over HTTP this is now always True -- the approximation begins
+            # above `_KY_EXACT_CAP` = 10. Kept because polity has no such cap
+            # (`max_candidates_hard_cap` is 20) and it rides out through the
+            # v1 envelope, which is `extra="allow"`.
             entry["kemeny_exact"] = not kemeny_used_approximation(rankings)
         methods_result[name] = entry
 
