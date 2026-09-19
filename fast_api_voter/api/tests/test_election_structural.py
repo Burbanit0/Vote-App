@@ -83,3 +83,12 @@ def test_deterministic(client: TestClient):
     a = client.post("/api/v2/election/structural-fairness", json=_payload()).json()
     b = client.post("/api/v2/election/structural-fairness", json=_payload()).json()
     assert a == b
+
+
+def test_malapportioned_districts_do_not_depend_on_party_listing_order(client: TestClient):
+    """Small districts tie often; `argmax` gave every tie to the first-listed party."""
+    def mal(parties):
+        return client.post("/api/v2/election/structural-fairness", json=_payload(
+            parties=parties, num_voters=200, districts=40, seed=3,
+        )).json()["malapportionment"]
+    assert mal(PARTIES) == mal(PARTIES[::-1])

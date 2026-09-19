@@ -280,6 +280,16 @@ def _minimal_winning_coalitions(
     return out[:12]
 
 
+def _district_winner(counts: "_np.ndarray", names: List[str], lots: "_np.random.Generator") -> str:
+    """The party with the most votes in one single-member district. An exact tie
+    is drawn by lot, as real FPTP elections settle one. With a handful of voters
+    per district ties are common, and `argmax` gave every one of them to the
+    party listed first: 11-20% of the seats at default settings. Drawing among
+    the tied names sorted keeps the result independent of listing order."""
+    top = [names[i] for i in _np.flatnonzero(counts == counts.max())]
+    return top[0] if len(top) == 1 else str(lots.choice(sorted(top)))
+
+
 def _allocate_assembly(
     d2: "_np.ndarray",
     band_axis: "_np.ndarray",
@@ -290,6 +300,7 @@ def _allocate_assembly(
     threshold: float,
     appt: str,
     desertion: bool,
+    lot_seed: int,
 ) -> Dict[str, Any]:
     """Core votes→seats allocation, shared by /assembly and /assembly-scorecard.
 
@@ -351,6 +362,7 @@ def _allocate_assembly(
         return seats, excluded, waived
 
     district_seats = {n: 0 for n in names}
+    lots = _np.random.default_rng(lot_seed)   # district ties only
     excluded: List[str] = []
     threshold_waived = False
     wasted = 0
@@ -364,9 +376,8 @@ def _allocate_assembly(
             if len(band) == 0:
                 continue
             counts = _np.bincount(choice[band], minlength=len(names))
-            win = int(counts.argmax())
-            seats[names[win]] += 1
-            wasted += int(len(band) - counts[win])  # votes for district losers
+            seats[_district_winner(counts, names, lots)] += 1
+            wasted += int(len(band) - counts.max())  # votes for district losers
         assembly_size = seats_total
     elif structure == "mmp":
         n_districts = max(1, seats_total // 2)
@@ -376,7 +387,7 @@ def _allocate_assembly(
             if len(band) == 0:
                 continue
             counts = _np.bincount(choice[band], minlength=len(names))
-            district_seats[names[int(counts.argmax())]] += 1
+            district_seats[_district_winner(counts, names, lots)] += 1
         target, excluded, threshold_waived = _pr_alloc(seats_total)
         # Compensatory top-up; overhang (district wins beyond target) is kept.
         seats = {n: max(target[n], district_seats[n]) for n in names}
@@ -439,7 +450,7 @@ def _assembly_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     alloc = _allocate_assembly(
         d2, voters[:, 0], names, sincere, structure, seats_total,
-        threshold, appt, bool(data.get("strategic_desertion", False)),
+        threshold, appt, bool(data.get("strategic_desertion", False)), seed,
     )
     votes            = alloc["votes"]
     vote_share       = {n: votes[n] / num_voters for n in names}
@@ -588,7 +599,7 @@ def _assembly_scorecard_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], in
 
         for structure in _SCORECARD_STRUCTURES:
             a = _allocate_assembly(d2, voters[:, 0], names, sincere, structure,
-                                   seats_total, threshold, appt, desertion)
+                                   seats_total, threshold, appt, desertion, seed + 101 * k)
             votes, seats = a["votes"], a["seats"]
             size = max(1, a["assembly_size"])
 
@@ -612,7 +623,7 @@ def _assembly_scorecard_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], in
                 gerry = 1.0  # no districts → redistricting cannot move seats
             else:
                 b = _allocate_assembly(d2, voters[:, 1], names, sincere, structure,
-                                       seats_total, threshold, appt, desertion)
+                                       seats_total, threshold, appt, desertion, seed + 101 * k)
                 size_b = max(1, b["assembly_size"])
                 tv = 0.5 * sum(abs(seats[n] / size - b["seats"][n] / size_b) for n in names)
                 gerry = max(0.0, 1.0 - tv)
@@ -694,11 +705,12 @@ def _structural_fairness_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
 
     def _fptp(bands: List["_np.ndarray"]) -> Dict[str, int]:
         seats = {n: 0 for n in names}
+        lots = _np.random.default_rng(seed)   # district ties only
         for band in bands:
             if len(band) == 0:
                 continue
             counts = _np.bincount(choice[band], minlength=len(names))
-            seats[names[int(counts.argmax())]] += 1
+            seats[_district_winner(counts, names, lots)] += 1
         return seats
 
     votes_nat = {n: int((choice == i).sum()) for i, n in enumerate(names)}
