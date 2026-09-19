@@ -168,8 +168,9 @@ export interface InterpretResult {
   condorcet_analysis: string;
   divergence_reason: string;
   method_groups: MethodGroup[];
-  best_by_regret: string | null;
-  worst_by_regret: string | null;
+  /** Every method tied at the lowest / highest regret; both empty when all tie. */
+  best_by_regret: string[];
+  worst_by_regret: string[];
   blank_analysis: string | null;
   pedagogical_note: string;
   key_facts: string[];

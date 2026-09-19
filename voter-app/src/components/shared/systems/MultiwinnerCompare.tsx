@@ -47,8 +47,9 @@ interface CompareData {
   proportional_reference: Record<string, number>;
   num_seats: number;
   candidates: string[];
-  best_method: string;
-  worst_method: string;
+  /** Every method tied at the least / most distortion; empty when all tie. */
+  best_method: string[];
+  worst_method: string[];
 }
 
 // ── Palette ───────────────────────────────────────────────────────────────────
@@ -191,22 +192,25 @@ const MultiwinnerCompare: React.FC = () => {
   const total = data?.num_seats ?? seats;
 
   // Pedagogical message
-  const pedagMsg = data
+  // Nothing to say when every method ties on distortion: none is "the most
+  // proportional". Tied methods share a distortion, so the first stands for all.
+  const labels = (ms: string[]) => ms.map((x) => METHOD_LABELS[x]).join(' / ');
+  const pedagMsg = data?.best_method.length
     ? (() => {
-        const bestDist = data.methods[data.best_method]?.distortion ?? 0;
-        const worstDist = data.methods[data.worst_method]?.distortion ?? 0;
+        const bestDist = data.methods[data.best_method[0]]?.distortion ?? 0;
+        const worstDist = data.methods[data.worst_method[0]]?.distortion ?? 0;
         const spavBetter =
           (data.methods['spav']?.distortion ?? 1) < (data.methods['fptp']?.distortion ?? 0);
         if (spavBetter) {
           return t('multiwinner.pedagogicalPR', {
-            best: METHOD_LABELS[data.best_method],
+            best: labels(data.best_method),
             bestDist: Math.round(bestDist * 100),
-            worst: METHOD_LABELS[data.worst_method],
+            worst: labels(data.worst_method),
             worstDist: Math.round(worstDist * 100),
           });
         }
         return t('multiwinner.pedagogicalGeneral', {
-          best: METHOD_LABELS[data.best_method],
+          best: labels(data.best_method),
         });
       })()
     : '';
@@ -253,14 +257,16 @@ const MultiwinnerCompare: React.FC = () => {
       {data && (
         <>
           {/* Pedagogical note */}
-          <Alert
-            variant="info"
-            className="py-2 mb-3"
-            style={{ fontSize: '0.82rem' }}
-            data-testid="multiwinner-pedagogical"
-          >
-            {pedagMsg}
-          </Alert>
+          {pedagMsg && (
+            <Alert
+              variant="info"
+              className="py-2 mb-3"
+              style={{ fontSize: '0.82rem' }}
+              data-testid="multiwinner-pedagogical"
+            >
+              {pedagMsg}
+            </Alert>
+          )}
 
           {/* 5 hémicycles */}
           <Row className="g-2 mb-3">
@@ -273,7 +279,7 @@ const MultiwinnerCompare: React.FC = () => {
                     total={total}
                     label={METHOD_LABELS[m]}
                     distortion={data.methods[m]?.distortion ?? 0}
-                    isBest={m === data.best_method}
+                    isBest={data.best_method.includes(m)}
                     jr={data.methods[m]?.justified_representation}
                   />
                 </div>
@@ -343,10 +349,13 @@ const MultiwinnerCompare: React.FC = () => {
                 {METHOD_ORDER.map((m) => {
                   const md = data.methods[m];
                   return (
-                    <tr key={m} style={{ fontWeight: m === data.best_method ? 600 : undefined }}>
+                    <tr
+                      key={m}
+                      style={{ fontWeight: data.best_method.includes(m) ? 600 : undefined }}
+                    >
                       <td>
                         {METHOD_LABELS[m]}
-                        {m === data.best_method && (
+                        {data.best_method.includes(m) && (
                           <Badge variant="success" className="ms-1" style={{ fontSize: '0.6rem' }}>
                             {t('multiwinner.mostPR')}
                           </Badge>

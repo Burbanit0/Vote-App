@@ -12,7 +12,7 @@ Future PRs will progressively move route groups into sibling modules
 from __future__ import annotations
 
 from collections import Counter
-from typing import Any, Dict, Iterable, List, Optional, Sequence
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 
 from api.engine.constants import ECONOMY_ISSUES, ENV_ISSUES, SOCIAL_ISSUES
 
@@ -86,6 +86,34 @@ def dhondt(vote_shares: Dict[str, float], total_seats: int) -> Dict[str, int]:
         winner = max(quotients, key=lambda k: quotients[k])
         seats[winner] += 1
     return seats
+
+
+def tied_extremes(values: Mapping[str, float]) -> tuple[List[str], List[str]]:
+    """Every key tied at the lowest value and every key tied at the highest, in
+    insertion order; both empty when all values are equal, since then nothing
+    stands out.
+
+    For "best / worst method" read off a per-method score. Methods producing the
+    same outcome score exactly the same, and those ties are the norm: the lowest
+    Bayesian regret on /interpret is shared by 25-33 of 34 methods, the top jury
+    accuracy by 4 or 5 of 5 methods on most /jury runs. `min(d, key=d.get)`
+    returns whichever tied key comes first, so a single name was arbitrary.
+    """
+    lo, hi = min(values.values(), default=0), max(values.values(), default=0)
+    if lo == hi:
+        return [], []
+    return (
+        [k for k, v in values.items() if v == lo],
+        [k for k, v in values.items() if v == hi],
+    )
+
+
+def prose_list(names: List[str], conj: str = "et", others: str = "autres", shown: int = 3) -> str:
+    """'a, b et c' -- or 'a, b, c et 28 autres' past `shown` names, since a tie
+    can span 30 methods. Pass conj="and", others="others" for English."""
+    if len(names) <= shown:
+        return names[0] if len(names) == 1 else f"{', '.join(names[:-1])} {conj} {names[-1]}"
+    return f"{', '.join(names[:shown])} {conj} {len(names) - shown} {others}"
 
 
 def inter_method_agreement(methods_data: Dict[str, Any]) -> float:

@@ -30,7 +30,7 @@ vi.mock('recharts', () => {
 
 // ── Fixture ───────────────────────────────────────────────────────────────────
 
-function makeData() {
+function makeData(best: string[] = ['schulze']) {
   return {
     data: {
       results: [
@@ -40,8 +40,8 @@ function makeData() {
           condorcet_rate: 0.9,
           agreement_rate: 0.85,
           winner_stability: 0.15,
-          best_method: 'schulze',
-          worst_method: 'plurality',
+          best_method: best,
+          worst_method: ['plurality'],
           method_regrets: { plurality: 0.089, schulze: 0.031, borda: 0.045 },
         },
         {
@@ -50,8 +50,8 @@ function makeData() {
           condorcet_rate: 0.35,
           agreement_rate: 0.42,
           winner_stability: 0.72,
-          best_method: 'schulze',
-          worst_method: 'plurality',
+          best_method: best,
+          worst_method: ['plurality'],
           method_regrets: { plurality: 0.134, schulze: 0.062, borda: 0.091 },
         },
       ],
@@ -192,6 +192,21 @@ describe('PolarizationPanel', () => {
     await waitFor(() => {
       const badges = screen.getAllByTestId(/best-badge-/);
       expect(badges.length).toBeGreaterThan(0);
+    });
+    vi.runAllTimers();
+  });
+
+  it('lists a tied best set with a count instead of one trophy name', async () => {
+    // Up to 31 of 34 methods share the lowest mean regret; the trophy used to
+    // go to whichever the backend listed first.
+    apiClient.POST.mockResolvedValue(
+      makeData(['plurality', 'two_round', 'borda', 'irv', 'coombs'])
+    );
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: /calculer|compute/i }));
+    await waitFor(() => {
+      const badges = screen.getAllByTestId(/best-badge-/);
+      expect(badges[0].textContent).toContain('plurality, two_round, borda +2');
     });
     vi.runAllTimers();
   });

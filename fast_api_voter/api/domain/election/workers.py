@@ -36,6 +36,7 @@ from ._helpers import (
     dhondt                        as _dhondt,
     parse_optional_election_configs as _parse_optional_election_configs,
     reject_unknown_methods        as _reject_unknown_methods,
+    tied_extremes,
 )
 from ._electorate import (
     _build_base_electorate,
@@ -461,15 +462,13 @@ _T: Dict[str, Dict[str, str]] = {
         "condorcet_exists":  "{winner} est le vainqueur de Condorcet — il bat tous les autres candidats en duel direct.",
         "condorcet_spoiler": "Le vainqueur de Condorcet ({cw}) diffère du vainqueur à la pluralité ({pw}) : c'est un effet spoiler classique où la fragmentation du vote défavorise le candidat préféré par la majorité.",
         "high_blank":        "Le vote blanc élevé ({pct}%) fragilise la légitimité du vainqueur. Sous la règle '{rule}', ce taux peut invalider l'élection.",
-        "best_regret":       "La méthode {method} minimise le régret bayésien ({score:.4f}) : elle maximise le bien-être collectif.",
-        "worst_regret":      "La méthode {method} présente le régret bayésien le plus élevé ({score:.4f}) : elle 'rate' davantage le vrai consensus.",
         "ped_condorcet":     "Ce résultat illustre le critère de Condorcet (1785) : une méthode 'conforme' élit toujours le candidat préféré par la majorité en comparaison binaire. La pluralité ne respecte pas ce critère.",
         "ped_arrow":         "Ce résultat illustre le théorème d'impossibilité d'Arrow (1951) : avec des préférences cycliques, aucune méthode ne peut produire un résultat socialement cohérent sans sacrifier un critère de fairness.",
         "ped_consensus":     "Ce résultat illustre un cas idéal : quand un vainqueur de Condorcet existe et que l'électorat est peu polarisé, la plupart des méthodes convergent vers le même résultat.",
         "fact_pct":          "{pct}% des méthodes ({n}/{total}) élisent {winner}.",
         "fact_condorcet_y":  "Le vainqueur de Condorcet est {winner}.",
         "fact_condorcet_n":  "Il n'existe pas de vainqueur de Condorcet (cycle de préférences).",
-        "fact_best":         "La méthode la plus 'juste' (régret bayésien minimal) : {method}.",
+        "fact_best":         "Régret bayésien minimal : l'élection de {winner}, retenue par {n} méthode(s) sur {total}.",
         "team":              "Équipe {winner}",
     },
     "en": {
@@ -480,15 +479,13 @@ _T: Dict[str, Dict[str, str]] = {
         "condorcet_exists":  "{winner} is the Condorcet winner — they beat every other candidate in direct head-to-head matchups.",
         "condorcet_spoiler": "The Condorcet winner ({cw}) differs from the plurality winner ({pw}): a classic spoiler effect where vote fragmentation hurts the majority's preferred candidate.",
         "high_blank":        "The high blank-vote rate ({pct}%) undermines the winner's legitimacy. Under the '{rule}' rule, this rate may invalidate the election.",
-        "best_regret":       "Method {method} minimises Bayesian Regret ({score:.4f}): it maximises collective welfare.",
-        "worst_regret":      "Method {method} has the highest Bayesian Regret ({score:.4f}): it deviates most from the true consensus.",
         "ped_condorcet":     "This result illustrates the Condorcet criterion (1785): a 'compliant' method always elects the candidate preferred by the majority in pairwise comparisons. Plurality does not satisfy this criterion.",
         "ped_arrow":         "This result illustrates Arrow's impossibility theorem (1951): with cyclical preferences, no method can produce a socially coherent result without sacrificing a fairness criterion.",
         "ped_consensus":     "This result illustrates an ideal case: when a Condorcet winner exists and the electorate is not highly polarised, most methods converge on the same outcome.",
         "fact_pct":          "{pct}% of methods ({n}/{total}) elect {winner}.",
         "fact_condorcet_y":  "The Condorcet winner is {winner}.",
         "fact_condorcet_n":  "No Condorcet winner exists (preference cycle).",
-        "fact_best":         "Most 'fair' method (minimal Bayesian Regret): {method}.",
+        "fact_best":         "Lowest Bayesian Regret: electing {winner}, the outcome of {n} of {total} methods.",
         "team":              "Team {winner}",
     },
 }
@@ -584,16 +581,15 @@ def _interpret_divergence_reason(
 
 def _interpret_best_worst_by_regret(
     methods_raw: Dict[str, Any],
-) -> tuple[Optional[str], Optional[str]]:
-    """Step 5 — best / worst method by Bayesian Regret."""
-    regrets: Dict[str, float] = {
+) -> tuple[list[str], list[str]]:
+    """Step 5 — every method tied at the lowest, and at the highest, Bayesian
+    Regret. Regret is a property of the winner, so methods electing the same
+    candidate tie; see `tied_extremes`."""
+    return tied_extremes({
         m: float(md["bayesian_regret"])
         for m, md in methods_raw.items()
         if isinstance(md, dict) and md.get("bayesian_regret") is not None
-    }
-    best_by_regret  = min(regrets, key=lambda k: regrets[k]) if regrets else None
-    worst_by_regret = max(regrets, key=lambda k: regrets[k]) if regrets else None
-    return best_by_regret, worst_by_regret
+    })
 
 
 def _interpret_blank_analysis(
@@ -619,7 +615,7 @@ def _interpret_pedagogical_note(
 def _interpret_key_facts(
     T: Dict[str, str], method_groups: list[Dict[str, Any]], n_methods: int,
     condorcet_exists: bool, condorcet_winner: Optional[str],
-    best_by_regret: Optional[str],
+    methods_raw: Dict[str, Any], best_by_regret: list[str],
 ) -> list[str]:
     """Step 8 — key facts, a short bulleted summary of the steps above."""
     key_facts: list[str] = []
@@ -638,7 +634,12 @@ def _interpret_key_facts(
     else:
         key_facts.append(T["fact_condorcet_n"])
     if best_by_regret:
-        key_facts.append(T["fact_best"].format(method=best_by_regret))
+        # The tied methods practically always share one winner, but two winners
+        # can score an identical regret; name every winner the tie covers.
+        winners = dict.fromkeys(str(methods_raw[m].get("winner")) for m in best_by_regret)
+        key_facts.append(T["fact_best"].format(
+            winner=" / ".join(winners), n=len(best_by_regret), total=n_methods,
+        ))
     return key_facts
 
 
@@ -677,7 +678,7 @@ def _interpret_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     pedagogical_note = _interpret_pedagogical_note(T, condorcet_exists, inter_agreement)
     key_facts = _interpret_key_facts(
         T, method_groups, len(methods_raw), condorcet_exists, condorcet_winner,
-        best_by_regret,
+        methods_raw, best_by_regret,
     )
 
     return {

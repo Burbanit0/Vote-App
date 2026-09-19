@@ -329,12 +329,11 @@ def test_each_name_resolves_to_the_rule_of_that_name():
 
 
 def test_compare_all_methods_reports_in_the_registry_order():
-    """The key order is load-bearing, and no other test holds it: the snapshot
-    serializer sorts keys and the drift test above compares sets.
-    `_interpret_best_worst_by_regret` takes min/max by regret over a dict where
-    many rules tie, so the first-listed tied rule wins -- measured on the default
-    seed-42 /simulate, this order answers (plurality, approval) and the same
-    dicts alphabetised answer (baldwin, anti_plurality)."""
+    """The key order reaches the screen, and no other test holds it: the snapshot
+    serializer sorts keys and the drift test above compares sets. It used to do
+    worse -- /interpret named the first-listed of ~30 regret-tied rules "the most
+    fair method", so alphabetising these dicts turned plurality into baldwin.
+    That answer is order-free now; the display order is not."""
     from api.engine.utils.simulation_metrics import compare_all_methods
 
     names = ["A", "B", "C"]

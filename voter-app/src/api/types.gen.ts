@@ -4363,7 +4363,7 @@ export interface components {
          */
         InterpretResponse: {
             /** Best By Regret */
-            best_by_regret: unknown;
+            best_by_regret: string[];
             /** Blank Analysis */
             blank_analysis: unknown;
             /** Condorcet Analysis */
@@ -4379,7 +4379,7 @@ export interface components {
             /** Pedagogical Note */
             pedagogical_note: string;
             /** Worst By Regret */
-            worst_by_regret: unknown;
+            worst_by_regret: string[];
         } & {
             [key: string]: unknown;
         };
@@ -4611,7 +4611,7 @@ export interface components {
          */
         JuryResponse: {
             /** Best Method */
-            best_method: string;
+            best_method: string[];
             /** Competence Curve */
             competence_curve: {
                 [key: string]: number;
@@ -4631,7 +4631,7 @@ export interface components {
             /** Voter Competence */
             voter_competence: number;
             /** Worst Method */
-            worst_method: string;
+            worst_method: string[];
         } & {
             [key: string]: unknown;
         };
@@ -5026,7 +5026,7 @@ export interface components {
          */
         MultiwinnerCompareResponse: {
             /** Best Method */
-            best_method: string;
+            best_method: string[];
             /** Candidates */
             candidates: string[];
             /** Methods */
@@ -5044,7 +5044,7 @@ export interface components {
                 [key: string]: number;
             };
             /** Worst Method */
-            worst_method: string;
+            worst_method: string[];
         } & {
             [key: string]: unknown;
         };
