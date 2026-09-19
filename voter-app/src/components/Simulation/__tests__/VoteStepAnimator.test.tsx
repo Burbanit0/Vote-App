@@ -179,6 +179,21 @@ describe('VoteStepAnimator', () => {
     expect(screen.getByText(/🏆 Alice/)).toBeInTheDocument();
   });
 
+  it('shows an IRV dead tie as a tie, not a winner', async () => {
+    getVoteSteps.mockResolvedValue({
+      method: 'irv',
+      rounds: [
+        { round: 1, scores: { Alice: 0.5, Bob: 0.5 }, eliminated: null, transfers: null },
+        { round: 2, winner: null },
+      ],
+    });
+    render(<VoteStepAnimator />);
+    await waitFor(() => expect(screen.getByTestId('bar-chart')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /Suivant|Next/i }));
+    expect(screen.getByTestId('irv-dead-tie')).toHaveTextContent(/Tie \(no winner\)|Égalité/);
+    expect(screen.queryByText(/🏆/)).not.toBeInTheDocument();
+  });
+
   it('plurality: greens the winner and announces them', async () => {
     getVoteSteps.mockResolvedValue({
       method: 'plurality',

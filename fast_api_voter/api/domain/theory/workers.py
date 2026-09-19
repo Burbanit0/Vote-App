@@ -2096,7 +2096,8 @@ def _identity_generate_voters(
 
 def _identity_plurality(votes: List[str], cand_names: List[str]) -> str:
     from collections import Counter as _C
-    return _C(votes).most_common(1)[0][0] if votes else cand_names[0]
+    vc = _C(votes)
+    return min(vc, key=lambda c: (-vc[c], c)) if votes else cand_names[0]
 
 
 def _identity_group_results(
@@ -2303,15 +2304,10 @@ def _assumption_testing_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], in
                  for c in candidates_raw}
         return str(min(dists, key=lambda d: dists[d]))
 
-    def _plurality_winner(votes: List[str]) -> Optional[str]:
-        from collections import Counter as _C
-        c = _C(votes)
-        return c.most_common(1)[0][0] if c else None
-
     # ── Baseline: standard spatial model ─────────────────────────────────────
     base_positions = _voter_positions(seed, num_voters, ideology)
     baseline_votes = [_nearest(p, {}) for p in base_positions]
-    baseline_winner = _plurality_winner(baseline_votes) or cand_names[0]
+    baseline_winner = _identity_plurality(baseline_votes, cand_names)
 
     # ── Simulate each assumption violation ───────────────────────────────────
     relaxed_results: Dict[str, Any] = {}
@@ -2364,12 +2360,7 @@ def _assumption_testing_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], in
                 else:
                     votes.append(_nearest(pos, {}))
 
-            w = _plurality_winner(votes)
-            if w:
-                trial_winners.append(w)
-
-        if not trial_winners:
-            trial_winners = [baseline_winner]
+            trial_winners.append(_identity_plurality(votes, cand_names))
 
         # Statistics across trials
         from collections import Counter as _Ctr

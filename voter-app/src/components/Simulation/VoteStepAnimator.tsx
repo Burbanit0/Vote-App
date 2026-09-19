@@ -130,6 +130,13 @@ const IRVChart: React.FC<{
   ct: ReturnType<typeof useChartTheme>;
   t: (k: string) => string;
 }> = ({ round, allCandidates, ct, t }) => {
+  if (round.winner === null) {
+    return (
+      <div className="text-center py-4" data-testid="irv-dead-tie">
+        <div style={{ fontSize: '1.2rem', fontWeight: 700 }}>{t('common.tie')}</div>
+      </div>
+    );
+  }
   if (round.winner) {
     return (
       <div className="text-center py-4">

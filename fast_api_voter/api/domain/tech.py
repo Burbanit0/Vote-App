@@ -232,7 +232,7 @@ def _polis_with_candidates_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
     vote_tally: Counter[str] = Counter()
     for px in pax:
         vote_tally[cand_names[int(_np.argmin([abs(px - cx) for cx in cand_x]))]] += 1
-    election_winner = vote_tally.most_common(1)[0][0] if vote_tally else cand_names[0]
+    election_winner = min(vote_tally, key=lambda c: (-vote_tally[c], c)) if vote_tally else cand_names[0]
     winners_agree   = polis_winner == election_winner
 
     # ── Participant positions ─────────────────────────────────────────────
