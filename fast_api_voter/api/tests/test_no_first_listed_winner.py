@@ -44,3 +44,23 @@ def test_a_tied_sincere_result_is_not_reported_as_alice():
 
 def test_nobody_voting_elects_nobody():
     assert _dt_winner([], {}, ["Alice", "Bob"], "plurality") == (None, {"Alice": 0.0, "Bob": 0.0})
+
+
+def test_a_tied_primary_nominee_does_not_depend_on_listing_order():
+    """L1 and L2 split Left's primary 9-9 and IRV elects nobody. The party still
+    needs a nominee; it used to be whichever candidate was listed first."""
+    def nominee(left_candidates):
+        parties = [
+            {"name": "Left", "ideology_center": -0.5, "primary_voters_pct": 0.3,
+             "primary_candidates": left_candidates},
+            {"name": "Right", "ideology_center": 0.5, "primary_voters_pct": 0.3,
+             "primary_candidates": [{"name": "R1", "ideology_position": 0.6},
+                                    {"name": "R2", "ideology_position": 0.3}]},
+        ]
+        body, _ = _primary_worker({"parties": parties, "general_num_voters": 60, "seed": 2,
+                                   "primary_method": "irv"})
+        left = body["primaries"][0]
+        assert left["vote_shares"] == {"L1": 0.5, "L2": 0.5}
+        return left["winner"]
+    listed = [{"name": "L1", "ideology_position": -0.6}, {"name": "L2", "ideology_position": -0.3}]
+    assert nominee(listed) == nominee(listed[::-1])
