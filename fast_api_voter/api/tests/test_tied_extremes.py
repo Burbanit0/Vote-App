@@ -38,17 +38,17 @@ JURY = {"num_voters": 51, "voter_competence": 0.52, "correct_option_index": 0,
 
 
 def test_jury_names_every_method_tied_at_the_top():
-    body, status = jury({**JURY, "num_options": 3, "seed": 2})
+    body, status = jury({**JURY, "num_options": 3, "seed": 3})
     assert status == 200
-    assert body["best_method"] == ["irv", "schulze"]
-    assert "Irv et schulze atteignent 100.0%" in body["pedagogical_note"]
-    assert "Irv and schulze reach 100.0%" in body["pedagogical_note_en"]
+    assert body["best_method"] == ["plurality", "borda"]
+    assert "Plurality et borda atteignent 96.7%" in body["pedagogical_note"]
+    assert "Plurality and borda reach 96.7%" in body["pedagogical_note_en"]
 
 
 def test_jury_singular_when_one_method_leads():
     body, _ = jury({**JURY, "num_options": 3, "seed": 0})
-    assert body["best_method"] == ["plurality"]
-    assert "Plurality atteint 100.0%" in body["pedagogical_note"]
+    assert body["best_method"] == ["borda"]
+    assert "Borda atteint 100.0%" in body["pedagogical_note"]
 
 
 def test_jury_crowns_no_method_when_all_five_tie():

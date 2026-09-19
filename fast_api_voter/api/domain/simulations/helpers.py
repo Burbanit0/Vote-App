@@ -40,7 +40,9 @@ def _parse_candidate_configs(raw: list[Any]) -> list[dict[str, Any]]:
             })
         else:
             configs.append({
-                "name": item.get("name", f"Candidate {i + 1}"),
+                # str(): the schema accepts any JSON name, and an int name made the
+                # engine return int winners in some runs and str in others.
+                "name": str(item.get("name", f"Candidate {i + 1}")),
                 "party": item.get("party", _PARTY_CYCLE[i % len(_PARTY_CYCLE)]),
                 "ideology_position": item.get("ideology_position"),
             })

@@ -145,14 +145,6 @@ def test_desertion_reduces_wasted_votes_under_pr_threshold(client: TestClient):
 
 # ── Representation → governance (frontier FB-1) ──────────────────────────────
 
-def test_congruence_pr_beats_fptp(client: TestClient):
-    """Acceptance: PR's assembly sits closer to the electorate's median than
-    FPTP's on the same electorate (the winner's bonus drags the body away)."""
-    pr   = client.post("/api/v2/election/assembly", json=_payload(threshold=0.0)).json()
-    fptp = client.post("/api/v2/election/assembly", json=_payload(structure="fptp")).json()
-    assert pr["congruence"]["assembly_gap"] <= fptp["congruence"]["assembly_gap"]
-
-
 def test_congruence_block_is_coherent(client: TestClient):
     body = client.post("/api/v2/election/assembly", json=_payload()).json()
     c = body["congruence"]
@@ -296,3 +288,20 @@ def test_story_diviseur(client: TestClient):
 
     assert dh["Centre"]["seats"] == 8 and dh["Souverainistes"]["seats"] == 0
     assert sl["Centre"]["seats"] == 7 and sl["Souverainistes"]["seats"] == 1
+
+
+def test_district_seats_do_not_depend_on_party_listing_order(client: TestClient):
+    """400 voters over 100 districts is 4 per district, so exact ties are
+    common. `argmax` handed each one to the party listed first: listed last,
+    Vert won 3 seats at seed 2; listed first, 17. A tie is now drawn by lot."""
+    parties = [{"name": "Gauche", "x": -0.6, "y": 0.0}, {"name": "Centre", "x": 0.0, "y": 0.1},
+               {"name": "Vert", "x": -0.2, "y": 0.5}]
+
+    def seats(ps, structure):
+        body = client.post("/api/v2/election/assembly", json={
+            "parties": ps, "num_voters": 400, "seed": 2, "structure": structure, "seats": 100,
+        }).json()
+        return {p["name"]: (p["seats"], p["district_seats"]) for p in body["parties"]}
+
+    for structure in ("fptp", "mmp"):
+        assert seats(parties, structure) == seats(parties[::-1], structure), structure

@@ -441,7 +441,7 @@ def _compulsory_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
             if v != _NULL:
                 tally[v] += 1
         n_valid = len(voter_set) - n_null
-        winner  = max(tally, key=tally.__getitem__) if tally else cand_names[0]
+        winner  = min(tally, key=lambda c: (-tally[c], c)) if tally else cand_names[0]
         shares  = {
             c: round(tally.get(c, 0) / n_valid, 4) if n_valid else 0.0
             for c in cand_names

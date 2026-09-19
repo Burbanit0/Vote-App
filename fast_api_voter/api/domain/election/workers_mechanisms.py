@@ -22,7 +22,7 @@ from api.engine.utils.method_registry import rule_winner
 from api.engine.utils.simulation_metrics import compare_all_methods
 from api.engine.utils.simulation_ranked_utils import (
     get_plurality_winner, get_condorcet_winner, get_irv_winner,
-    get_borda_winner, get_schulze_winner, get_approval_winner_sincere,
+    get_borda_winner, get_schulze_winner, get_approval_winner, get_approval_winner_sincere,
 )
 from api.engine.utils.simulation_multiwinner_utils import (
     get_stv_result, get_dhondt_winners, get_spav_result, get_phragmen_result,
@@ -331,7 +331,6 @@ def _historical_replay_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
     current_u: Dict[Any, Dict[str, float]] = {
         v["id"]: base_utilities[v["id"]].copy() for v in voters
     }
-    n_cands   = len(cand_names)
     days_out: list[Dict[str, Any]] = []
 
     for day in range(num_days + 1):
@@ -362,12 +361,8 @@ def _historical_replay_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
             )
 
         condorcet_w  = get_condorcet_winner(rankings)
-        winner_fptp  = max(vote_shares, key=lambda k: vote_shares[k])
-        borda_scores: Dict[str, float] = {n: 0.0 for n in cand_names}
-        for r in rankings:
-            for i, name in enumerate(r):
-                borda_scores[name] += n_cands - 1 - i
-        winner_borda = max(borda_scores, key=lambda k: borda_scores[k])
+        winner_fptp  = get_plurality_winner(rankings)
+        winner_borda = get_borda_winner(rankings)
 
         days_out.append({
             "day":              day,
@@ -464,19 +459,6 @@ def _generate_jury_ballots(
     return ballots
 
 
-def _jury_approval_winner(
-    ballots: List[List[str]],
-    num_options: int,
-) -> Optional[str]:
-    """Approval: each voter approves top ceil(num_options/2) of their ranking."""
-    top_k = max(1, (num_options + 1) // 2)
-    counts: Counter[str] = Counter()
-    for b in ballots:
-        for opt in b[:top_k]:
-            counts[opt] += 1
-    return counts.most_common(1)[0][0] if counts else None
-
-
 _JURY_METHODS = ("plurality", "borda", "irv", "approval", "schulze")
 
 
@@ -497,17 +479,25 @@ def _run_jury_simulation(
 
     for _ in range(num_sims):
         ballots = _generate_jury_ballots(num_voters, options, correct_idx, competence, rng)
+        # Every rule breaks an exact tie by name, and the options are named in
+        # index order, so a tie always went to option 0 -- the default correct
+        # answer -- inflating every method's accuracy. A fresh random relabelling
+        # per trial sends a tie to each tied option equally often.
+        relabel = dict(zip(options, rng.sample(options, len(options))))
+        ballots = [[relabel[o] for o in b] for b in ballots]
+        truth   = relabel[correct]
 
         winners = {
             "plurality": get_plurality_winner(ballots),
             "borda":     get_borda_winner(ballots),
             "irv":       get_irv_winner(ballots),
-            "approval":  _jury_approval_winner(ballots, len(options)),
+            # Each juror approves the top half of its ranking.
+            "approval":  get_approval_winner(ballots, max(1, (len(options) + 1) // 2)),
             "schulze":   get_schulze_winner(ballots),
         }
 
         for m, w in winners.items():
-            if w == correct:
+            if w == truth:
                 successes[m] += 1
 
     return {m: round(successes[m] / num_sims, 4) for m in _JURY_METHODS}
@@ -696,7 +686,7 @@ def _abstention_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     def _run_round_fptp(active_voters: list[Dict[str, Any]]) -> str:
         fc: Counter[str] = Counter(voter_preferred[v["id"]] for v in active_voters)
-        return max(fc, key=lambda k: fc[k]) if fc else cand_names[0]
+        return min(fc, key=lambda k: (-fc[k], k)) if fc else cand_names[0]
 
     def _run_round_condorcet(active_voters: list[Dict[str, Any]]) -> Optional[str]:
         rankings = [
@@ -1022,7 +1012,7 @@ def _gerrymander_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         fc: Counter[str] = Counter(voter_preferred[uid] for uid in members)
         total = len(members)
         vote_shares = {n: round(fc.get(n, 0) / total, 4) for n in cand_names}
-        winner = max(fc, key=lambda k: fc[k])
+        winner = min(fc, key=lambda k: (-fc[k], k))
 
         district_results.append({
             "id":          d["id"],
