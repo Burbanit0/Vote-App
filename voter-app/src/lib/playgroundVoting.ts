@@ -728,14 +728,9 @@ function kemenyGain(b: number[][], i: number, rest: number, m: number): number {
  * with different algorithms, disagreeing on about a quarter of profiles. The
  * parity fixture could not see it: its scenarios stopped at 5 candidates.
  *
- * Ties are the one case where the two engines still part company, and it is a
- * convention difference rather than a wrong answer — both return an optimal
- * ranking. Improving only on a strict `>` while `i` ascends returns the optimal
- * ordering that is smallest by candidate INDEX; the backend runs the same rule
- * over `sorted(pw)`, so its answer is smallest by candidate NAME. Those coincide
- * only when the caller's array happens to be alphabetical, which every parity
- * scenario is (`NAMES[:m]`) and no shipped preset is. See
- * `kemeny_tie_break_convention` in the parity test for the pinned example.
+ * Ties follow the convention on `ruleWinnerFromRanks`: improving only on a
+ * strict `>` while `i` ascends returns the index-smallest optimal ordering,
+ * where the backend returns the name-smallest.
  */
 function winKemeny(ranks: number[][], m: number): number {
   if (m < 1) return -1;
@@ -918,6 +913,18 @@ function winRaynaud(ranks: number[][], m: number): number {
  * Winning candidate INDEX under the given rule from pre-computed ballots —
  * lets the scorecard inject *modified* ballots (e.g. a strategic-compression
  * manipulation probe). `scores` is required for 'approval' (cardinal rule).
+ *
+ * Ties, for the ordinal rules: each runs the same procedure as its backend twin,
+ * keyed on candidate INDEX where the backend keys on candidate NAME (Python
+ * code-point order, not a locale sort). The two therefore agree on a tied
+ * profile whenever index order and name order coincide on the candidates
+ * involved — always, for an array sorted that way, which every parity scenario
+ * is. With an authored array they can name different, equally valid winners:
+ * on B>A, A>B with ['B', 'A'], the 19 ordinal rules that have a deterministic
+ * backend twin and return a winner all answer B here and A there. The key can
+ * act at an intermediate step (two_round's runoff pair, ranked_pairs' and
+ * river's lock order), so the tied winner is not always the lowest index. The
+ * exhaustive parity block pins this, ties included, at up to 3 candidates.
  */
 export function ruleWinnerFromRanks(
   ranks: number[][],

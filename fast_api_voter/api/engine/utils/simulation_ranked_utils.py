@@ -505,8 +505,10 @@ def _kemeny_exact_winner(candidates: list[str], pw: dict[str, dict[str, int]]) -
     `candidates` must be sorted. Iterating it in ascending order and improving
     on a strict `>` makes `lead[mask]` the FIRST candidate that can head an
     optimal ordering, which reconstructs the lexicographically smallest optimal
-    ranking — the same tie-break `max(permutations(sorted(...)))` had, and the
-    one the client mirror pins.
+    ranking — the same tie-break `max(permutations(sorted(...)))` had. That is
+    smallest by NAME; the client mirror runs the same DP keyed on candidate INDEX,
+    so the two agree on a tie whenever index order and name order coincide on
+    the tied candidates (an array sorted by name always qualifies).
     """
     n = len(candidates)
     # Duel counts as a dense matrix: the DP reads them 2^m · m² times.
