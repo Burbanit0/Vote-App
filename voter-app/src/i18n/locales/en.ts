@@ -1656,7 +1656,10 @@ const en: TranslationKeys = {
     iiaRateTitle: 'IIA violation frequency vs. number of candidates',
     iiaViolationRate: '% IIA violations',
     nCandidates: 'Candidates',
-    iiaRateDesc: 'The more candidates, the higher the risk of a spoiler effect.',
+    iiaRateDesc:
+      'Measured by removing a losing candidate from random profiles: the share of cases where the winner changes.',
+    iiaRateNotMeasurable:
+      'No violation rate for majority judgment: it reads grades, and these profiles are rankings.',
     tradeoff_majority_focus: 'Majoritarian method',
     tradeoff_utility_focus: 'Utility-based method',
     tradeoff_condorcet_focus: 'Condorcet method',

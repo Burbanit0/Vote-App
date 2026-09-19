@@ -1859,10 +1859,10 @@ export interface components {
         ArrowRequest: {
             /**
              * Method
-             * @description One of plurality | borda | irv | schulze | condorcet | approval | majority_judgment | kemeny_young | minimax | star_voting | two_round.
              * @default plurality
+             * @enum {string}
              */
-            method: string;
+            method: "plurality" | "borda" | "irv" | "schulze" | "condorcet" | "approval" | "majority_judgment" | "kemeny_young" | "minimax" | "star_voting" | "two_round";
             /**
              * Seed
              * @default 42
@@ -4125,8 +4125,9 @@ export interface components {
             /**
              * Method
              * @default plurality
+             * @enum {string}
              */
-            method: string;
+            method: "plurality" | "borda" | "irv" | "schulze" | "condorcet" | "approval" | "kemeny_young";
             /**
              * Num Trials
              * @default 100
@@ -4192,8 +4193,9 @@ export interface components {
             /**
              * Method
              * @default plurality
+             * @constant
              */
-            method: string;
+            method: "plurality";
             /**
              * Num Voters
              * @default 200
@@ -4734,7 +4736,7 @@ export interface components {
              * Decision Rules
              * @description Defaults to all 6 rules.
              */
-            decision_rules?: string[] | null;
+            decision_rules?: ("simple_majority" | "supermajority_2_3" | "supermajority_3_4" | "unanimous" | "qv" | "mj")[] | null;
             /**
              * Majority Pct
              * @default 0.6
@@ -4836,8 +4838,9 @@ export interface components {
             /**
              * Method
              * @default plurality
+             * @enum {string}
              */
-            method: string;
+            method: "plurality" | "borda" | "irv" | "schulze" | "two_round";
             /**
              * Num Voters
              * @default 30
@@ -5296,8 +5299,9 @@ export interface components {
             /**
              * Method To Compare
              * @default plurality
+             * @constant
              */
-            method_to_compare: string;
+            method_to_compare: "plurality";
             /**
              * Min Consensus Threshold
              * @default 0.8

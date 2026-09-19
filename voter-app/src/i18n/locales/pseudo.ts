@@ -1685,7 +1685,9 @@ const pseudo: TranslationKeys = {
     iiaViolationRate: '⟦%~ víólátíóñs~~~~ ÍÍÁ~~⟧',
     nCandidates: '⟦Cáñdídáts~~~~⟧',
     iiaRateDesc:
-      "⟦Plús~~ íl~ y~ á~ dé~ çáñdídáts,~~~~ plús~~ lé~ rísqúé~~~ d'éffét~~~ spóílér~~~ áúgméñté.~~~~⟧",
+      '⟦Mésúré~~~ éñ~ rétíráñt~~~ úñ~ çáñdídát~~~ pérdáñt~~~ dé~ prófíls~~~ áléátóírés~~~~ :~ párt~~ dés~~ çás~~ óù~ lé~ váíñqúéúr~~~~ çháñgé.~~~⟧',
+    iiaRateNotMeasurable:
+      '⟦Táúx~~ dé~ víólátíóñ~~~~ ñóñ~~ mésúráblé~~~~ póúr~~ lé~ júgéméñt~~~ májórítáíré~~~~ :~ íl~ lít~~ dés~~ méñtíóñs,~~~~ ét~ çés~~ prófíls~~~ sóñt~~ dés~~ çlásséméñts.~~~~~⟧',
     tradeoff_majority_focus: '⟦Méthódé~~~ májórítáíré~~~~⟧',
     tradeoff_utility_focus: "⟦Méthódé~~~ d'útílíté~~~~⟧",
     tradeoff_condorcet_focus: '⟦Méthódé~~~ Cóñdórçét~~~~⟧',

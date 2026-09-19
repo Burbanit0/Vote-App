@@ -1671,7 +1671,10 @@ const fr = {
     iiaRateTitle: 'Fréquence de violation IIA selon le nombre de candidats',
     iiaViolationRate: '% violations IIA',
     nCandidates: 'Candidats',
-    iiaRateDesc: "Plus il y a de candidats, plus le risque d'effet spoiler augmente.",
+    iiaRateDesc:
+      'Mesuré en retirant un candidat perdant de profils aléatoires : part des cas où le vainqueur change.',
+    iiaRateNotMeasurable:
+      'Taux de violation non mesurable pour le jugement majoritaire : il lit des mentions, et ces profils sont des classements.',
     tradeoff_majority_focus: 'Méthode majoritaire',
     tradeoff_utility_focus: "Méthode d'utilité",
     tradeoff_condorcet_focus: 'Méthode Condorcet',

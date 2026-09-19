@@ -14,6 +14,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Table } from '@/components/ui/table';
 import { useElection } from '../../../stores/useElectionStore';
 import { $api } from '../../../api/hooks';
+import type { ManipulationMethod } from '@/api';
 const SVG_SIZE = 340;
 const PAD = 28;
 const STRATEGIES = ['compromising', 'burying', 'pushover', 'truncating'] as const;
@@ -183,7 +184,7 @@ const ManipulationAnalysisPanel: React.FC = () => {
   const { t } = useTranslation();
   const { config } = useElection();
 
-  const [method, setMethod] = useState('plurality');
+  const [method, setMethod] = useState<ManipulationMethod>('plurality');
   const sim = $api.useMutation('post', '/api/v2/theory/manipulation-analysis');
   const data: ManipData | null = (sim.data as ManipData | undefined) ?? null;
   const loading = sim.isPending;
@@ -223,7 +224,7 @@ const ManipulationAnalysisPanel: React.FC = () => {
             size="sm"
             value={method}
             data-testid="method-select"
-            onChange={(e) => setMethod(e.target.value)}
+            onChange={(e) => setMethod(e.target.value as ManipulationMethod)}
           >
             <option value="plurality">Plurality</option>
             <option value="borda">Borda</option>

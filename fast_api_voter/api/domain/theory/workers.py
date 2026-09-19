@@ -7,10 +7,11 @@ theory.py — Arrow's Impossibility Theorem interactive explorer.
 from __future__ import annotations
 
 import random as _rnd
-from collections import Counter
 from operator import itemgetter
 from typing import Any, Callable, Dict, List, Optional
 
+from api.domain.election._helpers import reject_unknown_methods
+from api.engine.utils.method_registry import rule_winner
 from api.engine.utils.simulation_ranked_utils import (
     get_approval_winner,
     get_black_winner,
@@ -102,19 +103,16 @@ _TRADEOFF_TYPE: Dict[str, str] = {
 }
 
 
-def _plurality_winner(profile: List[List[str]]) -> Optional[str]:
-    tally: Counter[Any] = Counter(v[0] for v in profile if v)
-    return tally.most_common(1)[0][0] if tally else None
-
-
 # ── /api/theory/arrow ─────────────────────────────────────────────────────────
 
 def _arrow_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     """Pure worker for /arrow — extracted for FastAPI v2."""
-    method = str(data.get("method", "plurality")).lower().replace("-", "_")
+    method = str(data.get("method", "plurality"))
     _      = int(data.get("seed", 42))
+    if err := reject_unknown_methods([method], tuple(_VIOLATIONS)):
+        return err
 
-    viols = _VIOLATIONS.get(method, _VIOLATIONS["plurality"])
+    viols = _VIOLATIONS[method]
 
     violations: Dict[str, Any] = {}
 
@@ -140,27 +138,22 @@ def _arrow_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     violations["non_dictatorship"] = {"violated": viols["non_dictatorship"], "counterexample": None}
 
     # ── Summary ──────────────────────────────────────────────────────────
-    violated_list   = [ax for ax, v in viols.items() if v]
-    satisfied_list  = [ax for ax, v in viols.items() if not v]
-
-    if "transitivity" in violated_list:
+    if viols["transitivity"]:
         summary = (
             f"'{method}' peut produire des cycles de préférences collectives "
             "(paradoxe de Condorcet) : le vainqueur dépend de l'agenda."
         )
-    elif "iia" in violated_list:
+    else:  # every rule in _VIOLATIONS violates IIA: that is Arrow's theorem
         summary = (
             f"'{method}' satisfait Pareto et la transitivité mais sacrifie l'IIA. "
             "Un candidat non-gagnant peut changer qui remporte l'élection (effet spoiler)."
         )
-    else:
-        summary = f"'{method}' satisfait {', '.join(satisfied_list)}."
 
     return {
         "method":        method,
         "violations":    violations,
         "arrow_summary": summary,
-        "tradeoff_type": _TRADEOFF_TYPE.get(method, "majority_focus"),
+        "tradeoff_type": _TRADEOFF_TYPE[method],
     }, 200
 
 
@@ -168,12 +161,25 @@ def _arrow_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
 # ── /api/theory/iia-rate ──────────────────────────────────────────────────────
 
+#: The rules /iia-rate measures. It used to measure plurality only and return
+#: every other name as plurality's rate times a constant (borda 0.60, schulze
+#: 0.35, ...). Majority judgment is absent: these profiles are rankings, and MJ
+#: needs grades, so its rate cannot be measured here.
+IIA_METHODS = (
+    "plurality", "borda", "irv", "schulze", "condorcet", "approval", "kemeny_young",
+)
+
+
 def _iia_rate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     """Pure worker for /iia-rate — extracted for FastAPI v2."""
-    method         = str(data.get("method", "plurality")).lower()
+    method         = str(data.get("method", "plurality"))
     max_candidates = max(2, min(8, int(data.get("max_candidates", 8))))
     n_trials       = max(20, min(500, int(data.get("num_trials", 100))))
     seed           = int(data.get("seed", 42))
+    if err := reject_unknown_methods([method], IIA_METHODS):
+        return err
+    # "condorcet" is the app's "Condorcet (Copeland)", as on the client.
+    rule = "copeland" if method == "condorcet" else method
 
     def _empirical_rate(n: int) -> float:
         rng  = _rnd.Random(seed + n * 100)
@@ -182,7 +188,7 @@ def _iia_rate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         for _ in range(n_trials):
             n_voters = rng.randint(3, 7)
             profile = [rng.sample(cands, n) for _ in range(n_voters)]
-            winner_full = _plurality_winner(profile)
+            winner_full = rule_winner(rule, profile)
             if winner_full is None:
                 continue
             others = [c for c in cands if c != winner_full]
@@ -190,26 +196,15 @@ def _iia_rate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
                 continue
             removed = rng.choice(others)
             reduced = [[c for c in v if c != removed] for v in profile]
-            winner_red = _plurality_winner(reduced)
+            winner_red = rule_winner(rule, reduced)
             if winner_full != winner_red:
                 hits += 1
         return round(hits / n_trials, 4)
 
-    # Compute for plurality; scale for other methods
-    _SCALE: Dict[str, float] = {
-        "plurality": 1.00, "borda": 0.60, "irv": 0.75,
-        "schulze": 0.35, "condorcet": 0.30, "kemeny_young": 0.28,
-        "approval": 0.55, "majority_judgment": 0.50,
-    }
-    scale = _SCALE.get(method, 1.0)
-
-    curve = []
-    for n in range(2, max_candidates + 1):
-        base_rate = 0.0 if n <= 2 else _empirical_rate(n)
-        curve.append({
-            "n_candidates":   n,
-            "violation_rate": round(min(1.0, base_rate * scale), 4),
-        })
+    curve = [
+        {"n_candidates": n, "violation_rate": 0.0 if n <= 2 else _empirical_rate(n)}
+        for n in range(2, max_candidates + 1)
+    ]
 
     return {"method": method, "curve": curve}, 200
 
@@ -896,16 +891,15 @@ def _sen_paradox_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
 # ── Gibbard-Satterthwaite Manipulation Analysis ───────────────────────────────
 
+#: The rules /manipulation-analysis runs. "two_round" used to be computed as
+#: IRV, "approval" as plurality, and any other name as plurality.
+MA_METHODS = ("plurality", "borda", "irv", "schulze", "two_round")
+
+
 def _manipulation_analysis_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     """Pure worker for /manipulation-analysis — extracted for FastAPI v2."""
     import copy as _cp_m  # noqa: F401  (kept for parity with original imports)
     from api.domain.election.workers import _build_base_electorate  # type: ignore[attr-defined]
-    from api.engine.utils.simulation_ranked_utils import (
-        get_plurality_winner as _plur,
-        get_borda_winner     as _bord,
-        get_irv_winner       as _irv_,
-        get_schulze_winner   as _sch_,
-    )
     from api.engine.constants import DEFAULT_ISSUES as _DI
 
     cand_specs = data.get("candidates", [
@@ -917,6 +911,8 @@ def _manipulation_analysis_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
     ideology    = str(data.get("ideology",      "random"))
     seed        = int(data.get("seed",           42))
     method      = str(data.get("method",        "plurality"))
+    if err := reject_unknown_methods([method], MA_METHODS):
+        return err
     strategies  = data.get("manipulation_strategies",
                            ["compromising", "burying", "pushover", "truncating"])
 
@@ -962,14 +958,12 @@ def _manipulation_analysis_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
 
     # ── Election runner ───────────────────────────────────────────────────
     def _run(rnks: List[List[str]]) -> Optional[str]:
-        full = [r + [c for c in cand_names if c not in r] for r in rnks]
-        if method == "borda":
-            return _bord(full) or cand_names[0]
-        if method in ("irv", "two_round"):
-            return _irv_(full) or cand_names[0]
-        if method == "schulze":
-            return _sch_(full) or cand_names[0]
-        return _plur(full) or cand_names[0]
+        # Ballots go in as cast. They used to be padded back to full rankings
+        # in candidate-list order first, which undid the "truncating" strategy
+        # before IRV ever saw it. And an exact tie stays None: `or
+        # cand_names[0]` used to elect the first-listed candidate instead, so a
+        # tied sincere result became "manipulated" by any ballot that decided it.
+        return rule_winner(method, rnks)
 
     sincere_winner = _run(sincere_rankings)
 
@@ -997,7 +991,7 @@ def _manipulation_analysis_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
         return res
 
     def _truncating(sr: List[str]) -> List[tuple[Any, ...]]:
-        if method not in ("irv", "two_round", "approval"):
+        if method not in ("irv", "two_round"):
             return []
         return [(sr[:length], "truncating") for length in range(1, len(sr))]  # partial rankings
 
@@ -1012,7 +1006,9 @@ def _manipulation_analysis_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
     manipulators: List[Dict[str, Any]] = []
     strat_counts: Dict[str, int] = {s: 0 for s in strategies}
 
-    for v_idx, v in enumerate(voters):
+    # No sincere winner (an exact tie the rule cannot break): there is no
+    # outcome to manipulate away from.
+    for v_idx, v in enumerate(voters if sincere_winner is not None else []):
         vid    = v["id"]
         sr     = sincere_rankings[v_idx]
         u_sinc = sincere_utilities[vid].get(sincere_winner or "", 0)
@@ -1064,7 +1060,9 @@ def _manipulation_analysis_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
         f"G-S : avec {n_cands} candidats et '{method}', "
         f"{len(manipulators)}/{n_used} électeurs ont intérêt à manipuler. "
     )
-    if key_m:
+    if sincere_winner is None:
+        note += "Le vote sincère ne départage pas les candidats : rien à manipuler."
+    elif key_m:
         note += f"Meilleure stratégie : '{key_m['strategy']}' (gain {key_m['gain']:.3f})."
     else:
         note += "Aucune manipulation profitable sur ce profil."
@@ -1086,6 +1084,12 @@ def _manipulation_analysis_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
 
 import math as _math_t  # noqa: E402
 
+#: The decision rules /majority-tyranny models. An unknown name used to be
+#: resolved as simple majority -- and could then be named the best protector.
+MT_RULES = (
+    "simple_majority", "supermajority_2_3", "supermajority_3_4", "unanimous", "qv", "mj",
+)
+
 def _majority_tyranny_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     """Pure worker for /majority-tyranny — extracted for FastAPI v2."""
     num_voters:        int   = max(10, min(int(data.get("num_voters", 100)), 500))
@@ -1093,10 +1097,9 @@ def _majority_tyranny_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
     minority_intensity: float = max(1.0, min(float(data.get("minority_intensity", 3.0)), 10.0))
     num_decisions:     int   = max(10, min(int(data.get("num_decisions", 50)), 200))
     seed:              int   = int(data.get("seed", 42))
-    rules: List[str]         = data.get("decision_rules") or [
-        "simple_majority", "supermajority_2_3", "supermajority_3_4",
-        "unanimous", "qv", "mj",
-    ]
+    rules: List[str]         = data.get("decision_rules") or list(MT_RULES)
+    if err := reject_unknown_methods(rules, MT_RULES):
+        return err
 
     _rnd.Random(seed)
 
