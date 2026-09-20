@@ -25,7 +25,7 @@ const MOCK_ROBUST: object = {
   winner_by_method: { plurality: 'Alice', borda: 'Alice', irv: 'Alice' },
   winner_by_agenda: { 'Alice → Bob → Carol': 'Alice', 'Bob → Alice → Carol': 'Alice' },
   rousseau_score: 1.0,
-  most_frequent_winner: 'Alice',
+  most_frequent_winner: ['Alice'],
   most_frequent_pct: 1.0,
   condorcet_exists: true,
   condorcet_winner: 'Alice',
@@ -39,7 +39,7 @@ const MOCK_FRAGILE: object = {
   winner_by_method: { plurality: 'Alice', borda: 'Bob', irv: 'Carol' },
   winner_by_agenda: { 'Alice → Bob → Carol': 'Alice', 'Bob → Carol → Alice': 'Bob' },
   rousseau_score: 0.333,
-  most_frequent_winner: 'Alice',
+  most_frequent_winner: ['Alice'],
   most_frequent_pct: 0.4,
   condorcet_exists: false,
   condorcet_winner: null,
@@ -108,6 +108,19 @@ describe('CollectiveWillPanel', () => {
     await renderAndRun(MOCK_ROBUST);
     expect(screen.getByTestId('willometer-section')).toBeInTheDocument();
     expect(screen.getByTestId('will-o-meter')).toBeInTheDocument();
+  });
+
+  it('marks every winner tied for most procedures', async () => {
+    const tied = {
+      ...(MOCK_ROBUST as Record<string, unknown>),
+      unique_winners: ['Alice', 'Bob'],
+      unique_winner_count: 2,
+      most_frequent_winner: ['Alice', 'Bob'],
+      most_frequent_pct: 0.5,
+    };
+    await renderAndRun(tied);
+    // Both chips carry the share, not just whichever the backend listed first.
+    expect(screen.getAllByText(/50%/).length).toBeGreaterThanOrEqual(2);
   });
 
   it('renders condorcet badge', async () => {

@@ -17,7 +17,8 @@ interface CollectiveWillData {
   winner_by_method: Record<string, string>;
   winner_by_agenda: Record<string, string>;
   rousseau_score: number;
-  most_frequent_winner: string;
+  /** Every winner tied for most procedures won. */
+  most_frequent_winner: string[];
   most_frequent_pct: number;
   condorcet_exists: boolean;
   condorcet_winner: string | null;
@@ -390,7 +391,7 @@ const CollectiveWillPanel: React.FC<CollectiveWillLabProps> = ({
                 style={{ background: candColor(w, i), fontSize: '0.72rem' }}
               >
                 {w}
-                {w === data.most_frequent_winner && (
+                {data.most_frequent_winner.includes(w) && (
                   <span className="ms-1">({Math.round(data.most_frequent_pct * 100)}%)</span>
                 )}
               </Badge>

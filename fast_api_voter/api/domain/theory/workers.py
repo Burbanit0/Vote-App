@@ -10,7 +10,7 @@ import random as _rnd
 from operator import itemgetter
 from typing import Any, Callable, Dict, List, Optional
 
-from api.domain.election._helpers import reject_unknown_methods
+from api.domain.election._helpers import modal_keys, prose_list, reject_unknown_methods
 from api.engine.utils.method_registry import rule_winner
 from api.engine.utils.simulation_ranked_utils import (
     get_approval_winner,
@@ -2360,12 +2360,17 @@ def _assumption_testing_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], in
         # Statistics across trials
         from collections import Counter as _Ctr
         winner_counts = _Ctr(trial_winners)
-        most_common   = winner_counts.most_common(1)[0][0]
         n_t           = len(trial_winners)
+        # Every candidate tied for most trials won. `most_common(1)` returned
+        # whichever won the FIRST trial, and at 20 voters with 2 candidates a
+        # 15-15 split is ordinary: seed 10 below reported this scenario fragile
+        # because that coin flip landed on the candidate the baseline did not pick.
+        leaders = modal_keys(winner_counts)
 
         # Fraction of trials where winner differs from baseline
         pct_changed = sum(1 for w in trial_winners if w != baseline_winner) / n_t
-        winner_changed = most_common != baseline_winner
+        # A tie the baseline still leads has not changed the winner.
+        winner_changed = baseline_winner not in leaders
 
         # Variance proxy: entropy of winner distribution
         probs      = [cnt / n_t for cnt in winner_counts.values()]
@@ -2373,13 +2378,13 @@ def _assumption_testing_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], in
         max_ent    = _math_t.log2(n_cands)
         result_var = round(entropy / max_ent if max_ent > 0 else 0.0, 4)
 
-        # 95% CI for the leading candidate's win rate
-        p_lead = winner_counts[most_common] / n_t
+        # 95% CI for the leading win rate — the count, so tied leaders share it.
+        p_lead = max(winner_counts.values(), default=0) / n_t
         margin = 1.96 * _math_t.sqrt(p_lead * (1 - p_lead) / max(n_t, 1))
         ci     = (round(max(0, p_lead - margin), 4), round(min(1, p_lead + margin), 4))
 
         relaxed_results[assumption] = {
-            "winner":              most_common,
+            "winner":              leaders,
             "winner_changed":      winner_changed,
             "pct_trials_changed":  round(pct_changed, 4),
             "result_variance":     result_var,
@@ -2632,8 +2637,11 @@ def _collective_will_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     unique_winners = list(winner_counts.keys())
     n_unique       = len(unique_winners)
 
-    most_frequent        = winner_counts.most_common(1)[0][0]
-    most_frequent_pct    = winner_counts[most_frequent] / len(all_results)
+    # Every winner tied for most procedures won. The default run aggregates only
+    # ~9 procedures, so a 4-4 split is routine, and `most_common(1)` named
+    # whichever came first in the method list.
+    most_frequent        = modal_keys(winner_counts)
+    most_frequent_pct    = max(winner_counts.values(), default=0) / len(all_results)
     rousseau_score       = round(1 / n_unique, 4) if n_unique > 0 else 1.0
     # get_black_winner computes this internally too; once is enough.
     condorcet_w          = get_condorcet_winner(sincere_rankings)
@@ -2648,7 +2656,7 @@ def _collective_will_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         )
     elif n_unique == 1:
         philos = (
-            f"'{most_frequent}' domine toutes les procédures testées (sans vainqueur "
+            f"'{most_frequent[0]}' domine toutes les procédures testées (sans vainqueur "
             f"de Condorcet). Schumpeter dirait : la procédure est consensuelle ici, "
             f"mais ce n'est pas universel."
         )
@@ -2659,10 +2667,13 @@ def _collective_will_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             f"instable — Arrow a probablement raison pour ce scénario."
         )
     else:
+        # Several winners can tie for most-frequent, so the verb agrees with the set.
+        quoted = prose_list([f"'{w}'" for w in most_frequent])
+        gagne  = "gagne" if len(most_frequent) == 1 else "gagnent"
         philos = (
             f"{n_unique} vainqueurs différents — Schumpeter (1942) avait raison : "
             f"le résultat est un artefact procédural. "
-            f"'{most_frequent}' gagne le plus souvent ({round(most_frequent_pct*100)}%), "
+            f"{quoted} {gagne} le plus souvent ({round(most_frequent_pct*100)}%), "
             f"mais changer la méthode change le vainqueur."
         )
 
