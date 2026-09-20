@@ -1015,7 +1015,27 @@ measured from fe4bad5a). **The all-zero set does not qualify: E1 holds, E2 and E
   21.8% of acts. E3's failure follows from that: a polity this unstable holds no full terms to read
   enthusiasm over.
 - **Cost.** 10 runs in 208 minutes: 3.47 GPU-hours against the 3 estimated. Stage 4 so far: 23.9 of
-  the 70-hour cap. Level 0.25 is 40 runs, about 14 hours more.
+  the 70-hour cap.
+
+*Result of step 5's second level, 2026-09-20* (`scripts/stage4_llm_emotions_results.md`, recorded and
+measured from fe4bad5a). **Level 0.25 holds one qualifying set: `awakening_anxiety` 0.25 alone.
+Selection stops here; nothing above weight 0.25 is run.**
+
+- **All three facts hold, on `awakening_anxiety` alone.** 981 mobilizations in the angriest third of
+  ticks against 510 in the calmest (E1); 3,654 pressure acts in the most anxious third against 3,438
+  in the least (E2); enthusiasm declined over the one full term the ten runs held (E3).
+- **The other three settings at this level fail.** Anger alone raises mobilization further (1,182 vs
+  602) but still holds no full term to read E3 on. Anxiety without weight and enthusiasm alone both
+  fail E2 and E3, close to the zero set's own readings.
+- **E3's pass is thin, the same caution as the turnout-cost adoption.** It rests on exactly one full
+  term, seed 10's presidency from tick 16 to the run's end at tick 32 — the mildest of the ten seeds
+  (4 elections, 1 recall) rather than a typical one. A different seed set could easily hold zero full
+  terms at this setting too, as three of the four settings here did.
+- **Cost.** 40 runs in 833.5 minutes: 13.89 GPU-hours against the ~14 estimated. Stage 4 total: 37.8
+  of the 70-hour cap.
+
+Writing the selection into a config is a separate decision, not made here, given how thin E3's pass
+is.
 
 #### S4.3, emotions
 
