@@ -29,7 +29,7 @@ from api.engine.utils.simulation_multiwinner_utils import (
     get_equal_shares_result, check_justified_representation,
 )
 from ._electorate import _build_electorate_from_seed
-from ._helpers import dhondt as _dhondt, prose_list, tied_extremes
+from ._helpers import dhondt as _dhondt, modal_keys, prose_list, tied_extremes
 
 log = get_logger(__name__)
 
@@ -1048,15 +1048,20 @@ def _gerrymander_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     ]
     distortion = round(sum(distortion_vals) / max(len(distortion_vals), 1), 4)
 
-    # Gerrymander index: how far from proportional is the leading party?
-    leading         = max(parliament_gerry, key=lambda k: parliament_gerry[k])
-    gerry_seat_pct  = parliament_gerry.get(leading, 0) / max(num_total_seats, 1)
-    gerry_vote_pct  = national_shares.get(leading, 0)
-    # Normalise to [0, 1]: 0 = seat% == vote%, 1 = seat% >> vote%
-    gerrymander_index = round(
-        max(0.0, min(1.0, (gerry_seat_pct - gerry_vote_pct) / max(gerry_vote_pct, 0.01))),
-        4,
-    )
+    # Gerrymander index: how far from proportional is the leading party? With
+    # parties tied on seats there is no single leading party and so no index --
+    # it used to be computed for whichever was listed first, whose own vote share
+    # then set the number, so reordering the array moved the headline metric.
+    leading = modal_keys(parliament_gerry)
+    gerrymander_index: Optional[float] = None
+    if len(leading) == 1:
+        gerry_seat_pct = parliament_gerry.get(leading[0], 0) / max(num_total_seats, 1)
+        gerry_vote_pct = national_shares.get(leading[0], 0)
+        # Normalise to [0, 1]: 0 = seat% == vote%, 1 = seat% >> vote%
+        gerrymander_index = round(
+            max(0.0, min(1.0, (gerry_seat_pct - gerry_vote_pct) / max(gerry_vote_pct, 0.01))),
+            4,
+        )
 
     # Voter snapshot for the map (capped at 500 for performance)
     snap_voters = [

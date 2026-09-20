@@ -15,7 +15,7 @@ const { apiClient } = (await import('../../../../api/client')) as unknown as {
 
 // ── Fixture ───────────────────────────────────────────────────────────────────
 
-function makeData(gerryIndex = 0.6) {
+function makeData(gerryIndex: number | null = 0.6) {
   return {
     data: {
       districts: [
@@ -32,7 +32,7 @@ function makeData(gerryIndex = 0.6) {
       national_vote_share: { Alice: 0.55, Bob: 0.45 },
       distortion: 0.25,
       gerrymander_index: gerryIndex,
-      winner: 'Alice',
+      winner: ['Alice'],
       candidates: ['Alice', 'Bob'],
       num_seats: 2,
     },
@@ -174,6 +174,23 @@ describe('GerrymanderMap', () => {
     await waitFor(() => expect(screen.getByTestId('gerrymander-alert')).toBeInTheDocument());
     const alert = screen.getByTestId('gerrymander-alert');
     expect(alert.className).toContain('bg-green-100');
+    vi.runAllTimers();
+  });
+
+  it('reports no index and no leader when parties tie on seats', async () => {
+    const tied = makeData(0.6);
+    tied.data.parliament_gerrymander = { Alice: 1, Bob: 1 };
+    tied.data.winner = ['Alice', 'Bob'];
+    tied.data.gerrymander_index = null;
+    apiClient.POST.mockResolvedValue(tied);
+    renderMap();
+    fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
+    await waitFor(() => expect(screen.getByTestId('gerrymander-alert')).toBeInTheDocument());
+    expect(screen.getByTestId('gerrymander-alert')).toHaveTextContent(
+      /No party leads on seats|Aucun parti ne domine/
+    );
+    // No gauge without an index to draw.
+    expect(screen.queryByTestId('gerry-index-bar')).not.toBeInTheDocument();
     vi.runAllTimers();
   });
 

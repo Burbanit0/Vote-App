@@ -27,17 +27,25 @@ const makeData = (numDistricts = 10) => ({
     national_vote_share: { Alice: 0.55, Bob: 0.31, Carol: 0.14 },
     distortion: 0.14,
     condorcet_winner_national: 'Alice',
-    fptp_winner: 'Alice',
-    proportional_winner: 'Alice',
+    fptp_winner: ['Alice'],
+    proportional_winner: ['Alice'],
   },
   error: undefined,
 });
 
 const makeDivergentData = () => {
   const d = makeData(10);
-  d.data.fptp_winner = 'Alice';
-  d.data.proportional_winner = 'Bob';
+  d.data.fptp_winner = ['Alice'];
+  d.data.proportional_winner = ['Bob'];
   d.data.distortion = 0.22;
+  return d;
+};
+
+/** PR did not separate the parties: neither divergence nor consensus holds. */
+const makeUndecidedData = () => {
+  const d = makeData(10);
+  d.data.fptp_winner = ['Bob'];
+  d.data.proportional_winner = ['Alice', 'Bob'];
   return d;
 };
 
@@ -100,6 +108,21 @@ describe('DistrictMap', () => {
     vi.runAllTimers();
     const rects = container.querySelectorAll('[data-testid="district-grid"] rect');
     expect(rects.length).toBe(10);
+  });
+
+  it('claims no divergence when PR does not separate the parties', async () => {
+    apiClient.POST.mockResolvedValue(makeUndecidedData());
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: /district/i }));
+    await waitFor(() => {
+      // The tie note, not "same voters, different parliament".
+      expect(
+        screen.getByText(/does not separate the parties|ne départage pas/i)
+      ).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/different parliament|autre parlement/i)).not.toBeInTheDocument();
+    expect(screen.getAllByText(/Alice, Bob/).length).toBeGreaterThan(0);
+    vi.runAllTimers();
   });
 
   it('shows FPTP winner badge', async () => {
