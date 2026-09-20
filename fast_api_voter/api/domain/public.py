@@ -125,6 +125,37 @@ def _build_simple_population(
     return voters, candidates, issues
 
 
+#: strategic_vulnerability re-tallies every ranked rule against up to 100
+#: manipulated permutations for each of 15 sampled voters -- ~33,000 full
+#: election re-runs, each over the WHOLE electorate, so its cost scales
+#: linearly with num_voters. Measured directly against this worker (no
+#: contention): at the base num_voters cap (2000) and 8 candidates it took
+#: ~187-191s, already past WORKER_TIMEOUT_SECONDS (180s, api/core/
+#: worker_dispatch.py) with zero contention -- CI's slower, shared, parallel
+#: reality would only make that worse. At this lower cap and 8 candidates it
+#: measured ~48s, leaving real margin. Applies only when a caller opts into
+#: compute_strategic; the base 2000 cap is unaffected for everyone else.
+_STRATEGIC_NUM_VOTERS_CAP = 500
+
+
+def _num_voters_cap(compute_strategic: bool) -> int:
+    return _STRATEGIC_NUM_VOTERS_CAP if compute_strategic else 2000
+
+
+def _parse_common_params(data: dict[str, Any]) -> tuple[bool, int, int, str, Any]:
+    """The 5 request fields `_simulate_worker` and `_compare_worker` both
+    parse and clamp identically. Raises TypeError/ValueError on bad input
+    (same as calling `int()`/`str()` directly) -- callers wrap this in their
+    own try/except so each keeps its own error message."""
+    compute_strategic = bool(data.get("compute_strategic", False))
+    num_candidates = max(2, min(8, int(data.get("num_candidates", 4))))
+    num_voters     = max(50, min(_num_voters_cap(compute_strategic),
+                                  int(data.get("num_voters", 500))))
+    ideology       = str(data.get("ideology_distribution", "random"))
+    methods_req    = data.get("methods", "all")
+    return compute_strategic, num_candidates, num_voters, ideology, methods_req
+
+
 # ── Pure-compute workers (shared by Flask + the FastAPI /api/v1 router) ─────────
 #
 # Phase 4.5.a.4: the request-handling logic lives in these framework-agnostic
@@ -152,23 +183,19 @@ def _simulate_worker(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """
     Run a multi-method simulation on a synthetic population.
 
-    `num_candidates` / `num_voters` are clamped silently (2–8 / 50–2000) so an
-    out-of-range value returns 200 with a capped run, not an error.
-    Returns (body, status_code).
+    `num_candidates` / `num_voters` are clamped silently (2–8 / 50–2000, or
+    50–`_STRATEGIC_NUM_VOTERS_CAP` when `compute_strategic` is set — see that
+    constant) so an out-of-range value returns 200 with a capped run, not an
+    error. Returns (body, status_code).
     """
     try:
-        num_candidates = max(2, min(8,    int(data.get("num_candidates", 4))))
-        num_voters     = max(50, min(2000, int(data.get("num_voters", 500))))
-        ideology       = str(data.get("ideology_distribution", "random"))
-        methods_req    = data.get("methods", "all")
+        compute_strategic, num_candidates, num_voters, ideology, methods_req = _parse_common_params(data)
     except (TypeError, ValueError) as exc:
         return {"error": f"Invalid parameter: {exc}"}, 400
 
     try:
         voters, candidates, issues = _build_simple_population(num_voters, num_candidates, ideology)
-        # v1 publishes strategic_vulnerability in its response envelope
-        # (see this module's OPENAPI_SPEC example), so it opts in.
-        result = compare_all_methods(voters, candidates, issues, compute_strategic=True)
+        result = compare_all_methods(voters, candidates, issues, compute_strategic=compute_strategic)
     except Exception as exc:
         return log_and_error_response(
             log, "public.simulate.failed", {"error": f"Simulation failed: {exc}"},
@@ -188,11 +215,8 @@ def _compare_worker(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     from api.engine.utils.blank_vote_rules import BlankVoteRule, apply_blank_rule
 
     try:
-        num_candidates = max(2, min(8,    int(data.get("num_candidates", 4))))
-        num_voters     = max(50, min(2000, int(data.get("num_voters", 500))))
-        ideology       = str(data.get("ideology_distribution", "random"))
+        compute_strategic, num_candidates, num_voters, ideology, methods_req = _parse_common_params(data)
         blank_rule_str = data.get("blank_rule", "")
-        methods_req    = data.get("methods", "all")
     except (TypeError, ValueError) as exc:
         return {"error": f"Invalid parameter: {exc}"}, 400
 
@@ -210,7 +234,7 @@ def _compare_worker(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     try:
         voters, candidates, issues = _build_simple_population(num_voters, num_candidates, ideology)
         result = compare_all_methods(
-            voters, candidates, issues, blank_vote=blank_vote, compute_strategic=True,
+            voters, candidates, issues, blank_vote=blank_vote, compute_strategic=compute_strategic,
         )
     except Exception as exc:
         return log_and_error_response(
@@ -338,9 +362,10 @@ OPENAPI_SPEC: dict[str, Any] = {
                                 "type": "object",
                                 "properties": {
                                     "num_candidates":         {"type": "integer", "minimum": 2, "maximum": 8,    "default": 4, "example": 4},
-                                    "num_voters":             {"type": "integer", "minimum": 50, "maximum": 2000, "default": 500, "example": 500},
+                                    "num_voters":             {"type": "integer", "minimum": 50, "maximum": 2000, "default": 500, "example": 500, "description": "Capped at 500 instead of 2000 when compute_strategic is true (see that field)."},
                                     "methods":                {"oneOf": [{"type": "string", "enum": ["all"]}, {"type": "array", "items": {"type": "string"}}], "default": "all"},
                                     "ideology_distribution":  {"type": "string", "enum": ["random", "centrist", "polarized", "left_skewed", "right_skewed"], "default": "random"},
+                                    "compute_strategic":      {"type": "boolean", "default": False, "description": "Adds strategic_vulnerability per method. Off by default: it re-tallies every ranked rule per sampled voter per manipulated permutation (~33,000 full re-runs at 8 candidates), expensive enough to lower the num_voters cap to 500 when set."},
                                 }
                             },
                             "example": {"num_candidates": 4, "num_voters": 500, "methods": ["plurality", "borda", "schulze"]},
@@ -355,8 +380,8 @@ OPENAPI_SPEC: dict[str, Any] = {
                                 "example": {
                                     "condorcet_winner": "Alice",
                                     "methods": {
-                                        "plurality": {"winner": "Alice", "bayesian_regret": 0.1234, "majority_satisfaction": 0.72, "condorcet_consistent": True, "strategic_vulnerability": 0.28},
-                                        "borda":     {"winner": "Bob",   "bayesian_regret": 0.0876, "majority_satisfaction": 0.81, "condorcet_consistent": False, "strategic_vulnerability": 0.19},
+                                        "plurality": {"winner": "Alice", "bayesian_regret": 0.1234, "majority_satisfaction": 0.72, "condorcet_consistent": True, "strategic_vulnerability": None},
+                                        "borda":     {"winner": "Bob",   "bayesian_regret": 0.0876, "majority_satisfaction": 0.81, "condorcet_consistent": False, "strategic_vulnerability": None},
                                     },
                                 }
                             }
@@ -382,10 +407,11 @@ OPENAPI_SPEC: dict[str, Any] = {
                                 "type": "object",
                                 "properties": {
                                     "num_candidates":        {"type": "integer", "minimum": 2, "maximum": 8, "default": 4},
-                                    "num_voters":            {"type": "integer", "minimum": 50, "maximum": 2000, "default": 500},
+                                    "num_voters":            {"type": "integer", "minimum": 50, "maximum": 2000, "default": 500, "description": "Capped at 500 instead of 2000 when compute_strategic is true (see that field)."},
                                     "blank_rule":            {"type": "string", "enum": ["symbolic", "competitive", "threshold_30", "majority_required"], "description": "Leave empty to disable blank vote"},
                                     "methods":               {"oneOf": [{"type": "string", "enum": ["all"]}, {"type": "array", "items": {"type": "string"}}], "default": "all"},
                                     "ideology_distribution": {"type": "string", "default": "random"},
+                                    "compute_strategic":     {"type": "boolean", "default": False, "description": "Adds strategic_vulnerability per method. Off by default -- see /simulate's field of the same name."},
                                 }
                             },
                             "example": {"num_candidates": 3, "num_voters": 800, "blank_rule": "threshold_30", "methods": "all"},
