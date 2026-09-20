@@ -17,6 +17,7 @@ import { $api } from '../../../api/hooks';
 import { hemicyclePath, hemicycleSegments } from '@/lib/hemicycleGeometry';
 import HemicycleLegend from './HemicycleLegend';
 import { colorByName, LAB_PALETTE } from '@/lib/palette';
+import { listNames } from '@/lib/listNames';
 
 // ── Grid constants ────────────────────────────────────────────────────────────
 
@@ -60,8 +61,10 @@ interface GerryData {
   parliament_proportional: Record<string, number>;
   national_vote_share: Record<string, number>;
   distortion: number;
-  gerrymander_index: number;
-  winner: string;
+  /** Null when parties tie on seats: no single leading party to measure. */
+  gerrymander_index: number | null;
+  /** Every party tied on seats. */
+  winner: string[];
   candidates: string[];
   num_seats: number;
 }
@@ -189,6 +192,26 @@ function makeDefaultGrid(): number[][] {
   );
 }
 
+/** The colour-graded fill bar inside the gerrymander-index gauge. Named
+ * statements instead of one inline multi-line style object, so each threshold
+ * gets its own testable line. */
+const GerryIndexBar: React.FC<{ index: number }> = ({ index }) => {
+  const width = `${index * 100}%`;
+  const color = index > 0.5 ? '#dc3545' : index > 0.2 ? '#f0c040' : '#007A33';
+  return (
+    <div
+      style={{
+        width,
+        height: '100%',
+        background: color,
+        borderRadius: 6,
+        transition: 'width 0.5s ease',
+      }}
+      data-testid="gerry-index-bar"
+    />
+  );
+};
+
 const GerrymanderMap: React.FC = () => {
   const { t } = useTranslation();
   const { config } = useElection();
@@ -261,11 +284,29 @@ const GerrymanderMap: React.FC = () => {
     });
   }
 
-  const winnerPct = data
-    ? Math.round(((data.parliament_gerrymander[data.winner] ?? 0) / data.num_seats) * 100)
-    : 0;
-  const winnerVote = data ? Math.round((data.national_vote_share[data.winner] ?? 0) * 100) : 0;
-  const isGerry = data && data.gerrymander_index > 0.2;
+  // One leading party or none: with a seat tie there is no party whose seat
+  // share can be compared with its vote share, so the index is null.
+  const leader = data?.winner.length === 1 ? data.winner[0] : null;
+  const index = data?.gerrymander_index ?? null;
+  const leaderSeats = leader ? (data!.parliament_gerrymander[leader] ?? 0) : 0;
+  const winnerPct = leader ? Math.round((leaderSeats / data!.num_seats) * 100) : 0;
+  const winnerVote = leader ? Math.round((data!.national_vote_share[leader] ?? 0) * 100) : 0;
+  const isGerry = index !== null && index > 0.2;
+
+  const gerrymanderMessage = (): string => {
+    if (index === null || leader === null) {
+      return t('gerrymander.pedagogicalTie', { tied: listNames(data?.winner ?? []) });
+    }
+    if (isGerry) {
+      return t('gerrymander.pedagogicalGerry', {
+        winner: leader,
+        seatPct: winnerPct,
+        votePct: winnerVote,
+        index: Math.round(index * 100),
+      });
+    }
+    return t('gerrymander.pedagogicalFair', { winner: leader });
+  };
 
   return (
     <div>
@@ -422,45 +463,26 @@ const GerrymanderMap: React.FC = () => {
               style={{ fontSize: '0.82rem' }}
               data-testid="gerrymander-alert"
             >
-              {isGerry
-                ? t('gerrymander.pedagogicalGerry', {
-                    winner: data.winner,
-                    seatPct: winnerPct,
-                    votePct: winnerVote,
-                    index: Math.round(data.gerrymander_index * 100),
-                  })
-                : t('gerrymander.pedagogicalFair', { winner: data.winner })}
+              {gerrymanderMessage()}
             </Alert>
 
-            {/* Gerrymander index gauge */}
-            <div className="mb-3">
-              <div className="flex justify-between mb-1" style={{ fontSize: '0.75rem' }}>
-                <span>{t('gerrymander.neutral')}</span>
-                <strong>
-                  {t('gerrymander.index')}: {Math.round(data.gerrymander_index * 100)}%
-                </strong>
-                <span>{t('gerrymander.perfect')}</span>
-              </div>
-              <div
-                style={{ height: 12, background: '#e9ecef', borderRadius: 6, overflow: 'hidden' }}
-              >
+            {/* Gerrymander index gauge — only when one party leads */}
+            {index !== null && (
+              <div className="mb-3">
+                <div className="flex justify-between mb-1" style={{ fontSize: '0.75rem' }}>
+                  <span>{t('gerrymander.neutral')}</span>
+                  <strong>
+                    {t('gerrymander.index')}: {Math.round(index * 100)}%
+                  </strong>
+                  <span>{t('gerrymander.perfect')}</span>
+                </div>
                 <div
-                  style={{
-                    width: `${data.gerrymander_index * 100}%`,
-                    height: '100%',
-                    background:
-                      data.gerrymander_index > 0.5
-                        ? '#dc3545'
-                        : data.gerrymander_index > 0.2
-                          ? '#f0c040'
-                          : '#007A33',
-                    borderRadius: 6,
-                    transition: 'width 0.5s ease',
-                  }}
-                  data-testid="gerry-index-bar"
-                />
+                  style={{ height: 12, background: '#e9ecef', borderRadius: 6, overflow: 'hidden' }}
+                >
+                  <GerryIndexBar index={index} />
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Dual hémicycles */}
             <Row className="g-2 mb-3">

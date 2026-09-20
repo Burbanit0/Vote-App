@@ -946,6 +946,8 @@ const fr = {
     distortion: 'Distorsion',
     pedagogicalGerry:
       '⚠ Avec ce découpage, {{winner}} remporte {{seatPct}}% des sièges avec seulement {{votePct}}% des voix (indice de gerrymandering : {{index}}%).',
+    pedagogicalTie:
+      "Aucun parti ne domine en sièges ({{tied}} à égalité) : il n'y a pas de parti dont comparer la part de sièges à sa part de voix.",
     pedagogicalFair:
       '✓ Ce découpage est proche du proportionnel — {{winner}} obtient des sièges reflétant son poids électoral réel.',
   },
@@ -1224,6 +1226,8 @@ const fr = {
       'Au scrutin uninominal majoritaire, {{fptpWinner}} remporte {{fptpSeatPct}}% des sièges avec seulement {{fptpVotePct}}% des voix. En proportionnel, {{proportionalWinner}} aurait la majorité relative. Même électorat, autre parlement.',
     pedagogicalConsensus:
       '{{winner}} remporte à la fois les sièges FPTP et la majorité proportionnelle — les deux modes de scrutin convergent dans ce scénario.',
+    pedagogicalTie:
+      'Un des deux modes de scrutin ne départage pas les partis ({{tied}} à égalité de sièges) : impossible de dire si les deux parlements divergent.',
   },
 
   delib: {

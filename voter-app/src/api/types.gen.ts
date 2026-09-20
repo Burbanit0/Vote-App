@@ -3513,7 +3513,7 @@ export interface components {
             /** Districts */
             districts: components["schemas"]["DistrictResult"][];
             /** Fptp Winner */
-            fptp_winner: string;
+            fptp_winner: string[];
             /** National Vote Share */
             national_vote_share: {
                 [key: string]: number;
@@ -3529,7 +3529,7 @@ export interface components {
                 [key: string]: number;
             };
             /** Proportional Winner */
-            proportional_winner: string;
+            proportional_winner: string[];
         } & {
             [key: string]: unknown;
         };
@@ -3849,7 +3849,7 @@ export interface components {
                 [key: string]: unknown;
             }[];
             /** Gerrymander Index */
-            gerrymander_index: number;
+            gerrymander_index?: number | null;
             /** National Vote Share */
             national_vote_share: {
                 [key: string]: unknown;
@@ -3869,7 +3869,7 @@ export interface components {
                 [key: string]: unknown;
             }[];
             /** Winner */
-            winner?: string | null;
+            winner?: string[];
         } & {
             [key: string]: unknown;
         };

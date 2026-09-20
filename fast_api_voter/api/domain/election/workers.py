@@ -35,6 +35,7 @@ from ._helpers import (
     inter_method_agreement        as _inter_method_agreement,
     dhondt                        as _dhondt,
     parse_optional_election_configs as _parse_optional_election_configs,
+    modal_keys,
     reject_unknown_methods        as _reject_unknown_methods,
     tied_extremes,
 )
@@ -1217,8 +1218,13 @@ def _districts_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     ]
     distortion = round(sum(distortion_vals) / max(len(distortion_vals), 1), 4)
 
-    fptp_winner         = max(parliament_fptp,         key=lambda k: parliament_fptp[k])
-    proportional_winner = max(parliament_proportional, key=lambda k: parliament_proportional[k])
+    # Every party tied on seats, not the first-listed one. The client compares the
+    # two lists to claim "same electorate, different parliament", and a tie on
+    # either side used to make that claim out of two arbitrary picks: at seed 3
+    # with candidates at -0.4 / -0.38, FPTP gave Bob 4-2 while PR tied 3-3 and
+    # reported Alice.
+    fptp_winner         = modal_keys(parliament_fptp)
+    proportional_winner = modal_keys(parliament_proportional)
 
     return {
         "districts":              district_results,

@@ -4392,8 +4392,11 @@
             "type": "array"
           },
           "fptp_winner": {
+            "items": {
+              "type": "string"
+            },
             "title": "Fptp Winner",
-            "type": "string"
+            "type": "array"
           },
           "national_vote_share": {
             "additionalProperties": {
@@ -4421,8 +4424,11 @@
             "type": "object"
           },
           "proportional_winner": {
+            "items": {
+              "type": "string"
+            },
             "title": "Proportional Winner",
-            "type": "string"
+            "type": "array"
           }
         },
         "required": [
@@ -5034,8 +5040,15 @@
             "type": "array"
           },
           "gerrymander_index": {
-            "title": "Gerrymander Index",
-            "type": "number"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gerrymander Index"
           },
           "national_vote_share": {
             "additionalProperties": true,
@@ -5065,15 +5078,11 @@
             "type": "array"
           },
           "winner": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Winner"
+            "items": {
+              "type": "string"
+            },
+            "title": "Winner",
+            "type": "array"
           }
         },
         "required": [
@@ -5083,7 +5092,6 @@
           "parliament_proportional",
           "national_vote_share",
           "distortion",
-          "gerrymander_index",
           "candidates",
           "num_seats"
         ],
