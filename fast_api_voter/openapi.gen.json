@@ -10148,6 +10148,13 @@
           },
           "method": {
             "default": "plurality",
+            "enum": [
+              "plurality",
+              "borda",
+              "irv",
+              "schulze",
+              "approval"
+            ],
             "title": "Method",
             "type": "string"
           },

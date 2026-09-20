@@ -13,7 +13,7 @@ when the routes themselves move to FastAPI.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union, cast
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -21,9 +21,10 @@ from .common import (
     BlankVoteConfig,
     CampaignConfig,
     CandidateSnapshot,
-    CandidateSpec,
     InformationModelConfig,
     MethodResult,
+    UniqueCandidates,
+    reject_duplicate_names,
     VoterSnapshot,
 )
 
@@ -183,12 +184,7 @@ def _reject_duplicate_names(parties: List[AssemblyPartySpec]) -> List[AssemblyPa
     crashes on `max()` of an empty dict (found by Schemathesis, Lot 3).
     Rejecting the duplicate at the boundary is simpler and safer than making
     every downstream dict keyed by name tolerate collisions."""
-    seen = set()
-    for p in parties:
-        if p.name in seen:
-            raise ValueError(f"Duplicate party name: {p.name!r}")
-        seen.add(p.name)
-    return parties
+    return cast(List[AssemblyPartySpec], reject_duplicate_names(list(parties), "party"))
 
 
 class AssemblyRequest(BaseModel):
@@ -470,7 +466,7 @@ class SimulateRequest(BaseModel):
     """POST /api/election/simulate — full pipeline run."""
     model_config = ConfigDict(extra="forbid")
 
-    candidates: List[CandidateSpec] = Field(
+    candidates: UniqueCandidates = Field(
         ...,
         min_length=2,
         max_length=8,
@@ -507,7 +503,7 @@ class CombinedEffectsRequest(BaseModel):
     """Same shape as SimulateRequest but with a tighter num_voters cap (2³=8 simulations)."""
     model_config = ConfigDict(extra="forbid")
 
-    candidates: List[CandidateSpec] = Field(..., min_length=2, max_length=8)
+    candidates: UniqueCandidates = Field(..., min_length=2, max_length=8)
     num_voters: int = Field(150, ge=10, le=200)
     ideology:   str = Field("random")
     seed:       int = Field(42, ge=0)
@@ -555,7 +551,7 @@ _DEFAULT_SNAPSHOT_DAYS: List[Union[int, Literal["final"]]] = [0, 7, 14, 21, 28, 
 class CampaignSensitivityRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    candidates: List[CandidateSpec] = Field(..., min_length=2, max_length=8)
+    candidates: UniqueCandidates = Field(..., min_length=2, max_length=8)
     num_voters: int = Field(150, ge=10, le=200)
     ideology:   str = Field("random")
     seed:       int = Field(42, ge=0)
@@ -598,7 +594,7 @@ class CampaignSensitivityResponse(BaseModel):
 class AbstentionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    candidates: List[CandidateSpec] = Field(..., min_length=2, max_length=8)
+    candidates: UniqueCandidates = Field(..., min_length=2, max_length=8)
     num_voters: int   = Field(200, ge=10, le=1000)
     ideology:   str   = Field("random")
     seed:       int   = Field(42, ge=0)
@@ -649,7 +645,7 @@ class CoalitionRequest(BaseModel):
     """Per-method D'Hondt seat allocation + greedy coalition formation."""
     model_config = ConfigDict(extra="forbid")
 
-    candidates:           List[CandidateSpec] = Field(..., min_length=2, max_length=8)
+    candidates:           UniqueCandidates = Field(..., min_length=2, max_length=8)
     num_voters:           int   = Field(300, ge=10, le=1000)
     ideology:             str   = Field("random")
     seed:                 int   = Field(42, ge=0)
