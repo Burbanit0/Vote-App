@@ -108,6 +108,22 @@ def tied_extremes(values: Mapping[str, float]) -> tuple[List[str], List[str]]:
     )
 
 
+def modal_keys(counts: Mapping[str, int]) -> List[str]:
+    """Every key tied for the highest count, sorted; empty only for an empty
+    tally.
+
+    For "who won the most trials / runs / simulations", where `tied_extremes` is
+    the wrong tool: it collapses "all values equal" to empty, which is right for a
+    per-method score (nothing stands out) but wrong for a winner distribution,
+    where two candidates on 15 trials each are both leaders and the baseline being
+    one of them is exactly what a caller needs to know. `Counter.most_common(1)`
+    returned whichever candidate won the first trial, so a 15-15 split could
+    contradict the baseline and report a robust scenario as fragile.
+    """
+    top = max(counts.values(), default=0)
+    return sorted(k for k, v in counts.items() if v == top)
+
+
 def result_label(winner: Optional[str]) -> str:
     """A winner for prose, or "égalité" when the rule elected nobody (an exact
     tie). `winner or cand_names[0]` used to report such a tie as a win for the

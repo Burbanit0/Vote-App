@@ -1593,8 +1593,11 @@
             "type": "number"
           },
           "winner": {
+            "items": {
+              "type": "string"
+            },
             "title": "Winner",
-            "type": "string"
+            "type": "array"
           },
           "winner_changed": {
             "title": "Winner Changed",
@@ -3076,8 +3079,11 @@
             "type": "number"
           },
           "most_frequent_winner": {
+            "items": {
+              "type": "string"
+            },
             "title": "Most Frequent Winner",
-            "type": "string"
+            "type": "array"
           },
           "pedagogical_note": {
             "title": "Pedagogical Note",

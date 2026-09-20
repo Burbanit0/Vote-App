@@ -617,7 +617,9 @@ class AssumptionTestingRequest(BaseModel):
 
 
 class AssumptionResult(BaseModel):
-    winner:              str
+    # Every candidate tied for most trials won; a 15-15 split over the 30 trials
+    # is ordinary, and `winner_changed` is False while the baseline is among them.
+    winner:              List[str]
     winner_changed:      bool
     pct_trials_changed:  float
     result_variance:     float
@@ -673,7 +675,8 @@ class CollectiveWillResponse(BaseModel):
     winner_by_method:         Dict[str, str]
     winner_by_agenda:         Dict[str, str]
     rousseau_score:           float
-    most_frequent_winner:     str
+    # Every winner tied for most procedures won (modal_keys).
+    most_frequent_winner:     List[str]
     most_frequent_pct:        float
     condorcet_exists:         bool
     condorcet_winner:         Optional[str] = None

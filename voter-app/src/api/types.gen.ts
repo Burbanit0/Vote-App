@@ -2153,7 +2153,7 @@ export interface components {
             /** Result Variance */
             result_variance: number;
             /** Winner */
-            winner: string;
+            winner: string[];
             /** Winner Changed */
             winner_changed: boolean;
             /** Winner Distribution */
@@ -2853,7 +2853,7 @@ export interface components {
             /** Most Frequent Pct */
             most_frequent_pct: number;
             /** Most Frequent Winner */
-            most_frequent_winner: string;
+            most_frequent_winner: string[];
             /** Pedagogical Note */
             pedagogical_note: string;
             /** Philosophical Conclusion */
