@@ -8,15 +8,15 @@ engine utils + the shared ._electorate / ._helpers.
 """
 from __future__ import annotations
 
-from collections import Counter
+from collections import Counter, defaultdict
 from operator import itemgetter
-from typing import Any, Dict, List, Optional  # noqa: F401
+from typing import Any, Dict, List, Mapping, Optional  # noqa: F401
 
 import numpy as _np
 
 from api.engine.utils.simulation_metrics import compare_all_methods
 from ._electorate import _build_base_electorate, _build_electorate_from_seed
-from ._helpers import reject_unknown_methods, tied_extremes
+from ._helpers import modal_keys, reject_unknown_methods, tied_extremes
 
 
 # ── Hotelling-Downs equilibrium ────────────────────────────────────────────────
@@ -249,17 +249,21 @@ def _esteban_ray_index(positions: List[float], n_bins: int = 20) -> float:
     return round(p, 6)
 
 
-def _winner_entropy(winners: List[Optional[str]]) -> float:
-    """Normalised Shannon entropy of winner distribution ∈ [0, 1]."""
-    valid = [w for w in winners if w]
-    if not valid:
+def _winner_entropy(weights: Mapping[str, float]) -> float:
+    """Normalised Shannon entropy of a winner distribution ∈ [0, 1].
+
+    Takes weights rather than a list of names: a simulation whose methods tie
+    has no single winner, so it contributes 1/k to each of its k tied leaders
+    instead of one arbitrary name (which used to be whichever method the rule
+    table happened to list first).
+    """
+    total = sum(weights.values())
+    if total <= 0:
         return 1.0
-    counts = Counter(valid)
-    total  = len(valid)
-    probs  = [c / total for c in counts.values()]
+    probs  = [w / total for w in weights.values() if w > 0]
     import math as _math
-    entropy = -sum(p * _math.log2(p) for p in probs if p > 0)
-    max_e   = _math.log2(len(counts)) if len(counts) > 1 else 1.0
+    entropy = -sum(p * _math.log2(p) for p in probs)
+    max_e   = _math.log2(len(probs)) if len(probs) > 1 else 1.0
     return round(entropy / max_e if max_e > 0 else 0.0, 4)
 
 
@@ -301,7 +305,9 @@ def _polarization_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         # Per-method: collect regrets and winner lists
         method_regrets:  Dict[str, List[float]] = {}
         method_winners:  Dict[str, List[Optional[str]]] = {}
-        global_winners:  List[Optional[str]] = []
+        # Per-simulation winner weight: a tie splits its vote across the tied
+        # leaders, so `winner_stability` no longer depends on rule-table order.
+        global_winners:  Dict[str, float] = defaultdict(float)
 
         for sim_idx in range(num_simulations):
             sim_seed = seed + sim_idx + 1
@@ -327,11 +333,11 @@ def _polarization_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
                 md.get("winner") for md in methods_data.values() if md.get("winner")
             ]
             if winners_this:
-                most_common_count = Counter(winners_this).most_common(1)[0][1]
-                agreement_sum += most_common_count / len(winners_this)
-                global_winners.append(Counter(winners_this).most_common(1)[0][0])
-            else:
-                global_winners.append(None)
+                counts_this = Counter(winners_this)
+                leaders = modal_keys(counts_this)
+                agreement_sum += max(counts_this.values()) / len(winners_this)
+                for leader in leaders:
+                    global_winners[leader] += 1 / len(leaders)
 
             for method_name, md in methods_data.items():
                 if method_name not in method_regrets:

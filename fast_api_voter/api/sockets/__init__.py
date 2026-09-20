@@ -26,6 +26,7 @@ from typing import Any
 
 import socketio
 
+from api.domain.election._helpers import modal_keys
 from api.engine.utils.demographic_data import unseeded_rng_pair
 from api.core.config import get_settings
 from api.core.worker_dispatch import run_bounded
@@ -205,7 +206,7 @@ def _monte_carlo_checkpoint_payload(
     partial: dict[str, Any] = {}
     for m in method_names:
         wc          = stats["winner_counts"][m].copy()
-        most_common = max(wc, key=wc.get) if wc else None
+        most_common = modal_keys(wc)
         partial[m]  = {
             "winner_distribution": {
                 c: round(cnt / completed_runs, 4) for c, cnt in wc.items()
@@ -248,7 +249,7 @@ def _monte_carlo_final_payload(
     final: dict[str, Any] = {}
     for m in stats["method_names"]:
         wc          = stats["winner_counts"][m].copy()
-        most_common = max(wc, key=wc.get) if wc else None
+        most_common = modal_keys(wc)
         final[m]    = {
             "winner_distribution": {
                 c: round(cnt / num_iterations, 4) for c, cnt in wc.items()

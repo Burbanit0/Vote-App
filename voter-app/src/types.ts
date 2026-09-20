@@ -2,7 +2,8 @@
 
 interface MethodMonteCarloStats {
   winner_distribution: Record<string, number>;
-  most_common_winner: string | null;
+  /** Every candidate tied for most runs won; empty when no run had a winner. */
+  most_common_winner: string[];
   winner_stability: number;
   bayesian_regret_mean: number | null;
   bayesian_regret_std: number | null;

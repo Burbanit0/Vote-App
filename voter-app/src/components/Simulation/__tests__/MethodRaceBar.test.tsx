@@ -12,7 +12,7 @@ function makeStats(winner: string, winnerPct: number, others: string[] = []): Me
   others.forEach((o, i) => {
     dist[o] = (1 - winnerPct) / (i + 1);
   });
-  return { winner_distribution: dist, most_common_winner: winner };
+  return { winner_distribution: dist, most_common_winner: [winner] };
 }
 
 const FIVE_METHODS: Record<string, MethodStreamStats> = {
@@ -57,11 +57,21 @@ describe('sortMethods', () => {
     expect(ranks).toEqual([0, 1, 2, 3, 4]);
   });
 
-  it('stability equals winner_distribution[most_common_winner]', () => {
+  it('stability is the leading share, whoever holds it', () => {
     const rows = sortMethods(FIVE_METHODS);
     const plurality = rows.find((r) => r.method === 'plurality')!;
     expect(plurality.stability).toBeCloseTo(0.72, 2);
-    expect(plurality.winner).toBe('Alice');
+    expect(plurality.winner).toEqual(['Alice']);
+  });
+
+  it('ranks a tied method by the share its tied winners share', () => {
+    const rows = sortMethods({
+      tied: { winner_distribution: { Alice: 0.5, Bob: 0.5 }, most_common_winner: ['Alice', 'Bob'] },
+      clear: makeStats('Carol', 0.8),
+    });
+    expect(rows[0].method).toBe('clear');
+    expect(rows[1].stability).toBeCloseTo(0.5, 2);
+    expect(rows[1].winner).toEqual(['Alice', 'Bob']);
   });
 
   it('empty input returns empty array', () => {
@@ -134,6 +144,23 @@ describe('MethodRaceBar', () => {
       </MemoryRouter>
     );
     expect(screen.getByTestId('stable-badge-schulze')).toBeInTheDocument();
+  });
+
+  it('names both leaders on a tied badge, with no single candidate colour', () => {
+    const tied: Record<string, MethodStreamStats> = {
+      schulze: {
+        winner_distribution: { Alice: 0.9, Bob: 0.9 },
+        most_common_winner: ['Alice', 'Bob'],
+      },
+    };
+    render(
+      <MemoryRouter>
+        <MethodRaceBar partialResults={tied} isRunning={false} />
+      </MemoryRouter>
+    );
+    const badge = screen.getByTestId('stable-badge-schulze');
+    expect(badge).toHaveTextContent('Alice, Bob');
+    expect(badge.style.background).toBe('');
   });
 
   it('returns null when partialResults is empty', () => {

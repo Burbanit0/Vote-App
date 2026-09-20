@@ -37,6 +37,7 @@ import MethodSimilarityGraph, {
 import MetricTooltip from '../shared/ui/MetricTooltip';
 
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+import { listNames } from '@/lib/listNames';
 
 const CANDIDATE_PALETTE = ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f', '#edc948'];
 
@@ -168,7 +169,8 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
       methodNames
         .map((m) => {
           const s = result!.methods[m];
-          const pct = s.most_common_winner ? (s.winner_distribution[s.most_common_winner] ?? 0) : 0;
+          // The leading share, so tied winners report the share they share.
+          const pct = Math.max(0, ...Object.values(s.winner_distribution));
           return {
             method: m,
             winner: s.most_common_winner,
@@ -548,14 +550,16 @@ const MonteCarloResults: React.FC<Props> = ({ baseParams }) => {
                     <tr key={method}>
                       <td className="font-semibold ps-2">{METHOD_LABELS[method] ?? method}</td>
                       <td className="text-center">
-                        {winner ? (
+                        {winner.length > 0 ? (
                           <Badge
                             style={{
-                              backgroundColor: colorMap[winner] ?? '#999',
+                              // A winner always has a distribution entry, so the
+                              // colour is looked up directly; a tie has no single one.
+                              backgroundColor: winner.length === 1 ? colorMap[winner[0]] : '#999',
                               fontSize: '0.75rem',
                             }}
                           >
-                            {winner}
+                            {listNames(winner)}
                           </Badge>
                         ) : (
                           <span className="text-muted-foreground">—</span>

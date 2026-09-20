@@ -175,7 +175,9 @@ const MonteCarloRaceChart: React.FC<Props> = ({
         candidates[0] ?? ''
       );
     } else {
-      return partialResults[selectedMethod]?.most_common_winner ?? null;
+      // Only crown a single leader: on a tie the chart has no one name to show.
+      const leaders = partialResults[selectedMethod]?.most_common_winner ?? [];
+      return leaders.length === 1 ? leaders[0] : null;
     }
   }, [isRunning, view, candidates, partialResults, selectedMethod, renderTick]);
 
