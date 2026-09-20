@@ -12,6 +12,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from api.domain.election._helpers import modal_keys, prose_list, reject_unknown_methods
 from api.engine.utils.method_registry import PUBLIC_METHOD_ALIASES, rule_winner
+from api.engine.utils.simulation_multiwinner_utils import break_tie
 from api.engine.utils.simulation_ranked_utils import (
     get_approval_winner,
     get_black_winner,
@@ -559,27 +560,31 @@ def _hamilton(votes: Dict[str, int], n: int) -> Dict[str, int]:
     return seats
 
 
+# The four divisor methods below break an exact quotient tie by name -- the
+# alphabetically first party, as `_hamilton`'s (-remainder, name) key does --
+# by building each round's quotients in sorted order, so the order a request
+# lists its parties in never decides a seat. Not a random lot: this endpoint
+# has no seed field, and the paradox detectors below re-run a method on a
+# perturbed input and compare, which a lot would make noisy.
+
 def _jefferson(votes: Dict[str, int], n: int) -> Dict[str, int]:
     seats = {p: 0 for p in votes}
     for _ in range(n):
-        best = max(votes, key=lambda p: votes[p] / (seats[p] + 1))
-        seats[best] += 1
+        seats[break_tie({p: votes[p] / (seats[p] + 1) for p in sorted(votes)})] += 1
     return seats
 
 
 def _webster(votes: Dict[str, int], n: int) -> Dict[str, int]:
     seats = {p: 0 for p in votes}
     for _ in range(n):
-        best = max(votes, key=lambda p: votes[p] / (2 * seats[p] + 1))
-        seats[best] += 1
+        seats[break_tie({p: votes[p] / (2 * seats[p] + 1) for p in sorted(votes)})] += 1
     return seats
 
 
 def _adams_m(votes: Dict[str, int], n: int) -> Dict[str, int]:
     seats = {p: 0 for p in votes}
     for _ in range(n):
-        best = max(votes, key=lambda p: votes[p] / max(1, 2 * seats[p] - 1))
-        seats[best] += 1
+        seats[break_tie({p: votes[p] / max(1, 2 * seats[p] - 1) for p in sorted(votes)})] += 1
     return seats
 
 
@@ -589,8 +594,9 @@ def _huntington(votes: Dict[str, int], n: int) -> Dict[str, int]:
         return {p: 0 for p in votes}
     seats = {p: 1 for p in votes}
     for _ in range(n - nv):
-        best = max(votes, key=lambda p: votes[p] / _math_ap.sqrt(seats[p] * (seats[p] + 1)))
-        seats[best] += 1
+        seats[break_tie({
+            p: votes[p] / _math_ap.sqrt(seats[p] * (seats[p] + 1)) for p in sorted(votes)
+        })] += 1
     return seats
 
 

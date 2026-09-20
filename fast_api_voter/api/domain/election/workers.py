@@ -8,6 +8,7 @@ delegator remained here, and nothing imported it.
 """
 from __future__ import annotations
 
+import random as _random
 from collections import Counter
 from operator import itemgetter
 from typing import Any, Dict, Optional
@@ -1019,7 +1020,9 @@ def _coalition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             vote_shares = {name: (0.6 if name == winner else 0.4 / max(n - 1, 1))
                            for name in cand_names}
 
-        seats_alloc = _dhondt(vote_shares, total_seats)
+        # seed + 1, not seed: `seed` builds the electorate, and a lot must not be
+        # the same draw that set the first voter's attributes.
+        seats_alloc = _dhondt(vote_shares, total_seats, rng=_random.Random(seed + 1))
         coal        = _greedy_coalition(seats_alloc, positions, seat_threshold)
 
         methods_out.append({
@@ -1188,7 +1191,12 @@ def _districts_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     }
 
     # ── Proportional parliament: D'Hondt on national shares ───────────────
-    parliament_proportional = _dhondt(national_vote_share, num_districts)
+    # Allocated on the unrounded totals, not `national_vote_share`: rounding a share
+    # to 4 places both destroys exact ties (250 vs 50 over 5 seats) and invents
+    # ones. (`seed`, not `seed + 1`: district i's electorate is seeded `seed+i+1`.)
+    parliament_proportional = _dhondt(
+        national_vote_totals, num_districts, rng=_random.Random(seed),
+    )
 
     # ── National Condorcet: quick pairwise from aggregated vote shares ─────
     # Build a representative ranking from national vote shares (sorted desc)

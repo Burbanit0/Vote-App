@@ -305,3 +305,25 @@ def test_district_seats_do_not_depend_on_party_listing_order(client: TestClient)
 
     for structure in ("fptp", "mmp"):
         assert seats(parties, structure) == seats(parties[::-1], structure), structure
+
+
+def test_proportional_seats_do_not_depend_on_party_listing_order(client: TestClient):
+    """The district lot above covers single-member seats; a proportional seat
+    tie is a different code path. With three parties, 400 voters and no
+    threshold, an exact quotient tie for a seat is common (D'Hondt, 10 seats,
+    seed 2; Sainte-Laguë, 25 seats, seed 3). `max()` gave every one to the party
+    listed first: listed last, Vert took 2 of 10 seats instead of 1."""
+    parties = [{"name": "Gauche", "x": -0.6, "y": 0.0}, {"name": "Centre", "x": 0.0, "y": 0.1},
+               {"name": "Vert", "x": -0.2, "y": 0.5}]
+
+    def seats(ps, structure, apportionment, seed, n):
+        body = client.post("/api/v2/election/assembly", json={
+            "parties": ps, "num_voters": 400, "seed": seed, "structure": structure,
+            "apportionment": apportionment, "seats": n, "threshold": 0.0,
+        }).json()
+        return {p["name"]: p["seats"] for p in body["parties"]}
+
+    for structure in ("pr", "mmp"):
+        for apportionment, seed, n in (("dhondt", 2, 10), ("sainte_lague", 3, 25)):
+            args = (structure, apportionment, seed, n)
+            assert seats(parties, *args) == seats(parties[::-1], *args), args
