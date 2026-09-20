@@ -6486,7 +6486,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Catalogue of 16+ methods with name, family, and ref. */
+            /** @description Catalogue of 34 methods with name, family, and ref. */
             200: {
                 headers: {
                     [name: string]: unknown;

@@ -114,6 +114,16 @@ SCORE_RULES: Dict[str, Callable[..., Any]] = {
     "majority_judgment":  get_majority_judgment_winner,
 }
 
+#: A public-facing name a caller may use in place of the registry's own key.
+#: "condorcet" is the app's established name for "copeland" -- the client
+#: labels the rule "Condorcet (Copeland)", and it elects the Condorcet winner
+#: when one exists (Copeland's method), unlike the stricter `get_condorcet_
+#: winner` (Optional[str], often None) that name might suggest. Single shared
+#: home for this translation: `_iia_rate_worker` (theory/workers.py) and the
+#: public v1 API (domain/public.py) both resolve "condorcet" through this
+#: dict rather than each hardcoding the mapping.
+PUBLIC_METHOD_ALIASES: Dict[str, str] = {"condorcet": "copeland"}
+
 
 def supported(*, ranked: bool = True, score: bool = True) -> List[str]:
     """The names `rule_winner` answers to, for an error message or a schema."""
