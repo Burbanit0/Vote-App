@@ -1078,10 +1078,9 @@ def _run_district_fptp(
     the caller) instead of reseeding the shared random/np.random singletons,
     so concurrent districts/runs can't perturb each other's output.
     """
-    # `seed` is a required `int` here (not Optional) — _seeded_rng_pair's
-    # @overload for an `int` argument returns a non-Optional pair directly,
-    # so no runtime narrowing is needed even though its general signature
-    # accepts `Optional[int]` for other, optional-seed callers.
+    # `seed` is a required `int` here — every caller of this worker derives a
+    # concrete per-district seed. A caller with no seed at all uses
+    # unseeded_rng_pair() instead, not this function.
     rng, np_rng = _seeded_rng_pair(seed)
 
     voters = [

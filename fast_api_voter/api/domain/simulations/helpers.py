@@ -5,7 +5,7 @@ These are not simulation logic (that lives in api/engine/utils/) — they are
 request-parsing and population-building helpers specific to the route layer.
 """
 import random as _rng
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 
@@ -53,8 +53,9 @@ def _build_population(
     candidate_configs: list[dict[str, Any]],
     num_voters: int,
     ideology_distribution: str = "random",
-    rng: Optional[_rng.Random] = None,
-    np_rng: Optional[np.random.RandomState] = None,
+    *,
+    rng: _rng.Random,
+    np_rng: np.random.RandomState,
 ) -> tuple[list[Any], list[Any], list[str]]:
     """
     Create voters and candidates for a simulation run.
@@ -62,10 +63,9 @@ def _build_population(
     candidate_configs — output of _parse_candidate_configs().
     Returns (voters, candidates, issues).
 
-    rng/np_rng: optional local RNG instances threaded through to
-    create_candidate/create_voter. Pass these when the caller runs several
-    populations concurrently (e.g. Monte Carlo over a thread pool) so draws
-    don't come from the shared random/np.random singletons — see
+    rng/np_rng: local RNG instances threaded through to
+    create_candidate/create_voter, so draws don't come from the shared
+    random/np.random singletons — see
     api.domain.simulations.advanced._monte_carlo_worker for the pattern.
     """
     issues = DEFAULT_ISSUES

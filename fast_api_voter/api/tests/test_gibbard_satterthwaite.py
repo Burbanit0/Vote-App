@@ -1,4 +1,6 @@
 """Tests for api.engine.utils.gibbard_satterthwaite — manipulability estimation."""
+import random
+
 from api.engine.utils.gibbard_satterthwaite import compute_manipulability_index
 
 
@@ -16,7 +18,9 @@ def test_manipulability_index_falls_back_and_logs_on_method_failure(monkeypatch,
         ["Carol", "Bob", "Alice"],
     ]
     with caplog.at_level("WARNING"):
-        result = compute_manipulability_index("plurality", ballots, num_trials=3)
+        result = compute_manipulability_index(
+            "plurality", ballots, num_trials=3, rng=random.Random(0),
+        )
 
     # Every method_fn(...) call raises, so no manipulation is ever detected —
     # the function still returns a well-formed (if degenerate) result rather
