@@ -146,7 +146,7 @@ iniconfig==2.3.0
     # via pytest
 jinja2==3.1.6
     # via diff-cover
-jsonschema-rs==0.55.1
+jsonschema-rs==0.56.0
     # via schemathesis
 libcst==1.9.0
     # via mutmut
@@ -396,7 +396,7 @@ rich==15.0.0
     #   textual
 ruff==0.16.7
     # via -r requirements-dev.txt
-schemathesis==4.26.1
+schemathesis==4.27.0
     # via -r requirements-dev.txt
 sentry-sdk==2.69.1
     # via
