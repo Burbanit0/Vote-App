@@ -21,32 +21,82 @@ from api.engine.utils.simulation_metrics import compare_all_methods
 from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.error_handling import log_and_error_response
 from api.engine.utils.logger import get_logger
+from api.engine.utils.method_registry import PUBLIC_METHOD_ALIASES
 
 log = get_logger(__name__)
 
 
 # ── Methods catalogue ─────────────────────────────────────────────────────────
+#
+# Every key here is either a name compare_all_methods reports under, or a
+# public alias PUBLIC_METHOD_ALIASES resolves to one (see that constant's
+# docstring in method_registry.py). test_public_v1.py's
+# test_methods_catalog_matches_what_compare_all_methods_computes checks this
+# set against compare_all_methods' real output, not a hand-copied list, so the
+# two cannot drift silently again. "positional_score" used to be listed here
+# too, but no key compare_all_methods reports answers to it -- filtering
+# /simulate or /compare by that name silently returned an empty methods dict.
 
 METHODS_CATALOG: dict[str, dict[str, str]] = {
-    "plurality":          {"name": "Plurality (FPTP)",    "family": "ranked", "ref": "Duverger (1954)"},
-    "two_round":          {"name": "Two-Round",           "family": "ranked", "ref": "Blais & Loewen (2009)"},
-    "borda":              {"name": "Borda Count",         "family": "ranked", "ref": "Borda (1781)"},
-    "approval":           {"name": "Approval Voting",     "family": "ranked", "ref": "Brams & Fishburn (1983)"},
-    "irv":                {"name": "IRV (Ranked Choice)", "family": "ranked", "ref": "Tideman (1987)"},
-    "coombs":             {"name": "Coombs' Method",      "family": "ranked", "ref": "Coombs (1964)"},
-    "bucklin":            {"name": "Bucklin Voting",      "family": "ranked", "ref": "Hoag & Hallett (1926)"},
-    "minimax":            {"name": "Minimax",             "family": "ranked", "ref": "Young & Levenglick (1978)"},
-    "schulze":            {"name": "Schulze Method",      "family": "ranked", "ref": "Schulze (2011)"},
-    "kemeny_young":       {"name": "Kemeny-Young",        "family": "ranked", "ref": "Kemeny (1959)"},
-    "condorcet":          {"name": "Condorcet",           "family": "ranked", "ref": "Condorcet (1785)"},
-    "positional_score":   {"name": "Positional Score",   "family": "score",  "ref": "Saari (1995)"},
-    "simple_score":       {"name": "Simple Score",        "family": "score",  "ref": "Smith (2000)"},
-    "star_voting":        {"name": "STAR Voting",         "family": "score",  "ref": "Equal Vote (2014)"},
-    "median_voting":      {"name": "Median Judgment",     "family": "score",  "ref": "Balinski & Laraki (2010)"},
-    "mean_median_hybrid": {"name": "Mean-Median Hybrid",  "family": "score",  "ref": "Merrill & Grofman (1999)"},
-    "variance_based":     {"name": "Variance-Based",      "family": "score",  "ref": "Laslier (2006)"},
-    "quadratic":          {"name": "Quadratic Voting",    "family": "intensity", "ref": "Posner & Weyl (2018)"},
+    "plurality":          {"name": "Plurality (FPTP)",       "family": "ranked", "ref": "Duverger (1954)"},
+    "two_round":          {"name": "Two-Round",              "family": "ranked", "ref": "Blais & Loewen (2009)"},
+    "borda":              {"name": "Borda Count",            "family": "ranked", "ref": "Borda (1781)"},
+    "approval":           {"name": "Approval Voting",        "family": "ranked", "ref": "Brams & Fishburn (1983)"},
+    "irv":                {"name": "IRV (Ranked Choice)",    "family": "ranked", "ref": "Tideman (1987)"},
+    "coombs":             {"name": "Coombs' Method",         "family": "ranked", "ref": "Coombs (1964)"},
+    "bucklin":            {"name": "Bucklin Voting",         "family": "ranked", "ref": "Hoag & Hallett (1926)"},
+    "minimax":            {"name": "Minimax",                "family": "ranked", "ref": "Young & Levenglick (1978)"},
+    "schulze":            {"name": "Schulze Method",         "family": "ranked", "ref": "Schulze (2011)"},
+    "kemeny_young":       {"name": "Kemeny-Young",           "family": "ranked", "ref": "Kemeny (1959)"},
+    "condorcet":          {"name": "Condorcet (Copeland)",   "family": "ranked", "ref": "Condorcet (1785)"},
+    "nanson":             {"name": "Nanson's Method",        "family": "ranked", "ref": "Nanson (1882)"},
+    "baldwin":            {"name": "Baldwin's Method",       "family": "ranked", "ref": "Baldwin (1926)"},
+    "ranked_pairs":       {"name": "Ranked Pairs",           "family": "ranked", "ref": "Tideman (1987)"},
+    "black":              {"name": "Black's Method",         "family": "ranked", "ref": "Black (1958)"},
+    "anti_plurality":     {"name": "Anti-Plurality (Veto)",  "family": "ranked", "ref": "Felsenthal (2012)"},
+    "dowdall":            {"name": "Dowdall System",         "family": "ranked", "ref": "Fraenkel & Grofman (2014)"},
+    "raynaud":            {"name": "Raynaud's Method",       "family": "ranked", "ref": "Raynaud (1981)"},
+    "benham":             {"name": "Benham's Method",        "family": "ranked", "ref": "Tideman (2006)"},
+    "river":              {"name": "River Method",           "family": "ranked", "ref": "Tideman (2006)"},
+    "smith_irv":          {"name": "Smith/IRV",              "family": "ranked", "ref": "Tideman (2006)"},
+    "split_cycle":        {"name": "Split Cycle",            "family": "ranked", "ref": "Holliday & Pacuit (2021)"},
+    "simple_score":       {"name": "Simple Score",           "family": "score",  "ref": "Smith (2000)"},
+    "star_voting":        {"name": "STAR Voting",            "family": "score",  "ref": "Equal Vote (2014)"},
+    "median_voting":      {"name": "Median Judgment",        "family": "score",  "ref": "Balinski & Laraki (2010)"},
+    "mean_median_hybrid": {"name": "Mean-Median Hybrid",     "family": "score",  "ref": "Merrill & Grofman (1999)"},
+    "variance_based":     {"name": "Variance-Based",         "family": "score",  "ref": "Laslier (2006)"},
+    "cumulative":         {"name": "Cumulative Voting",      "family": "score",  "ref": "Guinier (1994)"},
+    "maximin":            {"name": "Maximin (Rawlsian)",     "family": "score",  "ref": "Rawls (1971)"},
+    "nash":               {"name": "Nash (Proportional)",    "family": "score",  "ref": "Nash (1950)"},
+    "majority_judgment":  {"name": "Majority Judgment",      "family": "score",  "ref": "Balinski & Laraki (2010)"},
+    "evaluative":         {"name": "Evaluative Voting",      "family": "score",  "ref": "Baujard & Igersheim (2010)"},
+    "quadratic":          {"name": "Quadratic Voting",       "family": "intensity", "ref": "Posner & Weyl (2018)"},
+    "random_ballot":      {"name": "Random Ballot",          "family": "lottery",   "ref": "Gibbard (1977)"},
 }
+
+_REVERSE_PUBLIC_METHOD_ALIASES = {v: k for k, v in PUBLIC_METHOD_ALIASES.items()}
+
+
+def _apply_public_aliases(methods: dict[str, Any]) -> dict[str, Any]:
+    """Rewrite every engine-internal key PUBLIC_METHOD_ALIASES has a public
+    name for (e.g. "copeland" -> "condorcet"), so a caller never sees a name
+    the catalogue doesn't advertise -- including on the unfiltered "all" path,
+    which used to return the engine's own "copeland" instead of the
+    catalogue's documented "condorcet"."""
+    return {_REVERSE_PUBLIC_METHOD_ALIASES.get(k, k): v for k, v in methods.items()}
+
+
+def _filter_methods(methods: dict[str, Any], methods_req: Any) -> dict[str, Any]:
+    """Keep only the requested methods (either name works for an aliased
+    rule, e.g. "condorcet" or "copeland"). `methods_req` is "all", or any
+    list containing "all", when nothing should be filtered -- a caller who
+    sends `["all"]` (a schema-valid List[str]) means the same as the bare
+    string "all", not "the one method literally named 'all'"."""
+    if not isinstance(methods_req, list) or "all" in methods_req:
+        return methods
+    wanted = {PUBLIC_METHOD_ALIASES.get(m, m) for m in methods_req}
+    return {k: v for k, v in methods.items() if k in wanted}
+
 
 _CANDIDATE_NAMES = ["Alice", "Bob", "Carol", "Dave", "Eve", "Frank", "Grace", "Hugo"]
 
@@ -124,11 +174,7 @@ def _simulate_worker(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
             log, "public.simulate.failed", {"error": f"Simulation failed: {exc}"},
         )
 
-    # Filter requested methods
-    if methods_req != "all" and isinstance(methods_req, list):
-        result["methods"] = {
-            k: v for k, v in result["methods"].items() if k in methods_req
-        }
+    result["methods"] = _apply_public_aliases(_filter_methods(result["methods"], methods_req))
 
     return result, 200
 
@@ -178,8 +224,7 @@ def _compare_worker(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
                 winner=md.get("winner"), blank_pct=blank_pct, rule=blank_rule,
             )
 
-    if methods_req != "all" and isinstance(methods_req, list):
-        result["methods"] = {k: v for k, v in result["methods"].items() if k in methods_req}
+    result["methods"] = _apply_public_aliases(_filter_methods(result["methods"], methods_req))
 
     return result, 200
 
@@ -248,15 +293,15 @@ OPENAPI_SPEC: dict[str, Any] = {
         "/api/v1/methods": {
             "get": {
                 "summary": "List voting methods",
-                "description": "Returns all 16+ voting methods with name, family, and academic reference.",
+                "description": "Returns all 34 voting methods with name, family, and academic reference.",
                 "operationId": "listMethods",
                 "parameters": [
                     {
                         "name": "family",
                         "in": "query",
-                        "description": "Filter by method family: 'ranked', 'score', or 'intensity'",
+                        "description": "Filter by method family: 'ranked', 'score', 'intensity', or 'lottery'",
                         "required": False,
-                        "schema": {"type": "string", "enum": ["ranked", "score", "intensity"]},
+                        "schema": {"type": "string", "enum": ["ranked", "score", "intensity", "lottery"]},
                     }
                 ],
                 "responses": {
@@ -265,12 +310,12 @@ OPENAPI_SPEC: dict[str, Any] = {
                         "content": {
                             "application/json": {
                                 "example": {
-                                    "count": 18,
+                                    "count": 34,
                                     "methods": [
                                         {"key": "plurality", "name": "Plurality (FPTP)", "family": "ranked", "ref": "Duverger (1954)"},
                                         {"key": "borda",     "name": "Borda Count",      "family": "ranked", "ref": "Borda (1781)"},
                                     ],
-                                    "families": ["intensity", "ranked", "score"],
+                                    "families": ["intensity", "lottery", "ranked", "score"],
                                 }
                             }
                         },

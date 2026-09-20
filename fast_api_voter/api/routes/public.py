@@ -60,7 +60,7 @@ router = APIRouter(
     "/methods",
     response_model=PublicMethodsResponse,
     summary="List the voting methods supported by the engine",
-    response_description="Catalogue of 16+ methods with name, family, and ref.",
+    response_description="Catalogue of 34 methods with name, family, and ref.",
 )
 async def list_methods(family: str = "") -> Dict[str, Any]:
     return _methods_payload(family)

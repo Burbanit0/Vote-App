@@ -11,7 +11,7 @@ from operator import itemgetter
 from typing import Any, Callable, Dict, List, Optional
 
 from api.domain.election._helpers import modal_keys, prose_list, reject_unknown_methods
-from api.engine.utils.method_registry import rule_winner
+from api.engine.utils.method_registry import PUBLIC_METHOD_ALIASES, rule_winner
 from api.engine.utils.simulation_ranked_utils import (
     get_approval_winner,
     get_black_winner,
@@ -179,7 +179,7 @@ def _iia_rate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     if err := reject_unknown_methods([method], IIA_METHODS):
         return err
     # "condorcet" is the app's "Condorcet (Copeland)", as on the client.
-    rule = "copeland" if method == "condorcet" else method
+    rule = PUBLIC_METHOD_ALIASES.get(method, method)
 
     def _empirical_rate(n: int) -> float:
         rng  = _rnd.Random(seed + n * 100)
