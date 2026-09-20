@@ -9,18 +9,17 @@ method, by hand). A snapshot captures the WHOLE structure once, reviewed by
 a human at commit time (the diff on any future change is exactly what
 changed, not a wall of new assertions to write).
 
-Determinism: create_voter/create_candidate draw from Python's `random` and
-numpy's global RNG with no seed parameter of their own, so both are seeded
-here before construction -- the same seed always produces the same
-electorate, and therefore the same report, which is the whole precondition
-for a snapshot being meaningful rather than flaky.
+Determinism: create_voter/create_candidate take a call-scoped RNG pair, so
+each test below builds one from a fixed seed via `_seeded_rng_pair` before
+construction -- the same seed always produces the same electorate, and
+therefore the same report, which is the whole precondition for a snapshot
+being meaningful rather than flaky.
 """
 from math import factorial
 import random
 
-import numpy as np
-
 from api.engine.constants import DEFAULT_ISSUES
+from api.engine.utils.demographic_data import _seeded_rng_pair
 from api.engine.utils.simulation_metrics import compare_all_methods
 from api.engine.utils.simulation_voting_utils import (
     create_candidate,
@@ -30,15 +29,14 @@ from api.engine.utils.simulation_voting_utils import (
 
 
 def test_compare_all_methods_snapshot(snapshot):
-    random.seed(20260911)
-    np.random.seed(20260911)
+    rng, np_rng = _seeded_rng_pair(20260911)
     issues = DEFAULT_ISSUES
     candidates = [
-        create_candidate(issues, 0, "Alice", "Green"),
-        create_candidate(issues, 1, "Bob", "Conservative"),
-        create_candidate(issues, 2, "Carol", "Liberal"),
+        create_candidate(issues, 0, "Alice", "Green", rng=rng),
+        create_candidate(issues, 1, "Bob", "Conservative", rng=rng),
+        create_candidate(issues, 2, "Carol", "Liberal", rng=rng),
     ]
-    voters = [create_voter(issues, i) for i in range(15)]
+    voters = [create_voter(issues, i, rng=rng, np_rng=np_rng) for i in range(15)]
 
     # Explicit opt-in: strategic_vulnerability is off by default now (it cost
     # 99.4% of a request and only two surfaces publish it), and this snapshot
@@ -52,15 +50,14 @@ def test_the_default_report_omits_strategic_vulnerability():
     """The shape every caller that does not opt in now gets. Nothing pinned it
     before, so a site silently losing (or regaining) the 30-second metric was
     invisible to the suite."""
-    random.seed(20260911)
-    np.random.seed(20260911)
+    rng, np_rng = _seeded_rng_pair(20260911)
     issues = DEFAULT_ISSUES
     candidates = [
-        create_candidate(issues, 0, "Alice", "Green"),
-        create_candidate(issues, 1, "Bob", "Conservative"),
-        create_candidate(issues, 2, "Carol", "Liberal"),
+        create_candidate(issues, 0, "Alice", "Green", rng=rng),
+        create_candidate(issues, 1, "Bob", "Conservative", rng=rng),
+        create_candidate(issues, 2, "Carol", "Liberal", rng=rng),
     ]
-    voters = [create_voter(issues, i) for i in range(15)]
+    voters = [create_voter(issues, i, rng=rng, np_rng=np_rng) for i in range(15)]
 
     off = compare_all_methods(voters, candidates, issues)
     on = compare_all_methods(voters, candidates, issues, compute_strategic=True)
@@ -85,12 +82,11 @@ def test_strategic_vulnerability_samples_above_the_permutation_cap():
     8 candidates just to keep 100 of them."""
     issues = DEFAULT_ISSUES
     for n_cands, exhaustive in ((4, True), (6, False)):
-        random.seed(7)
-        np.random.seed(7)
+        rng, np_rng = _seeded_rng_pair(7)
         candidates = [
-            create_candidate(issues, i, f"C{i}", "Party") for i in range(n_cands)
+            create_candidate(issues, i, f"C{i}", "Party", rng=rng) for i in range(n_cands)
         ]
-        voters = [create_voter(issues, i) for i in range(20)]
+        voters = [create_voter(issues, i, rng=rng, np_rng=np_rng) for i in range(20)]
         report = compare_all_methods(voters, candidates, issues, compute_strategic=True)
 
         assert factorial(n_cands) <= 100 if exhaustive else factorial(n_cands) > 100
