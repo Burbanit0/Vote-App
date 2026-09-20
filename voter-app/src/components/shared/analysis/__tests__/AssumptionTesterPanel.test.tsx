@@ -36,7 +36,7 @@ vi.mock('recharts', () => {
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
 
-const makeResult = (changed: boolean, variance: number, winner = 'Alice') => ({
+const makeResult = (changed: boolean, variance: number, winner: string[] = ['Alice']) => ({
   winner,
   winner_changed: changed,
   pct_trials_changed: changed ? 0.33 : 0.0,
@@ -62,7 +62,7 @@ const MOCK_ROBUST: object = {
 const MOCK_FRAGILE: object = {
   baseline_result: { winner: 'Alice', regret: 0.0 },
   relaxed_results: {
-    single_peaked: makeResult(true, 0.65, 'Bob'),
+    single_peaked: makeResult(true, 0.65, ['Bob']),
     stable_preferences: makeResult(false, 0.2),
     rational_voters: makeResult(false, 0.12),
     fixed_electorate: makeResult(false, 0.08),
@@ -161,6 +161,18 @@ describe('AssumptionTesterPanel', () => {
     await renderAndRun(MOCK_ROBUST);
     expect(screen.getByTestId('summary-section')).toBeInTheDocument();
     expect(screen.getByTestId('robust-badge')).toHaveTextContent('robust');
+  });
+
+  it('names both candidates when the trials tie, and calls it stable', async () => {
+    const tied = {
+      ...(MOCK_ROBUST as Record<string, unknown>),
+      relaxed_results: {
+        ...(MOCK_ROBUST as { relaxed_results: Record<string, unknown> }).relaxed_results,
+        stable_preferences: makeResult(false, 0.5, ['Alice', 'Bob']),
+      },
+    };
+    await renderAndRun(tied);
+    expect(screen.getByText(/winnerStable: Alice, Bob/)).toBeInTheDocument();
   });
 
   it('renders fragility chart and variance chart', async () => {

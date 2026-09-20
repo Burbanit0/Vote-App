@@ -21,11 +21,13 @@ import {
 import { $api } from '../../../api/hooks';
 
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+import { listNames } from '@/lib/listNames';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface RelaxedResult {
-  winner: string;
+  /** Every candidate tied for most trials won; one name when one leads. */
+  winner: string[];
   winner_changed: boolean;
   pct_trials_changed: number;
   result_variance: number;
@@ -177,12 +179,12 @@ const AssumptionCard: React.FC<AssumptionCardProps> = ({
             <div className="mt-1">
               {result.winner_changed ? (
                 <span style={{ color: '#dc3545', fontSize: '0.7rem', fontWeight: 700 }}>
-                  ⚡ {t('assumptions.winnerChanged')}: {result.winner} (
+                  ⚡ {t('assumptions.winnerChanged')}: {listNames(result.winner)} (
                   {Math.round(result.pct_trials_changed * 100)}% {t('assumptions.ofTrials')})
                 </span>
               ) : (
                 <span style={{ color: '#198754', fontSize: '0.7rem' }}>
-                  ✓ {t('assumptions.winnerStable')}: {result.winner} [
+                  ✓ {t('assumptions.winnerStable')}: {listNames(result.winner)} [
                   {Math.round(result.confidence_interval[0] * 100)}–
                   {Math.round(result.confidence_interval[1] * 100)}%]
                 </span>

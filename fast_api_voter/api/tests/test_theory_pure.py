@@ -561,7 +561,7 @@ def test_collective_will_rousseau_score_is_exactly_the_reciprocal_of_unique_winn
     assert body["rousseau_score"] == 0.5
     assert body["condorcet_exists"] is True
     assert body["condorcet_winner"] == "Bob"
-    assert body["most_frequent_winner"] == "Bob"
+    assert body["most_frequent_winner"] == ["Bob"]
     assert body["most_frequent_pct"] == 0.7143
 
 
