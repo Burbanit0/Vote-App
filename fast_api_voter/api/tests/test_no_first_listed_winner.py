@@ -64,3 +64,21 @@ def test_a_tied_primary_nominee_does_not_depend_on_listing_order():
         return left["winner"]
     listed = [{"name": "L1", "ideology_position": -0.6}, {"name": "L2", "ideology_position": -0.3}]
     assert nominee(listed) == nominee(listed[::-1])
+
+
+def test_duplicate_candidate_names_are_rejected_across_the_api(client):
+    """A duplicate name collapses two candidates into one tally key, discarding
+    the other's votes. Four endpoints accepted it silently; vote-steps' Schulze
+    branch raised KeyError as a 500. It is a 422 at the boundary now."""
+    dup = [{"name": "Alice", "x": -0.5, "y": -0.2}, {"name": "Alice", "x": 0.5, "y": 0.2},
+           {"name": "Bob", "x": 0.0, "y": 0.3}]
+    for path in ("/api/v2/election/simulate", "/api/v2/election/nota",
+                 "/api/v2/election/behavioral-biases", "/api/v2/election/cascade"):
+        response = client.post(path, json={"candidates": dup, "num_voters": 60})
+        assert response.status_code == 422, (path, response.text)
+        assert "Duplicate candidate name" in response.text
+
+    # And the loose shape the simulation endpoints accept: bare name strings.
+    loose = client.post("/api/v2/simulations/monte-carlo",
+                        json={"candidates": ["Alice", "Alice", "Bob"], "num_runs": 3})
+    assert loose.status_code == 422 and "Duplicate candidate name" in loose.text

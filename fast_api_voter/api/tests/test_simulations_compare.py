@@ -73,9 +73,21 @@ class TestVoteSteps:
         assert set(body["duel_matrix"]) == set(CANDS)
         assert body["winner"] in CANDS
 
-    def test_invalid_method_400(self, client):
+    def test_invalid_method_422(self, client):
+        """The worker still answers a direct call with 400; over HTTP the schema's
+        Literal catches it first, as on the seven endpoints #611 converted."""
         r = client.post("/api/v2/simulations/vote-steps",
                         json={"method": "nonsense", "num_voters": 50, "candidates": CANDS})
-        assert r.status_code == 400, r.text
+        assert r.status_code == 422, r.text
+
+    def test_duplicate_candidate_names_are_rejected(self, client):
+        """Schulze built a pairwise dict over distinct names and then asked it for
+        the pair ('Alice', 'Alice'): a KeyError, served as a 500."""
+        for method in ("schulze", "plurality", "borda", "irv", "approval"):
+            r = client.post("/api/v2/simulations/vote-steps",
+                            json={"method": method, "num_voters": 20,
+                                  "candidates": ["Alice", "Alice", "Bob"]})
+            assert r.status_code == 422, (method, r.text)
+            assert "Duplicate candidate name" in r.text
 
 

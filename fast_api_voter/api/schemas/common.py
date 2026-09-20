@@ -6,9 +6,9 @@ generated OpenAPI spec carries real explanations into the frontend types.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Annotated, Any, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
 
 class ErrorDetail(BaseModel):
@@ -38,6 +38,50 @@ class CandidateSpec(BaseModel):
                         description="Economy axis. -1 = far left, +1 = far right.")
     y:    float = Field(..., ge=-1.0, le=1.0,
                         description="Social axis. -1 = liberal, +1 = conservative.")
+
+
+def reject_duplicate_candidate_names(candidates: List[Any]) -> List[Any]:
+    """Two candidates sharing a name is rejected at the boundary.
+
+    Every worker tallies into a `{name: count}` dict, so duplicates silently
+    collapse into one key and the other candidate's votes are discarded — the
+    same hazard `election.py`'s `_reject_duplicate_names` already documents for
+    party lists. `/simulations/vote-steps` was worse than lossy: its Schulze
+    branch builds a pairwise dict over distinct names and `combinations()` then
+    hands it the pair ('Alice', 'Alice'), raising KeyError as a 500 while the
+    other four rules on the same endpoint answered 200.
+
+    Accepts the loose shapes the simulation endpoints take: a bare name string,
+    a dict, or a spec model.
+    """
+    return reject_duplicate_names(candidates, "candidate")
+
+
+def candidate_name(spec: Any) -> str:
+    """The name out of any of the three shapes a spec arrives in: a bare string,
+    a dict, or a model."""
+    if isinstance(spec, str):
+        return spec
+    return str(spec.get("name", "") if isinstance(spec, dict) else getattr(spec, "name", ""))
+
+
+def reject_duplicate_names(specs: List[Any], noun: str) -> List[Any]:
+    """`specs` with every name distinct, or a ValueError naming the duplicate."""
+    seen: set[str] = set()
+    for spec in specs:
+        name = candidate_name(spec)
+        if name in seen:
+            raise ValueError(f"Duplicate {noun} name: {name!r}")
+        seen.add(name)
+    return specs
+
+
+#: `List[CandidateSpec]` that also rejects duplicate names. Same field
+#: constraints as before apply on top (`Field(..., min_length=2, max_length=8)`).
+UniqueCandidates = Annotated[List[CandidateSpec], AfterValidator(reject_duplicate_candidate_names)]
+
+#: For the two simulation endpoints whose `candidates` accept name strings too.
+UniqueLooseCandidates = Annotated[List[Any], AfterValidator(reject_duplicate_candidate_names)]
 
 
 class ContagionConfig(BaseModel):

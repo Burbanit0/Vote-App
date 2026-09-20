@@ -57,6 +57,7 @@ from schemathesis.config import GenerationConfig, ProjectConfig, ProjectsConfig
 from api.core.ratelimit import limiter
 from api.engine.utils.logger import get_logger
 from api.main import fastapi_app
+from api.schemas.common import candidate_name
 
 log = get_logger(__name__)
 
@@ -119,6 +120,36 @@ def _clamp_heavy_ints(node: Any) -> None:
             _clamp_heavy_ints(item)
 
 
+def _make_names_unique(node: Any) -> None:
+    """Give every generated `candidates`/`parties` list distinct names.
+
+    Uniqueness is a real request constraint on both fields (a duplicate name
+    collapses two entries into one dict key downstream, discarding the other's
+    votes), but JSON Schema cannot express "distinct on a sub-field", so
+    schemathesis happily generates two candidates both called "0" and then reads
+    the resulting 422 as an undocumented status. Renaming the duplicate keeps the
+    operation under test instead of exempting it -- the same reason
+    `_clamp_heavy_ints` rewrites rather than skips.
+    """
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key in ("candidates", "parties") and isinstance(value, list):
+                seen: set[str] = set()
+                for i, item in enumerate(value):
+                    name = candidate_name(item)
+                    while name in seen:
+                        name = f"{name}_{i}"
+                    seen.add(name)
+                    if isinstance(item, dict):
+                        item["name"] = name
+                    else:
+                        value[i] = name
+            _make_names_unique(value)
+    elif isinstance(node, list):
+        for item in node:
+            _make_names_unique(item)
+
+
 # Real findings from running this suite against develop on 2026-09-10, kept
 # out of the hard gate so this file can be blocking without re-litigating
 # pre-existing debt in every run. Each falls into one of five buckets:
@@ -147,8 +178,6 @@ KNOWN_FAILURES: dict[str, str] = {
     "POST /api/v1/simulate":                             "[timeout] num_candidates near cap x methods=all",
     "POST /api/v2/election/abstention":                  "[timeout] num_rounds x num_voters near cap",
     "POST /api/v2/election/affective-polarization":      "[timeout] heavy pairwise affect computation",
-    "POST /api/v2/election/assembly":                    "[validator] duplicate party name rejected (422), by design",
-    "POST /api/v2/election/assembly-scorecard":          "[validator] duplicate party name rejected (422), by design",
     "POST /api/v2/election/coalition":                   "[timeout] D'Hondt + greedy coalition search near seat cap",
     "POST /api/v2/election/compulsory-voting":           "[loose-req] optional nested config combination",
     "POST /api/v2/election/demographic-turnout":         "[loose-req] optional nested config combination",
@@ -164,9 +193,7 @@ KNOWN_FAILURES: dict[str, str] = {
                                                           "`parties` (no cross-field check today)",
     "POST /api/v2/election/simulate":                    "[timeout] full spatial pipeline near voter cap",
     "POST /api/v2/election/simulate-pipeline":            "[timeout] full spatial pipeline near voter cap",
-    "POST /api/v2/election/structural-fairness":         "[validator] duplicate party name rejected (422), by design",
     "POST /api/v2/election/stv":                          "[loose-req] optional ballot-shape combination",
-    "POST /api/v2/election/temporal":                     "[validator] duplicate party name rejected (422), by design",
     "POST /api/v2/export/simulation-dataset":            "[timeout] num_scenarios x num_voters near cap",
     "POST /api/v2/export/simulation-dataset-json":       "[timeout] num_scenarios x num_voters near cap",
     "POST /api/v2/simulations":                          "[loose-req] legacy formData-shaped body, see LegacySimulateRequest",
@@ -216,6 +243,7 @@ KNOWN_FAILURES: dict[str, str] = {
 )
 def test_contract(case: schemathesis.Case) -> None:
     _clamp_heavy_ints(case.body)
+    _make_names_unique(case.body)
     label = case.operation.label
 
     # KNOWN_FAILURES operations still get called (real smoke value — the
