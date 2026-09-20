@@ -6358,8 +6358,9 @@ export interface components {
             /**
              * Method
              * @default plurality
+             * @enum {string}
              */
-            method: string;
+            method: "plurality" | "borda" | "irv" | "schulze" | "approval";
             /**
              * Num Voters
              * @default 100

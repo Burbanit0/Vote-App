@@ -10,9 +10,11 @@ routes used.
 """
 from __future__ import annotations
 
-from typing import Annotated, Any, Dict, List
+from typing import Annotated, Any, Dict, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from .common import UniqueLooseCandidates
 
 
 # Shared request bounds. Ranges mirror api/schemas/election.py and
@@ -32,9 +34,14 @@ class VoteStepsRequest(BaseModel):
     """POST /simulations/vote-steps."""
     model_config = ConfigDict(extra="ignore")
 
-    method:     str = "plurality"
+    # The five branches the worker animates. The worker already rejected anything
+    # else with a 400; declaring the Literal moves that to a 422 at the boundary,
+    # matching the seven endpoints #611 converted and putting the list in the
+    # OpenAPI contract instead of only in an error string.
+    method:     Literal["plurality", "borda", "irv", "schulze", "approval"] = "plurality"
     num_voters: NumVoters = 100
-    candidates: List[Any] = Field(default_factory=lambda: list(_DEFAULT_CANDIDATES), max_length=8)
+    candidates: UniqueLooseCandidates = Field(
+        default_factory=lambda: list(_DEFAULT_CANDIDATES), max_length=8)
     ideology:   str = "random"
     seed:       int = 42
 
@@ -50,7 +57,8 @@ class MonteCarloRequest(BaseModel):
     num_runs:              NumRuns = 100
     num_voters:            NumVoters = 150
     ideology_distribution: str = "random"
-    candidates:            List[Any] = Field(default_factory=lambda: list(_DEFAULT_CANDIDATES), max_length=8)
+    candidates:            UniqueLooseCandidates = Field(
+        default_factory=lambda: list(_DEFAULT_CANDIDATES), max_length=8)
 
 
 # ── Response models (Phase 6) ─────────────────────────────────────────────────
