@@ -13,6 +13,12 @@ break external clients):
     worker clamps them silently (50–2000 / 2–8) just like Flask did, so a
     huge value returns 200 with a capped run instead of a 422.
   * `methods` accepts the literal "all" string OR a list of method keys.
+  * `compute_strategic` opts into the `strategic_vulnerability` field per
+    method (off by default — see api/domain/public.py's
+    _STRATEGIC_NUM_VOTERS_CAP for why: it re-runs every ranked rule per
+    sampled voter per permutation, ~33,000 full re-tallies at 8 candidates,
+    and was measured taking the whole request past the 180s worker timeout
+    at the base num_voters cap). Opting in lowers that cap to 500.
 """
 from __future__ import annotations
 
@@ -29,6 +35,7 @@ class PublicSimulateRequest(BaseModel):
     num_voters:            int = 500
     ideology_distribution: str = "random"
     methods:               Union[Literal["all"], List[str]] = "all"
+    compute_strategic:     bool = False
 
 
 class PublicCompareRequest(BaseModel):
@@ -40,6 +47,7 @@ class PublicCompareRequest(BaseModel):
     ideology_distribution: str = "random"
     blank_rule:            str = ""   # "" → blank vote disabled
     methods:               Union[Literal["all"], List[str]] = "all"
+    compute_strategic:     bool = False
 
 
 # ── Response models (Phase 6) ─────────────────────────────────────────────────

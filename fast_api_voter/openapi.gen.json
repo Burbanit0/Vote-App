@@ -8805,6 +8805,11 @@
             "title": "Blank Rule",
             "type": "string"
           },
+          "compute_strategic": {
+            "default": false,
+            "title": "Compute Strategic",
+            "type": "boolean"
+          },
           "ideology_distribution": {
             "default": "random",
             "title": "Ideology Distribution",
@@ -8914,6 +8919,11 @@
       "PublicSimulateRequest": {
         "description": "POST /api/v1/simulate.",
         "properties": {
+          "compute_strategic": {
+            "default": false,
+            "title": "Compute Strategic",
+            "type": "boolean"
+          },
           "ideology_distribution": {
             "default": "random",
             "title": "Ideology Distribution",

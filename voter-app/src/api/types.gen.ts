@@ -5661,6 +5661,11 @@ export interface components {
              */
             blank_rule: string;
             /**
+             * Compute Strategic
+             * @default false
+             */
+            compute_strategic: boolean;
+            /**
              * Ideology Distribution
              * @default random
              */
@@ -5727,6 +5732,11 @@ export interface components {
          * @description POST /api/v1/simulate.
          */
         PublicSimulateRequest: {
+            /**
+             * Compute Strategic
+             * @default false
+             */
+            compute_strategic: boolean;
             /**
              * Ideology Distribution
              * @default random

@@ -149,6 +149,50 @@ class TestSimulate:
                     "condorcet_consistent"):
             assert key in m
 
+    def test_strategic_vulnerability_is_off_by_default(self, client):
+        """strategic_vulnerability re-tallies every ranked rule per sampled
+        voter per manipulated permutation -- ~33,000 full re-runs at 8
+        candidates, measured taking the whole request past the 180s worker
+        timeout at the base num_voters cap with zero contention. It must stay
+        opt-in, not silently reappear as a default cost."""
+        m = client.post("/api/v1/simulate", json={
+            "num_candidates": 3, "num_voters": 60, "methods": ["borda"],
+        }).json()["methods"]["borda"]
+        assert m.get("strategic_vulnerability") is None
+
+    def test_compute_strategic_opts_into_the_field(self, client):
+        m = client.post("/api/v1/simulate", json={
+            "num_candidates": 3, "num_voters": 60, "methods": ["borda"],
+            "compute_strategic": True,
+        }).json()["methods"]["borda"]
+        assert m.get("strategic_vulnerability") is not None
+
+    def test_compute_strategic_lowers_the_num_voters_cap(self, client, monkeypatch):
+        """The expensive metric's cost scales linearly with num_voters (each
+        of ~33,000 re-tallies re-tallies the WHOLE electorate), so opting in
+        lowers the cap from 2000 to _STRATEGIC_NUM_VOTERS_CAP (500) -- measured
+        keeping the worst case (500 voters, 8 candidates) at ~48s, well under
+        the 180s timeout, instead of the ~190s the uncapped combination hit.
+        compare_all_methods is stubbed: only the capped population SIZE
+        reaching _build_simple_population is under test here, not the actual
+        metric, so this stays fast regardless of that real cost."""
+        captured: dict[str, int] = {}
+        real_build = public_module._build_simple_population
+
+        def spy(num_voters, num_candidates, ideology="random"):
+            captured["num_voters"] = num_voters
+            return real_build(num_voters, num_candidates, ideology)
+
+        monkeypatch.setattr(public_module, "_build_simple_population", spy)
+        monkeypatch.setattr(public_module, "compare_all_methods",
+                             lambda *a, **kw: {"methods": {"plurality": {"winner": None}}})
+        r = client.post("/api/v1/simulate", json={
+            "num_candidates": 2, "num_voters": 2000, "methods": ["plurality"],
+            "compute_strategic": True,
+        })
+        assert r.status_code == 200, r.text
+        assert captured["num_voters"] == public_module._STRATEGIC_NUM_VOTERS_CAP
+
     def test_invalid_num_candidates_type_422(self, client):
         # Non-int → Pydantic rejects with 422 (the FastAPI analogue of Flask's 400).
         assert client.post("/api/v1/simulate",
@@ -196,6 +240,39 @@ class TestCompare:
             "blank_rule": "symbolic", "methods": ["plurality"],
         }).json()
         assert "blank_rule_applied" in body["methods"]["plurality"]
+
+    def test_strategic_vulnerability_is_off_by_default(self, client):
+        m = client.post("/api/v1/compare", json={
+            "num_candidates": 3, "num_voters": 60, "methods": ["borda"],
+        }).json()["methods"]["borda"]
+        assert m.get("strategic_vulnerability") is None
+
+    def test_compute_strategic_opts_into_the_field(self, client):
+        m = client.post("/api/v1/compare", json={
+            "num_candidates": 3, "num_voters": 60, "methods": ["borda"],
+            "compute_strategic": True,
+        }).json()["methods"]["borda"]
+        assert m.get("strategic_vulnerability") is not None
+
+    def test_compute_strategic_lowers_the_num_voters_cap(self, client, monkeypatch):
+        """See TestSimulate's copy of this test for the full rationale (the
+        cap, why it's 500, and why compare_all_methods is stubbed here too)."""
+        captured: dict[str, int] = {}
+        real_build = public_module._build_simple_population
+
+        def spy(num_voters, num_candidates, ideology="random"):
+            captured["num_voters"] = num_voters
+            return real_build(num_voters, num_candidates, ideology)
+
+        monkeypatch.setattr(public_module, "_build_simple_population", spy)
+        monkeypatch.setattr(public_module, "compare_all_methods",
+                             lambda *a, **kw: {"methods": {"plurality": {"winner": None}}})
+        r = client.post("/api/v1/compare", json={
+            "num_candidates": 2, "num_voters": 2000, "methods": ["plurality"],
+            "compute_strategic": True,
+        })
+        assert r.status_code == 200, r.text
+        assert captured["num_voters"] == public_module._STRATEGIC_NUM_VOTERS_CAP
 
     def test_filtering_by_condorcet_resolves_to_copeland(self, client):
         body = client.post("/api/v1/compare", json={
