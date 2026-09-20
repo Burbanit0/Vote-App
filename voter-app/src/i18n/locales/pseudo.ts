@@ -971,6 +971,8 @@ const pseudo: TranslationKeys = {
     distortion: '⟦Dístórsíóñ~~~~⟧',
     pedagogicalGerry:
       '⟦⚠~ Ávéç~~ çé~ déçóúpágé,~~~~ {{winner}} rémpórté~~~ {{seatPct}}%~ dés~~ síègés~~~ ávéç~~ séúléméñt~~~~ {{votePct}}%~ dés~~ vóíx~~ (íñdíçé~~~ dé~ gérrymáñdéríñg~~~~~ :~ {{index}}%).~~⟧',
+    pedagogicalTie:
+      "⟦Áúçúñ~~ pártí~~ ñé~ dómíñé~~~ éñ~ síègés~~~ (~{{tied}} à~ égálíté)~~~ :~ íl~ ñ'y~~ á~ pás~~ dé~ pártí~~ dóñt~~ çómpárér~~~ lá~ párt~~ dé~ síègés~~~ à~ sá~ párt~~ dé~ vóíx.~~⟧",
     pedagogicalFair:
       '⟦✓~ Cé~ déçóúpágé~~~~ ést~~ próçhé~~~ dú~ própórtíóññél~~~~~ —~ {{winner}} óbtíéñt~~~ dés~~ síègés~~~ réflétáñt~~~~ sóñ~~ póíds~~ éléçtórál~~~~ réél.~~⟧',
   },
@@ -1238,6 +1240,8 @@ const pseudo: TranslationKeys = {
       '⟦Áú~ sçrútíñ~~~ úñíñómíñál~~~~ májórítáíré,~~~~~ {{fptpWinner}} rémpórté~~~ {{fptpSeatPct}}%~ dés~~ síègés~~~ ávéç~~ séúléméñt~~~~ {{fptpVotePct}}%~ dés~~ vóíx.~~ Éñ~ própórtíóññél,~~~~~ {{proportionalWinner}} áúráít~~~ lá~ májóríté~~~ rélátívé.~~~~ Mêmé~~ éléçtórát,~~~~ áútré~~ párléméñt.~~~~⟧',
     pedagogicalConsensus:
       '⟦{{winner}} rémpórté~~~ à~ lá~ fóís~~ lés~~ síègés~~~ FPTP~~ ét~ lá~ májóríté~~~ própórtíóññéllé~~~~~~ —~ lés~~ déúx~~ módés~~ dé~ sçrútíñ~~~ çóñvérgéñt~~~~ dáñs~~ çé~ sçéñáríó.~~~~⟧',
+    pedagogicalTie:
+      '⟦Úñ~ dés~~ déúx~~ módés~~ dé~ sçrútíñ~~~ ñé~ dépártágé~~~~ pás~~ lés~~ pártís~~~ (~{{tied}} à~ égálíté~~~ dé~ síègés)~~~ :~ ímpóssíblé~~~~ dé~ díré~~ sí~ lés~~ déúx~~ párléméñts~~~~ dívérgéñt.~~~~⟧',
   },
   delib: {
     prompt:

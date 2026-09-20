@@ -937,6 +937,8 @@ const en: TranslationKeys = {
     distortion: 'Distortion',
     pedagogicalGerry:
       '⚠ With this map, {{winner}} wins {{seatPct}}% of seats with only {{votePct}}% of votes (gerrymandering index: {{index}}%).',
+    pedagogicalTie:
+      'No party leads on seats ({{tied}} tie), so there is no party whose seat share can be compared with its vote share.',
     pedagogicalFair:
       '✓ This map is close to proportional — {{winner}} gets seats reflecting their actual vote share.',
   },
@@ -1212,6 +1214,8 @@ const en: TranslationKeys = {
       'Under FPTP, {{fptpWinner}} wins {{fptpSeatPct}}% of seats with only {{fptpVotePct}}% of the national vote. Under proportional representation, {{proportionalWinner}} would have the relative majority. Same voters, different parliament.',
     pedagogicalConsensus:
       '{{winner}} wins both FPTP seats and the proportional majority — both systems converge in this scenario.',
+    pedagogicalTie:
+      'One of the two systems does not separate the parties ({{tied}} tie on seats), so whether the two parliaments diverge cannot be said.',
   },
 
   delib: {

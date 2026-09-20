@@ -1057,8 +1057,10 @@ class DistrictsResponse(BaseModel):
     national_vote_share:        Dict[str, float]
     distortion:                 float
     condorcet_winner_national:  Optional[str] = None
-    fptp_winner:                str
-    proportional_winner:        str
+    # Every party tied on seats; the client compares the two sets rather than
+    # claiming divergence from two arbitrary picks.
+    fptp_winner:                List[str]
+    proportional_winner:        List[str]
     num_districts:              int
 
 
@@ -1202,8 +1204,10 @@ class GerrymanderResponse(BaseModel):
     parliament_proportional: Dict[str, Any]
     national_vote_share:     Dict[str, Any]
     distortion:              float
-    gerrymander_index:       float
-    winner:                  Optional[str] = None
+    # None when parties tie on seats: no single leading party, so no distance
+    # from proportional to report for one.
+    gerrymander_index:       Optional[float] = None
+    winner:                  List[str] = Field(default_factory=list)
     candidates:              List[str]
     num_seats:               int
 
