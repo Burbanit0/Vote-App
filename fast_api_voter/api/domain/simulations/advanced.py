@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 
 
+from api.domain.election._helpers import modal_keys
 from api.engine.utils.demographic_data import unseeded_rng_pair
 from api.engine.utils.simulation_metrics import compare_all_methods_mc
 from api.engine.utils.error_handling import log_and_error_response
@@ -128,7 +129,11 @@ def _monte_carlo_worker(data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
         methods_stats = {}
         for m in method_names:
             dist = {c: round(cnt / num_runs, 4) for c, cnt in winner_counts[m].items()}
-            most_common: Optional[str] = max(winner_counts[m], key=lambda k: winner_counts[m][k]) if winner_counts[m] else None
+            # Every candidate tied for most runs won. `max()` returned whichever
+            # was counted first, and `run_results` comes off `as_completed`, so on
+            # a tie two identical requests could disagree. Empty only when no run
+            # produced a winner.
+            most_common: List[str] = modal_keys(winner_counts[m])
             regs = regrets[m]
             sats = satisfactions[m]
             reg_mean = round(sum(regs) / len(regs), 6) if regs else None

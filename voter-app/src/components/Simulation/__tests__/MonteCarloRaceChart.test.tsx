@@ -40,15 +40,15 @@ vi.mock('recharts', () => ({
 const PARTIAL = {
   plurality: {
     winner_distribution: { Alice: 0.62, Bob: 0.31, Carol: 0.07 },
-    most_common_winner: 'Alice',
+    most_common_winner: ['Alice'],
   },
   schulze: {
     winner_distribution: { Alice: 0.55, Bob: 0.38, Carol: 0.07 },
-    most_common_winner: 'Alice',
+    most_common_winner: ['Alice'],
   },
   borda: {
     winner_distribution: { Alice: 0.48, Bob: 0.45, Carol: 0.07 },
-    most_common_winner: 'Alice',
+    most_common_winner: ['Alice'],
   },
 };
 
@@ -84,7 +84,7 @@ describe('MonteCarloRaceChart', () => {
     const { container } = renderChart({
       ...BASE_PROPS,
       partialResults: {
-        plurality: { winner_distribution: {}, most_common_winner: null },
+        plurality: { winner_distribution: {}, most_common_winner: [] },
       } as any,
     });
     // No candidates → no chart
