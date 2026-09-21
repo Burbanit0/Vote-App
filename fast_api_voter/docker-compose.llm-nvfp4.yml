@@ -29,6 +29,9 @@
 # at once, and the project's own precedent (llm-4b.yml) is "stop one, start
 # the other," never concurrent.
 #
+# Result (run 2026-09-20): scripts/check_nvfp4_precision_probe_results.md -- the collapse stays,
+# but candidacy and pressure_act move; the model needs its probe-only profile (model_profiles.py).
+#
 # Usage:
 #   docker compose -f docker-compose.llm.yml down          # free the AWQ arm
 #   docker compose -f docker-compose.llm-nvfp4.yml up -d

@@ -1168,6 +1168,21 @@ costs.*
   n-gram speculation. Their replays never touch the server, so their results stand. Run provenance
   records the image and version from now on.
 
+### The precision probe: NVFP4 against the shipped AWQ (2026-09-20)
+
+*The first step of the free local sequence; `scripts/check_nvfp4_precision_probe_results.md`.* Same
+weights lineage, same stack (vLLM 0.29.0, no speculation), only the 4-bit format differs.
+
+- **The collapse stays.** representative_response is flat in both (spread 0.000004 against 0.000001), and
+  coalition still joins at every point (pole-to-pole gap −0.014 against −0.003; the bar is 0.10).
+- **The format still matters.** On the full frozen bank NVFP4 gains 7 points on candidacy (Holm p =
+  0.028) and 7 citizens on pressure_act (raw p = 0.016, Holm 0.52), and two flat contrasts (coalition,
+  reaction) show a second answer.
+- **It costs more.** The whole bank takes 1.8 times as long (40.7 against 22.7 minutes): vote_cast reasons
+  2.8 times longer per call, and chamber truncates 4 of 10 against 2. Not adopted; the profile added for
+  it (`QWEN3_8B_NVFP4A16_VLLM`) is probe-only and inherits the AWQ values unmeasured.
+- **Open.** "4-bit against 16-bit" is untested: Qwen3-4B at bf16 is the next step.
+
 ### S4.1's grid, pre-registered before running (ADR-011 gave the facts, not the grid)
 
 - `partisanship` ∈ {0, 0.05, 0.1}
