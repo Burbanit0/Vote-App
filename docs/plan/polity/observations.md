@@ -46,6 +46,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-017](#obs-017) | WebKit crashed mid-navigation to /polity in CI, once, while the other worker ran the heavy fiches | 2026-09-16 | open |
 | [OBS-018](#obs-018) | The response contract, not the model, sets the president's stance in 22 of 650 responses | 2026-09-16 | cause found, partly fixed |
 | [OBS-019](#obs-019) | Showing the model its citizens' emotions, at zero weight, multiplies mobilization fourteenfold | 2026-09-17 | cause found |
+| [OBS-020](#obs-020) | Without n-gram speculation, two same-seed live runs are not always byte-identical | 2026-09-20 | open |
 
 ---
 
@@ -863,3 +864,55 @@ at anger 0, 4 of 4 at 0.75). This is the same reaction compounded over a whole r
 - **For the runs already published:** every LLM run before step 5 had emotions off, so none of them
   is affected. What changes is that "emotions off" is not a neutral baseline: it is a choice that
   suppresses mobilization.
+
+### OBS-020
+
+**Without n-gram speculation, two same-seed live runs are not always byte-identical.**
+
+*Seen.* Verifying the move to vLLM 0.29.0 (2026-09-20), `test_polity_vllm_live.py`'s
+`test_two_short_live_runs_with_the_same_seed_are_byte_identical` (4 years, 100 citizens, one worker,
+strict, shipped defaults) failed on the new server, which runs without `--speculative-config`. The same
+pair of runs, by server:
+
+| server | pairs run | result |
+|---|---:|---|
+| 0.28.0 + n-gram speculation (the old pin) | 1 | byte-identical (314 lines) |
+| 0.29.0 + n-gram speculation | 1 | byte-identical (314 lines) |
+| 0.29.0, no speculation | 3 | 2 differ, 1 identical. The live test failed at byte 37,287; a second pair differed on 15 of 312 lines, the first at line 133 (`campaign_positioning`, tick 0: different shifts and motifs). The last pair, in the full live suite, was byte-identical (`XPASS`). |
+
+- **Short generations still reproduce.** `check_vllm_batching_determinism.py` passes on the new setup
+  within a run (batch sizes 1 to 50, 10 sequential calls) and across a restart. The divergence is in
+  long thinking generations.
+- **The frozen bank shows the runner difference too.** Against the 0.28.0 control session, 160 of 174
+  answers are identical. Thirteen differ because of the server: `positioning_poles` 9 of 10,
+  `chamber_poles` 3 of 10 (two validity flips, both `finish_reason='length'`) and one `candidacy_p500`
+  case. Every short-answer family is identical. (A 14th, in `response_sweep`, differs because #545 now
+  accepts a silence that cites motif 303.) Both long families were already fragile: the control's own
+  re-render agreement is 1 of 6 on positioning and 6 of 10 on chamber.
+
+*Evidence.*
+
+```bash
+cd fast_api_voter
+# against each server in turn; XPASS when the pair is identical, xfail when it is not
+POLITY_VLLM_LIVE=1 POLITY_VLLM_URL=http://localhost:8000/v1 python -m pytest \
+  api/tests/test_polity_vllm_live.py -k same_seed -o addopts="" -rxX -q
+docker logs vllm-polity 2>&1 | grep -E "Using V2 Model Runner|does not yet support ngram"
+```
+
+*Suspected cause.* Model Runner V2. The only configuration difference between the arms is
+`--speculative-config`; with it vLLM logs "Model Runner V2 does not yet support ngram ... using the V1
+model runner instead", without it "Using V2 Model Runner". This is a suspicion, not a finding: 3 pairs
+against 2, and the pass in the last pair shows the failure is intermittent. Two other candidates are not
+excluded: the prefix cache (the second run reads KV blocks the first filled, and prefill numerics can
+differ on a cache hit), and V2 and "no speculation" are coupled, so they were not separated (0.28.0
+without speculation also engages V2, but its pairs were not run).
+
+*What would settle it.* Five or more same-seed pairs per setup (about 7 minutes each): the new setup,
+the new setup with `--no-enable-prefix-caching`, and 0.28.0 + speculation.
+
+*Status: open.* The owner accepted the risk on 2026-09-20 in exchange for dropping speculation (no gain on
+12-worker runs). The live byte-identity test is now `xfail(strict=False)`, and a new test checks what a
+run does promise: replay from its own call log (D1, S0.6) is byte-identical (it passed). Sequential
+bake-off-style sessions also cost more without speculation: the full frozen bank took 22.7 minutes
+against 15.9 on the control (structured-output types 1.7 to 2.9 times slower).

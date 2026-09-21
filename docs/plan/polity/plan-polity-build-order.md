@@ -1149,6 +1149,25 @@ the recorded retries, and would stop on unserved calls.
 - L4's effect on the twin was 0.07 points of vote share: at population 100 that is a handful of
   ballots, and may not be distinguishable from zero in ten seeds.
 
+### The pinned server moves to vLLM 0.29.0, without n-gram speculation (2026-09-20)
+
+*Decided by the owner on 2026-09-20, after `scripts/check_vllm_speculation_ab_results.md`, knowing its
+costs.*
+
+- **Why.** On a 2-year, 100-citizen, 12-worker run, speculation gave no wall-clock gain (323 and 352 s
+  with it, 332 s without on 0.28.0, 310 s without on 0.29.0) and was about 28% slower per call on
+  pressure_action and 24% on vote_cast. Without it Model Runner V2 engages.
+- **What it costs.** Sequential bake-off-style sessions take about 43% longer (the full frozen bank,
+  15.9 to 22.7 minutes); 13 of the frozen bank's 174 answers differ from 0.28.0's, all in the
+  long-thinking families; and two same-seed live runs are not always byte-identical (OBS-020, open).
+  A run's guarantee is replay from its call log, which passes live.
+- **What changes.** `docker-compose.llm.yml` and the unrun precision probe `docker-compose.llm-nvfp4.yml`
+  pin `v0.29.0` with no `--speculative-config`. The byte-identity live test is `xfail(strict=False)` and a
+  replay live test guards what a run does promise.
+- **What does not.** Every Stage 4 run (the pilot and steps 1, 2 and 5) was recorded on 0.28.0 with
+  n-gram speculation. Their replays never touch the server, so their results stand. Run provenance
+  records the image and version from now on.
+
 ### S4.1's grid, pre-registered before running (ADR-011 gave the facts, not the grid)
 
 - `partisanship` ∈ {0, 0.05, 0.1}

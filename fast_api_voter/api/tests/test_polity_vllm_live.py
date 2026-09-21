@@ -58,6 +58,7 @@ from api.domain.polity.llm_behavior_engine import (
     menu_acts,
 )
 from api.domain.polity.llm_client import VllmJsonClient, _inline_refs, decode_vote_batch
+from api.domain.polity.llm_replay import ReplayClient
 from api.domain.polity.llm_schemas import VOTE_CAST_JSON_SCHEMA, VoteCastBatch
 from api.domain.polity.run_polity_simulation import _run_accountability_phase, run_simulation
 from api.domain.polity.simple_rules import declare_candidacy
@@ -280,6 +281,12 @@ def test_a_short_live_run_produces_a_valid_journal(tmp_path):
         json.loads(line)  # every line is valid, complete JSON
 
 
+@pytest.mark.xfail(
+    strict=False,
+    reason="OBS-020: without n-gram speculation (docker-compose.llm.yml since 2026-09-20, which lets Model "
+    "Runner V2 engage) long thinking generations sometimes differ between two same-seed live runs (2 of 3 "
+    "pairs); the old 0.28.0 + speculation setup passed. What a run promises instead is replay (the next test).",
+)
 def test_two_short_live_runs_with_the_same_seed_are_byte_identical(tmp_path):
     """The actual §15bis.4c question, end to end: does a real production
     run reproduce under vLLM the way it does under Ollama's FakeLlmClient
@@ -299,6 +306,24 @@ def test_two_short_live_runs_with_the_same_seed_are_byte_identical(tmp_path):
     path_b = run_simulation(config_b, run_id="same-run-id")
 
     assert path_a.read_bytes() == path_b.read_bytes()
+
+
+def test_a_short_live_run_replays_byte_identically_from_its_call_log(tmp_path):
+    """What a live run does promise (D1, S0.6): it is reproducible by replaying its own call log,
+    whatever the server does. Records one run, then replays it on a client that has no server."""
+    config = _vllm_config()
+    config = dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=True))
+    config = dataclasses.replace(config, candidacy=dataclasses.replace(config.candidacy, ambition_threshold=0.1))
+    config = dataclasses.replace(config, run=dataclasses.replace(config.run, duration_years=4))
+
+    config_a = dataclasses.replace(config, journal=dataclasses.replace(config.journal, output_dir=str(tmp_path / "a")))
+    config_b = dataclasses.replace(config, journal=dataclasses.replace(config.journal, output_dir=str(tmp_path / "b")))
+    recorded = run_simulation(config_a, run_id="same-run-id")
+    replay = ReplayClient.from_run_dir(recorded.parent)
+    replayed = run_simulation(config_b, run_id="same-run-id", llm_client=replay)
+
+    assert replayed.read_bytes() == recorded.read_bytes()
+    assert replay.unserved == 0
 
 
 # ── pressure_action (v4 Lot 7, calibrated + shipped Phase E 2026-09-10) ──────

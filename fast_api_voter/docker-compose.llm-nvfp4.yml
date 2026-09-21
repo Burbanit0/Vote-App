@@ -44,7 +44,7 @@
 # --reasoning-parser qwen3, max-model-len 16384 (load-bearing, not
 # conservative -- see that file's own comment; campaign_positioning's output
 # budget alone reaches 9836 tokens), gpu-memory-utilization 0.80, seed 42,
-# the ngram speculative-config already proven lossless at temperature=0.
+# and no --speculative-config (dropped from production 2026-09-20; see that file).
 # No --quantization flag: compressed-tensors format is declared in the
 # checkpoint's own config.json (quant_method), which is what awq_marlin's own
 # comment says vLLM does NOT reliably do for AWQ -- check the startup log for
@@ -56,7 +56,7 @@
 
 services:
   vllm-nvfp4:
-    image: vllm/vllm-openai:v0.28.0   # identical server build to the shipped
+    image: vllm/vllm-openai:v0.29.0   # identical server build to the shipped
                                       # stack -- the serving layer must not be
                                       # a variable in this comparison
     container_name: vllm-polity-nvfp4
@@ -101,8 +101,6 @@ services:
       - "8000"
       - "--seed"
       - "42"
-      - "--speculative-config"
-      - '{"method": "ngram", "num_speculative_tokens": 5, "prompt_lookup_max": 4, "prompt_lookup_min": 2}'
 
 volumes:
   huggingface_cache:
