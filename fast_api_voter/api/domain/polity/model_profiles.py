@@ -68,6 +68,8 @@ class ModelProfile:
     vote_think_allowance: int
     chamber_think_allowance: int
     positioning_think_allowance: int
+    measured: bool = True
+    """False for a probe-only profile that inherits another model's values instead of its own."""
 
 
 QWEN3_THINKING = ThinkingControl(field="chat_template_kwargs", key="enable_thinking")
@@ -102,6 +104,7 @@ QWEN3_8B_NVFP4A16_VLLM = replace(
     QWEN3_8B_AWQ_VLLM,
     model="qwen3:8b-nvfp4a16",
     weights="ELVISIO/Qwen3-8B-NVFP4A16",
+    measured=False,
 )
 
 QWEN3_8B_OLLAMA = ModelProfile(

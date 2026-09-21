@@ -175,7 +175,7 @@ has, or deliberately lacks, a deterministic counterpart, and that choice is docu
 <!-- [[[cog
 import cog
 from api.domain.polity.model_profiles import PROFILES
-cog.outl("Measured per served model -- generated from `api/domain/polity/model_profiles.py` (S2.3);")
+cog.outl("Measured per served model (a row marked as inherited is not) -- generated from `api/domain/polity/model_profiles.py` (S2.3);")
 cog.outl("`scripts/check_generated_docs.sh` fails CI when this table and the code disagree.")
 cog.outl("")
 cog.outl("| served model | weights | thinking switch | context limit | `vote_cast` chunk | `chamber_deliberation` chunk | thinking budget: vote / chamber / positioning |")
@@ -183,15 +183,17 @@ cog.outl("|---|---|---|---|---|---|---|")
 for (provider, model), p in sorted(PROFILES.items()):
     switch = p.thinking.field if p.thinking.key is None else f"{p.thinking.field}.{p.thinking.key}"
     context = "not sized against" if p.context_limit is None else f"{p.context_limit} (probed)" if p.probe_token_budget else str(p.context_limit)
-    cog.outl(f"| `{model}` on {provider} | {p.weights} | `{switch}` | {context} | {p.vote_cast_chunk_size} | {p.chamber_chunk_size} | {p.vote_think_allowance} / {p.chamber_think_allowance} / {p.positioning_think_allowance} |")
+    weights = p.weights if p.measured else f"{p.weights} (values inherited, not measured; probe only)"
+    cog.outl(f"| `{model}` on {provider} | {weights} | `{switch}` | {context} | {p.vote_cast_chunk_size} | {p.chamber_chunk_size} | {p.vote_think_allowance} / {p.chamber_think_allowance} / {p.positioning_think_allowance} |")
 ]]] -->
-Measured per served model -- generated from `api/domain/polity/model_profiles.py` (S2.3);
+Measured per served model (a row marked as inherited is not) -- generated from `api/domain/polity/model_profiles.py` (S2.3);
 `scripts/check_generated_docs.sh` fails CI when this table and the code disagree.
 
 | served model | weights | thinking switch | context limit | `vote_cast` chunk | `chamber_deliberation` chunk | thinking budget: vote / chamber / positioning |
 |---|---|---|---|---|---|---|
 | `qwen3:8b` on ollama | qwen3:8b (Ollama library GGUF) | `chat_template_kwargs.enable_thinking` | not sized against | 1 | 1 | 12000 / 8000 / 8000 |
 | `qwen3:8b` on vllm | Qwen/Qwen3-8B-AWQ | `chat_template_kwargs.enable_thinking` | 16384 (probed) | 3 | 5 | 12000 / 8000 / 8000 |
+| `qwen3:8b-nvfp4a16` on vllm | ELVISIO/Qwen3-8B-NVFP4A16 (values inherited, not measured; probe only) | `chat_template_kwargs.enable_thinking` | 16384 (probed) | 3 | 5 | 12000 / 8000 / 8000 |
 <!-- [[[end]]] -->
 
 As of 2026-09-11 **no decision type can end a run on a bad batch**. Eight substitute their own §11.4
