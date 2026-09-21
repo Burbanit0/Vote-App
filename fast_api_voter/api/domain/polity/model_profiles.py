@@ -19,7 +19,7 @@ rather than run on another model's numbers.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Literal
 
 
@@ -94,6 +94,16 @@ QWEN3_8B_AWQ_VLLM = ModelProfile(
     positioning_think_allowance=8000,
 )
 
+# The precision probe's checkpoint (docker-compose.llm-nvfp4.yml): the same weights lineage in NVFP4
+# instead of AWQ. The probe changes ONE thing, the weight format, so it must send the same requests:
+# every other value is the AWQ profile's on purpose. None of them was measured on this checkpoint --
+# do not run a simulation on it on these numbers.
+QWEN3_8B_NVFP4A16_VLLM = replace(
+    QWEN3_8B_AWQ_VLLM,
+    model="qwen3:8b-nvfp4a16",
+    weights="ELVISIO/Qwen3-8B-NVFP4A16",
+)
+
 QWEN3_8B_OLLAMA = ModelProfile(
     provider="ollama",
     model="qwen3:8b",
@@ -114,7 +124,8 @@ QWEN3_8B_OLLAMA = ModelProfile(
 )
 
 PROFILES: dict[tuple[str, str], ModelProfile] = {
-    (profile.provider, profile.model): profile for profile in (QWEN3_8B_AWQ_VLLM, QWEN3_8B_OLLAMA)
+    (profile.provider, profile.model): profile
+    for profile in (QWEN3_8B_AWQ_VLLM, QWEN3_8B_NVFP4A16_VLLM, QWEN3_8B_OLLAMA)
 }
 
 PROFILED_PROVIDERS = frozenset(provider for provider, _ in PROFILES)
