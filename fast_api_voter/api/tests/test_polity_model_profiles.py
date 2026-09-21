@@ -49,6 +49,13 @@ def test_profiles_are_looked_up_by_provider_and_model() -> None:
         model_profile("vllm", "gemma4:12b")
 
 
+def test_the_precision_probe_profile_inherits_everything_but_the_weights() -> None:
+    probe = model_profile("vllm", "qwen3:8b-nvfp4a16")
+    assert probe.weights == "ELVISIO/Qwen3-8B-NVFP4A16"
+    assert not probe.measured and QWEN3_8B_AWQ_VLLM.measured
+    assert dataclasses.replace(probe, model=QWEN3_8B_AWQ_VLLM.model, weights=QWEN3_8B_AWQ_VLLM.weights, measured=True) == QWEN3_8B_AWQ_VLLM
+
+
 def test_an_llm_run_on_an_unprofiled_model_is_refused_by_validate_config() -> None:
     with pytest.raises(PolityConfigError, match="'llm.model' 'gemma4:12b' has no model profile on provider 'vllm'"):
         validate_config(_llm_config(model="gemma4:12b"))
