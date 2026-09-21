@@ -70,9 +70,12 @@ name: polity-vllm   # explicit, distinct from docker-compose.yml / .ollama.yml
 
 services:
   vllm:
-    # Pinned 2026-08-29 (plan-vllm-switch-readiness.md): confirmed to exist
-    # on Docker Hub directly (not guessed), amd64, pushed 2026-08-26.
-    image: vllm/vllm-openai:v0.28.0
+    # Pinned 2026-09-20 (plan-vllm-switch-readiness.md): confirmed to exist on
+    # Docker Hub directly by check_llm_stack_versions.py (the latest stable tag,
+    # pushed 2026-09-09), amd64. Was v0.28.0 (pushed 2026-08-26) until then.
+    # 0.29.0 warns that `--model` will be removed in a future version (it still
+    # works); move to the positional form when a release removes it.
+    image: vllm/vllm-openai:v0.29.0
     container_name: vllm-polity
     command:
       - "--model"
@@ -168,38 +171,23 @@ services:
                                     # field is null and prefix-cache hits are invisible
                                     # to time attribution. Reporting only: it changes
                                     # the usage block, not generation.
-      - "--speculative-config"
-      - '{"method": "ngram", "num_speculative_tokens": 5, "prompt_lookup_max": 4, "prompt_lookup_min": 2}'
-                                    # plan-llm-protocol-and-theory-program.md
-                                    # §3.B.6, 2026-09-10: n-gram/prompt-lookup
-                                    # speculation, no separate draft model
-                                    # needed -- looks for repeated n-grams in
-                                    # the prompt/generated text so far and
-                                    # proposes the next few tokens from that
-                                    # match; the real model then verifies
-                                    # every proposal in one forward pass and
-                                    # only accepts matches. LOSSLESS BY
-                                    # CONSTRUCTION at temperature=0: an
-                                    # accepted token is one the real model
-                                    # would have emitted anyway, a rejected
-                                    # one falls back to normal decoding for
-                                    # that position -- verified live, not
-                                    # just assumed (check_vllm_speculative_
-                                    # decoding_results.md): byte-identical
-                                    # output to the pre-change baseline,
-                                    # both same-run and cross-run. Throughput
-                                    # gain is REAL but content-dependent, not
-                                    # a flat multiplier -- a highly uniform
-                                    # chamber fixture (5 members, identical
-                                    # "nothing to decide" state) measured
-                                    # ~2.5x faster once warm; a more varied
-                                    # vote_cast prompt measured roughly
-                                    # neutral. No downside-risk scenario
-                                    # either way: an unmatched speculation
-                                    # just falls back to ordinary decoding
-                                    # for that token, so low-repetition
-                                    # content sees close to zero benefit,
-                                    # never a regression.
+                                    # No --speculative-config, on purpose (2026-09-20). n-gram
+                                    # speculation was shipped 2026-09-10 on two synthetic fixtures
+                                    # (check_vllm_speculative_decoding_results.md: ~2.5x on a uniform
+                                    # chamber fixture, neutral on a varied vote_cast). A 2-year,
+                                    # 100-citizen A/B on real traffic
+                                    # (check_vllm_speculation_ab_results.md) found no wall-clock
+                                    # benefit -- 323 s and 352 s with it, 332 s without on 0.28.0,
+                                    # 310 s without on 0.29.0 -- and per-call decode was ~28% slower
+                                    # with it on pressure_action and ~24% on vote_cast. It also keeps
+                                    # the server on the V1 model runner and off async scheduling;
+                                    # without it Model Runner V2 engages by itself. Speculation itself
+                                    # is lossless at temperature=0, but V2's numerics are not V1's, so
+                                    # this is not a speed-only change (OBS-020): two same-seed live
+                                    # runs are not always byte-identical (a run's guarantee is replay
+                                    # from its call log), 13 of 174 frozen-bank answers differ from
+                                    # 0.28.0's (long thinking families only), and sequential bank
+                                    # sessions take ~43% longer. The owner accepted these on 2026-09-20.
     ports:
       - "8000:8000"
     ipc: host                      # vLLM's own recommendation, for its shared-memory tensor cache
