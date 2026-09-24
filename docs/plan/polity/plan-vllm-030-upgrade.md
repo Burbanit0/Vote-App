@@ -198,3 +198,135 @@ document ne nomme un modèle précis à adopter : ce serait deviner un nom à
 partir d'une recherche web générale, exactement ce que ce projet a choisi de
 ne jamais faire pour cette question (`check_llm_stack_versions.py`'s own
 docstring).
+
+## 4. Candidats identifiés par recherche web (2026-09-24) — classement indicatif, pas `--discover`
+
+Demande explicite : investiguer sans rien exécuter. Ce qui suit vient de
+`WebSearch`/`WebFetch` (aucun accès direct à `huggingface.co`/`github.com`
+depuis ce sandbox, seul `registry-1.docker.io` l'est) — **un substitut
+dégradé à `--discover`, pas un remplacement**. Rien ici n'a été vérifié
+contre l'API HF elle-même (pas de SHA de révision, pas de lecture directe de
+`config.json`), donc aucun de ces points ne remplace l'étape 1 du §3. Classé
+selon la forme réelle de ce projet (bascule `enable_thinking` par type de
+décision, carte à 16,3 Go, tient à un seul flux, calibration Qwen3 déjà
+investie), pas selon un classement de benchmark public.
+
+**Budget de référence** (méthode de `check_llm_stack_versions.py`) : 16,3 Go ×
+0,80 (`--gpu-memory-utilization`) ≈ 13,0 Go pour poids + KV cache d'une
+séquence à 16384 tokens + 1,5 Go de marge. Le pin actuel (`Qwen3-8B-AWQ`, ~4-5
+Go de poids) n'utilise qu'une fraction de ce budget.
+
+### Rang 1 — `Qwen/Qwen3.5-9B` (quantification officielle FP8, PAS l'AWQ communautaire)
+
+Alibaba, février 2026, Apache 2.0, même mécanisme de bascule que le pin actuel
+(`chat_template_kwargs.enable_thinking` — zéro changement dans
+`ThinkingControl`/`model_profiles.py`). C'est la génération Qwen encore
+dense/petite/ouverte la plus récente : 3.6/3.7/3.8 ferment la porte (§ci-
+dessous). C'est le candidat le plus « à jour dans la lignée déjà investie »,
+mais avec un vrai coût d'ingénierie, pas un simple bump de tag :
+- **Architecture différente, pas un GQA dense classique** : `Qwen3.5-9B`
+  utilise une attention hybride Gated DeltaNet / Gated Attention
+  (8×(3×DeltaNet→FFN→1×Attention→FFN), source : recherche web, pas confirmé
+  sur le `config.json` réel). Le commentaire même de `_kv_cache_gib` dans
+  `check_llm_stack_versions.py` documente déjà ce problème pour cette
+  génération (« Qwen3.5/3.6 run linear attention on 24 of 32 layers... counting
+  every layer overestimated their KV by 4x ») — donc l'outillage de ce projet
+  sait déjà gérer ce cas, mais ça reste un changement d'architecture, pas
+  seulement de poids. Vérifier `arch_supported` (`--discover`, ou directement
+  `docker run ... ModelRegistry.get_supported_archs()`) avant tout le reste.
+- **Pas d'AWQ officiel Qwen** trouvé pour cette taille — seulement des requants
+  communautaires (`QuantTrio/Qwen3.5-9B-AWQ`, `cyankiwi/Qwen3.5-9B-AWQ-*`),
+  exactement le type de second facteur confondu que ce projet a déjà refusé
+  une fois (`cortecs/Qwen3-8B-NVFP4A16` rejeté pour cette même raison). Les
+  formats officiels Qwen pour cette génération sont FP8 et GPTQ-INT4.
+- **GPTQ-INT4 porte un risque neuf, introduit par CE bump précis** : les notes
+  de version 0.30.0 suppriment le support de l'activation ordering GPTQ
+  (`g_idx` ignoré, noyaux Marlin/GPTQ/CPU/RDNA3 associés retirés, §1). Un
+  checkpoint GPTQ-INT4 qui dépend de `desc_act`/`g_idx` pourrait donc être
+  cassé sur ce tag précis — à vérifier avant d'y toucher, pas supposé. **FP8
+  officiel est le chemin de quantification le plus sûr** pour ce candidat sur
+  `v0.30.0`, et une carte Blackwell (RTX 5070 Ti) a un support FP8 natif
+  solide.
+- Un bug réel AWQ+bascule-thinking a été trouvé et corrigé sur `Qwen3.5-122B-
+  A10B` (fuite de `<think>` en mode non-thinking, `</think>` jamais émis en
+  mode thinking — `vllm-project/llm-compressor#2680`, ouvert et fermé le
+  2026-05-01 avec un correctif). Le rapport lui-même note que les variantes
+  plus petites (`Qwen3-4B`, `Qwen3-30B`) ne reproduisaient pas le problème —
+  mais ce n'est pas une garantie pour `Qwen3.5-9B` spécifiquement, c'est un
+  signal que cette classe de bug existe dans cette lignée et doit être testée
+  en direct (exactement `test_think_true_actually_produces_reasoning`, §2
+  point 4), pas supposée absente.
+- Changement de poids ET d'architecture = recalibration complète (chunk
+  sizes, budgets de pensée, la phrase de désambiguïsation `chamber_position ==
+  sincere_position`) — rien de mesuré aujourd'hui ne transfère.
+
+### Rang 2 — `Qwen/Qwen3-8B-AWQ` (statu quo, pin actuel)
+
+Pas plus « à jour », mais c'est la seule option sans coût de bascule : AWQ
+officiel, transformeur dense classique (calcul KV simple, déjà chargé par
+vLLM), et surtout **aucune version plus récente n'existe à cette taille dans
+Qwen3 lui-même** — le rafraîchissement « 2507 » (Instruct/Thinking séparés,
+qui aurait de toute façon cassé la bascule `enable_thinking`) n'a touché que
+4B/30B-A3B/235B-A22B, jamais le 8B. Rester ici n'est pas « prendre du retard »
+au sens strict : il n'y a rien de plus récent à l'intérieur de cette lignée
+précise à adopter. Classé après le rang 1 uniquement parce que la demande
+explicite est de rester aussi à jour que possible, et que 3.5 existe.
+
+### Rang 3 — `ibm-granite/granite-4.2-8b`
+
+Autre éditeur, Apache 2.0, sorti le 2026-08-25 — plus récent que la 3.5 de
+février. Transformeur dense classique (GQA + RoPE) : Granite 4.2 **abandonne**
+l'architecture hybride Mamba-2 de Granite 4.0/4.1 (confirmé par recherche
+web), donc risque d'architecture plus bas que le candidat Qwen3.5 ci-dessus.
+Même mécanisme de bascule (`chat_template_kwargs.enable_thinking`) — mais
+nécessite son propre reasoning-parser (`granite_thinking_parser` /
+équivalent `--reasoning-parser granite` côté vLLM) dont la présence dans
+`v0.30.0` n'est pas vérifiée ici. Contexte natif 128K (contre 32K pour Qwen3-
+8B) : la marge sur `--max-model-len 16384` est encore plus confortable, et le
+point YaRN du §1 devient sans objet. Quantifications officielles IBM : FP8,
+MXFP4, NVFP4 — pas d'AWQ officiel non plus, mais FP8/NVFP4 natifs sur
+Blackwell sont un chemin légitime, pas un pis-aller.
+**Le vrai coût** : changement total de famille = zéro calibration existante
+réutilisable (chunk sizes, budgets de pensée, la phrase de désambiguïsation
+Qwen3-spécifique) — recalibration aussi coûteuse qu'un nouveau projet
+`model_profiles.py`, pas un bump. Classé après le rang 1 parce que ce coût est
+strictement plus grand que celui d'un changement de poids à l'intérieur de la
+même lignée, malgré une architecture plus simple et une quantification
+officiellement plus proche de cette carte.
+
+### Rang 4 — `openai/gpt-oss-20b` — à surveiller, pas recommandé maintenant
+
+Apache 2.0, MoE. Intéressant structurellement : son contrôle
+`reasoning_effort` correspond exactement au mode que `ThinkingControl` de ce
+projet anticipe déjà (`field="reasoning_effort"`, pour « les modèles dont les
+niveaux d'effort n'ont pas de vrai *off* ») — mais c'est justement le
+problème : `reasoning_effort` n'a que low/medium/high, jamais de coupure nette
+équivalente à `enable_thinking: False`, ce qui ne couvre pas les types de
+décision de ce moteur qui ont besoin d'un dialogue rapide sans raisonnement du
+tout. Et à l'échelle mémoire : les poids natifs MXFP4 seuls pèsent déjà ~16 Go
+— pratiquement toute la carte avant même le cache KV et la marge, hors budget
+du calcul ci-dessus (~13 Go). Écarté pour l'instant, pas définitivement — à
+revisiter seulement si une variante officielle nettement plus compressée
+apparaît.
+
+### Écartés d'office, pas classés
+
+- `deepseek-ai/DeepSeek-R1-0528-Qwen3-8B` et les variantes `*-Thinking-2507`
+  (Qwen3-4B/30B-A3B/235B-A22B) : raisonnement toujours actif, aucune bascule
+  `enable_thinking` réelle — incompatible structurellement avec le pilotage
+  décision-par-décision de ce moteur, indépendamment de tout score de
+  benchmark. Même chose en miroir pour les variantes `*-Instruct-2507` :
+  jamais de raisonnement, dans l'autre sens.
+- Qwen3.6/3.8 (27B, les plus petits membres denses **ouverts** de ces
+  générations) : même à 4 bits, les poids seuls (~13,5 Go) engloutiraient tout
+  le budget avant cache KV ni marge. Qwen3.7 : poids fermés (API seulement).
+  Les variantes MoE de 3.5/3.6/3.8 : empreinte totale bien plus grande malgré
+  un faible nombre de paramètres actifs, et toute la lignée à partir de 3.5
+  est sortie multimodale (`image-text-to-text`) — un axe que ce projet n'a
+  jamais exercé en texte seul.
+
+**Ce classement reste une lecture de recherche web, pas une mesure.** Avant
+d'agir dessus : faire tourner réellement `check_llm_stack_versions.py
+--discover` (§3) sur une machine avec accès HF, qui confirmera ou infirmera
+chaque point ci-dessus contre l'API réelle plutôt que contre un résumé de
+page web.
