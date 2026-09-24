@@ -309,6 +309,52 @@ du calcul ci-dessus (~13 Go). Écarté pour l'instant, pas définitivement — �
 revisiter seulement si une variante officielle nettement plus compressée
 apparaît.
 
+### Mistral — investigué sur demande, écarté pour la même raison structurelle que DeepSeek-R1/Qwen-Thinking-2507
+
+Aucune taille de la gamme Mistral actuelle ne passe la porte structurelle de
+ce moteur (une bascule `enable_thinking` en exécution, un seul checkpoint) à
+une taille qui tient sur cette carte :
+
+- **`mistralai/Ministral-3-8B-{Instruct,Reasoning}-2512`** : bonne taille
+  (8,4B LM), Apache 2.0, contexte 256K, FP8 officiel — mais Mistral livre
+  Instruct et Reasoning comme **deux checkpoints séparés**, pas une bascule
+  d'exécution sur un seul modèle (même défaut structurel que les variantes
+  Qwen `*-Instruct-2507`/`*-Thinking-2507` déjà écartées, §ci-dessous) :
+  couvrir les deux modes de ce moteur voudrait dire faire tourner deux
+  serveurs, ou recharger le modèle par type de décision — incompatible avec
+  le fonctionnement à un seul serveur vLLM de ce projet. Porte en plus un
+  encodeur vision de 0,4B par défaut (multimodal), un axe jamais exercé en
+  texte seul ici (même réserve que pour les générations Qwen 3.5+).
+- **`mistralai/Magistral-Small-2506`/`-2509`** (24B) : modèle « reasoning »
+  mais **toujours en train de raisonner** — pas de champ documenté
+  équivalent à `enable_thinking: False`, le comportement se pilote par
+  prompt/formatage plutôt que par une bascule propre. Ajoute une friction
+  documentée spécifique à vLLM : « Magistral does not use special tokens to
+  start thinking, which creates challenges with reasoning parsers in vLLM »
+  — plus fragile que le tagging `<think>` propre de Qwen3 sur lequel
+  `--reasoning-parser qwen3` et l'outillage de ce projet s'appuient déjà.
+  Et côté mémoire : le checkpoint FP8 officiel pèse ~24 Go à lui seul, plus
+  que la carte entière ; même un AWQ communautaire (aucun officiel trouvé)
+  laisserait ~12 Go de poids seuls, une marge quasi nulle pour le cache KV
+  et la surcharge sur un budget total de ~13 Go — même famille de problème
+  que les 27B Qwen3.6/3.8 déjà écartés plus bas.
+- **`mistralai/Mistral-Small-4-119B-2603`** : c'est le seul Mistral avec une
+  vraie bascule par requête (`reasoning_effort`, mode instantané vs
+  raisonnement) — structurellement le plus proche de ce que ce moteur
+  attend — mais 119B de paramètres totaux (MoE, A6B actifs) doivent malgré
+  tout tenir entièrement en VRAM au chargement : sans rapport avec une carte
+  à 16,3 Go, indépendamment du nombre de paramètres actifs par requête.
+- **`mistralai/Mistral-Small-3.2-24B-Instruct-2506`** : pas de mode
+  raisonnement du tout (Instruct seul) — hors sujet pour ce moteur qui a
+  besoin des deux modes sur les mêmes poids.
+
+Verdict : à taille égale avec le pin actuel, Mistral n'offre aujourd'hui
+aucun candidat à un seul checkpoint qui bascule proprement entre raisonnement
+et réponse rapide — exactement la propriété que Qwen3/Qwen3.5 et Granite 4.2
+ont, chacun à sa façon (§ci-dessus). Pas un jugement sur la qualité des
+modèles Mistral en soi, un constat sur l'ajustement à la forme précise de ce
+moteur.
+
 ### Écartés d'office, pas classés
 
 - `deepseek-ai/DeepSeek-R1-0528-Qwen3-8B` et les variantes `*-Thinking-2507`
