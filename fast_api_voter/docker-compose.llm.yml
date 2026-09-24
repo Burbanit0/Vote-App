@@ -70,12 +70,24 @@ name: polity-vllm   # explicit, distinct from docker-compose.yml / .ollama.yml
 
 services:
   vllm:
-    # Pinned 2026-09-20 (plan-vllm-switch-readiness.md): confirmed to exist on
-    # Docker Hub directly by check_llm_stack_versions.py (the latest stable tag,
-    # pushed 2026-09-09), amd64. Was v0.28.0 (pushed 2026-08-26) until then.
-    # 0.29.0 warns that `--model` will be removed in a future version (it still
-    # works); move to the positional form when a release removes it.
-    image: vllm/vllm-openai:v0.29.0
+    # Pinned 2026-09-24 (plan-vllm-030-upgrade.md): confirmed to exist on Docker
+    # Hub directly against the registry API (the latest stable tag, pushed
+    # 2026-09-22), amd64. Was v0.29.0 (pushed 2026-09-09) until then. 0.29.0's
+    # `--model` deprecation warning is not mentioned as resolved in 0.30.0's
+    # release notes; treat it as still pending until a release actually
+    # removes the flag.
+    # ⚠ Existence-verified only, the same bar every prior tag bump cleared at
+    # pin time -- the actual behaviour on THIS tag (reasoning-parser output
+    # shape, structured-outputs config, batching determinism, >=3 clean
+    # restarts) is NOT yet live-verified; this sandbox has no GPU. See
+    # plan-vllm-030-upgrade.md for what changed upstream and the mandatory
+    # checklist before trusting this pin for a real/costly run -- most
+    # importantly test_think_true_actually_produces_reasoning
+    # (test_polity_vllm_live.py): 0.30.0's release notes describe a real
+    # mechanism change to --reasoning-parser qwen3 (`is_reasoning_end` now
+    # derived from the structured-output grammar instead of a full-history
+    # scan), the exact surface R1 depends on.
+    image: vllm/vllm-openai:v0.30.0
     container_name: vllm-polity
     command:
       - "--model"
