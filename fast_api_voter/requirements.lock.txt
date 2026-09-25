@@ -42,7 +42,7 @@ httptools==0.8.0
     # via uvicorn
 httpx==0.28.1
     # via -r requirements.txt
-idna==3.19
+idna==3.20
     # via
     #   anyio
     #   httpx
@@ -102,7 +102,7 @@ prometheus-client==0.26.0
     #   prometheus-fastapi-instrumentator
 prometheus-fastapi-instrumentator==8.1.0
     # via -r requirements.txt
-protobuf==7.36.1
+protobuf==7.36.2
     # via
     #   googleapis-common-protos
     #   opentelemetry-proto
@@ -122,7 +122,7 @@ python-dotenv==1.2.3
     #   uvicorn
 python-engineio==4.14.0
     # via python-socketio
-python-socketio==5.16.4
+python-socketio==5.17.0
     # via -r requirements.txt
 pyyaml==6.0.3
     # via
@@ -132,7 +132,7 @@ redis==8.1.0
     # via -r requirements.txt
 requests==2.34.2
     # via opentelemetry-exporter-otlp-proto-http
-sentry-sdk==2.69.1
+sentry-sdk==2.69.2
     # via -r requirements.txt
 simple-websocket==1.1.0
     # via python-engineio
@@ -161,11 +161,11 @@ typing-inspection==0.4.4
     #   fastapi
     #   pydantic
     #   pydantic-settings
-urllib3==2.7.0
+urllib3==2.8.0
     # via
     #   requests
     #   sentry-sdk
-uvicorn==0.52.4
+uvicorn==0.53.0
     # via -r requirements.txt
 uvloop==0.22.1
     # via uvicorn
