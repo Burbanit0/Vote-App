@@ -26,7 +26,7 @@ from api.engine.utils.simulation_ranked_utils import (
 )
 from api.engine.utils.simulation_multiwinner_utils import (
     get_stv_result, get_dhondt_winners, get_spav_result, get_phragmen_result,
-    get_equal_shares_result, check_justified_representation,
+    get_equal_shares_result, check_justified_representation, top_k,
 )
 from ._electorate import _build_electorate_from_seed
 from ._helpers import dhondt as _dhondt, modal_keys, prose_list, tied_extremes
@@ -883,8 +883,10 @@ def _stv_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     # same draw that set the first voter's attributes.
     dhondt_seats = get_dhondt_winners(vote_shares, num_seats, rng=_random.Random(seed + 1))
 
-    # ── FPTP multi-seat (top-N by first-choice votes) ─────────────────────
-    top_n    = sorted(cand_names, key=lambda c: -first_choice.get(c, 0))[:num_seats]
+    # ── FPTP multi-seat (top-N by first-choice votes, a tie at the cutoff by lot) ──
+    # Its own generator, as in /multiwinner_compare: the two panels post the same
+    # config, so the same votes must elect the same FPTP committee on both.
+    top_n    = top_k({c: first_choice.get(c, 0) for c in cand_names}, num_seats, _random.Random(seed + 1))
     fptp_seats: Dict[str, int] = {c: (1 if c in top_n else 0) for c in cand_names}
 
     # ── Distortion metrics ────────────────────────────────────────────────
@@ -902,7 +904,7 @@ def _stv_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         },
         "dhondt": {
             "seats":    dhondt_seats,
-            "elected":  [c for c, s in sorted(dhondt_seats.items(), key=lambda kv: -kv[1]) if s > 0],
+            "elected":  [c for c, s in sorted(dhondt_seats.items(), key=lambda kv: (-kv[1], kv[0])) if s > 0],
         },
         "fptp": {
             "seats":    fptp_seats,
@@ -1141,14 +1143,16 @@ def _multiwinner_compare_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
     # ── Run all methods ────────────────────────────────────────────────────
     # One tie-break generator for the D'Hondt and SPAV lots below, so a seat tie
     # doesn't silently go to whichever party this dict lists first. seed + 1,
-    # not seed: `seed` builds the electorate.
+    # not seed: `seed` builds the electorate. Equal Shares and FPTP each draw
+    # from a fresh one, so their lots don't shift with how many the others used,
+    # and FPTP matches /stv's for the same votes.
     tie_break  = _random.Random(seed + 1)
     stv_raw    = get_stv_result(rankings, num_seats, "droop")
     dhondt_raw = get_dhondt_winners(vote_shares, num_seats, rng=tie_break)
     spav_raw   = get_spav_result(approval_ballots, num_seats, rng=tie_break)
     phrag_raw  = get_phragmen_result(approval_ballots, num_seats)
-    mes_raw    = get_equal_shares_result(approval_ballots, num_seats)
-    top_n      = sorted(cand_names, key=lambda c: -first_choice.get(c, 0))[:num_seats]
+    mes_raw    = get_equal_shares_result(approval_ballots, num_seats, rng=_random.Random(seed + 1))
+    top_n      = top_k({c: first_choice.get(c, 0) for c in cand_names}, num_seats, _random.Random(seed + 1))
 
     def _to_seat_dict(elected: List[str]) -> Dict[str, int]:
         d: Dict[str, int] = {c: 0 for c in cand_names}
@@ -1156,7 +1160,7 @@ def _multiwinner_compare_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
             d[c] = d.get(c, 0) + 1
         return d
 
-    dhondt_elected = [c for c, s in sorted(dhondt_raw.items(), key=lambda kv: -kv[1]) if s > 0]
+    dhondt_elected = [c for c, s in sorted(dhondt_raw.items(), key=lambda kv: (-kv[1], kv[0])) if s > 0]
     methods: Dict[str, Dict[str, Any]] = {
         "stv":          {"seats": _to_seat_dict(stv_raw["elected"]),   "elected": stv_raw["elected"]},
         "dhondt":       {"seats": dhondt_raw,                          "elected": dhondt_elected},
