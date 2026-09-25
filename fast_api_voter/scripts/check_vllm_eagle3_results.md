@@ -6,7 +6,8 @@ probe differs from the shipped file by exactly two flags: `--speculative-config`
 `RedHatAI/Qwen3-8B-Thinking-speculator.eagle3` at revision `7073be9cfb31`, draft length 3) and
 `--gpu-memory-utilization` 0.88 (was 0.80), which leaves KV room for the 2.15 GiB head.
 
-**Verdict: about a third faster on real runs, with the same answers under the production thinking budget. Not yet
+**Verdict: about a third faster on real runs, with identical answers on the two thinking families production caps
+(`campaign_positioning` is uncapped and already fragile; it differs as it does between any two servers). Not yet
 adopted; the decision is the owner's.** Why it exists: n-gram speculation was dropped because Model Runner V2 does
 not support it (v0.30.0 `config/vllm.py`, `_get_v2_model_runner_unsupported_features`: ngram, ngram_gpu, draft_model,
 suffix, medusa, mlp_speculator fall back to V1). EAGLE-type methods are not on that list, and the boot log confirms
@@ -61,7 +62,9 @@ invalid and one comes back valid:
   chamber cases are the same two that failed on 0.29.0, so they sit on a knife edge that any numerics change can tip.
 - One is an ordinary model error (`blank=1` with a non-empty ranking), the kind the control also makes once.
 
-That bank arm does not cap thinking, and production does (`llm.thinking_token_budget` 2048). Repeating the two families
+That bank arm does not cap thinking. Production caps `vote_cast` and `chamber_deliberation` at 2048
+(`llm.thinking_token_budget`); `campaign_positioning` is uncapped there, and it showed no runaway and no validity
+loss under EAGLE-3 (10 of 10 valid in both sessions). Repeating the two capped families
 at that budget on both servers (`--arm thinking_budget_2048`): all 24 `vote_first_choice` and `chamber_poles` cases are valid
 on both and **byte-identical** between them (the six logprob-gate probes: 4 identical, 2 differ), and the sum of call
 latency drops from 7.1 to 4.1 minutes (a `vote_first_choice` request from 13.5 s to 7.5 s).
@@ -79,7 +82,7 @@ representative_response 0.75, campaign_positioning 0.78, pressure_action 0.79, v
   `--max-model-len` looked fine on its first start and OOM'd on a plain restart), and 0.88 leaves less headroom than
   0.80. Three consecutive clean restarts are owed before adoption.
 - **Two seeds** of the simulation run; **12-worker** behaviour was timed but not checked for fallbacks.
-- **The head is third-party** (RedHatAI, 116 downloads at the time of writing), pinned by revision; its licence was not checked.
+- **The head is third-party** (RedHatAI, Apache-2.0, 116 downloads at the time of writing), pinned by revision.
 - KV capacity falls by 14%, which matters if the worker count is raised.
 
 ## Disposition and rollback
