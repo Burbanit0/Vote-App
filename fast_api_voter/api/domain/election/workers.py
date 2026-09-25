@@ -1120,7 +1120,9 @@ def _run_district_fptp(
     vote_shares = {n: round(first_choice.get(n, 0) / total, 4) for n in cand_names}
     winner = get_plurality_winner(rankings)
 
-    return {"winner": winner, "vote_shares": vote_shares}
+    # `vote_shares` is rounded for display; the raw counts are what an exact
+    # proportional allocation must add up.
+    return {"winner": winner, "vote_shares": vote_shares, "first_choice": first_choice}
 
 
 def _districts_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
@@ -1162,6 +1164,7 @@ def _districts_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     # ── Per-district simulation ────────────────────────────────────────────
     district_results: list[Dict[str, Any]] = []
     national_vote_totals: Dict[str, float] = {n: 0.0 for n in cand_names}
+    national_counts: Dict[str, int] = {n: 0 for n in cand_names}
 
     for i, center in enumerate(ideology_centers):
         res = _run_district_fptp(
@@ -1177,6 +1180,7 @@ def _districts_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         })
         for n in cand_names:
             national_vote_totals[n] += res["vote_shares"].get(n, 0.0)
+            national_counts[n] += res["first_choice"][n]
 
     # ── FPTP parliament: count district wins ───────────────────────────────
     parliament_fptp: Dict[str, int] = {n: 0 for n in cand_names}
@@ -1190,12 +1194,14 @@ def _districts_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         n: round(national_vote_totals[n] / num_districts, 4) for n in cand_names
     }
 
-    # ── Proportional parliament: D'Hondt on national shares ───────────────
-    # Allocated on the unrounded totals, not `national_vote_share`: rounding a share
-    # to 4 places both destroys exact ties (250 vs 50 over 5 seats) and invents
-    # ones. (`seed`, not `seed + 1`: district i's electorate is seeded `seed+i+1`.)
+    # ── Proportional parliament: D'Hondt on national first-choice counts ───
+    # Counts, not `national_vote_share`: rounding a share to 4 places both
+    # destroys exact ties (250 vs 50 over 5 seats) and invents ones, and so does
+    # the 4-place rounding of each district's `vote_shares` that the shares are
+    # built from. (`seed`, not `seed + 1`: district i's electorate is seeded
+    # `seed + i + 1`.)
     parliament_proportional = _dhondt(
-        national_vote_totals, num_districts, rng=_random.Random(seed),
+        national_counts, num_districts, rng=_random.Random(seed),
     )
 
     # ── National Condorcet: quick pairwise from aggregated vote shares ─────

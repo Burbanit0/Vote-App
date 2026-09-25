@@ -10,7 +10,7 @@ import math
 import random
 from collections import defaultdict
 from itertools import combinations, chain
-from typing import Dict, List, Optional, Any
+from typing import Any, Callable, Dict, List, Optional
 
 
 # ── Internal helpers ───────────────────────────────────────────────────────
@@ -34,13 +34,34 @@ def break_tie(scores: Dict[str, float], rng: Optional[random.Random] = None) -> 
     Quotient ties are not exotic -- 100/2 equals 50/1, so any two parties in
     a 2:1 vote ratio tie on a seat -- and scores built from shares or
     accumulated weights carry float noise (0.3/3 != 0.1), so "tied" means
-    within 1e-9 relative, not `==`.
+    within 1e-9 relative (1e-12 absolute), not `==`.
     """
+    best = max(scores, key=lambda k: scores[k])
     if rng is None:
-        return max(scores, key=lambda k: scores[k])
-    top = max(scores.values())
-    tied = [k for k, v in scores.items() if math.isclose(v, top, rel_tol=1e-9)]
-    return tied[0] if len(tied) == 1 else rng.choice(sorted(tied))
+        return best
+    top = scores[best]
+    tied = [k for k, v in scores.items()
+            if k == best or math.isclose(v, top, rel_tol=1e-9, abs_tol=1e-12)]
+    return best if len(tied) == 1 else rng.choice(sorted(tied))
+
+
+def _highest_averages(
+    party_votes: Dict[str, float],
+    num_seats: int,
+    divisor: Callable[[int], int],
+    rng: Optional[random.Random],
+) -> Dict[str, int]:
+    """Highest-averages allocation: each seat goes to the party with the
+    largest votes / divisor(seats already won). Only the winner's quotient
+    changes each round, so it is the only one recomputed."""
+    pv = _normalise_votes(party_votes)
+    seats: Dict[str, int] = {p: 0 for p in pv}
+    quotients = {p: pv[p] / divisor(0) for p in pv}
+    for _ in range(num_seats):
+        winner = break_tie(quotients, rng)
+        seats[winner] += 1
+        quotients[winner] = pv[winner] / divisor(seats[winner])
+    return seats
 
 
 # ── Single Transferable Vote ───────────────────────────────────────────────
@@ -206,12 +227,7 @@ def get_dhondt_winners(
     `rng`: see `break_tie`. Polity imports this and passes none, so its seat
     ties keep going to the first-listed party.
     """
-    pv = _normalise_votes(party_votes)
-    seats: Dict[str, int] = {p: 0 for p in pv}
-    for _ in range(num_seats):
-        quotients = {p: pv[p] / (seats[p] + 1) for p in pv}
-        seats[break_tie(quotients, rng)] += 1
-    return seats
+    return _highest_averages(party_votes, num_seats, lambda s: s + 1, rng)
 
 
 def get_sainte_lague_winners(
@@ -224,28 +240,26 @@ def get_sainte_lague_winners(
 
     `rng`: see `get_dhondt_winners`.
     """
-    pv = _normalise_votes(party_votes)
-    seats: Dict[str, int] = {p: 0 for p in pv}
-    for _ in range(num_seats):
-        quotients = {p: pv[p] / (2 * seats[p] + 1) for p in pv}
-        seats[break_tie(quotients, rng)] += 1
-    return seats
+    return _highest_averages(party_votes, num_seats, lambda s: 2 * s + 1, rng)
 
 
 def _remainder_seats(
     remainders: Dict[str, float], remaining: int, rng: Optional[random.Random],
 ) -> List[str]:
     """The `remaining` parties with the largest remainder. Ties keep listing
-    order, unless `rng` is given: then the names are sorted and shuffled first,
-    so a stable sort on the remainder leaves every tied group -- including one
-    straddling the cutoff -- in a random order that no longer depends on how
-    the parties were listed. Remainders are `votes/quota - floor`, so equal
-    ones differ by float noise; the rng path compares them to 9 places."""
+    order, unless `rng` is given: then each seat goes to the largest remaining
+    remainder with ties drawn by `break_tie`, so a tied group -- including one
+    straddling the cutoff -- no longer depends on how the parties were listed,
+    and "tied" means the same thing it does for every other allocator here.
+    (Nothing but polity calls this allocator, and polity passes no `rng`.)"""
     if rng is None:
         return sorted(remainders, key=lambda p: remainders[p], reverse=True)[:remaining]
-    names = sorted(remainders)
-    rng.shuffle(names)
-    return sorted(names, key=lambda p: round(remainders[p], 9), reverse=True)[:remaining]
+    pool = dict(remainders)
+    chosen: List[str] = []
+    for _ in range(min(remaining, len(pool))):
+        chosen.append(break_tie(pool, rng))
+        del pool[chosen[-1]]
+    return chosen
 
 
 def get_largest_remainder_winners(

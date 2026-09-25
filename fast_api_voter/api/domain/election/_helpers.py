@@ -77,21 +77,24 @@ def gini(values: List[float]) -> float:
 
 
 def dhondt(
-    vote_shares: Dict[str, float], total_seats: int, *, rng: Optional[random.Random] = None,
+    vote_shares: Mapping[str, float], total_seats: int, *, rng: Optional[random.Random] = None,
 ) -> Dict[str, int]:
     """D'Hondt proportional seat allocation.
 
-    vote_shares: {party_name: fraction_of_vote}  (values sum ≈ 1)
-    Returns {party_name: seats_awarded}.
+    vote_shares: {party_name: votes}, on any scale -- only the ratios matter, so
+    shares, percentages and raw counts all work; prefer counts, which keep exact
+    ties exact. Returns {party_name: seats_awarded}, listing every party.
 
     `rng`: see `break_tie` (simulation_multiwinner_utils.py) -- an exact
     quotient tie goes to whichever party is listed first unless a generator
     is passed.
     """
     seats: Dict[str, int] = {p: 0 for p in vote_shares}
+    quotients = {p: vote_shares[p] / (seats[p] + 1) for p in vote_shares}
     for _ in range(total_seats):
-        quotients = {p: vote_shares[p] / (seats[p] + 1) for p in vote_shares}
-        seats[break_tie(quotients, rng)] += 1
+        winner = break_tie(quotients, rng)
+        seats[winner] += 1
+        quotients[winner] = vote_shares[winner] / (seats[winner] + 1)
     return seats
 
 

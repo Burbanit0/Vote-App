@@ -307,12 +307,33 @@ def test_district_seats_do_not_depend_on_party_listing_order(client: TestClient)
         assert seats(parties, structure) == seats(parties[::-1], structure), structure
 
 
-def test_proportional_seats_do_not_depend_on_party_listing_order(client: TestClient):
+def test_proportional_seats_do_not_depend_on_party_listing_order(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch,
+):
     """The district lot above covers single-member seats; a proportional seat
-    tie is a different code path. With three parties, 400 voters and no
-    threshold, an exact quotient tie for a seat is common (D'Hondt, 10 seats,
-    seed 2; Sainte-Laguë, 25 seats, seed 3). `max()` gave every one to the party
-    listed first: listed last, Vert took 2 of 10 seats instead of 1."""
+    tie is a different code path, and `max()` gave every one to the party listed
+    first. At seed 2 (three parties, 400 voters, D'Hondt, 10 seats) Centre's
+    third quotient equals Vert's second, so listed *first* Vert took 2 seats and
+    listed last 1. Sainte-Laguë at 25 seats and seed 3 has one too.
+
+    Such ties are rare (1 seed in 300 for the first, 5 in 300 for the second),
+    so each run first checks the tie is still there -- the votes the allocator
+    received give a different answer under the two listings when no lot is
+    drawn -- and would otherwise pass without proving anything."""
+    import api.domain.election.workers_playground as play
+    from api.engine.utils.simulation_multiwinner_utils import (
+        get_dhondt_winners, get_sainte_lague_winners,
+    )
+
+    engines = {"dhondt": get_dhondt_winners, "sainte_lague": get_sainte_lague_winners}
+    received: dict = {}
+    for name, real in (("get_dhondt_winners", play.get_dhondt_winners),
+                       ("get_sainte_lague_winners", play.get_sainte_lague_winners)):
+        def spy(votes, n, *, rng=None, _real=real):
+            received["args"] = (dict(votes), n)
+            return _real(votes, n, rng=rng)
+        monkeypatch.setattr(play, name, spy)
+
     parties = [{"name": "Gauche", "x": -0.6, "y": 0.0}, {"name": "Centre", "x": 0.0, "y": 0.1},
                {"name": "Vert", "x": -0.2, "y": 0.5}]
 
@@ -326,4 +347,10 @@ def test_proportional_seats_do_not_depend_on_party_listing_order(client: TestCli
     for structure in ("pr", "mmp"):
         for apportionment, seed, n in (("dhondt", 2, 10), ("sainte_lague", 3, 25)):
             args = (structure, apportionment, seed, n)
-            assert seats(parties, *args) == seats(parties[::-1], *args), args
+            forward = seats(parties, *args)
+            votes, seats_total = received["args"]
+            engine = engines[apportionment]
+            assert engine(votes, seats_total) != \
+                engine(dict(reversed(list(votes.items()))), seats_total), \
+                f"no decisive quotient tie at {args}: this test would prove nothing"
+            assert forward == seats(parties[::-1], *args), args

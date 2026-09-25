@@ -11,8 +11,8 @@ The engine allocators and `dhondt` take an optional keyword-only `rng`. Without
 one they behave exactly as before -- polity imports the engine allocators and
 passes none, so its seat allocation is untouched. With one, a tie is drawn by
 lot among the tied names sorted, matching `_district_winner`. The theory
-endpoint has no seed field, so its four functions break a tie by name instead,
-as `_hamilton` in the same response always did.
+endpoint has no seed field, so its four divisor methods break a tie by name
+instead (`_hamilton`, untouched, breaks a remainder tie by name too).
 """
 import random
 
@@ -20,6 +20,7 @@ import pytest
 
 import api.domain.election.workers as workers_mod
 import api.domain.election.workers_mechanisms as mech_mod
+import api.domain.election.workers_playground as play_mod
 from api.domain.election._helpers import dhondt
 from api.domain.election.workers import _coalition_worker, _districts_worker
 from api.domain.election.workers_mechanisms import (
@@ -27,6 +28,7 @@ from api.domain.election.workers_mechanisms import (
     _multiwinner_compare_worker,
     _stv_worker,
 )
+from api.domain.election.workers_playground import _assembly_worker
 from api.domain.theory.workers import (
     _adams_m,
     _apportionment_worker,
@@ -52,6 +54,13 @@ class TestBreakTie:
         """`max()` shrugs NaN off; an `==` scan for the top would find no key."""
         assert break_tie({"A": float("nan")}) == "A"
         assert dhondt({"A": float("nan")}, 3) == {"A": 3}
+
+    def test_a_nan_score_does_not_crash_while_drawing_either(self):
+        """`isclose(nan, nan)` is False, so a tie scan that did not include the
+        top key itself would come up empty and `rng.choice([])` would raise --
+        and only for some key orders."""
+        for scores in ({"A": float("nan"), "B": 1.0}, {"B": 1.0, "A": float("nan")}):
+            assert break_tie(scores, random.Random(0)) in scores
 
     def test_with_rng_draws_from_the_tied_set_only(self):
         for seed in range(30):
@@ -99,6 +108,12 @@ class TestDhondt:
         assert _order_independent(dhondt, self.VOTES, 2) == self.BOTH
         assert _order_independent(get_dhondt_winners, self.VOTES, 2) == self.BOTH
 
+    def test_a_real_margin_is_never_a_tie(self):
+        """201 vs 100 is a 0.5% edge on the last seat (100.5 against 100): far
+        outside float noise, so the lot must never fire."""
+        outcomes = _order_independent(get_dhondt_winners, {"A": 201.0, "B": 100.0}, 2)
+        assert outcomes == {(("A", 2), ("B", 0))}
+
     def test_fractional_shares_tie_too(self):
         """3:1 as shares ties on the third seat: A's 0.3/3 against B's 0.1/1.
         0.3/3 != 0.1 in floats, so this was a tie that `==` could not see."""
@@ -143,19 +158,29 @@ class TestLargestRemainder:
         _order_independent(get_largest_remainder_winners, self.VOTES, 2)
 
     def test_float_noise_in_a_remainder_is_still_a_tie(self):
-        """Three exactly equal 1/3 remainders, but A's is 0.33333333333333326
-        in floats, so an exact comparison would never let A win the seat."""
+        """Hare quota 6/2 = 3: A holds 1 automatic seat and B, C have none, and
+        all three have a remainder of exactly 1/3 for the one seat left -- but
+        A's is 0.33333333333333326 in floats, so an exact comparison would never
+        let A take it. A winning it (2 seats) is the only proof the noise was
+        treated as a tie."""
         votes = {"A": 4.0, "B": 1.0, "C": 1.0}
-        winners = {
-            p for s in range(60)
-            for p, n in get_largest_remainder_winners(votes, 2, rng=random.Random(s)).items()
-            if n == 1 and p != "A"
+        outcomes = {
+            tuple(sorted(get_largest_remainder_winners(votes, 2, rng=random.Random(s)).items()))
+            for s in range(80)
         }
-        assert winners == {"B", "C"}
-        assert any(
-            get_largest_remainder_winners(votes, 2, rng=random.Random(s))["A"] == 1
-            for s in range(60)
-        )
+        assert outcomes == {
+            (("A", 2), ("B", 0), ("C", 0)),
+            (("A", 1), ("B", 1), ("C", 0)),
+            (("A", 1), ("B", 0), ("C", 1)),
+        }
+
+    def test_close_but_different_remainders_are_not_a_tie(self):
+        """0.6001, 0.6000 and 0.7999: a real, if small, ordering."""
+        votes = {"A": 6001.0, "B": 6000.0, "C": 7999.0}
+        assert {
+            tuple(sorted(get_largest_remainder_winners(votes, 2, rng=random.Random(s)).items()))
+            for s in range(40)
+        } == {(("A", 1), ("B", 0), ("C", 1))}
 
     def test_no_boundary_tie_is_unaffected_by_rng(self):
         assert get_largest_remainder_winners({"A": 100.0, "B": 1.0}, 1) == \
@@ -199,24 +224,28 @@ class TestSpav:
 
 
 class TestTheoryDivisorMethods:
-    """The four divisor loops break an exact tie by name, whatever order the
-    request listed the parties in. Each fixture below is a real, decisive
-    tie: the winner of the tied quotient changes the final seat count."""
+    """The four divisor methods break an exact tie by name -- the first party
+    in sorted order -- whatever order the request listed them in. Each fixture
+    is a real, decisive tie: whoever wins the tied quotient changes the seats."""
 
     CASES = (
-        (_jefferson,  {"A": 100, "B": 50}, 2),   # round 2: 100/2 == 50/1
-        (_webster,    {"A": 3, "B": 1},    2),   # round 2: 3/3 == 1/1
-        (_adams_m,    {"A": 1, "B": 1},    1),   # round 1: equal votes
-        (_huntington, {"A": 1, "B": 1},    3),   # last seat: equal votes
+        (_jefferson,  {"A": 100, "B": 50}, 2, {"A": 2, "B": 0}),   # round 2: 100/2 == 50/1
+        (_webster,    {"A": 3, "B": 1},    2, {"A": 2, "B": 0}),   # round 2: 3/3 == 1/1
+        (_adams_m,    {"A": 1, "B": 1},    1, {"A": 1, "B": 0}),   # round 1: equal votes
+        (_huntington, {"A": 1, "B": 1},    3, {"A": 2, "B": 1}),   # last seat: equal votes
     )
 
-    @pytest.mark.parametrize("fn,votes,n", CASES)
-    def test_a_tie_goes_to_the_alphabetically_first_party_in_either_order(self, fn, votes, n):
-        forward = fn(votes, n)
-        backward = fn(dict(reversed(list(votes.items()))), n)
-        assert forward == backward
-        assert forward["A"] >= forward["B"]
-        assert forward["A"] > forward["B"] or votes["A"] == votes["B"] and n % 2 == 1
+    @pytest.mark.parametrize("fn,votes,n,expected", CASES)
+    def test_a_tie_goes_to_the_first_party_by_name_in_either_order(self, fn, votes, n, expected):
+        assert fn(votes, n) == fn(dict(reversed(list(votes.items()))), n) == expected
+
+    def test_huntington_hill_sees_an_exact_tie_between_unequal_parties(self):
+        """1/sqrt(2) and 6/sqrt(72) are the same number, but as floats they are
+        0.7071067811865475 and 0.7071067811865476, so comparing v/sqrt(s(s+1))
+        let 1 ulp of noise decide the tenth seat. v^2/(s(s+1)) orders the same
+        and stays exact: the tie is seen, and goes to A by name."""
+        assert _huntington({"A": 1, "B": 6}, 10) == _huntington({"B": 6, "A": 1}, 10) == \
+               {"A": 2, "B": 8}
 
     def test_the_endpoint_answers_the_same_in_either_party_order(self):
         """Through the worker, including the paradox flags: a tie decided by
@@ -235,66 +264,120 @@ class TestTheoryDivisorMethods:
 
 
 def _spy(monkeypatch, module, name):
-    """Record the `rng` each call to `module.name` receives."""
-    calls = []
+    """Record the state of the `rng` each call to `module.name` receives, taken
+    before the call consumes any of it (None where no Random was passed)."""
+    states = []
     real = getattr(module, name)
 
     def wrapper(*args, **kwargs):
-        calls.append(kwargs.get("rng"))
+        rng = kwargs.get("rng")
+        states.append(rng.getstate() if isinstance(rng, random.Random) else None)
         return real(*args, **kwargs)
 
     monkeypatch.setattr(module, name, wrapper)
-    return calls
+    return states
 
 
-def _all_seeded(calls):
-    return bool(calls) and all(isinstance(r, random.Random) for r in calls)
+def _spy_votes(monkeypatch, module, name):
+    """Record the votes dict each call to `module.name` receives."""
+    seen = []
+    real = getattr(module, name)
+
+    def wrapper(votes, *args, **kwargs):
+        seen.append(dict(votes))
+        return real(votes, *args, **kwargs)
+
+    monkeypatch.setattr(module, name, wrapper)
+    return seen
 
 
-class TestWorkersHandTheirAllocatorALot:
-    """Every worker that allocates seats must pass a generator -- the default
-    is the old first-listed behaviour, which is invisible to mypy and to a
-    test that only checks a result. Dropping an `rng=` fails one of these."""
+def _fresh(seed):
+    return random.Random(seed).getstate()
+
+
+TWO_DISTRICTS = [
+    {"id": 0, "bounds": {"x_min": -1.0, "x_max": 0.0, "y_min": -1.0, "y_max": 1.0}},
+    {"id": 1, "bounds": {"x_min": 0.0, "x_max": 1.0, "y_min": -1.0, "y_max": 1.0}},
+]
+
+
+class TestWorkersSeedTheirLot:
+    """Every worker that allocates seats passes a generator, and the *right*
+    one: the default is the old first-listed behaviour, invisible to mypy and
+    to a test that only checks a result, and a wrongly seeded lot is silently
+    a different lot. Each assertion compares the generator's state, before the
+    allocator touches it, with the one the worker is meant to build. `seed`
+    builds the electorate, so a lot drawn from `Random(seed)` would replay the
+    first voter's first draw: /stv, /gerrymander, /multiwinner_compare and
+    /coalition use seed + 1, as /adaptive does. /districts keeps `seed`
+    (district i's electorate is seeded seed + i + 1) and /assembly's electorate
+    is a numpy stream, so both use `seed` itself."""
 
     def test_stv_dhondt_row(self, monkeypatch):
-        calls = _spy(monkeypatch, mech_mod, "get_dhondt_winners")
-        assert _stv_worker({"num_voters": 60, "num_seats": 2})[1] == 200
-        assert _all_seeded(calls)
+        states = _spy(monkeypatch, mech_mod, "get_dhondt_winners")
+        assert _stv_worker({"num_voters": 60, "num_seats": 2, "seed": 5})[1] == 200
+        assert states == [_fresh(6)]
 
     def test_multiwinner_compare_dhondt_and_spav(self, monkeypatch):
         dh = _spy(monkeypatch, mech_mod, "get_dhondt_winners")
         sp = _spy(monkeypatch, mech_mod, "get_spav_result")
-        assert _multiwinner_compare_worker({"num_voters": 60, "num_seats": 2})[1] == 200
-        assert _all_seeded(dh) and _all_seeded(sp)
+        assert _multiwinner_compare_worker({"num_voters": 60, "num_seats": 2, "seed": 7})[1] == 200
+        assert dh == [_fresh(8)]
+        assert len(sp) == 1 and sp[0] is not None  # the same generator, after D'Hondt's draws
 
     def test_gerrymander_national_proportional(self, monkeypatch):
-        calls = _spy(monkeypatch, mech_mod, "_dhondt")
-        body, status = _gerrymander_worker({
-            "num_voters": 60,
-            "districts": [
-                {"id": 0, "bounds": {"x_min": -1.0, "x_max": 0.0, "y_min": -1.0, "y_max": 1.0}},
-                {"id": 1, "bounds": {"x_min": 0.0, "x_max": 1.0, "y_min": -1.0, "y_max": 1.0}},
-            ],
-        })
-        assert status == 200 and _all_seeded(calls)
+        states = _spy(monkeypatch, mech_mod, "_dhondt")
+        body, status = _gerrymander_worker(
+            {"num_voters": 60, "seed": 9, "districts": TWO_DISTRICTS}
+        )
+        assert status == 200 and states == [_fresh(10)]
 
     def test_districts_proportional_parliament(self, monkeypatch):
-        calls = _spy(monkeypatch, workers_mod, "_dhondt")
-        assert _districts_worker({})[1] == 200
-        assert _all_seeded(calls)
+        states = _spy(monkeypatch, workers_mod, "_dhondt")
+        assert _districts_worker({"seed": 11})[1] == 200
+        assert states == [_fresh(11)]
 
     def test_coalition_seat_allocation(self, monkeypatch):
-        calls = _spy(monkeypatch, workers_mod, "_dhondt")
-        assert _coalition_worker({"num_voters": 60})[1] == 200
-        assert _all_seeded(calls)
+        """One lot per method, each from a fresh generator, so two methods with
+        the same tie resolve it the same way."""
+        states = _spy(monkeypatch, workers_mod, "_dhondt")
+        assert _coalition_worker({"num_voters": 60, "seed": 13})[1] == 200
+        assert states and set(states) == {_fresh(14)}
 
-    def test_the_lot_is_not_the_draw_that_built_the_electorate(self, monkeypatch):
-        """`seed` builds the electorate, so a lot drawn from `Random(seed)`
-        replays the first voter's first draw. /stv, /gerrymander and
-        /multiwinner_compare use seed + 1, as /adaptive does."""
-        calls = _spy(monkeypatch, mech_mod, "get_dhondt_winners")
-        _stv_worker({"num_voters": 60, "seed": 5, "num_seats": 2})
-        assert calls and calls[0].random() == random.Random(6).random()
+    def test_assembly_proportional_seats(self, monkeypatch):
+        states = _spy(monkeypatch, play_mod, "get_dhondt_winners")
+        body, status = _assembly_worker({
+            "parties": [{"name": "Gauche", "x": -0.6, "y": 0.0},
+                        {"name": "Centre", "x": 0.0, "y": 0.1}],
+            "num_voters": 100, "seed": 15, "structure": "pr", "apportionment": "dhondt",
+            "seats": 10, "threshold": 0.0,
+        })
+        assert status == 200 and states == [_fresh(15)]
+
+
+class TestWorkersAllocateOnExactCounts:
+    """A rounded share both destroys exact ties (250 vs 50 over 5 seats) and
+    invents them, so the allocators are handed integer counts. The lot only
+    sees a tie if the numbers it is handed still hold it."""
+
+    def test_gerrymander_hands_over_national_first_choice_counts(self, monkeypatch):
+        seen = _spy_votes(monkeypatch, mech_mod, "_dhondt")
+        assert _gerrymander_worker({"num_voters": 60, "districts": TWO_DISTRICTS})[1] == 200
+        assert len(seen) == 1
+        assert all(type(v) is int for v in seen[0].values())
+        assert sum(seen[0].values()) == 60  # every voter, none rounded away
+
+    def test_districts_hands_over_the_national_counts_not_rounded_shares(self, monkeypatch):
+        """8 districts of 90 voters at seed 204: the national counts are Alice
+        468 / Bob 18 / Carol 234, so the 8th seat is an exact tie (468/6 ==
+        234/3). Each district's share is rounded to 4 places before it is
+        summed (0.5222 for 47/90), which turned those into 5.2001 / 0.1998 /
+        2.5999 and hid the tie from the lot."""
+        seen = _spy_votes(monkeypatch, workers_mod, "_dhondt")
+        assert _districts_worker(
+            {"seed": 204, "voters_per_district": 90, "num_districts": 8}
+        )[1] == 200
+        assert seen == [{"Alice": 468, "Bob": 18, "Carol": 234}]
 
 
 def _by_party(body):
@@ -304,17 +387,26 @@ def _by_party(body):
 
 
 class TestMultiwinnerCompare:
-    def test_the_proportional_reference_is_the_dhondt_row(self):
-        """The reference used to be a second D'Hondt run that drew its own lot,
-        so at seed 119 the panel printed {Alice:1, Carol:1} beside a reference
-        of {Alice:2} for the very same votes."""
+    """The proportional reference used to be a second D'Hondt run. Any run of
+    its own that drew a lot could disagree with the row printed beside it for
+    the very same votes -- a first-listed reference at seeds 128 and 233, a
+    second draw from the shared generator at 128, 137 and 244. (50 voters and
+    2 seats: these six are the only seeds in range(400) whose D'Hondt tie
+    changes the seats, and none is in range(40), which is why an earlier
+    version of this test could not fail.)"""
+
+    @pytest.mark.parametrize("seed", [119, 128, 137, 202, 233, 244])
+    def test_the_proportional_reference_is_the_dhondt_row(self, seed):
         body, status = _multiwinner_compare_worker(
-            {"num_voters": 50, "seed": 119, "num_seats": 2}
+            {"num_voters": 50, "seed": seed, "num_seats": 2}
         )
         assert status == 200
         assert _by_party(body) == body["proportional_reference"]
 
-    @pytest.mark.parametrize("seed", range(40))
-    def test_row_and_reference_agree_across_seeds(self, seed):
-        body, _ = _multiwinner_compare_worker({"num_voters": 50, "seed": seed, "num_seats": 2})
-        assert _by_party(body) == body["proportional_reference"]
+    def test_the_same_request_gets_the_same_lot_every_time(self):
+        """An unseeded generator would answer identical requests differently."""
+        runs = {
+            str(_multiwinner_compare_worker({"num_voters": 50, "seed": 128, "num_seats": 2})[0])
+            for _ in range(12)
+        }
+        assert len(runs) == 1
