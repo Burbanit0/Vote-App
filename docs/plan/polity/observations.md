@@ -47,6 +47,7 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-018](#obs-018) | The response contract, not the model, sets the president's stance in 22 of 650 responses | 2026-09-16 | cause found, partly fixed |
 | [OBS-019](#obs-019) | Showing the model its citizens' emotions, at zero weight, multiplies mobilization fourteenfold | 2026-09-17 | cause found |
 | [OBS-020](#obs-020) | Without n-gram speculation, two same-seed live runs are not always byte-identical | 2026-09-20 | open |
+| [OBS-021](#obs-021) | 5 to 12% of chamber deliberation units fall back because the model returns more shifts than the cap allows | 2026-09-25 | open |
 
 ---
 
@@ -919,3 +920,54 @@ the new setup with `--no-enable-prefix-caching`, and 0.28.0 + speculation.
 run does promise: replay from its own call log (D1, S0.6) is byte-identical (it passed). Sequential
 bake-off-style sessions also cost more without speculation: the full frozen bank took 22.7 minutes
 against 15.9 on the control (structured-output types 1.7 to 2.9 times slower).
+
+### OBS-021
+
+**5 to 12% of `chamber_deliberation` units fall back to "sincere, no shift" because the model returns more
+shifts than the cap allows.**
+
+*Seen.* Checking the move to vLLM 0.30.0 (2026-09-25), three 8-year, 100-citizen, 15-seat, one-worker runs
+(seeds 1 to 3) and a two-seed control on 0.29.0, all on the same code. Chamber fallback, in units of 495:
+
+| server | seed | fallback units | rate |
+|---|---:|---:|---:|
+| 0.30.0 | 1 | 60 | 12.1%, over the 10% alert line |
+| 0.30.0 | 2 | 35 | 7.1% |
+| 0.30.0 | 3 | 25 | 5.1% |
+| 0.29.0 | 1 | 45 | 9.1% |
+| 0.29.0 | 2 | 30 | 6.1% |
+
+The recorded Track D sweep (2026-09-12) had 0 on seeds 1 and 3 and about 1% on seed 2.
+
+- **It is not a decode failure.** All 100 answer calls of seed 1 decode. A chunk falls back when
+  `validate_chamber_decision` rejects a decoded answer, and `_chamber_chunk` does not retry a validation
+  failure, so the whole chunk of five falls back (`llm_behavior_engine.py`).
+- **The rule that fails is the shift count.** Replaying the rules on seed 1's recorded calls: 13 of the 100
+  answer calls fail (the digest counts 60 units, 12 chunks); 36 decisions carry more shifts than
+  `sortition_chamber.max_deliberation_shifts` = 3 (five, in the examples), and 1 shifts a dimension by more than
+  0.3. Seed 2: 10 of 102 answer calls, 22 decisions, all too many shifts. In the first seed-1 example all
+  five shifts have `delta` 0.0, so the fallback equals what the model said; in seed 2's the five deltas are real.
+- **It is not the server.** It is present on 0.29.0 with the same code, and 0.30.0's rate is not significantly
+  different (75 against 95 units of 990, Fisher p = 0.13, which overstates because units fall in chunks of five).
+
+*Evidence.*
+
+```bash
+cd fast_api_voter
+# per-run fallback rates, from the digest each run writes
+python -c "import json;d=json.load(open('<run_dir>/digest.json'));print(d['llm_fallback_rates'])"
+# the replay: parse each chamber answer in <run_dir>/llm_calls.jsonl and count shifts > 3 or |delta| > 0.3
+```
+
+*Suspected cause.* Configuration that did not exist in the recorded sweep and is in today's runs:
+`llm.thinking_token_budget` = 2048 (absent then, so the chamber's thinking was limited only by its 8000-token allowance), the vote_cast
+grammar invariants, `vote.turnout_cost` = 0.04 and `institutions.president_term_limit` = 2. The 2048
+budget is the suspect, because a deliberation cut short may list every dimension, but nothing isolates it: the
+recorded sweep has no per-call log (S0.5 came later), so its chamber answers cannot be inspected.
+
+*What would settle it.* Seed 1 again on 0.30.0 with the thinking budget off, and the same replay: fallback rate
+and the distribution of shifts per decision. If the budget is the cause, a validation failure could be
+treated like a decode failure (replayed), or zero-delta shifts dropped before the count is checked; neither is done.
+
+*Status: open.* The 10% alert threshold was crossed in one of five runs; the runs still complete with office
+occupancy in the recorded band.
