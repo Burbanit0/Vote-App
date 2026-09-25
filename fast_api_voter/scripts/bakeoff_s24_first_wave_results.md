@@ -58,9 +58,12 @@ Valid answers, main pass (candidacy_p500 and pressure_act accuracy are against t
 Every long-thinking failure is **runaway thinking**, not a malformed answer. All ten Granite `campaign_positioning`
 cases finish with `finish_reason='length'` at exactly 9,716 tokens, all of it reasoning and no answer; Gemma's five
 positioning failures stop at the same 9,716, and its `vote_cast` and chamber failures at 13,250 to 14,426 tokens.
-Qwen's median positioning answer is 4,002 tokens. The bank arm does not cap thinking, and production does
-(`llm.thinking_token_budget` 2048); the thinking-budget arm (`--arm thinking_budget_2048`) was **not run** on these two
-models, so whether the cap turns these into valid answers is untested. Gemma's nine `representative_response`
+Qwen's median positioning answer is 4,002 tokens. The bank arm does not cap thinking. Production caps it, at 2048
+(`llm.thinking_token_budget`), for `vote_cast` and `chamber_deliberation` **only** (`THINKING_BUDGET_TYPES`;
+`campaign_positioning` "reasons thousands of tokens too" and was left uncapped because it was never measured under a
+budget). So a budget could rescue Gemma's vote and chamber failures but not the positioning ones (Granite 10 of 10,
+Gemma 5 of 10), which production would meet as they are. The thinking-budget arm (`--arm thinking_budget_2048`) had
+not been run on these two models when this session was written. Gemma's nine `representative_response`
 failures are different: the model finished but broke a domain rule (silence without motif 303 or 308 seven times,
 a concession without a shift twice).
 
