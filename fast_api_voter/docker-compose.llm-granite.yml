@@ -1,0 +1,71 @@
+# docker-compose.llm-granite.yml -- S2.4 first-wave bake-off candidate (plan-polity-build-order.md), NOT a
+# production serving config. Question (pre-registered): does coalition_decision's collapse persist on at
+# least two non-Qwen families? This is the first.
+#
+# Checkpoint: ibm-granite/granite-4.2-8b-nvfp4 (IBM, Apache-2.0, dense, standard attention), 5.71 GiB.
+# NOTE it is W4A4 (4-bit activations too), unlike the W4A16 NVFP4 probe; v0.30.0 prefers W4A4 on SM120 but
+# that path is untested on this card. If it will not load or errors, the same repo's -mxfp4 build (5.47 GiB)
+# is the fallback. Its chat template reads `enable_thinking` (default on), like Qwen's.
+#
+# --reasoning-parser qwen3 is an INFERENCE from the template's <think>...</think> markers (the image also
+# has a `granite` parser, which is for an older Granite format). The thinking gate in the bake-off
+# scorecard (reasoning tokens with thinking on vs off) is what confirms it.
+#
+# Every flag that is not the model identity is copied from docker-compose.llm.yml. Sequential arm, same
+# port and container name (scripts look the container up by name):
+#   docker compose -p polity-vllm down
+#   docker compose -f docker-compose.llm-granite.yml up -d
+#   python scripts/check_vllm_batching_determinism.py --save before.json   # then restart, --compare
+#   python scripts/run_bakeoff.py --label granite-4.2-8b --model granite-4.2-8b
+#   docker compose -f docker-compose.llm-granite.yml down
+#   docker compose -f docker-compose.llm.yml up -d          # restore production
+
+name: polity-vllm-granite
+
+services:
+  vllm:
+    image: vllm/vllm-openai:v0.30.0
+    container_name: vllm-polity
+    ports:
+      - "8000:8000"
+    ipc: host
+    volumes:
+      - huggingface_cache:/root/.cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 180s
+    command:
+      - "--model"
+      - "ibm-granite/granite-4.2-8b-nvfp4"
+      - "--revision"
+      - "fd3b6082de9225a8e866d7f80d96cdc22f1ae89e"   # pinned via the HF API 2026-09-25
+      - "--served-model-name"
+      - "granite-4.2-8b"
+      - "--reasoning-parser"
+      - "qwen3"
+      - "--structured-outputs-config"
+      - '{"backend": "xgrammar", "disable_any_whitespace": true}'
+      - "--max-model-len"
+      - "16384"
+      - "--gpu-memory-utilization"
+      - "0.80"
+      - "--port"
+      - "8000"
+      - "--seed"
+      - "42"
+      - "--enable-prompt-tokens-details"
+
+volumes:
+  huggingface_cache:
+    external: true
+    name: polity-vllm_huggingface_cache   # reuse the existing named volume
