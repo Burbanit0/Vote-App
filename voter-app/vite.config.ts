@@ -79,11 +79,12 @@ export default defineConfig(({ mode }) => {
         // needed by scripts/e2e_coverage.sh (Lot 6) to point at a coverage-
         // instrumented backend on a non-default port when :4434 is already
         // taken by something else in the dev environment.
+        // ws: the Monte-Carlo stream's Socket.IO lives at /api/v2/socket.io and
+        // connects same-origin from a production build (vite preview, which the
+        // e2e suite serves), trying the websocket transport first. (A root
+        // '/socket.io' entry went with it: nothing has used that path since
+        // the stream moved under /api/v2.)
         '^/api/': {
-          target: env.VITE_API_URL || 'http://localhost:4434',
-          changeOrigin: true,
-        },
-        '/socket.io': {
           target: env.VITE_API_URL || 'http://localhost:4434',
           changeOrigin: true,
           ws: true,
@@ -111,7 +112,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     define: {
-      // Single-origin prod: default to '' (same-origin, relative /api + /socket.io)
+      // Single-origin prod: default to '' (same-origin, relative /api, Socket.IO included)
       // so the FastAPI container that serves this build also answers the API.
       // Dev keeps the explicit localhost:4434 backend. An explicit env var wins.
       'process.env.VITE_API_URL': JSON.stringify(
