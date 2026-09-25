@@ -551,12 +551,13 @@ def _hamilton(votes: Dict[str, int], n: int) -> Dict[str, int]:
     total = sum(votes.values())
     if 0 in (total, n):
         return {p: 0 for p in votes}
-    quotas = {p: v * n / total for p, v in votes.items()}
-    seats  = {p: int(q) for p, q in quotas.items()}
-    rem    = n - sum(seats.values())
-    by_rem = sorted(((q - seats[p], p) for p, q in quotas.items()), key=lambda x: (-x[0], x[1]))
-    for i in range(rem):
-        seats[by_rem[i][1]] += 1
+    # Integer quota and remainder (the remainder in units of 1/total): with
+    # float quotas 4*10/6 - 6 and 1*10/6 - 1 differ in the last bit, so an
+    # exact remainder tie was decided by rounding, not by name.
+    seats = {p: v * n // total for p, v in votes.items()}
+    rem   = {p: v * n % total for p, v in votes.items()}
+    for p in sorted(votes, key=lambda p: (-rem[p], p))[: n - sum(seats.values())]:
+        seats[p] += 1
     return seats
 
 

@@ -12,7 +12,7 @@ one they behave exactly as before -- polity imports the engine allocators and
 passes none, so its seat allocation is untouched. With one, a tie is drawn by
 lot among the tied names sorted, matching `_district_winner`. The theory
 endpoint has no seed field, so its four divisor methods break a tie by name
-instead (`_hamilton`, untouched, breaks a remainder tie by name too).
+instead, and `_hamilton` breaks an exact remainder tie by name too.
 """
 import random
 
@@ -32,6 +32,7 @@ from api.domain.election.workers_playground import _assembly_worker
 from api.domain.theory.workers import (
     _adams_m,
     _apportionment_worker,
+    _hamilton,
     _huntington,
     _jefferson,
     _webster,
@@ -306,6 +307,23 @@ TWO_DISTRICTS = [
     {"id": 0, "bounds": {"x_min": -1.0, "x_max": 0.0, "y_min": -1.0, "y_max": 1.0}},
     {"id": 1, "bounds": {"x_min": 0.0, "x_max": 1.0, "y_min": -1.0, "y_max": 1.0}},
 ]
+
+
+class TestHamilton:
+    """Every party's remainder is exactly 2/3 (1*10/6, 1*10/6, 4*10/6), so the
+    two leftover seats go to A and B by name. Float remainders put C's 1 ulp
+    ahead of B's and gave C the seat."""
+
+    def test_an_exact_remainder_tie_is_decided_by_name(self):
+        assert _hamilton({"A": 1, "B": 1, "C": 4}, 10) == {"A": 2, "B": 2, "C": 6}
+        assert _hamilton({"A": 1, "B": 1, "C": 7}, 3) == {"A": 1, "B": 0, "C": 2}
+
+    def test_listing_order_does_not_matter(self):
+        assert _hamilton({"C": 4, "B": 1, "A": 1}, 10) == {"A": 2, "B": 2, "C": 6}
+
+    def test_largest_remainder_still_wins_when_there_is_no_tie(self):
+        # quotas 5.5, 3.3, 1.2: floors 5+3+1, the one leftover seat to A.
+        assert _hamilton({"A": 55, "B": 33, "C": 12}, 10) == {"A": 6, "B": 3, "C": 1}
 
 
 class TestWorkersSeedTheirLot:
