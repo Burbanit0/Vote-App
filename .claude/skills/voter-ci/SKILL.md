@@ -368,7 +368,13 @@ silently drifted from `scripts/setup-branch-protection.sh`.
   day, and a human rubber-stamping those on autopilot is worse than not
   having the check. The weekly heartbeat still exists so `verify`'s own
   staleness check never has genuinely stale-looking data to distrust on a
-  repo that's simply healthy for a long stretch. Three real restrictions
+  repo that's simply healthy for a long stretch. That check's limit
+  (`AUDIT_STALE_HOURS`, ~204h) is derived from `HEARTBEAT_MAX_DAYS` plus 1.5
+  days for the refresh PR to be merged: it was once a flat 36h, which a weekly
+  heartbeat trips on days 2-7 of every quiet week, turning "CI health check"
+  red on develop and every PR (2026-09-21 onward) with nothing wrong. If it
+  fails with "snapshot is Nh old" and `audit` succeeded, look for an unmerged
+  `chore/ci-health-snapshot-*` PR first. Three real restrictions
   shaped the rest of this job, all confirmed live rather than assumed:
   - A direct push was the original design (thought to match `release.yml`'s
     push-to-`main` pattern), but `develop`'s `required_pull_request_reviews`

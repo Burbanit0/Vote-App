@@ -98,20 +98,28 @@ CONSECUTIVE_FAILURE_THRESHOLD = 2
 # stopped firing (confirmed real for mutmut: 215+ commits of nothing).
 INERT_MULTIPLIER = 1.5
 
-# The scheduled --update run's own heartbeat. Independent of any single
-# watched workflow's cadence -- this is "is the watcher itself alive",
-# checked against how often ci-health.yml's own audit job is scheduled to
-# run (daily). 1.5x gives one missed day of slack before blocking PRs.
-AUDIT_EXPECTED_HOURS = 24
-AUDIT_STALE_HOURS = AUDIT_EXPECTED_HOURS * INERT_MULTIPLIER
-
 # A PR only needs opening when there's something worth a human's attention:
 # a real health change, or enough silence that the snapshot's own
-# generated_at is worth refreshing so the staleness check above doesn't
+# generated_at is worth refreshing so the staleness check below doesn't
 # eventually trip on a rock-solid-healthy repo. Independent of
 # AUDIT_EXPECTED_HOURS (which the audit job runs on) -- the audit runs
 # daily regardless, this only decides whether a no-op day is worth a PR.
 HEARTBEAT_MAX_DAYS = 7
+
+# The scheduled --update run's own heartbeat: "is the watcher itself alive",
+# judged by the snapshot's age. A healthy snapshot is only refreshed once it
+# is HEARTBEAT_MAX_DAYS old -- and only when the next daily audit runs, up to a
+# day later -- so the limit has to be that plus the original allowance of
+# 1.5 x the audit's daily cadence, time for the refresh PR (deliberately not
+# auto-queued, see ci-health.yml) to be merged. It used to be that allowance
+# alone (36h), which a weekly heartbeat trips on days 2-7 of every quiet week:
+# from 2026-09-21 the check was red on develop and on every PR with nothing
+# wrong, until the next heartbeat. Derived from HEARTBEAT_MAX_DAYS so the two
+# cannot drift apart again. The price: an audit that has died is noticed after
+# ~8.5 days, not 1.5. A real change to a watched workflow or to branch
+# protection is not slowed by any of this -- it opens a PR at the next daily run.
+AUDIT_EXPECTED_HOURS = 24
+AUDIT_STALE_HOURS = HEARTBEAT_MAX_DAYS * 24 + AUDIT_EXPECTED_HOURS * INERT_MULTIPLIER
 
 
 def _run_gh_json(args: list[str]) -> Any:
@@ -380,9 +388,11 @@ def cmd_verify(args: argparse.Namespace) -> int:
     age_hours = (_now() - generated_at).total_seconds() / 3600
     if age_hours > AUDIT_STALE_HOURS:
         problems.append(
-            f"the ci-health snapshot itself is {age_hours:.0f}h old (expected every "
-            f"~{AUDIT_EXPECTED_HOURS}h) -- the watchdog's scheduled audit has gone "
-            "quiet, which is exactly the failure mode it exists to catch"
+            f"the ci-health snapshot itself is {age_hours:.0f}h old (a healthy one is "
+            f"refreshed at least every {HEARTBEAT_MAX_DAYS} days; the limit is "
+            f"{AUDIT_STALE_HOURS:.0f}h) -- the watchdog's scheduled audit has gone "
+            "quiet, or its refresh PR is unmerged, which is exactly the failure "
+            "mode it exists to catch"
         )
 
     for wf, info in snapshot.get("workflows", {}).items():
