@@ -107,19 +107,24 @@ INERT_MULTIPLIER = 1.5
 HEARTBEAT_MAX_DAYS = 7
 
 # The scheduled --update run's own heartbeat: "is the watcher itself alive",
-# judged by the snapshot's age. A healthy snapshot is only refreshed once it
-# is HEARTBEAT_MAX_DAYS old -- and only when the next daily audit runs, up to a
-# day later -- so the limit has to be that plus the original allowance of
-# 1.5 x the audit's daily cadence, time for the refresh PR (deliberately not
-# auto-queued, see ci-health.yml) to be merged. It used to be that allowance
-# alone (36h), which a weekly heartbeat trips on days 2-7 of every quiet week:
-# from 2026-09-21 the check was red on develop and on every PR with nothing
-# wrong, until the next heartbeat. Derived from HEARTBEAT_MAX_DAYS so the two
-# cannot drift apart again. The price: an audit that has died is noticed after
-# ~8.5 days, not 1.5. A real change to a watched workflow or to branch
-# protection is not slowed by any of this -- it opens a PR at the next daily run.
+# judged by the snapshot's age. A healthy snapshot is refreshed only once it is
+# HEARTBEAT_MAX_DAYS old, and only by the next daily audit after that (up to a
+# day later, more with the cron's real start-time jitter), so the limit covers
+# that, plus the original allowance of 1.5 x the audit's daily cadence for the
+# refresh PR to merge (Mergify queues a green one within minutes, but one that
+# is behind develop under `strict`, or red, has taken 6-8h). It used to be that
+# allowance alone (36h), which a weekly heartbeat trips on days 2-7 of every
+# quiet week: from 2026-09-21 the check was red on develop and on every PR with
+# nothing wrong, until the next heartbeat. Derived from HEARTBEAT_MAX_DAYS so the
+# two cannot drift apart again.
+# The price: an audit that has died, or a refresh PR nobody merged, is noticed
+# after ~9.5 days, not 1.5. A real change to a watched workflow or to branch
+# protection still opens its PR at the next daily run, and that PR is red on
+# its own branch; what waits is turning *every other* PR red when it goes unmerged.
 AUDIT_EXPECTED_HOURS = 24
-AUDIT_STALE_HOURS = HEARTBEAT_MAX_DAYS * 24 + AUDIT_EXPECTED_HOURS * INERT_MULTIPLIER
+AUDIT_STALE_HOURS = (
+    HEARTBEAT_MAX_DAYS * 24 + AUDIT_EXPECTED_HOURS + AUDIT_EXPECTED_HOURS * INERT_MULTIPLIER
+)
 
 
 def _run_gh_json(args: list[str]) -> Any:
@@ -388,11 +393,12 @@ def cmd_verify(args: argparse.Namespace) -> int:
     age_hours = (_now() - generated_at).total_seconds() / 3600
     if age_hours > AUDIT_STALE_HOURS:
         problems.append(
-            f"the ci-health snapshot itself is {age_hours:.0f}h old (a healthy one is "
-            f"refreshed at least every {HEARTBEAT_MAX_DAYS} days; the limit is "
-            f"{AUDIT_STALE_HOURS:.0f}h) -- the watchdog's scheduled audit has gone "
-            "quiet, or its refresh PR is unmerged, which is exactly the failure "
-            "mode it exists to catch"
+            f"the ci-health snapshot itself is {age_hours:.1f}h old (a healthy one is "
+            f"refreshed every {HEARTBEAT_MAX_DAYS}-{HEARTBEAT_MAX_DAYS + 1} days; the limit is "
+            f"{AUDIT_STALE_HOURS:.1f}h) -- the watchdog's scheduled audit has gone "
+            "quiet, or its refresh PR is unmerged, which is exactly the failure mode "
+            "it exists to catch. A snooze cannot silence this: merge the open "
+            "chore/ci-health-snapshot-* PR, or run ci-health.yml by workflow_dispatch"
         )
 
     for wf, info in snapshot.get("workflows", {}).items():
