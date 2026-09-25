@@ -2,6 +2,9 @@
 # production serving config. Question (pre-registered): does coalition_decision's collapse persist on at
 # least two non-Qwen families? This is the first.
 #
+# Result (run 2026-09-25): scripts/bakeoff_s24_first_wave_results.md -- flat on coalition_decision, but it fails
+# the batching-determinism check and its positioning cases all run away in thinking.
+#
 # Checkpoint: ibm-granite/granite-4.2-8b-nvfp4 (IBM, Apache-2.0, dense, standard attention), 5.71 GiB.
 # NOTE it is W4A4 (4-bit activations too), unlike the W4A16 NVFP4 probe; v0.30.0 prefers W4A4 on SM120 but
 # that path is untested on this card. If it will not load or errors, the same repo's -mxfp4 build (5.47 GiB)

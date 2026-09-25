@@ -2,6 +2,9 @@
 # production serving config. Question (pre-registered): does coalition_decision's collapse persist on at
 # least two non-Qwen families? This is the second.
 #
+# Result (run 2026-09-25): scripts/bakeoff_s24_first_wave_results.md -- passes determinism, but its logprob gate
+# fails (the collapse cannot be read) and it runs away in thinking on the long families.
+#
 # Checkpoint: google/gemma-4-12B-it-qat-w4a16-ct (Google's own quantization-aware-trained W4A16,
 # compressed-tensors), 9.56 GiB including a vision tower this project never uses. The head-room is the
 # risk: at the shipped 0.80 the KV pool would be about zero, so --gpu-memory-utilization is 0.88 (the only
