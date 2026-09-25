@@ -66,6 +66,13 @@ class TestBreakTie:
         for seed in range(30):
             assert break_tie({"A": 1.0, "B": 1.0, "C": 0.5}, random.Random(seed)) in ("A", "B")
 
+    def test_a_small_but_real_margin_is_not_a_tie(self):
+        """1e-6 relative is a thousand times the tolerance and nowhere near
+        float noise (~1e-16): the lot must never fire, so the tolerance can't
+        quietly grow into a coin flip on real, if small, differences."""
+        picked = {break_tie({"A": 1.000001, "B": 1.0}, random.Random(s)) for s in range(40)}
+        assert picked == {"A"}
+
     def test_a_lone_winner_ignores_rng(self):
         assert break_tie({"A": 2.0, "B": 1.0}, random.Random(0)) == "A"
 
