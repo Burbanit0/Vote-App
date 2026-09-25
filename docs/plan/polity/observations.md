@@ -879,6 +879,7 @@ pair of runs, by server:
 | 0.28.0 + n-gram speculation (the old pin) | 1 | byte-identical (314 lines) |
 | 0.29.0 + n-gram speculation | 1 | byte-identical (314 lines) |
 | 0.29.0, no speculation | 3 | 2 differ, 1 identical. The live test failed at byte 37,287; a second pair differed on 15 of 312 lines, the first at line 133 (`campaign_positioning`, tick 0: different shifts and motifs). The last pair, in the full live suite, was byte-identical (`XPASS`). |
+| 0.30.0, no speculation (2026-09-24) | 1 | differs (`XFAIL` in the full live suite; where it diverged was not examined). Replay from the call log passed. |
 
 - **Short generations still reproduce.** `check_vllm_batching_determinism.py` passes on the new setup
   within a run (batch sizes 1 to 50, 10 sequential calls) and across a restart. The divergence is in

@@ -13,7 +13,7 @@ modèle — pas le code.
 > (`RuntimeError: UVA is not available` sous WSL2) a sauté par l'une des deux conditions de
 > réouverture que ce document nommait lui-même : le passage à Linux natif (2026-09-05).
 > Aujourd'hui : `polity_config.yaml` porte `provider: vllm`, le serveur tourne via
-> `docker-compose.llm.yml` (image épinglée `vllm/vllm-openai:v0.29.0` depuis le 2026-09-20, `v0.28.0` avant, sans spéculation n-gram ; modèle `Qwen3-8B-AWQ`
+> `docker-compose.llm.yml` (image épinglée `vllm/vllm-openai:v0.30.0` depuis le 2026-09-24, `v0.29.0` puis `v0.28.0` avant, sans spéculation n-gram depuis le 2026-09-20 ; modèle `Qwen3-8B-AWQ`
 > épinglé au SHA HF, `--served-model-name qwen3:8b` conservé comme le §6 l'exigeait), les deux
 > axes sont PASS (`scripts/vllm_switch_results.md`), et **tous les runs depuis le 2026-09-06
 > portent `"llm_provider": "vllm"`**. Ne pas planifier à partir des sections 0/0bis.

@@ -59,7 +59,7 @@
 
 services:
   vllm-nvfp4:
-    image: vllm/vllm-openai:v0.29.0   # identical server build to the shipped
+    image: vllm/vllm-openai:v0.30.0   # identical server build to the shipped
                                       # stack -- the serving layer must not be
                                       # a variable in this comparison
     container_name: vllm-polity-nvfp4
