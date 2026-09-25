@@ -49,7 +49,8 @@ every server (11.1% here in seed 1), not something EAGLE-3 adds.
 | boot | healthy in about 150 s; KV cache 22,896 tokens (1.40 sequences of 16k), against 26,704 (1.63) without it |
 | `check_thinking_token_budget.py` | honoured: 972 reasoning tokens unbudgeted, 256 and 64 exactly, every answer decodes |
 | `check_vllm_batching_determinism.py` | PASS within the run and across one restart |
-| same-seed pairs (`test_polity_vllm_live.py -k same_seed`) | 1 differs, 2 byte-identical, of 3 (OBS-020, see below) |
+| three consecutive plain `compose restart`s | healthy in 48, 48 and 42 s, answering after each, no out-of-memory lines in the log |
+| same-seed pairs (`test_polity_vllm_live.py -k same_seed`) | EAGLE-3: 6 of 8 byte-identical (the first 3 pairs, then 5 more). Shipped server, no speculation: 5 of 5 identical in the same session, and 1 differing pair in the earlier live suite (OBS-020, see below) |
 
 ## The frozen bank (174 cases), one request at a time
 
@@ -76,18 +77,22 @@ representative_response 0.75, campaign_positioning 0.78, pressure_action 0.79, v
 
 ## Not settled
 
-- **OBS-020.** Two of three same-seed pairs were byte-identical, against one pair that differed on the shipped
-  server; too few to say it is better or worse. Five or more pairs per setup would settle it.
-- **Restarts.** One restart was run on this config, not the three the house rule asks for (the earlier 24576
-  `--max-model-len` looked fine on its first start and OOM'd on a plain restart), and 0.88 leaves less headroom than
-  0.80. Three consecutive clean restarts are owed before adoption.
+- **OBS-020.** EAGLE-3 gave 6 identical pairs of 8 and the shipped server 5 of 5 (6 pairs with the earlier live-suite
+  pair, 1 differing): no measurable difference at these counts, and neither setup is fully reproducible. One pattern to
+  note and not to over-read: **both differing EAGLE-3 pairs were the first pair after a server (re)start**, and every
+  later pair was identical. That fits the OBS-020 candidate "run 2 reads a prefix cache that run 1 filled", but the
+  shipped server's first pair after its boot was identical too, so it is a lead, not a finding.
+- **Restarts** are no longer owed: three consecutive plain restarts were clean (the earlier 24576 `--max-model-len`
+  looked fine on its first start and OOM'd on a restart). 0.88 still leaves less headroom than 0.80, so watch it under
+  a longer soak than 3 restarts.
 - **Two seeds** of the simulation run; **12-worker** behaviour was timed but not checked for fallbacks.
 - **The head is third-party** (RedHatAI, Apache-2.0, 116 downloads at the time of writing), pinned by revision.
 - KV capacity falls by 14%, which matters if the worker count is raised.
 
 ## Disposition and rollback
 
-Not adopted. To adopt: move the two flags into `docker-compose.llm.yml` and run the three restarts. Rollback is the
+Not adopted; the owed restarts and same-seed pairs have been run and do not argue against it. To adopt: move the two
+flags into `docker-compose.llm.yml` and re-verify the restarts on that file. Rollback is the
 usual `docker compose -f docker-compose.llm.yml up -d`; the probe is a separate compose file and changes nothing until then.
 
 ## How it was run

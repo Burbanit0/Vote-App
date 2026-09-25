@@ -11,8 +11,8 @@
 # --gpu-memory-utilization goes 0.80 -> 0.88 to keep at least one 16k sequence in the KV pool. That is
 # the ONLY other change from docker-compose.llm.yml; every other flag is copied verbatim.
 #
-# Result (run 2026-09-25): scripts/check_vllm_eagle3_results.md -- about a third faster on real runs, same
-# answers under the production thinking budget, not adopted (three restarts and OBS-020 pairs are owed).
+# Result (run 2026-09-25): scripts/check_vllm_eagle3_results.md -- about a third faster on real runs, identical
+# answers on the two thinking families production caps, three clean restarts; not adopted (the owner's call).
 #
 # Sequential arm, same port and container name as the shipped server (scripts look it up by name):
 #   docker compose -f docker-compose.llm.yml down
