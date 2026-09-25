@@ -117,7 +117,9 @@ class ProfileSimulateRequest(BaseModel):
                     "Plackett-Luce {quality}, DiDi {concentration}, stratification {weight}.",
     )
     handcrafted_matrix: Optional[List[List[float]]] = Field(
-        None, description="Rows = voters, cols = candidates (aligned), for source=handcrafted."
+        None, max_length=1000,
+        description="Rows = voters, cols = candidates (aligned), for source=handcrafted. "
+                    "At most 500 rows with compute_strategic.",
     )
     # pydantic default_factory=<Model> / omitted-default arg: basedpyright has
     # no pydantic.mypy-equivalent plugin, false positive (see
@@ -131,7 +133,8 @@ class ProfileSimulateRequest(BaseModel):
     compute_strategic: bool = Field(
         False,
         description="Compute the per-method Gibbard–Satterthwaite individual "
-                    "manipulability rate (slow; opt-in). Off for the live read-out.",
+                    "manipulability rate (slow; opt-in). Off for the live read-out. "
+                    "Caps num_voters at 500 (the response's num_voters says how many ran).",
     )
     seed: int = Field(42, ge=0)
 

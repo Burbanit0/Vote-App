@@ -175,7 +175,7 @@ KNOWN_FAILURES: dict[str, str] = {
     "GET /api/v2/simulations/blank-history":            "[loose-req] no run has been started in this fuzz session",
     "GET /api/v2/simulations/manipulability":            "[loose-req] depends on prior /vote-steps state",
     "POST /api/v1/compare":                              "[loose-req] legacy form-shaped body, see LegacySimulateRequest",
-    "POST /api/v1/simulate":                             "[timeout] num_candidates near cap x methods=all",
+    "POST /api/v1/simulate":                             "[timeout] compute_strategic=true at 8 candidates: >10s even at 100 voters",
     "POST /api/v2/election/abstention":                  "[timeout] num_rounds x num_voters near cap",
     "POST /api/v2/election/affective-polarization":      "[timeout] heavy pairwise affect computation",
     "POST /api/v2/election/coalition":                   "[timeout] D'Hondt + greedy coalition search near seat cap",
