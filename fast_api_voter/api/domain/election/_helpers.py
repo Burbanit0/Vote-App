@@ -11,10 +11,12 @@ Future PRs will progressively move route groups into sibling modules
 """
 from __future__ import annotations
 
+import random
 from collections import Counter
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 
 from api.engine.constants import ECONOMY_ISSUES, ENV_ISSUES, SOCIAL_ISSUES
+from api.engine.utils.simulation_multiwinner_utils import break_tie
 
 # Used to assign a party label deterministically by candidate index.
 PARTY_CYCLE: List[str] = ["Green", "Liberal", "Conservative", "Independent"]
@@ -74,17 +76,25 @@ def gini(values: List[float]) -> float:
     return round(cum / (n * total), 4)
 
 
-def dhondt(vote_shares: Dict[str, float], total_seats: int) -> Dict[str, int]:
+def dhondt(
+    vote_shares: Mapping[str, float], total_seats: int, *, rng: Optional[random.Random] = None,
+) -> Dict[str, int]:
     """D'Hondt proportional seat allocation.
 
-    vote_shares: {party_name: fraction_of_vote}  (values sum ≈ 1)
-    Returns {party_name: seats_awarded}.
+    vote_shares: {party_name: votes}, on any scale -- only the ratios matter, so
+    shares, percentages and raw counts all work; prefer counts, which keep exact
+    ties exact. Returns {party_name: seats_awarded}, listing every party.
+
+    `rng`: see `break_tie` (simulation_multiwinner_utils.py) -- an exact
+    quotient tie goes to whichever party is listed first unless a generator
+    is passed.
     """
     seats: Dict[str, int] = {p: 0 for p in vote_shares}
+    quotients = {p: vote_shares[p] / (seats[p] + 1) for p in vote_shares}
     for _ in range(total_seats):
-        quotients = {p: vote_shares[p] / (seats[p] + 1) for p in vote_shares}
-        winner = max(quotients, key=lambda k: quotients[k])
+        winner = break_tie(quotients, rng)
         seats[winner] += 1
+        quotients[winner] = vote_shares[winner] / (seats[winner] + 1)
     return seats
 
 

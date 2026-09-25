@@ -62,6 +62,9 @@ RUN rm -rf fast_api_voter/mutants fast_api_voter/.mutmut-cache \
 # The check here is purely informational after the fact, not a real "warn
 # before install" gate the way it is in CI.
 COPY scripts/check_python_lockfile_freshness.sh scripts/
+# api/tests/test_ci_health_thresholds.py imports this script (repo root, so its
+# own COPY); without it the mirror would skip those tests and still say PASS.
+COPY scripts/check_ci_health.py scripts/
 
 # Mirror the workflow steps in order (matches GitHub CI gating).
 # Lockfile freshness, ruff (replaces flake8, Lot 1), bandit and pip-audit (on

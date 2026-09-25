@@ -879,7 +879,9 @@ def _stv_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     first_choice: Counter[str] = Counter(r[0] for r in rankings if r)
     total = len(rankings) or 1
     vote_shares = {n: first_choice.get(n, 0) / total for n in cand_names}
-    dhondt_seats = get_dhondt_winners(vote_shares, num_seats)
+    # seed + 1, not seed: `seed` builds the electorate, and a lot must not be the
+    # same draw that set the first voter's attributes.
+    dhondt_seats = get_dhondt_winners(vote_shares, num_seats, rng=_random.Random(seed + 1))
 
     # ── FPTP multi-seat (top-N by first-choice votes) ─────────────────────
     top_n    = sorted(cand_names, key=lambda c: -first_choice.get(c, 0))[:num_seats]
@@ -1039,7 +1041,12 @@ def _gerrymander_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         for n in cand_names
     }
     num_total_seats = len(districts_raw)
-    parliament_prop  = _dhondt(national_shares, num_total_seats)
+    # Allocated on the counts, not `national_shares`: rounding a share to 4 places
+    # both destroys exact ties (250 vs 50 over 5 seats) and invents ones.
+    parliament_prop  = _dhondt(
+        {n: national_fc.get(n, 0) for n in cand_names}, num_total_seats,
+        rng=_random.Random(seed + 1),
+    )
 
     # ── Distortion & gerrymander index ────────────────────────────────────
     distortion_vals = [
@@ -1132,9 +1139,13 @@ def _multiwinner_compare_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
     vote_shares   = {n: first_choice.get(n, 0) / total_voters for n in cand_names}
 
     # ── Run all methods ────────────────────────────────────────────────────
+    # One tie-break generator for the D'Hondt and SPAV lots below, so a seat tie
+    # doesn't silently go to whichever party this dict lists first. seed + 1,
+    # not seed: `seed` builds the electorate.
+    tie_break  = _random.Random(seed + 1)
     stv_raw    = get_stv_result(rankings, num_seats, "droop")
-    dhondt_raw = get_dhondt_winners(vote_shares, num_seats)
-    spav_raw   = get_spav_result(approval_ballots, num_seats)
+    dhondt_raw = get_dhondt_winners(vote_shares, num_seats, rng=tie_break)
+    spav_raw   = get_spav_result(approval_ballots, num_seats, rng=tie_break)
     phrag_raw  = get_phragmen_result(approval_ballots, num_seats)
     mes_raw    = get_equal_shares_result(approval_ballots, num_seats)
     top_n      = sorted(cand_names, key=lambda c: -first_choice.get(c, 0))[:num_seats]
@@ -1162,7 +1173,9 @@ def _multiwinner_compare_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], i
         )
 
     # ── Distortion metrics ─────────────────────────────────────────────────
-    prop_seats = _dhondt(vote_shares, num_seats)   # proportional reference
+    # The D'Hondt row itself: a second D'Hondt run on the same shares would draw
+    # its own lot and could disagree with the row printed beside it.
+    prop_seats = {c: dhondt_raw.get(c, 0) for c in cand_names}   # proportional reference
 
     for mdata in methods.values():
         seat_dict = mdata["seats"]
