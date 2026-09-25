@@ -12,6 +12,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from api.domain.election._helpers import modal_keys, prose_list, reject_unknown_methods
 from api.engine.utils.method_registry import PUBLIC_METHOD_ALIASES, rule_winner
+from api.engine.utils.simulation_multiwinner_utils import break_tie
 from api.engine.utils.simulation_ranked_utils import (
     get_approval_winner,
     get_black_winner,
@@ -559,39 +560,45 @@ def _hamilton(votes: Dict[str, int], n: int) -> Dict[str, int]:
     return seats
 
 
-def _jefferson(votes: Dict[str, int], n: int) -> Dict[str, int]:
-    seats = {p: 0 for p in votes}
+# The four divisor methods below break an exact quotient tie by name -- the
+# first party in sorted order, as `_hamilton`'s (-remainder, name) key does -- by
+# keeping each round's quotients in sorted order, so the order a request lists
+# its parties in never decides a seat. Not a random lot: this endpoint has no
+# seed field, and the paradox detectors below re-run a method on a perturbed
+# input and compare, which a lot would make noisy. Each quotient is a ratio of
+# integers (Huntington-Hill compares v^2/(s(s+1)), which orders the same as
+# v/sqrt(s(s+1)) but stays exact), so equal ones are bit-identical floats and a
+# real tie is seen as one.
+
+def _divisor_method(
+    votes: Dict[str, int], n: int, quotient: Callable[[int, int], float], start: int = 0,
+) -> Dict[str, int]:
+    seats = {p: start for p in votes}
+    quotients = {p: quotient(votes[p], start) for p in sorted(votes)}
     for _ in range(n):
-        best = max(votes, key=lambda p: votes[p] / (seats[p] + 1))
-        seats[best] += 1
+        winner = break_tie(quotients)
+        seats[winner] += 1
+        quotients[winner] = quotient(votes[winner], seats[winner])
     return seats
+
+
+def _jefferson(votes: Dict[str, int], n: int) -> Dict[str, int]:
+    return _divisor_method(votes, n, lambda v, s: v / (s + 1))
 
 
 def _webster(votes: Dict[str, int], n: int) -> Dict[str, int]:
-    seats = {p: 0 for p in votes}
-    for _ in range(n):
-        best = max(votes, key=lambda p: votes[p] / (2 * seats[p] + 1))
-        seats[best] += 1
-    return seats
+    return _divisor_method(votes, n, lambda v, s: v / (2 * s + 1))
 
 
 def _adams_m(votes: Dict[str, int], n: int) -> Dict[str, int]:
-    seats = {p: 0 for p in votes}
-    for _ in range(n):
-        best = max(votes, key=lambda p: votes[p] / max(1, 2 * seats[p] - 1))
-        seats[best] += 1
-    return seats
+    return _divisor_method(votes, n, lambda v, s: v / max(1, 2 * s - 1))
 
 
 def _huntington(votes: Dict[str, int], n: int) -> Dict[str, int]:
     nv = len(votes)
     if nv > n:
         return {p: 0 for p in votes}
-    seats = {p: 1 for p in votes}
-    for _ in range(n - nv):
-        best = max(votes, key=lambda p: votes[p] / _math_ap.sqrt(seats[p] * (seats[p] + 1)))
-        seats[best] += 1
-    return seats
+    return _divisor_method(votes, n - nv, lambda v, s: v * v / (s * (s + 1)), start=1)
 
 
 def _quota_violation(votes: Dict[str, int], seats: Dict[str, int], n: int) -> bool:
