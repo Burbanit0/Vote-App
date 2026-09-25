@@ -10,6 +10,7 @@ Self-contained: depends only on the engine utils and ._helpers.
 from __future__ import annotations
 
 import math
+import random as _random
 from typing import Any, Callable, Dict, List, Optional
 
 import numpy as _np
@@ -348,6 +349,7 @@ def _allocate_assembly(
     votes = {n: int((choice == i).sum()) for i, n in enumerate(names)}
     vote_share = {n: votes[n] / num_voters for n in names}
     allocate = get_sainte_lague_winners if appt == "sainte_lague" else get_dhondt_winners
+    pr_tie_break = _random.Random(lot_seed)   # PR seat ties only; district ties use `lots` below
 
     def _pr_alloc(n_seats: int) -> tuple[Dict[str, int], List[str], bool]:
         """Threshold-filtered proportional allocation. Returns (seats, excluded, waived)."""
@@ -356,7 +358,7 @@ def _allocate_assembly(
         if not eligible:  # nobody passes → waive the threshold rather than fail
             eligible = {n: votes[n] for n in names if votes[n] > 0}
             waived = True
-        alloc = allocate({k: float(v) for k, v in eligible.items()}, n_seats)
+        alloc = allocate({k: float(v) for k, v in eligible.items()}, n_seats, rng=pr_tie_break)
         seats = {n: int(alloc.get(n, 0)) for n in names}
         excluded = [n for n in names if n not in eligible]
         return seats, excluded, waived

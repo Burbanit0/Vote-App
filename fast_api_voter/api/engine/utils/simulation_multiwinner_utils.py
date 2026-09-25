@@ -7,9 +7,10 @@ methods satisfy different axiomatic properties and are designed to ensure
 representational proportionality rather than a single collective choice.
 """
 import math
+import random
 from collections import defaultdict
 from itertools import combinations, chain
-from typing import Dict, List, Optional, Any
+from typing import Any, Callable, Dict, List, Optional
 
 
 # ── Internal helpers ───────────────────────────────────────────────────────
@@ -17,6 +18,50 @@ from typing import Dict, List, Optional, Any
 def _normalise_votes(party_votes: Dict[str, float]) -> Dict[str, float]:
     """Return a copy with all values converted to floats (handles % inputs)."""
     return {p: float(v) for p, v in party_votes.items() if float(v) > 0}
+
+
+def break_tie(scores: Dict[str, float], rng: Optional[random.Random] = None) -> str:
+    """The key with the highest value.
+
+    Without `rng` -- the default -- this is exactly `max(scores, key=...)`:
+    whichever tied name is listed first, the behaviour every quotient loop
+    here had before a tie-break was threaded in, so a caller that doesn't opt
+    in (polity, which shares these allocators) sees no change at all.
+
+    With one, an exact tie draws uniformly among the tied names sorted,
+    matching `_district_winner` in workers_playground.py ("drawing among the
+    tied names sorted keeps the result independent of listing order").
+    Quotient ties are not exotic -- 100/2 equals 50/1, so any two parties in
+    a 2:1 vote ratio tie on a seat -- and scores built from shares or
+    accumulated weights carry float noise (0.3/3 != 0.1), so "tied" means
+    within 1e-9 relative (1e-12 absolute), not `==`.
+    """
+    best = max(scores, key=lambda k: scores[k])
+    if rng is None:
+        return best
+    top = scores[best]
+    tied = [k for k, v in scores.items()
+            if k == best or math.isclose(v, top, rel_tol=1e-9, abs_tol=1e-12)]
+    return best if len(tied) == 1 else rng.choice(sorted(tied))
+
+
+def _highest_averages(
+    party_votes: Dict[str, float],
+    num_seats: int,
+    divisor: Callable[[int], int],
+    rng: Optional[random.Random],
+) -> Dict[str, int]:
+    """Highest-averages allocation: each seat goes to the party with the
+    largest votes / divisor(seats already won). Only the winner's quotient
+    changes each round, so it is the only one recomputed."""
+    pv = _normalise_votes(party_votes)
+    seats: Dict[str, int] = {p: 0 for p in pv}
+    quotients = {p: pv[p] / divisor(0) for p in pv}
+    for _ in range(num_seats):
+        winner = break_tie(quotients, rng)
+        seats[winner] += 1
+        quotients[winner] = pv[winner] / divisor(seats[winner])
+    return seats
 
 
 # ── Single Transferable Vote ───────────────────────────────────────────────
@@ -171,46 +216,67 @@ def get_stv_result(
 
 # ── Party-list methods ─────────────────────────────────────────────────────
 
-def get_dhondt_winners(party_votes: Dict[str, float], num_seats: int) -> Dict[str, int]:
+def get_dhondt_winners(
+    party_votes: Dict[str, float], num_seats: int, *, rng: Optional[random.Random] = None,
+) -> Dict[str, int]:
     """
     D'Hondt highest averages method.
     Divisor sequence: 1, 2, 3, 4, …  → favours larger parties slightly.
     Used for French European elections, Spanish general elections, etc.
+
+    `rng`: see `break_tie`. Polity imports this and passes none, so its seat
+    ties keep going to the first-listed party.
     """
-    pv = _normalise_votes(party_votes)
-    seats: Dict[str, int] = {p: 0 for p in pv}
-    for _ in range(num_seats):
-        winner = max(pv, key=lambda p: pv[p] / (seats[p] + 1))
-        seats[winner] += 1
-    return seats
+    return _highest_averages(party_votes, num_seats, lambda s: s + 1, rng)
 
 
-def get_sainte_lague_winners(party_votes: Dict[str, float], num_seats: int) -> Dict[str, int]:
+def get_sainte_lague_winners(
+    party_votes: Dict[str, float], num_seats: int, *, rng: Optional[random.Random] = None,
+) -> Dict[str, int]:
     """
     Sainte-Laguë highest averages method.
     Divisor sequence: 1, 3, 5, 7, …  → more proportional than D'Hondt,
     especially for small parties. Used in Norway, Sweden, New Zealand.
+
+    `rng`: see `get_dhondt_winners`.
     """
-    pv = _normalise_votes(party_votes)
-    seats: Dict[str, int] = {p: 0 for p in pv}
-    for _ in range(num_seats):
-        winner = max(pv, key=lambda p: pv[p] / (2 * seats[p] + 1))
-        seats[winner] += 1
-    return seats
+    return _highest_averages(party_votes, num_seats, lambda s: 2 * s + 1, rng)
+
+
+def _remainder_seats(
+    remainders: Dict[str, float], remaining: int, rng: Optional[random.Random],
+) -> List[str]:
+    """The `remaining` parties with the largest remainder. Ties keep listing
+    order, unless `rng` is given: then each seat goes to the largest remaining
+    remainder with ties drawn by `break_tie`, so a tied group -- including one
+    straddling the cutoff -- no longer depends on how the parties were listed,
+    and "tied" means the same thing it does for every other allocator here.
+    (Nothing but polity calls this allocator, and polity passes no `rng`.)"""
+    if rng is None:
+        return sorted(remainders, key=lambda p: remainders[p], reverse=True)[:remaining]
+    pool = dict(remainders)
+    chosen: List[str] = []
+    for _ in range(min(remaining, len(pool))):
+        chosen.append(break_tie(pool, rng))
+        del pool[chosen[-1]]
+    return chosen
 
 
 def get_largest_remainder_winners(
     party_votes: Dict[str, float],
     num_seats: int,
     quota: str = "hare",
+    *,
+    rng: Optional[random.Random] = None,
 ) -> Dict[str, int]:
     """
     Largest remainder method.
     - Hare quota  = total_votes / num_seats       (used in Israel, Ukraine)
     - Droop quota = floor(total / (seats+1)) + 1  (used in some countries)
 
-    Each party gets floor(votes / quota) automatic seats; remaining seats
-    go to parties with the largest fractional remainders.
+    Each party gets floor(votes / quota) automatic seats; remaining seats go
+    to parties with the largest fractional remainders (see `_remainder_seats`
+    for the `rng` tie-break at the cutoff).
     """
     pv = _normalise_votes(party_votes)
     total = sum(pv.values())
@@ -223,7 +289,7 @@ def get_largest_remainder_winners(
     remainders: Dict[str, float] = {p: (pv[p] / q) - auto[p] for p in pv}
 
     remaining = num_seats - sum(auto.values())
-    for p in sorted(remainders, key=lambda p: remainders[p], reverse=True)[:remaining]:
+    for p in _remainder_seats(remainders, remaining, rng):
         auto[p] += 1
 
     return auto
@@ -289,6 +355,8 @@ def compute_proportionality_metrics(
 def get_spav_result(
     approval_ballots: List[List[str]],
     num_seats:        int,
+    *,
+    rng: Optional[random.Random] = None,
 ) -> Dict[str, Any]:
     """
     Sequential Proportional Approval Voting (SPAV).
@@ -298,6 +366,9 @@ def get_spav_result(
     is divided by (1 + number_of_elected_already_approved_by_that_ballot).
 
     Satisfies Proportional Justified Representation (PJR).
+
+    `rng`: see `get_dhondt_winners` -- an exact score tie goes to whichever
+    candidate is listed first in the ballots unless a generator is passed.
 
     Returns
     -------
@@ -333,7 +404,7 @@ def get_spav_result(
                 if c in remaining:
                     scores[c] += weights[i]
 
-        winner = max(remaining, key=lambda c: (scores[c], -all_cands.index(c)))
+        winner = break_tie(scores, rng)
         elected.append(winner)
 
         rounds.append({
