@@ -368,7 +368,14 @@ silently drifted from `scripts/setup-branch-protection.sh`.
   day, and a human rubber-stamping those on autopilot is worse than not
   having the check. The weekly heartbeat still exists so `verify`'s own
   staleness check never has genuinely stale-looking data to distrust on a
-  repo that's simply healthy for a long stretch. Three real restrictions
+  repo that's simply healthy for a long stretch. That check's limit
+  (`AUDIT_STALE_HOURS`) is derived from `HEARTBEAT_MAX_DAYS`, plus the wait
+  for the next daily audit and time for the refresh PR to merge: it was once a
+  flat 36h, which a weekly heartbeat trips on days 2-7 of every quiet week,
+  turning "CI health check" red on develop and every PR (2026-09-21 onward)
+  with nothing wrong. If it fails with "snapshot itself is Nh old" and `audit`
+  succeeded, look for an unmerged `chore/ci-health-snapshot-*` PR first (a
+  snooze cannot silence it). Three real restrictions
   shaped the rest of this job, all confirmed live rather than assumed:
   - A direct push was the original design (thought to match `release.yml`'s
     push-to-`main` pattern), but `develop`'s `required_pull_request_reviews`
@@ -387,8 +394,8 @@ silently drifted from `scripts/setup-branch-protection.sh`.
     self-merge path that restriction exists to block, correctly). A human
     reviews and queues/merges it, same as any other PR. If that goes
     unnoticed, `verify`'s own staleness check is the real backstop — every
-    PR starts failing after ~36h of a quiet audit, a much louder signal
-    than one unmerged PR sitting in the list.
+    PR starts failing once the snapshot is older than `AUDIT_STALE_HOURS`, a
+    much louder signal than one unmerged PR sitting in the list.
 - **`verify`** (required, every PR, no paths filter — it's cheap enough
   that skipping it is never worth the PR #205 risk of a required check with
   no run) reads that snapshot from `develop`'s tip — not the PR branch's own

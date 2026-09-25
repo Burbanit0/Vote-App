@@ -37,6 +37,9 @@ jobs:
             backend:
               - 'fast_api_voter/**'
               - '.github/workflows/backend-ci-cd-pipeline.yml'
+              # api/tests/test_ci_health_thresholds.py locks this script's
+              # constants together; a PR that edits only the script must run it.
+              - 'scripts/check_ci_health.py'
 
   test:
     needs: changes

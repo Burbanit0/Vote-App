@@ -97,8 +97,9 @@ jobs:
       # is correct behavior, not a bug to route around: a human queues or
       # merges this PR, same as reviewing any other change. The existing
       # staleness check in `verify` is the real backstop if even that goes
-      # unnoticed -- every PR starts failing after ~36h of silence, which is
-      # a much louder signal than an unmerged PR sitting quietly.
+      # unnoticed -- every PR starts failing once the snapshot is older than
+      # AUDIT_STALE_HOURS (the weekly heartbeat plus a few days' allowance),
+      # which is a much louder signal than an unmerged PR sitting quietly.
       - name: Open a PR with the updated snapshot, if it's worth one
         if: steps.audit.outputs.pr_needed == 'true'
         env:
