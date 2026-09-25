@@ -460,8 +460,9 @@ class StvRequest(BaseModel):
     ideology:   str = Field("random")
     seed:       int = Field(42, ge=0)
     num_seats:  int = Field(5, ge=2, le=10)
-    quota_type: str = Field("droop",
-                            description="STV quota: 'droop' | 'hare' | 'imperiali'.")
+    # 'imperiali' was documented but never computed: every name but 'hare' ran
+    # Droop while the response echoed the name asked for.
+    quota_type: Literal["droop", "hare"] = Field("droop", description="STV quota.")
 
 
 # ── /adaptive ───────────────────────────────────────────────────────────────

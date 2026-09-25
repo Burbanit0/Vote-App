@@ -6268,10 +6268,11 @@ export interface components {
             num_voters: number;
             /**
              * Quota Type
-             * @description STV quota: 'droop' | 'hare' | 'imperiali'.
+             * @description STV quota.
              * @default droop
+             * @enum {string}
              */
-            quota_type: string;
+            quota_type: "droop" | "hare";
             /**
              * Seed
              * @default 42
