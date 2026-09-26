@@ -24,9 +24,10 @@ import re
 import shutil
 import subprocess
 import sys
-import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
+
+import httpx
 
 ROOT = Path(__file__).resolve().parents[1]  # fast_api_voter/
 sys.path.insert(0, str(ROOT))
@@ -154,11 +155,10 @@ def check_server(config: PolityConfig | None) -> None:
         mode = method.group(1) if method else "speculative (unparsed)"
     if config is not None:
         try:
-            with urllib.request.urlopen(
+            served = httpx.get(
                 config.llm.base_url.rstrip("/") + "/models", timeout=10
-            ) as reply:
-                served = reply.read().decode()
-        except OSError as error:
+            ).text
+        except httpx.HTTPError as error:
             return report("FAIL", "server", f"/models unreachable: {error}")
         if config.llm.model not in served:
             return report("FAIL", "server", f"model {config.llm.model} is not served")
