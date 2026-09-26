@@ -1235,7 +1235,7 @@ def _districts_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     # Every party tied on seats, not the first-listed one. The client compares the
     # two lists to claim "same electorate, different parliament", and a tie on
     # either side used to make that claim out of two arbitrary picks: at seed 3
-    # with candidates at -0.4 / -0.38, FPTP gave Bob 4-2 while PR tied 3-3 and
+    # with candidates at -0.4 / -0.38, FPTP gave Bob 5-1 while PR tied 3-3 and
     # reported Alice.
     fptp_winner         = modal_keys(parliament_fptp)
     proportional_winner = modal_keys(parliament_proportional)
