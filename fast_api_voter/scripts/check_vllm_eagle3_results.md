@@ -1,14 +1,15 @@
 # EAGLE-3 speculative decoding on vLLM 0.30.0
 
-Measured 2026-09-25 on the RTX 5070 Ti with `docker-compose.llm-eagle3.yml` against the shipped
+Measured 2026-09-25 on the RTX 5070 Ti with a probe compose file (`docker-compose.llm-eagle3.yml`, removed
+when its flags moved into the shipped file, see Disposition) against the shipped
 `docker-compose.llm.yml` (`vllm/vllm-openai:v0.30.0`, no speculation), same session, one server at a time. The
-probe differs from the shipped file by exactly two flags: `--speculative-config` (EAGLE-3, head
+probe differed from the shipped file by exactly two flags: `--speculative-config` (EAGLE-3, head
 `RedHatAI/Qwen3-8B-Thinking-speculator.eagle3` at revision `7073be9cfb31`, draft length 3) and
 `--gpu-memory-utilization` 0.88 (was 0.80), which leaves KV room for the 2.15 GiB head.
 
 **Verdict: about a third faster on real runs, with identical answers on the two thinking families production caps
-(`campaign_positioning` is uncapped and already fragile; it differs as it does between any two servers). Not yet
-adopted; the decision is the owner's.** Why it exists: n-gram speculation was dropped because Model Runner V2 does
+(`campaign_positioning` is uncapped and already fragile; it differs as it does between any two servers).
+Adopted by the owner on 2026-09-26.** Why it exists: n-gram speculation was dropped because Model Runner V2 does
 not support it (v0.30.0 `config/vllm.py`, `_get_v2_model_runner_unsupported_features`: ngram, ngram_gpu, draft_model,
 suffix, medusa, mlp_speculator fall back to V1). EAGLE-type methods are not on that list, and the boot log confirms
 "Using V2 Model Runner" with the head loaded.
@@ -91,9 +92,19 @@ representative_response 0.75, campaign_positioning 0.78, pressure_action 0.79, v
 
 ## Disposition and rollback
 
-Not adopted; the owed restarts and same-seed pairs have been run and do not argue against it. To adopt: move the two
-flags into `docker-compose.llm.yml` and re-verify the restarts on that file. Rollback is the
-usual `docker compose -f docker-compose.llm.yml up -d`; the probe is a separate compose file and changes nothing until then.
+**Adopted 2026-09-26, by the owner, who does not rely on same-seed byte-identity as long as a run leaves enough logs
+to be read closely** (its record is `llm_calls.jsonl`, and a relaxed run replays from it). The two flags moved into
+`docker-compose.llm.yml` and the probe compose file was deleted, so there is one set of flags to keep right.
+
+**Verified on the production file itself, 2026-09-26:** the flag set is identical to the probe's (checked by parsing
+both), a cold boot is healthy in 186 s (Model Runner V2, `Eagle3LlamaForCausalLM` resolved, KV cache 22,880 tokens, 1.40
+sequences of 16k), **three consecutive plain restarts** are healthy in 66, 48 and 42 s and answer each time with no
+out-of-memory lines, `check_vllm_batching_determinism.py` passes within the run, and the server's own metrics show a mean
+acceptance length of about 3.3 tokens per step. The owed same-seed pairs were run on the probe (6 of 8 identical); they were
+not repeated on the production file, since it is the same flags.
+
+**Rollback:** revert this change and `docker compose -f docker-compose.llm.yml up -d`; the 0.30.0 image without speculation
+is the same image, and the flags removed are the two named above (`--speculative-config`, and `--gpu-memory-utilization` back to 0.80).
 
 ## How it was run
 

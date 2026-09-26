@@ -921,6 +921,12 @@ run does promise: replay from its own call log (D1, S0.6) is byte-identical (it 
 bake-off-style sessions also cost more without speculation: the full frozen bank took 22.7 minutes
 against 15.9 on the control (structured-output types 1.7 to 2.9 times slower).
 
+*Update 2026-09-26.* The shipped server now runs EAGLE-3 on Model Runner V2 (`docker-compose.llm.yml`,
+adopted by the owner; `check_vllm_eagle3_results.md`). The owner does not rely on same-seed byte-identity:
+what a run leaves for analysis is its call log (`llm_calls.jsonl`), and a relaxed run replays from it. The
+question this entry asks (why two same-seed runs differ) stays open and is now a question about EAGLE-3
+on V2, of which the table above holds 8 pairs (6 identical).
+
 ### OBS-021
 
 **5 to 12% of `chamber_deliberation` units fall back to "sincere, no shift" because the model returns more
