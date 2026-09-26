@@ -39,9 +39,14 @@ async function leakedKeys(page: Page): Promise<string[]> {
   return [...new Set(text.match(KEY_LEAK) ?? [])];
 }
 
+// Waits for the switch to land: a goto right after the click aborted it before
+// 'en' was saved, so the "English" tests below were rendering French.
 async function switchToEnglish(page: Page) {
   await page.locator('#user-settings-dropdown').click();
   await page.getByRole('button', { name: /switch to english/i }).click();
+  await expect(
+    page.locator('[data-tour="navbar"]').getByRole('link', { name: /your turn/i })
+  ).toBeVisible();
 }
 
 test.describe('i18n', () => {
@@ -51,7 +56,6 @@ test.describe('i18n', () => {
     await expect(nav).toContainText('Laboratoire');
 
     await switchToEnglish(page);
-    await expect(nav.getByRole('link', { name: /your turn/i })).toBeVisible();
 
     await page.reload();
     await expect(nav.getByRole('link', { name: /your turn/i })).toBeVisible();
