@@ -32,6 +32,7 @@ ROOT = Path(__file__).resolve().parents[1]  # fast_api_voter/
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from api.domain.polity import llm_call_log  # noqa: E402
 from api.domain.polity.config import PolityConfig, validate_config  # noqa: E402
 from run_polity_flagship import _flagship_config  # noqa: E402
 
@@ -172,6 +173,38 @@ def check_server(config: PolityConfig | None) -> None:
             else f" (docker-compose.llm.yml pins {pinned and pinned.group(1)})"
         ),
     )
+    if mode != "eagle3":
+        report(
+            "WARN",
+            "server",
+            f"the run is planned on EAGLE-3 (adopted 2026-09-26) and this server runs {mode}: "
+            "recreate it from docker-compose.llm.yml",
+        )
+
+
+def check_logging() -> None:
+    """What the run leaves behind for a close reading, and the tools its helper units need."""
+    missing = [
+        tool for tool in ("jq", "nvidia-smi", "docker") if not shutil.which(tool)
+    ]
+    if missing:
+        report(
+            "FAIL",
+            "logging",
+            f"{missing} not found: the server-log and telemetry units need them",
+        )
+    if hasattr(llm_call_log, "PROMPT_LOG_ENV"):
+        report(
+            "PASS",
+            "logging",
+            f"call log + prompts ({llm_call_log.PROMPT_LOG_ENV}), server log, GPU/progress sample",
+        )
+    else:
+        report(
+            "WARN",
+            "logging",
+            "this checkout has no prompts sidecar (PR #655): the run would record no prompts",
+        )
 
 
 def check_contention() -> None:
@@ -286,9 +319,9 @@ def main() -> int:
     parser.add_argument("--run-id", default=None)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--workers", type=int, default=1)
+    parser.add_argument("--workers", type=int, default=12)
     parser.add_argument(
-        "--reproducibility", choices=("strict", "relaxed"), default="strict"
+        "--reproducibility", choices=("strict", "relaxed"), default="relaxed"
     )
     parser.add_argument("--resume", action="store_true")
     parser.add_argument(
@@ -305,6 +338,7 @@ def main() -> int:
     check_git(args.allow_unpushed)
     config = check_config(args)
     check_server(config)
+    check_logging()
     check_contention()
     check_disk(args.output_dir)
     check_run_dir(args.output_dir, args.run_id, args.resume)
