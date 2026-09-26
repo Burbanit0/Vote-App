@@ -393,16 +393,16 @@ class TestWorkersAllocateOnExactCounts:
         assert sum(seen[0].values()) == 60  # every voter, none rounded away
 
     def test_districts_hands_over_the_national_counts_not_rounded_shares(self, monkeypatch):
-        """8 districts of 90 voters at seed 204: the national counts are Alice
-        468 / Bob 18 / Carol 234, so the 8th seat is an exact tie (468/6 ==
-        234/3). Each district's share is rounded to 4 places before it is
-        summed (0.5222 for 47/90), which turned those into 5.2001 / 0.1998 /
-        2.5999 and hid the tie from the lot."""
+        """6 districts of 90 voters at seed 180: the national counts are Alice
+        375 / Bob 15 / Carol 150, so the 6th seat is an exact tie (375/5 ==
+        150/2). Summing per-district shares rounded to 4 places (as the
+        national_vote_share output still does) blurs such a tie and hides it
+        from the lot, so the allocator must get the integer counts."""
         seen = _spy_votes(monkeypatch, workers_mod, "_dhondt")
         assert _districts_worker(
-            {"seed": 204, "voters_per_district": 90, "num_districts": 8}
+            {"seed": 180, "voters_per_district": 90, "num_districts": 6}
         )[1] == 200
-        assert seen == [{"Alice": 468, "Bob": 18, "Carol": 234}]
+        assert seen == [{"Alice": 375, "Bob": 15, "Carol": 150}]
 
 
 def _by_party(body):
