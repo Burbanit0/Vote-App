@@ -9979,7 +9979,11 @@
           },
           "quota_type": {
             "default": "droop",
-            "description": "STV quota: 'droop' | 'hare' | 'imperiali'.",
+            "description": "STV quota.",
+            "enum": [
+              "droop",
+              "hare"
+            ],
             "title": "Quota Type",
             "type": "string"
           },

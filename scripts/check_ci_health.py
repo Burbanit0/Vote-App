@@ -128,9 +128,15 @@ AUDIT_STALE_HOURS = (
 
 
 def _run_gh_json(args: list[str]) -> Any:
-    result = subprocess.run(
-        ["gh", *args], capture_output=True, text=True, check=True
-    )
+    try:
+        result = subprocess.run(
+            ["gh", *args], capture_output=True, text=True, check=True
+        )
+    except subprocess.CalledProcessError as exc:
+        # capture_output swallows gh's own reason (HTTP 403, rate limit...),
+        # leaving only "returned non-zero exit status 1" in the log.
+        sys.stderr.write(exc.stderr or "")
+        raise
     return json.loads(result.stdout)
 
 
@@ -398,7 +404,8 @@ def cmd_verify(args: argparse.Namespace) -> int:
             f"{AUDIT_STALE_HOURS:.1f}h) -- the watchdog's scheduled audit has gone "
             "quiet, or its refresh PR is unmerged, which is exactly the failure mode "
             "it exists to catch. A snooze cannot silence this: merge the open "
-            "chore/ci-health-snapshot-* PR, or run ci-health.yml by workflow_dispatch"
+            "chore/ci-health-snapshot PR, or run ci-health.yml by workflow_dispatch "
+            "(which replaces that PR with a fresh one)"
         )
 
     for wf, info in snapshot.get("workflows", {}).items():
