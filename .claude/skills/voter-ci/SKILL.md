@@ -358,8 +358,10 @@ silently drifted from `scripts/setup-branch-protection.sh`.
 - **`audit`** (schedule + `workflow_dispatch` only, never `pull_request` —
   same reasoning as the workflows it watches) runs
   `scripts/check_ci_health.py --update`, which queries real run history for
-  each watched workflow plus live branch-protection state, and opens a
-  `chore/ci-health-snapshot-*` PR only when `--update`'s own `pr_needed`
+  each watched workflow plus live branch-protection state, and recreates the
+  fixed `chore/ci-health-snapshot` branch from `develop`'s tip and opens its PR
+  (deleting the branch first closes any stale snapshot PR, so there is only
+  ever one) only when `--update`'s own `pr_needed`
   decision says so: a real status change always qualifies; a pure
   timestamp-only refresh (every workflow's `last_run_at` moves on every
   run, whether or not anything else did) only qualifies once
@@ -374,8 +376,9 @@ silently drifted from `scripts/setup-branch-protection.sh`.
   flat 36h, which a weekly heartbeat trips on days 2-7 of every quiet week,
   turning "CI health check" red on develop and every PR (2026-09-21 onward)
   with nothing wrong. If it fails with "snapshot itself is Nh old" and `audit`
-  succeeded, look for an unmerged `chore/ci-health-snapshot-*` PR first (a
-  snooze cannot silence it). Three real restrictions
+  succeeded, look for the unmerged `chore/ci-health-snapshot` PR first (a
+  snooze cannot silence it; a `workflow_dispatch` of `ci-health.yml` replaces
+  it with a fresh one on develop's tip). Three real restrictions
   shaped the rest of this job, all confirmed live rather than assumed:
   - A direct push was the original design (thought to match `release.yml`'s
     push-to-`main` pattern), but `develop`'s `required_pull_request_reviews`
@@ -400,12 +403,13 @@ silently drifted from `scripts/setup-branch-protection.sh`.
   that skipping it is never worth the PR #205 risk of a required check with
   no run) reads that snapshot from `develop`'s tip — not the PR branch's own
   copy, since this is metadata about the *repo's* health, not the PR's diff.
-  One narrow, scoped exception: a PR from a `chore/ci-health-snapshot-*`
-  branch (only ever opened by `audit` itself) reads its own copy instead —
+  One narrow, scoped exception: a PR from this repo's
+  `chore/ci-health-snapshot` branch (only ever opened by `audit` itself; a
+  fork's branch of the same name doesn't count) reads its own copy instead —
   otherwise the PR that fixes a drift could never pass the check reporting
   that same drift, a real deadlock hit in PR #493 that needed a manual
-  admin-merge override to break. Scoped to that exact branch prefix, not
-  just "did this PR touch the file": an unscoped version of this exception
+  admin-merge override to break. Scoped to that exact branch in this
+  repository, not just "did this PR touch the file": an unscoped version of this exception
   would let any PR self-attest a fabricated "healthy" snapshot in its own
   diff, caught by `/code-review ultra` before it shipped. Fails if:
   - the snapshot is stale (the scheduled `audit` job has gone quiet — its
