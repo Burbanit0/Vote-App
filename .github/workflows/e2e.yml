@@ -74,9 +74,9 @@ jobs:
       # instead of a cryptic missing-browser error discovered later.
       - name: Assert @playwright/test matches the visual-regression image tag
         run: |
-          # `|| true` on each grep: GH Actions runs `run:` under `bash -eo
-          # pipefail`, so a non-matching grep (exit 1) would otherwise abort
-          # the script right here -- before the explicit empty-value
+          # `|| true` on each grep: GH Actions runs `run:` under `bash -e`,
+          # so a non-matching grep (exit 1) would otherwise abort the script
+          # right here -- before the explicit empty-value
           # diagnostic below ever gets a chance to run.
           pkg_version=$(grep -oP '"@playwright/test":\s*"\^?\K[0-9.]+' voter-app/package.json || true)
           image_version=$(grep -oP 'mcr\.microsoft\.com/playwright:v\K[0-9.]+' .github/workflows/e2e.yml || true)

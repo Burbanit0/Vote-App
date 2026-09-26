@@ -32,6 +32,11 @@ jobs:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     name: CI health audit (writes snapshot)
     runs-on: ubuntu-latest
+    # Two overlapping runs (a dispatch during the cron, or two dispatches)
+    # would both recreate the snapshot branch; serialise them instead.
+    concurrency:
+      group: ci-health-audit
+      cancel-in-progress: false
     timeout-minutes: 5
     steps:
       # token: CI_HEALTH_PAT, not the default GITHUB_TOKEN, for the whole
@@ -66,6 +71,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.CI_HEALTH_PAT }}
         run: |
+          # The default run shell is `bash -e`, without pipefail: a crash in
+          # --update was masked by tee's exit 0, pr_needed never got written,
+          # and the job went green having audited nothing.
+          set -o pipefail
           python scripts/check_ci_health.py --update | tee summary.txt
           {
             echo "## CI health audit"
@@ -104,13 +113,24 @@ jobs:
         if: steps.audit.outputs.pr_needed == 'true'
         env:
           GH_TOKEN: ${{ secrets.CI_HEALTH_PAT }}
+        # One fixed branch, recreated from develop's tip on every run that needs
+        # a PR: deleting it closes a still-open snapshot PR, so there is never
+        # more than one, and a stuck one is replaced rather than blocking the
+        # next refresh (a timestamped branch per run duplicated PRs instead).
+        # Deleted and re-pushed, not force-pushed: a force-push is checked
+        # against the old tip, so any workflow change develop gained since
+        # would need a Workflows permission CI_HEALTH_PAT doesn't have; a new
+        # branch is only checked against what the remote already holds.
         run: |
+          BRANCH=chore/ci-health-snapshot
           git add .github/ci-health.json
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          BRANCH="chore/ci-health-snapshot-$(date -u +%Y%m%d-%H%M%S)"
           git checkout -b "$BRANCH"
           git commit -m "chore(ci-health): update snapshot"
+          if git ls-remote --exit-code --heads origin "$BRANCH" > /dev/null; then
+            git push origin --delete "$BRANCH"
+          fi
           git push origin "$BRANCH"
           PR_URL=$(gh pr create --base develop --head "$BRANCH" \
             --title "chore(ci-health): update snapshot" \
@@ -143,13 +163,14 @@ jobs:
       # gap, not a health problem, so it passes with a notice instead of
       # failing on a missing path. The branch-name check below keeps this
       # case correctly routed through the notice, not the self-reference
-      # carve-out: that PR won't be on a chore/ci-health-snapshot-* branch
+      # carve-out: that PR won't be on the chore/ci-health-snapshot branch
       # (nothing but the audit job ever creates one), so it falls straight
       # to the elif/found=false path exactly as this comment describes.
       #
       # Self-reference case (found the hard way, PR #493): a snapshot-update
-      # PR -- opened only by the audit job below, always from a branch named
-      # chore/ci-health-snapshot-<timestamp> (see its "Open a PR" step) --
+      # PR -- opened only by the audit job below, always from this repo's
+      # chore/ci-health-snapshot branch (see its "Open a PR" step; a fork's
+      # branch of the same name is not trusted) --
       # fixes exactly the drift this check complains about, but still reads
       # develop's PRE-fix tip, so it can never pass on its own. Mergify then
       # correctly refuses to queue a PR whose own required check is red,
@@ -167,8 +188,9 @@ jobs:
       # ANY branch self-attest "everything is healthy" by editing this file
       # in its own diff, and Mergify would have auto-merged on that green
       # result with no visibility into why it was green. Scoping to the
-      # audit job's own well-known branch prefix closes that: only the branch
-      # name the automated job itself controls can trigger the carve-out, not
+      # audit job's own branch, by exact name and in this repository, closes
+      # that: only the branch the automated job itself controls can trigger
+      # the carve-out, not
       # an arbitrary PR that happens to touch the same path.
       - name: Fetch the latest snapshot from develop
         id: fetch
@@ -185,10 +207,13 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
           HEAD_REF: ${{ github.head_ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          REPO: ${{ github.repository }}
         run: |
           git fetch --depth=1 origin develop
           if [[ "$EVENT_NAME" == "pull_request" ]] && \
-             [[ "$HEAD_REF" == chore/ci-health-snapshot-* ]] && \
+             [[ "$HEAD_REF" == chore/ci-health-snapshot ]] && \
+             [[ "$HEAD_REPO" == "$REPO" ]] && \
              [[ -f .github/ci-health.json ]] && \
              ! git diff --quiet origin/develop -- .github/ci-health.json; then
             cp .github/ci-health.json /tmp/ci-health.json

@@ -60,6 +60,22 @@ updates:
     cooldown:
       default-days: 7
     groups:
+      # Lockstep families: each package pins its sibling's exact version as a
+      # peer, so a major bump of one alone cannot install (ERESOLVE: #633/#634
+      # for size-limit, #370 for vitest). patch-and-minor already moves them
+      # together, so these groups only take majors (`update-types: major`);
+      # without that, Dependabot's specificity rules left @size-limit/* in
+      # patch-and-minor and split the pair on every bump.
+      size-limit:
+        patterns: ["size-limit", "@size-limit/*"]
+        update-types: ["major"]
+      # Inert while the vitest >=5 ignores below stand; lift both together.
+      vitest:
+        patterns: ["vitest", "@vitest/*"]
+        update-types: ["major"]
+      stryker:
+        patterns: ["@stryker-mutator/*"]
+        update-types: ["major"]
       patch-and-minor:
         update-types:
           - "minor"
