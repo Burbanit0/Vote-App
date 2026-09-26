@@ -22,7 +22,7 @@ import api.domain.election.workers as workers_mod
 import api.domain.election.workers_mechanisms as mech_mod
 import api.domain.election.workers_playground as play_mod
 from api.domain.election._helpers import dhondt
-from api.domain.election.workers import _coalition_worker, _districts_worker
+from api.domain.election.workers import _coalition_worker, _districts_worker, _greedy_coalition
 from api.domain.election.workers_mechanisms import (
     _gerrymander_worker,
     _multiwinner_compare_worker,
@@ -40,9 +40,11 @@ from api.domain.theory.workers import (
 from api.engine.utils.simulation_multiwinner_utils import (
     break_tie,
     get_dhondt_winners,
+    get_equal_shares_result,
     get_largest_remainder_winners,
     get_sainte_lague_winners,
     get_spav_result,
+    top_k,
 )
 
 
@@ -196,6 +198,86 @@ class TestLargestRemainder:
                {"A": 1, "B": 0}
 
 
+class TestTopK:
+    """B and C tie for the second of two places behind A."""
+
+    SCORES = {"A": 5.0, "B": 3.0, "C": 3.0, "D": 1.0}
+
+    def test_rng_draws_the_tied_place_whatever_the_listing(self):
+        outcomes = _order_independent(
+            lambda scores, k, rng: dict.fromkeys(top_k(scores, k, rng), 1), self.SCORES, 2,
+        )
+        assert outcomes == {(("A", 1), ("B", 1)), (("A", 1), ("C", 1))}
+
+    def test_best_first(self):
+        assert top_k(self.SCORES, 4, random.Random(0))[0] == "A"
+        assert top_k(self.SCORES, 4, random.Random(0))[-1] == "D"
+
+    def test_without_rng_ties_keep_listing_order(self):
+        """Largest remainder's polity path."""
+        assert top_k(self.SCORES, 2, None) == ["A", "B"]
+        assert top_k({"C": 3.0, "B": 3.0, "A": 5.0}, 2, None) == ["A", "C"]
+
+
+class TestEqualSharesCompletion:
+    """B is bought outright; nobody can afford a second seat, so it is filled by
+    approval score, where A and C tie on one vote each. It went to whichever
+    the first ballot named, so reversing the ballots swapped A for C."""
+
+    BALLOTS = [["A", "B"], ["B", "C"]]
+
+    def test_a_completion_tie_is_drawn_whatever_the_ballot_order(self):
+        reversed_ballots = [list(reversed(b)) for b in reversed(self.BALLOTS)]
+        picks = set()
+        for seed in range(20):
+            a = get_equal_shares_result(self.BALLOTS, 2, rng=random.Random(seed))["elected"]
+            b = get_equal_shares_result(reversed_ballots, 2, rng=random.Random(seed))["elected"]
+            assert a == b, seed
+            picks.add(a[1])
+        assert picks == {"A", "C"}
+
+    def test_without_rng_a_completion_tie_goes_by_name(self):
+        assert get_equal_shares_result(self.BALLOTS, 2)["elected"] == ["B", "A"]
+        assert get_equal_shares_result([["C", "B"], ["B", "A"]], 2)["elected"] == ["B", "A"]
+
+    @pytest.mark.parametrize("rng", [None, random.Random(0)])
+    def test_completion_still_follows_approval_score(self, rng):
+        """D (2 approvals) over C (1) for the last seat."""
+        ballots = [["A"], ["B", "C", "D"], ["A", "B", "D"]]
+        assert get_equal_shares_result(ballots, 3, rng=rng)["elected"] == ["A", "B", "D"]
+
+
+def _coalition_member(member):
+    """`_greedy_coalition`'s `member`-th party, shaped for `_order_independent`."""
+    return lambda seats, positions, threshold, rng: {
+        "pick": _greedy_coalition(seats, positions, threshold, rng)["parties"][member]
+    }
+
+
+class TestGreedyCoalition:
+    def test_the_anchor_is_drawn_among_the_tied_largest_parties(self):
+        outcomes = _order_independent(
+            _coalition_member(0), {"A": 30, "B": 30, "C": 20}, {"A": -0.5, "B": 0.5, "C": 0.0}, 1,
+        )
+        assert outcomes == {(("pick", "A"),), (("pick", "B"),)}
+
+    def test_equally_close_parties_of_equal_size_are_drawn(self):
+        outcomes = _order_independent(
+            _coalition_member(1), {"A": 40, "C": 10, "D": 10}, {"A": 0.0, "C": -0.25, "D": 0.25}, 45,
+        )
+        assert outcomes == {(("pick", "C"),), (("pick", "D"),)}
+
+    def test_of_equally_close_parties_the_larger_joins(self):
+        """B (30 seats) and C (0) are both 0.5 from A. A lot between them put
+        the 0-seat C in government about half the time, and then D to reach
+        60 -- a coalition of three where A and B were enough."""
+        seats = {"A": 50, "B": 30, "C": 0, "D": 20}
+        positions = {"A": 0.0, "B": -0.5, "C": 0.5, "D": 0.9}
+        assert {
+            tuple(_greedy_coalition(seats, positions, 60, random.Random(s))["parties"]) for s in range(40)
+        } == {("A", "B")}
+
+
 class TestSpav:
     """Two ballots approving {A, B} and nothing else: both start round 1
     tied at score 2."""
@@ -271,14 +353,15 @@ class TestTheoryDivisorMethods:
         assert run(parties) == run(parties[::-1])
 
 
-def _spy(monkeypatch, module, name):
-    """Record the state of the `rng` each call to `module.name` receives, taken
-    before the call consumes any of it (None where no Random was passed)."""
+def _spy(monkeypatch, module, name, index=None):
+    """Record the state of the `rng` each call to `module.name` receives, as
+    `rng=` or as positional argument `index`, taken before the call consumes any
+    of it (None where no Random was passed)."""
     states = []
     real = getattr(module, name)
 
     def wrapper(*args, **kwargs):
-        rng = kwargs.get("rng")
+        rng = kwargs.get("rng", args[index] if index is not None else None)
         states.append(rng.getstate() if isinstance(rng, random.Random) else None)
         return real(*args, **kwargs)
 
@@ -350,6 +433,26 @@ class TestWorkersSeedTheirLot:
         assert dh == [_fresh(8)]
         assert len(sp) == 1 and sp[0] is not None  # the same generator, after D'Hondt's draws
 
+    @pytest.mark.parametrize("worker", [_stv_worker, _multiwinner_compare_worker])
+    def test_the_fptp_row_draws_from_its_own_generator(self, monkeypatch, worker):
+        """Seed 119: D'Hondt draws a lot first, so a generator shared with it
+        would reach FPTP in another state."""
+        states = _spy(monkeypatch, mech_mod, "top_k", 2)
+        assert worker({"num_voters": 50, "num_seats": 2, "seed": 119})[1] == 200
+        assert states == [_fresh(120)]
+
+    def test_multiwinner_compare_equal_shares(self, monkeypatch):
+        states = _spy(monkeypatch, mech_mod, "get_equal_shares_result")
+        assert _multiwinner_compare_worker({"num_voters": 50, "num_seats": 2, "seed": 119})[1] == 200
+        assert states == [_fresh(120)]
+
+    def test_coalition_draws_from_its_own_generator(self, monkeypatch):
+        """Not D'Hondt's: its lot would then shift with how many seat ties
+        D'Hondt had drawn, i.e. with total_seats."""
+        states = _spy(monkeypatch, workers_mod, "_greedy_coalition", 3)
+        assert _coalition_worker({"num_voters": 60, "seed": 13})[1] == 200
+        assert states and set(states) == {_fresh(14)}
+
     def test_gerrymander_national_proportional(self, monkeypatch):
         states = _spy(monkeypatch, mech_mod, "_dhondt")
         body, status = _gerrymander_worker(
@@ -403,6 +506,43 @@ class TestWorkersAllocateOnExactCounts:
             {"seed": 204, "voters_per_district": 90, "num_districts": 8}
         )[1] == 200
         assert seen == [{"Alice": 468, "Bob": 18, "Carol": 234}]
+
+
+@pytest.mark.parametrize("worker", [_stv_worker, _multiwinner_compare_worker])
+def test_the_dhondt_elected_list_orders_equal_seats_by_name(worker):
+    """Zed and Amy take one seat each at seed 0. Listed Zed first, they were
+    reported in listing order; equal seats now read by name."""
+    candidates = [{"name": "Zed", "x": -0.5, "y": -0.2}, {"name": "Max", "x": 0.5, "y": 0.2},
+                  {"name": "Amy", "x": 0.0, "y": 0.3}]
+    body = worker({"num_voters": 50, "seed": 0, "num_seats": 2, "candidates": candidates})[0]
+    dh = body.get("methods", body)["dhondt"]
+    assert dh["seats"]["Zed"] == dh["seats"]["Amy"] == 1
+    assert dh["elected"] == ["Amy", "Zed"]
+
+
+def test_coalition_agreement_ignores_a_winnerless_methods_drawn_anchor():
+    """Seed 60: evaluative elects nobody, so its fallback parliament is 50-50
+    and its coalition anchor is drawn -- B here. Every method with a winner
+    names A; counting the drawn anchor made the agreement 0.9706, a lot's
+    doing."""
+    body = _coalition_worker({"candidates": [{"name": "A", "x": -0.4, "y": 0.0},
+                                             {"name": "B", "x": 0.4, "y": 0.0}],
+                              "num_voters": 10, "total_seats": 100, "seed": 60})[0]
+    assert [m["method"] for m in body["methods"] if not m["winner"]] == ["evaluative"]
+    assert body["inter_method_agreement"] == 1.0
+
+
+def test_stv_and_multiwinner_compare_elect_the_same_fptp_committee():
+    """Both Laboratoire panels post the same config. At seed 81, Bob and Eve
+    tie at the 3-seat cutoff; drawn from generators in different states, the
+    two panels named different committees for the same votes."""
+    request = {"num_voters": 50, "seed": 81, "num_seats": 3, "candidates": [
+        {"name": "Alice", "x": -0.5, "y": -0.2}, {"name": "Bob", "x": 0.5, "y": 0.2},
+        {"name": "Carol", "x": 0.0, "y": 0.3}, {"name": "Dave", "x": -0.2, "y": 0.5},
+        {"name": "Eve", "x": 0.6, "y": -0.6}]}
+    stv = _stv_worker(request)[0]["fptp"]["elected"]
+    mwc = _multiwinner_compare_worker(request)[0]["methods"]["fptp"]["elected"]
+    assert stv == mwc
 
 
 def _by_party(body):
