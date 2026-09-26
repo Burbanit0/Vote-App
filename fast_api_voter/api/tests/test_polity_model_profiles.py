@@ -45,7 +45,7 @@ def test_each_thinking_control_writes_its_own_request_fields(control: ThinkingCo
 def test_profiles_are_looked_up_by_provider_and_model() -> None:
     assert model_profile("vllm", "qwen3:8b") is QWEN3_8B_AWQ_VLLM
     assert model_profile("ollama", "qwen3:8b") is QWEN3_8B_OLLAMA
-    with pytest.raises(UnknownModelProfileError, match="no model profile for 'gemma4:12b' on 'vllm'.*ollama/qwen3:8b, vllm/qwen3:8b"):
+    with pytest.raises(UnknownModelProfileError, match="no model profile for 'gemma4:12b' on 'vllm'.*ollama/qwen3:8b.*vllm/qwen3:8b"):
         model_profile("vllm", "gemma4:12b")
 
 
@@ -54,6 +54,18 @@ def test_the_precision_probe_profile_inherits_everything_but_the_weights() -> No
     assert probe.weights == "ELVISIO/Qwen3-8B-NVFP4A16"
     assert not probe.measured and QWEN3_8B_AWQ_VLLM.measured
     assert dataclasses.replace(probe, model=QWEN3_8B_AWQ_VLLM.model, weights=QWEN3_8B_AWQ_VLLM.weights, measured=True) == QWEN3_8B_AWQ_VLLM
+
+
+@pytest.mark.parametrize(("model", "weights", "family"), [
+    ("granite-4.2-8b", "ibm-granite/granite-4.2-8b-nvfp4", "granite"),
+    ("gemma-4-12b", "google/gemma-4-12B-it-qat-w4a16-ct", "gemma"),
+])
+def test_the_s24_candidate_profiles_are_unmeasured_and_inherit_everything_but_their_identity(model: str, weights: str, family: str) -> None:
+    candidate = model_profile("vllm", model)
+    assert (candidate.weights, candidate.family) == (weights, family)
+    assert not candidate.measured
+    identity = {"model": QWEN3_8B_AWQ_VLLM.model, "weights": QWEN3_8B_AWQ_VLLM.weights, "family": QWEN3_8B_AWQ_VLLM.family, "measured": True}
+    assert dataclasses.replace(candidate, **identity) == QWEN3_8B_AWQ_VLLM
 
 
 def test_an_llm_run_on_an_unprofiled_model_is_refused_by_validate_config() -> None:

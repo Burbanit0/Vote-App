@@ -107,6 +107,26 @@ QWEN3_8B_NVFP4A16_VLLM = replace(
     measured=False,
 )
 
+# S2.4's first-wave candidates (plan-polity-build-order.md), served by docker-compose.llm-granite.yml and
+# docker-compose.llm-gemma4.yml. Like the precision probe they send the AWQ profile's requests: chunk sizes,
+# budgets and the thinking switch (both chat templates read `enable_thinking`, checked in their
+# chat_template.jinja) are Qwen's, never measured on these weights. Bake-off sessions only -- do not run a
+# simulation on these numbers.
+GRANITE_4_2_8B_NVFP4_VLLM = replace(
+    QWEN3_8B_AWQ_VLLM,
+    model="granite-4.2-8b",
+    weights="ibm-granite/granite-4.2-8b-nvfp4",
+    family="granite",
+    measured=False,
+)
+GEMMA_4_12B_QAT_VLLM = replace(
+    QWEN3_8B_AWQ_VLLM,
+    model="gemma-4-12b",
+    weights="google/gemma-4-12B-it-qat-w4a16-ct",
+    family="gemma",
+    measured=False,
+)
+
 QWEN3_8B_OLLAMA = ModelProfile(
     provider="ollama",
     model="qwen3:8b",
@@ -128,7 +148,9 @@ QWEN3_8B_OLLAMA = ModelProfile(
 
 PROFILES: dict[tuple[str, str], ModelProfile] = {
     (profile.provider, profile.model): profile
-    for profile in (QWEN3_8B_AWQ_VLLM, QWEN3_8B_NVFP4A16_VLLM, QWEN3_8B_OLLAMA)
+    for profile in (
+        QWEN3_8B_AWQ_VLLM, QWEN3_8B_NVFP4A16_VLLM, GRANITE_4_2_8B_NVFP4_VLLM, GEMMA_4_12B_QAT_VLLM, QWEN3_8B_OLLAMA,
+    )
 }
 
 PROFILED_PROVIDERS = frozenset(provider for provider, _ in PROFILES)

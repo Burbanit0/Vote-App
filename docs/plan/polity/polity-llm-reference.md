@@ -192,6 +192,8 @@ Measured per served model (a row marked as inherited is not) -- generated from `
 | served model | weights | thinking switch | context limit | `vote_cast` chunk | `chamber_deliberation` chunk | thinking budget: vote / chamber / positioning |
 |---|---|---|---|---|---|---|
 | `qwen3:8b` on ollama | qwen3:8b (Ollama library GGUF) | `chat_template_kwargs.enable_thinking` | not sized against | 1 | 1 | 12000 / 8000 / 8000 |
+| `gemma-4-12b` on vllm | google/gemma-4-12B-it-qat-w4a16-ct (values inherited, not measured; probe only) | `chat_template_kwargs.enable_thinking` | 16384 (probed) | 3 | 5 | 12000 / 8000 / 8000 |
+| `granite-4.2-8b` on vllm | ibm-granite/granite-4.2-8b-nvfp4 (values inherited, not measured; probe only) | `chat_template_kwargs.enable_thinking` | 16384 (probed) | 3 | 5 | 12000 / 8000 / 8000 |
 | `qwen3:8b` on vllm | Qwen/Qwen3-8B-AWQ | `chat_template_kwargs.enable_thinking` | 16384 (probed) | 3 | 5 | 12000 / 8000 / 8000 |
 | `qwen3:8b-nvfp4a16` on vllm | ELVISIO/Qwen3-8B-NVFP4A16 (values inherited, not measured; probe only) | `chat_template_kwargs.enable_thinking` | 16384 (probed) | 3 | 5 | 12000 / 8000 / 8000 |
 <!-- [[[end]]] -->
