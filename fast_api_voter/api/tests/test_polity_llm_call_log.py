@@ -19,11 +19,15 @@ from api.domain.polity.config import load_config
 from api.domain.polity.llm_call_log import (
     CALL_LOG_FILENAME,
     CALL_LOG_SUMMARY_FILENAME,
+    PROMPT_LOG_ENV,
+    PROMPT_LOG_FILENAME,
     CallLoggingClient,
     CallLogWriter,
+    PromptLogWriter,
     call_context,
     call_logged,
     llm_call_id,
+    read_prompts,
     record_http_response,
     request_sha256,
     response_fields,
@@ -262,3 +266,49 @@ def test_an_owned_client_logs_its_warm_up_calls(tmp_path: Path, monkeypatch: pyt
         pass
     calls = _calls(tmp_path)
     assert [(c["kind"], c["think"]) for c in calls] == [("warm_up", True), ("warm_up", False)]
+
+
+class _EchoClient:
+    def complete_json(self, **kwargs: Any) -> str:
+        return '{"ok": true}'
+
+
+def test_prompts_are_kept_only_when_asked_and_once_per_distinct_request(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    request: dict[str, Any] = {"system_prompt": "S", "user_prompt": "U1", "json_schema": {"title": "T"}, "max_tokens": 10}
+    monkeypatch.delenv(PROMPT_LOG_ENV, raising=False)
+    with call_logged(_EchoClient(), tmp_path / CALL_LOG_FILENAME, lambda: 1) as client:
+        client.complete_json(**request)
+    assert not (tmp_path / PROMPT_LOG_FILENAME).exists()  # off unless asked
+
+    (tmp_path / CALL_LOG_FILENAME).unlink()
+    monkeypatch.setenv(PROMPT_LOG_ENV, "1")
+    with call_logged(_EchoClient(), tmp_path / CALL_LOG_FILENAME, lambda: 1) as client:
+        client.complete_json(**request)
+        client.complete_json(**request)  # the same request again: a second call line, no second prompt line
+        client.complete_json(**{**request, "user_prompt": "U2"})
+    calls = _calls(tmp_path)
+    prompts = read_prompts(tmp_path / PROMPT_LOG_FILENAME)
+    assert len(calls) == 3 and len(prompts) == 2
+    assert {p["user"] for p in prompts.values()} == {"U1", "U2"}
+    assert all(p["system"] == "S" and p["schema"] == {"title": "T"} for p in prompts.values())
+    assert set(prompts) == {c["call_id"] for c in calls}  # every call resolves to its prompts
+    assert (tmp_path / PROMPT_LOG_FILENAME).read_text(encoding="utf-8").count('"text": "S"') == 1  # the shared system prompt, once
+    assert not any({"system_prompt", "user_prompt"} & set(c) for c in calls)  # llm_calls.jsonl itself is unchanged
+
+
+def test_the_prompts_sidecar_survives_bad_input_and_a_missing_directory(tmp_path: Path) -> None:
+    blocker = tmp_path / "not-a-directory"
+    blocker.write_text("x", encoding="utf-8")
+    unopenable = PromptLogWriter(blocker / PROMPT_LOG_FILENAME)  # cannot open: the sidecar disables itself
+    unopenable.write("c1", system_prompt="S", user_prompt="U", json_schema=None)
+    unopenable.close()
+
+    path = tmp_path / PROMPT_LOG_FILENAME
+    writer = PromptLogWriter(path)
+    writer.write("c1", system_prompt="S", user_prompt="U", json_schema=None)  # a request without a schema
+    writer.write("c2", system_prompt="S", user_prompt="U", json_schema={"x": object()})  # cannot be serialised: disables the sidecar
+    writer.write("c3", system_prompt="S", user_prompt="U3", json_schema=None)  # ignored once disabled
+    writer.close()
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write("\n")  # a blank line, as a reader may meet after a crash
+    assert read_prompts(path) == {"c1": {"system": "S", "user": "U", "schema": None}}
