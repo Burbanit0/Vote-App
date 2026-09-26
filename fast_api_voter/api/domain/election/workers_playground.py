@@ -79,6 +79,14 @@ def _no_show_report(
     return viol
 
 
+# compute_strategic re-runs every method per sampled voter, then once more per
+# favourite group (_no_show_report), so it scales with the electorate: at 8
+# candidates it measured ~101s for 1000 voters -- over half the 180s
+# WORKER_TIMEOUT_SECONDS with no contention -- and ~50s for 500. Same cap and
+# reasoning as /api/v1's _STRATEGIC_NUM_VOTERS_CAP (domain/public.py).
+_STRATEGIC_NUM_VOTERS_CAP = 500
+
+
 def _profile_simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     """Pure worker for /profile-simulate (Lab reshape P1).
 
@@ -91,7 +99,12 @@ def _profile_simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
     behavior     = str(data.get("behavior", "sincere"))
     dims         = max(1, min(3, int(data.get("dims", 2))))
     valence      = bool(data.get("valence", False))
-    num_voters   = max(10, min(1000, int(data.get("num_voters", 300))))
+    # The live read-out only needs winners + cycle rate, so the O(voters × methods)
+    # strategic-vulnerability pass is skipped by default; the on-demand strategic
+    # module opts in via compute_strategic=True.
+    want_strategic = bool(data.get("compute_strategic", False))
+    voter_cap    = _STRATEGIC_NUM_VOTERS_CAP if want_strategic else 1000
+    num_voters   = max(10, min(voter_cap, int(data.get("num_voters", 300))))
     seed         = int(data.get("seed", 42))
     source_params: Dict[str, float] = {
         k: float(v) for k, v in (data.get("source_params") or {}).items()
@@ -110,6 +123,10 @@ def _profile_simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
             return {"error": "handcrafted source requires a non-empty matrix"}, 400
         if any(len(row) != len(names_in) for row in handcrafted):
             return {"error": "each handcrafted row must match the candidate count"}, 400
+        if len(handcrafted) > voter_cap:
+            # Each row is a voter the caller wrote; drop none of them silently.
+            return {"error": f"at most {voter_cap} handcrafted rows "
+                             f"(500 with compute_strategic)"}, 400
 
     electorate = data.get("electorate")
     composed = bool(electorate and electorate.get("mode") == "composed"
@@ -145,10 +162,6 @@ def _profile_simulate_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]
         return {"error": str(exc)}, 400
 
     compat = compatible_methods(ballot_type)
-    # The live read-out only needs winners + cycle rate, so the O(voters × methods)
-    # strategic-vulnerability pass is skipped by default; the on-demand strategic
-    # module opts in via compute_strategic=True.
-    want_strategic = bool(data.get("compute_strategic", False))
     result = compare_all_methods(
         voters, candidates, [], override_utilities=projected,
         compute_strategic=want_strategic,

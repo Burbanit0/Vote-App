@@ -5529,7 +5529,7 @@ export interface components {
             candidates: components["schemas"]["ProfileCandidateSpec"][];
             /**
              * Compute Strategic
-             * @description Compute the per-method Gibbard–Satterthwaite individual manipulability rate (slow; opt-in). Off for the live read-out.
+             * @description Compute the per-method Gibbard–Satterthwaite individual manipulability rate (slow; opt-in). Off for the live read-out. Caps num_voters at 500 (the response's num_voters says how many ran).
              * @default false
              */
             compute_strategic: boolean;
@@ -5542,7 +5542,7 @@ export interface components {
             electorate?: components["schemas"]["ElectorateConfig"] | null;
             /**
              * Handcrafted Matrix
-             * @description Rows = voters, cols = candidates (aligned), for source=handcrafted.
+             * @description Rows = voters, cols = candidates (aligned), for source=handcrafted. At most 500 rows with compute_strategic.
              */
             handcrafted_matrix?: number[][] | null;
             /**

@@ -8559,7 +8559,7 @@
           },
           "compute_strategic": {
             "default": false,
-            "description": "Compute the per-method Gibbard–Satterthwaite individual manipulability rate (slow; opt-in). Off for the live read-out.",
+            "description": "Compute the per-method Gibbard–Satterthwaite individual manipulability rate (slow; opt-in). Off for the live read-out. Caps num_voters at 500 (the response's num_voters says how many ran).",
             "title": "Compute Strategic",
             "type": "boolean"
           },
@@ -8590,13 +8590,14 @@
                   },
                   "type": "array"
                 },
+                "maxItems": 1000,
                 "type": "array"
               },
               {
                 "type": "null"
               }
             ],
-            "description": "Rows = voters, cols = candidates (aligned), for source=handcrafted.",
+            "description": "Rows = voters, cols = candidates (aligned), for source=handcrafted. At most 500 rows with compute_strategic.",
             "title": "Handcrafted Matrix"
           },
           "num_voters": {
