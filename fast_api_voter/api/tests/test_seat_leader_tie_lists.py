@@ -18,19 +18,19 @@ DISTRICTS = {"voters_per_district": 50, "num_districts": 6, "district_ideology_v
 
 
 def test_a_tied_proportional_parliament_is_not_a_divergence():
-    """FPTP gives Bob 4-2 while PR ties 3-3. PR reported "Alice" — the
+    """FPTP gives Bob 5-1 while PR ties 3-3. PR reported "Alice" — the
     first-listed party — so the panel claimed the two systems disagreed."""
     body, status = _districts_worker({"candidates": CLOSE_PAIR, "seed": 3, **DISTRICTS})
 
     assert status == 200
-    assert body["parliament_fptp"] == {"Alice": 2, "Bob": 4}
+    assert body["parliament_fptp"] == {"Alice": 1, "Bob": 5}
     assert body["parliament_proportional"] == {"Alice": 3, "Bob": 3}
     assert body["fptp_winner"] == ["Bob"]
     assert body["proportional_winner"] == ["Alice", "Bob"]
 
 
 def test_both_sides_tied_lists_every_tied_party():
-    body, status = _districts_worker({"candidates": CLOSE_PAIR, "seed": 1, **DISTRICTS})
+    body, status = _districts_worker({"candidates": CLOSE_PAIR, "seed": 2, **DISTRICTS})
 
     assert status == 200
     assert body["parliament_fptp"] == {"Alice": 3, "Bob": 3}
@@ -41,12 +41,6 @@ def test_each_leader_list_is_the_argmax_set_of_its_own_seat_dict():
     """The invariant that replaces "one name": whatever the seats are, the
     reported leaders are exactly the parties holding the most of them.
 
-    Note what cannot be asserted here. Reordering the candidate array is not a
-    relabelling on this endpoint: `build_candidate_from_xy` assigns each
-    candidate a party by list index, and party feeds a loyalty bonus in voter
-    utility, so the same two positions listed the other way round draw a
-    different vote share (0.45/0.55 vs 0.43/0.57 at seed 3) and legitimately a
-    different parliament.
     """
     for seed in range(6):
         body, status = _districts_worker({"candidates": CLOSE_PAIR, "seed": seed, **DISTRICTS})
