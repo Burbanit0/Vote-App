@@ -19,6 +19,25 @@ const API_BASE = process.env.VITE_API_URL ?? 'http://localhost:4434';
 
 export const apiClient = createClient<paths>({ baseUrl: API_BASE });
 
+// An error with no body (a proxy's bare 502 when the backend is down) reaches
+// openapi-fetch as `error: ''`, which openapi-react-query's `if (error) throw`
+// reads as success: `$api` mutations resolved with undefined data and panels
+// crashed dereferencing it instead of showing their error state. Give it a
+// FastAPI-shaped body so every caller sees an error.
+apiClient.use({
+  async onResponse({ response }) {
+    if (response.ok || (await response.clone().text()) !== '') return undefined;
+    return new Response(
+      JSON.stringify({ detail: `Request failed with status ${response.status}` }),
+      {
+        status: response.status,
+        statusText: response.statusText,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
+  },
+});
+
 /**
  * Thrown by apiPost on a non-2xx response. Carries the HTTP
  * status and the parsed error body (FastAPI's HTTPException shape is

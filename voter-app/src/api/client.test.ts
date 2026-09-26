@@ -55,3 +55,21 @@ describe('apiPost', () => {
     expect(apiErr.body).toEqual({ error: 'boom' });
   });
 });
+
+describe('apiClient', () => {
+  it('turns an empty-body error into an error, not a success', async () => {
+    const { apiClient } = await freshClient();
+    mockFetch.mockResolvedValueOnce(new Response('', { status: 502 }));
+    const { data, error, response } = await apiClient.GET('/api/v1/methods');
+    expect(data).toBeUndefined();
+    expect(response.status).toBe(502);
+    expect(error).toEqual({ detail: 'Request failed with status 502' });
+  });
+
+  it('leaves an error body that has content alone', async () => {
+    const { apiClient } = await freshClient();
+    mockFetch.mockResolvedValueOnce(jsonResponse(422, { detail: 'bad' }));
+    const { error } = await apiClient.GET('/api/v1/methods');
+    expect(error).toEqual({ detail: 'bad' });
+  });
+});
