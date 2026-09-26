@@ -855,6 +855,8 @@ def _stv_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     num_seats  = max(2,  min(10,  int(data.get("num_seats",     5))))
     quota_type = str(data.get("quota_type", "droop"))
     cand_specs = data.get("candidates", _MULTIWINNER_DEFAULT_CANDIDATES)[:8]
+    if quota_type not in ("droop", "hare"):  # over HTTP the schema's Literal is a 422
+        return {"error": f"unknown quota_type {quota_type!r} -- supported: droop, hare"}, 400
 
     error = _validate_multiwinner_candidates(cand_specs, num_seats)
     if error is not None:
