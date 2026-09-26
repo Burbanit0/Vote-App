@@ -11,7 +11,7 @@ metadata:
 **Update 2026-09-15: the switch happened, and the blocker below is spent.** This project now
 runs on native Linux (`uname -r`: 7.0.0-31-generic), which is one of the two reopening conditions
 the 2026-08-30 entry wrote down for itself. The `vllm-polity` container serves
-`Qwen/Qwen3-8B-AWQ` on the pinned `vllm/vllm-openai:v0.28.0` (moved to `v0.29.0`, n-gram speculation dropped, on 2026-09-20; then to `v0.30.0` on 2026-09-24), healthy for hours at a time, and
+`Qwen/Qwen3-8B-AWQ` on the pinned `vllm/vllm-openai:v0.28.0` (moved to `v0.29.0`, n-gram speculation dropped, on 2026-09-20; then to `v0.30.0` on 2026-09-24, with EAGLE-3 speculation adopted on 2026-09-26), healthy for hours at a time, and
 real work has run against it: five bake-off sessions over a 174-case bank and a concurrency sweep
 at 1, 4, 8 and 12 workers (`scripts/bakeoff_request_arms_results.md`,
 `scripts/concurrency_sweep_kv_auto_results.md`). The config now *requires* `llm.provider: vllm`
