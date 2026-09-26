@@ -47,7 +47,9 @@
 # --reasoning-parser qwen3, max-model-len 16384 (load-bearing, not
 # conservative -- see that file's own comment; campaign_positioning's output
 # budget alone reaches 9836 tokens), gpu-memory-utilization 0.80, seed 42,
-# and no --speculative-config (dropped from production 2026-09-20; see that file).
+# and no --speculative-config. That was the shipped server's set of flags when this probe
+# ran (2026-09-20); the shipped file has since moved to EAGLE-3 and 0.88 (2026-09-26, see
+# that file), so a new run of this probe must carry the same flags as the shipped one.
 # No --quantization flag: compressed-tensors format is declared in the
 # checkpoint's own config.json (quant_method), which is what awq_marlin's own
 # comment says vLLM does NOT reliably do for AWQ -- check the startup log for

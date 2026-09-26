@@ -987,6 +987,11 @@ that caught the path bug. 1290 polity tests pass, mypy clean.
 
 ## Phase 7 — The run · TODO
 
+> **2026-09-26: the run is prepared, and its tracker is now `plan-full-run.md`**: the current
+> configuration, the decisions still open, the cost, the pre-flight and launcher
+> (`scripts/prepare_full_run.py`, `scripts/launch_full_run.sh`), what to expect and what to read
+> afterwards. The staged ramp below predates the serving-stack and defaults changes since 2026-09-11.
+
 A runner script `scripts/run_polity_flagship.py`: argparse, `--resume`,
 `--years`, `--population`, `--workers`, one flagship arm, writing `config.json` +
 `metrics.json` + `progress.json` alongside the journal — following the existing

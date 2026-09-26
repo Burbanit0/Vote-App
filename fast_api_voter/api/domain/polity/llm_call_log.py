@@ -19,6 +19,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
 import threading
 import time
 from collections.abc import Callable, Iterator, Mapping, Sequence
@@ -37,6 +38,8 @@ _logger = logging.getLogger(__name__)
 
 CALL_LOG_FILENAME = "llm_calls.jsonl"
 CALL_LOG_SUMMARY_FILENAME = "llm_calls_summary.json"
+PROMPT_LOG_FILENAME = "llm_prompts.jsonl"
+PROMPT_LOG_ENV = "POLITY_LOG_PROMPTS"
 
 
 def _canonical(value: Any) -> str:
@@ -261,18 +264,113 @@ class CallLogWriter:
         self.close()
 
 
+class PromptLogWriter:
+    """Opt-in sidecar (`POLITY_LOG_PROMPTS=1`): the exact input behind each call, which
+    `llm_calls.jsonl` does not keep -- it records what the model said and what the call
+    cost, so "why did it say that" needs the prompt. A run repeats its prompts, so each
+    distinct text is written once, as {"blob": sha16, "text": ...}, and each distinct
+    request once, as {"call_id", "system", "user", "schema"} pointing at blobs;
+    `read_prompts` joins them. Not in `llm_calls.jsonl` itself, so the records replay (S0.6)
+    reads, and every hash, stay as they were. Same contract as CallLogWriter: lines are
+    flushed, and a write error disables the sidecar without failing the run."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        self._lock = threading.Lock()
+        self._blobs: set[str] = set()
+        self._calls: set[str] = set()
+        self._handle: Any = None
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            self._handle = path.open("a", encoding="utf-8")
+        except OSError as exc:
+            _logger.warning("LLM prompt log disabled, cannot open %s: %s", path, exc)
+
+    def write(self, call_id: str, *, system_prompt: str, user_prompt: str, json_schema: dict[str, Any] | None) -> None:
+        with self._lock:
+            if self._handle is None or call_id in self._calls:
+                return
+            try:
+                refs: dict[str, str | None] = {}
+                texts = {"system": system_prompt, "user": user_prompt, "schema": None if json_schema is None else _canonical(json_schema)}
+                for field, text in texts.items():
+                    if text is None:
+                        refs[field] = None
+                        continue
+                    blob = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+                    if blob not in self._blobs:
+                        self._handle.write(json.dumps({"blob": blob, "text": text}, ensure_ascii=False) + "\n")
+                        self._blobs.add(blob)
+                    refs[field] = blob
+                self._handle.write(json.dumps({"call_id": call_id, **refs}) + "\n")
+                self._handle.flush()
+                self._calls.add(call_id)
+            except (OSError, TypeError, ValueError) as exc:
+                _logger.warning("LLM prompt log disabled after a write error on %s: %s", self.path, exc)
+                self._handle = None
+
+    def close(self) -> None:
+        with self._lock:
+            if self._handle is not None:
+                self._handle.close()
+                self._handle = None
+
+
+def read_prompts(path: Path) -> dict[str, dict[str, Any]]:
+    """call_id -> {"system", "user", "schema"} from a prompts sidecar."""
+    blobs: dict[str, str] = {}
+    calls: dict[str, dict[str, Any]] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        row = json.loads(line)
+        if "blob" in row:
+            blobs[row["blob"]] = row["text"]
+        else:
+            calls[row["call_id"]] = row
+    return {
+        call_id: {
+            "system": blobs[row["system"]],
+            "user": blobs[row["user"]],
+            "schema": json.loads(blobs[row["schema"]]) if row["schema"] else None,
+        }
+        for call_id, row in calls.items()
+    }
+
+
+def _prompt_log_enabled() -> bool:
+    return os.environ.get(PROMPT_LOG_ENV, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
 class CallLoggingClient:
     """Wraps any client (real, fake, replay) and logs each call it forwards.
     Arguments are forwarded exactly as given -- never adding temperature=None or
     seed=None -- so clients whose signatures predate those parameters still work."""
 
-    def __init__(self, inner: Any, writer: CallLogWriter, tick_source: Callable[[], int | None]) -> None:
+    def __init__(
+        self,
+        inner: Any,
+        writer: CallLogWriter,
+        tick_source: Callable[[], int | None],
+        prompts: PromptLogWriter | None = None,
+    ) -> None:
         self._inner = inner
         self._writer = writer
         self._tick_source = tick_source
+        self._prompts = prompts
+
+    def _log_prompts(self, request_hash: str, kwargs: dict[str, Any]) -> None:
+        if self._prompts is not None:
+            self._prompts.write(
+                llm_call_id(request_hash),
+                system_prompt=kwargs["system_prompt"],
+                user_prompt=kwargs["user_prompt"],
+                json_schema=kwargs.get("json_schema"),
+            )
 
     def complete_json(self, **kwargs: Any) -> str:
         request_hash = completion_request_sha256(kwargs)
+        self._log_prompts(request_hash, kwargs)
         record = self._open_record(request_hash, kwargs, fallback_decision_type=decision_type_for_schema(kwargs["json_schema"]))
 
         def call() -> str:
@@ -287,6 +385,7 @@ class CallLoggingClient:
         under the same request hash complete_json would give -- logprobs change what
         comes back, not what is asked -- with the content, not the tokens."""
         request_hash = completion_request_sha256(kwargs)
+        self._log_prompts(request_hash, kwargs)
         record = self._open_record(request_hash, kwargs, fallback_decision_type=decision_type_for_schema(kwargs["json_schema"]))
 
         def call() -> tuple[str, Any]:
@@ -357,9 +456,15 @@ def read_calls(path: Path) -> list[dict[str, Any]]:
 
 @contextmanager
 def call_logged(client: Any, path: Path | None, tick_source: Callable[[], int | None]) -> Iterator[Any]:
-    """`client` wrapped with a log at `path`, or `client` itself when `path` is None."""
+    """`client` wrapped with a log at `path`, or `client` itself when `path` is None. With
+    POLITY_LOG_PROMPTS set, the prompts are kept too, in llm_prompts.jsonl beside the log."""
     if path is None:
         yield client
         return
-    with CallLogWriter(path) as writer:
-        yield CallLoggingClient(client, writer, tick_source)
+    prompts = PromptLogWriter(path.with_name(PROMPT_LOG_FILENAME)) if _prompt_log_enabled() else None
+    try:
+        with CallLogWriter(path) as writer:
+            yield CallLoggingClient(client, writer, tick_source, prompts)
+    finally:
+        if prompts is not None:
+            prompts.close()
