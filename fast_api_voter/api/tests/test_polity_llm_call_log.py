@@ -23,6 +23,7 @@ from api.domain.polity.llm_call_log import (
     PROMPT_LOG_FILENAME,
     CallLoggingClient,
     CallLogWriter,
+    PromptLogWriter,
     call_context,
     call_logged,
     llm_call_id,
@@ -293,3 +294,21 @@ def test_prompts_are_kept_only_when_asked_and_once_per_distinct_request(tmp_path
     assert set(prompts) == {c["call_id"] for c in calls}  # every call resolves to its prompts
     assert (tmp_path / PROMPT_LOG_FILENAME).read_text(encoding="utf-8").count('"text": "S"') == 1  # the shared system prompt, once
     assert not any({"system_prompt", "user_prompt"} & set(c) for c in calls)  # llm_calls.jsonl itself is unchanged
+
+
+def test_the_prompts_sidecar_survives_bad_input_and_a_missing_directory(tmp_path: Path) -> None:
+    blocker = tmp_path / "not-a-directory"
+    blocker.write_text("x", encoding="utf-8")
+    unopenable = PromptLogWriter(blocker / PROMPT_LOG_FILENAME)  # cannot open: the sidecar disables itself
+    unopenable.write("c1", system_prompt="S", user_prompt="U", json_schema=None)
+    unopenable.close()
+
+    path = tmp_path / PROMPT_LOG_FILENAME
+    writer = PromptLogWriter(path)
+    writer.write("c1", system_prompt="S", user_prompt="U", json_schema=None)  # a request without a schema
+    writer.write("c2", system_prompt="S", user_prompt="U", json_schema={"x": object()})  # cannot be serialised: disables the sidecar
+    writer.write("c3", system_prompt="S", user_prompt="U3", json_schema=None)  # ignored once disabled
+    writer.close()
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write("\n")  # a blank line, as a reader may meet after a crash
+    assert read_prompts(path) == {"c1": {"system": "S", "user": "U", "schema": None}}
