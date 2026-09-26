@@ -4,10 +4,10 @@
 > the runner, checkpointing and observability (Phases 0-6) and left Phase 7, "the run", as `TODO`
 > since 2026-09-11. Since then the serving stack, the defaults and the known defects all moved.
 > This is the run's own tracker: what is decided, what is not, what to expect, how to start it,
-> what to read afterwards. Written 2026-09-26. **The run has not been started.**
+> what to read afterwards. Written 2026-09-26, **the run was made the same day: see "What the run showed".**
 
-**Status: preparation DONE, the run is TODO and its date is the owner's.** The owner's stated plan:
-run it as it stands, see what can be improved, then work on it to make it as clean as possible.
+**Status: the run is DONE (2026-09-26, 2 h 08 min, no resume, no error); reading it and the improvements are next.**
+The owner's stated plan: run it as it stands, see what can be improved, then work on it to make it as clean as possible.
 **Decided 2026-09-26: EAGLE-3 is adopted (PR #656), and the run is relaxed with 12 workers: the owner does not
 need byte-identity as long as the run leaves enough logs to be read closely** (PR #655 adds the prompts).
 
@@ -156,6 +156,35 @@ runner, none of it needing a flag beyond what `launch_full_run.sh` already sets.
 
 The one thing `run_metadata.json` does not record is the server's command line, hence the `docker inspect` file. The whole set is well under 1 GB.
 
+## What the run showed
+
+Run `full-30y-p500-seed42-20260926`, 15:45 to 17:54 local on 2026-09-26, from a clean checkout of `polity` at `e362f4d3`
+(`run_metadata.json`: `git_dirty` false, vLLM 0.30.0). Files in `~/Documents/Dev/polity-runs/full/` (root `full` in the explorer).
+`digest.json`: `outcome` completed, `error` none, `resumed_attempt` false. No stop condition fired.
+
+| Written before the run | Measured |
+|---|---|
+| 2 to 5 h; 6 h would mean the workers gained nothing | **7,705 s (2 h 08 min)**: 120 ticks, 32,677 decisions, 281 replays. Median tick 47.5 s. No 2-year probe was run: the first 8 ticks served as one (tick 2 took 57 s). |
+| Election ticks 8 to 10 times an ordinary tick, so long silences | The slowest ticks took 343 to 349 s (7 times the median, among the 98 the minute telemetry sampled) and are the three elections where positioning ran away (OBS-022). The longest tick was under 6 minutes; the hour-long election tick of the old p500 measurement did not recur. |
+| The smaller KV pool may queue requests under 12 workers | **It did, briefly.** Over 764 server samples (every 10 s), requests waited in 37 (4.8%, at most 8 waiting) and KV use reached 95% or more in 3; there were no preemptions and no errors in the server log. Mean acceptance length 2.66 (the earlier short probe measured about 3.3). |
+| Chamber fallbacks of 5 to 12% of units (OBS-021), the 10% alert may fire | **7.05%** (640 of 9,075 units); the alert did not fire. The cause is shown: the shift-count rule, and one bad answer costs its whole batch of five (OBS-021, updated). |
+| `representative_response` and `coalition_decision` stay unverified | They do: `unverified_decision_types` lists both. Fallbacks: 4.1% and 0%. |
+| About 40% declare candidacy at every election (OBS-011) | 202 to 206 of 500 at each of the 11 elections, 2,234 of 5,500 (40.6%). |
+| Positioning is uncapped: watch `finish_reason='length'` | **3 of 11 first attempts** ran to the 9,836-token limit with no answer; the retry answered each time (0 fallbacks of 55). It is the prompt, not chance (OBS-022). |
+| The thinking budget binds on 41 to 45% of chamber calls and 25% of vote calls | Chamber **41%**, as written. `vote_cast` **86%** (192 of 223), which was not expected (OBS-023). |
+| The guarantee is replay from the call log | **Shown.** `--replay-calls-from` on CPU with the same flags served 20,297 recorded calls, asked for none that was missing, and reproduced `events.jsonl` and `snapshots.jsonl` byte for byte (86 s). |
+| Stop conditions (a type over 50% fallbacks over four ticks, occupancy under 0.5, ...) | None. The highest cumulative rate in a type with 30 or more decisions was `representative_response` at 12.9% (4 of 31, tick 30), and `chamber_deliberation` at 8.9% at tick 2; `office_occupancy` is 0.967. |
+
+**What happened in the society.** 11 presidential terms and 8 different presidents (citizens 463, 177, 3, 459, 132, 298,
+471, 315). Seven terms ended by election, three by the legitimacy floor (ticks 27, 41 and 90) and one was running at the
+end. The term limit of 2 held: 463, 3 and 132 each served twice. `office_occupancy` 0.967, against 0.82 to 0.97 for the ten
+8-year p100 seeds. 8 coalitions formed and 139 candidacies were declared over the 11 elections.
+
+**The record.** Everything the owner asked for is there: `llm_calls.jsonl` (24 MB, 20,299 lines: 18,283 decision calls, 2,014 budget probes, 2 warm-ups),
+`llm_prompts.jsonl` (12 MB), the server log (22,092 lines), the minute telemetry and the server's `docker inspect`. The
+prompts sidecar was first used at this scale here and worked. Not yet read closely: the chamber answers behind the
+fallbacks beyond the shift count, the `representative_response` fallbacks (5), and the citizen biographies in the explorer.
+
 ## After the run: what to read
 
 1. `digest.json`: outcome, `llm_fallback_rates`, `llm_fallback_alerts`, `llm_retries`, `elapsed_seconds`, the terms and `office_occupancy`.
@@ -177,13 +206,14 @@ The one thing `run_metadata.json` does not record is the server's command line, 
 
 | # | Item | Evidence | Note |
 |---|---|---|---|
-| 1 | Chamber answers rejected on the shift-count cap are never retried | OBS-021 | Candidates: replay a rejected answer like a decode failure, or drop zero-delta shifts before the count. Neither is done. |
-| 2 | Positioning thinking has no cap | S2.4 results (PR #648) | It needs a bank arm before a budget can be measured (`THINKING_ARM_TYPES` covers only vote and chamber). |
+| 1 | Chamber answers rejected on the shift-count cap are never retried | OBS-021 | At flagship scale it is 7.05% of units and every fallback is this rule; one bad answer costs its four batch-mates. Candidates: replay a rejected answer like a decode failure, drop zero-delta shifts before the count, or fall back per decision instead of per batch. None is done. |
+| 2 | Positioning thinking has no cap | S2.4 results (PR #648), OBS-022 | It cost 3 of 11 elections their first attempt in the full run (about 230 s each). It needs a bank arm before a budget can be measured (`THINKING_ARM_TYPES` covers only vote and chamber). |
 | 3 | Party nominations: out-of-range and last-listed | OBS-006, OBS-013 | Watch `party_nomination_choice` per election; the call log records the reasoning. |
 | 4 | About 40% declare candidacy | OBS-011 | A contract defect the run amplifies. |
 | 5 | Two decision types stay unverified | OBS-007, S2.4 | The lever is the decision contract, not the model. |
 | 6 | Speed: EAGLE-3 and 12 workers are in, at p500 for the first time | `check_vllm_eagle3_results.md` | The timing probe measures it; the smaller KV pool is the thing to watch. |
-| 7 | Reproducibility across servers | OBS-020 | Replay is the guarantee; the cause is open. The owner does not need more, given the logs above. |
+| 7 | Reproducibility across servers | OBS-020 | Replay is the guarantee, and the full run showed it holds (byte-identical replay). The cause is open. The owner does not need more, given the logs above. |
+| 8 | The 2,048 budget binds on 86% of `vote_cast` calls | OBS-023 | Measure whether 4,096 or no budget changes the winner or the ranking; the flagship sits at the cap in most elections. |
 
 ## Safeguards built in, and their limits
 
@@ -209,5 +239,5 @@ The one thing `run_metadata.json` does not record is the server's command line, 
 | The run visible in the explorer as root `full` | **DONE** (`~/Documents/Dev/polity-runs/polity-ui.sh`, outside the repo) |
 | Decisions D1, D2 | **DECIDED** 2026-09-26: EAGLE-3, relaxed with 12 workers |
 | Decisions D3 to D6 | **TODO**, the owner's (the defaults stand until then) |
-| Timing probe (2 years at population 500) | **TODO** |
-| The run | **TODO** |
+| Timing probe (2 years at population 500) | **SKIPPED**: the first 8 ticks of the run served as one |
+| The run | **DONE** 2026-09-26, 2 h 08 min; replay proof passed; results above, OBS-021 to OBS-023 |
