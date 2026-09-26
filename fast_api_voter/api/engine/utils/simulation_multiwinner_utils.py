@@ -10,7 +10,7 @@ import math
 import random
 from collections import defaultdict
 from itertools import combinations, chain
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Mapping, Optional
 
 
 # ── Internal helpers ───────────────────────────────────────────────────────
@@ -20,7 +20,7 @@ def _normalise_votes(party_votes: Dict[str, float]) -> Dict[str, float]:
     return {p: float(v) for p, v in party_votes.items() if float(v) > 0}
 
 
-def break_tie(scores: Dict[str, float], rng: Optional[random.Random] = None) -> str:
+def break_tie(scores: Mapping[str, float], rng: Optional[random.Random] = None) -> str:
     """The key with the highest value.
 
     Without `rng` -- the default -- this is exactly `max(scores, key=...)`:
@@ -243,20 +243,20 @@ def get_sainte_lague_winners(
     return _highest_averages(party_votes, num_seats, lambda s: 2 * s + 1, rng)
 
 
-def _remainder_seats(
-    remainders: Dict[str, float], remaining: int, rng: Optional[random.Random],
+def top_k(
+    scores: Mapping[str, float], k: int, rng: Optional[random.Random],
 ) -> List[str]:
-    """The `remaining` parties with the largest remainder. Ties keep listing
-    order, unless `rng` is given: then each seat goes to the largest remaining
-    remainder with ties drawn by `break_tie`, so a tied group -- including one
-    straddling the cutoff -- no longer depends on how the parties were listed,
-    and "tied" means the same thing it does for every other allocator here.
-    (Nothing but polity calls this allocator, and polity passes no `rng`.)"""
+    """The `k` highest-scoring keys, best first. Ties keep listing order, unless
+    `rng` is given: then each pick is the highest remaining score with ties
+    drawn by `break_tie`, so a tied group -- including one straddling the
+    cutoff -- no longer depends on how the keys were listed, and "tied" means
+    the same thing it does for every other allocator here. (Largest remainder
+    passes no `rng` only for polity, its sole caller.)"""
     if rng is None:
-        return sorted(remainders, key=lambda p: remainders[p], reverse=True)[:remaining]
-    pool = dict(remainders)
+        return sorted(scores, key=lambda p: scores[p], reverse=True)[:k]
+    pool = dict(scores)
     chosen: List[str] = []
-    for _ in range(min(remaining, len(pool))):
+    for _ in range(min(k, len(pool))):
         chosen.append(break_tie(pool, rng))
         del pool[chosen[-1]]
     return chosen
@@ -275,7 +275,7 @@ def get_largest_remainder_winners(
     - Droop quota = floor(total / (seats+1)) + 1  (used in some countries)
 
     Each party gets floor(votes / quota) automatic seats; remaining seats go
-    to parties with the largest fractional remainders (see `_remainder_seats`
+    to parties with the largest fractional remainders (see `top_k`
     for the `rng` tie-break at the cutoff).
     """
     pv = _normalise_votes(party_votes)
@@ -289,7 +289,7 @@ def get_largest_remainder_winners(
     remainders: Dict[str, float] = {p: (pv[p] / q) - auto[p] for p in pv}
 
     remaining = num_seats - sum(auto.values())
-    for p in _remainder_seats(remainders, remaining, rng):
+    for p in top_k(remainders, remaining, rng):
         auto[p] += 1
 
     return auto
@@ -528,6 +528,8 @@ def _mes_rho(budgets_sorted: List[float]) -> float:
 def get_equal_shares_result(
     approval_ballots: List[List[str]],
     num_seats:        int,
+    *,
+    rng: Optional[random.Random] = None,
 ) -> Dict[str, Any]:
     """
     Method of Equal Shares / Rule X (Peters & Skowron, 2020) for an equal-size
@@ -538,7 +540,8 @@ def get_equal_shares_result(
     among affordable candidates we pick the one with the smallest per-voter price
     rho (the most "equally cheap"), and its supporters pay min(budget_i, rho).
     When no candidate is affordable, the committee is completed by approval score
-    (a stated completion rule). Satisfies Extended Justified Representation (EJR).
+    (a stated completion rule; a tie there is drawn by `top_k` when `rng` is
+    given, else goes by name). Satisfies Extended Justified Representation (EJR).
 
     Returns
     -------
@@ -588,11 +591,12 @@ def get_equal_shares_result(
         rounds.append({"round": len(elected) - 1, "winner": best_c, "rho": round(best_rho, 4)})
 
     # Completion (budget exhausted): fill remaining seats by raw approval score.
+    # A tie used to go to whichever ballot named the candidate first.
     if len(elected) < k:
         appro = {c: len(supporters[c]) for c in remaining}
-        for c in sorted(remaining, key=lambda x: (-appro[x], all_cands.index(x))):
-            if len(elected) >= k:
-                break
+        fill = top_k(appro, k - len(elected), rng) if rng else \
+            sorted(remaining, key=lambda x: (-appro[x], x))[: k - len(elected)]
+        for c in fill:
             elected.append(c)
             rounds.append({"round": len(elected) - 1, "winner": c, "rho": None})
 

@@ -8,6 +8,7 @@ delegator remained here, and nothing imported it.
 """
 from __future__ import annotations
 
+import math as _math
 import random as _random
 from collections import Counter
 from operator import itemgetter
@@ -31,6 +32,7 @@ from api.engine.utils.cache import cache_result
 # this package. Re-exported under their original private names so the
 # 30+ existing call sites in this file continue to work unchanged.
 from api.engine.utils.method_registry import winner_from_utilities
+from api.engine.utils.simulation_multiwinner_utils import break_tie
 from ._helpers import (
     build_candidate_from_xy       as _build_candidate_from_xy,
     inter_method_agreement        as _inter_method_agreement,
@@ -925,15 +927,33 @@ def _simulate_pipeline_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
 
 # ── Coalition endpoint ────────────────────────────────────────────────────────
 
+def _nearest(
+    parties: list[str], positions: Dict[str, float], seats: Dict[str, int],
+    centre: float, rng: _random.Random,
+) -> str:
+    """The party closest to `centre`; among equally close ones the larger, and
+    only a tie on both is drawn -- a 0-seat party must not win a draw against
+    one that brings seats."""
+    dist = {p: abs(positions[p] - centre) for p in parties}
+    nearest = min(dist.values())
+    return break_tie(
+        {p: seats[p] for p in parties if _math.isclose(dist[p], nearest, rel_tol=1e-9, abs_tol=1e-12)},
+        rng,
+    )
+
+
 def _greedy_coalition(
     seats: Dict[str, int],
     positions: Dict[str, float],
     threshold: int,
+    rng: _random.Random,
 ) -> Dict[str, Any]:
     """
     Greedy coalition formation starting from the plurality party.
     Iteratively adds the ideologically closest available party until the
-    coalition reaches `threshold` seats.
+    coalition reaches `threshold` seats. A tie for the most seats is drawn by
+    lot (`break_tie`), not given to the first-listed; so is a tie for closest,
+    after the larger of the equally close parties (`_nearest`).
 
     Returns {parties, seats, coalition_spread, government_possible}.
     """
@@ -941,15 +961,14 @@ def _greedy_coalition(
     if total == 0:
         return {"parties": [], "seats": 0, "coalition_spread": 0.0, "government_possible": False}
 
-    sorted_parties = sorted(seats.keys(), key=lambda p: -seats[p])
-    coalition: list[str] = [sorted_parties[0]]
-    coalition_seats = seats[sorted_parties[0]]
-    remaining = [p for p in sorted_parties[1:]]
+    anchor = break_tie(seats, rng)
+    coalition: list[str] = [anchor]
+    coalition_seats = seats[anchor]
+    remaining = [p for p in seats if p != anchor]
 
     while coalition_seats < threshold and remaining:
-        # Closest ideologically to current coalition centre
         centre = sum(positions[p] for p in coalition) / len(coalition)
-        closest = min(remaining, key=lambda p: abs(positions[p] - centre))
+        closest = _nearest(remaining, positions, seats, centre, rng)
         coalition.append(closest)
         coalition_seats += seats[closest]
         remaining.remove(closest)
@@ -1021,9 +1040,10 @@ def _coalition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
                            for name in cand_names}
 
         # seed + 1, not seed: `seed` builds the electorate, and a lot must not be
-        # the same draw that set the first voter's attributes.
+        # the same draw that set the first voter's attributes. The coalition's
+        # own generator, so its lot doesn't shift with how many D'Hondt used.
         seats_alloc = _dhondt(vote_shares, total_seats, rng=_random.Random(seed + 1))
-        coal        = _greedy_coalition(seats_alloc, positions, seat_threshold)
+        coal        = _greedy_coalition(seats_alloc, positions, seat_threshold, _random.Random(seed + 1))
 
         methods_out.append({
             "method":             method_name,
@@ -1052,9 +1072,10 @@ def _coalition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         "seat_threshold":        seat_threshold,
         "most_centrist_method":  most_centrist_method,
         "most_divergent_method": most_divergent_method,
+        # Each method's own winner (none skipped), not its coalition's anchor:
+        # a winnerless method's tied parliament has its anchor drawn by lot.
         "inter_method_agreement": _inter_method_agreement(
-            {m["method"]: {"winner": m["coalition_parties"][0] if m["coalition_parties"] else ""}
-             for m in methods_out}
+            {m["method"]: {"winner": m["winner"]} for m in methods_out}
         ),
     }, 200
 
