@@ -47,7 +47,9 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-018](#obs-018) | The response contract, not the model, sets the president's stance in 22 of 650 responses | 2026-09-16 | cause found, partly fixed |
 | [OBS-019](#obs-019) | Showing the model its citizens' emotions, at zero weight, multiplies mobilization fourteenfold | 2026-09-17 | cause found |
 | [OBS-020](#obs-020) | Without n-gram speculation, two same-seed live runs are not always byte-identical | 2026-09-20 | open |
-| [OBS-021](#obs-021) | 5 to 12% of chamber deliberation units fall back because the model returns more shifts than the cap allows | 2026-09-25 | open |
+| [OBS-021](#obs-021) | 5 to 12% of chamber deliberation units fall back because the model returns more shifts than the cap allows | 2026-09-25 | cause found |
+| [OBS-022](#obs-022) | The positioning prompt of three elections sends the model to its 9,836-token limit; only the retry answers | 2026-09-26 | open |
+| [OBS-023](#obs-023) | The 2,048-token thinking budget binds on 86% of `vote_cast` calls at population 500, against 25% at population 100 | 2026-09-26 | open |
 
 ---
 
@@ -977,3 +979,133 @@ treated like a decode failure (replayed), or zero-delta shifts dropped before th
 
 *Status: open.* The 10% alert threshold was crossed in one of five runs; the runs still complete with office
 occupancy in the recorded band.
+
+*Update 2026-09-26, the full run (30 years, 500 citizens, 75 seats, EAGLE-3, 12 workers, relaxed:
+`full-30y-p500-seed42-20260926`, `plan-full-run.md`).* The cause is now shown, at 5 times the seats and 3.75 times
+the years of the runs above. 640 of 9,075 chamber units fell back (7.05%; the 10% alert did not fire), inside the 5
+to 12% that plan wrote down before the run. They are 128 of the 1,815 first-attempt answer calls, and every failed
+call lost all five of its units (128 x 5 = 640).
+
+- **The rule is the shift count.** In 127 of the 128 failed calls at least one decision carries more than
+  `max_deliberation_shifts` = 3 shifts; that is 420 units, 419 of them with all five dimensions shifted. In the
+  other failed call a shift exceeds `max_deliberation_delta` = 0.3.
+- **One over-long answer costs its four batch-mates.** The other 219 fallback units answered within the caps (207 of
+  them "no shift") and were discarded with the offender's chunk.
+- **Nothing was retried.** 127 of the 128 failed calls are attempt 0; the 128th is attempt 1 of a batch that first
+  failed to decode. Retries did happen elsewhere in the chamber (36 batches, 35 recovered; their cause was not
+  inspected), which fits the reading above that `_chamber_chunk` does not replay a validation failure.
+- **The fallback events do not say why.** Their payload has `shifts`, `llm_call_id` and `retry_sampling_varied` but
+  no reason, so the count above needs the replay against `llm_calls.jsonl`.
+
+```bash
+cd fast_api_voter && python3 - <<'EOF'
+import json, collections
+run = "<out>/full-30y-p500-seed42-20260926/run/full-30y-p500-seed42-20260926"
+calls = {c["call_id"]: c for c in map(json.loads, open(run + "/llm_calls.jsonl"))
+         if c["kind"] == "decision" and c["decision_type"] == "chamber_deliberation"}
+failed = {e["payload"]["llm_call_id"] for e in map(json.loads, open(run + "/events.jsonl"))
+          if e["event_type"] == "chamber_deliberation" and e["payload"].get("llm_fallback")}
+over = sum(any(len(d["shifts"]) > 3 for d in json.loads(calls[c]["content"])["decisions"]) for c in failed)
+print(len(failed), "failed calls,", over, "with a decision over the shift cap")
+EOF
+```
+
+What is still not settled is the trigger: whether the 2,048 thinking budget makes the model list every dimension. The
+full run has the same 2,048 budget, so it cannot isolate it either. Status moves to **cause found**: what to do about
+it (replay a rejected answer like a decode failure, or drop zero-delta shifts before the count) is not decided.
+
+### OBS-022
+
+**The positioning prompt of three elections sends the model to its 9,836-token limit; only the retry answers.**
+
+*Seen.* The full run (`full-30y-p500-seed42-20260926`) held 11 elections, so 11 `campaign_positioning` batches
+(five parties each, 55 decisions) and 14 answer calls. At ticks 0, 16 and 28 the first attempt thought until it hit
+`max_tokens` = 9,836 (9,835 reasoning tokens, `finish_reason` `length`, no answer, 111 to 112 s). The retry
+(attempt 1, a varied seed) answered after 9,453 reasoning tokens (114 to 117 s). At the other eight elections the first
+attempt answered in 1,762 to 5,856 reasoning tokens (18 to 60 s). No positioning decision fell back (0 of 55).
+
+- **It is the prompt, not chance.** The attempt-0 requests of ticks 0, 16 and 28 have the same `request_sha256`; so do
+  ticks 42, 64, 91 and 112, and ticks 80 and 96. The positioning input repeats between elections (OBS-001), and at
+  temperature 0 the same request runs away each time. The retry's different sampling is what gets out.
+- **It sets the slowest ticks of the run.** Ticks 16, 0 and 28 took 349, 347 and 343 s against a median of 47.5 s (the
+  next slowest is 206 s), among the 98 ticks the minute-by-minute telemetry sampled. About 230 s of each is the two positioning calls, one after the other.
+- **It is not covered by the thinking budget.** `llm.thinking_token_budget` = 2048 caps `vote_cast` and
+  `chamber_deliberation` only; positioning is uncapped in production.
+
+*Evidence.*
+
+```bash
+cd fast_api_voter && python3 - <<'EOF'
+import json
+run = "<out>/full-30y-p500-seed42-20260926/run/full-30y-p500-seed42-20260926"
+for c in map(json.loads, open(run + "/llm_calls.jsonl")):
+    if c["kind"] == "decision" and c["decision_type"] == "campaign_positioning":
+        print(c["tick"], c["attempt"], c["request_sha256"][:8], c.get("reasoning_tokens"), c["finish_reason"], round(c["latency_ms"] / 1000))
+EOF
+```
+
+*Suspected cause.* Nothing shows why this one prompt (the party set of ticks 0, 16 and 28) makes the model think without
+end while the two other party sets do not. The S2.4 bank found the same failure on two other models (9,716 tokens with
+no answer) and Qwen's median there was 4,002, so it is not specific to this run.
+
+*What would settle it.* A bank arm for `campaign_positioning` with a thinking budget (`THINKING_ARM_TYPES` covers only
+vote and chamber), then the budget on this prompt: does it answer, and is the answer the retry's? If every attempt
+(the first and two replays) had run away, the batch would have fallen back to the deterministic baseline, which is
+the risk this run happened not to hit: three of eleven first attempts failed.
+
+*Status: open.*
+
+### OBS-023
+
+**The 2,048-token thinking budget binds on 86% of `vote_cast` calls at population 500, against 25% at population 100.**
+
+*Seen.* In the full run 192 of 223 `vote_cast` answer calls (86%) ended their thinking at exactly the budget, 2,048
+reasoning tokens. `plan-full-run.md` had the figure from the 2-year, 100-citizen run as 25%. For `chamber_deliberation`
+the rate matches that run: 761 of 1,852 calls (41%; it was 41 to 45%), and it is flat over the run (40%, 40% and 43%
+for ticks 0 to 39, 40 to 79 and 80 to 119).
+
+| election tick | `vote_cast` calls | at 2,048 | median prompt tokens |
+|---:|---:|---:|---:|
+| 0 | 18 | 7 | 1,929 |
+| 16 | 19 | 19 | 3,856 |
+| 28 | 19 | 19 | 2,913 |
+| 32 | 19 | 16 | 2,498 |
+| 42 | 22 | 22 | 2,773 |
+| 48 | 27 | 25 | 2,781 |
+| 64 | 17 | 17 | 3,327 |
+| 80 | 17 | 17 | 2,922 |
+| 91 | 25 | 21 | 2,639 |
+| 96 | 19 | 8 | 2,373 |
+| 112 | 21 | 21 | 4,129 |
+
+- **It mostly costs nothing.** `vote_cast` fell back for 3 units of 583 (0.5%), all one batch at tick 91 (the snap
+  election after the president's removal at tick 90). Its three attempts (seeds 900000002 and 900000003 for the
+  retries) each used the full 2,048 tokens and returned a decision for one of the three voters (`{"blank": 1,
+  "cid": 292, ...}`), so the batch fell back. That is one batch of 223.
+- **The two elections where it binds least have the shortest prompts** (ticks 0 and 96, 1,929 and 2,373 median
+  tokens; every other election is at 2,498 or more and binds on 84 to 100%). That is 11 points, not a fit.
+
+*Evidence.*
+
+```bash
+cd fast_api_voter && python3 - <<'EOF'
+import json, collections, statistics
+run = "<out>/full-30y-p500-seed42-20260926/run/full-30y-p500-seed42-20260926"
+by = collections.defaultdict(list)
+for c in map(json.loads, open(run + "/llm_calls.jsonl")):
+    if c["kind"] == "decision" and c["decision_type"] == "vote_cast":
+        by[c["tick"]].append(c)
+for t, cs in sorted(by.items()):
+    print(t, len(cs), sum(c["reasoning_tokens"] == 2048 for c in cs), int(statistics.median(c["prompt_tokens"] for c in cs)))
+EOF
+```
+
+*Suspected cause.* A longer vote prompt (a larger field, with the standing rupture candidates of OBS-001) makes the model
+deliberate longer. The prompts are in `llm_prompts.jsonl` (`read_prompts`), so the candidate counts can be read
+next to the token counts; that was not done.
+
+*What would settle it.* The same elections with a budget of 4,096 and of no budget on `vote_cast`: does the winner or
+the ranking change? S1.3 found a 2,048 budget "loses nothing" on the frozen bank; this says how often the flagship
+sits at the cap, not whether the cap changes a result.
+
+*Status: open.*
