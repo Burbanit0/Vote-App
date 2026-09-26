@@ -25,16 +25,10 @@ test.describe('Navigation — the five real surfaces', () => {
 
       await page.goto(path);
       await expect(page.locator(ANCHORS[path])).toBeVisible();
+      await expect(page.locator('[data-tour="navbar"]')).toBeVisible();
       expect(crashes).toEqual([]);
     });
   }
-
-  test('navbar is visible on every surface', async ({ page }) => {
-    for (const path of SURFACES) {
-      await page.goto(path);
-      await expect(page.locator('[data-tour="navbar"]')).toBeVisible();
-    }
-  });
 
   test('navbar links reach the three destinations', async ({ page }) => {
     const nav = () => page.locator('[data-tour="navbar"]');
