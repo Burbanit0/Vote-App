@@ -154,13 +154,15 @@ services:
                                     # trusting this, not just one -- that's exactly
                                     # what 24576 lacked when it fooled a first pass.
       - "--gpu-memory-utilization"
-      - "0.80"                     # explicit and conservative, not vLLM's own
-                                    # auto-tuned default (observed 0.92 -- the value
-                                    # that left only 37MiB free above) -- this client
-                                    # never issues concurrent requests (see
-                                    # VllmJsonClient's docstring), so a modest,
-                                    # explicit budget with real margin matters more
-                                    # here than maximizing concurrency headroom.
+      - "0.88"                     # explicit, not vLLM's own auto-tuned default
+                                    # (observed 0.92 -- the value that left only
+                                    # 37MiB free above). Was 0.80 until 2026-09-26:
+                                    # the EAGLE-3 draft head below takes 2.15 GiB, so
+                                    # the budget grew to keep a KV pool that holds
+                                    # one 16k sequence (22,896 tokens, 1.40 sequences,
+                                    # against 26,704 before). Verified with three
+                                    # consecutive clean restarts (check_vllm_eagle3_
+                                    # results.md); re-verify after any change here.
       - "--port"
       - "8000"
       - "--seed"
@@ -172,23 +174,25 @@ services:
                                     # field is null and prefix-cache hits are invisible
                                     # to time attribution. Reporting only: it changes
                                     # the usage block, not generation.
-                                    # No --speculative-config, on purpose (2026-09-20). n-gram
-                                    # speculation was shipped 2026-09-10 on two synthetic fixtures
-                                    # (check_vllm_speculative_decoding_results.md: ~2.5x on a uniform
-                                    # chamber fixture, neutral on a varied vote_cast). A 2-year,
-                                    # 100-citizen A/B on real traffic
-                                    # (check_vllm_speculation_ab_results.md) found no wall-clock
-                                    # benefit -- 323 s and 352 s with it, 332 s without on 0.28.0,
-                                    # 310 s without on 0.29.0 -- and per-call decode was ~28% slower
-                                    # with it on pressure_action and ~24% on vote_cast. It also keeps
-                                    # the server on the V1 model runner and off async scheduling;
-                                    # without it Model Runner V2 engages by itself. Speculation itself
-                                    # is lossless at temperature=0, but V2's numerics are not V1's, so
-                                    # this is not a speed-only change (OBS-020): two same-seed live
-                                    # runs are not always byte-identical (a run's guarantee is replay
-                                    # from its call log), 13 of 174 frozen-bank answers differ from
-                                    # 0.28.0's (long thinking families only), and sequential bank
-                                    # sessions take ~43% longer. The owner accepted these on 2026-09-20.
+      - "--speculative-config"
+      - '{"method": "eagle3", "model": "RedHatAI/Qwen3-8B-Thinking-speculator.eagle3", "revision": "7073be9cfb319c1cbf84d3f4c7592ee9fcdc31a5", "num_speculative_tokens": 3}'
+                                    # EAGLE-3, adopted 2026-09-26 by the owner (check_vllm_eagle3_
+                                    # results.md). n-gram speculation was dropped 2026-09-20
+                                    # (check_vllm_speculation_ab_results.md) because Model Runner V2
+                                    # does not support it; EAGLE-type methods are not on v0.30.0's
+                                    # V2-unsupported list, so this speculates AND keeps V2. Against
+                                    # the same server without it: a 2-year 12-worker run 32% shorter,
+                                    # two 8-year one-worker runs 38% shorter (1173 and 1098 s against
+                                    # 1891 and 1785 s), vote_cast and chamber (the two families
+                                    # production caps at 2048 thinking tokens) valid and byte-identical,
+                                    # three clean restarts. The head is Apache-2.0, 2.15 GiB, pinned by
+                                    # revision, draft length 3, trained on thinking traces.
+                                    # Costs, accepted: a smaller KV pool (see the memory flag above);
+                                    # WITHOUT the 2048 cap three bank cases ran away in thinking (~14k
+                                    # reasoning tokens, no answer) and campaign_positioning is uncapped
+                                    # in production; same-seed byte-identity is unproven either way
+                                    # (OBS-020) and the owner does not rely on it -- a run's record is its
+                                    # call log (llm_calls.jsonl), and a relaxed run replays from it.
     ports:
       - "8000:8000"
     ipc: host                      # vLLM's own recommendation, for its shared-memory tensor cache
