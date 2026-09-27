@@ -63,12 +63,14 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: 'fast_api_voter/requirements*.txt'
-      - run: |
-          uv pip install --system -r fast_api_voter/requirements.txt
-          uv pip install --system pytest pytest-cov
-      - run: python -m pytest fast_api_voter/api/tests -v
-        env:
-          FLASK_ENV: testing
+      # Same install and command as backend-ci-cd-pipeline.yml. This job used to
+      # install requirements.txt + pytest only, and run from the repo root (so
+      # fast_api_voter/pyproject.toml's addopts, which skip the schemathesis and
+      # benchmark modules, never applied): the first real release (v0.2.0) died
+      # collecting the hypothesis/schemathesis/z3 test modules.
+      - run: uv pip install --system -r fast_api_voter/requirements-dev.lock.txt
+      - run: python -m pytest api/tests -n auto
+        working-directory: fast_api_voter
 
   # E2E (Playwright) was previously wired to nothing (workflow_dispatch only)
   # despite being the repo's one exhaustive, end-to-end check. It's too slow
