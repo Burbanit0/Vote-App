@@ -50,6 +50,8 @@ still running: events up to tick 16, call log as of 2026-09-13 17:35.
 | [OBS-021](#obs-021) | 5 to 12% of chamber deliberation units fall back because the model returns more shifts than the cap allows | 2026-09-25 | cause found |
 | [OBS-022](#obs-022) | The positioning prompt of three elections sends the model to its 9,836-token limit; only the retry answers | 2026-09-26 | open |
 | [OBS-023](#obs-023) | The 2,048-token thinking budget binds on 86% of `vote_cast` calls at population 500, against 25% at population 100 | 2026-09-26 | open |
+| [OBS-024](#obs-024) | A `vote_cast` batch of three sometimes answers for one voter, identically on all three attempts, and falls back | 2026-09-27 | open |
+| [OBS-025](#obs-025) | `reaction_to_event` batches of 25 fall back whole when the model overshoots `events.max_reaction_delta` | 2026-09-27 | cause found |
 
 ---
 
@@ -1014,6 +1016,32 @@ What is still not settled is the trigger: whether the 2,048 thinking budget make
 full run has the same 2,048 budget, so it cannot isolate it either. Status moves to **cause found**: what to do about
 it (replay a rejected answer like a decode failure, or drop zero-delta shifts before the count) is not decided.
 
+*Update 2026-09-27, seeds 1 and 2 of the same run (`full-30y-p500-seed1-20260926`, `-seed2-`, same code and config).*
+Chamber fallback is 5.79% (seed 1) and 7.11% (seed 2), against 7.05% for seed 42. Over the three runs 362 answer calls
+failed, and every one lost all five units (128, 105 and 129). The validation rules explain 361 of the 362: 356 have a
+decision over `max_deliberation_shifts`, 5 shift a dimension past `max_deliberation_delta` (by 0.32 to 1.0), and one
+(seed 1, tick 19) answered all five units within both caps and is not explained.
+
+```bash
+cd fast_api_voter && python3 - <<'EOF'
+import json, collections
+out = "<out>"
+for seed in ("42", "1", "2"):
+    run = f"{out}/full-30y-p500-seed{seed}-20260926/run/full-30y-p500-seed{seed}-20260926"
+    calls = {c["call_id"]: c for c in map(json.loads, open(run + "/llm_calls.jsonl"))
+             if c["kind"] == "decision" and c["decision_type"] == "chamber_deliberation"}
+    failed = {e["payload"]["llm_call_id"] for e in map(json.loads, open(run + "/events.jsonl"))
+              if e["event_type"] == "chamber_deliberation" and e["payload"].get("llm_fallback")}
+    kinds = collections.Counter()
+    for cid in failed:
+        d = json.loads(calls[cid]["content"])["decisions"]
+        if any(len(x["shifts"]) > 3 for x in d): kinds["shift cap"] += 1
+        elif any(abs(s["delta"]) > 0.3 for x in d for s in x["shifts"]): kinds["delta cap"] += 1
+        else: kinds["within caps"] += 1
+    print(seed, len(failed), dict(kinds))
+EOF
+```
+
 ### OBS-022
 
 **The positioning prompt of three elections sends the model to its 9,836-token limit; only the retry answers.**
@@ -1054,6 +1082,11 @@ vote and chamber), then the budget on this prompt: does it answer, and is the an
 the risk this run happened not to hit: three of eleven first attempts failed.
 
 *Status: open.*
+
+*Update 2026-09-27, seeds 1 and 2.* Neither had the runaway: 0 of 9 first attempts in seed 1 and 0 of 12 in seed 2 reached
+the limit, against 3 of 11 in seed 42. So it belongs to seed 42's party set (the request that repeats at ticks 0, 16 and
+28), not to positioning in general, and it is one seed of three. The slowest tick is 184 s in seed 1 and 177 s in seed 2,
+against 349 s in seed 42.
 
 ### OBS-023
 
@@ -1109,3 +1142,85 @@ the ranking change? S1.3 found a 2,048 budget "loses nothing" on the frozen bank
 sits at the cap, not whether the cap changes a result.
 
 *Status: open.*
+
+*Update 2026-09-27, seeds 1 and 2.* The `vote_cast` budget binds on 157 of 186 calls (84%) in seed 1 and 152 of 210 (72%) in
+seed 2, against 192 of 223 (86%) in seed 42; the chamber on 826 of 1,861 (44%) and 748 of 1,870 (40%), against 41%. So the
+`vote_cast` rate is high at population 500 on all three seeds (72 to 86%) and the chamber rate is stable (40 to 44%).
+Whether the budget changes a result is still not measured.
+
+### OBS-024
+
+**A `vote_cast` batch of three sometimes answers for one voter, identically on all three attempts, and falls back.**
+
+*Seen.* Across the three full runs, 9 `vote_cast` batches of three voters fell back after all three attempts: 1 in seed 42,
+4 in seed 1 and 4 in seed 2 (27 units: 0.5%, 2.7% and 2.1% of each run's `vote_cast` decisions, from `llm_fallback_rates`).
+
+- **All 27 attempts used the full 2,048 reasoning tokens.** The failures happen only where the thinking budget binds.
+- **7 of the 9 batches returned a decision for one voter of three, and the same answer on all three attempts** (seed 42
+  tick 91; seed 1 ticks 11, 48 and 64; seed 2 ticks 56 and 64, twice), although attempts 1 and 2 carry different seeds
+  (900000002 and 900000003). The retries changed nothing.
+- **The other two returned all three voters and were rejected** (seed 1 tick 112: two distinct answers over three attempts;
+  seed 2 tick 48: three distinct answers, one of which answered for one voter only).
+
+*Evidence.*
+
+```bash
+cd fast_api_voter && python3 - <<'EOF'
+import json, collections
+out = "<out>"
+for seed in ("42", "1", "2"):
+    run = f"{out}/full-30y-p500-seed{seed}-20260926/run/full-30y-p500-seed{seed}-20260926"
+    calls = [c for c in map(json.loads, open(run + "/llm_calls.jsonl")) if c["kind"] == "decision" and c["decision_type"] == "vote_cast"]
+    failed = collections.defaultdict(set)
+    for e in map(json.loads, open(run + "/events.jsonl")):
+        if e["event_type"] == "vote_cast" and e["payload"].get("llm_fallback"):
+            failed[(e["tick"], e["payload"]["llm_call_id"])].add(e["citizen_id"])
+    for (tick, _), units in sorted(failed.items()):
+        att = sorted((c for c in calls if c["tick"] == tick and set(c["unit_ids"]) >= units), key=lambda c: c["attempt"])
+        print(seed, tick, "reasoning", [c["reasoning_tokens"] for c in att],
+              "answered", [len(json.loads(c["content"])["decisions"]) for c in att], "distinct", len({c["content"] for c in att}))
+EOF
+```
+
+*Suspected cause.* When the budget cuts the thinking short the model closes its answer early, and the retry, replaying the same
+prompt, lands on the same answer. Not shown: the content of the reasoning was not read.
+
+*What would settle it.* Replay these nine batches with a budget of 4,096 (the `vote_cast` bank arm, `--arm thinking_budget_2048`
+with another value): if they answer all three voters, the budget is the cause. Whether `retry_sampling_varied` changes anything
+for `vote_cast` is the second question, since the retry produced the same answer in 7 of 9.
+
+*Status: open.*
+
+### OBS-025
+
+**`reaction_to_event` batches of 25 fall back whole when the model overshoots `events.max_reaction_delta`.**
+
+*Seen.* Seed 42 had no `reaction_to_event` fallback. Seed 1 lost one batch of 25 units (tick 95) and seed 2 two (ticks 43 and 97):
+75 units, 0.83% and 1.67% of the type's decisions. In the batch checked (seed 2, tick 97) the model answered for all 25 units.
+
+- **The rule is the delta bound.** `validate_reaction_decision` rejects a `salience_delta` above `events.max_reaction_delta`
+  (0.3). In that answer 16 of the 25 deltas exceed it (range 0.2343 to 0.3627), so the whole batch fell back.
+- **It is the same failure as OBS-021.** The prompt states the bound, the model overshoots it, and one bad answer discards
+  the batch (25 units here, five in the chamber).
+- **Retries.** The call each fallback event points to is attempt 2 for seed 1 tick 95 and seed 2 tick 43, and attempt 0 for
+  seed 2 tick 97, which fell back without a replay.
+
+*Evidence.*
+
+```bash
+cd fast_api_voter && python3 - <<'EOF'
+import json
+run = "<out>/full-30y-p500-seed2-20260926/run/full-30y-p500-seed2-20260926"
+fb = [e for e in map(json.loads, open(run + "/events.jsonl"))
+      if e["event_type"] == "reaction_to_event" and e["payload"].get("llm_fallback") and e["tick"] == 97]
+cid = fb[0]["payload"]["llm_call_id"]
+call = next(c for c in map(json.loads, open(run + "/llm_calls.jsonl")) if c["call_id"] == cid)
+deltas = [d["salience_delta"] for d in json.loads(call["content"])["decisions"]]
+print(len(fb), "units fell back; answered", len(deltas), "; over 0.3:", sum(x > 0.3 for x in deltas), "; range", min(deltas), max(deltas))
+EOF
+```
+
+*What would settle it.* The same replay on the two other batches (only one was read). The lever is the one OBS-021 names: replay
+a rejected answer, or fall back per decision so that one overshoot does not discard 24 good answers.
+
+*Status: cause found* (for the batch read).
