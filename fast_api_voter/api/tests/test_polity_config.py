@@ -808,3 +808,10 @@ def test_validate_config_holds_a_config_built_in_code_to_the_yaml_rules():
     sampled = dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=True, temperature=0.7))
     with pytest.raises(PolityConfigError, match="'llm.temperature': must be 0.0 when llm.enabled is true, got 0.7"):
         validate_config(sampled)
+
+
+def test_a_negative_non_negative_float_is_rejected():
+    from api.domain.polity.config import PolityConfigError, _get_nonneg_float
+
+    with pytest.raises(PolityConfigError, match="must be non-negative"):
+        _get_nonneg_float({"partisanship": -0.5}, "vote", "partisanship")

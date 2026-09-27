@@ -461,3 +461,16 @@ def test_heartbeat_client_does_not_beat_when_the_call_never_returns():
         pass
 
     assert beats == []
+
+
+def test_record_tick_skips_blank_journal_lines(tmp_path):
+    journal_path = tmp_path / "events.jsonl"
+    with Journal(journal_path, run_id="r1") as journal:
+        _write_event(journal, event_type="vote_cast", codebook_version="1.6")
+    with journal_path.open("a", encoding="utf-8") as handle:
+        handle.write("\n\n")
+
+    tracker = ProgressTracker(run_id="r1", total_ticks=10, ticks_per_year=4, progress_path=tmp_path / "progress.json")
+    tracker.record_tick(tick=0, tick_duration=1.0, wall_clock_elapsed=1.0, journal_path=journal_path, checkpoint_tick=0)
+
+    assert tracker.decisions_by_type == {"vote_cast": 1}
