@@ -121,17 +121,20 @@ libs in `src/lib/` with a thin component each.
 
 ## Workflow (mandated)
 
-- One branch per step, **from `develop`**, named for what it does: `feat/*`,
-  `fix/*`, `refactor/*`, `ci/*`, `chore/*`. Never commit features directly
-  to `develop`; never rewrite already-pushed `develop` history.
-- Open a PR per step against `develop`. Merge with `--no-ff`. `develop → main` for
-  releases.
+- **`polity` is the working branch** (since the 2026-09-27 convergence, #671/#674/#675,
+  `develop` and `polity` were identical). One branch per step, **from `polity`**,
+  named for what it does: `feat/*`, `fix/*`, `refactor/*`, `ci/*`, `chore/*`. Never
+  commit features directly to `polity` or `develop`; never rewrite their pushed
+  history.
+- Open a PR per step against `polity`. Merge with `--no-ff`. `develop` only receives
+  release syncs (`chore/sync-polity-into-develop-<date>`, a real merge commit), and
+  `develop → main` is the release (see the `release` skill).
 - Repo is public (MIT). Commit author email is the `noreply` form for new commits.
 - **Run `/code-review max` on the branch *before opening* a PR that touches the
   voting engine** (`simulation_ranked_utils.py`, `simulation_score_utils.py`,
   `playgroundVoting.ts`) or any other high-blast-radius surface (auth-adjacent
   config, CI/CD workflows, the parity/axiom test harnesses) — not "before merging":
-  `develop`'s Mergify queue auto-merges the moment required checks go green, often
+  the Mergify queue (on `polity` and `develop`) auto-merges the moment required checks go green, often
   within minutes of opening the PR, so a review gated on merge time can be (and has
   been) raced and skipped entirely. It runs locally on the branch's diff and needs
   no PR or GitHub remote, so there's no reason to wait for one.
