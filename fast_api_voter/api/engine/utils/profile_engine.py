@@ -506,12 +506,14 @@ def apply_behavior(
         if not act:
             out[vid] = utils
             continue
+        # Swap, don't overwrite: setting the frontrunner to exactly the top value
+        # tied it with the sincere favourite still holding it, and the ballot
+        # builder then broke that invented tie by listing order.
         new = utils.copy()
-        hi, lo = max(utils.values()), min(utils.values())
-        if utils[f1] >= utils[f2]:
-            new[f1], new[f2] = hi, lo
-        else:
-            new[f2], new[f1] = hi, lo
+        pref, other = (f1, f2) if utils[f1] >= utils[f2] else (f2, f1)
+        for cand, extreme in ((pref, max), (other, min)):
+            holder = extreme(new, key=new.__getitem__)
+            new[cand], new[holder] = new[holder], new[cand]
         out[vid] = new
     return out
 

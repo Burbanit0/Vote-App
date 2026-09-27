@@ -181,3 +181,20 @@ def test_a_cached_value_that_is_not_an_object_is_recomputed(monkeypatch):
         fake.store[key] = poison
         assert worker({"seed": 1}) == ({"winner": "Alice"}, 200)
         assert fake.store[key] != poison, "the poisoned key should be overwritten"
+
+
+def test_without_git_sha_each_process_gets_its_own_key_namespace(monkeypatch):
+    """Nothing sets GIT_SHA, and a constant fallback let a restarted server (the
+    compose stack reloads on a source change) answer from the previous code's
+    entries for a full TTL."""
+    import importlib
+
+    monkeypatch.delenv("GIT_SHA", raising=False)
+    first = importlib.reload(cache_module)._BUILD
+    second = importlib.reload(cache_module)._BUILD
+    assert first != second
+
+    monkeypatch.setenv("GIT_SHA", "0123456789abcdef")
+    assert importlib.reload(cache_module)._BUILD == "0123456789ab"
+    monkeypatch.delenv("GIT_SHA")
+    importlib.reload(cache_module)
