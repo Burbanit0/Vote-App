@@ -13,11 +13,14 @@ KeyError/TypeError from a caller three frames away.
 """
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+from api.domain.polity.model_profiles import PROFILED_PROVIDERS, PROFILES
 
 _DEFAULT_CONFIG_PATH = Path(__file__).parent / "polity_config.yaml"
 
@@ -35,6 +38,7 @@ _LLM_PROVIDERS = {"ollama", "vllm", "api"}
 _LLM_SHARDINGS = {"static", "dynamic"}
 _LLM_CACHE_BACKENDS = {"redis", "sqlite", "none"}
 _LLM_RATIONALE_MODES = {"codes", "free_text", "hybrid"}
+_LLM_REPRODUCIBILITY = {"strict", "relaxed"}
 
 
 class PolityConfigError(ValueError):
@@ -107,6 +111,19 @@ def _get_nonneg_int(section: dict[str, Any], path: str, key: str) -> int:
     return value
 
 
+def _get_nonneg_float(section: dict[str, Any], path: str, key: str) -> float:
+    """Unlike _get_ratio, not bounded to [0, 1] -- for a multiplier or
+    weight where only "not negative" is a meaningful floor (e.g.
+    candidacy.rupture_distance_multiplier: negative would mean more
+    disagreement LOWERS the rupture-candidacy probability, inverting the
+    parameter's own intent)."""
+    value = _get(section, path, key, (int, float))
+    result = float(value)
+    if result < 0.0:
+        raise PolityConfigError(f"'{path}.{key}': must be non-negative, got {result}")
+    return result
+
+
 @dataclass(frozen=True)
 class RunConfig:
     seed: int
@@ -138,6 +155,11 @@ class InstitutionsConfig:
     reelection_delay_ticks: int
     reelection_max_attempts: int
     barred_from_immediate_rerun: bool
+    snap_election_on_recall: bool
+    recalled_barred_from_snap_election: bool
+    staggered_election: bool
+    presidential_campaign_ticks: int
+    legislative_campaign_ticks: int
 
 
 @dataclass(frozen=True)
@@ -147,10 +169,10 @@ class PartiesConfig:
     manual_platforms: list[Any]
     birth_enabled: bool
     death_enabled: bool
-    split_enabled: bool
     coalition_initiator: str
     coalition_tiebreak: tuple[str, ...]
     coalition_majority_ratio: float
+    coalition_max_negotiation_rounds: int
 
 
 @dataclass(frozen=True)
@@ -168,11 +190,96 @@ class CitizensConfig:
 @dataclass(frozen=True)
 class CandidacyConfig:
     ambition_threshold: float
-    independent_signature_ratio: float
     rupture_path_enabled: bool
     rupture_base_probability: float
+    rupture_distance_multiplier: float
     rupture_signature_ratio: float
     max_candidates_hard_cap: int
+
+
+@dataclass(frozen=True)
+class VoteConfig:
+    """S4.1 / D2 (docs/adr/ADR-011-utility-vote-with-turnout.md): how the population votes.
+
+    `mode` "llm" asks vote_cast for every ballot; "utility" builds every ballot with
+    simple_rules.utility_ballot and, when the run has a model, asks vote_cast for an
+    `audit_fraction` sample of voters, journaled as audit votes and never counted.
+    With every weight at zero a utility ballot is build_ranking's sincere ballot."""
+
+    mode: str
+    audit_fraction: float
+    partisanship: float
+    """Utility added to a candidate of the voter's own party."""
+    approval: float
+    """Weight of the incumbent's record (2 x legitimacy - 1, in [-1, 1]) on the incumbent's utility."""
+    approval_party_carryover: float
+    """Share of that record carried to another candidate of the incumbent's party."""
+    valence: float
+    """Weight of a candidate's valence (none is sourced yet: every valence is 0)."""
+    turnout_cost: float
+    """A voter abstains when their best option beats the next by less than this."""
+    policy_retrospection: float
+    """S4.2 (ADR-009): weight of how far enacted policy moved toward a voter during a
+    term, on the judged incumbent and, in legislative elections, the governing parties."""
+
+
+@dataclass(frozen=True)
+class LegislationConfig:
+    """S4.2 (docs/adr/ADR-009-ordinary-legislation.md): a policy status quo that bills move.
+
+    Every `bill_interval_ticks` the agenda setter -- the president, or the government under
+    cohabitation -- drafts a bill moving policy on at most `max_bill_dimensions` issues by at
+    most `max_bill_step` each. It passes the assembly with more than
+    `assembly_majority_ratio` of seats; under cohabitation the president blocks one that
+    moves policy away from them (`cohabitation_block`); the sortition chamber reviews it
+    with sortition_chamber.veto_power. Disabled, there is no policy at all."""
+
+    enabled: bool
+    bill_interval_ticks: int
+    max_bill_dimensions: int
+    max_bill_step: float
+    assembly_majority_ratio: float
+    cohabitation_block: bool
+
+
+@dataclass(frozen=True)
+class DynamicsConfig:
+    """S4.3 (docs/adr/ADR-012-dynamic-citizens.md): citizens' views move between ticks.
+
+    Friedkin-Johnsen with bounded confidence, on the two latent factors every issue position
+    is built from (citizen.LatentStructure). Each update tick a citizen's factors move
+    `influence_step` of the way toward the mean of their social-graph neighbours within
+    `confidence_bound`, keep `susceptibility` of that and return the rest to where they
+    started, then take a `drift_std` Gaussian step. Disabled, the population is static:
+    the control arm. Not `citizens.static_population`, which is about births and deaths."""
+
+    enabled: bool
+    susceptibility: float
+    """Friedkin-Johnsen's lambda: 1 keeps no pull back to a citizen's initial factors."""
+    influence_step: float
+    """Share of the distance to the neighbours' mean covered in one update."""
+    confidence_bound: float
+    """Neighbours farther than this in the latent space do not influence."""
+    drift_std: float
+    """Standard deviation of each factor's idiosyncratic step per update."""
+
+
+@dataclass(frozen=True)
+class EmotionsConfig:
+    """S4.3 (ADR-012): anger, anxiety and enthusiasm, each in [0, 1], moving every tick
+    `1 - decay` of the way toward their appraisal. Anger toward the sitting president rises
+    with how far past a citizen's tolerance the president stands, enthusiasm with how far
+    inside it; anxiety with the economy's distance from normal. They lower (anger, anxiety)
+    or raise (enthusiasm) the awakening threshold, and anger lowers the tolerance past which
+    the deterministic pressure rule acts. Every weight at zero leaves both unchanged."""
+
+    enabled: bool
+    decay: float
+    awakening_anger: float
+    awakening_anxiety: float
+    awakening_enthusiasm: float
+    mobilization_anger: float
+    """At anger 1, the deterministic pressure rule acts past (1 - this) x the blank threshold."""
 
 
 @dataclass(frozen=True)
@@ -354,10 +461,10 @@ class SortitionChamberConfig:
     against the elected president's own dt=6 mandate_deviation trajectory
     (§6bis.5's own "groupe de contrôle élu vs tiré-au-sort" framing).
 
-    `veto_power`/`veto_delay_ticks` are parsed here (so a typo fails
-    loudly) but consumed by NOTHING in v6b -- point ouvert n°11 (veto
-    power) needs a lawmaking concept this codebase has never built, and is
-    deferred to its own, separately-authorized future palier.
+    `veto_power`/`veto_delay_ticks` were parsed but consumed by nothing in v6b --
+    point ouvert n°11 needed a lawmaking concept. S4.2 (ADR-009) consumes them: the
+    chamber reviews every bill on its first reading, and under suspensive_limited a
+    majority against suspends it for veto_delay_ticks before a second assembly reading.
 
     `selection`/`overlaps_with_assembly`/`renewable` are all TRANCHÉ
     parse-time guards, the same precedent as
@@ -458,6 +565,20 @@ class LlmConfig:
     personas_count: int
     max_batch_replays: int
     recycle_after_n_calls: int | None
+    vote_cast_grammar_invariants: bool
+    """S1.2: send vote_cast the grammar that enforces blank=1 <=> empty ranking and the
+    ranking length limit (llm_schemas.vote_cast_json_schema). Adopted 2026-09-16, on by
+    default: its bake-off A/B removed the blank-with-ranking error with no loss in agreement
+    (scripts/bakeoff_request_arms_results.md). It changes vote_cast's request bytes."""
+    reproducibility: str
+    """S2.1 / D1: "strict" -- one worker, so a run regenerates byte-for-byte from its seed;
+    "relaxed" -- parallel decisions within a tick (parallel.intra_run_workers > 1), so a run
+    is reproducible by replaying its llm_calls.jsonl (S0.6), not by re-running the seed."""
+    thinking_token_budget: int | None
+    """S1.3: vLLM's `thinking_token_budget`, sent on `vote_cast` and `chamber_deliberation`
+    only (llm_behavior_engine.THINKING_BUDGET_TYPES). Adopted 2026-09-16 at 2048: it lost no
+    agreement and halved chamber_deliberation's time, with no truncation. null sends no
+    budget. vLLM only -- Ollama has no such field."""
 
 
 @dataclass(frozen=True)
@@ -478,6 +599,10 @@ class PolityConfig:
     citizens: CitizensConfig
     candidacy: CandidacyConfig
     campaign: CampaignConfig
+    vote: VoteConfig
+    legislation: LegislationConfig
+    dynamics: DynamicsConfig
+    emotions: EmotionsConfig
     legitimacy: LegitimacyConfig
     pressure_menu: PressureMenuConfig
     mandate: MandateConfig
@@ -509,12 +634,6 @@ def _parse_institutions(raw: dict[str, Any]) -> InstitutionsConfig:
     s = _section(raw, "institutions")
     blank_vote_enabled = _get(s, "institutions", "blank_vote_enabled", bool)
     blank_vote_competitive = _get(s, "institutions", "blank_vote_competitive", bool)
-    if blank_vote_competitive and not blank_vote_enabled:
-        raise PolityConfigError(
-            "'institutions.blank_vote_competitive': true requires 'institutions.blank_vote_enabled' "
-            "to also be true (v4 Lot 9, §6bis.2 -- nothing to be competitive about if blank isn't "
-            "itself a choice)"
-        )
     return InstitutionsConfig(
         president_term_years=_get_positive_int(s, "institutions", "president_term_years"),
         assembly_term_years=_get_positive_int(s, "institutions", "assembly_term_years"),
@@ -538,6 +657,38 @@ def _parse_institutions(raw: dict[str, Any]) -> InstitutionsConfig:
         reelection_delay_ticks=_get_positive_int(s, "institutions", "reelection_delay_ticks"),
         reelection_max_attempts=_get_positive_int(s, "institutions", "reelection_max_attempts"),
         barred_from_immediate_rerun=_get(s, "institutions", "barred_from_immediate_rerun", bool),
+        # 2026-09-11 (lets-build-a-solid-spicy-otter.md Track A3): reuses the
+        # SAME PendingRerun/reelection_delay_ticks/reelection_max_attempts
+        # machinery §6bis.2 already built for blank-vote invalidation --
+        # never a second mechanism. §16.3's own event taxonomy reserves
+        # `snap_election_triggered` and never wires it; this is that wire.
+        # Deliberately does NOT apply barred_from_immediate_rerun to the
+        # just-recalled officeholder: that flag's own semantics bar an
+        # INVALIDATED election's candidate set, and a recall has no
+        # candidate set to bar -- conflating the two would silently change
+        # what the flag means for its original caller.
+        snap_election_on_recall=_get(s, "institutions", "snap_election_on_recall", bool),
+        # D6, 2026-09-13: its own flag, not barred_from_immediate_rerun (see above) -- the
+        # recalled president alone is barred, and only from the snap election the recall
+        # triggers (observations.md OBS-003).
+        recalled_barred_from_snap_election=_get(s, "institutions", "recalled_barred_from_snap_election", bool),
+        # Track E, 2026-09-11 (lets-build-a-solid-spicy-otter.md): defaults
+        # false, same rollout shape as snap_election_on_recall -- every
+        # existing test/run keeps today's atomic declare+nominate+position+
+        # vote-in-one-tick behavior unchanged unless this is explicitly
+        # turned on. When on, the FIXED CALENDAR's own presidential election
+        # (never a PendingRerun -- see InstitutionalClock.is_presidential_
+        # declaration_tick/is_presidential_nomination_tick's own docstrings
+        # for why reruns/snap elections stay atomic on purpose) splits across
+        # three ticks instead of one, which changes RNG draw order and
+        # journal shape -- a version boundary, not a bug (§16.3-adjacent:
+        # this is a new calendar shape, not a new event taxonomy).
+        staggered_election=_get(s, "institutions", "staggered_election", bool),
+        # S4.4, 2026-09-13: how many ticks before each election its campaign runs
+        # (InstitutionalClock.phase). The presidential window is also where a staggered
+        # election declares (its first tick) and nominates (its last).
+        presidential_campaign_ticks=_get_nonneg_int(s, "institutions", "presidential_campaign_ticks"),
+        legislative_campaign_ticks=_get_nonneg_int(s, "institutions", "legislative_campaign_ticks"),
     )
 
 
@@ -557,10 +708,10 @@ def _parse_parties(raw: dict[str, Any]) -> PartiesConfig:
         manual_platforms=_get(s, "parties", "manual_platforms", list),
         birth_enabled=_get(s, "parties", "birth_enabled", bool),
         death_enabled=_get(s, "parties", "death_enabled", bool),
-        split_enabled=_get(s, "parties", "split_enabled", bool),
         coalition_initiator=_get_enum(s, "parties", "coalition_initiator", _COALITION_INITIATORS),
         coalition_tiebreak=tuple(tiebreak),
         coalition_majority_ratio=_get_ratio(s, "parties", "coalition_majority_ratio"),
+        coalition_max_negotiation_rounds=_get_positive_int(s, "parties", "coalition_max_negotiation_rounds"),
     )
 
 
@@ -582,11 +733,63 @@ def _parse_candidacy(raw: dict[str, Any]) -> CandidacyConfig:
     s = _section(raw, "candidacy")
     return CandidacyConfig(
         ambition_threshold=_get_ratio(s, "candidacy", "ambition_threshold"),
-        independent_signature_ratio=_get_ratio(s, "candidacy", "independent_signature_ratio"),
         rupture_path_enabled=_get(s, "candidacy", "rupture_path_enabled", bool),
         rupture_base_probability=_get_ratio(s, "candidacy", "rupture_base_probability"),
+        rupture_distance_multiplier=_get_nonneg_float(s, "candidacy", "rupture_distance_multiplier"),
         rupture_signature_ratio=_get_ratio(s, "candidacy", "rupture_signature_ratio"),
         max_candidates_hard_cap=_get_positive_int(s, "candidacy", "max_candidates_hard_cap"),
+    )
+
+
+_VOTE_MODES = {"llm", "utility"}
+
+
+def _parse_vote(raw: dict[str, Any]) -> VoteConfig:
+    s = _section(raw, "vote")
+    return VoteConfig(
+        mode=_get_enum(s, "vote", "mode", _VOTE_MODES),
+        audit_fraction=_get_ratio(s, "vote", "audit_fraction"),
+        partisanship=_get_nonneg_float(s, "vote", "partisanship"),
+        approval=_get_nonneg_float(s, "vote", "approval"),
+        approval_party_carryover=_get_ratio(s, "vote", "approval_party_carryover"),
+        valence=_get_nonneg_float(s, "vote", "valence"),
+        turnout_cost=_get_nonneg_float(s, "vote", "turnout_cost"),
+        policy_retrospection=_get_nonneg_float(s, "vote", "policy_retrospection"),
+    )
+
+
+def _parse_legislation(raw: dict[str, Any]) -> LegislationConfig:
+    s = _section(raw, "legislation")
+    return LegislationConfig(
+        enabled=_get(s, "legislation", "enabled", bool),
+        bill_interval_ticks=_get_positive_int(s, "legislation", "bill_interval_ticks"),
+        max_bill_dimensions=_get_positive_int(s, "legislation", "max_bill_dimensions"),
+        max_bill_step=_get_ratio(s, "legislation", "max_bill_step"),
+        assembly_majority_ratio=_get_ratio(s, "legislation", "assembly_majority_ratio"),
+        cohabitation_block=_get(s, "legislation", "cohabitation_block", bool),
+    )
+
+
+def _parse_dynamics(raw: dict[str, Any]) -> DynamicsConfig:
+    s = _section(raw, "dynamics")
+    return DynamicsConfig(
+        enabled=_get(s, "dynamics", "enabled", bool),
+        susceptibility=_get_ratio(s, "dynamics", "susceptibility"),
+        influence_step=_get_ratio(s, "dynamics", "influence_step"),
+        confidence_bound=_get_nonneg_float(s, "dynamics", "confidence_bound"),
+        drift_std=_get_nonneg_float(s, "dynamics", "drift_std"),
+    )
+
+
+def _parse_emotions(raw: dict[str, Any]) -> EmotionsConfig:
+    s = _section(raw, "emotions")
+    return EmotionsConfig(
+        enabled=_get(s, "emotions", "enabled", bool),
+        decay=_get_ratio(s, "emotions", "decay"),
+        awakening_anger=_get_ratio(s, "emotions", "awakening_anger"),
+        awakening_anxiety=_get_ratio(s, "emotions", "awakening_anxiety"),
+        awakening_enthusiasm=_get_ratio(s, "emotions", "awakening_enthusiasm"),
+        mobilization_anger=_get_ratio(s, "emotions", "mobilization_anger"),
     )
 
 
@@ -620,12 +823,6 @@ def _parse_pressure_menu(raw: dict[str, Any]) -> PressureMenuConfig:
     petition_enabled = _get(s, "pressure_menu", "petition_enabled", bool)
     mobilization_enabled = _get(s, "pressure_menu", "mobilization_enabled", bool)
     electoral_only = _get(s, "pressure_menu", "electoral_only", bool)
-    if electoral_only and (petition_enabled or mobilization_enabled):
-        raise PolityConfigError(
-            "'pressure_menu.electoral_only': true requires both petition_enabled and "
-            "mobilization_enabled to be false (§7bis.8 -- one 4-modality variable, not two "
-            "independent booleans)"
-        )
     return PressureMenuConfig(
         petition_enabled=petition_enabled,
         mobilization_enabled=mobilization_enabled,
@@ -714,11 +911,6 @@ def _parse_events(raw: dict[str, Any]) -> EventsConfig:
     scandal_enabled = _get(s, "events", "scandal_enabled", bool)
     economic_shock_enabled = _get(s, "events", "economic_shock_enabled", bool)
     enabled = _get(s, "events", "enabled", bool)
-    if enabled != (scandal_enabled or economic_shock_enabled):
-        raise PolityConfigError(
-            "'events.enabled' must equal 'events.scandal_enabled or events.economic_shock_enabled' "
-            "-- these describe the same fact (§8) and must not drift apart"
-        )
     return EventsConfig(
         enabled=enabled,
         scandal_enabled=scandal_enabled,
@@ -840,8 +1032,6 @@ def _parse_llm(raw: dict[str, Any]) -> LlmConfig:
     # once the LLM path is actually enabled — reject rather than silently
     # accept a config that would produce irreproducible runs.
     temperature = float(_get(s, "llm", "temperature", (int, float)))
-    if enabled and temperature != 0.0:
-        raise PolityConfigError(f"'llm.temperature': must be 0.0 when llm.enabled is true, got {temperature}")
 
     recycle_after_n_calls = _get_optional_int(s, "llm", "recycle_after_n_calls")
     if recycle_after_n_calls is not None and recycle_after_n_calls <= 0:
@@ -864,7 +1054,17 @@ def _parse_llm(raw: dict[str, Any]) -> LlmConfig:
         personas_count=_get_positive_int(s, "llm", "personas_count"),
         max_batch_replays=_get_nonneg_int(s, "llm", "max_batch_replays"),
         recycle_after_n_calls=recycle_after_n_calls,
+        vote_cast_grammar_invariants=_get(s, "llm", "vote_cast_grammar_invariants", bool),
+        reproducibility=_get_enum(s, "llm", "reproducibility", _LLM_REPRODUCIBILITY),
+        thinking_token_budget=_thinking_token_budget(s),
     )
+
+
+def _thinking_token_budget(s: dict[str, Any]) -> int | None:
+    budget = _get_optional_int(s, "llm", "thinking_token_budget")
+    if budget is not None and budget < 1:
+        raise PolityConfigError(f"'llm.thinking_token_budget': expected a positive int or null, got {budget}")
+    return budget
 
 
 def _parse_parallel(raw: dict[str, Any]) -> ParallelConfig:
@@ -873,6 +1073,118 @@ def _parse_parallel(raw: dict[str, Any]) -> ParallelConfig:
         runs_in_parallel=_get_positive_int(s, "parallel", "runs_in_parallel"),
         intra_run_workers=_get_positive_int(s, "parallel", "intra_run_workers"),
     )
+
+
+# Every rule relating two or more settings, in one place (S1.5). Each section parses
+# in isolation; these only make sense once the whole config is known -- and they
+# must hold for a config built in code with dataclasses.replace, which never passes
+# through load_config's parsing. A rule returns its error message, or None.
+_CONFIG_RULES: tuple[Callable[[PolityConfig], str | None], ...] = (
+    lambda c: (
+        "'parallel.intra_run_workers' > 1 requires 'llm.reproducibility: relaxed' (D1, S2.1): parallel "
+        "decisions change the server's batches, so such a run is replayable from its call log but "
+        "not regenerable from its seed"
+    ) if c.llm.enabled and c.parallel.intra_run_workers > 1 and c.llm.reproducibility != "relaxed" else None,
+    lambda c: (
+        "'parallel.intra_run_workers' > 1 needs 'llm.provider: vllm': Ollama unloads and reloads its "
+        "model between calls (llm.recycle_after_n_calls), which parallel calls would interrupt"
+    ) if c.llm.enabled and c.parallel.intra_run_workers > 1 and c.llm.provider != "vllm" else None,
+    lambda c: (
+        "'llm.thinking_token_budget' needs 'llm.provider: vllm' (S1.3): it is a vLLM request field, "
+        "which Ollama has no equivalent of -- set it to null for any other provider"
+    ) if c.llm.enabled and c.llm.thinking_token_budget is not None and c.llm.provider != "vllm" else None,
+    lambda c: (
+        "'institutions.blank_vote_competitive': true requires 'institutions.blank_vote_enabled' "
+        "to also be true (v4 Lot 9, §6bis.2 -- nothing to be competitive about if blank isn't "
+        "itself a choice)"
+    ) if c.institutions.blank_vote_competitive and not c.institutions.blank_vote_enabled else None,
+    lambda c: (
+        "'pressure_menu.electoral_only': true requires both petition_enabled and "
+        "mobilization_enabled to be false (§7bis.8 -- one 4-modality variable, not two "
+        "independent booleans)"
+    ) if c.pressure_menu.electoral_only and (c.pressure_menu.petition_enabled or c.pressure_menu.mobilization_enabled) else None,
+    lambda c: (
+        "'events.enabled' must equal 'events.scandal_enabled or events.economic_shock_enabled' "
+        "-- these describe the same fact (§8) and must not drift apart"
+    ) if c.events.enabled != (c.events.scandal_enabled or c.events.economic_shock_enabled) else None,
+    lambda c: (
+        f"'llm.temperature': must be 0.0 when llm.enabled is true, got {c.llm.temperature}"
+    ) if c.llm.enabled and c.llm.temperature != 0.0 else None,
+    lambda c: (
+        "'pressure_menu.petition_enabled' and 'petition.enabled' disagree -- these two keys "
+        "describe the same fact (§7bis.2) and must not drift apart"
+    ) if c.pressure_menu.petition_enabled != c.petition.enabled else None,
+    lambda c: (
+        "'pressure_menu.mobilization_enabled' and 'street_pressure.enabled' disagree -- "
+        "these two keys describe the same fact (§7bis.2) and must not drift apart"
+    ) if c.pressure_menu.mobilization_enabled != c.street_pressure.enabled else None,
+    lambda c: (
+        f"'petition.weight_in_ecart' + 'street_pressure.weight_in_ecart' must sum to 1.0 "
+        f"(w_pet + w_mob, §7bis.6), got {c.petition.weight_in_ecart + c.street_pressure.weight_in_ecart}"
+    ) if abs(c.petition.weight_in_ecart + c.street_pressure.weight_in_ecart - 1.0) > 1e-9 else None,
+    lambda c: (
+        "'legitimacy.enabled' must be true when 'petition.enabled' or 'street_pressure.enabled' "
+        "is true -- écart(t) from either lever has nowhere to go without L(t) tracked (§7bis.6)"
+    ) if (c.petition.enabled or c.street_pressure.enabled) and not c.legitimacy.enabled else None,
+    lambda c: (
+        "'awakening.enabled' must be true when 'petition.enabled' or 'street_pressure.enabled' "
+        "is true -- a citizen lever with nobody ever consulted (§7bis.9d) is a silently dead "
+        "experiment, indistinguishable from 'pressure_menu.electoral_only'"
+    ) if (c.petition.enabled or c.street_pressure.enabled) and not c.awakening.enabled else None,
+    lambda c: (
+        "'awakening.enabled' must be true when 'events.enabled' is true -- a shock with nobody "
+        "ever consulted (§7bis.9d) is a silently dead experiment (v5 §8)"
+    ) if c.events.enabled and not c.awakening.enabled else None,
+    lambda c: (
+        "'awakening.context_modulation.event_salience' must be true when 'events.enabled' is "
+        "true -- a shock with nothing in the awakening gate to modulate is a silently dead "
+        "experiment (v5 §8)"
+    ) if c.events.enabled and not c.awakening.context_modulation.event_salience else None,
+    lambda c: (
+        "'social_graph.enabled' must be true when "
+        "'awakening.context_modulation.neighbors_acting' is true -- there is no graph to "
+        "compute the term from otherwise (§5/§7bis.9f). The reverse is not required: "
+        "'social_graph.enabled' alone (without this flag) is a real arm -- the graph still "
+        "feeds pressure_action's ctx.neighbors_acting without also modulating who gets "
+        "consulted"
+    ) if c.awakening.context_modulation.neighbors_acting and not c.social_graph.enabled else None,
+    lambda c: (
+        f"'legislation.max_bill_dimensions' ({c.legislation.max_bill_dimensions}) cannot exceed "
+        f"'citizens.issue_count' ({c.citizens.issue_count}) -- a bill moves policy on real issues (S4.2)"
+    ) if c.legislation.max_bill_dimensions > c.citizens.issue_count else None,
+    lambda c: (
+        "'dynamics.enabled' requires 'citizens.position_dist: factor_structure' (S4.3): citizens move "
+        "on the latent factors their positions are built from, and a uniform population has none"
+    ) if c.dynamics.enabled and c.citizens.position_dist != "factor_structure" else None,
+    lambda c: (
+        "'dynamics.influence_step' > 0 requires 'social_graph.enabled' (S4.3): influence runs over "
+        "the social graph, so without one the step would silently do nothing"
+    ) if c.dynamics.enabled and c.dynamics.influence_step > 0 and not c.social_graph.enabled else None,
+    lambda c: (
+        "'emotions.enabled' requires 'awakening.enabled' (S4.3): emotions act through the awakening "
+        "gate and the pressure rule, so with nobody consulted they are a silently dead experiment"
+    ) if c.emotions.enabled and not c.awakening.enabled else None,
+    lambda c: (
+        "'sortition_chamber.seats' cannot exceed 'run.population_size' when "
+        "'sortition_chamber.enabled' is true -- a config that can't seat even one full chamber "
+        "is a degenerate arm (§6bis.3)"
+    ) if c.sortition_chamber.enabled and c.run.population_size < c.sortition_chamber.seats else None,
+    lambda c: (
+        f"'llm.model' {c.llm.model!r} has no model profile on provider {c.llm.provider!r} -- its chunk "
+        "sizes, thinking budgets and thinking switch are unmeasured; add a profile to "
+        "api/domain/polity/model_profiles.py (S2.3)"
+    ) if c.llm.enabled and c.llm.provider in PROFILED_PROVIDERS and (c.llm.provider, c.llm.model) not in PROFILES else None,
+)
+
+
+def validate_config(config: PolityConfig) -> None:
+    """Raise PolityConfigError on the first cross-setting rule `config` breaks.
+    Called by load_config and again by run_simulation, so a config assembled
+    with dataclasses.replace is held to the same rules as the YAML."""
+    for rule in _CONFIG_RULES:
+        message = rule(config)
+        if message is not None:
+            raise PolityConfigError(message)
 
 
 def load_config(path: Path | str | None = None) -> PolityConfig:
@@ -906,71 +1218,17 @@ def load_config(path: Path | str | None = None) -> PolityConfig:
     social_graph = _parse_social_graph(raw)
     sortition_chamber = _parse_sortition_chamber(raw)
 
-    # Cross-section rules (§7bis.2/§7bis.6) -- each section parses in
-    # isolation above; these are the invariants that only make sense once
-    # more than one section is known, so they live here rather than in any
-    # single _parse_* function.
-    if pressure_menu.petition_enabled != petition.enabled:
-        raise PolityConfigError(
-            "'pressure_menu.petition_enabled' and 'petition.enabled' disagree -- these two keys "
-            "describe the same fact (§7bis.2) and must not drift apart"
-        )
-    if pressure_menu.mobilization_enabled != street_pressure.enabled:
-        raise PolityConfigError(
-            "'pressure_menu.mobilization_enabled' and 'street_pressure.enabled' disagree -- "
-            "these two keys describe the same fact (§7bis.2) and must not drift apart"
-        )
-    weight_sum = petition.weight_in_ecart + street_pressure.weight_in_ecart
-    if abs(weight_sum - 1.0) > 1e-9:
-        raise PolityConfigError(
-            f"'petition.weight_in_ecart' + 'street_pressure.weight_in_ecart' must sum to 1.0 "
-            f"(w_pet + w_mob, §7bis.6), got {weight_sum}"
-        )
-    if (petition.enabled or street_pressure.enabled) and not legitimacy.enabled:
-        raise PolityConfigError(
-            "'legitimacy.enabled' must be true when 'petition.enabled' or 'street_pressure.enabled' "
-            "is true -- écart(t) from either lever has nowhere to go without L(t) tracked (§7bis.6)"
-        )
-    if (petition.enabled or street_pressure.enabled) and not awakening.enabled:
-        raise PolityConfigError(
-            "'awakening.enabled' must be true when 'petition.enabled' or 'street_pressure.enabled' "
-            "is true -- a citizen lever with nobody ever consulted (§7bis.9d) is a silently dead "
-            "experiment, indistinguishable from 'pressure_menu.electoral_only'"
-        )
-    if events.enabled and not awakening.enabled:
-        raise PolityConfigError(
-            "'awakening.enabled' must be true when 'events.enabled' is true -- a shock with nobody "
-            "ever consulted (§7bis.9d) is a silently dead experiment (v5 §8)"
-        )
-    if events.enabled and not awakening.context_modulation.event_salience:
-        raise PolityConfigError(
-            "'awakening.context_modulation.event_salience' must be true when 'events.enabled' is "
-            "true -- a shock with nothing in the awakening gate to modulate is a silently dead "
-            "experiment (v5 §8)"
-        )
-    if awakening.context_modulation.neighbors_acting and not social_graph.enabled:
-        raise PolityConfigError(
-            "'social_graph.enabled' must be true when "
-            "'awakening.context_modulation.neighbors_acting' is true -- there is no graph to "
-            "compute the term from otherwise (§5/§7bis.9f). The reverse is not required: "
-            "'social_graph.enabled' alone (without this flag) is a real arm -- the graph still "
-            "feeds pressure_action's ctx.neighbors_acting without also modulating who gets "
-            "consulted"
-        )
-    if sortition_chamber.enabled and run.population_size < sortition_chamber.seats:
-        raise PolityConfigError(
-            "'sortition_chamber.seats' cannot exceed 'run.population_size' when "
-            "'sortition_chamber.enabled' is true -- a config that can't seat even one full chamber "
-            "is a degenerate arm (§6bis.3)"
-        )
-
-    return PolityConfig(
+    config = PolityConfig(
         run=run,
         institutions=_parse_institutions(raw),
         parties=_parse_parties(raw),
         citizens=_parse_citizens(raw),
         candidacy=_parse_candidacy(raw),
         campaign=_parse_campaign(raw),
+        vote=_parse_vote(raw),
+        legislation=_parse_legislation(raw),
+        dynamics=_parse_dynamics(raw),
+        emotions=_parse_emotions(raw),
         legitimacy=legitimacy,
         pressure_menu=pressure_menu,
         mandate=_parse_mandate(raw),
@@ -986,3 +1244,5 @@ def load_config(path: Path | str | None = None) -> PolityConfig:
         parallel=_parse_parallel(raw),
         raw=raw,
     )
+    validate_config(config)
+    return config

@@ -30,7 +30,7 @@ test.describe('Navigation — the five real surfaces', () => {
     });
   }
 
-  test('navbar links reach the three destinations', async ({ page }) => {
+  test('navbar links reach the four destinations', async ({ page }) => {
     const nav = () => page.locator('[data-tour="navbar"]');
 
     await page.goto('/');
@@ -48,6 +48,9 @@ test.describe('Navigation — the five real surfaces', () => {
       .getByRole('link', { name: /à vous de jouer|your turn/i })
       .click();
     await expect(page).toHaveURL(/\/a-vous-de-jouer$/);
+
+    await page.getByTestId('nav-polity').click();
+    await expect(page).toHaveURL(/\/polity$/);
   });
 
   test('brand link goes back home', async ({ page }) => {

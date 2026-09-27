@@ -1,0 +1,782 @@
+{
+  "settings": [
+    {
+      "bill_interval_ticks": 4,
+      "max_bill_step": 0.05,
+      "facts": [
+        {
+          "name": "L1 checks moderate policy",
+          "holds": true,
+          "reading": "policy 0.0110 from the median, president 0.1637"
+        },
+        {
+          "name": "L2 the institution is alive",
+          "holds": false,
+          "reading": "0.32 bills enacted per term; policy moved in 6 of 10 runs"
+        },
+        {
+          "name": "L3 gridlock under cohabitation",
+          "holds": true,
+          "reading": "enacted 0/49 (0.0%) under cohabitation, 19/101 (18.8%) unified"
+        }
+      ],
+      "l1_l3_hold": false,
+      "replay": [
+        {
+          "seed": 1,
+          "served": 2356,
+          "unserved": 0
+        },
+        {
+          "seed": 2,
+          "served": 2437,
+          "unserved": 0
+        },
+        {
+          "seed": 3,
+          "served": 2820,
+          "unserved": 0
+        },
+        {
+          "seed": 4,
+          "served": 3064,
+          "unserved": 0
+        },
+        {
+          "seed": 5,
+          "served": 3147,
+          "unserved": 0
+        },
+        {
+          "seed": 6,
+          "served": 3328,
+          "unserved": 0
+        },
+        {
+          "seed": 7,
+          "served": 2771,
+          "unserved": 0
+        },
+        {
+          "seed": 8,
+          "served": 3211,
+          "unserved": 0
+        },
+        {
+          "seed": 9,
+          "served": 2897,
+          "unserved": 0
+        },
+        {
+          "seed": 10,
+          "served": 2224,
+          "unserved": 0
+        }
+      ]
+    },
+    {
+      "bill_interval_ticks": 4,
+      "max_bill_step": 0.1,
+      "facts": [
+        {
+          "name": "L1 checks moderate policy",
+          "holds": true,
+          "reading": "policy 0.0123 from the median, president 0.1637"
+        },
+        {
+          "name": "L2 the institution is alive",
+          "holds": false,
+          "reading": "0.20 bills enacted per term; policy moved in 5 of 10 runs"
+        },
+        {
+          "name": "L3 gridlock under cohabitation",
+          "holds": true,
+          "reading": "enacted 0/49 (0.0%) under cohabitation, 12/101 (11.9%) unified"
+        }
+      ],
+      "l1_l3_hold": false,
+      "replay": [
+        {
+          "seed": 1,
+          "served": 2356,
+          "unserved": 0
+        },
+        {
+          "seed": 2,
+          "served": 2437,
+          "unserved": 0
+        },
+        {
+          "seed": 3,
+          "served": 2820,
+          "unserved": 0
+        },
+        {
+          "seed": 4,
+          "served": 3064,
+          "unserved": 0
+        },
+        {
+          "seed": 5,
+          "served": 3147,
+          "unserved": 0
+        },
+        {
+          "seed": 6,
+          "served": 3328,
+          "unserved": 0
+        },
+        {
+          "seed": 7,
+          "served": 2771,
+          "unserved": 0
+        },
+        {
+          "seed": 8,
+          "served": 3211,
+          "unserved": 0
+        },
+        {
+          "seed": 9,
+          "served": 2897,
+          "unserved": 0
+        },
+        {
+          "seed": 10,
+          "served": 2224,
+          "unserved": 0
+        }
+      ]
+    },
+    {
+      "bill_interval_ticks": 4,
+      "max_bill_step": 0.2,
+      "facts": [
+        {
+          "name": "L1 checks moderate policy",
+          "holds": true,
+          "reading": "policy 0.0104 from the median, president 0.1637"
+        },
+        {
+          "name": "L2 the institution is alive",
+          "holds": false,
+          "reading": "0.12 bills enacted per term; policy moved in 4 of 10 runs"
+        },
+        {
+          "name": "L3 gridlock under cohabitation",
+          "holds": true,
+          "reading": "enacted 0/49 (0.0%) under cohabitation, 7/101 (6.9%) unified"
+        }
+      ],
+      "l1_l3_hold": false,
+      "replay": [
+        {
+          "seed": 1,
+          "served": 2356,
+          "unserved": 0
+        },
+        {
+          "seed": 2,
+          "served": 2437,
+          "unserved": 0
+        },
+        {
+          "seed": 3,
+          "served": 2820,
+          "unserved": 0
+        },
+        {
+          "seed": 4,
+          "served": 3064,
+          "unserved": 0
+        },
+        {
+          "seed": 5,
+          "served": 3147,
+          "unserved": 0
+        },
+        {
+          "seed": 6,
+          "served": 3328,
+          "unserved": 0
+        },
+        {
+          "seed": 7,
+          "served": 2771,
+          "unserved": 0
+        },
+        {
+          "seed": 8,
+          "served": 3211,
+          "unserved": 0
+        },
+        {
+          "seed": 9,
+          "served": 2897,
+          "unserved": 0
+        },
+        {
+          "seed": 10,
+          "served": 2224,
+          "unserved": 0
+        }
+      ]
+    },
+    {
+      "bill_interval_ticks": 2,
+      "max_bill_step": 0.05,
+      "facts": [
+        {
+          "name": "L1 checks moderate policy",
+          "holds": true,
+          "reading": "policy 0.0113 from the median, president 0.1637"
+        },
+        {
+          "name": "L2 the institution is alive",
+          "holds": false,
+          "reading": "0.36 bills enacted per term; policy moved in 6 of 10 runs"
+        },
+        {
+          "name": "L3 gridlock under cohabitation",
+          "holds": true,
+          "reading": "enacted 0/97 (0.0%) under cohabitation, 21/179 (11.7%) unified"
+        }
+      ],
+      "l1_l3_hold": false,
+      "replay": [
+        {
+          "seed": 1,
+          "served": 2356,
+          "unserved": 0
+        },
+        {
+          "seed": 2,
+          "served": 2437,
+          "unserved": 0
+        },
+        {
+          "seed": 3,
+          "served": 2820,
+          "unserved": 0
+        },
+        {
+          "seed": 4,
+          "served": 3064,
+          "unserved": 0
+        },
+        {
+          "seed": 5,
+          "served": 3147,
+          "unserved": 0
+        },
+        {
+          "seed": 6,
+          "served": 3328,
+          "unserved": 0
+        },
+        {
+          "seed": 7,
+          "served": 2771,
+          "unserved": 0
+        },
+        {
+          "seed": 8,
+          "served": 3211,
+          "unserved": 0
+        },
+        {
+          "seed": 9,
+          "served": 2897,
+          "unserved": 0
+        },
+        {
+          "seed": 10,
+          "served": 2224,
+          "unserved": 0
+        }
+      ]
+    },
+    {
+      "bill_interval_ticks": 2,
+      "max_bill_step": 0.1,
+      "facts": [
+        {
+          "name": "L1 checks moderate policy",
+          "holds": true,
+          "reading": "policy 0.0123 from the median, president 0.1637"
+        },
+        {
+          "name": "L2 the institution is alive",
+          "holds": false,
+          "reading": "0.20 bills enacted per term; policy moved in 5 of 10 runs"
+        },
+        {
+          "name": "L3 gridlock under cohabitation",
+          "holds": true,
+          "reading": "enacted 0/97 (0.0%) under cohabitation, 12/183 (6.6%) unified"
+        }
+      ],
+      "l1_l3_hold": false,
+      "replay": [
+        {
+          "seed": 1,
+          "served": 2356,
+          "unserved": 0
+        },
+        {
+          "seed": 2,
+          "served": 2437,
+          "unserved": 0
+        },
+        {
+          "seed": 3,
+          "served": 2820,
+          "unserved": 0
+        },
+        {
+          "seed": 4,
+          "served": 3064,
+          "unserved": 0
+        },
+        {
+          "seed": 5,
+          "served": 3147,
+          "unserved": 0
+        },
+        {
+          "seed": 6,
+          "served": 3328,
+          "unserved": 0
+        },
+        {
+          "seed": 7,
+          "served": 2771,
+          "unserved": 0
+        },
+        {
+          "seed": 8,
+          "served": 3211,
+          "unserved": 0
+        },
+        {
+          "seed": 9,
+          "served": 2897,
+          "unserved": 0
+        },
+        {
+          "seed": 10,
+          "served": 2224,
+          "unserved": 0
+        }
+      ]
+    },
+    {
+      "bill_interval_ticks": 2,
+      "max_bill_step": 0.2,
+      "facts": [
+        {
+          "name": "L1 checks moderate policy",
+          "holds": true,
+          "reading": "policy 0.0104 from the median, president 0.1637"
+        },
+        {
+          "name": "L2 the institution is alive",
+          "holds": false,
+          "reading": "0.12 bills enacted per term; policy moved in 4 of 10 runs"
+        },
+        {
+          "name": "L3 gridlock under cohabitation",
+          "holds": true,
+          "reading": "enacted 0/97 (0.0%) under cohabitation, 7/186 (3.8%) unified"
+        }
+      ],
+      "l1_l3_hold": false,
+      "replay": [
+        {
+          "seed": 1,
+          "served": 2356,
+          "unserved": 0
+        },
+        {
+          "seed": 2,
+          "served": 2437,
+          "unserved": 0
+        },
+        {
+          "seed": 3,
+          "served": 2820,
+          "unserved": 0
+        },
+        {
+          "seed": 4,
+          "served": 3064,
+          "unserved": 0
+        },
+        {
+          "seed": 5,
+          "served": 3147,
+          "unserved": 0
+        },
+        {
+          "seed": 6,
+          "served": 3328,
+          "unserved": 0
+        },
+        {
+          "seed": 7,
+          "served": 2771,
+          "unserved": 0
+        },
+        {
+          "seed": 8,
+          "served": 3211,
+          "unserved": 0
+        },
+        {
+          "seed": 9,
+          "served": 2897,
+          "unserved": 0
+        },
+        {
+          "seed": 10,
+          "served": 2224,
+          "unserved": 0
+        }
+      ]
+    },
+    {
+      "bill_interval_ticks": 1,
+      "max_bill_step": 0.05,
+      "facts": [
+        {
+          "name": "L1 checks moderate policy",
+          "holds": true,
+          "reading": "policy 0.0115 from the median, president 0.1637"
+        },
+        {
+          "name": "L2 the institution is alive",
+          "holds": false,
+          "reading": "0.34 bills enacted per term; policy moved in 6 of 10 runs"
+        },
+        {
+          "name": "L3 gridlock under cohabitation",
+          "holds": true,
+          "reading": "enacted 0/194 (0.0%) under cohabitation, 20/348 (5.7%) unified"
+        }
+      ],
+      "l1_l3_hold": false,
+      "replay": [
+        {
+          "seed": 1,
+          "served": 2356,
+          "unserved": 0
+        },
+        {
+          "seed": 2,
+          "served": 2437,
+          "unserved": 0
+        },
+        {
+          "seed": 3,
+          "served": 2820,
+          "unserved": 0
+        },
+        {
+          "seed": 4,
+          "served": 3064,
+          "unserved": 0
+        },
+        {
+          "seed": 5,
+          "served": 3147,
+          "unserved": 0
+        },
+        {
+          "seed": 6,
+          "served": 3328,
+          "unserved": 0
+        },
+        {
+          "seed": 7,
+          "served": 2771,
+          "unserved": 0
+        },
+        {
+          "seed": 8,
+          "served": 3211,
+          "unserved": 0
+        },
+        {
+          "seed": 9,
+          "served": 2897,
+          "unserved": 0
+        },
+        {
+          "seed": 10,
+          "served": 2224,
+          "unserved": 0
+        }
+      ]
+    },
+    {
+      "bill_interval_ticks": 1,
+      "max_bill_step": 0.1,
+      "facts": [
+        {
+          "name": "L1 checks moderate policy",
+          "holds": true,
+          "reading": "policy 0.0128 from the median, president 0.1637"
+        },
+        {
+          "name": "L2 the institution is alive",
+          "holds": false,
+          "reading": "0.20 bills enacted per term; policy moved in 5 of 10 runs"
+        },
+        {
+          "name": "L3 gridlock under cohabitation",
+          "holds": true,
+          "reading": "enacted 0/194 (0.0%) under cohabitation, 12/358 (3.4%) unified"
+        }
+      ],
+      "l1_l3_hold": false,
+      "replay": [
+        {
+          "seed": 1,
+          "served": 2356,
+          "unserved": 0
+        },
+        {
+          "seed": 2,
+          "served": 2437,
+          "unserved": 0
+        },
+        {
+          "seed": 3,
+          "served": 2820,
+          "unserved": 0
+        },
+        {
+          "seed": 4,
+          "served": 3064,
+          "unserved": 0
+        },
+        {
+          "seed": 5,
+          "served": 3147,
+          "unserved": 0
+        },
+        {
+          "seed": 6,
+          "served": 3328,
+          "unserved": 0
+        },
+        {
+          "seed": 7,
+          "served": 2771,
+          "unserved": 0
+        },
+        {
+          "seed": 8,
+          "served": 3211,
+          "unserved": 0
+        },
+        {
+          "seed": 9,
+          "served": 2897,
+          "unserved": 0
+        },
+        {
+          "seed": 10,
+          "served": 2224,
+          "unserved": 0
+        }
+      ]
+    },
+    {
+      "bill_interval_ticks": 1,
+      "max_bill_step": 0.2,
+      "facts": [
+        {
+          "name": "L1 checks moderate policy",
+          "holds": true,
+          "reading": "policy 0.0105 from the median, president 0.1637"
+        },
+        {
+          "name": "L2 the institution is alive",
+          "holds": false,
+          "reading": "0.12 bills enacted per term; policy moved in 4 of 10 runs"
+        },
+        {
+          "name": "L3 gridlock under cohabitation",
+          "holds": true,
+          "reading": "enacted 0/194 (0.0%) under cohabitation, 7/362 (1.9%) unified"
+        }
+      ],
+      "l1_l3_hold": false,
+      "replay": [
+        {
+          "seed": 1,
+          "served": 2356,
+          "unserved": 0
+        },
+        {
+          "seed": 2,
+          "served": 2437,
+          "unserved": 0
+        },
+        {
+          "seed": 3,
+          "served": 2820,
+          "unserved": 0
+        },
+        {
+          "seed": 4,
+          "served": 3064,
+          "unserved": 0
+        },
+        {
+          "seed": 5,
+          "served": 3147,
+          "unserved": 0
+        },
+        {
+          "seed": 6,
+          "served": 3328,
+          "unserved": 0
+        },
+        {
+          "seed": 7,
+          "served": 2771,
+          "unserved": 0
+        },
+        {
+          "seed": 8,
+          "served": 3211,
+          "unserved": 0
+        },
+        {
+          "seed": 9,
+          "served": 2897,
+          "unserved": 0
+        },
+        {
+          "seed": 10,
+          "served": 2224,
+          "unserved": 0
+        }
+      ]
+    }
+  ],
+  "runs": [
+    {
+      "seed": 1,
+      "wall_clock_minutes": 33.4,
+      "elections": 5,
+      "recalls": 0,
+      "full_terms": 4,
+      "fallbacks": {
+        "chamber_deliberation": "100/1950",
+        "representative_response": "17/65"
+      }
+    },
+    {
+      "seed": 2,
+      "wall_clock_minutes": 33.3,
+      "elections": 5,
+      "recalls": 0,
+      "full_terms": 4,
+      "fallbacks": {
+        "chamber_deliberation": "105/1950",
+        "representative_response": "16/65"
+      }
+    },
+    {
+      "seed": 3,
+      "wall_clock_minutes": 34.5,
+      "elections": 5,
+      "recalls": 0,
+      "full_terms": 4,
+      "fallbacks": {
+        "chamber_deliberation": "105/1950",
+        "representative_response": "19/65"
+      }
+    },
+    {
+      "seed": 4,
+      "wall_clock_minutes": 36.8,
+      "elections": 6,
+      "recalls": 1,
+      "full_terms": 3,
+      "fallbacks": {
+        "chamber_deliberation": "175/1950",
+        "representative_response": "48/65"
+      }
+    },
+    {
+      "seed": 5,
+      "wall_clock_minutes": 36.3,
+      "elections": 6,
+      "recalls": 1,
+      "full_terms": 3,
+      "fallbacks": {
+        "chamber_deliberation": "120/1950",
+        "representative_response": "26/65"
+      }
+    },
+    {
+      "seed": 6,
+      "wall_clock_minutes": 33.8,
+      "elections": 8,
+      "recalls": 3,
+      "full_terms": 2,
+      "fallbacks": {
+        "chamber_deliberation": "95/1950",
+        "representative_response": "25/65"
+      }
+    },
+    {
+      "seed": 7,
+      "wall_clock_minutes": 32.3,
+      "elections": 5,
+      "recalls": 0,
+      "full_terms": 4,
+      "fallbacks": {
+        "chamber_deliberation": "95/1950",
+        "representative_response": "23/65"
+      }
+    },
+    {
+      "seed": 8,
+      "wall_clock_minutes": 31.5,
+      "elections": 7,
+      "recalls": 3,
+      "full_terms": 1,
+      "fallbacks": {
+        "chamber_deliberation": "50/1950",
+        "representative_response": "17/65"
+      }
+    },
+    {
+      "seed": 9,
+      "wall_clock_minutes": 33.8,
+      "elections": 6,
+      "recalls": 1,
+      "full_terms": 3,
+      "fallbacks": {
+        "chamber_deliberation": "165/1950",
+        "representative_response": "34/65"
+      }
+    },
+    {
+      "seed": 10,
+      "wall_clock_minutes": 33.3,
+      "elections": 6,
+      "recalls": 1,
+      "full_terms": 3,
+      "fallbacks": {
+        "chamber_deliberation": "125/1950",
+        "representative_response": "21/65"
+      }
+    }
+  ]
+}

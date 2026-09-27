@@ -3,6 +3,7 @@ import type { TranslationKeys } from './fr';
 const en: TranslationKeys = {
   nav: {
     play: 'Your turn',
+    polity: 'Polity',
     playground: 'Playground',
     laboratoire: 'Lab',
     lexique: 'Glossary',

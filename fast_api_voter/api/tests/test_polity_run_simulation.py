@@ -14,11 +14,17 @@ import pytest
 
 import api.domain.polity.run_polity_simulation as run_polity_simulation_module
 from api.domain.polity.accountability import chamber_deviation, unified_mandate_deviation, update_street_pressure
+from api.domain.polity.checkpoint import load_checkpoint
+from api.domain.polity.snapshots import expected_snapshot_rows
 from api.domain.polity.citizen import Citizen, Office, Role, generate_population
 from api.domain.polity.codebook import EventType, ReactionMotif
-from api.domain.polity.config import PolityConfig, load_config
+from api.domain.polity.config import PolityConfig, PolityConfigError, load_config
 from api.domain.polity.journal import Journal
-from api.domain.polity.llm_behavior_engine import _VOTE_CAST_RETRY_TEMPERATURE
+from api.domain.polity.llm_behavior_engine import (
+    _VOTE_CAST_RETRY_SEED_BASE,
+    _VOTE_CAST_RETRY_TEMPERATURE,
+    menu_acts,
+)
 from api.domain.polity.llm_client import LlmResponseError, OllamaJsonClient, VllmJsonClient
 from api.domain.polity.metrics import consultation_rate, mobilization_rate
 from api.domain.polity.parties import Party, initialize_parties
@@ -27,6 +33,7 @@ from api.domain.polity.run_polity_simulation import (
     PendingRerun,
     _attempt_rupture_candidacies,
     _declare_nominees_llm,
+    _fresh_tick_state,
     _hold_presidential_election,
     _llm_client_scope,
     _run_accountability_phase,
@@ -37,7 +44,11 @@ from api.domain.polity.run_polity_simulation import (
     _warn_if_no_candidate_is_possible,
     run_simulation,
 )
-from api.domain.polity.simple_rules import assign_party_affiliation, declare_candidacy
+from api.domain.polity.simple_rules import (
+    assign_party_affiliation,
+    declare_candidacy,
+    deterministic_reaction_to_event,
+)
 from api.domain.polity.social_graph import SocialGraph
 
 _PETITION_LIFECYCLE_EVENT_TYPES = {
@@ -151,7 +162,7 @@ class _RecordingClient:
         self.calls: list[bool] = []
         self._fail_think = fail_think
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
         self.calls.append(think)
         if think is self._fail_think:
             raise RuntimeError("simulated warm-up failure")
@@ -483,7 +494,13 @@ def _config_with_mandate_enabled_and_guaranteed_winners(output_dir) -> PolityCon
     # it to 0 guarantees nominees, and therefore `elected` events to assert
     # mandate_pledge_declared against.
     config = _config_with_mandate_enabled(output_dir)
-    return dataclasses.replace(config, candidacy=dataclasses.replace(config.candidacy, ambition_threshold=0.0))
+    return dataclasses.replace(
+        config,
+        candidacy=dataclasses.replace(config.candidacy, ambition_threshold=0.0),
+        # No term limit: every pledge here is a re-eligible president's (lame_duck False),
+        # which is what the deviation control case below asserts about.
+        institutions=dataclasses.replace(config.institutions, president_term_limit=None),
+    )
 
 
 def test_default_config_run_emits_no_mandate_events(tmp_path):
@@ -600,6 +617,45 @@ def test_term_limited_incumbent_is_not_re_nominated(tmp_path):
     assert citizen_a.office == Office.NONE
     assert citizen_a.role == Role.ELECTOR
     assert citizen_a.mandates_served == 1
+
+
+def test_the_llm_path_honours_the_term_limit(tmp_path):
+    # observations.md OBS-012: until 2026-09-13 only the deterministic path applied
+    # the limit, and the LLM path re-elected the same citizen at every election.
+    config = _config_with_llm_enabled(tmp_path)
+    config = dataclasses.replace(
+        config,
+        run=dataclasses.replace(config.run, duration_years=8),
+        institutions=dataclasses.replace(config.institutions, president_term_limit=1),
+    )
+    events = _events(run_simulation(config, run_id="limited", llm_client=_ElectingFakeLlmClient()))
+
+    presidents = [e["citizen_id"] for e in events if e["event_type"] == "elected" and e["payload"]["office"] == "president"]
+    assert len(presidents) >= 3
+    assert len(set(presidents)) == len(presidents)
+
+
+def test_the_llm_path_does_not_nominate_a_barred_citizen_but_still_asks_about_them(tmp_path):
+    config = _config_with_llm_enabled(tmp_path)
+
+    def nominate(barred):
+        state = _fresh_tick_state(config)
+        journal_path = tmp_path / f"run-{len(barred)}.jsonl"
+        with Journal(journal_path, run_id="r") as journal:
+            nominees = _declare_nominees_llm(
+                state.citizens, state.parties, config, journal, 0, _FakeLlmClient(), barred_candidate_ids=barred,
+            )
+        considered = [e for e in _events(journal_path) if e["event_type"] == "candidacy_considered"]
+        return {c.citizen_id for c in nominees}, considered
+
+    unbarred, considered_unbarred = nominate(frozenset())
+    barred = frozenset(unbarred)
+    nominees, considered_barred = nominate(barred)
+
+    assert nominees and not nominees & barred
+    # The gate sits after the candidacy decision: the model is asked the same question
+    # about every citizen whether or not anyone is barred.
+    assert considered_barred == considered_unbarred
 
 
 # ── competitive blank voting (v4 Lot 9, §6bis.2) ─────────────────────────
@@ -831,7 +887,10 @@ def test_barred_candidates_are_excluded_from_the_next_partys_nomination(tmp_path
 def test_barred_candidates_cannot_declare_a_rupture_candidacy(tmp_path):
     # blank_vote_competitive itself is irrelevant to this call --
     # _attempt_rupture_candidacies only reads config.candidacy and the
-    # barred_candidate_ids argument directly.
+    # barred_candidate_ids argument directly. rupture_distance_multiplier=0.0
+    # keeps this a pure probability/signature-bar test, same as before the
+    # distance-weighted probability was added -- party_affiliation only needs
+    # to resolve to *some* party in `parties` for the lookup to succeed.
     config = load_config()
     config = dataclasses.replace(
         config,
@@ -839,17 +898,21 @@ def test_barred_candidates_cannot_declare_a_rupture_candidacy(tmp_path):
             config.candidacy,
             rupture_path_enabled=True,
             rupture_base_probability=1.0,
+            rupture_distance_multiplier=0.0,
             rupture_signature_ratio=0.0,
         ),
     )
-    citizen = _blank_leaning_citizen(0, 0.5, blank_threshold=1.0, ambition=0.0)
+    parties = [Party(party_id=0, platform=(0.5,))]
+    citizen = _blank_leaning_citizen(0, 0.5, blank_threshold=1.0, ambition=0.0, party=0)
     citizen.role = Role.ELECTOR
-    population = [citizen] + [_blank_leaning_citizen(i, 0.5, blank_threshold=1.0, ambition=0.0) for i in range(1, 4)]
+    population = [citizen] + [
+        _blank_leaning_citizen(i, 0.5, blank_threshold=1.0, ambition=0.0, party=0) for i in range(1, 4)
+    ]
     rng = np.random.default_rng(0)
 
     with Journal(tmp_path / "run.jsonl", run_id="r") as journal:
         _attempt_rupture_candidacies(
-            population, config, journal, tick=0, rng=rng, barred_candidate_ids=frozenset({0})
+            population, parties, config, journal, tick=0, rng=rng, barred_candidate_ids=frozenset({0})
         )
 
     events = _events(tmp_path / "run.jsonl")
@@ -1083,8 +1146,14 @@ def test_legitimacy_is_flat_at_mandate_strength_for_the_entire_run(tmp_path):
     config = _config_with_legitimacy_enabled_and_guaranteed_winners(tmp_path, recall_floor=0.0)
     # Pinned to uniform regardless of citizens.position_dist's shipped
     # default (plan-distribution-positions-seeds.md, Phase 3): m=0.51 below
-    # was computed for this seed specifically under uniform.
-    config = dataclasses.replace(config, citizens=dataclasses.replace(config.citizens, position_dist="uniform"))
+    # was computed for this seed specifically under uniform. No term limit
+    # (shipped at 2 since D6): the claim is about one president's L(t) across
+    # every term, which a limit would end.
+    config = dataclasses.replace(
+        config,
+        citizens=dataclasses.replace(config.citizens, position_dist="uniform"),
+        institutions=dataclasses.replace(config.institutions, president_term_limit=None),
+    )
     journal_path = run_simulation(config, run_id="legitimacy-flat")
     events = _events(journal_path)
     updates = [e for e in events if e["event_type"] == "legitimacy_updated"]
@@ -1198,6 +1267,91 @@ def test_same_tick_election_recall_is_reachable(tmp_path):
     recalled_ticks = [e["tick"] for e in events if e["event_type"] == "recalled"]
     assert elected_ticks
     assert elected_ticks == recalled_ticks
+
+
+# ── Track A3 (2026-09-11, lets-build-a-solid-spicy-otter.md): the snap
+# election. Both tests share `test_same_tick_election_recall_is_reachable`'s
+# own recall_floor=0.99 trick (guarantees every winner is recalled the tick
+# they take office) over a run shorter than one presidential term
+# (duration_years=2 -> 8 ticks, president_term_years shipped at 4 -> 16
+# ticks) -- the calendar's own NEXT scheduled election never falls inside
+# the run, so any re-election at all can only be this mechanism's doing. ──
+
+def test_snap_election_on_recall_refills_the_office_continuously(tmp_path):
+    config = _config_with_legitimacy_enabled_and_guaranteed_winners(tmp_path, recall_floor=0.99)
+    config = dataclasses.replace(
+        config,
+        run=dataclasses.replace(config.run, duration_years=2, population_size=20),
+        # The recalled president stays eligible and unlimited here, so the same citizen
+        # can be recalled and re-elected every tick; the D6 levers are tested below.
+        institutions=dataclasses.replace(
+            config.institutions, snap_election_on_recall=True, president_term_limit=None, recalled_barred_from_snap_election=False,
+        ),
+    )
+    journal_path = run_simulation(config, run_id="snap-refill")
+    events = _events(journal_path)
+
+    elected_ticks = [e["tick"] for e in events if e["event_type"] == "elected"]
+    recalled_ticks = [e["tick"] for e in events if e["event_type"] == "recalled"]
+    snap_events = [e for e in events if e["event_type"] == "snap_election_triggered"]
+
+    # Every single tick of the run re-elects and re-recalls -- the office is
+    # never left vacant for longer than reelection_delay_ticks (1). The tick
+    # loop is inclusive of total_ticks (duration_years*ticks_per_year), so a
+    # 2-year run at the shipped 4 ticks/year iterates ticks 0..8, nine ticks.
+    total_ticks = config.run.duration_years * config.run.ticks_per_year
+    all_ticks = list(range(total_ticks + 1))
+    assert elected_ticks == all_ticks
+    assert recalled_ticks == all_ticks
+    assert [e["tick"] for e in snap_events] == all_ticks
+    for tick, e in enumerate(snap_events):
+        assert e["payload"]["office"] == "president"
+        assert e["payload"]["next_attempt_tick"] == tick + config.institutions.reelection_delay_ticks
+        # The recalled citizen is named, and (with the bar off) not barred from
+        # immediately winning again -- confirmed here by the SAME citizen id
+        # recurring across the whole run.
+        assert e["payload"]["recalled_citizen_id"] == 0
+
+
+def test_a_recalled_president_is_barred_from_the_snap_election_that_follows_but_not_after(tmp_path):
+    # D6 (2026-09-13, observations.md OBS-003): with the bar on, the snap election a
+    # recall triggers cannot re-elect the recalled president. The same every-tick
+    # recall set-up as above, term limit off to isolate the bar.
+    config = _config_with_legitimacy_enabled_and_guaranteed_winners(tmp_path, recall_floor=0.99)
+    config = dataclasses.replace(
+        config,
+        run=dataclasses.replace(config.run, duration_years=2, population_size=20),
+        institutions=dataclasses.replace(
+            config.institutions, snap_election_on_recall=True, president_term_limit=None, recalled_barred_from_snap_election=True,
+        ),
+    )
+    events = _events(run_simulation(config, run_id="snap-bar"))
+    elected = [(e["tick"], e["citizen_id"]) for e in events if e["event_type"] == "elected"]
+    recalled = {e["tick"]: e["payload"]["recalled_citizen_id"] for e in events if e["event_type"] == "snap_election_triggered"}
+
+    assert len(elected) >= 3
+    for (tick, winner), (_, previous) in zip(elected[1:], elected):
+        if recalled.get(tick - 1) == previous:
+            assert winner != previous  # never the president recalled the tick before
+    assert len({winner for _, winner in elected}) < len(elected)  # a president can return after an intervening one
+
+
+def test_snap_election_on_recall_defaults_to_false_and_preserves_the_long_vacancy(tmp_path):
+    # The exact contrast: same guaranteed-recall setup, feature left at its
+    # shipped default -- the pre-existing behaviour every calibrated run
+    # depends on must be untouched by this mechanism's mere existence.
+    config = _config_with_legitimacy_enabled_and_guaranteed_winners(tmp_path, recall_floor=0.99)
+    config = dataclasses.replace(
+        config, run=dataclasses.replace(config.run, duration_years=2, population_size=20),
+    )
+    assert config.institutions.snap_election_on_recall is False  # the shipped default itself
+
+    journal_path = run_simulation(config, run_id="snap-off")
+    events = _events(journal_path)
+
+    assert [e["tick"] for e in events if e["event_type"] == "elected"] == [0]
+    assert [e["tick"] for e in events if e["event_type"] == "recalled"] == [0]
+    assert not [e for e in events if e["event_type"] == "snap_election_triggered"]
 
 
 def test_passive_erosion_applies_without_mandate_tracking_enabled(tmp_path):
@@ -1581,6 +1735,58 @@ def test_the_hard_floor_beats_the_petition_on_a_same_tick_collision(tmp_path):
     assert holder.petition_cooldown_until_tick == 5 + config.petition.cooldown_ticks
 
 
+def test_a_won_confidence_vote_vetoes_a_same_tick_floor_collision(tmp_path):
+    # The intersection the two neighbouring tests each excluded by
+    # construction: the collision test above votes REMOVE (retained=False),
+    # and the survived-vote test uses recall_floor=0.0 so the floor
+    # structurally never fires. Neither exercises "the vote is WON the same
+    # tick the floor crosses" -- exactly the real case that recalled a
+    # president who had just won retention 69.2% (2026-09-11). Same
+    # floor-crossing holder as the collision test above (m=0.1, below the
+    # shipped recall_floor=0.2); only the voters change, to the survived
+    # test's own KEEP setup.
+    config = _config_with_legitimacy_enabled(tmp_path)
+    config = dataclasses.replace(
+        config,
+        run=dataclasses.replace(config.run, population_size=4),
+        petition=dataclasses.replace(config.petition, enabled=True),
+    )
+    holder = _legitimacy_test_citizen(0, legitimacy_capital=0.1, mandate_strength_value=0.1)
+    holder.revealed_position = (0.5,)
+    holder.petition_open_since_tick = 0
+    holder.petition_signers = frozenset({1, 2, 3})  # 3/4 = 0.75 >= signature_threshold (0.25)
+    voters = [
+        Citizen(citizen_id=i, issue_positions=(0.5,), issue_priorities=(1.0,), blank_threshold=0.5, ambition_score=0.5)
+        for i in (1, 2, 3)
+    ]  # each sits exactly on holder.revealed_position -> votes keep, unanimously
+
+    journal_path = tmp_path / "vetoed-collision.jsonl"
+    with Journal(journal_path, run_id="vetoed-collision") as journal:
+        _run_accountability_phase([holder] + voters, config, journal, tick=5)
+
+    events = _events(journal_path)
+    # No "recalled" event at all -- floor_fires was true from L alone, and
+    # the won vote vetoed it before the recall decision ran.
+    assert [e["event_type"] for e in events] == [
+        "legitimacy_updated", "confidence_vote_triggered", "confidence_vote_result",
+    ]
+    result = events[2]
+    assert result["payload"]["retained"] is True
+    assert result["payload"]["averted_recall"] is True
+    assert result["payload"]["keep_ratio"] == pytest.approx(1.0)
+
+    # The office survives, still held by the same citizen.
+    assert holder.role == Role.ELECTED
+    assert holder.office == Office.PRESIDENT
+    # support(t): mandate_strength is now the demonstrated 1.0, not the
+    # election-day 0.1 that put L below the floor in the first place --
+    # from the NEXT tick onward this term is no longer on a collision
+    # course with the same fixed point.
+    assert holder.mandate_strength == pytest.approx(1.0)
+    assert holder.petition_open_since_tick is None
+    assert holder.petition_cooldown_until_tick == 5 + config.petition.cooldown_ticks
+
+
 def test_a_lost_confidence_vote_recalls_and_vacates_the_office(tmp_path):
     config = _config_with_legitimacy_enabled(tmp_path, recall_floor=0.0)
     config = dataclasses.replace(
@@ -1642,11 +1848,16 @@ def test_a_survived_confidence_vote_leaves_legitimacy_untouched_and_opens_the_co
     assert not [e for e in events if e["event_type"] == "recalled"]
     result = next(e for e in events if e["event_type"] == "confidence_vote_result")
     assert result["payload"]["retained"] is True
+    assert result["payload"]["averted_recall"] is False  # no collision: recall_floor=0.0 never fires
 
     update_event = next(e for e in events if e["event_type"] == "legitimacy_updated")
-    # No L change attributable to surviving -- legitimacy_updated (step 4)
-    # already ran before the vote resolved (step 5).
+    # No L change attributable to surviving THIS tick -- legitimacy_updated
+    # (step 4) already ran before the vote resolved (step 5).
     assert holder.legitimacy_capital == pytest.approx(update_event["payload"]["legitimacy"])
+    # But support(t) DOES change, from the NEXT tick onward: a unanimous
+    # keep (3/3) replaces the election-day mandate_strength (0.9) with the
+    # freshly demonstrated one (1.0).
+    assert holder.mandate_strength == pytest.approx(1.0)
     assert holder.petition_open_since_tick is None
     assert holder.petition_cooldown_until_tick == 7 + config.petition.cooldown_ticks
 
@@ -1782,6 +1993,22 @@ def test_confidence_vote_keep_ratio_equals_mandate_strength_on_the_deterministic
 
 # ── LLM-enabled path (v2 increments 1-2) ─────────────────────────────────
 
+def _parse_toon_citizens(user_prompt: str) -> list[dict[str, float]]:
+    """Minimal reader for encode_toon_array's own output shape
+    (`citizens[N]{cid,ambition_score,perceived_support}:` + one
+    comma-separated row per record) -- decide_candidacies sends TOON, not
+    JSON, since its own §5.E shipping decision (llm_behavior_engine.py),
+    so _FakeLlmClient needs this to dispatch on it. Same helper as
+    test_polity_llm_behavior_engine.py's own FakeCandidacyLlmClient."""
+    header, *rows = user_prompt.splitlines()
+    fields = header.split("{", 1)[1].rstrip("}:").split(",")
+    records = []
+    for row in rows:
+        values = dict(zip(fields, row.split(","), strict=True))
+        records.append({"cid": int(values["cid"]), **{f: float(values[f]) for f in fields if f != "cid"}})
+    return records
+
+
 class _FakeLlmClient:
     """Deterministic fake dispatching on user_prompt shape, since one client
     instance now serves decide_candidacies ("citizens" key),
@@ -1822,16 +2049,34 @@ class _FakeLlmClient:
     exercise the integration plumbing (journal writes, reproducibility,
     error propagation) without needing real vote-quality logic."""
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
-        payload = json.loads(user_prompt)
-        if "citizens" in payload:
+    def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
+        # Small and fixed, matching test_polity_llm_behavior_engine.py's
+        # FakeLlmClient/FakeChamberLlmClient's own convention -- see their
+        # shared rationale: never binds against compute_max_tokens's own
+        # floor, so tests that don't assert on the exact dynamic max_tokens
+        # value are unaffected by _dynamic_max_tokens's vLLM-path probe.
+        return 500
+
+    # temperature/seed accepted and ignored: as of 2026-09-11 every decision
+    # type passes retry_temperature/retry_seed_base, so ANY retry against this
+    # fake now arrives with both kwargs set. The fake's answers do not depend
+    # on sampling, so it only needs to tolerate them -- but it must, or a
+    # retry raises TypeError instead of exercising the path under test.
+    def complete_json(
+        self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None, seed=None, extra_body=None
+    ):
+        if user_prompt.startswith("citizens["):
+            # decide_candidacies ships TOON (§5.E), not JSON -- see
+            # _parse_toon_citizens's own docstring. Every other decision
+            # type below is still plain JSON, dispatched by its own key.
             decisions = [
                 {"cid": c["cid"], "outcome": 1, "motif": 203}
                 if c["ambition_score"] >= 0.1
                 else {"cid": c["cid"], "outcome": 0, "motif": 201}
-                for c in payload["citizens"]
+                for c in _parse_toon_citizens(user_prompt)
             ]
             return json.dumps({"decisions": decisions})
+        payload = json.loads(user_prompt)
         if "parties" in payload:
             decisions = [
                 {
@@ -1926,8 +2171,13 @@ class _LaunchingFakeLlmClient(_ElectingFakeLlmClient):
 
 
 def _config_with_llm_enabled(output_dir) -> PolityConfig:
+    # The model casts every ballot here (vote.mode llm): these tests exercise the LLM
+    # decision paths, several through the fakes' own votes. S4.1's utility vote, shipped
+    # by default, is tested in test_polity_utility_vote.py.
     config = _config_with_output_dir(output_dir)
-    return dataclasses.replace(config, llm=dataclasses.replace(config.llm, enabled=True))
+    return dataclasses.replace(
+        config, llm=dataclasses.replace(config.llm, enabled=True), vote=dataclasses.replace(config.vote, mode="llm"),
+    )
 
 
 def test_llm_path_completes_and_journals_vote_cast_events(tmp_path):
@@ -2008,7 +2258,17 @@ def test_representative_response_is_journalled_once_per_presided_tick(tmp_path):
 
     for e in response_events:
         assert e["payload"]["office"] == Office.PRESIDENT.value
-        assert set(e["payload"].keys()) == {"office", "stance", "shifts", "ctx", "unified_deviation"}
+        # llm_fallback added 2026-09-11 alongside dt=6's own deterministic
+        # fallback: without it a fallback silence and a real one are the same
+        # event, and a stance distribution would count engine failures as
+        # choices the representative made.
+        # retry_sampling_varied added 2026-09-13 (S0.3): every LLM decision type
+        # now says whether a varied-sampling retry produced it, not only vote_cast
+        # and chamber_deliberation.
+        assert set(e["payload"].keys()) == {
+            "office", "stance", "shifts", "ctx", "unified_deviation", "llm_fallback", "retry_sampling_varied", "llm_call_id",
+        }
+        assert e["payload"]["retry_sampling_varied"] == 0
         assert set(e["payload"]["ctx"].keys()) == {"L", "mandate_dev", "street", "lame_duck", "ticks_left"}
         assert e["payload"]["ctx"]["lame_duck"] in (0, 1)
         assert e["motif"] == "301"
@@ -2039,7 +2299,7 @@ def test_representative_response_sees_the_previous_ticks_street_pressure(tmp_pat
     seen_street = []
 
     class RecordingClient:
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             payload = json.loads(user_prompt)
             if "consulted" in payload:
                 # dt=10 now also fires (llm.enabled + awakening.enabled): every
@@ -2112,7 +2372,7 @@ def test_ctx_mandate_dev_is_the_pre_decision_deviation(tmp_path):
     seen_mandate_devs = []
 
     class RecordingClient:
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             payload = json.loads(user_prompt)
             seen_mandate_devs.append(payload["holders"][0]["ctx"]["mandate_dev"])
             decisions = [
@@ -2148,7 +2408,7 @@ def test_unified_deviation_is_the_pre_decision_value_like_ctx_mandate_dev(tmp_pa
     holder.revealed_position = (0.5,)
 
     class RecordingClient:
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             payload = json.loads(user_prompt)
             decisions = [
                 {"cid": h["cid"], "shifts": [{"dimension": 0, "delta": 0.2}], "stance": 1, "motif": 301}
@@ -2189,7 +2449,7 @@ def test_unified_deviation_is_nonzero_where_the_top_k_scoped_ctx_reads_zero(tmp_
     holder.revealed_position = (0.5, 0.5, 0.5)
 
     class ShiftDim0Client:
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             payload = json.loads(user_prompt)
             decisions = [
                 {"cid": h["cid"], "shifts": [{"dimension": 0, "delta": 0.3}], "stance": 1, "motif": 301}
@@ -2221,11 +2481,11 @@ def test_no_representative_response_while_the_presidency_is_vacant(tmp_path):
         contested coalition round doesn't fail schema validation on an
         empty decisions list."""
 
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
-            payload = json.loads(user_prompt)
-            if "citizens" in payload:
-                decisions = [{"cid": c["cid"], "outcome": 0, "motif": 201} for c in payload["citizens"]]
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
+            if user_prompt.startswith("citizens["):  # decide_candidacies ships TOON (§5.E)
+                decisions = [{"cid": c["cid"], "outcome": 0, "motif": 201} for c in _parse_toon_citizens(user_prompt)]
                 return json.dumps({"decisions": decisions})
+            payload = json.loads(user_prompt)
             if "responders" in payload:
                 decisions = [{"party_id": r["party_id"], "action": 2, "motif": 504} for r in payload["responders"]]
                 return json.dumps({"decisions": decisions})
@@ -2294,11 +2554,17 @@ def test_confidence_vote_keep_ratio_decouples_from_mandate_strength_once_the_pos
     assert mismatches > 0  # the identity deliberately breaks once the position has drifted
 
 
-def test_llm_batch_misalignment_aborts_the_run_with_no_partial_journal(tmp_path):
+def test_llm_batch_misalignment_falls_back_instead_of_aborting_the_run(tmp_path):
+    # Renamed and re-asserted 2026-09-06 (check_vllm_vote_cast_retry_is_
+    # inert_results.md): cast_votes no longer propagates LlmResponseError at
+    # all -- a real vLLM run crashed on exactly this exception type, which
+    # this project's own standing priority ("must not die mid-run") rules
+    # out. The run now completes; every vote_cast event this misalignment
+    # touches is journaled with llm_fallback=1 instead.
     class _ShortClient:
         """Answers candidacy calls in full (so nominees exist to vote on),
         but answers every vote call with a decision for a cid that was
-        never asked -- isolates the misalignment failure to cast_votes
+        never asked -- isolates the misalignment to cast_votes
         specifically. A wrong cid, not "drop all but the first" or an
         empty decisions list: cast_votes now chunks at
         _VOTE_CAST_MAX_CHUNK_SIZE=1, so a chunk's own expected_cids is
@@ -2306,18 +2572,22 @@ def test_llm_batch_misalignment_aborts_the_run_with_no_partial_journal(tmp_path)
         mismatch at that chunk size, it would coincidentally match; and
         VoteCastBatch's own min_length=1 would turn an empty list into a
         schema-validation LlmResponseError, not the "misaligned" one this
-        test asserts on."""
+        test exercises (both now land on the same fallback path, but this
+        one is the case that actually crashed a real run)."""
 
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
-            payload = json.loads(user_prompt)
-            if "citizens" in payload:
+        def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
+            return 500
+
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
+            if user_prompt.startswith("citizens["):  # decide_candidacies ships TOON (§5.E)
                 decisions = [
                     {"cid": c["cid"], "outcome": 1, "motif": 203}
                     if c["ambition_score"] >= 0.1
                     else {"cid": c["cid"], "outcome": 0, "motif": 201}
-                    for c in payload["citizens"]
+                    for c in _parse_toon_citizens(user_prompt)
                 ]
                 return json.dumps({"decisions": decisions})
+            payload = json.loads(user_prompt)
             if "parties" in payload:
                 decisions = [
                     {
@@ -2333,9 +2603,22 @@ def test_llm_batch_misalignment_aborts_the_run_with_no_partial_journal(tmp_path)
                 return json.dumps({"decisions": decisions})
             return json.dumps({"decisions": [{"cid": 999999, "blank": 1, "ranking": [], "motif": 101}]})
 
+    # duration_years=1 (4 ticks): stops the run before assembly_offset_years=2
+    # ever brings a legislative election (and therefore coalition
+    # negotiation) into play -- this fake only ever answered
+    # candidacy/nomination/campaign-positioning/vote shapes, matching its own
+    # "isolates the misalignment to cast_votes specifically" scope. Before
+    # this fix, the test never got far enough to notice: it crashed at tick
+    # 0's presidential election, the run's very first LLM call.
     config = _config_with_llm_enabled(tmp_path)
-    with pytest.raises(LlmResponseError, match="misaligned"):
-        run_simulation(config, run_id="r", llm_client=_ShortClient())
+    config = dataclasses.replace(config, run=dataclasses.replace(config.run, duration_years=1))
+    journal_path = run_simulation(config, run_id="r", llm_client=_ShortClient())
+
+    events = _events(journal_path)
+    vote_events = [e for e in events if e["event_type"] == "vote_cast"]
+    assert vote_events  # the run completed, it did not abort
+    assert all(e["payload"]["llm_fallback"] == 1 for e in vote_events)
+    assert all(e["payload"]["retry_sampling_varied"] == 0 for e in vote_events)
 
 
 # ── llm.max_batch_replays (v4 Lot 8) ─────────────────────────────────────
@@ -2350,6 +2633,9 @@ class _RecoveringClient:
     def __init__(self, inner):
         self._inner = inner
         self.calls = 0
+
+    def count_prompt_tokens(self, **kwargs):
+        return self._inner.count_prompt_tokens(**kwargs)
 
     def complete_json(self, **kwargs):
         self.calls += 1
@@ -2369,21 +2655,31 @@ def test_a_replayed_batch_lets_the_run_complete(tmp_path):
 class _FlakyVoteClient:
     """Wraps _FakeLlmClient but fails the FIRST vote_cast call only
     (detected by the "voters" fallback key -- see _FakeLlmClient's own
-    dispatch), recording the temperature kwarg each call receives.
-    Exercises cast_votes's own local, deliberate retry_temperature
-    exception (llm_behavior_engine._VOTE_CAST_RETRY_TEMPERATURE) at the
-    full run_simulation level, including the journal's own
-    retry_sampling_varied marker."""
+    dispatch), recording the temperature/seed kwargs each call receives.
+    Exercises cast_votes's own local, deliberate retry_temperature/
+    retry_seed_base exceptions (llm_behavior_engine._VOTE_CAST_RETRY_
+    TEMPERATURE/_VOTE_CAST_RETRY_SEED_BASE) at the full run_simulation
+    level, including the journal's own retry_sampling_varied marker."""
 
     def __init__(self, inner):
         self._inner = inner
         self._vote_calls = 0
         self.temperatures: list[float | None] = []
+        self.seeds: list[int | None] = []
 
-    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None):
+    def count_prompt_tokens(self, **kwargs):
+        return self._inner.count_prompt_tokens(**kwargs)
+
+    def complete_json(
+        self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, temperature=None, seed=None, extra_body=None
+    ):
         self.temperatures.append(temperature)
-        payload = json.loads(user_prompt)
-        is_vote_call = not any(k in payload for k in ("citizens", "parties", "nominees", "responders", "holders", "consulted", "reactors", "members"))
+        self.seeds.append(seed)
+        # decide_candidacies ships TOON (§5.E), never a vote_cast call -- checked by shape before
+        # ever attempting json.loads, rather than teaching this negative membership test to read TOON.
+        is_vote_call = not user_prompt.startswith("citizens[") and not any(
+            k in json.loads(user_prompt) for k in ("parties", "nominees", "responders", "holders", "consulted", "reactors", "members")
+        )
         if is_vote_call:
             self._vote_calls += 1
             if self._vote_calls == 1:
@@ -2402,14 +2698,20 @@ def test_vote_cast_retries_at_a_varied_temperature_and_journals_the_marker(tmp_p
     events = _events(journal_path)
     vote_events = [e for e in events if e["event_type"] == "vote_cast"]
     assert vote_events  # the run completed, the retry recovered it
-    # Exactly one voter's decision came from a retry -- the one whose
-    # first attempt this fake deliberately broke.
+    # cast_votes chunks at _vote_cast_chunk_size(config) -- 3 on the shipped
+    # vllm default -- and a chunk retries as a whole (a chunk-level failure,
+    # never a partial correction, per §3.6.10), so the FIRST chunk's own 3
+    # voters all carry the retry marker, not just the one whose own vote
+    # this fake's dispatch conceptually "broke" (it actually breaks the
+    # whole first vote_cast call, chunk-shaped, not a single voter).
     varied = [e for e in vote_events if e["payload"]["retry_sampling_varied"] == 1]
-    assert len(varied) == 1
+    assert len(varied) == 3
     # First attempt (the failure): no override. The recovering retry: the
-    # local exception's own temperature.
+    # local exception's own temperature and seed offset.
     assert client.temperatures[0] is None
+    assert client.seeds[0] is None
     assert _VOTE_CAST_RETRY_TEMPERATURE in client.temperatures
+    assert _VOTE_CAST_RETRY_SEED_BASE + 1 in client.seeds
 
 
 # ── pressure_action (v4 Lot 7, dt=10) ────────────────────────────────────
@@ -2463,22 +2765,58 @@ def test_awakening_without_the_llm_still_uses_the_deterministic_baseline(tmp_pat
 
 def test_pressure_action_is_journalled_once_per_consulted_citizen_with_its_ctx(tmp_path):
     config = _config_with_awakening_llm_enabled(tmp_path)
+    # street_pressure.enabled with it: the menu flag and the lever describe one fact, and
+    # validate_config (S1.5) now refuses a run where they disagree, as load_config always did.
     config = dataclasses.replace(
-        config, pressure_menu=dataclasses.replace(config.pressure_menu, electoral_only=False, mobilization_enabled=True)
+        config,
+        pressure_menu=dataclasses.replace(config.pressure_menu, electoral_only=False, mobilization_enabled=True),
+        street_pressure=dataclasses.replace(config.street_pressure, enabled=True),
     )
     journal_path = run_simulation(config, run_id="dt10", llm_client=_ElectingFakeLlmClient())
     events = _events(journal_path)
     pressure_events = [e for e in events if e["event_type"] == "pressure_action"]
     assert pressure_events
     for e in pressure_events:
-        assert set(e["payload"].keys()) == {"target", "act", "ctx"}
-        assert set(e["payload"]["ctx"].keys()) == {"self_gap", "mandate_dev", "neighbors_acting", "ticks_to_election"}
+        # llm_fallback is provenance, not a decision field, and rides on every
+        # LLM-path pressure_action since 2026-09-11 -- 0 here, because this
+        # client answers cleanly.
+        assert set(e["payload"].keys()) == {"target", "act", "ctx", "llm_fallback", "retry_sampling_varied", "llm_call_id"}
+        assert e["payload"]["llm_fallback"] == 0
+        assert e["payload"]["retry_sampling_varied"] == 0
+        # blank_threshold rides on the ctx since Track C3 (2026-09-11): decide_pressure_actions'
+        # calibrated prompt merges it in via pressure_shipped_signal_values, and the journal
+        # write now merges the same function's output so the two can never diverge again.
+        assert set(e["payload"]["ctx"].keys()) == {"self_gap", "mandate_dev", "neighbors_acting", "ticks_to_election", "blank_threshold"}
         assert e["payload"]["ctx"]["neighbors_acting"] is None
         assert e["motif"] == "301"
         assert e["codebook_version"] == config.llm.codebook_version
     for tick in {e["tick"] for e in pressure_events}:
         cids = [e["citizen_id"] for e in pressure_events if e["tick"] == tick]
         assert cids == sorted(cids)
+
+
+def test_pressure_action_ctx_blank_threshold_matches_the_real_citizens_own_value(tmp_path):
+    # Track C3 (2026-09-11): pins the actual bug, not just the key's presence -- before the
+    # fix, this key was simply absent; a stale/wrong VALUE under the same key would have been an
+    # equally silent, equally real divergence between "the ctx the model saw" and "the ctx the
+    # journal recorded".
+    config = _config_with_awakening_llm_enabled(tmp_path)
+    # street_pressure.enabled with it: the menu flag and the lever describe one fact, and
+    # validate_config (S1.5) now refuses a run where they disagree, as load_config always did.
+    config = dataclasses.replace(
+        config,
+        pressure_menu=dataclasses.replace(config.pressure_menu, electoral_only=False, mobilization_enabled=True),
+        street_pressure=dataclasses.replace(config.street_pressure, enabled=True),
+    )
+    citizens = generate_population(config.citizens, config.run.population_size, config.run.seed)
+    blank_threshold_by_cid = {c.citizen_id: round(c.blank_threshold, 4) for c in citizens}
+
+    journal_path = run_simulation(config, run_id="dt10-blank-threshold", llm_client=_ElectingFakeLlmClient())
+    events = _events(journal_path)
+    pressure_events = [e for e in events if e["event_type"] == "pressure_action"]
+    assert pressure_events
+    for e in pressure_events:
+        assert e["payload"]["ctx"]["blank_threshold"] == blank_threshold_by_cid[e["citizen_id"]]
 
 
 def test_a_second_launch_in_the_same_tick_is_journaled_as_act_2_then_petition_signed(tmp_path):
@@ -2494,7 +2832,7 @@ def test_a_second_launch_in_the_same_tick_is_journaled_as_act_2_then_petition_si
     citizens = [holder] + [_pressure_test_citizen(i) for i in range(1, 4)]
 
     class AllLaunchClient:
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             payload = json.loads(user_prompt)
             decisions = [
                 {"cid": c["cid"], "target": c["target"], "act": 2, "motif": 301} for c in payload["consulted"]
@@ -2522,15 +2860,32 @@ def test_a_second_launch_in_the_same_tick_is_journaled_as_act_2_then_petition_si
     assert holder.petition_signers == {1, 2, 3}
 
 
-def test_an_out_of_menu_act_aborts_the_run_with_no_partial_journal(tmp_path):
+def test_an_out_of_menu_act_degrades_instead_of_aborting_the_run(tmp_path):
+    # This test used to assert the opposite -- that the run DIED here, with no
+    # journal at all. That was the bug, not the contract: a model answering
+    # act=3 under a menu where only {0,4} are legal ended a multi-hour run and
+    # threw away everything it had already simulated. The batch is still
+    # rejected (nothing about validate_pressure_decision changed); what is
+    # pinned now is that the run survives it, end to end.
     config = _config_with_awakening_llm_enabled(tmp_path)  # shipped electoral_only menu, legal={0,4}
 
     class OutOfMenuClient(_ElectingFakeLlmClient):
         def _pressure_decisions(self, consulted):
             return [{"cid": c["cid"], "target": c["target"], "act": 3, "motif": 301} for c in consulted]
 
-    with pytest.raises(LlmResponseError, match="outside the active"):
-        run_simulation(config, run_id="out-of-menu", llm_client=OutOfMenuClient())
+    journal_path = run_simulation(config, run_id="out-of-menu", llm_client=OutOfMenuClient())
+
+    events = _events(journal_path)
+    assert events  # a complete journal, not an aborted run
+    pressure_events = [e for e in events if e["event_type"] == "pressure_action"]
+    assert pressure_events
+    legal = menu_acts(config.pressure_menu)
+    for e in pressure_events:
+        # Every single one is a fallback, and every single one is in-menu --
+        # the deterministic rule reads the menu itself, so it cannot reproduce
+        # the illegal act that triggered it.
+        assert e["payload"]["llm_fallback"] == 1
+        assert e["payload"]["act"] in legal
 
 
 def test_a_stale_sign_does_not_abort_the_run(tmp_path):
@@ -2546,7 +2901,7 @@ def test_a_stale_sign_does_not_abort_the_run(tmp_path):
     citizen = _pressure_test_citizen(1)
 
     class AlwaysSignClient:
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             payload = json.loads(user_prompt)
             decisions = [
                 {"cid": c["cid"], "target": c["target"], "act": 1, "motif": 301} for c in payload["consulted"]
@@ -2583,7 +2938,7 @@ def test_pressure_action_ctx_reflects_this_ticks_revealed_position(tmp_path):
     seen_self_gap = []
 
     class RecordingClient:
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             payload = json.loads(user_prompt)
             if "holders" in payload:
                 decisions = [
@@ -2626,7 +2981,9 @@ def test_pressure_action_ctx_never_carries_street_pressure(tmp_path):
     assert response_events
     assert any(e["payload"]["ctx"]["street"] is not None for e in response_events)
     for e in pressure_events:
-        assert set(e["payload"]["ctx"].keys()) == {"self_gap", "mandate_dev", "neighbors_acting", "ticks_to_election"}
+        # blank_threshold rides on the ctx since Track C3 (2026-09-11) -- the point this test
+        # pins (street never leaks into pressure_action's ctx) is unaffected by that addition.
+        assert set(e["payload"]["ctx"].keys()) == {"self_gap", "mandate_dev", "neighbors_acting", "ticks_to_election", "blank_threshold"}
 
 
 def test_two_awakening_llm_runs_produce_byte_identical_journals(tmp_path):
@@ -2688,7 +3045,7 @@ def test_street_pressure_counts_llm_mobilize_decisions(tmp_path):
     citizens = [holder] + [_pressure_test_citizen(i) for i in range(1, 4)]
 
     class MobilizeClient:
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             payload = json.loads(user_prompt)
             decisions = [
                 {"cid": c["cid"], "target": c["target"], "act": 3, "motif": 301} for c in payload["consulted"]
@@ -2713,9 +3070,10 @@ def test_no_pressure_action_llm_call_while_the_presidency_is_vacant(tmp_path):
         def __init__(self):
             self.pressure_calls = 0
 
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
-            payload = json.loads(user_prompt)
-            if "consulted" in payload:
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
+            # decide_candidacies ships TOON (§5.E), never a "consulted" pressure call -- skip the
+            # JSON parse entirely for that shape rather than teaching this check to read TOON too.
+            if not user_prompt.startswith("citizens[") and "consulted" in json.loads(user_prompt):
                 self.pressure_calls += 1
             return super().complete_json(
                 system_prompt=system_prompt, user_prompt=user_prompt, json_schema=json_schema,
@@ -2749,7 +3107,7 @@ def test_a_cohort_of_one_still_produces_a_single_call(tmp_path):
         def __init__(self):
             self.calls = 0
 
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             self.calls += 1
             payload = json.loads(user_prompt)
             decisions = [
@@ -2810,7 +3168,7 @@ def test_pressure_action_ctx_reflects_the_previous_ticks_mobilization(tmp_path):
         def __init__(self):
             self.call_index = 0
 
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             decisions = []
             for c in json.loads(user_prompt)["consulted"]:
                 if c["cid"] == citizen_b.citizen_id:
@@ -2869,7 +3227,7 @@ def test_neighbors_acting_can_bring_a_marginal_citizen_above_their_own_threshold
         citizens = [holder, mobilizer, marginal]
 
         class RecordingClient:
-            def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+            def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
                 decisions = [
                     {"cid": c["cid"], "target": c["target"], "act": 3 if c["cid"] == 1 else 4, "motif": 301}
                     for c in json.loads(user_prompt)["consulted"]
@@ -3075,6 +3433,35 @@ def test_sortition_chamber_enabled_without_the_llm_never_moves_chamber_position(
     assert [e for e in events if e["event_type"] == "sortition_rotation"]  # the chamber IS seated
 
 
+def test_sortition_chamber_occupancy_never_drops_below_seats(tmp_path):
+    # Track A4 (2026-09-11, lets-build-a-solid-spicy-otter.md): the
+    # continuity contrast the presidency's own chronic vacancy is measured
+    # against. A real Stage 3 run showed this chamber seated 75/75 on every
+    # single tick, 0 through 32, no gaps -- while the presidency sat empty
+    # 15 of those 32 ticks. Nothing new is built here (the chamber already
+    # rotates seated/vacated atomically within one journal event, so
+    # occupancy never has a tick to be caught short in); this pins that as
+    # an invariant so a future change to the rotation cadence cannot
+    # silently reopen the gap. Deterministic engine -- rotation is
+    # independent of llm.enabled (see the test above this one).
+    config = _config_with_output_dir(tmp_path)
+    config = dataclasses.replace(
+        config,
+        run=dataclasses.replace(config.run, duration_years=4, population_size=50),
+        sortition_chamber=dataclasses.replace(config.sortition_chamber, enabled=True, seats=10),
+    )
+    journal_path = run_simulation(config, run_id="chamber-continuity")
+    events = _events(journal_path)
+
+    rotations = [e for e in events if e["event_type"] == "sortition_rotation"]
+    assert len(rotations) > 1  # more than the first seating -- real turnover happened
+
+    occupancy = 0
+    for rotation in rotations:
+        occupancy += len(rotation["payload"]["seated"]) - len(rotation["payload"]["vacated"])
+        assert occupancy == config.sortition_chamber.seats
+
+
 def test_chamber_deliberation_is_journalled_once_per_seated_member_per_tick(tmp_path):
     config = _config_with_sortition_llm_enabled(tmp_path, seats=3)
     journal_path = run_simulation(config, run_id="chamber-deliberation", llm_client=_FakeLlmClient())
@@ -3083,7 +3470,9 @@ def test_chamber_deliberation_is_journalled_once_per_seated_member_per_tick(tmp_
     assert [e["citizen_id"] for e in tick0_events] == sorted(e["citizen_id"] for e in tick0_events)
     assert len(tick0_events) == 3  # seats
     for e in tick0_events:
-        assert set(e["payload"].keys()) == {"shifts", "ctx", "chamber_deviation"}
+        assert set(e["payload"].keys()) == {
+            "shifts", "ctx", "chamber_deviation", "motif_corrected", "retry_sampling_varied", "llm_fallback", "llm_call_id",
+        }
         assert set(e["payload"]["ctx"].keys()) == {"ticks_left"}
         assert e["motif"] in ("701", "702")
         assert e["codebook_version"] == config.llm.codebook_version
@@ -3108,7 +3497,10 @@ def test_chamber_deliberation_journals_chamber_deviation_after_the_shift_lands(t
     ]
 
     class _ShiftingClient:
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
+            return 500
+
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             payload = json.loads(user_prompt)
             decisions = [
                 {"cid": m["cid"], "shifts": [{"dimension": 0, "delta": 0.1}], "motif": 702}
@@ -3143,7 +3535,10 @@ def test_chamber_deviation_is_zero_when_the_model_returns_a_sincere_decision(tmp
     ]
 
     class _SincereClient:
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
+            return 500
+
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             payload = json.loads(user_prompt)
             decisions = [{"cid": m["cid"], "shifts": [], "motif": 701} for m in payload["members"]]
             return json.dumps({"decisions": decisions})
@@ -3254,7 +3649,10 @@ def test_chamber_deliberation_clamp_journals_clamped_at_bound_adjacent_to_the_de
     citizens = [_sortition_test_citizen(0, sortition_seat_until_tick=4, chamber_position=(0.9,))]
 
     class _BigShiftClient:
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
+            return 500
+
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             payload = json.loads(user_prompt)
             decisions = [
                 {"cid": m["cid"], "shifts": [{"dimension": 0, "delta": 0.3}], "motif": 702}
@@ -3287,7 +3685,10 @@ def test_chamber_deliberation_without_a_clamp_emits_no_clamped_at_bound_event(tm
     citizens = [_sortition_test_citizen(0, sortition_seat_until_tick=4, chamber_position=(0.5,))]
 
     class _SmallShiftClient:
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
+            return 500
+
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             payload = json.loads(user_prompt)
             decisions = [
                 {"cid": m["cid"], "shifts": [{"dimension": 0, "delta": 0.1}], "motif": 702}
@@ -3314,7 +3715,7 @@ def test_representative_response_clamp_journals_clamped_at_bound(tmp_path):
     holder.revealed_position = (0.9,)
 
     class _BigShiftClient:
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
             payload = json.loads(user_prompt)
             decisions = [
                 {"cid": h["cid"], "shifts": [{"dimension": 0, "delta": 0.3}], "stance": 1, "motif": 301}
@@ -3356,14 +3757,14 @@ def test_campaign_positioning_clamp_journals_clamped_at_bound(tmp_path):
     parties = [Party(party_id=1, platform=(0.5,))]
 
     class _BigShiftClient:
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
-            payload = json.loads(user_prompt)
-            if "citizens" in payload:
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
+            if user_prompt.startswith("citizens["):  # decide_candidacies ships TOON (§5.E)
                 decisions = [
                     {"cid": c["cid"], "outcome": 1 if c["cid"] == 0 else 0, "motif": 203 if c["cid"] == 0 else 201}
-                    for c in payload["citizens"]
+                    for c in _parse_toon_citizens(user_prompt)
                 ]
                 return json.dumps({"decisions": decisions})
+            payload = json.loads(user_prompt)
             if "nominees" in payload:
                 decisions = [
                     {"cid": n["cid"], "shifts": [{"dimension": 0, "delta": 0.3}], "motif": 602}
@@ -3513,18 +3914,83 @@ def test_llm_path_journals_coalition_decision_per_seated_non_initiator_party(tmp
         assert "party_id" in event["payload"]
 
 
-def test_llm_path_aggregate_coalition_payload_shape_is_unchanged(tmp_path):
+def test_llm_path_aggregate_coalition_payload_keeps_coalition_key_shape(tmp_path):
     # metrics.py's is_cohabitation/coalition_lifespans read payload["coalition"]
     # as a plain list[int] | None -- this must never change shape, on either
-    # path, or those consumers break silently.
+    # path, or those consumers break silently. v7 Lot 2 adds "rounds_used"
+    # additively (see plan-coalition-negotiation-v7.md §4); _FakeLlmClient
+    # never fails, so aborted_at_round/rounds_completed never fire here --
+    # see test_llm_path_coalition_negotiation_aborts_gracefully_on_a_round_
+    # two_failure for that shape instead.
     config = _config_with_llm_enabled(tmp_path)
     journal_path = run_simulation(config, run_id="llm-coalition-shape", llm_client=_FakeLlmClient())
     events = _events(journal_path)
     aggregate_events = [e for e in events if e["event_type"] in ("coalition_formed", "coalition_failed")]
     assert aggregate_events
     for event in aggregate_events:
-        assert set(event["payload"].keys()) == {"coalition", "seats"}
+        assert set(event["payload"].keys()) == {"coalition", "seats", "rounds_used"}
         assert event["payload"]["coalition"] is None or isinstance(event["payload"]["coalition"], list)
+
+
+class _CoalitionRoundTwoFailsClient(_FakeLlmClient):
+    """Identical to _FakeLlmClient for every other decision type. Coalition's
+    first round succeeds (unanimous join, same as the parent); every
+    coalition call after that returns malformed JSON, isolating
+    _form_and_journal_coalition_llm's new aborted_at_round branch inside a
+    real run -- not just decide_coalition in isolation (see
+    test_decide_coalition_aborts_gracefully_on_a_round_two_failure in
+    test_polity_llm_behavior_engine.py for that narrower unit test).
+    Party composition never changes in this config (birth/death/split all
+    off), so the responder set is identical across every legislative
+    election -- a plain call counter would misattribute a LATER election's
+    own round 1 as a revision round. The test that uses this fake
+    constrains run.duration_years so only one election ever happens, side-
+    stepping the ambiguity entirely rather than trying to disambiguate it."""
+
+    def __init__(self):
+        self._coalition_calls = 0
+
+    def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
+        # decide_candidacies ships TOON (§5.E), never a "responders" coalition call -- skip the
+        # JSON parse entirely for that shape, matching every other fake client's own guard above.
+        payload = None if user_prompt.startswith("citizens[") else json.loads(user_prompt)
+        if payload is not None and "responders" in payload:
+            self._coalition_calls += 1
+            if self._coalition_calls > 1:
+                return "not json"
+            decisions = [{"party_id": r["party_id"], "action": 1, "motif": 501} for r in payload["responders"]]
+            return json.dumps({"decisions": decisions})
+        return super().complete_json(
+            system_prompt=system_prompt, user_prompt=user_prompt, json_schema=json_schema,
+            max_tokens=max_tokens, think=think,
+        )
+
+
+def test_llm_path_coalition_negotiation_aborts_gracefully_on_a_round_two_failure(tmp_path):
+    config = _config_with_llm_enabled(tmp_path)
+    config = dataclasses.replace(
+        config,
+        run=dataclasses.replace(config.run, duration_years=5),  # exactly one legislative election, see the fake's own docstring
+        llm=dataclasses.replace(config.llm, max_batch_replays=0),
+    )
+    journal_path = run_simulation(config, run_id="llm-coalition-abort", llm_client=_CoalitionRoundTwoFailsClient())
+    events = _events(journal_path)
+
+    failed_events = [e for e in events if e["event_type"] == "coalition_failed"]
+    formed_events = [e for e in events if e["event_type"] == "coalition_formed"]
+    assert len(failed_events) == 1  # isolated to exactly one election, see duration_years above
+    assert formed_events == []
+    event = failed_events[0]
+    assert event["payload"]["coalition"] is None
+    assert event["payload"]["aborted_at_round"] == 2
+    assert event["payload"]["rounds_completed"] == 1
+    assert set(event["payload"].keys()) == {"coalition", "seats", "aborted_at_round", "rounds_completed"}
+
+    # round 1's own decisions are still journaled even though the
+    # negotiation as a whole aborted -- nothing already-completed is lost.
+    decision_events = [e for e in events if e["event_type"] == "coalition_decision"]
+    assert decision_events
+    assert all(e["payload"]["round"] == 1 for e in decision_events)
 
 
 def test_deterministic_path_emits_no_coalition_decision_events(tmp_path):
@@ -3543,16 +4009,19 @@ def test_llm_path_all_decline_produces_coalition_failed(tmp_path):
         coalition, where every responder refuses -- isolates
         assemble_coalition's all-decline None contract inside a full run."""
 
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
-            payload = json.loads(user_prompt)
-            if "citizens" in payload:
+        def count_prompt_tokens(self, *, system_prompt, user_prompt, think=True):
+            return 500
+
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
+            if user_prompt.startswith("citizens["):  # decide_candidacies ships TOON (§5.E)
                 decisions = [
                     {"cid": c["cid"], "outcome": 1, "motif": 203}
                     if c["ambition_score"] >= 0.1
                     else {"cid": c["cid"], "outcome": 0, "motif": 201}
-                    for c in payload["citizens"]
+                    for c in _parse_toon_citizens(user_prompt)
                 ]
                 return json.dumps({"decisions": decisions})
+            payload = json.loads(user_prompt)
             if "parties" in payload:
                 decisions = [
                     {
@@ -3908,8 +4377,12 @@ def test_event_salience_never_writes_legitimacy_or_ecart_directly(tmp_path):
     # petition_pressure never move, proving event_salience's only channel
     # into ecart(t)/L(t) is the pre-existing pressure_action path.
     def _config(output_dir, scandal_enabled):
+        # events.enabled follows its generators: a control arm with none enabled is
+        # events.enabled=False (validate_config, S1.5). Nothing in the run reads the flag
+        # itself, so the control arm's behaviour is unchanged.
         config = _config_with_events_and_awakening_enabled(
-            output_dir, scandal_enabled=scandal_enabled, scandal_rate_per_tick=1.0, economic_shock_enabled=False
+            output_dir, enabled=scandal_enabled, scandal_enabled=scandal_enabled, scandal_rate_per_tick=1.0,
+            economic_shock_enabled=False,
         )
         return dataclasses.replace(config, legitimacy=dataclasses.replace(config.legitimacy, enabled=True))
 
@@ -3962,7 +4435,11 @@ def test_reaction_to_event_is_journalled_once_per_citizen_per_firing_event_type_
     assert len(reactions) == config.run.population_size
     assert [e["citizen_id"] for e in reactions] == sorted(e["citizen_id"] for e in reactions)
     for e in reactions:
-        assert set(e["payload"]) == {"event_type", "target", "salience_delta", "ctx"}
+        # llm_fallback is provenance, LLM path only, since 2026-09-11 -- 0
+        # here, because this client answers cleanly.
+        assert set(e["payload"]) == {"event_type", "target", "salience_delta", "ctx", "llm_fallback", "retry_sampling_varied", "llm_call_id"}
+        assert e["payload"]["llm_fallback"] == 0
+        assert e["payload"]["retry_sampling_varied"] == 0
         assert e["payload"]["event_type"] == int(EventType.SCANDAL)
         assert set(e["payload"]["ctx"]) == {"event_salience"}
         assert e["motif"] == str(ReactionMotif.SCANDAL_TRUST_EROSION)
@@ -4005,18 +4482,24 @@ def test_no_reaction_to_event_llm_call_on_a_vacancy_tick(tmp_path):
     assert all(e["payload"]["target"] is None for e in reactions)
 
 
-def test_an_out_of_bound_salience_delta_aborts_the_run_with_no_partial_journal(tmp_path):
+def test_an_out_of_bound_salience_delta_degrades_instead_of_aborting_the_run(tmp_path):
+    # Used to assert the run DIED here. The validator still rejects the batch
+    # (unchanged); what is pinned now is that the run survives it, falling
+    # back to the flat deterministic delta -- see _deterministic_reaction_
+    # fallback. 2026-09-11.
     config = _config_with_events_and_llm_enabled(tmp_path, scandal_rate_per_tick=1.0, economic_shock_enabled=False)
 
     class OverCapClient(_FakeLlmClient):
         """Behaves exactly like _FakeLlmClient for every other decision
         type (so candidacy/nomination/etc. still succeed), but returns an
         out-of-bound salience_delta for reaction_to_event specifically --
-        isolates the abort to this lot's own validator."""
+        isolates the failure to this lot's own validator."""
 
-        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True):
-            payload = json.loads(user_prompt)
-            if "reactors" in payload:
+        def complete_json(self, *, system_prompt, user_prompt, json_schema, max_tokens, think=True, extra_body=None):
+            # decide_candidacies ships TOON (§5.E), never a "reactors" call -- skip the JSON parse
+            # entirely for that shape, matching every other fake client's own guard above.
+            payload = None if user_prompt.startswith("citizens[") else json.loads(user_prompt)
+            if payload is not None and "reactors" in payload:
                 decisions = [{"cid": r["cid"], "salience_delta": 1.0, "motif": 401} for r in payload["reactors"]]
                 return json.dumps({"decisions": decisions})
             return super().complete_json(
@@ -4024,8 +4507,18 @@ def test_an_out_of_bound_salience_delta_aborts_the_run_with_no_partial_journal(t
                 max_tokens=max_tokens, think=think,
             )
 
-    with pytest.raises(LlmResponseError, match="max_reaction_delta"):
-        run_simulation(config, run_id="over-cap", llm_client=OverCapClient())
+    journal_path = run_simulation(config, run_id="over-cap", llm_client=OverCapClient())
+
+    events = _events(journal_path)
+    assert events  # a complete journal, not an aborted run
+    reactions = [e for e in events if e["event_type"] == "reaction_to_event"]
+    assert reactions
+    expected = deterministic_reaction_to_event(EventType.SCANDAL, config.events)
+    for e in reactions:
+        assert e["payload"]["llm_fallback"] == 1
+        # The baseline's own value -- NOT the 1.0 the client tried to return,
+        # and not a clamp of it either.
+        assert e["payload"]["salience_delta"] == expected
 
 
 def test_two_events_llm_runs_produce_byte_identical_journals(tmp_path):
@@ -4159,3 +4652,612 @@ def test_elected_never_carries_a_reason(tmp_path):
     assert elected
     for event in elected:
         assert "reason" not in event["payload"]
+
+
+# ── resume / checkpoint (Phase 3, plan-flagship-30y-run.md) ─────────────────
+
+class _SimulatedCrash(Exception):
+    """Marks an injected, deliberate interruption -- distinct from a real
+    bug's exception, so a test asserting "the run was interrupted" can never
+    be fooled by an unrelated failure inside the simulation itself."""
+
+
+def _resumable_config(output_dir) -> PolityConfig:
+    """Small and fast, but exercises every field Phase 3's checkpoint
+    captures: RNG-consuming phases (rupture, exogenous events, sortition),
+    citizen-mutating mechanisms (legitimacy, mandate, petition, street
+    pressure, awakening), a real social graph (so "the graph is safely
+    regenerated, never snapshotted" is actually exercised on resume, not
+    just asserted), and a sortition chamber (its own RNG stream plus
+    citizen sortition fields). llm.enabled stays False throughout (the
+    deterministic engine) -- this tests the checkpoint mechanism itself,
+    not anything LLM-path-specific."""
+    config = _config_with_output_dir(output_dir)
+    return dataclasses.replace(
+        config,
+        run=dataclasses.replace(config.run, population_size=30, duration_years=4),
+        candidacy=dataclasses.replace(config.candidacy, ambition_threshold=0.0, rupture_path_enabled=True),
+        legitimacy=dataclasses.replace(config.legitimacy, enabled=True),
+        mandate=dataclasses.replace(config.mandate, enabled=True),
+        petition=dataclasses.replace(config.petition, enabled=True),
+        street_pressure=dataclasses.replace(config.street_pressure, enabled=True),
+        social_graph=dataclasses.replace(config.social_graph, enabled=True),
+        events=dataclasses.replace(config.events, enabled=True, scandal_enabled=True, economic_shock_enabled=True),
+        awakening=dataclasses.replace(
+            config.awakening,
+            enabled=True,
+            context_modulation=dataclasses.replace(
+                config.awakening.context_modulation, event_salience=True, neighbors_acting=True,
+            ),
+        ),
+        sortition_chamber=dataclasses.replace(config.sortition_chamber, enabled=True, seats=5),
+        pressure_menu=dataclasses.replace(
+            config.pressure_menu, electoral_only=False, petition_enabled=True, mobilization_enabled=True,
+        ),
+    )
+
+
+def _events_ignoring_run_id(journal_path):
+    return [{k: v for k, v in e.items() if k != "run_id"} for e in _events(journal_path)]
+
+
+def test_resume_after_a_simulated_crash_mid_tick_matches_an_uninterrupted_run(tmp_path, monkeypatch):
+    config_a = _resumable_config(tmp_path / "uninterrupted")
+    journal_a = run_simulation(config_a, run_id="run")
+
+    config_b = _resumable_config(tmp_path / "crashed")
+    real_accountability_phase = run_polity_simulation_module._run_accountability_phase
+    crash_tick = 8
+
+    def _crash_partway_through_tick_8(citizens, config, journal, tick, llm_client=None, **kwargs):
+        if tick == crash_tick:
+            # The earlier phases for this SAME tick (rupture, exogenous
+            # events, elections, sortition) already ran and journaled --
+            # this only interrupts the LAST phase, so events.jsonl is left
+            # holding tick 8's own partial output, uncheckpointed.
+            raise _SimulatedCrash("simulated abrupt kill mid-tick")
+        return real_accountability_phase(citizens, config, journal, tick, llm_client, **kwargs)
+
+    monkeypatch.setattr(run_polity_simulation_module, "_run_accountability_phase", _crash_partway_through_tick_8)
+    with pytest.raises(_SimulatedCrash):
+        run_simulation(config_b, run_id="run", resume=False)
+    monkeypatch.undo()  # the resume call below must run the REAL phase, not the crash injector
+
+    crashed_dir = tmp_path / "crashed" / "run"
+    checkpoint = load_checkpoint(crashed_dir / "checkpoint.json")
+    assert checkpoint.tick == crash_tick - 1  # the last tick that finished AND got checkpointed
+    partial_events = _events(crashed_dir / "events.jsonl")
+    assert any(e["tick"] == crash_tick for e in partial_events)  # tick 8's own earlier phases did journal
+
+    journal_b = run_simulation(config_b, run_id="run", resume=True)
+
+    assert _events_ignoring_run_id(journal_a) == _events_ignoring_run_id(journal_b)
+
+
+def test_resume_after_a_clean_stop_between_ticks_matches_an_uninterrupted_run(tmp_path, monkeypatch):
+    # The simpler case Phase 3's own gate also names, and genuinely distinct
+    # from the mid-tick-crash test above: interrupted CLEANLY between two
+    # ticks, so tick 8 never started at all -- no partial-tick journal
+    # writes exist to truncate, unlike the mid-tick case. Same config/
+    # duration_years throughout, matching the actual use case Phase 7's own
+    # staged ramp needs (continue a run interrupted mid-flight), not
+    # "retroactively extend how long a finished run should have been" --
+    # config_hash deliberately treats duration_years as a real simulation
+    # parameter, so that second scenario is correctly refused, not this one.
+    config_a = _resumable_config(tmp_path / "uninterrupted")
+    journal_a = run_simulation(config_a, run_id="run")
+
+    config_b = _resumable_config(tmp_path / "stopped")
+    real_rupture_phase = run_polity_simulation_module._attempt_rupture_candidacies
+    stop_tick = 8
+
+    def _stop_before_tick_8(citizens, parties, config, journal, tick, rng, **kwargs):
+        if tick == stop_tick:
+            raise _SimulatedCrash("simulated clean stop between ticks")
+        return real_rupture_phase(citizens, parties, config, journal, tick, rng, **kwargs)
+
+    monkeypatch.setattr(run_polity_simulation_module, "_attempt_rupture_candidacies", _stop_before_tick_8)
+    with pytest.raises(_SimulatedCrash):
+        run_simulation(config_b, run_id="run", resume=False)
+    monkeypatch.undo()
+
+    checkpoint = load_checkpoint(tmp_path / "stopped" / "run" / "checkpoint.json")
+    assert checkpoint.tick == stop_tick - 1
+    stopped_events = _events(tmp_path / "stopped" / "run" / "events.jsonl")
+    assert not any(e["tick"] == stop_tick for e in stopped_events)  # nothing for tick 8 was ever written
+
+    journal_b = run_simulation(config_b, run_id="run", resume=True)
+
+    assert _events_ignoring_run_id(journal_a) == _events_ignoring_run_id(journal_b)
+
+
+def test_resume_false_refuses_when_a_checkpoint_already_exists(tmp_path):
+    config = _resumable_config(tmp_path)
+    run_simulation(config, run_id="run")
+
+    with pytest.raises(FileExistsError):
+        run_simulation(config, run_id="run", resume=False)
+
+
+def test_resume_true_raises_when_no_checkpoint_exists(tmp_path):
+    config = _resumable_config(tmp_path)
+
+    with pytest.raises(FileNotFoundError):
+        run_simulation(config, run_id="never-run-before", resume=True)
+
+
+def test_resume_true_raises_on_a_run_id_mismatch(tmp_path):
+    config = _resumable_config(tmp_path)
+    run_simulation(config, run_id="original")
+
+    # Point --resume at a DIFFERENT run_id sharing the same output_dir --
+    # not the crashed run's own checkpoint, a caller mistake this must
+    # catch loudly rather than resuming into someone else's state.
+    checkpoint_dir = tmp_path / "original"
+    wrong_dir = tmp_path / "wrong"
+    wrong_dir.mkdir()
+    (wrong_dir / "checkpoint.json").write_bytes((checkpoint_dir / "checkpoint.json").read_bytes())
+
+    with pytest.raises(ValueError, match="run_id"):
+        run_simulation(config, run_id="wrong", resume=True)
+
+
+def test_resume_true_raises_on_a_config_hash_mismatch(tmp_path):
+    config = _resumable_config(tmp_path)
+    run_simulation(config, run_id="run")
+
+    changed_config = dataclasses.replace(
+        config, candidacy=dataclasses.replace(config.candidacy, ambition_threshold=0.5)
+    )
+    with pytest.raises(ValueError, match="config"):
+        run_simulation(changed_config, run_id="run", resume=True)
+
+
+def test_checkpoint_is_written_after_every_tick(tmp_path):
+    config = _resumable_config(tmp_path)
+    run_simulation(config, run_id="run")
+
+    checkpoint = load_checkpoint(tmp_path / "run" / "checkpoint.json")
+    expected_last_tick = config.run.duration_years * config.run.ticks_per_year
+    assert checkpoint.tick == expected_last_tick
+
+
+def test_checkpoint_next_event_id_matches_the_final_journal_length(tmp_path):
+    config = _resumable_config(tmp_path)
+    journal_path = run_simulation(config, run_id="run")
+
+    checkpoint = load_checkpoint(tmp_path / "run" / "checkpoint.json")
+    assert checkpoint.next_event_id == len(_events(journal_path))
+
+
+# ── progress.json (Phase 4, plan-flagship-30y-run.md) ───────────────────────
+
+def test_run_simulation_writes_progress_json(tmp_path):
+    config = _resumable_config(tmp_path)
+    run_simulation(config, run_id="run")
+
+    progress = json.loads((tmp_path / "run" / "progress.json").read_text(encoding="utf-8"))
+    expected_last_tick = config.run.duration_years * config.run.ticks_per_year
+    assert progress["tick"] == expected_last_tick
+    assert progress["total_ticks"] == expected_last_tick
+    assert progress["last_checkpoint_tick"] == expected_last_tick
+    assert progress["eta_seconds"] == 0.0  # the run is done
+    assert progress["decisions_total"] == 0  # deterministic engine, no LLM decisions
+
+
+def test_progress_json_carries_an_llm_heartbeat_end_to_end(tmp_path):
+    # The intra-tick heartbeat (2026-09-11) proven through the REAL wiring,
+    # not just unit-tested: _llm_client_scope wraps whatever client it yields,
+    # so an injected fake beats exactly like a live vLLM client would.
+    #
+    # This exists because a healthy run was killed for looking dead. The file
+    # must now carry positive evidence of life that does not depend on CPU
+    # time, socket state, or journal chatter -- all three misled.
+    config = _config_with_llm_enabled(tmp_path)
+    run_simulation(config, run_id="hb", llm_client=_FakeLlmClient())
+
+    progress = json.loads((tmp_path / "hb" / "progress.json").read_text(encoding="utf-8"))
+    assert progress["llm_calls_completed"] > 0
+    assert progress["last_llm_response_at"] is not None
+    assert progress["last_llm_response_timestamp"] is not None
+    # Cleared at the end: the run finished, nothing is mid-flight.
+    assert progress["tick_in_progress"] is None
+
+
+def test_progress_json_has_no_heartbeat_on_the_deterministic_path(tmp_path):
+    # A deterministic run makes no LLM call at all, so "no heartbeat" is the
+    # correct report -- not a stalled one. check_run_liveness.py reads this as
+    # "cannot tell" and tells the operator to ask the server, rather than
+    # guessing. Mirrors decisions_by_type == {} being correct, not empty.
+    config = _resumable_config(tmp_path)
+    run_simulation(config, run_id="det")
+
+    progress = json.loads((tmp_path / "det" / "progress.json").read_text(encoding="utf-8"))
+    assert progress["llm_calls_completed"] == 0
+    assert progress["last_llm_response_at"] is None
+
+
+def test_progress_json_reflects_the_full_cumulative_history_after_resume(tmp_path, monkeypatch):
+    # The same property Phase 3's own resume tests check for events.jsonl,
+    # here for progress.json: cumulative counts must reflect the WHOLE run,
+    # not just what happened after the resume.
+    config = _resumable_config(tmp_path)
+    real_rupture_phase = run_polity_simulation_module._attempt_rupture_candidacies
+    stop_tick = 8
+
+    def _stop_before_tick_8(citizens, parties, config, journal, tick, rng, **kwargs):
+        if tick == stop_tick:
+            raise _SimulatedCrash("simulated stop")
+        return real_rupture_phase(citizens, parties, config, journal, tick, rng, **kwargs)
+
+    monkeypatch.setattr(run_polity_simulation_module, "_attempt_rupture_candidacies", _stop_before_tick_8)
+    with pytest.raises(_SimulatedCrash):
+        run_simulation(config, run_id="run", resume=False)
+    monkeypatch.undo()
+
+    progress_before_resume = json.loads((tmp_path / "run" / "progress.json").read_text(encoding="utf-8"))
+    assert progress_before_resume["tick"] == stop_tick - 1
+
+    run_simulation(config, run_id="run", resume=True)
+
+    progress_after = json.loads((tmp_path / "run" / "progress.json").read_text(encoding="utf-8"))
+    expected_last_tick = config.run.duration_years * config.run.ticks_per_year
+    assert progress_after["tick"] == expected_last_tick
+    assert progress_after["last_checkpoint_tick"] == expected_last_tick
+
+
+# ── snapshots.jsonl (Phase 6, plan-flagship-30y-run.md) ─────────────────────
+
+def _snapshot_rows(snapshots_path):
+    return [json.loads(line) for line in snapshots_path.read_text(encoding="utf-8").splitlines()]
+
+
+def test_run_simulation_writes_a_snapshot_at_tick_zero_and_every_year_boundary(tmp_path):
+    config = _resumable_config(tmp_path)  # population_size=30, duration_years=4, ticks_per_year=4
+    run_simulation(config, run_id="run")
+
+    rows = _snapshot_rows(tmp_path / "run" / "snapshots.jsonl")
+    years_present = sorted({row["year"] for row in rows})
+    assert years_present == [0, 1, 2, 3, 4]  # tick 0, 4, 8, 12, 16
+    assert len(rows) == 5 * config.run.population_size
+
+
+def test_snapshot_at_tick_zero_reflects_the_true_initial_population(tmp_path):
+    # Snapshotting happens BEFORE tick 0's own phases run -- the year-0
+    # snapshot must show issue_positions exactly as generate_population
+    # produced them, untouched by any simulated decision.
+    config = _resumable_config(tmp_path)
+    run_simulation(config, run_id="run")
+
+    initial_population = generate_population(config.citizens, config.run.population_size, config.run.seed)
+    rows = _snapshot_rows(tmp_path / "run" / "snapshots.jsonl")
+    year_zero = {row["citizen_id"]: row for row in rows if row["year"] == 0}
+
+    for citizen in initial_population:
+        assert year_zero[citizen.citizen_id]["issue_positions"] == list(citizen.issue_positions)
+
+
+def test_expected_snapshot_rows_matches_what_an_uninterrupted_run_actually_writes(tmp_path):
+    config = _resumable_config(tmp_path)
+    run_simulation(config, run_id="run")
+
+    rows = _snapshot_rows(tmp_path / "run" / "snapshots.jsonl")
+    last_tick = config.run.duration_years * config.run.ticks_per_year
+    assert len(rows) == expected_snapshot_rows(last_tick, config.run.ticks_per_year, config.run.population_size)
+
+
+def test_resume_after_a_crash_on_a_snapshot_tick_matches_an_uninterrupted_run(tmp_path, monkeypatch):
+    # The specific case is_snapshot_tick's own docstring calls out: a crash
+    # on a tick that is BOTH a snapshot tick AND never finishes must not
+    # leave a duplicated (or, worse, a stale-but-uncounted) snapshot row
+    # once the same tick restarts from scratch on resume.
+    config_a = _resumable_config(tmp_path / "uninterrupted")
+    run_simulation(config_a, run_id="run")
+
+    config_b = _resumable_config(tmp_path / "crashed")
+    real_rupture_phase = run_polity_simulation_module._attempt_rupture_candidacies
+    crash_tick = 8  # a snapshot tick: 8 % ticks_per_year(4) == 0
+
+    def _crash_at_tick_8(citizens, parties, config, journal, tick, rng, **kwargs):
+        if tick == crash_tick:
+            raise _SimulatedCrash("simulated crash on a snapshot tick")
+        return real_rupture_phase(citizens, parties, config, journal, tick, rng, **kwargs)
+
+    monkeypatch.setattr(run_polity_simulation_module, "_attempt_rupture_candidacies", _crash_at_tick_8)
+    with pytest.raises(_SimulatedCrash):
+        run_simulation(config_b, run_id="run", resume=False)
+    monkeypatch.undo()
+
+    # The crash happened AFTER tick 8's own snapshot write (snapshotting is
+    # the very first thing a tick does) but before tick 8 finished/got
+    # checkpointed -- confirm that premature row really is on disk before
+    # resuming, so this test is exercising truncation, not a no-op.
+    premature_rows = _snapshot_rows(tmp_path / "crashed" / "run" / "snapshots.jsonl")
+    assert any(row["tick"] == crash_tick for row in premature_rows)
+
+    run_simulation(config_b, run_id="run", resume=True)
+
+    rows_a = _snapshot_rows(tmp_path / "uninterrupted" / "run" / "snapshots.jsonl")
+    rows_b = _snapshot_rows(tmp_path / "crashed" / "run" / "snapshots.jsonl")
+    assert rows_a == rows_b
+
+
+# ── Track E: staggered election (lets-build-a-solid-spicy-otter.md, 2026-09-11) ──
+
+def _config_with_staggered_election(output_dir, **run_overrides) -> PolityConfig:
+    """duration_years=2 + president_term_years=1 (against the shipped
+    ticks_per_year=4) makes a 4-tick presidential term inside an 8-tick
+    run -- elections at 0, 4, 8, so the SECOND election (at tick 4) has a
+    real staggered window to exercise cheaply, without needing the shipped
+    16-tick term/120-tick run scale. A two-tick campaign (S4.4) keeps the
+    window at declare 2, nominate+position 3."""
+    config = _config_with_llm_enabled(output_dir)
+    run_kwargs = {"duration_years": 2, "population_size": 20}
+    run_kwargs.update(run_overrides)
+    return dataclasses.replace(
+        config,
+        institutions=dataclasses.replace(
+            config.institutions, staggered_election=True, president_term_years=1, presidential_campaign_ticks=2,
+        ),
+        run=dataclasses.replace(config.run, **run_kwargs),
+    )
+
+
+def test_staggered_election_splits_declaration_nomination_and_vote_across_three_ticks(tmp_path):
+    config = _config_with_staggered_election(tmp_path)
+    journal_path = run_simulation(config, run_id="staggered", llm_client=_ElectingFakeLlmClient())
+    events = _events(journal_path)
+
+    # The SECOND election (tick 4, term_ticks=4): declaration at tick 2,
+    # nomination/positioning at tick 3, vote at tick 4 -- three different
+    # ticks, none of them empty and none of them holding the wrong phase's
+    # events.
+    def _ticks_for(event_type):
+        return {e["tick"] for e in events if e["event_type"] == event_type}
+
+    considered_ticks = _ticks_for("candidacy_considered")
+    nomination_ticks = _ticks_for("party_nomination_choice")
+    positioning_ticks = _ticks_for("campaign_positioning")
+    vote_ticks = _ticks_for("vote_cast")
+
+    assert 2 in considered_ticks
+    assert 3 not in considered_ticks and 4 not in considered_ticks
+    assert 3 in nomination_ticks
+    assert 3 in positioning_ticks
+    assert 2 not in nomination_ticks and 4 not in nomination_ticks
+    assert 4 in vote_ticks
+    assert 2 not in vote_ticks and 3 not in vote_ticks
+
+    # A real winner exists for this election (the fake client is unanimous) --
+    # staggering must not silently produce an empty candidate field.
+    elected_at_4 = [e for e in events if e["event_type"] == "elected" and e["tick"] == 4]
+    assert len(elected_at_4) == 1
+
+
+def test_staggered_election_does_not_suppress_party_nominees_on_the_deterministic_engine(tmp_path):
+    """Regression, 2026-09-13. The staggered DISPATCH requires `llm.enabled`;
+    the `already_staggered` check at the election did not. Under the
+    deterministic engine nothing staggers, so nothing should change -- but
+    `rupture_path_enabled` is RNG-driven and LLM-independent (and
+    run_polity_flagship force-enables it), so a standing rupture candidate
+    holding Role.CANDIDATE on election day satisfied `any(...)` on its own.
+    _declare_nominees was then skipped and the rupture candidate became the
+    ENTIRE field: an election with no party nominees, silently, with no error.
+
+    rupture_base_probability=1.0 makes the rupture candidate certain rather
+    than hoping the RNG produces one, the same device test_polity_run_
+    simulation.py already uses elsewhere for this path."""
+    config = _config_with_output_dir(tmp_path)  # deterministic: llm.enabled stays False
+    config = dataclasses.replace(
+        config,
+        institutions=dataclasses.replace(config.institutions, staggered_election=True, president_term_years=1),
+        candidacy=dataclasses.replace(config.candidacy, rupture_path_enabled=True, rupture_base_probability=1.0),
+        run=dataclasses.replace(config.run, duration_years=2, population_size=20),
+    )
+
+    journal_path = run_simulation(config, run_id="staggered-deterministic")
+    events = _events(journal_path)
+
+    # The election at tick 4 must still declare party nominees itself -- the
+    # atomic path, because nothing staggered.
+    declared_at_4 = [e for e in events if e["event_type"] == "candidacy_declared" and e["tick"] == 4]
+    assert declared_at_4, "party nominees were never declared: the staggered branch was taken with no LLM"
+    elected_at_4 = [e for e in events if e["event_type"] == "elected" and e["tick"] == 4]
+    assert len(elected_at_4) == 1
+
+
+def test_staggered_election_keeps_the_tick_zero_election_atomic(tmp_path):
+    # There is no tick -2/-1 to declare/nominate into -- the very first
+    # election has no runway, so it stays exactly as it always has:
+    # declare, nominate, position, and vote all at tick 0.
+    config = _config_with_staggered_election(tmp_path)
+    journal_path = run_simulation(config, run_id="staggered-tick-zero", llm_client=_ElectingFakeLlmClient())
+    events = _events(journal_path)
+
+    tick_zero_types = {e["event_type"] for e in events if e["tick"] == 0}
+    assert "candidacy_considered" in tick_zero_types
+    assert "party_nomination_choice" in tick_zero_types
+    assert "campaign_positioning" in tick_zero_types
+    assert "vote_cast" in tick_zero_types
+    assert any(e["event_type"] == "elected" and e["tick"] == 0 for e in events)
+
+
+def test_two_staggered_runs_with_the_same_seed_produce_byte_identical_journals(tmp_path):
+    config_a = _config_with_staggered_election(tmp_path / "a")
+    config_b = _config_with_staggered_election(tmp_path / "b")
+    path_a = run_simulation(config_a, run_id="same-run-id", llm_client=_ElectingFakeLlmClient())
+    path_b = run_simulation(config_b, run_id="same-run-id", llm_client=_ElectingFakeLlmClient())
+    assert path_a.read_bytes() == path_b.read_bytes()
+
+
+def test_staggered_election_is_off_by_default_and_matches_the_atomic_shape(tmp_path):
+    # Same config, same term/duration shape, only the flag differs -- proves
+    # the new calendar arithmetic is inert unless explicitly turned on, not
+    # merely "happens to look the same on the shipped config".
+    staggered = _config_with_staggered_election(tmp_path / "staggered")
+    atomic = dataclasses.replace(
+        staggered, institutions=dataclasses.replace(staggered.institutions, staggered_election=False)
+    )
+    atomic = dataclasses.replace(atomic, journal=dataclasses.replace(atomic.journal, output_dir=str(tmp_path / "atomic")))
+
+    run_simulation(staggered, run_id="run", llm_client=_ElectingFakeLlmClient())
+    run_simulation(atomic, run_id="run", llm_client=_ElectingFakeLlmClient())
+
+    staggered_events = _events(tmp_path / "staggered" / "run" / "events.jsonl")
+    atomic_events = _events(tmp_path / "atomic" / "run" / "events.jsonl")
+    # Not byte-identical (staggering genuinely changes tick placement and
+    # RNG draw order -- a version boundary, not a bug) -- but the atomic
+    # run must show every one of the second election's decisions bunched at
+    # tick 4, exactly where they all sat before Track E existed.
+    atomic_tick_4_types = {e["event_type"] for e in atomic_events if e["tick"] == 4}
+    assert {"candidacy_considered", "party_nomination_choice", "campaign_positioning", "vote_cast"} <= atomic_tick_4_types
+    staggered_tick_4_types = {e["event_type"] for e in staggered_events if e["tick"] == 4}
+    assert "candidacy_considered" not in staggered_tick_4_types
+    assert "party_nomination_choice" not in staggered_tick_4_types
+
+
+def test_staggered_election_resumes_correctly_after_a_crash_between_declaration_and_nomination(tmp_path, monkeypatch):
+    config_a = _config_with_staggered_election(tmp_path / "uninterrupted")
+    journal_a = run_simulation(config_a, run_id="run", llm_client=_ElectingFakeLlmClient())
+
+    config_b = _config_with_staggered_election(tmp_path / "crashed")
+    real_rupture_phase = run_polity_simulation_module._attempt_rupture_candidacies
+    crash_tick = 3  # right after tick 2's own declaration, before tick 3's nomination
+
+    def _crash_before_nomination(citizens, parties, config, journal, tick, rng, **kwargs):
+        if tick == crash_tick:
+            raise _SimulatedCrash("simulated crash between declaration and nomination")
+        return real_rupture_phase(citizens, parties, config, journal, tick, rng, **kwargs)
+
+    monkeypatch.setattr(run_polity_simulation_module, "_attempt_rupture_candidacies", _crash_before_nomination)
+    with pytest.raises(_SimulatedCrash):
+        run_simulation(config_b, run_id="run", llm_client=_ElectingFakeLlmClient(), resume=False)
+    monkeypatch.undo()
+
+    checkpoint = load_checkpoint(tmp_path / "crashed" / "run" / "checkpoint.json")
+    assert checkpoint.tick == crash_tick - 1  # tick 2, the declaration tick, fully completed and checkpointed
+    assert checkpoint.state.staggered_declared_cids is not None  # the exact cross-tick state this test targets
+
+    journal_b = run_simulation(config_b, run_id="run", llm_client=_ElectingFakeLlmClient(), resume=True)
+
+    assert _events_ignoring_run_id(journal_a) == _events_ignoring_run_id(journal_b)
+
+
+def test_staggered_election_self_heals_when_a_recall_interrupts_the_window(tmp_path):
+    # A snap election firing in the single tick between a staggered
+    # declaration and its own nomination abandons that cycle's declared set
+    # (run_simulation's own tick loop clears it the instant pending_rerun
+    # becomes non-None) rather than smuggling a stale candidate pool into a
+    # later, unrelated election. The regular calendar's own election still
+    # elects someone eventually, via _hold_presidential_election's atomic
+    # fallback (no Role.CANDIDATE citizens exist when nobody staggered
+    # anything this cycle).
+    config = _config_with_staggered_election(
+        tmp_path, duration_years=2,
+    )
+    config = dataclasses.replace(
+        config,
+        institutions=dataclasses.replace(
+            config.institutions, snap_election_on_recall=True, reelection_delay_ticks=1,
+        ),
+        legitimacy=dataclasses.replace(
+            config.legitimacy, enabled=True, recall_floor=0.99,  # guaranteed recall the instant a term starts
+        ),
+    )
+    journal_path = run_simulation(config, run_id="interrupted-window", llm_client=_ElectingFakeLlmClient())
+    events = _events(journal_path)
+
+    # Some presidential election eventually still produces a winner despite
+    # the interruption -- the run does not deadlock into permanent vacancy.
+    assert any(e["event_type"] == "elected" for e in events)
+
+
+def test_a_staggered_election_spreads_over_the_whole_campaign(tmp_path):
+    # S4.4: with a four-tick campaign against a four-tick term, the campaign opens the
+    # tick after the previous election (never on it), so declaring and nominating sit
+    # three ticks apart.
+    config = _config_with_staggered_election(tmp_path)
+    config = dataclasses.replace(config, institutions=dataclasses.replace(config.institutions, presidential_campaign_ticks=4))
+    events = _events(run_simulation(config, run_id="whole-campaign", llm_client=_ElectingFakeLlmClient()))
+
+    def ticks_for(event_type):
+        return sorted({e["tick"] for e in events if e["event_type"] == event_type})
+
+    assert ticks_for("candidacy_considered") == [0, 1, 5]
+    assert ticks_for("party_nomination_choice") == [0, 3, 7]
+    assert [e["tick"] for e in events if e["event_type"] == "elected"] == [0, 4, 8]
+
+
+def test_the_declared_set_survives_until_the_election_consumes_it_and_a_resume_there_matches(tmp_path, monkeypatch):
+    # S4.4: the campaign's declared set is kept, and checkpointed, through the
+    # nomination tick until the election reads it -- a crash between nomination and
+    # vote resumes into the staggered election, not the atomic one.
+    config_a = _config_with_staggered_election(tmp_path / "uninterrupted")
+    journal_a = run_simulation(config_a, run_id="run", llm_client=_ElectingFakeLlmClient())
+
+    config_b = _config_with_staggered_election(tmp_path / "crashed")
+    real_rupture_phase = run_polity_simulation_module._attempt_rupture_candidacies
+
+    def crash_before_the_vote(citizens, parties, config, journal, tick, rng, **kwargs):
+        if tick == 4:
+            raise _SimulatedCrash("simulated crash between nomination and vote")
+        return real_rupture_phase(citizens, parties, config, journal, tick, rng, **kwargs)
+
+    monkeypatch.setattr(run_polity_simulation_module, "_attempt_rupture_candidacies", crash_before_the_vote)
+    with pytest.raises(_SimulatedCrash):
+        run_simulation(config_b, run_id="run", llm_client=_ElectingFakeLlmClient())
+    monkeypatch.undo()
+    checkpoint = load_checkpoint(tmp_path / "crashed" / "run" / "checkpoint.json")
+    assert checkpoint.tick == 3 and checkpoint.state.staggered_declared_cids is not None
+
+    journal_b = run_simulation(config_b, run_id="run", llm_client=_ElectingFakeLlmClient(), resume=True)
+    assert _events_ignoring_run_id(journal_a) == _events_ignoring_run_id(journal_b)
+    final = load_checkpoint(tmp_path / "crashed" / "run" / "checkpoint.json")
+    assert final.state.staggered_declared_cids is None  # the tick-8 election consumed its own
+
+
+def _election_tick_state(tmp_path):
+    config = _config_with_staggered_election(tmp_path)
+    state = _fresh_tick_state(config)
+    return config, state
+
+
+def test_an_election_that_did_not_stagger_nominates_even_with_a_rupture_candidate_standing(tmp_path):
+    # Sharp edge 1 (check_staggered_election_live_results.md): the old role-based check
+    # took a standing rupture candidate as proof a campaign had run, and the party
+    # nominations never happened.
+    config, state = _election_tick_state(tmp_path)
+    declare_candidacy(state.citizens[0])
+    with Journal(tmp_path / "run.jsonl", run_id="r") as journal:
+        _hold_presidential_election(state.citizens, state.parties, config, journal, tick=4, llm_client=_ElectingFakeLlmClient())
+    events = _events(tmp_path / "run.jsonl")
+    assert [e for e in events if e["event_type"] == "candidacy_declared" and e["payload"]["path"] == "dominant"]
+
+
+def test_a_staggered_election_whose_campaign_produced_no_candidate_decides_nothing_again(tmp_path):
+    # Sharp edge 2: with no candidate on election day, the old check fell back to
+    # declaring and nominating at the election tick itself.
+    config, state = _election_tick_state(tmp_path)
+    with Journal(tmp_path / "run.jsonl", run_id="r") as journal:
+        _hold_presidential_election(state.citizens, state.parties, config, journal, tick=4, llm_client=_ElectingFakeLlmClient(),
+                                    staggered=True)
+    types = {e["event_type"] for e in _events(tmp_path / "run.jsonl")}
+    assert not types & {"candidacy_considered", "party_nomination_choice", "campaign_positioning"}
+    assert "election_no_winner" in types
+
+
+# ── S1.5: run_simulation validates, and the client is the engine switch ──
+
+def test_run_simulation_refuses_an_incoherent_config_before_writing_anything(tmp_path):
+    config = _config_with_output_dir(tmp_path)
+    config = dataclasses.replace(config, petition=dataclasses.replace(config.petition, enabled=True))
+    with pytest.raises(PolityConfigError, match="'pressure_menu.petition_enabled' and 'petition.enabled' disagree"):
+        run_simulation(config, run_id="incoherent")
+    assert not (tmp_path / "incoherent").exists()
+
+
+def test_run_simulation_refuses_a_client_injected_into_a_deterministic_config(tmp_path):
+    # The phases switch on "is there a client"; a fake passed to an llm.enabled=false run
+    # would otherwise silently turn the LLM path on.
+    with pytest.raises(PolityConfigError, match="'llm.enabled' is false"):
+        run_simulation(_config_with_output_dir(tmp_path), run_id="mismatch", llm_client=_FakeLlmClient())

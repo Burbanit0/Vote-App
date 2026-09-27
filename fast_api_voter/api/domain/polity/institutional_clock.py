@@ -29,6 +29,31 @@ class ElectionType(str, Enum):
 
 
 @dataclass(frozen=True)
+class Phase:
+    """One tick's place in the political calendar (S4.4, InstitutionalClock.phase)."""
+
+    election: ElectionType
+    """The election held this tick, if any."""
+    presidential_campaign: bool
+    legislative_campaign: bool
+    ticks_to_presidential: int | None
+    """Ticks until the next presidential election the run reaches: 0 on its tick, None past the last."""
+    ticks_to_legislative: int | None
+
+    @property
+    def name(self) -> str:
+        if self.election is not ElectionType.NONE:
+            return "election"
+        if self.presidential_campaign or self.legislative_campaign:
+            return "campaign"
+        return "governing"
+
+
+def _in_window(ticks_to: int | None, window: int) -> bool:
+    return ticks_to is not None and 0 < ticks_to <= window
+
+
+@dataclass(frozen=True)
 class InstitutionalClock:
     president_term_ticks: int
     assembly_term_ticks: int
@@ -40,6 +65,9 @@ class InstitutionalClock:
     # etc. already use regardless of whether their own election mechanic is
     # itself enabled.
     sortition_term_ticks: int
+    # S4.4: how many ticks before each election its campaign runs (see phase()).
+    presidential_campaign_ticks: int = 0
+    legislative_campaign_ticks: int = 0
 
     @classmethod
     def from_config(
@@ -51,6 +79,8 @@ class InstitutionalClock:
             assembly_offset_ticks=institutions.assembly_offset_years * run.ticks_per_year,
             total_ticks=run.total_ticks,
             sortition_term_ticks=sortition_chamber.term_years * run.ticks_per_year,
+            presidential_campaign_ticks=institutions.presidential_campaign_ticks,
+            legislative_campaign_ticks=institutions.legislative_campaign_ticks,
         )
 
     def is_presidential_election(self, tick: int) -> bool:
@@ -72,6 +102,57 @@ class InstitutionalClock:
         if legislative:
             return ElectionType.LEGISLATIVE
         return ElectionType.NONE
+
+    def _next_election(self, tick: int, term_ticks: int, offset_ticks: int) -> int | None:
+        """The first election tick on this calendar at or after `tick`, or None when it
+        falls past the run's end (or `tick` is before the run starts)."""
+        if tick < 0:
+            return None
+        election_tick = offset_ticks + term_ticks * -((offset_ticks - tick) // term_ticks)
+        return election_tick if election_tick <= self.total_ticks else None
+
+    def ticks_to_presidential(self, tick: int) -> int | None:
+        election_tick = self._next_election(tick, self.president_term_ticks, 0)
+        return None if election_tick is None else election_tick - tick
+
+    def ticks_to_legislative(self, tick: int) -> int | None:
+        election_tick = self._next_election(tick, self.assembly_term_ticks, self.assembly_offset_ticks)
+        return None if election_tick is None else election_tick - tick
+
+    def phase(self, tick: int) -> Phase:
+        """S4.4: where the political calendar stands at `tick` -- a pure function of the
+        tick, so any reader with the calendar can compute it and nothing journals it. A
+        campaign is the `*_campaign_ticks` ticks before an election that the run reaches;
+        the tick-0 election has none. Presidential and legislative campaigns can overlap."""
+        to_presidential = self.ticks_to_presidential(tick)
+        to_legislative = self.ticks_to_legislative(tick)
+        return Phase(
+            election=self.election_at(tick),
+            presidential_campaign=_in_window(to_presidential, self.presidential_campaign_ticks),
+            legislative_campaign=_in_window(to_legislative, self.legislative_campaign_ticks),
+            ticks_to_presidential=to_presidential,
+            ticks_to_legislative=to_legislative,
+        )
+
+    def _staggering_window(self) -> int:
+        """The presidential campaign a staggered election spreads over, never reaching back
+        to the previous presidential election's own tick."""
+        return min(self.presidential_campaign_ticks, self.president_term_ticks - 1)
+
+    def is_presidential_declaration_tick(self, tick: int) -> bool:
+        """Track E, absorbed by S4.4: the first tick of a presidential campaign, where a
+        staggered election declares candidacies. The tick-0 election has no campaign, so it
+        stays atomic -- `_hold_presidential_election` declares, nominates, positions and
+        votes in one tick, as it always has -- and an election past `total_ticks` gets
+        none either. Only meaningful when `institutions.staggered_election` is on; callers
+        gate on that flag (this class has no config access)."""
+        window = self._staggering_window()
+        return window > 0 and self.ticks_to_presidential(tick) == window
+
+    def is_presidential_nomination_tick(self, tick: int) -> bool:
+        """The campaign's last tick, where a staggered election nominates and positions --
+        the same tick as the declaration when the campaign is one tick long."""
+        return self._staggering_window() > 0 and self.ticks_to_presidential(tick) == 1
 
     def presidential_election_ticks(self) -> list[int]:
         return [t for t in range(self.total_ticks + 1) if self.is_presidential_election(t)]

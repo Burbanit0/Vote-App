@@ -1,0 +1,148 @@
+import React, { createContext, useContext } from 'react';
+import { useSearchParams } from 'react-router';
+import {
+  usePolityFrame,
+  usePolityRun,
+  usePolityRuns,
+  type PolityFrame,
+  type PolityRunOverview,
+  type PolityRunSummary,
+} from '../../hooks/usePolityData';
+import { clampTick } from '../../lib/polity/ticks';
+import {
+  parseCitizen,
+  parseLens,
+  parseWholeNumberParam,
+  pickRun,
+  type PolityLens,
+} from '../../lib/polity/urlState';
+
+// PolityController — the run explorer's single source of truth, like the
+// Playground's controller: what is shown lives in the URL (run, tick, lens,
+// citizen), the data comes from the API hooks, and the page's panels read both
+// through one context instead of a prop chain.
+
+export interface PolityCtx {
+  runs: PolityRunSummary[] | undefined;
+  runsLoading: boolean;
+  runsError: unknown;
+  run: PolityRunSummary | undefined;
+  runKey: string | null;
+  setRunKey: (key: string) => void;
+  overview: PolityRunOverview | undefined;
+  overviewLoading: boolean;
+  overviewError: unknown;
+  tick: number;
+  setTick: (tick: number) => void;
+  lens: PolityLens;
+  setLens: (lens: PolityLens) => void;
+  citizen: number | null;
+  setCitizen: (citizen: number | null) => void;
+  frame: PolityFrame | undefined;
+  frameLoading: boolean;
+}
+
+const Ctx = createContext<PolityCtx | null>(null);
+
+function useController(): PolityCtx {
+  const [params, setParams] = useSearchParams();
+  const runsQuery = usePolityRuns();
+  const runs = runsQuery.data?.runs;
+  const runKey = pickRun(
+    params.get('run'),
+    (runs ?? []).map((r) => r.key)
+  );
+  const overviewQuery = usePolityRun(runKey);
+  const overview = overviewQuery.data;
+  const lastTick = overview?.last_tick ?? null;
+  const tick = clampTick(parseWholeNumberParam(params.get('tick')) ?? 0, lastTick ?? 0);
+  const { frame, isLoading: frameLoading } = usePolityFrame(runKey, tick, lastTick);
+
+  const update = React.useCallback(
+    (changes: Record<string, string | null>) =>
+      setParams(
+        (current) => {
+          const next = new URLSearchParams(current);
+          for (const [name, value] of Object.entries(changes)) {
+            if (value === null) next.delete(name);
+            else next.set(name, value);
+          }
+          return next;
+        },
+        { replace: true }
+      ),
+    [setParams]
+  );
+
+  const setRunKey = React.useCallback(
+    // Another run starts from its first tick, with nobody selected.
+    (key: string) => update({ run: key, tick: null, citizen: null }),
+    [update]
+  );
+  const setTick = React.useCallback(
+    (next: number) => update({ tick: String(clampTick(next, lastTick ?? 0)) }),
+    [update, lastTick]
+  );
+  const setLens = React.useCallback((next: PolityLens) => update({ lens: next }), [update]);
+  const setCitizen = React.useCallback(
+    (next: number | null) => update({ citizen: next === null ? null : String(next) }),
+    [update]
+  );
+
+  const lens = parseLens(params.get('lens'));
+  const citizen = parseCitizen(params.get('citizen'), overview?.population ?? 0);
+  const { isLoading: runsLoading, error: runsError } = runsQuery;
+  const { isLoading: overviewLoading, error: overviewError } = overviewQuery;
+
+  // One object per change, not one per render: the map redraws its canvas and the curves
+  // re-chart from this context, and playback pushes a new tick several times a second.
+  return React.useMemo(
+    () => ({
+      runs,
+      runsLoading,
+      runsError,
+      run: runs?.find((r) => r.key === runKey),
+      runKey,
+      setRunKey,
+      overview,
+      overviewLoading,
+      overviewError,
+      tick,
+      setTick,
+      lens,
+      setLens,
+      citizen,
+      setCitizen,
+      frame,
+      frameLoading,
+    }),
+    [
+      runs,
+      runsLoading,
+      runsError,
+      runKey,
+      setRunKey,
+      overview,
+      overviewLoading,
+      overviewError,
+      tick,
+      setTick,
+      lens,
+      setLens,
+      citizen,
+      setCitizen,
+      frame,
+      frameLoading,
+    ]
+  );
+}
+
+export const PolityProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <Ctx.Provider value={useController()}>{children}</Ctx.Provider>
+);
+
+export function usePolityCtx(): PolityCtx {
+  const ctx = useContext(Ctx);
+  if (!ctx) throw new Error('usePolityCtx must be used inside <PolityProvider>');
+  return ctx;
+}

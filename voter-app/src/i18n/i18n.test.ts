@@ -1,5 +1,7 @@
 import fr from './locales/fr';
 import en from './locales/en';
+import polityFr from './locales/polity.fr';
+import polityEn from './locales/polity.en';
 
 // Recursively collect all leaf key paths from a nested object
 function collectKeys(obj: Record<string, unknown>, prefix = ''): string[] {
@@ -72,5 +74,29 @@ describe('i18n parity', () => {
     }
 
     expect(mismatches).toEqual([]);
+  });
+});
+
+// The polity namespace's key parity is enforced by tsc (polity.en.ts is typed on
+// polity.fr.ts); what tsc cannot see is an empty string or a placeholder that one
+// language dropped.
+describe('polity namespace', () => {
+  const leaves = (obj: Record<string, unknown>): [string, string][] =>
+    collectKeys(obj).map((key) => [
+      key,
+      key.split('.').reduce<unknown>((v, p) => (v as Record<string, unknown>)[p], obj) as string,
+    ]);
+  const placeholders = (text: string) =>
+    [...text.matchAll(/\{\{(\w+)\}\}/g)].map((m) => m[1]).sort();
+
+  test('no empty strings and the same placeholders in fr and en', () => {
+    const fr = new Map(leaves(polityFr as unknown as Record<string, unknown>));
+    const en = new Map(leaves(polityEn as unknown as Record<string, unknown>));
+    expect([...fr.values(), ...en.values()].filter((v) => v === '')).toEqual([]);
+    expect(
+      [...fr.keys()].filter(
+        (k) => placeholders(fr.get(k)!).join() !== placeholders(en.get(k) ?? '').join()
+      )
+    ).toEqual([]);
   });
 });

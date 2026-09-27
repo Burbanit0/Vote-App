@@ -655,6 +655,88 @@ ad hoc cette fois :
    déjà utilisé pour un problème de nature différente mais de même
    esprit (ne pas réécrire l'historique, juste le qualifier honnêtement).
 
+### 4.1 Track D — sweep p100, 10 seeds (2026-09-12/13)
+
+Premier sweep multi-seed réellement exécuté au titre du point 1 ci-dessus —
+jusqu'ici seule la seed 42 avait jamais tourné en LLM sur un run publié
+(§4.3 : `seed_representativeness: unvalidated`). Protocole : nouveau
+`scripts/run_polity_seed_sweep.py` (`llm_test_harness`-enregistré), 10
+seeds (1 à 10) indépendantes, chacune un vrai `run_polity_flagship.py
+--engine llm --years 8 --population 100 --seats 15` contre le serveur
+vLLM de production. Méthode et table complète :
+`fast_api_voter/scripts/run_polity_seed_sweep_p100_results.md`.
+
+**Résultat.** `office_occupancy` — moyenne 0,930, stdev 0,052, min 0,818,
+max 0,970 sur les 10 seeds. Bande resserrée, aucune seed sous 0,81 : le
+correctif de vacance présidentielle (Track A) généralise à travers les
+seeds, pas seulement à la seed sur laquelle il a été vérifié à l'origine.
+Effet de bord noté, pas encore un motif établi : l'alerte de repli de
+`representative_response` (seuil >10%, Track C2) s'est déclenchée sur 2
+des 10 seeds (2 et 3), muette sur les 8 autres.
+
+**Ce que ça règle, et ce que ça ne règle pas.** Le sweep p100 établit que le
+correctif Track A tient à travers les seeds à cette échelle de population.
+
+> **Correction, 2026-09-13.** Une première version de ce paragraphe disait que
+> le sweep « répond à la question de représentativité à cette échelle ». C'est
+> excessif : aucun seuil pré-enregistré n'existait pour la trancher. Recalculé
+> sur les dix valeurs : intervalle bootstrap BCa à 95 % pour la moyenne
+> **0,888–0,955** (100 000 rééchantillonnages sur les valeurs exactes ; d'abord
+> donné à 0,894–0,955, dont la borne basse varie entre 0,888 et 0,894 selon la
+> seule graine de rééchantillonnage) ; intervalle de prédiction à 95 % pour une nouvelle seed
+> **0,81–1,05** (au-delà du plafond de 1, donc « une seed peut tomber n'importe
+> où entre ~0,81 et le plafond ») ; alerte de repli sur 2 seeds sur 10, intervalle
+> de Clopper–Pearson **2,5–55,6 %** ; 8 seeds sur 10 à ±0,05 de la moyenne. Le
+> correctif tient ; qu'une seed isolée vaille pour les autres n'est pas établi.
+> Le batch p500 est pré-enregistré en conséquence
+> (`plan-polity-build-order.md`, S0.7).
+
+Il ne répond pas à la question analogue à population 500 : le repli propre à
+`party_nomination_choice`, dépendant de l'échelle (mesuré à 67% en Phase
+7 Stage 3, jamais observé à p100), reste hors du périmètre de ce sweep
+par construction. Un second batch (seeds 1, 2, 42 — la dernière choisie
+pour se raccorder au run Stage 3 déjà analysé à cette population) est
+construit et prêt, mais pas encore lancé.
+
+**Statut** : point 1 de la politique du §4 satisfait pour p100 ; le volet
+p500 reste ouvert, point 3 (marquage des runs déjà publiés) toujours pas
+fait.
+
+### 4.2 Versions du stack LLM pour le batch p500 — décision (2026-09-13)
+
+`scripts/check_llm_stack_versions.py` (nouvel outil, EXP-016) signale deux
+écarts réels à la date du batch : vLLM épinglé `v0.28.0` contre `v0.29.0`
+disponible (poussé 2026-09-09), Ollama épinglé `0.33.3` contre `0.34.0`
+disponible (poussé 2026-09-09).
+
+**Décision : ne rien bumper avant le batch p500.** Trois raisons, dans cet
+ordre :
+
+1. **Comparabilité, qui est la raison principale.** Le batch p500 a deux
+   points de raccordement explicites, et les deux ont tourné sous
+   `vllm/vllm-openai:v0.28.0` : le volet p100 ci-dessus (même sweep Track D)
+   et le run Phase 7 Stage 3 (même population, seed 42 choisie exactement
+   pour ça). Bumper le serveur en même temps qu'on change la population
+   ferait bouger deux variables à la fois — précisément l'erreur que
+   `docker-compose.llm.yml` documente déjà pour le passage AWQ (« a SECOND
+   variable confounded with the serving-layer switch, not a transparent
+   substitution ») et que `docker-compose.llm-4b.yml` interdit en une
+   phrase (« the serving layer must not be a variable in this comparison »).
+2. **Un bump de vLLM demande sa propre vérification, pas un run au hasard.**
+   Chaque changement de couche de service dans ce projet a été revérifié
+   explicitement (déterminisme B2, sortie structurée, le correctif
+   `disable_any_whitespace` de xgrammar). Un bump livré sans ce passage ne
+   serait pas moins cher, il serait juste non vérifié.
+3. **Le bump Ollama n'a presque aucun effet ici de toute façon** :
+   `llm.provider` est `vllm` en production depuis le 2026-09-06, donc
+   l'image Ollama n'est pas dans le chemin d'exécution de ces runs.
+
+**Ce qui rouvrirait la question** : un correctif amont dans `v0.29.0` qui
+toucherait un défaut réellement observé ici (troncature, grammaire,
+déterminisme), ou la fin du programme Track D — à ce moment-là le bump
+devient un chantier à part entière, avec sa propre revérification, pas un
+effet de bord d'un sweep.
+
 ## 5. Plan d'exécution, phasé avec portes de validation
 
 **Phase 1 — Décision théorique** (avant tout code)

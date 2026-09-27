@@ -1,6 +1,7 @@
 const fr = {
   nav: {
     play: 'À vous de jouer',
+    polity: 'Polity',
     playground: 'Playground',
     laboratoire: 'Laboratoire',
     lexique: 'Lexique',

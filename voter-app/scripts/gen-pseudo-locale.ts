@@ -1,7 +1,7 @@
 #!/usr/bin/env npx jiti
 /**
  * gen-pseudo-locale.ts — regenerate the checked-in pseudo-locale files from
- * the real `fr.ts` / `playground.fr.ts` source of truth.
+ * the real `fr.ts` / `playground.fr.ts` / `polity.fr.ts` source of truth.
  *
  * `pseudo.ts` / `playground.pseudo.ts` are GENERATED ARTIFACTS (same status
  * as `src/api/types.gen.ts`) — never hand-edit them. `src/i18n/
@@ -17,6 +17,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import fr from '../src/i18n/locales/fr';
 import pgFr from '../src/i18n/locales/playground.fr';
+import polityFr from '../src/i18n/locales/polity.fr';
 import { pseudoizeTree } from '../src/i18n/pseudoize';
 
 function serialize(node: unknown, indent = 0): string {
@@ -74,6 +75,13 @@ generate(
   './playground.fr',
   'pgPseudo'
 );
+generate(
+  polityFr,
+  fileURLToPath(new URL('../src/i18n/locales/polity.pseudo.ts', import.meta.url)),
+  'PolityKeys',
+  './polity.fr',
+  'polityPseudo'
+);
 
 // Resolved to the local devDependency binary, not a bare "npx" looked up on
 // PATH -- sonarjs/no-os-command-from-path. fileURLToPath, not .pathname --
@@ -86,6 +94,7 @@ execFileSync(
     '--write',
     fileURLToPath(new URL('../src/i18n/locales/pseudo.ts', import.meta.url)),
     fileURLToPath(new URL('../src/i18n/locales/playground.pseudo.ts', import.meta.url)),
+    fileURLToPath(new URL('../src/i18n/locales/polity.pseudo.ts', import.meta.url)),
   ],
   { stdio: 'inherit' }
 );

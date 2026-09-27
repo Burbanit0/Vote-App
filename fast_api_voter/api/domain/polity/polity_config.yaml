@@ -31,7 +31,10 @@ institutions:
   assembly_offset_years: 2    # [v0] décalage entre les deux calendriers
                               #      0 = élections concurrentes (Shugart & Carey)
                               #      dimension de comparaison Monte Carlo (§6bis.4)
-  president_term_limit: null  # [v4] null = illimité, sinon nb de mandats max
+  president_term_limit: 2     # [v4] null = illimité, sinon nb de mandats max
+                              #   (scrutins gagnés, anticipés compris). 2 depuis
+                              #   D6 (2026-09-13) : sans limite, le même citoyen
+                              #   gagnait presque chaque scrutin (OBS-001).
   assembly_term_limit: null   # [v4] cf. effet lame duck (§6bis.1)
 
   # --- Élection présidentielle (un seul vainqueur) ---
@@ -69,6 +72,35 @@ institutions:
                                       #      ça le mécanisme n'a aucun effet.
                                       #      Bascule indépendante de
                                       #      blank_vote_competitive.
+  snap_election_on_recall: false      # [v9, Track A3] un scrutin anticipé,
+                                      #      reelection_delay_ticks après un
+                                      #      rappel (floor ou vote de
+                                      #      confiance), au lieu d'attendre
+                                      #      le prochain scrutin calendaire.
+                                      #      false par défaut : ne change pas
+                                      #      un run déjà calibré ; le run
+                                      #      flagship l'active explicitement
+                                      #      (run_polity_flagship.py).
+  recalled_barred_from_snap_election: true  # [D6, 2026-09-13] le président
+                                      #      rappelé ne peut pas se présenter au
+                                      #      scrutin anticipé qui suit son rappel
+                                      #      (OBS-003) ; il le peut aux suivants.
+  staggered_election: false           # [Track E] scrutin présidentiel étalé sur
+                                      #      sa campagne (déclaration au premier
+                                      #      tick, investiture + positionnement au
+                                      #      dernier, vote au tick du scrutin) au
+                                      #      lieu d'un seul tick — jamais pour un scrutin
+                                      #      anticipé (rappel/invalidation), qui
+                                      #      reste atomique. false par défaut :
+                                      #      ne change pas un run déjà calibré ;
+                                      #      change l'ordre de tirage RNG quand
+                                      #      actif (frontière de version).
+  presidential_campaign_ticks: 4      # [S4.4] campagne présidentielle : les 4
+                                      #      ticks avant le scrutin. Un scrutin
+                                      #      étalé déclare au premier tick de la
+                                      #      campagne et investit au dernier.
+  legislative_campaign_ticks: 2       # [S4.4] campagne législative : les 2 ticks
+                                      #      avant le scrutin.
 
 # =============================================================================
 # PARTIS (§A2 de l'audit)
@@ -82,7 +114,6 @@ parties:
   manual_platforms: []        # [v0] si init_strategy = manual
   birth_enabled: false        # [v1] un parti peut-il naître en cours de run ?
   death_enabled: false        # [v1] un parti disparaît-il après N échecs ?
-  split_enabled: false        # [v1] scission (point ouvert n°4)
 
   # --- Formation de coalition (A5, §3.6.8) ---
   coalition_initiator: largest_seats   # [v0] largest_seats | largest_votes
@@ -91,6 +122,29 @@ parties:
                               #      pour la reproductibilité octet-pour-octet :
                               #      jamais de max() ou de tri instable
   coalition_majority_ratio: 0.5   # [v0] seuil de majorité à atteindre
+  coalition_max_negotiation_rounds: 3  # [v7] borne dure de la négociation
+  # multi-tours (§3.4 Cas 2). PARSÉ, PAS ENCORE CONSOMMÉ EN v7 LOT 1 —
+  # decide_coalition reste un appel unique jusqu'au Lot 2 (boucle de
+  # négociation), voir plan-coalition-negotiation-v7.md.
+  # Choix PRAGMATIQUE, explicitement marqué comme tel : Riker (1962) et
+  # Axelrod (1970), déjà cités §3.3, sont des théories de SÉLECTION
+  # D'ÉQUILIBRE (quelle coalition se forme), pas des modèles de PROCESSUS
+  # de négociation — aucun des deux ne donne, ni ne prétend donner, un
+  # nombre de tours. 3 est dérivé structurellement, pas empirique (aucun
+  # sweep fait) : round 1 = le mécanisme actuel exact (chaque répondant
+  # décide sans visibilité sur les autres — testable en parité directe
+  # contre le comportement d'aujourd'hui) ; round 2 = premier tour où le
+  # raisonnement conditionnel devient possible ("je rejoins si X a
+  # rejoint") ; round 3 = seconde révision, nécessaire parce qu'un
+  # changement d'avis au round 2 peut modifier le calcul d'un parti qui
+  # n'avait pas prévu de bouger. Au-delà, dans un jeu à au plus
+  # parties.initial_count - 1 répondants (4 ici), le contenu
+  # informationnel marginal d'un tour de plus est faible. Arrêt anticipé
+  # dès qu'un round ne change aucune décision JOIN/LEAVE (point fixe) —
+  # cette borne dure n'est donc qu'un plafond, pas la durée typique
+  # attendue. Voir plan-coalition-negotiation-v7.md §3 pour la dérivation
+  # complète et §5 pour le coût mesuré (négligeable face à
+  # chamber_deliberation/vote_cast, même au pire cas).
 
 # =============================================================================
 # CITOYENS (§2)
@@ -146,12 +200,22 @@ candidacy:
   # forcent toujours `ambition_threshold=0.0` via `dataclasses.replace`, et
   # c'est désormais un choix de CONTINUITÉ (garder THEORY.md §10.4-§10.9
   # comparables entre eux), plus une condition d'existence de l'élection.
-  independent_signature_ratio: 0.01   # [v0] % de la population à réunir
-  # ⚠ PARSÉ ET VALIDÉ, JAMAIS LU PAR LE CODE DE DOMAINE. Aucun chemin de
-  # candidature indépendante n'existe : toute candidature est soit une
-  # nomination de parti, soit une déclaration de rupture. Voir ADR-003.
   rupture_path_enabled: false         # [v1] chemin rare (§2.4)
   rupture_base_probability: 0.001     # [v1] proba par tick et par citoyen
+  rupture_distance_multiplier: 2.0    # [v1] RÉSOLUTION points ouverts #1
+                                      #      (2026-08-29) : proba effective =
+                                      #      rupture_base_probability * (1 +
+                                      #      k * weighted_distance(citizen,
+                                      #      son_parti_affilie)) -- k=2.0,
+                                      #      donc jusqu'a 3x la proba de base
+                                      #      au desaccord maximal, exactement
+                                      #      la proba de base au desaccord nul
+                                      #      (comportement pre-changement
+                                      #      inchange a distance 0). Pas de
+                                      #      derivation theorique disponible
+                                      #      (THEORY.md ne couvre pas ce point) --
+                                      #      choix pragmatique explicite, voir
+                                      #      plan-rupture-candidacy-threshold.md.
   rupture_signature_ratio: 0.005      # [v1] RÉSOLUTION C1 : seuil réduit,
                                       #      pas d'exemption totale
   # CORRIGÉ le 2026-08-29 (ADR-003, option 1). Ce seuil compare désormais
@@ -183,6 +247,70 @@ campaign:
   max_positioning_shifts: 3    # [v2] nombre max de dimensions déplacées par
                                 #      décision — "delta borné", pas un vecteur
                                 #      complet à issue_count dimensions
+
+# =============================================================================
+# VOTE DE LA POPULATION (S4.1, D2 — docs/adr/ADR-011-utility-vote-with-turnout.md)
+# =============================================================================
+vote:
+  mode: utility                 # llm = vote_cast pour chaque bulletin ;
+                                #   utility = simple_rules.utility_ballot pour
+                                #   chaque bulletin, et vote_cast sur un
+                                #   échantillon d'audit (journalisé, jamais compté)
+  audit_fraction: 0.1           # part des électeurs auditée par le modèle
+  partisanship: 0.0             # utilité ajoutée au candidat de son propre parti
+  approval: 0.0                 # poids du bilan du sortant (2 x légitimité - 1)
+  approval_party_carryover: 0.0 # part de ce bilan reportée sur un autre candidat
+                                #   du parti du sortant
+  valence: 0.0                  # poids de la valence (aucune source encore : 0)
+  turnout_cost: 0.0             # abstention si la meilleure option ne dépasse la
+                                #   suivante que de moins que ce coût
+  policy_retrospection: 0.0     # S4.2 (ADR-009) : poids du chemin parcouru par la
+                                #   politique vers l'électeur pendant le mandat —
+                                #   sur le sortant jugé et, aux législatives, sur
+                                #   les partis de gouvernement
+                                # Poids à 0 = le bulletin sincère de build_ranking
+                                #   (bras témoin), jusqu'à calibration contre les
+                                #   faits pré-enregistrés de l'ADR-011.
+
+# =============================================================================
+# LÉGISLATION ORDINAIRE (S4.2, D3/D7 — docs/adr/ADR-009-ordinary-legislation.md)
+# =============================================================================
+legislation:
+  enabled: false                # false = aucune politique, aucun projet de loi
+  bill_interval_ticks: 2        # un projet tous les N ticks (aucun tant qu'un
+                                #   projet est suspendu par la chambre)
+  max_bill_dimensions: 2        # enjeux qu'un projet peut déplacer
+  max_bill_step: 0.1            # déplacement maximal par enjeu
+  assembly_majority_ratio: 0.5  # part des sièges à dépasser pour adopter
+  cohabitation_block: true      # en cohabitation, le président bloque un projet
+                                #   qui éloigne la politique de sa position
+                                # Le veto de la chambre : sortition_chamber.veto_power
+                                #   et veto_delay_ticks. Calibration : ADR-009.
+
+# =============================================================================
+# CITOYENS DYNAMIQUES (S4.3 — docs/adr/ADR-012-dynamic-citizens.md)
+# =============================================================================
+dynamics:
+  enabled: false                # false = population statique (bras de contrôle).
+                                #   Requiert citizens.position_dist: factor_structure
+  susceptibility: 1.0           # lambda de Friedkin-Johnsen : 1 = aucun rappel
+                                #   vers les facteurs initiaux
+  influence_step: 0.0           # part de l'écart à la moyenne des voisins
+                                #   couverte par mise à jour (requiert social_graph)
+  confidence_bound: 1.0         # confiance bornée : un voisin plus loin que ceci,
+                                #   dans l'espace latent, n'influence pas
+  drift_std: 0.0                # écart-type du pas idiosyncratique, par facteur
+                                # Neutres tant que la calibration de l'ADR-012
+                                # (stabilité de panel) n'a pas tourné.
+
+emotions:
+  enabled: false                # requiert awakening.enabled
+  decay: 0.7                    # e(t) = decay*e(t-1) + (1-decay)*évaluation(t)
+  awakening_anger: 0.0          # la colère abaisse le seuil d'éveil
+  awakening_anxiety: 0.0        # l'anxiété l'abaisse
+  awakening_enthusiasm: 0.0     # l'enthousiasme l'élève
+  mobilization_anger: 0.0       # à colère 1, la règle déterministe de pression
+                                #   agit au-delà de (1 - ceci) x blank_threshold
 
 # =============================================================================
 # LÉGITIMITÉ ET RAPPEL (§7)
@@ -287,13 +415,13 @@ sortition_chamber:
                                     #       code (Office.DEPUTY réservé,
                                     #       jamais assigné)
   veto_power: suspensive_limited   # [v6b] suspensive_limited | consultative_only
-                                    #       ANALYSÉ, NON CONSOMMÉ en v6b —
-                                    #       le pouvoir de veto (point ouvert
-                                    #       n°11) exige un mécanisme de loi
-                                    #       qui n'existe nulle part dans ce
-                                    #       code ; différé à un palier futur
-                                    #       distinct, non encore autorisé
-  veto_delay_ticks: 2         # [v6b] (point ouvert n°11, différé — voir ci-dessus)
+                                    #       Consommé depuis S4.2 (ADR-009) : la
+                                    #       chambre examine chaque projet en
+                                    #       première lecture ; une majorité
+                                    #       contre le suspend (suspensive_limited)
+                                    #       ou ne fait qu'être journalisée
+                                    #       (consultative_only)
+  veto_delay_ticks: 2         # [v6b] durée de la suspension avant seconde lecture
   max_deliberation_delta: 0.3 # [v6b] borne dt=11 (§6bis.3, Lot 3) — même valeur que
                               #      mandate.max_response_delta, DÉLIBÉRÉMENT : la
                               #      comparaison élu/tiré-au-sort du Lot 4 isole ainsi
@@ -344,18 +472,35 @@ social_graph:
 # =============================================================================
 llm:
   enabled: false              # [v2] false => simple_rules.py (baseline v0/v1)
-  provider: ollama            # [v2] ollama | vllm | api ("api" épelable,
+  provider: vllm              # [v2] ollama | vllm | api ("api" épelable,
                               #      non implémenté — hors périmètre §12)
                               #      BASCULE vers vllm dès v4 (§15bis.6) :
                               #      le facteur de charge est le nombre de
                               #      décisions PAR TICK, pas la population
                               #      v4 (vLLM switch) : VllmJsonClient est
-                              #      écrit et testé hors-ligne (llm_client.py),
-                              #      mais "ollama" reste le défaut — aucune
-                              #      vérification live n'a pu être faite
-                              #      (pas de GPU dans cet environnement),
-                              #      §15bis.5 n'a jamais tourné contre vLLM
-                              # pour basculer :
+                              #      écrit et testé hors-ligne (llm_client.py).
+                              #      §15bis.5 vérifié live 2026-09-05 (PR #273,
+                              #      scripts/vllm_determinism_results.md) : B2
+                              #      (déterminisme) tient sous vLLM, y compris
+                              #      en concurrence.
+                              # BASCULÉ 2026-09-06 (plan-flagship-30y-run.md
+                              #   phase 0) : "vllm" est désormais le défaut.
+                              #   Prérequis levés : axe (a) et axe (b)
+                              #   (scripts/vllm_switch_results.md), et le bug
+                              #   de troncature xgrammar (2/9 types de décision
+                              #   cassés) corrigé par --structured-outputs-
+                              #   config disable_any_whitespace, cf.
+                              #   scripts/check_vllm_disable_any_whitespace_
+                              #   fix_results.md.
+                              #   ⚠ RESTE OUVERT : les calibrations de
+                              #   fiabilité (_VOTE_CAST_MAX_CHUNK_SIZE,
+                              #   recycle_after_n_calls, seuils de collapse)
+                              #   ont été mesurées contre les poids Ollama non
+                              #   quantisés, pas l'AWQ de vLLM — à surveiller
+                              #   sous charge réelle, pas supposées transposer.
+                              # pour revenir à ollama : décommenter la
+                              #   base_url 11434 et remettre provider: ollama.
+                              # pour lancer vLLM :
                               #   1. base_url: "http://localhost:8000/v1"
                               #   2. docker compose -f docker-compose.llm.yml up
                               #   3. le serveur vLLM DOIT être lancé avec
@@ -376,8 +521,14 @@ llm:
                               #   Sans ca : troncature silencieuse rare mais
                               #   reelle (finish_reason='length'), cf.
                               #   scripts/ollama_context_window_results.md
-  # base_url: "http://localhost:8000/v1"  # vllm
-  base_url: "http://localhost:11434/v1"
+                              #   -- lancer via `docker compose -f
+                              #   docker-compose.ollama.yml up -d` (2026-09-05:
+                              #   image et modele desormais epingles par
+                              #   version/digest dans ce fichier, plus un
+                              #   simple `docker run` non versionne)
+  base_url: "http://localhost:8000/v1"   # vllm (bascule 2026-09-06, cf.
+                              #      plan-flagship-30y-run.md phase 0)
+  # base_url: "http://localhost:11434/v1"  # ollama
   model: "qwen3:8b"           # [v2] version ÉPINGLÉE (jamais 'latest', cf. B2)
                               #      identique pour vllm : lancer le serveur
                               #      avec --served-model-name qwen3:8b
@@ -443,6 +594,27 @@ llm:
                               #      grand budget) — pas prouvé général à
                               #      tout mélange de types de décision ;
                               #      voir llm_batching_determinism_results_gpu.md
+  reproducibility: strict      # [S2.1, D1] strict = un seul worker, un run se
+                              #      régénère octet pour octet depuis sa graine ;
+                              #      relaxed = décisions parallèles dans un tick
+                              #      (parallel.intra_run_workers > 1, vllm
+                              #      seulement), un run se rejoue depuis son
+                              #      llm_calls.jsonl (S0.6).
+  vote_cast_grammar_invariants: true  # [S1.2] grammaire vote_cast imposant
+                              #      blank=1 <=> ranking vide et la longueur
+                              #      maximale du classement
+                              #      (llm_schemas.vote_cast_json_schema).
+                              #      Adoptée le 2026-09-16 : l'A/B du bake-off
+                              #      supprime l'erreur blank-avec-classement
+                              #      sans perte d'accord. Change les octets
+                              #      des requêtes vote_cast.
+  thinking_token_budget: 2048 # [S1.3] budget de raisonnement vLLM, envoyé
+                              #      sur vote_cast et chamber_deliberation
+                              #      seulement (les deux décisions mesurées).
+                              #      Adopté le 2026-09-16 : aucune perte
+                              #      d'accord, aucune troncature, temps de
+                              #      chamber_deliberation divisé par deux.
+                              #      null = aucun budget. vllm seulement.
 
 # =============================================================================
 # JOURNAL ET DONNÉES (§16)
@@ -485,6 +657,7 @@ parallel:
   runs_in_parallel: 1         # [v2] parallélisme ENTRE runs — sans risque
                               #      pour la reproductibilité, c'est le
                               #      levier recommandé (§15bis.3)
-  intra_run_workers: 1        # [v2] sharding INTRA-run — ne pas augmenter
-                              #      avant validation du point ouvert n°20
-                              #      (déterminisme vLLM sous batching)
+  intra_run_workers: 1        # [v2] sharding INTRA-run — > 1 exige
+                              #      llm.reproducibility: relaxed (D1, S2.1) :
+                              #      le batching vLLM change alors les réponses,
+                              #      le run se rejoue mais ne se régénère plus

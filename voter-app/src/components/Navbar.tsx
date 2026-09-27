@@ -11,9 +11,10 @@ import { useTranslation } from 'react-i18next';
 import i18n, { switchLanguage } from '../i18n';
 
 // ── Navigation ────────────────────────────────────────────────────────────────
-// Three destinations: Playground (the instrument, hero) → Laboratoire (go deeper)
-// → À vous de jouer (cast one ballot yourself). Everything theory/mechanism/system
-// lives inside the Laboratoire's fiches now.
+// Four destinations: Playground (the instrument, hero) → Laboratoire (go deeper)
+// → À vous de jouer (cast one ballot yourself) → Polity (replay a simulated
+// society's run). Everything theory/mechanism/system lives inside the
+// Laboratoire's fiches now.
 
 // ── Settings row (used inside user dropdown) ──────────────────────────────────
 
@@ -107,7 +108,7 @@ const Navbar: React.FC = () => {
         />
 
         <BootstrapNavbar.Collapse id="votelab-nav">
-          {/* ── Main nav — Playground → Laboratoire → À vous de jouer ── */}
+          {/* ── Main nav — Playground → Laboratoire → À vous de jouer → Polity ── */}
           <Nav className="mr-auto lg:items-center gap-1">
             {/* Playground — hero link */}
             <Nav.Link
@@ -154,6 +155,22 @@ const Navbar: React.FC = () => {
               }}
             >
               ✍️ {t('nav.play')}
+            </Nav.Link>
+
+            {/* Polity — the simulated society's run explorer */}
+            <Nav.Link
+              href="/polity"
+              data-testid="nav-polity"
+              className="font-semibold px-3 py-1 rounded"
+              active={currentPath === '/polity'}
+              onClick={() => setNavExpanded(false)}
+              style={{
+                color: currentPath === '/polity' ? 'var(--bs-primary)' : 'inherit',
+                fontSize: '0.88rem',
+                transition: 'all 0.15s',
+              }}
+            >
+              🏛 {t('nav.polity')}
             </Nav.Link>
           </Nav>
 
