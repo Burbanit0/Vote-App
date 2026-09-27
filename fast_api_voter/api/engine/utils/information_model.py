@@ -127,19 +127,3 @@ def apply_information_asymmetry(
     return perceived
 
 
-def compute_information_gap(
-    true_utilities: list[list[float]],
-    perceived_utilities: list[list[float]],
-) -> float:
-    """
-    Mean absolute difference between true and perceived utilities.
-
-    Returns a value in [0, 1]: 0 = perfect information, 1 = maximum distortion.
-    """
-    total = 0.0
-    count = 0
-    for true_row, perc_row in zip(true_utilities, perceived_utilities):
-        for t, p in zip(true_row, perc_row):
-            total += abs(t - p)
-            count += 1
-    return round(total / count, 4) if count > 0 else 0.0

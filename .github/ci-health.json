@@ -1,40 +1,40 @@
 {
-  "generated_at": "2026-09-13T15:44:11Z",
+  "generated_at": "2026-09-26T12:59:46Z",
   "workflows": {
     "mutation-testing.yml": {
       "display_name": "Mutation Testing",
       "expected_cadence_hours": 168,
-      "last_run_at": "2026-09-13T13:54:59Z",
+      "last_run_at": "2026-09-21T09:56:51Z",
       "recent_conclusions": [
-        "failure",
-        "failure",
-        "failure",
-        "failure",
-        "failure"
-      ],
-      "consecutive_failures": 5,
-      "status": "unhealthy",
-      "detail": "last 5 completed runs all failed"
-    },
-    "schemathesis.yml": {
-      "display_name": "Schemathesis Contract Fuzzing",
-      "expected_cadence_hours": 168,
-      "last_run_at": "2026-09-13T13:54:59Z",
-      "recent_conclusions": [
-        "failure",
+        "success",
         "success",
         "success",
         "success",
         "success"
       ],
-      "consecutive_failures": 1,
+      "consecutive_failures": 0,
+      "status": "healthy",
+      "detail": "ok"
+    },
+    "schemathesis.yml": {
+      "display_name": "Schemathesis Contract Fuzzing",
+      "expected_cadence_hours": 168,
+      "last_run_at": "2026-09-25T20:47:53Z",
+      "recent_conclusions": [
+        "success",
+        "success",
+        "success",
+        "success",
+        "success"
+      ],
+      "consecutive_failures": 0,
       "status": "healthy",
       "detail": "ok"
     },
     "atheris-fuzzing.yml": {
       "display_name": "Coverage-Guided Fuzzing (atheris)",
       "expected_cadence_hours": 168,
-      "last_run_at": "2026-09-13T13:54:59Z",
+      "last_run_at": "2026-09-24T09:33:23Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -49,7 +49,7 @@
     "flaky-check-backend.yml": {
       "display_name": "Backend Flaky Test Hunt",
       "expected_cadence_hours": 24,
-      "last_run_at": "2026-09-13T13:54:59Z",
+      "last_run_at": "2026-09-26T08:31:22Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -64,7 +64,7 @@
     "dast.yml": {
       "display_name": "DAST \u2014 ZAP Baseline",
       "expected_cadence_hours": 24,
-      "last_run_at": "2026-09-13T13:54:59Z",
+      "last_run_at": "2026-09-26T07:58:58Z",
       "recent_conclusions": [
         "success",
         "success",
@@ -79,7 +79,7 @@
     "scorecard.yml": {
       "display_name": "OpenSSF Scorecard",
       "expected_cadence_hours": 168,
-      "last_run_at": "2026-09-13T15:43:00Z",
+      "last_run_at": "2026-09-25T21:03:39Z",
       "recent_conclusions": [
         "success",
         "success",

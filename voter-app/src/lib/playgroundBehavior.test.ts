@@ -1,12 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  ballotsAtShare,
-  vseAt,
-  vseOfWinner,
-  vseSweep,
-  VSE_RULES,
-  VSE_SHARES,
-} from './playgroundBehavior';
+import { ballotsAtShare, vseOfWinner, vseSweep, VSE_RULES, VSE_SHARES } from './playgroundBehavior';
 import {
   computeRanks,
   computeScores,
@@ -84,8 +77,13 @@ describe('playgroundBehavior — VSE', () => {
     // every voter compresses to a frontrunner: no method can recover a compromise
     // that no ballot mentions. Utility is still measured against what voters
     // actually want, which is exactly why the second number is bad.
-    expect(vseAt(voters, SQUEEZE, 'condorcet', 0)).toBeGreaterThan(0.9);
-    expect(vseAt(voters, SQUEEZE, 'condorcet', 1)).toBeLessThan(0);
+    const [curve] = vseSweep(() => voters, 0, SQUEEZE, {
+      rules: ['condorcet'],
+      shares: [0, 1],
+      replications: 1,
+    });
+    expect(curve.points[0].vse.mean).toBeGreaterThan(0.9);
+    expect(curve.points[1].vse.mean).toBeLessThan(0);
   });
 
   it('is deterministic for a given sampler + seed', () => {

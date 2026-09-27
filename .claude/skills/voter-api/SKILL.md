@@ -74,7 +74,14 @@ python -m mypy api/ --config-file mypy.ini         # BLOCKING — api/ is strict
 1. **Schema** in `api/schemas/*` — request (`extra="forbid"`) + a response model.
 2. **Worker** in the matching `workers_*.py` — pure `data: dict -> (body, status)`; reuse
    `engine/utils`; re-export from `domain/election/__init__.py`.
-3. **Route** in `api/routes/*` — validate → call worker → `response_model`, mounted on `/api/v2`.
+3. **Route** in `api/routes/*` — validate → `return await run_typed(worker, request,
+   ResponseModel)` (or `run_passthrough` for a dict-returning route) from
+   `api.core.worker_dispatch`, mounted on `/api/v2`, with
+   `responses=WORKER_ERROR_RESPONSES`. Both helpers take either the request model
+   or a plain payload (a query-param GET builds its own). Never hand-roll the
+   `(body, status)` → `HTTPException` adaptation in the router: five modules each
+   carried their own copy of it. A worker's own 4xx reaches the client verbatim,
+   so say 404/409 in the worker rather than mapping it in the route.
 4. **Test** in the matching `tests/` module; keep coverage up.
 5. Green `pytest` + **`mypy`** before committing.
 

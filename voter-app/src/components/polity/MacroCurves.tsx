@@ -2,7 +2,7 @@ import React, { Suspense, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Spinner } from '@/components/ui/spinner';
 import Collapsible from '../playground/Collapsible';
-import { lazyWithPreload } from '../../lib/lazyWithPreload';
+import { lazyWithPreload } from '../lazyWithPreload';
 
 // Recharts stays out of the Polity page's first paint (ADR-005): the curves'
 // chunk is fetched when the toggle is hovered or focused, and mounted only once

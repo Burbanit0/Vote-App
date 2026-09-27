@@ -6,12 +6,6 @@ vi.mock('../../../../hooks/useIsMobile', () => ({
   useIsMobile: () => false,
 }));
 
-// Clean up the injected style tag between tests
-afterEach(() => {
-  const style = document.getElementById('responsive-table-styles');
-  if (style) style.remove();
-});
-
 describe('ResponsiveTable', () => {
   it('renders children inside rsp-table wrapper', () => {
     render(
@@ -28,8 +22,12 @@ describe('ResponsiveTable', () => {
     expect(screen.getByText('cell content')).toBeInTheDocument();
   });
 
-  it('injects style tag on mount', () => {
-    render(
+  it('carries the rsp-table hook the stylesheet targets', () => {
+    // The sticky first column and the phone padding are plain CSS in
+    // src/styles/tailwind.css (they select descendants of the wrapper, which
+    // arrive as children), so what this component owns is the class that
+    // selects them. They used to be injected into <head> on first render.
+    const { container } = render(
       <ResponsiveTable>
         <table>
           <tbody>
@@ -40,36 +38,8 @@ describe('ResponsiveTable', () => {
         </table>
       </ResponsiveTable>
     );
-    const style = document.getElementById('responsive-table-styles');
-    expect(style).toBeInTheDocument();
-    expect(style?.tagName).toBe('STYLE');
-  });
-
-  it('does not inject duplicate style tag', () => {
-    render(
-      <ResponsiveTable>
-        <table>
-          <tbody>
-            <tr>
-              <td>first</td>
-            </tr>
-          </tbody>
-        </table>
-      </ResponsiveTable>
-    );
-    render(
-      <ResponsiveTable>
-        <table>
-          <tbody>
-            <tr>
-              <td>second</td>
-            </tr>
-          </tbody>
-        </table>
-      </ResponsiveTable>
-    );
-    const styles = document.querySelectorAll('#responsive-table-styles');
-    expect(styles.length).toBe(1);
+    expect(container.querySelector('.rsp-table')).not.toBeNull();
+    expect(document.getElementById('responsive-table-styles')).toBeNull();
   });
 
   it('applies custom className', () => {

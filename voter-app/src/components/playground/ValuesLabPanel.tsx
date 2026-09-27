@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { usePlaygroundCtx, useMethodSelection } from './PlaygroundController';
+import { useStoreCtx, useScorecardCtx, useMethodSelection } from './PlaygroundController';
 import ValuesPanel from './ValuesPanel';
 import { useVotingLabels } from '../../hooks/useVotingLabels';
 import { dialWeights, LEADER_AXES_KEYS } from '../../lib/scorecard';
@@ -9,8 +9,8 @@ import { PARLIAMENT_AXES_KEYS } from '../../lib/playgroundMeta';
 const ValuesLabPanel: React.FC = () => {
   const { t } = useTranslation('playground');
   const { ruleLabels, structureLabels } = useVotingLabels();
+  const { mode } = useStoreCtx();
   const {
-    mode,
     axisMeta,
     lensMode,
     setLensMode,
@@ -19,7 +19,7 @@ const ValuesLabPanel: React.FC = () => {
     effectiveWeights,
     setLeaderWeights,
     setParlWeights,
-  } = usePlaygroundCtx();
+  } = useScorecardCtx();
   const { lensItems } = useMethodSelection();
 
   return (

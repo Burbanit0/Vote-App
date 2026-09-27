@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { usePlaygroundCtx } from '../playground/PlaygroundController';
+import { useInstrumentCtx } from '../playground/PlaygroundController';
 import { ruleWinner, RULE_LABELS, type Rule } from '../../lib/playgroundVoting';
 import { LEADER_RULES } from '../../lib/scorecard';
 import {
@@ -48,7 +48,7 @@ const FAMILY_HEADER_CLS: Record<MethodFamily, string> = {
 
 const MethodsMatrix: React.FC = () => {
   const { t } = useTranslation('playground');
-  const { voters, leaderCandidates } = usePlaygroundCtx();
+  const { voters, leaderCandidates } = useInstrumentCtx();
 
   // Live winners — one ruleWinner() call per rule on the current electorate
   const liveWinners = useMemo<Record<Rule, number>>(() => {

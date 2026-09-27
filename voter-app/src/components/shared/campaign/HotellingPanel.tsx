@@ -5,7 +5,7 @@
  * With Plurality they converge to the median voter (Downs 1957).
  * With other methods (Approval, Borda) they may disperse or oscillate.
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +18,8 @@ import { useElection } from '../../../stores/useElectionStore';
 import { $api } from '../../../api/hooks';
 import { apiClient } from '../../../api/client';
 import type { HotellingResponse } from '../../../api';
+import { colorByName, LAB_PALETTE } from '@/lib/palette';
+import type { HotellingMethod } from '@/api';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 // Source of truth is the generated `HotellingResponse` (Phase 6 response_model).
@@ -26,10 +28,7 @@ type HotellingData = HotellingResponse;
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 
-const PALETTE = ['#005CAB', '#C8590A', '#007A33', '#6c757d', '#9b59b6', '#e67e22'];
-function candColor(name: string, names: string[]) {
-  return PALETTE[names.indexOf(name) % PALETTE.length] ?? '#888';
-}
+const candColor = (name: string, names: string[]) => colorByName(name, names, LAB_PALETTE);
 
 // ── SVG constants ─────────────────────────────────────────────────────────────
 
@@ -46,7 +45,7 @@ function dy(v: number) {
 
 // ── Comparison methods ────────────────────────────────────────────────────────
 
-const COMPARE_METHODS = ['plurality', 'borda', 'irv', 'approval'] as const;
+const COMPARE_METHODS: HotellingMethod[] = ['plurality', 'borda', 'approval'];
 
 // ── Main component ────────────────────────────────────────────────────────────
 
@@ -54,7 +53,7 @@ const HotellingPanel: React.FC = () => {
   const { t } = useTranslation();
   const { config } = useElection();
 
-  const [method, setMethod] = useState('plurality');
+  const [method, setMethod] = useState<HotellingMethod>('plurality');
   const [numIter, setNumIter] = useState(10);
   const [stepSize, setStepSize] = useState(0.05);
   const sim = $api.useMutation('post', '/api/v2/election/hotelling');
@@ -143,7 +142,7 @@ const HotellingPanel: React.FC = () => {
     : 'transparent';
 
   // Pedagogical message
-  const pedagMsg = useCallback(() => {
+  const pedagMsg = () => {
     if (!data) return '';
     const fp = data.final_positions;
     if (data.equilibrium_type === 'center_convergence') {
@@ -155,7 +154,7 @@ const HotellingPanel: React.FC = () => {
       return t('hotelling.pedagogicalDispersed', { method, pairs });
     }
     return t('hotelling.pedagogicalUnstable', { method });
-  }, [data, method, t]);
+  };
 
   return (
     <div>
@@ -163,8 +162,13 @@ const HotellingPanel: React.FC = () => {
       <Row className="g-2 mb-3 items-end">
         <Col xs={12} sm={3}>
           <label className="mb-1 inline-block text-sm mb-0">{t('hotelling.method')}</label>
-          <Select size="sm" value={method} onChange={(e) => setMethod(e.target.value)}>
-            {['plurality', 'borda', 'irv', 'approval'].map((m) => (
+          <Select
+            size="sm"
+            value={method}
+            data-testid="hotelling-method-select"
+            onChange={(e) => setMethod(e.target.value as HotellingMethod)}
+          >
+            {COMPARE_METHODS.map((m) => (
               <option key={m} value={m}>
                 {m}
               </option>

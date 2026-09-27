@@ -89,16 +89,27 @@ const MOCK_DATA_CHANGED = {
 /** openapi-fetch resolves to { data, error }. */
 const ok = (d: unknown) => ({ data: d, error: undefined });
 
+/** The Lab's shared electorate, the only way this panel is ever mounted. */
+const LAB = {
+  candidates: [
+    { name: 'Alice', x: -0.5, y: 0.0 },
+    { name: 'Bob', x: 0.0, y: 0.0 },
+    { name: 'Carol', x: 0.5, y: 0.0 },
+  ],
+  numVoters: 300,
+  seed: 42,
+};
+
 function renderPanel() {
   return render(
     <QueryClientProvider client={makeTestQueryClient()}>
-      <IdentityVotingPanel />
+      <IdentityVotingPanel {...LAB} />
     </QueryClientProvider>
   );
 }
 
 async function renderAndRun(responseData = MOCK_DATA_NO_CHANGE) {
-  apiClient.POST.mockResolvedValueOnce(ok(responseData));
+  apiClient.POST.mockResolvedValue(ok(responseData));
   renderPanel();
   await act(async () => {
     fireEvent.click(screen.getByTestId('run-btn'));
@@ -110,21 +121,16 @@ async function renderAndRun(responseData = MOCK_DATA_NO_CHANGE) {
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('IdentityVotingPanel', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    apiClient.POST.mockResolvedValue(ok(MOCK_DATA_NO_CHANGE));
+  });
 
   // ── Initial render ──────────────────────────────────────────────────────────
 
   it('renders Green quote on mount', () => {
     renderPanel();
     expect(screen.getByTestId('green-quote')).toBeInTheDocument();
-  });
-
-  it('renders preset buttons', () => {
-    renderPanel();
-    expect(screen.getByTestId('presets')).toBeInTheDocument();
-    expect(screen.getByTestId('preset-usa2020')).toBeInTheDocument();
-    expect(screen.getByTestId('preset-france2022')).toBeInTheDocument();
-    expect(screen.getByTestId('preset-uk_brexit')).toBeInTheDocument();
   });
 
   it('renders group editor with default groups', () => {
@@ -138,8 +144,6 @@ describe('IdentityVotingPanel', () => {
   it('renders all controls', () => {
     renderPanel();
     expect(screen.getByTestId('run-btn')).toBeInTheDocument();
-    expect(screen.getByTestId('voters-input')).toBeInTheDocument();
-    expect(screen.getByTestId('seed-input')).toBeInTheDocument();
     expect(screen.getByTestId('identity-weight-slider')).toBeInTheDocument();
     expect(screen.getByTestId('cross-pressure-toggle')).toBeInTheDocument();
   });
@@ -149,26 +153,22 @@ describe('IdentityVotingPanel', () => {
     expect(screen.getByTestId('prompt-alert')).toBeInTheDocument();
   });
 
-  // ── Preset loading ──────────────────────────────────────────────────────────
-
-  it('loads usa2020 preset and clears results', () => {
-    renderPanel();
-    fireEvent.click(screen.getByTestId('preset-usa2020'));
-    // After loading preset, data is cleared
-    expect(screen.getByTestId('prompt-alert')).toBeInTheDocument();
-  });
-
   // ── API call ────────────────────────────────────────────────────────────────
 
-  it('calls API with correct payload on run', async () => {
+  it('sends the Lab electorate when run', async () => {
     await renderAndRun();
-    const [url, init] = apiClient.POST.mock.calls[0];
+    const [url, init] = apiClient.POST.mock.calls[0] as [string, { body: Record<string, unknown> }];
     expect(url).toBe('/api/v2/theory/identity-voting');
-    const payload = (init as { body: Record<string, unknown> }).body;
-    expect(payload).toHaveProperty('candidates');
-    expect(payload).toHaveProperty('num_voters');
-    expect(payload).toHaveProperty('seed');
-    expect(payload).toHaveProperty('identity_groups');
+    const payload = init.body;
+    expect(payload.candidates).toEqual(LAB.candidates);
+    expect(payload.num_voters).toBe(LAB.numVoters);
+    expect(payload.seed).toBe(LAB.seed);
+    // Each group's affiliation follows the Lab's candidates, in order.
+    expect(
+      (payload.identity_groups as Array<{ candidate_affiliation: string }>).map(
+        (g) => g.candidate_affiliation
+      )
+    ).toEqual(['Alice', 'Bob', 'Carol']);
     expect(payload).toHaveProperty('identity_weight');
     expect(payload).toHaveProperty('cross_pressure');
   });

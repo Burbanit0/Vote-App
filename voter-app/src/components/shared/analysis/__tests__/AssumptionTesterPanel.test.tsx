@@ -36,7 +36,7 @@ vi.mock('recharts', () => {
 
 // ── Mock data ─────────────────────────────────────────────────────────────────
 
-const makeResult = (changed: boolean, variance: number, winner = 'Alice') => ({
+const makeResult = (changed: boolean, variance: number, winner: string[] = ['Alice']) => ({
   winner,
   winner_changed: changed,
   pct_trials_changed: changed ? 0.33 : 0.0,
@@ -62,7 +62,7 @@ const MOCK_ROBUST: object = {
 const MOCK_FRAGILE: object = {
   baseline_result: { winner: 'Alice', regret: 0.0 },
   relaxed_results: {
-    single_peaked: makeResult(true, 0.65, 'Bob'),
+    single_peaked: makeResult(true, 0.65, ['Bob']),
     stable_preferences: makeResult(false, 0.2),
     rational_voters: makeResult(false, 0.12),
     fixed_electorate: makeResult(false, 0.08),
@@ -76,39 +76,45 @@ const MOCK_FRAGILE: object = {
 /** openapi-fetch resolves to { data, error }. */
 const ok = (d: unknown) => ({ data: d, error: undefined });
 
+/** The Lab's shared electorate, the only way this panel is ever mounted. */
+const LAB = {
+  candidates: [
+    { name: 'Alice', x: -0.4, y: 0.0 },
+    { name: 'Bob', x: 0.1, y: 0.0 },
+    { name: 'Carol', x: 0.5, y: 0.0 },
+  ],
+  numVoters: 100,
+  seed: 42,
+  ideology: 'random',
+};
+
 function renderPanel() {
   return render(
     <QueryClientProvider client={makeTestQueryClient()}>
-      <AssumptionTesterPanel />
+      <AssumptionTesterPanel {...LAB} />
     </QueryClientProvider>
   );
 }
 
+/** Mounting IS the run: this panel has no run button, it follows the Lab. */
 async function renderAndRun(responseData: object = MOCK_ROBUST) {
-  apiClient.POST.mockResolvedValueOnce(ok(responseData));
+  apiClient.POST.mockResolvedValue(ok(responseData));
   renderPanel();
-  await act(async () => {
-    fireEvent.click(screen.getByTestId('run-btn'));
-  });
   await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
   await act(async () => {});
 }
 
 describe('AssumptionTesterPanel', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    apiClient.POST.mockResolvedValue(ok(MOCK_ROBUST));
+  });
 
   // ── Initial render ──────────────────────────────────────────────────────────
 
   it('renders philosophy quote on mount', () => {
     renderPanel();
     expect(screen.getByTestId('philosophy-quote')).toBeInTheDocument();
-  });
-
-  it('renders controls', () => {
-    renderPanel();
-    expect(screen.getByTestId('run-btn')).toBeInTheDocument();
-    expect(screen.getByTestId('voters-input')).toBeInTheDocument();
-    expect(screen.getByTestId('seed-input')).toBeInTheDocument();
   });
 
   it('renders assumption cards with checkboxes', () => {
@@ -119,11 +125,6 @@ describe('AssumptionTesterPanel', () => {
     expect(screen.getByTestId('assumption-card-rational_voters')).toBeInTheDocument();
     expect(screen.getByTestId('assumption-card-fixed_electorate')).toBeInTheDocument();
     expect(screen.getByTestId('assumption-card-measurable_utilities')).toBeInTheDocument();
-  });
-
-  it('shows prompt alert before test run', () => {
-    renderPanel();
-    expect(screen.getByTestId('prompt-alert')).toBeInTheDocument();
   });
 
   // ── Assumption toggle ───────────────────────────────────────────────────────
@@ -140,12 +141,17 @@ describe('AssumptionTesterPanel', () => {
 
   // ── API call ────────────────────────────────────────────────────────────────
 
-  it('calls API with correct payload on run', async () => {
+  it('runs itself on mount with the Lab electorate', async () => {
     await renderAndRun();
-    const [url, init] = apiClient.POST.mock.calls[0];
+    const [url, init] = apiClient.POST.mock.calls[0] as [string, { body: Record<string, unknown> }];
     expect(url).toBe('/api/v2/theory/assumption-testing');
-    const payload = (init as { body: Record<string, unknown> }).body;
-    expect(payload).toHaveProperty('base_simulation');
+    const payload = init.body;
+    expect(payload.base_simulation).toEqual({
+      candidates: LAB.candidates,
+      num_voters: LAB.numVoters,
+      ideology: LAB.ideology,
+      seed: LAB.seed,
+    });
     expect(payload).toHaveProperty('assumptions_to_relax');
   });
 
@@ -155,6 +161,18 @@ describe('AssumptionTesterPanel', () => {
     await renderAndRun(MOCK_ROBUST);
     expect(screen.getByTestId('summary-section')).toBeInTheDocument();
     expect(screen.getByTestId('robust-badge')).toHaveTextContent('robust');
+  });
+
+  it('names both candidates when the trials tie, and calls it stable', async () => {
+    const tied = {
+      ...(MOCK_ROBUST as Record<string, unknown>),
+      relaxed_results: {
+        ...(MOCK_ROBUST as { relaxed_results: Record<string, unknown> }).relaxed_results,
+        stable_preferences: makeResult(false, 0.5, ['Alice', 'Bob']),
+      },
+    };
+    await renderAndRun(tied);
+    expect(screen.getByText(/winnerStable: Alice, Bob/)).toBeInTheDocument();
   });
 
   it('renders fragility chart and variance chart', async () => {
@@ -193,11 +211,8 @@ describe('AssumptionTesterPanel', () => {
   // ── Error handling ──────────────────────────────────────────────────────────
 
   it('shows error alert on API failure', async () => {
-    apiClient.POST.mockRejectedValueOnce(new Error('Network error'));
+    apiClient.POST.mockRejectedValue(new Error('Network error'));
     renderPanel();
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('run-btn'));
-    });
     await waitFor(() => expect(screen.getByTestId('error-alert')).toBeInTheDocument());
   });
 });

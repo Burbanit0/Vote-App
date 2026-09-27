@@ -107,7 +107,7 @@ détectée que si quelqu'un (humain ou agent) pense à relire la mémoire.
 **Effort** : S/M · **Priorité** : haute (ferme le dernier trou d'une
 philosophie « tout est cliqueté » par ailleurs cohérente).
 
-### 2.C 🟡 Pas de lockfile Python — reproductibilité transitive non garantie
+### 2.C 🟡 Pas de lockfile Python — reproductibilité transitive non garantie — PR #484 mergée, freshness check ajouté
 
 **Constat** : `requirements.txt`/`requirements-dev.txt` épinglent les 55
 dépendances directes en `==` exact (vérifié live : 49/55 déjà à la dernière
@@ -120,18 +120,61 @@ contraire du côté npm, reproductible byte pour byte via
 figé côté Python — deux installations à des instants différents peuvent
 résoudre des transitives différentes sans qu'aucun diff ne le montre.
 
-**Action, taille limitée pour cette session (GPU indisponible n'entre pas
-en jeu ici, c'est une question de rayon d'impact)** : générer `uv.lock` en
-ajout pur (nouveau fichier, aucun workflow ni `Dockerfile` reconfiguré
-pour le consommer) — donne un lockfile inspectable et diffable dès
-maintenant, sans changer aucun comportement CI existant. Rebrancher les ~12
-workflows et 4 `Dockerfile` qui font `uv pip install -r requirements*.txt`
-pour consommer `uv.lock` est un chantier plus large, à trancher et
-planifier séparément (risque de cascade sur une douzaine de jobs à la
-fois).
+**Fait (PR #484)** : `uv.lock` ne s'applique pas ici — il attend une table
+`[project.dependencies]` PEP 621 dans `pyproject.toml`, que ce dépôt n'a
+pas (essayé : produit un fichier de 3 lignes, vide). L'outil réel est
+`uv pip compile`, l'interface compatible pip-tools d'uv, qui prend
+`requirements*.txt` directement. Deux lockfiles générés, calquant le vrai
+découpage prod/dev (root `Dockerfile` installe `requirements.txt` seul,
+`fast_api_voter/Dockerfile`/`ci-local/backend.Dockerfile` installent les
+deux) : `requirements.lock.txt` (58 paquets), `requirements-dev.lock.txt`
+(176 paquets). Ajout pur, aucun workflow reconfiguré pour les consommer.
 
-**Effort** : S (cette session, ajout seul) → L (rebranchement complet,
-hors scope aujourd'hui) · **Priorité** : moyenne.
+**Fait (cette session, suite)** : un lockfile commité qu'on ne revérifie
+jamais dérive silencieusement — exactement la classe de bug que cette
+session corrige ailleurs. Ajouté `scripts/check_python_lockfile_freshness.sh`
+(informationnel, `continue-on-error`, câblé dans `backend-ci-cd-pipeline.yml`
+et `ci-local/backend.Dockerfile`) qui vérifie que chaque pin direct de
+`requirements*.txt` apparaît avec la même version dans le lockfile
+correspondant — **pas** une re-résolution `uv pip compile` + diff (ça
+signalerait une « dérive » à chaque fois qu'une transitive publie un
+nouveau patch en amont, sans aucun rapport avec ce dépôt). Détail réel
+trouvé en testant : `requirements.txt` épingle `prometheus_client`
+(underscore), `uv pip compile` normalise en `prometheus-client` (PEP 503)
+— même paquet, même version, pas une vraie dérive ; le script normalise
+les noms avant de comparer. Vérifié dans les deux sens (cas qui passe, et
+une dérive simulée réellement détectée) avant de committer.
+
+**Fait (suite, même session)** : `backend-ci-cd-pipeline.yml` (le required
+check qui gate réellement chaque PR backend) et son miroir
+`ci-local/backend.Dockerfile` installent maintenant depuis
+`requirements-dev.lock.txt` au lieu de résoudre `requirements*.txt` en
+direct — les deux gardés en synchro ensemble dans le même commit
+(changer l'un sans l'autre aurait été une nouvelle dérive, pas une
+étape sûre). Vérifié avec un run réel complet du miroir `ci-local`
+(build `--no-cache`, versions installées confirmées identiques au
+lockfile, puis la suite de gating complète — ruff/mypy/pytest+coverage/
+benchmarks — passe de bout en bout).
+
+**Fait (suite)** : l'image *réellement déployée* est le `Dockerfile` racine
+(celui que `fly.toml` déploie) — `fast_api_voter/Dockerfile.prod`, qu'`audit.yml`
+scannait sans que rien ne le déploie, a été supprimé le 2026-09-17. Le
+`Dockerfile` racine installe maintenant depuis les lockfiles (`npm ci` +
+`requirements.lock.txt`), le job `image-scan` le construit, le check de
+fraîcheur des lockfiles est devenu bloquant et `pip-audit` audite
+`requirements.lock.txt`. Vérifié avec un build réel et un smoke test
+(`/api/v2/health`, SPA servie, conteneur non-root).
+
+**Reste ouvert** : 9 workflows (`flaky-check-backend.yml`,
+`atheris-fuzzing.yml`, `release.yml`, `e2e.yml`, `audit.yml`,
+`openapi-contract.yml`, `mutation-testing.yml`, `schemathesis.yml`,
+`dast.yml`) et 2 `Dockerfile` (`ci-local/e2e.Dockerfile`,
+`fast_api_voter/Dockerfile`) installent encore `requirements*.txt` en
+direct — chacun a son propre rayon d'impact à évaluer séparément.
+
+**Effort** : S (lockfiles + freshness check, fait) → M (Backend CI +
+son miroir + image de prod, fait) → L (reste des 9 workflows/3
+Dockerfile, hors scope) · **Priorité** : moyenne.
 
 ### 2.D 🟢 « Redondance » gitleaks/trufflehog — déjà tranchée, aucune action
 
@@ -146,25 +189,36 @@ lower-priority finding than one that does »).
 **Action** : aucune — retiré de la liste des items ouverts par cette
 vérification même.
 
-### 2.E 🟡 L'agent `doc-drift` existe mais ne tourne jamais sur un cycle régulier
+### 2.E 🟢 L'agent `doc-drift` existe mais ne tourne jamais sur un cycle régulier — corrigé : le constat initial était faux, un vrai routine mensuel existe déjà
 
-**Constat** : deux dérives de documentation réelles trouvées *cette même
-session* (le nombre de wheel `cp314` de `pygit2` dupliqué et faux dans 3
-fichiers, corrigé PR #481 — trouvé par hasard via `/code-review ultra` sur
-un autre commit, pas par une vérification systématique). L'agent
-`doc-drift` existe précisément pour ce genre de dérive mais n'a aucun
-déclenchement récurrent configuré (`CronList` de cette session : aucun job
-programmé).
+**Constat initial (2026-09-14, faux)** : deux dérives de documentation
+réelles trouvées *cette même session* (le nombre de wheel `cp314` de
+`pygit2` dupliqué et faux dans 3 fichiers, corrigé PR #481 — trouvé par
+hasard via `/code-review ultra` sur un autre commit, pas par une
+vérification systématique) avaient fait conclure que l'agent `doc-drift`
+n'avait « aucun déclenchement récurrent configuré », vérifié via `CronList`
+de cette session (aucun job programmé).
 
-**Pourquoi ce n'est *pas* un item de code** : `doc-drift` est un agent
-Claude Code, pas un script autonome — il ne peut pas être ajouté à
-`.github/workflows/` comme un job CI classique sans Claude Code pour
-l'exécuter. C'est une recommandation opérationnelle, pas une PR.
+**Corrigé (2026-09-15)** : ce constat vérifiait le mauvais mécanisme.
+`CronList` ne liste que les crons `ScheduleWakeup`/dynamic-loop
+propres à *cette session* — pas les routines cloud persistantes créées via
+`RemoteTrigger`, un mécanisme entièrement différent. `PLAN_SOLIDITE_
+TECHNIQUE.md` (Lot 11 — Outillage Claude avancé) documentait déjà, dès le
+2026-09-12, la création réelle
+d'une routine `doc-drift-monthly` (`trig_0183HpsWHKnLz8EFfFQgS6qA`,
+`cron_expression: "0 8 1 * *"`) — ce plan-ci la contredisait sans jamais
+vérifier laquelle des deux docs avait raison. Vérifié en direct via l'outil
+`RemoteTrigger` (`action: "get"`) le 2026-09-15 : la routine existe bien,
+`enabled: true`, `next_run_at: 2026-10-01T08:06:36Z` — correctement
+programmée, pas encore déclenchée pour de vrai (`list_runs` : aucune
+session encore, cohérent avec une première échéance au 1er du mois
+suivant sa création).
 
-**Action** : aucune dans ce plan. Recommandation notée : invoquer
-périodiquement l'agent `doc-drift` (par exemple après chaque PR touchant
-de la documentation, comme sa propre description le suggère) plutôt que de
-compter sur une relecture incidentelle.
+**Action** : aucune — la lacune que cet item décrivait n'existe pas.
+Recommandation qui reste valide : la routine ne couvre qu'un cycle mensuel,
+donc invoquer `doc-drift` ponctuellement après une PR qui touche beaucoup
+de documentation (comme cette même correction l'a fait) reste utile en
+complément, pas un remplacement du mensuel.
 
 ---
 

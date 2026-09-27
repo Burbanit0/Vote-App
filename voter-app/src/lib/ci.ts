@@ -37,8 +37,3 @@ export function wilson(k: number, n: number, z = 1.96): Interval {
 export function wilsonFromRate(rate: number, n: number, z = 1.96): Interval {
   return wilson(Math.round(rate * n), n, z);
 }
-
-/** "62% ± 7%" — a compact point-estimate-with-margin for a label. */
-export function pctPm(iv: Interval): string {
-  return `${Math.round(iv.p * 100)}% ± ${Math.round(iv.half * 100)}%`;
-}

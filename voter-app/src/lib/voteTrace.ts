@@ -13,7 +13,12 @@
 //   lottery   — draw a single ballot (random ballot)
 
 import {
+  argmax,
+  bordaAlive,
   computeRanks,
+  mulberry32,
+  pairwise,
+  pluralityCounts,
   computeScores,
   ruleWinnerFromRanks,
   smithSet,
@@ -118,17 +123,6 @@ const UNIT_OF: Record<Rule, string> = {
   raynaud: 'replay.unit.duels',
 };
 
-// ── Seeded sampler (shared across all methods within one modal session) ─────────
-function mulberry32(seed: number): () => number {
-  return () => {
-    seed |= 0;
-    seed = (seed + 0x6d2b79f5) | 0;
-    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
 /** A deterministic (seeded) subset of at most `n` voters — same seed ⇒ same sample. */
 export function sampleVoters(voters: Pt[], n: number, seed: number): Pt[] {
   if (voters.length <= n) return voters.slice();
@@ -141,22 +135,6 @@ export function sampleVoters(voters: Pt[], n: number, seed: number): Pt[] {
   return idx.slice(0, n).map((i) => voters[i]);
 }
 
-// ── Shared helpers ──────────────────────────────────────────────────────────
-function argmax(a: number[]): number {
-  let b = 0;
-  for (let i = 1; i < a.length; i++) if (a[i] > a[b]) b = i;
-  return b;
-}
-
-function firstPrefs(ranks: number[][], alive: boolean[], m: number): number[] {
-  const c = new Array(m).fill(0);
-  for (const r of ranks) {
-    const t = r.find((i) => alive[i]);
-    if (t !== undefined) c[t] += 1;
-  }
-  return c;
-}
-
 function lastPrefs(ranks: number[][], alive: boolean[], m: number): number[] {
   const last = new Array(m).fill(0);
   for (const r of ranks) {
@@ -167,20 +145,6 @@ function lastPrefs(ranks: number[][], alive: boolean[], m: number): number[] {
       }
   }
   return last;
-}
-
-function bordaAlive(ranks: number[][], alive: boolean[], m: number): number[] {
-  const k = alive.filter(Boolean).length;
-  const score = new Array(m).fill(0);
-  for (const r of ranks) {
-    let rank = 0;
-    for (const c of r)
-      if (alive[c]) {
-        score[c] += k - 1 - rank;
-        rank += 1;
-      }
-  }
-  return score;
 }
 
 /** Winner index among alive if it holds a strict majority of first prefs, else -1. */
@@ -276,7 +240,7 @@ interface ElimSpec {
 
 const ELIM_SPECS: Partial<Record<Rule, ElimSpec>> = {
   irv: {
-    bars: firstPrefs,
+    bars: pluralityCounts,
     majority: true,
     roundKey: 'replay.elim.irvRound',
     doomed: (_r, alive, m, bars) => {
@@ -288,7 +252,7 @@ const ELIM_SPECS: Partial<Record<Rule, ElimSpec>> = {
     },
   },
   coombs: {
-    bars: firstPrefs,
+    bars: pluralityCounts,
     majority: true,
     roundKey: 'replay.elim.coombsRound',
     doomed: (ranks, alive, m) => {
@@ -301,7 +265,7 @@ const ELIM_SPECS: Partial<Record<Rule, ElimSpec>> = {
     },
   },
   nanson: {
-    bars: bordaAlive,
+    bars: (r, alive, m) => bordaAlive(r, m, alive),
     majority: false,
     roundKey: 'replay.elim.nansonRound',
     doomed: (_r, alive, m, bars) => {
@@ -312,7 +276,7 @@ const ELIM_SPECS: Partial<Record<Rule, ElimSpec>> = {
     },
   },
   baldwin: {
-    bars: bordaAlive,
+    bars: (r, alive, m) => bordaAlive(r, m, alive),
     majority: false,
     roundKey: 'replay.elim.baldwinRound',
     // Eliminate EVERY candidate tied for lowest, not just one -- matches
@@ -381,7 +345,7 @@ function traceElimGeneric(
 
 function traceTwoRound(cands: NamedPt[], ranks: number[][], m: number): TraceFrame[] {
   const allAlive = new Array(m).fill(true);
-  const counts = firstPrefs(ranks, allAlive, m);
+  const counts = pluralityCounts(ranks, allAlive, m);
   const total = ranks.length;
   const frames: TraceFrame[] = [{ caption: { key: 'replay.elim.tr1' }, bars: counts.slice() }];
   const leader = argmax(counts);
@@ -398,7 +362,7 @@ function traceTwoRound(cands: NamedPt[], ranks: number[][], m: number): TraceFra
   const alive: boolean[] = new Array(m).fill(false);
   alive[a] = true;
   alive[b] = true;
-  const runoff = firstPrefs(ranks, alive, m);
+  const runoff = pluralityCounts(ranks, alive, m);
   const elim = alive.map((x) => !x);
   frames.push({
     caption: { key: 'replay.elim.trRunoff', params: { a: cands[a].name, b: cands[b].name } },
@@ -469,7 +433,7 @@ function traceSmithIRV(cands: NamedPt[], ranks: number[][], m: number): TraceFra
         key: 'replay.smith.set',
         params: { cand: S.map((i) => cands[i].name).join(', ') },
       },
-      bars: firstPrefs(ranks, alive, m),
+      bars: pluralityCounts(ranks, alive, m),
       eliminated: alive.map((a) => !a),
       highlight: S,
     });
@@ -481,7 +445,7 @@ function traceSmithIRV(cands: NamedPt[], ranks: number[][], m: number): TraceFra
   }
   while (remaining > 1) {
     // IRV beat among the Smith set.
-    const fp = firstPrefs(ranks, alive, m);
+    const fp = pluralityCounts(ranks, alive, m);
     let min = Infinity;
     for (let i = 0; i < m; i++) if (alive[i] && fp[i] < min) min = fp[i];
     const doomed: number[] = [];
@@ -505,7 +469,7 @@ function traceSmithIRV(cands: NamedPt[], ranks: number[][], m: number): TraceFra
   const w = alive.findIndex((a) => a);
   frames.push({
     caption: { key: 'replay.elim.done', params: { cand: w >= 0 ? cands[w].name : '—' } },
-    bars: firstPrefs(ranks, alive, m),
+    bars: pluralityCounts(ranks, alive, m),
     eliminated: alive.map((a) => !a),
     highlight: w >= 0 ? [w] : [],
   });
@@ -521,7 +485,7 @@ function traceBenham(cands: NamedPt[], ranks: number[][], m: number): TraceFrame
   let round = 1;
   while (remaining > 1) {
     const cw = condorcetWinnerIdx(ranks, m, alive);
-    const fp = firstPrefs(ranks, alive, m);
+    const fp = pluralityCounts(ranks, alive, m);
     if (cw >= 0) {
       frames.push({
         caption: { key: 'replay.benham.cw', params: { round, cand: cands[cw].name } },
@@ -554,26 +518,11 @@ function traceBenham(cands: NamedPt[], ranks: number[][], m: number): TraceFrame
   const w = alive.findIndex((a) => a);
   frames.push({
     caption: { key: 'replay.elim.done', params: { cand: w >= 0 ? cands[w].name : '—' } },
-    bars: firstPrefs(ranks, alive, m),
+    bars: pluralityCounts(ranks, alive, m),
     eliminated: alive.map((a) => !a),
     highlight: w >= 0 ? [w] : [],
   });
   return frames;
-}
-
-/** Pairwise tally: beats[i][j] = voters ranking i above j. */
-function pairwiseMatrix(ranks: number[][], m: number): number[][] {
-  const b = Array.from({ length: m }, () => new Array(m).fill(0));
-  for (const r of ranks) {
-    const pos = new Array(m).fill(0);
-    r.forEach((c, rank) => (pos[c] = rank));
-    for (let i = 0; i < m; i++)
-      for (let j = i + 1; j < m; j++) {
-        if (pos[i] < pos[j]) b[i][j] += 1;
-        else b[j][i] += 1;
-      }
-  }
-  return b;
 }
 
 // Raynaud: each round, eliminate EVERY candidate tied for the worst pairwise
@@ -582,7 +531,7 @@ function pairwiseMatrix(ranks: number[][], m: number): number[][] {
 // PLAN_SOLIDITE_TECHNIQUE.md, matches winRaynaud's fix). bars = duels won
 // among the survivors (context for who's strong).
 function traceRaynaud(cands: NamedPt[], ranks: number[][], m: number): TraceFrame[] {
-  const b = pairwiseMatrix(ranks, m);
+  const b = pairwise(ranks, m);
   const alive: boolean[] = new Array(m).fill(true);
   const wins = (): number[] => {
     const w = new Array(m).fill(0);
@@ -741,7 +690,7 @@ function traceMJ(cands: NamedPt[], ranks: number[][], scores: number[][], m: num
 
 // ── lottery ─────────────────────────────────────────────────────────────────
 function traceLottery(cands: NamedPt[], ranks: number[][], m: number): TraceFrame[] {
-  const counts = firstPrefs(ranks, new Array(m).fill(true), m);
+  const counts = pluralityCounts(ranks, new Array(m).fill(true), m);
   const w = argmax(counts);
   return [
     { caption: { key: 'replay.lottery.shares' }, bars: counts.slice() },

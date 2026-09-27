@@ -21,4 +21,14 @@ import sonarjs from 'eslint-plugin-sonarjs';
 // `sonarjs` import (the same reference eslint.config.js registers) rather
 // than reusing whatever object sonarjs.configs.recommended.plugins.sonarjs
 // happens to be internally.
-export default [...base, { ...sonarjs.configs.recommended, plugins: { sonarjs } }];
+export default [
+  ...base,
+  { ...sonarjs.configs.recommended, plugins: { sonarjs } },
+  // This overlay spreads the full base config above, so react-hooks/exhaustive-deps
+  // and rules-of-hooks (enabled as `warn` there — PLAN_SURFACE_EXTERIEURE.md §2.J)
+  // would get counted into check_quality_ratchet.sh's "sonarjs" total too, despite
+  // not being sonarjs findings at all. They're already visible via the blocking
+  // `npm run lint` output; off here only so this overlay's count keeps meaning
+  // what its name says.
+  { rules: { 'react-hooks/exhaustive-deps': 'off', 'react-hooks/rules-of-hooks': 'off' } },
+];

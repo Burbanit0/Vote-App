@@ -45,15 +45,11 @@ const pgPseudo: PlaygroundKeys = {
     launch: '⟦Hístóírés~~~~⟧',
     launchHint:
       '⟦Dés~~ réçíts~~~ gúídés~~~ qúí~~ fóñt~~ súrgír~~~ úñ~ phéñómèñé~~~~ sóús~~ vós~~ yéúx,~~ dáñs~~ l’íñstrúméñt.~~~~~⟧',
-    pick: '⟦Chóísír~~~ úñé~~ hístóíré~~~⟧',
-    close: '⟦Férmér~~~⟧',
     quit: '⟦Qúíttér~~~⟧',
     step: '⟦Sçèñé~~ {{n}} /~ {{total}}⟧',
     next: '⟦Súíváñt~~~ →~⟧',
     prev: '⟦←~ Préçédéñt~~~~⟧',
     restart: '⟦↻~ Réjóúér~~~⟧',
-    replayHint:
-      '⟦Vóús~~ répréñéz~~~ lá~ máíñ~~ :~ l’íñstrúméñt~~~~~ résté~~ súr~~ lá~ dérñíèré~~~ sçèñé.~~~⟧',
     spoiler: {
       title: '⟦L’éffét~~~ spóílér~~~⟧',
       tagline:
@@ -142,7 +138,7 @@ const pgPseudo: PlaygroundKeys = {
         clone:
           '⟦Lé~ çámp~~ dé~ Á~ álígñé~~~ úñ~ séçóñd~~~ çáñdídát,~~~~ Á2,~~ présqúé~~~ ídéñtíqúé~~~~ à~ Á~ máís~~ úñ~ péú~~ plús~~ à~ gáúçhé.~~~ Áúçúñ~~ éléçtéúr~~~ ñ’á~~ çháñgé~~~ d’ávís~~~ —~ ét~ póúrtáñt,~~~~ éñ~ Bórdá,~~~ ç’ést~~ désórmáís~~~~ Á~ qúí~~ gágñé.~~~⟧',
         condorcet:
-          '⟦Ávéç~~ Cóñdórçét,~~~~ lé~ çlóñágé~~~ ñé~ sért~~ à~ ríéñ~~ :~ B~ bát~~ tóújóúrs~~~ Á~ ÉT~ Á2~ éñ~ dúél,~~ dóñç~~ B~ résté~~ váíñqúéúr.~~~~ Lá~ fáíllé~~~ étáít~~ própré~~~ à~ Bórdá.~~~⟧',
+          '⟦Ávéç~~ Cóñdórçét,~~~~ lé~ çlóñágé~~~ ñé~ sért~~ à~ ríéñ~~ íçí~~ :~ B~ bát~~ tóújóúrs~~~ Á~ ÉT~ Á2~ éñ~ dúél,~~ dóñç~~ B~ résté~~ váíñqúéúr.~~~~ Máís~~ çé~ ñ’ést~~ pás~~ úñé~~ própríété~~~~ géñérálé~~~ dés~~ méthódés~~~ dé~ Cóñdórçét~~~~ —~ Cópéláñd~~~ éllé-mêmé~~~~ résté~~ máñípúláblé~~~~ pár~~ çlóñágé~~~ dáñs~~ d’áútrés~~~ çóñfígúrátíóñs.~~~~~~⟧',
         irv: '⟦Áú~ vóté~~ áltérñátíf~~~~ (ÍRV)~~ ñóñ~~ plús~~ :~ B,~ tóújóúrs~~~ préféré~~~ pár~~ lá~ májóríté,~~~~ l’émpórté~~~~ qúél~~ qúé~~ sóít~~ lé~ ñómbré~~~ dé~ çlóñés~~~ álígñés~~~ éñ~ fáçé.~~⟧',
       },
     },
@@ -365,6 +361,7 @@ const pgPseudo: PlaygroundKeys = {
     theory: {
       intro:
         '⟦Lés~~ párádóxés~~~~ dú~ çhóíx~~ sóçíál~~~ ét~ lá~ théóríé~~~ démóçrátíqúé~~~~~ —~ lés~~ límítés~~~ fórméllés~~~~ qúé~~ tóúté~~ règlé~~ dé~ vóté~~ dóít~~ áffróñtér.~~~~ Cháqúé~~~ módúlé~~~ sé~ çálçúlé~~~ à~ lá~ démáñdé.~~~⟧',
+      arrow: '⟦🏛️~~ Théórèmé~~~ d’ímpóssíbílíté~~~~~~ d’Árrów~~~ (1951)~~~⟧',
       sen: '⟦🔓~ Párádóxé~~~ dé~ Séñ~~ (líbérál~~~ párétíéñ)~~~~⟧',
       judgment: '⟦🧩~ Ágrégátíóñ~~~~ dé~ júgéméñts~~~~ (dílémmé~~~ dísçúrsíf)~~~~⟧',
       agenda: '⟦🎚️~~ Máñípúlátíóñ~~~~~ d’ágéñdá~~~ (MçKélvéy)~~~~⟧',
@@ -625,8 +622,6 @@ const pgPseudo: PlaygroundKeys = {
   },
   vse: {
     title: '⟦Lé~ çóût~~ dú~ vóté~~ strátégíqúé~~~~ (VSÉ)~~⟧',
-    subtitle:
-      '⟦Cómbíéñ~~~ dé~ bíéñ-êtré~~~~ çháqúé~~~ méthódé~~~ gáspíllé~~~ qúáñd~~ lés~~ éléçtéúrs~~~~ çésséñt~~~ d’êtré~~~ síñçèrés~~~⟧',
     intro:
       '⟦Éffíçáçíté~~~~ dé~ sátísfáçtíóñ~~~~~ dés~~ éléçtéúrs~~~~ (VSÉ,~~ Qúíññ~~ 2017,~~ d’áprès~~~ Mérríll~~~ 1984)~~ :~ 1~ =~ lá~ méthódé~~~ élít~~ lé~ çáñdídát~~~ qúí~~ máxímísé~~~ lé~ bíéñ-êtré,~~~~ 0~ =~ éllé~~ ñé~ fáít~~ pás~~ míéúx~~ qú’úñ~~ tírágé~~~ áú~ sórt,~~ ñégátíf~~~ =~ éllé~~ fáít~~ píré.~~ Óñ~ fáít~~ váríér~~~ lá~ párt~~ d’éléçtéúrs~~~~ qúí~~ vótéñt~~~ «~ útílé~~ ».~⟧',
     aria: '⟦Cóúrbés~~~ dé~ VSÉ~~ pár~~ méthódé~~~ sélóñ~~ lá~ párt~~ d’éléçtéúrs~~~~ strátégíqúés~~~~~⟧',
@@ -848,7 +843,6 @@ const pgPseudo: PlaygroundKeys = {
   },
   realElection: {
     title: '⟦🗳~ Épréúvé~~~ dú~ réél~~ :~ dé~ vráís~~ sçrútíñs~~~⟧',
-    sub: '⟦mêmés~~ búllétíñs,~~~~ méthódés~~~ dífféréñtés~~~~ —~ sçrútíñs~~~ rééls~~ ét~ fígés~~ (Búrlíñgtóñ~~~~ 2009,~~ Áláská~~~ 2022),~~~ sáñs~~ ráppórt~~~ ávéç~~ l’éléçtórát~~~~ qúé~~ vóús~~ çóñfígúréz~~~~ súr~~ lá~ çárté~~⟧',
     pick: '⟦Sçrútíñ~~~⟧',
     headlinePre: '⟦Súr~~ lés~~ mêmés~~ búllétíñs,~~~~⟧',
     headlineEnd: '⟦váíñqúéúrs~~~~ dífféréñts~~~~ sélóñ~~ lá~ séúlé~~ méthódé.~~~⟧',
@@ -1209,7 +1203,6 @@ const pgPseudo: PlaygroundKeys = {
     paradoxTitle:
       '⟦Párt~~ dés~~ éléçtóráts~~~~ ré-éçháñtíllóññés~~~~~~ sáñs~~ váíñqúéúr~~~~ dé~ Cóñdórçét~~~~ —~ úñ~ táúx~~ élévé~~ sígñálé~~~ qúé~~ lé~ résúltát~~~ dépéñd~~~ fórtéméñt~~~~ dés~~ hypóthèsés.~~~~⟧',
     condorcet: '⟦Cóñdórçét~~~~ :~ {{name}}⟧',
-    condorcetNone: '⟦áúçúñ~~ váíñqúéúr~~~~ dé~ Cóñdórçét~~~~ (çyçlé)~~~⟧',
     shake: '⟦🎲~ Séçóúér~~~ lés~~ hypóthèsés~~~~⟧',
     shakeTitle:
       "⟦Ré-éçháñtíllóññé~~~~~~ l'éléçtórát~~~~ 60~ fóís~~ (mêmés~~~ hypóthèsés,~~~~ ñóúvéáúx~~~ tírágés)~~~ —~ sépáré~~~ úñé~~ própríété~~~~ strúçtúréllé~~~~~ d'úñ~~ réglágé~~~ çhóísí.~~~⟧",
@@ -1248,6 +1241,8 @@ const pgPseudo: PlaygroundKeys = {
     anti_plurality: '⟦Áñtí-plúrálíté~~~~~ (vétó)~~~⟧',
     dowdall: '⟦Dówdáll~~~ (Náúrú)~~~⟧',
     black: '⟦Bláçk~~ (Cóñdórçét-Bórdá)~~~~~~⟧',
+    copeland: '⟦Cópéláñd~~~⟧',
+    evaluative: '⟦Éválúátíf~~~~ (ñótés)~~~⟧',
     smith_irv: '⟦Smíth-ÍRV~~~~ (Tídémáñ)~~~~⟧',
     split_cycle: '⟦Splít~~ Cyçlé~~⟧',
     kemeny: '⟦Kéméñy-Yóúñg~~~~~⟧',

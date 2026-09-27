@@ -1,6 +1,5 @@
 import * as React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
-import { useTranslation } from 'react-i18next';
 
 import { cn } from '@/lib/utils';
 
@@ -25,37 +24,13 @@ const alertVariants = cva('rounded-md border px-3 py-2 text-sm', {
 });
 
 export interface AlertProps
-  extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof alertVariants> {
-  /** react-bootstrap parity: render a close button that calls onClose. */
-  dismissible?: boolean;
-  onClose?: () => void;
-}
+  extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof alertVariants> {}
 
 const Alert = React.forwardRef<HTMLDivElement, AlertProps>(
-  ({ className, variant, dismissible, onClose, children, ...props }, ref) => {
-    const { t } = useTranslation();
+  ({ className, variant, children, ...props }, ref) => {
     return (
-      <div
-        ref={ref}
-        role="alert"
-        className={cn(
-          alertVariants({ variant }),
-          dismissible && 'flex items-start justify-between gap-2',
-          className
-        )}
-        {...props}
-      >
-        {dismissible ? <span>{children}</span> : children}
-        {dismissible && (
-          <button
-            type="button"
-            aria-label={t('common.close')}
-            onClick={onClose}
-            className="shrink-0 text-lg leading-none opacity-70 transition-opacity hover:opacity-100"
-          >
-            ×
-          </button>
-        )}
+      <div ref={ref} role="alert" className={cn(alertVariants({ variant }), className)} {...props}>
+        {children}
       </div>
     );
   }

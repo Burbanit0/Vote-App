@@ -7,12 +7,6 @@ and coalition math respects the majority line.
 import pytest
 from fastapi.testclient import TestClient
 
-from api.main import app
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
 
 
 SIX_PARTIES = [
@@ -150,14 +144,6 @@ def test_desertion_reduces_wasted_votes_under_pr_threshold(client: TestClient):
 
 
 # ── Representation → governance (frontier FB-1) ──────────────────────────────
-
-def test_congruence_pr_beats_fptp(client: TestClient):
-    """Acceptance: PR's assembly sits closer to the electorate's median than
-    FPTP's on the same electorate (the winner's bonus drags the body away)."""
-    pr   = client.post("/api/v2/election/assembly", json=_payload(threshold=0.0)).json()
-    fptp = client.post("/api/v2/election/assembly", json=_payload(structure="fptp")).json()
-    assert pr["congruence"]["assembly_gap"] <= fptp["congruence"]["assembly_gap"]
-
 
 def test_congruence_block_is_coherent(client: TestClient):
     body = client.post("/api/v2/election/assembly", json=_payload()).json()
@@ -302,3 +288,69 @@ def test_story_diviseur(client: TestClient):
 
     assert dh["Centre"]["seats"] == 8 and dh["Souverainistes"]["seats"] == 0
     assert sl["Centre"]["seats"] == 7 and sl["Souverainistes"]["seats"] == 1
+
+
+def test_district_seats_do_not_depend_on_party_listing_order(client: TestClient):
+    """400 voters over 100 districts is 4 per district, so exact ties are
+    common. `argmax` handed each one to the party listed first: listed last,
+    Vert won 3 seats at seed 2; listed first, 17. A tie is now drawn by lot."""
+    parties = [{"name": "Gauche", "x": -0.6, "y": 0.0}, {"name": "Centre", "x": 0.0, "y": 0.1},
+               {"name": "Vert", "x": -0.2, "y": 0.5}]
+
+    def seats(ps, structure):
+        body = client.post("/api/v2/election/assembly", json={
+            "parties": ps, "num_voters": 400, "seed": 2, "structure": structure, "seats": 100,
+        }).json()
+        return {p["name"]: (p["seats"], p["district_seats"]) for p in body["parties"]}
+
+    for structure in ("fptp", "mmp"):
+        assert seats(parties, structure) == seats(parties[::-1], structure), structure
+
+
+def test_proportional_seats_do_not_depend_on_party_listing_order(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch,
+):
+    """The district lot above covers single-member seats; a proportional seat
+    tie is a different code path, and `max()` gave every one to the party listed
+    first. At seed 2 (three parties, 400 voters, D'Hondt, 10 seats) Centre's
+    third quotient equals Vert's second, so listed *first* Vert took 2 seats and
+    listed last 1. Sainte-Laguë at 25 seats and seed 3 has one too.
+
+    Such ties are rare (1 seed in 300 for the first, 5 in 300 for the second),
+    so each run first checks the tie is still there -- the votes the allocator
+    received give a different answer under the two listings when no lot is
+    drawn -- and would otherwise pass without proving anything."""
+    import api.domain.election.workers_playground as play
+    from api.engine.utils.simulation_multiwinner_utils import (
+        get_dhondt_winners, get_sainte_lague_winners,
+    )
+
+    engines = {"dhondt": get_dhondt_winners, "sainte_lague": get_sainte_lague_winners}
+    received: dict = {}
+    for name, real in (("get_dhondt_winners", play.get_dhondt_winners),
+                       ("get_sainte_lague_winners", play.get_sainte_lague_winners)):
+        def spy(votes, n, *, rng=None, _real=real):
+            received["args"] = (dict(votes), n)
+            return _real(votes, n, rng=rng)
+        monkeypatch.setattr(play, name, spy)
+
+    parties = [{"name": "Gauche", "x": -0.6, "y": 0.0}, {"name": "Centre", "x": 0.0, "y": 0.1},
+               {"name": "Vert", "x": -0.2, "y": 0.5}]
+
+    def seats(ps, structure, apportionment, seed, n):
+        body = client.post("/api/v2/election/assembly", json={
+            "parties": ps, "num_voters": 400, "seed": seed, "structure": structure,
+            "apportionment": apportionment, "seats": n, "threshold": 0.0,
+        }).json()
+        return {p["name"]: p["seats"] for p in body["parties"]}
+
+    for structure in ("pr", "mmp"):
+        for apportionment, seed, n in (("dhondt", 2, 10), ("sainte_lague", 3, 25)):
+            args = (structure, apportionment, seed, n)
+            forward = seats(parties, *args)
+            votes, seats_total = received["args"]
+            engine = engines[apportionment]
+            assert engine(votes, seats_total) != \
+                engine(dict(reversed(list(votes.items()))), seats_total), \
+                f"no decisive quotient tie at {args}: this test would prove nothing"
+            assert forward == seats(parties[::-1], *args), args

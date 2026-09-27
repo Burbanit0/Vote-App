@@ -4,15 +4,7 @@ The heavy 2³-factorial endpoint: same electorate run 8 times with all
 combinations of blank/campaign/info ON-OFF. Pins behavioural parity with
 the Flask /api/election/combined-effects.
 """
-import pytest
-from fastapi.testclient import TestClient
 
-from api.main import app
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
 
 
 def _payload(**overrides) -> dict:

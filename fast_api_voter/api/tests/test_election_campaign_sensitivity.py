@@ -3,15 +3,7 @@
 Snapshot endpoint: runs the same electorate at N campaign days and
 measures method-by-method winner stability over time.
 """
-import pytest
-from fastapi.testclient import TestClient
 
-from api.main import app
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
 
 
 def _payload(**overrides) -> dict:

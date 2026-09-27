@@ -22,7 +22,6 @@ from api.domain.theory.workers import (
     _judgment_aggregation_worker,
     _majority_tyranny_worker,
     _manipulation_analysis_worker,
-    _plott_chaos_worker,
     _sen_paradox_worker,
 )
 
@@ -35,11 +34,6 @@ def arrow(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
 def iia_rate(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
     """Empirical IIA violation rate vs number of candidates."""
     return _iia_rate_worker(data)
-
-
-def plott_chaos(data: dict[str, Any]) -> tuple[dict[str, Any], int]:
-    """Plott's Chaos Theorem in 2-D policy space."""
-    return _plott_chaos_worker(data)
 
 
 def judgment_aggregation(data: dict[str, Any]) -> tuple[dict[str, Any], int]:

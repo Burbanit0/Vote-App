@@ -2,7 +2,7 @@
  * PartyDynamicsPanel — simulates multi-election party system evolution.
  * Shows Duverger's Law: FPTP → bipartism; PR → multipartism.
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +22,7 @@ import {
 } from 'recharts';
 import { $api } from '../../../api/hooks';
 import type { PartyDynamicsResponse } from '../../../api';
+import type { PartyDynamicsMethod } from '@/api';
 const ANIM_MS = 800;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -223,7 +224,7 @@ interface Props {
 const PartyDynamicsPanel: React.FC<Props> = ({ onDataLoaded }) => {
   const { t } = useTranslation();
 
-  const [method, setMethod] = useState('plurality');
+  const [method, setMethod] = useState<PartyDynamicsMethod>('plurality');
   const [numElections, setNumElections] = useState(15);
   const [survThr, setSurvThr] = useState(0.05);
   const [hotelling] = useState(0.1);
@@ -245,7 +246,7 @@ const PartyDynamicsPanel: React.FC<Props> = ({ onDataLoaded }) => {
     setParties(PRESETS[key]?.parties ?? PRESETS.default.parties);
   };
 
-  const runSimulation = useCallback(() => {
+  const runSimulation = () => {
     setPlaying(false);
     setElectionIdx(0);
     sim.mutate(
@@ -267,7 +268,7 @@ const PartyDynamicsPanel: React.FC<Props> = ({ onDataLoaded }) => {
         onSuccess: (res) => onDataLoaded?.(res),
       }
     );
-  }, [parties, numElections, method, survThr, emerge, hotelling, tactical, t, onDataLoaded, sim]);
+  };
 
   // Animation
   useEffect(() => {
@@ -323,11 +324,11 @@ const PartyDynamicsPanel: React.FC<Props> = ({ onDataLoaded }) => {
             size="sm"
             value={method}
             data-testid="method-select"
-            onChange={(e) => setMethod(e.target.value)}
+            onChange={(e) => setMethod(e.target.value as PartyDynamicsMethod)}
           >
+            {/* Two share models: tactical FPTP and sincere nearest-party. "IRV"
+                was computed as FPTP and "Borda" as the sincere model. */}
             <option value="plurality">Plurality (FPTP)</option>
-            <option value="irv">Vote alternatif (IRV)</option>
-            <option value="borda">Borda</option>
             <option value="proportional">Proportionnelle</option>
           </Select>
         </Col>

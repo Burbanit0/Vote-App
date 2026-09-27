@@ -1,10 +1,10 @@
 /**
  * voronoiRegions.ts — Compute SVG Voronoi paths from candidate positions.
  *
- * Uses d3-delaunay to partition the SVG canvas into one region per candidate.
+ * Uses d3's Delaunay to partition the SVG canvas into one region per candidate.
  * Each region contains all points closer to that candidate than to any other.
  */
-import { Delaunay } from 'd3-delaunay';
+import { Delaunay } from 'd3';
 
 export interface VoronoiRegion {
   name: string;

@@ -5,8 +5,12 @@ import '@testing-library/jest-dom';
 const setLeaderRule = vi.fn();
 let ctx: any;
 
+// The component reads result/loading from useScorecardCtx() and
+// leaderRule/setLeaderRule from useJourneyCtx(); each only destructures its
+// own fields, so one flat fixture serves both.
 vi.mock('../PlaygroundController', () => ({
-  usePlaygroundCtx: () => ctx,
+  useScorecardCtx: () => ctx,
+  useJourneyCtx: () => ctx,
 }));
 
 import NonSpatialProfileMap from '../NonSpatialProfileMap';

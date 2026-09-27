@@ -32,14 +32,11 @@ const pgFr = {
   stories: {
     launch: 'Histoires',
     launchHint: 'Des récits guidés qui font surgir un phénomène sous vos yeux, dans l’instrument.',
-    pick: 'Choisir une histoire',
-    close: 'Fermer',
     quit: 'Quitter',
     step: 'Scène {{n}} / {{total}}',
     next: 'Suivant →',
     prev: '← Précédent',
     restart: '↻ Rejouer',
-    replayHint: 'Vous reprenez la main : l’instrument reste sur la dernière scène.',
     spoiler: {
       title: 'L’effet spoiler',
       tagline: 'Un troisième candidat qui ne peut pas gagner peut quand même décider du vainqueur.',
@@ -121,7 +118,7 @@ const pgFr = {
         clone:
           'Le camp de A aligne un second candidat, A2, presque identique à A mais un peu plus à gauche. Aucun électeur n’a changé d’avis — et pourtant, en Borda, c’est désormais A qui gagne.',
         condorcet:
-          'Avec Condorcet, le clonage ne sert à rien : B bat toujours A ET A2 en duel, donc B reste vainqueur. La faille était propre à Borda.',
+          'Avec Condorcet, le clonage ne sert à rien ici : B bat toujours A ET A2 en duel, donc B reste vainqueur. Mais ce n’est pas une propriété générale des méthodes de Condorcet — Copeland elle-même reste manipulable par clonage dans d’autres configurations.',
         irv: 'Au vote alternatif (IRV) non plus : B, toujours préféré par la majorité, l’emporte quel que soit le nombre de clones alignés en face.',
       },
     },
@@ -336,6 +333,7 @@ const pgFr = {
     theory: {
       intro:
         'Les paradoxes du choix social et la théorie démocratique — les limites formelles que toute règle de vote doit affronter. Chaque module se calcule à la demande.',
+      arrow: '🏛️ Théorème d’impossibilité d’Arrow (1951)',
       sen: '🔓 Paradoxe de Sen (libéral parétien)',
       judgment: '🧩 Agrégation de jugements (dilemme discursif)',
       agenda: '🎚️ Manipulation d’agenda (McKelvey)',
@@ -587,8 +585,6 @@ const pgFr = {
   },
   vse: {
     title: 'Le coût du vote stratégique (VSE)',
-    subtitle:
-      'Combien de bien-être chaque méthode gaspille quand les électeurs cessent d’être sincères',
     intro:
       'Efficacité de satisfaction des électeurs (VSE, Quinn 2017, d’après Merrill 1984) : 1 = la méthode élit le candidat qui maximise le bien-être, 0 = elle ne fait pas mieux qu’un tirage au sort, négatif = elle fait pire. On fait varier la part d’électeurs qui votent « utile ».',
     aria: 'Courbes de VSE par méthode selon la part d’électeurs stratégiques',
@@ -787,7 +783,6 @@ const pgFr = {
   },
   realElection: {
     title: '🗳 Épreuve du réel : de vrais scrutins',
-    sub: 'mêmes bulletins, méthodes différentes — scrutins réels et figés (Burlington 2009, Alaska 2022), sans rapport avec l’électorat que vous configurez sur la carte',
     pick: 'Scrutin',
     headlinePre: 'Sur les mêmes bulletins,',
     headlineEnd: 'vainqueurs différents selon la seule méthode.',
@@ -1132,7 +1127,6 @@ const pgFr = {
     paradoxTitle:
       'Part des électorats ré-échantillonnés sans vainqueur de Condorcet — un taux élevé signale que le résultat dépend fortement des hypothèses.',
     condorcet: 'Condorcet : {{name}}',
-    condorcetNone: 'aucun vainqueur de Condorcet (cycle)',
     shake: '🎲 Secouer les hypothèses',
     shakeTitle:
       "Ré-échantillonne l'électorat 60 fois (mêmes hypothèses, nouveaux tirages) — sépare une propriété structurelle d'un réglage choisi.",
@@ -1170,6 +1164,8 @@ const pgFr = {
     anti_plurality: 'Anti-pluralité (véto)',
     dowdall: 'Dowdall (Nauru)',
     black: 'Black (Condorcet-Borda)',
+    copeland: 'Copeland',
+    evaluative: 'Évaluatif (notes)',
     smith_irv: 'Smith-IRV (Tideman)',
     split_cycle: 'Split Cycle',
     kemeny: 'Kemeny-Young',

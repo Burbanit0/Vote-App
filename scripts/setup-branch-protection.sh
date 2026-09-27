@@ -94,6 +94,7 @@ REQUIRED_CONTEXTS='[
       "Backend: Tests + Coverage + Security",
       "Frontend: Tests + Coverage + Security",
       "Playwright E2E",
+      "Playwright/Docker image version sync",
       "Generated artifacts in sync",
       "CI health check"
     ]'

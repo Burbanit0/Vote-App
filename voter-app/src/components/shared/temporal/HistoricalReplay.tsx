@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useDragTouch, makeSvgToDomain } from '../../../hooks/useDragTouch';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
@@ -13,6 +13,7 @@ import { $api } from '../../../api/hooks';
 import type { HistoricalReplayResponse } from '../../../api';
 
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+import { colorByName, LAB_PALETTE } from '@/lib/palette';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 // Source of truth is the generated `HistoricalReplayResponse` (Phase 6 response_model).
@@ -31,11 +32,7 @@ const SCENARIOS = [
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 
-const PALETTE = ['#005CAB', '#C8590A', '#007A33', '#6c757d', '#9b59b6', '#e67e22'];
-
-function candColor(name: string, names: string[]): string {
-  return PALETTE[names.indexOf(name) % PALETTE.length] ?? '#888';
-}
+const candColor = (name: string, names: string[]) => colorByName(name, names, LAB_PALETTE);
 
 // ── SVG ideology map ──────────────────────────────────────────────────────────
 
@@ -62,10 +59,8 @@ const IdeologyMap: React.FC<IdeologyMapProps> = ({ candidates, onMove, candidate
   const draggingRef = useRef<string | null>(null);
 
   useDragTouch(svgRef, {
-    onStart: () => {},
-    onMove: (x, y) => {
-      if (draggingRef.current) onMove(draggingRef.current, x, y);
-    },
+    isDragging: () => draggingRef.current !== null,
+    onMove: (x, y) => onMove(draggingRef.current!, x, y),
     onEnd: () => {
       draggingRef.current = null;
     },
@@ -133,6 +128,9 @@ const IdeologyMap: React.FC<IdeologyMapProps> = ({ candidates, onMove, candidate
             }}
             data-testid={`candidate-star-${c.name}`}
           >
+            {/* Hit area: the ★ and its label ignore the pointer, so without this the
+                <g> has nothing to press and the drag never starts. */}
+            <circle r={14} fill="transparent" />
             {c.modified && (
               <circle r={16} fill="none" stroke={color} strokeWidth={2} strokeDasharray="3 2" />
             )}
@@ -236,11 +234,11 @@ const HistoricalReplay: React.FC = () => {
     []
   );
 
-  const handleCandidateMove = useCallback((name: string, x: number, y: number) => {
+  const handleCandidateMove = (name: string, x: number, y: number) => {
     setPositions((prev) => ({ ...prev, [name]: { x, y } }));
-  }, []);
+  };
 
-  const applyDragAndReplay = useCallback(() => {
+  const applyDragAndReplay = () => {
     if (!data) return;
     const overrides = data.candidates
       .filter((c) => {
@@ -249,7 +247,7 @@ const HistoricalReplay: React.FC = () => {
       })
       .map((c) => ({ name: c.name, ...positions[c.name] }));
     run(overrides);
-  }, [data, positions, scenarioId, numDays]);
+  };
 
   const snapshot = data?.days[currentDay];
   const differs = data?.final.differs_from_real;

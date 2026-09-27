@@ -45,7 +45,7 @@ const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ forceShowRuleUi = fal
     behavior,
     strategicOutcome,
     youPos,
-    setYouPos,
+    moveYou,
     showYou,
     composed,
     electorate,
@@ -144,7 +144,7 @@ const InstrumentPanel: React.FC<InstrumentPanelProps> = ({ forceShowRuleUi = fal
                   youMarker={showYou ? youPos : null}
                   lens={lens}
                   onLensChange={setLens}
-                  onMoveYou={(x, y) => setYouPos((p) => ({ ...p, x, y }))}
+                  onMoveYou={moveYou}
                   onRuleChange={setLeaderRule}
                   onMoveCandidate={moveCandidate}
                   showRuleUi={forceShowRuleUi || activeMoment !== 'electorate'}

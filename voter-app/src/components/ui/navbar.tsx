@@ -18,8 +18,6 @@ export interface NavbarProps extends Omit<React.HTMLAttributes<HTMLElement>, 'on
   expanded?: boolean;
   onToggle?: (next: boolean) => void;
   sticky?: 'top' | 'bottom';
-  bg?: string;
-  variant?: 'light' | 'dark';
 }
 
 const NavbarBase: React.FC<NavbarProps> = ({
@@ -27,8 +25,6 @@ const NavbarBase: React.FC<NavbarProps> = ({
   expanded,
   onToggle,
   sticky,
-  bg,
-  variant,
   className,
   children,
   ...props
@@ -109,10 +105,8 @@ const NavBase: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ className, ..
 
 export interface NavLinkProps extends React.AnchorHTMLAttributes<HTMLAnchorElement> {
   active?: boolean;
-  disabled?: boolean;
-  eventKey?: string;
 }
-const NavLink: React.FC<NavLinkProps> = ({ className, active, disabled, ...props }) => (
+const NavLink: React.FC<NavLinkProps> = ({ className, active, ...props }) => (
   <a
     // The active page was signalled by weight and colour alone; `aria-current`
     // is what actually tells assistive tech which destination you are on.
@@ -120,11 +114,10 @@ const NavLink: React.FC<NavLinkProps> = ({ className, active, disabled, ...props
     className={cn(
       'block px-2 py-1 no-underline transition-colors',
       active ? 'font-semibold' : 'text-foreground/80 hover:text-foreground',
-      disabled && 'pointer-events-none opacity-50',
       className
     )}
     {...props}
   />
 );
 
-export const Nav = Object.assign(NavBase, { Link: NavLink, Item: NavBase });
+export const Nav = Object.assign(NavBase, { Link: NavLink });

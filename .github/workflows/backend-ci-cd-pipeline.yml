@@ -37,6 +37,9 @@ jobs:
             backend:
               - 'fast_api_voter/**'
               - '.github/workflows/backend-ci-cd-pipeline.yml'
+              # api/tests/test_ci_health_thresholds.py locks this script's
+              # constants together; a PR that edits only the script must run it.
+              - 'scripts/check_ci_health.py'
 
   test:
     needs: changes
@@ -74,15 +77,30 @@ jobs:
       # `uv pip install --system` targets actions/setup-python's interpreter
       # above; a uv-managed one (via setup-uv's own python-version) is
       # rejected by `--system` ("No system Python installation found").
-      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           enable-cache: true
           cache-dependency-glob: 'fast_api_voter/requirements*.txt'
 
-      - name: Install production + dev dependencies
-        run: |
-          uv pip install --system -r fast_api_voter/requirements.txt
-          uv pip install --system -r fast_api_voter/requirements-dev.txt
+      # Blocking: the production image (repo-root Dockerfile) installs
+      # requirements.lock.txt, so a pin bumped in requirements*.txt without
+      # regenerating the lockfiles would never reach production. See
+      # scripts/check_python_lockfile_freshness.sh's header for what it checks.
+      # Runs before the install below, so a drifted lock fails fast.
+      - name: Python lockfiles up to date (blocking)
+        run: bash scripts/check_python_lockfile_freshness.sh
+
+      # requirements-dev.lock.txt is requirements.txt + requirements-dev.txt
+      # compiled together (uv pip compile, see PLAN_CI_STRUCTURAL_GAPS.md
+      # item 2.C) -- a superset covering this job's full prod+dev need in one
+      # install. Installing from the lockfile instead of resolving
+      # requirements*.txt live makes THIS job reproducible: two runs at
+      # different times now install the identical transitive tree here, not
+      # just identical direct pins. The shipped image (the repo-root Dockerfile)
+      # installs requirements.lock.txt, which this dev lock is constrained to
+      # (see scripts/check_python_lockfile_freshness.sh), so shared pins agree.
+      - name: Install production + dev dependencies (from the lockfile)
+        run: uv pip install --system -r fast_api_voter/requirements-dev.lock.txt
 
       # ── Linting ────────────────────────────────────────────────────────────
       # Blocking. Replaces flake8 (Lot 1, PLAN_SOLIDITE_TECHNIQUE.md) — rule
@@ -110,8 +128,9 @@ jobs:
         # B324 md5 findings were switched to sha256). B104 (bind-all) / B311 (non-crypto
         # random) stay skipped — both are intentional in this study app.
 
+      # Audits the exact pins the production image installs (no re-resolution).
       - name: pip-audit (dependency CVEs)
-        run: pip-audit --requirement fast_api_voter/requirements.txt
+        run: pip-audit --requirement fast_api_voter/requirements.lock.txt --no-deps --disable-pip
 
       - name: License compliance — production dependencies (gating)
         run: bash fast_api_voter/scripts/check_license_compliance.sh
@@ -149,7 +168,7 @@ jobs:
       # actual enforced gate. Runs on push too (not just pull_request), so
       # the develop-branch trend graph stays populated.
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: fast_api_voter/coverage.xml

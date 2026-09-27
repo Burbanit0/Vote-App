@@ -101,7 +101,8 @@ premier run de 5 minutes :
    `vote.get(candidate, 0)` traite déjà un candidat absent comme 0 ailleurs
    dans ce même fichier. Test de régression :
    `test_bayesian_regret_skips_a_ballot_that_rated_nobody`
-   (`api/tests/test_cardinal_score_and_regret.py`).
+   (`api/tests/test_cardinal_score_and_regret.py`) — la fonction et son test
+   ont tous deux été supprimés en PR 8b (seuls les tests l'appelaient).
 2. **`get_nanson_winner` / `get_baldwin_winner` — trouvé en ~92
    exécutions.** `votes` non vide mais dont CHAQUE bulletin classe zéro
    candidat (`[[]]`, distinct de `votes == []` qui est déjà géré) :

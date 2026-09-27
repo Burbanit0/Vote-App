@@ -1,7 +1,12 @@
 [
   {
     "name": "Total bundle (JS + CSS, brotli)",
-    "path": ["build/assets/*.js", "build/assets/*.css"],
+    "path": [
+      "build/assets/*.js",
+      "build/assets/*.css",
+      "!build/assets/pseudo-*.js",
+      "!build/assets/playground.pseudo-*.js"
+    ],
     "limit": "1 MB"
   }
 ]

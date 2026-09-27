@@ -3,7 +3,7 @@
  * on the same electorate (Bradley effect of compulsion: reluctant voters
  * add null ballots and random votes, but improve representation).
  */
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { $api } from '../../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
@@ -15,11 +15,10 @@ import { Col, Row } from '@/components/ui/grid';
 import { Spinner } from '@/components/ui/spinner';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useElection } from '../../../stores/useElectionStore';
-import PinToCentralButton from '../ui/PinToCentralButton';
 
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
-
-const DEBOUNCE_MS = 400;
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
+import { colorByName, LAB_PALETTE_PINK } from '@/lib/palette';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -59,10 +58,7 @@ const EXAMPLES = [
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 
-const CAND_COLORS = ['#005CAB', '#C8590A', '#007A33', '#9b59b6', '#e67e22', '#e83e8c'];
-function candColor(name: string, names: string[]): string {
-  return CAND_COLORS[names.indexOf(name) % CAND_COLORS.length] ?? '#888';
-}
+const candColor = (name: string, names: string[]) => colorByName(name, names, LAB_PALETTE_PINK);
 
 // ── 3-column result card ──────────────────────────────────────────────────────
 
@@ -152,36 +148,25 @@ const CompulsoryVotingPanel: React.FC = () => {
   const loading = sim.isPending;
   const error = sim.isError ? t('compulsory.error') : null;
 
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const runSimulation = useCallback(
-    (vt: number, ct: number, rn: number, rr: number) => {
-      sim.mutate({
-        body: {
-          candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
-          num_voters: config.num_voters,
-          ideology: config.ideology,
-          seed: config.seed,
-          voluntary_turnout: vt,
-          compulsory_turnout: ct,
-          reluctant_null_rate: rn,
-          reluctant_random_pct: rr,
-          method: 'plurality',
-        },
-      });
-    },
-    [config, sim]
-  );
+  const runSimulation = (vt: number, ct: number, rn: number, rr: number) => {
+    sim.mutate({
+      body: {
+        candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
+        num_voters: config.num_voters,
+        ideology: config.ideology,
+        seed: config.seed,
+        voluntary_turnout: vt,
+        compulsory_turnout: ct,
+        reluctant_null_rate: rn,
+        reluctant_random_pct: rr,
+        method: 'plurality',
+      },
+    });
+  };
 
   const handleSimulate = () => runSimulation(volTurnout, compTurnout, relNull, relRandom);
 
-  const schedule = useCallback(
-    (vt: number, ct: number, rn: number, rr: number) => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => runSimulation(vt, ct, rn, rr), DEBOUNCE_MS);
-    },
-    [runSimulation]
-  );
+  const schedule = useDebouncedCallback(runSimulation);
 
   return (
     <div>
@@ -260,30 +245,6 @@ const CompulsoryVotingPanel: React.FC = () => {
             <Button variant="primary" onClick={handleSimulate} disabled={loading}>
               {loading ? <Spinner size="sm" /> : t('compulsory.run')}
             </Button>
-            {data &&
-              (() => {
-                const vbm = data.voluntary.winners_by_method ?? {};
-                const cbm = data.compulsory.winners_by_method ?? {};
-                let changedCount = 0;
-                Object.entries(cbm).forEach(([m, w]) => {
-                  if (w !== vbm[m]) changedCount += 1;
-                });
-                if (changedCount === 0 && data.winner_changed) changedCount = 1;
-                return (
-                  <PinToCentralButton
-                    type="compulsory"
-                    icon="⚖️"
-                    label={`${t('compulsory.run')} — ${Math.round(compTurnout * 100)}%`}
-                    summary={
-                      changedCount > 0
-                        ? `${changedCount}/${Object.keys(cbm).length || 1} ${t('lab.methodsChanged')}`
-                        : `${t('compulsory.run')}: ${data.compulsory.winner ?? '—'}`
-                    }
-                    methodsChanged={changedCount}
-                    winnersByMethod={data.compulsory.winners_by_method}
-                  />
-                );
-              })()}
           </div>
 
           {!data && !loading && !error && (

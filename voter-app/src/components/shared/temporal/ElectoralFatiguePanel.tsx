@@ -2,7 +2,7 @@
  * ElectoralFatiguePanel — simulates how repeated elections reduce turnout
  * and progressively shift the residual electorate toward engaged (partisan) voters.
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { $api } from '../../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
@@ -25,10 +25,9 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { useElection } from '../../../stores/useElectionStore';
-import PinToCentralButton from '../ui/PinToCentralButton';
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
-
-const DEBOUNCE_MS = 400;
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
+import { colorByName, LAB_PALETTE_PINK } from '@/lib/palette';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -55,10 +54,7 @@ interface FatigueData {
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 
-const CAND_COLORS = ['#005CAB', '#C8590A', '#007A33', '#9b59b6', '#e67e22', '#e83e8c'];
-function candColor(name: string, names: string[]): string {
-  return CAND_COLORS[names.indexOf(name) % CAND_COLORS.length] ?? '#888';
-}
+const candColor = (name: string, names: string[]) => colorByName(name, names, LAB_PALETTE_PINK);
 
 // ── Who stops voting SVG ──────────────────────────────────────────────────────
 
@@ -162,35 +158,25 @@ const ElectoralFatiguePanel: React.FC = () => {
   const data: FatigueData | null = (sim.data as FatigueData | undefined) ?? null;
   const loading = sim.isPending;
   const error = sim.isError ? t('fatigue.error') : null;
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const runSimulation = useCallback(
-    (fr: number, ep: number, ne: number) => {
-      sim.mutate({
-        body: {
-          candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
-          num_voters: config.num_voters,
-          ideology: config.ideology,
-          seed: config.seed,
-          num_elections: ne,
-          fatigue_rate: fr,
-          engaged_voter_pct: ep,
-          method: 'plurality',
-        },
-      });
-    },
-    [config, t, sim]
-  );
+  const runSimulation = (fr: number, ep: number, ne: number) => {
+    sim.mutate({
+      body: {
+        candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
+        num_voters: config.num_voters,
+        ideology: config.ideology,
+        seed: config.seed,
+        num_elections: ne,
+        fatigue_rate: fr,
+        engaged_voter_pct: ep,
+        method: 'plurality',
+      },
+    });
+  };
 
   const handleSimulate = () => runSimulation(fatigueRate, engagedPct, numElections);
 
-  const schedule = useCallback(
-    (fr: number, ep: number, ne: number) => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => runSimulation(fr, ep, ne), DEBOUNCE_MS);
-    },
-    [runSimulation]
-  );
+  const schedule = useDebouncedCallback(runSimulation);
 
   const hasData = data !== null;
   useEffect(() => {
@@ -261,21 +247,6 @@ const ElectoralFatiguePanel: React.FC = () => {
             {loading ? <Spinner size="sm" /> : t('fatigue.run')}
           </Button>
         </Col>
-        {data && (
-          <Col xs="auto">
-            <PinToCentralButton
-              type="fatigue"
-              icon="😴"
-              label={t('fatigue.run')}
-              summary={
-                data.winner_changed_at != null
-                  ? `${t('fatigue.winnerChangedAt')} E${data.winner_changed_at}`
-                  : `${data.winner_drift[0] ?? '—'} → ${data.winner_drift[data.winner_drift.length - 1] ?? '—'}`
-              }
-              methodsChanged={data.winner_changed_at != null ? 1 : 0}
-            />
-          </Col>
-        )}
       </Row>
 
       {!data && !loading && !error && (

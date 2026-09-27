@@ -7,7 +7,7 @@ here instead of on the PR. It mirrors the gating jobs:
 |---|---|---|
 | `frontend` | `.github/workflows/frontend-ci-cd-pipeline.yml` | **Ubuntu 24.04** (= `ubuntu-latest`), **Node 24** |
 | `backend`  | `.github/workflows/backend-ci-cd-pipeline.yml`  | **Python 3.14** |
-| `e2e`      | `.github/workflows/e2e.yml`                     | **Python 3.14** + **Node 24** + Playwright (chromium + firefox) |
+| `e2e`      | `.github/workflows/e2e.yml`                     | **Python 3.14** + **Node 24** + Playwright (chromium + firefox + webkit + mobile) |
 | `audit`    | `.github/workflows/audit.yml`                   | **Python 3.14** + Semgrep / Gitleaks / Trivy |
 
 Targets: `all` (default) = frontend + backend + e2e + audit (**run before each push**) ·
@@ -30,18 +30,9 @@ from the committed lockfile, exactly like the runner. That is the whole point.
 
 ## Usage
 
-From anywhere in the repo (Docker Desktop must be running):
-
-```powershell
-# PowerShell (Windows)
-./ci-local/run-ci.ps1                  # both jobs
-./ci-local/run-ci.ps1 -Target frontend
-./ci-local/run-ci.ps1 -Target backend
-./ci-local/run-ci.ps1 -NoCache         # clean rebuild
-```
+From anywhere in the repo (Docker must be running; on Windows use git-bash or WSL):
 
 ```bash
-# bash / git-bash / WSL
 ci-local/run-ci.sh                     # both jobs
 ci-local/run-ci.sh frontend
 ci-local/run-ci.sh --no-cache
@@ -57,7 +48,11 @@ checks run as the container's `CMD`, so `docker run` failing == the PR failing.
 steps are blocking, matching the workflow (lint lost its `continue-on-error` once
 it reached 0 errors).
 
-**Backend** — `ruff check fast_api_voter` (gating; replaces flake8 as of Lot 1,
+**Backend** — installs from `requirements-dev.lock.txt` (the compiled lockfile,
+not `requirements.txt`/`requirements-dev.txt` resolved live — PLAN_CI_STRUCTURAL_
+GAPS.md item 2.C), preceded by a non-blocking `check_python_lockfile_freshness.sh`
+run that warns if the lockfile has drifted from those source files → `ruff check
+fast_api_voter` (gating; replaces flake8 as of Lot 1,
 scoped to pyflakes `F` only — rule selection lives in `fast_api_voter/
 pyproject.toml`'s `[tool.ruff]`) → `lint-imports` (gating; enforces the
 `routes → domain → engine` layering the `voter-api` skill documents — Lot 2,
@@ -156,11 +151,11 @@ because it isn't *testing the app* — it's testing the workflow itself.
   coverage into the 85–90% band would pass here and fail on the PR.
 - `audit.yml` now has more jobs than this `audit` target reproduces: this
   mirror covers Semgrep, Gitleaks and the filesystem Trivy scan only. It does
-  **not** run the `image-scan` job (Trivy image scan + SBOM on the two prod
+  **not** run the `image-scan` job (Trivy image scan + SBOM on the production
   Dockerfiles — schedule/`push`-to-`develop` only, non-gating for now), the
-  `code-quality` job (vulture/deptry/knip/jscpd/radon behind a ratchet — see
-  `.github/quality-baseline.json`), or CodeQL (GitHub-native, not runnable
-  locally).
+  `code-quality` job (vulture/deptry/knip/jscpd/radon/sonarjs behind a
+  ratchet — see `.github/quality-baseline.json`), or CodeQL (GitHub-native,
+  not runnable locally).
 
 **Drift found and fixed (PLAN_REMEDIATION_CI_CD.md §2.6)**: three gating
 steps had been added to the real workflows without ever being mirrored

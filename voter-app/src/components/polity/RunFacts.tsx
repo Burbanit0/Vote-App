@@ -30,12 +30,11 @@ const RunFacts: React.FC = () => {
     audit_sample: t('runFacts.votesAuditSample'),
     none: t('runFacts.votesNone'),
   }[overview.vote_coverage];
-  const engine =
-    run?.engine === 'llm'
-      ? t('runFacts.engineLlm')
-      : run?.engine === 'deterministic'
-        ? t('runFacts.engineDeterministic')
-        : '—';
+  const engines: Record<string, string> = {
+    llm: t('runFacts.engineLlm'),
+    deterministic: t('runFacts.engineDeterministic'),
+  };
+  const engine = engines[run?.engine ?? ''] ?? '—';
 
   return (
     <dl

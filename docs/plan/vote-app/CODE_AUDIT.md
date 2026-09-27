@@ -207,10 +207,12 @@ croisé sur `api/tests/`, plus `--cov-report=term-missing` sur
 `simulation_ranked_utils.py`) : seules **3** fonctions n'avaient réellement
 aucun test dédié — `get_borda_winner` (seulement exercée en comparaison
 incidentelle dans `test_black.py`/`test_dowdall.py` et dans l'axiome §5),
-`get_positional_score_winner` (alias `get_score_winner` — zéro test de
+`get_positional_score_winner` (zéro test de
 toute nature, y compris dans `test_voting_criteria_matrix.py`, alors que
-c'est du code de production réel utilisé par `domain/simulations/base.py`,
-`gibbard_satterthwaite.py` et `arrow_criteria.py`), et
+c'est du code de production réel — appelé, depuis la PR 8b, par le seul
+`gibbard_satterthwaite.py` : `domain/simulations/base.py` et
+`arrow_criteria.py` ont été supprimés en PR 2, et l'alias `get_score_winner`
+en PR 8b), et
 `get_approval_winner_sincere` (le mode de vote sincère par seuil
 d'utilité — la branche correspondante dans `get_approval_winner`,
 lignes ~276-298, n'avait elle-même aucune couverture, pas seulement le
@@ -345,7 +347,10 @@ l'extraction elle-même (voir plus bas) :
    `_np.random.seed`/`_build_base_electorate`, le pattern *legacy* qui a
    précédé le couple `_seeded_rng_pair`/RNG locale documenté sur
    `election_service.py`) → `_reseed_and_build_electorate()`, nouvelle
-   fonction dans `_electorate.py`. C'est le plus gros cluster : jscpd en
+   fonction dans `_electorate.py`. *(2026-09-19 : elle ne reseede plus rien —
+   tous les workers tirent d'une paire locale — et s'appelle désormais
+   `_build_electorate_from_seed`. Voir PLAN_SOLIDITE_TECHNIQUE.md, « Lot séparé
+   fait ».)* C'est le plus gros cluster : jscpd en
    avait flaggé 13 physiquement distincts via 7 paires qui se recoupaient
    (ex. `workers_advanced.py:366-382` matchait à la fois avec
    `workers_behavioral.py:41-57` ET `:167-183` — un seul bloc canonique, pas
@@ -800,10 +805,9 @@ fichier ciblé par la baseline mutation-testing de la PR #157 (score ≈62 %),
 et 9 de ces fonctions `get_*_winner` n'ont pas de test dédié — la complexité
 mesurée ici recoupe indépendamment ce gap de test déjà identifié.
 
-`xenon` tourne deux fois dans le job CI : une fois en rapport pur avec des
-seuils permissifs (`-b F -m F -a F`, jamais d'échec, pour ne pas court-
-circuiter les étapes suivantes du job en cas de crash), puis une seconde fois
-en **gate réel** (`-b F -m F -a A`, ajouté depuis l'édition d'août) qui fait
+`xenon` tourne une fois dans le job CI, en **gate réel** (`-b F -m F -a A`,
+ajouté depuis l'édition d'août ; le passage en rapport pur `-a F`, qui ne
+pouvait jamais échouer, a été retiré le 2026-09-17) qui fait
 échouer le job si la moyenne globale du repo retombe sous le rang A — la
 moyenne actuelle (A, 4.73, §5 ci-dessus) passe avec de la marge. `-b`/`-m`
 restent à F (jamais d'échec par bloc/module) tant que les 6 fonctions rang F

@@ -113,6 +113,22 @@ describe('PartyDynamicsPanel', () => {
     expect(screen.getByTestId('method-select')).toBeInTheDocument();
   });
 
+  it('offers the two share models and sends the one picked', async () => {
+    apiClient.POST.mockResolvedValue(makeData());
+    renderPanel();
+    const select = screen.getByTestId('method-select');
+    const values = [...select.querySelectorAll('option')].map((o) => o.getAttribute('value'));
+    expect(values).toEqual(['plurality', 'proportional']);
+    fireEvent.change(select, { target: { value: 'proportional' } });
+    fireEvent.click(screen.getByTestId('simulate-btn'));
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
+    expect(apiClient.POST).toHaveBeenCalledWith(
+      expect.stringMatching(/party-dynamics/),
+      expect.objectContaining({ body: expect.objectContaining({ method: 'proportional' }) })
+    );
+    vi.runAllTimers();
+  });
+
   it('shows prompt before first run', () => {
     renderPanel();
     expect(screen.getByRole('alert')).toBeInTheDocument();

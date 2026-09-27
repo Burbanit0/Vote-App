@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -296,7 +296,7 @@ const CombinedEffectsMatrix: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const run = useCallback(async () => {
+  const run = async () => {
     setLoading(true);
     setError(null);
     try {
@@ -316,7 +316,7 @@ const CombinedEffectsMatrix: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [config, t]);
+  };
 
   return (
     <div>

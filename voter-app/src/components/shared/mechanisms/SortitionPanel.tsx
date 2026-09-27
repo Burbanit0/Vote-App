@@ -3,7 +3,7 @@
  * election, pure sortition (random sample), stratified sortition.
  * Metrics: representativity, diversity, decision regret, Gini of representation.
  */
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -23,7 +23,7 @@ import {
 } from 'recharts';
 import { useElection } from '../../../stores/useElectionStore';
 import { $api } from '../../../api/hooks';
-const DEBOUNCE_MS = 400;
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -162,33 +162,26 @@ const SortitionPanel: React.FC = () => {
   const data: SortitionData | null = (sim.data as SortitionData | undefined) ?? null;
   const loading = sim.isPending;
   const error = sim.isError ? t('sortition.error') : null;
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const runSimulation = useCallback(
-    (sz: number, real: boolean, gp: boolean, eq: boolean) => {
-      sim.mutate({
-        body: {
-          candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
-          num_voters: config.num_voters,
-          assembly_size: sz,
-          ideology: config.ideology,
-          seed: config.seed,
-          method: 'plurality',
-          realistic_candidates: real,
-          num_simulations: 20,
-          stratification: { age_groups: [0.25, 0.45, 0.3], gender_parity: gp, education_quota: eq },
-        },
-      });
-    },
-    [config, t, sim]
-  );
+  const runSimulation = (sz: number, real: boolean, gp: boolean, eq: boolean) => {
+    sim.mutate({
+      body: {
+        candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
+        num_voters: config.num_voters,
+        assembly_size: sz,
+        ideology: config.ideology,
+        seed: config.seed,
+        method: 'plurality',
+        realistic_candidates: real,
+        num_simulations: 20,
+        stratification: { age_groups: [0.25, 0.45, 0.3], gender_parity: gp, education_quota: eq },
+      },
+    });
+  };
 
   const handleSimulate = () => runSimulation(assemblySize, realisticCands, genderParity, eduQuota);
 
-  const schedule = (sz: number, real: boolean, gp: boolean, eq: boolean) => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => runSimulation(sz, real, gp, eq), DEBOUNCE_MS);
-  };
+  const schedule = useDebouncedCallback(runSimulation);
 
   // ── Radar data ──────────────────────────────────────────────────────────
   const radarData = data

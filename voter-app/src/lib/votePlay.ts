@@ -120,19 +120,6 @@ export function winnerWith(
 /** How large your camp can get before it stops being a minority worth measuring. */
 export const MAX_BLOC = 15;
 
-/** Winner index per rule, with your ballot added to the electorate's. */
-export function winnersFor(
-  you: number[],
-  lang: BallotLanguage,
-  rules: Rule[],
-  opt: BallotOptions = {}
-): Record<string, number> {
-  const mine = ballotFrom(you, lang, opt);
-  const out: Record<string, number> = {};
-  for (const rule of rules) out[rule] = winnerWith(mine, lang, rule);
-  return out;
-}
-
 export type Posture = 'sincere' | 'strategic' | 'abstain';
 
 export interface BestResponse {

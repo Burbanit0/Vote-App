@@ -16,7 +16,7 @@
 
 Vote-App poursuit deux explorations en parallèle, et ce plan sert les deux :
 
-1. **Une exploration des méthodes de vote** — 26 méthodes en parité verrouillée
+1. **Une exploration des méthodes de vote** — 28 méthodes en parité verrouillée
    entre deux implémentations, une théorie formelle documentée, un objectif
    pédagogique.
 2. **Une exploration des technologies et pratiques de développement** — qu'est-ce
@@ -256,7 +256,7 @@ avec un chiffre réel à la clé.
 | **Schemathesis** | `openapi.gen.json` est versionné avec un gate de drift, mais **le contrat n'est jamais vérifié contre l'implémentation**. Schemathesis génère des centaines de requêtes depuis le schéma, fuzze, et vérifie la conformité des réponses. Chaînon manquant le plus évident du projet. | M | ⭐⭐⭐ | 📝📝📝 | ✅ `api/tests/test_schema_contract.py` + workflow dédié `schemathesis.yml` (pas dans `backend-ci-cd-pipeline.yml` par prudence — un run complet mesure ~220s (~3.5-4 min) en local mais n'a pas été revérifié sur un runner GitHub réel). Génération `derandomize=True` + `seed=` fixe pour la reproductibilité (une première tentative avec `derandomize=True` seul ne suffisait pas d'un process à l'autre — `PYTHONHASHSEED` non fixé fausse la dérivation de graine de Hypothesis ; un `seed=` explicite au niveau du `Config` schemathesis, qui ne passe pas par `hash()`, règle le problème). A trouvé et corrigé 6 bugs réels avant d'être mergé : (1) codes de statut atteignables mais jamais documentés (400/404/500/503) sur les 7 routers — corrigé via `responses=` + schéma `ErrorDetail` partagé ; (2) crash `IndexError` sur `/theory/identity-voting` (le schéma acceptait 2 candidats, le worker en exige 3) — corrigé en remontant `min_length` ; (3) crash `max() iterable argument is empty` sur `/assembly`, `/assembly-scorecard`, `/temporal`, `/structural-fairness` quand deux partis partagent un nom (collision de clé dict) — corrigé par un `field_validator` rejetant les doublons ; (4) crash `TypeError`/`IndexError` sur `/campaign-sensitivity` (`snapshot_days` mal typé `List[Any]` + bornes non vérifiées, un jour négatif de grande magnitude débordait l'indexation Python) — corrigé en typant `List[Union[int, Literal["final"]]]` et en bornant des deux côtés (`max(0, min(...))`) ; (5) crash `AttributeError` sur `/choice-overload` (`heuristic_weights` explicitement `null` contournait le défaut de `.get()`) — corrigé en `or {}` ; (6) crash `AttributeError` sur `/tech/polis` (le schéma promet `List[str]`, le worker traitait chaque élément comme un dict) — corrigé pour accepter les deux formes. Le reste (~40 endpoints) est de la dette pré-existante trackée nommément dans `KNOWN_FAILURES` (requêtes délibérément peu typées, timeouts sur des simulations lourdes — recoupe directement l'item "Timeouts & backpressure" ci-dessous), pas noyée dans un chiffre global |
 | **Test du rate-limit (429)** | La valeur 120/min a été calibrée après deux échecs e2e — mais rien ne teste que la limite se déclenche vraiment. | S | ⭐⭐ | 📝📝 | ✅ `api/tests/test_ratelimit_v2.py` — 122 requêtes vers `/api/v2/simulations/get_closest_candidate` (corps par défaut valide, donc pas de bruit lié à la validation), assertion qu'un 429 apparaît. Le v1 (`/simulate` 10/min, `/compare` 5/min) avait déjà ses tests dans `test_public_v1.py::TestRateLimits` ; seul le v2 (120/min, `check_v2_rate_limit`) manquait |
 | **Résilience Redis** | Le rate-limiter dépend de Redis. Que se passe-t-il quand il tombe ? Aujourd'hui : inconnu. | M | ⭐⭐⭐ | 📝📝📝 | ✅ Testé en direct contre un Redis injoignable : sans correctif, `redis.exceptions.ConnectionError` remontait non attrapée hors des internals de `slowapi`, transformée par le handler générique en 500 — Redis indisponible mettait hors service toute la surface `/api/v2` (tous les routers partagent `check_v2_rate_limit`) et `/api/v1`, pas seulement la protection anti-abus. Corrigé par `swallow_errors=True` sur le `Limiter` (fail *open*, pas *closed*) + un vrai gap découvert dans `slowapi` : même avec `swallow_errors=True`, l'injection des en-têtes de réponse lit `request.state.view_rate_limit` sans condition, qui n'est jamais posé si le check a été avalé — corrigé par un middleware `main.py` qui le pré-initialise à `None` avant toute dépendance de route. Cache Redis (`api/engine/utils/cache.py`) déjà résilient de son côté (try/except déjà en place à l'écriture, aucun changement nécessaire). Régression épinglée par `api/tests/test_ratelimit_resilience.py`, confirmée en échouant sans le correctif |
-| **Timeouts & backpressure** | Sémaphore limitant les simulations concurrentes + `asyncio.wait_for` sur les workers, au lieu de saturer le pool de threads. | M | ⭐⭐⭐ | 📝📝 | ✅ `api/core/worker_dispatch.py` — `run_bounded`/`run_worker_bounded` bornent tout `asyncio.to_thread` de l'app derrière UN sémaphore partagé (4, aligné sur le `ThreadPoolExecutor(max_workers=min(4, num_runs))` déjà utilisé en interne par le worker Monte Carlo) + un timeout de **180s** (aucun bug, juste le vrai coût de calcul aux bornes déjà documentées). Calibré deux fois : une première valeur de 90s (mesurée en local isolé sur Monte Carlo à bornes max = 34s et `/election/coalition` à bornes max = 57s) a **échoué en CI réelle** — `/simulations/what-if` plafonné à ses 10 valeurs documentées prend 71s en local isolé, sans contention, et a dépassé 90s sous `pytest-xdist` sur un runner GitHub Actions plus lent et partagé (PR #349, `test_caps_at_10_values`). 180s laisse une vraie marge au-dessus du pire cas observé *en CI*, pas seulement en local. Limitation connue et documentée, pas un bug : Python ne peut pas tuer un vrai thread OS — le slot du sémaphore se libère immédiatement au timeout, mais le thread orphelin continue en arrière-plan jusqu'à sa fin naturelle. Les 6 routers ont été migrés (`election.py`, `simulations.py`, `tech.py`, `theory.py`, `public.py`, `export.py`) ; la logique de mapping `(body, status) → HTTPException`, dupliquée dans 4 fichiers, a été factorisée dans `raise_for_status` (évite une régression jscpd que la duplication aurait sinon introduite). Effet de bord : `election.py` avait un `_run_passthrough` mort (0 appelant) — supprimé. Testé : `test_worker_dispatch.py` (sémaphore + timeout en isolation, y compris une preuve directe que la concurrence est bornée) + `test_worker_timeout_routes.py` (un timeout traverse bien chaque router jusqu'à un 503 propre) |
+| **Timeouts & backpressure** | Sémaphore limitant les simulations concurrentes + `asyncio.wait_for` sur les workers, au lieu de saturer le pool de threads. | M | ⭐⭐⭐ | 📝📝 | ✅ `api/core/worker_dispatch.py` — `run_bounded`/`run_worker_bounded` bornent tout `asyncio.to_thread` de l'app derrière UN sémaphore partagé (4, aligné sur le `ThreadPoolExecutor(max_workers=min(4, num_runs))` déjà utilisé en interne par le worker Monte Carlo) + un timeout de **180s** (aucun bug, juste le vrai coût de calcul aux bornes déjà documentées). Calibré deux fois : une première valeur de 90s (mesurée en local isolé sur Monte Carlo à bornes max = 34s et `/election/coalition` à bornes max = 57s) a **échoué en CI réelle** — `/simulations/what-if` plafonné à ses 10 valeurs documentées prend 71s en local isolé, sans contention, et a dépassé 90s sous `pytest-xdist` sur un runner GitHub Actions plus lent et partagé (PR #349, `test_caps_at_10_values`). 180s laisse une vraie marge au-dessus du pire cas observé *en CI*, pas seulement en local. Limitation connue et documentée, pas un bug : Python ne peut pas tuer un vrai thread OS — le slot du sémaphore se libère immédiatement au timeout, mais le thread orphelin continue en arrière-plan jusqu'à sa fin naturelle. Les 6 routers de l'époque ont été migrés (`election.py`, `simulations.py`, `tech.py`, `theory.py`, `public.py`, et `export.py`, supprimé depuis en PR 2) ; la logique de mapping `(body, status) → HTTPException`, dupliquée dans 4 fichiers, a été factorisée dans `raise_for_status` (évite une régression jscpd que la duplication aurait sinon introduite). Effet de bord : `election.py` avait un `_run_passthrough` mort (0 appelant) — supprimé. Suite (PR 9, nettoyage over-engineering) : les wrappers eux-mêmes, recopiés dans les 5 routers restants autour de ce mapping, sont devenus `run_typed`/`run_passthrough` dans ce même module, et le dict `responses=` recopié à l'identique dans chacun est devenu `WORKER_ERROR_RESPONSES` (`api/schemas/common.py`). Au passage, `raise_for_status` rend de nouveau tel quel le 4xx choisi par le worker (il écrasait tout sauf 400/503 en 500, ce que faisait déjà l'ancien `_run_worker` de `simulations.py`). Testé : `test_worker_dispatch.py` (sémaphore + timeout en isolation, y compris une preuve directe que la concurrence est bornée) + `test_worker_timeout_routes.py` (un timeout traverse bien chaque router jusqu'à un 503 propre) |
 | **Déconnexion Socket.IO en plein run** | Partiellement testé le 06/09, à compléter (client qui coupe, run orphelin). | S | ⭐⭐ | 📝 | ✅ Le « run orphelin » était un vrai bug, pas juste un trou de test : le handler `disconnect` ne faisait que `.pop()` le flag d'arrêt (l'effacer), sans jamais le mettre à `True` — la boucle Monte Carlo d'un client déconnecté continuait donc à tourner jusqu'à `num_iterations` (jusqu'à 10 000 itérations de calcul réel), sans plus personne à qui envoyer les événements. Corrigé en une ligne (`_stop_flags[sid] = True` au lieu de `.pop()`) — la boucle a déjà son propre check `if _stop_flags.get(sid):` à chaque itération, il ne recevait juste jamais le signal. `test_disconnect_stops_the_orphaned_run` (nouveau) compte les vrais appels `_run_one` avant/après déconnexion pour le prouver — rejoué contre le code d'avant le correctif pour confirmer une vraie régression (595 appels au lieu de <20) |
 
 ---
@@ -701,6 +701,24 @@ de ce correctif** (aucun flake confirmé ne leur est attribué, et forcer
 élargi le blast radius d'un fix de concurrence en un refactor de ~13k
 lignes non planifié) — signalé ici comme dette de suivi, même famille de
 bug, à traiter dans un lot séparé.
+
+**Lot séparé fait (2026-09-19)** — les `~8 autres fichiers` ci-dessus (et les
+deux endpoints sans seed) ne touchent plus les singletons : chaque worker tire
+d'une paire locale (`_seeded_rng_pair(seed)`, ou `unseeded_rng_pair()` quand il
+n'y a pas de seed). `_reseed_and_build_electorate` ne reseede plus rien et
+s'appelle donc `_build_electorate_from_seed`. Le tirage mort
+`will_vote = random.random() < ...` de `calculate_utility()` est supprimé : rien
+ne le lisait, et il avançait le flux global à chaque appel (9 endpoints
+redevenus propres rien qu'en l'enlevant). Les mentions du nom de fonction et de
+`will_vote` plus haut dans ce document décrivent l'état d'alors et restent
+telles quelles. Garde-fous : `api/tests/test_no_global_rng.py` vérifie la
+propriété sur chaque route (POST et GET) et qu'une réponse ne bouge pas quand
+un autre appel tire en cours de route, et `ruff` applique `NPY002` (la moitié
+numpy, statiquement). Reste ouvert : `_resolve_rng`/`_resolve_np_rng`
+substituent encore le singleton quand `rng is None`, et `_seeded_rng_pair(None)`
+renvoie `(None, None)` — rendre les paramètres obligatoires demande de
+re-figer le golden de `test_compare_all_methods_snapshot.py`, donc un lot à
+part.
 
 Sous-espèce différente du même problème, cette fois *à l'intérieur* de
 `simulation_voting_utils.py` : `calculate_utility()` (~ligne 483,
@@ -1148,7 +1166,7 @@ une découverte séparée, pas absorbé silencieusement dans ce périmètre.
 | **`basedpyright`/pyright** | Moteur d'inférence différent de mypy → attrape d'autres choses. Combien, sur un code déjà mypy-strict-clean ? Bonne question d'expérience. | S | ⭐⭐ | 📝📝📝 | ✅ 2 vrais bugs trouvés et corrigés (voir §6.2) |
 | **`refurb`** + **`perflint`** | Modernisation Python et anti-patterns de perf — pertinent sur un moteur CPU-bound. | S | ⭐ | 📝📝 | ✅ 145 + 85 findings, informationnel (voir §6.3) |
 | **`type-coverage`** (TS) | % de code réellement typé (les `any` implicites que `tsc` laisse passer). | S | ⭐⭐ | 📝📝 | ✅ 99,58 % (voir §6.4) |
-| **`eslint-plugin-sonarjs`** | Complexité cognitive (≠ cyclomatique, déjà mesurée par radon) + bugs courants. | S | ⭐⭐ | 📝 | ✅ 2 bugs d'affichage corrigés, 304 findings informationnels (voir §6.6) |
+| **`eslint-plugin-sonarjs`** | Complexité cognitive (≠ cyclomatique, déjà mesurée par radon) + bugs courants. | S | ⭐⭐ | 📝 | ✅ 19 findings corrigés (PR #466), 288 restants, ratchet-gaté depuis (voir §6.6 et PLAN_CI_STRUCTURAL_GAPS.md §2.B) |
 | **`pip-licenses` / `license-checker`** | Conformité de licences sur un repo public MIT. | S | ⭐ | 📝 | ✅ 0 violation, promu en **gate bloquant** (voir §6.7) |
 
 ### 6.1 — Audit de pertinence des commentaires · `L` · ⭐⭐ 📝📝📝
@@ -1918,8 +1936,8 @@ commande, sans pipe, avant de faire confiance au signal.
 | **Fuzzing à couverture** (`atheris` ou `hypofuzz`) | Bien plus profond qu'Hypothesis seul sur le moteur et les parseurs. | L | ⭐⭐ | 📝📝📝 | ✅ `atheris`, 2 harnais + workflow CI planifié, 4 bugs réels trouvés et corrigés (voir sous le tableau) |
 | **`guarddog`** (Datadog) | Détecte les paquets *malveillants* (typosquatting, install-scripts hostiles) — angle mort de pip-audit/Trivy qui ne voient que les CVE connues. | S | ⭐⭐ | 📝📝📝 | ✅ CI (cron + push develop, informational — voir sous le tableau) |
 | **`trufflehog`** | Secrets **vérifiés actifs**, pas juste des motifs (complète gitleaks + detect-secrets). | S | ⭐ | 📝 | ✅ local + CI, informational (voir sous le tableau) |
-| **OSV-Scanner** | Base de vulnérabilités différente de Trivy, recouvrement imparfait. Mesurer l'écart réel est une bonne expérience. | S | ⭐ | 📝📝📝 | ✅ local + CI, informational (voir sous le tableau) |
-| **Signature d'images + provenance SLSA** (cosign/sigstore) | Suite logique du SBOM + Scorecard déjà en place. | M | ⭐⭐ | 📝📝📝 | ✅ SBOM signé (cosign, keyless) + provenance SLSA (`attest-build-provenance`), pas l'image (voir sous le tableau) |
+| **OSV-Scanner** | Base de vulnérabilités différente de Trivy, recouvrement imparfait. Mesurer l'écart réel est une bonne expérience. | S | ⭐ | 📝📝📝 | ⏹️ Retiré le 2026-09-17 : aucun écart mesuré avec Trivy + pip-audit sur ce repo (EXP-009) — voir sous le tableau pour l'historique |
+| **Signature d'images + provenance SLSA** (cosign/sigstore) | Suite logique du SBOM + Scorecard déjà en place. | M | ⭐⭐ | 📝📝📝 | ⏹️ Retiré le 2026-09-17 : signait le SBOM d'images jamais publiées — l'image de prod (Dockerfile racine) reste scannée + SBOM, sans signature (voir sous le tableau pour l'historique) |
 | **`minimumReleaseAge`** (via Renovate) | Attendre 3-7 j avant d'adopter une release : vraie défense contre les paquets compromis. | S | ⭐⭐⭐ | 📝📝 | ✅ déjà satisfait (Dependabot `cooldown`, sans migration — voir sous le tableau) |
 
 **`guarddog` + `trufflehog` + OSV-Scanner, détail.** Les trois exécutés pour de
@@ -1954,8 +1972,8 @@ trouve silencieusement 0 source de paquets depuis ce worktree, alors que les
 mêmes lockfiles sont trouvés sans problème via `-L` explicite ou depuis une
 copie hors-worktree — `scripts/audit.sh` utilise `-L` par fichier pour cette
 raison (plus rapide de toute façon, pas besoin d'exclure `node_modules`/`.venv`).
-Local + CI (job `osv-scanner`, workflow réutilisable officiel des
-mainteneurs, non-bloquant).
+Était local + CI (job `osv-scanner`, non-bloquant) ; retiré le 2026-09-17,
+faute d'écart mesuré avec Trivy + pip-audit.
 
 *`guarddog`* : pas de carnet d'expérience dédié (item bas-cérémonie — un
 outil trouve quelque chose ou pas contre un dépôt propre), mais vérifié pour
@@ -2151,7 +2169,7 @@ backend, et la cible exacte que l'item vise.
   dict sans clé `ranking`, scores NaN/inf) qu'`st.permutations(["A","B","C","D"])`
   (les tests Hypothesis existants) ne peut structurellement jamais produire.
   Pool de candidats volontairement petit et FIXE pour ne pas faire exploser
-  le chemin exact O(n!) de Kemeny-Young.
+  le chemin exact de Kemeny-Young (alors en O(n!), aujourd'hui en O(2^m·m²)).
 - `scripts/fuzz_llm_parsers.py` — mutation directe des octets bruts d'une
   réponse LLM, corpus de départ (`fuzz_corpus/llm_parsers/seed_*`, committé)
   = quelques payloads réalistes (batch valide, `<think>`-wrappé, JSON
@@ -2634,8 +2652,8 @@ a construit l'inventaire par grep des fonctions `get_*_winner` réelles (pas
 seulement les dicts déjà câblés, puisqu'une méthode neuve n'y figure par
 définition pas encore), correctement écarté les vraies exclusions déjà
 documentées (`get_approval_winner`, `get_positional_score_winner`,
-`get_random_ballot_winner`, le jumeau condorcet/Copeland) sans en signaler
-aucune à tort, puis identifié la fonction scratch comme absente de `METHODS`
+`get_random_ballot_winner` — supprimé depuis, en PR 8b —, le jumeau
+condorcet/Copeland) sans en signaler aucune à tort, puis identifié la fonction scratch comme absente de `METHODS`
 et des 6 critères classifiables — avec, en particulier, la bonne distinction
 entre le critère Condorcet gagnant (assertion de module qui casserait la
 collecte entière du fichier si non traité) et les 5 autres (balayage
@@ -3209,7 +3227,7 @@ outil déjà câblé et un chiffre déjà mesuré, pas une lacune de détection.
 |---|---|---|---|---|---|
 | **Typer les `any` restants + activer le cliquet** (280 dans le code source, Lot 6.4) | Seul item du groupe avec un vrai gain de sûreté de typage, pas juste de lisibilité — `type-coverage` expose déjà `--at-least`/`--update-if-higher` mais rien n'est câblé, faute d'une baseline assez haute pour que ça vaille le coût. Réduire d'abord, gater ensuite. | M | ⭐⭐⭐ | 📝📝 | ✅ voir détail sous le tableau |
 | **Statuer sur les zones mortes trouvées par le Lot 6.5** (`api/domain/polity/*`, 2 813 lignes 0 % e2e ; `/simulation/compare`, invisible à knip) | Le Lot 6.5 a mesuré l'inatteignabilité, pas décidé quoi en faire. Deux vraies trouvailles qui méritent une décision explicite — réintégrer dans le produit ou supprimer — pas rester indéfiniment dans un angle mort connu. | M | ⭐⭐⭐ | 📝📝📝 | ✅ voir détail sous le tableau |
-| **Réduire la dette sonarjs** (304 findings restants, Lot 6.6) | 2 vrais bugs y avaient déjà été trouvés en vérifiant à la main les 5 cas `no-all-duplicated-branches` — les autres catégories (`no-nested-conditional` ×102, `cognitive-complexity` ×38, `parameterized-tests` ×39, `prefer-specific-assertions` ×33) n'ont pas reçu le même traitement individuel, faute de budget. Simplifier les fonctions à plus forte complexité cognitive en particulier est le genre de nettoyage qui prévient le prochain bug de cette famille. | L | ⭐⭐ | 📝📝 | |
+| **Réduire la dette sonarjs** (288 findings restants — recompté en direct le 2026-09-15, Lot 6.6) | PR #466 en a corrigé 19 (2 vrais bugs trouvés en vérifiant à la main les `no-all-duplicated-branches`, plus des cas à faible risque dans d'autres catégories). Restent, par catégorie (recompte réel, pas une estimation) : `no-nested-conditional` ×101, `parameterized-tests` ×39, `cognitive-complexity` ×38, `prefer-specific-assertions` ×33, `no-unused-vars` ×20, `no-dead-store` ×20, et 37 autres réparties sur 12 règles mineures. Depuis PLAN_CI_STRUCTURAL_GAPS.md item 2.B, ce chiffre est **ratchet-gaté** (`.github/quality-baseline.json`, `check_quality_ratchet.sh`) — il ne peut plus augmenter silencieusement, seulement baisser. Simplifier les fonctions à plus forte complexité cognitive en particulier est le genre de nettoyage qui prévient le prochain bug de cette famille. | L | ⭐⭐ | 📝📝 | |
 | **Réduire la dette refurb/perflint** (145 + 85 findings, Lot 6.3) | Le Lot 6.3 a mesuré et documenté sans corriger, hors budget de l'item lui-même. Transformations mécaniques, risque quasi nul (`dict(x)`→`x.copy()`, `lambda`→`operator.itemgetter`, `list`→`tuple` non mutés) — le genre de dette qui ne s'aggrave pas mais ne se résorbe pas non plus toute seule. | M | ⭐⭐ | 📝 | ✅ voir détail sous le tableau |
 | **Faire taire les faux positifs basedpyright** (34 restants, Lot 6.2) | Déjà vérifiés faux un par un (32 liés à l'absence d'équivalent du plugin `pydantic.mypy` côté pyright, 2 isolés où le vérificateur ne peut pas prouver une invariante locale) — pas de vraie dette ici, juste du bruit dans le rapport pour un futur contributeur. Le moins prioritaire des cinq ; à ne faire que si `basedpyright` reste consulté régulièrement. | S | ⭐ | 📝 | ✅ voir détail sous le tableau |
 

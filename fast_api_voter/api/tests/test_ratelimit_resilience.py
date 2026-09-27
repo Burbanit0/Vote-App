@@ -13,16 +13,8 @@ at a dead host) so this exercises the same failure regardless of whether the
 test environment's limiter backend is memory:// or a real Redis — the
 resilience code path being tested doesn't care which storage raised.
 """
-import pytest
-from fastapi.testclient import TestClient
 
 from api.core.ratelimit import limiter
-from api.main import app
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
 
 
 def _boom(*args, **kwargs):
@@ -32,11 +24,10 @@ def _boom(*args, **kwargs):
 class TestRateLimiterResilience:
     def test_v2_route_survives_storage_failure(self, client, monkeypatch):
         monkeypatch.setattr(limiter.limiter.storage, "incr", _boom)
-        r = client.post("/api/v2/simulations/get_closest_candidate", json={})
-        # 400: the worker's own validation (empty voters/candidates), reached
-        # normally — proves the request was NOT rejected by the rate limiter
-        # or the app's catch-all 500 handler.
-        assert r.status_code == 400, r.text
+        r = client.post("/api/v2/simulations/vote-steps", json={})
+        # 200: the request reached the worker normally — proves it was NOT
+        # rejected by the rate limiter or the app's catch-all 500 handler.
+        assert r.status_code == 200, r.text
 
     def test_v1_route_survives_storage_failure(self, client, monkeypatch):
         monkeypatch.setattr(limiter.limiter.storage, "incr", _boom)

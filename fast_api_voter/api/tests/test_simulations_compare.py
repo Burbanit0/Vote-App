@@ -1,160 +1,8 @@
 """Tests for Phase 4.5.a.7 — simulation_compare on FastAPI (/api/v2/simulations)."""
-import pytest
-from fastapi.testclient import TestClient
 
 import api.domain.simulations.compare as compare_module
-from api.main import app
 
 CANDS = ["Alice", "Bob", "Charlie"]
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
-
-
-class TestCompare:
-    def test_happy_path(self, client):
-        r = client.post("/api/v2/simulations/compare",
-                        json={"num_voters": 60, "candidates": CANDS})
-        assert r.status_code == 200, r.text
-        body = r.json()
-        assert "methods" in body and "plurality" in body["methods"]
-        assert body["information_model"]["enabled"] is False
-
-    def test_blank_vote(self, client):
-        r = client.post("/api/v2/simulations/compare", json={
-            "num_voters": 60, "candidates": CANDS,
-            "blank_vote": True, "blank_rule": "threshold_30",
-        })
-        assert r.status_code == 200, r.text
-        assert "blank_rule_applied" in next(iter(r.json()["methods"].values()))
-
-    def test_too_few_candidates_400(self, client):
-        r = client.post("/api/v2/simulations/compare",
-                        json={"num_voters": 60, "candidates": ["Solo"]})
-        assert r.status_code == 400, r.text
-
-    def test_unknown_blank_rule_400(self, client):
-        r = client.post("/api/v2/simulations/compare", json={
-            "num_voters": 60, "candidates": CANDS, "blank_rule": "nonsense",
-        })
-        assert r.status_code == 400, r.text
-
-    def test_500_and_logs_on_compute_failure(self, client, monkeypatch, caplog):
-        def _boom(*a, **kw):
-            raise RuntimeError("engine exploded")
-        monkeypatch.setattr(compare_module, "compare_all_methods", _boom)
-        with caplog.at_level("WARNING"):
-            r = client.post("/api/v2/simulations/compare",
-                            json={"num_voters": 60, "candidates": CANDS})
-        assert r.status_code == 500
-        assert "engine exploded" in r.json()["detail"]
-        assert "simulation.compare.failed" in caplog.text
-
-
-class TestStrategicImpact:
-    def test_happy_path(self, client):
-        r = client.post("/api/v2/simulations/strategic-impact", json={
-            "num_voters": 60, "candidates": CANDS, "strategic_percentages": [0, 50],
-        })
-        assert r.status_code == 200, r.text
-        assert len(r.json()["results"]) == 2
-
-    def test_500_and_logs_on_compute_failure(self, client, monkeypatch, caplog):
-        def _boom(*a, **kw):
-            raise RuntimeError("engine exploded")
-        monkeypatch.setattr(compare_module, "_build_population", _boom)
-        with caplog.at_level("WARNING"):
-            r = client.post("/api/v2/simulations/strategic-impact", json={
-                "num_voters": 60, "candidates": CANDS, "strategic_percentages": [0, 50],
-            })
-        assert r.status_code == 500
-        assert "engine exploded" in r.json()["detail"]
-        assert "simulation.strategic_impact.failed" in caplog.text
-
-
-class TestCondorcetMatrix:
-    def test_happy_path(self, client):
-        r = client.post("/api/v2/simulations/condorcet-matrix",
-                        json={"num_voters": 60, "candidates": CANDS})
-        assert r.status_code == 200, r.text
-
-    def test_500_and_logs_on_compute_failure(self, client, monkeypatch, caplog):
-        def _boom(*a, **kw):
-            raise RuntimeError("engine exploded")
-        monkeypatch.setattr(compare_module, "get_condorcet_matrix", _boom)
-        with caplog.at_level("WARNING"):
-            r = client.post("/api/v2/simulations/condorcet-matrix",
-                            json={"num_voters": 60, "candidates": CANDS})
-        assert r.status_code == 500
-        assert "engine exploded" in r.json()["detail"]
-        assert "simulation.condorcet_matrix.failed" in caplog.text
-
-
-class TestSensitivity:
-    def test_happy_path(self, client):
-        r = client.post("/api/v2/simulations/sensitivity", json={
-            "base_config": {"num_voters": 60, "candidates": CANDS},
-            "variable": "num_voters", "values": [50, 80],
-        })
-        assert r.status_code == 200, r.text
-        assert len(r.json()["results"]) == 2
-
-    def test_no_values_400(self, client):
-        r = client.post("/api/v2/simulations/sensitivity", json={
-            "base_config": {"candidates": CANDS}, "variable": "num_voters", "values": [],
-        })
-        assert r.status_code == 400, r.text
-
-
-class TestArrowCriteria:
-    def test_happy_path(self, client):
-        r = client.post("/api/v2/simulations/arrow-criteria",
-                        json={"num_voters": 60, "candidates": CANDS})
-        assert r.status_code == 200, r.text
-
-    def test_500_and_logs_on_compute_failure(self, client, monkeypatch, caplog):
-        def _boom(*a, **kw):
-            raise RuntimeError("engine exploded")
-        monkeypatch.setattr(compare_module, "_build_population", _boom)
-        with caplog.at_level("WARNING"):
-            r = client.post("/api/v2/simulations/arrow-criteria",
-                            json={"num_voters": 60, "candidates": CANDS})
-        assert r.status_code == 500
-        assert "engine exploded" in r.json()["detail"]
-        assert "simulation.arrow_criteria.failed" in caplog.text
-
-
-class TestScenario:
-    payload = {
-        "candidates": [
-            {"name": "A", "ideology": -0.5, "positions": {"economy": 0.3}},
-            {"name": "B", "ideology": 0.5, "positions": {"economy": 0.7}},
-        ],
-        "electorate": {"num_voters": 60, "ideology_preset": "random"},
-    }
-
-    def test_happy_path(self, client):
-        r = client.post("/api/v2/simulations/scenario", json=self.payload)
-        assert r.status_code == 200, r.text
-        body = r.json()
-        assert "without_blank" in body and "with_blank" in body
-
-    def test_too_few_real_candidates_400(self, client):
-        bad = {**self.payload, "candidates": [self.payload["candidates"][0]]}
-        r = client.post("/api/v2/simulations/scenario", json=bad)
-        assert r.status_code == 400, r.text
-
-    def test_500_and_logs_on_compute_failure(self, client, monkeypatch, caplog):
-        def _boom(*a, **kw):
-            raise RuntimeError("engine exploded")
-        monkeypatch.setattr(compare_module, "compare_all_methods", _boom)
-        with caplog.at_level("WARNING"):
-            r = client.post("/api/v2/simulations/scenario", json=self.payload)
-        assert r.status_code == 500
-        assert "engine exploded" in r.json()["detail"]
-        assert "simulation.scenario.failed" in caplog.text
 
 
 class TestManipulability:
@@ -191,6 +39,14 @@ class TestVoteSteps:
         assert r.status_code == 200, r.text
         assert r.json()["method"] == "plurality"
 
+    def test_approval_elects_the_most_approved(self, client):
+        r = client.post("/api/v2/simulations/vote-steps",
+                        json={"method": "approval", "num_voters": 50, "candidates": CANDS})
+        assert r.status_code == 200, r.text
+        body = r.json()
+        scores = body["approval_scores"]
+        assert body["winner"] == min(scores, key=lambda c: (-scores[c], c))
+
     def test_irv(self, client):
         r = client.post("/api/v2/simulations/vote-steps",
                         json={"method": "irv", "num_voters": 50, "candidates": CANDS})
@@ -217,24 +73,21 @@ class TestVoteSteps:
         assert set(body["duel_matrix"]) == set(CANDS)
         assert body["winner"] in CANDS
 
-    def test_invalid_method_400(self, client):
+    def test_invalid_method_422(self, client):
+        """The worker still answers a direct call with 400; over HTTP the schema's
+        Literal catches it first, as on the seven endpoints #611 converted."""
         r = client.post("/api/v2/simulations/vote-steps",
                         json={"method": "nonsense", "num_voters": 50, "candidates": CANDS})
-        assert r.status_code == 400, r.text
+        assert r.status_code == 422, r.text
+
+    def test_duplicate_candidate_names_are_rejected(self, client):
+        """Schulze built a pairwise dict over distinct names and then asked it for
+        the pair ('Alice', 'Alice'): a KeyError, served as a 500."""
+        for method in ("schulze", "plurality", "borda", "irv", "approval"):
+            r = client.post("/api/v2/simulations/vote-steps",
+                            json={"method": method, "num_voters": 20,
+                                  "candidates": ["Alice", "Alice", "Bob"]})
+            assert r.status_code == 422, (method, r.text)
+            assert "Duplicate candidate name" in r.text
 
 
-class TestIdeologyMap:
-    def test_happy_path(self, client):
-        r = client.post("/api/v2/simulations/ideology-map", json={
-            "num_voters": 50,
-            "candidates": [{"name": "A", "x": -0.5, "y": 0.0}, {"name": "B", "x": 0.5, "y": 0.0}],
-            "method_a": "plurality", "method_b": "schulze",
-        })
-        assert r.status_code == 200, r.text
-        body = r.json()
-        assert "voters" in body and len(body["voters"]) == 50
-
-    def test_too_few_candidates_400(self, client):
-        r = client.post("/api/v2/simulations/ideology-map",
-                        json={"num_voters": 50, "candidates": [{"name": "A", "x": 0, "y": 0}]})
-        assert r.status_code == 400, r.text

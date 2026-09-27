@@ -102,7 +102,8 @@ export const CARDINAL_RULES: ReadonlySet<Rule> = new Set<Rule>([
   'nash',
 ]);
 
-const dist = (a: Pt, b: Pt): number => Math.hypot(a.x - b.x, a.y - b.y, (a.z ?? 0) - (b.z ?? 0));
+export const dist = (a: Pt, b: Pt): number =>
+  Math.hypot(a.x - b.x, a.y - b.y, (a.z ?? 0) - (b.z ?? 0));
 
 // Voter utility for a candidate: closer is better, lifted by the candidate's
 // valence. Higher utility = preferred. Valence defaults to 0 (positional model).
@@ -119,7 +120,7 @@ export function computeRanks(voters: Pt[], cands: Pt[]): number[][] {
 
 const rankings = computeRanks;
 
-function pluralityCounts(ranks: number[][], alive: boolean[], m: number): number[] {
+export function pluralityCounts(ranks: number[][], alive: boolean[], m: number): number[] {
   const counts = new Array(m).fill(0);
   for (const r of ranks) {
     const top = r.find((i) => alive[i]);
@@ -128,7 +129,7 @@ function pluralityCounts(ranks: number[][], alive: boolean[], m: number): number
   return counts;
 }
 
-function argmax(arr: number[]): number {
+export function argmax(arr: number[]): number {
   let best = 0;
   for (let i = 1; i < arr.length; i++) if (arr[i] > arr[best]) best = i;
   return best;
@@ -224,7 +225,7 @@ function winApproval(scores: number[][], m: number): number {
 }
 
 /** Pairwise tally: beats[i][j] = number of voters ranking i above j. */
-function pairwise(ranks: number[][], m: number): number[][] {
+export function pairwise(ranks: number[][], m: number): number[][] {
   const beats = Array.from({ length: m }, () => new Array(m).fill(0));
   for (const r of ranks) {
     const pos = new Array(m).fill(0);
@@ -366,7 +367,7 @@ function winCoombs(ranks: number[][], m: number): number {
 }
 
 /** Borda scores counting only candidates still alive. */
-function bordaAlive(ranks: number[][], m: number, alive: boolean[]): number[] {
+export function bordaAlive(ranks: number[][], m: number, alive: boolean[]): number[] {
   const k = alive.filter(Boolean).length;
   const score = new Array(m).fill(0);
   for (const r of ranks) {
@@ -694,35 +695,64 @@ function winSplitCycle(ranks: number[][], m: number): number {
 }
 
 /**
+ * Exact Kemeny is a DP over candidate subsets, so the cap is what the DP can
+ * afford rather than what m! could: 10 covers every field the backend's request
+ * schemas admit (8 candidates, plus one spliced blank). Must stay equal to
+ * `_KY_EXACT_CAP` in simulation_ranked_utils.py — above the cap the two engines
+ * deliberately differ (Borda here, KwikSort there), so a one-sided change
+ * reintroduces a silent cross-engine disagreement. The parity fixture carries
+ * the backend's value and the parity test asserts this matches it.
+ */
+export const KEMENY_EXACT_CAP = 10;
+
+/** Ballots ranking `i` above every candidate still left in `rest`. */
+function kemenyGain(b: number[][], i: number, rest: number, m: number): number {
+  let gain = 0;
+  for (let j = 0; j < m; j++) if ((rest >> j) & 1) gain += b[i][j];
+  return gain;
+}
+
+/**
  * Kemeny-Young: the consensus ranking that most agrees with every ballot (fewest
- * pairwise disagreements). Brute-forces the m! orderings — fine for a handful of
- * candidates; falls back to Borda beyond 8 to avoid factorial blow-up.
+ * pairwise disagreements).
+ *
+ * Exact by DP over candidate subsets, mirroring the backend's
+ * `_kemeny_exact_winner`: `f(S)` is the best score achievable ranking exactly
+ * the candidates in `S`, choosing which of them goes FIRST. O(2^m · m²) against
+ * the m! this used to enumerate.
+ *
+ * This replaced a brute force that ran to m = 8 and fell back to Borda above.
+ * It was exact, but the backend approximated (KwikSort) above 6 candidates, so
+ * the two engines answered 7- and 8-candidate fields — both inside every request
+ * schema's limit, and reachable from the France 2002 preset's 8 candidates —
+ * with different algorithms, disagreeing on about a quarter of profiles. The
+ * parity fixture could not see it: its scenarios stopped at 5 candidates.
+ *
+ * Ties follow the convention on `ruleWinnerFromRanks`: improving only on a
+ * strict `>` while `i` ascends returns the index-smallest optimal ordering,
+ * where the backend returns the name-smallest.
  */
 function winKemeny(ranks: number[][], m: number): number {
-  if (m > 8) return winBorda(ranks, m);
+  if (m < 1) return -1;
+  if (m > KEMENY_EXACT_CAP) return winBorda(ranks, m);
   const b = pairwise(ranks, m);
-  let bestFirst = 0;
-  let bestScore = -Infinity;
-  const perm = Array.from({ length: m }, (_, i) => i);
-  const permute = (k: number): void => {
-    if (k === m) {
-      // Kemeny score of this ordering = agreements over all ordered pairs.
-      let score = 0;
-      for (let i = 0; i < m; i++) for (let j = i + 1; j < m; j++) score += b[perm[i]][perm[j]];
-      if (score > bestScore) {
-        bestScore = score;
-        bestFirst = perm[0];
+  const full = (1 << m) - 1;
+  const score = new Int32Array(full + 1); // score[0] = 0: the empty set
+  let lead = -1;
+  for (let mask = 1; mask <= full; mask++) {
+    let bestScore = -1;
+    for (let i = 0; i < m; i++) {
+      if (!((mask >> i) & 1)) continue;
+      const rest = mask ^ (1 << i); // always < mask, so already solved
+      const total = score[rest] + kemenyGain(b, i, rest, m);
+      if (total > bestScore) {
+        bestScore = total;
+        if (mask === full) lead = i; // only the full set names the winner
       }
-      return;
     }
-    for (let i = k; i < m; i++) {
-      [perm[k], perm[i]] = [perm[i], perm[k]];
-      permute(k + 1);
-      [perm[k], perm[i]] = [perm[i], perm[k]];
-    }
-  };
-  permute(0);
-  return bestFirst;
+    score[mask] = bestScore;
+  }
+  return lead;
 }
 
 /** Cumulative voting: each voter splits ONE point across candidates in proportion
@@ -883,6 +913,18 @@ function winRaynaud(ranks: number[][], m: number): number {
  * Winning candidate INDEX under the given rule from pre-computed ballots —
  * lets the scorecard inject *modified* ballots (e.g. a strategic-compression
  * manipulation probe). `scores` is required for 'approval' (cardinal rule).
+ *
+ * Ties, for the ordinal rules: each runs the same procedure as its backend twin,
+ * keyed on candidate INDEX where the backend keys on candidate NAME (Python
+ * code-point order, not a locale sort). The two therefore agree on a tied
+ * profile whenever index order and name order coincide on the candidates
+ * involved — always, for an array sorted that way, which every parity scenario
+ * is. With an authored array they can name different, equally valid winners:
+ * on B>A, A>B with ['B', 'A'], the 19 ordinal rules that have a deterministic
+ * backend twin and return a winner all answer B here and A there. The key can
+ * act at an intermediate step (two_round's runoff pair, ranked_pairs' and
+ * river's lock order), so the tied winner is not always the lowest index. The
+ * exhaustive parity block pins this, ties included, at up to 3 candidates.
  */
 export function ruleWinnerFromRanks(
   ranks: number[][],
@@ -1161,7 +1203,7 @@ export function applyBlankVote(
 
 // ── Seeded spatial electorate (deterministic from seed/ideology) ──────────────
 
-function mulberry32(seed: number): () => number {
+export function mulberry32(seed: number): () => number {
   let a = seed >>> 0;
   return () => {
     a |= 0;
@@ -1173,7 +1215,7 @@ function mulberry32(seed: number): () => number {
 }
 
 /** Standard normal via Box–Muller from a uniform PRNG. */
-function gauss(rng: () => number, mu: number, sigma: number): number {
+export function gauss(rng: () => number, mu: number, sigma: number): number {
   const u = Math.max(rng(), 1e-9);
   const v = rng();
   return mu + sigma * Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);

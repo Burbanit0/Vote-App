@@ -4,8 +4,14 @@ import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Spinner } from '@/components/ui/spinner';
+import { listNames } from '@/lib/listNames';
 import i18n from '../../../i18n';
-import { ElectionResult, InterpretResult, interpretElection } from '../../../services/electionApi';
+import {
+  ElectionResult,
+  InterpretResult,
+  MethodResult,
+  interpretElection,
+} from '../../../services/electionApi';
 import LiveBadge from '../ui/LiveBadge';
 import MethodGroupDonut from './MethodGroupDonut';
 
@@ -21,6 +27,12 @@ function agreementLabel(agreement: number, t: (k: string) => string): string {
   if (agreement > 0.8) return t('insight.consensusLabel');
   if (agreement >= 0.5) return t('insight.moderateLabel');
   return t('insight.strongLabel');
+}
+
+/** The distinct winners of `methods`, in order. A regret tie is practically
+ *  always one candidate, but two candidates can score an identical regret. */
+function winnersOf(methods: string[], all: Record<string, MethodResult>): string {
+  return [...new Set(methods.map((m) => all[m]?.winner ?? '?'))].join(' / ');
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -125,19 +137,21 @@ const ElectionInsightPanel: React.FC<Props> = ({ result }) => {
           <span>{insight.condorcet_analysis}</span>
         </div>
 
-        {/* C) Best / worst method ────────────────────────────────────── */}
-        {(insight.best_by_regret || insight.worst_by_regret) && (
+        {/* C) Lowest / highest regret — an outcome, shared by the methods electing it */}
+        {insight.best_by_regret.length > 0 && (
           <div className="mb-4 flex flex-wrap gap-2 text-[0.8rem]">
-            {insight.best_by_regret && (
-              <Badge variant="success" className="px-2 py-1 text-[0.75rem] font-medium">
-                ✓ {t('insight.bestMethod')}: {insight.best_by_regret}
-              </Badge>
-            )}
-            {insight.worst_by_regret && insight.worst_by_regret !== insight.best_by_regret && (
-              <Badge variant="danger" className="px-2 py-1 text-[0.75rem] font-medium">
-                ✗ {t('insight.worstMethod')}: {insight.worst_by_regret}
-              </Badge>
-            )}
+            <Badge variant="success" className="px-2 py-1 text-[0.75rem] font-medium">
+              ✓ {t('insight.bestMethod')}: {winnersOf(insight.best_by_regret, result.methods)} (
+              {t('insight.regretCount', {
+                n: insight.best_by_regret.length,
+                total: Object.keys(result.methods).length,
+              })}
+              )
+            </Badge>
+            <Badge variant="danger" className="px-2 py-1 text-[0.75rem] font-medium">
+              ✗ {t('insight.worstMethod')}: {listNames(insight.worst_by_regret)} →{' '}
+              {winnersOf(insight.worst_by_regret, result.methods)}
+            </Badge>
           </div>
         )}
 

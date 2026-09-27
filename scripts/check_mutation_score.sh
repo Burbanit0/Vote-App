@@ -166,6 +166,13 @@ baseline_score = base["score"]
 delta = score - baseline_score
 print(f"{'baseline':<12}{baseline_score:>6.2f}%   ({base['killed']}/{base['total']})")
 print(f"{'delta':<12}{delta:>+6.2f}pp")
+if total != base["total"]:
+    # Only the RATIO is compared, so a changed mutant population makes the delta
+    # meaningless on its own: deleting well-killed code lowers the score without
+    # weakening a single assertion (159 mutants, 140 of them killed, left with the
+    # test-only engine functions in PR 8b -- -0.55pp, nothing regressed).
+    print(f"{'population':<12}{total - base['total']:>+7}  mutants vs the baseline -- "
+          "the delta above is not a like-for-like comparison")
 print()
 
 if delta < -tolerance:
@@ -177,6 +184,9 @@ if delta < -tolerance:
     print("   existing assertion was weakened. Inspect the survivors with:", file=sys.stderr)
     print("     cd fast_api_voter && python -m mutmut results", file=sys.stderr)
     print("     python -m mutmut show <mutant-id>", file=sys.stderr)
+    print("", file=sys.stderr)
+    print("   If the population line above is non-zero, check that first: code was", file=sys.stderr)
+    print("   added or deleted, and the baseline must be re-measured in that same PR.", file=sys.stderr)
     print("", file=sys.stderr)
     print(f"   Update the baseline ({baseline_path}) only after fixing the real", file=sys.stderr)
     print("   gap, or with a documented reason if the drop is genuinely accepted --", file=sys.stderr)

@@ -1,11 +1,14 @@
 import React from 'react';
-import { lazyWithPreload } from '../../lib/lazyWithPreload';
-import { usePlaygroundCtx } from '../playground/PlaygroundController';
+import { lazyWithPreload } from '../lazyWithPreload';
+import { useInstrumentCtx, useStoreCtx } from '../playground/PlaygroundController';
 import { useElection } from '../../stores/useElectionStore';
 
 // labCatalog — the Laboratoire's entire content as DATA. One entry per
 // experiment: 53 former anchor leaves + the strategy panel split into its four
-// modules + ballot + values + the methods duel, matrix and gallery = 62 fiches.
+// modules + ballot + values + the methods duel, matrix and gallery = 62 fiches,
+// plus thy-arrow (Arrow's impossibility theorem), restored after an unrelated
+// route consolidation orphaned it (see labCatalog.test.ts's RESTORED comment)
+// = 63 fiches.
 // The page (LaboratoirePage) is a thin reader: a family rail, a catalogue of
 // chips, and one full-width bench ("établi") that renders the selected entry —
 // so no experiment ever stacks under another and nothing mounts unpicked.
@@ -97,6 +100,7 @@ const AffectivePolarizationPanel = lazyWithPreload(
 );
 
 // Théorie & paradoxes
+const ArrowExplorer = lazyWithPreload(() => import('../shared/theory/ArrowExplorer'));
 const SenParadoxPanel = lazyWithPreload(() => import('../shared/theory/SenParadoxPanel'));
 const JudgmentAggregationPanel = lazyWithPreload(
   () => import('../shared/theory/JudgmentAggregationPanel')
@@ -146,10 +150,10 @@ const RegimeGlobe = lazyWithPreload(() => import('./RegimeGlobe'));
 const useLabProps = () => {
   const { config } = useElection();
   return {
-    labMode: true as const,
-    labCandidates: config.candidates,
-    labNumVoters: config.num_voters,
-    labSeed: config.seed,
+    candidates: config.candidates,
+    numVoters: config.num_voters,
+    seed: config.seed,
+    ideology: config.ideology,
   };
 };
 const useBaseParams = () => {
@@ -167,12 +171,8 @@ const EpistocracyBody: React.FC = () => <EpistocracyPanel {...useLabProps()} />;
 const IdentityBody: React.FC = () => <IdentityVotingPanel {...useLabProps()} />;
 const MonteCarloBody: React.FC = () => <MonteCarloResults baseParams={useBaseParams()} />;
 const ManipulabilityBody: React.FC = () => <ManipulabilityChart baseParams={useBaseParams()} />;
-const CollectiveBody: React.FC = () => (
-  <CollectiveWillPanel {...useLabProps()} labIdeology={useElection().config.ideology} />
-);
-const AssumptionsBody: React.FC = () => (
-  <AssumptionTesterPanel {...useLabProps()} labIdeology={useElection().config.ideology} />
-);
+const CollectiveBody: React.FC = () => <CollectiveWillPanel {...useLabProps()} />;
+const AssumptionsBody: React.FC = () => <AssumptionTesterPanel {...useLabProps()} />;
 const AnimatorBody: React.FC = () => {
   const { config } = useElection();
   return (
@@ -186,7 +186,8 @@ const AnimatorBody: React.FC = () => {
   );
 };
 const SincerityBody: React.FC = () => {
-  const { votingVoters, leaderCandidates, dims, youPos, setYouPos } = usePlaygroundCtx();
+  const { votingVoters, leaderCandidates, youPos, setYouPos } = useInstrumentCtx();
+  const { dims } = useStoreCtx();
   return (
     <SincerityModule
       voters={votingVoters}
@@ -198,15 +199,15 @@ const SincerityBody: React.FC = () => {
   );
 };
 const StrategicBody: React.FC = () => {
-  const { config, playground } = usePlaygroundCtx();
+  const { config, playground } = useStoreCtx();
   return <StrategicModule config={config} playground={playground} />;
 };
 const EquilibriumBody: React.FC = () => {
-  const { votingVoters, leaderCandidates } = usePlaygroundCtx();
+  const { votingVoters, leaderCandidates } = useInstrumentCtx();
   return <EquilibriumModule voters={votingVoters} candidates={leaderCandidates} />;
 };
 const VseBody: React.FC = () => {
-  const { sampleAtSeed, baseSeed, leaderCandidates } = usePlaygroundCtx();
+  const { sampleAtSeed, baseSeed, leaderCandidates } = useInstrumentCtx();
   return (
     <VseModule sampleAtSeed={sampleAtSeed} baseSeed={baseSeed} candidates={leaderCandidates} />
   );
@@ -246,11 +247,16 @@ export interface LabFamily {
   groups: LabGroup[];
 }
 
+// A lazyWithPreload'd panel carries its own `preload`, so `exp` reads it off the
+// component. The wrapper bodies above feed a panel its props and are not lazy
+// themselves, so they name the module whose chunk to warm instead. Either way
+// `preload` must end up a function: labCatalog.test.ts asserts that for every
+// experiment, and a missing one lands here as `undefined`, not as a no-op.
 const exp = (
   id: string,
   titleKey: string,
-  Body: React.ComponentType,
-  preload: () => unknown
+  Body: React.ComponentType & { preload?: () => unknown },
+  preload = Body.preload as () => unknown
 ): LabExperiment => ({ id, titleKey, Body, preload });
 
 export const LAB_FAMILIES: LabFamily[] = [
@@ -264,15 +270,15 @@ export const LAB_FAMILIES: LabFamily[] = [
         titleKey: 'lab.matrix.title',
         experiments: [
           {
-            ...exp('lab-duel', 'duel.title', MethodDuel, MethodDuel.preload),
+            ...exp('lab-duel', 'duel.title', MethodDuel),
             ownHeader: true,
           },
           {
-            ...exp('lab-matrix', 'lab.matrix.title', MethodsMatrix, MethodsMatrix.preload),
+            ...exp('lab-matrix', 'lab.matrix.title', MethodsMatrix),
             ownHeader: true,
           },
           {
-            ...exp('lab-gallery', 'gallery.title', MethodGallery, MethodGallery.preload),
+            ...exp('lab-gallery', 'gallery.title', MethodGallery),
             ownHeader: true,
           },
         ],
@@ -288,9 +294,7 @@ export const LAB_FAMILIES: LabFamily[] = [
         key: 'ballot',
         titleKey: 'lab.ballot.title',
         subtitleKey: 'lab.ballot.subtitle',
-        experiments: [
-          exp('lab-ballot', 'lab.ballot.title', BallotConfigPanel, BallotConfigPanel.preload),
-        ],
+        experiments: [exp('lab-ballot', 'lab.ballot.title', BallotConfigPanel)],
       },
       {
         key: 'strategy',
@@ -312,9 +316,7 @@ export const LAB_FAMILIES: LabFamily[] = [
         key: 'values',
         titleKey: 'lab.values.title',
         subtitleKey: 'lab.values.subtitle',
-        experiments: [
-          exp('lab-values', 'lab.values.title', ValuesLabPanel, ValuesLabPanel.preload),
-        ],
+        experiments: [exp('lab-values', 'lab.values.title', ValuesLabPanel)],
       },
     ],
   },
@@ -329,36 +331,11 @@ export const LAB_FAMILIES: LabFamily[] = [
         subtitleKey: 'lab.mechanisms.subtitle',
         introKey: 'anchorBody.mechanisms.intro',
         experiments: [
-          exp(
-            'mech-jury',
-            'anchorBody.mechanisms.jury',
-            JuryTheoremPanel,
-            JuryTheoremPanel.preload
-          ),
-          exp(
-            'mech-liquid',
-            'anchorBody.mechanisms.liquid',
-            LiquidDemocracyPanel,
-            LiquidDemocracyPanel.preload
-          ),
-          exp(
-            'mech-sortition',
-            'anchorBody.mechanisms.sortition',
-            SortitionPanel,
-            SortitionPanel.preload
-          ),
-          exp(
-            'mech-deliberation',
-            'anchorBody.mechanisms.deliberation',
-            DeliberationPanel,
-            DeliberationPanel.preload
-          ),
-          exp(
-            'mech-conviction',
-            'anchorBody.mechanisms.conviction',
-            ConvictionVotingPanel,
-            ConvictionVotingPanel.preload
-          ),
+          exp('mech-jury', 'anchorBody.mechanisms.jury', JuryTheoremPanel),
+          exp('mech-liquid', 'anchorBody.mechanisms.liquid', LiquidDemocracyPanel),
+          exp('mech-sortition', 'anchorBody.mechanisms.sortition', SortitionPanel),
+          exp('mech-deliberation', 'anchorBody.mechanisms.deliberation', DeliberationPanel),
+          exp('mech-conviction', 'anchorBody.mechanisms.conviction', ConvictionVotingPanel),
           exp(
             'mech-epistocracy',
             'anchorBody.mechanisms.epistocracy',
@@ -379,39 +356,14 @@ export const LAB_FAMILIES: LabFamily[] = [
         subtitleKey: 'lab.systems.subtitle',
         introKey: 'anchorBody.systems.intro',
         experiments: [
-          exp(
-            'sys-coalition',
-            'anchorBody.systems.coalition',
-            CoalitionPanel,
-            CoalitionPanel.preload
-          ),
-          exp(
-            'sys-multiwinner',
-            'anchorBody.systems.multiwinner',
-            MultiwinnerCompare,
-            MultiwinnerCompare.preload
-          ),
-          exp('sys-districts', 'anchorBody.systems.districts', DistrictMap, DistrictMap.preload),
-          exp(
-            'sys-gerrymander',
-            'anchorBody.systems.gerrymander',
-            GerrymanderMap,
-            GerrymanderMap.preload
-          ),
-          exp('sys-stv', 'anchorBody.systems.stv', STVPanel, STVPanel.preload),
-          exp(
-            'sys-ballot',
-            'anchorBody.systems.ballot',
-            BallotComplexityPanel,
-            BallotComplexityPanel.preload
-          ),
-          exp(
-            'sys-pipeline',
-            'anchorBody.systems.pipeline',
-            ElectionPipelineAnimator,
-            ElectionPipelineAnimator.preload
-          ),
-          exp('sys-atlas', 'atlas.title', RegimeGlobe, RegimeGlobe.preload),
+          exp('sys-coalition', 'anchorBody.systems.coalition', CoalitionPanel),
+          exp('sys-multiwinner', 'anchorBody.systems.multiwinner', MultiwinnerCompare),
+          exp('sys-districts', 'anchorBody.systems.districts', DistrictMap),
+          exp('sys-gerrymander', 'anchorBody.systems.gerrymander', GerrymanderMap),
+          exp('sys-stv', 'anchorBody.systems.stv', STVPanel),
+          exp('sys-ballot', 'anchorBody.systems.ballot', BallotComplexityPanel),
+          exp('sys-pipeline', 'anchorBody.systems.pipeline', ElectionPipelineAnimator),
+          exp('sys-atlas', 'atlas.title', RegimeGlobe),
         ],
       },
     ],
@@ -427,30 +379,10 @@ export const LAB_FAMILIES: LabFamily[] = [
         subtitleKey: 'lab.campaign.subtitle',
         introKey: 'anchorBody.campaign.intro',
         experiments: [
-          exp(
-            'dyn-hotelling',
-            'anchorBody.campaign.hotelling',
-            HotellingPanel,
-            HotellingPanel.preload
-          ),
-          exp(
-            'dyn-campaign',
-            'anchorBody.campaign.campaign',
-            CampaignSensitivityPanel,
-            CampaignSensitivityPanel.preload
-          ),
-          exp(
-            'dyn-polarization',
-            'anchorBody.campaign.polarization',
-            PolarizationPanel,
-            PolarizationPanel.preload
-          ),
-          exp(
-            'dyn-party',
-            'anchorBody.campaign.party',
-            PartyDynamicsPanel,
-            PartyDynamicsPanel.preload
-          ),
+          exp('dyn-hotelling', 'anchorBody.campaign.hotelling', HotellingPanel),
+          exp('dyn-campaign', 'anchorBody.campaign.campaign', CampaignSensitivityPanel),
+          exp('dyn-polarization', 'anchorBody.campaign.polarization', PolarizationPanel),
+          exp('dyn-party', 'anchorBody.campaign.party', PartyDynamicsPanel),
         ],
       },
       {
@@ -459,26 +391,11 @@ export const LAB_FAMILIES: LabFamily[] = [
         subtitleKey: 'lab.temporal.subtitle',
         introKey: 'anchorBody.tdyn.intro',
         experiments: [
-          exp(
-            'tdyn-adaptive',
-            'anchorBody.tdyn.adaptive',
-            AdaptiveVotingPanel,
-            AdaptiveVotingPanel.preload
-          ),
-          exp('tdyn-replay', 'anchorBody.tdyn.replay', HistoricalReplay, HistoricalReplay.preload),
-          exp(
-            'tdyn-primary',
-            'anchorBody.tdyn.primary',
-            PrimarySimulator,
-            PrimarySimulator.preload
-          ),
-          exp('tdyn-cascade', 'anchorBody.tdyn.cascade', CascadePanel, CascadePanel.preload),
-          exp(
-            'tdyn-fatigue',
-            'anchorBody.tdyn.fatigue',
-            ElectoralFatiguePanel,
-            ElectoralFatiguePanel.preload
-          ),
+          exp('tdyn-adaptive', 'anchorBody.tdyn.adaptive', AdaptiveVotingPanel),
+          exp('tdyn-replay', 'anchorBody.tdyn.replay', HistoricalReplay),
+          exp('tdyn-primary', 'anchorBody.tdyn.primary', PrimarySimulator),
+          exp('tdyn-cascade', 'anchorBody.tdyn.cascade', CascadePanel),
+          exp('tdyn-fatigue', 'anchorBody.tdyn.fatigue', ElectoralFatiguePanel),
         ],
       },
       {
@@ -487,37 +404,12 @@ export const LAB_FAMILIES: LabFamily[] = [
         subtitleKey: 'lab.behavioral.subtitle',
         introKey: 'anchorBody.breal.intro',
         experiments: [
-          exp(
-            'breal-biases',
-            'anchorBody.breal.biases',
-            BehavioralBiasPanel,
-            BehavioralBiasPanel.preload
-          ),
-          exp('breal-shyvoter', 'anchorBody.breal.shyvoter', ShyVoterPanel, ShyVoterPanel.preload),
-          exp(
-            'breal-overload',
-            'anchorBody.breal.overload',
-            ChoiceOverloadPanel,
-            ChoiceOverloadPanel.preload
-          ),
-          exp(
-            'breal-compulsory',
-            'anchorBody.breal.compulsory',
-            CompulsoryVotingPanel,
-            CompulsoryVotingPanel.preload
-          ),
-          exp(
-            'breal-demographic',
-            'anchorBody.breal.demographic',
-            DemographicTurnoutPanel,
-            DemographicTurnoutPanel.preload
-          ),
-          exp(
-            'breal-affective',
-            'anchorBody.breal.affective',
-            AffectivePolarizationPanel,
-            AffectivePolarizationPanel.preload
-          ),
+          exp('breal-biases', 'anchorBody.breal.biases', BehavioralBiasPanel),
+          exp('breal-shyvoter', 'anchorBody.breal.shyvoter', ShyVoterPanel),
+          exp('breal-overload', 'anchorBody.breal.overload', ChoiceOverloadPanel),
+          exp('breal-compulsory', 'anchorBody.breal.compulsory', CompulsoryVotingPanel),
+          exp('breal-demographic', 'anchorBody.breal.demographic', DemographicTurnoutPanel),
+          exp('breal-affective', 'anchorBody.breal.affective', AffectivePolarizationPanel),
         ],
       },
     ],
@@ -533,46 +425,17 @@ export const LAB_FAMILIES: LabFamily[] = [
         subtitleKey: 'lab.theory.subtitle',
         introKey: 'anchorBody.theory.intro',
         experiments: [
-          exp('lexique', 'lexique.title', LexiquePanel, LexiquePanel.preload),
-          exp('thy-sen', 'anchorBody.theory.sen', SenParadoxPanel, SenParadoxPanel.preload),
-          exp(
-            'thy-judgment',
-            'anchorBody.theory.judgment',
-            JudgmentAggregationPanel,
-            JudgmentAggregationPanel.preload
-          ),
-          exp(
-            'thy-agenda',
-            'anchorBody.theory.agenda',
-            AgendaManipulationPanel,
-            AgendaManipulationPanel.preload
-          ),
-          exp(
-            'thy-tyranny',
-            'anchorBody.theory.tyranny',
-            MajorityTyrannyPanel,
-            MajorityTyrannyPanel.preload
-          ),
-          exp(
-            'thy-apportionment',
-            'anchorBody.theory.apportionment',
-            ApportionmentPanel,
-            ApportionmentPanel.preload
-          ),
-          exp('thy-power', 'anchorBody.theory.power', PowerIndicesPanel, PowerIndicesPanel.preload),
-          exp(
-            'thy-backsliding',
-            'anchorBody.theory.backsliding',
-            DemocraticBackslidingPanel,
-            DemocraticBackslidingPanel.preload
-          ),
-          exp(
-            'thy-intergen',
-            'anchorBody.theory.intergen',
-            IntergenerationalPanel,
-            IntergenerationalPanel.preload
-          ),
-          exp('thy-polis', 'anchorBody.theory.polis', PolisPanel, PolisPanel.preload),
+          exp('lexique', 'lexique.title', LexiquePanel),
+          exp('thy-arrow', 'anchorBody.theory.arrow', ArrowExplorer),
+          exp('thy-sen', 'anchorBody.theory.sen', SenParadoxPanel),
+          exp('thy-judgment', 'anchorBody.theory.judgment', JudgmentAggregationPanel),
+          exp('thy-agenda', 'anchorBody.theory.agenda', AgendaManipulationPanel),
+          exp('thy-tyranny', 'anchorBody.theory.tyranny', MajorityTyrannyPanel),
+          exp('thy-apportionment', 'anchorBody.theory.apportionment', ApportionmentPanel),
+          exp('thy-power', 'anchorBody.theory.power', PowerIndicesPanel),
+          exp('thy-backsliding', 'anchorBody.theory.backsliding', DemocraticBackslidingPanel),
+          exp('thy-intergen', 'anchorBody.theory.intergen', IntergenerationalPanel),
+          exp('thy-polis', 'anchorBody.theory.polis', PolisPanel),
         ],
       },
       {
@@ -593,12 +456,7 @@ export const LAB_FAMILIES: LabFamily[] = [
             ManipulabilityBody,
             ManipulabilityChart.preload
           ),
-          exp(
-            'ana-manipulation',
-            'anchorBody.analysis.manipulation',
-            ManipulationAnalysisPanel,
-            ManipulationAnalysisPanel.preload
-          ),
+          exp('ana-manipulation', 'anchorBody.analysis.manipulation', ManipulationAnalysisPanel),
           exp(
             'ana-collective',
             'anchorBody.analysis.collective',
@@ -611,12 +469,7 @@ export const LAB_FAMILIES: LabFamily[] = [
             AssumptionsBody,
             AssumptionTesterPanel.preload
           ),
-          exp(
-            'ana-combined',
-            'anchorBody.analysis.combined',
-            CombinedEffectsMatrix,
-            CombinedEffectsMatrix.preload
-          ),
+          exp('ana-combined', 'anchorBody.analysis.combined', CombinedEffectsMatrix),
         ],
       },
       {
@@ -625,24 +478,14 @@ export const LAB_FAMILIES: LabFamily[] = [
         subtitleKey: 'lab.results.subtitle',
         introKey: 'anchorBody.results.intro',
         experiments: [
-          exp(
-            'res-table',
-            'anchorBody.results.table',
-            FullResultsModule,
-            FullResultsModule.preload
-          ),
+          exp('res-table', 'anchorBody.results.table', FullResultsModule),
           exp(
             'res-animation',
             'anchorBody.results.animation',
             AnimatorBody,
             VoteStepAnimator.preload
           ),
-          exp(
-            'res-real-election',
-            'realElection.title',
-            RealElectionPanel,
-            RealElectionPanel.preload
-          ),
+          exp('res-real-election', 'realElection.title', RealElectionPanel),
         ],
       },
     ],
@@ -658,20 +501,10 @@ export const LAB_FAMILIES: LabFamily[] = [
         subtitleKey: 'lab.blank.subtitle',
         introKey: 'anchorBody.blank.intro',
         experiments: [
-          exp('thy-blank', 'blankVote.title', BlankVotePanel, BlankVotePanel.preload),
-          exp(
-            'blank-divergence',
-            'method.blankAnchorTitle',
-            BlankVoteDivergencePanel,
-            BlankVoteDivergencePanel.preload
-          ),
-          exp('mech-nota', 'anchorBody.mechanisms.nota', NOTAPanel, NOTAPanel.preload),
-          exp(
-            'anchor-abstention',
-            'electorate.abstentionAnchorTitle',
-            AbstentionPanel,
-            AbstentionPanel.preload
-          ),
+          exp('thy-blank', 'blankVote.title', BlankVotePanel),
+          exp('blank-divergence', 'method.blankAnchorTitle', BlankVoteDivergencePanel),
+          exp('mech-nota', 'anchorBody.mechanisms.nota', NOTAPanel),
+          exp('anchor-abstention', 'electorate.abstentionAnchorTitle', AbstentionPanel),
         ],
       },
     ],

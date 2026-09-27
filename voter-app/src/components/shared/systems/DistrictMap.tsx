@@ -9,6 +9,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { useElection } from '../../../stores/useElectionStore';
 import { $api } from '../../../api/hooks';
 import type { DistrictsResponse } from '../../../api';
+import { listNames } from '@/lib/listNames';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 // Source of truth is the generated `DistrictsResponse` (Phase 6 response_model).
@@ -262,8 +263,32 @@ const DistrictMap: React.FC = () => {
     );
   }
 
-  const winnerChanged = data && data.fptp_winner !== data.proportional_winner;
+  // A tie on either side means neither "they diverge" nor "they converge" can be
+  // claimed: the tied system simply did not pick. Only two single leaders that
+  // differ is a real divergence.
+  const fptpLeaders = data?.fptp_winner ?? [];
+  const prLeaders = data?.proportional_winner ?? [];
+  const oneEach = fptpLeaders.length === 1 && prLeaders.length === 1;
+  const winnerChanged = oneEach && fptpLeaders[0] !== prLeaders[0];
   const distortionPct = data ? Math.round(data.distortion * 100) : 0;
+
+  const districtsMessage = (d: DistrictsResponse): string => {
+    if (!oneEach) {
+      const tied = fptpLeaders.length > 1 ? fptpLeaders : prLeaders;
+      return t('districts.pedagogicalTie', { tied: listNames(tied) });
+    }
+    if (!winnerChanged) return t('districts.pedagogicalConsensus', { winner: fptpLeaders[0] });
+    const winner = fptpLeaders[0];
+    const seats = d.parliament_fptp[winner] ?? 0;
+    const fptpSeatPct = Math.round((seats / d.num_districts) * 100);
+    const fptpVotePct = Math.round((d.national_vote_share[winner] ?? 0) * 100);
+    return t('districts.pedagogicalDivergence', {
+      fptpWinner: winner,
+      fptpSeatPct,
+      fptpVotePct,
+      proportionalWinner: prLeaders[0],
+    });
+  };
 
   return (
     <div>
@@ -336,9 +361,9 @@ const DistrictMap: React.FC = () => {
         <>
           {/* Summary badges */}
           <div className="flex flex-wrap gap-2 mb-3">
-            <Badge variant="primary">FPTP: {data.fptp_winner}</Badge>
+            <Badge variant="primary">FPTP: {listNames(data.fptp_winner)}</Badge>
             <Badge variant={winnerChanged ? 'warning' : 'success'}>
-              PR: {data.proportional_winner}
+              PR: {listNames(data.proportional_winner)}
             </Badge>
             <Badge
               variant={distortionPct > 10 ? 'danger' : 'secondary'}
@@ -358,16 +383,7 @@ const DistrictMap: React.FC = () => {
             className="py-2 mb-3"
             style={{ fontSize: '0.84rem' }}
           >
-            {winnerChanged
-              ? t('districts.pedagogicalDivergence', {
-                  fptpWinner: data.fptp_winner,
-                  fptpSeatPct: Math.round(
-                    ((data.parliament_fptp[data.fptp_winner] ?? 0) / data.num_districts) * 100
-                  ),
-                  fptpVotePct: Math.round((data.national_vote_share[data.fptp_winner] ?? 0) * 100),
-                  proportionalWinner: data.proportional_winner,
-                })
-              : t('districts.pedagogicalConsensus', { winner: data.fptp_winner })}
+            {districtsMessage(data)}
           </Alert>
 
           {/* District grid */}

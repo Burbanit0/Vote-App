@@ -189,7 +189,7 @@ passage du Stage 3 du run flagship, qui franchit sa porte.
   `workers_playground.py`).
 - **Audit des 22 plans du dépôt** (`f8d2bcc2`) : six documents affichaient un état devenu faux,
   dont un cassé le jour même — l'EXP écrit le matin avait pris le numéro « 002 », déjà utilisé sur
-  `develop` ; renumérotée EXP-008 (puis EXP-015 après le merge du 12/09, la même collision
+  `develop` ; renumérotée EXP-008 (puis EXP-015 après le merge du 12/09, puis EXP-017 après celui du 27/09, la même collision
   s'étant reproduite avec le `develop` synchronisé entretemps — voir l'entrée du 12-13/09).
   Corrigés aussi : `plan-coalition-negotiation-v7` (« Lot 1 pas encore autorisé » alors que les 3
   lots sont livrés depuis ~2 semaines, `rounds_used: 2` vérifié sur un run pop 500),
@@ -301,7 +301,7 @@ passage du Stage 3 du run flagship, qui franchit sa porte.
 - [ ] Reprendre `candidacy_considered` avec un véhicule différent, la calibration C3 ayant empiré
       l'exactitude.
 
-**Pour aller plus loin** : `docs/exploration/EXP-015-hook-taskcompleted-recit-run-polity.md`,
+**Pour aller plus loin** : `docs/exploration/EXP-017-hook-taskcompleted-recit-run-polity.md`,
 `docs/plan/polity/lets-build-a-solid-spicy-otter.md` (Tracks A-E), `docs/adr/ADR-008-law-system-
 seam-bounds-and-comparability.md`, `docs/plan/polity/polity-decision-contracts.md` §3,
 `fast_api_voter/scripts/flagship_runs/` (Stage 3, `TIMELINE.md`).

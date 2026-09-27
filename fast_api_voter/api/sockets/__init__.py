@@ -21,14 +21,15 @@ from __future__ import annotations
 
 import asyncio
 import math
-import random
 from collections import defaultdict
 from typing import Any
 
-import numpy as np
 import socketio
 
+from api.domain.election._helpers import modal_keys
+from api.engine.utils.demographic_data import unseeded_rng_pair
 from api.core.config import get_settings
+from api.core.worker_dispatch import run_bounded
 from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.logger import get_logger
 from api.engine.utils.simulation_metrics      import compare_all_methods_mc
@@ -66,11 +67,10 @@ def _run_one(candidate_configs: list[dict[str, Any]],
     random/np.random singletons: each call runs in its own worker thread
     (via asyncio.to_thread), and the old module-level-singleton draws meant
     this loop could both perturb, and be perturbed by, any other concurrent
-    request in the same process (e.g. a seeded ElectionService.simulate()
+    request in the same process (e.g. a seeded election_service.simulate()
     call elsewhere) — unrelated to whether this loop itself needs a seed.
     """
-    rng        = random.Random()
-    np_rng     = np.random.RandomState()
+    rng, np_rng = unseeded_rng_pair()
     issues     = DEFAULT_ISSUES
     candidates = [
         create_candidate(issues, i, cfg["name"], _PARTY_CYCLE[i % len(_PARTY_CYCLE)], rng=rng)
@@ -206,7 +206,7 @@ def _monte_carlo_checkpoint_payload(
     partial: dict[str, Any] = {}
     for m in method_names:
         wc          = stats["winner_counts"][m].copy()
-        most_common = max(wc, key=wc.get) if wc else None
+        most_common = modal_keys(wc)
         partial[m]  = {
             "winner_distribution": {
                 c: round(cnt / completed_runs, 4) for c, cnt in wc.items()
@@ -249,7 +249,7 @@ def _monte_carlo_final_payload(
     final: dict[str, Any] = {}
     for m in stats["method_names"]:
         wc          = stats["winner_counts"][m].copy()
-        most_common = max(wc, key=wc.get) if wc else None
+        most_common = modal_keys(wc)
         final[m]    = {
             "winner_distribution": {
                 c: round(cnt / num_iterations, 4) for c, cnt in wc.items()
@@ -307,12 +307,19 @@ async def start_monte_carlo(sid: str, data: dict[str, Any]) -> None:
             return
 
         try:
-            # _run_one is CPU-bound — offload to a worker thread so we
-            # don't block the asyncio loop. Same role as eventlet's
-            # cooperative scheduling on the Flask side.
-            run = await asyncio.to_thread(
-                _run_one, candidate_configs, num_voters, ideology,
+            # _run_one is CPU-bound — offload to a worker thread through the
+            # same shared semaphore + timeout every HTTP route goes through
+            # (api.core.worker_dispatch.run_bounded), not a raw
+            # asyncio.to_thread: this loop used to bypass that bound
+            # entirely, so a flood of concurrent socket sessions could pile
+            # up unlimited CPU-bound threads with no timeout at all.
+            run = await run_bounded(_run_one, candidate_configs, num_voters, ideology)
+        except asyncio.TimeoutError:
+            log.error("sockets.monte_carlo_run_timeout", sid=sid)
+            await sio.emit(
+                "monte_carlo_error", {"message": "Run took too long to process"}, to=sid,
             )
+            return
         except Exception as exc:  # noqa: BLE001
             log.warning("sockets.monte_carlo_run_failed", sid=sid, exc_info=True)
             await sio.emit("monte_carlo_error", {"message": str(exc)}, to=sid)

@@ -1,21 +1,10 @@
 """Tests for Phase 3 batch 7:
 /api/v2/election/{simulate-pipeline, districts, primary, stv}."""
+
 import pytest
-from fastapi.testclient import TestClient
 
-from api.main import app
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
-
-
-CANDS = [
-    {"name": "Alice", "x": -0.5, "y": -0.2},
-    {"name": "Bob",   "x":  0.5, "y":  0.2},
-    {"name": "Carol", "x":  0.0, "y":  0.1},
-]
+from api.domain.election.workers_mechanisms import _stv_worker
+from api.tests.conftest import CANDS
 
 
 # ── /simulate-pipeline ──────────────────────────────────────────────────────
@@ -229,3 +218,16 @@ class TestStv:
         bad = {**self.payload, "num_voters": 10}
         assert client.post("/api/v2/election/stv",
                            json=bad).status_code == 422
+
+    @pytest.mark.parametrize("quota", ["imperiali", "bogus"])
+    def test_rejects_a_quota_it_does_not_compute(self, client, quota):
+        """Both used to run Droop and echo the name back."""
+        assert client.post("/api/v2/election/stv",
+                           json={**self.payload, "quota_type": quota}).status_code == 422
+        body, status = _stv_worker({**self.payload, "quota_type": quota})
+        assert status == 400 and "droop, hare" in body["error"]
+
+    def test_hare_and_droop_are_different_quotas(self, client):
+        quotas = {q: client.post("/api/v2/election/stv", json={**self.payload, "quota_type": q}).json()["quota"]
+                  for q in ("droop", "hare")}
+        assert quotas["hare"] > quotas["droop"]

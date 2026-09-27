@@ -15,11 +15,15 @@ const { apiClient } = (await import('../../../../api/client')) as unknown as {
 
 // ── Fixture ───────────────────────────────────────────────────────────────────
 
-function makeData(winnerChanged = false) {
+function makeData(
+  winnerChanged = false,
+  sincereWinner: string | null = 'Alice',
+  biasedWinner: string | null = winnerChanged ? 'Bob' : 'Alice'
+) {
   return {
     data: {
-      sincere_winner: 'Alice',
-      biased_winner: winnerChanged ? 'Bob' : 'Alice',
+      sincere_winner: sincereWinner,
+      biased_winner: biasedWinner,
       winner_changed: winnerChanged,
       vote_breakdown: {
         expressive_voters: 20,
@@ -105,6 +109,17 @@ describe('BehavioralBiasPanel', () => {
       expect(screen.getByTestId('sincere-winner-badge')).toBeInTheDocument();
       expect(screen.getByTestId('biased-winner-badge')).toBeInTheDocument();
     });
+    vi.runAllTimers();
+  });
+
+  it('shows a tie on either side as a tie', async () => {
+    apiClient.POST.mockResolvedValue(makeData(false, null, null));
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
+    await waitFor(() =>
+      expect(screen.getByTestId('sincere-winner-badge')).toHaveTextContent('Tie (no winner)')
+    );
+    expect(screen.getByTestId('biased-winner-badge')).toHaveTextContent('Tie (no winner)');
     vi.runAllTimers();
   });
 
@@ -197,6 +212,29 @@ describe('BehavioralBiasPanel', () => {
     await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
     const body = (apiClient.POST.mock.calls[0][1] as { body: Record<string, unknown> }).body;
     expect(body.bullet_voting_pct).toBe(0);
+    vi.runAllTimers();
+  });
+
+  // The three "sends X=0 when toggle is off" tests only ever exercised the
+  // `: 0` side of `bulletOn ? params.bulPct : 0`. These are the other side.
+  // They drive the slider rather than trusting the default, so a value wired to
+  // the wrong field -- three near-identical lines, the obvious copy-paste slip
+  // -- fails instead of passing on "some non-zero number".
+  it.each([
+    ['expressive-switch', 'expressive-slider', 'expressive_pct', '0.45'],
+    ['bullet-switch', 'bullet-slider', 'bullet_voting_pct', '0.35'],
+    ['primacy-switch', 'primacy-slider', 'primacy_bonus', '0.07'],
+  ])('sends the %s slider value through as %s', async (sw, slider, field, value) => {
+    apiClient.POST.mockResolvedValue(makeData());
+    renderPanel();
+
+    fireEvent.click(screen.getByTestId(sw));
+    fireEvent.change(screen.getByTestId(slider), { target: { value } });
+    fireEvent.click(screen.getByRole('button', { name: /simulate/i }));
+
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
+    const body = (apiClient.POST.mock.calls[0][1] as { body: Record<string, unknown> }).body;
+    expect(body[field]).toBe(Number(value));
     vi.runAllTimers();
   });
 

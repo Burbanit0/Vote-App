@@ -11,18 +11,23 @@ Future PRs will progressively move route groups into sibling modules
 """
 from __future__ import annotations
 
+import random
 from collections import Counter
-from typing import Any, Dict, List
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 
 from api.engine.constants import ECONOMY_ISSUES, ENV_ISSUES, SOCIAL_ISSUES
+from api.engine.utils.simulation_multiwinner_utils import break_tie
 
 # Used to assign a party label deterministically by candidate index.
 PARTY_CYCLE: List[str] = ["Green", "Liberal", "Conservative", "Independent"]
 
 # Standard candidate cap for single-winner endpoints. Raised from 6 to 8 so
 # France 2002 (8 historical candidates) is processed without silent truncation.
-# Kemeny-Young falls back to KwikSort approximation beyond 6 (see
-# simulation_ranked_utils.get_kemeny_young_winner — graceful degradation).
+# Every rule is exact across the whole 2..8 range: Kemeny-Young used to
+# approximate above 6, which meant the 8-candidate case this cap exists for was
+# the one getting a degraded answer — and a different one from the client, which
+# brute-forced it exactly. Its exact path is now DP over candidate subsets and
+# `_KY_EXACT_CAP` is 10 (simulation_ranked_utils).
 SINGLE_WINNER_CAP: int = 8
 
 
@@ -71,18 +76,77 @@ def gini(values: List[float]) -> float:
     return round(cum / (n * total), 4)
 
 
-def dhondt(vote_shares: Dict[str, float], total_seats: int) -> Dict[str, int]:
+def dhondt(
+    vote_shares: Mapping[str, float], total_seats: int, *, rng: Optional[random.Random] = None,
+) -> Dict[str, int]:
     """D'Hondt proportional seat allocation.
 
-    vote_shares: {party_name: fraction_of_vote}  (values sum ≈ 1)
-    Returns {party_name: seats_awarded}.
+    vote_shares: {party_name: votes}, on any scale -- only the ratios matter, so
+    shares, percentages and raw counts all work; prefer counts, which keep exact
+    ties exact. Returns {party_name: seats_awarded}, listing every party.
+
+    `rng`: see `break_tie` (simulation_multiwinner_utils.py) -- an exact
+    quotient tie goes to whichever party is listed first unless a generator
+    is passed.
     """
     seats: Dict[str, int] = {p: 0 for p in vote_shares}
+    quotients = {p: vote_shares[p] / (seats[p] + 1) for p in vote_shares}
     for _ in range(total_seats):
-        quotients = {p: vote_shares[p] / (seats[p] + 1) for p in vote_shares}
-        winner = max(quotients, key=lambda k: quotients[k])
+        winner = break_tie(quotients, rng)
         seats[winner] += 1
+        quotients[winner] = vote_shares[winner] / (seats[winner] + 1)
     return seats
+
+
+def tied_extremes(values: Mapping[str, float]) -> tuple[List[str], List[str]]:
+    """Every key tied at the lowest value and every key tied at the highest, in
+    insertion order; both empty when all values are equal, since then nothing
+    stands out.
+
+    For "best / worst method" read off a per-method score. Methods producing the
+    same outcome score exactly the same, and those ties are the norm: the lowest
+    Bayesian regret on /interpret is shared by 25-33 of 34 methods, the top jury
+    accuracy by 4 or 5 of 5 methods on most /jury runs. `min(d, key=d.get)`
+    returns whichever tied key comes first, so a single name was arbitrary.
+    """
+    lo, hi = min(values.values(), default=0), max(values.values(), default=0)
+    if lo == hi:
+        return [], []
+    return (
+        [k for k, v in values.items() if v == lo],
+        [k for k, v in values.items() if v == hi],
+    )
+
+
+def modal_keys(counts: Mapping[str, int]) -> List[str]:
+    """Every key tied for the highest count, sorted; empty only for an empty
+    tally.
+
+    For "who won the most trials / runs / simulations", where `tied_extremes` is
+    the wrong tool: it collapses "all values equal" to empty, which is right for a
+    per-method score (nothing stands out) but wrong for a winner distribution,
+    where two candidates on 15 trials each are both leaders and the baseline being
+    one of them is exactly what a caller needs to know. `Counter.most_common(1)`
+    returned whichever candidate won the first trial, so a 15-15 split could
+    contradict the baseline and report a robust scenario as fragile.
+    """
+    top = max(counts.values(), default=0)
+    return sorted(k for k, v in counts.items() if v == top)
+
+
+def result_label(winner: Optional[str]) -> str:
+    """A winner for prose, or "égalité" when the rule elected nobody (an exact
+    tie). `winner or cand_names[0]` used to report such a tie as a win for the
+    first-listed candidate."""
+    return f"'{winner}'" if winner else "égalité"
+
+
+def prose_list(names: List[str], conj: str = "et", others: str = "autres", shown: int = 3) -> str:
+    """'a, b et c' -- or 'a, b, c et 28 autres' past `shown` names, since a tie
+    can span 30 methods. Pass conj="and", others="others" for English."""
+    if len(names) <= shown:
+        return names[0] if len(names) == 1 else f"{', '.join(names[:-1])} {conj} {names[-1]}"
+    return f"{', '.join(names[:shown])} {conj} {len(names) - shown} {others}"
 
 
 def inter_method_agreement(methods_data: Dict[str, Any]) -> float:
@@ -103,7 +167,7 @@ def parse_optional_election_configs(
     params.
 
     Extracted from the identical block duplicated between
-    `election_service.py`'s `ElectionService.simulate` and
+    `election_service.py`'s `simulate` and
     `workers.py`'s `_simulate_pipeline_worker` (jscpd-flagged,
     CODE_AUDIT.md §4/§7). The candidate-count validation that immediately
     follows this block at both call sites stays there — it depends on each
@@ -133,3 +197,17 @@ def parse_optional_election_configs(
         info_cfg, info_enabled, campaign_cfg, campaign_on,
         num_days, polling_effect,
     )
+
+
+def reject_unknown_methods(
+    requested: Iterable[str], supported: Sequence[str],
+) -> Optional[tuple[Dict[str, Any], int]]:
+    """A 400 naming every unsupported method, or None. For the direct-call path:
+    over HTTP each request schema's Literal already turns a bad name into a 422."""
+    unknown = [m for m in requested if m not in supported]
+    if not unknown:
+        return None
+    return {
+        "error": f"unknown voting method(s) {', '.join(repr(m) for m in unknown)} -- "
+                 f"supported: {', '.join(supported)}"
+    }, 400

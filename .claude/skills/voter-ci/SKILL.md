@@ -5,7 +5,7 @@ description: Where Vote-App's CI gates actually live, job by job, how to reprodu
 
 # voter-ci — CI gates, diagnosis, and the quality ratchet
 
-Vote-App's CI is 14 workflow files (`.github/workflows/`). Most PRs only ever
+Vote-App's CI is 15 workflow files (`.github/workflows/`). Most PRs only ever
 see four of them; this skill maps every gate to its config file, explains the
 two gates that most often surprise people (the quality ratchet, diff-cover's
 100%-changed-lines rule), and gives the actual recipe for turning a red check
@@ -27,6 +27,8 @@ gates it — see "Why no top-level `paths:` filter" below). In order:
 
 | Step | Tool | Gate | Config |
 |---|---|---|---|
+| Lockfile freshness | `bash scripts/check_python_lockfile_freshness.sh` | informational (`continue-on-error`) | see the script's own header |
+| Install | `uv pip install --system -r fast_api_voter/requirements-dev.lock.txt` | blocking (install must succeed) | `fast_api_voter/requirements-dev.lock.txt` (the compiled lockfile, not `requirements*.txt` live — PLAN_CI_STRUCTURAL_GAPS.md item 2.C) |
 | Ruff | `ruff check fast_api_voter` | blocking, pyflakes (`F`) only | `fast_api_voter/pyproject.toml`'s `[tool.ruff]` |
 | Import layering | `lint-imports` | blocking — enforces routes→domain→engine | `[tool.importlinter]`, same file |
 | Bandit | `bandit -r fast_api_voter/api -ll --skip B104,B311` | blocking, medium+ severity | inline flags |
@@ -96,9 +98,9 @@ watching requirements too.
 | Semgrep SAST | **required**, `--error` on any finding | rules in `.semgrep/vote-app-rules.yml` + `p/python`, `p/javascript`, `p/react`, `p/security-audit`, `p/secrets`, `p/sql-injection`, `p/owasp-top-ten` |
 | Secret Scan (Gitleaks) | **required** | `.gitleaks.toml`; TruffleHog alongside is informational only |
 | Dependencies, Containers & Misconfig (Trivy) | **required**, HIGH/CRITICAL fs scan | `.trivyignore.yaml` for triaged false positives |
-| Code Quality | **required**, but only via the ratchet at the end — see below | vulture/radon/xenon/deptry/knip/jscpd all run `continue-on-error: true` |
+| Code Quality | **required**, via two gates at the end: the ratchet, then `xenon -a A` (repo-wide average complexity must stay rank A) — see below | vulture/radon/deptry/knip/sonarjs/jscpd all run `continue-on-error: true`; only those two final steps can fail the job |
 | CodeQL (`javascript-typescript`, `python`) | **required**, non-gating by itself | results land in the Security tab, not a hard fail |
-| OSV-Scanner, GuardDog, Docker image scan/SBOM/signing | informational only | second opinions / supply-chain, not PR blockers |
+| GuardDog, Docker image scan/SBOM | informational only | second opinions / supply-chain, not PR blockers |
 
 `CodeQL` and `Semgrep`/`Gitleaks`/`Trivy` all live in this one file, not
 scattered — if you're looking for "where is CodeQL configured", it's here,
@@ -147,9 +149,11 @@ pattern, or does it still filter at the trigger?
 
 `audit.yml`'s `code-quality` job runs vulture (Python dead code), radon
 (cyclomatic complexity, rank C+), deptry (unused/undeclared deps), knip (TS
-dead code/unused deps), and jscpd (cross-language duplication) — all with
-`continue-on-error: true`, because the repo never did a full cleanup pass and
-failing outright on the existing backlog would just get the job disabled.
+dead code/unused deps), sonarjs (`eslint-plugin-sonarjs`'s full recommended
+ruleset, informational-only in the blocking `eslint.config.js`), and jscpd
+(cross-language duplication) — all with `continue-on-error: true`, because
+the repo never did a full cleanup pass and failing outright on the existing
+backlog would just get the job disabled.
 
 The ratchet is the actual gate, reading the `.txt` files those tools already
 `tee`d (zero extra CI seconds):
@@ -174,7 +178,9 @@ The ratchet is the actual gate, reading the `.txt` files those tools already
   increase means new debt was actually added; the fix is to address the new
   finding (or silence a genuine false positive at its source —
   `.vulture_whitelist.py`, `pyproject.toml`'s `[tool.deptry]`,
-  `voter-app/knip.json`, `.jscpd.json`), not to launder it into the baseline.
+  `voter-app/knip.json`, `.jscpd.json`, or for sonarjs a
+  `// eslint-disable-next-line sonarjs/<rule>` comment / rule override in
+  `voter-app/eslint.sonarjs.config.js`), not to launder it into the baseline.
 - **Measure `--update` on an up-to-date branch.** CI runs these tools against
   the PR's merge result; the script's own header notes a real incident where a
   baseline measured one merge behind `develop` disagreed with CI by exactly
@@ -191,6 +197,17 @@ The ratchet is the actual gate, reading the `.txt` files those tools already
   drift worse than A.
 
 ## The mutation score ratchet (`scripts/check_mutation_score.sh`)
+
+**Scope first, because the number invites over-reading**: the baseline score
+(66.57% as of this writing) is measured over a deliberately narrow,
+hand-picked file selection (`[tool.mutmut]` in `fast_api_voter/pyproject.toml`
+— currently 3 backend files, ~4,700 of the repo's ~40,000 backend lines;
+Stryker's frontend half is narrower still, one file,
+`playgroundVoting.ts`). It is **not** a repo-wide code-quality metric, and
+citing it as one (in a status update, a PR description, a dashboard) is a
+plan-doc-flagged mistake — `PLAN_SURFACE_EXTERIEURE.md` §2.L. Say "the
+mutation score on its current ~4%-of-the-codebase scope" or name the actual
+files, not "the mutation score."
 
 Same idiom as the quality ratchet above (`.github/mutation-baseline.json`
 records `{score, killed, total}`, `--update` accepts a new one), for the
@@ -349,8 +366,10 @@ silently drifted from `scripts/setup-branch-protection.sh`.
 - **`audit`** (schedule + `workflow_dispatch` only, never `pull_request` —
   same reasoning as the workflows it watches) runs
   `scripts/check_ci_health.py --update`, which queries real run history for
-  each watched workflow plus live branch-protection state, and opens a
-  `chore/ci-health-snapshot-*` PR only when `--update`'s own `pr_needed`
+  each watched workflow plus live branch-protection state, and recreates the
+  fixed `chore/ci-health-snapshot` branch from `develop`'s tip and opens its PR
+  (deleting the branch first closes any stale snapshot PR, so there is only
+  ever one) only when `--update`'s own `pr_needed`
   decision says so: a real status change always qualifies; a pure
   timestamp-only refresh (every workflow's `last_run_at` moves on every
   run, whether or not anything else did) only qualifies once
@@ -359,7 +378,15 @@ silently drifted from `scripts/setup-branch-protection.sh`.
   day, and a human rubber-stamping those on autopilot is worse than not
   having the check. The weekly heartbeat still exists so `verify`'s own
   staleness check never has genuinely stale-looking data to distrust on a
-  repo that's simply healthy for a long stretch. Three real restrictions
+  repo that's simply healthy for a long stretch. That check's limit
+  (`AUDIT_STALE_HOURS`) is derived from `HEARTBEAT_MAX_DAYS`, plus the wait
+  for the next daily audit and time for the refresh PR to merge: it was once a
+  flat 36h, which a weekly heartbeat trips on days 2-7 of every quiet week,
+  turning "CI health check" red on develop and every PR (2026-09-21 onward)
+  with nothing wrong. If it fails with "snapshot itself is Nh old" and `audit`
+  succeeded, look for the unmerged `chore/ci-health-snapshot` PR first (a
+  snooze cannot silence it; a `workflow_dispatch` of `ci-health.yml` replaces
+  it with a fresh one on develop's tip). Three real restrictions
   shaped the rest of this job, all confirmed live rather than assumed:
   - A direct push was the original design (thought to match `release.yml`'s
     push-to-`main` pattern), but `develop`'s `required_pull_request_reviews`
@@ -378,13 +405,21 @@ silently drifted from `scripts/setup-branch-protection.sh`.
     self-merge path that restriction exists to block, correctly). A human
     reviews and queues/merges it, same as any other PR. If that goes
     unnoticed, `verify`'s own staleness check is the real backstop — every
-    PR starts failing after ~36h of a quiet audit, a much louder signal
-    than one unmerged PR sitting in the list.
+    PR starts failing once the snapshot is older than `AUDIT_STALE_HOURS`, a
+    much louder signal than one unmerged PR sitting in the list.
 - **`verify`** (required, every PR, no paths filter — it's cheap enough
   that skipping it is never worth the PR #205 risk of a required check with
   no run) reads that snapshot from `develop`'s tip — not the PR branch's own
-  copy, since this is metadata about the *repo's* health, not the PR's diff
-  — and fails if:
+  copy, since this is metadata about the *repo's* health, not the PR's diff.
+  One narrow, scoped exception: a PR from this repo's
+  `chore/ci-health-snapshot` branch (only ever opened by `audit` itself; a
+  fork's branch of the same name doesn't count) reads its own copy instead —
+  otherwise the PR that fixes a drift could never pass the check reporting
+  that same drift, a real deadlock hit in PR #493 that needed a manual
+  admin-merge override to break. Scoped to that exact branch in this
+  repository, not just "did this PR touch the file": an unscoped version of this exception
+  would let any PR self-attest a fabricated "healthy" snapshot in its own
+  diff, caught by `/code-review ultra` before it shipped. Fails if:
   - the snapshot is stale (the scheduled `audit` job has gone quiet — its
     own silence has to be as loud as any other failure it reports), or
   - any watched workflow is `unhealthy` (≥2 consecutive real failures),

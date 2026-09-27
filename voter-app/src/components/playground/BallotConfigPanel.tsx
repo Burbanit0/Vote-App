@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { usePlaygroundCtx } from './PlaygroundController';
+import { useStoreCtx, useScorecardCtx } from './PlaygroundController';
 import { Field, selectCls } from './playgroundFields';
 
 const BALLOT_TYPES = [
@@ -16,7 +16,8 @@ const BALLOT_TYPES = [
 
 const BallotConfigPanel: React.FC = () => {
   const { t } = useTranslation('playground');
-  const { config, playground, setPlaygroundDeep, result } = usePlaygroundCtx();
+  const { config, playground, setPlaygroundDeep } = useStoreCtx();
+  const { result } = useScorecardCtx();
 
   return (
     <div className="flex flex-col gap-3">

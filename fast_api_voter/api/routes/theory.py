@@ -1,7 +1,8 @@
 """
 api/routes/theory.py — FastAPI routes for /api/v2/theory/*.
 
-Phase 4 batch 1: arrow / iia-rate / plott-chaos / judgment-aggregation.
+Phase 4 batch 1: arrow / iia-rate / judgment-aggregation (/plott-chaos was
+deleted in PR 2 — nothing called it).
 
 Theory endpoints return TYPED responses (unlike most perturbers in
 Phase 3): the frontend pedagogical text depends on stable shapes, and
@@ -10,14 +11,11 @@ counterexamples, resolution-method dicts) stay `Dict[str, Any]`.
 """
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, TypeVar
-
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
 
 from api.core.ratelimit import check_v2_rate_limit
-from api.core.worker_dispatch import raise_for_status, run_worker_bounded
-from api.schemas import (
+from api.core.worker_dispatch import run_typed
+from api.schemas.theory import (
     AgendaManipulationRequest,
     AgendaManipulationResponse,
     ApportionmentRequest,
@@ -32,11 +30,10 @@ from api.schemas import (
     DemocraticBacksliddingResponse,
     EpistocracyRequest,
     EpistocracyResponse,
-    ErrorDetail,
-    IdentityVotingRequest,
-    IdentityVotingResponse,
     IIARateRequest,
     IIARateResponse,
+    IdentityVotingRequest,
+    IdentityVotingResponse,
     IntergenerationalRequest,
     IntergenerationalResponse,
     JudgmentAggregationRequest,
@@ -45,11 +42,10 @@ from api.schemas import (
     MajorityTyrannyResponse,
     ManipulationAnalysisRequest,
     ManipulationAnalysisResponse,
-    PlottChaosRequest,
-    PlottChaosResponse,
     SenParadoxRequest,
     SenParadoxResponse,
 )
+from api.schemas.common import WORKER_ERROR_RESPONSES
 
 from api.domain.theory import (
     agenda_manipulation as agenda_manipulation_domain,
@@ -65,7 +61,6 @@ from api.domain.theory import (
     judgment_aggregation as judgment_aggregation_domain,
     majority_tyranny as majority_tyranny_domain,
     manipulation_analysis as manipulation_analysis_domain,
-    plott_chaos as plott_chaos_domain,
     sen_paradox as sen_paradox_domain,
 )
 
@@ -74,27 +69,8 @@ router = APIRouter(
     tags=["theory"],
     dependencies=[Depends(check_v2_rate_limit)],
     # See election.py's router for why 400/500/503 apply to every route here.
-    responses={
-        400: {"model": ErrorDetail},
-        500: {"model": ErrorDetail},
-        503: {"model": ErrorDetail},
-    },
+    responses=WORKER_ERROR_RESPONSES,
 )
-
-
-# ── Shared helper ───────────────────────────────────────────────────────────
-
-_ResponseT = TypeVar("_ResponseT", bound=BaseModel)
-
-
-async def _run_typed(
-    domain_fn: Callable[[Dict[str, Any]], tuple[Dict[str, Any], int]],
-    request: BaseModel,
-    response_model: type[_ResponseT],
-) -> _ResponseT:
-    """Adapt (body, status) contract to FastAPI's exception-based model."""
-    body, status_code = await run_worker_bounded(domain_fn, request.model_dump())
-    return response_model.model_validate(raise_for_status(body, status_code))
 
 
 # ── /arrow ──────────────────────────────────────────────────────────────────
@@ -110,7 +86,7 @@ async def arrow_endpoint(request: ArrowRequest) -> ArrowResponse:
     """For a voting method, lists which Arrow axioms it violates with a
     minimal counterexample for each. Pure lookup + boilerplate text;
     `seed` reserved for future randomized counterexamples."""
-    return await _run_typed(arrow_domain, request, ArrowResponse)
+    return await run_typed(arrow_domain, request, ArrowResponse)
 
 
 # ── /iia-rate ───────────────────────────────────────────────────────────────
@@ -127,24 +103,7 @@ async def iia_rate_endpoint(request: IIARateRequest) -> IIARateResponse:
     profiles, run plurality on the full profile then on the profile
     with one random candidate removed, count winner changes. Other
     methods are scaled from the plurality baseline."""
-    return await _run_typed(iia_rate_domain, request, IIARateResponse)
-
-
-# ── /plott-chaos ────────────────────────────────────────────────────────────
-
-@router.post(
-    "/plott-chaos",
-    response_model=PlottChaosResponse,
-    summary="Plott's Chaos Theorem in 2-D policy space",
-    response_description="Condorcet-winner flag, top cycle (Smith set), and "
-                         "two BFS paths showing the agenda-setter can reach "
-                         "diametrically opposite outcomes from the same start.",
-)
-async def plott_chaos_endpoint(request: PlottChaosRequest) -> PlottChaosResponse:
-    """In ≥2-D policy space with ≥3 voters, a Condorcet winner almost
-    never exists, and from any starting point the agenda-setter can
-    reach ANY other point via a sequence of majority votes."""
-    return await _run_typed(plott_chaos_domain, request, PlottChaosResponse)
+    return await run_typed(iia_rate_domain, request, IIARateResponse)
 
 
 # ── /judgment-aggregation ──────────────────────────────────────────────────
@@ -163,7 +122,7 @@ async def judgment_aggregation_endpoint(
     """Majority rule on propositions can produce collectively incoherent
     results even when every individual voter is perfectly coherent.
     Pre-defined scenarios: legal liability, fiscal trilemma, climate."""
-    return await _run_typed(
+    return await run_typed(
         judgment_aggregation_domain, request, JudgmentAggregationResponse,
     )
 
@@ -183,7 +142,7 @@ async def agenda_manipulation_endpoint(
     """Enumerates all `n!` agendas for `n` alternatives and reports which
     outcomes the agenda-setter can engineer. A consequence of Plott's
     Chaos Theorem when no Condorcet winner exists."""
-    return await _run_typed(
+    return await run_typed(
         agenda_manipulation_domain, request, AgendaManipulationResponse,
     )
 
@@ -202,7 +161,7 @@ async def apportionment_endpoint(
     Huntington-Hill) with quota-violation / Alabama / population
     paradox detection. Demonstrates Balinski-Young (1982): no method
     avoids all three paradoxes."""
-    return await _run_typed(
+    return await run_typed(
         apportionment_domain, request, ApportionmentResponse,
     )
 
@@ -219,7 +178,7 @@ async def sen_paradox_endpoint(request: SenParadoxRequest) -> SenParadoxResponse
     minimal individual liberalism simultaneously. Tests the canonical
     case and samples random preference profiles to estimate paradox
     frequency."""
-    return await _run_typed(
+    return await run_typed(
         sen_paradox_domain, request, SenParadoxResponse,
     )
 
@@ -237,7 +196,7 @@ async def manipulation_analysis_endpoint(
     """For each voter, tests four manipulation strategies (compromising,
     burying, pushover, truncating) and keeps the one with the highest
     utility gain. Empirical demonstration of Gibbard-Satterthwaite."""
-    return await _run_typed(
+    return await run_typed(
         manipulation_analysis_domain, request, ManipulationAnalysisResponse,
     )
 
@@ -257,7 +216,7 @@ async def majority_tyranny_endpoint(
     """Same electorate, 6 decision rules (simple majority, 2/3 + 3/4
     supermajorities, unanimous, QV, MJ). Measures how often a fixed
     majority can override a high-intensity minority."""
-    return await _run_typed(
+    return await run_typed(
         majority_tyranny_domain, request, MajorityTyrannyResponse,
     )
 
@@ -277,7 +236,7 @@ async def democratic_backsliding_endpoint(
     compounding across elections. Optional guardrails (constitutional
     court, free press, international pressure, supermajority lock-in)
     slow the decay."""
-    return await _run_typed(
+    return await run_typed(
         democratic_backsliding_domain, request, DemocraticBacksliddingResponse,
     )
 
@@ -295,7 +254,7 @@ async def intergenerational_endpoint(
     """How institutional representation of future generations changes the
     adoption rate of decisions whose costs are present and benefits
     are future. Rawls' veil-of-ignorance heuristic."""
-    return await _run_typed(
+    return await run_typed(
         intergenerational_domain, request, IntergenerationalResponse,
     )
 
@@ -314,7 +273,7 @@ async def epistocracy_endpoint(
     voting, epistocratic (threshold-gated), and lottery. Models Caplan's
     4 systematic biases as a competence reduction. Reports the
     democracy-vs-expert tradeoff."""
-    return await _run_typed(
+    return await run_typed(
         epistocracy_domain, request, EpistocracyResponse,
     )
 
@@ -336,7 +295,7 @@ async def identity_voting_endpoint(
     positions instead of choosing camps from their positions. The
     `identity_weight` parameter sweeps from pure ideological voting
     (0.0) to pure identity voting (1.0)."""
-    return await _run_typed(
+    return await run_typed(
         identity_voting_domain, request, IdentityVotingResponse,
     )
 
@@ -355,7 +314,7 @@ async def assumption_testing_endpoint(
     fixed_electorate / measurable_utilities, relaxes the assumption
     and measures how often the winner changes vs the baseline. Reports
     which assumption the result depends on most."""
-    return await _run_typed(
+    return await run_typed(
         assumption_testing_domain, request, AssumptionTestingResponse,
     )
 
@@ -375,6 +334,6 @@ async def collective_will_endpoint(
     Counts how many distinct winners emerge. A high count supports
     Schumpeter's procedural view; a low count supports Rousseau's
     general-will view. Cross-checks against the Condorcet winner."""
-    return await _run_typed(
+    return await run_typed(
         collective_will_domain, request, CollectiveWillResponse,
     )

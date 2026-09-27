@@ -16,12 +16,12 @@ Run from this directory (`voter-app/`):
 
 | Script | What it does |
 |---|---|
-| `npm start` | Vite dev server (`http://localhost:3000`), proxies `/api` and `/socket.io` to the backend on `:4434` |
+| `npm start` | Vite dev server (`http://localhost:3000`), proxies `/api` (the Socket.IO stream included, at `/api/v2/socket.io`) to the backend on `:4434` |
 | `npm run build` | `tsc --noEmit && vite build` — production bundle in `build/` |
 | `npm run preview` | Serve the production build locally |
 | `npm test` | Vitest unit tests, single run (`npm run test:watch` for watch mode, `npm run test:coverage` for coverage) |
 | `npm run lint` | ESLint over `.js/.jsx/.ts/.tsx` — 0 errors is the CI gate |
-| `npm run test:e2e` | Playwright end-to-end suite (Chromium + Firefox); needs the backend running on `:4434` |
+| `npm run test:e2e` | Playwright end-to-end suite (chromium + firefox + webkit + mobile); needs the backend running on `:4434` |
 | `npm run test:a11y` | axe-core accessibility checks only |
 | `npm run gen:api` | Regenerate `src/api/types.gen.ts` from the backend's OpenAPI schema |
 | `npm run knip` | Unused files/exports/dependencies report |

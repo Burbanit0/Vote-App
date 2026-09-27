@@ -16,6 +16,7 @@
 import {
   computeRanks,
   computeScores,
+  dist,
   ruleWinnerFromRanks,
   CARDINAL_RULES,
   type NamedPt,
@@ -52,11 +53,6 @@ export interface SincerityReport {
 }
 
 const EPS = 1e-9;
-
-function dist(a: Pt, b: NamedPt): number {
-  const dz = (a.z ?? 0) - (b.z ?? 0);
-  return Math.hypot(a.x - b.x, a.y - b.y, dz);
-}
 
 /**
  * Probe, rule by rule, whether your conviction bloc is tempted to vote

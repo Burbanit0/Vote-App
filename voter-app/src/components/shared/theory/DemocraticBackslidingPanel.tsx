@@ -2,7 +2,7 @@
  * DemocraticBackslidingPanel — simulates the path toward autocracy.
  * Based on democratic backsliding research (Levitsky & Ziblatt, 2018).
  */
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -139,27 +139,24 @@ const DemocraticBackslidingPanel: React.FC = () => {
   });
   const [showHistorical, setShowHistorical] = useState<string[]>([]);
 
-  const run = useCallback(
-    (grOverride?: Record<Guardrail, boolean>) => {
-      const gr = grOverride ?? guardrails;
-      sim.mutate({
-        body: {
-          candidates: [
-            { name: t('backsliding.incumbent'), x: 0.2, y: 0.0 },
-            { name: t('backsliding.opposition'), x: -0.4, y: 0.0 },
-          ],
-          num_voters: numVoters,
-          ideology: 'random',
-          seed,
-          num_elections: numElections,
-          backsliding_method: method,
-          backsliding_intensity: intensity,
-          guardrails: gr,
-        },
-      });
-    },
-    [guardrails, numVoters, seed, numElections, method, intensity, t, sim]
-  );
+  const run = (grOverride?: Record<Guardrail, boolean>) => {
+    const gr = grOverride ?? guardrails;
+    sim.mutate({
+      body: {
+        candidates: [
+          { name: t('backsliding.incumbent'), x: 0.2, y: 0.0 },
+          { name: t('backsliding.opposition'), x: -0.4, y: 0.0 },
+        ],
+        num_voters: numVoters,
+        ideology: 'random',
+        seed,
+        num_elections: numElections,
+        backsliding_method: method,
+        backsliding_intensity: intensity,
+        guardrails: gr,
+      },
+    });
+  };
 
   const handleGuardrailToggle = (gr: Guardrail) => {
     const updated = { ...guardrails, [gr]: !guardrails[gr] };

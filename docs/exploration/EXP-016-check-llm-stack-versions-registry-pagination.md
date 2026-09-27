@@ -7,12 +7,12 @@
 
 Ce carnet ne part pas d'un item numéroté « Lot N » de
 [`PLAN_SOLIDITE_TECHNIQUE.md`](../../PLAN_SOLIDITE_TECHNIQUE.md) — comme
-[EXP-015](./EXP-015-hook-taskcompleted-recit-run-polity.md), c'est une
+[EXP-017](./EXP-017-hook-taskcompleted-recit-run-polity.md), c'est une
 demande ad hoc directe, ici formulée avant un run de balayage de graines à
 population 500 déjà évoqué comme prochaine étape ouverte dans
 `docs/plan/polity/plan-distribution-positions-seeds.md` (« p500 reste
 ouvert »). Cette expérience reste dans le périmètre de l'index pour la même
-raison qu'EXP-015 : c'est un outil réel, avec un protocole rejouable et une
+raison qu'EXP-017 : c'est un outil réel, avec un protocole rejouable et une
 trouvaille vérifiable, pas une note de travail.
 
 Le stack LLM de ce projet épingle tout délibérément — le commentaire de

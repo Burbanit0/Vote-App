@@ -2,15 +2,8 @@
 from __future__ import annotations
 
 import pytest
-from fastapi.testclient import TestClient
 
 from api.core.config import get_settings
-from api.main import app
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
 
 
 @pytest.fixture(autouse=True)
@@ -33,10 +26,10 @@ class TestMetricsExposition:
     def test_metrics_reflects_real_traffic(self, client):
         """Hit a route, then confirm its counter incremented -- not just that
         the endpoint exists and returns *some* text."""
-        client.get("/api/v2/health/live")
-        client.get("/api/v2/health/live")
+        client.get("/api/v2/health")
+        client.get("/api/v2/health")
         body = client.get("/api/v2/metrics").text
-        assert 'handler="/api/v2/health/live"' in body
+        assert 'handler="/api/v2/health"' in body
         assert "http_requests_total" in body
 
     def test_metrics_endpoint_itself_is_excluded_from_its_own_counters(self, client):
@@ -77,5 +70,5 @@ class TestMetricsAuth:
 
     def test_other_routes_unaffected_by_metrics_token(self, client, monkeypatch):
         monkeypatch.setenv("METRICS_AUTH_TOKEN", "s3cr3t")
-        r = client.get("/api/v2/health/live")
+        r = client.get("/api/v2/health")
         assert r.status_code == 200

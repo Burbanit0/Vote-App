@@ -2,7 +2,7 @@
  * AffectivePolarizationPanel — models how inter-partisan hostility
  * distorts voting utilities and destabilises election results.
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -23,12 +23,11 @@ import {
   CartesianGrid,
 } from 'recharts';
 import { useElection } from '../../../stores/useElectionStore';
-import PinToCentralButton from '../ui/PinToCentralButton';
 import { $api } from '../../../api/hooks';
 
 import { numericTooltipFormatter, numericTickFormatter } from '@/lib/rechartsFormatters';
-
-const DEBOUNCE_MS = 400;
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
+import { colorByName, LAB_PALETTE } from '@/lib/palette';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -64,10 +63,7 @@ const CAMP_COLOR: Record<string, string> = {
   centre: '#007A33',
 };
 
-const CAND_COLORS = ['#005CAB', '#C8590A', '#007A33', '#6c757d', '#9b59b6', '#e67e22'];
-function candColor(name: string, names: string[]) {
-  return CAND_COLORS[names.indexOf(name) % CAND_COLORS.length] ?? '#888';
-}
+const candColor = (name: string, names: string[]) => colorByName(name, names, LAB_PALETTE);
 
 // ── SVG ideology overlay ──────────────────────────────────────────────────────
 
@@ -251,37 +247,26 @@ const AffectivePolarizationPanel: React.FC = () => {
   const loading = sim.isPending;
   const error = sim.isError ? t('affect.error') : null;
 
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const run = (h: number, sims: number) => {
+    sim.mutate({
+      body: {
+        candidates: config.candidates,
+        num_voters: config.num_voters,
+        ideology: config.ideology,
+        seed: config.seed,
+        affect_hostility: h,
+        camp_threshold: 0.1,
+        num_simulations: sims,
+      },
+    });
+  };
 
-  const run = useCallback(
-    (h: number, sims: number) => {
-      sim.mutate({
-        body: {
-          candidates: config.candidates,
-          num_voters: config.num_voters,
-          ideology: config.ideology,
-          seed: config.seed,
-          affect_hostility: h,
-          camp_threshold: 0.1,
-          num_simulations: sims,
-        },
-      });
-    },
-    [config, t, sim]
-  );
+  const scheduleRun = useDebouncedCallback(run);
 
   const handleHostilityChange = (v: number) => {
     setHostility(v);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => run(v, numSims), DEBOUNCE_MS);
+    scheduleRun(v, numSims);
   };
-
-  useEffect(
-    () => () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    },
-    []
-  );
 
   const candNames = data?.candidates.map((c) => c.name) ?? [];
   const allMethods = data ? Object.keys(data.sincere_results) : [];
@@ -337,22 +322,6 @@ const AffectivePolarizationPanel: React.FC = () => {
             {loading ? <Spinner size="sm" /> : `💔 ${t('affect.run')}`}
           </Button>
         </Col>
-        {data && (
-          <Col xs={12} sm="auto">
-            <PinToCentralButton
-              type="affective"
-              icon="💔"
-              label={`${t('affect.run')} — hostilité ${Math.round(hostility * 100)}%`}
-              summary={
-                data.winner_changed
-                  ? `${changedMethods.length}/${allMethods.length} ${t('affect.methodsChanged')}`
-                  : t('affect.winnerUnchanged')
-              }
-              methodsChanged={changedMethods.length}
-              winnersByMethod={data.affective_results}
-            />
-          </Col>
-        )}
       </Row>
 
       {error && <Alert variant="danger">{error}</Alert>}

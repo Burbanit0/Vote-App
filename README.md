@@ -7,6 +7,10 @@ on the same electorate.
 
 > Full theory reference: [THEORY.md](THEORY.md) · User guide: [GUIDE_UTILISATEUR.md](GUIDE_UTILISATEUR.md)
 
+> **No hosted instance.** This is a personal, public-source research project, not a
+> deployed product — there's no live demo URL. See **Quick Start** below to run it
+> yourself; **Deploy** documents how you could self-host a copy.
+
 ---
 
 ## What it does
@@ -27,7 +31,7 @@ complete election and watch it through several lenses at once:
 - **Vote yourself** in a real 41-voter election under 5 ballot languages at
   `/a-vous-de-jouer`
 
-The **Laboratoire** (`/laboratoire`) gathers 62 fiches of deeper, on-demand content
+The **Laboratoire** (`/laboratoire`) gathers 63 fiches of deeper, on-demand content
 (paradoxes, impossibility theorems, alternative governance systems, behavioural
 realism) reading the **same election state** as the Playground — configure once,
 explore in depth.
@@ -97,9 +101,10 @@ fly launch --no-deploy   # once — claims a unique app name, updates [app] in f
 fly deploy               # builds the Dockerfile and ships it
 ```
 
-Public URL: `https://<app>.fly.dev`. No env vars are required. The container scales
-to zero when idle (free allowance); set `min_machines_running = 1` in `fly.toml` for
-an always-warm demo, or `REDIS_URL` if you later add a cache.
+No env vars are required. The container scales to zero when idle (free allowance);
+set `min_machines_running = 1` in `fly.toml` for an always-warm demo, or `REDIS_URL`
+if you later add a cache. `fly launch` picks its own `<app>.fly.dev` URL — there is
+no pre-existing hosted instance to link to (see the note at the top of this file).
 
 ---
 
@@ -117,7 +122,7 @@ ruff check .                                   # pyflakes (F) errors are gating
 
 ```bash
 npm test                 # Vitest unit tests
-npm run test:e2e         # Playwright (Chromium + Firefox)
+npm run test:e2e         # Playwright (chromium + firefox + webkit + mobile)
 npm run test:a11y        # axe-core WCAG 2.1 AA audit
 npm run build            # tsc --noEmit && vite build (PWA manifest + service worker)
 npm run lint             # eslint (0 errors is gating)
@@ -160,7 +165,9 @@ All 29 rules — majoritarian, positional, 11 Condorcet variants, and cardinal �
 selectable in the Playground and defined in [THEORY.md §2](THEORY.md). Each rule
 exists in **two implementations** — a fast client engine
 (`voter-app/src/lib/playgroundVoting.ts`) and the authoritative backend engine
-(`fast_api_voter/api/engine/utils/`) — kept identical by a golden-fixture parity test.
+(`fast_api_voter/api/engine/utils/`) — held together by a golden-fixture parity test:
+28 rules are locked identical, and random ballot is a lottery (excluded — it's not
+deterministic).
 
 ---
 
@@ -196,7 +203,7 @@ The frontend consumes the OpenAPI schema via a typed `openapi-fetch` client
 fast_api_voter/api/          # FastAPI backend — stateless (no DB, no auth)
 ├── main.py                  # FastAPI app + CORS + slowapi + Socket.IO ASGI wrap
 ├── routes/                  # thin HTTP adapters — election, simulations, theory,
-│                            #   tech, export, public (/api/v1), health
+│                            #   tech, public (/api/v1), health
 ├── domain/                  # pure compute workers (0 import FastAPI)
 │   ├── election/  simulations/  theory/
 ├── engine/utils/            # the simulation engine (0 import FastAPI)
@@ -205,7 +212,7 @@ fast_api_voter/api/          # FastAPI backend — stateless (no DB, no auth)
 │   ├── simulation_multiwinner_utils.py# proportional / parliament
 │   ├── simulation_metrics.py          # compare_all_methods(), Bayesian regret
 │   ├── campaign_dynamics.py  blank_contagion.py  information_model.py
-│   ├── gibbard_satterthwaite.py  quadratic_voting.py  arrow_criteria.py
+│   ├── gibbard_satterthwaite.py  quadratic_voting.py
 │   └── demographic_data.py  real_election_data.py  cache.py (Redis)
 ├── core/ (config, ratelimit)  schemas/  sockets/  tests/
 

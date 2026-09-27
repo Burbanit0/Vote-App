@@ -2,7 +2,7 @@
  * MajorityTyrannyPanel — Tocqueville (1835) tyranny of the majority.
  * Shows how decision rules protect (or fail to protect) permanent minorities.
  */
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { $api } from '../../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
@@ -109,7 +109,7 @@ const MajorityTyrannyPanel: React.FC = () => {
       prev.includes(r) ? (prev.length > 1 ? prev.filter((x) => x !== r) : prev) : [...prev, r]
     );
 
-  const run = useCallback(() => {
+  const run = () => {
     sim.mutate({
       body: {
         num_voters: numVoters,
@@ -120,7 +120,7 @@ const MajorityTyrannyPanel: React.FC = () => {
         decision_rules: rules,
       },
     });
-  }, [numVoters, majorityPct, intensity, numDecisions, seed, rules, sim]);
+  };
 
   const nMin = Math.round(numVoters * (1 - majorityPct));
   const nMaj = numVoters - nMin;
