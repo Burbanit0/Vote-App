@@ -40,6 +40,7 @@ import dataclasses
 import hashlib
 import json
 import logging
+import random
 import subprocess
 import time
 from collections.abc import Callable, Mapping, Sequence
@@ -1881,6 +1882,10 @@ def _hold_legislative_election(
         total_seats=config.institutions.assembly_seats,
         method=config.institutions.seat_allocation,
         electoral_threshold=config.institutions.electoral_threshold,
+        # A seat tie is drawn by lot, not handed to the lowest party_id. Seeded
+        # per election from (seed, tick) as a string, so it needs no checkpointed
+        # state and never shifts another stream's draws.
+        rng=random.Random(f"legislative-seats:{config.run.seed}:{tick}"),
     )
     seats = {int(party_id): count for party_id, count in raw_seats.items()}
 
