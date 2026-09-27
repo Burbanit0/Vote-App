@@ -38,6 +38,9 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:3000',
     locale: 'fr-FR', // consistent French UI across all tests
+    // The production build registers vite-plugin-pwa's service worker; a test
+    // must see the network, not a worker's precache.
+    serviceWorkers: 'block',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -73,9 +76,24 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: 'npm start',
+    // A production build (playwright.visual.config.ts reuses this block). The
+    // dev server hands each navigation 59-127 separate module requests; a build
+    // makes 17-39. WebKit intermittently drops one: the entry graph never runs
+    // and the page stays blank, or a lazy route fails with "Importing a module
+    // script failed" (5 WebKit-only flakes in 400 runs, 2026-09-15..25). The
+    // build is also what ships. `vite build`, not `npm run build`: tsc and
+    // size-limit gate the build job, not this one. Its own outDir, so it never
+    // overwrites or races `npm run build`'s build/ (a coverage build left there
+    // failed size-limit). `vite preview` keeps server.proxy, so /api (Socket.IO
+    // included) still reaches :4434.
+    command:
+      'npx vite build --outDir node_modules/.e2e-build && ' +
+      'npx vite preview --outDir node_modules/.e2e-build --port 3000 --strictPort',
+    // A production build reads .env.local / .env.production too: blank the
+    // tracker so a maintainer's Umami config never counts test page views.
+    env: { VITE_UMAMI_SRC: '', VITE_UMAMI_WEBSITE_ID: '' },
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
-    timeout: 60_000,
+    timeout: 180_000, // includes the build
   },
 });

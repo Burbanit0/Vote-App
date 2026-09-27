@@ -1045,7 +1045,7 @@ def _manipulation_analysis_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
                         "strategy_type":   s_type,
                         "sincere_result":  sincere_winner,
                         "strategic_result": strat_w,
-                        "utility_gain":    round(gain, 4),
+                        "utility_gain":    gain,
                     }
 
         if best_m:
@@ -1059,6 +1059,12 @@ def _manipulation_analysis_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
         key_m = {"voter_id": km["voter_id"],
                  "strategy": km["strategy_type"],
                  "gain":     km["utility_gain"]}
+    # Chosen and counted on the exact gain; 4 significant figures for display,
+    # not 4 places -- a real gain of 8e-6 must not print as 0.0.
+    for m in manipulators:
+        m["utility_gain"] = float(f"{m['utility_gain']:.4g}")
+    if key_m:
+        key_m["gain"] = float(f"{key_m['gain']:.4g}")
 
     n_used = len(voters)
     note = (
@@ -1068,7 +1074,7 @@ def _manipulation_analysis_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any],
     if sincere_winner is None:
         note += "Le vote sincère ne départage pas les candidats : rien à manipuler."
     elif key_m:
-        note += f"Meilleure stratégie : '{key_m['strategy']}' (gain {key_m['gain']:.3f})."
+        note += f"Meilleure stratégie : '{key_m['strategy']}' (gain {key_m['gain']:.3g})."
     else:
         note += "Aucune manipulation profitable sur ce profil."
 

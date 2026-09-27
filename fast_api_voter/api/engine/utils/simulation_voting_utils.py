@@ -436,7 +436,7 @@ def create_candidate(
 def calculate_utility(voter: Dict[str, Any], candidate: Dict[str, Any], issues: List[str]) -> Dict[str, Any]:
     """
     Calculate the utility score for a voter-candidate pair.
-    Returns a dictionary with the utility score and its breakdown.
+    Returns a dictionary with the (unrounded) utility score.
     """
     # Issue alignment: weighted sum of (1 - distance) between voter and candidate positions.
     # voter["issue_positions"] is in [0,1]; candidate["policies"] is in [0,1].
@@ -480,15 +480,9 @@ def calculate_utility(voter: Dict[str, Any], candidate: Dict[str, Any], issues: 
     return {
         "voter_id": voter["id"],
         "candidate_id": candidate["id"],
-        "utility": round(utility, 4),
-        "breakdown": {
-            "issue_score": round(issue_score, 4),
-            "loyalty_bonus": round(loyalty_bonus, 4),
-            "charisma_effect": round(charisma_effect, 4),
-            "scandal_penalty": round(scandal_penalty, 4),
-            "mood_effect": round(mood_effect, 4),
-            "gender_bonus": round(gender_bonus, 4) if gender_bonus else 0,
-        },
+        # Exact, not rounded: every ballot and favourite is built from it, and
+        # rounding to 4 places made voters hold distinct candidates equal.
+        "utility": utility,
     }
 
 
