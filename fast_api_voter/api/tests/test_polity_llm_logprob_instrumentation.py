@@ -220,3 +220,16 @@ def test_candidate_probability_is_not_renormalized_across_more_than_two_candidat
 def test_candidate_probability_returns_zero_for_an_uncaptured_candidate():
     token = _tok("1", logprob=-0.1, alternatives={"1": -0.1})
     assert candidate_probability(token, "4") == 0.0
+
+
+def test_an_offset_past_every_token_is_an_alignment_error():
+    from api.domain.polity.llm_logprob_instrumentation import _token_covering_offset
+
+    with pytest.raises(LogprobAlignmentError, match="not covered by any token"):
+        _token_covering_offset([_tok("ab"), _tok("c")], 3)
+
+
+def test_content_that_is_not_a_decisions_object_is_an_alignment_error():
+    content = '{"decisions":{"cid":5}}'
+    with pytest.raises(LogprobAlignmentError, match="expected a"):
+        locate_decision_field_logprobs(content, [_tok(content)], field="blank")

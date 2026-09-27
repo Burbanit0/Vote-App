@@ -165,15 +165,17 @@ fraîcheur des lockfiles est devenu bloquant et `pip-audit` audite
 `requirements.lock.txt`. Vérifié avec un build réel et un smoke test
 (`/api/v2/health`, SPA servie, conteneur non-root).
 
-**Reste ouvert** : 9 workflows (`flaky-check-backend.yml`,
-`atheris-fuzzing.yml`, `release.yml`, `e2e.yml`, `audit.yml`,
+**Reste ouvert** : 8 workflows (`flaky-check-backend.yml`,
+`atheris-fuzzing.yml`, `e2e.yml`, `audit.yml`,
 `openapi-contract.yml`, `mutation-testing.yml`, `schemathesis.yml`,
 `dast.yml`) et 2 `Dockerfile` (`ci-local/e2e.Dockerfile`,
 `fast_api_voter/Dockerfile`) installent encore `requirements*.txt` en
 direct — chacun a son propre rayon d'impact à évaluer séparément.
+(`release.yml` est passé au lockfile le 2026-09-27, après l'échec du premier
+vrai dispatch sur les modules de test hypothesis/schemathesis.)
 
 **Effort** : S (lockfiles + freshness check, fait) → M (Backend CI +
-son miroir + image de prod, fait) → L (reste des 9 workflows/3
+son miroir + image de prod, fait) → L (reste des 8 workflows/2
 Dockerfile, hors scope) · **Priorité** : moyenne.
 
 ### 2.D 🟢 « Redondance » gitleaks/trufflehog — déjà tranchée, aucune action
