@@ -1,0 +1,4978 @@
+{
+  "static": {
+    "setting": {},
+    "facts": [
+      {
+        "name": "D1 panel stability",
+        "holds": false,
+        "reading": "four-year factor correlation 1.000"
+      },
+      {
+        "name": "D2 no consensus collapse",
+        "holds": true,
+        "reading": "spread kept 1.000 on average (lowest 1.000)"
+      },
+      {
+        "name": "D3 neighbour homophily",
+        "holds": false,
+        "reading": "neighbour/all-pairs distance 1.002 at the start, 1.002 at the end"
+      },
+      {
+        "name": "D4 more distinct presidents",
+        "holds": false,
+        "reading": "5.70 per run (static arm 5.70)"
+      }
+    ],
+    "measures": {
+      "panel_correlation": 1.0
+    }
+  },
+  "dynamics": [
+    {
+      "setting": {
+        "susceptibility": 0.9,
+        "influence_step": 0.1,
+        "confidence_bound": 0.5,
+        "drift_std": 0.02
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.998"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 0.997 on average (lowest 0.988)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.994 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "5.50 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9981455479487341
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.9,
+        "influence_step": 0.1,
+        "confidence_bound": 0.5,
+        "drift_std": 0.05
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.990"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 1.000 on average (lowest 0.979)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.992 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "5.40 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.989930145839895
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.9,
+        "influence_step": 0.1,
+        "confidence_bound": 0.5,
+        "drift_std": 0.1
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.961"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 1.022 on average (lowest 0.981)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.992 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": true,
+          "reading": "6.10 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9608023779069044
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.9,
+        "influence_step": 0.1,
+        "confidence_bound": 1.0,
+        "drift_std": 0.02
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.996"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 0.928 on average (lowest 0.893)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.961 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "4.90 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9957649568304575
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.9,
+        "influence_step": 0.1,
+        "confidence_bound": 1.0,
+        "drift_std": 0.05
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.987"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 0.926 on average (lowest 0.886)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.958 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "5.50 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9869435094618157
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.9,
+        "influence_step": 0.1,
+        "confidence_bound": 1.0,
+        "drift_std": 0.1
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.957"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 0.936 on average (lowest 0.894)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.958 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "5.50 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9572037285492339
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.9,
+        "influence_step": 0.1,
+        "confidence_bound": 2.0,
+        "drift_std": 0.02
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.991"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": false,
+          "reading": "spread kept 0.631 on average (lowest 0.566)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.918 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "4.30 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9909980756997261
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.9,
+        "influence_step": 0.1,
+        "confidence_bound": 2.0,
+        "drift_std": 0.05
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.977"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": false,
+          "reading": "spread kept 0.633 on average (lowest 0.563)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.918 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "4.10 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9767305347332769
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.9,
+        "influence_step": 0.1,
+        "confidence_bound": 2.0,
+        "drift_std": 0.1
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.930"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": false,
+          "reading": "spread kept 0.650 on average (lowest 0.570)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.921 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "4.50 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9295528160022026
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.9,
+        "influence_step": 0.2,
+        "confidence_bound": 0.5,
+        "drift_std": 0.02
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.998"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 0.995 on average (lowest 0.987)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.991 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "5.40 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9980316422408251
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.9,
+        "influence_step": 0.2,
+        "confidence_bound": 0.5,
+        "drift_std": 0.05
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.990"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 0.996 on average (lowest 0.973)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.987 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "5.50 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9896350237620531
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.9,
+        "influence_step": 0.2,
+        "confidence_bound": 0.5,
+        "drift_std": 0.1
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.962"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 1.009 on average (lowest 0.967)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.983 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": true,
+          "reading": "6.10 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9617904494213054
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.9,
+        "influence_step": 0.2,
+        "confidence_bound": 1.0,
+        "drift_std": 0.02
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.992"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 0.887 on average (lowest 0.822)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.936 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "5.20 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9920413442606346
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.9,
+        "influence_step": 0.2,
+        "confidence_bound": 1.0,
+        "drift_std": 0.05
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.982"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 0.877 on average (lowest 0.796)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.932 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "5.00 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9823857733199379
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.9,
+        "influence_step": 0.2,
+        "confidence_bound": 1.0,
+        "drift_std": 0.1
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.953"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 0.873 on average (lowest 0.813)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.927 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": true,
+          "reading": "5.90 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9527412630267069
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.9,
+        "influence_step": 0.2,
+        "confidence_bound": 2.0,
+        "drift_std": 0.02
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.982"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": false,
+          "reading": "spread kept 0.474 on average (lowest 0.389)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.863 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "3.40 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9822335074150039
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.9,
+        "influence_step": 0.2,
+        "confidence_bound": 2.0,
+        "drift_std": 0.05
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.962"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": false,
+          "reading": "spread kept 0.478 on average (lowest 0.388)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.865 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "3.40 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9616296402429796
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.9,
+        "influence_step": 0.2,
+        "confidence_bound": 2.0,
+        "drift_std": 0.1
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": true,
+          "reading": "four-year factor correlation 0.896"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": false,
+          "reading": "spread kept 0.490 on average (lowest 0.396)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.870 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "3.60 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.8962070549822508
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.9,
+        "influence_step": 0.4,
+        "confidence_bound": 0.5,
+        "drift_std": 0.02
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.998"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 0.995 on average (lowest 0.984)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.990 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "5.40 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9978569738698431
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.9,
+        "influence_step": 0.4,
+        "confidence_bound": 0.5,
+        "drift_std": 0.05
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.989"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 0.993 on average (lowest 0.970)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.983 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "5.50 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9891294631542197
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.9,
+        "influence_step": 0.4,
+        "confidence_bound": 0.5,
+        "drift_std": 0.1
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.963"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 0.995 on average (lowest 0.951)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.973 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": true,
+          "reading": "5.80 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9627386064355623
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.9,
+        "influence_step": 0.4,
+        "confidence_bound": 1.0,
+        "drift_std": 0.02
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.984"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 0.835 on average (lowest 0.737)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.914 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "4.80 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.983672022401389
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.9,
+        "influence_step": 0.4,
+        "confidence_bound": 1.0,
+        "drift_std": 0.05
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.975"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 0.826 on average (lowest 0.739)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.911 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "4.90 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9749172880151027
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.9,
+        "influence_step": 0.4,
+        "confidence_bound": 1.0,
+        "drift_std": 0.1
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.940"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": false,
+          "reading": "spread kept 0.799 on average (lowest 0.670)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.902 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "5.10 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9399476268820187
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.9,
+        "influence_step": 0.4,
+        "confidence_bound": 2.0,
+        "drift_std": 0.02
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.984"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": false,
+          "reading": "spread kept 0.370 on average (lowest 0.261)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.797 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "2.90 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9843768962823172
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.9,
+        "influence_step": 0.4,
+        "confidence_bound": 2.0,
+        "drift_std": 0.05
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.957"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": false,
+          "reading": "spread kept 0.376 on average (lowest 0.263)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.804 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "3.20 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9574703150346899
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.9,
+        "influence_step": 0.4,
+        "confidence_bound": 2.0,
+        "drift_std": 0.1
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": true,
+          "reading": "four-year factor correlation 0.869"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": false,
+          "reading": "spread kept 0.387 on average (lowest 0.276)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.818 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "3.30 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.869470175666293
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.95,
+        "influence_step": 0.1,
+        "confidence_bound": 0.5,
+        "drift_std": 0.02
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.997"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 0.997 on average (lowest 0.985)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.991 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "5.70 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9974097296296099
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.95,
+        "influence_step": 0.1,
+        "confidence_bound": 0.5,
+        "drift_std": 0.05
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.987"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 1.003 on average (lowest 0.975)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.988 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": true,
+          "reading": "5.80 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9871265730291547
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.95,
+        "influence_step": 0.1,
+        "confidence_bound": 0.5,
+        "drift_std": 0.1
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.952"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 1.039 on average (lowest 0.978)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.990 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "5.70 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9524498648212674
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.95,
+        "influence_step": 0.1,
+        "confidence_bound": 1.0,
+        "drift_std": 0.02
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.990"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 0.898 on average (lowest 0.844)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.938 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "5.30 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9903466051668524
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.95,
+        "influence_step": 0.1,
+        "confidence_bound": 1.0,
+        "drift_std": 0.05
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.979"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 0.895 on average (lowest 0.841)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.935 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "5.40 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.978550259538344
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.95,
+        "influence_step": 0.1,
+        "confidence_bound": 1.0,
+        "drift_std": 0.1
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.942"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 0.913 on average (lowest 0.847)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.935 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "5.50 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9422340003224002
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.95,
+        "influence_step": 0.1,
+        "confidence_bound": 2.0,
+        "drift_std": 0.02
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.971"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": false,
+          "reading": "spread kept 0.480 on average (lowest 0.389)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.851 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "3.80 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9706427834532599
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.95,
+        "influence_step": 0.1,
+        "confidence_bound": 2.0,
+        "drift_std": 0.05
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.946"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": false,
+          "reading": "spread kept 0.489 on average (lowest 0.388)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.857 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "3.80 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.945691673926395
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.95,
+        "influence_step": 0.1,
+        "confidence_bound": 2.0,
+        "drift_std": 0.1
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": true,
+          "reading": "four-year factor correlation 0.868"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": false,
+          "reading": "spread kept 0.513 on average (lowest 0.405)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.867 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "4.20 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.8680032002549991
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.95,
+        "influence_step": 0.2,
+        "confidence_bound": 0.5,
+        "drift_std": 0.02
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.997"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 0.996 on average (lowest 0.982)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.989 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "5.20 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9972397041535933
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.95,
+        "influence_step": 0.2,
+        "confidence_bound": 0.5,
+        "drift_std": 0.05
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.987"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 0.999 on average (lowest 0.971)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.983 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "5.40 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9867025353811567
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.95,
+        "influence_step": 0.2,
+        "confidence_bound": 0.5,
+        "drift_std": 0.1
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.954"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 1.024 on average (lowest 0.968)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.979 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": true,
+          "reading": "5.90 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9537134451945064
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.95,
+        "influence_step": 0.2,
+        "confidence_bound": 1.0,
+        "drift_std": 0.02
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.983"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 0.852 on average (lowest 0.762)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.913 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "5.30 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9825447559561151
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.95,
+        "influence_step": 0.2,
+        "confidence_bound": 1.0,
+        "drift_std": 0.05
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.968"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 0.839 on average (lowest 0.731)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.909 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "4.90 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9682948924564718
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.95,
+        "influence_step": 0.2,
+        "confidence_bound": 1.0,
+        "drift_std": 0.1
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.931"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 0.840 on average (lowest 0.752)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.905 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "5.30 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9311802614910055
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.95,
+        "influence_step": 0.2,
+        "confidence_bound": 2.0,
+        "drift_std": 0.02
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.959"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": false,
+          "reading": "spread kept 0.369 on average (lowest 0.256)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.784 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "3.20 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9591335777207833
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.95,
+        "influence_step": 0.2,
+        "confidence_bound": 2.0,
+        "drift_std": 0.05
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.923"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": false,
+          "reading": "spread kept 0.379 on average (lowest 0.257)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.797 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "3.30 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9232488235983991
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.95,
+        "influence_step": 0.2,
+        "confidence_bound": 2.0,
+        "drift_std": 0.1
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": true,
+          "reading": "four-year factor correlation 0.809"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": false,
+          "reading": "spread kept 0.390 on average (lowest 0.276)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.817 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "3.40 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.8090827366724775
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.95,
+        "influence_step": 0.4,
+        "confidence_bound": 0.5,
+        "drift_std": 0.02
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.997"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 0.995 on average (lowest 0.980)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.988 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "5.20 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9971423840920999
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.95,
+        "influence_step": 0.4,
+        "confidence_bound": 0.5,
+        "drift_std": 0.05
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.986"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 0.996 on average (lowest 0.965)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.980 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": true,
+          "reading": "5.80 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9858509672906681
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.95,
+        "influence_step": 0.4,
+        "confidence_bound": 0.5,
+        "drift_std": 0.1
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.956"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 1.007 on average (lowest 0.962)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.966 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "5.70 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9555283700133248
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.95,
+        "influence_step": 0.4,
+        "confidence_bound": 1.0,
+        "drift_std": 0.02
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.973"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 0.806 on average (lowest 0.667)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.901 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "4.60 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.973113782596859
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.95,
+        "influence_step": 0.4,
+        "confidence_bound": 1.0,
+        "drift_std": 0.05
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.956"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": false,
+          "reading": "spread kept 0.788 on average (lowest 0.638)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.901 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "4.50 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9559320812444858
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.95,
+        "influence_step": 0.4,
+        "confidence_bound": 1.0,
+        "drift_std": 0.1
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.914"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": false,
+          "reading": "spread kept 0.770 on average (lowest 0.627)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.890 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "4.70 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9144547738469916
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.95,
+        "influence_step": 0.4,
+        "confidence_bound": 2.0,
+        "drift_std": 0.02
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.967"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": false,
+          "reading": "spread kept 0.298 on average (lowest 0.163)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.731 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "3.00 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9674985883127555
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.95,
+        "influence_step": 0.4,
+        "confidence_bound": 2.0,
+        "drift_std": 0.05
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.918"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": false,
+          "reading": "spread kept 0.307 on average (lowest 0.168)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.753 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "2.90 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9178793617996235
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.95,
+        "influence_step": 0.4,
+        "confidence_bound": 2.0,
+        "drift_std": 0.1
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": true,
+          "reading": "four-year factor correlation 0.770"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": false,
+          "reading": "spread kept 0.317 on average (lowest 0.192)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.789 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "2.90 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.7700873157085077
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.98,
+        "influence_step": 0.1,
+        "confidence_bound": 0.5,
+        "drift_std": 0.02
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.997"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 0.998 on average (lowest 0.982)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.989 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "5.30 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9965238023752736
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.98,
+        "influence_step": 0.1,
+        "confidence_bound": 0.5,
+        "drift_std": 0.05
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.984"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 1.011 on average (lowest 0.975)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.985 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": true,
+          "reading": "5.80 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9841260861341601
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.98,
+        "influence_step": 0.1,
+        "confidence_bound": 0.5,
+        "drift_std": 0.1
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.944"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 1.075 on average (lowest 0.997)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.988 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": true,
+          "reading": "6.00 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9440906351299503
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.98,
+        "influence_step": 0.1,
+        "confidence_bound": 1.0,
+        "drift_std": 0.02
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.982"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 0.871 on average (lowest 0.804)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.915 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "4.90 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9820290179491536
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.98,
+        "influence_step": 0.1,
+        "confidence_bound": 1.0,
+        "drift_std": 0.05
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.967"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 0.871 on average (lowest 0.796)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.912 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "5.20 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.967061481449322
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.98,
+        "influence_step": 0.1,
+        "confidence_bound": 1.0,
+        "drift_std": 0.1
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.925"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 0.907 on average (lowest 0.799)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.915 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "5.50 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9251059520699583
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.98,
+        "influence_step": 0.1,
+        "confidence_bound": 2.0,
+        "drift_std": 0.02
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.927"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": false,
+          "reading": "spread kept 0.378 on average (lowest 0.257)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.740 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "3.60 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9266665110052834
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.98,
+        "influence_step": 0.1,
+        "confidence_bound": 2.0,
+        "drift_std": 0.05
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": true,
+          "reading": "four-year factor correlation 0.887"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": false,
+          "reading": "spread kept 0.396 on average (lowest 0.263)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.766 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "3.70 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.8873133672448406
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.98,
+        "influence_step": 0.1,
+        "confidence_bound": 2.0,
+        "drift_std": 0.1
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": true,
+          "reading": "four-year factor correlation 0.774"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": false,
+          "reading": "spread kept 0.432 on average (lowest 0.300)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.807 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "3.70 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.7737854902293251
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.98,
+        "influence_step": 0.2,
+        "confidence_bound": 0.5,
+        "drift_std": 0.02
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.996"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 0.997 on average (lowest 0.979)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.988 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "5.30 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9964199752800347
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.98,
+        "influence_step": 0.2,
+        "confidence_bound": 0.5,
+        "drift_std": 0.05
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.984"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 1.007 on average (lowest 0.972)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.981 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "5.50 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9837053535430696
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.98,
+        "influence_step": 0.2,
+        "confidence_bound": 0.5,
+        "drift_std": 0.1
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.946"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 1.053 on average (lowest 0.977)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.973 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": true,
+          "reading": "6.00 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9461787135966894
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.98,
+        "influence_step": 0.2,
+        "confidence_bound": 1.0,
+        "drift_std": 0.02
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.971"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 0.830 on average (lowest 0.717)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.895 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "4.90 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9707368212762321
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.98,
+        "influence_step": 0.2,
+        "confidence_bound": 1.0,
+        "drift_std": 0.05
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.953"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 0.819 on average (lowest 0.692)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.895 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "5.00 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9528213602814303
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.98,
+        "influence_step": 0.2,
+        "confidence_bound": 1.0,
+        "drift_std": 0.1
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.909"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 0.825 on average (lowest 0.713)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.883 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "5.00 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9090296129839718
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.98,
+        "influence_step": 0.2,
+        "confidence_bound": 2.0,
+        "drift_std": 0.02
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.913"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": false,
+          "reading": "spread kept 0.299 on average (lowest 0.154)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.673 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "3.10 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.913258226767087
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.98,
+        "influence_step": 0.2,
+        "confidence_bound": 2.0,
+        "drift_std": 0.05
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": true,
+          "reading": "four-year factor correlation 0.853"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": false,
+          "reading": "spread kept 0.314 on average (lowest 0.165)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.722 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "2.90 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.8533905904880104
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.98,
+        "influence_step": 0.2,
+        "confidence_bound": 2.0,
+        "drift_std": 0.1
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.687"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": false,
+          "reading": "spread kept 0.333 on average (lowest 0.202)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.782 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "3.10 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.6866441001932966
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.98,
+        "influence_step": 0.4,
+        "confidence_bound": 0.5,
+        "drift_std": 0.02
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.996"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 0.996 on average (lowest 0.978)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.988 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "5.50 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9963680018593039
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.98,
+        "influence_step": 0.4,
+        "confidence_bound": 0.5,
+        "drift_std": 0.05
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.983"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 1.004 on average (lowest 0.971)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.979 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": true,
+          "reading": "5.80 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9831175198151906
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.98,
+        "influence_step": 0.4,
+        "confidence_bound": 0.5,
+        "drift_std": 0.1
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.950"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": true,
+          "reading": "spread kept 1.036 on average (lowest 0.969)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.962 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": true,
+          "reading": "5.90 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9496137024348202
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.98,
+        "influence_step": 0.4,
+        "confidence_bound": 1.0,
+        "drift_std": 0.02
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.958"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": false,
+          "reading": "spread kept 0.783 on average (lowest 0.621)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.896 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "4.30 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9576202041755405
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.98,
+        "influence_step": 0.4,
+        "confidence_bound": 1.0,
+        "drift_std": 0.05
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.937"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": false,
+          "reading": "spread kept 0.771 on average (lowest 0.601)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.903 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "4.20 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9368967953284472
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.98,
+        "influence_step": 0.4,
+        "confidence_bound": 1.0,
+        "drift_std": 0.1
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": true,
+          "reading": "four-year factor correlation 0.892"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": false,
+          "reading": "spread kept 0.769 on average (lowest 0.629)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.897 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "4.40 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.8917139929603763
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.98,
+        "influence_step": 0.4,
+        "confidence_bound": 2.0,
+        "drift_std": 0.02
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.934"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": false,
+          "reading": "spread kept 0.252 on average (lowest 0.090)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.670 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "3.00 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.9337011551430768
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.98,
+        "influence_step": 0.4,
+        "confidence_bound": 2.0,
+        "drift_std": 0.05
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": true,
+          "reading": "four-year factor correlation 0.845"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": false,
+          "reading": "spread kept 0.264 on average (lowest 0.106)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.738 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "3.00 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.8453445959930516
+      }
+    },
+    {
+      "setting": {
+        "susceptibility": 0.98,
+        "influence_step": 0.4,
+        "confidence_bound": 2.0,
+        "drift_std": 0.1
+      },
+      "facts": [
+        {
+          "name": "D1 panel stability",
+          "holds": false,
+          "reading": "four-year factor correlation 0.635"
+        },
+        {
+          "name": "D2 no consensus collapse",
+          "holds": false,
+          "reading": "spread kept 0.275 on average (lowest 0.146)"
+        },
+        {
+          "name": "D3 neighbour homophily",
+          "holds": true,
+          "reading": "neighbour/all-pairs distance 1.002 at the start, 0.801 at the end"
+        },
+        {
+          "name": "D4 more distinct presidents",
+          "holds": false,
+          "reading": "3.10 per run (static arm 5.70)"
+        }
+      ],
+      "measures": {
+        "panel_correlation": 0.6350557036966624
+      }
+    }
+  ],
+  "chosen_dynamics": null,
+  "emotions": [
+    {
+      "setting": {
+        "awakening_anger": 0.0,
+        "awakening_anxiety": 0.0,
+        "awakening_enthusiasm": 0.0,
+        "mobilization_anger": 0.0
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1431 in the angriest third, 1062 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4447 in the most anxious third, 4175 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 0.0
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.0,
+        "awakening_anxiety": 0.0,
+        "awakening_enthusiasm": 0.0,
+        "mobilization_anger": 0.25
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1481 in the angriest third, 1074 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4452 in the most anxious third, 4173 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 0.25
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.0,
+        "awakening_anxiety": 0.0,
+        "awakening_enthusiasm": 0.0,
+        "mobilization_anger": 0.5
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1486 in the angriest third, 1075 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4431 in the most anxious third, 4175 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 0.5
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.0,
+        "awakening_anxiety": 0.0,
+        "awakening_enthusiasm": 0.25,
+        "mobilization_anger": 0.0
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1434 in the angriest third, 1032 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4245 in the most anxious third, 4049 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 0.25
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.0,
+        "awakening_anxiety": 0.0,
+        "awakening_enthusiasm": 0.25,
+        "mobilization_anger": 0.25
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1478 in the angriest third, 1073 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4262 in the most anxious third, 4049 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 0.5
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.0,
+        "awakening_anxiety": 0.0,
+        "awakening_enthusiasm": 0.25,
+        "mobilization_anger": 0.5
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1483 in the angriest third, 1074 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4235 in the most anxious third, 4046 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 0.75
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.0,
+        "awakening_anxiety": 0.0,
+        "awakening_enthusiasm": 0.5,
+        "mobilization_anger": 0.0
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1429 in the angriest third, 1030 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4077 in the most anxious third, 3909 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 0.5
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.0,
+        "awakening_anxiety": 0.0,
+        "awakening_enthusiasm": 0.5,
+        "mobilization_anger": 0.25
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1433 in the angriest third, 1080 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4092 in the most anxious third, 3909 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 0.75
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.0,
+        "awakening_anxiety": 0.0,
+        "awakening_enthusiasm": 0.5,
+        "mobilization_anger": 0.5
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1477 in the angriest third, 1070 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4070 in the most anxious third, 3930 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.0
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.0,
+        "awakening_anxiety": 0.25,
+        "awakening_enthusiasm": 0.0,
+        "mobilization_anger": 0.0
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1505 in the angriest third, 1105 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4778 in the most anxious third, 4290 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 0.25
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.0,
+        "awakening_anxiety": 0.25,
+        "awakening_enthusiasm": 0.0,
+        "mobilization_anger": 0.25
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1606 in the angriest third, 1110 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4769 in the most anxious third, 4219 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 0.5
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.0,
+        "awakening_anxiety": 0.25,
+        "awakening_enthusiasm": 0.0,
+        "mobilization_anger": 0.5
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1592 in the angriest third, 1122 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4751 in the most anxious third, 4271 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 0.75
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.0,
+        "awakening_anxiety": 0.25,
+        "awakening_enthusiasm": 0.25,
+        "mobilization_anger": 0.0
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1499 in the angriest third, 1102 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4543 in the most anxious third, 4156 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 0.5
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.0,
+        "awakening_anxiety": 0.25,
+        "awakening_enthusiasm": 0.25,
+        "mobilization_anger": 0.25
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1513 in the angriest third, 1117 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4549 in the most anxious third, 4157 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 0.75
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.0,
+        "awakening_anxiety": 0.25,
+        "awakening_enthusiasm": 0.25,
+        "mobilization_anger": 0.5
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1594 in the angriest third, 1108 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4519 in the most anxious third, 4096 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.0
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.0,
+        "awakening_anxiety": 0.25,
+        "awakening_enthusiasm": 0.5,
+        "mobilization_anger": 0.0
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1516 in the angriest third, 1074 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4324 in the most anxious third, 4038 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 0.75
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.0,
+        "awakening_anxiety": 0.25,
+        "awakening_enthusiasm": 0.5,
+        "mobilization_anger": 0.25
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1530 in the angriest third, 1110 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4328 in the most anxious third, 4036 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.0
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.0,
+        "awakening_anxiety": 0.25,
+        "awakening_enthusiasm": 0.5,
+        "mobilization_anger": 0.5
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1586 in the angriest third, 1106 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4316 in the most anxious third, 3965 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.25
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.0,
+        "awakening_anxiety": 0.5,
+        "awakening_enthusiasm": 0.0,
+        "mobilization_anger": 0.0
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1594 in the angriest third, 1125 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 5144 in the most anxious third, 4372 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 0.5
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.0,
+        "awakening_anxiety": 0.5,
+        "awakening_enthusiasm": 0.0,
+        "mobilization_anger": 0.25
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1679 in the angriest third, 1123 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 5117 in the most anxious third, 4326 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 0.75
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.0,
+        "awakening_anxiety": 0.5,
+        "awakening_enthusiasm": 0.0,
+        "mobilization_anger": 0.5
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1621 in the angriest third, 1126 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 5131 in the most anxious third, 4390 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.0
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.0,
+        "awakening_anxiety": 0.5,
+        "awakening_enthusiasm": 0.25,
+        "mobilization_anger": 0.0
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1627 in the angriest third, 1122 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4877 in the most anxious third, 4212 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 0.75
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.0,
+        "awakening_anxiety": 0.5,
+        "awakening_enthusiasm": 0.25,
+        "mobilization_anger": 0.25
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1714 in the angriest third, 1120 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4850 in the most anxious third, 4171 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.0
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.0,
+        "awakening_anxiety": 0.5,
+        "awakening_enthusiasm": 0.25,
+        "mobilization_anger": 0.5
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1703 in the angriest third, 1141 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4852 in the most anxious third, 4219 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.25
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.0,
+        "awakening_anxiety": 0.5,
+        "awakening_enthusiasm": 0.5,
+        "mobilization_anger": 0.0
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1620 in the angriest third, 1099 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4656 in the most anxious third, 4094 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.0
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.0,
+        "awakening_anxiety": 0.5,
+        "awakening_enthusiasm": 0.5,
+        "mobilization_anger": 0.25
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1704 in the angriest third, 1114 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4633 in the most anxious third, 4031 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.25
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.0,
+        "awakening_anxiety": 0.5,
+        "awakening_enthusiasm": 0.5,
+        "mobilization_anger": 0.5
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1693 in the angriest third, 1135 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4636 in the most anxious third, 4087 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.5
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.25,
+        "awakening_anxiety": 0.0,
+        "awakening_enthusiasm": 0.0,
+        "mobilization_anger": 0.0
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1472 in the angriest third, 1119 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4524 in the most anxious third, 4327 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 0.25
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.25,
+        "awakening_anxiety": 0.0,
+        "awakening_enthusiasm": 0.0,
+        "mobilization_anger": 0.25
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1503 in the angriest third, 1143 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4468 in the most anxious third, 4249 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 0.5
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.25,
+        "awakening_anxiety": 0.0,
+        "awakening_enthusiasm": 0.0,
+        "mobilization_anger": 0.5
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1535 in the angriest third, 1167 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4465 in the most anxious third, 4302 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 0.75
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.25,
+        "awakening_anxiety": 0.0,
+        "awakening_enthusiasm": 0.25,
+        "mobilization_anger": 0.0
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1468 in the angriest third, 1117 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4327 in the most anxious third, 4201 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 0.5
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.25,
+        "awakening_anxiety": 0.0,
+        "awakening_enthusiasm": 0.25,
+        "mobilization_anger": 0.25
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1532 in the angriest third, 1145 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4259 in the most anxious third, 4183 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 0.75
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.25,
+        "awakening_anxiety": 0.0,
+        "awakening_enthusiasm": 0.25,
+        "mobilization_anger": 0.5
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1507 in the angriest third, 1155 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4268 in the most anxious third, 4121 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.0
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.25,
+        "awakening_anxiety": 0.0,
+        "awakening_enthusiasm": 0.5,
+        "mobilization_anger": 0.0
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1474 in the angriest third, 1091 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4151 in the most anxious third, 4068 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 0.75
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.25,
+        "awakening_anxiety": 0.0,
+        "awakening_enthusiasm": 0.5,
+        "mobilization_anger": 0.25
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1526 in the angriest third, 1142 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4083 in the most anxious third, 4052 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.0
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.25,
+        "awakening_anxiety": 0.0,
+        "awakening_enthusiasm": 0.5,
+        "mobilization_anger": 0.5
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1535 in the angriest third, 1158 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4085 in the most anxious third, 4055 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.25
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.25,
+        "awakening_anxiety": 0.25,
+        "awakening_enthusiasm": 0.0,
+        "mobilization_anger": 0.0
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1576 in the angriest third, 1127 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4827 in the most anxious third, 4356 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 0.5
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.25,
+        "awakening_anxiety": 0.25,
+        "awakening_enthusiasm": 0.0,
+        "mobilization_anger": 0.25
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1612 in the angriest third, 1150 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4823 in the most anxious third, 4351 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 0.75
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.25,
+        "awakening_anxiety": 0.25,
+        "awakening_enthusiasm": 0.0,
+        "mobilization_anger": 0.5
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1643 in the angriest third, 1171 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4824 in the most anxious third, 4394 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.0
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.25,
+        "awakening_anxiety": 0.25,
+        "awakening_enthusiasm": 0.25,
+        "mobilization_anger": 0.0
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1595 in the angriest third, 1125 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4661 in the most anxious third, 4208 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 0.75
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.25,
+        "awakening_anxiety": 0.25,
+        "awakening_enthusiasm": 0.25,
+        "mobilization_anger": 0.25
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1602 in the angriest third, 1144 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4619 in the most anxious third, 4209 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.0
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.25,
+        "awakening_anxiety": 0.25,
+        "awakening_enthusiasm": 0.25,
+        "mobilization_anger": 0.5
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1632 in the angriest third, 1166 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4617 in the most anxious third, 4250 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.25
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.25,
+        "awakening_anxiety": 0.25,
+        "awakening_enthusiasm": 0.5,
+        "mobilization_anger": 0.0
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1557 in the angriest third, 1134 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4469 in the most anxious third, 4146 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.0
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.25,
+        "awakening_anxiety": 0.25,
+        "awakening_enthusiasm": 0.5,
+        "mobilization_anger": 0.25
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1596 in the angriest third, 1142 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4418 in the most anxious third, 4079 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.25
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.25,
+        "awakening_anxiety": 0.25,
+        "awakening_enthusiasm": 0.5,
+        "mobilization_anger": 0.5
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1626 in the angriest third, 1164 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4412 in the most anxious third, 4127 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.5
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.25,
+        "awakening_anxiety": 0.5,
+        "awakening_enthusiasm": 0.0,
+        "mobilization_anger": 0.0
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1628 in the angriest third, 1178 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 5189 in the most anxious third, 4464 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 0.75
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.25,
+        "awakening_anxiety": 0.5,
+        "awakening_enthusiasm": 0.0,
+        "mobilization_anger": 0.25
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1715 in the angriest third, 1187 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 5222 in the most anxious third, 4515 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.0
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.25,
+        "awakening_anxiety": 0.5,
+        "awakening_enthusiasm": 0.0,
+        "mobilization_anger": 0.5
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1664 in the angriest third, 1231 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 5215 in the most anxious third, 4573 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.25
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.25,
+        "awakening_anxiety": 0.5,
+        "awakening_enthusiasm": 0.25,
+        "mobilization_anger": 0.0
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1654 in the angriest third, 1177 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4988 in the most anxious third, 4315 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.0
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.25,
+        "awakening_anxiety": 0.5,
+        "awakening_enthusiasm": 0.25,
+        "mobilization_anger": 0.25
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1702 in the angriest third, 1199 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4954 in the most anxious third, 4350 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.25
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.25,
+        "awakening_anxiety": 0.5,
+        "awakening_enthusiasm": 0.25,
+        "mobilization_anger": 0.5
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1667 in the angriest third, 1224 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4967 in the most anxious third, 4417 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.5
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.25,
+        "awakening_anxiety": 0.5,
+        "awakening_enthusiasm": 0.5,
+        "mobilization_anger": 0.0
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1642 in the angriest third, 1166 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4775 in the most anxious third, 4184 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.25
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.25,
+        "awakening_anxiety": 0.5,
+        "awakening_enthusiasm": 0.5,
+        "mobilization_anger": 0.25
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1693 in the angriest third, 1189 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4731 in the most anxious third, 4213 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.5
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.25,
+        "awakening_anxiety": 0.5,
+        "awakening_enthusiasm": 0.5,
+        "mobilization_anger": 0.5
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1664 in the angriest third, 1214 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4747 in the most anxious third, 4297 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.75
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.5,
+        "awakening_anxiety": 0.0,
+        "awakening_enthusiasm": 0.0,
+        "mobilization_anger": 0.0
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1616 in the angriest third, 1171 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4583 in the most anxious third, 4352 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 0.5
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.5,
+        "awakening_anxiety": 0.0,
+        "awakening_enthusiasm": 0.0,
+        "mobilization_anger": 0.25
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1609 in the angriest third, 1187 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4593 in the most anxious third, 4354 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 0.75
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.5,
+        "awakening_anxiety": 0.0,
+        "awakening_enthusiasm": 0.0,
+        "mobilization_anger": 0.5
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1572 in the angriest third, 1204 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4587 in the most anxious third, 4414 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.0
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.5,
+        "awakening_anxiety": 0.0,
+        "awakening_enthusiasm": 0.25,
+        "mobilization_anger": 0.0
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1607 in the angriest third, 1168 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4371 in the most anxious third, 4218 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 0.75
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.5,
+        "awakening_anxiety": 0.0,
+        "awakening_enthusiasm": 0.25,
+        "mobilization_anger": 0.25
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1629 in the angriest third, 1184 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4377 in the most anxious third, 4233 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.0
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.5,
+        "awakening_anxiety": 0.0,
+        "awakening_enthusiasm": 0.25,
+        "mobilization_anger": 0.5
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1594 in the angriest third, 1202 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4370 in the most anxious third, 4289 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.25
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.5,
+        "awakening_anxiety": 0.0,
+        "awakening_enthusiasm": 0.5,
+        "mobilization_anger": 0.0
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1576 in the angriest third, 1166 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4208 in the most anxious third, 4174 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.0
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.5,
+        "awakening_anxiety": 0.0,
+        "awakening_enthusiasm": 0.5,
+        "mobilization_anger": 0.25
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1647 in the angriest third, 1172 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4201 in the most anxious third, 4073 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.25
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.5,
+        "awakening_anxiety": 0.0,
+        "awakening_enthusiasm": 0.5,
+        "mobilization_anger": 0.5
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1615 in the angriest third, 1191 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4193 in the most anxious third, 4150 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.5
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.5,
+        "awakening_anxiety": 0.25,
+        "awakening_enthusiasm": 0.0,
+        "mobilization_anger": 0.0
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1632 in the angriest third, 1227 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 5006 in the most anxious third, 4461 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 0.75
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.5,
+        "awakening_anxiety": 0.25,
+        "awakening_enthusiasm": 0.0,
+        "mobilization_anger": 0.25
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1656 in the angriest third, 1252 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 5013 in the most anxious third, 4450 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.0
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.5,
+        "awakening_anxiety": 0.25,
+        "awakening_enthusiasm": 0.0,
+        "mobilization_anger": 0.5
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1604 in the angriest third, 1292 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 5015 in the most anxious third, 4503 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.25
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.5,
+        "awakening_anxiety": 0.25,
+        "awakening_enthusiasm": 0.25,
+        "mobilization_anger": 0.0
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1651 in the angriest third, 1222 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4785 in the most anxious third, 4312 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.0
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.5,
+        "awakening_anxiety": 0.25,
+        "awakening_enthusiasm": 0.25,
+        "mobilization_anger": 0.25
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1649 in the angriest third, 1251 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4795 in the most anxious third, 4298 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.25
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.5,
+        "awakening_anxiety": 0.25,
+        "awakening_enthusiasm": 0.25,
+        "mobilization_anger": 0.5
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1608 in the angriest third, 1292 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4794 in the most anxious third, 4352 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.5
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.5,
+        "awakening_anxiety": 0.25,
+        "awakening_enthusiasm": 0.5,
+        "mobilization_anger": 0.0
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1591 in the angriest third, 1245 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4603 in the most anxious third, 4279 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.25
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.5,
+        "awakening_anxiety": 0.25,
+        "awakening_enthusiasm": 0.5,
+        "mobilization_anger": 0.25
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1672 in the angriest third, 1250 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4602 in the most anxious third, 4175 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.5
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.5,
+        "awakening_anxiety": 0.25,
+        "awakening_enthusiasm": 0.5,
+        "mobilization_anger": 0.5
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1599 in the angriest third, 1291 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4596 in the most anxious third, 4262 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.75
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.5,
+        "awakening_anxiety": 0.5,
+        "awakening_enthusiasm": 0.0,
+        "mobilization_anger": 0.0
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1616 in the angriest third, 1264 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 5389 in the most anxious third, 4614 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.0
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.5,
+        "awakening_anxiety": 0.5,
+        "awakening_enthusiasm": 0.0,
+        "mobilization_anger": 0.25
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1636 in the angriest third, 1260 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 5412 in the most anxious third, 4627 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.25
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.5,
+        "awakening_anxiety": 0.5,
+        "awakening_enthusiasm": 0.0,
+        "mobilization_anger": 0.5
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1646 in the angriest third, 1292 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 5375 in the most anxious third, 4628 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.5
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.5,
+        "awakening_anxiety": 0.5,
+        "awakening_enthusiasm": 0.25,
+        "mobilization_anger": 0.0
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1607 in the angriest third, 1263 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 5130 in the most anxious third, 4448 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.25
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.5,
+        "awakening_anxiety": 0.5,
+        "awakening_enthusiasm": 0.25,
+        "mobilization_anger": 0.25
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1627 in the angriest third, 1259 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 5153 in the most anxious third, 4460 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.5
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.5,
+        "awakening_anxiety": 0.5,
+        "awakening_enthusiasm": 0.25,
+        "mobilization_anger": 0.5
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1636 in the angriest third, 1291 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 5120 in the most anxious third, 4459 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.75
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.5,
+        "awakening_anxiety": 0.5,
+        "awakening_enthusiasm": 0.5,
+        "mobilization_anger": 0.0
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1675 in the angriest third, 1277 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4894 in the most anxious third, 4310 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.5
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.5,
+        "awakening_anxiety": 0.5,
+        "awakening_enthusiasm": 0.5,
+        "mobilization_anger": 0.25
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1621 in the angriest third, 1252 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4931 in the most anxious third, 4344 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 1.75
+      }
+    },
+    {
+      "setting": {
+        "awakening_anger": 0.5,
+        "awakening_anxiety": 0.5,
+        "awakening_enthusiasm": 0.5,
+        "mobilization_anger": 0.5
+      },
+      "facts": [
+        {
+          "name": "E1 discontent mobilizes",
+          "holds": true,
+          "reading": "mobilizations 1630 in the angriest third, 1284 in the calmest"
+        },
+        {
+          "name": "E2 hard times draw people in",
+          "holds": true,
+          "reading": "pressure actions 4896 in the most anxious third, 4345 in the least"
+        },
+        {
+          "name": "E3 honeymoon decline",
+          "holds": false,
+          "reading": "declined in 0 of 0 full terms"
+        }
+      ],
+      "measures": {
+        "total_weight": 2.0
+      }
+    }
+  ],
+  "chosen_emotions": null,
+  "emotions_adopted": false
+}

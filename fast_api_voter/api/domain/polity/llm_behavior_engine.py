@@ -94,9 +94,11 @@ the CALLER before this module is ever reached (run_polity_simulation's
 _run_chamber_deliberation is dispatched directly from the tick loop, never
 nested inside _run_accountability_phase -- see that function's own
 docstring for why). Chunks via chunk_voters, but at its OWN measured
-ceiling (_CHAMBER_MAX_CHUNK_SIZE=1, cut down from an original 10 -- via a
-tried-and-failed intermediate of 5 -- after repeated token-budget overflows;
-see that constant's own docstring), not config.llm.max_batch_size --
+ceiling (_CHAMBER_MAX_CHUNK_SIZE_OLLAMA=1, cut down from an original 10 --
+via a tried-and-failed intermediate of 5 -- after repeated token-budget
+overflows; see that constant's own docstring, and _CHAMBER_MAX_CHUNK_SIZE_
+VLLM=5 for the vLLM-era re-test that raised this on that provider), not
+config.llm.max_batch_size --
 originally designed to never chunk at all (the cohort is capped at
 sortition_chamber.seats, shipped 30, "a handful", the same category as
 dt=5/dt=6), but this lot's own pre-flight spike measured that assumption
@@ -128,12 +130,13 @@ than silently made:
 """
 from __future__ import annotations
 
+import concurrent.futures
 import json
 import logging
 import math
 from dataclasses import dataclass, field
 from itertools import chain
-from typing import Any, Callable, Mapping, Sequence, TypeVar
+from typing import Any, Callable, Generic, Mapping, Protocol, Sequence, TypeVar
 
 import numpy as np
 
@@ -151,12 +154,22 @@ from api.domain.polity.codebook import (
     RESPONSE_MOTIF_PROMPT_TABLE,
     STANCE_PROMPT_TABLE,
     VOTE_MOTIF_PROMPT_TABLE,
+    CampaignMotif,
+    CandidacyMotif,
     CoalitionAction,
     EventType,
+    PartyNominationMotif,
+    PressureAct,
+    PressureMotif,
     ReactionMotif,
+    ResponseMotif,
+    Stance,
+    VoteMotif,
     check_codebook_version,
 )
 from api.domain.polity.config import PolityConfig, PressureMenuConfig
+from api.domain.polity.emotions import tolerance_scale
+from api.domain.polity.llm_call_log import call_context, llm_call_id, request_sha256
 from api.domain.polity.llm_client import (
     SUPPORTED_PROVIDERS,
     LlmClientProtocol,
@@ -192,11 +205,20 @@ from api.domain.polity.llm_schemas import (
     ReactionDecision,
     ResponseDecision,
     VoteCastDecision,
+    vote_cast_json_schema,
 )
+from api.domain.polity.llm_toon_encoding import encode_toon_array
+from api.domain.polity.model_profiles import QWEN3_8B_AWQ_VLLM, QWEN3_8B_OLLAMA, ModelProfile, model_profile
 from api.domain.polity.parties import Party
 from api.domain.polity.simple_rules import (
     BLANK_LABEL,
+    build_ranking,
     candidate_label,
+    citizen_id_from_label,
+    decide_candidacy,
+    deterministic_pressure_action,
+    deterministic_reaction_to_event,
+    select_party_nominee_from_declared,
     sympathizer_ratio,
     tiebreak_key,
     weighted_distance,
@@ -264,7 +286,47 @@ MIN_SAFE_BATCH_SIZE = 20
 # scripts/lot3_chamber_reliability_results.md's "Lot 4 chunk_size=1
 # validation" section for the full evidence chain (chunk=10 crash,
 # chunk=5 re-failure, chunk=1 convergence).
-_CHAMBER_MAX_CHUNK_SIZE = 1
+#
+# Every finding above is Ollama-era (this project's own OLLAMA_CONTEXT_
+# LENGTH is the ceiling cited throughout) and stayed the shipped value for
+# every provider, unexamined since the vLLM switch (§15bis.6), because
+# nothing had re-tested it. Renamed here (2026-09-08) to make that explicit
+# rather than silently keep applying an Ollama-measured ceiling to vLLM --
+# see _CHAMBER_MAX_CHUNK_SIZE_VLLM below for the re-test and its very
+# different answer, and _chamber_chunk_size for how the two are selected.
+_CHAMBER_MAX_CHUNK_SIZE_OLLAMA = QWEN3_8B_OLLAMA.chamber_chunk_size  # 1; the value lives in model_profiles (S2.3)
+
+_CHAMBER_MAX_CHUNK_SIZE_VLLM = QWEN3_8B_AWQ_VLLM.chamber_chunk_size  # 5; the value lives in model_profiles (S2.3)
+"""check_vllm_chunk_size_throughput_results.md (2026-09-08, GPU, real
+production prompts, real decode/validation, vLLM/Qwen3-8B-AWQ): unlike
+vote_cast (see _VOTE_CAST_MAX_CHUNK_SIZE_VLLM's own docstring), chamber_
+deliberation's Ollama-era failure history is exclusively "Mode B" -- token-
+budget exhaustion that converges once given enough budget, never a
+reasoning/attention collapse that persists regardless of budget -- so there
+is no analogous correctness risk to re-check against ground truth here, only
+whether a correctly-sized budget avoids Mode B. It does: 5 was the largest
+chunk size tested (not an exhaustively-searched ceiling), clean across every
+run in that investigation but one -- a single `finish_reason='length'`
+despite the maximized dynamic budget (_dynamic_max_tokens), in 40 total
+attempts across chunk sizes 2/3/5 -- and delivers the largest measured
+throughput win of any chunk size tested for this decision type (~2.9s/member
+at chunk=1 down to ~1.4s/member at chunk=5, roughly 2x), on top of the
+proportional 5x reduction in call count this run's own dominant cost driver
+(9,075 calls at chunk=1, seats=75 x ticks=121) sees from raising chunk size
+at all. Requires _dynamic_max_tokens at the call site, not just this raised
+ceiling on its own -- see that function's own docstring for why."""
+
+
+def _profile(config: PolityConfig) -> ModelProfile:
+    """The served model's profile (S2.3), read fresh per call so a config change
+    -- a test overriding llm.provider or llm.model -- is always honored."""
+    return model_profile(config.llm.provider, config.llm.model)
+
+
+def _chamber_chunk_size(config: PolityConfig) -> int:
+    """The model profile's measured chamber chunk size -- 5 for Qwen3-8B-AWQ on
+    vLLM, 1 on Ollama; see _CHAMBER_MAX_CHUNK_SIZE_VLLM/_OLLAMA for the record."""
+    return _profile(config).chamber_chunk_size
 
 # A real v6b acceptance run (2026-08-17, GPU) found cast_votes's own
 # per-voter distance-threshold arithmetic -- correct at batch size 1 (5/5
@@ -312,7 +374,73 @@ _CHAMBER_MAX_CHUNK_SIZE = 1
 # (chamber_deliberation/pressure_action's own per-tick call volume is), and
 # likely an overestimate since it assumes chunk_size=3 would have completed
 # cleanly instead of repeatedly failing and burning replay attempts.
-_VOTE_CAST_MAX_CHUNK_SIZE = 1
+#
+# Every finding above is Ollama-era (OLLAMA_CONTEXT_LENGTH=16384 is the
+# ceiling cited throughout) and includes the single most serious reason to
+# be careful here: an "identity-permutation collapse" at batch size 4+,
+# checked against real weighted_distance ground truth, not just schema
+# validity (0-2/5 correct at chunk=5, cited above) -- a reasoning/attention
+# failure, not a token-budget one, that no amount of extra budget fixed.
+# Renamed here (2026-09-08) to make explicit this value only ever applied
+# to Ollama, unexamined since the vLLM switch (§15bis.6) -- see
+# _VOTE_CAST_MAX_CHUNK_SIZE_VLLM below for the re-test.
+_VOTE_CAST_MAX_CHUNK_SIZE_OLLAMA = QWEN3_8B_OLLAMA.vote_cast_chunk_size  # 1; the value lives in model_profiles (S2.3)
+
+_VOTE_CAST_MAX_CHUNK_SIZE_VLLM = QWEN3_8B_AWQ_VLLM.vote_cast_chunk_size  # 3; the value lives in model_profiles (S2.3)
+"""check_vllm_chunk_size_throughput_results.md (2026-09-08, GPU, real
+production prompts, parties.initial_count=5): re-tested the identity-
+permutation collapse directly against the same ground truth the Ollama-era
+finding used (simple_rules.build_ranking, diffed decision-by-decision, not
+just schema validity) -- it does not reproduce on vLLM/Qwen3-8B-AWQ: 23/24
+correct at chunk=3, 29/30 at chunk=5, across every structurally-clean
+decode. Chunk=3 was chosen over the also-clean chunk=5 specifically because
+chunk=5 showed a real, if small, cost the throughput numbers alone don't
+capture: in that same run, chunk=5 produced both a `finish_reason='length'`
+truncation AND a multi-voter schema failure (the deterministic blank+
+non-empty-ranking §3.6.1 quirk _VOTE_CAST_RETRY_TEMPERATURE's own docstring
+already documents, chunk-size-independent, reproduced standalone at
+chunk=1 too) in 8 attempts, while chunk=3 was clean 8/8 -- and a chunk
+failure forces a full-chunk retry, so a bigger chunk means more already-
+computed work discarded per failure. Chunk=3 captured nearly all of the
+measured speedup anyway (~4.5s/citizen vs chunk=5's ~5.1s/citizen, both
+roughly 2.5x faster than chunk=1's ~12.2s/citizen) with the better observed
+failure profile on this project's own most extensively fragile decision
+type. Requires _dynamic_max_tokens at the call site, not just this raised
+ceiling on its own -- see that function's own docstring for why."""
+
+
+def _vote_cast_chunk_size(config: PolityConfig) -> int:
+    """The model profile's measured vote_cast chunk size -- 3 for Qwen3-8B-AWQ on
+    vLLM, 1 on Ollama; see _VOTE_CAST_MAX_CHUNK_SIZE_VLLM/_OLLAMA for the record."""
+    return _profile(config).vote_cast_chunk_size
+
+
+_PRESSURE_CALIBRATED_CHUNK_SIZE = 1
+"""polity-decision-contracts.md's Phase E: check_pressure_calibration_
+matrix_results.md measured every C4-compliant calibration signal
+(PRESSURE_THRESHOLD_SIGNAL and its siblings, see PressureCalibrationSignal)
+at 100% (9/9 trials) on the unambiguous subset at batch size 1, against
+both the closed and the open menu -- and ALL FIVE variants tested,
+calibrated or not, collapse uniformly to within a few points of the ~52%
+a constant answer scores by construction at batch 5 and batch 25 (act
+histograms there: 72-75/75 decisions landing on one code). Not a graded
+degradation the way _CHAMBER_MAX_CHUNK_SIZE_VLLM/_VOTE_CAST_MAX_CHUNK_
+SIZE_VLLM's own token-budget ceilings are -- an on/off cliff at the first
+citizen added to the call. Unlike those two constants, this is
+deliberately NOT provider-conditional: no batch size other than 1 has
+ever cleared the quality bar on any provider tested, so there is no
+larger value to switch to on vLLM the way vote_cast/chamber_deliberation
+have.
+
+check_pressure_batch_size_cost_results.md measured what shipping this
+costs on vLLM (polity_config.yaml's shipped llm.provider): 2.8-3.0x batch
+25's wall-clock, not the ~25x a naive call-count model predicts, because
+most of a call's latency at this prompt size is fixed per-request
+overhead rather than prompt-token processing. Extrapolated against the
+real 137-decisions/tick anchor (plan-flagship-30y-run.md's Phase 7
+scale-probe) and 120 ticks (30y x 4 ticks/year): +25.4s/tick, +0.85h over
+the ~35.6h whole-run baseline -- under 2.5% of total runtime. Not
+separately measured on Ollama, which is not the shipped provider."""
 
 # cache_recycle_chunk_size_tension_findings.md's own 3-condition harness
 # experiment (2026-08-22, GPU) found the chunk_size=1 fix above still
@@ -349,6 +477,101 @@ _VOTE_CAST_MAX_CHUNK_SIZE = 1
 # this one call site, never the first attempt).
 _VOTE_CAST_RETRY_TEMPERATURE = 0.3
 
+# Added 2026-09-06 (check_vllm_vote_cast_retry_is_inert_results.md), alongside
+# _VOTE_CAST_RETRY_TEMPERATURE, not instead of it: the first real vLLM run of
+# this simulator crashed on the exact failure _VOTE_CAST_RETRY_TEMPERATURE
+# exists to resolve, because VllmJsonClient's pinned seed constrains a retry
+# even away from temperature=0 -- unlike Ollama, where the docstring above
+# already relies on the backend's own non-reproducibility to make a same-seed
+# retry vary at all. Measured directly (9 real production-shaped failures,
+# real vote_cast prompts, real config): retry_temperature alone left 1 of 9
+# stuck at 0/3 recovered across otherwise-identical retries; adding a
+# per-retry seed offset left 0 of 9 stuck in the same sample, at a
+# comparable overall recovery rate. Value is an arbitrary constant distinct
+# from config.run.seed's usual range, not itself meaningful -- only that
+# `retry_seed_base + attempt` differs from the run seed and from every other
+# retry attempt.
+_VOTE_CAST_RETRY_SEED_BASE = 900_000_001
+
+# Added 2026-09-08 after Phase 7's own smoke run (plan-flagship-30y-run.md)
+# crashed on the FIRST real end-to-end exercise of _CHAMBER_MAX_CHUNK_SIZE_
+# VLLM=5: decide_chamber_deliberation had no retry_temperature/retry_seed_base
+# of its own, so its `_complete_and_decode_with_replay` call sent
+# byte-identical retries against a VllmJsonClient -- a strong lock at
+# temperature=0, exactly the mechanism check_vllm_vote_cast_retry_is_inert_
+# results.md already measured for vote_cast. A chunk's own deterministic
+# `finish_reason='length'` (the already-documented "chamber_position ==
+# sincere_position" Mode-A loop, build_chamber_system_prompt's own docstring,
+# 2.6% baseline at chunk=1) therefore exhausted every replay attempt
+# identically and propagated all the way out of run_simulation uncaught --
+# chamber_deliberation had neither this mitigation nor cast_votes's own
+# deterministic fallback, so nothing stood between one triggering member and
+# a dead run. Raising the chunk size made this qualitatively worse, not just
+# more probable: a chunk of 5 is ~4.7x more likely to CONTAIN a triggering
+# member than a chunk of 1 (1-(1-0.026)**5 ~= 12.3% vs 2.6%), and because the
+# whole chunk shares one completion, one triggering member drags every other
+# member in that chunk into the same failed retry cycle. Applied by direct
+# analogy to _VOTE_CAST_RETRY_TEMPERATURE/_VOTE_CAST_RETRY_SEED_BASE's own
+# already-measured fix for the identical mechanism -- not independently
+# re-measured for chamber's own recovery rate the way vote_cast's was (that
+# would need its own dedicated live investigation); paired with
+# _deterministic_chamber_fallback below for the case even this doesn't
+# recover, matching this project's own standing priority ("must not die
+# mid-run" first, per plan-flagship-30y-run.md's decision table).
+_CHAMBER_RETRY_TEMPERATURE = 0.3
+
+# Distinct from _VOTE_CAST_RETRY_SEED_BASE only so the two are never
+# confused reading a log -- both call sites always run sequentially, one
+# client, never concurrently, so nothing depends on the values differing.
+_CHAMBER_RETRY_SEED_BASE = 900_000_101
+
+# representative_response's own pair, added 2026-09-11 after a real Stage 3
+# scale-probe run died on it: the model returned two shifts targeting the same
+# dimension, ResponseDecision's own _check_no_duplicate_dimensions rejected the
+# batch, and BOTH replays reproduced the identical response byte-for-byte --
+# because without these two constants a retry re-sends the same prompt at
+# temperature=0 with the same seed, which is not a retry at all, it is the same
+# request three times. Same values and same rationale as the vote_cast and
+# chamber pairs above; distinct seed base only so the three are never confused
+# reading a log.
+_RESPONSE_RETRY_TEMPERATURE = 0.3
+_RESPONSE_RETRY_SEED_BASE = 900_000_201
+
+# The remaining four decision types' pairs, added 2026-09-11 in one pass, so
+# that ALL NINE now vary sampling on a retry. Same values, same mechanism and
+# same rationale as the three pairs above -- which is exactly why they are
+# grouped under one comment instead of repeating that paragraph four more
+# times; read _VOTE_CAST_RETRY_TEMPERATURE/_VOTE_CAST_RETRY_SEED_BASE for the
+# measurement this all rests on (9 real production-shaped failures: temperature
+# alone left 1/9 stuck, temperature+seed 0/9).
+#
+# The point is narrow and worth stating plainly: without these, a "retry" is
+# not a retry. At temperature=0 against VllmJsonClient's pinned seed, replaying
+# a failed batch re-sends a byte-identical request and gets back a byte-
+# identical response, so config.llm.max_batch_replays buys nothing at all for
+# the decision types that lack them -- it just spends the same failure three
+# times before dying. That is not a theory: it is what the 2026-09-11 Stage 3
+# post-mortem found for representative_response, by replaying the dead run's
+# own recorded prompt.
+#
+# NOT independently re-measured per decision type (only vote_cast's recovery
+# rate ever was) -- applied by direct analogy to an identical mechanism, and
+# paired below with a deterministic fallback for the case where even a varied
+# retry fails. Distinct seed bases only so the seven are never confused reading
+# a log; all call sites are sequential, nothing depends on the values differing.
+_CANDIDACY_RETRY_TEMPERATURE = 0.3
+_CANDIDACY_RETRY_SEED_BASE = 900_000_301
+_POSITIONING_RETRY_TEMPERATURE = 0.3
+_POSITIONING_RETRY_SEED_BASE = 900_000_401
+_PRESSURE_RETRY_TEMPERATURE = 0.3
+_PRESSURE_RETRY_SEED_BASE = 900_000_501
+_REACTION_RETRY_TEMPERATURE = 0.3
+_REACTION_RETRY_SEED_BASE = 900_000_601
+_NOMINATION_RETRY_TEMPERATURE = 0.3
+_NOMINATION_RETRY_SEED_BASE = 900_000_701
+_COALITION_RETRY_TEMPERATURE = 0.3
+_COALITION_RETRY_SEED_BASE = 900_000_801
+
 # Mirrors _POSITIONING_THINK_TOKEN_ALLOWANCE's own reasoning: a shared
 # constant would either starve one caller or over-provision another, since
 # each think=True prompt's reasoning-token appetite is measured
@@ -379,7 +602,7 @@ _VOTE_CAST_RETRY_TEMPERATURE = 0.3
 # roughly 14000 tokens of real headroom, so 12000 leaves a genuine margin
 # (~2600 tokens) for prompt-size variance rather than sitting right at the
 # ceiling like 4000/8000 both did.
-_VOTE_THINK_TOKEN_ALLOWANCE = 12000
+_VOTE_THINK_TOKEN_ALLOWANCE = QWEN3_8B_AWQ_VLLM.vote_think_allowance  # 12000; see model_profiles (S2.3)
 
 # think=False's own "3/3 on the real 30-member cohort" finding above did NOT
 # generalize to every 10-member chunk: a real v6b acceptance run (2026-08-17,
@@ -405,7 +628,7 @@ _VOTE_THINK_TOKEN_ALLOWANCE = 12000
 # throughout, no context-shift, prompt ~4771 tokens -- the same deterministic
 # budget-exhaustion signature, not context corruption. Corrected to actually
 # match the value the docstring already claimed.
-_CHAMBER_THINK_TOKEN_ALLOWANCE = 8000
+_CHAMBER_THINK_TOKEN_ALLOWANCE = QWEN3_8B_AWQ_VLLM.chamber_think_allowance  # 8000; see model_profiles (S2.3)
 
 _TRUNCATION_THRESHOLD = 6
 _TRUNCATE_TO = 5
@@ -422,11 +645,35 @@ class VoteBatchOutcome:
     retry_sampling_varied: dict[int, bool] = field(default_factory=dict)
     """cid -> whether that voter's decision came from a temperature-varied
     RETRY (never the first attempt -- see _VOTE_CAST_RETRY_TEMPERATURE),
-    per _complete_and_decode_with_replay's own retry_info contract. Since
-    _VOTE_CAST_MAX_CHUNK_SIZE=1, one chunk == one voter == one completion,
-    so this is unambiguous per cid. Defaults to an empty dict (every key
-    absent means False) so every pre-existing VoteBatchOutcome(...)
-    construction in this codebase's own tests keeps compiling unchanged."""
+    per _complete_and_decode_with_replay's own retry_info contract. On
+    Ollama (_VOTE_CAST_MAX_CHUNK_SIZE_OLLAMA=1) one chunk is one voter, so
+    this was trivially unambiguous per cid; on vLLM (_VOTE_CAST_MAX_CHUNK_
+    SIZE_VLLM=3) a chunk can hold several voters, but it stays unambiguous
+    for a different reason -- a chunk retries or falls back as a whole
+    (_complete_and_decode_with_replay retries the entire request, never a
+    partial correction, per §3.6.10), so every decision in that chunk
+    shares the same chunk-level sampling_varied outcome, assigned once per
+    decision.cid at the call site below, not once per chunk. Defaults to an
+    empty dict (every key absent means False) so every pre-existing
+    VoteBatchOutcome(...) construction in this codebase's own tests keeps
+    compiling unchanged."""
+    llm_fallback: dict[int, bool] = field(default_factory=dict)
+    """cid -> whether that voter's ballot came from _deterministic_vote_
+    fallback rather than the model at all -- added 2026-09-06
+    (check_vllm_vote_cast_retry_is_inert_results.md) after a real vLLM run
+    crashed with the replay budget exhausted for one voter (cid=33: two
+    different retry seeds, identical wrong answer both times). Per the
+    project's own standing priority for this run ("must not die mid-run" >
+    observable > UI-ready output), cast_votes now degrades to
+    simple_rules.build_ranking for that ONE voter instead of raising and
+    killing the whole simulation. Mutually exclusive with
+    retry_sampling_varied being true for the same cid: a fallback decision
+    never came from any LLM attempt, varied-sampling or not. Same
+    empty-dict-means-False default as retry_sampling_varied, same reason."""
+    llm_call_ids: dict[int, str | None] = field(default_factory=dict)
+    """cid -> llm_call_id of the call this decision came from (llm_call_log.py),
+    journaled so an event resolves to its line in llm_calls.jsonl. For a fallback
+    decision, the last call attempted -- the one whose failure caused it."""
 
 
 def _check_supported(config: PolityConfig) -> None:
@@ -451,12 +698,32 @@ def _check_supported(config: PolityConfig) -> None:
         )
     if config.llm.rationale_mode != "codes":
         raise NotImplementedError(f"llm.rationale_mode {config.llm.rationale_mode!r} is not supported yet (§16.5)")
-    if config.parallel.intra_run_workers != 1:
+    if config.parallel.intra_run_workers != 1 and (config.llm.reproducibility != "relaxed" or config.llm.provider != "vllm"):
+        # check_intra_run_concurrency_determinism_results.md: parallel calls change vLLM's
+        # batches and so its answers (20/497 events differed between workers 1 and 8). D1
+        # accepts that for runs made reproducible by replay (S0.6) -- llm.reproducibility:
+        # relaxed -- and only on vLLM; validate_config says the same with the reason.
         raise NotImplementedError(
-            "parallel.intra_run_workers > 1 is not supported -- concurrent batching breaks "
-            "reproducibility (llm_batching_determinism_results.md)"
+            "parallel.intra_run_workers > 1 needs llm.reproducibility: relaxed on the vllm provider (S2.1)"
         )
     check_codebook_version(config.llm.codebook_version)
+
+
+THINKING_BUDGET_TYPES = frozenset({"vote_cast", "chamber_deliberation"})
+"""The decisions `llm.thinking_token_budget` applies to: the two S1.3 measured. Others made
+with thinking on -- `campaign_positioning` reasons thousands of tokens too -- were not
+measured under a budget, so they are not given one."""
+
+
+def thinking_budget_body(config: PolityConfig, decision_type: str) -> dict[str, Any] | None:
+    """The request field S1.3 adopted, for a decision it applies to, or None.
+
+    None when no budget is configured, so a run without one sends -- and hashes -- exactly the
+    request it always did."""
+    budget = config.llm.thinking_token_budget
+    if budget is None or decision_type not in THINKING_BUDGET_TYPES:
+        return None
+    return {"thinking_token_budget": budget}
 
 
 def _complete_and_decode_with_replay(
@@ -470,8 +737,11 @@ def _complete_and_decode_with_replay(
     decode: Callable[[str], _BatchT],
     replays: int,
     decision_type: str,
+    unit_ids: Sequence[int],
+    retry_info: dict[str, Any],
     retry_temperature: float | None = None,
-    retry_info: dict[str, Any] | None = None,
+    retry_seed_base: int | None = None,
+    extra_body: Mapping[str, Any] | None = None,
 ) -> _BatchT:
     """§3.6.10's "un batch invalide est rejoue integralement, jamais
     corrige partiellement" -- the half of that rule the codebase never
@@ -510,6 +780,28 @@ def _complete_and_decode_with_replay(
     unwinding to retry safely -- unlike a truncated/misaligned response,
     which produces no such side effect to unwind.
 
+    ONE DOCUMENTED EXCEPTION, 2026-09-11 (Track C1 step A,
+    lets-build-a-solid-spicy-otter.md): `decide_party_nominations` moves its
+    own `validate_party_nomination_decision` call INSIDE `decode=`. Both
+    reasons above fail to apply to it specifically. First, its retry is
+    NOT byte-identical at temperature=0 -- it already passes
+    `retry_temperature`/`retry_seed_base`, so "an identical retry is not
+    expected to fix it" is not this caller's situation; a genuine retry
+    here samples differently, and `check_party_nomination_position_
+    logprobs_results.md` found the failure to be a confident, repeatable
+    comprehension error (P(2)=0.994, P(6|2)=0.892), not noise a same-
+    sampling retry could shake loose anyway -- varied sampling is the one
+    lever with a real chance to land on a different answer. Second, it
+    builds no side effect before validation -- `winners` is resolved from
+    `decisions` only after the whole batch already validated, so there is
+    nothing to unwind. Found live, 2026-09-10 (Stage 3, population 500):
+    `validate_party_nomination_decision` ran post-hoc, outside this
+    function entirely, so an out-of-range `winner_position` skipped the
+    already-wired replay budget completely and fell straight to the
+    whole-batch deterministic fallback on its very first occurrence --
+    10 of 15 nominations in that run (67%), for one out-of-range answer
+    among five parties' worth of decisions each time.
+
     This softens, and deliberately does not overturn,
     LlmResponseError's own "NOT retried" ruling (llm_client.py): that
     ruling's operative objection is SILENT laundering of a real problem. A
@@ -529,60 +821,104 @@ def _complete_and_decode_with_replay(
     identical across recycle_after_n_calls settings, meaning an identical
     byte-for-byte retry at temperature=0 reproduces the identical wrong
     output rather than resampling past it). The FIRST attempt (attempt==0)
-    always uses `temperature=None` (the client's own configured value) --
-    this is unconditional and does not depend on `retry_temperature` being
-    set, so a caller opting into this parameter never loses determinism on
-    the common, successful-first-try path. Only a genuine retry (attempt
-    >= 1) uses `retry_temperature`, when given.
+    always uses `temperature=None`/`seed=None` (the client's own configured
+    values) -- this is unconditional and does not depend on either retry
+    parameter being set, so a caller opting into them never loses
+    determinism on the common, successful-first-try path. Only a genuine
+    retry (attempt >= 1) uses `retry_temperature`/`retry_seed_base`, when
+    given.
+
+    `retry_seed_base`, when given, overrides `seed` on every retry attempt
+    to `retry_seed_base + attempt` -- a DIFFERENT seed on each successive
+    retry, never repeating the first attempt's seed or each other's.
+    Added alongside `retry_temperature`, not as a replacement for it:
+    `check_vllm_vote_cast_retry_is_inert_results.md` measured directly that
+    `retry_temperature` ALONE is not sufficient on VllmJsonClient, where
+    `seed` is a strong lock even away from temperature=0 (unlike Ollama,
+    where cache_recycle_chunk_size_tension_findings.md's own validation
+    already relied on the backend's own non-reproducibility to make a
+    same-seed retry vary at all -- see that module's docstring). Measured on
+    the real production path, `retry_temperature` alone left 1 of 9 already-
+    failing voters stuck at 0/3 recovered across identical-parameter
+    retries; adding seed variation left 0 of 9 stuck in the same sample.
+    Every existing call site (before cast_votes opted in) passes neither
+    parameter and is unaffected.
 
     `retry_info` (default None) is an optional, caller-owned mutable dict
     this function writes into on success: `{"attempts": int, "sampling_
     varied": bool}`. `sampling_varied` is true iff the successful attempt
-    was itself a retry AND `retry_temperature` was set for it -- the
-    caller's own signal for whether to journal a `retry_sampling_varied`
-    marker, so a future analysis of the journal cannot mistake a
-    varied-sampling retry's decision for an ordinary, deterministic
-    first-attempt one. Every existing call site passes neither parameter
-    and is completely unaffected -- this dict is populated, never read, by
-    this function.
+    was itself a retry AND (`retry_temperature` or `retry_seed_base`) was
+    set for it -- the caller's own signal for whether to journal a
+    `retry_sampling_varied` marker, so a future analysis of the journal
+    cannot mistake a varied-sampling retry's decision for an ordinary,
+    deterministic first-attempt one. Every existing call site passes none
+    of these parameters and is completely unaffected -- this dict is
+    populated, never read, by this function.
 
-    The `temperature` kwarg is passed to `client.complete_json` only when
-    actually overriding (attempt >= 1 and `retry_temperature is not None`)
-    -- never as an explicit `temperature=None` on every call. This keeps
-    every fake/test client across this codebase's own test suite (whose
-    `complete_json` signatures predate this parameter and don't accept it)
-    working completely unchanged; only a caller that actually sets
-    `retry_temperature` and actually reaches a retry needs its own fake
-    client to accept the kwarg."""
+    The `temperature`/`seed` kwargs are passed to `client.complete_json`
+    only when actually overriding (attempt >= 1 and the corresponding
+    `retry_*` parameter is not None) -- never as an explicit `None` on every
+    call. This keeps every fake/test client across this codebase's own test
+    suite (whose `complete_json` signatures predate these parameters and
+    don't accept them) working completely unchanged; only a caller that
+    actually sets `retry_temperature`/`retry_seed_base` and actually reaches
+    a retry needs its own fake client to accept the kwarg."""
     attempt = 0
     while True:
-        call_kwargs: dict[str, Any] = {}
-        if attempt > 0 and retry_temperature is not None:
-            call_kwargs["temperature"] = retry_temperature
+        sampling = _retry_sampling(attempt, retry_temperature, retry_seed_base)
+        # `extra_body` (S1.3's thinking budget) goes to the hash and the call alike, and only
+        # when set -- the same rule as the sampling overrides, for the same fake clients.
+        call_kwargs: dict[str, Any] = {**sampling, **({"extra_body": extra_body} if extra_body else {})}
+        # Before the call, every attempt: a decision that ends in a fallback still
+        # points at the call whose failure caused it.
+        retry_info["call_id"] = llm_call_id(request_sha256(
+            system_prompt=system_prompt, user_prompt=user_prompt, json_schema=json_schema,
+            max_tokens=max_tokens, think=think, **call_kwargs,
+        ))
         try:
-            raw = client.complete_json(
-                system_prompt=system_prompt,
-                user_prompt=user_prompt,
-                json_schema=json_schema,
-                max_tokens=max_tokens,
-                think=think,
-                **call_kwargs,
-            )
+            with call_context(decision_type=decision_type, unit_ids=unit_ids, attempt=attempt):
+                raw = client.complete_json(
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    json_schema=json_schema,
+                    max_tokens=max_tokens,
+                    think=think,
+                    **call_kwargs,
+                )
             result = decode(raw)
-            if retry_info is not None:
-                retry_info["attempts"] = attempt
-                retry_info["sampling_varied"] = attempt > 0 and retry_temperature is not None
+            retry_info["attempts"] = attempt
+            retry_info["sampling_varied"] = bool(sampling)
             return result
         except LlmResponseError as exc:
             if attempt >= replays:
                 raise
             attempt += 1
+            detail = ", ".join(f"{key}={value}" for key, value in _retry_sampling(attempt, retry_temperature, retry_seed_base).items())
             _logger.warning(
                 "%s batch rejected on attempt %d/%d, replaying%s: %s",
-                decision_type, attempt, replays + 1,
-                f" at temperature={retry_temperature}" if retry_temperature is not None else "",
-                exc,
+                decision_type, attempt, replays + 1, f" at {detail}" if detail else "", exc,
             )
+
+
+def _retry_sampling(attempt: int, retry_temperature: float | None, retry_seed_base: int | None) -> dict[str, Any]:
+    """The sampling overrides an attempt sends: none on the first attempt, then the
+    decision type's retry temperature and a seed of base + attempt, whichever are set.
+    Only overrides are sent, never an explicit None (see
+    _complete_and_decode_with_replay)."""
+    overrides: dict[str, Any] = {}
+    if attempt > 0 and retry_temperature is not None:
+        overrides["temperature"] = retry_temperature
+    if attempt > 0 and retry_seed_base is not None:
+        overrides["seed"] = retry_seed_base + attempt
+    return overrides
+
+
+def _sampling_varied(retry_info: dict[str, Any], is_fallback: bool) -> bool:
+    """The journaled `retry_sampling_varied` flag: true only when a varied-sampling
+    retry produced the decision actually kept. retry_info is written as soon as a
+    response decodes, so a varied retry that decodes and then fails validation would
+    otherwise mark its replacement fallback decisions as model retries."""
+    return bool(retry_info.get("sampling_varied", False)) and not is_fallback
 
 
 def chunk_voters(
@@ -628,6 +964,186 @@ def chunk_voters(
     return chunks
 
 
+def run_chunks(
+    chunks: Sequence[list[Citizen]], worker: Callable[[list[Citizen]], _BatchT], workers: int
+) -> list[_BatchT]:
+    """The single shared execution strategy behind every chunked decide_*
+    entry point (Phase 2, plan-flagship-30y-run.md).
+
+    **Reachable under `llm.reproducibility: relaxed` on vLLM (S2.1, decision D1).**
+    Until then `_check_supported` refused `workers > 1` unconditionally --
+    `check_intra_run_concurrency_determinism_results.md` found that vLLM
+    concurrency ALSO breaks reproducibility (not just Ollama's, the finding
+    this guard originally cited): 20/497 events (~4%) diverged between
+    workers=1 and workers=8 on an otherwise identical config, concentrated
+    in `vote_cast`'s first-attempt success/failure outcome, with a real
+    increase in that failure rate under concurrent load (30% to 39%) --
+    confirmed via a workers=1-vs-workers=1 control (0/497 diffs) to rule out
+    this being inherent, non-concurrency vLLM nondeterminism before blaming
+    concurrency for it. So today, every caller only ever reaches the
+    `workers == 1` branch below. This function stays in place, correct and
+    unit-tested, as ready-to-enable groundwork should a future investigation
+    find and fix the underlying batch-composition sensitivity, or a
+    deliberate policy decision accepts the ~4% divergence rate -- neither
+    decision is made here.
+
+    `workers == 1` (every config today, on either provider) runs each chunk
+    in a plain sequential loop -- not merely a `ThreadPoolExecutor(max_
+    workers=1)`, which would add thread-creation overhead and a different
+    exception-wrapping behavior for zero benefit; this keeps the
+    pre-Phase-2 code path byte-for-byte the same code, not just the same
+    result.
+
+    `workers > 1` submits every chunk to a bounded `ThreadPoolExecutor` and
+    returns results **in chunk order, not completion order** -- the
+    property Phase 2's own determinism proof depends on
+    (check_intra_run_concurrency_determinism_results.md): `run_polity_
+    simulation.py`'s journal writes iterate a decide_*'s returned
+    decisions/outcome AFTER this function returns, in that same fixed
+    order, regardless of which underlying HTTP request actually completed
+    first. `Future.result()` on each future, read in submission order,
+    gives exactly that -- and re-raises that chunk's own exception (a
+    validate_decision/LlmResponseError failure) at the point this function
+    reads it, same as the sequential path would raise it inline.
+
+    Threads, not asyncio or multiprocessing: `VllmJsonClient`/
+    `OllamaJsonClient.complete_json` are synchronous, blocking network
+    calls (`httpx.Client.post`) -- the GIL releases for the duration of the
+    actual socket I/O, which is where virtually all of this function's
+    wall-clock time goes (a `think=True` generation takes seconds; the
+    Python-side request/response handling is microseconds), so threads give
+    real concurrency here without an async rewrite of nine decide_*
+    functions and run_polity_simulation.py's whole tick loop.
+    `httpx.Client` documents itself as safe for concurrent use across
+    threads -- a single shared client instance backs every chunk's call,
+    the same instance the sequential path already used.
+
+    This is a client-side concurrency mechanism, not the one
+    `vllm_determinism_results.md`'s own proof used (`asyncio.gather`) --
+    deliberately not assumed equivalent by that fact alone. What actually
+    matters for this project's determinism claim is server-side: does vLLM
+    still serve N genuinely-concurrent requests byte-identically regardless
+    of which client-side mechanism produced that concurrency. A thread pool
+    over a synchronous client and an asyncio event loop over an async
+    client both produce N requests in flight at the server at once; neither
+    is closer to what the server actually sees than the other. This is why
+    Phase 2 ships on `check_intra_run_concurrency_determinism.py`'s own
+    proof, run against THIS mechanism specifically, not by citing the
+    asyncio-based one."""
+    if workers == 1:
+        return [worker(chunk) for chunk in chunks]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = [pool.submit(worker, chunk) for chunk in chunks]
+        return [future.result() for future in futures]
+
+
+class CitizenDecision(Protocol):
+    """A decision whose unit is one citizen."""
+
+    @property
+    def cid(self) -> int: ...
+
+
+_CitizenDecisionT = TypeVar("_CitizenDecisionT", bound=CitizenDecision)
+
+
+@dataclass(frozen=True, kw_only=True)
+class DecisionSpec(Generic[_CitizenDecisionT]):
+    """Everything that differs between two chunked, per-citizen decision types (S3.2).
+    run_decision owns everything that does not: chunking, the replay loop,
+    validation inside it, the per-chunk deterministic fallback, and provenance."""
+
+    decision_type: str
+    json_schema: dict[str, Any]
+    think: bool
+    retry_temperature: float
+    retry_seed_base: int
+    chunk_size: int
+    min_batch_size: int = MIN_SAFE_BATCH_SIZE
+    system_prompt: Callable[[list[Citizen]], str]
+    user_prompt: Callable[[list[Citizen]], str]
+    decode: Callable[[str, Sequence[int]], list[_CitizenDecisionT]]
+    validate: Callable[[_CitizenDecisionT], None] | None = None
+    """Raises LlmResponseError on a decoded decision the engine cannot honour; runs
+    inside the replay's failure handling, so a rejected batch falls back exactly like
+    an exhausted replay budget."""
+    fallback: Callable[[list[Citizen]], list[_CitizenDecisionT]]
+    fallback_description: str
+    """What the log names as the fallback, e.g. "the deterministic ambition threshold
+    (simple_rules.decide_candidacy)"."""
+
+
+@dataclass(frozen=True)
+class DecisionResult(Generic[_CitizenDecisionT]):
+    decisions: list[_CitizenDecisionT]
+    llm_fallback: dict[int, bool]
+    retry_sampling_varied: dict[int, bool]
+    llm_call_ids: dict[int, str | None]
+
+
+def run_decision(
+    spec: DecisionSpec[_CitizenDecisionT],
+    citizens: Sequence[Citizen],
+    config: PolityConfig,
+    client: LlmClientProtocol,
+) -> DecisionResult[_CitizenDecisionT]:
+    """Chunks `citizens` in the order given (callers sort), decides each chunk, and
+    aggregates provenance per citizen. One unrecoverable chunk degrades only its own
+    citizens to spec.fallback, and is logged at ERROR -- never silently, never by
+    aborting the run."""
+
+    def decide_chunk(chunk: list[Citizen]) -> tuple[list[_CitizenDecisionT], bool, bool, str | None]:
+        expected_cids = [c.citizen_id for c in chunk]
+        retry_info: dict[str, Any] = {}
+        is_fallback = False
+        try:
+            chunk_decisions = _complete_and_decode_with_replay(
+                client,
+                system_prompt=spec.system_prompt(chunk),
+                user_prompt=spec.user_prompt(chunk),
+                json_schema=spec.json_schema,
+                max_tokens=compute_max_tokens(len(chunk)),
+                think=spec.think,
+                decode=lambda raw: spec.decode(raw, expected_cids),
+                replays=config.llm.max_batch_replays,
+                decision_type=spec.decision_type,
+                unit_ids=expected_cids,
+                # A deliberate, local exception to temperature=0 determinism -- see each
+                # decision type's own _*_RETRY_TEMPERATURE. Only ever applies to a genuine
+                # retry, never the first attempt.
+                retry_temperature=spec.retry_temperature,
+                retry_seed_base=spec.retry_seed_base,
+                retry_info=retry_info,
+            )
+            if spec.validate is not None:
+                for decision in chunk_decisions:
+                    spec.validate(decision)
+        except LlmResponseError as exc:
+            _logger.error(
+                "%s: exhausted every recovery attempt for cid(s) %s, falling back to %s instead of aborting "
+                "the run: %s", spec.decision_type, expected_cids, spec.fallback_description, exc,
+            )
+            chunk_decisions = spec.fallback(chunk)
+            is_fallback = True
+        return chunk_decisions, _sampling_varied(retry_info, is_fallback), is_fallback, retry_info.get("call_id")
+
+    decisions: list[_CitizenDecisionT] = []
+    retry_sampling_varied: dict[int, bool] = {}
+    llm_fallback: dict[int, bool] = {}
+    llm_call_ids: dict[int, str | None] = {}
+    chunks = chunk_voters(citizens, spec.chunk_size, min_batch_size=spec.min_batch_size)
+    for chunk_decisions, sampling_varied, is_fallback, call_id in run_chunks(
+        chunks, decide_chunk, config.parallel.intra_run_workers
+    ):
+        for decision in chunk_decisions:
+            retry_sampling_varied[decision.cid] = sampling_varied
+            llm_call_ids[decision.cid] = call_id
+            if is_fallback:
+                llm_fallback[decision.cid] = True
+        decisions.extend(chunk_decisions)
+    return DecisionResult(decisions, llm_fallback, retry_sampling_varied, llm_call_ids)
+
+
 def truncation_limit(candidate_count: int) -> int | None:
     """Design doc §3.6.1: full ranking if <=6 candidates, else top-5."""
     return None if candidate_count <= _TRUNCATION_THRESHOLD else _TRUNCATE_TO
@@ -647,7 +1163,102 @@ def compute_max_tokens(chunk_size: int) -> int:
     return max(chunk_size * 60 + 1536, 1536)
 
 
-_POSITIONING_THINK_TOKEN_ALLOWANCE = 8000
+_PROMPT_VECTOR_PRECISION = 2
+"""Decimal places for a position/priority/platform vector shown to the model
+HOLISTICALLY -- never for a field compared against another at a fine-grained
+threshold (see each call site's own comment for which category it is in).
+`sortition_chamber.max_deliberation_delta`/`mandate.max_response_delta`/
+`campaign.max_positioning_delta` are all shipped at 0.3 -- 30x coarser than
+this constant's own resolution (0.01) -- so no decision this project's config
+can express distinguishes two values this constant would conflate. Proposed
+2026-09-09 (plan-llm-protocol-and-theory-program.md §5.B, prompted by chamber's
+own 60-float-per-record payload); NOT yet live-verified against a real vLLM
+call at time of writing -- see that plan's own verification section before
+treating this as more than a well-reasoned, offline-tested default. Not
+applied to `distances`/`blank_threshold` (cast_votes's own accept/reject
+comparison, already once a 100%-blank collapse) or to any `to_payload()`-
+derived context (shared verbatim with the permanent journal record, where
+this project's own precision has never been questioned and reducing it would
+be a very different, much bigger decision than reducing what the model sees)."""
+
+assert QWEN3_8B_AWQ_VLLM.context_limit is not None
+_VLLM_CONTEXT_LIMIT = QWEN3_8B_AWQ_VLLM.context_limit
+"""Matches `--max-model-len 16384` (docker-compose.llm.yml) -- vLLM's own
+hard ceiling on prompt_tokens + max_tokens together for one request. Kept as a
+name for the scripts that import it; _dynamic_max_tokens reads the run's own
+model profile (S2.3)."""
+
+_VLLM_MAX_TOKENS_SAFETY_MARGIN = 300
+"""Headroom below _VLLM_CONTEXT_LIMIT that _dynamic_max_tokens never
+requests into -- check_vllm_chunk_size_throughput_results.md used the same
+300-token margin throughout; no live failure traced to margin size itself
+(the two truncations observed there both burned the FULL requested budget
+before finish_reason='length', an unpredictable-reasoning-length tail, not
+a margin that was too thin)."""
+
+
+def _dynamic_max_tokens(
+    client: LlmClientProtocol,
+    config: PolityConfig,
+    *,
+    system_prompt: str,
+    user_prompt: str,
+    chunk_size: int,
+    flat_allowance: int,
+    decision_type: str | None = None,
+    unit_ids: Sequence[int] | None = None,
+) -> int:
+    """Replaces `compute_max_tokens(chunk_size) + flat_allowance` (every
+    call site's shape before 2026-09-08) with a probe-and-maximize strategy,
+    ON THE VLLM PATH ONLY -- gated on `config.llm.provider`, never on the
+    concrete client class, so llm_behavior_engine keeps touching only
+    LlmClientProtocol (see test_cast_votes_accepts_the_vllm_provider_with_
+    identical_output's own asserted invariant; VllmJsonClient/OllamaJsonClient
+    both implement count_prompt_tokens for exactly this reason -- see that
+    method's own docstring on each class).
+
+    Why gated, not universal: the flat allowance was tuned and re-tuned
+    empirically against Ollama (`_VOTE_THINK_TOKEN_ALLOWANCE`/`_CHAMBER_
+    THINK_TOKEN_ALLOWANCE`'s own multi-escalation histories), and this
+    project's LLM investigation since the vLLM switch has never re-touched
+    Ollama at all -- probing real prompt_tokens and requesting the maximum
+    safe budget is unverified there (see OllamaJsonClient.count_prompt_
+    tokens's own docstring) and stays inert for it: an Ollama-provider config
+    gets exactly the old formula, unchanged, forever, unless a future
+    investigation re-measures that path specifically.
+
+    On the vLLM path: one cheap `max_tokens=1` probe call (prefill only, no
+    decode) against the EXACT prompt about to be sent, then
+    `max(compute_max_tokens(chunk_size), _VLLM_CONTEXT_LIMIT - prompt_tokens
+    - _VLLM_MAX_TOKENS_SAFETY_MARGIN)` -- requesting the largest budget the
+    context window has left rather than guessing a number. Proven in
+    check_vllm_chunk_size_throughput_results.md: a naive chunk-size-scaled
+    guess (`chunk_size * 6000`, an early version of that investigation)
+    both contradicted this project's own flat-addend philosophy and exceeded
+    the context ceiling outright once chunk_size >= 3 (a real 19716-token
+    request rejected outright); probing and maximizing instead let both
+    vote_cast and chamber_deliberation decode cleanly at every tested chunk
+    size up to 5, with the two remaining failures in that investigation
+    (`finish_reason='length'` despite the maximized budget, 2 of 64 calls)
+    an irreducible unpredictable-reasoning-length tail, not something a
+    bigger allowance would have prevented -- the whole reason
+    `compute_max_tokens`'s own addend is flat rather than scaled.
+
+    The probe is issued once per chunk, not once per replay attempt: the
+    prompt is byte-identical across every attempt _complete_and_decode_
+    with_replay makes for the same chunk (only seed/temperature vary on a
+    retry), so prompt_tokens cannot change between attempts either."""
+    floor = compute_max_tokens(chunk_size)
+    profile = _profile(config)
+    context_limit = profile.context_limit
+    if not profile.probe_token_budget or context_limit is None:
+        return floor + flat_allowance
+    with call_context(kind="budget_probe", decision_type=decision_type, unit_ids=unit_ids):
+        prompt_tokens = client.count_prompt_tokens(system_prompt=system_prompt, user_prompt=user_prompt, think=True)
+    return max(floor, context_limit - prompt_tokens - _VLLM_MAX_TOKENS_SAFETY_MARGIN)
+
+
+_POSITIONING_THINK_TOKEN_ALLOWANCE = QWEN3_8B_AWQ_VLLM.positioning_think_allowance  # 8000; see model_profiles (S2.3)
 """Extra budget decide_campaign_positioning adds on top of compute_max_tokens
 once it moved to think=True (v4 Lot 8 live finding, see that function's
 docstring). Measured, not guessed: a 5-nominee batch under
@@ -690,11 +1301,14 @@ def sorted_candidates(candidates: Sequence[Citizen]) -> list[Citizen]:
 
 
 def build_system_prompt(citizens: Sequence[Citizen], candidates: Sequence[Citizen]) -> str:
-    """Enumerates the full expected voter cid list verbatim, not just a
+    """References the full expected voter cid list by name (the user
+    prompt's own `expected_cids` field, see build_user_prompt), not just a
     count -- ollama_structured_output_results.md Finding B: a bare 'return
     exactly N decisions' instruction was empirically insufficient, the
     model dropped the last citizen of a 25-item batch despite it. The
-    explicit list + self-check instruction fixed it on the first try.
+    explicit list + self-check instruction fixed it on the first try; only
+    WHERE the literal list lives moved since (see this function's own
+    2026-09-10 correction below), the instruction itself is unchanged.
 
     `ranking` uses candidate *positions* (1..N), never candidate cids: a
     live consolidation run found the model conflates a candidate-cid-based
@@ -746,11 +1360,82 @@ def build_system_prompt(citizens: Sequence[Citizen], candidates: Sequence[Citize
     by ascending distance, cid=8 going from 13 596 tokens with no answer
     to 58 tokens in 6.1s. Ollama at temperature=0 with a pinned seed is
     NOT deterministic (ollama_structured_output_results.md), so this is a
-    rate measurement, not a proof of impossibility."""
+    rate measurement, not a proof of impossibility.
+
+    Correction, 2026-09-10 (plan-flagship-30y-run.md Phase 7 Stage 3): the
+    "EVERY acceptable candidate, NEVER limit yourself" sentence above was,
+    until this date, sent UNCONDITIONALLY regardless of `truncate_at` --
+    directly contradicting the parenthetical truncate_note also present in
+    the REGLE sentence, and the model reliably followed the stronger,
+    unconditional sentence over the weaker parenthetical one. Found at
+    population 500 (`scaleprobe-8y-p500-chunked-v1`): two election ticks
+    each fell back 494/500 and 476/500 votes, traced via replays.log to
+    validate_decision's own truncation-limit rejection ("ranks N candidates,
+    exceeding the truncation limit of 5", N observed up to 15) -- not a
+    token-budget or reasoning failure, a prompt telling the model to do the
+    literal opposite of what the validator enforces. Never caught before
+    because every prior live test of vote_cast in this project's history,
+    including this session's own chunk-size investigation, used exactly 5
+    candidates (`parties.initial_count`), so `candidate_count > 6` (and
+    therefore `truncate_at is not None`) had essentially never been
+    exercised until a real population-500 election accumulated enough
+    rupture candidates to cross it. Fixed by branching the sentence on
+    `truncate_at` (see `ranking_scope_rule` below) -- the truncated case
+    keeps the same "don't just pick the closest one" guidance this
+    docstring's own Mode-A fix above depends on, but now bounds it at
+    `truncate_at` instead of leaving it unconditional.
+
+    Correction, 2026-09-10 (plan-llm-protocol-and-theory-program.md §5.D
+    turned §3.B.7, prefix-cache tuning): the per-chunk `cid_list` used to be
+    embedded literally in THIS string, near its very end (~84% through,
+    measured directly: two chunks' own system prompts diverge at that exact
+    point, byte-for-byte identical before it). Because this string precedes
+    `build_user_prompt`'s own output in the token sequence vLLM actually
+    sees, that late divergence broke prefix-cache continuity for
+    EVERYTHING after it too -- including build_user_prompt's `candidates`
+    section, which is byte-identical across every chunk of the same
+    election (same nominees) and would otherwise be a clean cache hit.
+    Moved the literal list to build_user_prompt's own `expected_cids` field
+    instead (chunk-specific data belongs in the data message, not the
+    instruction message) and replaced the embedded list here with a
+    reference to that field by name -- this function's own output is now
+    IDENTICAL across every chunk of the same election, restoring the full
+    shareable prefix (this string plus `candidates`) instead of only the
+    ~84% before the old divergence point. No semantic change to what the
+    model is told to do, only where the concrete cid values live."""
     candidate_count = len(candidates)
     truncate_at = truncation_limit(candidate_count)
     truncate_note = "" if truncate_at is None else f" (classer au plus les {truncate_at} meilleurs)"
-    cid_list = ",".join(str(c.citizen_id) for c in citizens)
+    if truncate_at is None:
+        ranking_scope_rule = (
+            "Le tableau 'ranking' doit OBLIGATOIREMENT contenir CHAQUE candidat "
+            "juge acceptable, classe par ordre de preference. Ne te limite "
+            "JAMAIS au seul candidat le plus proche si d'autres candidats "
+            "passent aussi le seuil de l'electeur.\n"
+        )
+    else:
+        # 2026-09-10 (plan-flagship-30y-run.md Phase 7 Stage 3): before this,
+        # the sentence below was the SAME unconditional "include EVERY
+        # acceptable candidate, NEVER limit yourself" text used when
+        # truncate_at is None -- directly contradicting the parenthetical
+        # truncate_note above it, which the model reliably lost to (see
+        # validate_decision's own truncation-limit rejection, the dominant
+        # vote_cast failure mode at population 500 once rupture candidacy
+        # pushes candidate_count past 6, a code path essentially never
+        # exercised before that run since every prior test of vote_cast in
+        # this project's history used exactly 5 candidates). Still states
+        # "don't just pick the single closest one" -- the exact ambiguity
+        # this sentence was originally added to resolve (see this function's
+        # own docstring, the Mode A non-convergent loop) -- but now bounds it
+        # at truncate_at instead of leaving it open-ended.
+        ranking_scope_rule = (
+            "Le tableau 'ranking' doit contenir les candidats acceptables "
+            f"classes par ordre de preference, JUSQU'A {truncate_at} au "
+            "maximum -- ne te limite pas au seul candidat le plus proche "
+            f"s'il y en a d'autres, MAIS n'inclus JAMAIS plus de "
+            f"{truncate_at} positions, meme si davantage de candidats sont "
+            f"acceptables : arrete-toi aux {truncate_at} plus proches.\n"
+        )
     return (
         "Tu es un moteur de simulation. Pour chaque citoyen recu, decide son "
         f"vote parmi les candidats.\nIl y a {candidate_count} candidats. "
@@ -769,23 +1454,20 @@ def build_system_prompt(citizens: Sequence[Citizen], candidates: Sequence[Citize
         "105 (ACCEPTABLE_MATCH) pour le cas usuel d'un vote sincere -- un "
         "candidat imparfait mais sous le seuil DOIT etre prefere au vote "
         "blanc, ce n'est pas un pis-aller.\n"
-        "Le tableau 'ranking' doit OBLIGATOIREMENT contenir CHAQUE candidat "
-        "juge acceptable, classe par ordre de preference. Ne te limite "
-        "JAMAIS au seul candidat le plus proche si d'autres candidats "
-        "passent aussi le seuil de l'electeur.\n"
+        f"{ranking_scope_rule}"
         "Le vote blanc (blank=1, ranking vide, motif 101) est reserve au cas "
         "ou AUCUN candidat ne passe ce seuil pour cet electeur -- ce n'est "
         "pas une option par defaut.\n"
         f"Motifs valides (code court obligatoire) :\n{VOTE_MOTIF_PROMPT_TABLE}"
-        "\nIMPORTANT : la liste decisions doit contenir EXACTEMENT ces "
-        f"{len(citizens)} cid de CITOYENS-ELECTEURS (jamais un cid de "
-        f"candidat), chacun une seule fois, dans cet ordre : [{cid_list}]. "
-        "Verifie ta reponse avant de la finaliser : chaque cid de cette "
-        "liste doit apparaitre exactement une fois dans le champ "
-        f"'cid' des decisions, et chaque ranking ne doit contenir que des "
-        f"entiers entre 1 et {candidate_count} (des positions, jamais un "
-        "cid).\nReponds UNIQUEMENT avec un objet JSON conforme au schema "
-        "fourni."
+        "\nIMPORTANT : la liste decisions doit contenir EXACTEMENT les cid "
+        "de CITOYENS-ELECTEURS donnes par le champ 'expected_cids' du "
+        "message utilisateur (jamais un cid de candidat), chacun une seule "
+        "fois, dans le MEME ordre que ce champ. Verifie ta reponse avant de "
+        "la finaliser : chaque cid de 'expected_cids' doit apparaitre "
+        "exactement une fois dans le champ 'cid' des decisions, et chaque "
+        f"ranking ne doit contenir que des entiers entre 1 et {candidate_count} "
+        "(des positions, jamais un cid).\nReponds UNIQUEMENT avec un objet "
+        "JSON conforme au schema fourni."
     )
 
 
@@ -820,14 +1502,29 @@ def build_user_prompt(voters: Sequence[Citizen], candidates: Sequence[Citizen]) 
     (compute the weighted-distance-derived quantity outside the model,
     hand it a plain float) -- this is that same pattern applied to
     cast_votes, which had never used it despite being the oldest
-    LLM-callable decision type in the codebase."""
+    LLM-callable decision type in the codebase.
+
+    `expected_cids` (2026-09-10, plan-llm-protocol-and-theory-program.md
+    §3.B.7): this chunk's own voter cid list, in the same order as
+    `voters` -- moved here from build_system_prompt's own output, which
+    used to embed it literally and, by doing so, broke vLLM's prefix cache
+    for every chunk of the same election (see that function's own
+    correction note). `sort_keys=True` places this key between `candidates`
+    and `voters` alphabetically, which is irrelevant to the caching
+    property this exists for: what matters is that `candidates` -- the
+    ONLY content shared byte-for-byte across every chunk of the same
+    election -- still sorts first, unaffected by this key's own presence."""
     sorted_c = sorted_candidates(candidates)
     candidate_platforms = [_platform(c) for c in sorted_c]
     candidate_blocks = [
         {
             "position": i,
             "cid": c.citizen_id,
-            "platform": [round(x, 4) for x in platform],
+            # 2 decimals, not 4 -- see _PROMPT_VECTOR_PRECISION's own docstring:
+            # this vector is read holistically, never compared against a
+            # razor-thin threshold the way `distances`/`blank_threshold` below
+            # are, so the coarser precision carries no decision-boundary risk.
+            "platform": [round(x, _PROMPT_VECTOR_PRECISION) for x in platform],
             "party": c.party_affiliation,
         }
         for i, (c, platform) in enumerate(zip(sorted_c, candidate_platforms), start=1)
@@ -835,15 +1532,27 @@ def build_user_prompt(voters: Sequence[Citizen], candidates: Sequence[Citizen]) 
     voter_blocks = [
         {
             "cid": v.citizen_id,
-            "positions": [round(x, 4) for x in v.issue_positions],
-            "priorities": [round(x, 4) for x in v.issue_priorities],
+            "positions": [round(x, _PROMPT_VECTOR_PRECISION) for x in v.issue_positions],
+            "priorities": [round(x, _PROMPT_VECTOR_PRECISION) for x in v.issue_priorities],
+            # `blank_threshold`/`distances` deliberately stay at full precision --
+            # this is the exact accept/reject comparison the module docstring
+            # above says was once a 100%-blank collapse; a live A/B on decision
+            # correctness is needed before ever coarsening it (plan-llm-
+            # protocol-and-theory-program.md §5.B), not assumed safe by analogy
+            # to the holistic vectors above.
             "blank_threshold": round(v.blank_threshold, 4),
             "distances": [round(weighted_distance(v, platform), 4) for platform in candidate_platforms],
         }
         for v in voters
     ]
     return json.dumps(
-        {"candidates": candidate_blocks, "voters": voter_blocks}, sort_keys=True, separators=(",", ":")
+        {
+            "candidates": candidate_blocks,
+            "expected_cids": [v.citizen_id for v in voters],
+            "voters": voter_blocks,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
     )
 
 
@@ -902,6 +1611,37 @@ def resolve_ranking_cids(decision: VoteCastDecision, candidates: Sequence[Citize
     return [ordered[p - 1].citizen_id for p in decision.ranking]
 
 
+def _deterministic_vote_fallback(voter: Citizen, candidates: Sequence[Citizen]) -> VoteCastDecision:
+    """Last-resort ballot for cast_votes when the LLM path is exhausted for
+    this one voter -- see VoteBatchOutcome.llm_fallback's own docstring for
+    why this exists at all. Reuses simple_rules.build_ranking, the exact
+    function cast_votes's own module docstring says it REPLACED (v2
+    increment 1) -- not a new mechanism invented for this fallback, the
+    pre-existing v0/v1 baseline this codebase already trusts.
+
+    The motif is not a placeholder: build_ranking's own within-tolerance
+    test (weighted_distance <= voter.blank_threshold) is exactly what
+    VoteMotif.ACCEPTABLE_MATCH/NO_MATCHING_PRIORITY distinguish, so the code
+    reported here is the same classification an honest LLM answer would
+    carry for this voter, computed structurally instead of by model
+    judgment -- not a lie about provenance (VoteBatchOutcome.llm_fallback
+    carries that separately), just an accurate description of the ballot
+    actually produced.
+
+    `ranking` must be positions into `sorted_candidates(candidates)` (this
+    module's own canonical order, D-5) -- build_ranking's own output is
+    sorted by ascending distance instead, so every label has to be mapped
+    back through citizen_id_from_label before it can be turned into a
+    position."""
+    position_by_cid = {c.citizen_id: i for i, c in enumerate(sorted_candidates(candidates), start=1)}
+    ballot = build_ranking(voter, list(candidates))
+    blank_index = ballot.index(BLANK_LABEL)
+    if blank_index == 0:
+        return VoteCastDecision(cid=voter.citizen_id, blank=1, ranking=[], motif=VoteMotif.NO_MATCHING_PRIORITY)
+    ranking = [position_by_cid[citizen_id_from_label(label)] for label in ballot[:blank_index]]
+    return VoteCastDecision(cid=voter.citizen_id, blank=0, ranking=ranking, motif=VoteMotif.ACCEPTABLE_MATCH)
+
+
 def cast_votes(
     voters: Sequence[Citizen],
     candidates: Sequence[Citizen],
@@ -932,54 +1672,176 @@ def cast_votes(
     (5/5), a batch of 3 stayed 100% correct across three independent voter
     groups (9/9), and batches of 4+ degrade sharply (5/8 at 4, 0-2/5 at 5,
     a near-uniform identity-permutation collapse at the shipped chunk size
-    of 25). Chunks at the dedicated _VOTE_CAST_MAX_CHUNK_SIZE, not
+    of 25). Chunks at the dedicated _vote_cast_chunk_size(config), not
     config.llm.max_batch_size -- deliberately overriding chunk_voters's own
     min_batch_size floor down to 1, the same override dt=10/dt=11 already
     use for their own measured ceilings, and for the same reason: the
     shipped MIN_SAFE_BATCH_SIZE=20 floor was itself calibrated on this
     exact prompt shape, but without the extra reasoning budget below --
-    with it, small batches don't truncate, they're just correct."""
+    with it, small batches don't truncate, they're just correct.
+
+    Re-tested on vLLM (2026-09-08, check_vllm_chunk_size_throughput_
+    results.md): this whole finding above -- "batches of 4+ degrade
+    sharply" -- was measured on Ollama only and never re-checked after the
+    vLLM switch (§15bis.6) until now. It does not reproduce: diffed
+    directly against the same weighted_distance ground truth this
+    docstring's own history uses, chunk=3 was 23/24 correct and chunk=5 was
+    29/30, on the real vLLM/Qwen3-8B-AWQ backend. _vote_cast_chunk_size
+    returns 3 on that provider (not the also-clean 5 -- see _VOTE_CAST_MAX_
+    CHUNK_SIZE_VLLM's own docstring for why) and stays at the historical 1
+    on Ollama, since Ollama itself was never re-examined."""
     _check_supported(config)
 
     candidate_count = len(candidates)
     position_to_candidate = {i: c for i, c in enumerate(sorted_candidates(candidates), start=1)}
     truncate_at = truncation_limit(candidate_count)
+    vote_schema = (
+        vote_cast_json_schema(truncate_at if truncate_at is not None else candidate_count)
+        if config.llm.vote_cast_grammar_invariants else VOTE_CAST_JSON_SCHEMA
+    )
+
+    def _vote_chunk(chunk: list[Citizen]) -> tuple[list[VoteCastDecision], bool, bool, str | None]:
+        """One chunk's worth of work, run_chunks's own unit of parallelism
+        (Phase 2) -- every local here (expected_cids, retry_info) is fresh
+        per call, so concurrent invocations on separate threads share no
+        mutable state; `client`/`candidates`/`config` are read-only closures
+        over cast_votes's own arguments."""
+        expected_cids = [voter.citizen_id for voter in chunk]
+        retry_info: dict[str, Any] = {}
+        is_fallback = False
+        system_prompt = build_system_prompt(chunk, candidates)
+        user_prompt = build_user_prompt(chunk, candidates)
+        try:
+            chunk_decisions = _complete_and_decode_with_replay(
+                client,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                json_schema=vote_schema,
+                max_tokens=_dynamic_max_tokens(
+                    client,
+                    config,
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    chunk_size=len(chunk),
+                    flat_allowance=_profile(config).vote_think_allowance,
+                    decision_type="vote_cast",
+                    unit_ids=expected_cids,
+                ),
+                think=True,
+                decode=lambda raw: decode_vote_batch(raw, expected_cids),
+                replays=config.llm.max_batch_replays,
+                extra_body=thinking_budget_body(config, "vote_cast"),
+                decision_type="vote_cast",
+                unit_ids=expected_cids,
+                # A deliberate, local exception to temperature=0 determinism --
+                # see _VOTE_CAST_RETRY_TEMPERATURE's own comment. Only ever
+                # applies to a genuine retry (never the first attempt).
+                retry_temperature=_VOTE_CAST_RETRY_TEMPERATURE,
+                # _VOTE_CAST_RETRY_TEMPERATURE alone is not sufficient on vLLM --
+                # see _VOTE_CAST_RETRY_SEED_BASE's own comment and
+                # check_vllm_vote_cast_retry_is_inert_results.md.
+                retry_seed_base=_VOTE_CAST_RETRY_SEED_BASE,
+                retry_info=retry_info,
+            )
+            for decision in chunk_decisions:
+                validate_decision(decision, candidate_count, truncate_at)
+        except LlmResponseError as exc:
+            # Last resort, not a silent one -- see VoteBatchOutcome.llm_
+            # fallback's own docstring for why this exists and what it does
+            # and does not claim. Covers BOTH failure classes that reach
+            # here: the replay budget exhausted inside
+            # _complete_and_decode_with_replay, and a validate_decision
+            # failure on an otherwise-decoded batch (out-of-range/truncated
+            # ranking) -- neither is retried today, and both currently kill
+            # the whole run identically, which is the exact "must not die
+            # mid-run" failure this plan's own priority ordering names as
+            # worse than any of this run's other goals.
+            _logger.error(
+                "vote_cast: exhausted every recovery attempt for cid(s) %s, falling back to the "
+                "deterministic sincere ranking (simple_rules.build_ranking) instead of aborting "
+                "the run: %s", expected_cids, exc,
+            )
+            chunk_decisions = [_deterministic_vote_fallback(voter, candidates) for voter in chunk]
+            is_fallback = True
+        return chunk_decisions, _sampling_varied(retry_info, is_fallback), is_fallback, retry_info.get("call_id")
 
     ballots: list[list[str]] = []
     decisions: list[VoteCastDecision] = []
     retry_sampling_varied: dict[int, bool] = {}
-    for chunk in chunk_voters(voters, _VOTE_CAST_MAX_CHUNK_SIZE, min_batch_size=1):
-        expected_cids = [voter.citizen_id for voter in chunk]
-        retry_info: dict[str, Any] = {}
-        chunk_decisions = _complete_and_decode_with_replay(
-            client,
-            system_prompt=build_system_prompt(chunk, candidates),
-            user_prompt=build_user_prompt(chunk, candidates),
-            json_schema=VOTE_CAST_JSON_SCHEMA,
-            max_tokens=compute_max_tokens(len(chunk)) + _VOTE_THINK_TOKEN_ALLOWANCE,
-            think=True,
-            decode=lambda raw: decode_vote_batch(raw, expected_cids),
-            replays=config.llm.max_batch_replays,
-            decision_type="vote_cast",
-            # A deliberate, local exception to temperature=0 determinism --
-            # see _VOTE_CAST_RETRY_TEMPERATURE's own comment. Only ever
-            # applies to a genuine retry (never the first attempt).
-            retry_temperature=_VOTE_CAST_RETRY_TEMPERATURE,
-            retry_info=retry_info,
-        )
-        sampling_varied = bool(retry_info.get("sampling_varied", False))
+    llm_fallback: dict[int, bool] = {}
+    llm_call_ids: dict[int, str | None] = {}
+    chunks = chunk_voters(voters, _vote_cast_chunk_size(config), min_batch_size=1)
+    for chunk_decisions, sampling_varied, is_fallback, call_id in run_chunks(
+        chunks, _vote_chunk, config.parallel.intra_run_workers
+    ):
         for decision in chunk_decisions:
-            validate_decision(decision, candidate_count, truncate_at)
             ballots.append(ballot_from_decision(decision, position_to_candidate))
             retry_sampling_varied[decision.cid] = sampling_varied
+            llm_call_ids[decision.cid] = call_id
+            if is_fallback:
+                llm_fallback[decision.cid] = True
         decisions.extend(chunk_decisions)
 
-    return VoteBatchOutcome(ballots=ballots, decisions=decisions, retry_sampling_varied=retry_sampling_varied)
+    return VoteBatchOutcome(
+        ballots=ballots, decisions=decisions, retry_sampling_varied=retry_sampling_varied, llm_fallback=llm_fallback,
+        llm_call_ids=llm_call_ids,
+    )
 
 
 @dataclass(frozen=True)
 class CandidacyBatchOutcome:
     decisions: list[CandidacyDecision]
+    llm_fallback: dict[int, bool] = field(default_factory=dict)
+    """cid -> whether this decision came from _deterministic_candidacy_fallback
+    rather than the model. Mirrors VoteBatchOutcome.llm_fallback exactly,
+    including why it has to exist separately from the motif: a fallback
+    AMBITION_THRESHOLD_MET and a model-chosen one are indistinguishable in the
+    journal payload otherwise, and dt=2's whole reason to be LLM-governed is
+    that a bare threshold cannot express the decline-nuances (CandidacyMotif's
+    own docstring) -- so an analyst reading a motif distribution that silently
+    contains threshold answers would be measuring the baseline while believing
+    they were measuring the model."""
+    retry_sampling_varied: dict[int, bool] = field(default_factory=dict)
+    """cid -> whether this decision came from a varied-sampling retry; same contract
+    as VoteBatchOutcome.retry_sampling_varied, never true for a fallback decision."""
+    llm_call_ids: dict[int, str | None] = field(default_factory=dict)
+    """cid -> llm_call_id of the call this decision came from; same contract as
+    VoteBatchOutcome.llm_call_ids."""
+
+
+def _deterministic_candidacy_fallback(
+    chunk: Sequence[Citizen], config: PolityConfig
+) -> list[CandidacyDecision]:
+    """Last-resort decision for decide_candidacies when the LLM path is
+    exhausted for this one chunk.
+
+    Reuses simple_rules.decide_candidacy -- the exact ambition_score threshold
+    this decision type's own docstring says it REPLACED (v2 increment 2), and
+    the only rule that runs on the deterministic path. Not a new mechanism
+    invented for this fallback: the pre-existing v0/v1 baseline this codebase
+    already trusts, which is also what "dt=2 did not run" means.
+
+    Both motifs are structural classifications, not placeholders: the baseline
+    IS `ambition_score >= candidacy.ambition_threshold`, so 203
+    (AMBITION_THRESHOLD_MET) and 204 (AMBITION_INSUFFICIENT) describe exactly
+    the comparison that produced the outcome -- the same "computed
+    structurally instead of by model judgment, not a lie about provenance"
+    reading _deterministic_vote_fallback's own motif already follows. The two
+    codes a threshold genuinely cannot reach (201 INSUFFICIENT_PERCEIVED_
+    SUPPORT, 205 RISK_AVERSE_DEFERRAL) are correctly never emitted here."""
+    decisions = []
+    for citizen in chunk:
+        declares = decide_candidacy(citizen, config.candidacy)
+        decisions.append(
+            CandidacyDecision(
+                cid=citizen.citizen_id,
+                outcome=1 if declares else 0,
+                motif=int(
+                    CandidacyMotif.AMBITION_THRESHOLD_MET if declares else CandidacyMotif.AMBITION_INSUFFICIENT
+                ),
+            )
+        )
+    return decisions
 
 
 def build_candidacy_system_prompt(citizens: Sequence[Citizen]) -> str:
@@ -1023,6 +1885,147 @@ def build_candidacy_user_prompt(chunk: Sequence[Citizen], support: dict[int, flo
     return json.dumps({"citizens": citizen_blocks}, sort_keys=True, separators=(",", ":"))
 
 
+_CANDIDACY_TOON_FIELDS = ("cid", "ambition_score", "perceived_support")
+"""Shared between build_candidacy_system_prompt_toon (the header it quotes
+in its own worked example) and build_candidacy_user_prompt_toon (the
+actual header it emits) -- one list, so the explanation and the real
+payload can never silently drift to a different field order."""
+
+
+def build_candidacy_system_prompt_toon(citizens: Sequence[Citizen]) -> str:
+    """plan-llm-protocol-and-theory-program.md §5.E: SHIPPED 2026-09-10 --
+    decide_candidacies now calls this instead of build_candidacy_system_
+    prompt (see that function's own docstring for the token/quality gate
+    that cleared it). Originally written as a diagnostic variant for
+    check_toon_candidacy_ab.py's live A/B only, same "not wired into any
+    decide_* entry point" framing complete_with_logprobs's own docstring
+    established for §5.C's primitive -- that script remains the only
+    place this has been measured against a live model, not a claim this
+    docstring can update on its own. Output stays JSON (xgrammar/
+    CANDIDACY_JSON_SCHEMA, unchanged) -- §5.E's own scope is input-only,
+    by design (see llm_toon_encoding.py's own module docstring for why).
+
+    Differs from build_candidacy_system_prompt ONLY in the added TOON-
+    format paragraph (with a concrete worked example, not just naming the
+    format -- the model has seen overwhelmingly more JSON in training, so
+    naming an unfamiliar format is not assumed sufficient on its own) --
+    every other sentence, including the motif table and the verbatim
+    expected-cid self-check, is unchanged, so a live A/B against the JSON
+    version isolates the format change specifically."""
+    cid_list = ",".join(str(c.citizen_id) for c in citizens)
+    return (
+        "Tu es un moteur de simulation. Pour chaque citoyen recu, decide "
+        "s'il se presente comme candidat (outcome=1) ou renonce "
+        "(outcome=0), a partir de son ambition et du soutien qu'il "
+        "percoit.\n"
+        "Le message utilisateur n'est PAS du JSON : il utilise le format "
+        "TOON. La premiere ligne 'citizens[N]{cid,ambition_score,"
+        "perceived_support}:' annonce le nombre d'enregistrements (N) et "
+        "l'ordre des champs. Chaque ligne suivante est UN enregistrement, "
+        "ses valeurs separees par des virgules, dans cet ordre exact. "
+        "Exemple : 'citizens[2]{cid,ambition_score,perceived_support}:\\n"
+        "0,0.52,0.31\\n1,0.68,0.44' decrit exactement 2 citoyens : "
+        "cid=0 (ambition_score=0.52, perceived_support=0.31) et "
+        "cid=1 (ambition_score=0.68, perceived_support=0.44).\n"
+        "Motifs valides (code court obligatoire) :\n"
+        f"{CANDIDACY_MOTIF_PROMPT_TABLE}\nIMPORTANT : la liste decisions "
+        f"doit contenir EXACTEMENT ces {len(citizens)} cid, chacun une "
+        f"seule fois, dans cet ordre : [{cid_list}]. Verifie ta reponse "
+        "avant de la finaliser : chaque cid de cette liste doit apparaitre "
+        "exactement une fois.\nReponds UNIQUEMENT avec un objet JSON "
+        "conforme au schema fourni."
+    )
+
+
+def build_candidacy_system_prompt_toon_calibrated(citizens: Sequence[Citizen], mean_ambition: float) -> str:
+    """Track B3 (2026-09-11, lets-build-a-solid-spicy-otter.md): C3 for
+    dt=2. `candidacy_considered` is not a content-blind collapse like B1/B2
+    -- 202/500 (40.4%) declared against a pre-registered bar of <5%, real
+    differentiation (64% accuracy against ground truth), just far too
+    permissive. `ambition_score` (`citizens.ambition_dist`, shipped
+    beta(2,8)) is sent as a bare float in [0,1] with no reference at all --
+    `perceived_support` is already self-scaling (a sympathizer_ratio, a
+    population fraction by construction), so it is not this fix's target.
+
+    Unlike mandate_dev's exact geometric ceiling (B1) or distance_to_
+    initiator's empirical dispersion (B2): ambition_score's distribution
+    is not fixed by this module -- `citizens.ambition_dist` is a config
+    string (ADR-002, `_parse_beta_params`), so no constant can be
+    hardcoded here. `mean_ambition` is computed once by the caller, over
+    the SAME `population` used for `support` (decide_candidacies's own
+    "never recomputed per-chunk" discipline, so this number cannot drift
+    across chunk boundaries either) -- the same empirical-reference shape
+    as B2's mean pairwise distance, not a mathematical bound like B1's.
+
+    C4-compliant: states where a score sits relative to the population,
+    never what that should mean for the decision -- no threshold, no
+    "declare only if above this".
+
+    C3 CALIBRATION ATTEMPTED AND FAILED, verified live 2026-09-11
+    (`scripts/check_candidacy_calibration_results.md`): a real p500
+    population (`generate_population` against the shipped config,
+    unfiltered -- matching `_declare_nominees_llm`'s own call site)
+    declared MORE with this prompt (238/500, 47.6%) than the uncalibrated
+    baseline (202/500, 40.4%, which reproduces Stage 3's real production
+    figure exactly), and LESS accurately against ground truth (58.4% vs
+    63.6%). Both are an order of magnitude above the pre-registered <5%
+    bar. NOT wired into `decide_candidacies` for this reason -- it still
+    calls the uncalibrated `build_candidacy_system_prompt_toon`. Reading:
+    stating the population MEAN gives the model a comparison point that
+    argues in the wrong direction ("above-average ambition" reads as a
+    reason TO run, when real candidacy needs a far rarer combination of
+    traits than merely above-average) -- unlike B1's exact geometric
+    ceiling, a mean is the wrong reference shape here. See that results
+    doc for why an ambition-feedback/cooldown mechanism (the plan's other
+    proposed fix) was also ruled out as an answer to this specific bar:
+    it can only suppress REPEAT candidacy, and this probe's population
+    has no election history to have lost anything from, yet still
+    over-declares."""
+    cid_list = ",".join(str(c.citizen_id) for c in citizens)
+    return (
+        "Tu es un moteur de simulation. Pour chaque citoyen recu, decide "
+        "s'il se presente comme candidat (outcome=1) ou renonce "
+        "(outcome=0), a partir de son ambition et du soutien qu'il "
+        "percoit.\n"
+        "Le message utilisateur n'est PAS du JSON : il utilise le format "
+        "TOON. La premiere ligne 'citizens[N]{cid,ambition_score,"
+        "perceived_support}:' annonce le nombre d'enregistrements (N) et "
+        "l'ordre des champs. Chaque ligne suivante est UN enregistrement, "
+        "ses valeurs separees par des virgules, dans cet ordre exact. "
+        "Exemple : 'citizens[2]{cid,ambition_score,perceived_support}:\\n"
+        "0,0.52,0.31\\n1,0.68,0.44' decrit exactement 2 citoyens : "
+        "cid=0 (ambition_score=0.52, perceived_support=0.31) et "
+        "cid=1 (ambition_score=0.68, perceived_support=0.44).\n"
+        f"ambition_score : intensite personnelle a se presenter -- pour "
+        f"reference, l'ambition MOYENNE dans la population actuelle de "
+        f"citoyens est d'environ {mean_ambition:.4f}. Ce nombre ne "
+        "prescrit aucune decision ; il situe seulement chaque score "
+        "individuel par rapport au niveau d'ambition reel de cette "
+        "population, plutot que sur l'echelle abstraite [0,1].\n"
+        "Motifs valides (code court obligatoire) :\n"
+        f"{CANDIDACY_MOTIF_PROMPT_TABLE}\nIMPORTANT : la liste decisions "
+        f"doit contenir EXACTEMENT ces {len(citizens)} cid, chacun une "
+        f"seule fois, dans cet ordre : [{cid_list}]. Verifie ta reponse "
+        "avant de la finaliser : chaque cid de cette liste doit apparaitre "
+        "exactement une fois.\nReponds UNIQUEMENT avec un objet JSON "
+        "conforme au schema fourni."
+    )
+
+
+def build_candidacy_user_prompt_toon(chunk: Sequence[Citizen], support: dict[int, float]) -> str:
+    """The TOON-encoded twin of build_candidacy_user_prompt -- same
+    values, same rounding, same field set, only the wire shape differs.
+    See that function's own docstring for why `support` is precomputed
+    once against the full population rather than recomputed per chunk.
+    SHIPPED 2026-09-10 -- decide_candidacies calls this now, see its own
+    docstring."""
+    rows = [
+        (c.citizen_id, round(c.ambition_score, 4), round(support[c.citizen_id], 4))
+        for c in chunk
+    ]
+    return encode_toon_array("citizens", _CANDIDACY_TOON_FIELDS, rows)
+
+
 def decide_candidacies(
     citizens: Sequence[Citizen],
     config: PolityConfig,
@@ -1047,30 +2050,67 @@ def decide_candidacies(
     (compute_max_tokens's flat allowance), which stays unaffected since
     cast_votes never sets this flag. See OllamaJsonClient's class docstring
     for why this needs an entirely different transport, not just a body
-    flag."""
+    flag.
+
+    SHIPPED TOON input, 2026-09-10 (plan-llm-protocol-and-theory-program.md
+    §5.E, check_toon_candidacy_ab_results.md): this decision type is the
+    one place §5.E's own two-gate bar cleared cleanly -- real token savings
+    (853->794 prompt tokens, -6.9%) with IDENTICAL accuracy against ground
+    truth (16/25 both formats, not just a similar count), on the shipped
+    llm.max_batch_size=25 chunk. Output stays JSON (CANDIDACY_JSON_SCHEMA,
+    unchanged) -- §5.E's own input-only constraint; only the user/system
+    prompt encoding changed, via build_candidacy_system_prompt_toon/
+    build_candidacy_user_prompt_toon (previously diagnostic-only, called
+    only by check_toon_candidacy_ab.py). pressure_action's own TOON A/B
+    (check_toon_pressure_action_ab_results.md) found the opposite --
+    real token savings but a real quality regression -- and is NOT shipped
+    for that reason; the two are independent decisions, not a blanket
+    "TOON everywhere" policy. Single-run result, not yet replicated with a
+    second seed.
+
+    C3 CALIBRATION ATTEMPTED AND FAILED, 2026-09-11 (lets-build-a-solid-spicy-otter.md Track B3,
+    scripts/check_candidacy_calibration_results.md): not a collapse like pressure_action/coalition_
+    decision -- this type differentiates for real (64% accuracy against simple_rules.decide_
+    candidacy's ground truth in Stage 3) -- but 202/500 (40.4%) declared against a pre-registered
+    bar of <5%. build_candidacy_system_prompt_toon_calibrated states the population's own MEAN
+    ambition_score (the one missing scale polity-decision-contracts.md's own §3 names). Live-
+    verified against a real p500 population, unfiltered, same chunking/schema/think=False as
+    production: the calibrated arm declared MORE (238/500, 47.6%) and LESS accurately (58.4% vs
+    63.6%) than the uncalibrated baseline. NOT SHIPPED -- this function still calls the uncalibrated
+    build_candidacy_system_prompt_toon. Reading: stating the population mean gives the model a
+    comparison point that argues in the wrong direction ("above-average ambition" reads as a reason
+    TO run) -- unlike B1's exact geometric ceiling, a mean is the wrong reference shape for this
+    type. Also settles the plan's own ambition-feedback question in the negative as an answer to
+    THIS bar specifically: a decay-on-defeat/cooldown mechanism can only suppress repeat candidacy,
+    and this probe's freshly-generated population has no election history to have lost anything
+    from, yet still over-declares -- see the results doc for the full reasoning."""
     _check_supported(config)
 
     population = list(citizens)
     support = {c.citizen_id: sympathizer_ratio(c, population) for c in population}
 
-    decisions: list[CandidacyDecision] = []
-    for chunk in chunk_voters(citizens, config.llm.max_batch_size):
-        expected_cids = [c.citizen_id for c in chunk]
-        decisions.extend(
-            _complete_and_decode_with_replay(
-                client,
-                system_prompt=build_candidacy_system_prompt(chunk),
-                user_prompt=build_candidacy_user_prompt(chunk, support),
-                json_schema=CANDIDACY_JSON_SCHEMA,
-                max_tokens=compute_max_tokens(len(chunk)),
-                think=False,
-                decode=lambda raw: decode_candidacy_batch(raw, expected_cids),
-                replays=config.llm.max_batch_replays,
-                decision_type="candidacy_considered",
-            )
-        )
-
-    return CandidacyBatchOutcome(decisions=decisions)
+    result = run_decision(
+        DecisionSpec[CandidacyDecision](
+            decision_type="candidacy_considered",
+            json_schema=CANDIDACY_JSON_SCHEMA,
+            think=False,
+            retry_temperature=_CANDIDACY_RETRY_TEMPERATURE,
+            retry_seed_base=_CANDIDACY_RETRY_SEED_BASE,
+            chunk_size=config.llm.max_batch_size,
+            system_prompt=build_candidacy_system_prompt_toon,
+            user_prompt=lambda chunk: build_candidacy_user_prompt_toon(chunk, support),
+            decode=decode_candidacy_batch,
+            # Per CHUNK, not per run: see CandidacyBatchOutcome.llm_fallback and
+            # _deterministic_candidacy_fallback's own docstrings.
+            fallback=lambda chunk: _deterministic_candidacy_fallback(chunk, config),
+            fallback_description="the deterministic ambition threshold (simple_rules.decide_candidacy)",
+        ),
+        citizens, config, client,
+    )
+    return CandidacyBatchOutcome(
+        decisions=result.decisions, llm_fallback=result.llm_fallback,
+        retry_sampling_varied=result.retry_sampling_varied, llm_call_ids=result.llm_call_ids,
+    )
 
 
 @dataclass(frozen=True)
@@ -1082,12 +2122,45 @@ class PartyNominationBatchOutcome:
     per-party sub-list order), so resolution happens here, not in the
     caller, mirroring how cast_votes resolves positions into ballots
     internally rather than exposing raw positions."""
+    llm_fallback: dict[int, bool] = field(default_factory=dict)
+    """PARTY_ID -> whether this decision came from the deterministic
+    highest-ambition tiebreak rather than the model. The only outcome in this
+    engine keyed by party_id rather than cid, because the decision unit here
+    is a contested party. Same provenance role as every other outcome's own
+    field: the fallback emits motif=HIGHEST_AMBITION, which is also a real
+    answer the model can give, so without this the two are indistinguishable
+    in the journal."""
+    retry_sampling_varied: dict[int, bool] = field(default_factory=dict)
+    """PARTY_ID -> whether this decision came from a varied-sampling retry of the
+    call that produced it (the whole batch, or the party's own isolated retry);
+    same contract as VoteBatchOutcome.retry_sampling_varied."""
+    llm_call_ids: dict[int, str | None] = field(default_factory=dict)
+    """PARTY_ID -> llm_call_id of the call this decision came from; same contract
+    as VoteBatchOutcome.llm_call_ids."""
 
 
 def build_party_nomination_system_prompt(contested: dict[int, list[Citizen]]) -> str:
     """Mirrors build_candidacy_system_prompt's "enumerate the full expected
     id list verbatim + self-check" fix (Finding B) -- keyed on party_id,
-    since the decision unit here is a contested party, not a citizen."""
+    since the decision unit here is a contested party, not a citizen.
+
+    C2 FIX, 2026-09-11 (Track C1 step C, lets-build-a-solid-spicy-otter.md):
+    the "position (1 a N)" phrase never said what N was PER PARTY -- a
+    direct C2 violation (legal options/bounds/valid codes must be stated)
+    on a type the original audit had incorrectly ticked compliant for.
+    `check_party_nomination_position_logprobs_results.md` (step E)
+    established the resulting failure (party 3, 19 candidates,
+    winner_position=26) is a confident comprehension error, not a decoding
+    accident -- stating the bound is the content-level fix that verdict
+    calls for, not a grammar constraint (D1). `candidate_count` is now
+    given per party block in the user prompt (build_party_nomination_
+    user_prompt); this sentence just tells the model that field IS the
+    bound, once, since a single N cannot be stated here for a batch of
+    differently-sized contested parties. C4-compliant: this states the
+    LEGAL RANGE of an index, a structural fact about the response shape,
+    never which candidate to prefer -- the same "calibrate the mechanical
+    part, leave the judgment free" distinction vote_cast's own blank_
+    threshold already relies on."""
     party_id_list = ",".join(str(party_id) for party_id in contested)
     return (
         "Tu es un moteur de simulation. Pour chaque parti recu, plusieurs "
@@ -1096,15 +2169,19 @@ def build_party_nomination_system_prompt(contested: dict[int, list[Citizen]]) ->
         "de son ambition, du soutien qu'il percoit, et de sa proximite "
         "avec la plateforme du parti. Chaque candidat est identifie par "
         "son champ 'position' (1 a N) dans la liste 'candidates' de CE "
-        "parti -- PAS par son cid.\nMotifs valides (code court "
-        f"obligatoire) :\n{PARTY_NOMINATION_MOTIF_PROMPT_TABLE}\nIMPORTANT "
-        f": la liste decisions doit contenir EXACTEMENT ces {len(contested)} "
-        f"party_id, chacun une seule fois, dans cet ordre : [{party_id_list}]. "
-        "Verifie ta reponse avant de la finaliser : chaque party_id de "
-        "cette liste doit apparaitre exactement une fois, et chaque "
-        "winner_position doit etre une position valide (jamais un cid) "
-        "parmi les candidats de ce parti.\nReponds UNIQUEMENT avec un "
-        "objet JSON conforme au schema fourni."
+        "parti -- PAS par son cid. N est donne par le champ "
+        "'candidate_count' de CE MEME parti dans le message utilisateur : "
+        "winner_position doit etre un entier entre 1 et candidate_count "
+        "INCLUS pour ce parti precis, jamais au-dela, quel que soit le "
+        "nombre de candidats des AUTRES partis de ce lot.\nMotifs valides "
+        f"(code court obligatoire) :\n{PARTY_NOMINATION_MOTIF_PROMPT_TABLE}\n"
+        f"IMPORTANT : la liste decisions doit contenir EXACTEMENT ces "
+        f"{len(contested)} party_id, chacun une seule fois, dans cet ordre : "
+        f"[{party_id_list}]. Verifie ta reponse avant de la finaliser : "
+        "chaque party_id de cette liste doit apparaitre exactement une "
+        "fois, et chaque winner_position doit etre une position valide "
+        "(jamais un cid) parmi les candidats de ce parti.\nReponds "
+        "UNIQUEMENT avec un objet JSON conforme au schema fourni."
     )
 
 
@@ -1117,10 +2194,18 @@ def build_party_nomination_user_prompt(
     (decide_party_nominations), same discipline as decide_candidacies'
     `support` -- never recomputed here. `platform_distance` reuses
     assign_party_affiliation's unweighted math.dist convention (simple_rules.py),
-    not the voter-tolerance-specific weighted_distance."""
+    not the voter-tolerance-specific weighted_distance.
+
+    `candidate_count` (Track C1 step C, 2026-09-11): `len(members)`, the
+    same N `sorted_candidates`'s own enumeration already bounds `position`
+    to below -- stated explicitly per party block rather than left for the
+    model to infer by counting `candidates`, since
+    build_party_nomination_system_prompt's own added sentence points here
+    by name."""
     party_blocks = [
         {
             "party_id": party_id,
+            "candidate_count": len(members),
             "candidates": [
                 {
                     "position": i,
@@ -1141,9 +2226,138 @@ def resolve_party_nomination_cid(decision: PartyNominationDecision, members: Seq
     """Translates decision.winner_position (1-indexed position into
     `members`, sorted by citizen_id) back to a real cid -- same purpose as
     resolve_ranking_cids, scoped to one contested party's own candidate
-    sub-list instead of the full candidate list."""
+    sub-list instead of the full candidate list. Caller must validate
+    decision.winner_position against len(members) first (validate_party_
+    nomination_decision) -- this function trusts its input and indexes
+    unconditionally, same discipline as resolve_ranking_cids."""
     ordered = sorted_candidates(members)
     return ordered[decision.winner_position - 1].citizen_id
+
+
+def validate_party_nomination_decision(decision: PartyNominationDecision, members: Sequence[Citizen]) -> None:
+    """PartyNominationDecision.winner_position's own schema only enforces
+    `>= 1` (Field(ge=1)) -- the upper bound is per-party and dynamic (each
+    contested party has its own candidate count), so it can't be encoded
+    in the static schema, same reasoning vote_cast's own truncation limit
+    (§3.6.1) needed a post-hoc check for. Found live, 2026-09-10
+    (plan-flagship-30y-run.md Phase 7 Stage 3, population 500): an
+    unguarded `resolve_party_nomination_cid` raised a raw IndexError and
+    crashed the whole run the first time a contested party's own
+    winner_position genuinely exceeded its candidate count -- never
+    exercised before at the shipped parties.initial_count=5 scale, where
+    contested parties rarely have enough declared candidates to trigger
+    it. Raises LlmResponseError (never lets the IndexError escape raw) so
+    decide_party_nominations's own caller can fall back instead of
+    aborting the run, mirroring cast_votes's "must not die mid-run"
+    priority for the exact same class of out-of-range-position failure."""
+    if not 1 <= decision.winner_position <= len(members):
+        raise LlmResponseError(
+            f"party {decision.party_id}: winner_position={decision.winner_position} is out of range for "
+            f"its own {len(members)} declared candidate(s)"
+        )
+
+
+def _contested_parties(
+    citizens: Sequence[Citizen], parties: Sequence[Party], declared_cids: set[int],
+) -> dict[int, list[Citizen]]:
+    """party_id -> its declared members, for every party with two or more (in party_id order)."""
+    contested: dict[int, list[Citizen]] = {}
+    for party in sorted(parties, key=lambda p: p.party_id):
+        members = [c for c in citizens if c.party_affiliation == party.party_id and c.citizen_id in declared_cids]
+        if len(members) >= 2:
+            contested[party.party_id] = members
+    return contested
+
+
+@dataclass(frozen=True)
+class _NominationRequest:
+    client: LlmClientProtocol
+    config: PolityConfig
+    parties_by_id: dict[int, Party]
+    support: dict[int, float]
+
+    def decide(self, batch: dict[int, list[Citizen]], retry_info: dict[str, Any]) -> list[PartyNominationDecision]:
+        """One party_nomination_choice call over `batch`, replayed and validated."""
+        party_ids = list(batch.keys())
+
+        def decode_and_validate(raw: str) -> list[PartyNominationDecision]:
+            batch_decisions = decode_party_nomination_batch(raw, party_ids)
+            for decision in batch_decisions:
+                validate_party_nomination_decision(decision, batch[decision.party_id])
+            return batch_decisions
+
+        return _complete_and_decode_with_replay(
+            self.client,
+            system_prompt=build_party_nomination_system_prompt(batch),
+            user_prompt=build_party_nomination_user_prompt(batch, self.parties_by_id, self.support),
+            json_schema=PARTY_NOMINATION_JSON_SCHEMA,
+            max_tokens=compute_max_tokens(len(batch)),
+            think=False,
+            decode=decode_and_validate,
+            replays=self.config.llm.max_batch_replays,
+            decision_type="party_nomination_choice",
+            unit_ids=party_ids,
+            # A deliberate, local exception to temperature=0 determinism --
+            # see _NOMINATION_RETRY_TEMPERATURE's own comment.
+            retry_temperature=_NOMINATION_RETRY_TEMPERATURE,
+            retry_seed_base=_NOMINATION_RETRY_SEED_BASE,
+            retry_info=retry_info,
+        )
+
+
+@dataclass
+class _NominationTally:
+    decisions: list[PartyNominationDecision] = field(default_factory=list)
+    winners: dict[int, int] = field(default_factory=dict)
+    llm_fallback: dict[int, bool] = field(default_factory=dict)
+    retry_sampling_varied: dict[int, bool] = field(default_factory=dict)
+    llm_call_ids: dict[int, str | None] = field(default_factory=dict)
+
+    def record_model(self, decision: PartyNominationDecision, members: list[Citizen], retry_info: dict[str, Any]) -> None:
+        self.decisions.append(decision)
+        self.winners[decision.party_id] = resolve_party_nomination_cid(decision, members)
+        self.llm_fallback[decision.party_id] = False
+        self.retry_sampling_varied[decision.party_id] = _sampling_varied(retry_info, False)
+        self.llm_call_ids[decision.party_id] = retry_info.get("call_id")
+
+    def record_fallback(
+        self, party_id: int, members: list[Citizen], citizens: Sequence[Citizen], declared_cids: set[int],
+        retry_info: dict[str, Any],
+    ) -> None:
+        """The deterministic highest-ambition tiebreak; the call id is the last attempt's."""
+        nominee = select_party_nominee_from_declared(party_id, list(citizens), declared_cids)
+        assert nominee is not None  # contested parties always have >=2 declared members
+        position = sorted_candidates(members).index(nominee) + 1
+        self.decisions.append(
+            PartyNominationDecision(party_id=party_id, winner_position=position, motif=PartyNominationMotif.HIGHEST_AMBITION)
+        )
+        self.winners[party_id] = nominee.citizen_id
+        self.llm_fallback[party_id] = True
+        self.llm_call_ids[party_id] = retry_info.get("call_id")
+
+    def outcome(self) -> PartyNominationBatchOutcome:
+        return PartyNominationBatchOutcome(
+            decisions=self.decisions, winners=self.winners, llm_fallback=self.llm_fallback,
+            retry_sampling_varied=self.retry_sampling_varied, llm_call_ids=self.llm_call_ids,
+        )
+
+
+def _nominate_one_party(
+    request: _NominationRequest, tally: _NominationTally, party_id: int, members: list[Citizen],
+    citizens: Sequence[Citizen], declared_cids: set[int],
+) -> None:
+    """Stage 2: one contested party on its own, after the whole batch failed."""
+    retry_info: dict[str, Any] = {}
+    try:
+        [decision] = request.decide({party_id: members}, retry_info)
+        tally.record_model(decision, members, retry_info)
+    except LlmResponseError as exc:
+        _logger.error(
+            "party_nomination_choice: exhausted every recovery attempt for party_id %s, falling back "
+            "to the deterministic highest-ambition tiebreak for this party instead of aborting the "
+            "run: %s", party_id, exc,
+        )
+        tally.record_fallback(party_id, members, citizens, declared_cids, retry_info)
 
 
 def decide_party_nominations(
@@ -1174,38 +2388,93 @@ def decide_party_nominations(
     failure (finish_reason='length', zero visible content) regardless of
     batch size -- the bug tracks the *subjective, comparative-judgment*
     prompt shape ("which of these is best"), not batch size. See
-    ollama_structured_output_results.md's Finding E."""
+    ollama_structured_output_results.md's Finding E.
+
+    Falls back to select_party_nominee_from_declared's deterministic
+    highest-ambition tiebreak, PER CONTESTED PARTY, only for whichever
+    party(ies) still fail after their own individual retry (Track C1 steps
+    A+B, 2026-09-11, see below) -- not for the whole tick's batch, unlike
+    this function's own shape before that date. The fallback motif
+    (HIGHEST_AMBITION) is not a placeholder: it is the exact classification
+    that tiebreak actually used, computed structurally instead of by model
+    judgment, same honesty discipline as _deterministic_vote_fallback's own
+    motif.
+
+    TWO-STAGE RECOVERY, 2026-09-11 (Track C1 steps A+B,
+    lets-build-a-solid-spicy-otter.md): found live, 2026-09-10 (Stage 3,
+    population 500) -- `validate_party_nomination_decision` used to run
+    AFTER `_complete_and_decode_with_replay` returned, so an out-of-range
+    `winner_position` skipped the already-wired replay budget entirely and
+    fell straight to a WHOLE-BATCH fallback (every contested party this
+    tick, not just the one that actually erred) on its very first
+    occurrence -- 10 of 15 nominations in that run (67%), for one bad
+    answer among five parties' worth of decisions each time.
+    `check_party_nomination_position_logprobs_results.md` (Track C1 step E)
+    then established the failure is a confident, repeatable comprehension
+    error (P("2")=0.994, P("6"|"2")=0.892 for the party-3/19-candidate case
+    that produced `winner_position=26`), not sampling noise -- which is
+    exactly why giving the already-wired `retry_temperature`/
+    `retry_seed_base` a genuine chance to land on a different answer (by
+    validating INSIDE `decode=`, so a bad answer now triggers this
+    function's own replay loop instead of skipping it) is a real lever,
+    not a formality.
+
+    Stage 1: the whole-tick batch, exactly as before, except `decode=` now
+    validates every decision before returning -- an out-of-range
+    `winner_position` is a decode failure the replay loop can act on, with
+    varied sampling on each retry attempt.
+
+    Stage 2, only reached if stage 1 exhausts its replay budget: instead of
+    falling back for every contested party at once, retry EACH contested
+    party INDIVIDUALLY, as its own one-party batch (same system/user prompt
+    builders, `contested` restricted to `{party_id: members}` -- no new
+    prompt shape; a tick with exactly one contested party is already a
+    normal, already-supported case). Only a party whose own individual
+    retry budget also exhausts falls back to the deterministic tiebreak;
+    every other contested party keeps an LLM-informed answer even when one
+    of its peers this tick did not."""
     _check_supported(config)
 
-    parties_by_id = {party.party_id: party for party in parties}
-    contested: dict[int, list[Citizen]] = {}
-    for party in sorted(parties, key=lambda p: p.party_id):
-        members = [c for c in citizens if c.party_affiliation == party.party_id and c.citizen_id in declared_cids]
-        if len(members) >= 2:
-            contested[party.party_id] = members
-
+    contested = _contested_parties(citizens, parties, declared_cids)
     if not contested:
         return PartyNominationBatchOutcome(decisions=[], winners={})
 
     all_contenders = list(chain.from_iterable(contested.values()))
-    support = {c.citizen_id: sympathizer_ratio(c, list(citizens)) for c in all_contenders}
-
-    expected_party_ids = list(contested.keys())
-    decisions = _complete_and_decode_with_replay(
-        client,
-        system_prompt=build_party_nomination_system_prompt(contested),
-        user_prompt=build_party_nomination_user_prompt(contested, parties_by_id, support),
-        json_schema=PARTY_NOMINATION_JSON_SCHEMA,
-        max_tokens=compute_max_tokens(len(contested)),
-        think=False,
-        decode=lambda raw: decode_party_nomination_batch(raw, expected_party_ids),
-        replays=config.llm.max_batch_replays,
-        decision_type="party_nomination_choice",
+    request = _NominationRequest(
+        client=client, config=config,
+        parties_by_id={party.party_id: party for party in parties},
+        support={c.citizen_id: sympathizer_ratio(c, list(citizens)) for c in all_contenders},
     )
-    winners = {decision.party_id: resolve_party_nomination_cid(decision, contested[decision.party_id])
-               for decision in decisions}
+    expected_party_ids = list(contested.keys())
+    tally = _NominationTally()
+    batch_retry_info: dict[str, Any] = {}
+    try:
+        for decision in request.decide(contested, batch_retry_info):
+            tally.record_model(decision, contested[decision.party_id], batch_retry_info)
+    except LlmResponseError as exc:
+        # A single contested party's own stage-1 whole-batch attempt is
+        # already byte-for-byte the same request stage 2 would repeat (same
+        # system/user prompt, same schema, same retry cycle) -- skip
+        # straight to the deterministic tiebreak instead of wasting an
+        # identical, already-exhausted retry cycle on the only party there
+        # is to isolate.
+        if len(contested) == 1:
+            _logger.error(
+                "party_nomination_choice: exhausted every recovery attempt for the only contested party_id "
+                "%s, falling back to the deterministic highest-ambition tiebreak instead of aborting the "
+                "run: %s", expected_party_ids[0], exc,
+            )
+            party_id = expected_party_ids[0]
+            tally.record_fallback(party_id, contested[party_id], citizens, declared_cids, batch_retry_info)
+        else:
+            _logger.warning(
+                "party_nomination_choice: whole-batch replay exhausted for party_id(s) %s, retrying each "
+                "contested party individually before falling back: %s", expected_party_ids, exc,
+            )
+            for party_id, members in contested.items():
+                _nominate_one_party(request, tally, party_id, members, citizens, declared_cids)
 
-    return PartyNominationBatchOutcome(decisions=decisions, winners=winners)
+    return tally.outcome()
 
 
 @dataclass(frozen=True)
@@ -1217,6 +2486,54 @@ class PositioningBatchOutcome:
     sincere-position context needed to resolve a decision's sparse shifts
     into a full position tuple, mirroring how cast_votes resolves positions
     into ballots internally rather than exposing raw wire values."""
+    llm_fallback: dict[int, bool] = field(default_factory=dict)
+    """cid -> whether this decision came from _deterministic_positioning_
+    fallback rather than the model. Mirrors every other outcome's own
+    provenance field. It matters more here than almost anywhere else: a
+    fallback emits motif=601 SINCERE_CONVICTION with no shifts, which is
+    ALSO a perfectly ordinary real answer -- so without this field a run
+    that fell back on every nominee would be indistinguishable from a run
+    where every nominee genuinely chose to campaign sincerely, and
+    mandate_deviation (which measures drift away from the pledged platform)
+    would be read as a finding about strategy rather than an artifact of
+    the engine giving up."""
+    retry_sampling_varied: dict[int, bool] = field(default_factory=dict)
+    """cid -> whether this decision came from a varied-sampling retry; same contract
+    as VoteBatchOutcome.retry_sampling_varied, never true for a fallback decision."""
+    llm_call_ids: dict[int, str | None] = field(default_factory=dict)
+    """cid -> llm_call_id of the call this decision came from; same contract as
+    VoteBatchOutcome.llm_call_ids."""
+
+
+def _deterministic_positioning_fallback(nominees: Sequence[Citizen]) -> list[PositioningDecision]:
+    """Last-resort decision for decide_campaign_positioning when the LLM path
+    is exhausted for the whole batch.
+
+    No shifts is not an arbitrary filler: it is exactly what NOT running dt=5
+    means. On the deterministic path this decision type does not exist at all
+    and simple_rules.declare_candidacy pins pledged_platform ==
+    revealed_position == issue_positions -- "v0 has no campaign strategizing:
+    a candidate runs on their own sincere position ... the deviation this
+    enables is a v2+ LLM effect, zero by construction here". An empty `shifts`
+    list resolves through apply_shifts to precisely that pin, so the fallback
+    reproduces the baseline rather than inventing a strategy the model never
+    chose.
+
+    The motif is forced, not chosen, the same way _deterministic_response_
+    fallback's is: PositioningDecision's schema admits only 601-604, and
+    PositioningDecision's own docstring already binds the empty-shifts case to
+    601 ("An empty list means the nominee runs on their sincere position
+    (motif=SINCERE_CONVICTION)"). But SINCERE_CONVICTION describes a nominee
+    who WEIGHED the electorate mean and their rivals and chose to stand on
+    their own position -- which is not what happened here. Nothing in the
+    codebook describes "the engine gave up", so the provenance lives in
+    PositioningBatchOutcome.llm_fallback instead, and an analyst reading a
+    motif distribution must subtract fallbacks before reading 601 as evidence
+    of sincere campaigning."""
+    return [
+        PositioningDecision(cid=nominee.citizen_id, shifts=[], motif=int(CampaignMotif.SINCERE_CONVICTION))
+        for nominee in nominees
+    ]
 
 
 def apply_shifts(sincere: tuple[float, ...], shifts: Sequence[PositionShift]) -> tuple[float, ...]:
@@ -1311,7 +2628,36 @@ def build_positioning_system_prompt(nominees: Sequence[Citizen], config: PolityC
     import time. Without stating the real numbers here, the model has no
     way to know what it's actually being validated against in
     validate_positioning_decision -- an omission that would make rejections
-    common rather than a validated guardrail against rare cases."""
+    common rather than a validated guardrail against rare cases.
+
+    Disambiguation sentence between the motif table and the cid-list
+    self-check (2026-08-31 fix, plan-adversarial-framing-collapse.md,
+    same shape as decide_chamber_deliberation's own Mode A fix): a live
+    diagnostic (check_campaign_positioning_truncation_reasoning.py) read
+    the full raw reasoning of 3 reproduced Mode A truncations (cid 167,
+    209, 158) and found, in each, the SAME concrete misreading -- the
+    model reaches a substantively complete answer (real per-dimension
+    shift math, real motif reasoning) and only THEN spirals, believing
+    "la liste decisions doit contenir EXACTEMENT ces N cid" is in
+    conflict with "Motifs valides... 601-604" immediately above it, as
+    if the decisions list itself had to equal the cid list AND
+    separately enumerate the 4 motif codes -- e.g. cid=209's trace:
+    "the decisions list must contain exactly [209]... But the valid
+    codes are 601-604... This is conflicting", repeated 30-63x. The
+    prior wording had NO separating sentence between the motif table and
+    the cid-list instruction (unlike chamber's prompt, which has two);
+    at size=1 "chacun une seule fois" applied to a single-element list is
+    also unusually vacuous phrasing, likely compounding the misreading.
+    NOT the same failure as cid=79's OTHER Mode A trace (same diagnostic
+    run): that one fixates on "electorate_mean is for 10 dimensions...
+    the user provided 20 numb[ers]" from the very first paragraph, before
+    any real per-dimension work -- verified against the actual request
+    body that no dimension mismatch exists (position/priorities/
+    party_platform/electorate_mean are all issue_count=20-dimensional);
+    the model silently truncates its OWN transcription of a 20-element
+    array to 10 while reasoning, an internal artifact this sentence does
+    not address and no prompt wording is expected to fix. See the plan
+    doc for the full traces this diagnosis is based on."""
     cid_list = ",".join(str(n.citizen_id) for n in nominees)
     return (
         "Tu es un moteur de simulation. Pour chaque candidat nomme, decide "
@@ -1328,6 +2674,13 @@ def build_positioning_system_prompt(nominees: Sequence[Citizen], config: PolityC
         f"{config.campaign.max_positioning_delta} inclus. Toute decision "
         "hors de ces bornes sera rejetee.\n"
         f"Motifs valides (code court obligatoire) :\n{CAMPAIGN_MOTIF_PROMPT_TABLE}\n"
+        "Chaque element de la liste decisions correspond a UN candidat "
+        "(identifie par son cid) et porte SON PROPRE motif -- un seul "
+        "code choisi parmi ceux ci-dessus -- et SES PROPRES shifts. La "
+        "contrainte sur les cid ci-dessous et le choix du motif sont deux "
+        "informations independantes du meme objet, pas deux exigences "
+        "concurrentes sur la meme liste : il n'y a rien a concilier entre "
+        "elles.\n"
         f"IMPORTANT : la liste decisions doit contenir EXACTEMENT ces "
         f"{len(nominees)} cid, chacun une seule fois, dans cet ordre : "
         f"[{cid_list}]. Verifie ta reponse avant de la finaliser : chaque "
@@ -1408,7 +2761,66 @@ def decide_campaign_positioning(
     widened the reasoning content itself resolved the alignment failure. The
     two decision types share a superficial "comparative/strategic judgment"
     description but not the same failure mode; do not assume this result
-    transfers back to decide_party_nominations without its own live check."""
+    transfers back to decide_party_nominations without its own live check.
+
+    RELIABILITY CAVEAT (2026-08-31, plan-adversarial-framing-collapse.md):
+    the "5/5 correct, resolved cleanly" claim above does NOT hold at size=1
+    (a single nominee per call, smaller than the acceptance run's own
+    multi-nominee batches, and the shape this module's own diagnostic
+    scripts use). Measured failure rate at size=1, same think=True and
+    +_POSITIONING_THINK_TOKEN_ALLOWANCE budget: 8/32 (25%) --
+    check_campaign_positioning_failure_rate.py, experiment
+    20260831T233502Z-586e3c0e. 6/8 failures are truncation
+    (finish_reason='length') despite the 8000-token allowance; 2/8 are a
+    batch-misalignment where the returned cid equals a CampaignMotif enum
+    value instead of the requested citizen cid (also seen with
+    qwen2.5:7b previously). NOT a content-collapse issue -- when a call
+    does complete, the shift dimensions/deltas/motif vary genuinely
+    per nominee (verified, see the plan doc) -- this is a completion-
+    reliability problem specific to small batches, not decision quality.
+    Whether this failure rate holds at the acceptance run's own larger
+    batch sizes is unmeasured; do not assume either direction without a
+    live check at that size.
+
+    CONFIRMED Mode A AND FIXED, 2026-08-31 (check_campaign_positioning_
+    truncation_reasoning.py, then validate_campaign_positioning_
+    disambiguation_fix.py): 4/4 reproduced truncations showed the same
+    repeated-paragraph signature as decide_chamber_deliberation's own
+    Mode A bug (see that function's docstring) -- an unbounded, non-
+    convergent reasoning loop, 47-242 near-identical repeats,
+    finish_reason='length' landing exactly on the configured ceiling
+    every time. Reading the full traces (39-42k chars each) found 3/4
+    (cid 167, 209, 158) shared one concrete, legible mechanism: in each,
+    the model had ALREADY worked out a substantively complete answer
+    (real per-dimension shift math, real motif reasoning) and only then
+    spiraled, misreading "la liste decisions doit contenir EXACTEMENT ces
+    N cid" as conflicting with the motif menu (601-604) stated
+    immediately above it -- e.g. "the decisions list must contain exactly
+    [209]... But the valid codes are 601-604... This is conflicting",
+    repeated 30-63x. Fixed below by inserting a sentence between the
+    motif table and the cid-list self-check, stating explicitly that the
+    cid and the motif are independent fields of the same object -- same
+    shape as chamber_deliberation's own working fix. Live validation on
+    the exact 3 reproduced cases, 3 reps each: 0/9 truncations post-fix,
+    down from 6/6 pre-fix (experiment 20260901T003657Z-0a0e4d59) -- the
+    same standard chamber_deliberation's own fix achieved (7/7 -> 0/7).
+
+    The 4th reproduced truncation (cid=79) is a DIFFERENT, NOT-addressed-
+    by-this-fix bug: its rumination starts immediately, before any real
+    per-dimension work, fixated on "electorate_mean is for each of the 10
+    dimensions... the user provided 20 numb[ers]". Checked against the
+    actual request body: no real shape mismatch exists (issue_positions/
+    issue_priorities/electorate_mean are all issue_count=20-dimensional,
+    citizen.py:180) -- the model silently truncates its OWN transcription
+    of a 20-element array to 10 while reasoning, an internal artifact no
+    prompt wording addresses. It also came back 0/3 in the same
+    validation run (vs 3/3 truncated across three independent pre-fix
+    measurements) -- notable, but n=3 is too small to call this second
+    issue resolved, and nothing about the fix below should mechanically
+    affect how the model transcribes a numeric array; treat as an
+    unexplained, unconfirmed observation, not a second validated fix.
+    See plan-adversarial-framing-collapse.md's campaign_positioning
+    section for the full traces/analysis."""
     _check_supported(config)
 
     if not nominees:
@@ -1420,25 +2832,63 @@ def decide_campaign_positioning(
     nominees = sorted(nominees, key=lambda n: n.citizen_id)
     electorate_mean = tuple(float(x) for x in np.mean([c.issue_positions for c in citizens], axis=0))
     expected_cids = [n.citizen_id for n in nominees]
-    decisions = _complete_and_decode_with_replay(
-        client,
-        system_prompt=build_positioning_system_prompt(nominees, config),
-        user_prompt=build_positioning_user_prompt(nominees, parties_by_id, electorate_mean),
-        json_schema=POSITIONING_JSON_SCHEMA,
-        max_tokens=compute_max_tokens(len(nominees)) + _POSITIONING_THINK_TOKEN_ALLOWANCE,
-        think=True,
-        decode=lambda raw: decode_positioning_batch(raw, expected_cids),
-        replays=config.llm.max_batch_replays,
-        decision_type="campaign_positioning",
-    )
+    retry_info: dict[str, Any] = {}
+    is_fallback = False
+    try:
+        decisions = _complete_and_decode_with_replay(
+            client,
+            system_prompt=build_positioning_system_prompt(nominees, config),
+            user_prompt=build_positioning_user_prompt(nominees, parties_by_id, electorate_mean),
+            json_schema=POSITIONING_JSON_SCHEMA,
+            max_tokens=compute_max_tokens(len(nominees)) + _profile(config).positioning_think_allowance,
+            think=True,
+            decode=lambda raw: decode_positioning_batch(raw, expected_cids),
+            replays=config.llm.max_batch_replays,
+            decision_type="campaign_positioning",
+            unit_ids=expected_cids,
+            # A deliberate, local exception to temperature=0 determinism --
+            # see _POSITIONING_RETRY_TEMPERATURE's own comment. Only ever
+            # applies to a genuine retry (never the first attempt). This
+            # decision type needs it more than most: its documented failure
+            # mode is a non-convergent reasoning loop hitting finish_reason=
+            # 'length' (see this function's own Mode A history), which at a
+            # fixed temperature and seed re-runs identically every time.
+            retry_temperature=_POSITIONING_RETRY_TEMPERATURE,
+            retry_seed_base=_POSITIONING_RETRY_SEED_BASE,
+            retry_info=retry_info,
+        )
+        # Inside the try on purpose: a validate_positioning_decision failure is
+        # the SAME class of unrecoverable batch as an exhausted replay budget,
+        # and before this it killed the run just as reliably (cast_votes's own
+        # except block already covers both failure classes for the same reason).
+        for decision in decisions:
+            validate_positioning_decision(decision, config)
+    except LlmResponseError as exc:
+        # Last resort, not a silent one -- see PositioningBatchOutcome.llm_
+        # fallback and _deterministic_positioning_fallback's own docstrings.
+        # Whole-batch, not per-chunk: this function deliberately does not
+        # chunk (it batches a handful of nominees, not citizens), so there is
+        # no smaller unit to degrade.
+        _logger.error(
+            "campaign_positioning: exhausted every recovery attempt for cid(s) %s, falling back to "
+            "the sincere platform (no shifts, simple_rules.declare_candidacy's own pin) instead of "
+            "aborting the run: %s", expected_cids, exc,
+        )
+        decisions = _deterministic_positioning_fallback(nominees)
+        is_fallback = True
 
     nominees_by_id = {n.citizen_id: n for n in nominees}
     platforms: dict[int, tuple[float, ...]] = {}
     for decision in decisions:
-        validate_positioning_decision(decision, config)
         platforms[decision.cid] = apply_shifts(nominees_by_id[decision.cid].issue_positions, decision.shifts)
 
-    return PositioningBatchOutcome(decisions=decisions, platforms=platforms)
+    return PositioningBatchOutcome(
+        decisions=decisions,
+        platforms=platforms,
+        llm_fallback=dict.fromkeys(expected_cids, is_fallback),
+        retry_sampling_varied=dict.fromkeys(expected_cids, _sampling_varied(retry_info, is_fallback)),
+        llm_call_ids=dict.fromkeys(expected_cids, retry_info.get("call_id")),
+    )
 
 
 @dataclass(frozen=True)
@@ -1481,12 +2931,53 @@ class ResponseContext:
 class ResponseBatchOutcome:
     decisions: list[ResponseDecision]
     positions: dict[int, tuple[float, ...]]
+    llm_fallback: dict[int, bool] = field(default_factory=dict)
+    """cid -> whether this decision came from _deterministic_response_fallback
+    rather than the model. Mirrors ChamberBatchOutcome/VoteBatchOutcome's own
+    provenance field, and for the same reason: a fallback SILENCE and a real
+    SILENCE are indistinguishable in the journal payload otherwise, and an
+    analyst reading a stance distribution would be counting the engine's
+    failures as the representative's choices. The caller writes it into the
+    event payload, where progress.py's own generic `payload.llm_fallback`
+    tally picks it up with no further wiring."""
     """cid -> resolved new revealed_position (the holder's CURRENT
     revealed_position with validated shifts applied, so drift accumulates
     across ticks -- see validate_response_decision/apply_shifts). Unlike
     PositioningBatchOutcome's `platforms`, pledged_platform is never
     resolved here: the promise is immutable for the term, which is the
     only reason mandate_deviation means anything (§7bis.5)."""
+    retry_sampling_varied: dict[int, bool] = field(default_factory=dict)
+    """cid -> whether this decision came from a varied-sampling retry; same contract
+    as VoteBatchOutcome.retry_sampling_varied, never true for a fallback decision."""
+    llm_call_ids: dict[int, str | None] = field(default_factory=dict)
+    """cid -> llm_call_id of the call this decision came from; same contract as
+    VoteBatchOutcome.llm_call_ids."""
+
+
+def _deterministic_response_fallback(holders: Sequence[Citizen]) -> list[ResponseDecision]:
+    """Last-resort decision for decide_representative_response when the LLM
+    path is exhausted for the whole batch.
+
+    SILENCE with no shifts is not an arbitrary filler: it is exactly what NOT
+    running dt=6 means. On the deterministic path this decision type does not
+    exist at all, and a holder's `revealed_position` simply stays where it was
+    -- `declare_candidacy` pins revealed == pledged, and only dt=6 and
+    campaign_positioning ever diverge them. So the fallback reproduces the
+    baseline behaviour rather than inventing a stance the model never took.
+
+    The motif is forced, not chosen: ResponseDecision's own stance/motif
+    validator allows only 303 or 308 for stance=3, and the fallback takes 308,
+    STRATEGIC_AMBIGUITY -- a name that describes a representative's deliberate
+    reticence, which is NOT what happened here (and 303 would claim a reason
+    the engine never read). Nothing legal describes "the engine gave up", so
+    the provenance lives in ResponseBatchOutcome.llm_fallback instead, and an
+    analyst reading motif distributions must subtract fallbacks before reading
+    308 as a behavioural signal."""
+    return [
+        ResponseDecision(cid=holder.citizen_id, shifts=[], stance=Stance.SILENCE,
+                         motif=ResponseMotif.STRATEGIC_AMBIGUITY)
+        for holder in holders
+    ]
 
 
 def validate_response_decision(decision: ResponseDecision, config: PolityConfig) -> None:
@@ -1574,6 +3065,99 @@ def build_response_system_prompt(holders: Sequence[Citizen], config: PolityConfi
     )
 
 
+def build_response_system_prompt_calibrated(holders: Sequence[Citizen], config: PolityConfig) -> str:
+    """Track B1 (2026-09-11, lets-build-a-solid-spicy-otter.md): C3 (state
+    must be perceptible) for dt=6. `check_logprob_response_stance_
+    tracking_results.md` measured P(stance=1)=1.000000 flat across the
+    entire crisis<->no-problem spectrum (L 0.95->0.05, mandate_dev
+    0.0->0.8, street 0.0->3.0) -- the same content-blind signature C3
+    diagnosed and fixed for pressure_action. `build_response_system_
+    prompt`'s own ctx explanation already states each field's UNITS
+    ("street: un accumulateur NON BORNE") but never its own SCALE -- a
+    number with no reference the model can calibrate against, exactly
+    the gap check_pressure_missing_threshold_results.md first named.
+
+    Deliberately NOT built as PressureCalibrationSignal's own "pick N
+    signals from a menu" shape: that menu exists because pressure_action's
+    four candidate signals are genuinely optional and mutually
+    substitutable (Phase C measured all four, Phase D costed only one).
+    Here there is no menu -- both missing scales are unconditional,
+    closed-form constants derived from `config`, always both true,
+    never a choice:
+
+      ctx.mandate_dev is a weighted Euclidean distance in issue space
+      where positions live in [0,1] and pledge_weights (accountability.py)
+      always renormalizes to sum to 1 regardless of mandate.pledge_scope
+      -- so unlike pressure_action's self_gap (which needed a config value,
+      blank_threshold, because it has no universal bound), mandate_dev's
+      ceiling is a mathematical fact, exactly 1.0, true for every run this
+      project can produce.
+
+      ctx.street is `decay * street(t-1) + rate` with rate in [0,1]
+      (accountability.update_street_pressure) -- a geometric series whose
+      worst-case asymptote is `1 / (1 - decay)`, computed here from
+      config.street_pressure.decay rather than hand-picked, so a future
+      config change keeps the stated ceiling honest without anyone
+      remembering to update a hardcoded sentence.
+
+    Because both facts are the same for every holder in every call, they
+    are stated ONCE here, in the system prompt -- unlike pressure_action's
+    per-citizen blank_threshold, there is no companion "_calibrated" user
+    prompt: build_response_user_prompt's own ctx payload already carries
+    the raw values these two sentences give a scale to, so it is reused
+    unchanged.
+
+    C4-compliant: both sentences state what a number MEANS, never what to
+    do about it -- no threshold, no "if X then concede" rule."""
+    mandate_dev_ceiling = 1.0
+    street_ceiling = 1.0 / (1.0 - config.street_pressure.decay)
+    cid_list = ",".join(str(h.citizen_id) for h in holders)
+    return (
+        "Tu es un moteur de simulation. Pour chaque elu recu "
+        "(representative_response), decide sa reaction a la pression "
+        "citoyenne et institutionnelle percue, a partir de sa promesse "
+        "electorale, de sa position actuelle, et du contexte ctx.\n"
+        "ctx.L : legitimite actuelle dans [0,1], null si non suivie.\n"
+        "ctx.mandate_dev : ecart pondere entre la promesse et la position "
+        "actuelle, deja accumule -- distance dans [0, "
+        f"{mandate_dev_ceiling:.1f}] : 0 = promesse parfaitement tenue sur "
+        "les dimensions qui comptent pour cet elu, "
+        f"{mandate_dev_ceiling:.1f} = ecart maximal geometriquement "
+        "possible sur ces memes dimensions (aucun ecart plus grand n'est "
+        "atteignable).\n"
+        "ctx.street : pression de rue, un accumulateur NON BORNE en "
+        "theorie (0 = aucune mobilisation, >=1 = mobilisation soutenue), "
+        f"mais dont le plafond realiste dans cette simulation est environ "
+        f"{street_ceiling:.2f} (mobilisation totale et continue, tick "
+        "apres tick, compte tenu de sa propre decroissance) ; null si non "
+        "suivie ou non visible.\n"
+        "ctx.lame_duck : 1 si l'elu a atteint la limite de mandats, "
+        "sinon 0.\nctx.ticks_left : nombre de ticks avant la prochaine "
+        "election presidentielle, null si aucune election prevue.\n"
+        "Un champ ctx a null signifie que cette grandeur n'est pas suivie "
+        "dans cette simulation, jamais qu'elle vaut zero.\n"
+        f"stance : {STANCE_PROMPT_TABLE}\n"
+        "shifts : au plus "
+        f"{config.mandate.max_response_shifts} ajustements de position, "
+        f"chaque delta strictement compris entre "
+        f"-{config.mandate.max_response_delta} et "
+        f"{config.mandate.max_response_delta} inclus. stance=1 "
+        "(concession) exige au moins un ajustement ; stance=3 (silence) "
+        "exige une liste vide.\n"
+        f"Motifs valides (code court obligatoire) :\n{RESPONSE_MOTIF_PROMPT_TABLE}\n"
+        "REGLE DE COHERENCE stance/motif obligatoire : stance=1 (concession) "
+        "exige motif 301, 302 ou 303 ; stance=2 (defiance) exige motif "
+        "307 ; stance=3 (silence) exige motif 308 ; stance=4 "
+        "(counter_mobilization) exige motif 309. Toute decision hors de "
+        "ces regles sera rejetee.\n"
+        f"IMPORTANT : la liste decisions doit contenir EXACTEMENT ces "
+        f"{len(holders)} cid, chacun une seule fois, dans cet ordre : "
+        f"[{cid_list}]. Verifie ta reponse avant de la finaliser : chaque "
+        "cid de cette liste doit apparaitre exactement une fois.\n"
+        "Reponds UNIQUEMENT avec un objet JSON conforme au schema fourni."
+    )
+
+
 def build_response_user_prompt(holders: Sequence[Citizen], contexts: Mapping[int, ResponseContext]) -> str:
     """Canonical JSON (sort_keys, compact separators, rounded floats), same
     reproducibility discipline as every prior prompt builder. `holders` is
@@ -1612,6 +3196,47 @@ def decide_representative_response(
     replace -- "no delta, stance=silence" is already true by construction
     without this module ever running).
 
+    RELIABILITY WARNING (2026-08-30, plan-adversarial-framing-collapse.md): confirmed to show the
+    same content-blind collapse signature as pressure_action. Two structurally opposite ctx poles
+    (crisis: L=0.05/mandate_dev=0.8/street=3.0/ticks_left=2; no-problem: L=0.95/mandate_dev=0.0/
+    street=0.0/ticks_left=20), 3 different holders each, size=1/think=False (the REAL production
+    shape here -- this decision type never chunks, so this test was never an artificial
+    isolation). All 4 successfully-decoded calls returned the exact same stance, shift count, and
+    motif in both poles. Unlike pressure_action, no per-response ground truth exists to measure a
+    disagreement rate against -- this is a collapse-signature finding, not an accuracy figure.
+    Suspected common cause (unproven): the decision is framed as an act/response with
+    institutional consequence (choosing a stance) rather than a self-evaluation against a
+    threshold -- see the design doc's own §3.6.0 verification-obligation constraint. Treat
+    stance/mandate_deviation-derived metrics from any llm.enabled=True run as unverified until
+    this is resolved -- no remediation has been found or attempted for this decision type yet.
+
+    SHARPENED 2026-09-10 (plan-llm-protocol-and-theory-program.md §5.C,
+    scripts/check_logprob_response_stance_tracking_results.md): the 2-point/4-sample
+    categorical finding above could not rule out some narrower region of real sensitivity
+    between the two poles. Re-measured via logprobs (P(stance=1, CONCESSION), read directly,
+    not a categorical draw) across 9 points linearly interpolated across the SAME two poles
+    (not re-chosen), real production shape (size=1, think=False) throughout. Result: P(stance=1)
+    stayed within 0.000001 of 1.0 at EVERY point, including both original poles -- no detectable
+    gradient anywhere between "near-perfect legitimacy, zero street pressure" and "near-zero
+    legitimacy, deep mandate deviation, sustained mass mobilization". More extreme than
+    pressure_action's own analogous reading (P(act=4) ranged 0.976-1.0, a small but real
+    gradient) -- this one shows none at all.
+
+    ROOT-CAUSED AND SHIPPED 2026-09-11 (lets-build-a-solid-spicy-otter.md Track B1,
+    scripts/check_response_calibration_results.md): the mechanism is C3 (polity-decision-
+    contracts.md), the same defect diagnosed for pressure_action -- ctx.mandate_dev/ctx.street
+    were sent with their UNITS stated but never their SCALE, no reference the model could
+    calibrate against. build_response_system_prompt_calibrated states both: mandate_dev's own
+    [0,1] geometric bound (a mathematical certainty, not a config guess -- pledge_weights always
+    renormalizes to sum to 1) and street's decay-derived asymptote (1/(1-decay)). Re-ran the
+    EXACT same 9-point probe with only that one line changed: P(stance=1) is no longer flat --
+    0.1225 at the true zero-pressure pole (mandate_dev=0, street=0, chosen stance flips to 3
+    SILENCE), still ~1.0 at every other point. Read this precisely: the collapse is BROKEN, not
+    SMOOTHED -- this establishes a real zero/nonzero distinction, not a graded sensitivity to
+    the MAGNITUDE of pressure once pressure exists at all. stance_distribution/mandate_deviation
+    from an llm.enabled=True run are no longer a flat constant, but treat any claim of smooth
+    gradient sensitivity above the zero point as unestablished.
+
     Deliberately does NOT use chunk_voters/MIN_SAFE_BATCH_SIZE, same
     reasoning as decide_party_nominations/decide_campaign_positioning:
     this batches this tick's sitting OFFICEHOLDERS (0-or-1 today, president
@@ -1632,27 +3257,57 @@ def decide_representative_response(
     # rely on an incidental insertion order (D-5 precedent).
     holders = sorted(holders, key=lambda h: h.citizen_id)
     expected_cids = [h.citizen_id for h in holders]
-    decisions = _complete_and_decode_with_replay(
-        client,
-        system_prompt=build_response_system_prompt(holders, config),
-        user_prompt=build_response_user_prompt(holders, contexts),
-        json_schema=RESPONSE_JSON_SCHEMA,
-        max_tokens=compute_max_tokens(len(holders)),
-        think=False,
-        decode=lambda raw: decode_response_batch(raw, expected_cids),
-        replays=config.llm.max_batch_replays,
-        decision_type="representative_response",
-    )
+    retry_info: dict[str, Any] = {}
+    is_fallback = False
+    try:
+        decisions = _complete_and_decode_with_replay(
+            client,
+            system_prompt=build_response_system_prompt_calibrated(holders, config),
+            user_prompt=build_response_user_prompt(holders, contexts),
+            json_schema=RESPONSE_JSON_SCHEMA,
+            max_tokens=compute_max_tokens(len(holders)),
+            think=False,
+            decode=lambda raw: decode_response_batch(raw, expected_cids),
+            replays=config.llm.max_batch_replays,
+            decision_type="representative_response",
+            unit_ids=expected_cids,
+            # A deliberate, local exception to temperature=0 determinism --
+            # see _RESPONSE_RETRY_TEMPERATURE's own comment. Only ever applies
+            # to a genuine retry (never the first attempt).
+            retry_temperature=_RESPONSE_RETRY_TEMPERATURE,
+            retry_seed_base=_RESPONSE_RETRY_SEED_BASE,
+            retry_info=retry_info,
+        )
+        for decision in decisions:
+            validate_response_decision(decision, config)
+    except LlmResponseError as exc:
+        # Last resort, not a silent one. Added 2026-09-11 after this exact path
+        # killed a real 2.5-hour scale-probe run: dt=6 was one of five decision
+        # types with no fallback at all, so a single schema-invalid batch --
+        # here, two shifts on the same dimension -- aborted everything. Same
+        # "must not die mid-run" priority cast_votes and chamber_deliberation
+        # already follow.
+        _logger.error(
+            "representative_response: exhausted every recovery attempt for cid(s) %s, falling back "
+            "to silence (no position change) instead of aborting the run: %s", expected_cids, exc,
+        )
+        decisions = _deterministic_response_fallback(holders)
+        is_fallback = True
 
     holders_by_id = {h.citizen_id: h for h in holders}
     positions: dict[int, tuple[float, ...]] = {}
     for decision in decisions:
-        validate_response_decision(decision, config)
         holder = holders_by_id[decision.cid]
         assert holder.revealed_position is not None  # guaranteed by the caller's own filter
         positions[decision.cid] = apply_shifts(holder.revealed_position, decision.shifts)
 
-    return ResponseBatchOutcome(decisions=decisions, positions=positions)
+    return ResponseBatchOutcome(
+        decisions=decisions,
+        positions=positions,
+        llm_fallback=dict.fromkeys(expected_cids, is_fallback),
+        retry_sampling_varied=dict.fromkeys(expected_cids, _sampling_varied(retry_info, is_fallback)),
+        llm_call_ids=dict.fromkeys(expected_cids, retry_info.get("call_id")),
+    )
 
 
 @dataclass(frozen=True)
@@ -1691,10 +3346,23 @@ class PressureContext:
     neighbors_acting: float | None = None
 
     def to_payload(self) -> dict[str, float | int | None]:
-        """§3.6.6's exact four ctx keys, rounded like every other prompt
-        builder. Used by BOTH build_pressure_user_prompt and the journal
-        write, so the ctx an analyst reads is provably the ctx the model
-        saw."""
+        """§3.6.6's exact four BASE ctx keys, rounded like every other
+        prompt builder. Used by build_pressure_user_prompt (the
+        uncalibrated builder, which sends only these four) and by the
+        journal write.
+
+        NOT the whole story on the calibrated (shipped) path: `decide_
+        pressure_actions` calls `build_pressure_user_prompt_calibrated`
+        instead, which merges `pressure_shipped_signal_values`'s own
+        key(s) (`blank_threshold`) on top of this dict before sending it.
+        The journal write merges the SAME function's output on top too
+        (run_polity_simulation.py) -- so the "ctx an analyst reads is the
+        ctx the model saw" invariant this docstring used to claim for
+        `to_payload()` ALONE is actually only true for the pair of them
+        together; a docstring correction, not a behavior change (Track C3,
+        2026-09-11, found this claim had gone stale the moment Phase E
+        shipped `blank_threshold` through the separate `signal_values`
+        argument without updating this sentence)."""
         return {
             "self_gap": round(self.self_gap, 4),
             "mandate_dev": round(self.mandate_dev, 4),
@@ -1711,6 +3379,81 @@ class PressureBatchOutcome:
     the CALLER resolves each act against LIVE petition state via
     accountability.applicable_pressure_act, because only the caller owns
     mutation. Same one-field shape as CandidacyBatchOutcome."""
+    llm_fallback: dict[int, bool] = field(default_factory=dict)
+    """cid -> whether this decision came from _deterministic_pressure_fallback
+    rather than the model. Mirrors every other outcome's own provenance field.
+    dt=10 is the decision type where this matters most, because the entire
+    §11.4 palier this simulator exists to measure is "rigid deterministic
+    preference vs. free LLM arbitration" -- a fallback silently substitutes
+    the FIRST arm into a run that is supposed to be measuring the second, and
+    mobilization_rate is computed from exactly these acts. An analyst
+    comparing the two arms must exclude fallback decisions or the comparison
+    is partly against itself."""
+    retry_sampling_varied: dict[int, bool] = field(default_factory=dict)
+    """cid -> whether this decision came from a varied-sampling retry; same contract
+    as VoteBatchOutcome.retry_sampling_varied, never true for a fallback decision."""
+    llm_call_ids: dict[int, str | None] = field(default_factory=dict)
+    """cid -> llm_call_id of the call this decision came from; same contract as
+    VoteBatchOutcome.llm_call_ids."""
+
+
+def _deterministic_pressure_fallback(
+    chunk: Sequence[Citizen], contexts: Mapping[int, PressureContext], config: PolityConfig
+) -> list[PressureDecision]:
+    """Last-resort decision for decide_pressure_actions when the LLM path is
+    exhausted for this one chunk.
+
+    Reuses simple_rules.deterministic_pressure_action -- the exact §11.4
+    baseline this decision type's own docstring says it REPLACED, and which
+    "stays exactly as it is" precisely so it remains available as the
+    permanent comparison arm. Not a new mechanism invented for this fallback.
+
+    `gap` and the two petition-availability facts come from the FROZEN
+    PressureContext the model itself was shown, never from live state:
+    `can_sign`/`can_launch` are recovered from `context.available`, which the
+    caller built as menu_acts() minus the acts this citizen could not take at
+    freeze time (run_polity_simulation._pressure_context). So a fallback
+    decision is exactly as stale as a model decision would have been, and the
+    caller's own applicable_pressure_act re-resolution against live state
+    downgrades both identically -- this function must not quietly enjoy
+    fresher information than the path it replaces.
+
+    Because the baseline reads `menu` itself, the returned act is in-menu by
+    construction and validate_pressure_decision would accept it; it is not
+    re-validated here, matching every other fallback.
+
+    Motifs: 301 MANDATE_DEVIATION_HIGH for any acting code is a real
+    structural classification -- the baseline's one gate IS
+    `gap >= citizen.blank_threshold`, the citizen's perceived deviation
+    exceeding their own tolerance bar. 305 DEFERRED_TO_ELECTION for act=4 is
+    likewise literal (the baseline's final branch). 304 is the weak one, and
+    it is FORCED rather than chosen: it is the only code in the enum that
+    grounds act=0, but RESIGNATION_NO_LEVERAGE describes a citizen who wanted
+    to act and found no lever, whereas the baseline's act=0 means the
+    opposite -- the holder is still within this citizen's tolerance, so there
+    is nothing to be aggrieved about. Nothing legal expresses that, so
+    provenance lives in PressureBatchOutcome.llm_fallback instead."""
+    decisions = []
+    for citizen in chunk:
+        context = contexts[citizen.citizen_id]
+        act = deterministic_pressure_action(
+            citizen,
+            context.self_gap,
+            config.pressure_menu,
+            can_sign=int(PressureAct.SIGN_PETITION) in context.available,
+            can_launch=int(PressureAct.LAUNCH_PETITION) in context.available,
+            tolerance_scale=tolerance_scale(citizen, config.emotions),
+        )
+        if act is PressureAct.NOTHING:
+            motif = PressureMotif.RESIGNATION_NO_LEVERAGE
+        elif act is PressureAct.WAIT_FOR_ELECTION:
+            motif = PressureMotif.DEFERRED_TO_ELECTION
+        else:
+            motif = PressureMotif.MANDATE_DEVIATION_HIGH
+        decisions.append(
+            PressureDecision(cid=citizen.citizen_id, target=context.target, act=int(act), motif=int(motif))
+        )
+    return decisions
 
 
 def menu_acts(menu: PressureMenuConfig) -> tuple[int, ...]:
@@ -1777,8 +3520,366 @@ def build_pressure_system_prompt(consulted: Sequence[Citizen], config: PolityCon
     is a REGRESSION PIN, not just documentation. When the graph is on, a
     second sentence explains the real [0,1] fraction and appends one line
     of act<->motif pairing guidance for 306 FOLLOWING_NEIGHBORS
-    (unenforced -- see PressureDecision's own docstring for why)."""
+    (unenforced -- see PressureDecision's own docstring for why).
+
+    Correction, 2026-09-10 (plan-llm-protocol-and-theory-program.md §3.B.7,
+    same fix already shipped for build_system_prompt/build_chamber_system_
+    prompt): the per-chunk cid list used to be embedded literally near this
+    string's own end, breaking prefix-cache continuity for every chunk --
+    two chunks' own system prompts would diverge only at that literal
+    list. Moved to build_pressure_user_prompt's own `expected_cids` field.
+    This function no longer reads `consulted` at all (kept as a parameter
+    for call-site/signature stability, same choice build_chamber_system_
+    prompt's own fix already made) -- its output is now a pure function of
+    `config`, identical across every chunk AND every tick for the whole
+    run, not merely within one chunk. No semantic change to the
+    instruction itself."""
+    # S3.5: the calibrated builder with no signals is this prompt, byte for byte -- it
+    # was written as a copy of this one plus appended signal sentences.
+    return build_pressure_system_prompt_calibrated(consulted, config, ())
+
+
+def build_pressure_user_prompt(consulted: Sequence[Citizen], contexts: Mapping[int, PressureContext]) -> str:
+    """Canonical JSON (sort_keys, compact separators, floats rounded to 4),
+    same reproducibility discipline as every prior prompt builder.
+    Top-level key "consulted" -- the seventh dispatch key
+    (citizens/parties/nominees/responders/holders/voters are taken; note
+    _FakeLlmClient tests `"citizens" in payload` FIRST, so reusing that key
+    would silently answer the candidacy schema instead). Per citizen: cid,
+    target, ctx=contexts[cid].to_payload(), the frozen `available` act
+    list, and the petition's institutional (never aggregate) state --
+    open/expires_at_tick/already_signed, but no signatures/signed_ratio
+    (§7bis.9f, see PressureContext). Deliberately NO 20-dim position
+    vectors per citizen -- at up to 25 citizens per chunk that would
+    multiply the prompt far beyond what self_gap/mandate_dev already
+    encode. Does not re-sort -- the caller owns the canonical order the
+    system prompt enumerates.
+
+    `expected_cids` (2026-09-10, plan-llm-protocol-and-theory-program.md
+    §3.B.7): this chunk's own consulted cid list, in the same order as
+    `consulted` -- moved here from build_pressure_system_prompt's own
+    output for the same prefix-cache reason as build_user_prompt's own
+    identical field; see that function's own docstring."""
+    # S3.5: the calibrated builder with no signal values is this payload, byte for byte.
+    return build_pressure_user_prompt_calibrated(consulted, contexts, {})
+
+
+def build_pressure_system_prompt_toon(consulted: Sequence[Citizen], config: PolityConfig) -> str:
+    """plan-llm-protocol-and-theory-program.md §5.E: NOT shipped, NOT wired
+    into decide_pressure_actions -- diagnostic-only, same "not wired into
+    any decide_* entry point" framing as every §5.C/§5.E primitive this
+    session. Output stays JSON (xgrammar/PRESSURE_JSON_SCHEMA, unchanged).
+
+    Pairs with build_pressure_user_prompt_toon's own hoisting: under the
+    architecture this project's shipped config actually has (a single
+    consulted officeholder per tick, config-derived `available`, no
+    social graph), `target`/`mandate_dev`/`ticks_to_election`/`available`
+    are call-level facts, not per-citizen ones -- build_pressure_user_
+    prompt's own JSON repeats them on every citizen block regardless, but
+    that repetition is not information, it is the SAME fact copied N
+    times. This system prompt explains the resulting two-section TOON
+    shape (a one-row 'call' section for the shared facts, then a
+    per-citizen 'pressure' section carrying only what genuinely varies:
+    cid and self_gap) with a worked, generic example -- not real values,
+    same discipline as build_candidacy_system_prompt_toon's own example.
+
+    Differs from build_pressure_system_prompt ONLY in replacing the ctx-
+    field explanations with the TOON-shape explanation covering the same
+    facts; the menu constraint, the legal-act table, the motif table, and
+    the verbatim expected-cid self-check are unchanged, so a live A/B
+    isolates the format change specifically."""
     cid_list = ",".join(str(c.citizen_id) for c in consulted)
+    legal = menu_acts(config.pressure_menu)
+    legal_table = "\n".join(
+        line for line in PRESSURE_ACT_PROMPT_TABLE.splitlines() if int(line.split(" = ")[0]) in legal
+    )
+    return (
+        "Tu es un moteur de simulation. Pour chaque citoyen mecontent recu "
+        "(pressure_action), decide son action envers l'elu cible, en te "
+        "basant sur son propre ecart de mecontentement et le menu "
+        "constitutionnel actif.\n"
+        f"CONTRAINTE ABSOLUE : le champ act de CHAQUE decision doit valoir "
+        f"UN DES CODES SUIVANTS, et aucun autre : {list(legal)}. Tout autre "
+        "code invalide le batch entier.\n"
+        f"act (les seuls codes autorises ce tick) :\n{legal_table}\n"
+        "0 (ne rien faire) et 4 (attendre la prochaine election) sont des "
+        "resultats legitimes et journalises, jamais des echecs -- la part "
+        "des mecontents qui n'agissent pas est une mesure du modele, pas "
+        "une erreur a eviter.\n"
+        f"Motifs valides (code court obligatoire) :\n{PRESSURE_MOTIF_PROMPT_TABLE}\n"
+        "Le message utilisateur n'est PAS du JSON : il utilise le format "
+        "TOON, en DEUX sections. La premiere, 'call[1]{target,mandate_dev,"
+        "ticks_to_election}:', donne UNE seule ligne de faits partages par "
+        "TOUS les citoyens de cet appel : target (le cid de l'elu cible), "
+        "mandate_dev (ecart pondere entre la promesse de l'elu et sa "
+        "position actuelle -- une information sur l'elu, pas sur moi), et "
+        "ticks_to_election (nombre de ticks avant la prochaine election "
+        "presidentielle). La seconde, 'pressure[N]{cid,self_gap}:', donne "
+        "N lignes, une par citoyen, chacune son propre cid et son propre "
+        "self_gap (ecart pondere entre mes propres positions et la "
+        "position actuelle de l'elu cible). Exemple : 'call[1]{target,"
+        "mandate_dev,ticks_to_election}:\\n7,0.15,12\\npressure[2]{cid,"
+        "self_gap}:\\n0,0.08\\n1,1.42' decrit un appel ou l'elu cible est "
+        "le citoyen 7 (mandate_dev=0.15, 12 ticks avant l'election), et "
+        "deux citoyens consultes : cid=0 (self_gap=0.08) et cid=1 "
+        "(self_gap=1.42).\n"
+        "Aucune autre donnee n'est envoyee : aucune petition n'est ouverte "
+        "sous ce regime constitutionnel, et aucun voisinage social n'est "
+        "suivi dans cette simulation -- n'en deduis rien, ignore ces deux "
+        "aspects dans ton raisonnement.\n"
+        f"IMPORTANT : la liste decisions doit contenir EXACTEMENT ces "
+        f"{len(consulted)} cid, chacun une seule fois, dans cet ordre : "
+        f"[{cid_list}]. Verifie ta reponse avant de la finaliser : chaque "
+        "cid de cette liste doit apparaitre exactement une fois, et chaque "
+        f"act doit appartenir a {list(legal)}.\n"
+        "Reponds UNIQUEMENT avec un objet JSON conforme au schema fourni."
+    )
+
+
+def build_pressure_user_prompt_toon(consulted: Sequence[Citizen], contexts: Mapping[int, PressureContext]) -> str:
+    """The TOON-encoded twin of build_pressure_user_prompt -- hoists the
+    fields that are call-level constants under this project's SHIPPED
+    architecture (single consulted officeholder per tick, config-derived
+    `available`, no social graph, no open petitions under electoral_only)
+    out of the per-citizen rows entirely, into a single one-row 'call'
+    section; only `cid`/`self_gap` genuinely vary per citizen and get
+    their own 'pressure' rows. See build_pressure_system_prompt_toon's
+    own docstring for the full two-section shape this produces and why
+    it is not an artifact of any one test's own construction.
+
+    Raises ValueError (never silently drops real information) if any of
+    those assumed-constant fields is NOT actually constant across
+    `consulted`, or not at the exact shipped-regime value this encoding
+    assumes -- a future caller with a genuinely heterogeneous batch (a
+    social graph enabled, or an open petition) needs a different
+    encoding, not this one silently mis-describing its own input."""
+    ctxs = [contexts[c.citizen_id] for c in consulted]
+    target, ticks_to_election = _toon_pressure_call_constants(ctxs)
+    for ctx in ctxs:
+        _check_toon_pressure_context(ctx)
+    call_block = encode_toon_array(
+        "call", ("target", "mandate_dev", "ticks_to_election"),
+        [(target, round(ctxs[0].mandate_dev, 4), ticks_to_election)],
+    )
+    pressure_block = encode_toon_array(
+        "pressure", ("cid", "self_gap"),
+        [(c.citizen_id, round(contexts[c.citizen_id].self_gap, 4)) for c in consulted],
+    )
+    return f"{call_block}\n{pressure_block}"
+
+
+def _toon_pressure_call_constants(ctxs: Sequence[PressureContext]) -> tuple[int, int]:
+    """(target, ticks_to_election), which the TOON encoding sends once per call."""
+    targets = {ctx.target for ctx in ctxs}
+    mandate_devs = {ctx.mandate_dev for ctx in ctxs}
+    ticks = {ctx.ticks_to_election for ctx in ctxs}
+    if len(targets) != 1 or len(mandate_devs) != 1 or len(ticks) != 1:
+        raise ValueError(
+            "build_pressure_user_prompt_toon assumes target/mandate_dev/ticks_to_election are "
+            "call-level constants (true under the shipped architecture: one consulted officeholder "
+            "per tick) -- got heterogeneous values across this chunk"
+        )
+    ticks_to_election = ticks.pop()
+    if ticks_to_election is None:
+        raise ValueError("build_pressure_user_prompt_toon does not support a null ticks_to_election")
+    return targets.pop(), ticks_to_election
+
+
+def _check_toon_pressure_context(ctx: PressureContext) -> None:
+    if ctx.available != (0, 4):
+        raise ValueError(f"build_pressure_user_prompt_toon assumes the shipped closed menu (0,4), got {ctx.available!r}")
+    if ctx.petition_open or ctx.already_signed or ctx.petition_expires_at_tick is not None:
+        raise ValueError("build_pressure_user_prompt_toon assumes no petition is open (shipped electoral_only)")
+    if ctx.neighbors_acting is not None:
+        raise ValueError("build_pressure_user_prompt_toon assumes neighbors_acting is untracked (shipped default)")
+
+
+@dataclass(frozen=True)
+class PressureCalibrationSignal:
+    """One optional, purely descriptive per-citizen field for the
+    calibrated pressure_action prompt -- polity-decision-contracts.md's
+    C3 (state must be perceptible: every decision-relevant quantity needs
+    a scale) without violating C4 (nothing prescriptive: no rule mapping
+    state to action). `definition` states what the number MEANS and MUST
+    NOT state what to do about it -- see build_pressure_system_prompt_
+    calibrated's own docstring for the §7bis.9d failure mode this exists
+    to avoid."""
+
+    field: str
+    definition: str  # one sentence, ends with "\n", no if/then, no prescribed action
+
+
+PRESSURE_THRESHOLD_SIGNAL = PressureCalibrationSignal(
+    field="blank_threshold",
+    definition=(
+        "ctx.blank_threshold : mon propre seuil de tolerance, sur la meme "
+        "echelle que ctx.self_gap -- au-dela, cet ecart devient notable "
+        "pour moi personnellement. Ce nombre ne prescrit aucune reaction.\n"
+    ),
+)
+
+
+PRESSURE_EMOTION_SIGNALS = (
+    PressureCalibrationSignal(
+        field="anger",
+        definition=(
+            "ctx.anger : ma colere envers la personne visee, de 0 a 1 ; elle monte quand sa "
+            "position s'eloigne de la mienne au-dela de mon seuil de tolerance. Ce nombre ne "
+            "prescrit aucune reaction.\n"
+        ),
+    ),
+    PressureCalibrationSignal(
+        field="anxiety",
+        definition=(
+            "ctx.anxiety : mon inquietude face a la conjoncture economique, de 0 a 1. Ce nombre "
+            "ne prescrit aucune reaction.\n"
+        ),
+    ),
+    PressureCalibrationSignal(
+        field="enthusiasm",
+        definition=(
+            "ctx.enthusiasm : mon enthousiasme envers la personne visee, de 0 a 1 ; il monte quand "
+            "sa position est proche de la mienne. Ce nombre ne prescrit aucune reaction.\n"
+        ),
+    ),
+)
+"""S4.3 (ADR-012): the citizen's emotions, sent once `emotions.enabled` tracks them. Each
+states what the number measures and, like the threshold signal, no reaction to it."""
+
+
+def pressure_signals(config: PolityConfig) -> tuple[PressureCalibrationSignal, ...]:
+    """The calibration signals dt=10's prompt carries under `config`."""
+    return (PRESSURE_THRESHOLD_SIGNAL, *PRESSURE_EMOTION_SIGNALS) if config.emotions.enabled else (PRESSURE_THRESHOLD_SIGNAL,)
+
+
+def pressure_shipped_signal_values(citizen: Citizen) -> dict[str, float]:
+    """The single source of truth for dt=10's shipped calibration signal
+    (`PRESSURE_THRESHOLD_SIGNAL` only -- see `decide_pressure_actions`'s own
+    docstring for why the other three Phase-C signals never shipped).
+    Called by `decide_pressure_actions` itself (to build `signal_values` for
+    `build_pressure_user_prompt_calibrated`) AND by `run_polity_simulation`'s
+    own `pressure_action` journal write -- so the ctx an analyst reads can
+    never again silently diverge from the ctx the model actually saw.
+
+    Track C3 fix, 2026-09-11 (lets-build-a-solid-spicy-otter.md): found live
+    that `PressureContext.to_payload()`'s own docstring claim ("used by BOTH
+    the prompt and the journal write") had gone stale the moment Phase E
+    shipped `blank_threshold` -- the prompt started merging it in via
+    `build_pressure_user_prompt_calibrated`'s separate `signal_values`
+    argument, but the journal write (`run_polity_simulation.py`) still
+    called `to_payload()` alone, on a high-volume type (dt=10 fires on
+    every consulted citizen, every tick `mandate.enabled`).
+
+    S4.3: a citizen whose emotions are tracked also carries PRESSURE_EMOTION_SIGNALS'
+    three fields."""
+    values = {PRESSURE_THRESHOLD_SIGNAL.field: round(citizen.blank_threshold, 4)}
+    if citizen.anger is not None and citizen.anxiety is not None and citizen.enthusiasm is not None:
+        values.update(anger=round(citizen.anger, 4), anxiety=round(citizen.anxiety, 4), enthusiasm=round(citizen.enthusiasm, 4))
+    return values
+"""polity-decision-contracts.md §3 pressure_action: `deterministic_
+pressure_action` (simple_rules.py) compares `gap < citizen.blank_
+threshold` to score every measurement this decision type has ever been
+judged against, yet the shipped prompt never sends blank_threshold at
+all -- see check_pressure_missing_threshold_results.md for the live
+evidence. This signal supplies the number without supplying the
+comparison."""
+
+PRESSURE_HISTORY_SIGNAL = PressureCalibrationSignal(
+    field="self_gap_prev_tick",
+    definition=(
+        "ctx.self_gap_prev_tick : mon propre ecart au tick precedent, sur "
+        "la meme echelle que ctx.self_gap -- permet de voir si la "
+        "situation s'est degradee, amelioree, ou n'a pas change depuis la "
+        "derniere fois.\n"
+    ),
+)
+"""§3.3 item 3's own "historique récent" -- literally named in the design
+doc, and currently absent from every ctx in this project. Values are
+supplied by the caller (see build_pressure_user_prompt_calibrated's own
+docstring for why this function never computes them itself); for a real
+caller wiring this into production, run_polity_simulation.py's own
+_run_accountability_phase already has holder.revealed_position captured
+one step earlier in the same tick (_run_representative_responses runs
+first), so a 1-tick window needs no new persistent state."""
+
+PRESSURE_PERCENTILE_SIGNAL = PressureCalibrationSignal(
+    field="self_gap_percentile",
+    definition=(
+        "ctx.self_gap_percentile : ma position (0 a 100) parmi les "
+        "citoyens consultes ce tick, classes par ecart croissant -- 0 "
+        "signifie que je suis le moins mecontent de ce groupe, 100 le "
+        "plus mecontent.\n"
+    ),
+)
+"""§3.3 item 3's "positions des autres acteurs", read as a within-cohort
+rank rather than an absolute one -- the purest fit to that phrase of the
+four signals, and the one most explicitly coupling one citizen's own
+reading to the rest of the batch it shares a call with, which is why
+polity-decision-contracts.md ranks it after the threshold/history
+signals rather than before them."""
+
+PRESSURE_PLEDGE_SIGNAL = PressureCalibrationSignal(
+    field="gap_vs_pledge",
+    definition=(
+        "ctx.gap_vs_pledge : l'ecart que j'aurais avec cet elu s'il avait "
+        "tenu sa promesse de campagne, sur la meme echelle que "
+        "ctx.self_gap -- une reference independante de sa position "
+        "actuelle.\n"
+    ),
+)
+"""A same-scale anchor requiring no population coupling at all (unlike
+PRESSURE_PERCENTILE_SIGNAL) and no institutional state (unlike
+PRESSURE_THRESHOLD_SIGNAL) -- purely a second weighted distance the
+caller already has the means to compute (weighted_euclidean against
+holder.pledged_platform, immutable for the whole term)."""
+
+
+def build_pressure_system_prompt_calibrated(
+    consulted: Sequence[Citizen], config: PolityConfig, signals: Sequence[PressureCalibrationSignal],
+) -> str:
+    """polity-decision-contracts.md's pilot correction for pressure_action
+    (C3: self_gap is sent with no scale reference at all -- see plan-llm-
+    protocol-and-theory-program.md §3.A.1's premise check and check_
+    pressure_missing_threshold_results.md for the live evidence this
+    responds to). SHIPPED 2026-09-10 (Phase E): decide_pressure_actions
+    now calls this with (PRESSURE_THRESHOLD_SIGNAL,) -- no longer
+    diagnostic-only. check_pressure_calibration_matrix.py's own Phase C
+    matrix (all five signal combinations, several batch sizes) is still
+    the only caller that exercises the other three signals or any batch
+    size other than 1.
+
+    `signals` composes which optional descriptive fields are added --
+    zero, one, or several of PRESSURE_THRESHOLD_SIGNAL/_HISTORY_SIGNAL/
+    _PERCENTILE_SIGNAL/_PLEDGE_SIGNAL -- so one function serves every
+    variant in the experiment matrix instead of near-duplicating this
+    prompt four or five times for a difference that is really just
+    "which sentences get appended".
+
+    HARD RULE, not a style choice: every `definition` in a signal MUST
+    describe what its number MEANS and MUST NOT state what to do about
+    it -- polity-decision-contracts.md's C4, and §7bis.9d's own warning
+    verbatim: "Si l'on inverse cette separation -- si le seuil decide de
+    l'action -- on obtient une simulation de Granovetter avec un LLM
+    decoratif par-dessus, c'est-a-dire l'inverse exact de l'objectif du
+    §3.3." Nothing here ever writes deterministic_pressure_action's own
+    `gap < blank_threshold` comparison into the prompt -- see check_
+    pressure_missing_threshold.py's own arm D for what that failure mode
+    looks like when it isn't avoided (a capability CONTROL there,
+    deliberately not a proposal, and not reused here for that reason).
+
+    Otherwise identical to build_pressure_system_prompt: same menu
+    constraint (stated twice), same legal-act table, same motif table,
+    same verbatim expected-cid self-check -- only the ctx explanations
+    gain the requested signal sentences, appended after the unmodified
+    ones, so a live A/B against the unmodified baseline isolates exactly
+    what was added.
+
+    Correction, 2026-09-10 (plan-llm-protocol-and-theory-program.md
+    §3.B.7): this function was first written by copying build_pressure_
+    system_prompt's OWN pre-fix body, so it embedded the same per-chunk
+    cid list and inherited the same prefix-cache break. Updated in the
+    same pass as that function's own fix, to the same closing paragraph
+    (a reference to `expected_cids` by name)."""
     legal = menu_acts(config.pressure_menu)
     legal_table = "\n".join(
         line for line in PRESSURE_ACT_PROMPT_TABLE.splitlines() if int(line.split(" = ")[0]) in legal
@@ -1794,8 +3895,13 @@ def build_pressure_system_prompt(consulted: Sequence[Citizen], config: PolityCon
     else:
         neighbors_acting_line = (
             "ctx.neighbors_acting : toujours null dans cette simulation (aucun "
-            "graphe social suivi), jamais zero.\n"
+            "graphe social suivi), jamais zero -- null signifie que cette "
+            "information n'existe pas du tout ici, PAS que les voisins sont "
+            "inactifs ou absents. Ne rien en deduire sur le voisinage : ignorer "
+            "ce champ dans le raisonnement, ne jamais l'interpreter comme un "
+            "signal.\n"
         )
+    signal_lines = "".join(signal.definition for signal in signals)
     return (
         "Tu es un moteur de simulation. Pour chaque citoyen mecontent recu "
         "(pressure_action), decide son action envers l'elu cible, en te "
@@ -1817,38 +3923,61 @@ def build_pressure_system_prompt(consulted: Sequence[Citizen], config: PolityCon
         f"{neighbors_acting_line}"
         "ctx.ticks_to_election : nombre de ticks avant la prochaine "
         "election presidentielle, null si aucune election prevue.\n"
-        f"IMPORTANT : la liste decisions doit contenir EXACTEMENT ces "
-        f"{len(consulted)} cid, chacun une seule fois, dans cet ordre : "
-        f"[{cid_list}]. Verifie ta reponse avant de la finaliser : chaque "
-        "cid de cette liste doit apparaitre exactement une fois, et chaque "
-        f"act doit appartenir a {list(legal)}.\n"
+        f"{signal_lines}"
+        "IMPORTANT : la liste decisions doit contenir EXACTEMENT les cid "
+        "donnes par le champ 'expected_cids' du message utilisateur, "
+        "chacun une seule fois, dans le MEME ordre que ce champ. Verifie "
+        "ta reponse avant de la finaliser : chaque cid de 'expected_cids' "
+        "doit apparaitre exactement une fois dans le champ 'cid' des "
+        f"decisions, et chaque act doit appartenir a {list(legal)}.\n"
         "Reponds UNIQUEMENT avec un objet JSON conforme au schema fourni."
     )
 
 
-def build_pressure_user_prompt(consulted: Sequence[Citizen], contexts: Mapping[int, PressureContext]) -> str:
-    """Canonical JSON (sort_keys, compact separators, floats rounded to 4),
-    same reproducibility discipline as every prior prompt builder.
-    Top-level key "consulted" -- the seventh dispatch key
-    (citizens/parties/nominees/responders/holders/voters are taken; note
-    _FakeLlmClient tests `"citizens" in payload` FIRST, so reusing that key
-    would silently answer the candidacy schema instead). Per citizen: cid,
-    target, ctx=contexts[cid].to_payload(), the frozen `available` act
-    list, and the petition's institutional (never aggregate) state --
-    open/expires_at_tick/already_signed, but no signatures/signed_ratio
-    (§7bis.9f, see PressureContext). Deliberately NO 20-dim position
-    vectors per citizen -- at up to 25 citizens per chunk that would
-    multiply the prompt far beyond what self_gap/mandate_dev already
-    encode. Does not re-sort -- the caller owns the canonical order the
-    system prompt enumerates."""
+def build_pressure_user_prompt_calibrated(
+    consulted: Sequence[Citizen],
+    contexts: Mapping[int, PressureContext],
+    signal_values: Mapping[str, Mapping[int, float]],
+) -> str:
+    """build_pressure_user_prompt's own payload, with one extra key per
+    entry of `signal_values` merged into each citizen's `ctx` block --
+    `signal_values` maps a signal's own `field` name (see
+    PressureCalibrationSignal) to a {cid: value} mapping.
+
+    Deliberately does not compute any signal itself: percentile, history
+    and pledge-distance each need data this function has no access to
+    (the whole cohort's self_gap, the previous tick's revealed_position,
+    the officeholder's own pledged_platform) -- the CALLER computes and
+    supplies them, keeping this a pure serializer with no hidden
+    branching, same discipline as every prior prompt builder in this
+    module. Every key present in `signal_values` must have a value for
+    every consulted citizen, or this raises KeyError rather than silently
+    omitting a field for one citizen and not another.
+
+    Same canonical-JSON discipline as build_pressure_user_prompt (sort_
+    keys, compact separators, rounded floats) -- `sort_keys=True` also
+    means the iteration order of `signal_values` itself never affects the
+    output, so callers need not worry about it.
+
+    Correction, 2026-09-10 (plan-llm-protocol-and-theory-program.md
+    §3.B.7): first written by copying build_pressure_user_prompt's OWN
+    pre-fix payload, so it lacked `expected_cids`. Added in the same pass
+    as that function's own fix, for the same reason.
+
+    SHIPPED 2026-09-10 (Phase E): decide_pressure_actions now calls this
+    with {"blank_threshold": {cid: citizen.blank_threshold, ...}} -- no
+    longer diagnostic-only, see this function's system-prompt sibling."""
     citizen_blocks = []
     for citizen in consulted:
         context = contexts[citizen.citizen_id]
+        payload = context.to_payload()
+        for signal_field, values in signal_values.items():
+            payload[signal_field] = round(values[citizen.citizen_id], 4)
         citizen_blocks.append(
             {
                 "cid": citizen.citizen_id,
                 "target": context.target,
-                "ctx": context.to_payload(),
+                "ctx": payload,
                 "available": list(context.available),
                 "petition": {
                     "open": context.petition_open,
@@ -1857,7 +3986,10 @@ def build_pressure_user_prompt(consulted: Sequence[Citizen], contexts: Mapping[i
                 },
             }
         )
-    return json.dumps({"consulted": citizen_blocks}, sort_keys=True, separators=(",", ":"))
+    return json.dumps(
+        {"consulted": citizen_blocks, "expected_cids": [c.citizen_id for c in consulted]},
+        sort_keys=True, separators=(",", ":"),
+    )
 
 
 def decide_pressure_actions(
@@ -1869,6 +4001,102 @@ def decide_pressure_actions(
     """v4 Lot 7's dt=10 replacement for deterministic_pressure_action
     (simple_rules.py), which stays exactly as it is as the permanent
     §11.4 baseline.
+
+    RELIABILITY WARNING (2026-08-30, revised 2026-08-31 after a MAJOR MEASUREMENT DEFECT was
+    found -- see below before trusting any figure in this docstring's history):
+
+    RETRACTED: "the model never chooses an acting code, regardless of content" (0/63 at size=1,
+    0/70 across the §3.1/§3.2 redesigns, 0/17 on the informative pole). Those runs used the
+    SHIPPED config, where pressure_menu is electoral_only=true / petition_enabled=false /
+    mobilization_enabled=false -- the design's own "GROUPE DE CONTRÔLE principal". Under it
+    menu_acts() returns (0, 4) and build_pressure_system_prompt states "CONTRAINTE ABSOLUE : le
+    champ act ... doit valoir UN DES CODES SUIVANTS, et aucun autre : [0, 4]". Acting codes
+    1/2/3 are FORBIDDEN by construction, and the scripts' own ground truth nonetheless expected
+    them. Those runs measured an impossibility, not a behavior -- which is also why §3.1 and
+    §3.2 "failed identically at 17/70": both were counting the same constitutional constraint.
+    18 of the 20 pressure_action diagnostic scripts share this defect (the exceptions,
+    check_pressure_action_quality_pilot.py and check_pressure_action_forced_reasoning.py, open
+    the menu explicitly via dataclasses.replace).
+
+    MEASURED with the menu opened, same 70 citizens, same production prompt, size=1,
+    think=False (check_pressure_action_open_menu_baseline.py, 2026-08-31): 29/70 acting codes
+    emitted, spread across NOTHING 40 / SIGN_PETITION 27 / MOBILIZE 2 / WAIT_FOR_ELECTION 1.
+    There is NO content-blind collapse here: given legal levers, the model uses them and its
+    output distribution is not fixed.
+
+    WHAT REMAINS TRUE: decision QUALITY is mediocre and unvalidated. Agreement with the
+    deterministic proxy is 9/17 (52.9%) on the "should act" pole and 42/70 (60.0%) overall,
+    against this project's own >=80% bar -- independently consistent with the one always-valid
+    earlier measurement, check_pressure_action_quality_pilot.py's 41.7% disagreement (~58%
+    agreement). Note the proxy (gap/blank_threshold > 1.5 => "should act") is a modelling
+    assumption, not ground truth: §7bis.3 states 0 and 4 are legitimate, journaled outcomes, so
+    part of the gap may be the proxy rather than the model.
+
+    STILL UNVERIFIED, do not assume either way: the claim that a real chunk at
+    config.llm.max_batch_size=25 collapses to one uniform act was measured under the same closed
+    menu, where "uniform" is trivially satisfied by the only legal answers -- it needs re-running
+    with the menu open before it can be believed or dismissed.
+
+    RESOLVED 2026-09-10 (plan-llm-protocol-and-theory-program.md §5.C,
+    scripts/check_logprob_pressure_action_gap_tracking_results.md): "whether it tracks self_gap
+    across that pair [0 vs 4 under the SHIPPED closed menu] has not been measured either" --
+    now measured, via logprobs rather than a categorical draw (P(act=4) read directly off the
+    real production prompt/schema/think=False shape, 17 citizens spanning self_gap 0.02-2.20
+    against a fixed blank_threshold=0.5). Answer: it does NOT track self_gap. P(act=4) stayed
+    >=0.976 for EVERY citizen tested, including the most satisfied one (self_gap=0.02, where the
+    deterministic proxy calls NOTHING correct) -- mean 0.996 below threshold vs 0.9999 above,
+    a negligible +0.004 separation. Confirmed NOT a batching artifact: the two most extreme
+    self_gap values re-run completely alone (chunk_size=1) showed an even flatter +0.000008
+    separation. Every real flagship run ships this closed menu -- this collapse was previously
+    invisible precisely because a flat act=4 rate under a closed menu produces exactly the
+    aggregate mobilization_rate the menu already predicts by construction, so it never surfaced
+    as an aggregate-metric anomaly, only in a citizen-level P(act) reading. Mechanism not
+    established (see that results doc's own "reading this carefully" section for why this
+    doesn't map cleanly onto §2's existing act/response hypothesis) -- that remains open.
+
+    §5.E TOON A/B, 2026-09-10 (scripts/check_toon_pressure_action_ab_results.md): re-ran the
+    exact same 17-point probe through a TOON-encoded prompt (build_pressure_system_prompt_toon/
+    build_pressure_user_prompt_toon, -44.0% prompt tokens, 1743->976) instead of JSON. Does NOT
+    restore self_gap sensitivity -- it flips WHICH constant the model collapses to (JSON: always
+    act=4, P>=0.976 everywhere; TOON: always act=0 by the same >0.5 threshold-call reading, every
+    single point falling below 0.5, non-monotonically between 0.003 and 0.30). Against the same
+    weak proxy this docstring already uses elsewhere: JSON's constant happens to match the
+    majority class in that 17-point sample (9/17=52.9%); TOON's constant is the minority class
+    (8/17=47.1%, worse than a trivial majority-class baseline). Real token savings, unclear-to-
+    worse quality on the only available proxy -- NOT shipped, not recommended for this decision
+    type despite the token win. One live run per format, not yet replicated with a second seed.
+
+    polity-decision-contracts.md's calibration matrix, 2026-09-10 (scripts/check_pressure_
+    calibration_matrix_results.md): the actual root cause was neither format nor model -- self_gap
+    is sent with NO scale reference at all (no blank_threshold, no history, no criterion), so the
+    question is unanswerable as posed. Four C4-compliant calibration signals (PressureCalibration
+    Signal: blank_threshold, 1-tick self_gap history, cohort percentile, distance to pledge -- see
+    build_pressure_system_prompt_calibrated) each score 100% (9/9 trials) on the unambiguous
+    subset at batch size 1, against BOTH the closed and the open menu. ALL FIVE FAIL at batch 5 and
+    25, collapsing uniformly to the ~52% a constant answer scores by construction -- not a graded
+    degradation, an on/off cliff at the first citizen added to the call. Calibration works; the
+    remaining open question is purely whether batch size 1 is affordable (§3.B.7's prefix-cache
+    fix was never applied to this decision type -- build_pressure_system_prompt still embeds
+    cid_list -- which matters most exactly at batch 1, where an unfixed system prompt differs on
+    every single call).
+
+    SHIPPED 2026-09-10 (Phase E, polity-decision-contracts.md): wired PRESSURE_THRESHOLD_SIGNAL
+    (blank_threshold -- the cheapest of the four signals that cleared the bar, and the one
+    check_pressure_batch_size_cost_results.md actually measured the cost of) into this function via
+    build_pressure_system_prompt_calibrated/build_pressure_user_prompt_calibrated, chunked at
+    _PRESSURE_CALIBRATED_CHUNK_SIZE=1 -- see that constant's own docstring for why this ignores
+    config.llm.max_batch_size and is not provider-conditional the way _vote_cast_chunk_size/
+    _chamber_chunk_size are. A real consulted cohort now makes one HTTP call per citizen instead of
+    per config.llm.max_batch_size citizens -- a deliberate, measured cost (+0.85h over the ~35.6h
+    flagship baseline), not an oversight. Only PRESSURE_THRESHOLD_SIGNAL ships: PRESSURE_HISTORY_
+    SIGNAL/_PERCENTILE_SIGNAL/_PLEDGE_SIGNAL also cleared 100% in Phase C but were never carried
+    through Phase D's own cost measurement, so shipping them would extrapolate a quality result
+    onto an unmeasured cost -- exactly the mistake Phase D's own "measure, don't model" mandate
+    exists to prevent. Revisit only by giving one of them its own cost measurement first.
+
+    Treat mobilization_rate/pressure metrics from any llm.enabled=True run with an OPEN menu as
+    quality-unvalidated (not collapsed). Under the shipped closed menu no acting code can occur
+    by design, so a zero mobilization rate there is the configuration, never a bug.
 
     Unlike every other decide_* function, this one CHUNKS: it is the first
     decision type since vote_cast to batch CITIZENS rather than a handful
@@ -1900,25 +4128,41 @@ def decide_pressure_actions(
     # agree on the same order regardless of the caller's order -- never
     # rely on an incidental insertion order (D-5 precedent).
     consulted = sorted(consulted, key=lambda c: c.citizen_id)
-    decisions: list[PressureDecision] = []
-    for chunk in chunk_voters(consulted, config.llm.max_batch_size, min_batch_size=1):
-        expected_cids = [c.citizen_id for c in chunk]
-        chunk_decisions = _complete_and_decode_with_replay(
-            client,
-            system_prompt=build_pressure_system_prompt(chunk, config),
-            user_prompt=build_pressure_user_prompt(chunk, contexts),
-            json_schema=PRESSURE_JSON_SCHEMA,
-            max_tokens=compute_max_tokens(len(chunk)),
-            think=False,
-            decode=lambda raw: decode_pressure_batch(raw, expected_cids),
-            replays=config.llm.max_batch_replays,
-            decision_type="pressure_action",
-        )
-        for decision in chunk_decisions:
-            validate_pressure_decision(decision, contexts[decision.cid], config)
-        decisions.extend(chunk_decisions)
 
-    return PressureBatchOutcome(decisions=decisions)
+    signals = pressure_signals(config)
+
+    def user_prompt(chunk: list[Citizen]) -> str:
+        per_citizen_signals = {c.citizen_id: pressure_shipped_signal_values(c) for c in chunk}
+        signal_values = {
+            signal.field: {cid: values[signal.field] for cid, values in per_citizen_signals.items()} for signal in signals
+        }
+        return build_pressure_user_prompt_calibrated(chunk, contexts, signal_values)
+
+    result = run_decision(
+        DecisionSpec[PressureDecision](
+            decision_type="pressure_action",
+            json_schema=PRESSURE_JSON_SCHEMA,
+            think=False,
+            retry_temperature=_PRESSURE_RETRY_TEMPERATURE,
+            retry_seed_base=_PRESSURE_RETRY_SEED_BASE,
+            chunk_size=_PRESSURE_CALIBRATED_CHUNK_SIZE,
+            min_batch_size=1,
+            system_prompt=lambda chunk: build_pressure_system_prompt_calibrated(chunk, config, signals),
+            user_prompt=user_prompt,
+            decode=decode_pressure_batch,
+            # An out-of-menu act is a rejected batch exactly like an exhausted replay budget.
+            validate=lambda decision: validate_pressure_decision(decision, contexts[decision.cid], config),
+            # At _PRESSURE_CALIBRATED_CHUNK_SIZE=1 a chunk is ONE citizen: the finest
+            # granularity any decision type in this engine falls back at.
+            fallback=lambda chunk: _deterministic_pressure_fallback(chunk, contexts, config),
+            fallback_description="the deterministic pressure rule (simple_rules.deterministic_pressure_action)",
+        ),
+        consulted, config, client,
+    )
+    return PressureBatchOutcome(
+        decisions=result.decisions, llm_fallback=result.llm_fallback,
+        retry_sampling_varied=result.retry_sampling_varied, llm_call_ids=result.llm_call_ids,
+    )
 
 
 @dataclass(frozen=True)
@@ -1952,12 +4196,84 @@ class ReactionBatchOutcome:
     accountability.update_event_salience, exactly as it already applies
     deterministic_reaction_to_event's own flat delta (v5 Lot 3) -- this
     lot only changes WHO computes the delta, never how it's applied."""
+    llm_fallback: dict[int, bool] = field(default_factory=dict)
+    """cid -> whether this decision came from _deterministic_reaction_fallback
+    rather than the model. Mirrors every other outcome's own provenance field.
+    The distinguishing fact dt=8 loses without it is per-citizen VARIANCE: the
+    baseline applies one flat delta to everybody by construction, so a chunk
+    that fell back appears in the journal as a block of citizens who all
+    reacted identically -- which is exactly the content-blind-collapse
+    signature this project's own diagnostics hunt for. Without this field a
+    fallback would read as evidence of the very defect it is not."""
+    retry_sampling_varied: dict[int, bool] = field(default_factory=dict)
+    """cid -> whether this decision came from a varied-sampling retry; same contract
+    as VoteBatchOutcome.retry_sampling_varied, never true for a fallback decision."""
+    llm_call_ids: dict[int, str | None] = field(default_factory=dict)
+    """cid -> llm_call_id of the call this decision came from; same contract as
+    VoteBatchOutcome.llm_call_ids."""
 
 
 _EVENT_TYPE_GROUNDING_MOTIF: dict[EventType, ReactionMotif] = {
     EventType.SCANDAL: ReactionMotif.SCANDAL_TRUST_EROSION,
     EventType.ECONOMIC_SHOCK: ReactionMotif.ECONOMIC_SHOCK_REACTION,
 }
+
+
+def _deterministic_reaction_fallback(
+    chunk: Sequence[Citizen], event_type: EventType, config: PolityConfig, magnitude: float
+) -> list[ReactionDecision]:
+    """Last-resort decision for decide_reaction_to_event when the LLM path is
+    exhausted for this one chunk.
+
+    Reuses simple_rules.deterministic_reaction_to_event -- the exact §11.4
+    baseline this decision type's own docstring says it REPLACED, and which
+    "stays exactly as it is" precisely so it remains available. Not a new
+    mechanism invented for this fallback. Every citizen in the chunk gets the
+    same flat delta, because that is what the baseline does BY CONSTRUCTION
+    (it takes no Citizen parameter at all) and therefore what "dt=8 did not
+    run" means.
+
+    The motif is not forced here, unlike the other three fallbacks: it is the
+    only correct one. 403 EVENT_PERSONALLY_IRRELEVANT is structurally
+    unreachable on the deterministic path (ReactionMotif's own docstring says
+    so, since judging an event irrelevant to oneself requires the citizen-level
+    judgment the baseline has no input for), and ReactionDecision's schema-
+    level rule binds salience_delta == 0 to motif 403 and a positive delta to
+    the call's own grounding code. A flat positive delta therefore admits
+    exactly 401/402, and _EVENT_TYPE_GROUNDING_MOTIF picks the right one.
+
+    No cap is applied on top of the baseline's own arithmetic: SCANDAL returns
+    events.scandal_magnitude verbatim and deliberately NOT capped by
+    max_reaction_delta (EventsConfig's own docstring keeps the two analytically
+    separable), so capping here would make the fallback quietly disagree with
+    the baseline it claims to reproduce. Both fields are parsed through
+    config._get_ratio, so both are within [0, 1] and cannot breach
+    ReactionDecision's own structural ceiling.
+
+    CONSEQUENCE WORTH KNOWING: validate_reaction_decision rejects a decision
+    whose delta exceeds events.max_reaction_delta, and on the SCANDAL branch
+    the baseline can legitimately exceed it. A fallback decision is therefore
+    not re-validated (no fallback in this engine is), but it also means a
+    fallback can carry a delta the model would not have been allowed to
+    return. That asymmetry is deliberate: the baseline's own value is the
+    honest answer to "what would have happened without dt=8", and silently
+    clamping it would be a third behaviour that matches neither arm."""
+    delta = deterministic_reaction_to_event(event_type, config.events, magnitude=magnitude)
+    # A zero delta is reachable (events.scandal_magnitude is a configurable
+    # ratio and may legitimately be 0.0) and ReactionDecision's schema-level
+    # rule is an IFF, so a grounding motif on a zero delta raises a pydantic
+    # ValidationError -- inside an except block, which would kill the run in
+    # the exact way this whole fallback exists to prevent. 403 is then the
+    # only legal code, forced rather than chosen: it claims the citizen judged
+    # the event irrelevant, whereas what actually happened is that this polity
+    # is configured for an event of zero magnitude.
+    motif = (
+        ReactionMotif.EVENT_PERSONALLY_IRRELEVANT if delta == 0.0 else _EVENT_TYPE_GROUNDING_MOTIF[event_type]
+    )
+    return [
+        ReactionDecision(cid=citizen.citizen_id, salience_delta=delta, motif=int(motif))
+        for citizen in chunk
+    ]
 
 
 def validate_reaction_decision(decision: ReactionDecision, event_type: EventType, config: PolityConfig) -> None:
@@ -2070,6 +4386,47 @@ def decide_reaction_to_event(
     per call, never a combined scandal+shock request -- extended only by
     what the LLM path additionally needs (citizens/contexts/config/client).
 
+    RELIABILITY WARNING, SCANDAL branch, RESOLVED on vLLM/AWQ (2026-09-06,
+    check_vllm_collapse_signatures_results.md) -- history below for context, no longer current.
+
+    Originally found (2026-08-30, plan-adversarial-framing-collapse.md, Ollama): the same
+    content-blind collapse signature as pressure_action. Two structurally opposite
+    ctx.event_salience poles (0.0: untouched by any past event; 0.9: already heavily sensitized),
+    3 different citizens each, size=1/think=False. All 6 calls returned the identical
+    salience_delta and motif in both poles.
+
+    Re-run against vLLM/AWQ, same protocol unmodified except the client
+    (check_vllm_reaction_to_event_collapse_signature.py), before this project's own flagship run
+    committed to it: the collapse does NOT reproduce. salience_delta varies 0.20 (low prior
+    salience) vs 0.15 (high prior salience), directionally sensible (diminishing returns) across
+    all 3 reactors at both poles. Two other decision types (representative_response,
+    coalition_decision) DID still collapse identically on the same vLLM re-run -- so this is not
+    "vLLM fixes everything", specifically this branch's collapse did not survive the backend
+    change. Not root-caused (why the Ollama collapse existed, or why it stopped on vLLM, is
+    unknown) -- measured, not explained.
+
+    SCANDAL was chosen specifically because it carries a real `target` (the implicated
+    president); ECONOMIC_SHOCK's target is always null (a systemic event), so neither the
+    original warning nor this resolution should be assumed to transfer to that branch without
+    its own check -- still untested, either backend. deterministic_reaction_to_event cannot
+    ground a per-citizen accuracy check for either branch (no Citizen parameter, confirmed in
+    plan-decision-quality-validation.md's own inventory) -- collapse-signature findings only,
+    never an accuracy figure, on either backend.
+
+    ECONOMIC_SHOCK's categorical branch measured, 2026-09-10 (plan-llm-protocol-and-theory-
+    program.md §5.C, scripts/check_logprob_reaction_economic_shock_tracking_results.md): via
+    logprobs, P(motif=402, reacts) across 5 magnitude points (0.05-1.50, crossing
+    events.economy_shock_threshold=0.5), event_salience=0.0 fixed. Result: P(motif=402)=1.000000
+    at EVERY magnitude tested, including the smallest (0.05, an order of magnitude below the
+    "major" threshold) -- motif=403 (EVENT_PERSONALLY_IRRELEVANT) never chosen once. Narrows but
+    does not close the gap above: this measures only the categorical react/irrelevant choice, not
+    salience_delta's own graded intensity (a float field, out of this instrument's current
+    scope) -- whether REACTION INTENSITY scales with shock severity remains untested. Also:
+    unlike this project's other confirmed collapses (same action regardless of ctx), "always
+    personally relevant" for an economy-wide event is not obviously a defect the way "always
+    concede" is -- see that results doc's own "reading this carefully" section before treating
+    this as a fifth confirmed collapse.
+
     Population-wide, like decide_pressure_actions -- CHUNKS via
     chunk_voters, but at the DEFAULT MIN_SAFE_BATCH_SIZE floor, not dt=10's
     own min_batch_size=1 override: dt=8's cohort is the entire population
@@ -2095,25 +4452,32 @@ def decide_reaction_to_event(
     # agree on the same order regardless of the caller's order -- never
     # rely on an incidental insertion order (D-5 precedent).
     citizens = sorted(citizens, key=lambda c: c.citizen_id)
-    decisions: list[ReactionDecision] = []
-    for chunk in chunk_voters(citizens, config.llm.max_batch_size):
-        expected_cids = [c.citizen_id for c in chunk]
-        chunk_decisions = _complete_and_decode_with_replay(
-            client,
-            system_prompt=build_reaction_system_prompt(chunk, event_type, config),
-            user_prompt=build_reaction_user_prompt(chunk, contexts, event_type=event_type, target=target, magnitude=magnitude),
-            json_schema=REACTION_JSON_SCHEMA,
-            max_tokens=compute_max_tokens(len(chunk)),
-            think=False,
-            decode=lambda raw: decode_reaction_batch(raw, expected_cids),
-            replays=config.llm.max_batch_replays,
-            decision_type="reaction_to_event",
-        )
-        for decision in chunk_decisions:
-            validate_reaction_decision(decision, event_type, config)
-        decisions.extend(chunk_decisions)
 
-    return ReactionBatchOutcome(decisions=decisions)
+    result = run_decision(
+        DecisionSpec[ReactionDecision](
+            decision_type="reaction_to_event",
+            json_schema=REACTION_JSON_SCHEMA,
+            think=False,
+            retry_temperature=_REACTION_RETRY_TEMPERATURE,
+            retry_seed_base=_REACTION_RETRY_SEED_BASE,
+            chunk_size=config.llm.max_batch_size,
+            system_prompt=lambda chunk: build_reaction_system_prompt(chunk, event_type, config),
+            user_prompt=lambda chunk: build_reaction_user_prompt(
+                chunk, contexts, event_type=event_type, target=target, magnitude=magnitude,
+            ),
+            decode=decode_reaction_batch,
+            # An over-cap delta or a wrong-event grounding motif is a rejected batch
+            # exactly like an exhausted replay budget.
+            validate=lambda decision: validate_reaction_decision(decision, event_type, config),
+            fallback=lambda chunk: _deterministic_reaction_fallback(chunk, event_type, config, magnitude),
+            fallback_description="the flat deterministic salience delta (simple_rules.deterministic_reaction_to_event)",
+        ),
+        citizens, config, client,
+    )
+    return ReactionBatchOutcome(
+        decisions=result.decisions, llm_fallback=result.llm_fallback,
+        retry_sampling_varied=result.retry_sampling_varied, llm_call_ids=result.llm_call_ids,
+    )
 
 
 @dataclass(frozen=True)
@@ -2149,6 +4513,51 @@ class ChamberBatchOutcome:
     reasoning as dt=6's own `positions` dict). issue_positions itself is
     never resolved here -- it is the member's own sincere anchor, never
     mutated by any decision."""
+    motif_corrected: dict[int, bool] = field(default_factory=dict)
+    """cid -> whether decide_chamber_deliberation overrode this decision's
+    `motif` from 702 (DELIBERATIVE_SHIFT) to 701 (SINCERE_POSITION) because
+    `shifts` was empty -- an incoherent pairing measured 2026-08-30
+    (plan-adversarial-framing-collapse.md), NOT the same incoherence
+    ChamberDecision's own docstring already documents and deliberately
+    leaves unenforced (a small NON-EMPTY shift mislabeled 701 -- the
+    opposite direction, never independently shown problematic, so still
+    untouched here). `motif=702 with shifts=[]` has no legitimate reading
+    under this schema's own stated intent (702 IS "at least one
+    adjustment"), and `shifts`/`chamber_position` are what
+    `metrics.chamber_deviation` actually reads -- `motif` was purely a
+    misleading audit label with zero effect on simulation behavior, so
+    correcting it here is a label fix, not a behavior change. Same
+    "never let a correction pass as a first-hand decision" discipline as
+    `VoteBatchOutcome.retry_sampling_varied` -- populated here, journaled
+    explicitly by the caller, never silent. Defaults to an empty dict
+    (every key absent means False) so every pre-existing
+    ChamberBatchOutcome(...) construction keeps compiling unchanged."""
+    retry_sampling_varied: dict[int, bool] = field(default_factory=dict)
+    """cid -> whether that member's decision came from a temperature-varied
+    RETRY (never the first attempt) -- see `VoteBatchOutcome.retry_sampling_
+    varied`'s own docstring for the identical contract and
+    `_CHAMBER_RETRY_TEMPERATURE`'s own docstring for why chamber needed it
+    too (2026-09-08). A chunk retries as a whole, so every member sharing a
+    chunk shares that chunk's own outcome -- see `VoteBatchOutcome.retry_
+    sampling_varied`'s own updated docstring for why that's still
+    unambiguous per cid. Defaults to an empty dict for the same reason."""
+    llm_fallback: dict[int, bool] = field(default_factory=dict)
+    """cid -> whether that member's decision came from `_deterministic_
+    chamber_fallback` (sincere, motif=701, shifts=[]) rather than the model
+    at all -- added 2026-09-08 alongside `_CHAMBER_RETRY_TEMPERATURE`, after
+    Phase 7's own smoke run crashed with no such fallback in place. Mirrors
+    `VoteBatchOutcome.llm_fallback` exactly, including the "sincere" choice
+    itself being well-motivated rather than arbitrary: `decide_chamber_
+    deliberation`'s own docstring already establishes that a member this
+    module never resolves stays at "no delta" by construction (chamber_
+    position pinned to issue_positions at seating, untouched otherwise) --
+    falling back to sincere is that same baseline, not a new default
+    invented for this mitigation. Mutually exclusive with retry_sampling_
+    varied for the same cid. Defaults to an empty dict for the same
+    reason."""
+    llm_call_ids: dict[int, str | None] = field(default_factory=dict)
+    """cid -> llm_call_id of the call this decision came from; same contract as
+    VoteBatchOutcome.llm_call_ids."""
 
 
 def validate_chamber_decision(decision: ChamberDecision, config: PolityConfig) -> None:
@@ -2194,8 +4603,42 @@ def build_chamber_system_prompt(members: Sequence[Citizen], config: PolityConfig
     "sincere" anyway; see that model's own docstring. Explains that this
     body is INSULATED: no election, no citizen pressure, no legitimacy
     floor reaches it -- purely a personal reflection on one's own stated
-    position over time. Explains ctx.ticks_left's meaning."""
-    cid_list = ",".join(str(m.citizen_id) for m in members)
+    position over time. Explains ctx.ticks_left's meaning.
+
+    Names the chamber_position==sincere_position case explicitly (v6b Lot 5
+    correction): a live 270-call sweep against the real model found this
+    EXACT state -- true at seating time (chamber_position is pinned to
+    issue_positions there, run_polity_simulation._run_sortition_rotation)
+    and for as long as a member never picks motif=702 -- reliably triggers
+    the model's own Mode A (unbounded, non-convergent reasoning: the same
+    "wait, maybe they differ -- let me check again" paragraph repeated
+    ~70-140x, landing exactly on the token ceiling every time, 7/270 =
+    2.6% of this state specifically). Left ambiguous, the model treats
+    "the two arrays are literally equal" as something to keep re-verifying
+    rather than a self-evidently trivial case. See
+    scripts/lot3_chamber_reliability_results.md's own "Lot 5 correction"
+    for the full diagnostic; this sentence is the fix, not a budget or
+    chunk-size change -- at the time, chunk_size was already at its floor
+    (_CHAMBER_MAX_CHUNK_SIZE_OLLAMA=1) with nowhere lower to cut to. Still
+    holds up at the larger vLLM-era chunk size: check_vllm_chunk_size_
+    throughput_results.md's own chamber measurements happened to exercise
+    this exact trigger state on every synthetic member tested (chamber_
+    position pinned equal to issue_positions by construction) at chunk
+    sizes 2/3/5, and observed roughly the same failure rate as this
+    docstring's own 2.6% baseline, not a worse one -- not a deliberate,
+    dedicated stress test of this specific mode, but a real one.
+
+    Correction, 2026-09-10 (plan-llm-protocol-and-theory-program.md §3.B.7,
+    same fix as build_system_prompt's own correction note): the per-chunk
+    cid list used to be embedded literally near this string's own end,
+    breaking prefix-cache continuity for every chunk this function is
+    called for. Moved to build_chamber_user_prompt's own `expected_cids`
+    field; this function's own output is now identical across every chunk
+    (chamber has no `candidates`-style shared user-prompt section the way
+    vote_cast does, so the win here is narrower -- only this string itself
+    becoming a stable, cacheable prefix, not also unlocking shared
+    user-prompt content -- but still a real one). No semantic change to
+    the instruction."""
     return (
         "Tu es un moteur de simulation. Pour chaque membre tire au sort de "
         "la chambre de sortition recu (chamber_deliberation), decide s'il "
@@ -2216,10 +4659,15 @@ def build_chamber_system_prompt(members: Sequence[Citizen], config: PolityConfig
         "En principe, motif=701 (SINCERE_POSITION) correspond a une liste "
         "shifts vide, et motif=702 (DELIBERATIVE_SHIFT) a au moins un "
         "ajustement -- choisis le motif qui decrit le mieux ta decision.\n"
-        f"IMPORTANT : la liste decisions doit contenir EXACTEMENT ces "
-        f"{len(members)} cid, chacun une seule fois, dans cet ordre : "
-        f"[{cid_list}]. Verifie ta reponse avant de la finaliser : chaque "
-        "cid de cette liste doit apparaitre exactement une fois.\n"
+        "Si chamber_position est identique a sincere_position, c'est l'etat "
+        "normal d'un membre qui vient d'etre tire au sort ou qui n'a jamais "
+        "devie -- tranche motif=701, shifts vide, sans verification repetee "
+        "ni hesitation.\n"
+        "IMPORTANT : la liste decisions doit contenir EXACTEMENT les cid "
+        "donnes par le champ 'expected_cids' du message utilisateur, "
+        "chacun une seule fois, dans le MEME ordre que ce champ. Verifie "
+        "ta reponse avant de la finaliser : chaque cid de 'expected_cids' "
+        "doit apparaitre exactement une fois.\n"
         "Reponds UNIQUEMENT avec un objet JSON conforme au schema fourni."
     )
 
@@ -2236,20 +4684,49 @@ def build_chamber_user_prompt(members: Sequence[Citizen], contexts: Mapping[int,
     chamber_position (mutable, accumulates shifts) -- mirrors dt=6 showing
     both pledged_platform and revealed_position, so the model can see
     exactly how far it has already drifted from its own stated
-    convictions."""
+    convictions.
+
+    `expected_cids` (2026-09-10, plan-llm-protocol-and-theory-program.md
+    §3.B.7): this chunk's own member cid list, in the same order as
+    `members` -- moved here from build_chamber_system_prompt's own output
+    for the same prefix-cache reason as build_user_prompt's own identical
+    field; see that function's own docstring."""
     member_blocks = []
     for member in members:
         assert member.chamber_position is not None
         member_blocks.append(
             {
                 "cid": member.citizen_id,
-                "sincere_position": [round(x, 4) for x in member.issue_positions],
-                "chamber_position": [round(x, 4) for x in member.chamber_position],
-                "priorities": [round(x, 4) for x in member.issue_priorities],
+                # _PROMPT_VECTOR_PRECISION (2, not 4) -- read holistically for a
+                # "should I adjust, and by roughly how much" judgement, never
+                # compared against a fine-grained threshold the way cast_votes's
+                # own distances/blank_threshold are (see that constant's own
+                # docstring, and _PROMPT_VECTOR_PRECISION's for why exact
+                # equality between these two specific arrays survives rounding
+                # unchanged whenever it held before rounding).
+                "sincere_position": [round(x, _PROMPT_VECTOR_PRECISION) for x in member.issue_positions],
+                "chamber_position": [round(x, _PROMPT_VECTOR_PRECISION) for x in member.chamber_position],
+                "priorities": [round(x, _PROMPT_VECTOR_PRECISION) for x in member.issue_priorities],
                 "ctx": contexts[member.citizen_id].to_payload(),
             }
         )
-    return json.dumps({"members": member_blocks}, sort_keys=True, separators=(",", ":"))
+    return json.dumps(
+        {"expected_cids": [m.citizen_id for m in members], "members": member_blocks},
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+
+
+def _deterministic_chamber_fallback(members: Sequence[Citizen]) -> list[ChamberDecision]:
+    """Last-resort decision for decide_chamber_deliberation when the LLM path
+    is exhausted for a whole chunk -- see ChamberBatchOutcome.llm_fallback's
+    own docstring for why "sincere, no shift" is the well-motivated choice
+    here, not an arbitrary one: it is exactly the "no delta" outcome this
+    module's own docstring already establishes as what NOT running it means.
+    Mirrors _deterministic_vote_fallback's role for cast_votes (2026-09-06)
+    -- added 2026-09-08 after chamber_deliberation crashed a real run with no
+    such fallback in place."""
+    return [ChamberDecision(cid=member.citizen_id, shifts=[], motif=701) for member in members]
 
 
 def decide_chamber_deliberation(
@@ -2265,7 +4742,7 @@ def decide_chamber_deliberation(
     time and nothing else ever touches it, so "no delta" is already true by
     construction without this module ever running).
 
-    Chunks via chunk_voters, but at _CHAMBER_MAX_CHUNK_SIZE (1), NOT
+    Chunks via chunk_voters, but at _chamber_chunk_size(config), NOT
     config.llm.max_batch_size (25) -- a real, measured correction to this
     lot's own original design, which assumed a small, un-chunked cohort
     (sortition_chamber.seats capped at 30, "a handful", the same category
@@ -2278,18 +4755,23 @@ def decide_chamber_deliberation(
     genuine token-budget overflow at chunk_size=10 (3/3 attempts, exact
     ceiling); halving to 5 was tried and validated-then-DISPROVEN against
     the real failing chunk (a different 5-member sub-chunk overflowed too,
-    zero margin); cut to 1 -- vote_cast's own endpoint, same reasoning --
-    and that held, with real margin, against the same failing citizens.
-    See _CHAMBER_MAX_CHUNK_SIZE's own docstring for the full diagnostic.
-    `min_batch_size=1` is now a no-op (chunk_voters always produces chunks
-    of exactly 1 at this chunk size) but is left in place -- harmless, and
-    it was the right override even when the ceiling was higher, since
-    sortition_chamber.seats can be configured below whatever
-    _CHAMBER_MAX_CHUNK_SIZE happens to be, and chunk_voters's own default
-    floor (MIN_SAFE_BATCH_SIZE=20) was calibrated on a lighter prompt shape
-    (vote_cast) that doesn't apply here either way -- see
-    scripts/lot3_chamber_reliability_results.md for the measured evidence
-    behind both the original batch ceiling and this floor override.
+    zero margin); cut to 1 (Ollama) -- vote_cast's own endpoint, same
+    reasoning -- and that held, with real margin, against the same failing
+    citizens. See _CHAMBER_MAX_CHUNK_SIZE_OLLAMA's own docstring for the
+    full diagnostic, and _CHAMBER_MAX_CHUNK_SIZE_VLLM's for the 2026-09-08
+    vLLM-era re-test that raised this back to 5 on that provider, once
+    _dynamic_max_tokens replaced the flat budget this whole history was
+    fighting.
+    `min_batch_size=1` is a no-op on Ollama (chunk_voters always produces
+    chunks of exactly 1 at that chunk size) but is left in place regardless
+    of provider -- harmless, and it was the right override even when the
+    ceiling was higher, since sortition_chamber.seats can be configured
+    below whatever _chamber_chunk_size(config) happens to be, and
+    chunk_voters's own default floor (MIN_SAFE_BATCH_SIZE=20) was
+    calibrated on a lighter prompt shape (vote_cast) that doesn't apply
+    here either way -- see scripts/lot3_chamber_reliability_results.md for
+    the measured evidence behind both the original batch ceiling and this
+    floor override.
 
     Calls the client with think=True (corrected from think=False, which
     this lot's own pre-flight spike originally chose): a real v6b
@@ -2311,30 +4793,118 @@ def decide_chamber_deliberation(
     # rely on an incidental insertion order (D-5 precedent).
     members = sorted(members, key=lambda m: m.citizen_id)
     members_by_id = {m.citizen_id: m for m in members}
-    decisions: list[ChamberDecision] = []
-    for chunk in chunk_voters(members, _CHAMBER_MAX_CHUNK_SIZE, min_batch_size=1):
+
+    def _chamber_chunk(chunk: list[Citizen]) -> tuple[list[ChamberDecision], bool, bool, str | None]:
+        """Mirrors cast_votes's own _vote_chunk (added 2026-09-08, alongside
+        _CHAMBER_RETRY_TEMPERATURE/_deterministic_chamber_fallback -- see
+        their own docstrings for why chamber needed this too): every local
+        here is fresh per call, so concurrent invocations on separate
+        threads would share no mutable state, if workers>1 were ever
+        reachable again."""
         expected_cids = [m.citizen_id for m in chunk]
-        chunk_decisions = _complete_and_decode_with_replay(
-            client,
-            system_prompt=build_chamber_system_prompt(chunk, config),
-            user_prompt=build_chamber_user_prompt(chunk, contexts),
-            json_schema=CHAMBER_JSON_SCHEMA,
-            max_tokens=compute_max_tokens(len(chunk)) + _CHAMBER_THINK_TOKEN_ALLOWANCE,
-            think=True,
-            decode=lambda raw: decode_chamber_batch(raw, expected_cids),
-            replays=config.llm.max_batch_replays,
-            decision_type="chamber_deliberation",
-        )
-        decisions.extend(chunk_decisions)
+        retry_info: dict[str, Any] = {}
+        is_fallback = False
+        system_prompt = build_chamber_system_prompt(chunk, config)
+        user_prompt = build_chamber_user_prompt(chunk, contexts)
+        try:
+            chunk_decisions = _complete_and_decode_with_replay(
+                client,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                json_schema=CHAMBER_JSON_SCHEMA,
+                max_tokens=_dynamic_max_tokens(
+                    client,
+                    config,
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    chunk_size=len(chunk),
+                    flat_allowance=_profile(config).chamber_think_allowance,
+                    decision_type="chamber_deliberation",
+                    unit_ids=expected_cids,
+                ),
+                think=True,
+                decode=lambda raw: decode_chamber_batch(raw, expected_cids),
+                replays=config.llm.max_batch_replays,
+                extra_body=thinking_budget_body(config, "chamber_deliberation"),
+                decision_type="chamber_deliberation",
+                unit_ids=expected_cids,
+                # A deliberate, local exception to temperature=0 determinism --
+                # see _CHAMBER_RETRY_TEMPERATURE's own comment. Only ever
+                # applies to a genuine retry (never the first attempt).
+                retry_temperature=_CHAMBER_RETRY_TEMPERATURE,
+                retry_seed_base=_CHAMBER_RETRY_SEED_BASE,
+                retry_info=retry_info,
+            )
+            for decision in chunk_decisions:
+                validate_chamber_decision(decision, config)
+        except LlmResponseError as exc:
+            # Last resort, not a silent one -- see ChamberBatchOutcome.llm_
+            # fallback's own docstring for why this exists and what it does
+            # and does not claim. Covers BOTH failure classes that reach
+            # here: the replay budget exhausted inside
+            # _complete_and_decode_with_replay, and a validate_chamber_
+            # decision failure on an otherwise-decoded batch -- neither is
+            # retried further, and both used to kill the whole run
+            # identically before this fix, which this plan's own priority
+            # ordering ("must not die mid-run" first) rules out.
+            _logger.error(
+                "chamber_deliberation: exhausted every recovery attempt for cid(s) %s, falling back "
+                "to the deterministic sincere decision (no shift) instead of aborting the run: %s",
+                expected_cids, exc,
+            )
+            chunk_decisions = _deterministic_chamber_fallback(chunk)
+            is_fallback = True
+        return chunk_decisions, _sampling_varied(retry_info, is_fallback), is_fallback, retry_info.get("call_id")
+
+    decisions: list[ChamberDecision] = []
+    retry_sampling_varied: dict[int, bool] = {}
+    llm_fallback: dict[int, bool] = {}
+    llm_call_ids: dict[int, str | None] = {}
+    chunks = chunk_voters(members, _chamber_chunk_size(config), min_batch_size=1)
+    for chunk_decisions, sampling_varied, is_fallback, call_id in run_chunks(
+        chunks, _chamber_chunk, config.parallel.intra_run_workers
+    ):
+        for decision in chunk_decisions:
+            decisions.append(decision)
+            retry_sampling_varied[decision.cid] = sampling_varied
+            llm_call_ids[decision.cid] = call_id
+            if is_fallback:
+                llm_fallback[decision.cid] = True
 
     positions: dict[int, tuple[float, ...]] = {}
+    motif_corrected: dict[int, bool] = {}
     for decision in decisions:
-        validate_chamber_decision(decision, config)
+        # motif=702 (DELIBERATIVE_SHIFT) with empty shifts has no legitimate reading under
+        # this schema's own stated intent (702 IS "at least one adjustment") -- measured
+        # 2026-08-30 (plan-adversarial-framing-collapse.md) as a real, reproducible pairing,
+        # not a corner case. Corrected to 701 (what shifts=[] actually means) rather than
+        # rejected: unlike VoteCastDecision's blank/ranking incoherence, this label has zero
+        # effect on simulation behavior (metrics.chamber_deviation reads shifts/
+        # chamber_position, never motif -- ChamberDecision's own docstring), and the
+        # incoherence measured 3/3, systematic rather than intermittent noise -- a reject-
+        # and-retry mitigation (VoteBatchOutcome's own retry_sampling_varied precedent)
+        # would risk exhausting retries on a case with no real variance to sample past,
+        # the same lesson this project already learned from the cache-reuse nonce
+        # mitigation. The correction is tracked, never silent -- see
+        # ChamberBatchOutcome.motif_corrected's own docstring. Applied here, after
+        # aggregation, regardless of a decision's fallback/retry provenance -- a fallback
+        # decision is always motif=701/shifts=[] already (no-op through this branch) and a
+        # retried decision is a real, validated decision like any other by this point.
+        if decision.motif == 702 and not decision.shifts:
+            decision.motif = 701
+            motif_corrected[decision.cid] = True
         member = members_by_id[decision.cid]
         assert member.chamber_position is not None  # guaranteed by the caller's own filter
         positions[decision.cid] = apply_shifts(member.chamber_position, decision.shifts)
 
-    return ChamberBatchOutcome(decisions=decisions, positions=positions)
+    return ChamberBatchOutcome(
+        decisions=decisions,
+        positions=positions,
+        motif_corrected=motif_corrected,
+        retry_sampling_varied=retry_sampling_varied,
+        llm_fallback=llm_fallback,
+        llm_call_ids=llm_call_ids,
+    )
 
 
 @dataclass(frozen=True)
@@ -2342,11 +4912,38 @@ class CoalitionBatchOutcome:
     decisions: list[CoalitionDecision]
     initiator: int | None
     coalition: list[int] | None
+    rounds: list[list[CoalitionDecision]] = field(default_factory=list)
+    aborted_at_round: int | None = None
     """Already assembled into form_coalition's exact return shape
     (list[int] | None) -- only this module has the platform/seat context the
     assembly needs, mirroring how cast_votes resolves positions into ballots
     internally rather than exposing raw wire values. metrics.py consumes
-    this unchanged."""
+    this unchanged.
+
+    v7 Lot 2: `decisions` keeps its pre-v7 meaning -- the FINAL round's
+    resolved decisions, so every caller that only ever looked at `decisions`/
+    `coalition`/`initiator` needs no change. `rounds` is additive: `rounds[i]`
+    is round i+1's own decisions, in order, so a caller that wants the full
+    negotiation transcript (the journal writer, see plan-coalition-
+    negotiation-v7.md §4) can journal one coalition_decision event per
+    (round, party) instead of collapsing straight to the final answer.
+    `decisions == rounds[-1]` always holds except when `aborted_at_round` is
+    set, in which case `decisions` is the last round that DID complete (for
+    diagnostic visibility) but `coalition` is always None -- an aborted
+    negotiation is never treated as equivalent to a concluded one, since the
+    model might have been about to change its mind (that is the entire
+    reason to run more rounds).
+
+    2026-09-11: a ROUND 1 failure now reaches this path too (it used to raise
+    and kill the run). In that one case `rounds` is empty and `decisions` is
+    therefore `[]`, not "the last round that DID complete" -- there wasn't
+    one. `aborted_at_round == 1` is exactly the signal for that state, and the
+    journal carries it as `rounds_completed: 0`."""
+    rounds_retry_sampling_varied: list[bool] = field(default_factory=list)
+    """rounds_retry_sampling_varied[i] -> whether round i+1's decisions came from a
+    varied-sampling retry of that round's call; parallel to `rounds`."""
+    rounds_llm_call_ids: list[str | None] = field(default_factory=list)
+    """rounds_llm_call_ids[i] -> llm_call_id of round i+1's call; parallel to `rounds`."""
 
 
 def build_coalition_system_prompt(
@@ -2355,6 +4952,7 @@ def build_coalition_system_prompt(
     initiator_seats: int,
     total_seats: int,
     majority_seats_threshold: float,
+    round_number: int = 1,
 ) -> str:
     """Mirrors build_party_nomination_system_prompt's "enumerate the full
     expected id list verbatim + self-check" discipline (Finding B), keyed on
@@ -2368,8 +4966,25 @@ def build_coalition_system_prompt(
     enforces it strictly. No coalition-theory framing anywhere in this
     prompt (§3.3 -- no "prefer a minimal winning coalition", no strategy
     hint of any kind): only the rules of the game and the closed code
-    tables."""
+    tables.
+
+    v7 Lot 2: `round_number` is additive, defaults to 1, and produces
+    byte-identical output to the pre-v7 prompt when omitted -- round 1's own
+    parity requirement (plan-coalition-negotiation-v7.md §3). round_number
+    > 1 adds exactly one sentence naming this a revision round; everything
+    else (rules, self-check discipline) is unchanged, since what a revision
+    actually SEES is carried entirely by build_coalition_user_prompt's own
+    prior_decisions/provisional_coalition_seats, not by this prompt."""
     party_id_list = ",".join(str(pid) for pid in responder_party_ids)
+    round_sentence = (
+        ""
+        if round_number == 1
+        else (
+            f"Ceci est le tour {round_number} d'une negociation multi-tours : ta reponse au "
+            "tour precedent et l'etat provisoire de la coalition te sont rappeles ci-dessous. "
+            "Tu peux maintenir ta decision precedente ou en changer, a la lumiere de cet etat.\n"
+        )
+    )
     return (
         f"Tu es un moteur de simulation. Le parti {initiator} (avec "
         f"{initiator_seats} sieges) vient d'etre designe formateur et "
@@ -2377,9 +4992,95 @@ def build_coalition_system_prompt(
         "recu, decide s'il rejoint cette coalition (action=1) ou refuse "
         "(action=2), a partir de sa propre position, de sa proximite avec "
         "le formateur, de son nombre de sieges, et de ce qu'il manque au "
-        f"formateur pour la majorite.\nL'assemblee compte {total_seats} "
+        f"formateur pour la majorite.\n{round_sentence}L'assemblee compte {total_seats} "
         "sieges au total ; la coalition doit depasser strictement "
         f"{majority_seats_threshold} sieges pour atteindre la majorite.\n"
+        f"Actions valides :\n{COALITION_ACTION_PROMPT_TABLE}\nMotifs "
+        f"valides (code court obligatoire) :\n{COALITION_MOTIF_PROMPT_TABLE}\n"
+        "CONTRAINTE STRICTE : le motif doit correspondre a l'action -- 501 "
+        "ou 502 si action=1, 504 ou 505 si action=2. Toute autre "
+        "combinaison sera rejetee.\nIMPORTANT : la liste decisions doit "
+        f"contenir EXACTEMENT ces {len(responder_party_ids)} party_id, "
+        f"chacun une seule fois, dans cet ordre : [{party_id_list}]. "
+        "Verifie ta reponse avant de la finaliser : chaque party_id de "
+        "cette liste doit apparaitre exactement une fois.\nReponds "
+        "UNIQUEMENT avec un objet JSON conforme au schema fourni."
+    )
+
+
+def build_coalition_system_prompt_calibrated(
+    responder_party_ids: Sequence[int],
+    initiator: int,
+    initiator_seats: int,
+    total_seats: int,
+    majority_seats_threshold: float,
+    party_platforms: dict[int, tuple[float, ...]],
+    round_number: int = 1,
+) -> str:
+    """Track B2 (2026-09-11, lets-build-a-solid-spicy-otter.md): C3 for
+    dt=9. check_logprob_coalition_action_tracking_results.md measured
+    P(action=1, JOIN) staying within 0.965-0.999 across the entire
+    join-obvious<->decline-obvious spectrum -- `distance_to_initiator`
+    (build_coalition_user_prompt) is sent with no reference at all,
+    polity-decision-contracts.md's own dt=9 entry names the gap exactly:
+    "distance_to_initiator n'a aucune reference."
+
+    Unlike mandate_dev's exact [0,1] geometric bound (Track B1):
+    `distance_to_initiator` is `math.dist` (form_coalition's own UNWEIGHTED
+    convention, no priority weighting), whose geometric maximum is
+    sqrt(issue_count) -- a real number, but not an informative one, for the
+    same reason pressure_action's own calibration work rejected an abstract
+    bound in favour of an empirical one: two real citizen-generated
+    platforms essentially never land at that theoretical extreme (every
+    dimension differing maximally), so stating it would be true but
+    useless. polity-decision-contracts.md's own §3 already names the
+    better reference: "la distance moyenne entre partis de l'assemblee" --
+    an empirical, in-context anchor, the same shape as campaign_
+    positioning's own non-collapsing electorate_mean (a population
+    reality, not a geometric ceiling).
+
+    Computed here, from `party_platforms` restricted to the SEATED parties
+    this call actually knows about (`{initiator} | responder_party_ids` --
+    decide_coalition's own `responders = [pid for pid in seated if pid !=
+    initiator]` makes this exactly the seated set, never a superset
+    including unseated parties who have no bearing on this negotiation).
+    One number for the whole call, like mandate_dev/street in Track B1 --
+    not a per-responder value, so (like B1) no companion "_calibrated" user
+    prompt is needed: build_coalition_user_prompt's existing
+    distance_to_initiator values are unchanged, this just gives them a
+    scale to be read against."""
+    seated_ids = [initiator, *responder_party_ids]
+    pairwise_distances = [
+        math.dist(party_platforms[a], party_platforms[b])
+        for i, a in enumerate(seated_ids)
+        for b in seated_ids[i + 1:]
+    ]
+    mean_distance = sum(pairwise_distances) / len(pairwise_distances) if pairwise_distances else 0.0
+    party_id_list = ",".join(str(pid) for pid in responder_party_ids)
+    round_sentence = (
+        ""
+        if round_number == 1
+        else (
+            f"Ceci est le tour {round_number} d'une negociation multi-tours : ta reponse au "
+            "tour precedent et l'etat provisoire de la coalition te sont rappeles ci-dessous. "
+            "Tu peux maintenir ta decision precedente ou en changer, a la lumiere de cet etat.\n"
+        )
+    )
+    return (
+        f"Tu es un moteur de simulation. Le parti {initiator} (avec "
+        f"{initiator_seats} sieges) vient d'etre designe formateur et "
+        "cherche a former une coalition gouvernementale. Pour chaque parti "
+        "recu, decide s'il rejoint cette coalition (action=1) ou refuse "
+        "(action=2), a partir de sa propre position, de sa proximite avec "
+        "le formateur, de son nombre de sieges, et de ce qu'il manque au "
+        f"formateur pour la majorite.\n{round_sentence}L'assemblee compte {total_seats} "
+        "sieges au total ; la coalition doit depasser strictement "
+        f"{majority_seats_threshold} sieges pour atteindre la majorite.\n"
+        f"distance_to_initiator (donnee dans le contexte de chaque parti) : distance non "
+        "ponderee entre les positions -- la distance MOYENNE entre partis de cette assemblee "
+        f"(tous partis sieges confondus, formateur compris) est d'environ {mean_distance:.4f}. "
+        "Ce nombre ne prescrit aucune reaction ; il situe seulement chaque distance individuelle "
+        "par rapport a la dispersion reelle de cette assemblee.\n"
         f"Actions valides :\n{COALITION_ACTION_PROMPT_TABLE}\nMotifs "
         f"valides (code court obligatoire) :\n{COALITION_MOTIF_PROMPT_TABLE}\n"
         "CONTRAINTE STRICTE : le motif doit correspondre a l'action -- 501 "
@@ -2401,6 +5102,8 @@ def build_coalition_user_prompt(
     votes: dict[int, float],
     total_seats: int,
     majority_seats_threshold: float,
+    prior_decisions: Mapping[int, CoalitionDecision] | None = None,
+    provisional_coalition_seats: int | None = None,
 ) -> str:
     """Canonical JSON (sort_keys, compact separators, rounded floats), same
     reproducibility discipline as every prior prompt builder.
@@ -2409,11 +5112,20 @@ def build_coalition_user_prompt(
     verbatim id list and this user prompt describe one order, not two.
     `distance_to_initiator` reuses form_coalition's own unweighted
     math.dist convention, not the voter-tolerance-specific
-    weighted_distance. Deliberately does NOT include a roster of the other
-    responders' own context (§3.3 -- a single-shot call cannot express "I
-    join iff party X joins"; that conditional-coalition reasoning is what
-    the deferred v7 multi-turn negotiation palier, §3.4 Cas 2, exists
-    for)."""
+    weighted_distance.
+
+    v7 Lot 2: `prior_decisions`/`provisional_coalition_seats` are additive,
+    both default to None, and produce byte-identical JSON to the pre-v7
+    single-shot prompt when omitted -- round 1's own parity requirement
+    (plan-coalition-negotiation-v7.md §3). When provided (round >= 2), each
+    responder block gains its own prior round's `{"action", "motif"}`, and
+    the "assembly" block gains the coalition's current provisional seat
+    total -- the state that makes "I join iff party X joins" conditional
+    reasoning possible, the single-shot gap this whole palier exists to
+    close (see the pre-v7 docstring this replaces, kept in git history).
+    Deliberately NOT a verbatim transcript of every prior round: a mutable
+    snapshot, like chamber_position, not a growing log (plan doc §4) --
+    keeps prompt size bounded regardless of how many rounds have run."""
     initiator_shortfall = max(0.0, majority_seats_threshold - seats[initiator])
     responder_blocks = [
         {
@@ -2421,16 +5133,29 @@ def build_coalition_user_prompt(
             "seats": seats[pid],
             "votes": round(votes.get(pid, 0.0), 4),
             "distance_to_initiator": round(math.dist(party_platforms[pid], party_platforms[initiator]), 4),
+            **(
+                {
+                    "prior_decision": {
+                        "action": prior_decisions[pid].action,
+                        "motif": prior_decisions[pid].motif,
+                    }
+                }
+                if prior_decisions is not None
+                else {}
+            ),
         }
         for pid in responder_party_ids
     ]
+    assembly_block: dict[str, Any] = {
+        "total_seats": total_seats,
+        "majority_seats_threshold": round(majority_seats_threshold, 4),
+        "initiator_shortfall": round(initiator_shortfall, 4),
+    }
+    if provisional_coalition_seats is not None:
+        assembly_block["provisional_coalition_seats"] = provisional_coalition_seats
     return json.dumps(
         {
-            "assembly": {
-                "total_seats": total_seats,
-                "majority_seats_threshold": round(majority_seats_threshold, 4),
-                "initiator_shortfall": round(initiator_shortfall, 4),
-            },
+            "assembly": assembly_block,
             "initiator": {
                 "party_id": initiator,
                 "platform": [round(x, 4) for x in party_platforms[initiator]],
@@ -2517,6 +5242,50 @@ def decide_coalition(
     function's convention; run_polity_simulation.py owns every journal
     write.
 
+    RELIABILITY WARNING (2026-08-30, plan-adversarial-framing-collapse.md): confirmed to show the
+    same content-blind collapse signature as pressure_action. Two structurally opposite poles
+    (join-obvious: identical platform to initiator, pushes comfortably past majority, initiator
+    needs it; decline-obvious: maximum platform distance across all 20 issue dimensions, initiator
+    already has a majority alone), 3 different responder party_ids each, size=1/think=False. All
+    6 calls returned the identical action (JOIN) and motif in both poles -- including the
+    decline-obvious pole, where every rational signal pointed the other way. Only partial ground
+    truth exists for this decision type (form_coalition decides at the algorithm/whole-coalition
+    level, not "would THIS party join THIS specific proposal"), so this is a collapse-signature
+    finding, not an accuracy figure. Not tested at real production batch size: decide_coalition
+    batches seated non-initiator parties directly (up to ~4 in the shipped config), and this test
+    used size=1, smaller than a typical real call -- an open gap. Suspected common cause
+    (unproven): framed as an act with institutional consequence (join/decline) rather than a
+    self-evaluation against a threshold -- see the design doc's own §3.6.0 verification-obligation
+    constraint. Treat coalition composition/lifespan metrics from any llm.enabled=True run as
+    unverified until this is resolved -- no remediation has been found or attempted yet.
+
+    BOTH GAPS CLOSED 2026-09-10 (plan-llm-protocol-and-theory-program.md §5.C,
+    scripts/check_logprob_coalition_action_tracking_results.md): re-measured via logprobs
+    (P(action=1, JOIN), read directly) across 5 points spanning the SAME two poles (platform
+    distance 0->sqrt(20), institutional shortfall 25->0, both moving together like the original
+    diagnostic), with every call batching all 5 responders together for the first time -- closing
+    the "not tested at real production batch size" gap directly. Result: P(action=1) stayed
+    within 0.965-0.999 at every point, including both original poles (pole-to-pole difference
+    -0.0026, negligible; full spread 0.0345, non-monotonic). The batched shape did not rescue any
+    signal a real, content-sensitive decision would show -- confirms and extends the original
+    6/6-identical finding rather than narrowing it.
+
+    C3 CALIBRATION ATTEMPTED AND FAILED, 2026-09-11 (lets-build-a-solid-spicy-otter.md Track B2,
+    scripts/check_coalition_calibration_results.md): unlike pressure_action (fixed) and
+    representative_response (partially fixed, Track B1), the C3 hypothesis does not explain this
+    collapse. build_coalition_system_prompt_calibrated states the one scale
+    polity-decision-contracts.md's own §3 names -- the mean pairwise distance among every seated
+    party -- and re-running the EXACT same 5-point probe with only that one line changed produced
+    NO improvement: pole-to-pole difference -0.000391 (baseline: -0.0026, smaller in magnitude,
+    not larger), full spread 0.046613 (baseline: 0.0345, marginally wider, still negligible), same
+    dip at the same t=0.5 midpoint in both runs. NOT SHIPPED -- this function still calls the
+    uncalibrated build_coalition_system_prompt. Two unresolved readings, neither established: the
+    chosen reference (assembly-wide dispersion) may not be what a party actually weighs, or "join
+    when invited" may be a policy the model converges to for institutionally plausible reasons
+    largely independent of platform distance -- see the results doc's own "what this means, and
+    what it does not" section before assuming either. Still no established mechanism, and C3 is
+    now a tested, not just suspected, non-explanation for this specific type.
+
     Formation only: design doc §3.1's "maintien et rupture" of a coalition
     across subsequent ticks is out of scope for this increment. Reasons: no
     tick hook exists for it today (this module only touches coalitions
@@ -2541,7 +5310,38 @@ def decide_coalition(
     Calls the client with think=False, the same guess as increments 3/4's
     comparative-judgment prompt shape ("do you join THIS coalition"),
     flagged for live verification rather than assumed -- see
-    test_polity_llm_live.py."""
+    test_polity_llm_live.py.
+
+    v7 Lot 2 (§3.4 Cas 2): what was a single batched call is now a bounded
+    loop of up to config.parties.coalition_max_negotiation_rounds rounds,
+    each an ordinary batched call over the SAME full responder set (never
+    narrowed -- a party that already answered can still revise in a later
+    round, which is the entire point: round 1 alone cannot express "I join
+    iff party X joins"). Stops on whichever comes first: the hard round cap,
+    or every responder's action matching the previous round's (a fixed
+    point -- a motif-only change does not count, since it doesn't change
+    assemble_coalition's result). Round 1's own prompts are byte-identical
+    to the pre-v7 single-shot call (build_coalition_*_prompt's own
+    parity-by-construction, tested directly) -- round 1 always runs even at
+    the shipped default (3), so results a caller obtained before v7 do not
+    silently change shape, only the number of calls does.
+
+    Round >= 2 failure handling is deliberately asymmetric with round 1:
+    round 1's LlmResponseError propagates exactly as the pre-v7 single call
+    did (no behaviour change for that path). A round >= 2 failure is instead
+    caught and converted into an outcome with `coalition=None` and
+    `aborted_at_round` set -- unlike every other decide_* function, a failed
+    coalition negotiation already has a legitimate, non-crashing domain
+    outcome to degrade to (coalition_failed already exists for "no majority
+    reachable"; there is no equivalent soft outcome for e.g. a citizen who
+    fails to vote). Round 1 keeps the old propagate-and-abort-the-run
+    behaviour specifically because nothing about it changed -- there is no
+    new resilience to claim there that wasn't already a design choice this
+    lot could make. See plan-coalition-negotiation-v7.md §4 for the
+    reasoning and its own explicit limit: this protects only an
+    intra-process retry (rounds already computed, never regenerated); a full
+    run restart is not protected, exactly like every other decide_* call
+    already is not (§4.3's accepted non-determinism limit)."""
     _check_supported(config)
 
     party_platforms = {party.party_id: party.platform for party in parties}
@@ -2561,23 +5361,154 @@ def decide_coalition(
     if not responders:
         return CoalitionBatchOutcome(decisions=[], initiator=initiator, coalition=None)
 
-    decisions = _complete_and_decode_with_replay(
-        client,
-        system_prompt=build_coalition_system_prompt(
-            responders, initiator, seats[initiator], total_seats, threshold
-        ),
-        user_prompt=build_coalition_user_prompt(
-            responders, initiator, party_platforms, seats, votes, total_seats, threshold
-        ),
-        json_schema=COALITION_JSON_SCHEMA,
-        max_tokens=compute_max_tokens(len(responders)),
-        think=False,
-        decode=lambda raw: decode_coalition_batch(raw, responders),
-        replays=config.llm.max_batch_replays,
-        decision_type="coalition_decision",
+    all_rounds, aborted_at_round, rounds_sampling_varied, rounds_call_ids = _run_coalition_negotiation(
+        client, responders, initiator, party_platforms, seats, votes, total_seats, threshold, config,
     )
-    for decision in decisions:
-        validate_coalition_decision(decision, seats, initiator)
+    if aborted_at_round is not None:
+        return _aborted_coalition_outcome(initiator, all_rounds, aborted_at_round, rounds_sampling_varied, rounds_call_ids)
 
-    coalition = assemble_coalition(decisions, initiator, party_platforms, seats, majority_ratio)
-    return CoalitionBatchOutcome(decisions=decisions, initiator=initiator, coalition=coalition)
+    final_decisions = all_rounds[-1]
+    coalition = assemble_coalition(final_decisions, initiator, party_platforms, seats, majority_ratio)
+    return CoalitionBatchOutcome(
+        decisions=final_decisions, initiator=initiator, coalition=coalition, rounds=all_rounds,
+        rounds_retry_sampling_varied=rounds_sampling_varied,
+        rounds_llm_call_ids=rounds_call_ids,
+    )
+
+
+def _aborted_coalition_outcome(
+    initiator: int,
+    all_rounds: list[list[CoalitionDecision]],
+    aborted_at_round: int,
+    rounds_sampling_varied: list[bool],
+    rounds_call_ids: list[str | None],
+) -> CoalitionBatchOutcome:
+    return CoalitionBatchOutcome(
+        # Empty when the abort happened in round 1 -- nothing ever
+        # completed, so there is no last round to expose. Unguarded, this
+        # was an IndexError the moment round 1 stopped raising (see
+        # _run_coalition_negotiation's own except block).
+        decisions=all_rounds[-1] if all_rounds else [],
+        initiator=initiator,
+        coalition=None,
+        rounds=all_rounds,
+        aborted_at_round=aborted_at_round,
+        rounds_retry_sampling_varied=rounds_sampling_varied,
+        rounds_llm_call_ids=rounds_call_ids,
+    )
+
+
+def _negotiation_converged(
+    prior_by_party: dict[int, CoalitionDecision] | None,
+    current_by_party: dict[int, CoalitionDecision],
+    responders: Sequence[int],
+) -> bool:
+    """A fixed point: every responder repeated its previous round's action."""
+    return prior_by_party is not None and all(
+        prior_by_party[pid].action == current_by_party[pid].action for pid in responders
+    )
+
+
+def _provisional_coalition_seats(
+    current_by_party: dict[int, CoalitionDecision], initiator: int, seats: dict[int, int],
+) -> int:
+    """The initiator's seats plus every party that joined this round -- what the next round is told."""
+    joiners = [pid for pid, d in current_by_party.items() if d.action == CoalitionAction.JOIN.value]
+    return seats[initiator] + sum(seats[pid] for pid in joiners)
+
+
+def _run_coalition_negotiation(
+    client: LlmClientProtocol,
+    responders: Sequence[int],
+    initiator: int,
+    party_platforms: dict[int, tuple[float, ...]],
+    seats: dict[int, int],
+    votes: dict[int, float],
+    total_seats: int,
+    threshold: float,
+    config: PolityConfig,
+) -> tuple[list[list[CoalitionDecision]], int | None, list[bool], list[str | None]]:
+    """The round loop itself, split out of decide_coalition (radon: the
+    unsplit function was D(21) -- this keeps each function's own cyclomatic
+    complexity readable, a pure refactor, no behavior change). Returns
+    (all_rounds, aborted_at_round): aborted_at_round is None on a normal
+    stop (fixed point or hard cap reached, see decide_coalition's own
+    docstring for the exact stop condition), and set to the failing round
+    number on a round >= 2 LlmResponseError -- round 1's own failure still
+    propagates straight out of this function unchanged, per the same
+    docstring's documented asymmetry."""
+    all_rounds: list[list[CoalitionDecision]] = []
+    rounds_sampling_varied: list[bool] = []
+    rounds_call_ids: list[str | None] = []
+    prior_by_party: dict[int, CoalitionDecision] | None = None
+    provisional_seats: int | None = None
+    round_number = 1
+    while True:
+        retry_info: dict[str, Any] = {}
+        try:
+            round_decisions = _complete_and_decode_with_replay(
+                client,
+                system_prompt=build_coalition_system_prompt(
+                    responders, initiator, seats[initiator], total_seats, threshold,
+                    round_number=round_number,
+                ),
+                user_prompt=build_coalition_user_prompt(
+                    responders, initiator, party_platforms, seats, votes, total_seats, threshold,
+                    prior_decisions=prior_by_party,
+                    provisional_coalition_seats=provisional_seats,
+                ),
+                json_schema=COALITION_JSON_SCHEMA,
+                max_tokens=compute_max_tokens(len(responders)),
+                think=False,
+                decode=lambda raw: decode_coalition_batch(raw, responders),
+                replays=config.llm.max_batch_replays,
+                decision_type="coalition_decision",
+                unit_ids=responders,
+                # A deliberate, local exception to temperature=0 determinism --
+                # see _COALITION_RETRY_TEMPERATURE's own comment. Only ever
+                # applies to a genuine retry (never the first attempt). With
+                # this, all nine decision types vary sampling on a retry.
+                retry_temperature=_COALITION_RETRY_TEMPERATURE,
+                retry_seed_base=_COALITION_RETRY_SEED_BASE,
+                retry_info=retry_info,
+            )
+        except LlmResponseError:
+            # Round 1 used to `raise` here, which made coalition_decision the
+            # ninth and last decision type able to kill a multi-hour run on a
+            # single bad batch (2026-09-11). It now aborts exactly the way a
+            # round >= 2 failure already did since v7 Lot 2 -- this is not a
+            # new degradation semantics, it is the existing one stopped from
+            # having an arbitrary exception at round 1.
+            #
+            # NOTE what that means, because it is a real modelling choice and
+            # not a neutral one: the polity ends the tick with NO government
+            # (coalition_failed, aborted_at_round=1, rounds_completed=0), which
+            # is NOT what "dt=9 did not run" means -- the deterministic
+            # baseline, simple_rules.form_coalition, would have produced a real
+            # nearest-neighbour coalition. Every other fallback in this engine
+            # reproduces its own §11.4 baseline; this one deliberately does
+            # not, because v7 Lot 2 already chose abort-semantics for the
+            # identical failure one round later and having round 1 disagree
+            # with round 2 would be worse than either rule alone. The journal
+            # distinguishes the two cases (aborted_at_round is set only on an
+            # LLM failure, never on a genuine no-majority outcome), so an
+            # analyst can exclude them. Revisit by giving BOTH rounds a
+            # form_coalition fallback, never just this one.
+            return all_rounds, round_number, rounds_sampling_varied, rounds_call_ids
+
+        for decision in round_decisions:
+            validate_coalition_decision(decision, seats, initiator)
+        all_rounds.append(round_decisions)
+        rounds_sampling_varied.append(_sampling_varied(retry_info, False))
+        rounds_call_ids.append(retry_info.get("call_id"))
+
+        current_by_party = {d.party_id: d for d in round_decisions}
+        if (
+            _negotiation_converged(prior_by_party, current_by_party, responders)
+            or round_number >= config.parties.coalition_max_negotiation_rounds
+        ):
+            return all_rounds, None, rounds_sampling_varied, rounds_call_ids
+
+        prior_by_party = current_by_party
+        provisional_seats = _provisional_coalition_seats(current_by_party, initiator, seats)
+        round_number += 1

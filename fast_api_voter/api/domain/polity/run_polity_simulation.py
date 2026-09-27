@@ -36,17 +36,22 @@ if/else split.
 """
 from __future__ import annotations
 
+import dataclasses
+import hashlib
 import json
 import logging
 import subprocess
-from collections.abc import Mapping, Sequence
+import time
+from collections.abc import Callable, Mapping, Sequence
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator
 
 import numpy as np
 
+from api.domain.polity import run_provenance
 from api.domain.polity.accountability import (
     applicable_pressure_act,
     chamber_deviation,
@@ -63,6 +68,7 @@ from api.domain.polity.accountability import (
     reset_petition_state,
     resolve_petition,
     select_consulted,
+    self_gap,
     sign_petition,
     ticks_to_election,
     unified_mandate_deviation,
@@ -76,12 +82,72 @@ from api.domain.polity.ballot_and_aggregation import (
     get_presidential_winner,
     resolve_confidence_vote,
 )
-from api.domain.polity.citizen import Citizen, Office, Role, generate_population
+from api.domain.polity.checkpoint import config_hash, load_checkpoint, save_checkpoint
+from api.domain.polity.progress import HeartbeatClient, ProgressTracker
+from api.domain.polity.snapshots import expected_snapshot_rows, is_snapshot_tick, write_snapshot
+from api.domain.polity.citizen import Citizen, LatentStructure, Office, Role, generate_population, latent_structure
 from api.domain.polity.codebook import BallotFormat, EventType, PressureAct, ReactionMotif
 from api.domain.polity.compaction import compact_run
-from api.domain.polity.config import PolityConfig
+from api.domain.polity.config import PolityConfig, PolityConfigError, validate_config
+from api.domain.polity.events import (
+    CampaignPositioning,
+    CandidacyConsidered,
+    CandidacyDeclared,
+    ChamberDeliberation,
+    ClampedAtBound,
+    CoalitionDecision,
+    CoalitionFailed,
+    CoalitionFormed,
+    ConfidenceVoteResult,
+    ConfidenceVoteTriggered,
+    EconomicShockTick,
+    Elected,
+    ElectionInvalidated,
+    BillBlocked,
+    BillEnacted,
+    BillProposed,
+    BillReviewed,
+    BillVoted,
+    ElectionNoWinner,
+    EmotionsUpdated,
+    Event,
+    LegislativeResult,
+    LegitimacyUpdated,
+    LlmProvenance,
+    MandateDeviationRecorded,
+    MandatePledgeDeclared,
+    NominationLost,
+    OMIT,
+    OpinionDynamicsStep,
+    PartyNominationChoice,
+    PetitionExpired,
+    PetitionLaunched,
+    PetitionSigned,
+    PolicyStatus,
+    PressureAction,
+    ReactionToEvent,
+    Recalled,
+    RepresentativeResponse,
+    ScandalOccurred,
+    SnapElectionTriggered,
+    SortitionRotation,
+    VoteCast,
+)
+from api.domain.polity.emotions import appraise, feel, mean_emotions, tolerance_scale
 from api.domain.polity.institutional_clock import ElectionType, InstitutionalClock
-from api.domain.polity.journal import Journal
+from api.domain.polity.journal import Journal, truncate_journal
+from api.domain.polity.legislation import (
+    GOVERNMENT,
+    PRESIDENT,
+    Bill,
+    Legislature,
+    assembly_vote,
+    chamber_review,
+    congruence,
+    draft_bill,
+    moves_away,
+    population_median,
+)
 from api.domain.polity.legitimacy import (
     compose_ecart,
     crosses_floor,
@@ -91,9 +157,11 @@ from api.domain.polity.legitimacy import (
 )
 from api.domain.polity.llm_behavior_engine import (
     ChamberContext,
+    PartyNominationBatchOutcome,
     PressureContext,
     ReactionContext,
     ResponseContext,
+    VoteBatchOutcome,
     cast_votes,
     clamped_dimensions,
     decide_campaign_positioning,
@@ -105,11 +173,19 @@ from api.domain.polity.llm_behavior_engine import (
     decide_reaction_to_event,
     decide_representative_response,
     menu_acts,
+    pressure_shipped_signal_values,
     resolve_ranking_cids,
 )
-from api.domain.polity.llm_client import LlmClientProtocol, build_json_client
+from api.domain.polity.llm_call_log import CALL_LOG_FILENAME, call_context, call_logged
+from api.domain.polity.llm_client import (
+    _RECYCLE_WARM_UP_MAX_TOKENS,
+    _RECYCLE_WARM_UP_USER_PROMPT,
+    LlmClientProtocol,
+    build_json_client,
+)
 from api.domain.polity.llm_schemas import PositionShift, PressureDecision, ReactionDecision
-from api.domain.polity.metrics import mobilization_rate
+from api.domain.polity.metrics import is_cohabitation, mobilization_rate
+from api.domain.polity.opinion_dynamics import NeighbourEdges, apply_dynamics
 from api.domain.polity.parties import Party, initialize_parties
 from api.domain.polity.shock import economic_shock_step, scandal_arrival
 from api.domain.polity.sortition_chamber import select_sortition_chamber
@@ -119,19 +195,24 @@ from api.domain.polity.simple_rules import (
     attempt_rupture_candidacy,
     blank_share,
     build_confidence_ballot,
-    build_ranking,
     choose_party,
     citizen_id_from_label,
     decide_candidacy,
     declare_candidacy,
     deterministic_pressure_action,
     deterministic_reaction_to_event,
+    IncumbentRecord,
     form_coalition,
+    GoverningRecord,
+    incumbent_record,
+    PolicyRecord,
     select_party_nominee,
     select_party_nominee_from_declared,
+    utility_ballot,
     vacate_office,
 )
 from api.domain.polity.social_graph import SocialGraph, generate_social_graph
+from api.domain.polity.tick_state import PendingRerun, TickState
 
 _logger = logging.getLogger(__name__)
 
@@ -188,58 +269,44 @@ def _warm_up_llm_client(client: LlmClientProtocol) -> None:
     any reason) is logged and swallowed, not allowed to abort a run over
     what is not itself part of the simulation -- and never journaled, for
     the same reason LLM replay attempts aren't (v4 Lot 8): this is about
-    the inference host, not the polity."""
+    the inference host, not the polity.
+
+    **Budget and prompt shape are shared with the recycle re-warm**
+    (`_RECYCLE_WARM_UP_USER_PROMPT`/`_RECYCLE_WARM_UP_MAX_TOKENS`), rather
+    than the `"{}"` stub at `max_tokens=32` this function used until
+    2026-09-06. Two independent reasons, neither speculative:
+
+    - Those constants' own docstrings record that the tiny stub was tested
+      and made a live 5-call sequence WORSE (2/5 vs baseline), which is why
+      the recycle path moved off it. Having two warm-up implementations
+      where the better-evidenced one runs only on recycle, and the one that
+      runs at the start of EVERY run is the shape already known to be worse,
+      was an inconsistency, not a design.
+    - Under vLLM the old budget did not merely underperform, it hard-failed:
+      32 tokens cannot hold a Qwen3 reasoning pass, so the think=True
+      warm-up returned finish_reason='length' on every run
+      (`LLM warm-up call (think=True) failed, continuing anyway`, observed
+      on the first real vLLM arm) and that endpoint was never warmed at all
+      -- silently defeating this function's entire purpose on exactly the
+      path it exists to protect.
+
+    What this does NOT claim: the cold-start determinism result quoted above
+    was measured on Ollama at the old budget. Changing the budget keeps the
+    procedure CONSISTENT (which is what §4 reproducibility actually needs,
+    per the paragraph above) but does not re-establish that result under
+    vLLM/AWQ, which would need its own forced-cold protocol."""
     for think in (True, False):
         try:
-            client.complete_json(
-                system_prompt="Reply with the required JSON object.",
-                user_prompt="{}",
-                json_schema=_WARM_UP_SCHEMA,
-                max_tokens=32,
-                think=think,
-            )
+            with call_context(kind="warm_up", decision_type=None):
+                client.complete_json(
+                    system_prompt="Reply with the required JSON object.",
+                    user_prompt=_RECYCLE_WARM_UP_USER_PROMPT,
+                    json_schema=_WARM_UP_SCHEMA,
+                    max_tokens=_RECYCLE_WARM_UP_MAX_TOKENS,
+                    think=think,
+                )
         except Exception as exc:  # noqa: BLE001
             _logger.warning("LLM warm-up call (think=%s) failed, continuing anyway: %s", think, exc)
-
-
-@dataclass(frozen=True)
-class PendingRerun:
-    """v4 Lot 9 (§6bis.2): local, run-scoped state for the invalidate ->
-    rerun -> bar cycle, deliberately NOT a Citizen field: unlike every other
-    officeholder-scoped piece of state this project has added since Lot 3
-    (legitimacy_capital, street_pressure, petition state), an invalidated
-    election has no officeholder to attach state to by construction. Held as
-    a plain local in run_simulation's scope, threaded into and back out of
-    _hold_presidential_election and into _attempt_rupture_candidacies every
-    tick -- the same register as rupture_rng, the one other piece of
-    cross-tick local state this module already carries.
-
-    `attempt` is the rerun's own 1-indexed number: the ORIGINAL scheduled
-    election is never tracked as a PendingRerun at all (there is no pending
-    state until the first invalidation). attempt=1 is the first rerun,
-    attempt=2 the second. Attempts 1..reelection_max_attempts get the full
-    invalidation check; attempt reelection_max_attempts+1 is FORCED (see
-    _is_forced_attempt) -- §6bis.2's "au-delà, un résultat est forcé".
-
-    `barred_candidate_ids` unions the candidate set of every invalidated
-    election within this one cycle, but ONLY when
-    config.institutions.barred_from_immediate_rerun is true -- that key is
-    its own toggle, independent of blank_vote_competitive (shipped true,
-    the doc's own recommended default, but a real comparison arm). Cleared
-    (the whole PendingRerun discarded, back to None) the instant the cycle
-    resolves: a real winner elected, or the forced attempt's outcome
-    (winner or election_no_winner) accepted.
-
-    `next_tick` REPLACES the fixed calendar for the presidency while this is
-    active (see run_simulation's own tick loop), rather than being OR'd into
-    it -- OR-ing a rerun tick into the fixed calendar is reachable at
-    non-default reelection_delay_ticks/president_term_years combinations
-    and produces two independent elections for one vacancy, with no journal
-    event marking the discard."""
-
-    attempt: int
-    next_tick: int
-    barred_candidate_ids: frozenset[int]
 
 
 def _is_forced_attempt(pending_rerun: PendingRerun | None, config: PolityConfig) -> bool:
@@ -282,7 +349,9 @@ def _capture_gpu_driver_info() -> tuple[str | None, str | None]:
         return None, None
 
 
-def _write_run_metadata(run_dir: Path, config: PolityConfig, run_id: str) -> None:
+def _write_run_metadata(
+    run_dir: Path, config: PolityConfig, run_id: str, *, resume: bool, llm_client: LlmClientProtocol | None,
+) -> None:
     """Records what's cheaply knowable about this run's LLM target -- NOT
     a journal event (would prepend a byte to every run and break every
     byte-for-byte reproducibility test); a sibling file instead, so
@@ -305,26 +374,52 @@ def _write_run_metadata(run_dir: Path, config: PolityConfig, run_id: str) -> Non
     Ollama client itself to confirm which device served a given call --
     Ollama's own `ollama ps` CLI queries the server directly for that,
     and the closest HTTP equivalent, `/api/ps`'s `size_vram` field, isn't
-    wired up anywhere in this codebase)."""
+    wired up anywhere in this codebase).
+
+    S0.4 (plan-polity-build-order.md) completes the record: commit and dirty
+    paths, prompt-source hash, the vLLM server's own version, image and weights
+    revision, the run's shape, and its overrides against the shipped YAML -- see
+    run_provenance.py. `started_at` makes this file differ between otherwise
+    identical runs; the reproducibility contract is over events.jsonl, which is
+    why this is a sibling file. `config.json` beside it is the full resolved
+    config, so "mechanism disabled" and "enabled, nothing happened" stay
+    distinguishable from the run directory alone."""
     run_dir.mkdir(parents=True, exist_ok=True)
+    metadata_path = run_dir / "run_metadata.json"
     gpu_driver_version: str | None = None
     gpu_cuda_version: str | None = None
     if config.llm.enabled:
         gpu_driver_version, gpu_cuda_version = _capture_gpu_driver_info()
-    (run_dir / "run_metadata.json").write_text(
-        json.dumps(
-            {
-                "run_id": run_id,
-                "llm_enabled": config.llm.enabled,
-                "llm_provider": config.llm.provider if config.llm.enabled else None,
-                "llm_base_url": config.llm.base_url if config.llm.enabled else None,
-                "llm_model": config.llm.model if config.llm.enabled else None,
-                "gpu_driver_version": gpu_driver_version,
-                "gpu_cuda_version": gpu_cuda_version,
-            },
-            sort_keys=True,
-            indent=2,
-        ),
+    now = datetime.now(timezone.utc).isoformat()
+    provenance = {
+        **run_provenance.code_and_server_provenance(config, llm_client=llm_client),
+        "gpu_driver_version": gpu_driver_version,
+        "gpu_cuda_version": gpu_cuda_version,
+    }
+    if resume and metadata_path.exists():
+        # The first start's record stays; each resume appends what it ran under,
+        # since a resume checks the config (config_hash) but not the code.
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        metadata["resumes"] = [*metadata.get("resumes", []), {"resumed_at": now, **provenance}]
+    else:
+        metadata = {
+            "run_id": run_id,
+            "started_at": now,
+            "llm_enabled": config.llm.enabled,
+            "llm_provider": config.llm.provider if config.llm.enabled else None,
+            "llm_base_url": config.llm.base_url if config.llm.enabled else None,
+            "llm_model": config.llm.model if config.llm.enabled else None,
+            "llm_reproducibility": config.llm.reproducibility if config.llm.enabled else None,
+            "intra_run_workers": config.parallel.intra_run_workers,
+            **provenance,
+            **run_provenance.run_shape(config),
+            "config_hash": config_hash(config),
+            "config_overrides": run_provenance.config_overrides(config),
+            "resumes": [],
+        }
+    metadata_path.write_text(json.dumps(metadata, sort_keys=True, indent=2, default=str), encoding="utf-8")
+    (run_dir / "config.json").write_text(
+        json.dumps(run_provenance.typed_config_mapping(config), sort_keys=True, indent=2, default=str),
         encoding="utf-8",
     )
 
@@ -379,14 +474,18 @@ def _warn_if_no_candidate_is_possible(citizens: list[Citizen], config: PolityCon
 
 
 def run_simulation(
-    config: PolityConfig, run_id: str | None = None, llm_client: LlmClientProtocol | None = None
+    config: PolityConfig,
+    run_id: str | None = None,
+    llm_client: LlmClientProtocol | None = None,
+    *,
+    resume: bool = False,
 ) -> Path:
     """Run a full simulation and return the path to its journal.
 
-    president_term_limit is null in the shipped config (illimité), but is
-    now enforced when set (v4 Lot 2, §6bis.1): a citizen with
-    mandates_served >= term_limit cannot be nominated again on the
-    deterministic candidacy path (assembly_term_limit stays unread —
+    president_term_limit ships at 2 (D6, 2026-09-13; null means illimité) and is
+    enforced when set (v4 Lot 2, §6bis.1): a citizen with
+    mandates_served >= term_limit cannot be nominated again, on either
+    engine (the LLM path since 2026-09-13) (assembly_term_limit stays unread —
     legislative elections are party-list, no per-citizen candidacy check
     exists to gate).
 
@@ -404,7 +503,51 @@ def run_simulation(
     post-run, so the hot regime never reads, indexes, or queries the
     journal, and an interrupted run still leaves an exploitable JSONL with
     no half-written `.duckdb` beside it.
+
+    `resume` (Phase 3, plan-flagship-30y-run.md): a per-tick checkpoint
+    (`checkpoint.json`, beside `events.jsonl`) makes a multi-day sequential
+    run (Phase 2's own conclusion: this simulator does not run concurrent)
+    survivable across a crash or a deliberate interruption.
+
+    `resume=False` (every pre-Phase-3 caller, unaffected): builds fresh
+    state exactly as before. Additionally now refuses -- `FileExistsError`
+    -- if a checkpoint already exists at this run's path: silently ignoring
+    resumable progress and starting over would both discard it and, since
+    the journal opens in append mode, corrupt the existing `events.jsonl`
+    with a second, overlapping event_id sequence. The same "don't silently
+    clobber a resumable run" discipline `run_polity_flagship.py`'s own
+    collision guard already applies to a fresh run_id.
+
+    `resume=True`: requires a checkpoint to already exist (raises via
+    `checkpoint.load_checkpoint`'s own `Path.read_text` if not -- resuming
+    nothing is a caller error, not a fresh-run fallback). Verifies
+    `checkpoint.config_hash(config)` and `run_id` both match the checkpoint
+    -- a resume against a changed config or the wrong run directory is
+    exactly the mistake this loud check exists to catch, not paper over.
+    Truncates `events.jsonl` to the checkpoint's own `next_event_id`
+    (`journal.truncate_journal`) BEFORE opening it, discarding any events a
+    crash left behind from a tick that started but never got its own
+    checkpoint -- then restores citizens/parties/pending_rerun/economy_x/
+    mobilized_last_tick/the three RNG streams' exact bit_generator state,
+    and continues the tick loop at `checkpoint.tick + 1`. `graph` is
+    regenerated, never restored -- see checkpoint.py's own module docstring
+    for why that is exact, not an approximation.
+
+    Also writes `progress.json` (Phase 4) after every tick, beside
+    `checkpoint.json` -- a live status snapshot (tick, simulated year,
+    wall-clock elapsed, rolling ETA, decisions by type, retry/fallback
+    counts) an operator or a future UI can read at any moment without
+    touching the journal. See `api.domain.polity.progress` for the
+    resume-correctness argument (short version: it re-derives everything
+    from the journal itself, so it can never drift from what actually
+    happened, fresh run or resumed).
     """
+    validate_config(config)
+    if llm_client is not None and not config.llm.enabled:
+        # S1.5: from here on, "is there a client" IS the engine switch -- _llm_client_scope
+        # yields one exactly when llm.enabled -- so an injected client under a deterministic
+        # config would silently turn the LLM path on. Refused instead.
+        raise PolityConfigError("an llm_client was passed to a run whose 'llm.enabled' is false")
     if config.institutions.presidential_method not in RANKED_METHODS:
         raise NotImplementedError(
             f"presidential_method {config.institutions.presidential_method!r} needs a "
@@ -412,107 +555,541 @@ def run_simulation(
         )
 
     run_id = run_id or config.run.run_label
-    _write_run_metadata(Path(config.journal.output_dir) / run_id, config, run_id)
-    citizens = generate_population(config.citizens, config.run.population_size, config.run.seed)
-    _warn_if_no_candidate_is_possible(citizens, config)
-    parties = initialize_parties(citizens, config.parties.initial_count, config.run.seed)
-    for citizen in citizens:
-        citizen.party_affiliation = assign_party_affiliation(citizen, parties)
+    run_dir = Path(config.journal.output_dir) / run_id
+    checkpoint_path = run_dir / "checkpoint.json"
+    journal_path = run_dir / "events.jsonl"
+    snapshots_path = run_dir / "snapshots.jsonl"
 
+    if resume and not checkpoint_path.exists():
+        raise FileNotFoundError(f"--resume requested but no checkpoint at {checkpoint_path} -- nothing to resume")
+    if not resume and checkpoint_path.exists():
+        raise FileExistsError(
+            f"{checkpoint_path} already exists -- resuming it requires resume=True; starting fresh here would "
+            "both discard that progress and corrupt events.jsonl (Journal appends, it does not overwrite)"
+        )
+
+    _write_run_metadata(run_dir, config, run_id, resume=resume, llm_client=llm_client)
     clock = InstitutionalClock.from_config(config.institutions, config.run, config.sortition_chamber)
-    # Independent stream from population/party generation (same pattern as
-    # Lot 2/3): a fresh default_rng per concern, so enabling rupture draws
-    # never perturbs the citizens/parties already generated above.
-    rupture_rng = np.random.default_rng(config.run.seed)
-    # v5 Lot 2 (§8): a third independent stream, never reusing rupture_rng --
-    # same "fresh default_rng per concern" reasoning as above. rupture_rng
-    # already draws unconditionally every tick for every elector (before the
-    # is_term_limited/barred-set check, specifically so a gated citizen
-    # never shifts the stream); coupling v5's draws into that stream would
-    # either entangle two unrelated mechanisms' RNG consumption for no
-    # benefit, or -- if inserted only when events.enabled -- violate
-    # rupture_rng's own existing, tested draw-position contract for every
-    # run that doesn't enable events. Fixed intra-stream draw order inside
-    # _run_exogenous_events: scandal arrival before the AR(1) innovation.
-    events_rng = np.random.default_rng(config.run.seed)
-    # v6b Lot 2 (§6bis.3): a fourth independent stream -- unlike `graph`
-    # below (generated once, no persistent stream name needed), sortition
-    # selection draws repeatedly, every rotation tick, so it needs the
-    # rupture_rng/events_rng-style persistent stream. Drawn from only
-    # inside select_sortition_chamber, only on a rotation tick, only when
-    # sortition_chamber.enabled -- undrawn otherwise.
-    sortition_rng = np.random.default_rng(config.run.seed)
-    # v4 Lot 9 (§6bis.2): None whenever blank_vote_competitive is off (the
-    # shipped default) or no cycle is currently open -- see PendingRerun's
-    # own docstring for why this is a plain local, not a Citizen field.
-    pending_rerun: PendingRerun | None = None
-    # v5 Lot 2 (§8): the AR(1) economic-climate variable, x(t) -- population-
-    # wide, no natural Citizen owner, so a bare local in the same register as
-    # rupture_rng/pending_rerun rather than a Citizen field. Reassigned from
-    # _run_exogenous_events's return value every tick. Deliberately
-    # unclamped -- see shock.economic_shock_step's own docstring.
-    economy_x: float = 0.0
     # v6 Lot 2/3 (§5): generated once, population-structural (evolving is
     # TRANCHÉ rejected at config-parse time, so this never changes mid-run).
     # None whenever social_graph.enabled is off (the shipped default) --
     # every reader below treats None as "no graph" and behaves identically
-    # to pre-v6-Lot-3 code.
+    # to pre-v6-Lot-3 code. Regenerated identically on resume too (never
+    # restored from the checkpoint) -- see checkpoint.py's own docstring.
     graph: SocialGraph | None = None
     if config.social_graph.enabled:
         graph = generate_social_graph(config.social_graph, config.run.population_size, config.run.seed)
-    # v6 Lot 3 (§5/§7bis.9c): citizen_id -> target citizen_id, for every
-    # citizen whose APPLIED pressure_action was MOBILIZE on the most
-    # recently completed tick -- a bare local in the same register as
-    # economy_x, fully REPLACED (never accumulated) every tick by
-    # _run_accountability_phase's own return value, so it always reflects
-    # exactly one completed tick. The one-tick lag mirrors dt=6's own
-    # street_pressure lag (v4 Lot 6): decide_pressure_actions batches an
-    # entire cohort's decisions in one frozen call, so a neighbor's SAME-
-    # tick decision cannot be seen by construction.
-    mobilized_last_tick: Mapping[int, int] = {}
+    # S4.3: the latent model the population was drawn from, and the graph as edge arrays --
+    # like the graph, regenerated from the config on resume, never checkpointed.
+    latent: LatentStructure | None = None
+    edges: NeighbourEdges | None = None
+    if config.dynamics.enabled:
+        latent = latent_structure(config.citizens, config.run.population_size, config.run.seed)
+        edges = NeighbourEdges.from_graph(graph)
 
-    with Journal.from_config(config.journal, run_id) as journal, _llm_client_scope(config, llm_client) as client:
-        for tick in range(clock.total_ticks + 1):
-            barred_ids = pending_rerun.barred_candidate_ids if pending_rerun is not None else frozenset()
-            _attempt_rupture_candidacies(citizens, config, journal, tick, rupture_rng, barred_candidate_ids=barred_ids)
-            exogenous = _run_exogenous_events(citizens, config, journal, tick, events_rng, economy_x)
-            economy_x = exogenous.economy_x
-            election = clock.election_at(tick)
-            # While a rerun is pending, the fixed presidential calendar is
-            # SUSPENDED, not OR'd with the rerun tick -- see PendingRerun's
-            # own docstring for why a union reintroduces a double-election
-            # pathology. This reduces to today's exact
-            # `election in (PRESIDENTIAL, BOTH)` check whenever
-            # pending_rerun is None, which is always true when
-            # blank_vote_competitive is off.
-            if pending_rerun is not None:
-                hold_president = tick == pending_rerun.next_tick
-            else:
-                hold_president = election in (ElectionType.PRESIDENTIAL, ElectionType.BOTH)
-            if hold_president:
-                pending_rerun = _hold_presidential_election(
-                    citizens, parties, config, journal, tick, client, pending_rerun
-                )
-            if election in (ElectionType.LEGISLATIVE, ElectionType.BOTH):
-                seats, votes = _hold_legislative_election(citizens, parties, config, journal, tick)
-                _form_and_journal_coalition(parties, seats, votes, config, journal, tick, client)
-            if config.sortition_chamber.enabled and clock.is_sortition_rotation(tick):
-                _run_sortition_rotation(citizens, config, journal, tick, sortition_rng)
-            if config.sortition_chamber.enabled:
-                _run_chamber_deliberation(citizens, config, journal, tick, client)
-            mobilized_last_tick = _run_accountability_phase(
-                citizens, config, journal, tick, client,
-                exogenous=exogenous, graph=graph, mobilized_last_tick=mobilized_last_tick,
+    if resume:
+        checkpoint = load_checkpoint(checkpoint_path)
+        if checkpoint.run_id != run_id:
+            raise ValueError(f"checkpoint run_id {checkpoint.run_id!r} does not match requested run_id {run_id!r}")
+        if checkpoint.config_hash != config_hash(config):
+            raise ValueError(
+                f"checkpoint at {checkpoint_path} was taken under a different config (hash mismatch) -- "
+                "resuming a run under changed simulation rules is not supported"
+            )
+        truncate_journal(journal_path, checkpoint.next_event_id)
+        # Phase 6: a crash on a tick that is BOTH a snapshot tick (see
+        # is_snapshot_tick) AND never finished leaves a premature, never-
+        # checkpointed snapshot write on disk -- discard it the same way,
+        # to the row count the LAST COMPLETED tick accounts for (never the
+        # crashed one), so it is reproduced identically when that tick
+        # restarts from scratch rather than duplicated alongside it.
+        truncate_journal(
+            snapshots_path,
+            expected_snapshot_rows(checkpoint.tick, config.run.ticks_per_year, config.run.population_size),
+        )
+        state = checkpoint.state
+        first_tick = checkpoint.tick + 1
+        start_event_id = checkpoint.next_event_id
+    else:
+        state = _fresh_tick_state(config)
+        first_tick = 0
+        start_event_id = 0
+
+    progress_tracker = ProgressTracker(
+        run_id=run_id,
+        total_ticks=clock.total_ticks,
+        ticks_per_year=config.run.ticks_per_year,
+        progress_path=run_dir / "progress.json",
+        llm_enabled=config.llm.enabled,
+    )
+    run_start_time = time.monotonic()
+
+    with (
+        Journal.from_config(config.journal, run_id, start_event_id=start_event_id) as journal,
+        _llm_client_scope(
+            config, llm_client, progress_tracker,
+            call_log_path=run_dir / CALL_LOG_FILENAME if config.llm.enabled else None,
+        ) as client,
+    ):
+        for tick in range(first_tick, clock.total_ticks + 1):
+            tick_start_time = time.monotonic()
+            # Publishes "tick N is being computed" before any phase runs, so a
+            # reader can distinguish an in-flight tick from a finished one --
+            # the pair (tick, tick_in_progress) is what makes a pop-500
+            # election tick's legitimate hour of silence legible instead of
+            # looking like a freeze. Paired with record_tick below, which
+            # clears it.
+            progress_tracker.begin_tick(tick)
+            context = TickContext(
+                tick=tick, config=config, journal=journal, client=client, clock=clock, graph=graph,
+                snapshots_path=snapshots_path, election=clock.election_at(tick), latent=latent, edges=edges,
+            )
+            for phase in TICK_PHASES:
+                phase(context, state)
+            # Phase 3: checkpoint AFTER every tick's phases are fully done and
+            # journaled, never mid-tick -- a resume always restarts a tick
+            # from its own beginning (see truncate_journal's own docstring),
+            # never partway through. Every value saved here is exactly what
+            # this same iteration just finished computing, at the position in
+            # the loop where nothing about `tick` has changed since.
+            save_checkpoint(
+                checkpoint_path, run_id=run_id, config=config, tick=tick,
+                next_event_id=journal.next_event_id, state=state,
+            )
+            # Phase 4 (plan-flagship-30y-run.md): same position as the
+            # checkpoint write above -- after this tick's own phases are
+            # fully journaled, so progress.json's own decision counts never
+            # reflect a partially-completed tick.
+            progress_tracker.record_tick(
+                tick=tick,
+                tick_duration=time.monotonic() - tick_start_time,
+                wall_clock_elapsed=time.monotonic() - run_start_time,
+                journal_path=journal_path,
+                checkpoint_tick=tick,
             )
 
-    journal_path = Path(config.journal.output_dir) / run_id / "events.jsonl"
     if config.journal.enabled and config.journal.index_after_run:
         compact_run(journal_path, config)
     return journal_path
 
 
+def _fresh_tick_state(config: PolityConfig) -> TickState:
+    """A new run's starting state."""
+    citizens = generate_population(config.citizens, config.run.population_size, config.run.seed)
+    _warn_if_no_candidate_is_possible(citizens, config)
+    parties = initialize_parties(citizens, config.parties.initial_count, config.run.seed)
+    for citizen in citizens:
+        citizen.party_affiliation = assign_party_affiliation(citizen, parties)
+    return TickState(
+        citizens=citizens,
+        parties=parties,
+        # Independent stream from population/party generation (same pattern as
+        # Lot 2/3): a fresh default_rng per concern, so enabling rupture draws
+        # never perturbs the citizens/parties already generated above.
+        rupture_rng=np.random.default_rng(config.run.seed),
+        # v5 Lot 2 (§8): a third independent stream, never reusing rupture_rng --
+        # same "fresh default_rng per concern" reasoning as above. rupture_rng
+        # already draws unconditionally every tick for every elector (before the
+        # is_term_limited/barred-set check, specifically so a gated citizen
+        # never shifts the stream); coupling v5's draws into that stream would
+        # either entangle two unrelated mechanisms' RNG consumption for no
+        # benefit, or -- if inserted only when events.enabled -- violate
+        # rupture_rng's own existing, tested draw-position contract for every
+        # run that doesn't enable events. Fixed intra-stream draw order inside
+        # _run_exogenous_events: scandal arrival before the AR(1) innovation.
+        events_rng=np.random.default_rng(config.run.seed),
+        # v6b Lot 2 (§6bis.3): a fourth independent stream -- unlike `graph`
+        # (generated once, no persistent stream name needed), sortition
+        # selection draws repeatedly, every rotation tick, so it needs the
+        # rupture_rng/events_rng-style persistent stream. Drawn from only
+        # inside select_sortition_chamber, only on a rotation tick, only when
+        # sortition_chamber.enabled -- undrawn otherwise.
+        sortition_rng=np.random.default_rng(config.run.seed),
+        # S4.3: a fifth stream, same "fresh default_rng per concern" reasoning; None for a
+        # static population, so a static run draws and checkpoints exactly as before.
+        dynamics_rng=np.random.default_rng(config.run.seed) if config.dynamics.enabled else None,
+        # S4.2: policy starts at the population's per-issue median, a neutral origin.
+        legislature=Legislature(policy=population_median(citizens)) if config.legislation.enabled else None,
+        # pending_rerun (v4 Lot 9, §6bis.2): None whenever blank_vote_competitive
+        # is off (the shipped default) or no cycle is currently open.
+        # staggered_declared_cids (Track E): None unless institutions.staggered_
+        # election is on and this is the single tick after a declaration.
+        # economy_x (v5 Lot 2, §8): the AR(1) economic climate x(t), reassigned from
+        # _run_exogenous_events every tick; deliberately unclamped -- see
+        # shock.economic_shock_step.
+        # mobilized_last_tick (v6 Lot 3, §5/§7bis.9c): citizen_id -> target for every
+        # citizen whose APPLIED pressure_action was MOBILIZE on the most recently
+        # completed tick, fully REPLACED every tick by _run_accountability_phase.
+        # The one-tick lag mirrors dt=6's street_pressure lag (v4 Lot 6):
+        # decide_pressure_actions batches a cohort in one frozen call, so a
+        # neighbor's SAME-tick decision cannot be seen by construction.
+    )
+
+
+@dataclass
+class TickContext:
+    """One tick's fixed inputs, and what an earlier phase of the tick leaves for a
+    later one (exogenous events for accountability, the president before
+    accountability for the snap-election event). Rebuilt every tick; never
+    checkpointed -- nothing in it outlives the tick."""
+
+    tick: int
+    config: PolityConfig
+    journal: Journal
+    client: LlmClientProtocol | None
+    clock: InstitutionalClock
+    graph: SocialGraph | None
+    snapshots_path: Path
+    election: ElectionType | None
+    exogenous: ExogenousEventsOutcome | None = None
+    president_before_accountability: list[Citizen] = field(default_factory=list)
+    latent: LatentStructure | None = None
+    """S4.3: the population's latent model, set when dynamics.enabled."""
+    edges: NeighbourEdges | None = None
+
+
+def _phase_snapshot(context: TickContext, state: TickState) -> None:
+    # Phase 6: BEFORE this tick's own phases run, not after -- the tick-0 snapshot
+    # is then the true initial population, untouched by any simulated decision, and
+    # every later year's snapshot reflects state as of the START of that year
+    # (i.e. through the END of the year before it), matching a census-style
+    # reading. See is_snapshot_tick's own docstring for the resume-truncation
+    # consequence of this ordering.
+    config = context.config
+    if is_snapshot_tick(context.tick, config.run.ticks_per_year):
+        write_snapshot(context.snapshots_path, state.citizens, tick=context.tick, ticks_per_year=config.run.ticks_per_year)
+
+
+def _phase_rupture_candidacies(context: TickContext, state: TickState) -> None:
+    barred_ids = state.pending_rerun.barred_candidate_ids if state.pending_rerun is not None else frozenset()
+    _attempt_rupture_candidacies(
+        state.citizens, state.parties, context.config, context.journal, context.tick, state.rupture_rng,
+        barred_candidate_ids=barred_ids,
+    )
+
+
+def _phase_exogenous_events(context: TickContext, state: TickState) -> None:
+    context.exogenous = _run_exogenous_events(
+        state.citizens, context.config, context.journal, context.tick, state.events_rng, state.economy_x,
+    )
+    state.economy_x = context.exogenous.economy_x
+
+
+def _phase_presidential_election(context: TickContext, state: TickState) -> None:
+    tick, config, client = context.tick, context.config, context.client
+    # While a rerun is pending, the fixed presidential calendar is SUSPENDED, not
+    # OR'd with the rerun tick -- see PendingRerun's own docstring for why a union
+    # reintroduces a double-election pathology. This reduces to the plain
+    # `election in (PRESIDENTIAL, BOTH)` check whenever pending_rerun is None,
+    # which is always true when blank_vote_competitive is off.
+    if state.pending_rerun is not None:
+        hold_president = tick == state.pending_rerun.next_tick
+        # Track E (2026-09-11): any staggered declaration still awaiting its own
+        # nomination tick is abandoned the instant a rerun interrupts the calendar
+        # -- otherwise a stale declared set from a cycle the calendar never
+        # finished could resurface at a LATER, unrelated election's own nomination
+        # tick once the rerun eventually resolves. already_staggered's own fallback
+        # in _hold_presidential_election recovers the abandoned cycle atomically,
+        # exactly like the tick-0/no-staggering case.
+        state.staggered_declared_cids = None
+    else:
+        hold_president = context.election in (ElectionType.PRESIDENTIAL, ElectionType.BOTH)
+        # Track E's own staggered calendar, fixed-election-only (a rerun never
+        # reaches this branch -- see above). Declaration and nomination are never
+        # the SAME tick as the vote they feed (both fire strictly before it), so
+        # this cannot collide with `hold_president` below.
+        if config.institutions.staggered_election and client is not None:
+            _run_staggered_campaign(context, state, client)
+    if hold_president:
+        # Whether this election's campaign already declared and nominated is a recorded
+        # fact, not read off citizen roles: the declared set stays in state (and in the
+        # checkpoint) from the campaign's first tick until the election consumes it here.
+        staggered = state.pending_rerun is None and state.staggered_declared_cids is not None
+        legislature = state.legislature
+        state.pending_rerun = _hold_presidential_election(
+            state.citizens, state.parties, config, context.journal, tick, client, state.pending_rerun, staggered=staggered,
+            policy=_term_policy_record(legislature),
+        )
+        state.staggered_declared_cids = None
+        if legislature is not None and current_office_holders(state.citizens, Office.PRESIDENT):
+            legislature.policy_at_term_start = legislature.policy  # a president was elected this tick
+
+
+def _run_staggered_campaign(context: TickContext, state: TickState, client: LlmClientProtocol) -> None:
+    tick = context.tick
+    if context.clock.is_presidential_declaration_tick(tick):
+        state.staggered_declared_cids = _consider_candidacies_llm(state.citizens, context.config, context.journal, tick, client)
+    if context.clock.is_presidential_nomination_tick(tick) and state.staggered_declared_cids is not None:
+        _nominate_and_position_llm(
+            state.citizens, state.parties, state.staggered_declared_cids, context.config, context.journal, tick, client,
+        )
+
+
+def _phase_legislative_election(context: TickContext, state: TickState) -> None:
+    if context.election in (ElectionType.LEGISLATIVE, ElectionType.BOTH):
+        legislature = state.legislature
+        seats, votes = _hold_legislative_election(
+            state.citizens, state.parties, context.config, context.journal, context.tick,
+            governing=_governing_record(state.citizens, legislature),
+        )
+        coalition = _form_and_journal_coalition(state.parties, seats, votes, context.config, context.journal, context.tick, context.client)
+        if legislature is not None:
+            legislature.seats, legislature.coalition = seats, tuple(coalition) if coalition else None
+            legislature.policy_at_assembly_start = legislature.policy
+
+
+def _term_policy_record(legislature: Legislature | None) -> PolicyRecord | None:
+    """S4.2: the policy the sitting president's term presided over, for the vote judging it."""
+    if legislature is None or legislature.policy_at_term_start is None:
+        return None
+    return PolicyRecord(then=legislature.policy_at_term_start, now=legislature.policy)
+
+
+def _governing_record(citizens: list[Citizen], legislature: Legislature | None) -> GoverningRecord | None:
+    """S4.2: the parties a legislative election judges -- the coalition the last one formed,
+    or the president's party when none did -- and the policy since that election."""
+    if legislature is None or legislature.policy_at_assembly_start is None:
+        return None
+    president_parties = {c.party_affiliation for c in current_office_holders(citizens, Office.PRESIDENT) if c.party_affiliation is not None}
+    parties = frozenset(legislature.coalition) if legislature.coalition else frozenset(president_parties)
+    if not parties:
+        return None
+    return GoverningRecord(parties=parties, policy=PolicyRecord(then=legislature.policy_at_assembly_start, now=legislature.policy))
+
+
+def _phase_sortition_chamber(context: TickContext, state: TickState) -> None:
+    config = context.config
+    if not config.sortition_chamber.enabled:
+        return
+    if context.clock.is_sortition_rotation(context.tick):
+        _run_sortition_rotation(state.citizens, config, context.journal, context.tick, state.sortition_rng)
+    _run_chamber_deliberation(state.citizens, config, context.journal, context.tick, context.client)
+
+
+def _phase_legislation(context: TickContext, state: TickState) -> None:
+    """S4.2 (ADR-009): after the elections and the chamber's rotation and deliberation, so a
+    bill meets this tick's assembly, president and chamber. One reading per tick: a suspended
+    bill's second reading when it is due, otherwise a new bill every bill_interval_ticks.
+    Nothing is read without an assembly or a president."""
+    legislature, tick = state.legislature, context.tick
+    if legislature is None:
+        return
+    if is_snapshot_tick(tick, context.config.run.ticks_per_year):
+        fit = congruence(state.citizens, legislature.policy)
+        context.journal.write_event(
+            tick=tick, citizen_id=None,
+            event=PolicyStatus(policy=list(legislature.policy), median_distance=fit.median_distance, mean_citizen_distance=fit.mean_citizen_distance),
+        )
+    president = next((h for h in current_office_holders(state.citizens, Office.PRESIDENT) if h.revealed_position is not None), None)
+    if legislature.seats is None or president is None:
+        return
+    suspended = legislature.suspended
+    if suspended is None:
+        _propose_bill(context, state, legislature, president)
+    elif suspended.returns_at_tick is not None and tick >= suspended.returns_at_tick:
+        legislature.suspended = None
+        _read_bill(context, state, legislature, president, suspended, reading=2)
+
+
+def _propose_bill(context: TickContext, state: TickState, legislature: Legislature, president: Citizen) -> None:
+    """Every bill_interval_ticks, the agenda setter's bill and its first reading."""
+    if context.tick % context.config.legislation.bill_interval_ticks:
+        return
+    bill = _draft_bill(state.parties, legislature, president, context.config)
+    if bill is None:
+        return
+    legislature.bills_drafted += 1
+    context.journal.write_event(
+        tick=context.tick, citizen_id=president.citizen_id if bill.agenda_setter == PRESIDENT else None,
+        event=BillProposed(
+            bill_id=bill.bill_id, agenda_setter=bill.agenda_setter, proposer=bill.proposer, dimensions=list(bill.dimensions),
+            status_quo=[legislature.policy[d] for d in bill.dimensions], proposal=list(bill.proposal),
+        ),
+    )
+    _read_bill(context, state, legislature, president, bill, reading=1)
+
+
+def _in_cohabitation(legislature: Legislature, president: Citizen) -> bool:
+    return is_cohabitation(president.party_affiliation, list(legislature.coalition) if legislature.coalition else None)
+
+
+def _draft_bill(parties: list[Party], legislature: Legislature, president: Citizen, config: PolityConfig) -> Bill | None:
+    """The president sets the agenda, or under cohabitation the government: its initiating
+    party, aiming at that party's platform with every issue weighted alike."""
+    bill_id = legislature.bills_drafted + 1
+    if legislature.coalition and _in_cohabitation(legislature, president):
+        initiator = legislature.coalition[0]
+        platform = next(p.platform for p in parties if p.party_id == initiator)
+        return draft_bill(legislature.policy, platform, (1.0,) * len(platform), config.legislation,
+                          bill_id=bill_id, agenda_setter=GOVERNMENT, proposer=initiator)
+    assert president.revealed_position is not None
+    return draft_bill(legislature.policy, president.revealed_position, president.issue_priorities, config.legislation,
+                      bill_id=bill_id, agenda_setter=PRESIDENT, proposer=president.citizen_id)
+
+
+def _read_bill(
+    context: TickContext, state: TickState, legislature: Legislature, president: Citizen, bill: Bill, *, reading: int,
+) -> None:
+    """A bill's assembly reading, then the president's cohabitation block, then (first reading
+    only) the chamber's review; enacted if it survives."""
+    config, journal, tick = context.config, context.journal, context.tick
+    assert legislature.seats is not None and president.revealed_position is not None
+    vote = assembly_vote(state.parties, legislature.seats, legislature.policy, bill, config.legislation.assembly_majority_ratio)
+    journal.write_event(tick=tick, citizen_id=None, event=BillVoted(
+        bill_id=bill.bill_id, reading=reading, yes_seats=vote.yes_seats, no_seats=vote.no_seats,
+        yes_parties=list(vote.yes_parties), passed=int(vote.passed),
+    ))
+    if not vote.passed:
+        return
+    if config.legislation.cohabitation_block and _in_cohabitation(legislature, president) and moves_away(
+        president.revealed_position, president.issue_priorities, legislature.policy, bill,
+    ):
+        journal.write_event(tick=tick, citizen_id=president.citizen_id, event=BillBlocked(bill_id=bill.bill_id))
+        return
+    if reading == 1 and _chamber_suspends(context, state, legislature, bill):
+        return
+    old_values = [legislature.policy[d] for d in bill.dimensions]
+    legislature.policy = bill.enacted(legislature.policy)
+    legislature.bills_enacted += 1
+    journal.write_event(tick=tick, citizen_id=None, event=BillEnacted(
+        bill_id=bill.bill_id, dimensions=list(bill.dimensions), old_values=old_values, new_values=list(bill.proposal),
+        enacted=legislature.bills_enacted,
+    ))
+
+
+def _chamber_suspends(context: TickContext, state: TickState, legislature: Legislature, bill: Bill) -> bool:
+    """The sitting chamber's review; under suspensive_limited a majority against suspends the
+    bill for veto_delay_ticks (and it returns without a second review)."""
+    chamber = context.config.sortition_chamber
+    members = current_sortition_members(state.citizens) if chamber.enabled else []
+    if not members:
+        return False
+    review = chamber_review(members, legislature.policy, bill)
+    veto = review.rejects and chamber.veto_power == "suspensive_limited"
+    returns_at_tick = context.tick + chamber.veto_delay_ticks
+    context.journal.write_event(tick=context.tick, citizen_id=None, event=BillReviewed(
+        bill_id=bill.bill_id, yes=review.yes, no=review.no, veto=int(veto), returns_at_tick=returns_at_tick if veto else OMIT,
+    ))
+    if veto:
+        legislature.suspended = dataclasses.replace(bill, returns_at_tick=returns_at_tick)
+    return veto
+
+
+def _phase_emotions(context: TickContext, state: TickState) -> None:
+    if context.config.emotions.enabled:
+        _update_emotions(state.citizens, context.config, context.journal, context.tick, state.economy_x)
+
+
+def _update_emotions(citizens: list[Citizen], config: PolityConfig, journal: Journal, tick: int, economy_x: float) -> None:
+    """S4.3 (ADR-012): every citizen's emotions move toward this tick's appraisal of the
+    sitting president and the economy, after the elections (so a new president is the one
+    appraised) and before accountability reads them."""
+    holder = next((h for h in current_office_holders(citizens, Office.PRESIDENT) if h.revealed_position is not None), None)
+    for citizen in citizens:
+        gap = None if holder is None or citizen is holder else self_gap(citizen, holder)
+        appraisal = appraise(gap, citizen.blank_threshold, economy_x, config.events.economy_shock_threshold)
+        feel(citizen, appraisal, config.emotions.decay)
+    mean = mean_emotions(citizens)
+    journal.write_event(
+        tick=tick, event=EmotionsUpdated(anger=mean.anger, anxiety=mean.anxiety, enthusiasm=mean.enthusiasm), citizen_id=None,
+    )
+
+
+def _phase_opinion_dynamics(context: TickContext, state: TickState) -> None:
+    """S4.3 (ADR-012): last in the tick, so the next tick's decisions read the moved views."""
+    if not context.config.dynamics.enabled:
+        return
+    assert context.latent is not None and context.edges is not None and state.dynamics_rng is not None
+    step = apply_dynamics(state.citizens, context.latent, context.edges, context.config.dynamics, state.dynamics_rng)
+    context.journal.write_event(
+        tick=context.tick,
+        event=OpinionDynamicsStep(mean_shift=step.mean_shift, max_shift=step.max_shift, influenced=step.influenced),
+        citizen_id=None,
+    )
+
+
+def _phase_accountability(context: TickContext, state: TickState) -> None:
+    assert context.exogenous is not None  # _phase_exogenous_events runs earlier in TICK_PHASES
+    context.president_before_accountability = current_office_holders(state.citizens, Office.PRESIDENT)
+    state.mobilized_last_tick = _run_accountability_phase(
+        state.citizens, context.config, context.journal, context.tick, context.client,
+        exogenous=context.exogenous, graph=context.graph, mobilized_last_tick=state.mobilized_last_tick,
+    )
+
+
+def _phase_snap_election(context: TickContext, state: TickState) -> None:
+    # Track A3 (2026-09-11, lets-build-a-solid-spicy-otter.md): the snap election.
+    # Deliberately keyed on "the office is vacant and nothing is already scheduled
+    # to fill it" rather than "a recall fired this tick" -- engine-agnostic (the
+    # vacancy is structural to simple_rules.py's own recall logic, not an LLM
+    # artifact -- measured directly, Track 0b), self-healing on resume (a run that
+    # vacated the office before this flag existed schedules one the first tick it
+    # is checked), and it never fights a genuine blank-vote-invalidation cycle
+    # already in progress (pending_rerun is None guards both).
+    # `president_before_accountability` is captured only for the journal event
+    # below -- it plays no role in the trigger condition itself.
+    config = context.config
+    if (
+        not config.institutions.snap_election_on_recall
+        or state.pending_rerun is not None
+        or current_office_holders(state.citizens, Office.PRESIDENT)
+    ):
+        return
+    before = context.president_before_accountability
+    recalled = before[0].citizen_id if before else None
+    state.pending_rerun = PendingRerun(
+        attempt=1, next_tick=context.tick + config.institutions.reelection_delay_ticks,
+        # barred_from_immediate_rerun does NOT apply here -- see
+        # _parse_institutions's own comment on why a recall has no candidate SET
+        # to bar the way an invalidated election does. The recalled president alone
+        # may be barred instead (D6, recalled_barred_from_snap_election); a vacancy
+        # with no president before it (an election with no winner) bars nobody.
+        barred_candidate_ids=(
+            frozenset({recalled}) if recalled is not None and config.institutions.recalled_barred_from_snap_election else frozenset()
+        ),
+        incumbent_id=recalled,
+    )
+    context.journal.write_event(
+        tick=context.tick,
+        event=SnapElectionTriggered(
+            office=Office.PRESIDENT.value,
+            recalled_citizen_id=recalled,
+            next_attempt_tick=state.pending_rerun.next_tick,
+        ),
+        citizen_id=None,
+    )
+
+
+TICK_PHASES: tuple[Callable[[TickContext, TickState], None], ...] = (
+    _phase_snapshot,
+    _phase_rupture_candidacies,
+    _phase_exogenous_events,
+    _phase_presidential_election,
+    _phase_legislative_election,
+    _phase_sortition_chamber,
+    _phase_legislation,
+    _phase_emotions,
+    _phase_accountability,
+    _phase_snap_election,
+    _phase_opinion_dynamics,
+)
+"""One tick, in order (S3.4). Each phase reads and updates TickState and may leave a
+value on TickContext for a later phase of the same tick -- the order is load-bearing:
+exogenous events before accountability (which reads them), elections before the
+chamber and accountability, legislation after the chamber (a bill meets this tick's assembly,
+president and chamber), emotions just before accountability (which reads them), the
+snap-election check, then opinion dynamics last. Phases call the module's
+named functions (_attempt_rupture_candidacies, _run_accountability_phase, ...), so the
+crash-and-resume tests that patch those names still interrupt a real tick."""
+
+
 @contextmanager
-def _llm_client_scope(config: PolityConfig, llm_client: LlmClientProtocol | None) -> Iterator[LlmClientProtocol | None]:
+def _llm_client_scope(
+    config: PolityConfig,
+    llm_client: LlmClientProtocol | None,
+    progress_tracker: ProgressTracker | None = None,
+    call_log_path: Path | None = None,
+) -> Iterator[LlmClientProtocol | None]:
     """v4 vLLM switch (§15bis.6): dispatch on config.llm.provider via
     llm_client.build_json_client, rather than always constructing an
     OllamaJsonClient. Ordering unchanged and still load-bearing: an
@@ -528,20 +1105,55 @@ def _llm_client_scope(config: PolityConfig, llm_client: LlmClientProtocol | None
     fake client, which must never make a real HTTP call) -- and always
     before the caller's first real decision, so a cold-model non-
     determinism (see that function's own docstring) never lands on
-    something journaled."""
+    something journaled.
+
+    Whatever is yielded is wrapped for the intra-tick heartbeat when a
+    progress tracker is supplied -- see _with_heartbeat.
+
+    With `call_log_path` (S0.5), every call through the client -- owned or
+    injected, warm-up included -- is logged to llm_calls.jsonl first; see
+    llm_call_log.py. The log sits inside the heartbeat, so it sees exactly the
+    calls the engine makes."""
+    tick_source = (lambda: progress_tracker.tick_in_progress) if progress_tracker is not None else (lambda: None)
     if llm_client is not None:
-        yield llm_client
+        with call_logged(llm_client, call_log_path, tick_source) as logged_client:
+            yield _with_heartbeat(logged_client, progress_tracker)
         return
     if not config.llm.enabled:
         yield None
         return
-    with build_json_client(config.llm, seed=config.run.seed) as owned_client:
-        _warm_up_llm_client(owned_client)
-        yield owned_client
+    with (
+        build_json_client(config.llm, seed=config.run.seed) as owned_client,
+        call_logged(owned_client, call_log_path, tick_source) as logged_client,
+    ):
+        # The warm-up deliberately runs BEFORE the heartbeat wrapping, so a
+        # warm-up response can never make a run look like it is producing decisions.
+        _warm_up_llm_client(logged_client)
+        yield _with_heartbeat(logged_client, progress_tracker)
+
+
+def _with_heartbeat(
+    client: LlmClientProtocol, progress_tracker: ProgressTracker | None
+) -> LlmClientProtocol:
+    """Intra-tick heartbeat (2026-09-11). Wrapping at this single point rather
+    than inside llm_behavior_engine is what keeps all nine decision types
+    unaware of the heartbeat -- and what makes it impossible for a tenth to
+    forget to report.
+
+    Applied to an INJECTED client too, not just an owned one. Wrapping adds no
+    HTTP call of its own, so the rule that a fake client must never touch the
+    network is untouched; what this buys is that tests exercise the real
+    wiring instead of a path that only production takes. Given the heartbeat
+    exists because a monitoring gap cost a real run, a version of it that
+    could only be verified in production would be a poor trade."""
+    if progress_tracker is None:
+        return client
+    return HeartbeatClient(client, progress_tracker.record_llm_activity)
 
 
 def _attempt_rupture_candidacies(
     citizens: list[Citizen],
+    parties: list[Party],
     config: PolityConfig,
     journal: Journal,
     tick: int,
@@ -562,17 +1174,18 @@ def _attempt_rupture_candidacies(
         # gated citizen would shift the RNG stream and break byte-for-byte
         # reproducibility for any non-null president_term_limit or any run
         # where a rerun cycle is open (v4 Lot 2, §6bis.1 / Lot 9, §6bis.2).
-        declared = attempt_rupture_candidacy(citizen, citizens, config.candidacy, rng)
+        declared = attempt_rupture_candidacy(citizen, citizens, parties, config.candidacy, rng)
         if (
             declared
             and not is_term_limited(citizen, config.institutions.president_term_limit)
             and citizen.citizen_id not in barred_candidate_ids
         ):
             declare_candidacy(citizen)
-            journal.write(
+            journal.write_event(
                 tick=tick,
-                event_type="candidacy_declared",
-                payload={"path": "rupture"},
+                event=CandidacyDeclared(
+                    path="rupture",
+                ),
                 citizen_id=citizen.citizen_id,
             )
 
@@ -623,10 +1236,11 @@ def _run_exogenous_events(
     if scandal_fired:
         holders = current_office_holders(citizens, Office.PRESIDENT)
         scandal_target = holders[0].citizen_id if holders else None
-        journal.write(
+        journal.write_event(
             tick=tick,
-            event_type="scandal_occurred",
-            payload={"target": scandal_target},
+            event=ScandalOccurred(
+                target=scandal_target,
+            ),
             citizen_id=scandal_target,
         )
 
@@ -642,10 +1256,12 @@ def _run_exogenous_events(
         config.events.economic_shock_enabled and abs(economy_x) >= config.events.economy_shock_threshold
     )
     if shock_crossed:
-        journal.write(
+        journal.write_event(
             tick=tick,
-            event_type="economic_shock_tick",
-            payload={"x": economy_x, "threshold": config.events.economy_shock_threshold},
+            event=EconomicShockTick(
+                x=economy_x,
+                threshold=config.events.economy_shock_threshold,
+            ),
         )
 
     return ExogenousEventsOutcome(
@@ -662,21 +1278,14 @@ def _declare_nominees(
     llm_client: LlmClientProtocol | None,
     barred_candidate_ids: frozenset[int] = frozenset(),
 ) -> list[Citizen]:
-    if config.llm.enabled:
-        # barred_candidate_ids intentionally NOT passed here, extending the
-        # same asymmetry term limits already have on this path (see below).
-        return _declare_nominees_llm(citizens, parties, config, journal, tick, llm_client)
-    # Term limits (v4 Lot 2, §6bis.1) and, since Lot 9, the §6bis.2 barred
-    # set are enforced only on this deterministic branch.
-    # _declare_nominees_llm reuses `citizens` unfiltered to compute
-    # decide_campaign_positioning's electorate_mean over the FULL population
-    # -- pre-filtering it here would silently change that already-shipped
-    # LLM path's context. Verified directly (Lot 9): this asymmetry was
-    # never actually closed by Lot 6/7 as originally anticipated -- Lot 6
-    # added lame_duck to dt=6's *response* context, not to nomination
-    # filtering -- so Lot 9 extends the same, still-open gap in the same
-    # direction rather than fixing it. Closing it (for both term limits and
-    # the barred set together) is a legitimate, separately-scoped follow-up.
+    if llm_client is not None:
+        # The LLM path applies the same two gates to its declared set, just before
+        # nomination (_eligible_declared_cids), and keeps `citizens` whole for
+        # perceived support and the positioning electorate mean.
+        return _declare_nominees_llm(
+            citizens, parties, config, journal, tick, llm_client, barred_candidate_ids=barred_candidate_ids,
+        )
+    # Term limits (v4 Lot 2, §6bis.1) and the §6bis.2 barred set (Lot 9).
     eligible = [
         c
         for c in citizens
@@ -689,10 +1298,12 @@ def _declare_nominees(
         if nominee is None:
             continue
         declare_candidacy(nominee)
-        journal.write(
+        journal.write_event(
             tick=tick,
-            event_type="candidacy_declared",
-            payload={"party_id": party.party_id, "path": "dominant"},
+            event=CandidacyDeclared(
+                party_id=party.party_id,
+                path="dominant",
+            ),
             citizen_id=nominee.citizen_id,
         )
         nominees.append(nominee)
@@ -709,51 +1320,102 @@ def _journal_clamped_dimensions(
     (dt=5/6/11) so the check has exactly one implementation."""
     clamped = clamped_dimensions(base, shifts, result)
     if clamped:
-        journal.write(
+        journal.write_event(
             tick=tick,
-            event_type="clamped_at_bound",
-            payload={"decision_event": decision_event, "dimensions": sorted(clamped)},
+            event=ClampedAtBound(
+                decision_event=decision_event,
+                dimensions=sorted(clamped),
+            ),
             citizen_id=citizen_id,
         )
 
 
-def _declare_nominees_llm(
+def _consider_candidacies_llm(
     citizens: list[Citizen],
-    parties: list[Party],
     config: PolityConfig,
     journal: Journal,
     tick: int,
-    llm_client: LlmClientProtocol | None,
+    llm_client: LlmClientProtocol,
+) -> set[int]:
+    """v2 increment 2/3's LLM path, candidacy half: decide_candidacies
+    replaces decide_candidacy's bare threshold for the dominant-path
+    eligibility filter. Journals candidacy_considered for every evaluated
+    citizen (declared or not) -- the deterministic path never records
+    non-candidacies at all.
+
+    Extracted from what was a single `_declare_nominees_llm` function,
+    2026-09-11 (Track E, lets-build-a-solid-spicy-otter.md): staggering the
+    election across ticks needs candidacy consideration and party
+    nomination to be two independently callable steps, with the declared
+    set surviving the one-tick gap between them (`run_simulation`'s own
+    `staggered_declared_cids`, checkpointed the same way `pending_rerun`
+    is). `_declare_nominees_llm` below still calls this and `_nominate_and_
+    position_llm` back to back with no gap, for the non-staggered (default)
+    calendar -- this split changes nothing about that atomic path's own
+    behavior, only how its code is organized."""
+    outcome = decide_candidacies(citizens, config, llm_client)
+    for decision in outcome.decisions:
+        # Provenance, not a decision field -- see CandidacyBatchOutcome.
+        # llm_fallback. progress.py's generic `payload.llm_fallback`
+        # tally picks this up with no further wiring.
+        journal.write_event(
+            tick=tick,
+            event=CandidacyConsidered(
+                outcome=decision.outcome,
+                path="dominant",
+                provenance=LlmProvenance.for_unit(outcome.llm_fallback, outcome.retry_sampling_varied, outcome.llm_call_ids, decision.cid),
+            ),
+            citizen_id=decision.cid,
+            motif=str(decision.motif),
+            codebook_version=config.llm.codebook_version,
+        )
+    return {decision.cid for decision in outcome.decisions if decision.outcome == 1}
+
+
+def _nominate_and_position_llm(
+    citizens: list[Citizen],
+    parties: list[Party],
+    declared_cids: set[int],
+    config: PolityConfig,
+    journal: Journal,
+    tick: int,
+    llm_client: LlmClientProtocol,
+    barred_candidate_ids: frozenset[int] = frozenset(),
 ) -> list[Citizen]:
-    """v2 increment 2/3's LLM path: decide_candidacies replaces
-    decide_candidacy's bare threshold for the dominant-path eligibility
-    filter; decide_party_nominations replaces select_party_nominee_from_declared's
+    """v2 increment 2/3's LLM path, nomination + positioning half:
+    decide_party_nominations replaces select_party_nominee_from_declared's
     deterministic tiebreak, but only for *contested* parties (2+ declared
     candidates this tick) -- a party with 0 or 1 declared candidate has
     nothing to arbitrate, so it keeps using the deterministic tiebreak
     exactly as before (also the only path when llm.enabled=False).
 
-    Journals candidacy_considered for every evaluated citizen (declared or
-    not) -- the deterministic path above never records non-candidacies at
-    all. Journals party_nomination_choice for every contested party.
-    Journals nomination_lost for every LLM-approved citizen who doesn't win
-    their party's nomination, so their story isn't silently absent from the
-    journal (design doc §16.3)."""
-    assert llm_client is not None  # guaranteed by _llm_client_scope when llm.enabled
-    outcome = decide_candidacies(citizens, config, llm_client)
-    for decision in outcome.decisions:
-        journal.write(
-            tick=tick,
-            event_type="candidacy_considered",
-            payload={"outcome": decision.outcome, "path": "dominant"},
-            citizen_id=decision.cid,
-            motif=str(decision.motif),
-            codebook_version=config.llm.codebook_version,
-        )
-    declared_cids = {decision.cid for decision in outcome.decisions if decision.outcome == 1}
+    Journals party_nomination_choice for every contested party. Journals
+    nomination_lost for every LLM-approved citizen who doesn't win their
+    party's nomination, so their story isn't silently absent from the
+    journal (design doc §16.3).
 
+    `declared_cids` is a parameter here, not computed internally -- see
+    `_consider_candidacies_llm`'s own docstring for why this split exists
+    (Track E, 2026-09-11). Only the eligible ones can be nominated
+    (_eligible_declared_cids)."""
+    eligible_cids = _eligible_declared_cids(citizens, declared_cids, config, barred_candidate_ids)
+    nominees = _nominate_llm(citizens, parties, eligible_cids, config, journal, tick, llm_client)
+    _position_nominees_llm(nominees, citizens, parties, config, journal, tick, llm_client)
+    return nominees
+
+
+def _nominate_llm(
+    citizens: list[Citizen],
+    parties: list[Party],
+    declared_cids: set[int],
+    config: PolityConfig,
+    journal: Journal,
+    tick: int,
+    llm_client: LlmClientProtocol,
+) -> list[Citizen]:
+    """Each party's nominee -- the model's choice where 2+ members declared, the
+    deterministic tiebreak otherwise -- journaled with its losers, and declared."""
     nomination_outcome = decide_party_nominations(citizens, parties, declared_cids, config, llm_client)
-    motif_by_party = {decision.party_id: decision.motif for decision in nomination_outcome.decisions}
     citizens_by_id = {c.citizen_id: c for c in citizens}
 
     # Explicit element type: without it, type checkers infer `nominees`' type
@@ -769,38 +1431,81 @@ def _declare_nominees_llm(
             c.citizen_id for c in citizens
             if c.party_affiliation == party.party_id and c.citizen_id in declared_cids
         }
-        nominee: Citizen | None
-        if party.party_id in nomination_outcome.winners:
-            nominee = citizens_by_id[nomination_outcome.winners[party.party_id]]
-            journal.write(
-                tick=tick,
-                event_type="party_nomination_choice",
-                payload={"party_id": party.party_id, "contenders": sorted(party_declared_cids)},
-                citizen_id=nominee.citizen_id,
-                motif=str(motif_by_party[party.party_id]),
-                codebook_version=config.llm.codebook_version,
-            )
-        else:
-            nominee = select_party_nominee_from_declared(party.party_id, citizens, declared_cids)
+        nominee = _party_nominee(
+            party, party_declared_cids, nomination_outcome, citizens_by_id, citizens, declared_cids, config, journal, tick,
+        )
         lost_cids = party_declared_cids - ({nominee.citizen_id} if nominee is not None else set())
         for cid in lost_cids:
-            journal.write(
+            journal.write_event(
                 tick=tick,
-                event_type="nomination_lost",
-                payload={"party_id": party.party_id},
+                event=NominationLost(
+                    party_id=party.party_id,
+                ),
                 citizen_id=cid,
             )
         if nominee is None:
             continue
         declare_candidacy(nominee)
-        journal.write(
+        journal.write_event(
             tick=tick,
-            event_type="candidacy_declared",
-            payload={"party_id": party.party_id, "path": "dominant"},
+            event=CandidacyDeclared(
+                party_id=party.party_id,
+                path="dominant",
+            ),
             citizen_id=nominee.citizen_id,
         )
         nominees.append(nominee)
+    return nominees
 
+
+def _party_nominee(
+    party: Party,
+    party_declared_cids: set[int],
+    nomination_outcome: PartyNominationBatchOutcome,
+    citizens_by_id: dict[int, Citizen],
+    citizens: list[Citizen],
+    declared_cids: set[int],
+    config: PolityConfig,
+    journal: Journal,
+    tick: int,
+) -> Citizen | None:
+    """The model's pick, journaled, for a contested party; the deterministic tiebreak
+    for a party with fewer than two declared members (None when it has none)."""
+    if party.party_id not in nomination_outcome.winners:
+        return select_party_nominee_from_declared(party.party_id, citizens, declared_cids)
+    nominee = citizens_by_id[nomination_outcome.winners[party.party_id]]
+    motif = next(d.motif for d in nomination_outcome.decisions if d.party_id == party.party_id)
+    # Provenance, not a decision field -- see
+    # PartyNominationBatchOutcome.llm_fallback. Keyed by
+    # party_id, the decision unit for this type.
+    journal.write_event(
+        tick=tick,
+        event=PartyNominationChoice(
+            party_id=party.party_id,
+            contenders=sorted(party_declared_cids),
+            provenance=LlmProvenance.for_unit(
+                nomination_outcome.llm_fallback, nomination_outcome.retry_sampling_varied,
+                nomination_outcome.llm_call_ids, party.party_id,
+            ),
+        ),
+        citizen_id=nominee.citizen_id,
+        motif=str(motif),
+        codebook_version=config.llm.codebook_version,
+    )
+    return nominee
+
+
+def _position_nominees_llm(
+    nominees: list[Citizen],
+    citizens: list[Citizen],
+    parties: list[Party],
+    config: PolityConfig,
+    journal: Journal,
+    tick: int,
+    llm_client: LlmClientProtocol,
+) -> None:
+    """Campaign positioning for the nominees: each moves its pledged platform, and the
+    move is journaled with any dimension that hit the [0, 1] bound."""
     parties_by_id = {party.party_id: party for party in parties}
     positioning_outcome = decide_campaign_positioning(nominees, citizens, parties_by_id, config, llm_client)
     positioning_by_cid = {decision.cid: decision for decision in positioning_outcome.decisions}
@@ -811,14 +1516,17 @@ def _declare_nominees_llm(
         nominee.pledged_platform = new_platform
         nominee.revealed_position = new_platform
         positioning_decision = positioning_by_cid[nominee.citizen_id]
-        journal.write(
+        # Provenance, not a decision field -- see PositioningBatch
+        # Outcome.llm_fallback for why an empty `shifts` list with
+        # motif=601 is ambiguous without it.
+        journal.write_event(
             tick=tick,
-            event_type="campaign_positioning",
-            payload={
-                "shifts": [
+            event=CampaignPositioning(
+                shifts=[
                     {"dimension": shift.dimension, "delta": shift.delta} for shift in positioning_decision.shifts
-                ]
-            },
+                ],
+                provenance=LlmProvenance.for_unit(positioning_outcome.llm_fallback, positioning_outcome.retry_sampling_varied, positioning_outcome.llm_call_ids, nominee.citizen_id),
+            ),
             citizen_id=nominee.citizen_id,
             motif=str(positioning_decision.motif),
             codebook_version=config.llm.codebook_version,
@@ -829,7 +1537,117 @@ def _declare_nominees_llm(
             journal, tick=tick, citizen_id=nominee.citizen_id, decision_event="campaign_positioning",
             base=nominee.issue_positions, shifts=positioning_decision.shifts, result=new_platform,
         )
-    return nominees
+
+
+def _eligible_declared_cids(
+    citizens: list[Citizen], declared_cids: set[int], config: PolityConfig, barred_candidate_ids: frozenset[int],
+) -> set[int]:
+    """The declared citizens who may stand: not term-limited (§6bis.1) and not barred
+    after an invalidated election (§6bis.2) -- the same gates the deterministic path
+    applies before choosing nominees. Applied after the candidacy decision, as the
+    rupture path does after its draw, so the model is asked about every citizen and its
+    candidacy prompts do not depend on either rule. A gated citizen who declared is
+    simply not nominated, as on the deterministic path.
+
+    Until 2026-09-13 the LLM path skipped both gates, so `president_term_limit` and
+    `barred_from_immediate_rerun` did nothing on it (observations.md OBS-012)."""
+    return {
+        c.citizen_id
+        for c in citizens
+        if c.citizen_id in declared_cids
+        and not is_term_limited(c, config.institutions.president_term_limit)
+        and c.citizen_id not in barred_candidate_ids
+    }
+
+
+def _declare_nominees_llm(
+    citizens: list[Citizen],
+    parties: list[Party],
+    config: PolityConfig,
+    journal: Journal,
+    tick: int,
+    llm_client: LlmClientProtocol,
+    barred_candidate_ids: frozenset[int] = frozenset(),
+) -> list[Citizen]:
+    """The ATOMIC (non-staggered) LLM path -- candidacy, nomination, and
+    positioning all in the same tick, exactly as this project has always
+    done it, unchanged since before Track E existed. `institutions.
+    staggered_election` (default false) is what makes `run_simulation`'s
+    own tick loop call `_consider_candidacies_llm` and `_nominate_and_
+    position_llm` separately, from two different tick-loop positions,
+    instead of through this one thin wrapper."""
+    declared_cids = _consider_candidacies_llm(citizens, config, journal, tick, llm_client)
+    return _nominate_and_position_llm(
+        citizens, parties, declared_cids, config, journal, tick, llm_client, barred_candidate_ids=barred_candidate_ids,
+    )
+
+
+def _judged_incumbent(
+    citizens: list[Citizen], incumbent_id: int | None, config: PolityConfig, policy: PolicyRecord | None = None,
+) -> IncumbentRecord | None:
+    """The record an election's voters weigh (S4.1): none without a president to judge, or
+    with neither legitimacy (the record's measure) tracked nor, S4.2, a policy record; a
+    record of 0 while legitimacy is not tracked."""
+    if incumbent_id is None or not (config.legitimacy.enabled or policy is not None):
+        return None
+    record = incumbent_record(next(c for c in citizens if c.citizen_id == incumbent_id))
+    return dataclasses.replace(record, record=record.record if config.legitimacy.enabled else 0.0, policy=policy)
+
+
+def audit_sample(citizens: list[Citizen], config: PolityConfig, tick: int) -> list[Citizen]:
+    """S4.1's LLM audit sample: each voter in with probability vote.audit_fraction, decided
+    by a hash of (seed, tick, citizen) -- the same voters on every replay of the run, and
+    no draw taken from any of the run's random streams."""
+    fraction = config.vote.audit_fraction
+    return [
+        c for c in citizens
+        if int(hashlib.sha256(f"{config.run.seed}:{tick}:{c.citizen_id}".encode()).hexdigest()[:8], 16) < fraction * 2**32
+    ]
+
+
+def _journal_vote_decisions(
+    journal: Journal, tick: int, outcome: VoteBatchOutcome, nominees: list[Citizen], config: PolityConfig, *, audit: bool,
+) -> None:
+    for decision in outcome.decisions:
+        # §3.7.1 booleans-as-0/1: retry_sampling_varied marks a decision from a
+        # temperature-varied retry, llm_fallback one from cast_votes's deterministic
+        # fallback -- mutually exclusive, see VoteBatchOutcome. `audit` marks an S4.1
+        # audit ballot, asked of the model beside the utility vote and never counted.
+        journal.write_event(
+            tick=tick,
+            event=VoteCast(
+                blank=decision.blank,
+                ranking=resolve_ranking_cids(decision, nominees),
+                provenance=LlmProvenance.for_unit(outcome.llm_fallback, outcome.retry_sampling_varied, outcome.llm_call_ids, decision.cid),
+                audit=1 if audit else OMIT,
+            ),
+            citizen_id=decision.cid,
+            motif=str(decision.motif),
+            codebook_version=config.llm.codebook_version,
+        )
+
+
+def _presidential_ballots(
+    citizens: list[Citizen], nominees: list[Citizen], config: PolityConfig, journal: Journal, tick: int,
+    llm_client: LlmClientProtocol | None, incumbent: IncumbentRecord | None,
+) -> tuple[list[list[str]], int]:
+    """Every ballot the election counts, and how many voters abstained (S4.1, D2).
+
+    `vote.mode` "llm" on a run with a model: vote_cast casts every ballot, as before S4.1.
+    Otherwise -- and always on the deterministic engine -- utility_ballot casts them
+    (build_ranking's ballot while every weight is zero), and a run with a model also asks
+    vote_cast for an audit sample, journaled with `audit` and not counted."""
+    if llm_client is not None and config.vote.mode == "llm":
+        outcome = cast_votes(citizens, nominees, config, llm_client)
+        _journal_vote_decisions(journal, tick, outcome, nominees, config, audit=False)
+        return outcome.ballots, 0
+    cast = [utility_ballot(voter, nominees, config.vote, incumbent=incumbent) for voter in citizens]
+    sample = audit_sample(citizens, config, tick) if llm_client is not None else []
+    if sample:
+        assert llm_client is not None
+        _journal_vote_decisions(journal, tick, cast_votes(sample, nominees, config, llm_client), nominees, config, audit=True)
+    ballots = [ballot for ballot in cast if ballot is not None]
+    return ballots, len(cast) - len(ballots)
 
 
 def _hold_presidential_election(
@@ -840,7 +1658,13 @@ def _hold_presidential_election(
     tick: int,
     llm_client: LlmClientProtocol | None,
     pending_rerun: PendingRerun | None = None,
+    *,
+    staggered: bool = False,
+    policy: PolicyRecord | None = None,
 ) -> PendingRerun | None:
+    # `staggered` (S4.4): this election's campaign already declared, nominated and
+    # positioned (_run_staggered_campaign), so its field is every citizen holding
+    # Role.CANDIDATE and nothing is decided again here.
     # The outgoing president's term always ends exactly at this tick
     # (InstitutionalClock schedules the next presidential election at
     # term_end_tick by construction -- president_term_years*ticks_per_year
@@ -853,51 +1677,55 @@ def _hold_presidential_election(
     # invariant for any future increment that does (representative_response,
     # term limits, legitimacy). A re-elected incumbent is simply reset here
     # and re-promoted below, same as any other winner.
+    # S4.1: whose record this election judges -- the holder whose term ends now, or, for a
+    # rerun, the president its PendingRerun carries (the recalled one, for a snap election).
+    holder = next((c for c in citizens if c.office == Office.PRESIDENT), None)
+    incumbent_id = holder.citizen_id if holder is not None else (pending_rerun.incumbent_id if pending_rerun is not None else None)
     for outgoing in citizens:
         if outgoing.office == Office.PRESIDENT:
             vacate_office(outgoing)
 
     barred_ids = pending_rerun.barred_candidate_ids if pending_rerun is not None else frozenset()
-    nominees = _declare_nominees(citizens, parties, config, journal, tick, llm_client, barred_candidate_ids=barred_ids)
-    nominee_ids = {c.citizen_id for c in nominees}
-    standing_rupture_candidates = sorted(
-        (c for c in citizens if c.role == Role.CANDIDATE and c.citizen_id not in nominee_ids),
-        key=lambda c: c.citizen_id,
-    )
-    nominees = nominees + standing_rupture_candidates
+    # Track E (2026-09-11): a rerun (pending_rerun is not None -- blank-vote
+    # invalidation or a snap election) always stays atomic, on purpose --
+    # see InstitutionalClock.is_presidential_declaration_tick's own
+    # docstring for why staggering is a fixed-calendar-only mechanic.
+    #
+    # S4.4 (2026-09-13): `staggered` is the recorded fact that this cycle's campaign
+    # ran, passed by _phase_presidential_election -- which only has a declared set to
+    # pass when the LLM engine staggered and no rerun interrupted it. Until then it was
+    # inferred from citizen roles (any Role.CANDIDATE on election day), and the proxy
+    # misfired both ways (check_staggered_election_live_results.md): a standing rupture
+    # candidate after an interrupted campaign suppressed party nominations entirely,
+    # and a campaign that produced no candidate re-ran declaration and nomination here,
+    # the decision spike staggering exists to remove.
+    if staggered:
+        # Declaration, nomination and positioning already ran during the campaign
+        # (_consider_candidacies_llm / _nominate_and_position_llm, from run_simulation's
+        # tick loop) -- running _declare_nominees again would decide and journal them a
+        # second time. Every citizen holding Role.CANDIDATE -- the nominees and any
+        # standing rupture candidate -- IS this election's field; the rupture merge below
+        # exists only for the atomic branch, which computes nominees fresh.
+        nominees = sorted((c for c in citizens if c.role == Role.CANDIDATE), key=lambda c: c.citizen_id)
+    else:
+        nominees = _declare_nominees(citizens, parties, config, journal, tick, llm_client, barred_candidate_ids=barred_ids)
+        nominee_ids = {c.citizen_id for c in nominees}
+        standing_rupture_candidates = sorted(
+            (c for c in citizens if c.role == Role.CANDIDATE and c.citizen_id not in nominee_ids),
+            key=lambda c: c.citizen_id,
+        )
+        nominees = nominees + standing_rupture_candidates
 
     winner: Citizen | None = None
     invalidated = False
     blank_share_value: float | None = None
     all_candidate_ids: set[int] = set()
+    abstained = 0
     if nominees:
         all_candidate_ids = {c.citizen_id for c in nominees}
-        if config.llm.enabled:
-            assert llm_client is not None  # guaranteed by _llm_client_scope when llm.enabled
-            outcome = cast_votes(citizens, nominees, config, llm_client)
-            ballots = outcome.ballots
-            for decision in outcome.decisions:
-                journal.write(
-                    tick=tick,
-                    event_type="vote_cast",
-                    payload={
-                        "blank": decision.blank,
-                        "ranking": resolve_ranking_cids(decision, nominees),
-                        # §3.7.1 booleans-as-0/1: a deliberate, LOCAL exception
-                        # to temperature=0 determinism (llm_behavior_engine's
-                        # own _VOTE_CAST_RETRY_TEMPERATURE) -- marks a decision
-                        # that came from a temperature-varied RETRY, never the
-                        # first attempt, so a future analysis of this journal
-                        # cannot mistake a varied-sampling retry's decision for
-                        # an ordinary, deterministic first-attempt one.
-                        "retry_sampling_varied": int(outcome.retry_sampling_varied.get(decision.cid, False)),
-                    },
-                    citizen_id=decision.cid,
-                    motif=str(decision.motif),
-                    codebook_version=config.llm.codebook_version,
-                )
-        else:
-            ballots = [build_ranking(voter, nominees) for voter in citizens]
+        ballots, abstained = _presidential_ballots(
+            citizens, nominees, config, journal, tick, llm_client, _judged_incumbent(citizens, incumbent_id, config, policy),
+        )
 
         # v4 Lot 9 (§6bis.2): the deterministic-enclave threshold check --
         # no LLM, no RNG, just the ballots already built above. A forced
@@ -959,61 +1787,60 @@ def _hold_presidential_election(
             attempt=new_attempt,
             next_tick=tick + config.institutions.reelection_delay_ticks,
             barred_candidate_ids=barred_next,
+            incumbent_id=incumbent_id,
         )
-        journal.write(
+        journal.write_event(
             tick=tick,
-            event_type="election_invalidated",
-            payload={
-                "office": Office.PRESIDENT.value,
-                "blank_share": blank_share_value,
-                "threshold": config.institutions.blank_invalidation_threshold,
-                "attempt": new_attempt,
-                "candidate_ids": sorted(all_candidate_ids),
-                "barred_candidate_ids": sorted(barred_next),
-                "next_attempt_tick": new_pending_rerun.next_tick,
-            },
+            event=ElectionInvalidated(
+                office=Office.PRESIDENT.value,
+                blank_share=blank_share_value,
+                threshold=config.institutions.blank_invalidation_threshold,
+                attempt=new_attempt,
+                candidate_ids=sorted(all_candidate_ids),
+                barred_candidate_ids=sorted(barred_next),
+                next_attempt_tick=new_pending_rerun.next_tick,
+            ),
             citizen_id=None,
         )
         return new_pending_rerun
 
-    journal.write(
+    # §6bis.2: attempt/forced are additive, always both-or-neither, and gated on
+    # `nominees` (not just blank_vote_competitive) -- these two keys describe the
+    # invalidation check's own bookkeeping, which is meaningless when there was no
+    # candidate field to measure blank_share against (nominees empty -> a
+    # PendingRerun could never have been created either, so attempt/forced would
+    # be a constant 0/0 carrying no information). This is what keeps a config
+    # where nominees never exist a true byte-for-byte no-op even with
+    # blank_vote_competitive=true, not merely a config where the mechanism
+    # happens not to trigger.
+    attempt, forced = OMIT, OMIT
+    if config.institutions.blank_vote_competitive and nominees:
+        attempt = pending_rerun.attempt if pending_rerun is not None else 0
+        forced = int(_is_forced_attempt(pending_rerun, config))
+    # ADR-002: election_no_winner covered two structurally different failures
+    # with the same payload -- "candidates ran and Blank won the runoff" (the
+    # §10.10 seed/distribution failure mode) and "no candidate existed at all"
+    # (the shipped ambition_threshold making candidacy arithmetically
+    # impossible). No journal this project has produced could tell them apart.
+    # `reason` names the second. Conditional on `nominees` being empty,
+    # deliberately: the emptiness IS the new information, so the key appears
+    # exactly where it says something, and a config that fields no nominee keeps
+    # the byte-for-byte no-op property election_invalidated's own comment above is
+    # written to protect. Consequence accepted: journals predating this key stay
+    # ambiguous -- they are already documented as non-representative
+    # (uniform/seed=42, THEORY.md §10.10).
+    turnout_abstained = abstained if abstained else OMIT  # S4.1: present once anyone stays home
+    outcome_event: Event = (
+        Elected(office=Office.PRESIDENT.value, attempt=attempt, forced=forced, abstained=turnout_abstained)
+        if winner is not None
+        else ElectionNoWinner(
+            office=Office.PRESIDENT.value, attempt=attempt, forced=forced,
+            reason="no_candidates" if not nominees else OMIT, abstained=turnout_abstained,
+        )
+    )
+    journal.write_event(
         tick=tick,
-        event_type="elected" if winner is not None else "election_no_winner",
-        payload={
-            "office": Office.PRESIDENT.value,
-            # §6bis.2: additive, always both-or-neither, and gated on
-            # `nominees` (not just blank_vote_competitive) -- these two keys
-            # describe the invalidation check's own bookkeeping, which is
-            # meaningless when there was no candidate field to measure
-            # blank_share against (nominees empty -> a PendingRerun could
-            # never have been created either, so attempt/forced would be a
-            # constant 0/0 carrying no information). This is what keeps a
-            # config where nominees never exist a true byte-for-byte no-op
-            # even with blank_vote_competitive=true, not merely a config
-            # where the mechanism happens not to trigger.
-            **(
-                {
-                    "attempt": pending_rerun.attempt if pending_rerun is not None else 0,
-                    "forced": int(_is_forced_attempt(pending_rerun, config)),
-                }
-                if config.institutions.blank_vote_competitive and nominees
-                else {}
-            ),
-            # ADR-002: election_no_winner covered two structurally different
-            # failures with the same payload -- "candidates ran and Blank won
-            # the runoff" (the §10.10 seed/distribution failure mode) and "no
-            # candidate existed at all" (the shipped ambition_threshold making
-            # candidacy arithmetically impossible). No journal this project has
-            # produced could tell them apart. This key names the second.
-            # Conditional on `nominees` being empty, deliberately: the emptiness
-            # IS the new information, so the key appears exactly where it says
-            # something, and a config that fields no nominee keeps the
-            # byte-for-byte no-op property election_invalidated's own comment
-            # above is written to protect. Consequence accepted: journals
-            # predating this key stay ambiguous -- they are already documented
-            # as non-representative (uniform/seed=42, THEORY.md §10.10).
-            **({"reason": "no_candidates"} if not nominees else {}),
-        },
+        event=outcome_event,
         citizen_id=winner.citizen_id if winner is not None else None,
     )
     if winner is not None and config.mandate.enabled:
@@ -1023,27 +1850,27 @@ def _hold_presidential_election(
         # journal-only analyst can compute §6bis.1's lame_duck_deviation_delta
         # without needing president_term_limit from the run's config file.
         assert winner.pledged_platform is not None  # declare_candidacy always sets it
-        journal.write(
+        journal.write_event(
             tick=tick,
-            event_type="mandate_pledge_declared",
-            payload={
-                "office": Office.PRESIDENT.value,
-                "pledged_platform": list(winner.pledged_platform),
-                "mandates_served": winner.mandates_served,
-                "lame_duck": is_term_limited(winner, config.institutions.president_term_limit),
-            },
+            event=MandatePledgeDeclared(
+                office=Office.PRESIDENT.value,
+                pledged_platform=list(winner.pledged_platform),
+                mandates_served=winner.mandates_served,
+                lame_duck=is_term_limited(winner, config.institutions.president_term_limit),
+            ),
             citizen_id=winner.citizen_id,
         )
     return None
 
 
 def _hold_legislative_election(
-    citizens: list[Citizen], parties: list[Party], config: PolityConfig, journal: Journal, tick: int
+    citizens: list[Citizen], parties: list[Party], config: PolityConfig, journal: Journal, tick: int,
+    governing: GoverningRecord | None = None,
 ) -> tuple[dict[int, int], dict[int, float]]:
     votes: dict[int, float] = {party.party_id: 0.0 for party in parties}
     blank_count = 0
     for voter in citizens:
-        choice = choose_party(voter, parties)
+        choice = choose_party(voter, parties, governing, config.vote.policy_retrospection)
         if choice is None:
             blank_count += 1
         else:
@@ -1057,10 +1884,13 @@ def _hold_legislative_election(
     )
     seats = {int(party_id): count for party_id, count in raw_seats.items()}
 
-    journal.write(
+    journal.write_event(
         tick=tick,
-        event_type="legislative_result",
-        payload={"seats": seats, "votes": votes, "blank_count": blank_count},
+        event=LegislativeResult(
+            seats=seats,
+            votes=votes,
+            blank_count=blank_count,
+        ),
     )
     return seats, votes
 
@@ -1073,19 +1903,23 @@ def _form_and_journal_coalition(
     journal: Journal,
     tick: int,
     llm_client: LlmClientProtocol | None,
-) -> None:
-    if config.llm.enabled:
-        _form_and_journal_coalition_llm(parties, seats, votes, config, journal, tick, llm_client)
-        return
+) -> list[int] | None:
+    """The governing coalition formed, or None (S4.2 keeps it for legislation)."""
+    if llm_client is not None:
+        return _form_and_journal_coalition_llm(parties, seats, votes, config, journal, tick, llm_client)
     platforms = {party.party_id: party.platform for party in parties}
     coalition = form_coalition(
         platforms, seats, votes, config.parties.coalition_tiebreak, config.parties.coalition_majority_ratio
     )
-    journal.write(
+    journal.write_event(
         tick=tick,
-        event_type="coalition_formed" if coalition is not None else "coalition_failed",
-        payload={"coalition": coalition, "seats": seats},
+        event=(
+            CoalitionFormed(coalition=coalition, seats=seats)
+            if coalition is not None
+            else CoalitionFailed(coalition=None, seats=seats)
+        ),
     )
+    return coalition
 
 
 def _form_and_journal_coalition_llm(
@@ -1095,31 +1929,63 @@ def _form_and_journal_coalition_llm(
     config: PolityConfig,
     journal: Journal,
     tick: int,
-    llm_client: LlmClientProtocol | None,
-) -> None:
+    llm_client: LlmClientProtocol,
+) -> list[int] | None:
     """v2 increment 5's LLM path: decide_coalition replaces form_coalition's
     nearest-neighbour greedy aggregation with one join/leave decision per
     seated, non-initiator party. The initiator designation, the majority
     rule, and the ordering in which willing partners are added stay
     deterministic (see assemble_coalition) -- the LLM contributes
-    willingness and nothing else. Journals one coalition_decision per
-    responder, then the aggregate coalition_formed/coalition_failed event in
-    its existing, unchanged shape, so metrics.py needs no changes."""
-    assert llm_client is not None  # guaranteed by _llm_client_scope when llm.enabled
+    willingness and nothing else.
+
+    v7 Lot 2: journals one coalition_decision per (round, responder) --
+    `round` is the only additive payload key, so a pre-v7 journal reader
+    that never learned about `round` still sees the exact same event shape
+    it always did. The aggregate event gains `rounds_used` on
+    coalition_formed, or `aborted_at_round`/`rounds_completed` on
+    coalition_failed when decide_coalition caught a round >= 2 failure
+    (see that function's own docstring) -- distinguishes "negotiated to a
+    genuine conclusion, no majority reachable" from "negotiation cut short
+    by an LLM failure", which the pre-v7 single coalition_failed shape could
+    not (plan-coalition-negotiation-v7.md §4)."""
     outcome = decide_coalition(parties, seats, votes, config, llm_client)
-    for decision in outcome.decisions:
-        journal.write(
+    for round_number, round_decisions in enumerate(outcome.rounds, start=1):
+        round_retry_varied = outcome.rounds_retry_sampling_varied[round_number - 1]
+        round_call_id = outcome.rounds_llm_call_ids[round_number - 1]
+        for decision in round_decisions:
+            journal.write_event(
+                tick=tick,
+                event=CoalitionDecision(
+                    party_id=decision.party_id,
+                    action=decision.action,
+                    initiator=outcome.initiator,
+                    round=round_number,
+                    retry_sampling_varied=int(round_retry_varied),
+                    llm_call_id=round_call_id,
+                ),
+                motif=str(decision.motif),
+                codebook_version=config.llm.codebook_version,
+            )
+    if outcome.aborted_at_round is not None:
+        journal.write_event(
             tick=tick,
-            event_type="coalition_decision",
-            payload={"party_id": decision.party_id, "action": decision.action, "initiator": outcome.initiator},
-            motif=str(decision.motif),
-            codebook_version=config.llm.codebook_version,
+            event=CoalitionFailed(
+                coalition=None,
+                seats=seats,
+                aborted_at_round=outcome.aborted_at_round,
+                rounds_completed=len(outcome.rounds),
+            ),
         )
-    journal.write(
+        return None
+    journal.write_event(
         tick=tick,
-        event_type="coalition_formed" if outcome.coalition is not None else "coalition_failed",
-        payload={"coalition": outcome.coalition, "seats": seats},
+        event=(
+            CoalitionFormed(coalition=outcome.coalition, seats=seats, rounds_used=len(outcome.rounds))
+            if outcome.coalition is not None
+            else CoalitionFailed(coalition=None, seats=seats, rounds_used=len(outcome.rounds))
+        ),
     )
+    return outcome.coalition
 
 
 def _response_context(holder: Citizen, config: PolityConfig, tick: int) -> ResponseContext:
@@ -1267,33 +2133,44 @@ def _run_reaction_to_event(
         raise ValueError(f"unhandled EventType: {event_type!r}")
 
     reaction_decisions: dict[int, ReactionDecision] | None = None
+    reaction_fallback: dict[int, bool] = {}
+    reaction_retry_varied: dict[int, bool] = {}
+    reaction_call_ids: dict[int, str | None] = {}
     contexts: dict[int, ReactionContext] = {}
-    if config.llm.enabled:
-        assert llm_client is not None  # guaranteed by _llm_client_scope when llm.enabled
+    if llm_client is not None:
         contexts = {c.citizen_id: ReactionContext(cid=c.citizen_id, event_salience=c.event_salience) for c in citizens}
         outcome = decide_reaction_to_event(
             citizens, contexts, event_type, config, llm_client, target=target, magnitude=magnitude
         )
         reaction_decisions = {d.cid: d for d in outcome.decisions}
+        reaction_fallback = outcome.llm_fallback
+        reaction_retry_varied = outcome.retry_sampling_varied
+        reaction_call_ids = outcome.llm_call_ids
 
     for citizen in citizens:
+        ctx, provenance = OMIT, OMIT
         if reaction_decisions is None:
             delta = deterministic_reaction_to_event(event_type, config.events, magnitude=magnitude)
             motif = str(grounding_motif)
-            extra: dict[str, object] = {}
         else:
             decision = reaction_decisions[citizen.citizen_id]
             delta = decision.salience_delta
             motif = str(decision.motif)
-            extra = {"ctx": contexts[citizen.citizen_id].to_payload()}
+            ctx = contexts[citizen.citizen_id].to_payload()
+            # Provenance, LLM path only (the deterministic path has no model decision
+            # to have fallen back FROM) -- see ReactionBatchOutcome.llm_fallback.
+            provenance = LlmProvenance.for_unit(reaction_fallback, reaction_retry_varied, reaction_call_ids, citizen.citizen_id)
         citizen.event_salience = update_event_salience(citizen.event_salience, delta, config.events)
-        payload: dict[str, object] = {"event_type": int(event_type), "target": target, "salience_delta": delta} | extra
-        if event_type is EventType.ECONOMIC_SHOCK:
-            payload["magnitude"] = magnitude
-        journal.write(
+        journal.write_event(
             tick=tick,
-            event_type="reaction_to_event",
-            payload=payload,
+            event=ReactionToEvent(
+                event_type=int(event_type),
+                target=target,
+                salience_delta=delta,
+                magnitude=magnitude if event_type is EventType.ECONOMIC_SHOCK else OMIT,
+                ctx=ctx,
+                provenance=provenance,
+            ),
             citizen_id=citizen.citizen_id,
             motif=motif,
             codebook_version=config.llm.codebook_version,
@@ -1305,7 +2182,7 @@ def _run_representative_responses(
     config: PolityConfig,
     journal: Journal,
     tick: int,
-    llm_client: LlmClientProtocol | None,
+    llm_client: LlmClientProtocol,
 ) -> None:
     """§7bis.7 step 1 + step 7 (v4 Lot 6, dt=6): the sitting representative's
     reaction to the pressure of the PREVIOUS tick, then this tick's update of
@@ -1349,7 +2226,6 @@ def _run_representative_responses(
     verbatim by the user-prompt builder and this journal write so "the ctx
     an analyst reads is provably the ctx the model saw" stays true --
     unified_deviation is never shown to the model."""
-    assert llm_client is not None  # guaranteed by _llm_client_scope when llm.enabled
     # pledged_platform/revealed_position are always written together (declare_candidacy,
     # this function's own overwrite below, the loser-reset in _hold_presidential_election)
     # -- checking one implies the other, so filtering on just one is exact, not a shortcut.
@@ -1368,16 +2244,18 @@ def _run_representative_responses(
         # `base`/ctx.mandate_dev (see this function's own docstring).
         unified_deviation = unified_mandate_deviation(holder)
         holder.revealed_position = outcome.positions[holder.citizen_id]
-        journal.write(
+        # Provenance: a fallback silence and a real one are otherwise
+        # identical here -- see ResponseBatchOutcome.llm_fallback.
+        journal.write_event(
             tick=tick,
-            event_type="representative_response",
-            payload={
-                "office": Office.PRESIDENT.value,
-                "stance": decision.stance,
-                "shifts": [{"dimension": s.dimension, "delta": s.delta} for s in decision.shifts],
-                "ctx": contexts[holder.citizen_id].to_payload(),
-                "unified_deviation": unified_deviation,
-            },
+            event=RepresentativeResponse(
+                office=Office.PRESIDENT.value,
+                stance=decision.stance,
+                shifts=[{"dimension": s.dimension, "delta": s.delta} for s in decision.shifts],
+                ctx=contexts[holder.citizen_id].to_payload(),
+                unified_deviation=unified_deviation,
+                provenance=LlmProvenance.for_unit(outcome.llm_fallback, outcome.retry_sampling_varied, outcome.llm_call_ids, holder.citizen_id),
+            ),
             citizen_id=holder.citizen_id,
             motif=str(decision.motif),
             codebook_version=config.llm.codebook_version,
@@ -1423,10 +2301,13 @@ def _run_sortition_rotation(
         # unrelated term's own drift.
         member.chamber_position = member.issue_positions
 
-    journal.write(
+    journal.write_event(
         tick=tick,
-        event_type="sortition_rotation",
-        payload={"seated": drawn, "vacated": vacated, "pool_relaxed": int(relaxed)},
+        event=SortitionRotation(
+            seated=drawn,
+            vacated=vacated,
+            pool_relaxed=int(relaxed),
+        ),
     )
 
 
@@ -1462,12 +2343,11 @@ def _run_chamber_deliberation(
     field, ticks_left) -- this is a post-hoc analysis value only, unlike
     dt=6's own ctx.mandate_dev, which is genuinely pre-decision
     information the model sees."""
-    if not config.llm.enabled:
+    if llm_client is None:
         return
     members = current_sortition_members(citizens)
     if not members:
         return
-    assert llm_client is not None  # guaranteed by _llm_client_scope when llm.enabled
     contexts: dict[int, ChamberContext] = {}
     for m in members:
         assert m.sortition_seat_until_tick is not None  # guaranteed by current_sortition_members's own filter
@@ -1479,14 +2359,28 @@ def _run_chamber_deliberation(
         base = member.chamber_position
         assert base is not None  # guaranteed by _run_sortition_rotation's own seating loop
         member.chamber_position = outcome.positions[member.citizen_id]
-        journal.write(
+        # decide_chamber_deliberation's own motif_corrected marker: true iff this
+        # decision arrived as motif=702 (DELIBERATIVE_SHIFT) with empty shifts -- an
+        # incoherent pairing under this schema's own stated intent, corrected to 701
+        # (what shifts=[] actually means) rather than rejected, since motif has zero
+        # effect on chamber_deviation/simulation behavior. Journaled explicitly so a
+        # future reader cannot mistake a corrected label for a first-hand 701.
+        # Same §3.7.1 booleans-as-0/1 convention as vote_cast's own journal payload
+        # (see that call site's own comment) -- added 2026-09-08 alongside
+        # decide_chamber_deliberation's own retry_temperature/deterministic fallback,
+        # after a real Phase 7 run crashed with neither in place. Mutually exclusive
+        # per cid: retry_sampling_varied marks a genuine, temperature-varied recovery;
+        # llm_fallback marks the model path being exhausted entirely (sincere, no
+        # shift) instead of aborting the run.
+        journal.write_event(
             tick=tick,
-            event_type="chamber_deliberation",
-            payload={
-                "shifts": [{"dimension": s.dimension, "delta": s.delta} for s in decision.shifts],
-                "ctx": contexts[member.citizen_id].to_payload(),
-                "chamber_deviation": chamber_deviation(member),
-            },
+            event=ChamberDeliberation(
+                shifts=[{"dimension": s.dimension, "delta": s.delta} for s in decision.shifts],
+                ctx=contexts[member.citizen_id].to_payload(),
+                chamber_deviation=chamber_deviation(member),
+                motif_corrected=int(outcome.motif_corrected.get(member.citizen_id, False)),
+                provenance=LlmProvenance.for_unit(outcome.llm_fallback, outcome.retry_sampling_varied, outcome.llm_call_ids, member.citizen_id),
+            ),
             citizen_id=member.citizen_id,
             motif=str(decision.motif),
             codebook_version=config.llm.codebook_version,
@@ -1628,7 +2522,7 @@ def _run_accountability_phase(
                 citizens, EventType.ECONOMIC_SHOCK, config, journal, tick, llm_client,
                 target=None, magnitude=exogenous.economy_x,
             )
-    if config.llm.enabled and config.mandate.enabled:  # §7bis.7 step 1 (v4 Lot 6)
+    if llm_client is not None and config.mandate.enabled:  # §7bis.7 step 1 (v4 Lot 6)
         _run_representative_responses(holders, config, journal, tick, llm_client)
     for holder in holders:
         deviation: float | None = None
@@ -1641,16 +2535,15 @@ def _run_accountability_phase(
             deviation = mandate_deviation(holder, config.mandate)
             unified = unified_mandate_deviation(holder)
         if config.mandate.enabled and deviation is not None and deviation > config.mandate.deviation_log_threshold:
-            journal.write(
+            # provably non-None wherever this write runs: assigned in
+            # the same guarded block as `deviation`, immediately above
+            journal.write_event(
                 tick=tick,
-                event_type="mandate_deviation_recorded",
-                payload={
-                    "office": Office.PRESIDENT.value,
-                    "deviation": deviation,
-                    # provably non-None wherever this write runs: assigned in
-                    # the same guarded block as `deviation`, immediately above
-                    "unified_deviation": unified,
-                },
+                event=MandateDeviationRecorded(
+                    office=Office.PRESIDENT.value,
+                    deviation=deviation,
+                    unified_deviation=unified,
+                ),
                 citizen_id=holder.citizen_id,
             )
 
@@ -1674,11 +2567,14 @@ def _run_accountability_phase(
                 mandate_dev=deviation or 0.0,
                 awakening=config.awakening,
                 neighbors_acting=neighbors_acting_by_cid,
+                emotions=config.emotions,
             )
             decisions: dict[int, PressureDecision] | None = None
+            pressure_fallback: dict[int, bool] = {}
+            pressure_retry_varied: dict[int, bool] = {}
+            pressure_call_ids: dict[int, str | None] = {}
             contexts: dict[int, PressureContext] = {}
-            if config.llm.enabled and consulted:  # §7bis.7 step 2 (v4 Lot 7)
-                assert llm_client is not None  # guaranteed by _llm_client_scope when llm.enabled
+            if llm_client is not None and consulted:  # §7bis.7 step 2 (v4 Lot 7)
                 contexts = {
                     citizen.citizen_id: _pressure_context(
                         citizen,
@@ -1695,6 +2591,9 @@ def _run_accountability_phase(
                 }
                 outcome = decide_pressure_actions([c for c, _ in consulted], contexts, config, llm_client)
                 decisions = {d.cid: d for d in outcome.decisions}
+                pressure_fallback = outcome.llm_fallback
+                pressure_retry_varied = outcome.retry_sampling_varied
+                pressure_call_ids = outcome.llm_call_ids
             participants = 0
             for citizen, gap in consulted:
                 can_sign = _can_sign(holder, citizen, tick, config)  # LIVE, re-read per citizen
@@ -1702,50 +2601,62 @@ def _run_accountability_phase(
                 motif: str | None = None
                 if decisions is None:
                     decided = deterministic_pressure_action(
-                        citizen, gap, config.pressure_menu, can_sign=can_sign, can_launch=can_launch
+                        citizen, gap, config.pressure_menu, can_sign=can_sign, can_launch=can_launch,
+                        tolerance_scale=tolerance_scale(citizen, config.emotions),
                     )
                     act = decided
-                    payload_extra: dict[str, object] = {}
+                    pressure_ctx, pressure_provenance = OMIT, OMIT
                 else:
                     decision = decisions[citizen.citizen_id]
                     decided = PressureAct(decision.act)
                     act = applicable_pressure_act(decided, can_sign=can_sign, can_launch=can_launch)
-                    payload_extra = {"ctx": contexts[citizen.citizen_id].to_payload()}
+                    # Track C3 fix (2026-09-11): merges dt=10's shipped
+                    # calibration signal(s) in via the SAME function
+                    # decide_pressure_actions itself calls to build the
+                    # prompt -- to_payload() alone used to under-report
+                    # what the model actually saw (blank_threshold was
+                    # sent but never journaled).
+                    pressure_ctx = {**contexts[citizen.citizen_id].to_payload(), **pressure_shipped_signal_values(citizen)}
+                    # Provenance, LLM path only -- see PressureBatch
+                    # Outcome.llm_fallback for why the §11.4 palier's own
+                    # comparison depends on being able to exclude these.
+                    pressure_provenance = LlmProvenance.for_unit(
+                        pressure_fallback, pressure_retry_varied, pressure_call_ids, citizen.citizen_id,
+                    )
                     motif = str(decision.motif)
                 if act is PressureAct.MOBILIZE:
                     participants += 1
                     new_mobilized[citizen.citizen_id] = holder.citizen_id  # v6 Lot 3: for NEXT tick's own read
-                journal.write(
+                journal.write_event(
                     tick=tick,
-                    event_type="pressure_action",
-                    payload={"target": holder.citizen_id, "act": int(decided)} | payload_extra,
+                    event=PressureAction(
+                        target=holder.citizen_id, act=int(decided), ctx=pressure_ctx, provenance=pressure_provenance,
+                    ),
                     citizen_id=citizen.citizen_id,
                     motif=motif,
                     codebook_version=config.llm.codebook_version if motif else "",
                 )
                 if act is PressureAct.LAUNCH_PETITION:
                     launch_petition(holder, citizen, tick)
-                    journal.write(
+                    journal.write_event(
                         tick=tick,
-                        event_type="petition_launched",
-                        payload={
-                            "target": holder.citizen_id,
-                            "signatures": len(holder.petition_signers),
-                            "signed_ratio": petition_pressure(holder, config.run.population_size),
-                            "expires_at_tick": tick + config.petition.petition_lifespan_ticks,
-                        },
+                        event=PetitionLaunched(
+                            target=holder.citizen_id,
+                            signatures=len(holder.petition_signers),
+                            signed_ratio=petition_pressure(holder, config.run.population_size),
+                            expires_at_tick=tick + config.petition.petition_lifespan_ticks,
+                        ),
                         citizen_id=citizen.citizen_id,
                     )
                 elif act is PressureAct.SIGN_PETITION:
                     sign_petition(holder, citizen)
-                    journal.write(
+                    journal.write_event(
                         tick=tick,
-                        event_type="petition_signed",
-                        payload={
-                            "target": holder.citizen_id,
-                            "signatures": len(holder.petition_signers),
-                            "signed_ratio": petition_pressure(holder, config.run.population_size),
-                        },
+                        event=PetitionSigned(
+                            target=holder.citizen_id,
+                            signatures=len(holder.petition_signers),
+                            signed_ratio=petition_pressure(holder, config.run.population_size),
+                        ),
                         citizen_id=citizen.citizen_id,
                     )
             if config.street_pressure.enabled:
@@ -1768,15 +2679,14 @@ def _run_accountability_phase(
         holder.legitimacy_capital = update_legitimacy(
             holder.legitimacy_capital, holder.mandate_strength, ecart, config.legitimacy
         )
-        journal.write(
+        journal.write_event(
             tick=tick,
-            event_type="legitimacy_updated",
-            payload={
-                "office": Office.PRESIDENT.value,
-                "legitimacy": holder.legitimacy_capital,
-                "mandate_strength": holder.mandate_strength,
-                "ecart": ecart,
-            },
+            event=LegitimacyUpdated(
+                office=Office.PRESIDENT.value,
+                legitimacy=holder.legitimacy_capital,
+                mandate_strength=holder.mandate_strength,
+                ecart=ecart,
+            ),
             citizen_id=holder.citizen_id,
         )
         floor_fires = crosses_floor(holder.legitimacy_capital, config.legitimacy)
@@ -1785,72 +2695,101 @@ def _run_accountability_phase(
         if holder.petition_open_since_tick is not None:  # step 5
             ratio = petition_pressure(holder, config.run.population_size)
             if ratio >= config.petition.signature_threshold:
-                journal.write(
+                journal.write_event(
                     tick=tick,
-                    event_type="confidence_vote_triggered",
-                    payload={
-                        "office": Office.PRESIDENT.value,
-                        "opened_at_tick": holder.petition_open_since_tick,
-                        "signatures": len(holder.petition_signers),
-                        "signed_ratio": ratio,
-                    },
+                    event=ConfidenceVoteTriggered(
+                        office=Office.PRESIDENT.value,
+                        opened_at_tick=holder.petition_open_since_tick,
+                        signatures=len(holder.petition_signers),
+                        signed_ratio=ratio,
+                    ),
                     citizen_id=holder.citizen_id,
                 )
                 ballots = [build_confidence_ballot(c, holder) for c in citizens]
                 retained = resolve_confidence_vote(ballots, config.petition.confidence_vote_format)
-                journal.write(
+                keep_ratio = confidence_keep_ratio(ballots)
+                # A won vote vetoes a same-tick floor trip. §7bis.7 step 6's
+                # "the floor wins the attribution" (legitimacy.py's own
+                # module docstring) was written to arbitrate two TRIGGERS --
+                # the legitimacy floor vs the petition signature threshold --
+                # never a trigger against a RESULT. It was applied here to
+                # both regardless, and a real run demonstrated the gap: a
+                # president won retention 69.2% and was recalled the same
+                # tick anyway, because `floor_fires` was computed from L
+                # BEFORE this vote resolved and `retained` had no reader on
+                # that path at all (2026-09-11). A LOST vote never needs
+                # this: `lost_confidence` recalls unconditionally below, so
+                # the two recall paths never disagree when the vote fails --
+                # the veto only ever fires in the one case that was wrong.
+                averted_recall = retained and floor_fires
+                if averted_recall:
+                    floor_fires = False
+                journal.write_event(
                     tick=tick,
-                    event_type="confidence_vote_result",
-                    payload={
-                        "office": Office.PRESIDENT.value,
-                        "bf": BallotFormat.BINARY,
-                        "ballots": len(ballots),
-                        "keep": sum(ballots),
-                        "keep_ratio": confidence_keep_ratio(ballots),
-                        "retained": retained,
-                    },
+                    event=ConfidenceVoteResult(
+                        office=Office.PRESIDENT.value,
+                        bf=BallotFormat.BINARY,
+                        ballots=len(ballots),
+                        keep=sum(ballots),
+                        keep_ratio=keep_ratio,
+                        retained=retained,
+                        averted_recall=averted_recall,
+                    ),
                     citizen_id=holder.citizen_id,
                 )
+                if retained:
+                    # support(t), §7.1's own admitted gap ("bloquant pour
+                    # v4", shipped without it): a demonstrated referendum
+                    # result is the freshest available measurement of "what
+                    # fraction of the population supports this
+                    # officeholder" -- the exact same quantity, in the same
+                    # units, from the same population-wide-ballot method as
+                    # the mandate_strength computed once at election time
+                    # (legitimacy.mandate_strength). Replaced, not blended:
+                    # both numbers measure the identical thing, so there is
+                    # no principled weight that would justify discounting
+                    # the newer, more relevant one toward the staler one.
+                    # Takes effect from the NEXT tick's update_legitimacy
+                    # call onward -- this tick's own L (step 4) already ran
+                    # before the vote resolved (step 5), unchanged by design.
+                    holder.mandate_strength = keep_ratio
                 resolve_petition(holder, tick, config.petition)
                 lost_confidence = not retained
             elif petition_has_expired(holder, tick, config.petition):
-                journal.write(
+                journal.write_event(
                     tick=tick,
-                    event_type="petition_expired",
-                    payload={
-                        "office": Office.PRESIDENT.value,
-                        "opened_at_tick": holder.petition_open_since_tick,
-                        "signatures": len(holder.petition_signers),
-                        "signed_ratio": ratio,
-                        "signature_threshold": config.petition.signature_threshold,
-                    },
+                    event=PetitionExpired(
+                        office=Office.PRESIDENT.value,
+                        opened_at_tick=holder.petition_open_since_tick,
+                        signatures=len(holder.petition_signers),
+                        signed_ratio=ratio,
+                        signature_threshold=config.petition.signature_threshold,
+                    ),
                     citizen_id=holder.citizen_id,
                 )
                 resolve_petition(holder, tick, config.petition)
 
         if floor_fires:  # step 6, floor wins the attribution
-            journal.write(
+            journal.write_event(
                 tick=tick,
-                event_type="recalled",
-                payload={
-                    "office": Office.PRESIDENT.value,
-                    "legitimacy": holder.legitimacy_capital,
-                    "recall_floor": config.legitimacy.recall_floor,
-                    "trigger": "legitimacy_floor",
-                },
+                event=Recalled(
+                    office=Office.PRESIDENT.value,
+                    legitimacy=holder.legitimacy_capital,
+                    recall_floor=config.legitimacy.recall_floor,
+                    trigger="legitimacy_floor",
+                ),
                 citizen_id=holder.citizen_id,
             )
             vacate_office(holder)
         elif lost_confidence:
-            journal.write(
+            journal.write_event(
                 tick=tick,
-                event_type="recalled",
-                payload={
-                    "office": Office.PRESIDENT.value,
-                    "legitimacy": holder.legitimacy_capital,
-                    "recall_floor": config.legitimacy.recall_floor,
-                    "trigger": "confidence_vote",
-                },
+                event=Recalled(
+                    office=Office.PRESIDENT.value,
+                    legitimacy=holder.legitimacy_capital,
+                    recall_floor=config.legitimacy.recall_floor,
+                    trigger="confidence_vote",
+                ),
                 citizen_id=holder.citizen_id,
             )
             vacate_office(holder)

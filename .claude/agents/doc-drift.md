@@ -2,7 +2,8 @@
 name: doc-drift
 description: >
   Use this agent to cross-check Vote-App's documentation surfaces (CLAUDE.md,
-  README.md, .claude/skills/*/SKILL.md, docs/plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md) against the
+  README.md, .claude/skills/*/SKILL.md, docs/plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md,
+  docs/plan/polity/*.md) against the
   actual current state of the repo, and report concrete drift — a path that no
   longer exists, a command whose target script/subcommand changed, a plan-doc
   "done" marker whose backing config no longer matches, a stale numeric claim.
@@ -35,10 +36,13 @@ exists to catch that class of problem on a schedule, instead of by accident.
 - `README.md`
 - `.claude/skills/*/SKILL.md`
 - `docs/plan/vote-app/PLAN_SOLIDITE_TECHNIQUE.md`
+- `docs/plan/polity/*.md` (S5.4 of `plan-polity-build-order.md`) -- the polity
+  simulation's plans, results pointers and LLM reference. See section 5 for what is
+  specific to them.
 
-Do not expand scope beyond these four surfaces (plus whatever files they
-reference, which you follow to verify a claim). This agent is rated effort "S"
-in the plan — a focused pass, not a full documentation audit of the repo.
+Do not expand scope beyond these surfaces (plus whatever files they reference, which
+you follow to verify a claim). This agent is a focused pass, not a full documentation
+audit of the repo.
 
 ## What to check, in this order
 
@@ -92,7 +96,7 @@ reality says already done — is just as much a finding as the reverse).
 
 ### 4. Numeric claims that age fast
 
-Grep the four surfaces for specific-looking numbers in prose: test counts,
+Grep the surfaces for specific-looking numbers in prose: test counts,
 "N methods locked", coverage percentages, file/line counts, "currently N
 skills/agents/hooks" style inventory claims, dates used as "as of" anchors.
 For each candidate:
@@ -112,6 +116,34 @@ For each candidate:
   a confirmed mismatch if you independently reproduced the current true value
   and it differs. Otherwise, report it as "unverified but stale-looking,
   worth a human re-check" and say what you'd need to run to settle it.
+
+### 5. The polity plans (`docs/plan/polity/*.md`)
+
+Three mechanical checks exist already; run them first and report their output
+rather than re-deriving what they cover (from the repository root):
+
+- `./scripts/check_generated_docs.sh` -- generated blocks (model profiles, the event
+  registry) still match the code. A failure is confirmed drift.
+- `cd fast_api_voter && python -m pytest api/tests/test_polity_plan_evidence.py -o addopts="" -q`
+  -- every Closed-by SHA in `plan-polity-build-order.md` is the merge of its step's
+  branch. Skips mean the clone is shallow; say so.
+- `cd fast_api_voter && python scripts/check_timeline_claims.py <run_dir>` for any
+  `TIMELINE.md` a plan cites as evidence.
+
+Then, by judgment:
+
+- **Status prose against the build-order plan.** Other polity plans still carry
+  hand-written status ("not run yet", "unvalidated", "built but not run"). The
+  build-order plan's Steps table is the record: a step with a Closed-by SHA is done.
+  Report any plan whose prose contradicts a closed step, or claims done what has no
+  merge. This was the drift the build-order plan was written to stop: five plan docs
+  contradicting their own sections.
+- **Results docs cited as evidence.** `scripts/*_results.md` and
+  `*_preregistration.md` files named in a plan must exist, and a plan that quotes a
+  number from one must quote the number the file states.
+- **Numbers restated from code** that have no generated block (chunk sizes, retry
+  temperatures, thresholds): check them against the code and, when they drift,
+  suggest a generated block rather than a hand edit.
 
 ## Reporting format
 

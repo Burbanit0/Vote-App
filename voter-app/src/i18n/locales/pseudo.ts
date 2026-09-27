@@ -5,6 +5,7 @@ import type { TranslationKeys } from './fr';
 const pseudo: TranslationKeys = {
   nav: {
     play: '⟦À~ vóús~~ dé~ jóúér~~⟧',
+    polity: '⟦Pólíty~~~⟧',
     playground: '⟦Pláygróúñd~~~~⟧',
     laboratoire: '⟦Lábórátóíré~~~~⟧',
     lexique: '⟦Léxíqúé~~~⟧',

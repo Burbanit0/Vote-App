@@ -1,0 +1,154 @@
+# docker-compose.llm-4b.yml — §2's base-vs-instruct bench (plan-llm-protocol-
+# and-theory-program.md §2bis), NOT a production serving config.
+#
+# WHY THIS FILE EXISTS, AND WHY 4B RATHER THAN THE SHIPPED 8B
+#
+# §2 proposes running `Qwen3-8B-Base` against the shipped instruct model to
+# test whether the confirmed collapses are alignment-induced. §2bis's own
+# scoping (2026-09-10, measured not assumed) found that literal form does not
+# hold on this hardware:
+#   - Qwen3-8B-Base exists ONLY in bf16, ~16GB of weights, on a 16.3GB card —
+#     the same reason docker-compose.llm.yml's own comment gives for serving
+#     the instruct model as AWQ in the first place.
+#   - The ENTIRE Qwen3 family has exactly ONE official AWQ (Qwen/Qwen3-8B-AWQ,
+#     i.e. the instruct model already shipped). There is no official quantized
+#     base model at any size. The only AWQ of Qwen3-8B-Base is a community
+#     requant with 5 downloads — using it would confound requant quality with
+#     the base/instruct variable under test, exactly the "SECOND variable
+#     confounded with the switch" problem docker-compose.llm.yml already calls
+#     out for AWQ-vs-bf16.
+#
+# So the bench uses `Qwen3-4B` vs `Qwen3-4B-Base` instead: both official Qwen,
+# both bf16, both 8.0GB, both shipping the SAME chat template (verified:
+# enable_thinking and <think> tags present on the base model too, which is what
+# lets every §5.C probe script run against a base arm with no client change at
+# all). Nothing is confounded with the axis under test — only the instruction
+# tuning differs.
+#
+# THE TRADE THIS MAKES, STATED PLAINLY: it answers "is this collapse
+# alignment-induced in Qwen3-4B", not "...in the 8B this project ships". That
+# is only a useful question if the collapse reproduces on the 4B INSTRUCT arm
+# first — which is the mandatory prerequisite gate in §2bis, run before the
+# base arm is ever started. If it does not reproduce, that is itself a finding
+# (scale- or model-dependence) and this bench cannot answer §2.
+#
+# ⚠ ONE SERVER AT A TIME. This binds the same port 8000 as
+# docker-compose.llm.yml, and with 12.3GB of the 16.3GB card already taken by
+# the shipped 8B server there is no room for two anyway (3.4GB free, measured).
+# Stop the other stack before starting this one:
+#   docker compose -f docker-compose.llm.yml down
+#   docker compose -f docker-compose.llm-4b.yml --profile instruct up -d
+#   # ...run probes, then for the base arm:
+#   docker compose -f docker-compose.llm-4b.yml --profile instruct down
+#   docker compose -f docker-compose.llm-4b.yml --profile base up -d
+# and bring the shipped stack back up when done. No flagship run can be in
+# flight during any of this.
+#
+# Profiles (not two always-on services) precisely so `up -d` can never start
+# both arms at once and silently contend for the GPU.
+
+name: polity-vllm-4b   # distinct from polity-vllm, same reasoning as
+                       # docker-compose.llm.yml's own `name:` comment
+
+x-common: &common
+  image: vllm/vllm-openai:v0.28.0   # identical server build to the shipped
+                                    # stack — the serving layer must not be a
+                                    # variable in this comparison
+  ports:
+    - "8000:8000"
+  ipc: host
+  volumes:
+    - huggingface_cache:/root/.cache/huggingface
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            count: 1
+            capabilities: [gpu]
+  healthcheck:
+    test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+    interval: 30s
+    timeout: 10s
+    retries: 5
+    start_period: 180s   # bf16 weights, larger load than the AWQ 8B
+
+# Every flag in both services below that is NOT the model identity is copied
+# verbatim from docker-compose.llm.yml, on purpose: xgrammar +
+# disable_any_whitespace (the non-terminating-whitespace fix),
+# --reasoning-parser qwen3 (without it enable_thinking can be a SILENT no-op
+# under grammar constraint), max-model-len 16384, gpu-memory-utilization 0.80,
+# seed 42, and the ngram speculative-config already proven lossless at
+# temperature=0 (byte-identical output, check_vllm_speculative_decoding_
+# results.md). Deliberately NO --quantization: these are bf16 checkpoints, and
+# keeping both arms unquantized is the entire point of choosing this pair.
+#
+# The served names carry a ':' tag because config.py's own pinning rule
+# (~line 847) rejects an llm.model without one; the probe scripts override
+# llm.model to match via the POLITY_PROBE_MODEL env var.
+
+services:
+  # ── Arm 1: the prerequisite gate. Does the collapse reproduce here at all?
+  vllm-4b-instruct:
+    <<: *common
+    container_name: vllm-polity-4b-instruct
+    profiles: ["instruct"]
+    command:
+      - "--model"
+      - "Qwen/Qwen3-4B"
+      - "--revision"
+      - "1cfa9a7208912126459214e8b04321603b3df60c"   # pinned via the HF API
+                                                      # directly, 2026-09-10
+      - "--served-model-name"
+      - "qwen3:4b"
+      - "--reasoning-parser"
+      - "qwen3"
+      - "--structured-outputs-config"
+      - '{"backend": "xgrammar", "disable_any_whitespace": true}'
+      - "--max-model-len"
+      - "16384"
+      - "--gpu-memory-utilization"
+      - "0.80"
+      - "--port"
+      - "8000"
+      - "--seed"
+      - "42"
+      - "--speculative-config"
+      - '{"method": "ngram", "num_speculative_tokens": 5, "prompt_lookup_max": 4, "prompt_lookup_min": 2}'
+
+  # ── Arm 2: the actual §2 question. Only started if arm 1's gate passes.
+  vllm-4b-base:
+    <<: *common
+    container_name: vllm-polity-4b-base
+    profiles: ["base"]
+    command:
+      - "--model"
+      - "Qwen/Qwen3-4B-Base"
+      - "--revision"
+      - "906bfd4b4dc7f14ee4320094d8b41684abff8539"   # pinned via the HF API
+                                                      # directly, 2026-09-10
+      - "--served-model-name"
+      - "qwen3:4b-base"
+      - "--reasoning-parser"
+      - "qwen3"
+      - "--structured-outputs-config"
+      - '{"backend": "xgrammar", "disable_any_whitespace": true}'
+      - "--max-model-len"
+      - "16384"
+      - "--gpu-memory-utilization"
+      - "0.80"
+      - "--port"
+      - "8000"
+      - "--seed"
+      - "42"
+      - "--speculative-config"
+      - '{"method": "ngram", "num_speculative_tokens": 5, "prompt_lookup_max": 4, "prompt_lookup_min": 2}'
+
+volumes:
+  # Deliberately this stack's OWN volume (polity-vllm-4b_huggingface_cache),
+  # not the shipped stack's: nothing is shared (the 4B weights aren't in the
+  # production cache anyway), the production cache can't be polluted by a
+  # bench, and the whole experiment is reclaimable with a single
+  # `docker volume rm` once it has served its purpose. ~16GB when both arms
+  # have been pulled.
+  huggingface_cache:

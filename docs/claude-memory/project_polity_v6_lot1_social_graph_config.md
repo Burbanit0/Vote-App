@@ -1,0 +1,23 @@
+---
+name: project-polity-v6-lot1-social-graph-config
+description: "v6 Lot 1 done (PR #147) — config + codebook reservations for the social graph (§5), first lot of v6a"
+metadata: 
+  node_type: memory
+  type: project
+  originSessionId: 9988b0af-d35f-4d22-b8d0-3ab9d9b157f8
+  modified: 2026-08-16T11:58:05.885Z
+---
+
+Polity v6 Lot 1 (config + codebook reservations for the social graph, §5) merged to `develop` (PR #147, squash commit `2773aec`). This is the first lot of **v6a** — the social-graph/contagion half of v6, staged as its own sequence separate from the sortition chamber.
+
+**Top-level v6 split, the palier-shaping decision**: the design doc bundles two structurally unrelated features under "v6" — the social graph (§5) and a second sortition-selected legislative chamber (§6bis.3, "chambre de tirage au sort"). The doc's own §6bis.3 text explicitly instructs against co-validating them ("pas d'activation simultanée avec les canaux de pression du §7bis — pour ne pas faire porter deux nouveautés majeures au même palier de validation"). Resolved: **v6a** (social graph, this and future lots) and **v6b** (sortition chamber) are independent lot sequences. v6b is named but deliberately **not staged** — its own `sortition_chamber:` YAML block (fully specified: seats=30, term_years=1, renewable=false, selection=uniform_random, veto_power=suspensive_limited, veto_delay_ticks=2) was left completely untouched by this lot, same "don't parse a different palier's reserved block prematurely" discipline v4 Lot 1 used for v5's own `events:` block.
+
+**What shipped, offline/no-behavior-change** (matching every prior palier's own Lot 1 pattern):
+- `SocialGraphConfig` parses the already-reserved `social_graph:` YAML block (`enabled/topology/mean_degree/rewiring_prob/evolving`) — this block had sat fully unparsed in `polity_config.yaml` since before this session's own history, confirmed by direct inspection.
+- `evolving` (homophily-driven graph rewiring) is parsed (so a typo fails loudly) but **rejected outright if `true`** — `PolityConfigError`, the same TRANCHÉ-guard precedent as `recall_floor_indexed_on_l0`/`petition.concurrent_allowed`. The design doc's own 🔴 "static or evolving?" point (§5) stays genuinely open — this is a parse-time guard, not a resolution.
+- New cross-field rule: `awakening.context_modulation.neighbors_acting=True ⟹ social_graph.enabled=True`. The **reverse is deliberately not enforced** — `social_graph.enabled=True` alone (with the modulation flag off) is a real, non-degenerate arm: the graph can feed `pressure_action`'s `ctx.neighbors_acting` (once wired, a later lot) without also mechanically gating who gets consulted via the awakening threshold.
+- `codebook.py`: `PressureMotif.FOLLOWING_NEIGHBORS = 306`, promoted from a docstring-only mention ("302 STREET_PRESSURE_RESPONSE and 306 FOLLOWING_NEIGHBORS are deliberately NOT members") to a real enum member. **Not yet consumed** by `PressureDecision.motif`'s wire `Literal` or the engine (`validate_pressure_decision`/`build_pressure_system_prompt`) — deferred to a later v6a lot, the same "reserve now, wire later" split v4 Lot 1 (`ResponseMotif` 307-309) and v5 Lot 1 (`ReactionMotif`) both used. `CODEBOOK_VERSION` bumped `1.4` → `1.5`.
+
+**A wrinkle not present in v4/v5 Lot 1's own precedent**: `PressureMotif` is an *already-wired, already-consumed* enum (unlike `ReactionMotif`, which was brand new in v5 Lot 1 with no existing consumer to break). Adding 306 broke an existing exact-equality test (`test_pressure_motif_literal_matches_pressure_motif_enum_exactly`) that asserted the wire `Literal` matched the enum's value set 1:1. Fixed by changing that test to assert a proper-subset relationship (`literal_values <= enum_values`, `enum_values - literal_values == {306}`) — directly documenting the "reserved but not yet consumed" state as a tested invariant rather than loosening the check silently. Two other pre-existing tests needed the routine version/count bump (`codebook_version` "1.4"→"1.5"; `codebook_motifs` DuckDB row count 32→33).
+
+Next: **Lot 2** (`social_graph.py` — deterministic graph generation). Open judgment call flagged for that lot's own planning pass: hand-roll Watts-Strogatz/Erdős–Rényi/Barabási–Albert in numpy (no new dependency) vs. add `networkx` as a new pinned dependency (the same "one pinned dependency, real justification" register the `duckdb` storage lot used — Barabási–Albert's preferential attachment is a known source of subtle hand-rolled bugs). A dedicated `graph_rng` stream (mirroring `rupture_rng`/`events_rng`) is already anticipated. **Not yet authorized** — needs its own planning pass per this project's standing lot discipline.

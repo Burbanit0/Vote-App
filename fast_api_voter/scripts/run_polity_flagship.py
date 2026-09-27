@@ -1,0 +1,712 @@
+"""
+scripts/run_polity_flagship.py
+
+The runner for the flagship arm: 30 simulated years at population 500, every
+substantive mechanism on, on vLLM. Scoped by `plan-flagship-30y-run.md`.
+
+**Why a new runner rather than another `run_v*_acceptance.py`.** Every existing
+runner here answers a comparison question -- two arms differing in one field,
+sized to isolate that field. This one answers a *production* question: can the
+simulator actually run at the scale it was designed for, for long enough to
+produce something a UI can be built against? That changes what the script needs:
+population is a knob (no existing runner has one), the sortition chamber is ON
+(every existing runner turns it off to stay cheap), and the run is long enough
+that wall-clock, checkpointing and progress reporting stop being incidental.
+
+**Full richness, explicitly.** `_flagship_config` turns on every substantive
+mechanism at once: legitimacy, mandate drift, petitions, street pressure,
+awakening (with contagion), exogenous events (scandal + economic shock), the
+social graph, and the sortition chamber. This is deliberately NOT an acceptance
+arm -- nothing is being isolated, so nothing is being held back. The config's own
+cross-validation rules are respected by construction and checked by
+`config.validate_config` before the run directory is created (run_simulation checks
+them again at start; S1.5 put every cross-setting rule in that one function, so a
+config built with `dataclasses.replace` is held to the same rules as the YAML).
+
+**`candidacy.ambition_threshold` stays at its shipped value**, unlike
+`run_acceptance_comparison._config_for_arm`, which forces it to 0.0. That 0.0 is
+a comparison device (it makes candidacy unconditional so the arms differ only in
+the pressure menu); the flagship wants the calibrated institution, and ADR-002's
+0.30 is that calibration. What pop 500 does to the mechanism the threshold
+protects is Phase 5's question, measured separately and cheaply.
+
+Staged ramp (each stage gates the next -- see the plan's Phase 7):
+
+    # 1. smoke: proves the wiring, minutes
+    python fast_api_voter/scripts/run_polity_flagship.py \\
+        --years 2 --population 100 --engine llm --max-batch-replays 2 \\
+        --output-dir scripts/flagship_runs
+
+    # 2. parity: compare against acceptance_v6b_results.md's measured baseline
+    python fast_api_voter/scripts/run_polity_flagship.py \\
+        --years 8 --population 100 --engine llm --max-batch-replays 2 \\
+        --output-dir scripts/flagship_runs
+
+    # 3. scale probe: real per-tick cost at the target population
+    python fast_api_voter/scripts/run_polity_flagship.py \\
+        --years 8 --population 500 --seats 75 --engine llm --max-batch-replays 2 \\
+        --output-dir scripts/flagship_runs
+
+    # 4. the flagship
+    python fast_api_voter/scripts/run_polity_flagship.py \\
+        --years 30 --population 500 --seats 75 --engine llm --max-batch-replays 2 \\
+        --output-dir scripts/flagship_runs
+
+    # if the flagship (or any arm) is interrupted, continue it with the SAME
+    # args plus --resume -- it picks up from its own last per-tick checkpoint
+    python fast_api_voter/scripts/run_polity_flagship.py \\
+        --years 30 --population 500 --seats 75 --engine llm --max-batch-replays 2 \\
+        --output-dir scripts/flagship_runs --resume
+
+`--engine deterministic` runs the same config through `simple_rules.py` in
+seconds and spends no GPU -- the cheap way to confirm the config plumbing before
+committing hours to an LLM arm, the same calibration-before-commit checkpoint
+`run_v7_acceptance.py` uses.
+
+`--workers` sets `parallel.intra_run_workers`. Above 1 it needs
+`--reproducibility relaxed` on vLLM (S2.1, decision D1): Phase 2's live proof found
+that parallel calls change vLLM's batches and so its answers (20/497 events differed
+between workers 1 and 8; check_intra_run_concurrency_determinism_results.md), so such
+a run is reproducible by replaying its call log (`--replay-calls-from`), not by
+re-running its seed. S2.1's sweep (scripts/run_concurrency_sweep.py) measures what it
+costs before relaxed runs are used for results.
+
+`--resume` (Phase 3): continues a crashed or deliberately-stopped run from its
+own last per-tick checkpoint (`checkpoint.json`, beside `events.jsonl` in the
+run's own directory) -- see `api.domain.polity.checkpoint` and
+`run_simulation`'s own `resume` parameter for the mechanism. Requires the SAME
+CLI args (config) the original attempt used; `run_simulation`'s own
+`config_hash` check refuses loudly, not silently, if they differ. Mutually
+exclusive with `--force`, which destroys the very run `--resume` continues.
+"""
+from __future__ import annotations
+
+import argparse
+import dataclasses
+import json
+import logging
+import shutil
+import signal
+import sys
+import time
+from collections import Counter
+from pathlib import Path
+from typing import Any
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from api.domain.polity.checkpoint import config_hash  # noqa: E402
+from api.domain.polity.config import PolityConfig, load_config, validate_config  # noqa: E402
+from api.domain.polity.indexer import RunMetrics, index_run  # noqa: E402
+from api.domain.polity.llm_call_log import CALL_LOG_FILENAME  # noqa: E402
+from api.domain.polity.llm_replay import ReplayClient  # noqa: E402
+from api.domain.polity.run_digest import FALLBACK_ALERT_THRESHOLD, write_digest  # noqa: E402
+from api.domain.polity.viz_export import export_run  # noqa: E402
+from api.domain.polity.run_polity_simulation import run_simulation  # noqa: E402
+
+
+LLM_TURNOUT_COST = 0.04
+"""S4.1 on the LLM path (plan-polity-build-order.md, "Result of step 2"): the only setting of the
+first group meeting ADR-011's four facts, adopted for the LLM engine only. The deterministic twin,
+which shares polity_config.yaml, qualified nothing, so the file keeps 0. The pass is thin: its
+retrospective voting rests on 10 incumbents with `approval` at 0, and what the cost does is make
+about 40% of voters abstain."""
+
+
+def _flagship_config(
+    *,
+    engine: str,
+    years: int,
+    population: int,
+    seats: int,
+    seed: int,
+    output_dir: Path,
+    max_batch_replays: int,
+    provider: str | None,
+    workers: int,
+    staggered_election: bool = False,
+    model: str | None = None,
+    reproducibility: str = "strict",
+    vote_mode: str | None = None,
+) -> PolityConfig:
+    config = load_config()
+    config = dataclasses.replace(
+        config,
+        run=dataclasses.replace(
+            config.run,
+            seed=seed,
+            duration_years=years,
+            population_size=population,
+            run_label=f"flagship-{years}y-p{population}",
+        ),
+        journal=dataclasses.replace(config.journal, output_dir=str(output_dir)),
+        # --- full richness: every substantive mechanism on ---
+        # Three flags here are shipped `false` and are NOT merely defaults left
+        # alone -- all three are implemented, consequential mechanisms, and the
+        # flagship is the run that is supposed to exercise them:
+        #   * candidacy.rupture_path_enabled -- the §2.4 rare path by which a
+        #     citizen declares against their own party. Without it the candidate
+        #     field is a flat one-nominee-per-party at every scale, which is also
+        #     why `max_candidates_hard_cap` can never bind and why Class B counts
+        #     zero rupture declarations (measured: polity_scale_gate_pop500_
+        #     results.md).
+        #   * institutions.blank_vote_competitive -- v4 Lot 9's live mechanism
+        #     letting a blank plurality invalidate a presidential election and
+        #     force a rerun with the previous field barred. It is bounded by
+        #     reelection_max_attempts=2, so it cannot loop.
+        #   * institutions.snap_election_on_recall -- Track A3 (2026-09-11,
+        #     lets-build-a-solid-spicy-otter.md). Without it Stage 3's own scale
+        #     probe sat vacant 15 of 32 ticks (office_occupancy=0.5152) after a
+        #     single recall, and its deterministic twin sat vacant WORSE
+        #     (0.2727, two recalls) -- the vacancy is structural to
+        #     simple_rules.py's own recall logic, not an LLM artifact, so a
+        #     flagship run with this left off would spend a large fraction of
+        #     its wall-clock on a polity with no accountability layer running
+        #     at all (pressure_action/representative_response/petitions all
+        #     require a sitting president). Bounded the same way blank-vote
+        #     reruns already are: reuses PendingRerun, capped by
+        #     reelection_max_attempts, cannot loop.
+        # Deliberately still OFF: parties.birth_enabled/death_enabled, which are
+        # parsed but not implemented (parties.py's own module docstring), and
+        # social_graph.evolving / sortition_chamber.renewable, which load_config
+        # rejects outright as designs this codebase decided against.
+        candidacy=dataclasses.replace(config.candidacy, rupture_path_enabled=True),
+        institutions=dataclasses.replace(
+            config.institutions,
+            blank_vote_competitive=True,
+            snap_election_on_recall=True,
+            # Track E, wired 2026-09-13 -- opt-in via --staggered-election, and
+            # deliberately NOT force-enabled like the three flags above.
+            # Turning it on changes the RNG draw order, so a run with it on is
+            # not comparable to the p100 seed sweep or to Phase 7 Stage 3,
+            # both of which ran without it. Same single-variable discipline as
+            # the version-pin decision in plan-distribution-positions-seeds.md
+            # §4.2: this makes Track E *runnable* from the flagship harness,
+            # it does not silently change what the next run measures.
+            staggered_election=staggered_election,
+        ),
+        legitimacy=dataclasses.replace(config.legitimacy, enabled=True),
+        mandate=dataclasses.replace(config.mandate, enabled=True),
+        petition=dataclasses.replace(config.petition, enabled=True),
+        street_pressure=dataclasses.replace(config.street_pressure, enabled=True),
+        social_graph=dataclasses.replace(config.social_graph, enabled=True),
+        events=dataclasses.replace(
+            config.events, enabled=True, scandal_enabled=True, economic_shock_enabled=True
+        ),
+        awakening=dataclasses.replace(
+            config.awakening,
+            enabled=True,
+            context_modulation=dataclasses.replace(
+                config.awakening.context_modulation,
+                # both required by config.validate_config once
+                # events/social_graph are on
+                event_salience=True,
+                neighbors_acting=True,
+            ),
+        ),
+        sortition_chamber=dataclasses.replace(config.sortition_chamber, enabled=True, seats=seats),
+        pressure_menu=dataclasses.replace(
+            config.pressure_menu,
+            electoral_only=False,
+            petition_enabled=True,
+            mobilization_enabled=True,
+        ),
+        parallel=dataclasses.replace(config.parallel, intra_run_workers=workers),
+    )
+
+    if engine == "llm":
+        llm = dataclasses.replace(config.llm, enabled=True, max_batch_replays=max_batch_replays, reproducibility=reproducibility)
+        config = dataclasses.replace(config, vote=dataclasses.replace(config.vote, turnout_cost=LLM_TURNOUT_COST))
+        if vote_mode is not None:
+            # S4.1 (ADR-011): the shipped utility mode asks the model for an audit sample of
+            # ballots only; `llm` has it cast every ballot, as every run before S4.1 did.
+            config = dataclasses.replace(config, vote=dataclasses.replace(config.vote, mode=vote_mode))
+        if provider is not None:
+            # Baseline A/B only (plan Phase 0): the shipped default is the
+            # single source of truth for which provider production uses --
+            # this override exists to time the OTHER one, not to make the
+            # choice configurable per run.
+            base_url = {
+                "vllm": "http://localhost:8000/v1",
+                "ollama": "http://localhost:11434/v1",
+            }[provider]
+            llm = dataclasses.replace(llm, provider=provider, base_url=base_url)
+        if model is not None:
+            # S2.3: the name the server serves the weights under. validate_config refuses a
+            # model with no profile in model_profiles.py -- its chunk sizes and thinking
+            # switch would otherwise be another model's.
+            llm = dataclasses.replace(llm, model=model)
+        config = dataclasses.replace(config, llm=llm)
+    return config
+
+
+def _metrics_to_json(metrics: RunMetrics) -> dict[str, Any]:
+    return {
+        "run_id": metrics.run_id,
+        "total_ticks": metrics.total_ticks,
+        "terms": [dataclasses.asdict(t) for t in metrics.terms],
+        "effective_parties": metrics.effective_parties,
+        "cohabitation_rate": metrics.cohabitation_rate,
+        "coalition_lifespans": metrics.coalition_lifespans,
+        "recalls_by_trigger": metrics.recalls_by_trigger,
+        "recalls_per_term": metrics.recalls_per_term,
+        "mandate_deviation": metrics.mandate_deviation,
+        "mandate_deviation_source": metrics.mandate_deviation_source,
+        "mandate_deviation_coverage": metrics.mandate_deviation_coverage,
+        "lame_duck_deviation_delta": metrics.lame_duck_deviation_delta,
+        "inaction_rate": metrics.inaction_rate,
+        "pressure_lever_mix": metrics.pressure_lever_mix,
+        "pressure_lever_counts": metrics.pressure_lever_counts,
+        "petition_downgrades": metrics.petition_downgrades,
+        "petition_success_rate": metrics.petition_success_rate,
+        "petition_removal_rate": metrics.petition_removal_rate,
+        "stance_distribution": metrics.stance_distribution,
+    }
+
+
+def _count_llm_decisions(journal_path: Path) -> dict[str, int]:
+    """Per-event-type counts of LLM-sourced decisions, straight off the journal.
+
+    The engine keeps no cross-run counter, and this is the number every cost
+    projection in the plan is built from -- so it is measured rather than
+    inferred from population x ticks, which would miss the awakening gate
+    entirely (it decides who is consulted at all, so the real count is well
+    below the naive product).
+
+    `codebook_version` is the discriminator: the deterministic path writes it
+    empty, the LLM path writes `config.llm.codebook_version` on every decision
+    it journals. There is no `decision_type` field on the wire.
+
+    One exception, checked rather than assumed: `_run_reaction_to_event` writes
+    `codebook_version` unconditionally, on the deterministic branch too. That
+    makes this count wrong for a deterministic run (it reports every
+    reaction_to_event as LLM-sourced), so the caller only runs it for
+    `engine == "llm"`, where the discriminator holds for every type.
+
+    These are *decisions*, not HTTP calls -- a chunked batch answers for several
+    citizens in one call, so calls = decisions / chunk size for the batched
+    types (and equal for the chunk-size-1 ones: vote_cast, chamber).
+    """
+    counts: Counter[str] = Counter()
+    with journal_path.open(encoding="utf-8") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if event.get("codebook_version"):
+                counts[str(event.get("event_type"))] += 1
+    return dict(sorted(counts.items()))
+
+
+def _write_digest_safely(
+    journal_path: Path,
+    config: PolityConfig,
+    *,
+    run_id: str,
+    outcome: str,
+    resume: bool,
+    elapsed_seconds: float,
+    error: BaseException | None,
+) -> None:
+    """A digest must never be the reason a run fails, and must never mask the
+    real error on the failure path -- the same guarantee scripts/
+    git_commit_capture.py gives a commit ("never blocks a commit over this",
+    prints a non-fatal line to stderr and returns). Note the failure path calls
+    this while an exception is already in flight, so a raise here would REPLACE
+    the real cause with a bookkeeping error: the single worst outcome
+    available."""
+    try:
+        digest_path = write_digest(
+            journal_path, config, run_id=run_id, outcome=outcome,
+            resume=resume, elapsed_seconds=elapsed_seconds, error=error,
+        )
+    except Exception as exc:  # never block or mask a run over bookkeeping
+        print(f"[run_digest] non-fatal: {exc}", file=sys.stderr, flush=True)
+        return
+    print(f"[run_digest] {outcome}: {digest_path}", file=sys.stderr, flush=True)
+    _print_fallback_verdict(digest_path)
+
+
+def _print_fallback_verdict(digest_path: Path) -> None:
+    """Say out loud, at the end of the run, whether any decision type fell back
+    past `FALLBACK_ALERT_THRESHOLD`.
+
+    The rates and alerts have been computed and written into digest.json since
+    Track C2 -- but nothing pointed a human at them, so a run degraded on one
+    whole decision type ended with output byte-identical to a clean one. On a
+    14-hour flagship run that is the difference between noticing now and
+    noticing after the analysis is built on it. Deliberately here rather than
+    in the success-only summary below: a crashed or SIGTERM'd run is exactly
+    when this matters most.
+
+    Same never-block contract as its caller: a verdict is bookkeeping, and
+    bookkeeping does not get to raise on an already-finished run."""
+    try:
+        digest = json.loads(digest_path.read_text(encoding="utf-8"))
+        alerts = digest.get("llm_fallback_alerts")
+    except (OSError, json.JSONDecodeError, AttributeError) as exc:
+        print(f"[fallback] non-fatal: could not read verdict: {exc}", file=sys.stderr, flush=True)
+        return
+    if alerts is None:
+        print(
+            "[fallback] UNKNOWN -- no progress.json, so per-type fallback rates could not be "
+            "computed. This is not 'all clear'.",
+            file=sys.stderr, flush=True,
+        )
+    elif alerts:
+        formatted = ", ".join(f"{event_type} {rate:.1%}" for event_type, rate in alerts.items())
+        print(
+            f"[fallback] ALERT -- {len(alerts)} decision type(s) above "
+            f"{FALLBACK_ALERT_THRESHOLD:.0%}: {formatted}. These decisions ran on the "
+            "deterministic fallback, not the model.",
+            file=sys.stderr, flush=True,
+        )
+    else:
+        print(f"[fallback] clear -- no decision type above {FALLBACK_ALERT_THRESHOLD:.0%}.",
+              file=sys.stderr, flush=True)
+
+
+class _Terminated(BaseException):
+    """Raised by the SIGTERM handler so a terminated run lands in the same
+    `except BaseException` as Ctrl-C. BaseException, not Exception, for the
+    same reason KeyboardInterrupt is one: this is not an error the simulation
+    should ever be tempted to catch and continue through."""
+
+
+_termination_requested = False
+"""Set by the SIGTERM handler, and the real basis for calling a run
+"interrupted" rather than "crashed".
+
+Classifying on the exception type alone is not enough, measured: a SIGTERM that
+lands while `compact_run` is inside DuckDB comes back out as
+`RuntimeError: Query interrupted` -- DuckDB catches the signal itself and
+converts it -- so the `_Terminated` never reaches us and an operator-requested
+stop would be filed as a crash. The flag says what actually happened (somebody
+asked this process to stop) independently of which exception the stack
+happened to surface."""
+
+
+def _raise_terminated(signum: int, frame: Any) -> None:
+    global _termination_requested
+    _termination_requested = True
+    raise _Terminated(f"received signal {signum}")
+
+
+def _interrupted(exc: BaseException) -> bool:
+    """A stop someone asked for (Ctrl-C or SIGTERM), as opposed to a genuine
+    failure -- see `_termination_requested` for why the flag, not the exception
+    type, is what settles it."""
+    return _termination_requested or isinstance(exc, (KeyboardInterrupt, _Terminated))
+
+
+def _replay_client_for(recorded_run_dir: Path, config: PolityConfig) -> ReplayClient:
+    """S0.6: a client answering from a recorded run's llm_calls.jsonl, refused unless
+    this invocation's config hashes the same as the recorded run's -- a replay under
+    other settings would fail on its first unrecorded request anyway, but later and
+    less legibly. config_hash ignores output_dir, so the replay can write elsewhere."""
+    if not (recorded_run_dir / CALL_LOG_FILENAME).is_file():
+        raise FileNotFoundError(
+            f"no {CALL_LOG_FILENAME} in {recorded_run_dir} -- pass the directory holding the recorded "
+            "run's events.jsonl (<output-dir>/<run-id>/run/<run-id>)"
+        )
+    recorded = json.loads((recorded_run_dir / "run_metadata.json").read_text(encoding="utf-8"))
+    if recorded.get("config_hash") != config_hash(config):
+        raise ValueError(
+            f"{recorded_run_dir} was recorded under a different config -- pass the same --years, --population, "
+            "--seats, --seed, --max-batch-replays, --provider and --staggered-election it ran with "
+            f"(recorded run_metadata.json: {recorded.get('config_overrides')})"
+        )
+    return ReplayClient.from_run_dir(recorded_run_dir)
+
+
+def run_flagship(
+    *,
+    engine: str,
+    years: int,
+    population: int,
+    seats: int,
+    seed: int,
+    output_dir: Path,
+    max_batch_replays: int,
+    provider: str | None,
+    workers: int,
+    run_id: str | None,
+    force: bool = False,
+    resume: bool = False,
+    staggered_election: bool = False,
+    replay_calls_from: Path | None = None,
+    model: str | None = None,
+    reproducibility: str = "strict",
+    vote_mode: str | None = None,
+) -> Path:
+    config = _flagship_config(
+        engine=engine,
+        years=years,
+        population=population,
+        seats=seats,
+        seed=seed,
+        output_dir=output_dir / "placeholder",
+        max_batch_replays=max_batch_replays,
+        provider=provider,
+        workers=workers,
+        staggered_election=staggered_election,
+        model=model,
+        reproducibility=reproducibility,
+        vote_mode=vote_mode,
+    )
+    validate_config(config)
+
+    effective_provider = config.llm.provider if engine == "llm" else "none"
+    run_id = run_id or f"flagship-{years}y-p{population}-{engine}"
+    run_dir = output_dir / run_id
+    if resume:
+        # Phase 3 (plan-flagship-30y-run.md): --resume needs the SAME run_dir
+        # (and, inside it, the SAME config -- run_simulation's own config_hash
+        # check is the real guard here) a crashed or deliberately-stopped
+        # attempt already created. Never deleted, never recreated -- that
+        # would destroy the checkpoint/journal this flag exists to continue.
+        if not run_dir.exists():
+            raise FileNotFoundError(f"--resume requested but {run_dir} does not exist -- nothing to resume")
+    elif run_dir.exists() and not force:
+        # Journal.__init__ opens events.jsonl in append mode, so a re-run into
+        # an existing run_id silently CONCATENATES two runs into one file --
+        # event_id restarts at 0 mid-file and every count downstream doubles.
+        # Every other runner here guards this; measured the hard way when this
+        # one did not (the Phase 5 scale gate reported 62 sortition rotations
+        # for a 30-year run that has 31).
+        raise FileExistsError(
+            f"{run_dir} already exists -- Journal appends rather than overwrites, so re-running "
+            "into it would concatenate two runs. Remove it, pass --run-id, --resume, or --force."
+        )
+    elif run_dir.exists() and force:
+        shutil.rmtree(run_dir)
+        run_dir.mkdir(parents=True, exist_ok=True)
+    else:
+        run_dir.mkdir(parents=True, exist_ok=True)
+    config = dataclasses.replace(
+        config, journal=dataclasses.replace(config.journal, output_dir=str(run_dir / "run"))
+    )
+    replay_client = _replay_client_for(replay_calls_from, config) if replay_calls_from is not None else None
+    if not resume:
+        # Skipped on resume, deliberately: rewriting this from a possibly-
+        # different set of CLI args right before run_simulation's own
+        # config_hash check might reject them would overwrite the one record
+        # of what the crashed attempt actually ran, for no benefit -- the
+        # hash check is the real guard either way.
+        (run_dir / "config.json").write_text(
+            json.dumps(dataclasses.asdict(config), indent=2, default=str), encoding="utf-8"
+        )
+
+    replay_handler = None
+    if engine == "llm":
+        engine_logger = logging.getLogger("api.domain.polity.llm_behavior_engine")
+        replay_handler = logging.FileHandler(run_dir / "replays.log", encoding="utf-8")
+        replay_handler.setLevel(logging.WARNING)
+        engine_logger.addHandler(replay_handler)
+        engine_logger.setLevel(logging.WARNING)
+
+    print(
+        f"[flagship] {run_id}: {years}y x {population} citizens, {seats} chamber seats, "
+        f"engine={engine}, provider={effective_provider}, workers={workers}, "
+        f"replays={max_batch_replays if engine == 'llm' else 0}",
+        file=sys.stderr,
+        flush=True,
+    )
+
+    start = time.monotonic()
+    # run_simulation's own journal path, computed here so the failure path can
+    # still find it: on a crash the assignment below never happens, but the
+    # journal it was writing to is deterministic (run_polity_simulation.py:517-519).
+    expected_journal = Path(config.journal.output_dir) / run_id / "events.jsonl"
+    try:
+        journal_path = run_simulation(config, run_id=run_id, llm_client=replay_client, resume=resume)
+    except BaseException as exc:
+        # BaseException, not Exception: KeyboardInterrupt (Ctrl-C) and the
+        # SIGTERM handler installed in main() both raise outside Exception, and
+        # an interrupted run is exactly the case a digest exists for. The
+        # digest is written, then the error re-raised untouched -- this changes
+        # what a failed run LEAVES BEHIND, never what it reports.
+        _write_digest_safely(
+            expected_journal, config, run_id=run_id,
+            outcome="interrupted" if _interrupted(exc) else "crashed",
+            resume=resume, elapsed_seconds=time.monotonic() - start, error=exc,
+        )
+        raise
+    finally:
+        elapsed = time.monotonic() - start
+        if replay_handler is not None:
+            logging.getLogger("api.domain.polity.llm_behavior_engine").removeHandler(replay_handler)
+            replay_handler.close()
+
+    _write_digest_safely(
+        journal_path, config, run_id=run_id, outcome="completed",
+        resume=resume, elapsed_seconds=elapsed, error=None,
+    )
+    if replay_client is not None:
+        # Every recorded call should have been asked for; leftovers mean the replay
+        # took a shorter path than the recorded run did.
+        print(
+            f"[replay] {replay_client.served} recorded calls served, {replay_client.unserved} never asked for"
+            + ("" if replay_client.unserved == 0 else " -- the replay DIVERGED from the recorded run"),
+            file=sys.stderr,
+            flush=True,
+        )
+
+    replay_count = 0
+    replays_log = run_dir / "replays.log"
+    if replays_log.is_file():
+        replay_count = sum(1 for _ in replays_log.read_text(encoding="utf-8").splitlines())
+
+    decision_counts = _count_llm_decisions(journal_path) if engine == "llm" else {}
+    total_calls = sum(decision_counts.values())
+
+    metrics = index_run(journal_path, config)
+    payload = _metrics_to_json(metrics)
+    payload["_meta"] = {
+        "run_id": run_id,
+        "engine": engine,
+        "provider": effective_provider,
+        "model": config.llm.model if engine == "llm" else None,
+        "duration_years": years,
+        "population_size": population,
+        "sortition_seats": seats,
+        "seed": seed,
+        "intra_run_workers": workers,
+        "max_batch_replays": max_batch_replays if engine == "llm" else 0,
+        "elapsed_seconds": round(elapsed, 1),
+        "replay_count": replay_count,
+        "decisions_total": total_calls,
+        "decisions_by_type": decision_counts,
+        "seconds_per_decision": round(elapsed / total_calls, 3) if total_calls else None,
+        "seconds_per_tick": round(elapsed / metrics.total_ticks, 2) if metrics.total_ticks else None,
+    }
+    metrics_path = run_dir / "metrics.json"
+    metrics_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+    # Phase 6 (plan-flagship-30y-run.md): produced automatically for every
+    # arm, not left as a separate manual step -- snapshots.jsonl (Phase 6's
+    # in-run half) and events.duckdb (compact_run, above) already exist by
+    # this point; export_run adds the one piece neither of those covers
+    # (macro/institutional/social-graph, reshaped for a UI, not re-derived).
+    # No explicit output_path: export_run's own default (beside events.jsonl)
+    # keeps it in the SAME directory as checkpoint.json/progress.json/
+    # snapshots.jsonl/events.duckdb -- run_dir here is this script's own
+    # OUTER bookkeeping directory (config.json/metrics.json), one level up
+    # from where the actual run artifacts live (run_dir / "run" / run_id).
+    export_run(journal_path, config)
+
+    print(
+        f"[flagship] {run_id}: {elapsed:.1f}s over {metrics.total_ticks} ticks, "
+        f"{total_calls} decisions, {replay_count} replays -> {metrics_path}",
+        file=sys.stderr,
+        flush=True,
+    )
+    return metrics_path
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--years", type=int, default=30)
+    parser.add_argument("--population", type=int, default=500)
+    parser.add_argument("--seats", type=int, default=75, help="sortition_chamber.seats (plan Phase 5: 15%% of pop)")
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--engine", choices=["llm", "deterministic"], default="deterministic")
+    parser.add_argument(
+        "--provider",
+        choices=["vllm", "ollama"],
+        default=None,
+        help="override the shipped provider -- baseline A/B timing only (plan Phase 0)",
+    )
+    parser.add_argument("--max-batch-replays", type=int, default=2)
+    parser.add_argument(
+        "--model", default=None,
+        help="S2.3: llm.model, the served model name (default: the shipped config's). Needs a profile in "
+             "api/domain/polity/model_profiles.py for the provider.",
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="parallel.intra_run_workers; above 1 needs --reproducibility relaxed on vllm (S2.1, D1)",
+    )
+    parser.add_argument(
+        "--reproducibility",
+        choices=("strict", "relaxed"),
+        default="strict",
+        help="llm.reproducibility: strict regenerates from the seed; relaxed allows --workers > 1 and "
+             "is reproduced by replaying the call log (S2.1, D1)",
+    )
+    parser.add_argument(
+        "--vote-mode",
+        choices=("utility", "llm"),
+        default=None,
+        help="vote.mode (S4.1, ADR-011; default: the shipped config's, utility): utility casts every ballot "
+             "from simple_rules.utility_ballot and asks the model for an audit sample; llm has the model cast "
+             "every ballot",
+    )
+    parser.add_argument(
+        "--staggered-election",
+        action="store_true",
+        help="Track E: split the presidential election across 3 ticks (declare at -2, nominate at -1, "
+             "vote on the day) instead of one tick carrying the whole ~1221-decision spike. LLM engine "
+             "only -- it is a no-op under --engine deterministic. OFF by default on purpose: it changes "
+             "the RNG draw order, so a run with it on is not comparable to one without (and invalidates "
+             "existing checkpoints via config_hash).",
+    )
+    parser.add_argument("--run-id", default=None)
+    parser.add_argument("--force", action="store_true", help="delete an existing run dir instead of refusing")
+    parser.add_argument(
+        "--resume", action="store_true",
+        help="continue a crashed or deliberately-stopped run from its own last checkpoint (Phase 3)",
+    )
+    parser.add_argument("--output-dir", type=Path, default=Path("scripts/flagship_runs"))
+    parser.add_argument(
+        "--replay-calls-from", type=Path, default=None,
+        help="S0.6: answer every LLM request from this recorded run's llm_calls.jsonl instead of the server "
+             "(the directory holding its events.jsonl). Needs the same run-shaping flags and --run-id it ran "
+             "with; the journal then reproduces the recorded one byte for byte.",
+    )
+    args = parser.parse_args(argv)
+
+    if args.replay_calls_from is not None and (args.resume or args.engine != "llm"):
+        parser.error("--replay-calls-from replays a whole LLM run: it needs --engine llm and cannot --resume")
+    if args.force and args.resume:
+        parser.error("--force and --resume are mutually exclusive -- --force destroys the run --resume continues")
+
+    # SIGTERM's default disposition kills the process outright -- no `finally`
+    # runs, so without this a terminated run leaves nothing behind at all
+    # (exactly what happened to the 2026-09-11 scale probe). Raising instead
+    # routes it into run_flagship's own `except BaseException`, which writes
+    # the digest and re-raises. SIGKILL and a power cut remain uncatchable by
+    # anything, by design of the OS -- that gap is covered by the catch-up scan
+    # in .claude/hooks/notify_run_digest.py, not here.
+    signal.signal(signal.SIGTERM, _raise_terminated)
+
+    run_flagship(
+        engine=args.engine,
+        years=args.years,
+        population=args.population,
+        seats=args.seats,
+        seed=args.seed,
+        output_dir=args.output_dir,
+        max_batch_replays=args.max_batch_replays,
+        provider=args.provider,
+        workers=args.workers,
+        run_id=args.run_id,
+        force=args.force,
+        resume=args.resume,
+        staggered_election=args.staggered_election,
+        replay_calls_from=args.replay_calls_from,
+        model=args.model,
+        reproducibility=args.reproducibility,
+        vote_mode=args.vote_mode,
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

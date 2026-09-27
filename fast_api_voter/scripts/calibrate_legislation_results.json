@@ -1,0 +1,320 @@
+{
+  "arms": [
+    {
+      "setting": {
+        "bill_interval_ticks": 1,
+        "max_bill_step": 0.05,
+        "policy_retrospection": 2.0
+      },
+      "facts": [
+        {
+          "name": "L1 checks moderate policy",
+          "holds": true,
+          "reading": "policy 0.0199 from the median, president 0.1688"
+        },
+        {
+          "name": "L2 the institution is alive",
+          "holds": false,
+          "reading": "0.23 bills enacted per term; policy moved in 9 of 10 runs"
+        },
+        {
+          "name": "L3 gridlock under cohabitation",
+          "holds": true,
+          "reading": "enacted 3/173 (1.7%) under cohabitation, 43/329 (13.1%) unified"
+        },
+        {
+          "name": "L4 cost of ruling",
+          "holds": true,
+          "reading": "governing share changes -0.30 points (retrospection 0: +0.00)"
+        }
+      ],
+      "measures": {
+        "share_change_at_0": 0.0,
+        "share_change_at_2": -0.0029999999999999914,
+        "share_change_at_5": 7.401486830834377e-18,
+        "share_change_at_10": -0.002333333333333326
+      }
+    },
+    {
+      "setting": {
+        "bill_interval_ticks": 1,
+        "max_bill_step": 0.1,
+        "policy_retrospection": 2.0
+      },
+      "facts": [
+        {
+          "name": "L1 checks moderate policy",
+          "holds": true,
+          "reading": "policy 0.0239 from the median, president 0.1688"
+        },
+        {
+          "name": "L2 the institution is alive",
+          "holds": false,
+          "reading": "0.13 bills enacted per term; policy moved in 8 of 10 runs"
+        },
+        {
+          "name": "L3 gridlock under cohabitation",
+          "holds": true,
+          "reading": "enacted 3/172 (1.7%) under cohabitation, 23/346 (6.6%) unified"
+        },
+        {
+          "name": "L4 cost of ruling",
+          "holds": true,
+          "reading": "governing share changes -0.20 points (retrospection 0: +0.00)"
+        }
+      ],
+      "measures": {
+        "share_change_at_0": 0.0,
+        "share_change_at_2": -0.0019999999999999944,
+        "share_change_at_5": -0.008666666666666661,
+        "share_change_at_10": -0.02233333333333333
+      }
+    },
+    {
+      "setting": {
+        "bill_interval_ticks": 1,
+        "max_bill_step": 0.2,
+        "policy_retrospection": 5.0
+      },
+      "facts": [
+        {
+          "name": "L1 checks moderate policy",
+          "holds": true,
+          "reading": "policy 0.0130 from the median, president 0.1688"
+        },
+        {
+          "name": "L2 the institution is alive",
+          "holds": false,
+          "reading": "0.05 bills enacted per term; policy moved in 4 of 10 runs"
+        },
+        {
+          "name": "L3 gridlock under cohabitation",
+          "holds": true,
+          "reading": "enacted 0/178 (0.0%) under cohabitation, 10/363 (2.8%) unified"
+        },
+        {
+          "name": "L4 cost of ruling",
+          "holds": true,
+          "reading": "governing share changes -0.43 points (retrospection 0: +0.00)"
+        }
+      ],
+      "measures": {
+        "share_change_at_0": 0.0,
+        "share_change_at_2": 0.0,
+        "share_change_at_5": -0.004333333333333333,
+        "share_change_at_10": -0.01
+      }
+    },
+    {
+      "setting": {
+        "bill_interval_ticks": 2,
+        "max_bill_step": 0.05,
+        "policy_retrospection": 2.0
+      },
+      "facts": [
+        {
+          "name": "L1 checks moderate policy",
+          "holds": true,
+          "reading": "policy 0.0179 from the median, president 0.1688"
+        },
+        {
+          "name": "L2 the institution is alive",
+          "holds": false,
+          "reading": "0.19 bills enacted per term; policy moved in 8 of 10 runs"
+        },
+        {
+          "name": "L3 gridlock under cohabitation",
+          "holds": true,
+          "reading": "enacted 2/88 (2.3%) under cohabitation, 36/175 (20.6%) unified"
+        },
+        {
+          "name": "L4 cost of ruling",
+          "holds": true,
+          "reading": "governing share changes -0.33 points (retrospection 0: +0.00)"
+        }
+      ],
+      "measures": {
+        "share_change_at_0": 0.0,
+        "share_change_at_2": -0.003333333333333327,
+        "share_change_at_5": -0.002333333333333326,
+        "share_change_at_10": -0.005333333333333327
+      }
+    },
+    {
+      "setting": {
+        "bill_interval_ticks": 2,
+        "max_bill_step": 0.1,
+        "policy_retrospection": 2.0
+      },
+      "facts": [
+        {
+          "name": "L1 checks moderate policy",
+          "holds": true,
+          "reading": "policy 0.0225 from the median, president 0.1688"
+        },
+        {
+          "name": "L2 the institution is alive",
+          "holds": false,
+          "reading": "0.12 bills enacted per term; policy moved in 8 of 10 runs"
+        },
+        {
+          "name": "L3 gridlock under cohabitation",
+          "holds": true,
+          "reading": "enacted 3/89 (3.4%) under cohabitation, 21/179 (11.7%) unified"
+        },
+        {
+          "name": "L4 cost of ruling",
+          "holds": true,
+          "reading": "governing share changes -0.13 points (retrospection 0: +0.00)"
+        }
+      ],
+      "measures": {
+        "share_change_at_0": 0.0,
+        "share_change_at_2": -0.001333333333333329,
+        "share_change_at_5": -0.006999999999999995,
+        "share_change_at_10": -0.018666666666666665
+      }
+    },
+    {
+      "setting": {
+        "bill_interval_ticks": 2,
+        "max_bill_step": 0.2,
+        "policy_retrospection": 2.0
+      },
+      "facts": [
+        {
+          "name": "L1 checks moderate policy",
+          "holds": true,
+          "reading": "policy 0.0124 from the median, president 0.1688"
+        },
+        {
+          "name": "L2 the institution is alive",
+          "holds": false,
+          "reading": "0.05 bills enacted per term; policy moved in 4 of 10 runs"
+        },
+        {
+          "name": "L3 gridlock under cohabitation",
+          "holds": true,
+          "reading": "enacted 0/89 (0.0%) under cohabitation, 11/186 (5.9%) unified"
+        },
+        {
+          "name": "L4 cost of ruling",
+          "holds": true,
+          "reading": "governing share changes -0.07 points (retrospection 0: +0.00)"
+        }
+      ],
+      "measures": {
+        "share_change_at_0": 0.0,
+        "share_change_at_2": -0.0006666666666666636,
+        "share_change_at_5": -0.008,
+        "share_change_at_10": -0.010333333333333335
+      }
+    },
+    {
+      "setting": {
+        "bill_interval_ticks": 4,
+        "max_bill_step": 0.05,
+        "policy_retrospection": 2.0
+      },
+      "facts": [
+        {
+          "name": "L1 checks moderate policy",
+          "holds": true,
+          "reading": "policy 0.0149 from the median, president 0.1688"
+        },
+        {
+          "name": "L2 the institution is alive",
+          "holds": false,
+          "reading": "0.14 bills enacted per term; policy moved in 8 of 10 runs"
+        },
+        {
+          "name": "L3 gridlock under cohabitation",
+          "holds": true,
+          "reading": "enacted 2/47 (4.3%) under cohabitation, 27/99 (27.3%) unified"
+        },
+        {
+          "name": "L4 cost of ruling",
+          "holds": true,
+          "reading": "governing share changes -0.33 points (retrospection 0: +0.00)"
+        }
+      ],
+      "measures": {
+        "share_change_at_0": 0.0,
+        "share_change_at_2": -0.003333333333333327,
+        "share_change_at_5": -0.0029999999999999936,
+        "share_change_at_10": -0.006999999999999995
+      }
+    },
+    {
+      "setting": {
+        "bill_interval_ticks": 4,
+        "max_bill_step": 0.1,
+        "policy_retrospection": 2.0
+      },
+      "facts": [
+        {
+          "name": "L1 checks moderate policy",
+          "holds": true,
+          "reading": "policy 0.0183 from the median, president 0.1688"
+        },
+        {
+          "name": "L2 the institution is alive",
+          "holds": false,
+          "reading": "0.09 bills enacted per term; policy moved in 7 of 10 runs"
+        },
+        {
+          "name": "L3 gridlock under cohabitation",
+          "holds": true,
+          "reading": "enacted 2/47 (4.3%) under cohabitation, 16/99 (16.2%) unified"
+        },
+        {
+          "name": "L4 cost of ruling",
+          "holds": true,
+          "reading": "governing share changes -0.07 points (retrospection 0: +0.00)"
+        }
+      ],
+      "measures": {
+        "share_change_at_0": 0.0,
+        "share_change_at_2": -0.0006666666666666617,
+        "share_change_at_5": -0.004666666666666662,
+        "share_change_at_10": -0.018333333333333333
+      }
+    },
+    {
+      "setting": {
+        "bill_interval_ticks": 4,
+        "max_bill_step": 0.2,
+        "policy_retrospection": 2.0
+      },
+      "facts": [
+        {
+          "name": "L1 checks moderate policy",
+          "holds": true,
+          "reading": "policy 0.0123 from the median, president 0.1688"
+        },
+        {
+          "name": "L2 the institution is alive",
+          "holds": false,
+          "reading": "0.04 bills enacted per term; policy moved in 3 of 10 runs"
+        },
+        {
+          "name": "L3 gridlock under cohabitation",
+          "holds": true,
+          "reading": "enacted 0/47 (0.0%) under cohabitation, 8/99 (8.1%) unified"
+        },
+        {
+          "name": "L4 cost of ruling",
+          "holds": true,
+          "reading": "governing share changes -0.07 points (retrospection 0: +0.00)"
+        }
+      ],
+      "measures": {
+        "share_change_at_0": 0.0,
+        "share_change_at_2": -0.0006666666666666636,
+        "share_change_at_5": -0.007666666666666666,
+        "share_change_at_10": -0.009333333333333332
+      }
+    }
+  ],
+  "chosen": null
+}

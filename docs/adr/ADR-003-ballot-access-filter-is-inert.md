@@ -1,8 +1,10 @@
 # ADR-003: §2.3's ballot-access filter is inert on both candidacy paths — and its inertness is population-size-dependent
 
-**Status**: Partially fixed 2026-08-29 (option 1, the rupture-path signature
-bar). Option 3 (`independent_signature_ratio`) remains open. (Was: Open,
-defect measured and fix deliberately deferred, earlier the same day.)
+**Status**: Fully resolved 2026-08-29. Option 1 (the rupture-path signature
+bar) fixed same-day. Option 3 (`independent_signature_ratio`) resolved by
+deletion, closing `docs/adr/v3-readiness-checklist.md`'s Class A2 item — see
+"Decision on option 3" below. (Was: Open, defect measured and fix
+deliberately deferred, earlier the same day.)
 **Date**: 2026-08-29
 **Context**: found while discharging Phase 1 of `plan-calibration-ambition.md`
 (the ADR-002 calibration chantier), not while looking for it
@@ -146,6 +148,26 @@ before being kept, not merely written and trusted.
 Wiring it or deleting it is a separate, smaller decision; nothing here forces
 it either way.
 
+## Decision on option 3 (2026-08-29, closing v3-readiness-checklist.md's Class A2)
+
+Deleted, not wired. "Wire it" turned out not to be the small config change it
+looked like: `party_affiliation` is typed `int | None`, but the only place
+that ever assigns it (`run_polity_simulation.py`'s population setup,
+`assign_party_affiliation`) always returns the *nearest* party's id — it
+never returns `None`. No citizen in this simulation is ever actually
+unaffiliated today. Wiring `independent_signature_ratio` would therefore mean
+designing and implementing a whole new "independent citizen" category and its
+own candidacy path from scratch, not connecting an existing one to an unread
+threshold — a real feature addition, out of scope for both this cleanup item
+and §13's own "v3 adds no new parameter" rule for the scale-up milestone this
+checklist gates.
+
+Removed from `CandidacyConfig` (`config.py`), `polity_config.yaml`, and the
+one test fixture that carried it (`test_polity_simple_rules.py`). If an
+independent-candidacy path is ever designed, it gets its own lot, its own
+ADR, and a freshly-chosen threshold — resurrecting this specific unread value
+would not save any real work.
+
 ## Consequences
 
 - **The rupture-path signature bar is now structurally correct**: a
@@ -166,13 +188,13 @@ it either way.
 - Nothing was blocked by the fix: `rupture_path_enabled` still ships `false`,
   so no shipped configuration and no published acceptance run was ever
   exercising either bar, before or after.
-- **`docs/adr/v3-readiness-checklist.md`'s Class A1 item is resolved** for
-  `rupture_signature_ratio` specifically — its `1/n` floor is gone at every
-  population size, not just raised past a higher `n`. `independent_signature_ratio`
-  (Class A2, option 3 above) remains open, and the checklist's general rule
-  (any population-ratio threshold with a `k/n` floor changes regime with `n`)
-  stays as documentation for future parameters, not specific to this one
-  anymore.
+- **`docs/adr/v3-readiness-checklist.md`'s Class A1 and A2 items are both
+  resolved.** A1 (`rupture_signature_ratio`): its `1/n` floor is gone at every
+  population size, not just raised past a higher `n`. A2
+  (`independent_signature_ratio`, option 3 above): deleted, not wired — see
+  "Decision on option 3". The checklist's general rule (any population-ratio
+  threshold with a `k/n` floor changes regime with `n`) stays as documentation
+  for future parameters, not specific to either of these anymore.
 
 ## Consequences of deferring (superseded for option 1 — kept for the record)
 

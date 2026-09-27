@@ -123,6 +123,15 @@ class Citizen:
     # post-mortem-legibility precedent as pledged_platform/revealed_position).
     # Never drawn by generate_population.
     chamber_position: tuple[float, ...] | None = None
+    # S4.3 (ADR-012): None while untracked -- dynamics.enabled / emotions.enabled off, the
+    # shipped control arm -- so a static run's checkpoints and snapshots are unchanged.
+    # latent_factors is where this citizen's two latent factors have moved to (their
+    # starting values live in LatentStructure, regenerated from the seed); the three
+    # emotions are each in [0, 1].
+    latent_factors: tuple[float, ...] | None = None
+    anger: float | None = None
+    anxiety: float | None = None
+    enthusiasm: float | None = None
 
 
 # plan-distribution-positions-seeds.md, Phase 1 (2026-08-25): position_dist
@@ -146,6 +155,42 @@ _FACTOR_STRUCTURE_LOADING_STD = 1.0
 _FACTOR_STRUCTURE_NOISE_STD = 0.3
 
 
+@dataclass(frozen=True)
+class LatentStructure:
+    """A factor_structure population's latent model: position(i, j) =
+    sigmoid(factors(i) . loadings(j) + residuals(i, j)). `anchors` are every citizen's
+    initial factors, row i for citizen_id i. S4.3 moves the factors and keeps loadings and
+    residuals, so a citizen's issues stay correlated the way they were drawn."""
+
+    loadings: np.ndarray
+    """(issue_count, 2)"""
+    anchors: np.ndarray
+    """(population_size, 2)"""
+    residuals: np.ndarray
+    """(population_size, issue_count)"""
+
+    def positions(self, factors: np.ndarray) -> np.ndarray:
+        """Issue positions for factors of shape (population_size, 2)."""
+        raw = factors @ self.loadings.T + self.residuals
+        result: np.ndarray = 1.0 / (1.0 + np.exp(-raw))
+        return result
+
+
+def _generate_latent_structure(rng: np.random.Generator, n: int, k: int) -> LatentStructure:
+    loadings = rng.normal(0.0, _FACTOR_STRUCTURE_LOADING_STD, size=(k, _FACTOR_STRUCTURE_N_FACTORS))
+    factors = rng.normal(0.0, _FACTOR_STRUCTURE_FACTOR_STD, size=(n, _FACTOR_STRUCTURE_N_FACTORS))
+    noise = rng.normal(0.0, _FACTOR_STRUCTURE_NOISE_STD, size=(n, k))
+    return LatentStructure(loadings=loadings, anchors=factors, residuals=noise)
+
+
+def latent_structure(config: CitizensConfig, population_size: int, seed: int) -> LatentStructure:
+    """The latent model generate_population drew its positions from, redrawn from the same
+    seed: generate_population draws it first, so a fresh generator reproduces it exactly."""
+    if config.position_dist != "factor_structure":
+        raise ValueError(f"citizens.position_dist {config.position_dist!r} has no latent structure")
+    return _generate_latent_structure(np.random.default_rng(seed), population_size, config.issue_count)
+
+
 def _generate_factor_structure_positions(rng: np.random.Generator, n: int, k: int) -> np.ndarray:
     """Low-rank factor model, sigmoid-squashed into (0, 1): position(i, j) =
     sigmoid(factors(i) . loadings(j) + noise(i, j)). loadings are drawn once
@@ -159,12 +204,8 @@ def _generate_factor_structure_positions(rng: np.random.Generator, n: int, k: in
     not artificially collapsed into a false consensus). Sigmoid, not clipping:
     compresses smoothly into the open interval, no artificial mass exactly at
     0 or 1 the way clipping a Gaussian would produce."""
-    loadings = rng.normal(0.0, _FACTOR_STRUCTURE_LOADING_STD, size=(k, _FACTOR_STRUCTURE_N_FACTORS))
-    factors = rng.normal(0.0, _FACTOR_STRUCTURE_FACTOR_STD, size=(n, _FACTOR_STRUCTURE_N_FACTORS))
-    noise = rng.normal(0.0, _FACTOR_STRUCTURE_NOISE_STD, size=(n, k))
-    raw = factors @ loadings.T + noise
-    result: np.ndarray = 1.0 / (1.0 + np.exp(-raw))
-    return result
+    structure = _generate_latent_structure(rng, n, k)
+    return structure.positions(structure.anchors)
 
 
 def generate_population(config: CitizensConfig, population_size: int, seed: int) -> list[Citizen]:

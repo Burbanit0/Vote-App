@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import Navbar from './Navbar';
 import { useTheme, useExpertMode, usePlainLanguage } from '../stores/useUIStore';
@@ -38,16 +38,18 @@ describe('Navbar', () => {
     expect(screen.getByText('Vote Lab')).toBeInTheDocument();
   });
 
-  it('renders the three destinations: Playground → Laboratoire → À vous de jouer', () => {
+  it('renders the four destinations: Playground → Laboratoire → À vous de jouer → Polity', () => {
     const { container } = renderNavbar();
     const hrefs = Array.from(container.querySelectorAll('nav a[href^="/"]')).map((a) =>
       a.getAttribute('href')
     );
     expect(hrefs).toEqual(
-      expect.arrayContaining(['/playground', '/laboratoire', '/a-vous-de-jouer'])
+      expect.arrayContaining(['/playground', '/laboratoire', '/a-vous-de-jouer', '/polity'])
     );
     expect(hrefs.indexOf('/playground')).toBeLessThan(hrefs.indexOf('/laboratoire'));
     expect(hrefs.indexOf('/laboratoire')).toBeLessThan(hrefs.indexOf('/a-vous-de-jouer'));
+    expect(hrefs.indexOf('/a-vous-de-jouer')).toBeLessThan(hrefs.indexOf('/polity'));
+    expect(screen.getByTestId('nav-polity')).toHaveTextContent('Polity');
   });
 
   it('tells assistive tech which destination is the current page', () => {
@@ -62,6 +64,27 @@ describe('Navbar', () => {
       'page'
     );
     expect(container.querySelector('a[href="/playground"]')).not.toHaveAttribute('aria-current');
+    expect(screen.getByTestId('nav-polity')).not.toHaveAttribute('aria-current');
+    Object.defineProperty(window, 'location', {
+      value: { ...window.location, pathname: original },
+      writable: true,
+    });
+  });
+
+  it('marks Polity as the current page there, and a click on it closes the collapsed menu', () => {
+    const original = window.location.pathname;
+    Object.defineProperty(window, 'location', {
+      value: { ...window.location, pathname: '/polity' },
+      writable: true,
+    });
+    renderNavbar();
+    const link = screen.getByTestId('nav-polity');
+    expect(link).toHaveAttribute('aria-current', 'page');
+    fireEvent.click(screen.getByTestId('navbar-toggle'));
+    expect(screen.getByTestId('navbar-toggle')).toHaveAttribute('aria-expanded', 'true');
+    link.addEventListener('click', (e) => e.preventDefault());
+    fireEvent.click(link);
+    expect(screen.getByTestId('navbar-toggle')).toHaveAttribute('aria-expanded', 'false');
     Object.defineProperty(window, 'location', {
       value: { ...window.location, pathname: original },
       writable: true,

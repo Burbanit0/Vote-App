@@ -1,0 +1,284 @@
+# Contrats de décision — ce que chaque type de décision LLM doit recevoir
+
+Document de spécification. Il définit, pour les 9 types de décision LLM du simulateur, **quel
+comportement est attendu** et **quelles informations le prompt doit porter pour que la question
+posée soit répondable**.
+
+Il existe parce qu'une série de mesures (septembre 2026) a montré que plusieurs types de décision
+émettent une constante quel que soit l'état du citoyen, et que la cause la plus probable n'est ni
+le modèle ni le format, mais **une question mal posée** : une grandeur brute envoyée sans échelle,
+sans historique et sans critère. Voir `fast_api_voter/scripts/check_pressure_missing_threshold_results.md`
+et `synthese-programme-llm-2026-09-10.md`.
+
+Ce document est la référence contre laquelle toute modification de prompt doit être vérifiée.
+
+---
+
+## 1. Le contrat
+
+Un type de décision est **bien posé** si et seulement s'il satisfait les cinq clauses suivantes.
+Les quatre premières sont une lecture directe du §3.3 et du §7bis.9d du document de conception ;
+la cinquième vient de `plan-decision-quality-validation.md`.
+
+| # | Clause | Fondement |
+|---|---|---|
+| **C1** | **Le but** de l'agent est énoncé. | §3.3 item 1 |
+| **C2** | **Les règles du jeu** sont énoncées : options légales, bornes, codes valides. | §3.3 item 2 |
+| **C3** | **L'état est perceptible** : toute grandeur dont dépend la décision porte *une* échelle — une valeur de comparaison propre à l'enregistrement, une normalisation, ou un historique récent. | §3.3 item 3, qui nomme explicitement « positions des autres acteurs, **historique récent** » |
+| **C4** | **Rien de prescriptif** : aucune règle ne fait correspondre un état à une action. | §3.3 (« aucun critère théorique prescriptif ») et §7bis.9d (« si le seuil décide de l'action … un LLM décoratif … l'inverse exact de l'objectif du §3.3 ») |
+| **C5** | **Noté sur l'échelle qu'on lui montre** : si la validation raisonne en unités de X, le prompt exprime la grandeur en unités de X. | `plan-decision-quality-validation.md` définit le « cas non ambigu » comme `gap < 0,5 × blank_threshold` ou `> 1,5 × blank_threshold` |
+
+**C3 et C4 ne s'opposent pas — elles se complètent.** C4 interdit de dire *quoi choisir* ; C3 exige
+de dire *ce que les nombres veulent dire*. Envoyer à un citoyen son propre seuil de tolérance en le
+définissant, sans jamais dire ce qu'il faut faire au-dessus, satisfait les deux. Écrire « si
+self_gap > blank_threshold alors act=4 » viole C4.
+
+**C5 est la clause la plus facile à violer sans s'en apercevoir.** Aujourd'hui le protocole de
+validation note `pressure_action` en multiples de `blank_threshold` — une échelle que le prompt ne
+montre jamais. On corrige une copie sur un barème que l'élève n'a pas vu.
+
+---
+
+## 2. Audit des 9 types
+
+Établi par lecture directe du code (`llm_behavior_engine.py`, `simple_rules.py`), septembre 2026.
+
+| Type | C1 | C2 | C3 | C4 | C5 | Statut mesuré |
+|---|:--:|:--:|:--:|:--:|:--:|---|
+| `vote_cast` | ✅ | ✅ | ✅ | ⚠️ | ✅ | **Fiable** (23/24) |
+| `campaign_positioning` | ✅ | ✅ | ✅ | ✅ | n/a | Pas de collapse (autre défaut : 50-66 % d'échec) |
+| `party_nomination_choice` | ✅ | ✅ | ⚠️ | ✅ | n/a | Pas de collapse ; échec C2 confirmé, corrigé et vérifié en direct |
+| `candidacy_considered` | ✅ | ✅ | ❌ | ✅ | ❌ | Pas de collapse, 64 % de justesse, calibration C3 essayée et négative |
+| `coalition_decision` | ✅ | ✅ | ⚠️ | ✅ | n/a | **Collapse confirmé, calibration C3 essayée et négative** |
+| `representative_response` | ✅ | ✅ | ✅ | ✅ | n/a | **Collapse fixé (partiel)**, voir §3 |
+| `chamber_deliberation` | ✅ | ✅ | ❌ | ✅ | n/a | Non tranché |
+| `reaction_to_event` | ✅ | ✅ | ❌ | ✅ | n/a | Pas de collapse détecté sur l'axe testé |
+| `pressure_action` | ✅ | ✅ | ❌ | ✅ | ❌ | **Collapse confirmé** |
+
+### La régularité que l'audit fait apparaître
+
+**Les deux seuls types qui portent une véritable référence d'échelle sont les deux qui ne
+collapsent pas.**
+
+- `vote_cast` envoie `distances` (pré-calculées) **et** `blank_threshold` par électeur, **et**
+  énonce la règle d'acceptabilité mot pour mot. C'est le seul type noté fiable — et le seul qui
+  porte un ⚠️ en C4, puisqu'il énonce bel et bien un critère. Ce n'est pas une violation : la règle
+  n'y couvre que l'*acceptabilité* ; le classement entre candidats acceptables, le motif et les cas
+  limites restent en arbitrage libre. C'est le modèle à suivre — **calibrer la partie mécanique,
+  laisser libre la partie de jugement.**
+- `campaign_positioning` envoie `electorate_mean`, une référence de population. Pas de collapse.
+
+Inversement, tout type qui envoie une grandeur nue sans référence collapse ou sous-performe :
+`pressure_action` (`self_gap` seul), `candidacy_considered` (`ambition_score` seul),
+`representative_response` (`L`, `mandate_dev`, `street` — décrits verbalement, jamais normalisés),
+`chamber_deliberation`, `reaction_to_event` (`event_salience` seul).
+
+`coalition_decision` est le cas intermédiaire instructif : il porte une échelle pour les **sièges**
+(`majority_seats_threshold`, `initiator_shortfall`) mais **aucune** pour `distance_to_initiator`,
+qui est justement le signal d'affinité sur lequel porte la décision. Il collapse.
+
+---
+
+## 3. Comportement attendu, type par type
+
+Chaque énoncé est rédigé pour être **testable** : il doit être possible de construire deux
+situations qui, selon lui, exigent des réponses différentes.
+
+### `pressure_action` (dt=10) — pilote de correction
+
+> Un citoyen consulté, dont l'écart au titulaire dépasse nettement sa propre tolérance, choisit plus
+> souvent d'agir qu'un citoyen dont l'écart est nettement en dessous. **Où** il place sa limite, et
+> **quel** levier il choisit dans le menu légal, restent son arbitrage.
+
+- Libre : le point de bascule, le choix du levier, la réaction à `neighbors_acting`.
+- À calibrer (C3) : `self_gap` doit venir avec une échelle. Trois véhicules légaux — le seuil propre
+  au citoyen (défini, jamais prescriptif), l'écart au tick précédent (« historique récent »), la
+  position dans la cohorte consultée.
+- Note C4 : `deterministic_pressure_action` compare `gap < blank_threshold`. **Cette règle ne doit
+  jamais être écrite dans le prompt** — ce serait exactement le « LLM décoratif » du §7bis.9d.
+
+**Vérifié en direct, 2026-09-10** (`fast_api_voter/scripts/check_pressure_calibration_matrix_results.md`) :
+l'énoncé ci-dessus tient — **à la taille de batch 1 seulement**. Les quatre véhicules calibrés (seuil,
+historique, rang de cohorte, écart à la promesse) obtiennent chacun 100 % (9/9 essais) sur le sous-
+ensemble non ambigu, contre le menu fermé ET le menu ouvert. **Aucun ne survit au-delà** : à taille 5
+et 25, les cinq variantes retombent au niveau d'une réponse constante (~52 %), de façon uniforme et
+totale, pas graduelle. Le mécanisme de calibration n'est donc pas en cause — c'est le partage d'un
+appel entre plusieurs citoyens qui detruit le signal, quelle que soit la donnée fournie. La taille de
+batch devient la seule question restante (Phase D).
+
+**Correction, 2026-09-11** : un vrai défaut du script (`half = size // 2 = 0` à `size=1`) faisait
+échantillonner uniquement le pôle HIGH non ambigu à cette taille — le 9/9 ci-dessus confirme la
+sensibilité côté HIGH, pas les deux sens. Corrigé (répartition du reste aléatoire, pas fixée au pôle
+HIGH) ; conclusion inchangée, corroborée indépendamment par `check_pressure_shipped_wiring_results.md`
+(12 citoyens alternant les deux côtés, 12/12).
+
+**Coût mesuré, 2026-09-10** (`fast_api_voter/scripts/check_pressure_batch_size_cost_results.md`) :
+la taille de batch 1 coûte **2,8-3,0× le temps de la taille 25 — pas 25×**. La plupart de la latence
+d'un appel à cette taille de prompt est un coût fixe par requête, pas le traitement des tokens du
+prompt : le temps par appel chute de 2554 ms à 303 ms quand la taille de batch se réduit. Extrapolé
+sur les 120 ticks du run flagship (30 ans × 4 ticks/an) contre l'ancre réelle de 137 décisions/tick
+mesurée en Phase 7 : **+25,4 s/tick, +0,85 h sur les ~35,6 h du run complet** — moins de 2,5 % du
+temps total. **La taille de batch 1 est abordable.**
+
+**Livré, 2026-09-10** (`fast_api_voter/scripts/check_pressure_shipped_wiring_results.md`) :
+`decide_pressure_actions` appelle désormais `build_pressure_*_prompt_calibrated` avec le seul
+véhicule seuil (`PRESSURE_THRESHOLD_SIGNAL` — le moins cher des quatre, et le seul dont la Phase D a
+mesuré le coût), en chunks de taille 1 (`_PRESSURE_CALIBRATED_CHUNK_SIZE`, indépendant de
+`config.llm.max_batch_size`). Historique/rang de cohorte/écart à la promesse ont eux aussi obtenu
+100 % en Phase C mais **ne sont pas livrés** : leur coût n'a jamais été mesuré, et l'expédier sur la
+seule foi d'un résultat de qualité serait exactement l'erreur que la Phase D interdit. Vérifié en
+direct de bout en bout (`check_pressure_shipped_wiring.py`, vrai serveur vLLM, 12 citoyens,
+`blank_threshold` hétérogène) : 12 appels HTTP (un par citoyen), `blank_threshold` confirmé sur le
+fil, 12/12 décodés légalement, 12/12 d'accord avec le critère non ambigu pré-enregistré. `pressure_action`
+satisfait maintenant les 5 clauses du contrat (§1). **Les 5 phases du plan sont closes pour ce type.**
+
+### `candidacy_considered` (dt=2)
+
+> Un citoyen dont l'ambition est nettement supérieure à ce qui est nécessaire pour se présenter s'y
+> engage plus souvent qu'un citoyen nettement en dessous.
+
+- Libre : le point de bascule, le poids relatif d'`ambition_score` et de `perceived_support`.
+- À calibrer : `ambition_score` est envoyé nu. `config.ambition_threshold` n'apparaît nulle part.
+  ⚠️ Ce seuil n'est **pas** une vérité terrain valide pour ce chemin (ADR-002 : `decide_candidacies`
+  ne le lit jamais — seul le chemin déterministe et son fallback le consultent).
+
+**Essayé et NÉGATIF, 2026-09-11** (Track B3, `lets-build-a-solid-spicy-otter.md`,
+`scripts/check_candidacy_calibration_results.md`) : `build_candidacy_system_prompt_toon_calibrated`
+énonce la MOYENNE d'`ambition_score` dans la population, calculée une fois par l'appelant comme
+`support`. Vérifié en direct sur une vraie population p500 (`generate_population`, config shippée,
+non filtrée, même découpage/schéma/think=False que la production) : le taux déclaré **augmente**
+(202/500, 40,4 % → 238/500, 47,6 %) et la justesse **baisse** (63,6 % → 58,4 %). **Non livré** —
+`decide_candidacies` appelle toujours le prompt non calibré. Deuxième cas confirmé (après
+`coalition_decision`, Track B2) où C3 n'explique pas le défaut : énoncer la moyenne donne au modèle
+un point de comparaison qui argumente dans le mauvais sens (« ambition supérieure à la moyenne » se
+lit comme une raison de se présenter, alors que la candidature réelle exige une combinaison bien
+plus rare que la simple moyenne supérieure). Règle également en négatif la piste du renoncement/
+cooldown après défaite proposée par le plan comme réponse à CETTE barre précise : un tel mécanisme
+ne peut supprimer que la candidature répétée, or cette population fraîchement générée n'a aucun
+historique électoral et sur-déclare quand même.
+
+### `representative_response` (dt=6)
+
+> Un élu dont la légitimité s'effondre et qui fait face à une mobilisation soutenue réagit
+> différemment d'un élu en position confortable.
+
+- Libre : la stance choisie, l'ampleur et la direction des ajustements.
+- **Construit et livré, 2026-09-11** (Track B1, `lets-build-a-solid-spicy-otter.md`,
+  `scripts/check_response_calibration_results.md`) : `build_response_system_prompt_calibrated`
+  énonce désormais l'échelle de `mandate_dev` (borne géométrique exacte [0,1] — `pledge_weights`
+  renormalise toujours à somme 1, jamais une constante shippée choisie à la main) et de `street`
+  (asymptote `1/(1-decay)` dérivée de `street_pressure.decay`, ≈6,67 à la config livrée).
+  Résultat mesuré : `P(stance=1)` n'est plus plat — au pôle zéro-pression exact (mandate_dev=0,
+  street=0), le modèle bascule en stance=3 (SILENCE), `P(stance=1)` chutant de ~1,0 à 0,12.
+  **Lire précisément** : c'est une distinction zéro/non-zéro réelle, pas un gradient lisse — tous
+  les points au-dessus de zéro restent à `P(stance=1)≈1,0`. Le collapse est cassé, pas lissé ;
+  la sensibilité à l'AMPLEUR de la pression une fois qu'elle existe reste non établie.
+
+### `coalition_decision` (dt=9)
+
+> Un parti idéologiquement proche du formateur rejoint plus souvent qu'un parti maximalement
+> éloigné, à situation institutionnelle égale.
+
+- Libre : tout l'arbitrage — c'est le type où le §3.3 est le plus explicitement invoqué.
+- **Essayé et NÉGATIF, 2026-09-11** (Track B2, `lets-build-a-solid-spicy-otter.md`,
+  `scripts/check_coalition_calibration_results.md`) : `build_coalition_system_prompt_calibrated`
+  énonce exactement la référence proposée ci-dessus (distance moyenne entre partis sièges,
+  formateur compris). Résultat sur la même sonde à 5 points : **aucune amélioration** —
+  différence pôle-à-pôle -0,0004 (référence : -0,0026, donc plus petite, pas plus grande),
+  étalement complet 0,047 (référence : 0,035), même creux au même point médian dans les deux
+  cas. **Non livré** — `decide_coalition` continue d'appeler la version non calibrée. C3 n'est
+  donc pas l'explication ici, contrairement à `pressure_action` (corrigé) et
+  `representative_response` (corrigé partiellement, B1). Deux lectures possibles, aucune
+  tranchée : la référence choisie ne correspond peut-être pas à ce qu'un parti pèse réellement,
+  ou « rejoindre quand on est invité » est peut-être une politique institutionnellement plausible
+  et largement indépendante de la distance idéologique — voir le doc de résultats avant de
+  trancher dans un sens ou l'autre.
+
+### `chamber_deliberation` (dt=11)
+
+> Un membre dont la position exprimée a dérivé de sa position sincère se comporte différemment d'un
+> membre resté aligné.
+
+- Libre : ajuster ou non, de combien, dans quelle direction.
+- À calibrer : les deux vecteurs sont envoyés bruts ; l'écart entre eux n'est jamais donné, ni borné
+  par `sortition_chamber.max_deliberation_delta`.
+
+### `reaction_to_event` (dt=8)
+
+> Un citoyen déjà très sensibilisé réagit moins fortement à un nouvel événement qu'un citoyen
+> vierge (rendements décroissants).
+
+- Libre : l'ampleur de `salience_delta`, le seuil de pertinence personnelle.
+- À calibrer : `event_salience` est envoyé nu, sans `events.max_reaction_delta` comme échelle.
+- Note : c'est le seul énoncé déjà partiellement vérifié — la branche SCANDAL montre 0,20 contre
+  0,15 selon la salience antérieure, dans le bon sens.
+
+### Types conformes — à ne pas modifier
+
+`vote_cast`, `campaign_positioning` satisfont le contrat et ne montrent pas de collapse.
+
+`party_nomination_choice` ne collapse pas non plus, mais échoue réellement C2 : le prompt ne
+formule jamais la borne haute de `winner_position`, propre à chaque parti (« position (1 a N) »
+sans jamais dire N). **Confirmé en direct, 2026-09-11** (Track C1 step E,
+`fast_api_voter/scripts/check_party_nomination_position_logprobs_results.md`) — reproduction
+EXACTE du run Stage 3 (`checkpoint.json`, mêmes 5 partis, mêmes candidats déclarés) : le parti 3
+(19 candidats) répond de nouveau `winner_position=26`, et les deux chiffres sont pris avec
+confiance (P("2")=0,994, P("6"|"2")=0,892 — les alternatives ne sont pas le jeton de fin de
+nombre). **Ce n'est pas un accident de décodage, c'est une erreur de comprehension confiante** —
+verdict pré-enregistré tranché avant de corriger. `platform_distance` porte toujours un ⚠️ en C3
+(sans référence propre) mais compare des candidats **entre eux** dans un même enregistrement, ce
+qui fournit l'échelle implicitement.
+
+**Livré, 2026-09-11** (Track C1 steps A+B) : `validate_party_nomination_decision` tourne désormais
+À L'INTÉRIEUR du `decode=` de `_complete_and_decode_with_replay`, donnant au budget de replay déjà
+câblé (température/seed variés) une vraie chance de produire une réponse différente avant tout
+repli. Si le lot entier épuise son budget, chaque parti contesté est ensuite retenté
+INDIVIDUELLEMENT (même prompt, restreint à ce seul parti) avant de basculer au tiebreak
+déterministe — un seul parti mal répondu ne fait plus couler les quatre autres. Stage 3 tombait à
+10/15 (67 %) ; ce mécanisme ne change rien à la confiance du modèle sur un cas comme le parti 3
+(l'erreur est reproductible, pas du bruit d'échantillonnage), mais isole désormais son coût aux
+partis réellement fautifs.
+
+**Livré et vérifié en direct, 2026-09-11** (Track C1 step C) : `candidate_count` (`len(members)`)
+ajouté à chaque bloc parti du prompt utilisateur, et le prompt système énonce désormais que
+`winner_position` doit rester entre 1 et cette valeur POUR CE PARTI précis — un fait structurel sur
+le format de réponse (C2), jamais une règle de jugement (C4 intact). Re-exécution de la même
+reproduction exacte (step E, script inchangé) : le parti 3 répond maintenant `19` (légal, sur 19
+candidats) au lieu de `26`, avec une confiance au moins égale (P("1")=0,9999, P("9"|"1")=0,9985).
+**Portée honnête** : ceci corrige la légalité (C2), pas nécessairement la qualité du jugement — les
+5 réponses de cette même exécution (`19,36,1,19,73` contre des effectifs `43,40,31,19,73`) excluent
+un simple réflexe « répéter candidate_count » (le parti 2 répond le MINIMUM), mais personne n'a
+vérifié que `winner_position` suit réellement `ambition_score`/`perceived_support`/
+`platform_distance` comme l'exige la clause comportementale de dt=4 ci-dessus — question restée
+ouverte avant comme après cette correction.
+
+---
+
+## 4. Ce que ce document engage
+
+- Toute modification de prompt se vérifie contre C1-C5 **avant** d'être mesurée.
+- Aucune correction ne peut faire passer un type de ❌ en ✅ sur C3 en violant C4. Si la seule façon
+  de faire fonctionner un type est de lui dicter la règle, c'est un **résultat** à consigner (ce
+  type ne supporte pas l'arbitrage libre à cette échelle de modèle), pas un correctif à livrer.
+- Les énoncés du §3 sont des hypothèses testables, pas des acquis. Chacun doit être confronté au
+  barème de `plan-decision-quality-validation.md` (≥ 90 % sur les cas non ambigus) avant d'être
+  traité comme le comportement réel du simulateur.
+
+**Statut** (mis à jour 2026-09-13 — la ligne précédente, datée 2026-09-11, était déjà périmée le
+jour même : elle ne comptait pas `representative_response`, construit et livré plus tard cette
+même journée) : audit établi ; **quatre véhicules sur six construits, deux livrés**.
+`pressure_action` était le pilote, conformément à `plan-decision-quality-validation.md` qui prescrit
+de valider la méthode sur ce type avant de construire les sondes restantes — c'est fait, et la
+méthode a tenu (Phases B→E, livré le 2026-09-10, commit `da83b28`).
+
+Sur les cinq autres véhicules décrits au §3 :
+- **Construits et livrés** : `representative_response` (Track B1, partiel — voir §3).
+- **Construits, testés, essayés et NÉGATIFS — pas livrés** : `candidacy_considered` (Track B3),
+  `coalition_decision` (Track B2). C3 n'expliquait le défaut dans aucun des deux cas ; voir §3 pour
+  le détail de chaque échec.
+- **Restent écrits et non construits** : `chamber_deliberation`, `reaction_to_event`.
+
+Et pour `pressure_action` lui-même, **un signal sur quatre est shippé** : seul
+`PRESSURE_THRESHOLD_SIGNAL` est câblé en production. `PRESSURE_HISTORY_SIGNAL`,
+`PRESSURE_PERCENTILE_SIGNAL` et `PRESSURE_PLEDGE_SIGNAL` sont définis dans le moteur mais n'ont
+aucun appelant de production — ils ont passé la Phase C (qualité) et jamais la Phase D (coût).

@@ -1,13 +1,16 @@
 # docker-compose.llm.yml — vLLM inference server (v4 vLLM switch, §15bis.6)
 #
-# ⚠ UNVERIFIED — never executed. A GPU (RTX 5070 Ti) became available in
-# this project's environment on 2026-08-17 and has been used to validate
-# Ollama on GPU (llm_batching_determinism_results_gpu.md) -- but no vLLM
-# server has ever been stood up on it, so this file remains untested for
-# that reason specifically. Every prior LLM finding here (batching
-# determinism, structured-output quirks, think=False bugs) was measured
-# against Ollama, not vLLM.
-# The design doc (§15) names this file; this is its first materialization.
+# Live-verified 2026-09-05 (PR #273, scripts/vllm_determinism_results.md) on
+# native Ubuntu, after a WSL2/Docker Desktop platform bug (`RuntimeError: UVA
+# is not available`) blocked a first live attempt on 2026-08-30. B2
+# (temperature=0 + pinned model ⇒ determinism) holds under this config,
+# including real concurrent batching -- see that results doc for the full
+# protocol and two config bugs found+fixed along the way (max-model-len
+# sizing, then a stability correction; both baked into the flags below).
+# Every prior LLM *content-quality* finding in this codebase (batching
+# quirks aside from B2, structured-output quirks, think=False bugs) was
+# still measured against Ollama, not vLLM -- axis (b) in
+# plan-vllm-switch-readiness.md, unresolved.
 #
 # Kept separate from docker-compose.yml (api + redis) so the api+redis stack
 # is unaffected on machines without a GPU — this file is opt-in.
@@ -33,12 +36,21 @@
 #                                   Ollama under decide_campaign_positioning
 #                                   (see that function's own docstring).
 #
-# ⚠ Different weights from the Ollama default: qwen3:8b on Ollama is a
-# quantized GGUF; Qwen/Qwen3-8B here would be served in bf16. Every
-# committed live results doc (ollama_structured_output_results.md,
-# batch_size_boundary_results.md, lot6_batch_reliability_results.md,
-# acceptance_v4_results.md) describes the Ollama/GGUF configuration only —
-# none of those numbers are assumed to transfer here.
+# ⚠ Different weights from the Ollama default, on purpose: Qwen/Qwen3-8B
+# in bf16 needs ~16GB for weights ALONE (8B params x 2 bytes) -- on this
+# project's 16.3GB card (RTX 5070 Ti) that leaves ~0 headroom for KV
+# cache and would almost certainly OOM at launch. Qwen/Qwen3-8B-AWQ
+# (4-bit, ~4-5GB weights) is used instead -- see
+# plan-vllm-switch-readiness.md for the full VRAM reasoning. This is a
+# SECOND variable confounded with the serving-layer switch, not a
+# transparent substitution: every committed live results doc
+# (ollama_structured_output_results.md, batch_size_boundary_results.md,
+# lot6_batch_reliability_results.md, acceptance_v4_results.md) describes
+# Ollama running the UN-quantized GGUF qwen3:8b -- none of those numbers,
+# nor the token-budget/chunk-size calibrations derived from them
+# (_POSITIONING_THINK_TOKEN_ALLOWANCE, _VOTE_CAST_MAX_CHUNK_SIZE,
+# _CHAMBER_MAX_CHUNK_SIZE), are assumed to transfer to AWQ without
+# re-verification (plan-vllm-switch-readiness.md §3, axis b).
 #
 # §15's own vigilance note: beyond ~4 concurrent requests per GPU, time-to-
 # first-token tends to double. Doesn't bind THIS client, which never issues
@@ -49,29 +61,138 @@
 # polity_config.yaml's llm.cache_backend comment) and this lot does not
 # build it.
 
+name: polity-vllm   # explicit, distinct from docker-compose.yml / .ollama.yml
+                    # -- see docker-compose.ollama.yml's own comment on this;
+                    # without it all files under fast_api_voter/ share one
+                    # implicit project name (the directory name) and every
+                    # up/down/ps warns about the others' containers as
+                    # "orphans" of its own project
+
 services:
   vllm:
-    # PLACEHOLDER — never a guessed version, never `latest` (same rule this
-    # project enforces on llm.model, config.py). Fill in the real pinned
-    # tag at first deployment and commit it.
-    image: vllm/vllm-openai:<PINNED_TAG>
+    # Pinned 2026-09-24 (scripts/check_vllm_030_bump_results.md): confirmed to exist on
+    # Docker Hub directly by check_llm_stack_versions.py (the latest stable tag,
+    # pushed 2026-09-22), amd64. Was v0.29.0 (pushed 2026-09-09) until then, v0.28.0
+    # (pushed 2026-08-26) before. 0.30.0 still warns that `--model` will be removed
+    # in a future version (it still works); move to the positional form when a
+    # release removes it.
+    image: vllm/vllm-openai:v0.30.0
     container_name: vllm-polity
     command:
       - "--model"
-      - "Qwen/Qwen3-8B"
+      - "Qwen/Qwen3-8B-AWQ"         # NOT the base repo -- see the VRAM note
+                                    # above. Official Qwen release, not a
+                                    # community requant.
       - "--revision"
-      - "<HF_COMMIT_SHA>"          # pin the weights, not just the repo id
+      - "4da05a8edb55c6046cce958586c33b61da07bb79"  # pinned via the HF API
+                                    # directly 2026-08-29 (`sha` field of
+                                    # /api/models/Qwen/Qwen3-8B-AWQ), not
+                                    # copied from a webpage.
+      - "--quantization"
+      - "awq_marlin"                # vLLM's AWQ kernel; awq_marlin (not
+                                    # plain awq) is the maintained path on
+                                    # Ampere+ GPUs including this card
+                                    # (Blackwell).
       - "--served-model-name"
       - "qwen3:8b"                 # must match polity_config.yaml's llm.model
+                                    # -- deliberately does NOT match the repo
+                                    # actually served (Qwen3-8B-AWQ, not the
+                                    # base repo): every prompt/journal byte
+                                    # downstream stays identical across
+                                    # providers. Not a labeling error --
+                                    # see plan-vllm-switch-readiness.md §6.
       - "--reasoning-parser"
       - "qwen3"
+      - "--structured-outputs-config"
+      - '{"backend": "xgrammar", "disable_any_whitespace": true}'
+                                    # FIX for a severe, vLLM-specific bug measured live
+                                    # 2026-09-06 (scripts/check_vllm_*_sort_keys_
+                                    # truncation_results.md): 2 of 9 decision types
+                                    # (PressureDecision, CandidacyDecision) and one
+                                    # ordering of a 3rd (PartyNominationDecision) hit a
+                                    # non-terminating whitespace-generation loop after
+                                    # certain field-name orderings -- valid tokens
+                                    # through the last-but-one field, then endless
+                                    # "\n   " until the token budget is exhausted.
+                                    # xgrammar's default grammar allows arbitrary
+                                    # whitespace between JSON tokens; greedy decoding
+                                    # (temperature=0) could get stuck exploiting that
+                                    # flexibility instead of emitting the next expected
+                                    # token. disable_any_whitespace removes that
+                                    # flexibility from the compiled grammar --
+                                    # `backend: xgrammar` must be explicit (the flag
+                                    # is rejected under `backend: auto`, vLLM's own
+                                    # default). Re-verified after this fix: all 9
+                                    # decision types clean under BOTH field orderings
+                                    # (not just the shipped one), full batching-
+                                    # determinism protocol (check_vllm_batching_
+                                    # determinism.py) still PASSES, think=True/
+                                    # reasoning-parser output unaffected. See
+                                    # scripts/check_vllm_disable_any_whitespace_fix_
+                                    # results.md for the full verification.
       - "--max-model-len"
-      - "8192"                     # re-measure live against compute_max_tokens(25)
-                                    # plus a 25x20-dim prompt before trusting this
+      - "16384"                    # measured live 2026-09-05: 8192 was too small.
+                                    # compute_max_tokens(25)=3036 + a real 25x20-dim
+                                    # vote prompt (~5157 input tokens) alone already
+                                    # exceeded 8192; decide_campaign_positioning's
+                                    # output budget alone (_POSITIONING_THINK_TOKEN_
+                                    # ALLOWANCE=8000 + compute_max_tokens, up to 9836)
+                                    # exceeds it regardless of input. 16384 clears
+                                    # both with real headroom.
+                                    # ⚠ First tried 24576: worked on one cold start,
+                                    # then CUDA-OOM'd on a plain `compose restart`
+                                    # (vllm's own free-memory auto-profiling isn't
+                                    # stable run to run on this 16GB card -- 5.93 GiB
+                                    # KV cache reserved one run, 8.02 GiB the next,
+                                    # for the SAME flag -- the second left only 37MiB
+                                    # free and died during CUDA-graph/sampler warmup,
+                                    # not under load). 16384 + the explicit
+                                    # --gpu-memory-utilization below replace that
+                                    # auto-profiling with a fixed, reproducible
+                                    # budget instead of chasing a larger one. Verify
+                                    # with >=3 consecutive clean restarts before
+                                    # trusting this, not just one -- that's exactly
+                                    # what 24576 lacked when it fooled a first pass.
+      - "--gpu-memory-utilization"
+      - "0.88"                     # explicit, not vLLM's own auto-tuned default
+                                    # (observed 0.92 -- the value that left only
+                                    # 37MiB free above). Was 0.80 until 2026-09-26:
+                                    # the EAGLE-3 draft head below takes 2.15 GiB, so
+                                    # the budget grew to keep a KV pool that holds
+                                    # one 16k sequence (22,896 tokens, 1.40 sequences,
+                                    # against 26,704 before). Verified with three
+                                    # consecutive clean restarts (check_vllm_eagle3_
+                                    # results.md); re-verify after any change here.
       - "--port"
       - "8000"
       - "--seed"
       - "42"
+      - "--enable-prompt-tokens-details"
+                                    # S0.5 (plan-polity-build-order.md): reports
+                                    # usage.prompt_tokens_details.cached_tokens, which
+                                    # llm_calls.jsonl records per call -- without it the
+                                    # field is null and prefix-cache hits are invisible
+                                    # to time attribution. Reporting only: it changes
+                                    # the usage block, not generation.
+      - "--speculative-config"
+      - '{"method": "eagle3", "model": "RedHatAI/Qwen3-8B-Thinking-speculator.eagle3", "revision": "7073be9cfb319c1cbf84d3f4c7592ee9fcdc31a5", "num_speculative_tokens": 3}'
+                                    # EAGLE-3, adopted 2026-09-26 by the owner (check_vllm_eagle3_
+                                    # results.md). n-gram speculation was dropped 2026-09-20
+                                    # (check_vllm_speculation_ab_results.md) because Model Runner V2
+                                    # does not support it; EAGLE-type methods are not on v0.30.0's
+                                    # V2-unsupported list, so this speculates AND keeps V2. Against
+                                    # the same server without it: a 2-year 12-worker run 32% shorter,
+                                    # two 8-year one-worker runs 38% shorter (1173 and 1098 s against
+                                    # 1891 and 1785 s), vote_cast and chamber (the two families
+                                    # production caps at 2048 thinking tokens) valid and byte-identical,
+                                    # three clean restarts. The head is Apache-2.0, 2.15 GiB, pinned by
+                                    # revision, draft length 3, trained on thinking traces.
+                                    # Costs, accepted: a smaller KV pool (see the memory flag above);
+                                    # WITHOUT the 2048 cap three bank cases ran away in thinking (~14k
+                                    # reasoning tokens, no answer) and campaign_positioning is uncapped
+                                    # in production; same-seed byte-identity is unproven either way
+                                    # (OBS-020) and the owner does not rely on it -- a run's record is its
+                                    # call log (llm_calls.jsonl), and a relaxed run replays from it.
     ports:
       - "8000:8000"
     ipc: host                      # vLLM's own recommendation, for its shared-memory tensor cache
