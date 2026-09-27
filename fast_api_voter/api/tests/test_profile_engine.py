@@ -516,3 +516,50 @@ def test_endpoint_full_ballot_reports_no_flips(client: TestClient):
     assert res["ballot_type"] == "full"
     assert res["winner_flips"] == []
     assert res["incompatible_methods"] == []
+
+
+class TestStrategicVoterCap:
+    """compute_strategic re-runs every method per sampled voter: ~101s at 1000
+    voters and 8 candidates, against a 180s worker timeout. It caps the
+    electorate at 500, as /api/v1 does; the live read-out keeps 1000."""
+
+    @staticmethod
+    def _voters_built(monkeypatch, **request):
+        import api.domain.election.workers_playground as play_mod
+
+        seen = []
+
+        def stop(source, cands, num_voters, *args, **kwargs):
+            seen.append(num_voters)
+            raise ValueError("stop after build_profile's arguments")
+
+        monkeypatch.setattr(play_mod, "build_profile", stop)
+        body, status = play_mod._profile_simulate_worker(
+            {"candidates": [{"name": "A"}, {"name": "B"}], **request}
+        )
+        assert status == 400
+        return seen[0]
+
+    def test_strategic_caps_the_electorate(self, monkeypatch):
+        assert self._voters_built(monkeypatch, num_voters=1000, compute_strategic=True) == 500
+
+    def test_the_live_read_out_keeps_the_full_electorate(self, monkeypatch):
+        assert self._voters_built(monkeypatch, num_voters=1000) == 1000
+
+    def test_a_handcrafted_matrix_over_the_cap_is_refused_not_truncated(self):
+        from api.domain.election.workers_playground import _profile_simulate_worker
+
+        body, status = _profile_simulate_worker({
+            "source": "handcrafted", "candidates": [{"name": "A"}, {"name": "B"}],
+            "handcrafted_matrix": [[1.0, 0.0]] * 501, "compute_strategic": True,
+        })
+        assert status == 400 and "500 with compute_strategic" in body["error"]
+
+    def test_the_schema_bounds_a_handcrafted_matrix(self):
+        from pydantic import ValidationError
+
+        from api.schemas.election import ProfileSimulateRequest
+
+        with pytest.raises(ValidationError):
+            ProfileSimulateRequest(candidates=[{"name": "A"}, {"name": "B"}],
+                                   source="handcrafted", handcrafted_matrix=[[1.0, 0.0]] * 1001)

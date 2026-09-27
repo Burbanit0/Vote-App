@@ -12,7 +12,7 @@ one they behave exactly as before -- polity imports the engine allocators and
 passes none, so its seat allocation is untouched. With one, a tie is drawn by
 lot among the tied names sorted, matching `_district_winner`. The theory
 endpoint has no seed field, so its four divisor methods break a tie by name
-instead (`_hamilton`, untouched, breaks a remainder tie by name too).
+instead, and `_hamilton` breaks an exact remainder tie by name too.
 """
 import random
 
@@ -32,6 +32,7 @@ from api.domain.election.workers_playground import _assembly_worker
 from api.domain.theory.workers import (
     _adams_m,
     _apportionment_worker,
+    _hamilton,
     _huntington,
     _jefferson,
     _webster,
@@ -391,6 +392,23 @@ TWO_DISTRICTS = [
 ]
 
 
+class TestHamilton:
+    """Every party's remainder is exactly 2/3 (1*10/6, 1*10/6, 4*10/6), so the
+    two leftover seats go to A and B by name. Float remainders put C's 1 ulp
+    ahead of B's and gave C the seat."""
+
+    def test_an_exact_remainder_tie_is_decided_by_name(self):
+        assert _hamilton({"A": 1, "B": 1, "C": 4}, 10) == {"A": 2, "B": 2, "C": 6}
+        assert _hamilton({"A": 1, "B": 1, "C": 7}, 3) == {"A": 1, "B": 0, "C": 2}
+
+    def test_listing_order_does_not_matter(self):
+        assert _hamilton({"C": 4, "B": 1, "A": 1}, 10) == {"A": 2, "B": 2, "C": 6}
+
+    def test_largest_remainder_still_wins_when_there_is_no_tie(self):
+        # quotas 5.5, 3.3, 1.2: floors 5+3+1, the one leftover seat to A.
+        assert _hamilton({"A": 55, "B": 33, "C": 12}, 10) == {"A": 6, "B": 3, "C": 1}
+
+
 class TestWorkersSeedTheirLot:
     """Every worker that allocates seats passes a generator, and the *right*
     one: the default is the old first-listed behaviour, invisible to mypy and
@@ -478,16 +496,16 @@ class TestWorkersAllocateOnExactCounts:
         assert sum(seen[0].values()) == 60  # every voter, none rounded away
 
     def test_districts_hands_over_the_national_counts_not_rounded_shares(self, monkeypatch):
-        """8 districts of 90 voters at seed 204: the national counts are Alice
-        468 / Bob 18 / Carol 234, so the 8th seat is an exact tie (468/6 ==
-        234/3). Each district's share is rounded to 4 places before it is
-        summed (0.5222 for 47/90), which turned those into 5.2001 / 0.1998 /
-        2.5999 and hid the tie from the lot."""
+        """6 districts of 90 voters at seed 180: the national counts are Alice
+        375 / Bob 15 / Carol 150, so the 6th seat is an exact tie (375/5 ==
+        150/2). Summing per-district shares rounded to 4 places (as the
+        national_vote_share output still does) blurs such a tie and hides it
+        from the lot, so the allocator must get the integer counts."""
         seen = _spy_votes(monkeypatch, workers_mod, "_dhondt")
         assert _districts_worker(
-            {"seed": 204, "voters_per_district": 90, "num_districts": 8}
+            {"seed": 180, "voters_per_district": 90, "num_districts": 6}
         )[1] == 200
-        assert seen == [{"Alice": 468, "Bob": 18, "Carol": 234}]
+        assert seen == [{"Alice": 375, "Bob": 15, "Carol": 150}]
 
 
 @pytest.mark.parametrize("worker", [_stv_worker, _multiwinner_compare_worker])

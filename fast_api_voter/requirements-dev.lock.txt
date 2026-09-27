@@ -92,7 +92,7 @@ fastapi==0.141.1
     # via
     #   -c requirements.lock.txt
     #   -r requirements.txt
-filelock==3.32.6
+filelock==4.0.0
     # via cachecontrol
 frozenlist==1.8.0
     # via
