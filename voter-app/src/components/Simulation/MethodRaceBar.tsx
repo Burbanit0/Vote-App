@@ -13,6 +13,7 @@
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/badge';
+import { listNames } from '@/lib/listNames';
 import { MethodStreamStats } from '../../hooks/useMonteCarloStream';
 
 const ROW_H = 36;
@@ -45,12 +46,27 @@ function candidateColor(name: string, allCandidates: string[]): string {
   return idx >= 0 ? CAND_COLORS[idx % CAND_COLORS.length] : '#6c757d';
 }
 
-// ── Types + pure sort live in lib/simulationKernels (imported by the Web
-//    Worker, which cannot load React). Re-exported for existing importers. ────
+// ── Pure sort ─────────────────────────────────────────────────────────────────
 
-import { sortMethods, type MethodRow } from '../../lib/simulationKernels';
+interface MethodRow {
+  method: string;
+  winner: string[];
+  stability: number; // [0, 1]
+  rank: number; // 0 = most stable
+}
 
-export { sortMethods, type MethodRow };
+export function sortMethods(partialResults: Record<string, MethodStreamStats>): MethodRow[] {
+  return Object.entries(partialResults)
+    .map(([method, stats]) => {
+      const winner = stats.most_common_winner;
+      // The leading share itself, not a lookup by one tied name: the sort order
+      // and every rank below derive from this.
+      const stability = Math.max(0, ...Object.values(stats.winner_distribution));
+      return { method, winner, stability, rank: 0 };
+    })
+    .sort((a, b) => b.stability - a.stability)
+    .map((row, i) => ({ ...row, rank: i }));
+}
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -68,7 +84,7 @@ const MethodRaceBar: React.FC<Props> = ({ partialResults, isRunning }) => {
   const allCandidates = useMemo(() => {
     const names = new Set<string>();
     for (const s of Object.values(partialResults)) {
-      if (s.most_common_winner) names.add(s.most_common_winner);
+      for (const w of s.most_common_winner) names.add(w);
       for (const c of Object.keys(s.winner_distribution)) names.add(c);
     }
     return [...names].sort();
@@ -90,12 +106,13 @@ const MethodRaceBar: React.FC<Props> = ({ partialResults, isRunning }) => {
             <Badge
               key={r.method}
               style={{
-                background: candidateColor(r.winner ?? '', allCandidates),
+                background:
+                  r.winner.length === 1 ? candidateColor(r.winner[0], allCandidates) : undefined,
                 fontSize: '0.72rem',
               }}
               data-testid={`stable-badge-${r.method}`}
             >
-              🏆 {r.method}: {r.winner} {Math.round(r.stability * 100)}%
+              🏆 {r.method}: {listNames(r.winner)} {Math.round(r.stability * 100)}%
             </Badge>
           ))}
         </div>
@@ -150,7 +167,8 @@ const MethodRaceBar: React.FC<Props> = ({ partialResults, isRunning }) => {
         {/* Method rows — keyed by method name so CSS transitions animate correctly */}
         {rows.map((row) => {
           const barW = Math.max(0, row.stability * barMaxW);
-          const color = candidateColor(row.winner ?? '', allCandidates);
+          // A tied row has no single colour; fall back to the neutral one.
+          const color = candidateColor(row.winner.length === 1 ? row.winner[0] : '', allCandidates);
           const y = row.rank * ROW_H + 16;
 
           return (

@@ -8,17 +8,15 @@ engine utils + the shared ._electorate / ._helpers.
 """
 from __future__ import annotations
 
-import random as _random
-from collections import Counter
+from collections import Counter, defaultdict
 from operator import itemgetter
-from typing import Any, Dict, List, Optional  # noqa: F401
+from typing import Any, Dict, List, Mapping, Optional  # noqa: F401
 
 import numpy as _np
 
-from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.simulation_metrics import compare_all_methods
-from ._electorate import _build_base_electorate, _reseed_and_build_electorate
-from ._helpers import gini as _gini
+from ._electorate import _build_base_electorate, _build_electorate_from_seed
+from ._helpers import modal_keys, reject_unknown_methods, tied_extremes
 
 
 # ── Hotelling-Downs equilibrium ────────────────────────────────────────────────
@@ -51,11 +49,7 @@ def _hotelling_score(
         return 0.0
 
     score: float
-    if method in ("plurality", "irv"):
-        winners = utilities.argmax(axis=1)
-        score = int((winners == cand_idx).sum()) / N
-
-    elif method == "borda":
+    if method == "borda":
         ranks  = _np.argsort(-utilities, axis=1)
         points = _np.zeros((N, C))
         for k in range(C):
@@ -68,19 +62,25 @@ def _hotelling_score(
         approved = utilities > means
         score = int(approved[:, cand_idx].sum()) / N
 
-    else:
+    else:   # plurality -- the worker has already rejected any other name
         winners = utilities.argmax(axis=1)
         score = int((winners == cand_idx).sum()) / N
 
     return score
 
 
+#: The candidate objectives /hotelling can climb (no IRV: it has no smooth share).
+HOTELLING_METHODS = ("plurality", "borda", "approval")
+
+
 def _hotelling_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /hotelling — extracted for FastAPI v2 reuse."""
+    """/hotelling — Hotelling-Downs iterative best-response Nash equilibrium."""
     num_voters     = max(50,  min(500, int(data.get("num_voters",   200))))
     ideology       = str(data.get("ideology",   "random"))
     seed           = int(data.get("seed",         42))
     method         = str(data.get("method",     "plurality"))
+    if err := reject_unknown_methods([method], HOTELLING_METHODS):
+        return err
     num_iterations = max(1,  min(20,  int(data.get("num_iterations", 10))))
     step_size      = max(0.01, min(0.15, float(data.get("step_size",   0.05))))
     cand_specs     = data.get("candidates", [
@@ -93,7 +93,7 @@ def _hotelling_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         return {"error": "At least 2 candidates required"}, 400
 
     # ── Build fixed electorate ─────────────────────────────────────────────
-    candidates, voters, _, cand_names, issues = _reseed_and_build_electorate(
+    candidates, voters, _, cand_names, issues = _build_electorate_from_seed(
         cand_specs, num_voters, ideology, seed
     )
 
@@ -249,22 +249,26 @@ def _esteban_ray_index(positions: List[float], n_bins: int = 20) -> float:
     return round(p, 6)
 
 
-def _winner_entropy(winners: List[Optional[str]]) -> float:
-    """Normalised Shannon entropy of winner distribution ∈ [0, 1]."""
-    valid = [w for w in winners if w]
-    if not valid:
+def _winner_entropy(weights: Mapping[str, float]) -> float:
+    """Normalised Shannon entropy of a winner distribution ∈ [0, 1].
+
+    Takes weights rather than a list of names: a simulation whose methods tie
+    has no single winner, so it contributes 1/k to each of its k tied leaders
+    instead of one arbitrary name (which used to be whichever method the rule
+    table happened to list first).
+    """
+    total = sum(weights.values())
+    if total <= 0:
         return 1.0
-    counts = Counter(valid)
-    total  = len(valid)
-    probs  = [c / total for c in counts.values()]
+    probs  = [w / total for w in weights.values() if w > 0]
     import math as _math
-    entropy = -sum(p * _math.log2(p) for p in probs if p > 0)
-    max_e   = _math.log2(len(counts)) if len(counts) > 1 else 1.0
+    entropy = -sum(p * _math.log2(p) for p in probs)
+    max_e   = _math.log2(len(probs)) if len(probs) > 1 else 1.0
     return round(entropy / max_e if max_e > 0 else 0.0, 4)
 
 
 def _polarization_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /polarization — extracted for FastAPI v2 reuse."""
+    """/polarization — Per-ideology Esteban-Ray index + method robustness scan."""
     num_voters     = max(50,  min(300, int(data.get("num_voters",   150))))
     seed           = int(data.get("seed", 42))
     num_simulations = max(5, min(50,  int(data.get("num_simulations", 20))))
@@ -285,7 +289,7 @@ def _polarization_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
     for ideology in ideology_range:
         # ── Build reference electorate to compute polarization index ──────
-        candidates, voters, true_utilities, cand_names, issues = _reseed_and_build_electorate(
+        candidates, voters, true_utilities, cand_names, issues = _build_electorate_from_seed(
             cand_specs, num_voters, ideology, seed
         )
 
@@ -301,12 +305,12 @@ def _polarization_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         # Per-method: collect regrets and winner lists
         method_regrets:  Dict[str, List[float]] = {}
         method_winners:  Dict[str, List[Optional[str]]] = {}
-        global_winners:  List[Optional[str]] = []
+        # Per-simulation winner weight: a tie splits its vote across the tied
+        # leaders, so `winner_stability` no longer depends on rule-table order.
+        global_winners:  Dict[str, float] = defaultdict(float)
 
         for sim_idx in range(num_simulations):
             sim_seed = seed + sim_idx + 1
-            _random.seed(sim_seed)
-            _np.random.seed(sim_seed)
 
             _, sim_voters, sim_utils, _ = _build_base_electorate(
                 cand_specs, num_voters, ideology, sim_seed, issues
@@ -329,11 +333,11 @@ def _polarization_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
                 md.get("winner") for md in methods_data.values() if md.get("winner")
             ]
             if winners_this:
-                most_common_count = Counter(winners_this).most_common(1)[0][1]
-                agreement_sum += most_common_count / len(winners_this)
-                global_winners.append(Counter(winners_this).most_common(1)[0][0])
-            else:
-                global_winners.append(None)
+                counts_this = Counter(winners_this)
+                leaders = modal_keys(counts_this)
+                agreement_sum += max(counts_this.values()) / len(winners_this)
+                for leader in leaders:
+                    global_winners[leader] += 1 / len(leaders)
 
             for method_name, md in methods_data.items():
                 if method_name not in method_regrets:
@@ -353,8 +357,7 @@ def _polarization_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             m: round(sum(v) / len(v), 6)
             for m, v in method_regrets.items() if v
         }
-        best_method  = min(avg_regrets, key=lambda k: avg_regrets[k]) if avg_regrets else ""
-        worst_method = max(avg_regrets, key=lambda k: avg_regrets[k]) if avg_regrets else ""
+        best_method, worst_method = tied_extremes(avg_regrets)
 
         results.append({
             "ideology":          ideology,
@@ -382,20 +385,6 @@ def _polarization_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
             f"dans {pct}% des simulations."
         )
 
-    # 2. Most robust method under high polarization
-    high_pol = [r for r in results_sorted if r["polarization_index"] > 0.2]
-    if high_pol:
-        all_best: Counter[str] = Counter(r["best_method"] for r in high_pol if r["best_method"])
-        if all_best:
-            robust = all_best.most_common(1)[0][0]
-            # Compare to worst
-            all_worst: Counter[str] = Counter(r["worst_method"] for r in high_pol if r["worst_method"])
-            fragile = all_worst.most_common(1)[0][0] if all_worst else ""
-            findings.append(
-                f"{robust.capitalize()} est la méthode la plus robuste dans les "
-                f"électorats polarisés — régret bayésien moyen inférieur à {fragile}."
-            )
-
     # 3. Agreement drops
     if len(results_sorted) >= 2:
         first_agree = results_sorted[0]["agreement_rate"]
@@ -422,155 +411,6 @@ def _polarization_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
 
 # ── Quadratic Funding endpoint ─────────────────────────────────────────────────
 
-def _quadratic_funding_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /quadratic-funding — extracted for FastAPI v2."""
-    num_voters       = max(20,  min(500, int(data.get("num_voters",   100))))
-    ideology         = str(data.get("ideology",   "random"))
-    seed             = int(data.get("seed",         42))
-    budget_per_voter = max(1.0, min(1000.0, float(data.get("budget_per_voter", 100.0))))
-    matching_pool    = max(0.0, float(data.get("matching_pool", 10000.0)))
-    projects_raw     = data.get("projects", [
-        {"name": "Éducation",    "x": -0.4},
-        {"name": "Santé",        "x":  0.0},
-        {"name": "Infrastructure","x":  0.5},
-        {"name": "Environnement","x": -0.6},
-    ])
-    projects_raw = projects_raw[:8]
-
-    if len(projects_raw) < 2:
-        return {"error": "At least 2 projects required"}, 400
-
-    _random.seed(seed)
-    _np.random.seed(seed)
-
-    project_names: List[str] = [str(p.get("name", f"Project {i}")) for i, p in enumerate(projects_raw)]
-    project_xs:   List[float] = [max(-1.0, min(1.0, float(p.get("x", 0.0)))) for p in projects_raw]
-
-    # ── Generate electorate ────────────────────────────────────────────────
-    issues = DEFAULT_ISSUES
-    dummy_cands = [
-        {"name": f"_P{i}", "x": project_xs[i], "y": 0.0}
-        for i in range(len(project_names))
-    ]
-    _, voters, true_utilities, _ = _build_base_electorate(
-        dummy_cands, num_voters, ideology, seed, issues
-    )
-    # Map dummy candidate names back to project names
-    proj_utilities: Dict[Any, Dict[str, float]] = {
-        v["id"]: {project_names[j]: true_utilities[v["id"]][f"_P{j}"]
-                  for j in range(len(project_names))}
-        for v in voters
-    }
-
-    # ── Individual contributions (proportional to utility) ─────────────────
-    # c_ip = utility(v,p) / Σ_p utility(v,p) * budget_per_voter
-    contributions: Dict[str, float] = {p: 0.0 for p in project_names}
-
-    # Per-voter, per-project contributions matrix (for QF)
-    voter_contribs: List[Dict[str, float]] = []
-    for v in voters:
-        uid = v["id"]
-        u   = proj_utilities[uid]
-        total_u = sum(u.values()) or 1.0
-        vc: Dict[str, float] = {}
-        for p in project_names:
-            c = u.get(p, 0.0) / total_u * budget_per_voter
-            vc[p]               = c
-            contributions[p]   += c
-        voter_contribs.append(vc)
-
-    total_private = sum(contributions.values()) or 1.0
-
-    # ── QF allocation ──────────────────────────────────────────────────────
-    qf_scores: Dict[str, float] = {}
-    for p in project_names:
-        sqrt_sum = sum(_np.sqrt(max(0.0, vc[p])) for vc in voter_contribs)
-        qf_scores[p] = float(sqrt_sum ** 2)
-
-    total_qf = sum(qf_scores.values()) or 1.0
-    qf_matching: Dict[str, float] = {
-        p: qf_scores[p] / total_qf * matching_pool for p in project_names
-    }
-
-    # ── 1P1V allocation ────────────────────────────────────────────────────
-    vote_counts: Counter[str] = Counter()
-    for v in voters:
-        uid = v["id"]
-        u   = proj_utilities[uid]
-        fav = max(u, key=lambda k: u[k])
-        vote_counts[fav] += 1
-
-    n_voters = len(voters) or 1
-    p1v1_matching: Dict[str, float] = {
-        p: vote_counts.get(p, 0) / n_voters * matching_pool for p in project_names
-    }
-
-    # ── Proportional allocation ────────────────────────────────────────────
-    prop_matching: Dict[str, float] = {
-        p: contributions[p] / total_private * matching_pool for p in project_names
-    }
-
-    # ── Assemble project results ───────────────────────────────────────────
-    projects_out: List[Dict[str, Any]] = []
-    for p in project_names:
-        priv = round(contributions[p], 2)
-        mtch = round(qf_matching[p],   2)
-        projects_out.append({
-            "name":            p,
-            "private_funding": priv,
-            "matching":        mtch,
-            "total":           round(priv + mtch, 2),
-            "qf_score":        round(qf_scores[p], 2),
-        })
-
-    winner = max(project_names,
-                 key=lambda p: contributions[p] + qf_matching[p])
-
-    # Mechanism comparison (total funding under each mechanism)
-    def _totals(matching_dict: Dict[str, float]) -> Dict[str, float]:
-        return {p: round(contributions[p] + matching_dict[p], 2) for p in project_names}
-
-    mechanism_comparison = {
-        "1p1v":        _totals(p1v1_matching),
-        "proportional": _totals(prop_matching),
-        "qf":           _totals(qf_matching),
-    }
-
-    # Gini of total allocations under each mechanism
-    gini_coefficients = {
-        m: _gini(list(mechanism_comparison[m].values()))
-        for m in ("1p1v", "proportional", "qf")
-    }
-
-    # Pedagogical note
-    qf_winner   = max(project_names, key=lambda p: mechanism_comparison["qf"][p])
-    prop_winner = max(project_names, key=lambda p: mechanism_comparison["proportional"][p])
-    if qf_winner != prop_winner:
-        note = (
-            f"QF élit '{qf_winner}' (Gini={gini_coefficients['qf']:.2f}) "
-            f"tandis que le proportionnel élit '{prop_winner}' "
-            f"(Gini={gini_coefficients['proportional']:.2f}). "
-            "QF amplifie les projets avec beaucoup de petits donateurs."
-        )
-    else:
-        note = (
-            f"Les trois mécanismes s'accordent sur '{qf_winner}'. "
-            f"QF est tout de même plus égalitaire "
-            f"(Gini QF={gini_coefficients['qf']:.2f} vs "
-            f"proportionnel={gini_coefficients['proportional']:.2f})."
-        )
-
-    return {
-        "projects":              projects_out,
-        "winner":                winner,
-        "mechanism_comparison":  mechanism_comparison,
-        "gini_coefficients":     gini_coefficients,
-        "vote_shares":           {p: round(vote_counts.get(p, 0) / n_voters, 4)
-                                  for p in project_names},
-        "matching_pool":         matching_pool,
-        "budget_per_voter":      budget_per_voter,
-        "pedagogical_note":      note,
-    }, 200
 
 
 # ── Affective polarization endpoint ──────────────────────────────────────────
@@ -616,7 +456,8 @@ def _run_all_on_utilities(
 
 
 def _affective_polarization_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /affective-polarization — extracted for FastAPI v2."""
+    """/affective-polarization — Iyengar 2019: voters penalise candidates from the opposing
+    political camp."""
     num_voters       = max(50,  min(500, int(data.get("num_voters",   200))))
     ideology         = str(data.get("ideology",    "random"))
     seed             = int(data.get("seed",          42))
@@ -632,7 +473,7 @@ def _affective_polarization_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any]
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
 
-    candidates, voters, sincere_utilities, cand_names, issues = _reseed_and_build_electorate(
+    candidates, voters, sincere_utilities, cand_names, issues = _build_electorate_from_seed(
         cand_specs, num_voters, ideology, seed
     )
 
@@ -682,7 +523,6 @@ def _affective_polarization_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any]
     method_changes: Counter[str] = Counter()
     for sim_idx in range(num_simulations):
         s = seed + sim_idx + 1
-        _random.seed(s); _np.random.seed(s)
         _, sv, su, _ = _build_base_electorate(cand_specs, num_voters, ideology, s, issues)
         vcamps = {}
         for v in sv:
@@ -702,7 +542,6 @@ def _affective_polarization_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any]
     }
 
     # ── Affect curve (hostility 0 → 1 in 11 steps) ────────────────────────
-    _random.seed(seed); _np.random.seed(seed)
     affect_curve: List[Dict[str, Any]] = []
     for step in range(11):
         h = round(step / 10, 1)

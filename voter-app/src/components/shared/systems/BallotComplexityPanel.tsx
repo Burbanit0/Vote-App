@@ -2,7 +2,7 @@
  * BallotComplexityPanel — simulates how ballot design complexity
  * causes spoiled (null) ballots and which voting methods lose the most votes.
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { $api } from '../../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
@@ -26,10 +26,8 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { useElection } from '../../../stores/useElectionStore';
-import PinToCentralButton from '../ui/PinToCentralButton';
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
-
-const DEBOUNCE_MS = 400;
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -120,33 +118,23 @@ const BallotComplexityPanel: React.FC = () => {
   const data: ComplexityData | null = (sim.data as ComplexityData | undefined) ?? null;
   const loading = sim.isPending;
   const error = sim.isError ? t('ballot.error') : null;
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const runSimulation = useCallback(
-    (edu: number, ftv: number) => {
-      sim.mutate({
-        body: {
-          candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
-          num_voters: config.num_voters,
-          ideology: config.ideology,
-          seed: config.seed,
-          education_level: edu,
-          first_time_voter_pct: ftv,
-        },
-      });
-    },
-    [config, t, sim]
-  );
+  const runSimulation = (edu: number, ftv: number) => {
+    sim.mutate({
+      body: {
+        candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
+        num_voters: config.num_voters,
+        ideology: config.ideology,
+        seed: config.seed,
+        education_level: edu,
+        first_time_voter_pct: ftv,
+      },
+    });
+  };
 
   const handleSimulate = () => runSimulation(eduLevel, ftvPct);
 
-  const schedule = useCallback(
-    (edu: number, ftv: number) => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => runSimulation(edu, ftv), DEBOUNCE_MS);
-    },
-    [runSimulation]
-  );
+  const schedule = useDebouncedCallback(runSimulation);
 
   // Auto-recalculate when sliders change after first run
   const hasData = data !== null;
@@ -209,32 +197,6 @@ const BallotComplexityPanel: React.FC = () => {
             {loading ? <Spinner size="sm" /> : t('ballot.run')}
           </Button>
         </Col>
-        {data &&
-          data.results.length > 0 &&
-          (() => {
-            // ballot data already has winner-per-method! Build the map
-            const winnersByMethod: Record<string, string | null> = {};
-            data.results.forEach((r) => {
-              winnersByMethod[r.method] = r.winner;
-            });
-            const changedCount = data.results.filter((r) => r.winner_changed).length;
-            return (
-              <Col xs="auto">
-                <PinToCentralButton
-                  type="ballot"
-                  icon="📋"
-                  label={t('ballot.run')}
-                  summary={
-                    changedCount > 0
-                      ? `${changedCount}/${data.results.length} ${t('lab.methodsChanged')}`
-                      : t('lab.winnerStable')
-                  }
-                  methodsChanged={changedCount}
-                  winnersByMethod={winnersByMethod}
-                />
-              </Col>
-            );
-          })()}
       </Row>
 
       {!data && !loading && !error && (

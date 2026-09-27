@@ -1,11 +1,15 @@
-"""Tests for the six cardinal rules that no test file covered.
+"""Tests for the cardinal rules that no test file covered.
 
-simulation_score_utils.py exports 11 rules. Before this file, six of them had no
+Before this file, six of simulation_score_utils.py's rules had no
 dedicated test and were absent from the engine-parity harness (which locks only
 score, star, cumulative, maximin and nash). Widening mutmut's test selection from
 14 to 25 files moved the ordinal module from 440 to 337 survivors and left the
 cardinal module at 284 — not one mutant died, because every file added tested an
-ordinal rule. That isolated the gap to exactly these six functions.
+ordinal rule. That isolated the gap to exactly those six functions — five of them
+here, plus get_score_distribution_analysis, since deleted because nothing but its
+tests called it. get_simple_score_winner (never one of the six, but just as
+unasserted: only domain workers and TestClient routes this selection excludes
+exercised it) moved in from the file that used to hold it and the regret tests.
 
 These assert on the NUMBERS, not just the winner. A test that only checks who won
 leaves every arithmetic mutant alive: 0.5*mean + 0.5*median survives becoming
@@ -17,14 +21,13 @@ operators aim.
 import pytest
 
 from api.engine.utils.simulation_score_utils import (
-    _mj_majority_gauge,
-    _mj_median_grade,
+    _mj_winner,
     _utility_to_grade,
     get_evaluative_winner,
     get_majority_judgment_winner,
     get_mean_median_hybrid_winner,
     get_median_voting_winner,
-    get_score_distribution_analysis,
+    get_simple_score_winner,
     get_variance_based_winner,
 )
 
@@ -146,78 +149,6 @@ def test_variance_based_empty_ballots_have_no_winner():
     assert out["winner"] is None
 
 
-# ------------------------------------------------------- distribution analysis
-
-
-def test_distribution_bins_scores_by_half_point():
-    """Bins are [0,0.5), [0.5,1.0), … — a score lands in exactly one."""
-    votes = [{"A": 0.0}, {"A": 0.4}, {"A": 0.5}, {"A": 2.7}]
-    out = get_score_distribution_analysis(votes)
-
-    dist = out["details"][0]["distribution"]
-    assert dist[0] == 2  # 0.0 and 0.4 → [0, 0.5)
-    assert dist[1] == 1  # 0.5        → [0.5, 1.0)
-    assert dist[5] == 1  # 2.7        → [2.5, 3.0)
-    assert sum(dist) == 4
-
-
-def test_distribution_keeps_a_perfect_score_of_five():
-    """Regression: every bin is half-open [lo, hi), so a score of exactly 5.0 —
-    the top of the scale and a perfectly ordinary ballot — matched no bin and was
-    dropped from the very distribution it belongs to. The final bin is closed on
-    the right so the top of the scale is counted."""
-    votes = [{"A": 5.0}, {"A": 5.0}, {"A": 4.9}]
-    out = get_score_distribution_analysis(votes)
-
-    row = out["details"][0]
-    assert row["total"] == 3, "a maximum score must not vanish from the analysis"
-    assert row["distribution"][9] == 3  # [4.5, 5.0] — all three
-    assert row["mode_range"] == "4.5-5.0"
-
-
-def test_distribution_percentages_sum_to_one_and_mode_is_the_fullest_bin():
-    votes = [{"A": 1.0}, {"A": 1.2}, {"A": 4.0}]
-    out = get_score_distribution_analysis(votes)
-
-    row = out["details"][0]
-    assert sum(row["percentages"]) == pytest.approx(1.0)
-    assert row["percentages"][2] == pytest.approx(2 / 3)  # [1.0, 1.5)
-    assert row["mode_range"] == "1.0-1.5"
-
-
-def test_distribution_orders_candidates_by_ballot_count():
-    votes = [{"A": 1, "B": 1}, {"B": 2}, {"B": 3}]
-    out = get_score_distribution_analysis(votes)
-
-    assert [r["candidate"] for r in out["details"]] == ["B", "A"]
-    assert out["method"] == "Score Distribution Analysis"
-
-
-def test_distribution_drops_out_of_range_scores_silently():
-    """`0 <= score <= bins[-1]` guards both ends. A negative score or one above
-    the top of the scale must be excluded from the distribution entirely —
-    not clamped into the first/last bin, not counted in `total`."""
-    votes = [{"A": -1.0}, {"A": 0.2}, {"A": 5.5}, {"A": 4.0}]
-    out = get_score_distribution_analysis(votes)
-
-    row = out["details"][0]
-    assert row["total"] == 2, "only 0.2 and 4.0 are in [0, 5]"
-    assert sum(row["distribution"]) == 2
-
-
-def test_distribution_mode_tie_keeps_the_lower_bin():
-    """`max(..., key=...)` returns the FIRST maximum on a tie: when two bins are
-    equally full, the lower-scoring bin is reported as the mode, not the
-    higher one — pins which side of the tie the mutation operators can flip."""
-    votes = [{"A": 0.0}, {"A": 4.9}]  # bin 0 and bin 9, each count 1
-    out = get_score_distribution_analysis(votes)
-
-    row = out["details"][0]
-    assert row["distribution"][0] == 1
-    assert row["distribution"][9] == 1
-    assert row["mode_range"] == "0.0-0.5"
-
-
 # ------------------------------------------------------------ majority judgment
 
 
@@ -239,20 +170,19 @@ def test_utility_to_grade_boundaries_are_inclusive_lower_bounds(utility, grade):
     assert _utility_to_grade(utility) == grade
 
 
-def test_mj_median_takes_the_lower_middle_on_an_even_count():
+def test_mj_winner_median_takes_the_lower_middle_on_an_even_count():
     """MJ's median must stay a real grade, never an average of two — so an even
-    count uses the lower of the two middles."""
-    assert _mj_median_grade([0, 1, 4, 5]) == 1
-    assert _mj_median_grade([0, 2, 4]) == 2
-    assert _mj_median_grade([]) == 0
+    count uses the lower of the two middles. Odd counts take the exact middle.
+    Checked via `_mj_winner`'s returned true-medians, the one place this
+    convention is computed (get_majority_judgment_winner reports these
+    directly rather than re-deriving them)."""
+    _, medians = _mj_winner(["A", "B"], {"A": [0, 1, 4, 5], "B": [0, 2, 4]})
+    assert medians["A"] == 1
+    assert medians["B"] == 2
 
 
-def test_mj_majority_gauge_counts_strictly_above_and_below():
-    """Voters AT the median count in neither p nor q."""
-    p, q = _mj_majority_gauge([0, 1, 3, 3, 5], median=3)
-
-    assert p == pytest.approx(1 / 5)  # one grade of 5
-    assert q == pytest.approx(2 / 5)  # grades 0 and 1
+def test_mj_winner_no_candidates_has_no_winner_and_no_medians():
+    assert _mj_winner([], {}) == (None, {})
 
 
 def test_majority_judgment_highest_median_wins_over_higher_mean():
@@ -270,9 +200,12 @@ def test_majority_judgment_highest_median_wins_over_higher_mean():
     assert out["medians"]["A"] == "À Rejeter"
 
 
-def test_majority_judgment_breaks_an_equal_median_by_the_gauge():
-    """Both candidates sit at the same median grade, so the majority gauge (p−q)
-    decides: the one with more grades ABOVE the median wins."""
+def test_majority_judgment_breaks_an_equal_median_by_one_strip_round():
+    """Both candidates sit at the same median grade (Bien), so one round of the
+    tiebreak decides it: drop the median-valued grade from each and recompare.
+    A's remaining grades are [Bien, Excellent] (new median — the lower of the
+    two — is Bien); B's are [Passable, Bien] (new median Passable). A's new
+    median beats B's."""
     votes = [
         {"A": 0.90, "B": 0.55},  # A Excellent, B Bien
         {"A": 0.55, "B": 0.55},  # both Bien
@@ -294,9 +227,8 @@ def test_majority_judgment_reports_a_full_grade_distribution():
 
 
 def test_majority_judgment_iterative_tiebreak_can_still_swap_the_ranking():
-    """A and B tie exactly on (median, gauge): both median 'Bien' (3), gauge
-    diff 0. The gauge tiebreak alone can't separate them, so the iterative
-    step fires: drop one median-valued grade from each and recompute.
+    """A and B share the same true median (Bien, 3), so the strip fires: drop
+    one median-valued grade from each and recompute.
 
     A: grades [Assez Bien, Bien, Très Bien] -> drop the Bien -> [Assez Bien,
     Très Bien], new median Assez Bien (2).
@@ -304,11 +236,14 @@ def test_majority_judgment_iterative_tiebreak_can_still_swap_the_ranking():
     stays Bien (3).
 
     B's post-drop median (3) beats A's (2), so B overtakes A — a real rank
-    swap, not just a reached-and-noop branch. This also pins two things
-    nothing else asserts: the reported "medians" reflect the POST-tiebreak
-    grades (not the original tied median both started at), and "scores" (the
-    continuous weighted average) is computed over the shrunk, post-drop grade
-    list.
+    swap, not just a reached-and-noop branch. This also pins something
+    nothing else asserts: the strip is an internal tie-break device only.
+    The reported "medians"/"grade_distributions"/"scores" reflect the TRUE,
+    un-stripped grades for every candidate — both A and B report median Bien
+    here, since that's their real, tied median; only the tie-break used more
+    than that to decide. (A real past bug reported A's median as "Assez
+    Bien" here — the post-strip, one-ballot-short value — which wrongly
+    implied A and B weren't tied on the headline number at all.)
     """
     votes = [
         {"A": 0.40, "B": 0.55},  # A: Assez Bien, B: Bien
@@ -318,16 +253,88 @@ def test_majority_judgment_iterative_tiebreak_can_still_swap_the_ranking():
     out = get_majority_judgment_winner(votes)
 
     assert out["winner"] == "B"
-    assert out["medians"]["A"] == "Assez Bien"  # post-drop, not the original "Bien"
+    assert out["medians"]["A"] == "Bien"  # TRUE median — tied with B
     assert out["medians"]["B"] == "Bien"
-    assert out["grade_distributions"]["A"] == [0, 0, 1, 0, 1, 0]
-    assert out["grade_distributions"]["B"] == [0, 0, 0, 2, 0, 0]
-    assert out["scores"]["A"] == pytest.approx(3.0)  # (2+4)/2 over the shrunk list
-    assert out["scores"]["B"] == pytest.approx(3.0)  # (3+3)/2 over the shrunk list
+    assert out["grade_distributions"]["A"] == [0, 0, 1, 1, 1, 0]
+    assert out["grade_distributions"]["B"] == [0, 0, 0, 3, 0, 0]
+    assert out["scores"]["A"] == pytest.approx(3.0)  # (2+3+4)/3 over the TRUE grades
+    assert out["scores"]["B"] == pytest.approx(3.0)  # (3+3+3)/3 over the TRUE grades
+
+
+def test_majority_judgment_three_way_tie_strips_more_than_a_pair_at_once():
+    """A, B and C all share the same true median (Bien, 3) on 5 voters each —
+    a three-way tie the old top-2-only tiebreak could never even attempt.
+    One round strips the median grade from all three at once (not just a
+    pair) and narrows straight to B (A and C's post-drop medians both fall
+    below B's). Reported medians stay the TRUE, un-stripped ones — all three
+    "Bien" — regardless of what the tiebreak did internally."""
+    votes = [
+        {"A": 0.20, "B": 0.40, "C": 0.05},
+        {"A": 0.40, "B": 0.55, "C": 0.20},
+        {"A": 0.55, "B": 0.55, "C": 0.55},
+        {"A": 0.70, "B": 0.55, "C": 0.90},
+        {"A": 0.90, "B": 0.70, "C": 0.90},
+    ]
+    out = get_majority_judgment_winner(votes)
+
+    assert out["winner"] == "B"
+    assert out["medians"]["A"] == out["medians"]["B"] == out["medians"]["C"] == "Bien"
+
+
+def test_majority_judgment_tie_survives_a_shorter_grade_list():
+    """A and B tie on the same median (Bien, 3), but A holds only one voter's
+    grade while B holds five — three Bien and two Excellent, unmistakably the
+    stronger candidate (score 3.8 vs A's 3.0). This is a real, supported
+    ballot shape, not a synthetic edge case: a voter who didn't rate every
+    candidate (see the "union of every voter's candidates" comment above
+    `candidate_names` in get_majority_judgment_winner).
+
+    Regression test for a real bug (found by /code-review max on this
+    branch): the tie-break loop's exhaustion check used to look only at the
+    first pooled candidate's remaining grades (`work[pool[0]]`). Once A's
+    single grade was stripped in round 1, that check went false and the loop
+    returned A by default — without ever comparing A's exhaustion against
+    B's still-real, better grades. B must win.
+
+    Checked in both candidate dict-key orders: the old bug made the winner
+    track whichever candidate happened to be declared first, not the votes.
+    """
+    votes = [
+        {"A": 0.55, "B": 0.55},
+        {"B": 0.55},
+        {"B": 0.55},
+        {"B": 0.90},
+        {"B": 0.90},
+    ]
+    out = get_majority_judgment_winner(votes)
+    assert out["winner"] == "B"
+    assert out["medians"]["A"] == out["medians"]["B"] == "Bien"
+    assert out["scores"]["A"] == pytest.approx(3.0)
+    assert out["scores"]["B"] == pytest.approx(3.8)
+
+    votes_b_declared_first = [
+        {"B": 0.55, "A": 0.55},
+        {"B": 0.55},
+        {"B": 0.55},
+        {"B": 0.90},
+        {"B": 0.90},
+    ]
+    assert get_majority_judgment_winner(votes_b_declared_first)["winner"] == "B"
 
 
 def test_majority_judgment_empty_ballots_have_no_winner():
     out = get_majority_judgment_winner([])
+
+    assert out["winner"] is None
+    assert out["grades"] == {}
+    assert out["medians"] == {}
+
+
+def test_majority_judgment_a_voter_with_no_candidates_has_no_winner():
+    """Distinct from the empty-ballots case above: there IS a voter, they just
+    graded nobody, so `_score_candidates` returns an empty candidate list.
+    `_mj_winner`'s own empty-pool guard must handle this without crashing."""
+    out = get_majority_judgment_winner([{}])
 
     assert out["winner"] is None
     assert out["grades"] == {}
@@ -443,3 +450,32 @@ def test_evaluative_a_later_voters_extra_candidate_is_not_silently_dropped():
     out = get_evaluative_winner(votes)
 
     assert set(out["scores"].keys()) == {"A", "B"}
+
+
+# ------------------------------------------------------------------ simple score
+
+
+def test_simple_score_picks_the_highest_average_not_the_highest_total():
+    """A: 5 from one voter -> avg 5.0. B: 4+4+4 from three voters -> avg 4.0.
+    A has the lower TOTAL (5 vs 12) but wins on average -- pins the /count
+    division rather than a raw sum."""
+    votes = [{"A": 5, "B": 4}, {"B": 4}, {"B": 4}]
+    out = get_simple_score_winner(votes)
+
+    assert out["winner"] == "A"
+    assert out["details"] == {"A": 5.0, "B": 4.0}
+    assert out["method"] == "Simple Score"
+
+
+def test_simple_score_orders_every_candidate_by_average_descending():
+    votes = [{"A": 1, "B": 5, "C": 3}]
+    out = get_simple_score_winner(votes)
+
+    assert list(out["details"].keys()) == ["B", "C", "A"]
+
+
+def test_simple_score_empty_ballots_have_no_winner():
+    out = get_simple_score_winner([])
+
+    assert out["winner"] is None
+    assert out["details"] == {}

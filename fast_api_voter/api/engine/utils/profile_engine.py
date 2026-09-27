@@ -363,9 +363,13 @@ def project_ballot(
     score_levels: int = 6,
 ) -> UtilityMatrix:
     """Project true utilities onto the expressed ballot (as an effective
-    utility matrix consumable by compare_all_methods unchanged)."""
+    utility matrix consumable by compare_all_methods unchanged).
+
+    "full" is normalised per voter to [0, 1] like every other type (and the
+    client's computeScores): raw -distance utilities, all <= 0, made every
+    score rule tie and elect the first-listed candidate."""
     if ballot_type == "full":
-        return matrix
+        return {vid: _normalise_row(utils) for vid, utils in matrix.items()}
     k = max(1, min(len(names), truncate_at or 3))
     levels = max(2, min(10, score_levels))
     out: UtilityMatrix = {}
@@ -502,12 +506,14 @@ def apply_behavior(
         if not act:
             out[vid] = utils
             continue
+        # Swap, don't overwrite: setting the frontrunner to exactly the top value
+        # tied it with the sincere favourite still holding it, and the ballot
+        # builder then broke that invented tie by listing order.
         new = utils.copy()
-        hi, lo = max(utils.values()), min(utils.values())
-        if utils[f1] >= utils[f2]:
-            new[f1], new[f2] = hi, lo
-        else:
-            new[f2], new[f1] = hi, lo
+        pref, other = (f1, f2) if utils[f1] >= utils[f2] else (f2, f1)
+        for cand, extreme in ((pref, max), (other, min)):
+            holder = extreme(new, key=new.__getitem__)
+            new[cand], new[holder] = new[holder], new[cand]
         out[vid] = new
     return out
 
@@ -657,15 +663,6 @@ def candidate_centroids(
         s = float(w.sum())
         out.append((w @ pts / s).tolist() if s > 1e-9 and n else [0.0, 0.0])
     return out
-
-
-def gallagher_index(vote_shares: List[float], seat_shares: List[float]) -> float:
-    """Gallagher (least-squares) disproportionality index, in percent:
-    sqrt( 0.5 * Σ (vᵢ − sᵢ)² ). Shares are fractions in [0, 1]. Pure math, reused by
-    the assembly playground (P3)."""
-    v = np.array(vote_shares, dtype=float) * 100.0
-    s = np.array(seat_shares, dtype=float) * 100.0
-    return round(float(np.sqrt(0.5 * np.sum((v - s) ** 2))), 4)
 
 
 # ── Top-level builder ─────────────────────────────────────────────────────────

@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
+import e2e from './playwright.config';
+
 /**
  * Visual regression (screenshot) tests — split out from playwright.config.ts on
  * purpose. Pixel comparisons are only meaningful when the baseline PNGs and the
@@ -20,13 +22,11 @@ import { defineConfig, devices } from '@playwright/test';
  * of a real hemicycle otherwise), even though LeaderCanvas's default view
  * doesn't. See visual.spec.ts's header and docs/exploration/EXP-004.
  */
+// Everything else -- testDir, retries, timeout, baseURL, locale, the
+// production-build webServer -- is the e2e suite's own.
 export default defineConfig({
-  testDir: './tests/e2e',
+  ...e2e,
   testMatch: '**/visual.spec.ts',
-  fullyParallel: false,
-  forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
-  timeout: 30_000,
   reporter: [['html', { outputFolder: 'playwright-report-visual' }], ['list']],
 
   // No `maxDiffPixelRatio`/`maxDiffPixels` tolerance: Playwright's own default
@@ -41,8 +41,7 @@ export default defineConfig({
   // earns the zero-tolerance comparison, not a percentage-based fudge factor.
 
   use: {
-    baseURL: 'http://localhost:3000',
-    locale: 'fr-FR',
+    ...e2e.use,
     // Freezes the JS-driven animations that already honour this media query
     // (DiscoverVoteAnimation, CampaignTimeline, LeaderScene3D, RegimeGlobe —
     // grep `prefers-reduced-motion` under src/) on their end state instead of
@@ -50,7 +49,6 @@ export default defineConfig({
     // `toHaveScreenshot`'s own default `animations: 'disabled'`, which fast-
     // forwards finite ones and cancels infinite ones — no per-test wiring needed.
     reducedMotion: 'reduce',
-    trace: 'on-first-retry',
   },
 
   projects: [
@@ -59,19 +57,4 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-
-  webServer: {
-    // A production build, not `npm start`'s dev server: the dev server compiles
-    // each route's lazy chunk on first request (Vite's on-demand transform),
-    // which took >5s for /laboratoire's chunk on a cold run here — timeout-flaky
-    // in a way that has nothing to do with the app's actual rendering, and
-    // masks that the dev bundle (unminified, HMR-instrumented) isn't quite what
-    // a real visitor's browser paints anyway. `vite preview` serves the exact
-    // built artifact instead — same one a release ships — with no per-route
-    // compile latency.
-    command: 'npm run build && npm run preview -- --port 3000 --strictPort',
-    url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
-    timeout: 180_000, // build + preview startup, not just startup
-  },
 });

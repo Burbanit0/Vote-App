@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -243,7 +243,7 @@ const ElectionPipelineAnimator: React.FC = () => {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // ── Fetch pipeline ────────────────────────────────────────────────────
-  const fetchPipeline = useCallback(() => {
+  const fetchPipeline = () => {
     setCurrentStep(0);
     setPlaying(false);
     sim.mutate(
@@ -257,7 +257,7 @@ const ElectionPipelineAnimator: React.FC = () => {
         onSuccess: () => setCurrentStep(0),
       }
     );
-  }, [config, t, sim]);
+  };
 
   // ── Auto-play ─────────────────────────────────────────────────────────
   useEffect(() => {

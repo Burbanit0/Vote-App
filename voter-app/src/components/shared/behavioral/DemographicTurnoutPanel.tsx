@@ -3,7 +3,7 @@
  * electorate (full population) and the effective electorate (those who vote)
  * due to differential turnout across demographic groups.
  */
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { $api } from '../../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
@@ -25,9 +25,9 @@ import {
   Cell,
 } from 'recharts';
 import { useElection } from '../../../stores/useElectionStore';
-import PinToCentralButton from '../ui/PinToCentralButton';
 
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+import { colorByName, LAB_PALETTE_PINK } from '@/lib/palette';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -186,10 +186,7 @@ const IdeologyDriftSVG: React.FC<DriftProps> = ({ fullMean, biasedMean }) => {
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 
-const CAND_COLORS = ['#005CAB', '#C8590A', '#007A33', '#9b59b6', '#e67e22', '#e83e8c'];
-function candColor(name: string, names: string[]): string {
-  return CAND_COLORS[names.indexOf(name) % CAND_COLORS.length] ?? '#888';
-}
+const candColor = (name: string, names: string[]) => colorByName(name, names, LAB_PALETTE_PINK);
 
 // ── Main panel ────────────────────────────────────────────────────────────────
 
@@ -210,28 +207,25 @@ const DemographicTurnoutPanel: React.FC = () => {
     setProfile(PROFILES[key] ?? PROFILES.france_2022);
   };
 
-  const runSimulation = useCallback(
-    (p: DemoProfile) => {
-      sim.mutate({
-        body: {
-          candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
-          num_voters: config.num_voters,
-          seed: config.seed,
-          method: 'plurality',
-          correct_for_turnout: true,
-          demographic_profile: {
-            age_distribution: p.age_distribution,
-            turnout_by_age: p.turnout_by_age,
-            ideology_by_age: p.ideology_by_age,
-            education_distribution: p.education_distribution,
-            turnout_by_education: p.turnout_by_education,
-            ideology_by_education: p.ideology_by_education,
-          },
+  const runSimulation = (p: DemoProfile) => {
+    sim.mutate({
+      body: {
+        candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
+        num_voters: config.num_voters,
+        seed: config.seed,
+        method: 'plurality',
+        correct_for_turnout: true,
+        demographic_profile: {
+          age_distribution: p.age_distribution,
+          turnout_by_age: p.turnout_by_age,
+          ideology_by_age: p.ideology_by_age,
+          education_distribution: p.education_distribution,
+          turnout_by_education: p.turnout_by_education,
+          ideology_by_education: p.ideology_by_education,
         },
-      });
-    },
-    [config, t, sim]
-  );
+      },
+    });
+  };
 
   const handleSimulate = () => runSimulation(profile);
 
@@ -292,32 +286,6 @@ const DemographicTurnoutPanel: React.FC = () => {
             {loading ? <Spinner size="sm" /> : t('demo.run')}
           </Button>
         </Col>
-        {data &&
-          (() => {
-            const bbm = data.biased_result.winners_by_method ?? {};
-            const cbm = data.corrected_result.winners_by_method ?? {};
-            let changedCount = 0;
-            Object.entries(bbm).forEach(([m, w]) => {
-              if (w !== cbm[m]) changedCount += 1;
-            });
-            if (changedCount === 0 && data.winner_changed) changedCount = 1;
-            return (
-              <Col xs="auto">
-                <PinToCentralButton
-                  type="demographic"
-                  icon="👥"
-                  label={t('demo.run')}
-                  summary={
-                    changedCount > 0
-                      ? `${changedCount}/${Object.keys(bbm).length || 1} ${t('lab.methodsChanged')}`
-                      : `${t('demo.biasedWinner')}: ${data.biased_result.winner}`
-                  }
-                  methodsChanged={changedCount}
-                  winnersByMethod={data.biased_result.winners_by_method}
-                />
-              </Col>
-            );
-          })()}
       </Row>
 
       {/* Turnout sliders */}
@@ -355,12 +323,12 @@ const DemographicTurnoutPanel: React.FC = () => {
           {/* Headline badges */}
           <div className="flex flex-wrap gap-2 mb-3">
             <Badge variant="primary" data-testid="biased-winner-badge">
-              {t('demo.biasedWinner')}: {data.biased_result.winner}
+              {t('demo.biasedWinner')}: {data.biased_result.winner ?? t('common.tie')}
             </Badge>
             {data.winner_changed && (
               <>
                 <Badge variant="success" data-testid="corrected-winner-badge">
-                  {t('demo.correctedWinner')}: {data.corrected_result.winner}
+                  {t('demo.correctedWinner')}: {data.corrected_result.winner ?? t('common.tie')}
                 </Badge>
                 <Alert
                   variant="danger"

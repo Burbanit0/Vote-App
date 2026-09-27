@@ -5,7 +5,7 @@ from collections import defaultdict, Counter
 # that no tie-break can fix, because the values are no longer equal.
 # Fraction makes the sum exact, so genuine ties stay ties.
 from fractions import Fraction
-from itertools import combinations, permutations
+from itertools import combinations
 from typing import Any, Optional
 
 
@@ -440,45 +440,98 @@ def get_positional_score_winner(votes: list[Any], **kwargs: Any) -> Optional[str
     return str(min(scores, key=lambda c: (-scores[c], c)))
 
 
-# Backward-compatible alias used by existing route code.
-get_score_winner = get_positional_score_winner
-
-
-def _kwik_sort(candidates: list[str], pairwise: dict[tuple[str, str], int]) -> list[str]:
+def _kwik_sort(candidates: list[str], pw: dict[str, dict[str, int]]) -> list[str]:
     """
     KwikSort approximation of Kemeny-Young — O(n log n) expected time.
-    Randomly picks a pivot; partitions candidates by majority pairwise preference.
-    Returns a ranking whose first element is the approximate KY winner.
+    Partitions candidates by majority pairwise preference around a pivot and
+    returns a ranking BEST FIRST, so `ranking[0]` is the approximate KY winner.
+
+    `left` holds the candidates that BEAT the pivot (they rank above it). That
+    direction used to be inverted -- the pivot's victims were placed before it --
+    so the function returned the ranking upside down and every caller above
+    `_KY_EXACT_CAP` got the Kemeny LOSER: unanimous A>B>...>K ballots returned
+    "K". (That reproduction needs 11 candidates now. It was written when the
+    cap was 6 and said 7; at a cap of 10 a 7-candidate profile takes the exact
+    path and returns "A", so the recipe silently stopped exercising this
+    function.) A tie against the pivot ranks below it, matching the tie-breaks
+    elsewhere in this module.
+
+    The pivot is the middle element rather than a random one: the caller's seed
+    must decide the whole result (this runs behind a `seed` request field), and
+    a random pivot read from the global `random` module made the winner differ
+    between identical calls.
     """
-    import random as _rnd
     if len(candidates) <= 1:
         return candidates.copy()
-    pivot = _rnd.choice(candidates)
+    pivot = candidates[len(candidates) // 2]
     left: list[str] = []
     right: list[str] = []
     for c in candidates:
         if c == pivot:
             continue
-        (left if pairwise.get((pivot, c), 0) >= pairwise.get((c, pivot), 0) else right).append(c)
-    return _kwik_sort(left, pairwise) + [pivot] + _kwik_sort(right, pairwise)
+        (left if pw[c][pivot] > pw[pivot][c] else right).append(c)
+    return _kwik_sort(left, pw) + [pivot] + _kwik_sort(right, pw)
 
 
-def _build_pairwise(candidates: list[str], votes: list[Any], is_dict: bool) -> dict[tuple[str, str], int]:
-    """Count pairwise wins: pairwise[(a, b)] = number of ballots where a is ranked above b."""
-    pairwise: dict[tuple[str, str], int] = {}
-    for vote in votes:
-        ranking = _get_ranking(vote, is_dict)
-        pos = {c: i for i, c in enumerate(ranking)}
-        for a, b in combinations(candidates, 2):
-            if pos.get(a, len(ranking)) < pos.get(b, len(ranking)):
-                pairwise[(a, b)] = pairwise.get((a, b), 0) + 1
-            else:
-                pairwise[(b, a)] = pairwise.get((b, a), 0) + 1
-    return pairwise
+# Above this many candidates Kemeny-Young falls back to the KwikSort
+# approximation. The exact answer is found by DP over candidate subsets
+# (O(2^m · m²)), not by enumerating the m! orderings, so the affordable cap is
+# 10 rather than 6: measured on this engine, exact costs 0.14 ms at 6
+# candidates, 0.76 ms at 8 and 4.2 ms at 10, where the old permutation
+# enumeration cost 0.86 ms at 6, 75 ms at 8 and 822 ms at 9.
+#
+# 10 covers every input reachable over HTTP — every request schema caps
+# candidates at 8, and the only thing that adds to that is a blank rule
+# splicing in one extra name — so the approximation no longer decides any
+# winner a client can ask for. It stays for polity, whose
+# `max_candidates_hard_cap` is 20: at m=20 the DP would want 2^20 subproblems.
+_KY_EXACT_CAP = 10
 
 
-# Hard cap: Kemeny-Young exact is O(n!) — impractical beyond 6 candidates.
-_KY_EXACT_CAP = 6
+def _kemeny_exact_winner(candidates: list[str], pw: dict[str, dict[str, int]]) -> str:
+    """Exact Kemeny-Young winner by DP over candidate subsets.
+
+    `f(S)` = the best achievable agreement score when ranking exactly the
+    candidates in `S`, choosing which of them ranks FIRST: picking `c` scores
+    every ballot that ranks `c` above each remaining candidate, then the
+    subproblem `S \\ {c}` is independent. That is O(2^m · m²) against the m!
+    of enumerating orderings. `test_exact_kemeny_agrees_with_brute_force_...`
+    pins it against `max(permutations(...))` over complete, truncated,
+    mirrored-so-every-ordering-ties and unanimous profiles at every width up
+    to the cap. That test compares the WINNER, which is all this function
+    returns; the score and the full ordering agreed too when the DP was
+    developed, but nothing committed re-checks them.
+
+    `candidates` must be sorted. Iterating it in ascending order and improving
+    on a strict `>` makes `lead[mask]` the FIRST candidate that can head an
+    optimal ordering, which reconstructs the lexicographically smallest optimal
+    ranking — the same tie-break `max(permutations(sorted(...)))` had. That is
+    smallest by NAME; the client mirror runs the same DP keyed on candidate INDEX,
+    so the two agree on a tie whenever index order and name order coincide on
+    the tied candidates (an array sorted by name always qualifies).
+    """
+    n = len(candidates)
+    # Duel counts as a dense matrix: the DP reads them 2^m · m² times.
+    # Indexed, not `.get(b, 0)`: `_pairwise_wins` returns a row for every
+    # candidate against every other, so a missing key means the caller built
+    # `candidates` and `pw` from different profiles. A silent 0 there would
+    # make that candidate draw every duel it is missing from and possibly win
+    # -- the same silent-default shape as the phantom duel win deleted above.
+    w = [[pw[a][b] for b in candidates] for a in candidates]
+    score = [-1] * (1 << n)
+    lead = [-1] * (1 << n)
+    score[0] = 0
+    for mask in range(1, 1 << n):
+        best_score, best_i = -1, -1
+        for i in range(n):
+            if not (mask >> i) & 1:
+                continue
+            rest = mask ^ (1 << i)          # always < mask, so already solved
+            gain = sum(w[i][j] for j in range(n) if (rest >> j) & 1)
+            if score[rest] + gain > best_score:
+                best_score, best_i = score[rest] + gain, i
+        score[mask], lead[mask] = best_score, best_i
+    return candidates[lead[(1 << n) - 1]]
 
 
 def kemeny_used_approximation(votes: list[Any]) -> bool:
@@ -498,39 +551,43 @@ def get_kemeny_young_winner(votes: list[Any], **kwargs: Any) -> Optional[str]:
     """
     Determine the Kemeny-Young winner from a set of rankings.
 
-    Exact algorithm for ≤ 6 candidates (O(n!)).
-    KwikSort approximation for > 6 candidates (O(n log n)). Callers that need
-    to know which path was taken should call kemeny_used_approximation(votes)
-    separately rather than inspecting this function's state — see its
-    docstring for why.
+    Exact (DP over candidate subsets) up to `_KY_EXACT_CAP` candidates, which
+    covers every input reachable over HTTP. KwikSort approximation above it.
+    Callers that need to know which path was taken should call
+    kemeny_used_approximation(votes) separately rather than inspecting this
+    function's state — see its docstring for why.
     """
     if not votes:
         return None
-    is_dict  = _is_dict_format(votes)
-    cand_set: set[str] = set()
-    for vote in votes:
-        cand_set.update(_get_ranking(vote, is_dict))
-    candidates = list(cand_set)
-
-    pairwise = _build_pairwise(candidates, votes, is_dict)
+    # `_pairwise_wins` is the module's shared duel counter, used by copeland,
+    # ranked_pairs, river and split_cycle. Kemeny used to carry a private near
+    # copy, `_build_pairwise`, which differed on one case and was wrong there:
+    # for a pair the ballot ranks NEITHER of, both positions defaulted to
+    # `len(ranking)`, the `<` was False and its `else` credited a full duel win
+    # to whichever candidate came second in the candidate list. So a ballot
+    # mentioning neither A nor B still voted in their duel, and the winner moved
+    # with the candidate ordering even on the exact path. Measured on truncated
+    # ballots with a unique Kemeny optimum, that elected a non-Kemeny winner in
+    # 6.0% of profiles; the shared counter, which leaves an unranked pair
+    # contributing nothing, elects the Kemeny winner in 100%.
+    pw = _pairwise_wins(votes)
+    # sorted(), not set order: set iteration varies with PYTHONHASHSEED, and
+    # above the cap this list decides KwikSort's pivot (`candidates[len//2]`) --
+    # one 7-candidate profile returned four different winners, C, A, D and G,
+    # across orderings of the same ballots. ranked_pairs, river and split_cycle
+    # read `sorted(pw.keys())` for the same reason; copeland (`list(pw.keys())`)
+    # and raynaud (`set(pw.keys())`) do not, and are safe only because their
+    # tie-breaks end on the candidate name -- swept under 5 hash seeds, no
+    # winner moves. Don't read them as precedent for leaving order unsorted.
+    candidates = sorted(pw)
+    if not candidates:
+        return None
 
     if len(candidates) > _KY_EXACT_CAP:
-        # Approximation path — KwikSort
-        ranking = _kwik_sort(candidates, pairwise)
+        ranking = _kwik_sort(candidates, pw)
         return ranking[0] if ranking else None
 
-    # Exact path — enumerate all permutations
-    def _kemeny_score(ranking: tuple[str, ...]) -> int:
-        pos = {c: i for i, c in enumerate(ranking)}
-        return sum(
-            pairwise.get((ranking[i], ranking[j]), 0)
-            for i in range(len(ranking))
-            for j in range(i + 1, len(ranking))
-            if pos[ranking[i]] < pos[ranking[j]]
-        )
-
-    best = max(permutations(sorted(candidates)), key=_kemeny_score)
-    return best[0] if best else None
+    return _kemeny_exact_winner(candidates, pw)
 
 
 def get_bucklin_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
@@ -1160,18 +1217,3 @@ def random_ballot_probabilities(votes: list[Any]) -> dict[str, float]:
     if cast == 0:
         return {}
     return {c: n / cast for c, n in first_choice.items()}
-
-
-def get_random_ballot_winner(votes: list[Any], blank_candidate_name: str = "") -> Optional[str]:
-    """
-    Random ballot / random dictator (Gibbard, 1977) — the canonical strategyproof
-    rule. The realised winner is a lottery (see :func:`random_ballot_probabilities`);
-    this returns the *most probable* outcome — the candidate with the largest
-    first-preference share, alphabetical tie-break — so the rule has a stable,
-    comparable representative winner. Its strategyproofness and full distribution
-    are surfaced separately (the comparison report weights metrics by probability).
-    """
-    probs = random_ballot_probabilities(votes)
-    if not probs:
-        return None
-    return min(probs, key=lambda c: (-probs[c], c))

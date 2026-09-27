@@ -861,4 +861,14 @@ const LeaderCanvas: React.FC<LeaderCanvasProps> = ({
   );
 };
 
-export default LeaderCanvas;
+// Memoized: LeaderCanvas renders up to VOTER_CAP+num_voters SVG <circle>s and
+// re-computes several grids; it sits behind InstrumentPanel's deliberately
+// broad usePlaygroundCtx() (PlaygroundController.render.test.tsx), so without
+// this, ANY unrelated context slice changing (e.g. toggling something in
+// scorecardCtx) forces a full re-render + reconcile of every node here. Every
+// prop is either a primitive or already stabilized upstream in
+// PlaygroundController (moveCandidate/moveYou/sampleAtSeed as useCallback,
+// leaderCandidates/voters/voterColors as useMemo) — see the props audit in
+// the perf PR that added this memo — so the default shallow comparison is
+// sufficient; no custom comparator needed.
+export default React.memo(LeaderCanvas);

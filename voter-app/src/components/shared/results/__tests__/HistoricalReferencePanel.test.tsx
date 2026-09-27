@@ -70,7 +70,7 @@ const MOCK_RESULT = {
 };
 
 function renderPanel(meta: typeof FRANCE2002_META | null, result: any = null) {
-  useElection.mockReturnValue({ scenarioMeta: meta, clearScenarioMeta: vi.fn() });
+  useElection.mockReturnValue({ scenarioMeta: meta });
   return render(
     <MemoryRouter>
       <HistoricalReferencePanel result={result} />

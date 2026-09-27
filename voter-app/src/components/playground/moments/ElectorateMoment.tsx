@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
-import { usePlaygroundCtx } from '../PlaygroundController';
+import { useStoreCtx } from '../PlaygroundController';
 import { Field, selectCls } from '../playgroundFields';
 import Collapsible from '../Collapsible';
 import ScenarioInfo from '../ScenarioInfo';
@@ -47,7 +47,7 @@ const ElectorateMoment: React.FC = () => {
     prefParams,
     composed,
     electorate,
-  } = usePlaygroundCtx();
+  } = useStoreCtx();
   const pointWord = mode === 'leader' ? t('common.candidates') : t('common.parties');
   const param = SOURCE_PARAM[prefSource];
 

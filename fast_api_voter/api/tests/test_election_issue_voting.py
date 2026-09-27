@@ -4,15 +4,8 @@ The bundling paradoxes: the acceptance pins the canonical Ostrogorski
 construction — a platform wins the election while the issue-by-issue majority
 opposes it on EVERY issue.
 """
-import pytest
 from fastapi.testclient import TestClient
 
-from api.main import app
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
 
 
 def test_canonical_ostrogorski_paradox(client: TestClient):

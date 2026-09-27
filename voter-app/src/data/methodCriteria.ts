@@ -88,7 +88,11 @@ export const METHOD_CRITERIA: Record<Rule, MethodCriteriaRow> = {
     monotonicity: 'yes',
     iia: 'no',
     strategy_proof: 'no',
-    participation: 'yes',
+    // Moulin (1988): no Condorcet-consistent method fully satisfies
+    // participation. Copeland is Condorcet-consistent (condorcet_winner/
+    // condorcet_loser above), so this can't be 'yes' — matches minimax and
+    // schulze below, both also Condorcet-consistent and both 'no' here.
+    participation: 'no',
     reversal: 'yes',
   },
   minimax: {

@@ -24,12 +24,46 @@ the worker's actual output shape.
 """
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import Any, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .common import CandidateSpec
+from .common import UniqueCandidates
 
+
+
+# Each panel below accepts a method name, and each worker answers a name it does
+# not support with a 400. Schemathesis fuzzes `str` fields with arbitrary strings
+# and reads that 400 as a broken contract -- correctly: an enumerable set of
+# names belongs in the request schema, next to `extra="forbid"`, not only in the
+# worker. As a Literal the bad name is a 422 at the boundary and the generated
+# frontend types carry the list. `test_schema_method_literals_match_workers`
+# fails if either side drifts.
+AdaptiveMethod = Literal["plurality", "irv", "borda", "schulze", "approval"]
+BiasMethod = Literal[
+    "plurality", "borda", "irv", "schulze", "star_voting", "majority_judgment",
+]
+NotaMethod = Literal[
+    "plurality", "approval", "borda", "irv", "schulze", "majority_judgment",
+]
+BallotMethod = Literal[
+    "plurality", "approval", "irv", "borda", "star_voting", "majority_judgment",
+    "schulze", "two_round",
+]
+FatigueMethod = Literal[
+    "plurality", "borda", "irv", "schulze", "two_round", "approval",
+    "majority_judgment", "star_voting",
+]
+ChoiceOverloadMethod = Literal[
+    "plurality", "approval", "borda", "majority_judgment", "irv", "schulze",
+]
+HotellingMethod = Literal["plurality", "borda", "approval"]
+DemographicTurnoutMethod = Literal["plurality", "borda", "irv", "schulze"]
+PrimaryMethod = Literal["plurality", "irv", "approval"]
+PartyDynamicsMethod = Literal["plurality", "proportional"]
+# /sortition, /compulsory-voting and /deliberation always count by plurality and
+# never read the field; it accepted any string and changed nothing.
+PluralityOnly = Literal["plurality"]
 
 # ── /nota ────────────────────────────────────────────────────────────────────
 
@@ -37,7 +71,7 @@ class NotaRequest(BaseModel):
     """NOTA (None Of The Above) as an official ballot option."""
     model_config = ConfigDict(extra="forbid")
 
-    candidates:     List[CandidateSpec] = Field(..., min_length=2, max_length=8)
+    candidates:     UniqueCandidates = Field(..., min_length=2, max_length=8)
     num_voters:     int   = Field(200, ge=50, le=1000)
     ideology:       str   = Field("random")
     seed:           int   = Field(42, ge=0)
@@ -47,9 +81,8 @@ class NotaRequest(BaseModel):
     nota_rule:      str   = Field("invalidate",
                                   description="Constitutional response when NOTA wins: "
                                               "'invalidate' | 'runoff' | 'winner_take_all'.")
-    method:         str   = Field("plurality",
-                                  description="Primary method to display in the curve "
-                                              "('plurality' | 'irv' | 'borda' | 'schulze' | ...).")
+    method:         NotaMethod = Field("plurality",
+                                  description="Primary method to display in the curve.")
 
 
 # ── /ballot-complexity ──────────────────────────────────────────────────────
@@ -58,7 +91,7 @@ class BallotComplexityRequest(BaseModel):
     """Ballot-complexity-driven null vote model."""
     model_config = ConfigDict(extra="forbid")
 
-    candidates:           List[CandidateSpec] = Field(..., min_length=2, max_length=8)
+    candidates:           UniqueCandidates = Field(..., min_length=2, max_length=8)
     num_voters:           int   = Field(200, ge=50, le=1000)
     ideology:             str   = Field("random")
     seed:                 int   = Field(42, ge=0)
@@ -66,7 +99,7 @@ class BallotComplexityRequest(BaseModel):
                                         description="Higher = lower null-vote rate.")
     first_time_voter_pct: float = Field(0.1, ge=0.0, le=1.0,
                                         description="Higher = higher null-vote rate.")
-    methods_to_compare:   Optional[List[str]] = Field(
+    methods_to_compare:   Optional[List[BallotMethod]] = Field(
         None, max_length=8,
         description="Voting methods to compare. If None, uses the server default set.",
     )
@@ -78,7 +111,7 @@ class ShyVoterRequest(BaseModel):
     """Bradley / Shy Tory effect: socially-sensitive candidates underpolled."""
     model_config = ConfigDict(extra="forbid")
 
-    candidates:                 List[CandidateSpec] = Field(..., min_length=2, max_length=8)
+    candidates:                 UniqueCandidates = Field(..., min_length=2, max_length=8)
     num_voters:                 int   = Field(300, ge=50, le=1000)
     ideology:                   str   = Field("random")
     seed:                       int   = Field(42, ge=0)
@@ -95,7 +128,7 @@ class ElectoralFatigueRequest(BaseModel):
     """Turnout decay across repeated elections."""
     model_config = ConfigDict(extra="forbid")
 
-    candidates:        List[CandidateSpec] = Field(..., min_length=2, max_length=8)
+    candidates:        UniqueCandidates = Field(..., min_length=2, max_length=8)
     num_voters:        int   = Field(200, ge=50, le=1000)
     ideology:          str   = Field("random")
     seed:              int   = Field(42, ge=0)
@@ -104,7 +137,7 @@ class ElectoralFatigueRequest(BaseModel):
                                      description="Per-election turnout drop (0.07 = 7 pp).")
     engaged_voter_pct: float = Field(0.2, ge=0.05, le=0.5,
                                      description="Share of always-voting partisans.")
-    method:            str   = Field("plurality")
+    method:            FatigueMethod = Field("plurality")
 
 
 # ── /cascade ────────────────────────────────────────────────────────────────
@@ -113,7 +146,7 @@ class CascadeRequest(BaseModel):
     """Sequential voting with information cascades (Bikhchandani et al., 1992)."""
     model_config = ConfigDict(extra="forbid")
 
-    candidates:         List[CandidateSpec] = Field(..., min_length=2, max_length=8)
+    candidates:         UniqueCandidates = Field(..., min_length=2, max_length=8)
     num_voters:         int   = Field(100, ge=20, le=1000)
     ideology:           str   = Field("random")
     seed:               int   = Field(42, ge=0)
@@ -129,7 +162,7 @@ class BehavioralBiasesRequest(BaseModel):
     """Expressive + bullet voting + primacy effect on approval/plurality outcomes."""
     model_config = ConfigDict(extra="forbid")
 
-    candidates:        List[CandidateSpec] = Field(..., min_length=2, max_length=8)
+    candidates:        UniqueCandidates = Field(..., min_length=2, max_length=8)
     num_voters:        int   = Field(200, ge=50, le=1000)
     ideology:          str   = Field("random")
     seed:              int   = Field(42, ge=0)
@@ -141,7 +174,7 @@ class BehavioralBiasesRequest(BaseModel):
                                      description="Vote bonus for the first-listed candidate.")
     candidate_order:   Optional[List[str]] = Field(None,
                                                    description="Optional ballot ordering for primacy effect.")
-    method:            str   = Field("plurality")
+    method:            BiasMethod = Field("plurality")
 
 
 # ── /choice-overload ────────────────────────────────────────────────────────
@@ -169,8 +202,8 @@ class ChoiceOverloadRequest(BaseModel):
     # no pydantic.mypy-equivalent plugin, false positive (see
     # PLAN_SOLIDITE_TECHNIQUE.md Lot 14.5)
     heuristic_weights:  Optional[HeuristicWeights] = Field(default_factory=HeuristicWeights)  # pyright: ignore[reportArgumentType]
-    methods:            Optional[List[str]] = Field(None, max_length=5,
-                                                    description="Voting methods to compare.")
+    methods:            Optional[List[ChoiceOverloadMethod]] = Field(
+                            None, max_length=6, description="Voting methods to compare.")
 
 
 # ── /deliberation ───────────────────────────────────────────────────────────
@@ -179,7 +212,7 @@ class DeliberationRequest(BaseModel):
     """DeGroot deliberation: voters update ideology toward a network-weighted mean."""
     model_config = ConfigDict(extra="forbid")
 
-    candidates:          List[CandidateSpec] = Field(..., min_length=2, max_length=8)
+    candidates:          UniqueCandidates = Field(..., min_length=2, max_length=8)
     num_voters:          int   = Field(200, ge=50, le=1000)
     ideology:            str   = Field("random")
     seed:                int   = Field(42, ge=0)
@@ -191,7 +224,7 @@ class DeliberationRequest(BaseModel):
     group_size:          int   = Field(5, ge=3, le=20)
     argument_quality:    float = Field(0.5, ge=0.0, le=1.0,
                                        description="Higher = updates pull toward better-informed positions.")
-    method:              str   = Field("plurality")
+    method:              PluralityOnly = Field("plurality")
 
 
 # ── /jury ───────────────────────────────────────────────────────────────────
@@ -215,11 +248,11 @@ class HotellingRequest(BaseModel):
     """Hotelling-Downs iterative best-response: candidates move to maximise votes."""
     model_config = ConfigDict(extra="forbid")
 
-    candidates:     List[CandidateSpec] = Field(..., min_length=2, max_length=8)
+    candidates:     UniqueCandidates = Field(..., min_length=2, max_length=8)
     num_voters:     int   = Field(200, ge=50, le=1000)
     ideology:       str   = Field("random")
     seed:           int   = Field(42, ge=0)
-    method:         str   = Field("plurality")
+    method:         HotellingMethod = Field("plurality")
     num_iterations: int   = Field(10, ge=1, le=20)
     step_size:      float = Field(0.05, ge=0.01, le=0.15,
                                   description="Per-step distance each candidate moves on the (x, y) grid.")
@@ -231,7 +264,7 @@ class PolarizationRequest(BaseModel):
     """Per-ideology distribution: Esteban-Ray index + method robustness scan."""
     model_config = ConfigDict(extra="forbid")
 
-    candidates:      List[CandidateSpec] = Field(..., min_length=2, max_length=8)
+    candidates:      UniqueCandidates = Field(..., min_length=2, max_length=8)
     num_voters:      int   = Field(150, ge=50, le=300)
     seed:            int   = Field(42, ge=0)
     num_simulations: int   = Field(20, ge=5, le=50)
@@ -255,12 +288,12 @@ class SortitionRequest(BaseModel):
     """Compare elected vs sortition pure vs sortition stratified assembly selection."""
     model_config = ConfigDict(extra="forbid")
 
-    candidates:           List[CandidateSpec] = Field(..., min_length=2, max_length=8)
+    candidates:           UniqueCandidates = Field(..., min_length=2, max_length=8)
     num_voters:           int   = Field(300, ge=50, le=1000)
     assembly_size:        int   = Field(50, ge=5, le=300)
     ideology:             str   = Field("random")
     seed:                 int   = Field(42, ge=0)
-    method:               str   = Field("plurality")
+    method:               PluralityOnly = Field("plurality")
     num_simulations:      int   = Field(20, ge=5, le=100)
     realistic_candidates: bool  = Field(True)
     stratification:       Optional[StratificationConfig] = Field(default_factory=StratificationConfig)  # pyright: ignore[reportArgumentType]
@@ -272,7 +305,7 @@ class AffectivePolarizationRequest(BaseModel):
     """Iyengar 2019: voters penalise candidates from the opposing political camp."""
     model_config = ConfigDict(extra="forbid")
 
-    candidates:       List[CandidateSpec] = Field(..., min_length=2, max_length=8)
+    candidates:       UniqueCandidates = Field(..., min_length=2, max_length=8)
     num_voters:       int   = Field(200, ge=50, le=1000)
     ideology:         str   = Field("random")
     seed:             int   = Field(42, ge=0)
@@ -299,10 +332,10 @@ class DemographicTurnoutRequest(BaseModel):
     """Distortion between full population and effective electorate via age × education turnout gaps."""
     model_config = ConfigDict(extra="forbid")
 
-    candidates:           List[CandidateSpec] = Field(..., min_length=2, max_length=8)
+    candidates:           UniqueCandidates = Field(..., min_length=2, max_length=8)
     num_voters:           int   = Field(300, ge=50, le=1000)
     seed:                 int   = Field(42, ge=0)
-    method:               str   = Field("plurality")
+    method:               DemographicTurnoutMethod = Field("plurality")
     correct_for_turnout:  bool  = Field(True,
                                         description="Whether to apply the turnout-correction model.")
     demographic_profile:  Optional[DemographicProfile] = Field(default_factory=DemographicProfile)
@@ -314,7 +347,7 @@ class CompulsoryVotingRequest(BaseModel):
     """Voluntary vs compulsory turnout: reluctant voters add null/random ballots."""
     model_config = ConfigDict(extra="forbid")
 
-    candidates:           List[CandidateSpec] = Field(..., min_length=2, max_length=8)
+    candidates:           UniqueCandidates = Field(..., min_length=2, max_length=8)
     num_voters:           int   = Field(300, ge=50, le=1000)
     ideology:             str   = Field("random")
     seed:                 int   = Field(42, ge=0)
@@ -324,7 +357,7 @@ class CompulsoryVotingRequest(BaseModel):
                                         description="Fraction of reluctant voters who cast null ballots.")
     reluctant_random_pct: float = Field(0.08, ge=0.0, le=1.0,
                                         description="Fraction who vote randomly rather than sincerely.")
-    method:               str   = Field("plurality")
+    method:               PluralityOnly = Field("plurality")
 
 
 # ── /party-dynamics ─────────────────────────────────────────────────────────
@@ -345,7 +378,7 @@ class PartyDynamicsRequest(BaseModel):
     ideology:              str   = Field("random")
     seed:                  int   = Field(42, ge=0)
     num_elections:         int   = Field(10, ge=1, le=30)
-    method:                str   = Field("plurality")
+    method:                PartyDynamicsMethod = Field("plurality")
     survival_threshold:    float = Field(0.05, ge=0.01, le=0.20,
                                          description="Vote share below which a party is eliminated.")
     emergence_probability: float = Field(0.10, ge=0.0, le=1.0,
@@ -366,7 +399,7 @@ class SimulatePipelineRequest(BaseModel):
     """Step-by-step pipeline animation for the simulation hub."""
     model_config = ConfigDict(extra="forbid")
 
-    candidates:        List[CandidateSpec] = Field(..., min_length=2, max_length=8)
+    candidates:        UniqueCandidates = Field(..., min_length=2, max_length=8)
     num_voters:        int   = Field(150, ge=10, le=200)
     ideology:          str   = Field("random")
     seed:              int   = Field(42, ge=0)
@@ -381,7 +414,7 @@ class DistrictsRequest(BaseModel):
     """N districts with locally shifted ideology, FPTP vs proportional."""
     model_config = ConfigDict(extra="forbid")
 
-    candidates:                 List[CandidateSpec] = Field(..., min_length=2, max_length=8)
+    candidates:                 UniqueCandidates = Field(..., min_length=2, max_length=8)
     num_districts:              int   = Field(10, ge=5, le=50)
     voters_per_district:        int   = Field(100, ge=50, le=500)
     district_ideology_variance: float = Field(0.3, ge=0.0, le=1.0)
@@ -411,8 +444,8 @@ class PrimaryRequest(BaseModel):
     parties:            List[PartySpec] = Field(..., min_length=2, max_length=6)
     general_num_voters: int             = Field(500, ge=50, le=2000)
     general_ideology:   str             = Field("random")
-    primary_method:     str             = Field("plurality")
-    general_method:     str             = Field("plurality")
+    primary_method:     PrimaryMethod   = Field("plurality")
+    general_method:     PrimaryMethod   = Field("plurality")
     seed:               int             = Field(42, ge=0)
 
 
@@ -422,13 +455,14 @@ class StvRequest(BaseModel):
     """Single Transferable Vote + D'Hondt + FPTP comparison."""
     model_config = ConfigDict(extra="forbid")
 
-    candidates: List[CandidateSpec] = Field(..., min_length=2, max_length=8)
+    candidates: UniqueCandidates = Field(..., min_length=2, max_length=8)
     num_voters: int = Field(300, ge=50, le=1000)
     ideology:   str = Field("random")
     seed:       int = Field(42, ge=0)
     num_seats:  int = Field(5, ge=2, le=10)
-    quota_type: str = Field("droop",
-                            description="STV quota: 'droop' | 'hare' | 'imperiali'.")
+    # 'imperiali' was documented but never computed: every name but 'hare' ran
+    # Droop while the response echoed the name asked for.
+    quota_type: Literal["droop", "hare"] = Field("droop", description="STV quota.")
 
 
 # ── /adaptive ───────────────────────────────────────────────────────────────
@@ -437,12 +471,12 @@ class AdaptiveRequest(BaseModel):
     """N rounds of adaptive/tactical voting with poll feedback."""
     model_config = ConfigDict(extra="forbid")
 
-    candidates:          List[CandidateSpec] = Field(..., min_length=2, max_length=8)
+    candidates:          UniqueCandidates = Field(..., min_length=2, max_length=8)
     num_voters:          int   = Field(300, ge=50, le=1000)
     ideology:            str   = Field("random")
     seed:                int   = Field(42, ge=0)
     num_rounds:          int   = Field(5, ge=1, le=10)
-    method:              str   = Field("plurality")
+    method:              AdaptiveMethod = Field("plurality")
     strategic_threshold: float = Field(0.15, ge=0.0, le=1.0,
                                        description="Polling level below which voters become tactical.")
 
@@ -487,7 +521,7 @@ class GerrymanderRequest(BaseModel):
     """Voters assigned to user-drawn rectangular districts."""
     model_config = ConfigDict(extra="forbid")
 
-    candidates: List[CandidateSpec] = Field(..., min_length=2, max_length=8)
+    candidates: UniqueCandidates = Field(..., min_length=2, max_length=8)
     districts:  List[DistrictSpec]  = Field(..., min_length=1, max_length=50)
     num_voters: int = Field(300, ge=50, le=1000)
     ideology:   str = Field("random")
@@ -500,7 +534,7 @@ class MultiwinnerCompareRequest(BaseModel):
     """STV / D'Hondt / SPAV / Phragmén / FPTP on the same electorate."""
     model_config = ConfigDict(extra="forbid")
 
-    candidates: List[CandidateSpec] = Field(..., min_length=2, max_length=8)
+    candidates: UniqueCandidates = Field(..., min_length=2, max_length=8)
     num_voters: int = Field(200, ge=50, le=1000)
     ideology:   str = Field("random")
     seed:       int = Field(42, ge=0)
@@ -513,7 +547,7 @@ class DivergenceRequest(BaseModel):
     """Same electorate, without vs with blank vote."""
     model_config = ConfigDict(extra="forbid")
 
-    candidates: List[CandidateSpec] = Field(..., min_length=2, max_length=8)
+    candidates: UniqueCandidates = Field(..., min_length=2, max_length=8)
     num_voters: int   = Field(200, ge=10, le=500)
     ideology:   str   = Field("random")
     seed:       int   = Field(42, ge=0)
@@ -538,22 +572,6 @@ class InterpretRequest(BaseModel):
 
 # ── /quadratic-funding ──────────────────────────────────────────────────────
 
-class QFProject(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    name: str   = Field(..., min_length=1, max_length=64)
-    x:    float = Field(..., ge=-1.0, le=1.0)
-
-
-class QuadraticFundingRequest(BaseModel):
-    """Buterin/Hitzig/Weyl 2019 quadratic funding for public goods."""
-    model_config = ConfigDict(extra="forbid")
-
-    projects:         List[QFProject] = Field(..., min_length=2, max_length=8)
-    num_voters:       int   = Field(100, ge=20, le=1000)
-    ideology:         str   = Field("random")
-    seed:             int   = Field(42, ge=0)
-    budget_per_voter: float = Field(100.0, ge=1.0, le=1000.0)
-    matching_pool:    float = Field(10000.0, ge=0.0)
 
 
 # ── /liquid-democracy ──────────────────────────────────────────────────────
@@ -562,7 +580,7 @@ class LiquidDemocracyRequest(BaseModel):
     """Transitive delegation up to max_chain_length hops."""
     model_config = ConfigDict(extra="forbid")
 
-    candidates:            List[CandidateSpec] = Field(..., min_length=2, max_length=8)
+    candidates:            UniqueCandidates = Field(..., min_length=2, max_length=8)
     num_voters:            int   = Field(100, ge=2, le=1000)
     ideology:              str   = Field("random")
     seed:                  int   = Field(42, ge=0)

@@ -1,7 +1,8 @@
 {
   "vulture": 0,
-  "radon_c_plus": 133,
+  "radon_c_plus": 103,
   "deptry": 0,
-  "knip": 92,
-  "jscpd_clones": 19
+  "knip": 53,
+  "jscpd_clones": 14,
+  "sonarjs": 264
 }

@@ -8,10 +8,8 @@ method-comparison wrapper, and a lightweight winners-only snapshot.
 """
 from __future__ import annotations
 
-import random
-from typing import Any, Dict, List, Optional  # noqa: F401
+from typing import Any, Dict
 
-import numpy as np
 
 from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.simulation_voting_utils import calculate_utility, create_voter
@@ -43,8 +41,6 @@ def _build_base_electorate(
     touched random/np.random between the reseed and this call — false under
     any concurrent access (see election_service.py for the full writeup).
     """
-    import copy  # noqa: F401 — kept for symmetry, not actually needed here
-
     rng, np_rng = _seeded_rng_pair(seed)
 
     cand_names = [str(s.get("name", f"C{i}")) for i, s in enumerate(cand_specs)]
@@ -73,7 +69,7 @@ def _build_base_electorate(
     return candidates, voters, true_utilities, cand_names
 
 
-def _reseed_and_build_electorate(
+def _build_electorate_from_seed(
     cand_specs: list[dict[str, Any]],
     num_voters: int,
     ideology: str,
@@ -81,27 +77,12 @@ def _reseed_and_build_electorate(
 ) -> tuple[
     list[Dict[str, Any]], list[Dict[str, Any]], Dict[Any, Dict[str, float]], list[str], list[str]
 ]:
-    """Reseed the shared `random`/`numpy.random` singletons from *seed*, then
-    build the electorate via `_build_base_electorate`.
+    """`_build_base_electorate`, which seeds its own RNG pair, plus `issues`
+    echoed back so each call site keeps it in scope (always `DEFAULT_ISSUES`).
 
-    This is the *legacy* reseed pattern used by several older `workers_*.py`
-    workers (`workers_advanced.py`, `workers_behavioral.py`,
-    `workers_dynamics.py`, `workers_mechanisms.py`) — predating the local
-    seeded-RNG-pair fix documented on `_build_base_electorate`/
-    `election_service.py` for the concurrency issue with reseeding shared
-    singletons. Kept exactly as-is here: this is a pure duplication
-    extraction (the same 4-line block was copy-pasted across 13 call sites,
-    jscpd-flagged, CODE_AUDIT.md §4/§7), not a behaviour change — do not use
-    this as a template for new workers, prefer `_build_base_electorate`
-    directly with `_seeded_rng_pair`.
-
-    Returns (candidates, voters, true_utilities, cand_names, issues) so
-    every call site keeps `issues` in scope afterwards exactly as before
-    (it is always `DEFAULT_ISSUES`, echoed back rather than re-imported at
-    each site).
+    A worker that draws after this call takes its own `_seeded_rng_pair(seed)`;
+    nothing here touches the process-wide generators.
     """
-    random.seed(seed)
-    np.random.seed(seed)
     issues = DEFAULT_ISSUES
     candidates, voters, true_utilities, cand_names = _build_base_electorate(
         cand_specs, num_voters, ideology, seed, issues
@@ -200,94 +181,48 @@ def _snapshot_election_winners(
     blank_enabled: bool,
     blank_rule: BlankVoteRule,
 ) -> Dict[str, Dict[str, Any]]:
+    """Winner + vote share per method for one snapshot (a campaign day, a
+    factor combination).
+
+    This was a hand-rolled registry justified as "lighter than
+    compare_all_methods() -- skips strategic_vulnerability". That metric is off
+    by default now, so the engine IS the lighter path -- and it answers all 34
+    rules where the copy answered 14, silently omitting 20 (kemeny_young,
+    copeland, ranked_pairs, majority_judgment, nash, ...) for the same
+    electorate /simulate reported in full. `inter_method_agreement`, built on
+    top of this and labelled "toutes les methodes" in the UI, was therefore
+    measured over 41% of them.
+
+    `vote_share` is the engine's `majority_satisfaction`: the same formula the
+    copy computed, under a different name.
     """
-    Run all voting methods from pre-computed utilities.
-
-    Lighter than compare_all_methods() — skips strategic_vulnerability so
-    calling it once per snapshot day is tractable.
-    """
-    from api.engine.utils.simulation_ranked_utils import (
-        get_plurality_winner,
-        get_two_round_winner, get_borda_winner, get_approval_winner,
-        get_irv_winner, get_coombs_winner, get_bucklin_winner,
-        get_minimax_winner, get_schulze_winner,
+    report = compare_all_methods(
+        voters, candidates, issues,
+        blank_vote=blank_enabled,
+        override_utilities=utilities,
+        # Explicit, not inherited: the default flipped True -> False one commit
+        # ago, and at these endpoints' own cap (6 candidates, 200 voters) the
+        # True path measures 13 s per call -- 8 combos of /combined-effects would
+        # be ~104 s against a 180 s worker timeout. Too load-bearing to leave to
+        # a default in another module.
+        compute_strategic=False,
     )
-    from api.engine.utils.simulation_score_utils import (
-        get_simple_score_winner, get_star_voting_winner,
-        get_median_voting_winner, get_mean_median_hybrid_winner,
-        get_variance_based_winner,
-    )
-
-    cand_names = [str(c["name"]) for c in candidates]
-    n          = len(voters) or 1
-
-    # Build sincere rankings and score votes from the provided utilities
-    rankings: list[list[str]] = [
-        sorted(cand_names, key=lambda name: -utilities[v["id"]][name])
-        for v in voters
-    ]
-    score_votes: list[dict[str, int]] = [
-        {name: max(0, min(5, round(5 * utilities[v["id"]][name]))) for name in cand_names}
-        for v in voters
-    ]
-
-    # Majority satisfaction helper (vote_share proxy)
-    def _satisfaction(winner: Optional[str]) -> float:
-        if not winner:
-            return 0.0
-        return round(sum(
-            1 for v in voters
-            if all(
-                utilities[v["id"]].get(winner, 0) > utilities[v["id"]].get(other, 0)
-                for other in cand_names if other != winner
-            )
-        ) / n, 4)
-
-    # blank_pct: voters whose first ranking choice is the blank slot
-    blank_pct = 0.0
-    if blank_enabled:
-        blank_pct = round(sum(
-            1 for v, r in zip(voters, rankings)
-            if max(utilities[v["id"]].values(), default=0.0) < v.get("blank_threshold", 0.375)
-        ) / n, 4)
-
-    ranked: dict[str, Any] = {
-        "plurality":   get_plurality_winner(rankings),
-        "two_round":   get_two_round_winner(rankings),
-        "borda":       get_borda_winner(rankings),
-        "approval":    get_approval_winner(rankings),
-        "irv":         get_irv_winner(rankings),
-        "coombs":      get_coombs_winner(rankings),
-        "bucklin":     get_bucklin_winner(rankings),
-        "minimax":     get_minimax_winner(rankings),
-        "schulze":     get_schulze_winner(rankings),
-    }
-    def _sw(raw: Any) -> Optional[str]:
-        """Extract winner string from a score-method result (dict or str)."""
-        if isinstance(raw, dict):
-            return str(raw["winner"]) if raw.get("winner") is not None else None
-        return str(raw) if raw is not None else None
-
-    scored: dict[str, Any] = {
-        "simple_score":       _sw(get_simple_score_winner(score_votes)),
-        "star_voting":        _sw(get_star_voting_winner(score_votes)),
-        "median_voting":      get_median_voting_winner(score_votes),
-        "mean_median_hybrid": get_mean_median_hybrid_winner(score_votes),
-        "variance_based":     get_variance_based_winner(score_votes),
-    }
+    blank_pct = report.get("blank_pct") or 0.0
 
     methods_out: Dict[str, Dict[str, Any]] = {}
-    for method, winner in (ranked | scored).items():
-        # score methods may return dicts
-        if isinstance(winner, dict):
-            winner = winner.get("winner")
+    for method, md in report.get("methods", {}).items():
+        winner = md.get("winner")
         entry: Dict[str, Any] = {
             "winner":     winner,
-            "vote_share": _satisfaction(winner),
+            # None when no winner; the copy reported 0.0, so keep that.
+            "vote_share": md.get("majority_satisfaction") or 0.0,
         }
         if blank_enabled:
-            rule_res = apply_blank_rule(winner=winner, blank_pct=blank_pct, rule=blank_rule)
+            rule_res = apply_blank_rule(
+                winner=winner, blank_pct=blank_pct, rule=blank_rule
+            )
             entry["winner_after_rule"] = rule_res.get("winner")
         methods_out[method] = entry
 
     return methods_out
+

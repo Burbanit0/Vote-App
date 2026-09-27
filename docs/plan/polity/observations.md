@@ -1109,3 +1109,28 @@ the ranking change? S1.3 found a 2,048 budget "loses nothing" on the frozen bank
 sits at the cap, not whether the cap changes a result.
 
 *Status: open.*
+
+### OBS-024
+
+**The develop→polity sync of 2026-09-27 changes what two configurable polity voting rules return: Kemeny-Young and majority judgment.**
+
+*Seen.* Not in a run: in the merge. polity's `config.py:28-30` lets a run pick any rule from the engine, including
+`kemeny_young` and `majority_judgment`, and develop rewrote both before this sync:
+
+- Kemeny-Young (#604, #605). The winner used to depend on `PYTHONHASHSEED` (candidate order came from a set) and,
+  above 6 candidates, on a KwikSort approximation. It is now exact up to 10 candidates, in a fixed order, and a
+  truncated ballot no longer credits a phantom duel win to the candidate listed second.
+- Majority judgment (#538). The tie-break between candidates sharing a median grade was `p − q` plus one strip step.
+  It is now the real Balinski-Laraki one (strip median grades until they differ).
+
+The default config (`two_round` + `dhondt`) calls neither, and `polity_golden.json` passed unchanged on the merged
+tree (3076 backend tests green).
+
+*Suspected cause.* Not an anomaly in the simulation: two engine fixes arriving through the merge. Recorded because a
+run that selects either rule, or a comparison with a result from before 2026-09-27, can now differ for this reason
+alone.
+
+*What would settle it.* Re-running one past run configured with `kemeny_young` or `majority_judgment`, at the same
+seed and pre-/post-merge commits, would show whether any election outcome changed. Only needed if such a run is cited.
+
+*Status: recorded (engine change, not a bug).*

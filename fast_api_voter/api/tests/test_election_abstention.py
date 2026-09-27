@@ -1,13 +1,5 @@
 """Tests for POST /api/v2/election/abstention — Phase 3 batch 2."""
-import pytest
-from fastapi.testclient import TestClient
 
-from api.main import app
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
 
 
 def _payload(**overrides) -> dict:

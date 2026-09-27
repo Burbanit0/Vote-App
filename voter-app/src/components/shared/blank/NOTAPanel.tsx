@@ -3,7 +3,7 @@
  * Voters cast NOTA if their best candidate's utility falls below the threshold.
  * Three constitutional rules: invalidate, force runoff, or seat NOTA (Nevada).
  */
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -24,11 +24,9 @@ import {
   Legend,
 } from 'recharts';
 import { useElection } from '../../../stores/useElectionStore';
-import PinToCentralButton from '../ui/PinToCentralButton';
 import { $api } from '../../../api/hooks';
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
-
-const DEBOUNCE_MS = 400;
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -114,31 +112,28 @@ const NOTAPanel: React.FC = () => {
   const data: NotaData | null = (sim.data as NotaData | undefined) ?? null;
   const loading = sim.isPending;
   const error = sim.isError ? t('nota.error') : null;
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const runSimulation = useCallback(
-    (thr: number, rule: string) => {
-      sim.mutate({
-        body: {
-          candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
-          num_voters: config.num_voters,
-          ideology: config.ideology,
-          seed: config.seed,
-          nota_threshold: thr,
-          nota_rule: rule,
-          method: 'plurality',
-        },
-      });
-    },
-    [config, t, sim]
-  );
+  const runSimulation = (thr: number, rule: string) => {
+    sim.mutate({
+      body: {
+        candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
+        num_voters: config.num_voters,
+        ideology: config.ideology,
+        seed: config.seed,
+        nota_threshold: thr,
+        nota_rule: rule,
+        method: 'plurality',
+      },
+    });
+  };
 
   const handleSimulate = () => runSimulation(threshold, notaRule);
 
+  const scheduleRun = useDebouncedCallback(runSimulation);
+
   const handleThresholdChange = (v: number) => {
     setThreshold(v);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => runSimulation(v, notaRule), DEBOUNCE_MS);
+    scheduleRun(v, notaRule);
   };
 
   const tippingPoint = data ? findTippingPoint(data.nota_curve) : null;
@@ -179,21 +174,6 @@ const NOTAPanel: React.FC = () => {
             {loading ? <Spinner size="sm" /> : t('nota.run')}
           </Button>
         </Col>
-        {data && (
-          <Col xs="auto">
-            <PinToCentralButton
-              type="nota"
-              icon="🚫"
-              label={`${t('nota.run')} — ${Math.round(threshold * 100)}%`}
-              summary={
-                data.winner === 'NOTA'
-                  ? `${t('nota.runoffRequired')}`
-                  : `${t('nota.electionValid')}: ${data.winner ?? '—'}`
-              }
-              methodsChanged={data.winner === 'NOTA' ? 1 : 0}
-            />
-          </Col>
-        )}
       </Row>
 
       {/* Rule explanations */}

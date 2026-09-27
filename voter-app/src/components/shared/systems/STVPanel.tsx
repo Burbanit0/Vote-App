@@ -19,6 +19,7 @@ import { useElection } from '../../../stores/useElectionStore';
 import { $api } from '../../../api/hooks';
 import { hemicycleArc, hemicyclePath, hemicycleSegments } from '@/lib/hemicycleGeometry';
 import HemicycleLegend from './HemicycleLegend';
+import { colorByName, LAB_PALETTE_WIDE } from '@/lib/palette';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -45,19 +46,7 @@ interface STVData {
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 
-const PALETTE = [
-  '#005CAB',
-  '#C8590A',
-  '#007A33',
-  '#6c757d',
-  '#9b59b6',
-  '#e67e22',
-  '#2A9D8F',
-  '#E76F51',
-];
-function candColor(name: string, names: string[]) {
-  return PALETTE[names.indexOf(name) % PALETTE.length] ?? '#888';
-}
+const candColor = (name: string, names: string[]) => colorByName(name, names, LAB_PALETTE_WIDE);
 
 // ── Hémicycle SVG ─────────────────────────────────────────────────────────────
 

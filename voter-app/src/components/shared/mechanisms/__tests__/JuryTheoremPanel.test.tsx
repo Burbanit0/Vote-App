@@ -37,7 +37,10 @@ vi.mock('recharts', () => {
 
 // ── Fixture ───────────────────────────────────────────────────────────────────
 
-function makeData(bestMethod = 'schulze'): { data: any; error: undefined } {
+function makeData(
+  best: string[] = ['schulze'],
+  worst: string[] = ['plurality']
+): { data: any; error: undefined } {
   const methods = {
     plurality: { accuracy: 0.85, beats_majority: true, beats_theory: false },
     borda: { accuracy: 0.88, beats_majority: true, beats_theory: false },
@@ -60,8 +63,8 @@ function makeData(bestMethod = 'schulze'): { data: any; error: undefined } {
     data: {
       theoretical_accuracy: 0.89,
       methods,
-      best_method: bestMethod,
-      worst_method: 'plurality',
+      best_method: best,
+      worst_method: worst,
       voter_competence: 0.7,
       num_voters: 100,
       competence_curve: curvePoints,
@@ -157,13 +160,35 @@ describe('JuryTheoremPanel', () => {
   });
 
   it('shows best method badge', async () => {
-    apiClient.POST.mockResolvedValue(makeData('schulze'));
+    apiClient.POST.mockResolvedValue(makeData(['schulze']));
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => {
       const badge = screen.getByTestId('best-method-badge');
       expect(badge.textContent).toContain('schulze');
     });
+    vi.runAllTimers();
+  });
+
+  it('names every method tied at the top in the badge', async () => {
+    // 4 or 5 of the 5 methods tie on most real runs; the badge used to name one.
+    apiClient.POST.mockResolvedValue(makeData(['irv', 'schulze']));
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
+    await waitFor(() => {
+      expect(screen.getByTestId('best-method-badge').textContent).toContain('irv, schulze');
+    });
+    vi.runAllTimers();
+  });
+
+  it('shows no best-method badge when all five methods tie', async () => {
+    apiClient.POST.mockResolvedValue(makeData([], []));
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
+    await waitFor(() => {
+      expect(screen.getByTestId('theory-badge')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('best-method-badge')).not.toBeInTheDocument();
     vi.runAllTimers();
   });
 

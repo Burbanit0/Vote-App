@@ -3,7 +3,7 @@
  * identifies voters who can profitably misrepresent their preferences,
  * and shows which strategy they use (compromising, burying, push-over, truncating).
  */
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -13,8 +13,8 @@ import { Col, Row } from '@/components/ui/grid';
 import { Spinner } from '@/components/ui/spinner';
 import { Table } from '@/components/ui/table';
 import { useElection } from '../../../stores/useElectionStore';
-import PinToCentralButton from '../ui/PinToCentralButton';
 import { $api } from '../../../api/hooks';
+import type { ManipulationMethod } from '@/api';
 const SVG_SIZE = 340;
 const PAD = 28;
 const STRATEGIES = ['compromising', 'burying', 'pushover', 'truncating'] as const;
@@ -184,14 +184,14 @@ const ManipulationAnalysisPanel: React.FC = () => {
   const { t } = useTranslation();
   const { config } = useElection();
 
-  const [method, setMethod] = useState('plurality');
+  const [method, setMethod] = useState<ManipulationMethod>('plurality');
   const sim = $api.useMutation('post', '/api/v2/theory/manipulation-analysis');
   const data: ManipData | null = (sim.data as ManipData | undefined) ?? null;
   const loading = sim.isPending;
   const error = sim.isError ? t('gs.error') : null;
   const [selected, setSelected] = useState<number | null>(null);
 
-  const runAnalysis = useCallback(() => {
+  const runAnalysis = () => {
     setSelected(null);
     sim.mutate({
       body: {
@@ -203,7 +203,7 @@ const ManipulationAnalysisPanel: React.FC = () => {
         manipulation_strategies: ['compromising', 'burying', 'pushover', 'truncating'],
       },
     });
-  }, [config, method, t, sim]);
+  };
 
   const selectedManip = data?.manipulators.find((m) => m.voter_id === selected) ?? null;
 
@@ -224,7 +224,7 @@ const ManipulationAnalysisPanel: React.FC = () => {
             size="sm"
             value={method}
             data-testid="method-select"
-            onChange={(e) => setMethod(e.target.value)}
+            onChange={(e) => setMethod(e.target.value as ManipulationMethod)}
           >
             <option value="plurality">Plurality</option>
             <option value="borda">Borda</option>
@@ -242,21 +242,6 @@ const ManipulationAnalysisPanel: React.FC = () => {
             {loading ? <Spinner size="sm" /> : t('gs.analyze')}
           </Button>
         </Col>
-        {data && (
-          <Col xs="auto">
-            <PinToCentralButton
-              type="manipulation"
-              icon="🕵"
-              label={t('gs.analyze')}
-              summary={
-                data.manipulable
-                  ? `${t('gs.manipulable')}: ${data.manipulation_count} ${t('electionLab.voters')}`
-                  : t('gs.notManipulable')
-              }
-              methodsChanged={data.manipulable ? 1 : 0}
-            />
-          </Col>
-        )}
       </Row>
 
       {!data && !loading && !error && (

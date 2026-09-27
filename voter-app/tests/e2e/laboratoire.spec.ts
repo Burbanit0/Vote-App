@@ -132,31 +132,46 @@ test.describe('Laboratoire — the modules that compute', () => {
     await expect(page.locator('[data-testid="lab-bench"]')).not.toContainText('Erreur lors de');
   });
 
-  test('the Monte-Carlo fiche runs through the Web Worker', async ({ page }) => {
-    // Regression test for the dead worker: simulationWorker.ts used to import
-    // React components for three pure helpers, so the worker threw "window is not
-    // defined" on start-up and every dispatch died — the heatmap, the agreement
-    // matrix and the sorting were silently lost. No unit test could see it: the
-    // Vitest mock of useSimulationWorker replaces the worker with those same pure
-    // functions called inline, so it certifies the boundary away. Only a real
-    // browser runs a real worker.
+  test('the Monte-Carlo fiche streams results into the agreement graph', async ({ page }) => {
     test.setTimeout(120_000);
     const crashes: string[] = [];
     page.on('pageerror', (err) => crashes.push(err.message));
 
     await openFiche(page, 'theory', 'ana-montecarlo');
-    // Streaming is the default and the only path that dispatches to the worker
-    // (COMPUTE_MATRIX on each partial result).
+    // Streaming is the default: the agreement matrix is recomputed on each
+    // partial result over the Socket.IO stream.
     await page.locator('[data-testid="mc-run"]').click();
 
-    // The agreement graph only renders once the stream has produced results, so
-    // it proves the dispatch round-trip happened.
+    // The agreement graph only renders once the stream has produced results.
     await expect(page.locator('[data-testid="mc-stream-graph"]')).toBeVisible({ timeout: 90_000 });
+    expect(crashes, 'the page must not throw while streaming').toEqual([]);
+  });
 
-    // The assertion that actually guards the regression: every consumer of the
-    // worker falls back to computing inline on error, so a dead worker degrades
-    // in silence — the uncaught start-up error is the only signal it leaves.
-    expect(crashes, 'the worker must not throw on start-up').toEqual([]);
+  test('the historical replay replays with a dragged candidate', async ({ page }) => {
+    // Regression test: the stars had no hit area (their glyphs ignore the pointer)
+    // and the drag hook never armed, so a drag was silently ignored. jsdom does no
+    // hit-testing, so only a real browser can see the first half of that.
+    await openFiche(page, 'dynamics', 'tdyn-replay');
+    await page
+      .getByRole('button', { name: /simuler|simulate/i })
+      .first()
+      .click();
+    const star = page.locator('[data-testid^="candidate-star-"]').first();
+    await expect(star).toBeVisible({ timeout: 30_000 });
+    await star.scrollIntoViewIfNeeded();
+    const name = (await star.getAttribute('data-testid'))!.replace('candidate-star-', '');
+    const box = (await star.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 60, box.y + 40, { steps: 8 });
+    await page.mouse.up();
+
+    const replay = page.waitForRequest(
+      (r) => r.url().includes('historical-replay') && r.method() === 'POST'
+    );
+    await page.locator('[data-testid="apply-drag-btn"]').click();
+    const { overrides } = (await replay).postDataJSON();
+    expect(overrides.map((o: { name: string }) => o.name)).toEqual([name]);
   });
 
   test('real elections are backtested against every method', async ({ page }) => {

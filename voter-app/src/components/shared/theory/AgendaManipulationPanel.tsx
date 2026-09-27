@@ -3,7 +3,7 @@
  * by choosing the order of binary votes, an agenda-setter can produce any desired
  * outcome with the same electorate.
  */
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { $api } from '../../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
@@ -213,23 +213,20 @@ const AgendaManipulationPanel: React.FC = () => {
   const [seed, setSeed] = useState(42);
   const [target, setTarget] = useState(DEFAULT_ALTS[0]);
 
-  const runSimulation = useCallback(
-    (as: string[], nv: number, sd: number, tgt: string) => {
-      sim.mutate(
-        {
-          body: {
-            alternatives: as,
-            num_voters: nv,
-            seed: sd,
-            target_outcome: tgt,
-            constraint_type: 'binary_elimination',
-          },
+  const runSimulation = (as: string[], nv: number, sd: number, tgt: string) => {
+    sim.mutate(
+      {
+        body: {
+          alternatives: as,
+          num_voters: nv,
+          seed: sd,
+          target_outcome: tgt,
+          constraint_type: 'binary_elimination',
         },
-        { onSuccess: () => setAgendaOrder([...as]) }
-      );
-    },
-    [sim]
-  );
+      },
+      { onSuccess: () => setAgendaOrder([...as]) }
+    );
+  };
 
   const handleSimulate = () => runSimulation(alts, numVoters, seed, target);
 

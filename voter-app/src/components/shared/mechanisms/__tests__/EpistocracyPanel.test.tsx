@@ -79,20 +79,29 @@ const BELOW_RANDOM_DATA = {
 /** openapi-fetch resolves to { data, error }. */
 const ok = (d: unknown) => ({ data: d, error: undefined });
 
+/** The Lab's shared electorate, the only way this panel is ever mounted. */
+const LAB = {
+  candidates: [
+    { name: 'A', x: -0.5, y: 0.0 },
+    { name: 'B', x: 0.0, y: 0.0 },
+    { name: 'C', x: 0.5, y: 0.0 },
+  ],
+  numVoters: 200,
+  seed: 42,
+};
+
 function renderPanel() {
   return render(
     <QueryClientProvider client={makeTestQueryClient()}>
-      <EpistocracyPanel />
+      <EpistocracyPanel {...LAB} />
     </QueryClientProvider>
   );
 }
 
+/** Mounting IS the run: the panel requests as soon as it has an electorate. */
 async function renderAndRun(responseData = MOCK_DATA) {
-  apiClient.POST.mockResolvedValueOnce(ok(responseData));
+  apiClient.POST.mockResolvedValue(ok(responseData));
   renderPanel();
-  await act(async () => {
-    fireEvent.click(screen.getByTestId('run-btn'));
-  });
   await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
   await screen.findByTestId('comparison-badges');
 }
@@ -100,7 +109,10 @@ async function renderAndRun(responseData = MOCK_DATA) {
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('EpistocracyPanel', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    apiClient.POST.mockResolvedValue(ok(MOCK_DATA));
+  });
 
   it('renders Caplan quote on mount', () => {
     renderPanel();
@@ -110,8 +122,6 @@ describe('EpistocracyPanel', () => {
   it('renders all controls', () => {
     renderPanel();
     expect(screen.getByTestId('run-btn')).toBeInTheDocument();
-    expect(screen.getByTestId('voters-input')).toBeInTheDocument();
-    expect(screen.getByTestId('seed-input')).toBeInTheDocument();
     expect(screen.getByTestId('dist-select')).toBeInTheDocument();
     expect(screen.getByTestId('caplan-bias-toggle')).toBeInTheDocument();
     expect(screen.getByTestId('comp-mean-slider')).toBeInTheDocument();
@@ -125,28 +135,31 @@ describe('EpistocracyPanel', () => {
     expect(screen.getByTestId('competence-histogram')).toBeInTheDocument();
   });
 
-  it('shows prompt alert before simulation', () => {
-    renderPanel();
-    expect(screen.getByTestId('prompt-alert')).toBeInTheDocument();
-  });
-
   it('has three distribution options in select', () => {
     renderPanel();
     const select = screen.getByTestId('dist-select') as HTMLSelectElement;
     expect(select.options).toHaveLength(3);
   });
 
-  it('calls API with correct payload on run', async () => {
+  it('runs itself on mount with the Lab electorate', async () => {
     await renderAndRun();
-    const [url, init] = apiClient.POST.mock.calls[0];
+    const [url, init] = apiClient.POST.mock.calls[0] as [string, { body: Record<string, unknown> }];
     expect(url).toBe('/api/v2/theory/epistocracy');
-    const payload = (init as { body: Record<string, unknown> }).body;
-    expect(payload).toHaveProperty('num_voters');
-    expect(payload).toHaveProperty('seed');
+    const payload = init.body;
+    expect(payload.candidates).toEqual(LAB.candidates);
+    expect(payload.num_voters).toBe(LAB.numVoters);
+    expect(payload.seed).toBe(LAB.seed);
     expect(payload).toHaveProperty('voter_competence_distribution');
     expect(payload).toHaveProperty('competence_params');
     expect(payload).toHaveProperty('epistocracy_threshold');
-    expect(payload).toHaveProperty('candidates');
+  });
+
+  it('re-requests when the run button is clicked', async () => {
+    await renderAndRun();
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('run-btn'));
+    });
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(2));
   });
 
   it('renders comparison badges after simulation', async () => {
@@ -204,11 +217,8 @@ describe('EpistocracyPanel', () => {
   });
 
   it('shows error alert on API failure', async () => {
-    apiClient.POST.mockRejectedValueOnce(new Error('Network error'));
+    apiClient.POST.mockRejectedValue(new Error('Network error'));
     renderPanel();
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('run-btn'));
-    });
     await waitFor(() => expect(screen.getByTestId('error-alert')).toBeInTheDocument());
   });
 });

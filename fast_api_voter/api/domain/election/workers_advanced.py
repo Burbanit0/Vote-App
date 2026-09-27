@@ -20,14 +20,15 @@ import numpy as _np
 from api.engine.constants import DEFAULT_ISSUES
 from api.engine.utils.error_handling import safe_call
 from api.engine.utils.logger import get_logger
+from api.engine.utils.demographic_data import _seeded_rng_pair
 from api.engine.utils.simulation_voting_utils import calculate_utility, create_voter
-from api.engine.utils.simulation_metrics import compare_all_methods
-from api.engine.utils.simulation_ranked_utils import (
-    get_borda_winner, get_condorcet_winner, get_irv_winner, get_plurality_winner,
-    get_schulze_winner,
+from api.engine.utils.simulation_metrics import bayesian_regret, compare_all_methods
+from api.engine.utils.method_registry import rule_winner
+from api.engine.utils.simulation_ranked_utils import get_condorcet_winner, get_plurality_winner
+from ._electorate import _build_electorate_from_seed
+from ._helpers import (
+    build_candidate_from_xy as _build_candidate_from_xy, reject_unknown_methods, result_label,
 )
-from ._electorate import _reseed_and_build_electorate
-from ._helpers import build_candidate_from_xy as _build_candidate_from_xy
 
 log = get_logger(__name__)
 
@@ -37,11 +38,7 @@ log = get_logger(__name__)
 _AGE_LABELS  = ("jeunes (18-34)", "adultes (35-64)", "seniors (65+)")
 _EDU_LABELS  = ("faible éducation", "éducation élevée")
 
-_DT_RULES = {
-    "borda":   get_borda_winner,
-    "irv":     get_irv_winner,
-    "schulze": get_schulze_winner,
-}
+DT_METHODS = ("plurality", "borda", "irv", "schulze")
 
 _DT_DEFAULT_CANDIDATES = (
     {"name": "Alice", "x": -0.5, "y": -0.2},
@@ -143,15 +140,15 @@ def _dt_winner(
     utils: Dict[Any, Dict[str, float]],
     cand_names: List[str],
     method: str,
-) -> tuple[str, Dict[str, float]]:
-    """Winner and first-choice shares for one voter subset."""
+) -> tuple[Optional[str], Dict[str, float]]:
+    """Winner and first-choice shares for one voter subset. No winner on an
+    exact tie, or when nobody voted."""
     if not vlist:
-        return cand_names[0], {c: 0.0 for c in cand_names}
+        return None, {c: 0.0 for c in cand_names}
     rnk = [sorted(utils[v["id"]].keys(), key=lambda n: -utils[v["id"]][n]) for v in vlist]
-    w: Optional[str] = _DT_RULES.get(method, get_plurality_winner)(rnk)
     fc = Counter(r[0] for r in rnk)
     shares = {c: round(fc.get(c, 0) / len(vlist), 4) for c in cand_names}
-    return w or cand_names[0], shares
+    return rule_winner(method, rnk), shares
 
 
 def _dt_mean(
@@ -253,8 +250,8 @@ def _dt_note(
     n_actual: int,
     num_voters: int,
     ideo_drift: float,
-    biased_winner: str,
-    corrected_winner: str,
+    biased_winner: Optional[str],
+    corrected_winner: Optional[str],
 ) -> str:
     note = (
         f"Avec les taux de participation configurés, "
@@ -262,30 +259,38 @@ def _dt_note(
         f"est décalé de {ideo_drift:+.3f} sur l'axe idéologique par rapport à la population totale. "
     )
     if biased_winner != corrected_winner:
-        return note + f"Si tous votaient, le résultat serait différent : '{biased_winner}' → '{corrected_winner}'."
-    return note + f"La méthode produit le même vainqueur ('{biased_winner}') malgré le biais de participation."
+        return note + (
+            f"Si tous votaient, le résultat serait différent : "
+            f"{result_label(biased_winner)} → {result_label(corrected_winner)}."
+        )
+    return note + (
+        f"La méthode produit le même résultat ({result_label(biased_winner)}) "
+        f"malgré le biais de participation."
+    )
 
 
 def _demographic_turnout_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /demographic-turnout — extracted for FastAPI v2."""
+    """/demographic-turnout — Full population vs effective electorate via age × education
+    turnout gaps."""
     num_voters     = max(50, min(500, int(data.get("num_voters", 300))))
     seed           = int(data.get("seed", 42))
     primary_method = str(data.get("method", "plurality"))
     correct_flag   = bool(data.get("correct_for_turnout", True))
     cand_specs     = data.get("candidates", _DT_DEFAULT_CANDIDATES)[:6]
+    if err := reject_unknown_methods([primary_method], DT_METHODS):
+        return err
 
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
 
     prof = _dt_profile(data.get("demographic_profile") or {})
 
-    _random.seed(seed)
-    _np.random.seed(seed)
+    rng, np_rng = _seeded_rng_pair(seed)
     issues = DEFAULT_ISSUES
     cand_names, candidates = _dt_candidates(cand_specs, issues)
 
     raw_voters = [
-        create_voter(issues, i, ideology_distribution="random")
+        create_voter(issues, i, ideology_distribution="random", rng=rng, np_rng=np_rng)
         for i in range(num_voters)
     ]
     voter_demo = _dt_assign_demographics(raw_voters, seed, prof)
@@ -363,7 +368,6 @@ def _compulsory_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
     comp_to      = max(0.70, min(0.99, float(data.get("compulsory_turnout",  0.92))))
     rel_null     = max(0.00, min(0.20, float(data.get("reluctant_null_rate",  0.04))))
     rel_rnd      = max(0.00, min(1.00, float(data.get("reluctant_random_pct", 0.08))))
-    str(data.get("method", "plurality"))
     cand_specs   = data.get("candidates", [
         {"name": "Alice", "x": -0.5, "y": -0.2},
         {"name": "Bob",   "x":  0.5, "y":  0.2},
@@ -373,7 +377,7 @@ def _compulsory_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
 
-    candidates, voters, sincere_utilities, cand_names, issues = _reseed_and_build_electorate(
+    candidates, voters, sincere_utilities, cand_names, issues = _build_electorate_from_seed(
         cand_specs, num_voters, ideology, seed
     )
     voter_ideo:     Dict[int, float] = {
@@ -437,7 +441,7 @@ def _compulsory_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
             if v != _NULL:
                 tally[v] += 1
         n_valid = len(voter_set) - n_null
-        winner  = max(tally, key=tally.__getitem__) if tally else cand_names[0]
+        winner  = min(tally, key=lambda c: (-tally[c], c)) if tally else cand_names[0]
         shares  = {
             c: round(tally.get(c, 0) / n_valid, 4) if n_valid else 0.0
             for c in cand_names
@@ -524,12 +528,11 @@ def _compulsory_voting_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int
 
 
 def _sortition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /sortition — extracted for FastAPI v2 reuse."""
+    """/sortition — Elected vs sortition pure vs stratified assembly comparison."""
     num_voters      = max(50,  min(500, int(data.get("num_voters",        300))))
     assembly_size   = max(5,   min(300, int(data.get("assembly_size",      50))))
     ideology        = str(data.get("ideology",          "random"))
     seed            = int(data.get("seed",               42))
-    str(data.get("method",            "plurality"))
     num_sims        = max(5,   min(100, int(data.get("num_simulations",   20))))
     realistic_cands = bool(data.get("realistic_candidates", True))
     cand_specs      = data.get("candidates", [
@@ -547,7 +550,7 @@ def _sortition_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
 
-    candidates, voters, sincere_utilities, cand_names, issues = _reseed_and_build_electorate(
+    candidates, voters, sincere_utilities, cand_names, issues = _build_electorate_from_seed(
         cand_specs, num_voters, ideology, seed
     )
     all_ids: list[int] = [v["id"] for v in voters]
@@ -785,22 +788,23 @@ _PD_DEFAULT_PARTIES = [
     {"name": "D", "x":  0.5, "y":  0.0, "support_pct": 0.25},
     {"name": "E", "x":  0.9, "y":  0.0, "support_pct": 0.10},
 ]
-_PD_TACTICAL_METHODS = {"plurality", "two_round", "irv"}
+# One name per share model: tactical first-past-the-post, sincere nearest-party.
+PD_METHODS = ("plurality", "proportional")
 
 
-def _pd_voter_ideology(ideology: str, num_voters: int) -> Any:
+def _pd_voter_ideology(ideology: str, num_voters: int, np_rng: "_np.random.RandomState") -> Any:
     """The fixed voter ideology axis for the whole run — one draw, reused across
     every election, since it's the parties that move, not the electorate."""
     if ideology == "polarized":
         h = num_voters // 2
         return _np.clip(
-            _np.concatenate([_np.random.normal(-0.6, 0.2, h),
-                             _np.random.normal(0.6, 0.2, num_voters - h)]),
+            _np.concatenate([np_rng.normal(-0.6, 0.2, h),
+                             np_rng.normal(0.6, 0.2, num_voters - h)]),
             -1.0, 1.0,
         )
     if ideology == "normal":
-        return _np.clip(_np.random.normal(0, 0.3, num_voters), -1.0, 1.0)
-    return _np.random.uniform(-1.0, 1.0, num_voters)
+        return _np.clip(np_rng.normal(0, 0.3, num_voters), -1.0, 1.0)
+    return np_rng.uniform(-1.0, 1.0, num_voters)
 
 
 def _pd_normalise_parties(initial_pts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -837,7 +841,7 @@ def _pd_vote_shares(
     dists = _np.abs(voter_x[:, None] - pxs[None, :])   # (N, K)
     nearest = _np.argmin(dists, axis=1)
 
-    if tactical_on and method in _PD_TACTICAL_METHODS:
+    if tactical_on and method == "plurality":
         viable = _np.array([polls.get(p["name"], 0) >= 2 * surv_thr
                              for p in parties])
         if viable.any() and not viable.all():
@@ -955,7 +959,7 @@ def _pd_summary(
     else:
         final_system = "fragmented"
 
-    duverger_confirmed = (method in ("plurality", "two_round")) and (n_eff_final < 2.5)
+    duverger_confirmed = method == "plurality" and n_eff_final < 2.5
 
     convergence_speed: Optional[int] = None
     for i, nef in enumerate(n_eff_curve):
@@ -1002,6 +1006,8 @@ def _party_dynamics_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     seed          = int(data.get("seed", 42))
     num_elections = max(1, min(30, int(data.get("num_elections", 10))))
     method        = str(data.get("method", "plurality"))
+    if err := reject_unknown_methods([method], PD_METHODS):
+        return err
     surv_thr      = max(0.01, min(0.20, float(data.get("survival_threshold", 0.05))))
     emerge_prob   = max(0.00, min(1.00, float(data.get("emergence_probability", 0.10))))
     hotelling_a   = max(0.00, min(1.00, float(data.get("hotelling_adaptation", 0.10))))
@@ -1012,10 +1018,9 @@ def _party_dynamics_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     if len(initial_pts) < 2:
         return {"error": "At least 2 initial parties required"}, 400
 
-    _random.seed(seed)
-    _np.random.seed(seed)
+    _, np_rng = _seeded_rng_pair(seed)
 
-    voter_x = _pd_voter_ideology(ideology, num_voters)
+    voter_x = _pd_voter_ideology(ideology, num_voters, np_rng)
     voter_median = float(_np.median(voter_x))
     active = _pd_normalise_parties(initial_pts)
 
@@ -1059,7 +1064,6 @@ def _deliberation_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     network_type   = str(data.get("network_type",           "random"))
     group_size     = max(3,  min(20,  int(data.get("group_size",           5))))
     arg_quality    = max(0.0, min(1.0, float(data.get("argument_quality",  0.5))))
-    str(data.get("method",                 "plurality"))
     cand_specs     = data.get("candidates", [
         {"name": "Alice", "x": -0.5, "y": -0.2},
         {"name": "Bob",   "x":  0.5, "y":  0.2},
@@ -1069,7 +1073,7 @@ def _deliberation_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
     if len(cand_specs) < 2:
         return {"error": "At least 2 candidates required"}, 400
 
-    candidates, voters, sincere_utilities, cand_names, issues = _reseed_and_build_electorate(
+    candidates, voters, sincere_utilities, cand_names, issues = _build_electorate_from_seed(
         cand_specs, num_voters, ideology, seed
     )
 
@@ -1092,12 +1096,9 @@ def _deliberation_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
         return {c: round(tally.get(c, 0) / total, 4) for c in cand_names}
 
     def _regret(utils: Dict[Any, Dict[str, float]], winner: Optional[str]) -> float:
-        if winner is None:
-            return 0.0
-        return round(
-            sum(max(utils[v["id"]].values()) - utils[v["id"]].get(winner, 0)
-                for v in voters) / len(voters), 4
-        )
+        # 4 digits here, and no winner scores 0.0 rather than None -- this panel
+        # feeds numbers straight into a chart.
+        return bayesian_regret(utils, voters, winner, ndigits=4) or 0.0
 
     def _cw(utils: Dict[Any, Dict[str, float]]) -> Optional[str]:
         rnk = [sorted(utils[v["id"]], key=lambda k: -utils[v["id"]][k]) for v in voters]
@@ -1467,7 +1468,7 @@ def _pi_zeros(names: List[str]) -> tuple[Dict[str, float], Dict[str, int]]:
 
 
 def _power_indices_worker(data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-    """Pure worker for /power-indices — extracted for FastAPI v2."""
+    """/power-indices — Shapley-Shubik and Banzhaf power indices for coalition bargaining."""
     raw_parties: List[Dict[str, Any]] = data.get("parties") or []
     if not raw_parties:
         return {"error": "parties required"}, 400

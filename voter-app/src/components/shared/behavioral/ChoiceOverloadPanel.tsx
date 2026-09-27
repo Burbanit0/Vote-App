@@ -3,7 +3,7 @@
  * beyond a threshold of candidates, voters resort to heuristics instead
  * of their true preferences, degrading election quality.
  */
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { $api } from '../../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
@@ -27,8 +27,9 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { useElection } from '../../../stores/useElectionStore';
-import PinToCentralButton from '../ui/PinToCentralButton';
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
+import { listNames } from '@/lib/listNames';
 
 const DEFAULT_COUNTS = [2, 3, 5, 7, 10];
 
@@ -46,8 +47,9 @@ interface NResult {
 interface OverloadData {
   results_by_n: NResult[];
   regret_curve: { n_candidates: number; regret: number }[];
-  most_robust_method: string;
-  least_robust_method: string;
+  /** Every method tied at the top / bottom; empty when all tie. */
+  most_robust_method: string[];
+  least_robust_method: string[];
   overload_threshold: number;
   heuristic_weights: { notoriety: number; primacy: number; partisan: number };
   pedagogical_note: string;
@@ -67,31 +69,24 @@ const ChoiceOverloadPanel: React.FC = () => {
   const data: OverloadData | null = (sim.data as OverloadData | undefined) ?? null;
   const loading = sim.isPending;
   const error = sim.isError ? t('overload.error') : null;
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const runSimulation = useCallback(
-    (hn: number, hp: number, hpa: number, thr: number) => {
-      sim.mutate({
-        body: {
-          num_voters: config.num_voters,
-          ideology: config.ideology,
-          seed: config.seed,
-          candidate_counts: DEFAULT_COUNTS,
-          overload_threshold: thr,
-          heuristic_weights: { notoriety: hn, primacy: hp, partisan: hpa },
-          methods: ['plurality', 'approval', 'borda', 'majority_judgment'],
-        },
-      });
-    },
-    [config, t, sim]
-  );
+  const runSimulation = (hn: number, hp: number, hpa: number, thr: number) => {
+    sim.mutate({
+      body: {
+        num_voters: config.num_voters,
+        ideology: config.ideology,
+        seed: config.seed,
+        candidate_counts: DEFAULT_COUNTS,
+        overload_threshold: thr,
+        heuristic_weights: { notoriety: hn, primacy: hp, partisan: hpa },
+        methods: ['plurality', 'approval', 'borda', 'majority_judgment'],
+      },
+    });
+  };
 
   const handleSimulate = () => runSimulation(hNotoriety, hPrimacy, hPartisan, threshold);
 
-  const schedule = (hn: number, hp: number, hpa: number, thr: number) => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => runSimulation(hn, hp, hpa, thr), 400);
-  };
+  const schedule = useDebouncedCallback(runSimulation);
 
   // ── Line chart data ─────────────────────────────────────────────────────
   const lineData =
@@ -198,21 +193,6 @@ const ChoiceOverloadPanel: React.FC = () => {
         <Button variant="primary" onClick={handleSimulate} disabled={loading}>
           {loading ? <Spinner size="sm" /> : t('overload.run')}
         </Button>
-        {data &&
-          data.results_by_n.length > 0 &&
-          (() => {
-            // Take the last/largest N as the "overloaded" scenario for the pin
-            const overloaded = data.results_by_n[data.results_by_n.length - 1];
-            return (
-              <PinToCentralButton
-                type="overload"
-                icon="🤯"
-                label={`${t('overload.run')} (n=${overloaded.num_candidates})`}
-                summary={`${t('overload.run')}: ${overloaded.heuristic_voters} heuristic voters`}
-                winnersByMethod={overloaded.winner_by_method}
-              />
-            );
-          })()}
       </div>
 
       {!data && !loading && !error && (
@@ -226,12 +206,16 @@ const ChoiceOverloadPanel: React.FC = () => {
         <>
           {/* Robustness badges */}
           <div className="flex flex-wrap gap-2 mb-3">
-            <Badge variant="success" data-testid="most-robust-badge">
-              {t('overload.mostRobust')}: {data.most_robust_method}
-            </Badge>
-            <Badge variant="danger" data-testid="least-robust-badge">
-              {t('overload.leastRobust')}: {data.least_robust_method}
-            </Badge>
+            {data.most_robust_method.length > 0 && (
+              <Badge variant="success" data-testid="most-robust-badge">
+                {t('overload.mostRobust')}: {listNames(data.most_robust_method)}
+              </Badge>
+            )}
+            {data.least_robust_method.length > 0 && (
+              <Badge variant="danger" data-testid="least-robust-badge">
+                {t('overload.leastRobust')}: {listNames(data.least_robust_method)}
+              </Badge>
+            )}
             <Badge variant="info">
               {t('overload.threshold')} = {data.overload_threshold}
             </Badge>
@@ -335,7 +319,7 @@ const ChoiceOverloadPanel: React.FC = () => {
                 {methods.map((m) => (
                   <th key={m} style={{ fontSize: '0.78rem' }}>
                     <code>{m}</code>
-                    {m === data.most_robust_method && (
+                    {data.most_robust_method.includes(m) && (
                       <Badge variant="success" className="ms-1" style={{ fontSize: '0.55rem' }}>
                         ✓
                       </Badge>

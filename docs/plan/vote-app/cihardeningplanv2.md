@@ -82,7 +82,8 @@ réglage GitHub.
    après avoir élargi la sélection de tests de 14+2 à 25 fichiers (qui, elle, a fait
    passer `simulation_ranked_utils.py` de 58,9% à 71,3%). Les 6 règles non couvertes
    sont nommées : `median_voting`, `mean_median_hybrid`, `variance_based`,
-   `score_distribution_analysis`, `majority_judgment`, `evaluative`.
+   `score_distribution_analysis` (supprimée en PR 8b, seuls ses tests
+   l'appelaient), `majority_judgment`, `evaluative`.
 
 5. **L'exclusion de `workers.py` de mutmut est un vrai blocage diagnostiqué**, pas un
    oubli : mutmut 3.7.0 réexécute pytest in-process, et tout test `TestClient` casse

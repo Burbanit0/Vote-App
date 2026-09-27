@@ -10,27 +10,27 @@ requests (Monte Carlo, coalition, ...) can starve that pool for everyone
 else, and a genuinely stuck worker (deadlock, unbounded loop) holds its
 thread forever with no way to recover short of restarting the process.
 
-Three pieces:
+Four pieces:
 
 - `run_bounded(fn, *args, **kwargs)` — the low-level primitive. Runs any
   sync callable off the event loop, bounded by the shared semaphore and
   timeout. Raises `asyncio.TimeoutError` on timeout; callers decide how to
-  surface that in their own response shape (export.py's `_generate_rows`
-  returns a bare list, not the `(body, status)` tuple below, so it can't
-  share a single fallback shape with the rest).
+  surface that in their own response shape (`api/sockets/__init__.py`'s
+  Monte Carlo streaming loop catches it and emits a `monte_carlo_error`
+  event — it has no HTTP status to return, so it can't share the
+  `(body, status)` tuple below).
 - `run_worker_bounded(domain_fn, payload)` — the `(payload) -> (body,
-  status)` worker contract used by every `routes/*.py` helper
-  (`_run_worker`/`_run_typed`/`_run_passthrough`). Converts a timeout into
-  a same-shaped `({"error": ...}, 503)` tuple, so each route's existing
-  status-code handling covers it with no changes on the caller's side.
+  status)` worker contract. Converts a timeout into a same-shaped
+  `({"error": ...}, 503)` tuple, so existing status-code handling covers it
+  with no changes on the caller's side.
 - `raise_for_status(body, status_code)` — the `(body, status)` ->
-  `HTTPException` mapping that most `_run_typed`/`_run_passthrough` helpers
-  need on top of `run_worker_bounded`. Shared here instead of duplicated
-  per router (it used to be — see the function's own docstring).
+  `HTTPException` mapping on top of `run_worker_bounded`.
+- `run_passthrough(domain_fn, request)` / `run_typed(domain_fn, request,
+  response_model)` — the two of those composed, which is all a route needs.
 
-Both share ONE semaphore — a heavy CSV export and a heavy Monte Carlo run
-compete for the same 4 concurrent slots, which is the point: the bound is on
-total CPU-heavy work in flight, not per-endpoint.
+They all share ONE semaphore — a Socket.IO Monte Carlo stream and a heavy
+`/election/simulate` compete for the same 4 concurrent slots, which is the
+point: the bound is on total CPU-heavy work in flight, not per-endpoint.
 
 Numbers, and why:
 
@@ -72,9 +72,11 @@ worker processes, a materially bigger change out of scope here.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Mapping
 from typing import Any, Callable, Dict, Tuple, TypeVar
 
 from fastapi import HTTPException, status as http_status
+from pydantic import BaseModel
 
 from api.engine.utils.logger import get_logger
 
@@ -82,6 +84,7 @@ log = get_logger(__name__)
 
 WorkerFn = Callable[[Dict[str, Any]], Tuple[Dict[str, Any], int]]
 _T = TypeVar("_T")
+_ResponseT = TypeVar("_ResponseT", bound=BaseModel)
 
 # See module docstring for how these two numbers were chosen.
 MAX_CONCURRENT_WORKERS = 4
@@ -102,7 +105,7 @@ async def run_bounded(fn: Callable[..., _T], *args: Any, **kwargs: Any) -> _T:
 
 async def run_worker_bounded(domain_fn: WorkerFn, payload: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
     """`(payload) -> (body, status)` worker contract, as used by every
-    `routes/*.py` module's `_run_worker`/`_run_typed`/`_run_passthrough`."""
+    `routes/*.py` route, through `run_passthrough`/`run_typed` below."""
     try:
         return await run_bounded(domain_fn, payload)
     except asyncio.TimeoutError:
@@ -117,24 +120,19 @@ async def run_worker_bounded(domain_fn: WorkerFn, payload: Dict[str, Any]) -> Tu
 
 def raise_for_status(body: Dict[str, Any], status_code: int) -> Dict[str, Any]:
     """Convert a domain worker's `(body, status)` tuple into either a plain
-    return (200) or the matching `HTTPException` — the mapping every
-    `routes/*.py` module's `_run_typed`/`_run_passthrough` used to duplicate
-    independently (4 near-identical copies, which is what pushed jscpd's
-    clone count up when the 503 branch below was added to each one — this
-    function is the fix, not the duplication).
+    return (200) or the matching `HTTPException`.
 
-    - 400 → domain-level validation (distinct from Pydantic 422, which fires
-      before the worker is even called).
+    - Any 4xx → the worker's own status, verbatim: a domain worker that says
+      404/409/422 is describing the request, not failing (400 is the common
+      one — domain-level validation, distinct from Pydantic's 422, which
+      fires before the worker is even called).
     - 503 → `run_bounded`'s own timeout (see module docstring).
-    - anything else non-200 → treated as an unexpected worker failure.
+    - Any other non-200 → an unexpected worker failure, reported as 500.
     """
     if status_code == 200:
         return body
-    if status_code == 400:
-        raise HTTPException(
-            status_code=http_status.HTTP_400_BAD_REQUEST,
-            detail=body.get("error", "Bad request"),
-        )
+    if 400 <= status_code < 500:
+        raise HTTPException(status_code=status_code, detail=body.get("error", "Bad request"))
     if status_code == 503:
         raise HTTPException(
             status_code=http_status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -144,3 +142,24 @@ def raise_for_status(body: Dict[str, Any], status_code: int) -> Dict[str, Any]:
         status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
         detail=body.get("error", "Internal error"),
     )
+
+
+async def run_passthrough(
+    domain_fn: WorkerFn, request: BaseModel | Mapping[str, Any]
+) -> Dict[str, Any]:
+    """Run a worker and return its body, or raise. `request` is the endpoint's
+    Pydantic model, or a plain payload for a query-param route (`/manipulability`
+    builds one by hand — it has no request model to dump)."""
+    payload = request.model_dump() if isinstance(request, BaseModel) else dict(request)
+    body, status_code = await run_worker_bounded(domain_fn, payload)
+    return raise_for_status(body, status_code)
+
+
+async def run_typed(
+    domain_fn: WorkerFn,
+    request: BaseModel | Mapping[str, Any],
+    response_model: type[_ResponseT],
+) -> _ResponseT:
+    """`run_passthrough` parsed through the endpoint's response model (which may
+    carry `extra="allow"`, so unmodeled worker fields still pass through)."""
+    return response_model.model_validate(await run_passthrough(domain_fn, request))

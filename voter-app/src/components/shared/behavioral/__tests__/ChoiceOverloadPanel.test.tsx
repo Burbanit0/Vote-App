@@ -37,7 +37,7 @@ vi.mock('recharts', () => {
 const COUNTS = [2, 3, 5, 7, 10];
 const METHODS = ['plurality', 'approval', 'borda', 'majority_judgment'];
 
-function makeData() {
+function makeData(mostRobust = ['majority_judgment'], leastRobust = ['plurality']) {
   return {
     data: {
       results_by_n: COUNTS.map((n, i) => ({
@@ -49,8 +49,8 @@ function makeData() {
         methods_elect_condorcet: Object.fromEntries(METHODS.map((m) => [m, true])),
       })),
       regret_curve: COUNTS.map((n, i) => ({ n_candidates: n, regret: n <= 5 ? 0 : 0.01 * i })),
-      most_robust_method: 'majority_judgment',
-      least_robust_method: 'plurality',
+      most_robust_method: mostRobust,
+      least_robust_method: leastRobust,
       overload_threshold: 5,
       heuristic_weights: { notoriety: 0.2, primacy: 0.1, partisan: 0.2 },
       pedagogical_note: 'Test note.',
@@ -151,6 +151,26 @@ describe('ChoiceOverloadPanel', () => {
     renderPanel();
     fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
     await waitFor(() => expect(screen.getByTestId('least-robust-badge')).toBeInTheDocument());
+    vi.runAllTimers();
+  });
+
+  it('names every method tied for most robust', async () => {
+    apiClient.POST.mockResolvedValue(makeData(['borda', 'irv'], ['plurality']));
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
+    await waitFor(() =>
+      expect(screen.getByTestId('most-robust-badge')).toHaveTextContent('borda, irv')
+    );
+    vi.runAllTimers();
+  });
+
+  it('crowns no method when every method ties', async () => {
+    apiClient.POST.mockResolvedValue(makeData([], []));
+    renderPanel();
+    fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
+    await waitFor(() => expect(screen.getByTestId('method-table')).toBeInTheDocument());
+    expect(screen.queryByTestId('most-robust-badge')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('least-robust-badge')).not.toBeInTheDocument();
     vi.runAllTimers();
   });
 

@@ -1,21 +1,9 @@
 """Tests for Phase 3 batch 6:
 /api/v2/election/{affective-polarization, demographic-turnout, compulsory-voting, party-dynamics}."""
+
 import pytest
-from fastapi.testclient import TestClient
 
-from api.main import app
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
-
-
-CANDS = [
-    {"name": "Alice", "x": -0.5, "y": -0.2},
-    {"name": "Bob",   "x":  0.5, "y":  0.2},
-    {"name": "Carol", "x":  0.0, "y":  0.1},
-]
+from api.tests.conftest import CANDS
 
 
 # ── /affective-polarization ─────────────────────────────────────────────────
@@ -126,6 +114,13 @@ class TestPartyDynamics:
         for k in ("elections", "final_system", "effective_parties_curve",
                   "duverger_confirmed"):
             assert k in r.json()
+
+    @pytest.mark.parametrize("ideology", ["polarized", "normal", "random"])
+    def test_each_ideology_draws_its_own_voter_axis(self, client, ideology):
+        """One branch per distribution, each drawing from the call's own RNG."""
+        r = client.post("/api/v2/election/party-dynamics",
+                        json={**self.payload, "ideology": ideology})
+        assert r.status_code == 200, r.text
 
     def test_accepts_explicit_initial_parties(self, client):
         ok = {**self.payload, "initial_parties": [

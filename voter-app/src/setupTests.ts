@@ -1,8 +1,5 @@
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
-import { TextEncoder, TextDecoder } from 'util';
-
-Object.assign(global, { TextDecoder, TextEncoder });
 
 // @testing-library/react auto-advances fake timers inside `waitFor()` by calling
 // a GLOBAL `jest.advanceTimersByTime(...)`. Vitest exposes `vi`, not `jest`, so

@@ -1,36 +1,12 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
-// Inject CSS animation once at module load
-const STYLE_ID = 'skeleton-card-styles';
-if (typeof document !== 'undefined' && !document.getElementById(STYLE_ID)) {
-  const s = document.createElement('style');
-  s.id = STYLE_ID;
-  s.textContent = `
-    @keyframes skeleton-pulse {
-      0%   { opacity: 1; }
-      50%  { opacity: 0.45; }
-      100% { opacity: 1; }
-    }
-    .skeleton-pulse {
-      animation: skeleton-pulse 1.6s ease-in-out infinite;
-    }
-    .skeleton-line {
-      background-color: var(--bs-border-color, #dee2e6);
-      border-radius: 4px;
-    }
-  `;
-  document.head.appendChild(s);
-}
-
 // ── SkeletonLine ────────────────────────────────────────────────────────────
 
 const SkeletonLine: React.FC<{ width?: string; height?: number }> = ({
   width = '100%',
   height = 12,
-}) => (
-  <div className="skeleton-line" style={{ width, height, marginBottom: 10 }} aria-hidden="true" />
-);
+}) => <div className="mb-2.5 rounded bg-border" style={{ width, height }} aria-hidden="true" />;
 
 // ── SkeletonCard ────────────────────────────────────────────────────────────
 
@@ -49,20 +25,14 @@ const SkeletonCard: React.FC<Props> = ({ height = 180, width = '100%' }) => {
   const { t } = useTranslation();
   return (
     <div
-      className="skeleton-pulse rounded border border-border"
-      style={{
-        width,
-        height,
-        backgroundColor: 'var(--bs-secondary-bg, #f8f9fa)',
-        padding: '0.75rem',
-        overflow: 'hidden',
-      }}
+      className="animate-pulse overflow-hidden rounded border border-border bg-muted p-3 motion-reduce:animate-none"
+      style={{ width, height }}
       role="status"
       aria-label={t('common.loading')}
     >
       {/* Card header simulation */}
       <SkeletonLine width="55%" height={16} />
-      <div style={{ height: 1, backgroundColor: '#dee2e6', margin: '10px 0 14px' }} />
+      <div className="mb-3.5 mt-2.5 h-px bg-border" />
       {/* 3 text lines with varying widths */}
       <SkeletonLine width="90%" />
       <SkeletonLine width="75%" />

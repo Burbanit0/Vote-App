@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Play } from 'lucide-react';
-import { usePlaygroundCtx } from '../playground/PlaygroundController';
+import { useInstrumentCtx } from '../playground/PlaygroundController';
 import MethodReplayModal from '../playground/MethodReplayModal';
 import { useVotingLabels } from '../../hooks/useVotingLabels';
 import { LEADER_RULES, EXTRA_RULES } from '../../lib/scorecard';
@@ -19,7 +19,7 @@ const MethodGallery: React.FC = () => {
   const lang: Lang = i18n.language?.startsWith('en') ? 'en' : 'fr';
   const analogyLabel = lang === 'en' ? 'Like real life:' : 'Au quotidien :';
   const { ruleLabels } = useVotingLabels();
-  const { votingVoters, leaderCandidates } = usePlaygroundCtx();
+  const { votingVoters, leaderCandidates } = useInstrumentCtx();
   const [replayRule, setReplayRule] = useState<Rule | null>(null);
 
   const candColor = (i: number) => CANDIDATE_COLORS_LIGHT[i % CANDIDATE_COLORS_LIGHT.length];

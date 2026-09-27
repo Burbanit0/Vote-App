@@ -70,7 +70,7 @@ describe('MonteCarloResults', () => {
       methods: {
         plurality: {
           winner_distribution: { Alice: 0.6, Bob: 0.4 },
-          most_common_winner: 'Alice',
+          most_common_winner: ['Alice'],
           winner_stability: 0.2,
           condorcet_compliance_rate: 0.9,
           bayesian_regret_mean: 0.1,
@@ -93,5 +93,51 @@ describe('MonteCarloResults', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Run Monte Carlo/ }));
     expect(await screen.findByText(/Condorcet winner in/)).toBeInTheDocument();
+  });
+
+  it('shows both winners, and their shared percentage, when runs tie', async () => {
+    const { getMonteCarlo } = await import('../../../services/simulationCompareApi');
+    (getMonteCarlo as jest.Mock).mockResolvedValue({
+      num_runs: 2,
+      num_voters_per_run: 200,
+      condorcet_winner_exists_rate: 0.5,
+      config: {},
+      methods: {
+        // A rule that elected nobody in any run: the row shows a dash.
+        irv: {
+          winner_distribution: {},
+          most_common_winner: [],
+          winner_stability: 0,
+          condorcet_compliance_rate: null,
+          bayesian_regret_mean: null,
+          bayesian_regret_std: null,
+          bayesian_regret_ci_95: [null, null],
+          majority_satisfaction_mean: null,
+          majority_satisfaction_ci_95: [null, null],
+        },
+        plurality: {
+          winner_distribution: { Alice: 0.5, Bob: 0.5 },
+          most_common_winner: ['Alice', 'Bob'],
+          winner_stability: 1.0,
+          condorcet_compliance_rate: 0.5,
+          bayesian_regret_mean: 0.1,
+          bayesian_regret_std: 0.05,
+          bayesian_regret_ci_95: [0.05, 0.15],
+          majority_satisfaction_mean: 0.8,
+          majority_satisfaction_ci_95: [0.7, 0.9],
+        },
+      },
+      inter_method_agreement: { 'plurality|plurality': 1 },
+    });
+
+    render(<MonteCarloResults baseParams={{}} />);
+    fireEvent.click(
+      screen.getByRole('checkbox', { name: /Real-time streaming|Streaming temps réel/i })
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Run Monte Carlo/ }));
+
+    expect(await screen.findByText('Alice, Bob')).toBeInTheDocument();
+    // The share the tied winners share, not one of them looked up by name.
+    expect(screen.getAllByText('50%').length).toBeGreaterThan(0);
   });
 });

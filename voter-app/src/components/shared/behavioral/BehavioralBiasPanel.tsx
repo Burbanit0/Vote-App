@@ -4,7 +4,7 @@
  *   2. Bullet voting in Approval
  *   3. Primacy effect / ballot-order bias (Krosnick 1991)
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { $api } from '../../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
@@ -15,8 +15,8 @@ import { Col, Row } from '@/components/ui/grid';
 import { Spinner } from '@/components/ui/spinner';
 import { Table } from '@/components/ui/table';
 import { useElection } from '../../../stores/useElectionStore';
-import PinToCentralButton from '../ui/PinToCentralButton';
-const DEBOUNCE_MS = 400;
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
+import { colorByName, LAB_PALETTE } from '@/lib/palette';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -26,8 +26,9 @@ interface MethodEntry {
 }
 
 interface BiasData {
-  sincere_winner: string;
-  biased_winner: string;
+  /** Null on an exact tie. */
+  sincere_winner: string | null;
+  biased_winner: string | null;
   winner_changed: boolean;
   vote_breakdown: {
     expressive_voters: number;
@@ -43,10 +44,8 @@ interface BiasData {
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 
-const CAND_COLORS = ['#005CAB', '#C8590A', '#007A33', '#6c757d', '#9b59b6', '#e67e22'];
-function candColor(name: string, names: string[]): string {
-  return CAND_COLORS[names.indexOf(name) % CAND_COLORS.length] ?? '#888';
-}
+const candColor = (name: string | null, names: string[]) =>
+  colorByName(name ?? '', names, LAB_PALETTE); // a tie gets the neutral fallback
 
 // ── Draggable ballot ──────────────────────────────────────────────────────────
 
@@ -217,34 +216,29 @@ const BehavioralBiasPanel: React.FC = () => {
   const data: BiasData | null = (sim.data as BiasData | undefined) ?? null;
   const loading = sim.isPending;
   const error = sim.isError ? t('behavioral.error') : null;
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const runSimulation = useCallback(
-    (params: { expPct: number; bulPct: number; primBonus: number; order: string[] }) => {
-      sim.mutate({
-        body: {
-          candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
-          num_voters: config.num_voters,
-          ideology: config.ideology,
-          seed: config.seed,
-          expressive_pct: expressiveOn ? params.expPct : 0,
-          bullet_voting_pct: bulletOn ? params.bulPct : 0,
-          primacy_bonus: primacyOn ? params.primBonus : 0,
-          candidate_order: params.order,
-          method: 'plurality',
-        },
-      });
-    },
-    [config, expressiveOn, bulletOn, primacyOn, t, sim]
-  );
+  const runSimulation = (params: {
+    expPct: number;
+    bulPct: number;
+    primBonus: number;
+    order: string[];
+  }) => {
+    sim.mutate({
+      body: {
+        candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
+        num_voters: config.num_voters,
+        ideology: config.ideology,
+        seed: config.seed,
+        expressive_pct: expressiveOn ? params.expPct : 0,
+        bullet_voting_pct: bulletOn ? params.bulPct : 0,
+        primacy_bonus: primacyOn ? params.primBonus : 0,
+        candidate_order: params.order,
+        method: 'plurality',
+      },
+    });
+  };
 
-  const scheduleRun = useCallback(
-    (params: Parameters<typeof runSimulation>[0]) => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => runSimulation(params), DEBOUNCE_MS);
-    },
-    [runSimulation]
-  );
+  const scheduleRun = useDebouncedCallback(runSimulation);
 
   const currentParams = {
     expPct: expressivePct,
@@ -370,19 +364,6 @@ const BehavioralBiasPanel: React.FC = () => {
         <Button variant="primary" onClick={handleSimulate} disabled={loading}>
           {loading ? <Spinner size="sm" /> : t('behavioral.run')}
         </Button>
-        {data && (
-          <PinToCentralButton
-            type="behavioral"
-            icon="🧠"
-            label={t('behavioral.run')}
-            summary={
-              data.winner_changed
-                ? `${data.sincere_winner} → ${data.biased_winner}`
-                : `${data.biased_winner}`
-            }
-            methodsChanged={data.winner_changed ? 1 : 0}
-          />
-        )}
       </div>
 
       {!data && !loading && !error && (
@@ -415,7 +396,7 @@ const BehavioralBiasPanel: React.FC = () => {
                 }}
                 data-testid="sincere-winner-badge"
               >
-                {data.sincere_winner}
+                {data.sincere_winner ?? t('common.tie')}
               </Badge>
             </div>
 
@@ -440,7 +421,7 @@ const BehavioralBiasPanel: React.FC = () => {
                 data-testid="biased-winner-badge"
                 className={data.winner_changed ? 'border border-border border-danger' : ''}
               >
-                {data.biased_winner}
+                {data.biased_winner ?? t('common.tie')}
               </Badge>
             </div>
           </div>

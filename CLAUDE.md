@@ -68,11 +68,18 @@ together. Do not let them drift.
   simulation_ranked_utils.py` + `simulation_score_utils.py`.
 - Parity harness: `fast_api_voter/scripts/gen_engine_parity.py` generates golden
   winners → `voter-app/src/lib/__fixtures__/engineParity.json`; asserted by
-  `playgroundVoting.parity.test.ts`. 26 methods are locked identical (21 ordinal +
-  5 cardinal: score, STAR, cumulative, maximin, nash). `KNOWN_DIVERGENT` is empty.
+  `playgroundVoting.parity.test.ts`. 28 methods are locked identical: 21 ordinal,
+  score/STAR/cumulative/maximin/nash over a shared score matrix, approval, and
+  majority judgment. `KNOWN_DIVERGENT` (an exact mismatch list per rule, not a
+  count) is empty and should stay that way. Approval is locked **at the tally
+  only**: both sides get the same 0/1 ballot, because each engine derives
+  approvals from utility its own way (client ≥ 0.5; backend above the voter's
+  mean, or approve-top-2 in most backend callers), and those still disagree.
+  `random_ballot` stays excluded (a lottery).
 
-**If you change a rule on either side**: re-run `python fast_api_voter/scripts/
-gen_engine_parity.py`, then run the parity test. A change that breaks parity is a
+**If you change a rule on either side**: re-run `PYTHONHASHSEED=0 python
+fast_api_voter/scripts/gen_engine_parity.py` (it refuses to run without the seed
+pinned, so the fixture stays reproducible), then run the parity test. A change that breaks parity is a
 bug until proven otherwise (the harness has caught real bugs on both sides).
 
 `engineParity.json` is a **generated artifact** — never hand-edit it (not even to
@@ -85,12 +92,24 @@ hook reminds to regenerate parity whenever either side of the engine changes.
 
 The playground is a single "instrument" with a 5-moment rail (Électorat → Méthode →
 Stratégie → Campagne → Bilan) and a Dirigeant↔Assemblée toggle. All state and
-derivations live in `PlaygroundController.tsx`. Most of it flows through one context
-(`usePlaygroundCtx`); one slice (`enabledRules`/`setEnabledRules`/`lensItems`) has its
-own smaller context (`useMethodSelection`), split out so a rapid-fire control bound to
-just that slice (e.g. MethodMoment's rule checkboxes) doesn't re-render every other
-consumer — see the `methodSelection` memo in `PlaygroundController.tsx` for why. Moment
-panels and the instrument are thin consumers of whichever context(s) they need. Analytical
+derivations live in `PlaygroundController.tsx`, exposed through **contexts split by
+concern** so a consumer re-renders only when a slice it actually reads changes:
+
+- `useStoreCtx()` — config/playground bindings and pure reads of them (`mode`, `dims`,
+  `electorate`…). Changes only on a settings edit.
+- `useJourneyCtx()` — active moment, rule under examination, map lens. Discrete clicks.
+- `useInstrumentCtx()` — live spatial data (voters, candidates, drag/shake). The
+  **high-frequency** one: every candidate drag frame recomputes it.
+- `useScorecardCtx()` — async diagnostics + the Monte-Carlo scorecard/values dial.
+- `useMethodSelection()` — `enabledRules`/`setEnabledRules`/`lensItems` (the first
+  slice split out, for MethodMoment's rapid-fire rule checkboxes).
+
+`usePlaygroundCtx()` is a composed view over the first four — fine for a consumer that
+genuinely reads (nearly) every slice (`InstrumentPanel`, `StrategyMoment`,
+`BilanMoment`), but it re-renders on **any** slice changing. **For a new consumer, use the
+narrowest hook(s) it needs**, and put a new field in the context matching how often it
+changes — a low-frequency value placed in `instrumentCtx` drags its readers along on every
+drag. `PlaygroundController.render.test.tsx` asserts the isolation directly. Analytical
 panels (sincerity, equilibrium, robustness, real-election backtest, valence) are pure
 libs in `src/lib/` with a thin component each.
 
@@ -102,19 +121,20 @@ libs in `src/lib/` with a thin component each.
 
 ## Workflow (mandated)
 
-- One `feat/*` branch per step, **from `develop`**. Never commit features directly
+- One branch per step, **from `develop`**, named for what it does: `feat/*`,
+  `fix/*`, `refactor/*`, `ci/*`, `chore/*`. Never commit features directly
   to `develop`; never rewrite already-pushed `develop` history.
 - Open a PR per step against `develop`. Merge with `--no-ff`. `develop → main` for
   releases.
 - Repo is public (MIT). Commit author email is the `noreply` form for new commits.
-- **Run `/code-review ultra` on the branch *before opening* a PR that touches the
+- **Run `/code-review max` on the branch *before opening* a PR that touches the
   voting engine** (`simulation_ranked_utils.py`, `simulation_score_utils.py`,
   `playgroundVoting.ts`) or any other high-blast-radius surface (auth-adjacent
   config, CI/CD workflows, the parity/axiom test harnesses) — not "before merging":
   `develop`'s Mergify queue auto-merges the moment required checks go green, often
   within minutes of opening the PR, so a review gated on merge time can be (and has
-  been) raced and skipped entirely. The no-arg form reviews the local branch
-  directly and needs no PR or GitHub remote, so there's no reason to wait for one.
+  been) raced and skipped entirely. It runs locally on the branch's diff and needs
+  no PR or GitHub remote, so there's no reason to wait for one.
   It exists and is underused — standard CI gates catch regressions in what's
   already tested, not a subtly-wrong new rule implementation or a logic error a
   human reviewer would have caught.

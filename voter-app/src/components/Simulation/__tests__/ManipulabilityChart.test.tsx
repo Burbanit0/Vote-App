@@ -101,6 +101,16 @@ describe('ManipulabilityChart', () => {
     expect(screen.getByTestId('manip-x-tick')).toHaveTextContent('37 %');
   });
 
+  it('surfaces a failed analysis', async () => {
+    // The API error path: the component shows the thrown Error's own message
+    // (it used to route through a util that first looked for an axios-shaped
+    // `response.data.error`, a shape nothing in this app throws).
+    apiClient.GET.mockResolvedValue({ data: undefined, error: { detail: 'boom' } });
+    renderChart();
+    fireEvent.click(screen.getByRole('button', { name: /Analyser la manipulabilité/i }));
+    await waitFor(() => expect(screen.getByText("Erreur lors de l'analyse")).toBeInTheDocument());
+  });
+
   it('tooltip colour-codes the manipulability rate and renders its label and counts', async () => {
     apiClient.GET.mockResolvedValue({
       data: { results: [makeResult(3), makeResult(45)] },

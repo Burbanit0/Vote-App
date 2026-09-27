@@ -4,16 +4,37 @@
       "name": "lib-is-pure",
       "severity": "error",
       "comment": "src/lib holds framework-agnostic analytical libs (CLAUDE.md's Playground architecture section: \"Analytical panels ... are pure libs in src/lib/ with a thin component each\") — a lib importing a component couples pure compute to React, defeating the point of factoring it out. Type-only imports are exempt: they're erased at compile time and carry no runtime coupling (see docs/exploration for the same reasoning applied to madge's circular-import check).",
-      "from": { "path": "^src/lib" },
+      "from": {
+        "path": "^src/lib"
+      },
       "to": {
         "path": "^src/(components|pages)",
-        "dependencyTypesNot": ["type-only"]
+        "dependencyTypesNot": [
+          "type-only"
+        ]
+      }
+    },
+    {
+      "name": "no-circular",
+      "severity": "error",
+      "comment": "Circular imports make module init order fragile (a half-initialised import is undefined at use). Replaces the informational madge check; type-only cycles are erased at compile time and exempt.",
+      "from": {},
+      "to": {
+        "circular": true,
+        "dependencyTypesNot": [
+          "type-only"
+        ]
       }
     }
   ],
   "options": {
-    "tsConfig": { "fileName": "tsconfig.json" },
-    "doNotFollow": { "path": "node_modules" },
-    "exclude": "\\.test\\.(ts|tsx)$"
+    "tsConfig": {
+      "fileName": "tsconfig.json"
+    },
+    "doNotFollow": {
+      "path": "node_modules"
+    },
+    "exclude": "\\.test\\.(ts|tsx)$",
+    "tsPreCompilationDeps": true
   }
 }

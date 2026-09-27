@@ -98,6 +98,21 @@ describe('HotellingPanel', () => {
     vi.runAllTimers();
   });
 
+  it('sends the objective picked in the select, with no IRV on offer', async () => {
+    apiClient.POST.mockResolvedValue(makeData());
+    renderPanel();
+    const select = screen.getByTestId('hotelling-method-select');
+    expect(select.querySelector('option[value="irv"]')).toBeNull();
+    fireEvent.change(select, { target: { value: 'borda' } });
+    fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalledTimes(1));
+    expect(apiClient.POST).toHaveBeenCalledWith(
+      expect.stringMatching(/hotelling/),
+      expect.objectContaining({ body: expect.objectContaining({ method: 'borda' }) })
+    );
+    vi.runAllTimers();
+  });
+
   it('renders SVG canvas after data loads', async () => {
     apiClient.POST.mockResolvedValue(makeData());
     renderPanel();

@@ -3,9 +3,9 @@
  * in a direction for the keyboard, pure (ADR-013).
  *
  * The canvas has no DOM node per citizen, so pointing goes through a Delaunay
- * triangulation of the drawn points (d3-delaunay's nearest-point search).
+ * triangulation of the drawn points (d3's Delaunay nearest-point search).
  */
-import { Delaunay } from 'd3-delaunay';
+import { Delaunay } from 'd3';
 
 export interface Located {
   id: number;

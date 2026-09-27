@@ -212,4 +212,19 @@ describe('AdaptiveVotingPanel', () => {
       expect(screen.getByText(/Erreur|Error/i)).toBeInTheDocument();
     });
   });
+
+  it('sends the method the dropdown selected, not the default', async () => {
+    // The dropdown's options are typed from the backend's request schema
+    // (AdaptiveRequest.method is a Literal), so a name it can offer is a name
+    // the worker supports -- /adaptive answers anything else with a 400.
+    apiClient.POST.mockResolvedValue(makeData());
+    renderPanel();
+
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'borda' } });
+    fireEvent.click(screen.getByRole('button', { name: /simuler|simulate/i }));
+
+    await waitFor(() => expect(apiClient.POST).toHaveBeenCalled());
+    const [, opts] = apiClient.POST.mock.calls[0];
+    expect(opts.body.method).toBe('borda');
+  });
 });

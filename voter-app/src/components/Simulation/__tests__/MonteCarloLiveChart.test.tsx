@@ -88,7 +88,7 @@ describe('MonteCarloLiveChart', () => {
         partialResults={{
           plurality: {
             winner_distribution: { Alice: 0.6, Bob: 0.4 },
-            most_common_winner: 'Alice',
+            most_common_winner: ['Alice'],
           },
         }}
       />

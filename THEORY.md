@@ -88,7 +88,6 @@ issue_score = Σ_k  priorité_v[k] · (1 − |position_v[k] − policy_c[k]|)
 
 où `k` parcourt les enjeux prioritaires de l'électeur, `loyalty_bonus` récompense
 l'alignement partisan, et `scandal_penalty = −0.3·scandales` (×1.5 si charisme < 0.5).
-La condition `will_vote` requiert `utility > 0.3`.
 
 **Vote blanc comme candidat implicite** — dans le modèle backend, le blanc est
 inséré dans le classement de chaque électeur à la position égale au nombre de
@@ -269,8 +268,12 @@ Kemeny(σ) = Σᵢ |{(a,b) : a ≻σ b mais b ≻ᵢ a}|
 ```
 Le vainqueur est le premier élément de `argmin_σ Kemeny(σ)`.
 
-**Complexité** : NP-difficile en général. Exact pour ≤6 candidats (6!=720
-permutations). Vote Lab utilise KwikSort pour approximer avec >6 candidats.
+**Complexité** : NP-difficile en général, mais pas au nombre de candidats qui
+nous concerne. Vote Lab calcule l'optimum **exact jusqu'à 10 candidats** par
+programmation dynamique sur les sous-ensembles (O(2^m·m²) au lieu des m!
+permutations : 0,8 ms à 8 candidats contre 75 ms pour l'énumération), ce qui
+couvre tout ce qu'une requête peut demander — les schémas plafonnent à 8
+candidats. Au-delà de 10, approximation KwikSort (seul polity y arrive).
 
 **Propriétés** :
 - Maximise l'accord avec les préférences collectives
@@ -357,9 +360,14 @@ et comparer.
 **Formalisation** : soit `Gₖ(a)` la distribution de notes de `a`.
 La note médiane `μ(a)` est telle que ≥50% notent `a` au moins `μ(a)`.
 
-**Département** : si `μ(a) = μ(b)`, on compare `p` (fraction strictement
-au-dessus de `μ`) et `q` (fraction strictement en dessous). Si `p > q`,
-le candidat a une "majorité supérieure" et gagne.
+**Départage** : si `μ(a) = μ(b)`, on retire une occurrence de la note
+médiane partagée chez chaque candidat encore à égalité et on recompare —
+et on répète tant que l'égalité persiste, jusqu'à distinction ou épuisement
+des notes. (Une approximation par comparaison de `p`/`q`, la fraction de
+notes strictement au-dessus/en dessous de `μ`, a longtemps fait office de
+règle ici et dans le moteur backend — elle donne parfois un vainqueur
+différent de la vraie procédure de retrait itératif ; corrigé dans le
+moteur le 2026-09-16, `fix/majority-judgment-gauge`.)
 
 **Propriétés** :
 - Satisfait : Pareto, Non-dictature, Clone-proof
@@ -1099,7 +1107,10 @@ Les règles de vote existent en **deux implémentations** — un moteur client r
 (`fast_api_voter/api/engine/utils/`). Un harnais de fixtures « golden » génère les
 vainqueurs de référence côté backend et un test de parité vérifie que le client
 produit exactement les mêmes vainqueurs. Toute divergence est un bug jusqu'à preuve
-du contraire — le harnais a effectivement débusqué des bugs des deux côtés.
+du contraire — le harnais a effectivement débusqué des bugs des deux côtés, la
+dernière en date sur le Jugement majoritaire : le backend départageait les médianes
+égales par p − q au lieu d'exécuter la vraie procédure de Balinski-Laraki (retirer
+itérativement la médiane partagée et recomparer) ; corrigé.
 
 ### 9.4 Sources de données
 

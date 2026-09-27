@@ -64,11 +64,12 @@ const CONSENSUS_INSIGHT = {
   condorcet_analysis: 'Alice is the Condorcet winner.',
   divergence_reason: 'Alice is the Condorcet winner.',
   method_groups: [{ winner: 'Alice', methods: ['plurality', 'schulze'], pct: 1.0 }],
-  best_by_regret: 'schulze',
-  worst_by_regret: 'plurality',
+  // Both methods elect Alice, so they score the same regret: no best or worst.
+  best_by_regret: [],
+  worst_by_regret: [],
   blank_analysis: null,
   pedagogical_note: 'Ideal case: methods converge.',
-  key_facts: ['90% elect Alice', 'Condorcet: Alice', 'Best method: schulze'],
+  key_facts: ['90% elect Alice', 'Condorcet: Alice'],
 };
 
 const DIVERGENCE_INSIGHT = {
@@ -78,6 +79,8 @@ const DIVERGENCE_INSIGHT = {
     { winner: 'Alice', methods: ['plurality'], pct: 0.5 },
     { winner: 'Bob', methods: ['schulze'], pct: 0.5 },
   ],
+  best_by_regret: ['schulze'],
+  worst_by_regret: ['plurality'],
 };
 
 beforeEach(() => {
@@ -135,11 +138,40 @@ describe('ElectionInsightPanel', () => {
     });
   });
 
-  it('shows best and worst method badges', async () => {
+  it('names the outcome, not one method, when a whole group ties', async () => {
+    // Regret is a property of the winner: plurality, borda and irv all elect
+    // Alice, so all three share the lowest regret. The badge used to print
+    // whichever the backend listed first as "the most fair method".
+    const methods = {
+      plurality: { winner: 'Alice', bayesian_regret: 0.02 },
+      borda: { winner: 'Alice', bayesian_regret: 0.02 },
+      irv: { winner: 'Alice', bayesian_regret: 0.02 },
+      approval: { winner: 'Bob', bayesian_regret: 0.09 },
+      star: { winner: 'Bob', bayesian_regret: 0.09 },
+      schulze: { winner: 'Alice', bayesian_regret: 0.02 },
+      coombs: { winner: 'Bob', bayesian_regret: 0.09 },
+      minimax: { winner: 'Bob', bayesian_regret: 0.09 },
+    };
+    interpretElection.mockResolvedValue({
+      ...DIVERGENCE_INSIGHT,
+      best_by_regret: ['plurality', 'borda', 'irv', 'schulze'],
+      worst_by_regret: ['approval', 'star', 'coombs', 'minimax'],
+    });
+    renderPanel({ ...LOW_AGREEMENT_RESULT, methods });
+    await waitFor(() => {
+      expect(screen.getByText(/Lowest regret: Alice \(\s*4\/8 methods\s*\)/)).toBeInTheDocument();
+    });
+    expect(
+      screen.getByText(/Highest regret: approval, star, coombs \+1 →\s*Bob/)
+    ).toBeInTheDocument();
+  });
+
+  it('shows no regret badges when every method ties', async () => {
     renderPanel(HIGH_AGREEMENT_RESULT);
     await waitFor(() => {
-      expect(screen.getAllByText(/schulze/i).length).toBeGreaterThan(0);
+      expect(screen.getByText(CONSENSUS_INSIGHT.headline)).toBeInTheDocument();
     });
+    expect(screen.queryByText(/regret/i)).not.toBeInTheDocument();
   });
 
   it('shows condorcet analysis text', async () => {

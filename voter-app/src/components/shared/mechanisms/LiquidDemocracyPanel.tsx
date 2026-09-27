@@ -3,7 +3,7 @@
  * Voters either vote directly or delegate to a representative (who may
  * further delegate). Super-voters accumulate weight; cycles vote directly.
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
@@ -24,8 +24,8 @@ import {
 import { useElection } from '../../../stores/useElectionStore';
 import { $api } from '../../../api/hooks';
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
-
-const DEBOUNCE_MS = 400;
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
+import { colorByName, LAB_PALETTE } from '@/lib/palette';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -58,10 +58,7 @@ interface LiquidData {
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 
-const CAND_COLORS = ['#005CAB', '#C8590A', '#007A33', '#6c757d', '#9b59b6', '#e67e22'];
-function candColor(name: string, names: string[]): string {
-  return CAND_COLORS[names.indexOf(name) % CAND_COLORS.length] ?? '#888';
-}
+const candColor = (name: string, names: string[]) => colorByName(name, names, LAB_PALETTE);
 
 // ── D3 Delegation Graph ───────────────────────────────────────────────────────
 
@@ -227,31 +224,28 @@ const LiquidDemocracyPanel: React.FC = () => {
   const data: LiquidData | null = (sim.data as LiquidData | undefined) ?? null;
   const loading = sim.isPending;
   const error = sim.isError ? t('liquid.error') : null;
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const runSimulation = useCallback(
-    (prob: number, strat: string, chain: number) => {
-      sim.mutate({
-        body: {
-          candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
-          num_voters: config.num_voters,
-          ideology: config.ideology,
-          seed: config.seed,
-          delegation_probability: prob,
-          delegation_strategy: strat,
-          max_chain_length: chain,
-        },
-      });
-    },
-    [config, t, sim]
-  );
+  const runSimulation = (prob: number, strat: string, chain: number) => {
+    sim.mutate({
+      body: {
+        candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
+        num_voters: config.num_voters,
+        ideology: config.ideology,
+        seed: config.seed,
+        delegation_probability: prob,
+        delegation_strategy: strat,
+        max_chain_length: chain,
+      },
+    });
+  };
 
   const handleSimulate = () => runSimulation(delegProb, strategy, maxChain);
 
+  const scheduleRun = useDebouncedCallback(runSimulation);
+
   const handleProbChange = (v: number) => {
     setDelegProb(v);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => runSimulation(v, strategy, maxChain), DEBOUNCE_MS);
+    scheduleRun(v, strategy, maxChain);
   };
 
   const { comparison } = data ?? {};

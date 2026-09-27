@@ -4,10 +4,10 @@ import {
   RULES_FOR,
   ballotFrom,
   ballotSpace,
-  gradesOf,
-  pointsOf,
+  pipsFrom,
   orderOf,
   electorateBallots,
+  type BallotLanguage,
 } from './ballotLanguages';
 import {
   CANDIDATES,
@@ -17,7 +17,6 @@ import {
   bestResponse,
   pivot,
   winnerWith,
-  winnersFor,
   tallyBallots,
   yourRankOf,
 } from './votePlay';
@@ -62,23 +61,18 @@ describe('ballotLanguages — one opinion, five papers', () => {
     }
   });
 
-  it('grades stay inside 1..5 and points always sum to the budget', () => {
+  it('points always sum to the budget', () => {
     const aff = [0.72, 0.05, 0.95, 0.4];
-    for (const contrast of [1, 2, 4]) {
-      const g = gradesOf(aff, { contrast });
-      for (const x of g) expect(x).toBeGreaterThanOrEqual(1);
-      for (const x of g) expect(x).toBeLessThanOrEqual(5);
-    }
     for (const concentration of [1, 2, 5]) {
-      const p = pointsOf(aff, 10, { concentration });
+      const p = pipsFrom(ballotFrom(aff, 'points', { concentration }).score!, 10);
       expect(p.reduce((a, x) => a + x, 0)).toBe(10);
     }
   });
 
   it('a more concentrated points ballot never favours a candidate you rank lower', () => {
     const aff = [0.72, 0.05, 0.95, 0.4];
-    const spread = pointsOf(aff, 10, { concentration: 1 });
-    const focused = pointsOf(aff, 10, { concentration: 5 });
+    const spread = pipsFrom(ballotFrom(aff, 'points', { concentration: 1 }).score!, 10);
+    const focused = pipsFrom(ballotFrom(aff, 'points', { concentration: 5 }).score!, 10);
     const fav = orderOf(aff)[0];
     expect(focused[fav]).toBeGreaterThanOrEqual(spread[fav]);
   });
@@ -108,14 +102,17 @@ describe('votePlay — the fixed election is the one the page promises', () => {
     // that gap is the whole point of showing where you stand.
     const carla = CANDIDATES.findIndex((c) => c.name === 'Carla');
     expect(Math.min(...ELECTORATE_FIRST_CHOICE)).toBe(ELECTORATE_FIRST_CHOICE[carla]);
-    expect(winnersFor(DEFAULT_YOU, 'rank', ['condorcet']).condorcet).toBe(carla);
+    expect(winnerWith(ballotFrom(DEFAULT_YOU, 'rank'), 'rank', 'condorcet')).toBe(carla);
   });
 
   it('is a genuine centre-squeeze: the language moves the winner', () => {
-    const names = (lang: Parameters<typeof winnersFor>[1]) => {
-      const w = winnersFor(DEFAULT_YOU, lang, RULES_FOR[lang]);
-      return Object.fromEntries(Object.entries(w).map(([r, i]) => [r, CANDIDATES[i]?.name ?? '?']));
-    };
+    const names = (lang: BallotLanguage) =>
+      Object.fromEntries(
+        RULES_FOR[lang].map((r) => [
+          r,
+          CANDIDATES[winnerWith(ballotFrom(DEFAULT_YOU, lang), lang, r)]?.name ?? '?',
+        ])
+      );
     // A single name elects the largest bloc; richer ballots elect the compromise.
     expect(names('one').plurality).toBe('Alice');
     expect(names('approve').approval).toBe('Carla');
@@ -129,8 +126,9 @@ describe('votePlay — the fixed election is the one the page promises', () => {
   it('elects at least three different people across the languages', () => {
     const all = new Set<string>();
     for (const lang of BALLOT_LANGUAGES) {
-      const w = winnersFor(DEFAULT_YOU, lang, RULES_FOR[lang]);
-      for (const i of Object.values(w)) all.add(CANDIDATES[i]?.name ?? '?');
+      for (const r of RULES_FOR[lang]) {
+        all.add(CANDIDATES[winnerWith(ballotFrom(DEFAULT_YOU, lang), lang, r)]?.name ?? '?');
+      }
     }
     expect(all.size).toBeGreaterThanOrEqual(3);
   });
@@ -147,16 +145,6 @@ describe('votePlay — the fixed election is the one the page promises', () => {
             winnerWith(mine, lang, rule, copies)
           );
         }
-      }
-    }
-  });
-
-  it('winnersFor and winnerWith agree — one code path, two callers', () => {
-    for (const lang of BALLOT_LANGUAGES) {
-      const mine = ballotFrom(DEFAULT_YOU, lang);
-      const bulk = winnersFor(DEFAULT_YOU, lang, RULES_FOR[lang]);
-      for (const rule of RULES_FOR[lang]) {
-        expect(winnerWith(mine, lang, rule), `${lang}/${rule}`).toBe(bulk[rule]);
       }
     }
   });

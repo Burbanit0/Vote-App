@@ -7,11 +7,9 @@ matrix lets us build exact paradoxes and check the methods reproduce them.
 import pytest
 from fastapi.testclient import TestClient
 
-from api.main import app
 from api.engine.utils.profile_engine import (
     condorcet_winner,
     cycle_rate,
-    gallagher_index,
     handcrafted_profile,
     build_profile,
     community_voters,
@@ -22,11 +20,6 @@ from api.engine.utils.profile_engine import (
     polya_urn_profile,
 )
 from api.engine.utils.simulation_metrics import compare_all_methods
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -82,15 +75,6 @@ def test_textbook_irv_diverges_from_plurality():
     assert res["methods"]["plurality"]["winner"] == "A"
     assert res["methods"]["irv"]["winner"] == "C"
     assert res["condorcet_winner"] is None
-
-
-# ── Gallagher disproportionality math ─────────────────────────────────────────
-
-def test_gallagher_index_known_value():
-    """vote=[50,30,20]%, seats=[60,30,10]% → diffs [10,0,10] → sqrt(0.5*200) = 10."""
-    assert gallagher_index([0.5, 0.3, 0.2], [0.6, 0.3, 0.1]) == 10.0
-    # Perfect proportionality → zero.
-    assert gallagher_index([0.5, 0.5], [0.5, 0.5]) == 0.0
 
 
 # ── Statistical-culture samplers (non-spatial profiles) ───────────────────────
@@ -221,6 +205,23 @@ def test_strategic_behavior_compresses_to_frontrunners():
     tops = {max(u, key=u.get) for u in matrix.values()}
     # The fringe candidate C is never anyone's strategic first choice.
     assert "C" not in tops
+
+
+def test_strategic_top_is_strict_whatever_the_listing_order():
+    """The transform used to set the preferred frontrunner to exactly the voter's
+    top utility, tying it with the sincere favourite; listing the fringe candidate
+    first then handed it the first choice. Now it's a swap: nothing ties."""
+    built = build_profile(
+        "spatial",
+        [{"name": "C", "x": 0.0, "y": 0.9}, {"name": "A", "x": -0.6, "y": 0.0},
+         {"name": "B", "x": 0.6, "y": 0.0}],
+        num_voters=200, dims=2, valence=False, behavior="strategic",
+        source_params={}, seed=7,
+    )
+    for u in built["matrix"].values():
+        ranked = sorted(u.values(), reverse=True)
+        assert ranked[0] > ranked[1] and ranked[-2] > ranked[-1]
+        assert max(u, key=u.get) != "C" and min(u, key=u.get) != "C"
 
 
 # ── Endpoint wiring ───────────────────────────────────────────────────────────
@@ -455,7 +456,7 @@ def test_profile_simulate_composed_paradox_rate(client: TestClient):
 
 
 def test_advanced_modules_accept_composed_electorate(client: TestClient):
-    """The temporal, issue-voting and structural-fairness endpoints all sample
+    """The issue-voting and structural-fairness endpoints both sample
     the composed electorate when supplied (completeness), and a clustered mixture
     that empties some districts must not crash structural-fairness (Penrose stays
     finite)."""
@@ -465,10 +466,6 @@ def test_advanced_modules_accept_composed_electorate(client: TestClient):
     electorate = {"mode": "composed", "correlation": 0.0, "noise": 0.0, "communities": [
         {"id": "g", "label": "G", "x": -0.85, "y": 0, "z": 0, "spread": 0.05, "weight": 2, "turnout": 0.8},
         {"id": "d", "label": "D", "x": 0.85, "y": 0, "z": 0, "spread": 0.05, "weight": 1, "turnout": 0.8}]}
-    temporal = client.post("/api/v2/election/temporal", json={
-        "parties": parties, "num_voters": 400, "seed": 42, "structure": "fptp",
-        "seats": 30, "rounds": 6, "electorate": electorate})
-    assert temporal.status_code == 200
     issues = client.post("/api/v2/election/issue-voting", json={
         "mode": "spatial", "parties": parties, "num_voters": 400, "seed": 42,
         "num_issues": 4, "electorate": electorate})
@@ -479,6 +476,35 @@ def test_advanced_modules_accept_composed_electorate(client: TestClient):
     assert struct.status_code == 200
     penrose = struct.json()["penrose"]
     assert all(v == v and v not in (float("inf"), float("-inf")) for v in penrose.values())
+
+
+def test_project_full_normalises_each_voter_to_unit_range():
+    names = ["A", "B", "C"]
+    matrix = handcrafted_profile([[-1.2, -0.3, -0.9], [0.4, 0.4, 0.4]], names)
+    out = project_ballot(matrix, names, "full")
+    assert out[0] == {"A": 0.0, "B": 1.0, "C": 0.3 / 0.9}
+    assert out[1] == {"A": 0.0, "B": 0.0, "C": 0.0}   # no span: no preference
+
+
+def test_score_rules_on_a_full_spatial_ballot_do_not_elect_the_first_listed(
+    client: TestClient,
+):
+    """The spatial source's utilities are -distance, all <= 0, and "full" passed
+    them through unnormalised: every 0-5 score rounded to 0, every grade was
+    "À Rejeter", and each score rule elected whoever came first in the list --
+    Alice listed first, Alice; Carol listed first, Carol -- on an electorate
+    whose Condorcet winner is Carol. This was the playground's default request."""
+    cands = [{"name": "Alice", "x": -0.5, "y": -0.2}, {"name": "Bob", "x": 0.5, "y": 0.2},
+             {"name": "Carol", "x": 0.0, "y": 0.3}]
+    rules = ("simple_score", "star_voting", "majority_judgment", "evaluative",
+             "cumulative", "nash")
+    for order in (cands, cands[::-1], [cands[1], cands[2], cands[0]]):
+        body = client.post("/api/v2/election/profile-simulate", json={
+            "source": "spatial", "ballot": {"type": "full"}, "candidates": order,
+            "num_voters": 300, "seed": 42,
+        }).json()
+        assert body["condorcet_winner"] == "Carol"
+        assert {r: body["methods"][r]["winner"] for r in rules} == dict.fromkeys(rules, "Carol")
 
 
 def test_strategic_vulnerability_opt_in(client: TestClient):
@@ -507,3 +533,50 @@ def test_endpoint_full_ballot_reports_no_flips(client: TestClient):
     assert res["ballot_type"] == "full"
     assert res["winner_flips"] == []
     assert res["incompatible_methods"] == []
+
+
+class TestStrategicVoterCap:
+    """compute_strategic re-runs every method per sampled voter: ~101s at 1000
+    voters and 8 candidates, against a 180s worker timeout. It caps the
+    electorate at 500, as /api/v1 does; the live read-out keeps 1000."""
+
+    @staticmethod
+    def _voters_built(monkeypatch, **request):
+        import api.domain.election.workers_playground as play_mod
+
+        seen = []
+
+        def stop(source, cands, num_voters, *args, **kwargs):
+            seen.append(num_voters)
+            raise ValueError("stop after build_profile's arguments")
+
+        monkeypatch.setattr(play_mod, "build_profile", stop)
+        body, status = play_mod._profile_simulate_worker(
+            {"candidates": [{"name": "A"}, {"name": "B"}], **request}
+        )
+        assert status == 400
+        return seen[0]
+
+    def test_strategic_caps_the_electorate(self, monkeypatch):
+        assert self._voters_built(monkeypatch, num_voters=1000, compute_strategic=True) == 500
+
+    def test_the_live_read_out_keeps_the_full_electorate(self, monkeypatch):
+        assert self._voters_built(monkeypatch, num_voters=1000) == 1000
+
+    def test_a_handcrafted_matrix_over_the_cap_is_refused_not_truncated(self):
+        from api.domain.election.workers_playground import _profile_simulate_worker
+
+        body, status = _profile_simulate_worker({
+            "source": "handcrafted", "candidates": [{"name": "A"}, {"name": "B"}],
+            "handcrafted_matrix": [[1.0, 0.0]] * 501, "compute_strategic": True,
+        })
+        assert status == 400 and "500 with compute_strategic" in body["error"]
+
+    def test_the_schema_bounds_a_handcrafted_matrix(self):
+        from pydantic import ValidationError
+
+        from api.schemas.election import ProfileSimulateRequest
+
+        with pytest.raises(ValidationError):
+            ProfileSimulateRequest(candidates=[{"name": "A"}, {"name": "B"}],
+                                   source="handcrafted", handcrafted_matrix=[[1.0, 0.0]] * 1001)

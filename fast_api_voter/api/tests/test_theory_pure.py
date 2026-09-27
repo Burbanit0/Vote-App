@@ -12,8 +12,8 @@ Per this repo's test_cardinal_orphans.py precedent: assert on the NUMBERS a
 worker actually returns, not just on structure or the winner. Most of the
 input/output pairs here are transcribed from the batch tests' request
 payloads and JSON assertions (the direct-call response IS the same dict the
-route layer would hand back as JSON — api/routes/theory.py's `_run_typed`
-helper does nothing but `body, status = worker(request.model_dump())`).
+route layer would hand back as JSON — `api.core.worker_dispatch.run_typed`
+does nothing but `body, status = worker(request.model_dump())`).
 Values that are not already pinned upstream were derived either by hand
 (documented inline) or, where the arithmetic is genuinely RNG-driven, by
 executing the worker at the fixed seed used throughout this module (42) and
@@ -30,6 +30,7 @@ import pytest
 from api.domain.theory.workers import (
     _IIA_BORDA,
     _IIA_PLURALITY,
+    _VIOLATIONS,
     _apportionment_worker,
     _arrow_worker,
     _assumption_testing_worker,
@@ -99,30 +100,27 @@ def test_arrow_borda_gets_the_borda_specific_iia_counterexample_not_pluralitys()
     assert "IIA" in body["arrow_summary"] or "spoiler" in body["arrow_summary"]
 
 
-def test_arrow_unknown_method_falls_back_to_plurality_violations_and_default_tradeoff() -> None:
-    """workers.py:100 falls back to _VIOLATIONS['plurality'] for an unrecognised
-    method (no schema is validating `method` at this layer, so the worker's own
-    .get(method, ...) fallback is what's under test — the route's schema doesn't
-    even restrict `method` to an enum, so this is real reachable behaviour, not
-    a hypothetical). tradeoff_type falls back separately via .get(method,
-    'majority_focus') at workers.py:146 since the unknown method has no entry
-    in _TRADEOFF_TYPE either."""
+def test_arrow_rejects_a_method_it_has_no_facts_for() -> None:
+    """It used to answer an unknown name with plurality's violation row and the
+    default "majority_focus" trade-off, under the requested name."""
     body, status = _arrow_worker({"method": "totally_unknown_xyz"})
 
-    assert status == 200
-    assert body["violations"]["iia"]["counterexample"] == _IIA_PLURALITY
-    assert body["violations"]["transitivity"]["violated"] is False
-    assert body["tradeoff_type"] == "majority_focus"
+    assert status == 400
+    assert "totally_unknown_xyz" in body["error"]
 
 
-# ── /iia-rate ───────────────────────────────────────────────────────────────
+def test_every_rule_arrow_describes_violates_iia() -> None:
+    """Arrow's theorem, and what lets the summary skip a no-violation case."""
+    assert all(row["iia"] for row in _VIOLATIONS.values())
 
 
 def test_iia_rate_plurality_curve_pins_the_exact_empirical_rates() -> None:
     """Transcribed payload from test_theory_batch1.py::TestIIARate.test_happy_path,
     but asserting the actual numbers (seed=42 makes this fully reproducible)
     instead of just bounds — a mutant in the hit-counting or the round(...,4)
-    would move these exact values."""
+    would move these exact values. (0.14 / 0.16 / 0.14 before plurality went
+    through the engine's rule, which breaks a first-choice tie by name rather
+    than by whichever candidate was counted first.)"""
     body, status = _iia_rate_worker({
         "method": "plurality", "max_candidates": 5, "num_trials": 50, "seed": 42,
     })
@@ -132,30 +130,36 @@ def test_iia_rate_plurality_curve_pins_the_exact_empirical_rates() -> None:
     # n=2 is hard-coded to 0.0 (workers.py:191) -- too few candidates to matter
     assert body["curve"] == [
         {"n_candidates": 2, "violation_rate": 0.0},
-        {"n_candidates": 3, "violation_rate": 0.14},
+        {"n_candidates": 3, "violation_rate": 0.12},
         {"n_candidates": 4, "violation_rate": 0.16},
-        {"n_candidates": 5, "violation_rate": 0.14},
+        {"n_candidates": 5, "violation_rate": 0.16},
     ]
 
 
-def test_iia_rate_scale_factor_multiplies_the_same_underlying_empirical_rate() -> None:
-    """The per-n empirical simulation (workers.py:161-179) always uses plurality
-    internally regardless of the requested `method` -- `method` only selects a
-    scale factor (_SCALE) applied afterwards. So schulze's curve at the same
-    seed/trials must equal plurality's curve times 0.35, exactly. This pins
-    both the _SCALE lookup AND that the multiplication (not e.g. an additive
-    fudge) is what connects them."""
-    plurality_body, _ = _iia_rate_worker({
-        "method": "plurality", "max_candidates": 5, "num_trials": 50, "seed": 42,
-    })
-    schulze_body, status = _iia_rate_worker({
-        "method": "schulze", "max_candidates": 5, "num_trials": 50, "seed": 42,
-    })
+def test_iia_rate_measures_each_rule_instead_of_scaling_plurality() -> None:
+    """Every rule but plurality used to be reported as plurality's measured rate
+    times a constant -- this test pinned schulze at exactly 0.35x. The numbers
+    below come from running each rule, and they disagree with the old constants
+    in both directions: approval (0.55x, i.e. 0.077 at n=3) is in fact the most
+    IIA-violating rule here, and schulze (0.35x) nearly never violates it."""
+    def curve(method):
+        body, status = _iia_rate_worker({
+            "method": method, "max_candidates": 5, "num_trials": 50, "seed": 42,
+        })
+        assert status == 200
+        return [c["violation_rate"] for c in body["curve"]]
 
-    assert status == 200
-    for base, scaled in zip(plurality_body["curve"], schulze_body["curve"]):
-        assert scaled["violation_rate"] == round(min(1.0, base["violation_rate"] * 0.35), 4)
-    assert schulze_body["curve"][1]["violation_rate"] == 0.049  # n=3: 0.14 * 0.35
+    assert curve("schulze") == [0.0, 0.02, 0.0, 0.0]
+    assert curve("approval") == [0.0, 0.44, 0.36, 0.14]
+    assert curve("kemeny_young") == [0.0, 0.02, 0.02, 0.02]
+    assert curve("condorcet") == [0.0, 0.04, 0.04, 0.04]    # measured as Copeland
+
+
+def test_iia_rate_rejects_majority_judgment() -> None:
+    """MJ needs grades and these profiles are rankings, so there is nothing to
+    measure; it used to be plurality's rate x 0.50."""
+    body, status = _iia_rate_worker({"method": "majority_judgment"})
+    assert status == 400 and "majority_judgment" in body["error"]
 
 
 def test_iia_rate_defensively_clamps_max_candidates_even_without_pydantic() -> None:
@@ -557,7 +561,7 @@ def test_collective_will_rousseau_score_is_exactly_the_reciprocal_of_unique_winn
     assert body["rousseau_score"] == 0.5
     assert body["condorcet_exists"] is True
     assert body["condorcet_winner"] == "Bob"
-    assert body["most_frequent_winner"] == "Bob"
+    assert body["most_frequent_winner"] == ["Bob"]
     assert body["most_frequent_pct"] == 0.7143
 
 
@@ -594,3 +598,88 @@ def test_collective_will_two_candidates_only_one_possible_winner_forces_rousseau
     assert status == 200
     assert body["unique_winner_count"] == 1
     assert body["rousseau_score"] == 1.0
+
+
+
+# ── /collective-will: the methods are the engine's, not look-alikes ──────────
+# This worker used to hand-roll plurality/Borda/IRV/minimax/Condorcet and, for
+# four more methods, return something else entirely: schulze and kemeny_young
+# fell back to Borda whenever no Condorcet winner existed, and star and median
+# were Borda outright ("use borda as proxy").
+
+
+def _collective_will(**overrides: Any) -> Dict[str, Any]:
+    payload: Dict[str, Any] = {
+        "num_methods": 10, "num_agendas": 3, "seed": 0,
+        "num_voters": 149, "ideology": "random",
+    }
+    payload.update(overrides)
+    body, status = _collective_will_worker(payload)
+    assert status == 200
+    return body
+
+
+def test_collective_will_each_method_is_its_own_rule() -> None:
+    """Four methods no longer collapse onto Borda's answer. Verified
+    order-independent: the same electorate with the candidate list reversed
+    returns the same winners, so none of these is a tie broken by list position.
+    """
+    m = _collective_will()["winner_by_method"]
+    assert m == {
+        "plurality": "Carol", "borda": "Bob", "irv": "Carol", "approval": "Bob",
+        "schulze": "Bob", "minimax": "Bob", "kemeny_young": "Bob",
+        "star": "Bob", "median": "Carol", "black": "Bob",
+    }
+    # median reads the score ballots, so it can leave Borda -- under the old
+    # "use borda as proxy" it was Bob by construction.
+    assert m["median"] != m["borda"]
+
+
+def test_collective_will_approval_still_scales_with_the_field() -> None:
+    """The engine's default approval threshold is 2, which at 2 candidates
+    approves the whole field: a dead tie it breaks alphabetically, so approval
+    would stop reading the votes. The panel keeps its own top-~40% rule, which
+    is approve-top-1 at 2 candidates -- i.e. plurality, which is what approval
+    provably is on two candidates.
+
+    The candidates are named so that the alphabetical answer ('Amy') and the
+    electorate's answer would differ if the threshold regressed; here both the
+    electorate and the alphabet favour Amy at seed 0, so the assertion is that
+    approval tracks PLURALITY rather than any fixed name.
+
+    `median` is deliberately not included: the engine's score rules break a tie
+    by candidate insertion order, not alphabetically like every ranked rule, so
+    it can disagree here for reasons that have nothing to do with approval."""
+    m = _collective_will(
+        candidates=[{"name": "Zed", "x": -0.4, "y": 0.0}, {"name": "Amy", "x": 0.35, "y": 0.0}],
+        num_voters=150, ideology="polarized",
+    )["winner_by_method"]
+    assert m["approval"] == m["plurality"] == m["borda"] == m["irv"], m
+
+
+def test_collective_will_omits_a_method_that_elects_nobody() -> None:
+    """An exact 5-5 split has no IRV winner: the engine returns None and the
+    panel leaves `irv` out rather than reporting the first candidate in the
+    request, which is what its `or cand_names[0]` fallback used to do."""
+    body = _collective_will(
+        candidates=[{"name": "Zed", "x": -0.5, "y": 0.0}, {"name": "Amy", "x": 0.5, "y": 0.0}],
+        num_voters=10, seed=0, ideology="random",
+    )
+    assert "irv" not in body["winner_by_method"]
+    assert body["winner_by_method"]["plurality"] == "Amy"
+
+
+def test_collective_will_no_condorcet_winner_here_is_a_tie_not_a_cycle() -> None:
+    """Worth stating because it is easy to assume otherwise: voter utility is
+    -((v - cx)^2 + cy^2), which is linear in the voter's position, so the profile
+    is single-crossing and the majority relation is always transitive -- this
+    panel's electorate cannot produce a Condorcet cycle. The cases where
+    `condorcet_exists` is False are exact pairwise ties (seed 4 / polarized /
+    150 voters ties Alice-Bob 75-75), and they are the ones where the deleted
+    Borda fallback used to fire."""
+    body = _collective_will(seed=4, num_voters=150, ideology="polarized")
+    assert body["condorcet_exists"] is False
+    m = body["winner_by_method"]
+    assert m["borda"] == "Bob"
+    assert m["schulze"] == "Alice"
+    assert m["black"] == "Bob"

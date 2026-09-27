@@ -19,7 +19,6 @@ const PolityPage = React.lazy(() => import('./pages/PolityPage'));
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage'));
 
 import { useTheme } from './stores/useUIStore';
-import { ToastProvider } from './components/shared/ui/ToastNotification';
 import { ElectionProvider } from './stores/useElectionStore';
 import UpdatePrompt from './components/shared/ui/UpdatePrompt';
 import OfflineBanner from './components/shared/ui/OfflineBanner';
@@ -71,11 +70,9 @@ const AppContent: React.FC = () => {
 
 const App: React.FC = () => (
   <ElectionProvider>
-    <ToastProvider>
-      <Router>
-        <AppContent />
-      </Router>
-    </ToastProvider>
+    <Router>
+      <AppContent />
+    </Router>
   </ElectionProvider>
 );
 

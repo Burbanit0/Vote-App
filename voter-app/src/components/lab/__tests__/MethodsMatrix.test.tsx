@@ -5,7 +5,7 @@ import '@testing-library/jest-dom';
 let ctx: any;
 
 vi.mock('../../playground/PlaygroundController', () => ({
-  usePlaygroundCtx: () => ctx,
+  useInstrumentCtx: () => ctx,
 }));
 
 import MethodsMatrix from '../MethodsMatrix';

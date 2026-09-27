@@ -4,6 +4,52 @@ import { test, expect, type Page } from './coverageFixtures';
 // (which feeds the Bilan), the four lenses painted on the same map, and the
 // step-by-step replay of a count.
 
+// The default electorate (DEFAULT_CONFIG in useElectionStore.tsx: Alice/Bob/Carol,
+// seed 42, 300 voters, ideology 'random', 2-D) is what a fresh `/playground` load
+// gets — Playwright gives each test an isolated context, so localStorage (which
+// DOES persist the config, see useElectionStore.tsx's LS_KEY) starts empty. These
+// are the real winners that exact electorate produces per rule (computed offline
+// with the same sampleVoters/fieldWinnerName/LEADER_RULES this page calls —
+// PLAN_SURFACE_EXTERIEURE.md §2.F). A result oracle, not a re-proof: correctness
+// of each rule is already covered by unit tests and the client⇄backend parity
+// harness; this only catches the UI/wiring layer returning the WRONG (but
+// non-empty) answer, which `not.toBeEmpty()` alone could never catch — a rule
+// dispatch bug or a stale/disconnected `winner` computation would still pass it.
+// Regenerate by running LEADER_RULES through fieldWinnerName(sampleVoters(300, 42,
+// 'random', 2), DEFAULT_CONFIG.candidates, rule) if the default electorate or a
+// rule's algorithm changes.
+const EXPECTED_WINNER: Record<string, string> = {
+  plurality: 'Alice',
+  two_round: 'Carol',
+  irv: 'Carol',
+  borda: 'Carol',
+  approval: 'Carol',
+  score: 'Carol',
+  star: 'Carol',
+  majority_judgment: 'Carol',
+  cumulative: 'Carol',
+  maximin: 'Alice',
+  nash: 'Carol',
+  bucklin: 'Carol',
+  coombs: 'Carol',
+  condorcet: 'Carol',
+  minimax: 'Carol',
+  schulze: 'Carol',
+  nanson: 'Carol',
+  baldwin: 'Carol',
+  ranked_pairs: 'Carol',
+  kemeny: 'Carol',
+  black: 'Carol',
+  anti_plurality: 'Carol',
+  dowdall: 'Carol',
+  raynaud: 'Carol',
+  benham: 'Carol',
+  river: 'Carol',
+  smith_irv: 'Carol',
+  split_cycle: 'Carol',
+  random_ballot: 'Alice',
+};
+
 async function methodMoment(page: Page) {
   await page.goto('/playground');
   await page.locator('[data-testid="moment-method"]').click();
@@ -73,7 +119,7 @@ test.describe('Playground — Méthode', () => {
     await expect(page.locator('[data-testid="bilan-verdict"]')).toBeVisible();
   });
 
-  test('each rule keeps producing a winner', async ({ page }) => {
+  test('each rule elects its known winner on the default electorate', async ({ page }) => {
     const crashes: string[] = [];
     page.on('pageerror', (err) => crashes.push(err.message));
 
@@ -83,10 +129,14 @@ test.describe('Playground — Méthode', () => {
       .locator('option')
       .evaluateAll((os) => os.map((o) => (o as HTMLOptionElement).value));
     expect(values.length).toBeGreaterThan(10);
+    // Every rule the select offers must have a known expected winner recorded
+    // above — an unlisted rule would silently fall back to `not.toBeEmpty()`
+    // rigour, exactly the gap this test closes.
+    expect(values.every((r) => r in EXPECTED_WINNER)).toBe(true);
 
     for (const rule of values) {
       await select.selectOption(rule);
-      await expect(winner, `no winner under ${rule}`).not.toBeEmpty();
+      await expect(winner, `wrong winner under ${rule}`).toHaveText(EXPECTED_WINNER[rule]);
     }
     expect(crashes).toEqual([]);
   });
@@ -111,6 +161,31 @@ test.describe('Playground — Méthode', () => {
       await expect(page.locator(`[data-testid="${overlay}"]`).first()).toBeAttached();
     }
     expect(crashes).toEqual([]);
+  });
+
+  test('a lens click survives the robustness strip landing mid-click', async ({ page }) => {
+    // The strip above the lens switch fills in on a timer after the moment opens.
+    // It once pushed the switch down between a click's press and release, so the
+    // release missed the button (the Firefox flake of the test above). Hold the
+    // timer, press, let the strip land, release: the lens must still be selected.
+    await page.clock.install({ time: new Date('2026-01-01T08:00:00') });
+    await page.goto('/playground');
+    await expect(page.locator('[data-testid="moment-method"]')).toBeVisible();
+    await page.clock.pauseAt(new Date('2026-01-01T09:00:00'));
+
+    await page.locator('[data-testid="moment-method"]').click();
+    await expect(page.locator('[data-testid="winner-robustness-pending"]')).toBeAttached();
+    const lens = page.locator('[data-testid="lens-winner"]');
+    await expect(lens).toHaveAttribute('aria-checked', 'false');
+    const box = await lens.boundingBox();
+    expect(box).not.toBeNull();
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+    await page.mouse.down();
+
+    await page.clock.runFor(1_000);
+    await expect(page.locator('[data-testid="winner-robustness"]')).toBeVisible();
+    await page.mouse.up();
+    await expect(lens).toHaveAttribute('aria-checked', 'true');
   });
 
   test('the count can be replayed step by step', async ({ page }) => {

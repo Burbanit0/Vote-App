@@ -1,5 +1,5 @@
 import React, { Suspense } from 'react';
-import { lazyWithPreload } from '../../lib/lazyWithPreload';
+import { lazyWithPreload } from '../lazyWithPreload';
 import { usePolityCtx } from './PolityController';
 
 // The biography's chunk loads when a citizen is first selected (?citizen=).

@@ -85,6 +85,14 @@ const EXTRAS = [
   'sys-atlas',
 ];
 
+// Fiches restored after this redesign, past content that was orphaned by an
+// unrelated route consolidation (778b0c6d deleted ArrowExplorer.tsx along with
+// the dead Simulation/ page tree — the /api/v2/theory/arrow + iia-rate
+// endpoints it called stayed alive and tested the whole time). Tracked
+// separately from EXTRAS (added *during* the redesign) so the "nothing lost"
+// history above stays exact.
+const RESTORED = ['thy-arrow'];
+
 const resolve = (bundle: Record<string, unknown>, dotted: string): unknown =>
   dotted.split('.').reduce<unknown>((o, k) => (o as Record<string, unknown>)?.[k], bundle);
 
@@ -99,8 +107,14 @@ describe('labCatalog — nothing was lost in the redesign', () => {
     for (const id of EXTRAS) expect(ids.has(id), id).toBe(true);
   });
 
-  it('is exactly the old inventory plus the tracked extras — unique ids, nothing smuggled in or out', () => {
-    expect(ALL_EXPERIMENTS).toHaveLength(FORMER_LEAVES.length + EXTRAS.length); // 48 + 14 = 62
+  it('carries fiches restored after the redesign', () => {
+    const ids = new Set(ALL_EXPERIMENTS.map((e) => e.id));
+    for (const id of RESTORED) expect(ids.has(id), id).toBe(true);
+  });
+
+  it('is exactly the old inventory plus the tracked extras and restorations — unique ids, nothing smuggled in or out', () => {
+    // 48 + 14 + 1 = 63
+    expect(ALL_EXPERIMENTS).toHaveLength(FORMER_LEAVES.length + EXTRAS.length + RESTORED.length);
     expect(new Set(ALL_EXPERIMENTS.map((e) => e.id)).size).toBe(ALL_EXPERIMENTS.length);
   });
 
@@ -138,7 +152,7 @@ describe('labCatalog — nothing was lost in the redesign', () => {
     // components/shared/ reorganization carries (a typo'd path fails
     // silently at runtime, on first render, not at build time). `.preload()`
     // is the same factory `lazyWithPreload` wraps, so awaiting it here
-    // forces every one of the 64 dynamic imports in this file to execute.
+    // forces every one of the dynamic imports in this file to execute.
     const results = await Promise.all(
       ALL_EXPERIMENTS.map(async (e) => {
         const mod = await e.preload();

@@ -4,7 +4,7 @@
  * Shows how voters demobilise round by round as their preferred candidate
  * trails in the polls, and how this can flip the election result.
  */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { $api } from '../../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
@@ -24,15 +24,14 @@ import {
   ReferenceLine,
 } from 'recharts';
 import { useElection } from '../../../stores/useElectionStore';
-import PinToCentralButton from '../ui/PinToCentralButton';
-
-const DEBOUNCE_MS = 400;
 
 // Request type from the generated OpenAPI contract (single source of truth:
 // the Pydantic schema, regenerated via `npm run gen:api`).
 import type { AbstentionRequest } from '../../../api';
 
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
+import { colorByName, LAB_PALETTE } from '@/lib/palette';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -67,10 +66,7 @@ interface AbstentionData {
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 
-const PALETTE = ['#005CAB', '#C8590A', '#007A33', '#6c757d', '#9b59b6', '#e67e22'];
-function candColor(name: string, names: string[]) {
-  return PALETTE[names.indexOf(name) % PALETTE.length] ?? '#888';
-}
+const candColor = (name: string, names: string[]) => colorByName(name, names, LAB_PALETTE);
 
 // ── SVG ideology map with abstention overlay ──────────────────────────────────
 
@@ -218,38 +214,30 @@ const AbstentionPanel: React.FC = () => {
   const loading = sim.isPending;
   const error = sim.isError ? t('abstention.error') : null;
 
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const candidateNames = config.candidates.map((c) => c.name);
 
-  const run = useCallback(
-    (d: number, inf: number, nr: number) => {
-      setRound(0);
-      setPlaying(false);
-      const body: AbstentionRequest = {
-        candidates: config.candidates,
-        num_voters: config.num_voters,
-        ideology: config.ideology,
-        seed: config.seed,
-        demobilization_factor: d,
-        poll_influence: inf,
-        num_rounds: nr,
-      };
-      sim.mutate({ body });
-    },
-    [config, sim]
-  );
+  const run = (d: number, inf: number, nr: number) => {
+    setRound(0);
+    setPlaying(false);
+    const body: AbstentionRequest = {
+      candidates: config.candidates,
+      num_voters: config.num_voters,
+      ideology: config.ideology,
+      seed: config.seed,
+      demobilization_factor: d,
+      poll_influence: inf,
+      num_rounds: nr,
+    };
+    sim.mutate({ body });
+  };
 
   // Debounced re-run on slider change
-  const handleChange = (d: number, inf: number, nr: number) => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => run(d, inf, nr), DEBOUNCE_MS);
-  };
+  const handleChange = useDebouncedCallback(run);
 
   useEffect(
     () => () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
       if (timerRef.current) clearTimeout(timerRef.current);
     },
     []
@@ -348,33 +336,6 @@ const AbstentionPanel: React.FC = () => {
             {loading ? <Spinner size="sm" /> : `📉 ${t('abstention.run')}`}
           </Button>
         </Col>
-        {data &&
-          (() => {
-            // Count how many methods changed winner under abstention
-            let changedCount = data.winner_changed ? 1 : 0;
-            if (data.winners_by_method && data.sincere_winners_by_method) {
-              changedCount = 0;
-              Object.entries(data.winners_by_method).forEach(([m, w]) => {
-                if (w !== data.sincere_winners_by_method![m]) changedCount += 1;
-              });
-            }
-            return (
-              <Col xs={12} sm="auto">
-                <PinToCentralButton
-                  type="abstention"
-                  icon="📉"
-                  label={`${t('abstention.run')} — ${Math.round(demob * 100)}% démob.`}
-                  summary={
-                    changedCount > 0
-                      ? `${changedCount}/${Object.keys(data.winners_by_method ?? {}).length || 1} ${t('lab.methodsChanged')}`
-                      : `${t('abstention.sincere')}: ${data.sincere_winner}`
-                  }
-                  methodsChanged={changedCount}
-                  winnersByMethod={data.winners_by_method}
-                />
-              </Col>
-            );
-          })()}
       </Row>
 
       {error && <Alert variant="danger">{error}</Alert>}

@@ -2,12 +2,14 @@
 handling (Lot 3, PLAN_SOLIDITE_TECHNIQUE.md — "Timeouts & backpressure").
 
 api/tests/test_worker_dispatch.py already covers api/core/worker_dispatch.py
-itself (the shared semaphore + timeout logic) in isolation. This file
-instead proves each router's own (body, status) -> HTTPException handling
-correctly maps a 503 through, one representative endpoint per router
-(election.py, tech.py, theory.py, public.py, export.py — simulations.py's
-_run_worker already propagates any status code generically and is covered
-by its own existing tests).
+itself (the shared semaphore + timeout logic) in isolation. This file instead
+proves a 503 reaches the wire from every router that runs a worker — one
+representative endpoint each for election.py, tech.py, theory.py, public.py
+and simulations.py. All five now share `run_typed`/`run_passthrough`, so
+these are no longer five independent implementations; what each one still
+pins is that the route is actually wired through them (the GET on
+simulations.py passes a plain payload rather than a request model, the one
+shape that could quietly grow its own copy again).
 
 Monkeypatches `asyncio.wait_for` (rather than shrinking
 WORKER_TIMEOUT_SECONDS and racing against how fast the real worker happens
@@ -21,14 +23,7 @@ regardless of which module imported `run_bounded`/`run_worker_bounded`.
 import asyncio
 
 import pytest
-from fastapi.testclient import TestClient
 
-from api.main import app
-
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
 
 
 @pytest.fixture
@@ -46,8 +41,9 @@ class TestWorkerTimeoutSurfacesAs503:
         r = client.post("/api/v2/election/simulate", json=payload)
         assert r.status_code == 503, r.text
 
-    def test_tech_run_passthrough(self, client, force_timeout):
-        r = client.post("/api/v2/tech/e2e-demo", json={})
+    def test_tech_run_typed(self, client, force_timeout):
+        cands = [{"name": "A", "x": -0.5, "y": 0.0}, {"name": "B", "x": 0.5, "y": 0.0}]
+        r = client.post("/api/v2/tech/polis", json={"candidates": cands})
         assert r.status_code == 503, r.text
 
     def test_theory_run_typed(self, client, force_timeout):
@@ -59,10 +55,7 @@ class TestWorkerTimeoutSurfacesAs503:
         r = client.post("/api/v1/simulate", json=payload)
         assert r.status_code == 503, r.text
 
-    def test_export_csv(self, client, force_timeout):
-        r = client.post("/api/v2/export/simulation-dataset", json={})
-        assert r.status_code == 503, r.text
-
-    def test_export_json(self, client, force_timeout):
-        r = client.post("/api/v2/export/simulation-dataset-json", json={})
+    def test_simulations_query_params(self, client, force_timeout):
+        r = client.get("/api/v2/simulations/manipulability",
+                       params={"num_candidates": 3, "num_voters": 60, "num_trials": 10})
         assert r.status_code == 503, r.text

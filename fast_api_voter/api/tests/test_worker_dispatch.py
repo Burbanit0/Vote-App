@@ -4,6 +4,8 @@ import asyncio
 import time
 
 import pytest
+from fastapi import HTTPException
+from pydantic import BaseModel
 
 import api.core.worker_dispatch as wd
 
@@ -67,3 +69,49 @@ class TestRunWorkerBounded:
         assert status == 503
         assert "error" in body
         assert "worker_dispatch.timeout" in caplog.text
+
+
+class TestRaiseForStatus:
+    """The (body, status) -> HTTPException mapping every router now shares.
+
+    A worker's own 4xx is its statement about the request, so it passes through
+    verbatim; only an unexpected status is rewritten. Before PR 9 this mapping
+    kept 400 and 503 and flattened every other code to 500, while the one router
+    that used to propagate generically (simulations.py) still advertised a 404.
+    """
+
+    def test_returns_the_body_unchanged_on_200(self):
+        body = {"winner": "A"}
+        assert wd.raise_for_status(body, 200) is body
+
+    @pytest.mark.parametrize("status", [400, 404, 409, 422, 429])
+    def test_any_4xx_keeps_its_own_status_and_message(self, status):
+        with pytest.raises(HTTPException) as exc:
+            wd.raise_for_status({"error": "Unknown election"}, status)
+        assert exc.value.status_code == status
+        assert exc.value.detail == "Unknown election"
+
+    def test_timeout_is_service_unavailable(self):
+        with pytest.raises(HTTPException) as exc:
+            wd.raise_for_status({"error": "Request took too long to process"}, 503)
+        assert exc.value.status_code == 503
+
+    @pytest.mark.parametrize("status", [500, 502, 599])
+    def test_an_unexpected_status_becomes_500(self, status):
+        with pytest.raises(HTTPException) as exc:
+            wd.raise_for_status({}, status)
+        assert (exc.value.status_code, exc.value.detail) == (500, "Internal error")
+
+
+class TestRunPassthrough:
+    @pytest.mark.asyncio
+    async def test_accepts_a_request_model_or_a_plain_payload(self):
+        def worker(payload):
+            return {"echo": payload}, 200
+
+        class Req(BaseModel):
+            x: int
+
+        from_model = await wd.run_passthrough(worker, Req(x=1))
+        from_dict = await wd.run_passthrough(worker, {"x": 1})
+        assert from_model == from_dict == {"echo": {"x": 1}}

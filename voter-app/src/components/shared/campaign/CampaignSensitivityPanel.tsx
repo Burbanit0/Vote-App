@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -23,7 +23,6 @@ import { useElection } from '../../../stores/useElectionStore';
 import { fetchCampaignSensitivity, CampaignSensitivityResult } from '../../../services/electionApi';
 import { useChartTheme } from '../../../hooks/useChartTheme';
 import LiveBadge from '../ui/LiveBadge';
-import PinToCentralButton from '../ui/PinToCentralButton';
 import CampaignSwimlane from './CampaignSwimlane';
 
 import { numericTooltipFormatter, numericTickFormatter } from '@/lib/rechartsFormatters';
@@ -198,7 +197,7 @@ const CampaignSensitivityPanel: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const run = useCallback(async () => {
+  const run = async () => {
     setLoading(true);
     setError(null);
     try {
@@ -221,7 +220,7 @@ const CampaignSensitivityPanel: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [config, numDays, pollingEffect, withContagion, t]);
+  };
 
   return (
     <div>
@@ -282,33 +281,6 @@ const CampaignSensitivityPanel: React.FC = () => {
           </Button>
           <LiveBadge loading={loading && !!result} className="mt-1" />
         </Col>
-        {result && (
-          <Col md="auto">
-            <PinToCentralButton
-              type="campaign-sensitivity"
-              icon="📈"
-              label={`${t('campaign.compute')} — ${numDays}j`}
-              summary={(() => {
-                // Count methods that changed final winner under campaign
-                const winnersByMethod: Record<string, string | null> = {};
-                let changed = 0;
-                Object.entries(result.method_stability).forEach(([m, st]) => {
-                  winnersByMethod[m] = st.final_winner;
-                  if (st.winner_changes > 0) changed += 1;
-                });
-                return changed > 0
-                  ? `${changed}/${Object.keys(result.method_stability).length} ${t('lab.methodsChanged')}`
-                  : t('lab.winnerStable');
-              })()}
-              methodsChanged={
-                Object.values(result.method_stability).filter((s) => s.winner_changes > 0).length
-              }
-              winnersByMethod={Object.fromEntries(
-                Object.entries(result.method_stability).map(([m, st]) => [m, st.final_winner])
-              )}
-            />
-          </Col>
-        )}
       </Row>
 
       {error && (

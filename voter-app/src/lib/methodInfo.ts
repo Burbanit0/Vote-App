@@ -551,20 +551,22 @@ export const METHOD_INFO: Record<string, MethodEntry> = {
       summary: 'Cherche le classement global le plus « d’accord » avec tous les bulletins.',
       how: 'On choisit l’ordre qui minimise le total des désaccords par paires (distance de Kendall).',
       strength: 'Respecte Condorcet et donne un classement complet, pas seulement un gagnant.',
-      weakness: 'Coût combinatoire (O(n!)) : exact seulement jusqu’à ~6 candidats, sinon approché.',
+      weakness:
+        'Coût combinatoire : exact jusqu’à 10 candidats (programmation dynamique sur les sous-ensembles), approché au-delà.',
       criterion: 'Respecte Condorcet et la réversibilité ; optimum de « consensus médian ».',
       example:
-        'Au-delà de 8 candidats, le playground bascule sur Borda (une approximation) plutôt que la recherche exhaustive.',
+        'Jusqu’à 10 candidats, le gagnant est l’optimum exact ; au-delà, le playground bascule sur une approximation.',
     },
     en: {
       name: 'Kemeny-Young',
       summary: 'Finds the overall ranking that best agrees with every ballot.',
       how: 'Pick the order minimising total pairwise disagreement (Kendall-tau distance).',
       strength: 'Satisfies Condorcet and yields a full ranking, not just a winner.',
-      weakness: 'Combinatorial cost (O(n!)): exact only up to ~6 candidates, else approximated.',
+      weakness:
+        'Combinatorial cost: exact up to 10 candidates (DP over candidate subsets), approximated beyond.',
       criterion: 'Satisfies Condorcet and reversal symmetry; a “median consensus” optimum.',
       example:
-        'Beyond 8 candidates, the playground falls back to Borda (an approximation) instead of the exhaustive search.',
+        'Up to 10 candidates the winner is the exact optimum; beyond that the playground falls back to an approximation.',
     },
   },
   median_voting: {

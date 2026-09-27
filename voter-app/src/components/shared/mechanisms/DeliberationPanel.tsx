@@ -4,7 +4,7 @@
  * Shows how network structure (echo chamber vs. bridge) determines
  * whether deliberation polarises or converges the electorate.
  */
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { $api } from '../../../api/hooks';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
@@ -24,7 +24,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { useElection } from '../../../stores/useElectionStore';
-import PinToCentralButton from '../ui/PinToCentralButton';
+import { colorByName, LAB_PALETTE_FIVE } from '@/lib/palette';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -67,10 +67,7 @@ const NETWORK_OPTIONS = [
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 
-const CAND_COLORS = ['#005CAB', '#C8590A', '#007A33', '#9b59b6', '#e67e22'];
-function candColor(name: string, names: string[]): string {
-  return CAND_COLORS[names.indexOf(name) % CAND_COLORS.length] ?? '#888';
-}
+const candColor = (name: string, names: string[]) => colorByName(name, names, LAB_PALETTE_FIVE);
 
 // ── Main panel ────────────────────────────────────────────────────────────────
 
@@ -89,7 +86,7 @@ const DeliberationPanel: React.FC = () => {
   const loading = sim.isPending;
   const error = sim.isError ? t('delib.error') : null;
 
-  const runSimulation = useCallback(() => {
+  const runSimulation = () => {
     sim.mutate({
       body: {
         candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
@@ -104,7 +101,7 @@ const DeliberationPanel: React.FC = () => {
         method: 'plurality',
       },
     });
-  }, [config, rounds, influence, network, groupSize, argQuality, t, sim]);
+  };
 
   // Chart data: per_round evolution
   const chartData = data
@@ -200,21 +197,6 @@ const DeliberationPanel: React.FC = () => {
             {loading ? <Spinner size="sm" /> : t('delib.run')}
           </Button>
         </Col>
-        {data && (
-          <Col xs="auto">
-            <PinToCentralButton
-              type="deliberation"
-              icon="🗣"
-              label={t('delib.run')}
-              summary={
-                data.winner_changed
-                  ? `${data.pre_deliberation.winner} → ${data.post_deliberation.winner}`
-                  : `${data.post_deliberation.winner ?? '—'}`
-              }
-              methodsChanged={data.winner_changed ? 1 : 0}
-            />
-          </Col>
-        )}
       </Row>
 
       {!data && !loading && !error && (

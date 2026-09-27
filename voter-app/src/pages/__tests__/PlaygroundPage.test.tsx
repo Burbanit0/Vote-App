@@ -76,6 +76,7 @@ import {
   useElectionStore,
   DEFAULT_PLAYGROUND,
   DEFAULT_CONFIG,
+  __flushPersistedStoreForTests,
 } from '../../stores/useElectionStore';
 
 const LS_PG = 'votelab_playground';
@@ -164,6 +165,10 @@ describe('PlaygroundPage (P0 shell)', () => {
     expect(screen.getByLabelText('Structure')).toBeInTheDocument();
 
     expect(useElectionStore.getState().playground.mode).toBe('parliament');
+    // The localStorage write is now debounced (coalesces a drag/slider gesture
+    // into one write — see useElectionStore.tsx) — flush it synchronously so
+    // this assertion doesn't have to wait out the real debounce window.
+    __flushPersistedStoreForTests();
     expect(JSON.parse(localStorage.getItem(LS_PG) as string).mode).toBe('parliament');
   });
 
@@ -175,6 +180,7 @@ describe('PlaygroundPage (P0 shell)', () => {
     expect(playground.mode).toBe('parliament');
     expect(config.candidates).toHaveLength(6);
     expect(config.num_voters).toBe(600);
+    __flushPersistedStoreForTests();
     expect(JSON.parse(localStorage.getItem(LS_PG) as string).mode).toBe('parliament');
     // The canvas reflects the preset's mode.
     expect(screen.getByTestId('canvas-parliament')).toBeInTheDocument();
@@ -186,6 +192,7 @@ describe('PlaygroundPage (P0 shell)', () => {
     fireEvent.change(screen.getByLabelText('Dimensions of the space'), { target: { value: '3' } });
 
     expect(useElectionStore.getState().playground.space.dims).toBe(3);
+    __flushPersistedStoreForTests();
     expect(JSON.parse(localStorage.getItem(LS_PG) as string).space.dims).toBe(3);
   });
 
@@ -244,6 +251,7 @@ describe('PlaygroundPage (P0 shell)', () => {
     fireEvent.click(screen.getByTestId('moment-strategy'));
     fireEvent.click(screen.getByTestId('duverger-toggle'));
     expect(useElectionStore.getState().playground.assembly.strategic_desertion).toBe(true);
+    __flushPersistedStoreForTests();
     expect(JSON.parse(localStorage.getItem(LS_PG) as string).assembly.strategic_desertion).toBe(
       true
     );
@@ -323,6 +331,7 @@ describe('PlaygroundPage (P0 shell)', () => {
     fireEvent.click(screen.getByTestId('moment-strategy'));
     fireEvent.change(screen.getByTestId('turnout-select'), { target: { value: 'alienation' } });
     expect(useElectionStore.getState().playground.turnout.model).toBe('alienation');
+    __flushPersistedStoreForTests();
     expect(JSON.parse(localStorage.getItem(LS_PG) as string).turnout.model).toBe('alienation');
     fireEvent.change(screen.getByTestId('turnout-intensity'), { target: { value: '0.9' } });
     const rate = screen.getByTestId('turnout-rate').textContent ?? '';
@@ -337,6 +346,7 @@ describe('PlaygroundPage (P0 shell)', () => {
     fireEvent.click(screen.getByTestId('moment-strategy'));
     fireEvent.click(screen.getByTestId('blank-toggle'));
     expect(useElectionStore.getState().playground.blank.enabled).toBe(true);
+    __flushPersistedStoreForTests();
     expect(JSON.parse(localStorage.getItem(LS_PG) as string).blank.enabled).toBe(true);
 
     fireEvent.change(screen.getByTestId('blank-intensity'), { target: { value: '0.9' } });
@@ -382,6 +392,7 @@ describe('PlaygroundPage (P0 shell)', () => {
     fireEvent.click(screen.getByTestId('electorate-mode-composed'));
 
     expect(useElectionStore.getState().playground.electorate.mode).toBe('composed');
+    __flushPersistedStoreForTests();
     expect(JSON.parse(localStorage.getItem(LS_PG) as string).electorate.mode).toBe('composed');
     expect(screen.getByTestId('community-list')).toBeInTheDocument();
     // The leader cloud is now coloured by community → a legend appears.
@@ -427,6 +438,7 @@ describe('PlaygroundPage (P0 shell)', () => {
     fireEvent.click(screen.getByTestId('electorate-mode-composed'));
     fireEvent.change(screen.getByTestId('electorate-noise'), { target: { value: '0.5' } });
     expect(useElectionStore.getState().playground.electorate.noise).toBe(0.5);
+    __flushPersistedStoreForTests();
     expect(JSON.parse(localStorage.getItem(LS_PG) as string).electorate.noise).toBe(0.5);
   });
 

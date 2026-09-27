@@ -69,6 +69,8 @@ def compute_manipulability_index(
     method_name: str,
     ballots: list[list[str]],
     num_trials: int = 200,
+    *,
+    rng: random.Random,
 ) -> dict[str, Any]:
     """
     Estimate the manipulability rate of a voting method.
@@ -92,6 +94,10 @@ def compute_manipulability_index(
     num_trials : int
         Maximum number of voters to sample.  Use a smaller value for speed;
         larger values give more accurate estimates at the cost of time.
+    rng : random.Random
+        Draws the voter sample.  The caller compares methods against each other,
+        so pass one seeded the same way per method: every method must see the
+        same sample, and a worker must not draw from the process-wide generator.
 
     Returns
     -------
@@ -127,7 +133,7 @@ def compute_manipulability_index(
     # ── Sample voters ──────────────────────────────────────────────────────
     sample_indices = list(range(n_voters))
     if n_voters > num_trials:
-        sample_indices = random.sample(sample_indices, num_trials)
+        sample_indices = rng.sample(sample_indices, num_trials)
 
     # ── Compute sincere winner (all ballots, no manipulation) ──────────────
     sincere_winner: Optional[str] = safe_call(

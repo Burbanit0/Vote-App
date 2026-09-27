@@ -2,7 +2,7 @@
  * ShyVoterPanel — simulates the Bradley / Shy Tory effect:
  * voters declare a socially acceptable preference in polls but vote sincerely.
  */
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -26,11 +26,10 @@ import {
 } from 'recharts';
 import type { DotItemDotProps } from 'recharts';
 import { useElection } from '../../../stores/useElectionStore';
-import PinToCentralButton from '../ui/PinToCentralButton';
 import { $api } from '../../../api/hooks';
 import { numericTooltipFormatter } from '@/lib/rechartsFormatters';
-
-const DEBOUNCE_MS = 400;
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
+import { colorByName, LAB_PALETTE_PINK } from '@/lib/palette';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -82,10 +81,7 @@ const HISTORICAL = [
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 
-const CAND_COLORS = ['#005CAB', '#C8590A', '#007A33', '#9b59b6', '#e67e22', '#e83e8c'];
-function candColor(name: string, names: string[]): string {
-  return CAND_COLORS[names.indexOf(name) % CAND_COLORS.length] ?? '#888';
-}
+const candColor = (name: string, names: string[]) => colorByName(name, names, LAB_PALETTE_PINK);
 
 // ── Main panel ────────────────────────────────────────────────────────────────
 
@@ -101,31 +97,28 @@ const ShyVoterPanel: React.FC = () => {
   const data: ShyData | null = (sim.data as ShyData | undefined) ?? null;
   const loading = sim.isPending;
   const error = sim.isError ? t('shyVoter.apiError') : null;
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const runSimulation = useCallback(
-    (factor: number, idx: number) => {
-      sim.mutate({
-        body: {
-          candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
-          num_voters: config.num_voters,
-          ideology: config.ideology,
-          seed: config.seed,
-          shy_candidate_idx: idx,
-          social_desirability_factor: factor,
-          num_polls: 10,
-        },
-      });
-    },
-    [config, t, sim]
-  );
+  const runSimulation = (factor: number, idx: number) => {
+    sim.mutate({
+      body: {
+        candidates: config.candidates.map((c) => ({ name: c.name, x: c.x, y: c.y })),
+        num_voters: config.num_voters,
+        ideology: config.ideology,
+        seed: config.seed,
+        shy_candidate_idx: idx,
+        social_desirability_factor: factor,
+        num_polls: 10,
+      },
+    });
+  };
 
   const handleSimulate = () => runSimulation(sdFactor, shyIdx);
 
+  const scheduleRun = useDebouncedCallback(runSimulation);
+
   const handleFactorChange = (v: number) => {
     setSdFactor(v);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => runSimulation(v, shyIdx), DEBOUNCE_MS);
+    scheduleRun(v, shyIdx);
   };
 
   // ── Grouped bar chart data (avg poll vs real) ───────────────────────────
@@ -199,21 +192,6 @@ const ShyVoterPanel: React.FC = () => {
             {loading ? <Spinner size="sm" /> : t('shyVoter.run')}
           </Button>
         </Col>
-        {data && (
-          <Col xs="auto">
-            <PinToCentralButton
-              type="shyvoter"
-              icon="🤫"
-              label={t('shyVoter.run')}
-              summary={
-                data.real_winner !== data.poll_winner
-                  ? `${data.poll_winner} → ${data.real_winner}`
-                  : `${t('shyVoter.realWinner')}: ${data.real_winner}`
-              }
-              methodsChanged={data.real_winner !== data.poll_winner ? 1 : 0}
-            />
-          </Col>
-        )}
       </Row>
 
       {!data && !loading && !error && (
