@@ -207,6 +207,23 @@ def test_strategic_behavior_compresses_to_frontrunners():
     assert "C" not in tops
 
 
+def test_strategic_top_is_strict_whatever_the_listing_order():
+    """The transform used to set the preferred frontrunner to exactly the voter's
+    top utility, tying it with the sincere favourite; listing the fringe candidate
+    first then handed it the first choice. Now it's a swap: nothing ties."""
+    built = build_profile(
+        "spatial",
+        [{"name": "C", "x": 0.0, "y": 0.9}, {"name": "A", "x": -0.6, "y": 0.0},
+         {"name": "B", "x": 0.6, "y": 0.0}],
+        num_voters=200, dims=2, valence=False, behavior="strategic",
+        source_params={}, seed=7,
+    )
+    for u in built["matrix"].values():
+        ranked = sorted(u.values(), reverse=True)
+        assert ranked[0] > ranked[1] and ranked[-2] > ranked[-1]
+        assert max(u, key=u.get) != "C" and min(u, key=u.get) != "C"
+
+
 # ── Endpoint wiring ───────────────────────────────────────────────────────────
 
 def test_endpoint_spatial_ok(client: TestClient):
