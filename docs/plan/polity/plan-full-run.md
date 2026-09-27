@@ -185,6 +185,50 @@ end. The term limit of 2 held: 463, 3 and 132 each served twice. `office_occupan
 prompts sidecar was first used at this scale here and worked. Not yet read closely: the chamber answers behind the
 fallbacks beyond the shift count, the `representative_response` fallbacks (5), and the citizen biographies in the explorer.
 
+## The three seeds
+
+Seeds 1 and 2 were run the same night, one after the other (`~/Documents/Dev/polity-runs/chain-seeds.sh 1 2`), from the same
+code and config as seed 42 (only docs changed between the commits) on the same server. All three completed. Numbers from
+each run's digest, call log and events; the entries they feed are OBS-021 to OBS-025.
+
+| | seed 42 | seed 1 | seed 2 |
+|---|---:|---:|---:|
+| wall clock | 2 h 08 (7,705 s) | 1 h 59 (7,162 s) | 2 h 05 (7,498 s) |
+| median tick / slowest tick | 47.5 s / 349 s | 49.6 s / 184 s | 52.1 s / 177 s |
+| decisions | 32,677 | 33,888 | 40,459 |
+| fallbacks (share of decisions) | 648 (1.98%) | 562 (1.66%) | 710 (1.75%) |
+| `chamber_deliberation` fallback | 7.05% | 5.79% | 7.11% |
+| `vote_cast` fallback | 0.51% (1 batch) | 2.69% (4 batches) | 2.14% (4 batches) |
+| `representative_response` fallback | 4.13% | 0% | 2.48% |
+| `reaction_to_event` fallback | 0% | 0.83% (1 batch of 25) | 1.67% (2 batches of 25) |
+| positioning first attempts at the limit | 3 of 11 | 0 of 9 | 0 of 12 |
+| `vote_cast` / chamber budget reached | 86% / 41% | 84% / 44% | 72% / 40% |
+| candidacies declared per election (of 500) | 202 to 206 | 170 | 185 to 186 |
+| presidential terms / presidents | 11 / 8 | 9 / 8 | 12 / 9 |
+| terms ended by the legitimacy floor | 3 | 1 | 4 |
+| `office_occupancy` | 0.967 | 0.983 | 0.959 |
+
+**Structural (all three seeds).**
+- The chamber loses 5.8 to 7.1% of its units to validation, every failed call loses all five of its units, and the rules
+  explain 361 of 362 failed calls (OBS-021). Fallbacks stay at 1.7 to 2.0% of all decisions and no digest alert fired.
+- The `vote_cast` thinking budget binds on 72 to 86% of calls and the chamber's on 40 to 44% (OBS-023).
+- Candidacy is the same number at every election of a run, and its level depends on the seed (OBS-011).
+- A run costs 2 h (1 h 59 to 2 h 08), a spread of under 8% across seeds. No preemption and no server error in any of them.
+- `representative_response` and `coalition_decision` stay unverified.
+
+**Seed-specific.** The positioning runaway (OBS-022) is seed 42's party set, and it produced its three slowest ticks.
+`reaction_to_event` fell back only in seeds 1 and 2 (OBS-025). The number of terms (9 to 12), removals by the legitimacy floor (1 to 4)
+and presidents (8 or 9) vary with the seed: the society is not a fixed trajectory.
+
+**New.** A `vote_cast` batch of three sometimes answers for one voter, identically over three attempts, with the budget
+exhausted each time (OBS-024, 9 batches over the three runs). `reaction_to_event` fails whole batches of 25 on the same kind of
+bound overshoot as the chamber (OBS-025).
+
+**One design defect, three decision types.** In each of the chamber (5 units), `reaction_to_event` (25) and `vote_cast` (3)
+one invalid or incomplete answer discards the whole batch, and a retry either does not happen (a validation failure) or gives the same
+answer (7 of 9 failed `vote_cast` batches). A fallback per decision instead of per batch would keep the good answers; it is a candidate,
+not a decision, and it changes what the fallback rates mean, so it should land with its own before/after run.
+
 ## After the run: what to read
 
 1. `digest.json`: outcome, `llm_fallback_rates`, `llm_fallback_alerts`, `llm_retries`, `elapsed_seconds`, the terms and `office_occupancy`.
@@ -206,14 +250,14 @@ fallbacks beyond the shift count, the `representative_response` fallbacks (5), a
 
 | # | Item | Evidence | Note |
 |---|---|---|---|
-| 1 | Chamber answers rejected on the shift-count cap are never retried | OBS-021 | At flagship scale it is 7.05% of units and every fallback is this rule; one bad answer costs its four batch-mates. Candidates: replay a rejected answer like a decode failure, drop zero-delta shifts before the count, or fall back per decision instead of per batch. None is done. |
+| 1 | One invalid answer discards its whole batch (chamber 5 units, `reaction_to_event` 25, `vote_cast` 3), and validation failures are not retried | OBS-021, OBS-024, OBS-025 | Chamber: 5.8 to 7.1% of units over three seeds, 361 of 362 failed calls are the shift or delta bound. Candidates: replay a rejected answer like a decode failure, drop zero-delta shifts before the count, or fall back per decision instead of per batch. None is done. |
 | 2 | Positioning thinking has no cap | S2.4 results (PR #648), OBS-022 | It cost 3 of 11 elections their first attempt in the full run (about 230 s each). It needs a bank arm before a budget can be measured (`THINKING_ARM_TYPES` covers only vote and chamber). |
 | 3 | Party nominations: out-of-range and last-listed | OBS-006, OBS-013 | Watch `party_nomination_choice` per election; the call log records the reasoning. |
 | 4 | About 40% declare candidacy | OBS-011 | A contract defect the run amplifies. |
 | 5 | Two decision types stay unverified | OBS-007, S2.4 | The lever is the decision contract, not the model. |
 | 6 | Speed: EAGLE-3 and 12 workers are in, at p500 for the first time | `check_vllm_eagle3_results.md` | The timing probe measures it; the smaller KV pool is the thing to watch. |
 | 7 | Reproducibility across servers | OBS-020 | Replay is the guarantee, and the full run showed it holds (byte-identical replay). The cause is open. The owner does not need more, given the logs above. |
-| 8 | The 2,048 budget binds on 86% of `vote_cast` calls | OBS-023 | Measure whether 4,096 or no budget changes the winner or the ranking; the flagship sits at the cap in most elections. |
+| 8 | The 2,048 budget binds on 72 to 86% of `vote_cast` calls | OBS-023, OBS-024 | Measure whether 4,096 or no budget changes the winner or the ranking, and whether it stops the nine failed batches that answer for one voter of three. |
 
 ## Safeguards built in, and their limits
 
@@ -241,3 +285,4 @@ fallbacks beyond the shift count, the `representative_response` fallbacks (5), a
 | Decisions D3 to D6 | **TODO**, the owner's (the defaults stand until then) |
 | Timing probe (2 years at population 500) | **SKIPPED**: the first 8 ticks of the run served as one |
 | The run | **DONE** 2026-09-26, 2 h 08 min; replay proof passed; results above, OBS-021 to OBS-023 |
+| Seeds 1 and 2 | **DONE** 2026-09-27, 1 h 59 and 2 h 05; compared above, OBS-024 and OBS-025 |
