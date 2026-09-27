@@ -102,8 +102,8 @@ jobs:
             exit 1
           fi
 
-      # ── Frontend: real production build + preview, same command
-      # playwright.visual.config.ts uses to serve the visual-regression job —
+      # ── Frontend: real production build + preview, as the e2e and visual
+      # suites serve (voter-app/playwright.config.ts's webServer) —
       # the point of this scan is what a real deployment actually sends, not
       # what the unminified dev server sends. ────────────────────────────────
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
